@@ -91,6 +91,34 @@ test('an uncertain purchase reuses its request ID after reload', async ({ page }
     expect(ids[1]).toBe(ids[0]);
 });
 
+// The server serializes writes, so a request settled after this purchase (an
+// achievement sync, a settle pushed over the socket) can still have its newer
+// save adopted before this reply lands. The reply then reads as stale and its
+// commit is refused, but the purchase was paid. The popup used to stay open with
+// a live Buy button until the next page load.
+test('a paid purchase closes its popup even when a newer save was adopted first', async ({ page }) => {
+    await page.goto(`${fixture}?level=85`);
+    const original = JSON.parse((await page.getByTestId('profession-state').textContent())!);
+    const paid = { ...original, fateShards: original.fateShards - 50, inventory: ['tool-golden-pickaxe'] };
+    let purchases = 0;
+    let releaseReply!: () => void;
+    const replyHeld = new Promise<void>(resolve => { releaseReply = resolve; });
+    await page.route('**/api/shop/purchase', async route => {
+        purchases++;
+        await replyHeld;
+        await route.fulfill({ json: { ok: true, character: paid, _saveVersion: 2 } });
+    });
+    await page.getByRole('button', { name: /Golden Pickaxe/ }).click();
+    const popup = page.getByRole('dialog', { name: 'Golden Pickaxe item details' });
+    await popup.getByRole('button', { name: 'Buy for 50 Fate Shards', exact: true }).click();
+    await expect.poll(() => purchases).toBe(1);
+    expect(await page.evaluate(next => window.adoptNewerSave!(next, 3), { ...paid, unlockedAchievements: [] })).toBe(true);
+    releaseReply();
+    await expect(popup).toHaveCount(0);
+    expect(purchases).toBe(1);
+    expect(JSON.parse((await page.getByTestId('profession-state').textContent())!)).toMatchObject({ fateShards: 450, unlockedAchievements: [] });
+});
+
 test('backpack scroll shows its artwork and leads to the marketplace change action', async ({ page }, info) => {
     await page.goto(`${fixture}?owned&inventory`);
     await page.getByRole('button', { name: /Profession Change Scroll/ }).first().click();

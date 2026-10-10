@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test';
-import { test } from './helpers/reconnecting-request';
+import { API_CONNECTION_RETRIES, test } from './helpers/reconnecting-request';
 import { uiAuditSave } from '../e2e/helpers/ui-audit-runtime';
 import { uniquePlayerName } from './helpers/player-names';
 import { quietRoadCooldowns } from './helpers/quiet-road';
@@ -282,5 +282,75 @@ test('shop tools equip, survive reload, spend durability, and connect to refinin
     await expect(page.getByRole('heading', { name: 'Mining · Level 10' })).toBeVisible();
     current = await readSave(); expect(current.equipment).toMatchObject({ pickaxe: 'tool-golden-pickaxe', fishingPole: 'tool-golden-fishing-pole' });
     expect(current.inventory).toContain('ashen-leaf-saber'); expect(quantity('gather-iron-sand')).toBe(4);
+    expect(errors).toEqual([]);
+});
+
+// The server serializes a player's writes, but their replies can arrive in any
+// order. Here the boot achievement sync is settled AFTER the purchase and its
+// reply lands first: the page holds a newer version whose character is the old
+// local one plus the stored wallet, so it has no pickaxe, and the purchase reply
+// reads as stale. That left the popup open with Buy live, and the next autosave
+// stored the pickaxe-less inventory: the player paid and lost the tool.
+test('a tool purchase overtaken by a later save keeps the tool and closes its popup', async ({ page, request, context }) => {
+    page.setDefaultTimeout(20_000);
+    const name = uniquePlayerName(stamp => `overtake${stamp}`);
+    const registered = await request.post('/api/player-auth', { data: { action: 'register', name, password: 'GatheringJourney!1234' } });
+    expect(registered.status(), await registered.text()).toBe(200);
+    const token = String((await registered.json()).token), headers = { 'x-player-name': name, 'x-player-token': token };
+    const save = uiAuditSave(); save.currentSector = 2; save.currentTile = 74; save.worldGeoV = 2; save.currentBiome = 'central';
+    save.character = { ...save.character, name, level: 85, ryo: 5000, elderFocus: undefined, villageUpgrades: {}, clanUpgradeLevels: {},
+        clanDoctrine: undefined, equippedJutsuIds: [], jutsuMastery: [], equipment: {}, inventory: [], tileCards: [], gatheringToolUses: {},
+        wandererCooldowns: quietRoadCooldowns(Array.from({ length: 65 }, (_, i) => i + 1)) };
+    expect('unlockedAchievements' in save.character, 'a first achievement sync runs at boot').toBe(false);
+    expect((await request.post(`/api/save/${name}?signal=1`, { headers: { 'x-admin-password': 'live-express-e2e-admin' }, data: save })).status()).toBe(200);
+    expect((await request.post(`/api/save/${name}?ack=1`, { headers })).status()).toBe(200);
+    const canonical = await (await request.get(`/api/save/${name}`, { headers })).json();
+    await context.addInitScript(({ name, token, canonical, patch }) => {
+        localStorage.setItem('ninjav-admin-build-v1', JSON.stringify({ currentAccountName: name }));
+        localStorage.setItem('ninjav-player-accounts-v1', JSON.stringify({ [name]: { token } }));
+        localStorage.setItem('shinobix:activePlayerPersist', name); localStorage.setItem('shinobix:activeTokenPersist', token);
+        localStorage.setItem(`ninjav-save-preview-v1:${name.toLowerCase()}`, JSON.stringify(canonical));
+        localStorage.setItem('shinobix:storage-notice-ack', '1'); localStorage.setItem('patchNotes.lastSeenVersion.v1', patch);
+        localStorage.setItem('dailyBriefing.seen.v1', new Date().toISOString().slice(0, 10));
+        localStorage.setItem('legacyRumors.seen.v1:' + name, JSON.stringify([10, 20, 30, 40, 45])); localStorage.setItem('liteFx.v1', '0');
+    }, { name, token, canonical, patch: LATEST_PATCH_NOTE.version });
+    const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
+    const readSave = async () => (await (await request.get(`/api/save/${name}`, { headers })).json()).character;
+    // Hold the boot sync until the purchase is stored, then deliver its newer
+    // reply before the purchase reply. Both writes are real; only delivery order is set.
+    let releaseSync!: () => void; const purchaseStored = new Promise<void>(resolve => { releaseSync = resolve; });
+    let syncDelivered!: () => void; const syncLanded = new Promise<void>(resolve => { syncDelivered = resolve; });
+    const order: string[] = [];
+    await page.route('**/api/achievements/sync', async route => {
+        if (order.includes('sync')) return route.continue();
+        order.push('sync-held');
+        await purchaseStored;
+        const response = await route.fetch({ maxRetries: API_CONNECTION_RETRIES });
+        order.push('sync'); await route.fulfill({ response }); syncDelivered();
+    });
+    await page.route('**/api/shop/purchase', async route => {
+        const response = await route.fetch({ maxRetries: API_CONNECTION_RETRIES });
+        releaseSync();
+        await Promise.race([syncLanded, new Promise(resolve => setTimeout(resolve, 10_000))]);
+        // Let the page adopt the sync's reply before this one arrives.
+        await new Promise(resolve => setTimeout(resolve, 500));
+        order.push('purchase'); await route.fulfill({ response });
+    });
+    await page.goto('/?gathering-step=overtake#/shop', { waitUntil: 'domcontentloaded', timeout: 60_000 });
+    await expect(page.locator('.app-shell[data-screen="shop"]')).toBeVisible({ timeout: 60_000 });
+    await expect.poll(() => order).toContain('sync-held');
+    await page.getByRole('button', { name: /Basic Pickaxe/ }).click();
+    const popup = page.getByRole('dialog', { name: 'Basic Pickaxe item details' });
+    const purchased = page.waitForResponse(response => response.url().endsWith('/shop/purchase'));
+    await popup.getByRole('button', { name: 'Buy for 150 ryo', exact: true }).click();
+    expect((await purchased).status()).toBe(200);
+    expect(order).toEqual(['sync-held', 'sync', 'purchase']);
+    await expect(popup).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Basic Pickaxe/ })).toContainText('Owned');
+    // Give the autosave its debounce window: it must not store a copy without the tool.
+    await page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname.endsWith(`/save/${name}`), { timeout: 10_000 }).catch(() => null);
+    const stored = await readSave();
+    expect(stored.ryo).toBe(4850);
+    expect(stored.inventory).toContain('tool-basic-pickaxe');
     expect(errors).toEqual([]);
 });
