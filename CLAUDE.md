@@ -156,6 +156,15 @@ Full details in `docs/auth-and-anti-cheat-patterns.md`. The load-bearing invaria
 - **Shared-state read-modify-write** (treasury, seal pool, bank, territory) goes
   through `withKvLock` (`api/_lock.ts`) with `{ failClosed: true }` for currency
   paths, locking the **shared resource** key — not just the actor's `save:`.
+- **Every player-save write commits through `commitPlayerSaveRecord`**
+  (`api/save/_commit-player-save.ts`), directly (`commitPlayerSave`,
+  `commitPlayerSaveExact`) or via `mutatePlayerSave` / `writeVersionedPlayerSave`
+  / `writeSaveProjected`. A write that moves currency commits the
+  `ledger:currency:<name>` row in the SAME transaction (`kv.compareSetMany`);
+  never `store.compareSet` / `kv.set` a `save:<player>` key yourself. The raw-write
+  ratchet (`api/save/_versioned-save-writes.test.ts`) and the runtime guard
+  (`api/_save-write-guard.ts`) catch it. Sequence and gates:
+  `docs/runbooks/currency-ledger-cutover.md`.
 
 ## Hard Rules
 

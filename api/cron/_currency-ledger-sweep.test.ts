@@ -133,11 +133,26 @@ describe('runCurrencyLedgerSweep', () => {
         assert.equal(third.scanned, 5);
     });
 
-    test('isPlayerSaveName keeps clan blobs, admin slots and probes out', () => {
+    test('isPlayerSaveName keeps clan blobs, admin slots, probes and legacy spellings out', () => {
         assert.equal(sweep.isPlayerSaveName('rill'), true);
+        assert.equal(sweep.isPlayerSaveName('night_owl-7'), true);
         assert.equal(sweep.isPlayerSaveName('clan-storm'), false);
-        assert.equal(sweep.isPlayerSaveName('Admin1'), false);
+        assert.equal(sweep.isPlayerSaveName('admin1'), false);
         assert.equal(sweep.isPlayerSaveName('health-probe-1'), false);
+        assert.equal(sweep.isPlayerSaveName('Rill'), false, 'pre-safeName key');
+        assert.equal(sweep.isPlayerSaveName('Admin 1'), false, 'pre-safeName admin slot');
         assert.equal(sweep.isPlayerSaveName(''), false);
+    });
+
+    test('a ledger row whose save exists only under a legacy spelling is neither reconciled nor removed', async () => {
+        // Ledger keys are always lowercase. Treating this row as an orphan would
+        // delete it on every pass and have the next money write recreate it.
+        await store.set('save:Rill', save(9));
+        const row = ledgerMod.buildCurrencyLedgerRow('Rill', save(9), null, 1);
+        await store.set('ledger:currency:rill', row);
+        const result = await sweep.runCurrencyLedgerSweep({ store, batch: 10 });
+        assert.equal(result.scanned, 0);
+        assert.equal(result.removed, 0);
+        assert.deepEqual(await store.get('ledger:currency:rill'), row);
     });
 });

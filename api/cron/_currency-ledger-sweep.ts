@@ -23,6 +23,7 @@ import { kv, type KvCasOp, type KvLike } from '../_storage.js';
 import { withKvLock } from '../_lock.js';
 import { readKvProjection, type KvProjection } from '../_storage-projection.js';
 import { safeLogValue } from '../_safe-log.js';
+import { safeName } from '../_utils.js';
 import {
     CURRENCY_LEDGER_FIELDS,
     CURRENCY_LEDGER_PREFIX,
@@ -81,12 +82,18 @@ export type CurrencyLedgerSweepResult = {
     wrapped: boolean;
 };
 
-/** A `save:<name>` that belongs to a player (not a clan blob, an admin content slot or a probe). */
+/**
+ * A `save:<name>` that belongs to a player under its canonical key: the
+ * `safeName` spelling every current writer uses (lowercase), and not a clan
+ * blob, an admin content slot or a probe. Legacy keys from before `safeName`
+ * (`save:Rill`, `save:Admin 1`) are never reconciled.
+ */
 export function isPlayerSaveName(name: string): boolean {
     return name.length > 0
+        && name === safeName(name)
         && !name.startsWith('clan-')
         && !name.startsWith('health-probe-')
-        && !NON_PLAYER_SAVES.has(name.toLowerCase());
+        && !NON_PLAYER_SAVES.has(name);
 }
 
 function projectedSave(projected: Record<string, unknown> | null): SaveRecord | null {
@@ -161,20 +168,28 @@ export async function reconcileCurrencyLedger(
     }, { failClosed: true });
 }
 
-/** Every name that has a player save or a ledger row, sorted, deduplicated. */
+/**
+ * The names a pass reconciles, sorted: every canonical player save, plus every
+ * ledger row whose save is gone under EVERY spelling. A row whose save exists
+ * only under a legacy key (the ledger key is always lowercase) is not an
+ * orphan, and is left alone rather than deleted on one pass and recreated by
+ * that player's next money write.
+ */
 async function sweepPopulation(store: SweepStore): Promise<string[]> {
     const [saveKeys, ledgerKeys] = await Promise.all([
         store.keys(`${SAVE_PREFIX}*`),
         store.keys(`${CURRENCY_LEDGER_PREFIX}*`),
     ]);
     const names = new Set<string>();
+    const anySpelling = new Set<string>();
     for (const key of saveKeys) {
         const name = key.slice(SAVE_PREFIX.length);
-        if (isPlayerSaveName(name)) names.add(name.toLowerCase());
+        anySpelling.add(name.toLowerCase());
+        if (isPlayerSaveName(name)) names.add(name);
     }
     for (const key of ledgerKeys) {
         const name = key.slice(CURRENCY_LEDGER_PREFIX.length);
-        if (isPlayerSaveName(name)) names.add(name);
+        if (isPlayerSaveName(name) && !anySpelling.has(name)) names.add(name);
     }
     return [...names].sort();
 }
