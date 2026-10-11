@@ -148,7 +148,7 @@ async function streamSession(req: VercelRequest, res: VercelResponse, battleId: 
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');
-    // Disable Vercel's automatic response buffering for this stream.
+    // Ask any buffering reverse proxy (nginx-style) to pass this stream through.
     res.setHeader('X-Accel-Buffering', 'no');
     // flushHeaders sends the response head immediately so the client's
     // EventSource transitions to OPEN state without waiting for the

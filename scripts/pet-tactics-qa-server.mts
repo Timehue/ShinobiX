@@ -3,7 +3,7 @@ import express from 'express';
 import { fileURLToPath } from 'node:url';
 import { createServer } from '../shinobij.client/node_modules/vite/dist/node/index.js';
 
-if (process.env.VERCEL || process.env.NODE_ENV === 'production') throw new Error('This harness cannot run in production.');
+if (process.env.NODE_ENV === 'production') throw new Error('This harness cannot run in production.');
 process.env.NODE_ENV = 'test'; process.env.SHINOBIX_QA_MEMORY_KV = '1';
 process.env.SESSION_SECRET = 'loopback-pet-arena-qa-account-secret';
 const { kv } = await import('../api/_storage.js');
