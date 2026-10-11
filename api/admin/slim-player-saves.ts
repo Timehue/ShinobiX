@@ -8,6 +8,7 @@ import { loadAdminCombatContent } from '../_admin-content.js';
 import { ADMIN_ITEM_CATALOG_UNAVAILABLE } from '../_admin-item-catalog.js';
 import { slimPlayerSaveRecord, slimPlayerSavesEnabled } from '../save/_slim-player-save.js';
 import { checkSlimParity } from '../save/_slim-parity.js';
+import { commitPlayerSave } from '../save/_commit-player-save.js';
 
 /*
  * /api/admin/slim-player-saves — POST (full admin)
@@ -100,7 +101,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!freshParity.equal) return 'parity' as const;
                 // The row's own `_saveVersion` is left alone: nothing a player
                 // owns changed, so an open client must not be forced to refetch.
-                return await kv.compareSet(key, fresh, freshSlim.record) ? 'written' as const : 'busy' as const;
+                return await commitPlayerSave(kv, key, fresh, freshSlim.record as Record<string, unknown>) ? 'written' as const : 'busy' as const;
             }, { failClosed: true }).catch(() => 'busy' as const);
             if (outcome === 'written') report.written += 1;
             else if (outcome === 'busy') report.skippedBusy += 1;
