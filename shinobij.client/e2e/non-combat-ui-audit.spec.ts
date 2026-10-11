@@ -308,7 +308,8 @@ const CENTRAL_MODAL_CARDS = [
 
 const CENTRAL_ROUTE_CARDS = [
     { card: "Arena District", screen: "arenaDistrict", capture: "central-arena-district", ready: '[data-central-district="true"]', readyText: "Arena District" },
-    { card: "Weekly Boss", screen: "weeklyBoss", capture: "central-weekly-boss", ready: ".weekly-boss-screen", readyText: "Weekly Boss" },
+    // The Central card is "World Bosses" now; the hub still renders under the weeklyBoss screen id.
+    { card: "World Bosses", screen: "weeklyBoss", capture: "central-weekly-boss", ready: ".weekly-boss-screen", readyText: "Weekly Boss" },
 ] as const;
 
 for (const destination of CENTRAL_MODAL_CARDS) {
