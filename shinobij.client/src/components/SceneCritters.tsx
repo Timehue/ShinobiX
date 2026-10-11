@@ -370,6 +370,10 @@ export function SceneCritters({
 
         function frame(t: number) {
             if (!running) return;
+            // ~30fps is plenty for ambient wildlife and halves the canvas re-presents that
+            // the compositor repeats for everything layered over it; `last` stays put on a
+            // skipped frame, so `dt` spans the gap and flight speed is unchanged.
+            if (last && t - last < 28) { raf = requestAnimationFrame(frame); return; }
             const dt = Math.min(0.05, last ? (t - last) / 1000 : 0.016);
             last = t;
             ctx!.clearRect(0, 0, w, h);
