@@ -381,6 +381,83 @@ test('raw player-save writes only ever shrink', () => {
     );
 });
 
+/*
+ * The guards above resolve the KEY statically. A write through a helper's
+ * parameter (`params.saveKey`) is invisible to them — that is how
+ * publishCombatMissionClaimRows kept a raw player-save compare-and-set after
+ * every other writer had moved onto commitPlayerSaveRecord (found 2026-10-11).
+ * This one keys on the NAME instead: any write whose key argument is called
+ * `saveKey` / `playerSaveKey` must be the commit helper's own, or say why not.
+ * The runtime guard (api/_save-write-guard.ts) remains the backstop for keys
+ * named anything else.
+ */
+const SAVE_KEY_NAMED_WRITES: Readonly<Record<string, number>> = {
+    // The commit helper's own compare-and-set (fast path and fallback).
+    'save/_commit-player-save.ts': 2,
+    // Mirrors published content into the admin content slots, not player saves.
+    'admin/content-publish.ts': 1,
+};
+const KEY_FIRST_WRITERS = new Set(['set', 'compareSet']);
+const KEY_SECOND_WRITERS = new Set(['compareSetExactKvRow', 'setExactKvRow']);
+const SAVE_KEY_NAME = /^(saveKey|playerSaveKey)$/;
+
+function saveKeyNamedWrites(source: string, fileName = 'fixture.ts'): number[] {
+    const sourceFile = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+    const lines: number[] = [];
+    const keyName = (expression: ts.Expression | undefined): string | null => {
+        if (!expression) return null;
+        const value = unwrapExpression(expression);
+        if (ts.isIdentifier(value)) return value.text;
+        if (ts.isPropertyAccessExpression(value)) return value.name.text;
+        return null;
+    };
+    const visit = (node: ts.Node): void => {
+        if (ts.isCallExpression(node)) {
+            const name = callName(node.expression);
+            const key = name && KEY_FIRST_WRITERS.has(name) && ts.isPropertyAccessExpression(node.expression)
+                ? node.arguments[0]
+                : name && KEY_SECOND_WRITERS.has(name) ? node.arguments[1] : undefined;
+            const keyText = keyName(key);
+            if (keyText && SAVE_KEY_NAME.test(keyText)) {
+                lines.push(sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1);
+            }
+        }
+        ts.forEachChild(node, visit);
+    };
+    visit(sourceFile);
+    return lines;
+}
+
+test('a write keyed by a save-key-named variable goes through the commit helper', () => {
+    const counts: Record<string, number> = {};
+    for (const file of collectTsFiles(API_DIR)) {
+        const rel = relative(API_DIR, file).replace(/\\/g, '/');
+        const found = saveKeyNamedWrites(readFileSync(file, 'utf8'), file).length;
+        if (found > 0) counts[rel] = found;
+    }
+    const drift = [...new Set([...Object.keys(counts), ...Object.keys(SAVE_KEY_NAMED_WRITES)])].sort()
+        .filter((rel) => (counts[rel] ?? 0) !== (SAVE_KEY_NAMED_WRITES[rel] ?? 0))
+        .map((rel) => `${rel}: allowlisted ${SAVE_KEY_NAMED_WRITES[rel] ?? 0}, found ${counts[rel] ?? 0}`);
+    assert.deepEqual(drift, [],
+        'A write keyed by a save key bypasses commitPlayerSaveRecord (api/save/_commit-player-save.ts): '
+        + 'use commitPlayerSave / commitPlayerSaveExact so the currency ledger moves with the save.\n  '
+        + drift.join('\n  '));
+});
+
+test('the save-key-name guard catches helper-parameter writes, and only writes', () => {
+    const fixture = `
+        await compareSetExactKvRow(params.store, params.saveKey, params.expectedSave, params.saveRecord);
+        await store.compareSet(saveKey, previous, next);
+        await kv.set(playerSaveKey, next);
+        await setExactKvRow(store, saveKey, next);
+        await compareSetExactKvRow(params.store, params.tokenKey, null, token);
+        await commitPlayerSaveExact(store, { saveKey, expected, intended });
+        await store.get(saveKey);
+        set(saveKey, value);
+    `;
+    assert.deepEqual(saveKeyNamedWrites(fixture), [2, 3, 4, 5]);
+});
+
 test('the AST guard sees a healthy number of real player-save writes', () => {
     const writes = collectTsFiles(API_DIR).reduce(
         (count, file) => count + scanPlayerSaveWrites(readFileSync(file, 'utf8'), file).length,

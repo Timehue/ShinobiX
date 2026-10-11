@@ -201,6 +201,31 @@ test('an existing player save remains writable even when reset/admin signals are
     assert.equal(((await kv.get<Json>(SAVE_B_KEY))?.character as Json).ryo, 333);
 });
 
+test('a refused admin compare-and-set answers 409, writes nothing, and lifts the admin-edit signal', async () => {
+    const original = playerBSave();
+    await kv.set(SAVE_B_KEY, original);
+    const mutableKv = kv as unknown as {
+        compareSet: (key: string, expected: unknown, value: unknown, options?: { ex?: number }) => Promise<boolean>;
+    };
+    const originalCompareSet = mutableKv.compareSet.bind(mutableKv);
+    // Another writer commits between the admin read and its write (its lock lapsed).
+    mutableKv.compareSet = async (key, expected, value, options) => (key === SAVE_B_KEY
+        ? false
+        : originalCompareSet(key, expected, value, options));
+    try {
+        const out = await postAdminSnapshot(PLAYER_B, equalVersionPayload({
+            character: { name: PLAYER_B, level: 13, ryo: 333 },
+        }));
+        assert.equal(out.statusCode, 409);
+    } finally {
+        mutableKv.compareSet = originalCompareSet;
+    }
+    assert.deepEqual(await kv.get(SAVE_B_KEY), original, 'nothing was written');
+    assert.equal(await kv.get(LEDGER_B_KEY), null, 'nor its ledger row');
+    assert.equal(await kv.get(ADMIN_LOCK_B_KEY), null, 'the player is not left with dropped autosaves');
+    assert.equal(await kv.get(RESET_SIGNAL_B_KEY), null);
+});
+
 test('the persistent deletion generation is scoped only to canonical player saves', () => {
     assert.equal(playerSaveDeletionFenceKey(PLAYER_B, false), DELETE_FENCE_B_KEY);
     assert.equal(playerSaveDeletionFenceKey('admin1', false), null);
