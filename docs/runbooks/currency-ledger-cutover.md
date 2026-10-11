@@ -67,8 +67,10 @@ next money write or sweep pass recreates each row from its save.
 | `divergent` | same account, same version, different balances — a bug | **report-only today:** the save wins, CRITICAL log; **after step 4:** the write is refused |
 
 Each non-normal status is counted per day at
-`telemetry:currency-ledger:<event>:<YYYY-MM-DD>` and shown by
-`GET /api/admin/economy` (`currencyLedger`, last eight days).
+`telemetry:currency-ledger:<event>:<YYYY-MM-DD>`, returned by
+`GET /api/admin/economy` (`currencyLedger`, last eight days), and shown in the
+Admin Panel under **Diagnostics → Economy → Currency ledger**, with the two
+events that block step 4 listed first.
 
 ### Backfill
 
@@ -105,7 +107,8 @@ npm run ledger:audit      # read-only; must exit 0
 ```
 
 Step 4 is gated on: **zero `ledger-divergent` and zero `raw-save-write`
-across at least seven days of normal play**, including at least one
+across at least seven days of normal play** (the Currency ledger box reads
+"nothing blocking the fail-closed step"), including at least one
 ranked-season rollover, one clan-boss weekly settlement and one PvP-heavy
 period, with `ledger-lagging-different` trending to zero and the audit
 reporting no `missing` / `legacy` rows (the sweep has reached everyone).
