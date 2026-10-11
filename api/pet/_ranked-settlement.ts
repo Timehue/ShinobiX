@@ -8,6 +8,7 @@ import type { KvLike } from '../_storage.js';
 import { mergePreservingImages, safeName } from '../_utils.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { carriedRegenCursor, settleIdleRecovery } from '../save/_mutate-player-save.js';
+import { commitPlayerSave } from '../save/_commit-player-save.js';
 import {
     isPetRankedMatchId,
     PET_RANKED_ENGINE_VERSION,
@@ -378,7 +379,7 @@ async function settlePetRankedSideOnce(
         record,
     ) as Record<string, unknown>;
     try {
-        if (!await store.compareSet(saveKey, record, nextRecord)) return { status: 'retry' };
+        if (!await commitPlayerSave(store, saveKey, record, nextRecord)) return { status: 'retry' };
     } catch (error) {
         const recovered = await store.get<Record<string, unknown>>(saveKey).catch(() => null);
         const recoveredCharacter = (recovered?.character ?? null) as Record<string, unknown> | null;

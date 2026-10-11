@@ -5,6 +5,7 @@ import { isFullAdmin } from '../_auth.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
 import { nextSaveVersion } from '../save/_save-version.js';
 import { recordHollowGateExternalCredits } from '../hollow-gate/_external-credits.js';
+import { commitPlayerSaveRecord } from '../save/_commit-player-save.js';
 
 /*
  * /api/admin/save-snapshot  — admin-only POST
@@ -85,12 +86,20 @@ type RestoreLock = <T>(
     opts: { failClosed: true },
 ) => Promise<T>;
 
+/** The live save changed after the restore read it (its lock lapsed); nothing was written. */
+export class RestoreConflictError extends Error {
+    constructor() {
+        super('The live save changed during the restore; nothing was written.');
+        this.name = 'RestoreConflictError';
+    }
+}
+
 export async function restoreSnapshotUnderLock(args: {
     playerName: string;
     saveKey: string;
     snapshotKey: string;
     snapshot: Record<string, unknown>;
-    store?: Pick<KvLike, 'get' | 'set'>;
+    store?: Pick<KvLike, 'get' | 'set' | 'compareSet'> & Partial<Pick<KvLike, 'compareSetMany'>>;
     lock?: RestoreLock;
     now?: () => number;
 }): Promise<{ restoredVersion: number; preRestoreKey: string | null }> {
@@ -109,7 +118,16 @@ export async function restoreSnapshotUnderLock(args: {
             await store.set(preRestoreKey, live, { ex: SNAPSHOT_TTL_SECONDS });
         }
         const restored = buildRestoredSave(args.snapshot, live, ts);
-        await store.set(args.saveKey, restored);
+        // Compare-and-set over the exact live row read under the lock, with the
+        // currency ledger following the restored balances in the same
+        // transaction: a restore is the admin's statement of the truth.
+        const committed = await commitPlayerSaveRecord(store, {
+            playerName: args.playerName,
+            saveKey: args.saveKey,
+            expected: live,
+            intended: restored,
+        });
+        if (!committed) throw new RestoreConflictError();
         await store.set(`reset-signal:${args.playerName.toLowerCase()}`, 1, { ex: 300 });
         return {
             restoredVersion: Number(restored._saveVersion),
@@ -212,7 +230,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         return res.status(400).json({ error: 'Invalid action.' });
     } catch (err) {
-        if (err instanceof LockContendedError) {
+        if (err instanceof LockContendedError || err instanceof RestoreConflictError) {
             return res.status(503).json({ error: 'Save is busy. Restore was not applied; retry.' });
         }
         console.error('[admin/save-snapshot]', err);

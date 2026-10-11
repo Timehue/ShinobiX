@@ -329,8 +329,10 @@ test('the versionless-by-design escape hatch stays at its one intended call site
  * earned since the regeneration cursor, so the version bump discards it and the
  * player watches their HP, chakra and stamina fall back. It also skips the
  * owned-pet migration, the breeding settlement, elder-focus reconciliation,
- * elder-win credit, the currency-ledger projection, the public-index refresh,
- * and the world-crisis level-crossing observers.
+ * elder-win credit, the public-index refresh, and the world-crisis
+ * level-crossing observers — and, unless it commits through
+ * commitPlayerSaveRecord (api/save/_commit-player-save.ts), the currency
+ * ledger that must move in the same transaction as a currency change.
  *
  * Every RAW writer that could move onto mutatePlayerSave, or mutatePlayerSaves
  * for two saves at once, has moved (docs/refactor-plan-2026-10-02.md, owner
@@ -345,20 +347,18 @@ test('the versionless-by-design escape hatch stays at its one intended call site
  */
 const RAW_PLAYER_SAVE_WRITES: Readonly<Record<string, number>> = {
     // ── Stays raw by design ─────────────────────────────────────────────────
-    // The autosave route owns the save contract that mutatePlayerSave builds on.
+    // The autosave route owns the save contract that mutatePlayerSave builds
+    // on. Both remaining raw writes are on the CLAN-save branch; every player
+    // save it writes commits through commitPlayerSaveRecord.
     'save/[name].ts': 2,
-    // The owner-read settle projection: unversioned on purpose, exact CAS.
-    '_elapsed-state.ts': 1,
     // Mirrors published content into the admin slots, which are not player saves.
     'admin/content-publish.ts': 1,
     // Test-only journey fixture (NODE_ENV=test + QA memory KV) that positions two saves.
     '_qa-sector-war.ts': 2,
-    // Crash-recoverable compare-and-set sagas whose embedded receipts are the
-    // authority for a commit whose acknowledgement was lost.
-    'cron/_ranked-season.ts': 1,
-    'pet/_ranked-settlement.ts': 1,
-    'pvp/_consumable-settlement.ts': 1,
-    'pvp/_player-ranked-journal.ts': 1,
+    // (The owner-read settle in _elapsed-state.ts and the crash-recoverable
+    // ranked / consumable settlement sagas used to be listed here. They now
+    // commit through commitPlayerSave — the same exact compare-and-set, with
+    // the currency ledger alongside — so their raw count is zero.)
 };
 
 test('raw player-save writes only ever shrink', () => {
@@ -379,6 +379,83 @@ test('raw player-save writes only ever shrink', () => {
         + 'a conversion must lower its entry in RAW_PLAYER_SAVE_WRITES (delete it at zero).\n  '
         + drift.join('\n  '),
     );
+});
+
+/*
+ * The guards above resolve the KEY statically. A write through a helper's
+ * parameter (`params.saveKey`) is invisible to them — that is how
+ * publishCombatMissionClaimRows kept a raw player-save compare-and-set after
+ * every other writer had moved onto commitPlayerSaveRecord (found 2026-10-11).
+ * This one keys on the NAME instead: any write whose key argument is called
+ * `saveKey` / `playerSaveKey` must be the commit helper's own, or say why not.
+ * The runtime guard (api/_save-write-guard.ts) remains the backstop for keys
+ * named anything else.
+ */
+const SAVE_KEY_NAMED_WRITES: Readonly<Record<string, number>> = {
+    // The commit helper's own compare-and-set (fast path and fallback).
+    'save/_commit-player-save.ts': 2,
+    // Mirrors published content into the admin content slots, not player saves.
+    'admin/content-publish.ts': 1,
+};
+const KEY_FIRST_WRITERS = new Set(['set', 'compareSet']);
+const KEY_SECOND_WRITERS = new Set(['compareSetExactKvRow', 'setExactKvRow']);
+const SAVE_KEY_NAME = /^(saveKey|playerSaveKey)$/;
+
+function saveKeyNamedWrites(source: string, fileName = 'fixture.ts'): number[] {
+    const sourceFile = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+    const lines: number[] = [];
+    const keyName = (expression: ts.Expression | undefined): string | null => {
+        if (!expression) return null;
+        const value = unwrapExpression(expression);
+        if (ts.isIdentifier(value)) return value.text;
+        if (ts.isPropertyAccessExpression(value)) return value.name.text;
+        return null;
+    };
+    const visit = (node: ts.Node): void => {
+        if (ts.isCallExpression(node)) {
+            const name = callName(node.expression);
+            const key = name && KEY_FIRST_WRITERS.has(name) && ts.isPropertyAccessExpression(node.expression)
+                ? node.arguments[0]
+                : name && KEY_SECOND_WRITERS.has(name) ? node.arguments[1] : undefined;
+            const keyText = keyName(key);
+            if (keyText && SAVE_KEY_NAME.test(keyText)) {
+                lines.push(sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1);
+            }
+        }
+        ts.forEachChild(node, visit);
+    };
+    visit(sourceFile);
+    return lines;
+}
+
+test('a write keyed by a save-key-named variable goes through the commit helper', () => {
+    const counts: Record<string, number> = {};
+    for (const file of collectTsFiles(API_DIR)) {
+        const rel = relative(API_DIR, file).replace(/\\/g, '/');
+        const found = saveKeyNamedWrites(readFileSync(file, 'utf8'), file).length;
+        if (found > 0) counts[rel] = found;
+    }
+    const drift = [...new Set([...Object.keys(counts), ...Object.keys(SAVE_KEY_NAMED_WRITES)])].sort()
+        .filter((rel) => (counts[rel] ?? 0) !== (SAVE_KEY_NAMED_WRITES[rel] ?? 0))
+        .map((rel) => `${rel}: allowlisted ${SAVE_KEY_NAMED_WRITES[rel] ?? 0}, found ${counts[rel] ?? 0}`);
+    assert.deepEqual(drift, [],
+        'A write keyed by a save key bypasses commitPlayerSaveRecord (api/save/_commit-player-save.ts): '
+        + 'use commitPlayerSave / commitPlayerSaveExact so the currency ledger moves with the save.\n  '
+        + drift.join('\n  '));
+});
+
+test('the save-key-name guard catches helper-parameter writes, and only writes', () => {
+    const fixture = `
+        await compareSetExactKvRow(params.store, params.saveKey, params.expectedSave, params.saveRecord);
+        await store.compareSet(saveKey, previous, next);
+        await kv.set(playerSaveKey, next);
+        await setExactKvRow(store, saveKey, next);
+        await compareSetExactKvRow(params.store, params.tokenKey, null, token);
+        await commitPlayerSaveExact(store, { saveKey, expected, intended });
+        await store.get(saveKey);
+        set(saveKey, value);
+    `;
+    assert.deepEqual(saveKeyNamedWrites(fixture), [2, 3, 4, 5]);
 });
 
 test('the AST guard sees a healthy number of real player-save writes', () => {

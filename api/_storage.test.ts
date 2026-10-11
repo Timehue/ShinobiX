@@ -19,18 +19,40 @@ describe('compareSet backend wiring contract', () => {
     );
     const pgCompareSet = pgSource.slice(
         pgSource.indexOf('async compareSet('),
-        pgSource.indexOf('async del(', pgSource.indexOf('async compareSet(')),
+        pgSource.indexOf('async compareSetMany(', pgSource.indexOf('async compareSet(')),
     );
+    const pgCompareSetMany = pgSource.slice(
+        pgSource.indexOf('async compareSetMany('),
+        pgSource.indexOf('async del(', pgSource.indexOf('async compareSetMany(')),
+    );
+    // The two CAS statements are shared constants, so the single-key and
+    // multi-key paths cannot drift apart on what "matches" means.
+    const sqlConstant = (name: string) => {
+        const start = storageSource.indexOf(`const ${name} = \``);
+        return start < 0 ? '' : storageSource.slice(start, storageSource.indexOf('`;', start));
+    };
+    const insertIfAbsent = sqlConstant('PG_CAS_INSERT_IF_ABSENT_SQL');
+    const updateIfEqual = sqlConstant('PG_CAS_UPDATE_IF_EQUAL_SQL');
 
     it('direct Postgres uses atomic SQL without depending on the optional schema RPC', () => {
         assert.doesNotMatch(pgCompareSet, /kv_compare_set|get\([^)]*key|set\([^)]*key/,
             'Railway CAS must neither require a manual RPC migration nor degrade to get-then-set');
-        assert.match(pgCompareSet,
-            /expected === null[\s\S]*INSERT INTO public\.kv_store AS current[\s\S]*ON CONFLICT \(key\) DO UPDATE[\s\S]*WHERE current\.expires_at IS NOT NULL[\s\S]*AND current\.expires_at <= now\(\)[\s\S]*RETURNING true AS swapped/,
+        assert.match(pgCompareSet, /expected === null[\s\S]*PG_CAS_INSERT_IF_ABSENT_SQL[\s\S]*PG_CAS_UPDATE_IF_EQUAL_SQL/);
+        assert.match(insertIfAbsent,
+            /INSERT INTO public\.kv_store AS current[\s\S]*ON CONFLICT \(key\) DO UPDATE[\s\S]*WHERE current\.expires_at IS NOT NULL[\s\S]*AND current\.expires_at <= now\(\)[\s\S]*RETURNING true AS swapped/,
             'null predecessor inserts only when absent or atomically replaces an expired row');
-        assert.match(pgCompareSet,
+        assert.match(updateIfEqual,
             /UPDATE public\.kv_store[\s\S]*SET value = \$3::jsonb,[\s\S]*expires_at = \$4::timestamptz[\s\S]*WHERE key = \$1[\s\S]*AND value = \$2::jsonb[\s\S]*AND \(expires_at IS NULL OR expires_at > now\(\)\)[\s\S]*RETURNING true AS swapped/,
             'non-null predecessor updates only the exact live JSONB row and replaces its TTL');
+    });
+
+    it('the multi-key compare-and-set runs the same statements inside one transaction', () => {
+        assert.doesNotMatch(pgCompareSetMany, /kv_compare_set|(pgKv|this|db|kv)\.(get|set|compareSet)\(/,
+            'no RPC dependency and no get-then-set');
+        assert.match(pgCompareSetMany, /runPgTransaction\(/);
+        assert.match(pgCompareSetMany, /PG_CAS_INSERT_IF_ABSENT_SQL/);
+        assert.match(pgCompareSetMany, /PG_CAS_UPDATE_IF_EQUAL_SQL/);
+        assert.match(pgCompareSetMany, /return PG_ROLLBACK/, 'a moved predecessor rolls the whole batch back');
     });
 
     it('the retired Supabase REST adapter retains its atomic schema RPC', () => {

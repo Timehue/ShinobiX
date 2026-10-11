@@ -5,6 +5,7 @@ import { withKvLock } from './_lock.js';
 import { mergePreservingImages, safeName } from './_utils.js';
 import { hollowGateRunKey } from './hollow-gate/_run-token.js';
 import { bumpSaveVersion, unversionedSettledRecord } from './save/_save-version.js';
+import { commitPlayerSave } from './save/_commit-player-save.js';
 import { remapLegacySector, sectorBiomeOf, WORLD_GEO_VERSION } from '../shared/sector-geo.js';
 import { migrateCharacterOwnedPets } from './pet/_owned-pet.js';
 import { settlePetBreedingSession } from './pet/_breeding-requirements.js';
@@ -539,7 +540,7 @@ export async function settleSaveRecordForRead<T extends SaveRecord>(
         // reward, a claim, an autosave) can commit in between. A plain set would
         // revert that commit. Losing the race costs nothing: every owner read
         // re-derives this settle, so return the unpersisted projection instead.
-        const committed = await kv.compareSet(saveKey, fresh, mergePreservingImages(settled, fresh));
+        const committed = await commitPlayerSave(kv, saveKey, fresh, mergePreservingImages(settled, fresh) as Record<string, unknown>);
         if (!committed) return projected;
         return { ...next, record: settled };
     });

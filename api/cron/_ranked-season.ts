@@ -27,6 +27,7 @@ import { withKvLock } from '../_lock.js';
 import { DEFAULT_RANKED_RATING } from '../_ranked-rating.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { carriedRegenCursor, settleIdleRecovery } from '../save/_mutate-player-save.js';
+import { commitPlayerSave } from '../save/_commit-player-save.js';
 import { commitPetRankedStartingPair } from '../pet/_ranked-engine.js';
 import {
     getPetRankedJournal,
@@ -304,7 +305,7 @@ export type SeasonRolloverResult = {
 export type RankedSeasonStore = Pick<
     KvLike,
     'get' | 'set' | 'compareSet' | 'del' | 'delIfEqual' | 'keys' | 'hset'
->;
+> & Partial<Pick<KvLike, 'compareSetMany'>>;
 
 /** A stopped season rejects only new ranked admissions. */
 export async function rankedSeasonAdmissionsPaused(
@@ -671,7 +672,10 @@ async function applySeasonSettlement(
             record,
         ) as Record<string, unknown>;
         try {
-            if (await store.compareSet(key, record, updated)) return;
+            // The Aura Stone reward commits its currency ledger row in the same
+            // transaction (commitPlayerSave); both rows are compare-and-set, so
+            // this retry loop stays safe without the save lock it never took.
+            if (await commitPlayerSave(store, key, record, updated)) return;
         } catch (error) {
             // The exact intended bytes may already have been followed by an
             // unrelated save mutation. The embedded receipt is the authority

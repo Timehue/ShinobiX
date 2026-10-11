@@ -13,6 +13,7 @@ import {
 } from "../../../shared/public-capabilities";
 import { handleHorizontalTabKeyDown } from "../lib/tab-keyboard";
 import { canReconcileEconomyTx } from "../lib/economy-reconcile-kinds";
+import { summarizeCurrencyLedgerEvidence, type CurrencyLedgerEvidence } from "../lib/currency-ledger-evidence";
 import { AdminCombatUsagePanel } from "../components/AdminCombatUsagePanel";
 
 // ─── Admin Diagnostics Panel ──────────────────────────────────────────────────
@@ -330,6 +331,7 @@ export function AdminDiagnosticsPanel({ adminPw, fullAdmin = false }: { adminPw:
             recent: EconomyTxRecord[];
             stuck: EconomyTxRecord[];
         };
+        currencyLedger: CurrencyLedgerEvidence;
     };
     type EconomyTxRecord = {
         id: string;
@@ -364,6 +366,7 @@ export function AdminDiagnosticsPanel({ adminPw, fullAdmin = false }: { adminPw:
                     recent: Array.isArray(data.economyTx?.recent) ? data.economyTx.recent : [],
                     stuck: Array.isArray(data.economyTx?.stuck) ? data.economyTx.stuck : [],
                 },
+                currencyLedger: summarizeCurrencyLedgerEvidence(data.currencyLedger),
             });
             setEconStatus("");
         } catch (e) {
@@ -797,6 +800,26 @@ export function AdminDiagnosticsPanel({ adminPw, fullAdmin = false }: { adminPw:
                                     </div>
                                 )}
                             </div>
+                            {econ.currencyLedger.rows.length > 0 && (
+                                <div style={{ ...box, borderColor: econ.currencyLedger.blockers > 0 ? "#a33" : "#333" }}>
+                                    <strong>Currency ledger</strong>
+                                    <span style={{ color: econ.currencyLedger.blockers > 0 ? "#f88" : "#9aa", marginLeft: 6 }}>
+                                        {econ.currencyLedger.blockers > 0
+                                            ? `${econ.currencyLedger.blockers} blocking the fail-closed step`
+                                            : "nothing blocking the fail-closed step"}
+                                        {econ.currencyLedger.days.length > 0 && ` — last ${econ.currencyLedger.days.length} days`}
+                                    </span>
+                                    <div style={{ marginTop: 4, ...mono }}>
+                                        {econ.currencyLedger.rows.map((row) => (
+                                            <div key={row.event} style={{ padding: "2px 0" }}>
+                                                <span style={{ ...pill, color: row.blocksFailClosed && row.total > 0 ? "#f88" : undefined }}>{row.total.toLocaleString()}</span>
+                                                <span style={{ color: "#9aa" }}>today {row.today.toLocaleString()}</span>{" "}
+                                                <span>{row.label}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                             {econ.duplicateTxnIds.length > 0 && (
                                 <div style={{ ...box, borderColor: "#a33" }}>
                                     <strong style={{ color: "#f88" }}>⚠ Duplicate txnIds (possible replay): {econ.duplicateTxnIds.length}</strong>
