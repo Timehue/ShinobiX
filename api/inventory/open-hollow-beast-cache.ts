@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { appendSettlementReceipt, inspectSettlementReceipt } from '../_settlement-receipts.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
@@ -46,13 +46,18 @@ function removeOneCache(character: Record<string, unknown>): { itemStacks: Array
     return { itemStacks, inventory };
 }
 
-function cacheRewards(requestId: string): CacheRewards {
-    const materialIndex = Math.floor(gearRoll(`${requestId}:material`) * MATERIALS.length);
+/**
+ * `rollSeed` must be server-only entropy. The client's requestId is just the
+ * idempotency key; seeding a roll from it would let a client search request IDs
+ * for the best cache, since gearRoll is deterministic.
+ */
+export function cacheRewards(rollSeed: string): CacheRewards {
+    const materialIndex = Math.floor(gearRoll(`${rollSeed}:material`) * MATERIALS.length);
     return {
         ryo: CACHE_RYO,
         boneCharms: CACHE_BONE_CHARMS,
         materialId: MATERIALS[Math.min(MATERIALS.length - 1, materialIndex)]!,
-        dungeonKey: gearRoll(`${requestId}:dungeon-key`) < CACHE_DUNGEON_KEY_CHANCE,
+        dungeonKey: gearRoll(`${rollSeed}:dungeon-key`) < CACHE_DUNGEON_KEY_CHANCE,
     };
 }
 
@@ -73,13 +78,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const receiptId = openReceiptId(requestId);
         const fingerprint = `hollow-beast-cache-open:${playerSlug}:${requestId}`;
-        const rewards = cacheRewards(requestId);
+        // Drawn once per request, outside the retry loop: a save-version conflict
+        // re-runs the callback with the SAME seed, so a retry can never re-roll to a
+        // better result. Nothing is visible to the client until a write commits, and
+        // a replay returns the receipt's stored rewards instead of rolling again.
+        const rollSeed = randomBytes(16).toString('hex');
         const result = await retryOnSaveVersionConflict(() => mutatePlayerSave<CacheRewards>(playerSlug, ({ character }) => {
             const inspected = inspectSettlementReceipt(character, receiptId, fingerprint);
             if (inspected.status === 'replay') {
                 return { ok: true, write: false, character, value: inspected.receipt.value as unknown as CacheRewards };
             }
             if (inspected.status !== 'fresh') return { ok: false, status: 409, error: 'This cache request is not safe to replay.' };
+            const rewards = cacheRewards(rollSeed);
             const removed = removeOneCache(character);
             if (!removed) return { ok: false, status: 400, error: 'You do not have a Hollow Beast Cache to open.' };
             const ryo = Math.max(0, Math.floor(Number(character.ryo) || 0));
