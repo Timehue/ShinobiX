@@ -21,10 +21,21 @@ describe("guest social lock — client wiring", () => {
         assert.match(tavern, /useSocialLock\(character\.name\)/);
         assert.match(tavern, /\{locked && \(/);
         assert.match(tavern, /<GuestSocialLock what=/);
-        // Both polls bail while locked OR still unanswered, so a locked guest
-        // never issues a request the server is going to refuse.
-        assert.equal((tavern.match(/if \(locked \|\| lockLoading\) return;/g) ?? []).length, 2);
+        // Both fetches bail while locked OR still unanswered, so a locked guest
+        // never issues a request the server is going to refuse. The chat feed
+        // (fetch, socket room join, reconcile poll) takes the guard as its
+        // `enabled` argument; the Kage lookup keeps its own early return.
+        assert.match(tavern, /useVillageChat<TavernMsg>\(character\.village, !locked && !lockLoading\)/);
+        assert.equal((tavern.match(/if \(locked \|\| lockLoading\) return;/g) ?? []).length, 1);
         assert.match(tavern, /\}, \[character\.village, locked, lockLoading\]\);/);
+        const feed = source("./use-village-chat.ts");
+        assert.match(feed, /useChatPushRefresh\('village', village, enabled, fetchMessages\);/);
+        const refresh = source("./use-chat-push.ts");
+        // The guard comes before the room join and the poll are set up.
+        const guard = refresh.indexOf("if (!enabled) return undefined;");
+        assert.ok(guard > 0, "useChatPushRefresh must bail when disabled");
+        assert.ok(guard < refresh.indexOf("watchChatPush(channel, name,"), "no room join while disabled");
+        assert.ok(guard < refresh.indexOf("visiblePoll(run,"), "no poll while disabled");
         // The log and the composer both live behind the same guard.
         assert.match(tavern, /\{!locked && !lockLoading && \(<>/);
     });
