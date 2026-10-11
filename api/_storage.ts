@@ -34,6 +34,7 @@ import { signalKeyWritten } from './_kv-write-signal.js';
 import { assertKvLockContext, currentKvLockContext, LockOwnershipLostError, poisonKvLockContext } from './_kv-lock-context.js';
 import { runtimeTimeouts } from './_runtime-timeouts.js';
 import { makeGuardedRestKv } from './_storage-lock-rest.js';
+import { observePlayerSaveWrite } from './_save-write-guard.js';
 
 interface CacheEntry { value: unknown; expiresAt: number; }
 const _readCache = new Map<string, CacheEntry>();
@@ -181,6 +182,11 @@ const _noCachePrefixes = [
     // (api/player/_trade-settlement.ts). A worker-local snapshot of a marker
     // another worker released could re-run a debit that worker already ran.
     'trade:', 'economy-tx:player-trade:',
+    // Per-player domain ledgers (`ledger:currency:<name>`, api/_currency-ledger.ts)
+    // are compared with the save they mirror and committed with it. A
+    // worker-local copy would report a ledger another worker already advanced
+    // as behind or divergent, and an audit run would read a stale balance.
+    'ledger:',
 ];
 
 function _shouldCache(key: string): boolean {
@@ -324,6 +330,27 @@ type PgQueryExecutor = {
 };
 
 /**
+ * Prove, inside the caller's open transaction, that every lease this async
+ * context holds is still live and still ours. FOR SHARE holds those owner rows
+ * until COMMIT, so a lease cannot expire and be taken over between this check
+ * and the protected statements that follow it.
+ */
+async function assertLeasesHeld(client: pg.PoolClient, context: NonNullable<ReturnType<typeof currentKvLockContext>>): Promise<void> {
+    const { rows } = await client.query<{ key: string; value: unknown; live: boolean }>(
+        `WITH held AS MATERIALIZED (
+             SELECT key, value, expires_at FROM public.kv_store
+             WHERE key = ANY($1::text[]) ORDER BY key FOR SHARE
+         ) SELECT key, value, expires_at > clock_timestamp() AS live FROM held`,
+        [context.leases.map(lease => lease.key)],
+    );
+    const owners = new Map(rows.map(row => [row.key, row]));
+    if (context.leases.some(lease => {
+        const row = owners.get(lease.key);
+        return !row?.live || row.value !== lease.owner;
+    })) throw new LockOwnershipLostError();
+}
+
+/**
  * Each locked KV statement is fenced in its own transaction. FOR SHARE holds
  * every owner row until COMMIT, so even an expired lease cannot be replaced
  * between its validation and the protected write. No callback-wide transaction
@@ -339,18 +366,7 @@ const fencedPg: PgQueryExecutor = {
             client = await getPool().connect();
             assertKvLockContext(context);
             await client.query('BEGIN');
-            const { rows } = await client.query<{ key: string; value: unknown; live: boolean }>(
-                `WITH held AS MATERIALIZED (
-                     SELECT key, value, expires_at FROM public.kv_store
-                     WHERE key = ANY($1::text[]) ORDER BY key FOR SHARE
-                 ) SELECT key, value, expires_at > clock_timestamp() AS live FROM held`,
-                [context.leases.map(lease => lease.key)],
-            );
-            const owners = new Map(rows.map(row => [row.key, row]));
-            if (context.leases.some(lease => {
-                const row = owners.get(lease.key);
-                return !row?.live || row.value !== lease.owner;
-            })) throw new LockOwnershipLostError();
+            await assertLeasesHeld(client, context);
             assertKvLockContext(context);
             const result = await client.query<R>(sql, values);
             assertKvLockContext(context);
@@ -373,6 +389,106 @@ const fencedPg: PgQueryExecutor = {
 function getPgDb(): PgQueryExecutor {
     assertKvLockContext();
     return currentKvLockContext() ? fencedPg : getPool();
+}
+
+/** Returned by a transaction body to roll back cleanly: nothing applied, nothing failed. */
+const PG_ROLLBACK = Symbol('pg-rollback');
+
+/**
+ * Run several statements as ONE Postgres transaction on one connection.
+ *
+ * Under a lock context this is fencedPg widened from one statement to many:
+ * the leases are proven once, inside the transaction, before the first
+ * statement, and an error poisons the context and is never replayed (a lost
+ * COMMIT response may still be durable). A body that returns PG_ROLLBACK is a
+ * clean refusal — ROLLBACK, release, and no poison — because nothing was
+ * written and nothing is ambiguous.
+ */
+async function runPgTransaction<T>(body: (client: pg.PoolClient) => Promise<T | typeof PG_ROLLBACK>): Promise<T | typeof PG_ROLLBACK> {
+    const context = currentKvLockContext();
+    assertKvLockContext(context);
+    let client: pg.PoolClient | undefined;
+    try {
+        client = await getPool().connect();
+        assertKvLockContext(context);
+        await client.query('BEGIN');
+        if (context) await assertLeasesHeld(client, context);
+        assertKvLockContext(context);
+        const result = await body(client);
+        if (result === PG_ROLLBACK) {
+            try {
+                await client.query('ROLLBACK');
+            } catch (error) {
+                // No COMMIT was sent, so nothing can have applied; the broken
+                // connection is discarded rather than returned to the pool.
+                client.release(error instanceof Error ? error : new Error(String(error)));
+                client = undefined;
+            }
+            return PG_ROLLBACK;
+        }
+        assertKvLockContext(context);
+        await client.query('COMMIT');
+        return result;
+    } catch (error) {
+        const failure = context ? poisonKvLockContext(context, error) : (error instanceof Error ? error : new Error(String(error)));
+        if (client) await client.query('ROLLBACK').catch(() => undefined);
+        client?.release(failure);
+        client = undefined;
+        throw failure;
+    } finally {
+        client?.release();
+    }
+}
+
+// The compare-and-set statements, shared by compareSet and compareSetMany so
+// the single-key and multi-key paths can never disagree about what "matches".
+const PG_CAS_INSERT_IF_ABSENT_SQL = `INSERT INTO public.kv_store AS current (key, value, expires_at, updated_at)
+                 VALUES ($1, $2::jsonb, $3::timestamptz, now())
+                 ON CONFLICT (key) DO UPDATE
+                     SET value = EXCLUDED.value,
+                         expires_at = EXCLUDED.expires_at,
+                         updated_at = now()
+                     WHERE current.expires_at IS NOT NULL
+                       AND current.expires_at <= now()
+                 RETURNING true AS swapped`;
+const PG_CAS_UPDATE_IF_EQUAL_SQL = `UPDATE public.kv_store
+                 SET value = $3::jsonb,
+                     expires_at = $4::timestamptz,
+                     updated_at = now()
+                 WHERE key = $1
+                   AND value = $2::jsonb
+                   AND (expires_at IS NULL OR expires_at > now())
+                 RETURNING true AS swapped`;
+
+/**
+ * One step of an all-or-nothing multi-key write (KvLike.compareSetMany).
+ *
+ *   cas    — replace the live row only if it equals `expected` (null: the key
+ *            must be absent or expired), exactly as compareSet.
+ *   delete — remove the live row only if it equals `expected`.
+ *   assert — write nothing; the live row must equal `expected` (null: absent)
+ *            for the whole transaction to commit. A matching row is held
+ *            FOR SHARE until COMMIT, so it cannot change underneath the write.
+ */
+export type KvCasOp =
+    | { op: 'cas'; key: string; expected: unknown | null; value: unknown; ex?: number }
+    | { op: 'delete'; key: string; expected: unknown }
+    | { op: 'assert'; key: string; expected: unknown | null };
+
+/** Validate and order a compareSetMany batch. Throws before any I/O on a malformed batch. */
+function prepareCasOps(ops: readonly KvCasOp[]): KvCasOp[] {
+    if (!Array.isArray(ops) || ops.length === 0) throw new Error('compareSetMany needs at least one operation.');
+    const seen = new Set<string>();
+    for (const op of ops) {
+        if (!op || typeof op.key !== 'string' || !op.key) throw new Error('compareSetMany operation needs a key.');
+        if (op.op !== 'cas' && op.op !== 'delete' && op.op !== 'assert') throw new Error(`compareSetMany: unknown operation ${String((op as { op?: unknown }).op)}.`);
+        if (op.op === 'delete' && (op.expected === null || op.expected === undefined)) throw new Error('compareSetMany delete needs the expected value.');
+        if (seen.has(op.key)) throw new Error(`compareSetMany: key ${op.key} appears twice.`);
+        seen.add(op.key);
+    }
+    // One global statement order, so two overlapping batches take their row
+    // locks in the same sequence and cannot deadlock each other.
+    return [...ops].sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
 }
 
 export function _toSqlPattern(pattern: string): string {
@@ -422,6 +538,7 @@ const pgKv = {
 
     async set(key: string, value: unknown, options?: { ex?: number; nx?: boolean }): Promise<'OK' | null> {
         _cacheInvalidate(key);
+        observePlayerSaveWrite(key, 'set');
         const db = getPgDb();
         const exp = options?.ex ? expiresAt(options.ex) : null;
         if (options?.nx) {
@@ -446,6 +563,7 @@ const pgKv = {
 
     async compareSet(key: string, expected: unknown | null, value: unknown, options?: { ex?: number }): Promise<boolean> {
         _cacheInvalidate(key);
+        observePlayerSaveWrite(key, 'compareSet');
         const exp = options?.ex ? expiresAt(options.ex) : null;
         const db = getPgDb();
         let swapped: boolean;
@@ -456,15 +574,7 @@ const pgKv = {
             // conflicting row lock. This avoids requiring a separately-applied
             // schema RPC on Railway without weakening CAS into get-then-set.
             const { rows } = await db.query<{ swapped: boolean }>(
-                `INSERT INTO public.kv_store AS current (key, value, expires_at, updated_at)
-                 VALUES ($1, $2::jsonb, $3::timestamptz, now())
-                 ON CONFLICT (key) DO UPDATE
-                     SET value = EXCLUDED.value,
-                         expires_at = EXCLUDED.expires_at,
-                         updated_at = now()
-                     WHERE current.expires_at IS NOT NULL
-                       AND current.expires_at <= now()
-                 RETURNING true AS swapped`,
+                PG_CAS_INSERT_IF_ABSENT_SQL,
                 [key, JSON.stringify(value), exp],
             );
             swapped = rows[0]?.swapped === true;
@@ -474,20 +584,68 @@ const pgKv = {
             // both its value and TTL. On success, even a null expiry is written,
             // so the replacement TTL is authoritative just like set().
             const { rows } = await db.query<{ swapped: boolean }>(
-                `UPDATE public.kv_store
-                 SET value = $3::jsonb,
-                     expires_at = $4::timestamptz,
-                     updated_at = now()
-                 WHERE key = $1
-                   AND value = $2::jsonb
-                   AND (expires_at IS NULL OR expires_at > now())
-                 RETURNING true AS swapped`,
+                PG_CAS_UPDATE_IF_EQUAL_SQL,
                 [key, JSON.stringify(expected), JSON.stringify(value), exp],
             );
             swapped = rows[0]?.swapped === true;
         }
         if (swapped) { _cacheWrite(key, value, exp); signalKeyWritten(key); }
         return swapped;
+    },
+
+    async compareSetMany(ops: readonly KvCasOp[]): Promise<boolean> {
+        const ordered = prepareCasOps(ops);
+        _cacheInvalidate(...ordered.map(op => op.key));
+        for (const op of ordered) if (op.op !== 'assert') observePlayerSaveWrite(op.key, 'compareSetMany');
+        const expiries = new Map<string, string | null>();
+        const outcome = await runPgTransaction(async (client) => {
+            for (const op of ordered) {
+                let matched: boolean;
+                if (op.op === 'cas') {
+                    const exp = op.ex ? expiresAt(op.ex) : null;
+                    expiries.set(op.key, exp);
+                    const { rows } = op.expected === null
+                        ? await client.query<{ swapped: boolean }>(PG_CAS_INSERT_IF_ABSENT_SQL, [op.key, JSON.stringify(op.value), exp])
+                        : await client.query<{ swapped: boolean }>(PG_CAS_UPDATE_IF_EQUAL_SQL, [op.key, JSON.stringify(op.expected), JSON.stringify(op.value), exp]);
+                    matched = rows[0]?.swapped === true;
+                } else if (op.op === 'delete') {
+                    const { rows } = await client.query<{ deleted: boolean }>(
+                        `DELETE FROM public.kv_store
+                         WHERE key = $1 AND value = $2::jsonb AND (expires_at IS NULL OR expires_at > now())
+                         RETURNING true AS deleted`,
+                        [op.key, JSON.stringify(op.expected)],
+                    );
+                    matched = rows[0]?.deleted === true;
+                } else if (op.expected === null) {
+                    const { rows } = await client.query<{ absent: boolean }>(
+                        `SELECT NOT EXISTS (
+                             SELECT 1 FROM public.kv_store
+                             WHERE key = $1 AND (expires_at IS NULL OR expires_at > now())
+                         ) AS absent`,
+                        [op.key],
+                    );
+                    matched = rows[0]?.absent === true;
+                } else {
+                    const { rows } = await client.query<{ held: boolean }>(
+                        `SELECT true AS held FROM public.kv_store
+                         WHERE key = $1 AND value = $2::jsonb AND (expires_at IS NULL OR expires_at > now())
+                         FOR SHARE`,
+                        [op.key, JSON.stringify(op.expected)],
+                    );
+                    matched = rows[0]?.held === true;
+                }
+                // Any predecessor that moved refuses the WHOLE batch.
+                if (!matched) return PG_ROLLBACK;
+            }
+            return true as const;
+        });
+        if (outcome === PG_ROLLBACK) return false;
+        for (const op of ordered) {
+            if (op.op === 'assert') continue;
+            if (op.op === 'cas') _cacheWrite(op.key, op.value, expiries.get(op.key) ?? null);
+            signalKeyWritten(op.key);
+        }
+        return true;
     },
 
     async del(...keys: string[]): Promise<number> {
@@ -958,6 +1116,16 @@ export interface KvLike {
     set(key: string, value: unknown, options?: { ex?: number; nx?: boolean }): Promise<'OK' | null>;
     /** Atomically replace a row only when its complete live JSON equals expected. */
     compareSet(key: string, expected: unknown | null, value: unknown, options?: { ex?: number }): Promise<boolean>;
+    /**
+     * All-or-nothing compareSet across several keys, in ONE transaction: every
+     * operation's predecessor must still match or none of them is applied.
+     * Returns false (nothing written) on any mismatch — a refusal, not an
+     * error, so a caller under a lock can still read and answer afterwards.
+     * Operations run in key order whatever order they are passed in; a key may
+     * appear only once. OPTIONAL: the Postgres and in-memory backends have it,
+     * the retired REST backend does not; callers fall back when it is absent.
+     */
+    compareSetMany?(ops: readonly KvCasOp[]): Promise<boolean>;
     del(...keys: string[]): Promise<number>;
     /**
      * Atomically delete `key` only if its stored value still equals `expected`.
@@ -1023,7 +1191,7 @@ export function _makeMemoryKv(): KvLike {
         signalKeyWritten(key);
     };
 
-    return {
+    const memoryKv: KvLike = {
         async get<T = unknown>(key: string): Promise<T | null> {
             const entry = liveEntry(key);
             return entry ? clone(entry.value as T) : null;
@@ -1037,6 +1205,68 @@ export function _makeMemoryKv(): KvLike {
             const entry = liveEntry(key);
             if (expected === null ? entry !== null : !entry || !_jsonValueEqual(entry.value, expected)) return false;
             write(key, value, options?.ex);
+            return true;
+        },
+        async compareSetMany(this: KvLike | undefined, ops) {
+            const ordered = prepareCasOps(ops);
+            const matches = (op: KvCasOp): boolean => {
+                const entry = liveEntry(op.key);
+                return op.expected === null ? entry === null : !!entry && _jsonValueEqual(entry.value, op.expected);
+            };
+            // Every predecessor is checked before anything is written.
+            if (!ordered.every(matches)) return false;
+            // Each write then goes through this store's OWN compareSet /
+            // delIfEqual, on purpose: a test that injects a fault there (a
+            // refused write, a failure, a reply lost after the write landed)
+            // must see it apply to a multi-key commit exactly as it did to the
+            // single-key write it replaced. The transaction is emulated around
+            // those calls:
+            //   refused, or failed with nothing written → every earlier write
+            //     is put back (only where nobody has since replaced it), and
+            //     the batch refuses or throws, like a ROLLBACK;
+            //   failed AFTER its write landed (a lost reply) → the remaining
+            //     writes are applied too and the error is rethrown, like a
+            //     COMMIT whose acknowledgement was lost.
+            // With no fault injected this is the same check-then-apply as a
+            // transaction; the QA store has no concurrent writer to a key whose
+            // lock the caller holds.
+            const self: KvLike = this && typeof this.compareSet === 'function' ? this : memoryKv;
+            const before = new Map(ordered.map((op) => [op.key, entries.get(op.key)] as const));
+            const applied: KvCasOp[] = [];
+            const rollback = () => {
+                for (const op of applied) {
+                    const now = liveEntry(op.key);
+                    const ours = op.op === 'cas' ? !!now && _jsonValueEqual(now.value, op.value) : now === null;
+                    if (!ours) continue;
+                    const prior = before.get(op.key);
+                    if (prior) entries.set(op.key, prior); else entries.delete(op.key);
+                    signalKeyWritten(op.key);
+                }
+            };
+            const forceRest = (from: number) => {
+                for (const op of ordered.slice(from)) {
+                    if (op.op === 'cas') write(op.key, op.value, op.ex);
+                    else if (op.op === 'delete') { entries.delete(op.key); signalKeyWritten(op.key); }
+                }
+            };
+            for (let index = 0; index < ordered.length; index++) {
+                const op = ordered[index];
+                if (op.op === 'assert') continue;
+                let ok: boolean;
+                try {
+                    ok = op.op === 'cas'
+                        ? await self.compareSet(op.key, op.expected, op.value, op.ex ? { ex: op.ex } : undefined)
+                        : await self.delIfEqual(op.key, op.expected);
+                } catch (error) {
+                    const landed = op.op === 'cas'
+                        ? (() => { const now = liveEntry(op.key); return !!now && _jsonValueEqual(now.value, op.value); })()
+                        : liveEntry(op.key) === null;
+                    if (landed) forceRest(index + 1); else rollback();
+                    throw error;
+                }
+                if (!ok) { rollback(); return false; }
+                applied.push(op);
+            }
             return true;
         },
         async del(...keys) {
@@ -1115,6 +1345,7 @@ export function _makeMemoryKv(): KvLike {
             return deleted;
         },
     };
+    return memoryKv;
 }
 
 // ─── Export the right backend ─────────────────────────────────────────────────

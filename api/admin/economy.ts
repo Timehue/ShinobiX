@@ -6,6 +6,7 @@ import { readEconomySnapshot } from '../_economy.js';
 import { readEconomyTxSnapshot } from '../_economy-tx.js';
 import { readWarEcoSnapshot } from '../_war-telemetry.js';
 import { WAR_VILLAGES } from '../_war-map-sectors.js';
+import { readCurrencyLedgerTelemetry } from '../_currency-ledger.js';
 
 // Admin-only economy telemetry reader (docs/economy-telemetry-plan.md).
 //
@@ -16,7 +17,7 @@ import { WAR_VILLAGES } from '../_war-map-sectors.js';
 // village — plan §8). Read-only, admin-gated.
 //
 //   GET /api/admin/economy?limit=200   (x-admin-password header)
-//   → 200 { aggregates, recent, duplicateTxnIds, war }
+//   → 200 { aggregates, recent, duplicateTxnIds, war, currencyLedger }
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -34,6 +35,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Village-War economy telemetry (Phase 8) — per-village WR/seal faucet-vs-sink,
     // tax split, maintenance, dormancy. Empty until the campaign has activity.
     const war = await readWarEcoSnapshot(WAR_VILLAGES, limit);
+    // Currency-ledger cutover evidence (docs/runbooks/currency-ledger-cutover.md):
+    // the last eight days of each counted ledger event.
+    const currencyLedger = await readCurrencyLedgerTelemetry(8);
     res.setHeader('Cache-Control', 'no-store');
-    return res.status(200).json({ ok: true, ...snapshot, economyTx, war });
+    return res.status(200).json({ ok: true, ...snapshot, economyTx, war, currencyLedger });
 }

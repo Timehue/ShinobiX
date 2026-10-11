@@ -38,7 +38,7 @@ import {
 import { COMBAT_MISSION_CLIENT_TRUST_DISABLED_REASON } from '../_release-flags.js';
 import { canPlayerClaimMission, missionEligibilityFailureBody, type MissionEligibilityResult } from './_eligibility.js';
 import { isPlayerSaveVersionConflict, retryOnSaveVersionConflict, SAVE_VERSION_CONFLICT_REPLY, writeSaveProjected } from '../save/_projected-write.js';
-import { syncCurrencyLedger } from '../_currency-ledger.js';
+import { commitPlayerSaveExact } from '../save/_commit-player-save.js';
 import { recordPetBreedingProgress } from '../pet/_breeding-requirements.js';
 import {
     APEX_REWARD,
@@ -84,7 +84,6 @@ import {
     combatMissionClaimPaymentMatches,
     combatMissionClaimTokenKey,
     combatMissionClaimTokenMatches,
-    compareSetExactKvRow,
     confirmCombatMissionClaimSave,
     createCombatMissionClaimToken,
     createCombatMissionClaimPaymentReservation,
@@ -386,9 +385,11 @@ async function mutateCombatClaimSettlement(params: {
             // prior run's effect stamps onto a newly prepended settlement.
             combatMissionClaimSettlements: nextCharacter.combatMissionClaimSettlements,
         };
-        await compareSetExactKvRow(kv, params.saveKey, current.record, nextRecord);
-        await syncCurrencyLedger(params.playerName, nextRecord, {
-            previousCharacter: current.character,
+        await commitPlayerSaveExact(kv, {
+            playerName: params.playerName,
+            saveKey: params.saveKey,
+            expected: current.record,
+            intended: nextRecord,
         });
         const confirmed = await readCombatClaimSettlement(
             params.saveKey,
@@ -764,12 +765,12 @@ async function applyReservedCombatMissionPayout(params: {
         combatMissionClaimSettlements: next.combatMissionClaimSettlements,
     };
     const persisted = await confirmCombatMissionClaimSave({
-        write: async () => {
-            await compareSetExactKvRow(kv, params.saveKey, params.record, intended);
-            await syncCurrencyLedger(params.playerName, intended, {
-                previousCharacter: params.character,
-            });
-        },
+        write: () => commitPlayerSaveExact(kv, {
+            playerName: params.playerName,
+            saveKey: params.saveKey,
+            expected: params.record,
+            intended,
+        }),
         read: () => kv.get<Record<string, unknown>>(params.saveKey),
         settlement,
     });
@@ -1066,7 +1067,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             regenAt: carriedRegenCursor(char, heal.char, settled.regen),
                         });
                         const intended = mergePreservingImages(healed, record) as Record<string, unknown>;
-                        await compareSetExactKvRow(kv, saveKey, record, intended);
+                        await commitPlayerSaveExact(kv, { playerName, saveKey, expected: record, intended });
                     }
                     return { applied: false, reason: COMBAT_MISSION_CLIENT_TRUST_DISABLED_REASON };
                 }
@@ -1362,12 +1363,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     combatMissionClaimSettlements: next.combatMissionClaimSettlements,
                 };
                 persisted = await confirmCombatMissionClaimSave({
-                    write: async () => {
-                        await compareSetExactKvRow(kv, saveKey, record, intended);
-                        await syncCurrencyLedger(playerName, intended, {
-                            previousCharacter: char,
-                        });
-                    },
+                    write: () => commitPlayerSaveExact(kv, { playerName, saveKey, expected: record, intended }),
                     read: () => kv.get<Record<string, unknown>>(saveKey),
                     settlement: combatSettlement,
                 });

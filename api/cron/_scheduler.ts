@@ -43,6 +43,7 @@ import { runBattleLapseSweep } from './_battle-lapse-sweep.js';
 import { runPlayerRankedSettlementSweep } from './_player-ranked-settlement-sweep.js';
 import { settleDueSectorWars } from '../_sector-war-settle.js';
 import { villageWarMapEnabled } from '../_release-flags.js';
+import { runCurrencyLedgerSweep } from './_currency-ledger-sweep.js';
 
 const KAGE_CLOCK_TICK_MS = 15_000;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -57,6 +58,10 @@ const BATTLE_LAPSE_TICK_MS = 10 * 60_000; // F08 backstop: fights nobody came ba
 // Player-ranked sagas nobody came back to finish (restart mid-saga, lost gate admission).
 const RANKED_SETTLEMENT_TICK_MS = 5 * 60_000;
 const RANKED_SETTLEMENT_BOOT_DELAY_MS = 60_000;
+// Currency-ledger backfill and orphan cleanup (api/cron/_currency-ledger-sweep.ts):
+// a bounded batch per tick, so the whole population is reached within the hour.
+const CURRENCY_LEDGER_SWEEP_TICK_MS = 10 * 60_000;
+const CURRENCY_LEDGER_SWEEP_BOOT_DELAY_MS = 2 * 60_000;
 // The village-war daily pass's catch-up/retry tick (api/_war-daily.ts
 // runVillageWarDailyCatchUp). One marker read when the day is done; a re-run of
 // the pass, which only finishes what is missing, when it is not.
@@ -91,6 +96,7 @@ const LEASE_TTL = {
     sectorWarSettle: 4 * 60,
     battleLapse: 9 * 60,
     rankedSettlement: 4 * 60,
+    currencyLedgerSweep: 9 * 60,
     guestSweep: 20 * 60 * 60,
     kageInactivity: 20 * 60 * 60,
 } as const;
@@ -108,6 +114,9 @@ let _battleLapseInterval: ReturnType<typeof setInterval> | null = null;
 let _battleLapseBootTimeout: ReturnType<typeof setTimeout> | null = null;
 let _rankedSettlementInterval: ReturnType<typeof setInterval> | null = null;
 let _rankedSettlementBootTimeout: ReturnType<typeof setTimeout> | null = null;
+let _currencyLedgerSweepInterval: ReturnType<typeof setInterval> | null = null;
+let _currencyLedgerSweepBootTimeout: ReturnType<typeof setTimeout> | null = null;
+let _currencyLedgerSweepRunning = false;
 let _snapshotRecoveryInterval: ReturnType<typeof setInterval> | null = null;
 let _snapshotRecoveryRetryTimeout: ReturnType<typeof setTimeout> | null = null;
 let _villageWarCatchUpInterval: ReturnType<typeof setInterval> | null = null;
@@ -344,6 +353,35 @@ export async function fireRankedSettlementSweep(): Promise<void> {
         console.error('[cron-scheduler] ranked settlement sweep threw:', (err as Error).message);
     } finally {
         _rankedSettlementRunning = false;
+    }
+}
+
+/**
+ * One leased currency-ledger sweep tick (exported so tests drive the real entry
+ * point). It only ever writes `ledger:` rows, each under its save's lock and
+ * asserting that save, so racing live writers is safe; the lease keeps it
+ * single-owner across a deploy overlap.
+ */
+export async function fireCurrencyLedgerSweep(): Promise<void> {
+    if (_currencyLedgerSweepRunning) return;
+    _currencyLedgerSweepRunning = true;
+    try {
+        const leased = await withScheduledJobLease(
+            'currency-ledger-sweep',
+            () => runCurrencyLedgerSweep(),
+            { ttlSec: LEASE_TTL.currencyLedgerSweep, holdUntilExpiryOnSuccess: true },
+        );
+        if (!leased.acquired) return;
+        const result = leased.value;
+        if (result.written || result.removed || result.held.length || result.errors.length) {
+            console.log(`[cron-scheduler] currency ledger sweep: ${result.scanned} scanned, ${result.written} written, ${result.removed} orphans removed, ${result.held.length} held for review, ${result.raced} raced${result.errors.length ? `, ${result.errors.length} errors` : ''}.`);
+        }
+        for (const name of result.held.slice(0, 5)) console.warn(`[cron-scheduler] currency ledger for ${name} disagrees with its save and is held for review.`);
+        if (result.errors.length) console.warn(`[cron-scheduler] currency ledger sweep errors: ${result.errors.slice(0, 5).join('; ')}`);
+    } catch (err) {
+        console.error('[cron-scheduler] currency ledger sweep threw:', (err as Error).message);
+    } finally {
+        _currencyLedgerSweepRunning = false;
     }
 }
 
@@ -594,6 +632,19 @@ export function startSnapshotCron(): void {
             console.log('[cron-scheduler] ranked settlement sweep disabled via DISABLE_RANKED_SETTLEMENT_SWEEP=1');
         }
     }
+    if (!_currencyLedgerSweepInterval) {
+        if (process.env.DISABLE_CURRENCY_LEDGER_SWEEP !== '1') {
+            _currencyLedgerSweepInterval = setInterval(() => void fireCurrencyLedgerSweep(), CURRENCY_LEDGER_SWEEP_TICK_MS);
+            _currencyLedgerSweepInterval.unref?.();
+            _currencyLedgerSweepBootTimeout = setTimeout(() => {
+                _currencyLedgerSweepBootTimeout = null;
+                void fireCurrencyLedgerSweep();
+            }, CURRENCY_LEDGER_SWEEP_BOOT_DELAY_MS);
+            _currencyLedgerSweepBootTimeout.unref?.();
+        } else {
+            console.log('[cron-scheduler] currency ledger sweep disabled via DISABLE_CURRENCY_LEDGER_SWEEP=1');
+        }
+    }
     const snapshotDisabled = process.env.DISABLE_SNAPSHOT_CRON === '1';
     if (snapshotDisabled) {
         console.log('[cron-scheduler] save-snapshot cron disabled via DISABLE_SNAPSHOT_CRON=1');
@@ -648,6 +699,8 @@ export function stopSnapshotCron(): void {
     if (_battleLapseBootTimeout) { clearTimeout(_battleLapseBootTimeout); _battleLapseBootTimeout = null; }
     if (_rankedSettlementInterval) { clearInterval(_rankedSettlementInterval); _rankedSettlementInterval = null; }
     if (_rankedSettlementBootTimeout) { clearTimeout(_rankedSettlementBootTimeout); _rankedSettlementBootTimeout = null; }
+    if (_currencyLedgerSweepInterval) { clearInterval(_currencyLedgerSweepInterval); _currencyLedgerSweepInterval = null; }
+    if (_currencyLedgerSweepBootTimeout) { clearTimeout(_currencyLedgerSweepBootTimeout); _currencyLedgerSweepBootTimeout = null; }
     if (_snapshotRecoveryInterval) { clearInterval(_snapshotRecoveryInterval); _snapshotRecoveryInterval = null; }
     if (_snapshotRecoveryRetryTimeout) { clearTimeout(_snapshotRecoveryRetryTimeout); _snapshotRecoveryRetryTimeout = null; }
     // Running jobs clear their own flags when they actually finish. Clearing

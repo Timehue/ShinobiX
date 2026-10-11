@@ -3,6 +3,7 @@ import type { KvLike } from '../_storage.js';
 import { mergePreservingImages, safeName } from '../_utils.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { carriedRegenCursor, settleIdleRecovery } from '../save/_mutate-player-save.js';
+import { commitPlayerSave } from '../save/_commit-player-save.js';
 import { embedPvpSettlementReceipt, inspectPvpCredit, pvpSettlementId } from './_reward-settlement.js';
 import {
     confirmPlayerRankedItemSettlement,
@@ -138,7 +139,7 @@ async function settleLegacySide(
             record,
         ) as Record<string, unknown>;
         try {
-            if (await store.compareSet(key, record, next)) return;
+            if (await commitPlayerSave(store, key, record, next)) return;
         } catch (error) {
             const recovered = await store.get<Record<string, unknown>>(key).catch(() => null);
             const recoveredCharacter = (recovered?.character ?? null) as Record<string, unknown> | null;

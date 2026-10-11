@@ -49,6 +49,7 @@
         "scan:data": "node --import tsx scripts/data-integrity-scan.mjs",
         "ledger:audit": "node --import tsx scripts/currency-ledger-audit.mjs",
         "ledger:backfill": "node --import tsx scripts/currency-ledger-audit.mjs --backfill",
+        "ledger:repair": "node --import tsx scripts/currency-ledger-audit.mjs --repair",
         "export:tooling-handoffs": "node --import tsx scripts/export-tooling-handoffs.mjs",
         "check:tooling-handoffs": "node --import tsx scripts/export-tooling-handoffs.mjs --check"
     },

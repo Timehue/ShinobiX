@@ -81,6 +81,6 @@ Add it inside `certify()` in `scripts/release-certification.mjs` using
 Runs in CI on every PR and push to main, after the root build so it certifies
 the built `dist/server.js`. It is the pre-flight for the three pending
 cutovers — `STRICT_RAW_SAVE_LEDGER=1`, the shared-content slot freeze
-(`docs/runbooks/shared-content-cutover.md`), and the currency read cutover
-(`docs/runbooks/currency-ledger-cutover.md`). Run it against staging with
+(`docs/runbooks/shared-content-cutover.md`), and the currency-ledger
+fail-closed step (`docs/runbooks/currency-ledger-cutover.md`). Run it against staging with
 `--url=` before flipping any of them.

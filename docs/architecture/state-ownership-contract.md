@@ -111,6 +111,11 @@ nor any compatibility behavior it gates.
   version the `?signal=1` publish path (auth is verified sound today; the gap
   is concurrency/staleness).
 - **P0-5** — per-domain ledgers off whole-save writes (currencies first).
+  In progress: every player-save writer now commits through
+  `commitPlayerSaveRecord` (`api/save/_commit-player-save.ts`), which moves
+  the `ledger:currency:<name>` row in the same transaction when currency
+  changes. The sequence and its gates are in
+  `docs/runbooks/currency-ledger-cutover.md`.
 - **P0-6** — fresh-account end-to-end certification against the real server.
 
 Known duplications preserved (recorded on the manifest entries, not silently

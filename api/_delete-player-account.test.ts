@@ -135,10 +135,17 @@ describe('player deletion', () => {
 
     it('full deletion removes the account AND every reference, in that safe order', async () => {
         store.set('auth-session:wanderer', 0);
+        store.set('ledger:currency:wanderer', { saveVersion: 4, balances: { ryo: 900 } });
+        store.set('ledger:currency:kaze', { saveVersion: 2, balances: { ryo: 50 } });
         const result = await deletePlayerAccount('wanderer');
 
         assert.equal(store.has('auth:wanderer'), false);
         assert.equal(store.has('save:wanderer'), false);
+        // Names are reusable: a surviving currency ledger would be read against
+        // whoever registers this name next.
+        assert.equal(store.has('ledger:currency:wanderer'), false, 'the currency ledger goes with the save');
+        assert.ok(result.removed.includes('ledger:currency:wanderer'));
+        assert.equal(store.has('ledger:currency:kaze'), true, 'another player\'s ledger must remain untouched');
         assert.equal(store.has('first-pact:wanderer'), false, 'a freed name must not inherit the prior First Pact');
         assert.equal(store.has('first-pact:kaze'), true, 'another player\'s First Pact must remain untouched');
         assert.equal(store.has('friends:wanderer'), false);

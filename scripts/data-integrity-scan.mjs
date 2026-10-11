@@ -11,7 +11,7 @@
  *   • has any authored content never reached the canonical content store?
  *     (blocks the shared-content slot freeze)
  *   • does any currency ledger disagree with its save? (blocks the currency
- *     read cutover)
+ *     ledger's fail-closed step, docs/runbooks/currency-ledger-cutover.md)
  *   • duplicate pets, unowned equipment, missing save versions, impossible
  *     balances?
  *
@@ -32,7 +32,8 @@ const { kv } = await import('../api/_storage.js');
 import { ITEM_CATALOG } from '../api/pvp/_item-catalog.js';
 import { loadAdminItemObjects } from '../api/_admin-item-catalog.js';
 import { FORGED_ITEM_ID, forgedItemKey, recordForgedItem } from '../api/_forged-item-registry.js';
-import { compareLedger, syncCurrencyLedger, readCurrencyLedger } from '../api/_currency-ledger.js';
+import { CURRENCY_LEDGER_FIELDS, classifyCurrencyLedger, readCurrencyLedger } from '../api/_currency-ledger.js';
+import { isPlayerSaveName, reconcileCurrencyLedger } from '../api/cron/_currency-ledger-sweep.js';
 import { CONTENT_FIELDS, readContentRecord, publishContent } from '../api/_content-store.js';
 
 const argv = new Set(process.argv.slice(2));
@@ -77,7 +78,9 @@ async function scanSave(name, record, adminItems) {
     if (record._saveVersion === undefined) push('missingSaveVersion', { name });
 
     // ── Currency sanity ─────────────────────────────────────────────────────
-    for (const field of ['ryo', 'bankRyo', 'fateShards', 'boneCharms', 'auraStones', 'auraDust', 'mythicSeals', 'honorSeals', 'hollowShards']) {
+    // The ownership manifest's list, not a copy of it: a hand-kept list here
+    // once missed chroniclePoints.
+    for (const field of CURRENCY_LEDGER_FIELDS) {
         const raw = char[field];
         if (raw === undefined) continue;
         const value = Number(raw);
@@ -123,14 +126,24 @@ async function scanSave(name, record, adminItems) {
     }
 
     // ── Currency ledger ─────────────────────────────────────────────────────
+    // Only canonical (safeName) saves have a ledger row of their own; a legacy
+    // `save:Rill` spelling is never reconciled (see isPlayerSaveName).
+    if (!isPlayerSaveName(name)) return;
     const ledger = await readCurrencyLedger(name).catch(() => null);
-    const comparison = compareLedger(record, ledger);
-    if (comparison.status === 'divergent') {
-        push('ledgerDivergent', { name, version: comparison.version, fields: comparison.fields });
-    } else if (comparison.status !== 'match') {
-        push('ledgerMissingOrStale', { name, status: comparison.status });
-        if (REPAIR) { if (await syncCurrencyLedger(name, record)) repaired.ledgersWritten += 1; }
+    const status = classifyCurrencyLedger(record, ledger);
+    // `lagging` (behind the save, same balances) is the normal state after
+    // currency-neutral writes, which skip the ledger by design.
+    if (status === 'match' || status === 'lagging') return;
+    if (status === 'divergent') {
+        const fields = CURRENCY_LEDGER_FIELDS
+            .map((field) => ({ field, save: Number(record.character?.[field] ?? 0), ledger: Number(ledger?.balances?.[field] ?? 0) }))
+            .filter((entry) => entry.save !== entry.ledger);
+        push('ledgerDivergent', { name, version: record._saveVersion, fields });
+        return;
     }
+    push('ledgerMissingOrStale', { name, status });
+    // The locked, save-asserting reconcile the scheduled sweep runs.
+    if (REPAIR) { if ((await reconcileCurrencyLedger(name)).action === 'written') repaired.ledgersWritten += 1; }
 }
 
 async function scanContentStore() {
@@ -183,7 +196,7 @@ async function main() {
             missingSaveVersion: 'saves with no version stamp (next save is rejected 426)',
             impossibleBalance: 'negative or non-numeric balances',
             ledgerDivergent: 'currency ledger DISAGREES at the same version (real bug)',
-            ledgerMissingOrStale: 'currency ledger missing or behind (BLOCKS currency cutover)',
+            ledgerMissingOrStale: 'currency ledger missing, legacy, orphaned, ahead, or behind with other balances (BLOCKS the ledger fail-closed step; --repair fixes)',
             contentNotPublished: 'authored content never published to the store (BLOCKS slot freeze)',
         };
         for (const [bucket, count] of Object.entries(counts)) {

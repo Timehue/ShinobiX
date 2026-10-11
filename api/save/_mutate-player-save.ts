@@ -2,6 +2,7 @@ import { creditElderWinDeltas } from '../../shared/elder-elections.js';
 import { bumpSaveVersion } from './_save-version.js';
 import { storedValueEquals } from '../_stored-value.js';
 import type { KvLike } from '../_storage.js';
+import { commitPlayerSaveRecord } from './_commit-player-save.js';
 import { WORLD_CRISIS_TRIGGER_LEVEL } from '../../shared/world-crisis.js';
 import { WORLD_CRISIS_80_TRIGGER_LEVEL } from '../../shared/world-crisis-80.js';
 import { reconcileElderFocus } from '../village/_elders.js';
@@ -110,9 +111,14 @@ export function versionedPlayerRecord(
     return { record, _saveVersion: Number(record._saveVersion ?? 0) };
 }
 
-/** Exact-CAS save write used by crash-recoverable settlement sagas. */
+/**
+ * Exact-CAS save write used by crash-recoverable settlement sagas. A write that
+ * moves currency commits the currency ledger row in the same transaction
+ * (commitPlayerSaveRecord); a store without multi-key support (a test fake)
+ * gets the plain compare-and-set.
+ */
 export async function writeVersionedPlayerSaveWithStore(
-    store: Pick<KvLike, 'get' | 'compareSet'>,
+    store: Pick<KvLike, 'get' | 'compareSet'> & Partial<Pick<KvLike, 'compareSetMany' | 'set'>>,
     saveKey: string,
     currentRecord: PlayerSaveRecord,
     nextCharacter: PlayerCharacter,
@@ -123,7 +129,12 @@ export async function writeVersionedPlayerSaveWithStore(
     const out = versionedPlayerRecord(currentRecord, nextCharacter, recordPatch, opts);
     const intended = mergePreservingImages(out.record, currentRecord) as PlayerSaveRecord;
     try {
-        const committed = await store.compareSet(saveKey, currentRecord, intended);
+        const committed = await commitPlayerSaveRecord(store, {
+            playerName: saveKey.startsWith('save:') ? saveKey.slice('save:'.length) : saveKey,
+            saveKey,
+            expected: currentRecord,
+            intended,
+        });
         if (committed !== true) throw new Error('player-save-version-conflict');
     } catch (error) {
         if (error instanceof Error && error.message === 'player-save-version-conflict') throw error;
@@ -152,16 +163,8 @@ export async function writeVersionedPlayerSave(
             if (isPublicPlayerIndexKey(name)) await kv.hset(REGISTRY_KEY, { [name]: buildPublicPlayerIndexEntry(nextCharacter, name) });
         } catch (error) { console.warn('[village-roles] public ranking refresh deferred:', error); }
     }
-    // Project the currency slice into its side-car ledger (P0-5). The blob
-    // above is and stays authoritative; this only builds the evidence a future
-    // read cutover needs. It costs nothing when the write did not move
-    // currency, and can never fail the save — see api/_currency-ledger.ts.
-    const { syncCurrencyLedger } = await import('../_currency-ledger.js');
-    await syncCurrencyLedger(
-        saveKey.slice('save:'.length),
-        out.record,
-        { previousCharacter: (currentRecord.character ?? null) as PlayerCharacter | null },
-    );
+    // The currency ledger row (P0-5) was committed in the same transaction as
+    // the save above, when the write moved currency — see commitPlayerSaveRecord.
     const beforeLevel = Math.max(0, Math.floor(Number((currentRecord.character as PlayerCharacter | undefined)?.level) || 0));
     const afterCharacter = (out.record.character ?? nextCharacter) as PlayerCharacter;
     const afterLevel = Math.max(0, Math.floor(Number(afterCharacter.level) || 0));
