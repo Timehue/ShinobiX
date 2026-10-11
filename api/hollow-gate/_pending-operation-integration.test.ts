@@ -6,7 +6,6 @@ import type { HollowGateRunToken } from './_run-token.js';
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
 process.env.SESSION_SECRET = randomBytes(32).toString('hex');
-delete process.env.VERCEL;
 delete process.env.DISCORD_ANNOUNCE_WEBHOOK_URL;
 
 type Character = Record<string, unknown>;

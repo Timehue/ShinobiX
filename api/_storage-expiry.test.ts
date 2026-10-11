@@ -5,8 +5,6 @@ import pg from 'pg';
 // Exercise the production pg adapter over an isolated row store. This process
 // never connects to a database and uses no production credentials.
 process.env.DATABASE_URL = 'postgresql://expiry-test:expiry-test@127.0.0.1/expiry-test';
-process.env.FORCE_PG_KV = '1';
-delete process.env.VERCEL;
 delete process.env.DISK_KV_DIR;
 delete process.env.KV_PROXY_URL;
 delete process.env.KV_PROXY_TOKEN;

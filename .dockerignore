@@ -15,6 +15,7 @@ shinobij.client/.env
 .gitignore
 .vs
 .claude
+# Retired Vercel link dir that old checkouts still hold; never bake it in.
 .vercel
 
 # Release builds need application source and runtime assets, not the 68 MB of

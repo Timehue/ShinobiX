@@ -6,8 +6,6 @@ import { matchesStoredSaveVersion } from './save/_save-version.js';
 import { buildRecoveryCodeRecord, recoveryCodeMatches, type RecoveryCodeRecord } from './_recovery-code.js';
 
 process.env.DATABASE_URL = 'postgresql://cache-test:cache-test@127.0.0.1/cache-test';
-process.env.FORCE_PG_KV = '1';
-delete process.env.VERCEL;
 
 type StorageModule = typeof import('./_storage.js');
 type SaveRecord = { _saveVersion: number; character: Record<string, unknown> };

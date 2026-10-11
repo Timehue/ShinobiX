@@ -9,7 +9,7 @@
  * Rather than editing every fetch() call site, this hooks window.fetch once
  * at app boot. The interceptor:
  *
- *   1. Only touches relative /api/ URLs (skips Vercel proxy + 3rd parties)
+ *   1. Only touches relative /api/ URLs (skips 3rd parties)
  *   2. Reads the active player from sessionStorage (set by App.tsx when
  *      a character is loaded / cleared)
  *   3. Reads the revocable session token minted by player-auth

@@ -67,7 +67,7 @@ function isolatedServerEnv() {
     };
     for (const key of [
         'DATABASE_URL', 'SUPABASE_POSTGRES_URL', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY',
-        'DISK_KV_DIR', 'KV_PROXY_URL', 'KV_PROXY_TOKEN', 'REQUIRE_DISK_OVERLAY', 'VERCEL',
+        'DISK_KV_DIR', 'KV_PROXY_URL', 'KV_PROXY_TOKEN', 'REQUIRE_DISK_OVERLAY',
         'MAINTENANCE_MODE', 'DISABLE_NEW_REGISTRATIONS', 'FREEZE_ECONOMY_REWARDS',
     ]) delete env[key];
     return env;
