@@ -93,7 +93,16 @@ no step is "set a Railway variable".
    raw writes surfaced by the runtime guard.
 4. **Fail closed (next, gated).** Flip `CURRENCY_LEDGER_GATE_ENFORCED` in
    `api/save/_commit-player-save.ts` so a `divergent` row refuses the write
-   (and the sweep holds it for review instead of repairing it).
+   (and the sweep holds it for review instead of repairing it). Two things
+   must land WITH that flip, or a divergent account is wedged rather than
+   protected:
+   - `CurrencyLedgerDivergenceError` is not the save-version-conflict error,
+     so `mutatePlayerSave` routes it through `onUnconfirmedWrite`, not
+     `onConflict`. Map it to the clean-refusal path, and give the player a
+     retryable reply rather than a 500.
+   - An operator route that repairs one held account from its save (the
+     sweep's `reconcileCurrencyLedger` with the gate bypassed for that name),
+     so a held account is never stuck until a deploy.
 5. **Atomic settlements.** Trade, the Sunscar Exchange, the save-debit sagas and
    the cross-key treasury transfers commit every row they touch in one
    transaction — retiring F9 for money.
