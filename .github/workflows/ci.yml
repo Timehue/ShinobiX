@@ -241,6 +241,65 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+  pg_integration:
+    name: CI / pg-integration
+    runs-on: ubuntu-latest
+    # kv.compareSetMany carries every currency-moving save write. Its unit tests
+    # drive the pg adapter over a JS shim of pg.Pool, which cannot prove jsonb
+    # equality, ON CONFLICT ... WHERE, FOR SHARE row locks, real rollback, or
+    # deadlock freedom. This job runs the same adapter against a real Postgres:
+    # a throwaway service container, so it needs no credentials. The ceiling
+    # covers the service start, the install and the suite.
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: kv_integration
+          POSTGRES_PASSWORD: kv_integration
+          POSTGRES_DB: kv_integration
+        ports:
+          - 5432:5432
+        # Over TCP (-h): the image's init phase runs a temporary server on the
+        # Unix socket only, which a socket check would report as ready.
+        options: >-
+          --health-cmd "pg_isready -h 127.0.0.1 -U kv_integration -d kv_integration"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Initialize evidence
+        run: |
+          mkdir -p .ci-evidence/pg-integration
+          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > .ci-evidence/pg-integration/provenance.txt
+      - name: Install root dependencies
+        # The full install, not --omit=dev: the suite runs TypeScript through
+        # tsx, a devDependency, exactly as `npm test` does.
+        run: npm ci 2>&1 | tee .ci-evidence/pg-integration/root-install.log
+      - name: Storage integration tests against Postgres 16
+        env:
+          PG_INTEGRATION_DATABASE_URL: postgresql://kv_integration:kv_integration@127.0.0.1:5432/kv_integration
+          # Without this, a renamed or missing URL would skip every test and
+          # report green.
+          PG_INTEGRATION_REQUIRED: '1'
+        run: node --import tsx --test api/_storage-compare-set-many.pg-integration.test.ts 2>&1 | tee .ci-evidence/pg-integration/pg-integration-tests.log
+      - name: Retain pg integration evidence
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          include-hidden-files: true
+          name: evidence-pg-integration-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .ci-evidence/pg-integration/
+          if-no-files-found: warn
+          retention-days: 14
+
   client_quality:
     name: CI / client-quality
     runs-on: ubuntu-latest
@@ -1000,6 +1059,7 @@ jobs:
     needs:
       - server_contracts
       - server_build_security
+      - pg_integration
       - client_quality
       - release_artifact
       - release_certification
@@ -1015,6 +1075,7 @@ jobs:
         env:
           SERVER_CONTRACTS: ${{ needs.server_contracts.result }}
           SERVER_BUILD_SECURITY: ${{ needs.server_build_security.result }}
+          PG_INTEGRATION: ${{ needs.pg_integration.result }}
           CLIENT_QUALITY: ${{ needs.client_quality.result }}
           RELEASE_ARTIFACT: ${{ needs.release_artifact.result }}
           RELEASE_CERTIFICATION: ${{ needs.release_certification.result }}
@@ -1029,6 +1090,7 @@ jobs:
           printf '%s\n' \
             "server-contracts=$SERVER_CONTRACTS" \
             "server-build-security=$SERVER_BUILD_SECURITY" \
+            "pg-integration=$PG_INTEGRATION" \
             "client-quality=$CLIENT_QUALITY" \
             "release-artifact=$RELEASE_ARTIFACT" \
             "release-certification=$RELEASE_CERTIFICATION" \
@@ -1040,6 +1102,7 @@ jobs:
             | tee .ci-evidence/test-build/results.log
           test "$SERVER_CONTRACTS" = success
           test "$SERVER_BUILD_SECURITY" = success
+          test "$PG_INTEGRATION" = success
           test "$CLIENT_QUALITY" = success
           test "$RELEASE_ARTIFACT" = success
           test "$RELEASE_CERTIFICATION" = success
