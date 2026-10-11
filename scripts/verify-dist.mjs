@@ -66,7 +66,13 @@ const forbiddenClientExtensions = new Set([
 // in all, 11 KB each on average) took the production artifact to 528.9 MiB, 0.9 MiB
 // over. They land in the small catch all Docker layer, so the layer split is
 // unaffected. Reserve 530 MiB, leaving about 1.1 MiB of headroom.
-const maxClientArtifactBytes = 530 * 1024 * 1024;
+// 2026-10-11: art landed on main since then used that headroom up. The
+// production image build of main passed with a few KB to spare, and the ~3 KB
+// currency-ledger evidence box in Admin Diagnostics (PR #338) crossed it. Any
+// client change would have. A local build of that tree measures 555,606,760 B
+// (529.9 MiB); the image build runs higher because it bakes in the production
+// VITE_* settings. Reserve 532 MiB, about 2 MiB of headroom again.
+const maxClientArtifactBytes = 532 * 1024 * 1024;
 const maxRallyAtlasBytes = 4 * 1024 * 1024;
 
 function fail(msg) {
