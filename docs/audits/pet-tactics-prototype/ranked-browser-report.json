@@ -1,0 +1,40 @@
+{
+  "mode": "ranked-player-controlled",
+  "desktop": true,
+  "mobile": true,
+  "twoPlayerCommandRounds": 14,
+  "reconnect": true,
+  "terminal": "win",
+  "errors": [],
+  "badResponses": [],
+  "rankedSearchCancel": true,
+  "commandMenu": {
+    "keyboard": true,
+    "localDraftPrivacy": true,
+    "intelEscape": true,
+    "mobilePinnedControls": true,
+    "integratedResources": true,
+    "arenaMeetsMenu": true,
+    "playbackHud": true,
+    "resourcesAfterRound": true,
+    "lifecycleSignals": true
+  },
+  "reason": "knockout",
+  "rounds": 14,
+  "settlement": [
+    {
+      "rating": 1012,
+      "receipts": 1,
+      "version": 2,
+      "ryo": 500,
+      "pets": 0
+    },
+    {
+      "rating": 988,
+      "receipts": 1,
+      "version": 2,
+      "ryo": 500,
+      "pets": 0
+    }
+  ]
+}

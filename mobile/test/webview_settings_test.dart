@@ -373,7 +373,7 @@ void main() {
     expect(activity, isNot(contains('setOnApplyWindowInsetsListener(flutterView')));
   });
 
-  test('the manifest asks for internet and vibration only, and keeps backups off', () {
+  test('the manifest asks only for required internet, vibration, and Play Billing permissions', () {
     final manifest = _read('android/app/src/main/AndroidManifest.xml');
     final permissions = RegExp(r'<uses-permission android:name="([^"]+)"')
         .allMatches(manifest)
@@ -416,10 +416,16 @@ void main() {
 
   test('the WebView camera capture provider exposes only app-specific capture files', () {
     final manifest = _read('android/app/src/main/AndroidManifest.xml');
-    const providerPattern = r'<provider\s+android:name="com\.pichillilorenzo\.flutter_inappwebview_android\.InAppWebViewFileProvider"[\s\S]*?</provider>';
+    const providerPattern =
+        r'<provider\s+android:name="com\.pichillilorenzo\.flutter_inappwebview_android\.InAppWebViewFileProvider"[\s\S]*?</provider>';
     final provider = RegExp(providerPattern).firstMatch(manifest)?.group(0);
     expect(provider, isNotNull);
-    expect(provider, contains('android:authorities="\${applicationId}.flutter_inappwebview_android.fileprovider"'));
+    expect(
+      provider,
+      contains(
+        'android:authorities="\${applicationId}.flutter_inappwebview_android.fileprovider"',
+      ),
+    );
     expect(provider, contains('android:exported="false"'));
     expect(provider, contains('android:grantUriPermissions="true"'));
     expect(provider, contains('android:resource="@xml/provider_paths"'));

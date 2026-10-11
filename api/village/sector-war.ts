@@ -78,6 +78,7 @@ import { loadAdminCombatContent } from '../_admin-content.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
 import { isIncapacitated } from '../_elapsed-state.js';
+import { settleHeldFights } from '../pve/_held-fights.js';
 import { villageHasActiveWar, seedHomeSectorOwnership } from '../world-state.js';
 import {
     WAR_DECLARATION_FUNDING_FIELD,
@@ -1037,6 +1038,13 @@ async function doGarrisonStart(req: VercelRequest, res: VercelResponse, identity
                 error: `The defence is still contesting this sector — the garrison can be assaulted in ${mins} min if no defender fights.`,
             } };
         }
+
+        // Every fight this player is holding is settled before the assault is
+        // sealed from the save, so it is never fought on HP an earlier fight
+        // already spent (api/pve/_held-fights.ts). It runs after the gates
+        // above, so an assault refused there ends no open fight.
+        const held = await settleHeldFights(playerName);
+        if (!held.ok) return { status: held.status, body: { error: held.error, errorCode: held.reason } };
 
         const rec = await augmentSaveWithForgedDefs(await kv.get<Record<string, unknown>>(`save:${playerName}`));
         const char = rec?.character as Record<string, unknown> | undefined;

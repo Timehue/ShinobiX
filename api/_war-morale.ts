@@ -21,6 +21,8 @@ export const WAR_DEBUFF_TRAINING_XP_MULT = 1.1;
 export const WAR_DEBUFF_JUTSU_TIME_MULT = 0.9;
 export const WAR_BUFF_TRAINING_XP_MULT = 1;
 export const WAR_BUFF_JUTSU_TIME_MULT = 1;
+export const WORLD_BOSS_ASHFALL_TRAINING_XP_MULT = 0.95;
+export const WORLD_BOSS_ASHFALL_JUTSU_TIME_MULT = 1.05;
 
 export type WarMorale = 'triumphant' | 'rallying' | 'none';
 
@@ -31,13 +33,16 @@ export interface VillageWarMorale {
     /** Multiply jutsu training DURATION by this. 1 when neutral. */
     jutsuTimeMult: number;
     until: number;
+    ashfallActive: boolean;
+    ashfallUntil: number;
 }
 
-export const NEUTRAL_MORALE: VillageWarMorale = { morale: 'none', xpMult: 1, jutsuTimeMult: 1, until: 0 };
+export const NEUTRAL_MORALE: VillageWarMorale = { morale: 'none', xpMult: 1, jutsuTimeMult: 1, until: 0, ashfallActive: false, ashfallUntil: 0 };
 
 export interface WarMoraleStamps {
     warLossDebuffUntil?: unknown;
     warWinBuffUntil?: unknown;
+    worldBossAshfallUntil?: unknown;
 }
 
 export const WAR_COMEBACK_RALLY_MS = 3 * 24 * 60 * 60 * 1000;
@@ -61,20 +66,31 @@ export function resolveWarMorale(stamps: WarMoraleStamps | null | undefined, now
     const win = Math.floor(Number(stamps?.warWinBuffUntil) || 0);
     const lossLive = loss > now;
     const winLive = win > now;
-    if (!lossLive && !winLive) return NEUTRAL_MORALE;
+    const ashfall = Math.floor(Number(stamps?.worldBossAshfallUntil) || 0);
+    const ashfallLive = ashfall > now;
+    if (!lossLive && !winLive && !ashfallLive) return NEUTRAL_MORALE;
+    let morale: WarMorale = 'none';
+    let xpMult = 1;
+    let jutsuTimeMult = 1;
+    let until = 0;
     if (lossLive && (!winLive || loss >= win)) {
-        return {
-            morale: 'rallying',
-            xpMult: WAR_DEBUFF_TRAINING_XP_MULT,
-            jutsuTimeMult: WAR_DEBUFF_JUTSU_TIME_MULT,
-            until: loss,
-        };
+        morale = 'rallying';
+        xpMult = WAR_DEBUFF_TRAINING_XP_MULT;
+        jutsuTimeMult = WAR_DEBUFF_JUTSU_TIME_MULT;
+        until = loss;
+    } else if (winLive) {
+        morale = 'triumphant';
+        xpMult = WAR_BUFF_TRAINING_XP_MULT;
+        jutsuTimeMult = WAR_BUFF_JUTSU_TIME_MULT;
+        until = win;
     }
     return {
-        morale: 'triumphant',
-        xpMult: WAR_BUFF_TRAINING_XP_MULT,
-        jutsuTimeMult: WAR_BUFF_JUTSU_TIME_MULT,
-        until: win,
+        morale,
+        xpMult: xpMult * (ashfallLive ? WORLD_BOSS_ASHFALL_TRAINING_XP_MULT : 1),
+        jutsuTimeMult: jutsuTimeMult * (ashfallLive ? WORLD_BOSS_ASHFALL_JUTSU_TIME_MULT : 1),
+        until,
+        ashfallActive: ashfallLive,
+        ashfallUntil: ashfallLive ? ashfall : 0,
     };
 }
 

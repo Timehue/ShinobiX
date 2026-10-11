@@ -54,6 +54,7 @@ export interface RankedPetDuelResolution {
  * the retired path ordered its arguments that way.
  */
 export function resolveRankedPetDuel(token: RankedPetMatchToken): RankedPetDuelResolution {
+    if (token.control) throw new Error('Player-controlled Pet Arena matches require their committed session; AI resolution is forbidden.');
     const aIsCanonical = token.a <= token.b;
     const fromName = aIsCanonical ? token.a : token.b;
     const toName = aIsCanonical ? token.b : token.a;

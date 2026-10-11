@@ -42,7 +42,7 @@ import "./PetLadder.css";
  */
 
 const MODE_LABEL: Record<Mode, string> = { coliseum: "Pet Colosseum", tactical: "Beastbound Warfront" };
-const MODE_SUB: Record<Mode, string> = { coliseum: "2v2 live queue · two rotating reserves · Pet Elo", tactical: "4v4 offline ladder · best of three clashes" };
+const MODE_SUB: Record<Mode, string> = { coliseum: "Player-controlled 2v2 · two reserves · Pet Elo", tactical: "AI-driven 4v4 offline ladder · best of three clashes" };
 /* Painted mode emblems shared with the Pet Arena activity tiles — the ladder
    and the arena must read as the same two destinations. */
 const MODE_ART: Record<Mode, string> = { coliseum: arenaModeColosseum, tactical: arenaModeWarfront };
@@ -90,6 +90,7 @@ type PetLadderProps = {
     setScreen: (s: Screen) => void;
     sharedImages: Record<string, string>;
     onVersionedCharacter: (character: Character, version: number) => boolean;
+    onBattleActiveChange?: (active: boolean) => void; onFullscreenActiveChange?: (active: boolean) => void;
 };
 
 /** An account change must discard the previous account's edits and replay. */
@@ -97,7 +98,7 @@ export function PetLadder(props: PetLadderProps) {
     return <PetLadderSession key={props.character.name} {...props} />;
 }
 
-function PetLadderSession({ character, setScreen, sharedImages, onVersionedCharacter }: PetLadderProps) {
+function PetLadderSession({ character, setScreen, sharedImages, onVersionedCharacter, onBattleActiveChange, onFullscreenActiveChange }: PetLadderProps) {
     const breedingPetIds = activeClientBreedingParentIds(character);
     const [mode, setMode] = useState<Mode>(() => (
         sessionStorage.getItem("petLadder.mode") === "tactical"
@@ -230,7 +231,8 @@ function PetLadderSession({ character, setScreen, sharedImages, onVersionedChara
                     <div className="pl-stat"><div className="pl-stat-n">{character.petRankedLosses ?? 0}</div><div className="pl-stat-l">Losses</div></div>
                 </div>
             </div>
-            <PetLadderQueuePanel character={character} sharedImages={sharedImages} onVersionedCharacter={onVersionedCharacter} />
+            <PetLadderQueuePanel character={character} sharedImages={sharedImages} onVersionedCharacter={onVersionedCharacter}
+                onBattleActiveChange={onBattleActiveChange} onFullscreenActiveChange={onFullscreenActiveChange} />
             <ColosseumRatingBoard rating={character.petRankedRating ?? 1000} />
         </div>;
     }

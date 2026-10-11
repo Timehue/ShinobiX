@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState, useTransition, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition, type CSSProperties } from "react";
 import { cacheDynamicImport, lazyWithRetry } from "../lib/lazyWithRetry";
 import type { BattleHistoryEntry, Character, VersionedCharacterCommit } from "../types/character";
 import { visiblePoll } from "../lib/poll";
 import type { Screen } from "../types/core";
-import type { TowerHostLoadout } from "../lib/towers-api";
+import type { GameItem, SavedBloodline } from "../types/combat";
+import { buildHostLoadout } from "../lib/host-loadout";
 import { requestAiFight } from "../lib/ai-fight-request";
 import { fetchWorldCrisis } from "../lib/world-crisis";
 import stormveilArt from "../assets/map-landmarks/stormveil.webp";
@@ -38,7 +39,8 @@ function openWorldNews(setScreen: (screen: Screen) => void) {
     setScreen("hallOfLegends");
 }
 
-export function WorldCrisis({ character, setScreen, sharedImages, hostLoadout, onVersionedCharacter, onRecordBattle }: { character: Character; setScreen: (screen: Screen) => void; sharedImages: Record<string, string>; hostLoadout?: TowerHostLoadout; onVersionedCharacter?: VersionedCharacterCommit; onRecordBattle?: (entry: BattleHistoryEntry) => void }) {
+export function WorldCrisis({ character, creatorItems, savedBloodlines, setScreen, sharedImages, onVersionedCharacter, onRecordBattle }: { character: Character; creatorItems: GameItem[]; savedBloodlines: SavedBloodline[]; setScreen: (screen: Screen) => void; sharedImages: Record<string, string>; onVersionedCharacter?: VersionedCharacterCommit; onRecordBattle?: (entry: BattleHistoryEntry) => void }) {
+    const hostLoadout = useMemo(() => buildHostLoadout(character, savedBloodlines, creatorItems), [character, savedBloodlines, creatorItems]);
     const [chroniclePending, startChronicleTransition] = useTransition();
     const [chronicle, setChronicle] = useState<"37" | "80">(() => {
         try { return sessionStorage.getItem("worldCrisis.focus") === "80" ? "80" : "37"; }

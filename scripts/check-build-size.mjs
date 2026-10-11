@@ -842,7 +842,13 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // branch moved its own startup code off the initial graph instead, which merged
 // measures 1,421,285 B raw / 394,927 B gzip (main: 1,421,371 B / 395,010 B). Chunk,
 // CSS and asset limits stay put.
-const TOTAL_JS_CSS_FAIL_BYTES = 9_350_000;
+// 2026-10-10 FEATURE BRANCH SIZE ACCOUNTING: live main includes the player-led
+// Pet Arena release (9,406,369 B in production run 38074431719). The roaming
+// World Boss feature added 92,469 B against the earlier 9,333,815 B baseline.
+// Production run 38083112208 measured the combined candidate at 9,488,761 B.
+// Allow 9.513 MB, leaving 24,239 B of measured headroom. The independent
+// startup, per-chunk, CSS, gzip, asset, and lazy Sentry gates remain unchanged.
+const TOTAL_JS_CSS_FAIL_BYTES = 9_513_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
@@ -972,7 +978,13 @@ const INITIAL_GRAPH_FAIL_BYTES = 1_500_000;
 // ownership and shared daily HUD counter add about 0.8 KB to startup. Allow
 // 395,500 B for that measured feature cost and build variance. Initial raw,
 // entry, chunk, CSS and asset limits remain fixed; minigames/workshops are lazy.
-const INITIAL_GRAPH_GZIP_FAIL_BYTES = 395_500;
+// 2026-10-10 WORLD-BOSS MERGE: no startup code was added (raw initial graph fell
+// from 1,423,096 B on the last green image 60d6d1c70 to 1,422,924 B, and the
+// world-boss chunks are lazy), but main sat 20 B under this gate and gzip moves
+// ~30 B between builds, so the merge image read 395,511 B and blocked the deploy.
+// Re-baselined, with the owner's approval, to 396,500 B for ~1 KB of variance. The
+// next startup addition should still trim its own code first.
+const INITIAL_GRAPH_GZIP_FAIL_BYTES = 396_500;
 const SENTRY_VENDOR_FAIL_BYTES = 100_000;
 const SENTRY_VENDOR_RE = /^assets\/sentry-vendor-[^/]+\.js$/;
 // Three.js, React Three Fiber, Drei, and postprocessing are intentionally one

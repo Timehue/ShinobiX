@@ -1,5 +1,7 @@
 # Pet Showdown — the flagship pet battle mode
 
+Current balance proposal: [Pet PvP balance and decision-depth plan — October 10, 2026](pet-battle-balance-plan-2026-10-10.md). It records wounded-target damage probes, verified PvP call chains, and proposed live two-player commands, selectable move pools, competitive stat budgets, counterplay and NPC changes; it does not change the implemented rules described by the code.
+
 *Shipped 2026-08. Replaces the continuous-sim Pet Coliseum as the player-facing
 flagship; the legacy engines remain live only for their cross-system consumers
 (Hollow Gate seals, clan war, sector war, pet ladder, gauntlet) pending a

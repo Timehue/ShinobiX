@@ -262,9 +262,11 @@ Full details in `docs/auth-and-anti-cheat-patterns.md`. The load-bearing invaria
   re-run it locally before reverting anything. Two consecutive `main` runs in
   2026-08 failed on two *different* unrelated specs, and the first one passed on
   re-run. Read the failing assertion before believing the failure is yours.
-  CI also runs `test:e2e:warfront` and the desktop live Express Village Stores,
-  Academy persistence and route-wiring cases. The remaining `test:e2e:live`
-  cases and `:visual` are local checks; run them when touching what they cover.
+  CI also runs `test:e2e:warfront` and every live Express journey named in the
+  `e2e-village-stores` job of `.github/workflows/ci.yml` (economy, Academy,
+  routes, recovery, PvP, fieldwork, Exchange/war and two-client sector
+  presence, among others). Any other `test:e2e:live` case and `:visual` are local
+  checks; run them when touching what they cover.
 
 ## Refactoring Rules
 

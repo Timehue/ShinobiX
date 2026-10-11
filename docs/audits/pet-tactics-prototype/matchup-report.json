@@ -1,0 +1,241 @@
+{
+  "ruleset": "pet-tactics-v1",
+  "fixtureSeed": 581309,
+  "evidence": "Controlled deterministic resolver simulations; public-state heuristics, not human playtesting.",
+  "sourceSha256": {
+    "api/_pet-tactics/engine.ts": "1e357ddafbd0aabd0638ef56d83277cde4fff5d0f606f767f6ca84bae3995ad3",
+    "shared/pet-tactics-roster.ts": "4189018c0529957e35c07110ca07dc9e98f5328ad115a876d8bdc2d4b2297dfc",
+    "shared/pet-tactics-contract.ts": "973b21b75d4364caad431fb3170dc352c9a2266c4bd99a0bc65ade675836e353",
+    "scripts/pet-tactics-balance-audit.mts": "a46dbd63fac35199ba56631837f444c6686d1e83b39039a2be652a7baf844543",
+    "scripts/pet-tactics-matchup-audit.mts": "3859ca617f44c5244bac50e608bb8613cbb473f958d57200ae9c250c670c65b9"
+  },
+  "fixtureCoverage": {
+    "species": 12,
+    "allocations": [
+      "balanced",
+      "pressure",
+      "bulk",
+      "tempo",
+      "endurance",
+      "swiftBulk"
+    ],
+    "items": [
+      "reserve-cell",
+      "ward-charm",
+      "focus-lens"
+    ],
+    "customMovePoolShare": 0.4,
+    "randomizedLeads": true,
+    "pairedSeats": true
+  },
+  "selfPlay": {
+    "matches": 2400,
+    "independentSquadPairs": 1200,
+    "seatAScore": 0.4945833333333333,
+    "species": [
+      {
+        "name": "Cinder Cub",
+        "pairedAppearances": 851,
+        "conditionalTeamScore": 0.504994124559342
+      },
+      {
+        "name": "Ripple Seal",
+        "pairedAppearances": 817,
+        "conditionalTeamScore": 0.48378212974296203
+      },
+      {
+        "name": "Gale Chick",
+        "pairedAppearances": 815,
+        "conditionalTeamScore": 0.4883435582822086
+      },
+      {
+        "name": "Spark Pup",
+        "pairedAppearances": 781,
+        "conditionalTeamScore": 0.4532650448143406
+      },
+      {
+        "name": "Pebble Tortoise",
+        "pairedAppearances": 805,
+        "conditionalTeamScore": 0.49813664596273294
+      },
+      {
+        "name": "Ember Wolf",
+        "pairedAppearances": 777,
+        "conditionalTeamScore": 0.5128700128700129
+      },
+      {
+        "name": "Tidal Selkie",
+        "pairedAppearances": 774,
+        "conditionalTeamScore": 0.5071059431524548
+      },
+      {
+        "name": "Storm Hawk",
+        "pairedAppearances": 844,
+        "conditionalTeamScore": 0.47422985781990523
+      },
+      {
+        "name": "Bolt Fang",
+        "pairedAppearances": 795,
+        "conditionalTeamScore": 0.48364779874213837
+      },
+      {
+        "name": "Granite Tortoise",
+        "pairedAppearances": 788,
+        "conditionalTeamScore": 0.5701142131979695
+      },
+      {
+        "name": "Abyssal Leviathan",
+        "pairedAppearances": 767,
+        "conditionalTeamScore": 0.5609517601043025
+      },
+      {
+        "name": "Eclipse Kitsune",
+        "pairedAppearances": 786,
+        "conditionalTeamScore": 0.4666030534351145
+      }
+    ]
+  },
+  "controlledLeadSubstitutions": {
+    "matches": 8448,
+    "fixturesPerSpecies": 352,
+    "species": [
+      {
+        "name": "Cinder Cub",
+        "fixtures": 352,
+        "meanTeamScoreDelta": 0.0390625
+      },
+      {
+        "name": "Ripple Seal",
+        "fixtures": 352,
+        "meanTeamScoreDelta": 0.03622159090909091
+      },
+      {
+        "name": "Gale Chick",
+        "fixtures": 352,
+        "meanTeamScoreDelta": -0.07315340909090909
+      },
+      {
+        "name": "Spark Pup",
+        "fixtures": 352,
+        "meanTeamScoreDelta": -0.041193181818181816
+      },
+      {
+        "name": "Pebble Tortoise",
+        "fixtures": 352,
+        "meanTeamScoreDelta": -0.04261363636363636
+      },
+      {
+        "name": "Ember Wolf",
+        "fixtures": 352,
+        "meanTeamScoreDelta": 0.030539772727272728
+      },
+      {
+        "name": "Tidal Selkie",
+        "fixtures": 352,
+        "meanTeamScoreDelta": 0.0078125
+      },
+      {
+        "name": "Storm Hawk",
+        "fixtures": 352,
+        "meanTeamScoreDelta": -0.09090909090909091
+      },
+      {
+        "name": "Bolt Fang",
+        "fixtures": 352,
+        "meanTeamScoreDelta": -0.04758522727272727
+      },
+      {
+        "name": "Granite Tortoise",
+        "fixtures": 352,
+        "meanTeamScoreDelta": 0.07102272727272728
+      },
+      {
+        "name": "Abyssal Leviathan",
+        "fixtures": 352,
+        "meanTeamScoreDelta": 0.07528409090909091
+      },
+      {
+        "name": "Eclipse Kitsune",
+        "fixtures": 352,
+        "meanTeamScoreDelta": 0.03551136363636364
+      }
+    ]
+  },
+  "mirror": {
+    "matches": 240,
+    "seatAScore": 0.4895833333333333
+  },
+  "policyComparisons": [
+    {
+      "opponent": "highest-damage",
+      "pairedSquadSamples": 180,
+      "matches": 360,
+      "tacticalScore": 0.6097222222222223
+    },
+    {
+      "opponent": "ultimate-spam",
+      "pairedSquadSamples": 180,
+      "matches": 360,
+      "tacticalScore": 0.6402777777777777
+    },
+    {
+      "opponent": "guard-spam",
+      "pairedSquadSamples": 180,
+      "matches": 360,
+      "tacticalScore": 1
+    },
+    {
+      "opponent": "sustain-loop",
+      "pairedSquadSamples": 180,
+      "matches": 360,
+      "tacticalScore": 1
+    }
+  ],
+  "signatures": {
+    "probes": 24192,
+    "unpreparedFullHealthKos": 0,
+    "capViolations": 0,
+    "maxUnpreparedHpFraction": 0.5989130434782609,
+    "maxPreparedHpFraction": 0.7491166077738516,
+    "maxGuardedHpFraction": 0.375
+  },
+  "totals": {
+    "matches": 12528,
+    "medianRounds": 15,
+    "p90Rounds": 20,
+    "draws": 315,
+    "reasons": {
+      "knockout": 12528
+    }
+  },
+  "actionUsage": {
+    "wind-pulse": 75363,
+    "earth-pulse": 51085,
+    "water-pulse": 68430,
+    "wind-breaker": 25586,
+    "earth-breaker": 18647,
+    "switch": 61817,
+    "fire-pulse": 33231,
+    "aegis": 19137,
+    "signature": 49329,
+    "water-breaker": 26515,
+    "bind": 6457,
+    "rest": 68989,
+    "expose": 19950,
+    "lightning-strike": 13888,
+    "basic": 34133,
+    "protect": 15682,
+    "water-strike": 16409,
+    "lightning-breaker": 14047,
+    "mend": 15985,
+    "lightning-pulse": 34634,
+    "fire-strike": 15894,
+    "fire-breaker": 17521,
+    "rally": 4906,
+    "wind-strike": 12673,
+    "earth-strike": 11855,
+    "open-wound": 336,
+    "guard": 10777
+  },
+  "limitations": "Conditional species team scores include shared teammates. Controlled substitutions isolate the lead species/kit under two presets but not optimized team synergy. Randomized legal builds are not optimized human builds. Policy forecasts omit several utility combinations; no meta or full-roster certification is implied."
+}

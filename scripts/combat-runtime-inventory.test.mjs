@@ -162,7 +162,8 @@ describe('executable multi-engine runtime registry', () => {
     // Chronicle match and a server-settled parent-run receipt.
     // 67 as of 2026-10-01: caravan ambushes use the Tower engine while
     // preserving the parent caravan run as their settlement owner.
-    assert.equal(ids.length, 67, 'The corrected inventory must retain the independently pinned 67-row model.');
+    // 68 as of 2026-10-10: live simultaneous-order Pet Tactics prototype.
+    assert.equal(ids.length, 68, 'The inventory must retain the independently pinned 68-row model.');
     assert.equal(new Set(ids).size, ids.length, 'Runtime mode ids must be unique.');
     assert.equal(new Set(labels).size, labels.length, 'Runtime mode labels must be unique.');
     assert.equal(new Set(expectedIds).size, expectedIds.length, 'Independent expected mode ids must be unique.');
@@ -646,7 +647,7 @@ describe('executable multi-engine runtime registry', () => {
     // fight is the one both players watch.
     const rankedPet = runtimeModeById('pet-ranked-live');
     assert.equal(rankedPet.status, 'match');
-    assert.equal(rankedPet.authorityEngine, E.PET_SHOWDOWN);
+    assert.equal(rankedPet.authorityEngine, E.PET_TACTICS);
     assert.equal(rankedPet.rewardPolicy, 'server-settled');
     assert.match(petLadderSource, /<PetLadderQueuePanel/);
     assert.doesNotMatch(petLadderSource, /PetDuelLiveHost|autoAcceptFrom|queuedAgainst/);
@@ -661,6 +662,8 @@ describe('executable multi-engine runtime registry', () => {
     // The panel must never simulate a ranked fight locally — that WAS the bug.
     assert.doesNotMatch(petLadderQueuePanelSource, /runPetDuel|runPetDuelCinematic|Math\.random/);
     assert.match(petLadderQueuePanelSource, /fetchRankedPetDuel/);
+    assert.match(petLadderQueuePanelSource, /<PetArenaCommands/);
+    assert.match(rankedDuelSource, /AI resolution is forbidden/);
     assert.doesNotMatch(petSocketSource, /petRankedRating|recordPetArenaVictory|writeSaveProjected/);
 
     const rankedCompat = runtimeModeById('pet-ranked-legacy-compat');
@@ -679,7 +682,7 @@ describe('executable multi-engine runtime registry', () => {
       'ranked must never be simulated on the client again — it is watched, not fought');
     assert.match(petArenaSource, /fetchRankedPetDuel\(opponent\.petRankedToken/,
       'the ranked screen must read the fight the server actually rated');
-    assert.match(petBattleResultSource, /resolveRankedPetDuel\(/);
+    assert.match(petBattleResultSource, /rankedArenaWinner\(/);
     assert.match(rankedCompat.statusDetail, /Retained reciprocal one-pet proofs/);
 
     // Owner ruling (2026-09-24): Send pet fights the road-beast Colosseum duel,
@@ -760,6 +763,7 @@ describe('executable multi-engine runtime registry', () => {
 
   it('keeps every pet authority explicitly separate from every other pet authority', () => {
     const petAuthorities = [
+      RUNTIME_AUTHORITY_ENGINES.PET_TACTICS,
       RUNTIME_AUTHORITY_ENGINES.PET_SHOWDOWN,
       RUNTIME_AUTHORITY_ENGINES.PET_WARFRONT,
       RUNTIME_AUTHORITY_ENGINES.PET_GAUNTLET_GRID,
