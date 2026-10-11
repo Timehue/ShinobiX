@@ -1,4 +1,4 @@
-// Shared utilities for Vercel API functions
+// Shared utilities for the api/ handlers
 
 // Max length for a player / clan-slug name. KV keys like `save:<name>`,
 // `ratelimit:save:<name>:gains`, `presence:<name>`, etc. embed this string,

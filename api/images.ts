@@ -426,11 +426,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=120');
 
-            // Helper: read a kv value with a per-call timeout so one slow Supabase
-            // REST response never hangs the whole function.
-            // 18s per KV call — Supabase client aborts at 20s, function maxDuration is 30s.
-            // This ordering (18 < 20 < 30) ensures: Promise.race fires, Supabase aborts,
-            // function returns cleanly — never hard-killed mid-flight by Vercel.
+            // Helper: read a kv value with a per-call timeout so one slow read
+            // never hangs the whole request. 18s per KV call — under both the pg
+            // pool's statement timeout (PG_STATEMENT_TIMEOUT_MS, default 30s) and
+            // the Supabase REST fallback's 20s abort, so Promise.race fires first.
             const withTimeout = <T>(p: Promise<T | null>, ms = 18_000): Promise<T | null> =>
                 Promise.race([p, new Promise<null>((resolve) => setTimeout(() => resolve(null), ms))]);
 

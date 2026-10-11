@@ -1,18 +1,20 @@
 /**
- * Dual-mode KV adapter — drop-in replacement for @vercel/kv.
- * Railway is the active runtime; cPanel/Passenger and Vercel references below
- * describe retained compatibility, migration, or rollback behavior only.
+ * The app's KV store, backed by the Supabase Postgres `kv_store` table.
+ * Railway (the Express server, `dist/server.js`) is the only runtime.
  *
  * ┌──────────────┬──────────────────────────────────────────────────────┐
- * │ Environment  │ Backend                                              │
+ * │ Selected by  │ Backend                                              │
  * ├──────────────┼──────────────────────────────────────────────────────┤
- * │ cPanel /     │ pg Pool → direct Postgres.  No REST timeout; handles │
- * │ Passenger    │ 10 MB+ image blobs.  DATABASE_URL env var required.  │
+ * │ DATABASE_URL │ pg Pool → direct Postgres.  No REST timeout; handles │
+ * │ (Railway)    │ 10 MB+ image blobs.  SUPABASE_POSTGRES_URL is also   │
+ * │              │ accepted.                                            │
  * ├──────────────┼──────────────────────────────────────────────────────┤
- * │ Vercel /     │ Supabase REST API (PostgREST).  HTTP-based; no TCP   │
- * │ serverless   │ cold-start penalty.  SUPABASE_URL +                  │
- * │              │ SUPABASE_SERVICE_ROLE_KEY env vars required.         │
+ * │ no Postgres  │ Supabase REST API (PostgREST) fallback.  Needs       │
+ * │ URL          │ SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY.            │
  * │              │ Statement timeout raised to 120s via ALTER ROLE.     │
+ * ├──────────────┼──────────────────────────────────────────────────────┤
+ * │ SHINOBIX_QA_ │ Isolated in-memory store.  Tests and local QA        │
+ * │ MEMORY_KV=1  │ harnesses only; refused unless NODE_ENV=test.        │
  * └──────────────┴──────────────────────────────────────────────────────┘
  *
  * Storage model (shared):
@@ -23,11 +25,9 @@
  */
 
 // ─── In-process read cache ────────────────────────────────────────────────────
-// On cPanel / Passenger the Node process is long-lived, so this Map survives
-// across requests and acts as a free first-level cache that absorbs repeated
-// reads (world-state, images, etc.) without touching Postgres at all.
-// On Vercel (stateless) instances are short-lived so this is a best-effort
-// bonus; CDN Cache-Control headers are the primary caching layer there.
+// The Railway Node process is long-lived, so this Map survives across requests
+// and acts as a free first-level cache that absorbs repeated reads
+// (world-state, images, etc.) without touching Postgres at all.
 
 import type { KvProjection } from './_storage-projection.js';
 import { signalKeyWritten } from './_kv-write-signal.js';
@@ -259,8 +259,7 @@ function getPool(): pg.Pool {
     if (_storageClosed) throw new Error('Storage is closed for shutdown.');
     if (_pool) return _pool;
 
-    // DATABASE_URL wins; fall back to SUPABASE_POSTGRES_URL (set automatically
-    // by the Supabase Vercel integration on all environments).
+    // DATABASE_URL wins; fall back to SUPABASE_POSTGRES_URL.
     const url = (process.env.DATABASE_URL ?? process.env.SUPABASE_POSTGRES_URL)!;
 
     // Strip params that confuse pg: sslmode (pg v8 treats require as verify-full)
@@ -793,7 +792,7 @@ const pgKv = {
  * simulate independent processes over one mocked Postgres row store. */
 export const _pgKvForTest = pgKv;
 
-// ─── Supabase REST backend (Vercel / serverless) ──────────────────────────────
+// ─── Supabase REST backend (fallback when no Postgres URL is set) ─────────────
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
@@ -970,8 +969,8 @@ const supabaseKv = {
 
     async delIfEqual(key: string, expected: unknown): Promise<boolean> {
         const db = getSupabase();
-        // Retired Vercel/Supabase-REST backend — locks route to pgKv on
-        // Railway/cPanel, so this is never on the real lock path. Filtering the
+        // Supabase-REST fallback backend — locks route to pgKv on Railway,
+        // so this is never on the real lock path. Filtering the
         // JSONB `value` column with a scalar .eq can be finicky in PostgREST, so
         // this fails SAFE: on ANY error it deletes nothing and returns false, so
         // the lock simply lingers to its short TTL rather than risking deleting a
@@ -1359,10 +1358,6 @@ export function _makeMemoryKv(): KvLike {
 // used to hold those prefixes, were removed on 2026-10-02 after the 2026-07-17
 // cutover (docs/RETIRE_CPANEL_RUNBOOK.md).
 
-// On Vercel, always use the Supabase REST API regardless of which Postgres
-// env vars are present. The Supabase Vercel integration auto-sets a pile of
-// SUPABASE_POSTGRES_* vars that may not work from Vercel's network anyway.
-// Set FORCE_PG_KV=1 to override and force the pg pool path.
 /*
  * The backend is chosen on FIRST USE, not at module evaluation.
  *
@@ -1395,21 +1390,19 @@ export function _makeMemoryKv(): KvLike {
  * Cost is a resolved-instance check plus a cached bound method per call — nothing
  * against a database round trip.
  */
-const _onVercel = !!process.env.VERCEL;
 let _resolvedBaseKv: KvLike | null = null;
 const _boundBaseKvMembers = new Map<PropertyKey, unknown>();
 
 function _resolveBaseKv(): KvLike {
     if (_resolvedBaseKv) return _resolvedBaseKv;
-    const forcePg = process.env.FORCE_PG_KV === '1';
     const havePgUrl = !!(process.env.DATABASE_URL || process.env.SUPABASE_POSTGRES_URL);
     const qaMemoryKv = process.env.SHINOBIX_QA_MEMORY_KV === '1';
-    if (qaMemoryKv && (process.env.NODE_ENV !== 'test' || _onVercel)) {
-        throw new Error('[kv] SHINOBIX_QA_MEMORY_KV requires NODE_ENV=test and cannot run on Vercel.');
+    if (qaMemoryKv && process.env.NODE_ENV !== 'test') {
+        throw new Error('[kv] SHINOBIX_QA_MEMORY_KV requires NODE_ENV=test.');
     }
     _resolvedBaseKv = qaMemoryKv
         ? _makeMemoryKv()
-        : ((forcePg || (havePgUrl && !_onVercel)) ? pgKv : guardedSupabaseKv);
+        : (havePgUrl ? pgKv : guardedSupabaseKv);
     if (qaMemoryKv) console.log('[kv] isolated in-memory QA backend active');
     return _resolvedBaseKv;
 }

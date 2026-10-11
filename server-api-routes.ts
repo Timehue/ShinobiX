@@ -166,8 +166,7 @@ import worldOpenChestHandler from './api/world/open-chest.js';
 import saveSnapshotHandler from './api/admin/save-snapshot.js';
 // Cron — daily save-snapshot HTTP trigger. The nightly run is in-process via
 // startSnapshotCron (api/cron/_scheduler.ts); this endpoint stays for manual
-// ops/admin triggers. On Vercel the api/ folder convention exposed it; off
-// Vercel it must be registered explicitly or it 404s.
+// ops/admin triggers. Like every handler, it must be registered here or it 404s.
 import snapshotSavesHandler from './api/cron/snapshot-saves.js';
 
 // Clan — wars

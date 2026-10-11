@@ -24,7 +24,7 @@ import { sectorContractFor, utcDayOf } from '../shared/sector-contracts.ts';
 import { freshSectorChat, isSectorChatSector, sectorChatSince, SECTOR_CHAT_KEEP, SECTOR_CHAT_MAX_CHARS, type SectorChatMessage } from '../shared/sector-chat.ts';
 import { issueSignedDevSessionToken, verifySignedDevSessionToken } from './dev-session-auth.ts';
 
-// ── Cert setup (dev only — skipped on CI / Vercel / production builds) ────────
+// ── Cert setup (dev only — skipped on CI / production builds) ────────
 const isBuildMode = process.argv.includes('build');
 
 let httpsConfig: { key: Buffer; cert: Buffer } | undefined;
