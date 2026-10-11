@@ -289,6 +289,10 @@ export function SceneAmbience({
         function draw(t: number) {
             if (!running) return;
             if (weatherOnly && (frameParity++ & 1)) { raf = requestAnimationFrame(draw); return; }
+            // Scene ambience (hub, map, village, sector) drifts slowly enough to read the
+            // same at ~30fps on any refresh rate; `last` is not advanced on a skipped
+            // frame, so `dt` still covers the whole gap and the motion speed is unchanged.
+            if (!weatherOnly && last && t - last < 28) { raf = requestAnimationFrame(draw); return; }
             const dt = Math.min(0.05, last ? (t - last) / 1000 : 0.016);
             last = t;
             ctx!.clearRect(0, 0, w, h);
