@@ -5,6 +5,7 @@ import { isFullAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { isPublicVisitorIp, trustedVisitorIp } from '../_client-ip.js';
 import { withKvLock } from '../_lock.js';
+import { VILLAGE_CHAT_TTL_SECONDS, villageChatKey } from '../village/_chat-key.js';
 import { withoutKvLeaseContext } from '../_kv-lock-context.js';
 import { runBackgroundWork } from '../_background-work.js';
 import { onlineStore } from '../_realtime/online-store.js';
@@ -513,7 +514,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // chat endpoint — just exposed under admin auth for moderation.
             const { village } = body as { village?: string };
             if (!village) return res.status(400).json({ error: 'Missing village.' });
-            const chatKey = `chat:village:${village.toLowerCase().replace(/\s+/g, '-')}`;
+            const chatKey = villageChatKey(village);
             const messages = (await kv.get<Array<{ author: string; text: string; ts: number; rank?: string; level?: number }>>(chatKey)) ?? [];
             return res.status(200).json({ village, messages: Array.isArray(messages) ? messages : [] });
         }
@@ -528,11 +529,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!village || !author || !Number.isFinite(ts)) {
                 return res.status(400).json({ error: 'Missing village, author, or ts.' });
             }
-            const chatBlobKey = `chat:village:${village.toLowerCase().replace(/\s+/g, '-')}`;
+            const chatBlobKey = villageChatKey(village);
             await withKvLock(chatBlobKey, async () => {
                 const list = (await kv.get<Array<{ author: string; ts: number }>>(chatBlobKey)) ?? [];
                 const next = list.filter(m => !(m.author === author && m.ts === ts));
-                await kv.set(chatBlobKey, next, { ex: 4 * 60 * 60 });
+                // Same TTL as every other writer: this rewrite resets the
+                // expiry of the WHOLE transcript, not just the deleted line.
+                await kv.set(chatBlobKey, next, { ex: VILLAGE_CHAT_TTL_SECONDS });
             });
             await appendAudit({
                 ts: Date.now(),
