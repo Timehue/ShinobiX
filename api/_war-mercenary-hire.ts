@@ -12,11 +12,11 @@ import { createHash, randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { kv, type KvLike } from './_storage.js';
 import { withKvLock } from './_lock.js';
-import { syncCurrencyLedger } from './_currency-ledger.js';
 import { mergePreservingImages } from './_utils.js';
 import { carriedRegenCursor, settleIdleRecovery, versionedPlayerRecord } from './save/_mutate-player-save.js';
+import { commitPlayerSave } from './save/_commit-player-save.js';
 
-type MercenaryHireStore = Pick<KvLike, 'get' | 'set' | 'compareSet'>;
+type MercenaryHireStore = Pick<KvLike, 'get' | 'set' | 'compareSet'> & Partial<Pick<KvLike, 'compareSetMany'>>;
 
 export const WAR_MERCENARY_FUNDING_FIELD = 'mercenaryFunding';
 export const WAR_MERCENARY_RECEIPTS_FIELD = 'mercenaryHireReceipts';
@@ -533,7 +533,7 @@ async function ensureSourceIntent(
         };
         const desired = projectSourceEntry(current, marker, pending, await settleIdleRecovery(store, marker.player, current));
         try {
-            if (await store.compareSet(marker.sourceKey, current, desired)) return { status: 'ready', row: desired };
+            if (await commitPlayerSave(store, marker.sourceKey, current, desired)) return { status: 'ready', row: desired };
         } catch (error) {
             const recovered = await store.get<Record<string, unknown>>(marker.sourceKey).catch(() => null);
             const recoveredEntry = recovered ? sourceEntryFromRow(recovered, marker) : null;
@@ -561,10 +561,7 @@ async function debitSource(
     for (let attempt = 0; attempt < 8; attempt += 1) {
         const intent = await ensureSourceIntent(store, warKey, fundingRow, marker, now);
         if (intent.status === 'blocked') return intent;
-        if (intent.status === 'committed') {
-            await syncCurrencyLedger(marker.player, intent.row, { kv: store });
-            return { ...intent, replayed: true };
-        }
+        if (intent.status === 'committed') return { ...intent, replayed: true };
         if (!isDeepStrictEqual(await store.get<Record<string, unknown>>(warKey), fundingRow)) {
             return { status: 'blocked', reason: 'war-funding-row-changed' };
         }
@@ -589,15 +586,15 @@ async function debitSource(
         };
         const desired = projectSourceEntry(intent.row, marker, receipt, await settleIdleRecovery(store, marker.player, intent.row), receipt.balanceAfter);
         try {
-            if (await store.compareSet(marker.sourceKey, intent.row, desired)) {
-                await syncCurrencyLedger(marker.player, desired, { kv: store });
+            // The Honor Seal debit commits its currency ledger row in the same
+            // transaction as the save.
+            if (await commitPlayerSave(store, marker.sourceKey, intent.row, desired)) {
                 return { status: 'committed', row: desired, receipt, replayed: false };
             }
         } catch (error) {
             const recovered = await store.get<Record<string, unknown>>(marker.sourceKey).catch(() => null);
             const recoveredReceipt = recovered ? sourceEntryFromRow(recovered, marker) : null;
             if (recovered && recoveredReceipt?.state === 'committed' && recoveredReceipt.ownerId === marker.ownerId) {
-                await syncCurrencyLedger(marker.player, recovered, { kv: store });
                 return { status: 'committed', row: recovered, receipt: recoveredReceipt, replayed: false };
             }
             throw error;
@@ -639,7 +636,7 @@ async function abortFunding(
             };
             const desiredSource = projectSourceEntry(source, marker, aborted, await settleIdleRecovery(store, marker.player, source));
             try {
-                if (!(await store.compareSet(marker.sourceKey, source, desiredSource))) continue;
+                if (!(await commitPlayerSave(store, marker.sourceKey, source, desiredSource))) continue;
             } catch (error) {
                 const recovered = await store.get<Record<string, unknown>>(marker.sourceKey).catch(() => null);
                 const recoveredEntry = recovered ? sourceEntryFromRow(recovered, marker) : null;

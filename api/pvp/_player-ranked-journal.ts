@@ -5,6 +5,7 @@ import { creditRankedOutcome } from '../_ranked-rating.js';
 import { safeName } from '../_utils.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { carriedRegenCursor, settleIdleRecovery } from '../save/_mutate-player-save.js';
+import { commitPlayerSave } from '../save/_commit-player-save.js';
 import { buildPublicPlayerIndexEntry, isPublicPlayerIndexKey, REGISTRY_KEY } from '../player/_public-index.js';
 import { inspectSettlementReceipt } from '../_settlement-receipts.js';
 import {
@@ -862,7 +863,7 @@ async function settleSide(
             { regenAt: carriedRegenCursor(character, nextCharacter, settled.regen) },
         );
         try {
-            if (await store.compareSet(saveKey, record, next)) {
+            if (await commitPlayerSave(store, saveKey, record, next)) {
                 await projectRankedLeaderboardSide(store, slug);
                 await confirmSide(store, journal, side, now);
                 return ratingAfter;

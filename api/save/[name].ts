@@ -39,7 +39,8 @@ import { awardWarEndClanXp } from '../clan/war/_war-xp.js';
 import { REGISTRY_KEY, buildPublicPlayerIndexEntry } from '../player/_public-index.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
 import { mirrorSlotContent } from '../_content-store.js';
-import { syncCurrencyLedger } from '../_currency-ledger.js';
+import { currencyLedgerKey, decreaseOnlyCurrencyDrops, recordCurrencyLedgerEvent } from '../_currency-ledger.js';
+import { commitPlayerSaveRecord } from './_commit-player-save.js';
 import { captureServerProductEvent } from '../_product-analytics.js';
 import { settleSaveRecordForRead } from '../_elapsed-state.js';
 import { readWalkedTile, resumeTileFor, resumeWorldPositionFor } from '../_realtime/walked-tile.js';
@@ -1273,7 +1274,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 && await firstSlimKeepsEveryFight(key, payload as Record<string, unknown>, slim.record, async () => slimAdminContent));
                         if (allowed) committedRecord = slim.record;
                     }
-                    const committed = await kv.compareSet(key, existing ?? null, committedRecord);
+                    // A player save that moves currency (a first save, the legacy
+                    // respec debit, a decrease-only spend) commits its currency
+                    // ledger row in the same transaction (P0-5). Clan blobs carry
+                    // no character and keep the plain compare-and-set.
+                    const committed = isClanSave
+                        ? await kv.compareSet(key, existing ?? null, committedRecord)
+                        : await commitPlayerSaveRecord(kv, {
+                            playerName: name,
+                            saveKey: key,
+                            expected: (existing ?? null) as Record<string, unknown> | null,
+                            intended: committedRecord as Record<string, unknown>,
+                        });
                     if (!committed) {
                         const current = await kv.get<Record<string, unknown>>(key).catch(() => null);
                         return res.status(409).json({
@@ -1285,16 +1297,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (!existing && identityName && !isClanSave) {
                         captureServerProductEvent('character_created', { source: 'save' });
                     }
-                    // Project the currency slice (P0-5). Player saves only —
-                    // clan blobs carry no character. Skipped automatically when
-                    // this write did not move currency, which is the common
-                    // case for an autosave.
                     if (!isClanSave) {
-                        await syncCurrencyLedger(name, payload as Record<string, unknown>, {
-                            previousCharacter: (existingObj?.character ?? null) as Record<string, unknown> | null,
-                        });
                         const beforeCharacter = (existingObj?.character ?? null) as Record<string, unknown> | null;
                         const afterCharacter = (payload as Record<string, unknown>).character as Record<string, unknown> | undefined;
+                        // Count the decrease-only currencies this autosave lowered.
+                        // Measurement only (the sanitizer already allowed it): no live
+                        // flow spends them through an autosave, so a steady count is
+                        // a stale tab writing back an old wallet.
+                        if (identityName) {
+                            const drops = decreaseOnlyCurrencyDrops(beforeCharacter, afterCharacter);
+                            if (drops.length > 0) {
+                                console.info('[currency-ledger] autosave lowered a decrease-only currency', safeLogValue(JSON.stringify({ player: identityName, drops })));
+                                void recordCurrencyLedgerEvent('autosave-decrease');
+                            }
+                        }
                         const beforeLevel = Math.max(0, Math.floor(Number(beforeCharacter?.level) || 0));
                         const afterLevel = Math.max(0, Math.floor(Number(afterCharacter?.level) || 0));
                         // Onboarding funnel. The save boundary is the only place
@@ -1458,10 +1474,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const char = (incoming as Record<string, unknown>)?.character as Record<string, unknown> | undefined;
                     const registryEntry = buildPublicPlayerIndexEntry(char, name);
 
-                    await Promise.all([
-                        kv.set(key, payload),
-                        kv.hset(REGISTRY_KEY, { [name]: registryEntry }),
-                    ]);
+                    // A player save is replaced only over the exact row read
+                    // above, and an admin currency edit moves the currency ledger
+                    // in the same transaction (P0-5): the admin's edit is the
+                    // truth. Clan blobs keep their plain write.
+                    if (isClanSave) {
+                        await kv.set(key, payload);
+                    } else if (!await commitPlayerSaveRecord(kv, {
+                        playerName: name,
+                        saveKey: key,
+                        expected: (existing ?? null) as Record<string, unknown> | null,
+                        intended: payload as Record<string, unknown>,
+                    })) {
+                        return res.status(409).json({
+                            error: 'This record changed while it was being saved. Reload before saving so you do not revert newer content.',
+                            storedVersion: adminStoredVersion,
+                            baseVersion: Number.isFinite(incomingVersion) ? incomingVersion : null,
+                        });
+                    }
+                    await kv.hset(REGISTRY_KEY, { [name]: registryEntry });
                     // Keep the canonical content store in step with a legacy
                     // publish, so a slot write can never leave the store stale
                     // (dual-read would then serve older content). Best-effort:
@@ -1599,6 +1630,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 await deletePlayerFirstPactState(name);
                 await Promise.all([
                     kv.del(key),
+                    // The currency ledger mirrors this save. Names are reusable,
+                    // so a surviving row would be read against the next account
+                    // to take the name.
+                    kv.del(currencyLedgerKey(name)),
                     kv.hdel(REGISTRY_KEY, name),
                     // Signal the player's client to reload on next heartbeat (5-min TTL)
                     kv.set(`reset-signal:${lowered}`, 1, { ex: 300 }),

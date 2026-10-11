@@ -1,26 +1,27 @@
 /*
  * The save write that keeps its side-cars in step.
  *
- * `mutatePlayerSave` / `writeVersionedPlayerSave` already project the currency
- * ledger (api/_currency-ledger.ts) after committing. Several settlement paths
- * predate that helper and hand-roll the same two lines instead:
+ * `mutatePlayerSave` / `writeVersionedPlayerSave` commit the currency ledger
+ * (api/_currency-ledger.ts) in the same transaction as the save. Several
+ * settlement paths predate that helper and hand-roll the same two lines instead:
  *
  *     await kv.set(saveKey, mergePreservingImages(next, record));
  *
- * which commits the blob but leaves the ledger behind — reported as `stale` by
- * `npm run ledger:audit`. Stale is benign (the blob is authoritative and the
- * projection carries the version it came from, so lag is self-describing), but
- * every stale writer is noise that makes a REAL divergence harder to spot, and
- * the currency read cutover is gated on that signal being clean.
+ * which commits the blob but leaves the ledger behind — counted as
+ * `ledger-lagging-different` on the next money write. Lag is benign (the save
+ * still carries the right balances), but every such writer is noise that makes
+ * a REAL divergence harder to spot, and the fail-closed step is gated on that
+ * signal being clean.
  *
  * This is that pair of lines, in one place, for writers that cannot easily move
- * to mutatePlayerSave, plus the projection — and committed with compare-and-set
- * against the row read under the lock (see writeSaveProjected), not a plain set.
+ * to mutatePlayerSave — committed with compare-and-set against the row read
+ * under the lock (see writeSaveProjected), not a plain set, and with the ledger
+ * row in the same transaction (commitPlayerSaveRecord).
  */
 import { kv } from '../_storage.js';
 import { storedValueEquals } from '../_stored-value.js';
 import { mergePreservingImages } from '../_utils.js';
-import { syncCurrencyLedger } from '../_currency-ledger.js';
+import { commitPlayerSaveRecord } from './_commit-player-save.js';
 
 /** Thrown when another writer committed the save after `previous` was read. */
 export const PLAYER_SAVE_VERSION_CONFLICT = 'player-save-version-conflict';
@@ -55,7 +56,8 @@ export const SAVE_VERSION_CONFLICT_REPLY = {
 } as const;
 
 /**
- * Commit a versioned player record and project its currency slice.
+ * Commit a versioned player record, and its currency ledger row in the same
+ * transaction when the write moves currency.
  *
  * Commits with compare-and-set against `previous`, exactly like
  * writeVersionedPlayerSaveWithStore. Every caller holds withKvLock on the save,
@@ -68,7 +70,7 @@ export const SAVE_VERSION_CONFLICT_REPLY = {
  * @param saveKey   `save:<name>` — the key being written.
  * @param next      the already-version-bumped record to commit.
  * @param previous  the record read at the start of the critical section; its
- *                  character is used to skip the projection entirely when the
+ *                  character is used to skip the ledger entirely when the
  *                  write did not move currency. Must be the exact stored row.
  */
 export async function writeSaveProjected(
@@ -78,20 +80,19 @@ export async function writeSaveProjected(
 ): Promise<void> {
     const intended = mergePreservingImages(next, previous);
     try {
-        if (await kv.compareSet(saveKey, previous, intended) !== true) {
-            throw new Error(PLAYER_SAVE_VERSION_CONFLICT);
-        }
+        const committed = await commitPlayerSaveRecord(kv, {
+            playerName: saveKey.startsWith('save:') ? saveKey.slice('save:'.length) : saveKey,
+            saveKey,
+            expected: previous,
+            intended: intended as Record<string, unknown>,
+        });
+        if (committed !== true) throw new Error(PLAYER_SAVE_VERSION_CONFLICT);
     } catch (error) {
         if (isPlayerSaveVersionConflict(error)) throw error;
         // A transport error can hide a write that did land (lost response).
-        // Only a read-back of exactly what we meant to write proves that.
+        // Only a read-back of exactly what we meant to write proves that; the
+        // ledger row, when there was one, committed in the same transaction.
         const readback = await kv.get(saveKey).catch(() => null);
         if (!storedValueEquals(readback, intended)) throw error;
     }
-    // Never allowed to fail the write it follows — see api/_currency-ledger.ts.
-    await syncCurrencyLedger(
-        saveKey.startsWith('save:') ? saveKey.slice('save:'.length) : saveKey,
-        next,
-        { previousCharacter: (previous.character ?? null) as Record<string, unknown> | null },
-    );
 }

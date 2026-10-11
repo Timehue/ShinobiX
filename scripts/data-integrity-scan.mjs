@@ -32,7 +32,8 @@ const { kv } = await import('../api/_storage.js');
 import { ITEM_CATALOG } from '../api/pvp/_item-catalog.js';
 import { loadAdminItemObjects } from '../api/_admin-item-catalog.js';
 import { FORGED_ITEM_ID, forgedItemKey, recordForgedItem } from '../api/_forged-item-registry.js';
-import { compareLedger, syncCurrencyLedger, readCurrencyLedger } from '../api/_currency-ledger.js';
+import { CURRENCY_LEDGER_FIELDS, compareLedger, readCurrencyLedger } from '../api/_currency-ledger.js';
+import { reconcileCurrencyLedger } from '../api/cron/_currency-ledger-sweep.js';
 import { CONTENT_FIELDS, readContentRecord, publishContent } from '../api/_content-store.js';
 
 const argv = new Set(process.argv.slice(2));
@@ -77,7 +78,9 @@ async function scanSave(name, record, adminItems) {
     if (record._saveVersion === undefined) push('missingSaveVersion', { name });
 
     // ── Currency sanity ─────────────────────────────────────────────────────
-    for (const field of ['ryo', 'bankRyo', 'fateShards', 'boneCharms', 'auraStones', 'auraDust', 'mythicSeals', 'honorSeals', 'hollowShards']) {
+    // The ownership manifest's list, not a copy of it: a hand-kept list here
+    // once missed chroniclePoints.
+    for (const field of CURRENCY_LEDGER_FIELDS) {
         const raw = char[field];
         if (raw === undefined) continue;
         const value = Number(raw);
@@ -129,7 +132,8 @@ async function scanSave(name, record, adminItems) {
         push('ledgerDivergent', { name, version: comparison.version, fields: comparison.fields });
     } else if (comparison.status !== 'match') {
         push('ledgerMissingOrStale', { name, status: comparison.status });
-        if (REPAIR) { if (await syncCurrencyLedger(name, record)) repaired.ledgersWritten += 1; }
+        // The locked, save-asserting reconcile the scheduled sweep runs.
+        if (REPAIR) { if ((await reconcileCurrencyLedger(name)).action === 'written') repaired.ledgersWritten += 1; }
     }
 }
 

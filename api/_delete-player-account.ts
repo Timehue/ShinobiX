@@ -30,6 +30,7 @@ import { withKvLock } from './_lock.js';
 import { rotatePlayerSessionEpoch } from './_auth.js';
 import { authKey, googleIdentityKey, releaseGoogleIdentityForAccount, type AuthRecord } from './player-auth.js';
 import { recoveryCodeKey } from './_recovery-code.js';
+import { currencyLedgerKey } from './_currency-ledger.js';
 import { REGISTRY_KEY } from './player/_public-index.js';
 import { clanSlugBare } from './clan/_kick-core.js';
 import { cancelSubscriptionForDeletedAccount } from './tebex/_cancel-subscription.js';
@@ -236,6 +237,10 @@ export async function deletePlayerAccount(rawName: string): Promise<DeletePlayer
             await kv.hdel(REGISTRY_KEY, slug);
             result.detached.push(`${REGISTRY_KEY}[${slug}]`);
             if (await kv.del(saveKey)) result.removed.push(saveKey);
+            // The currency ledger mirrors the save. Slugs are reusable, so a
+            // surviving row would be read against the next account of this name.
+            const ledgerKey = currencyLedgerKey(slug);
+            if (await kv.del(ledgerKey)) result.removed.push(ledgerKey);
 
             // Auth is the sweep's retry anchor and the final deletion. Rotate,
             // never erase revocation state. Keep the retained row aligned before

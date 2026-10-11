@@ -1,5 +1,15 @@
 # Concurrency, Locks, and Stale-Write Audit — Phase 0 (2026-07-31)
 
+> **Follow-up status (2026-10-10): F8 is RESOLVED; F9 is open and scheduled.**
+> `save:` is on the storage layer's no-cache list (`api/_storage.ts`, next to
+> the comment that names this exact hazard), and every read inside a lock
+> context bypasses the cache, so a locked read-modify-write can no longer be
+> served a stale save by its own process or a second one. The table row below
+> is kept as written on 2026-07-31. F9 (no Postgres transactions; hand-rolled
+> multi-key sagas) is the target of the P0-5 follow-up: an all-or-nothing
+> multi-key compare-and-set, then atomic money settlements. The sequence is in
+> `docs/runbooks/currency-ledger-cutover.md`.
+
 > **Follow-up status (2026-09-14): F1 is RESOLVED, in the opposite direction
 > from the P1-1 plan.** `settleCrossKeyTransfer` (`api/_cross-key-settlement.ts`)
 > now locks the shared row before the player save instead of sorting the two

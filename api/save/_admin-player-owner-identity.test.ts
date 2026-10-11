@@ -21,6 +21,7 @@ const FIRST_PACT_A_KEY = `first-pact:${PLAYER_A}`;
 const FIRST_PACT_LOCK_B_KEY = `lock:${FIRST_PACT_B_KEY}`;
 const REGISTRY_KEY = 'player:registry';
 const SAVE_LOCK_B_KEY = `lock:save:${PLAYER_B}`;
+const LEDGER_B_KEY = `ledger:currency:${PLAYER_B}`;
 
 let handler: Handler;
 let kv: typeof import('../_storage.js').kv;
@@ -134,12 +135,12 @@ before(async () => {
 });
 
 beforeEach(async () => {
-    await kv.del(SAVE_B_KEY, ADMIN_LOCK_B_KEY, RESET_SIGNAL_B_KEY, DELETE_FENCE_B_KEY, FIRST_PACT_B_KEY, FIRST_PACT_A_KEY, FIRST_PACT_LOCK_B_KEY);
+    await kv.del(SAVE_B_KEY, ADMIN_LOCK_B_KEY, RESET_SIGNAL_B_KEY, DELETE_FENCE_B_KEY, FIRST_PACT_B_KEY, FIRST_PACT_A_KEY, FIRST_PACT_LOCK_B_KEY, LEDGER_B_KEY);
     await kv.hdel(REGISTRY_KEY, PLAYER_B);
 });
 
 after(async () => {
-    await kv.del(SAVE_B_KEY, ADMIN_LOCK_B_KEY, RESET_SIGNAL_B_KEY, DELETE_FENCE_B_KEY, FIRST_PACT_B_KEY, FIRST_PACT_A_KEY, FIRST_PACT_LOCK_B_KEY);
+    await kv.del(SAVE_B_KEY, ADMIN_LOCK_B_KEY, RESET_SIGNAL_B_KEY, DELETE_FENCE_B_KEY, FIRST_PACT_B_KEY, FIRST_PACT_A_KEY, FIRST_PACT_LOCK_B_KEY, LEDGER_B_KEY);
     await kv.hdel(REGISTRY_KEY, PLAYER_B);
     delete process.env.SHINOBIX_QA_MEMORY_KV;
     delete process.env.ADMIN_PASSWORD;
@@ -225,9 +226,11 @@ test('content admin cannot delete a player save; full admin can', async () => {
     assert.equal(await kv.get(RESET_SIGNAL_B_KEY), null);
     assert.deepEqual(await kv.get(FIRST_PACT_B_KEY), { mainStep: 'complete' }, 'rejected deletion cannot strip story state');
 
+    await kv.set(LEDGER_B_KEY, { saveVersion: 7, balances: { ryo: 222 } });
     const fullAttempt = await deleteAdminSave(PLAYER_B);
     assert.equal(fullAttempt.statusCode, 200);
     assert.equal(await kv.get(SAVE_B_KEY), null);
+    assert.equal(await kv.get(LEDGER_B_KEY), null, 'a reusable name must not inherit the deleted currency ledger');
     assert.equal(await kv.get(FIRST_PACT_B_KEY), null, 'deleting the character must delete its standalone First Pact');
     assert.deepEqual(await kv.get(FIRST_PACT_A_KEY), { mainStep: 'return-to-threshold' }, 'another player remains intact');
     assert.equal(await kv.get(DELETE_FENCE_B_KEY), 8);
@@ -258,16 +261,24 @@ test('POST that enters the save lock before DELETE leaves the player deleted', {
     const deleteContended = deferred();
     const mutableKv = kv as unknown as {
         set: (key: string, value: unknown, options?: { nx?: boolean; ex?: number }) => Promise<unknown>;
+        compareSet: (key: string, expected: unknown, value: unknown, options?: { ex?: number }) => Promise<boolean>;
     };
     const originalSet = mutableKv.set.bind(mutableKv);
+    const originalCompareSet = mutableKv.compareSet.bind(mutableKv);
     mutableKv.set = async (key, value, options) => {
+        const result = await originalSet(key, value, options);
+        if (key === SAVE_LOCK_B_KEY && options?.nx && result === null) deleteContended.resolve();
+        return result;
+    };
+    // The admin POST replaces the player save with a compare-and-set over the
+    // row it read under the lock (with the currency ledger alongside); pause it
+    // there, inside the lock, while the DELETE contends for that lock.
+    mutableKv.compareSet = async (key, expected, value, options) => {
         if (key === SAVE_B_KEY) {
             postReachedWrite.resolve();
             await releasePostWrite.promise;
         }
-        const result = await originalSet(key, value, options);
-        if (key === SAVE_LOCK_B_KEY && options?.nx && result === null) deleteContended.resolve();
-        return result;
+        return originalCompareSet(key, expected, value, options);
     };
 
     try {
@@ -287,6 +298,7 @@ test('POST that enters the save lock before DELETE leaves the player deleted', {
         assert.equal((await kv.hgetall<Json>(REGISTRY_KEY))?.[PLAYER_B], undefined);
     } finally {
         mutableKv.set = originalSet;
+        mutableKv.compareSet = originalCompareSet;
     }
 });
 

@@ -1,28 +1,39 @@
 /*
- * Currency-ledger audit and backfill (P0-5).
+ * Currency-ledger audit and repair (P0-5).
  *
- * The ledger at `ledger:currency:<name>` is a projection of the nine currency
- * balances in each player's save blob (api/_currency-ledger.ts). The blob is
- * authoritative; this tool answers the question a read cutover depends on:
- * does the projection agree with the blob everywhere?
+ * The ledger at `ledger:currency:<name>` holds the ten currency balances of
+ * each player's save, committed with it whenever a write moves currency
+ * (api/save/_commit-player-save.ts). This tool answers the question the
+ * fail-closed step depends on: does every ledger row agree with its save?
  *
  *   node --import tsx scripts/currency-ledger-audit.mjs            # read-only audit
- *   node --import tsx scripts/currency-ledger-audit.mjs --backfill # also write missing/stale rows
+ *   node --import tsx scripts/currency-ledger-audit.mjs --repair   # also repair, under each save's lock
  *   node --import tsx scripts/currency-ledger-audit.mjs --json     # machine-readable summary
  *
- * Read-only by default, and even --backfill only ever writes `ledger:` keys —
- * player saves are never modified by this script.
+ * `--backfill` is kept as an alias of `--repair`. A repair goes through the
+ * same locked, save-asserting reconcile the scheduled sweep runs
+ * (api/cron/_currency-ledger-sweep.ts); it only ever writes `ledger:` keys,
+ * and player saves are never modified by this script. A DIVERGENT row is
+ * reported, and repaired only while the gate is report-only.
  *
- * Exit codes: 0 = no divergence, 1 = at least one DIVERGENT record (same
- * save version, different balances), which is a real bug and blocks cutover.
+ * Statuses (classifyCurrencyLedger):
+ *   match / lagging     normal
+ *   missing / legacy    not yet created / still the v1 projection (backfill)
+ *   orphan / ahead      a reused name's row / a row newer than a restored save
+ *   lagging-different   a writer moved currency without the commit helper
+ *   divergent           same save version, different balances — a bug
+ *
+ * Exit codes: 0 = no divergence, 1 = at least one DIVERGENT record, 2 = the
+ * audit itself failed.
  */
 import { loadProjectEnv } from './_load-env.mjs';
 await loadProjectEnv();
 const { kv } = await import('../api/_storage.js');
-import { compareLedger, syncCurrencyLedger, readCurrencyLedger } from '../api/_currency-ledger.js';
+import { CURRENCY_LEDGER_FIELDS, classifyCurrencyLedger, readCurrencyLedger } from '../api/_currency-ledger.js';
+import { isPlayerSaveName, reconcileCurrencyLedger } from '../api/cron/_currency-ledger-sweep.js';
 
 const args = new Set(process.argv.slice(2));
-const BACKFILL = args.has('--backfill');
+const REPAIR = args.has('--repair') || args.has('--backfill');
 const AS_JSON = args.has('--json');
 const LIMIT = Number(process.argv.find((a) => a.startsWith('--limit='))?.split('=')[1] ?? 0);
 
@@ -32,35 +43,44 @@ function log(...parts) {
 
 async function main() {
     const keys = await kv.keys('save:*');
-    // Clan blobs share the prefix but carry no character.
-    const saveKeys = keys.filter((key) => !key.startsWith('save:clan-'));
-    const targets = LIMIT > 0 ? saveKeys.slice(0, LIMIT) : saveKeys;
-    log(`[ledger-audit] ${targets.length} player save(s)${BACKFILL ? ' — backfill enabled' : ''}`);
+    // Clan blobs and the admin content slots share the prefix but are not players.
+    const names = keys.map((key) => key.slice('save:'.length)).filter(isPlayerSaveName);
+    const targets = LIMIT > 0 ? names.slice(0, LIMIT) : names;
+    log(`[ledger-audit] ${targets.length} player save(s)${REPAIR ? ' — repair enabled' : ''}`);
 
-    const summary = { total: targets.length, match: 0, stale: 0, missing: 0, divergent: 0, skipped: 0, backfilled: 0 };
+    const summary = {
+        total: targets.length,
+        match: 0, lagging: 0, missing: 0, legacy: 0, orphan: 0, ahead: 0, 'lagging-different': 0, divergent: 0,
+        skipped: 0, repaired: 0, repairFailed: 0,
+    };
     const divergences = [];
 
-    for (const key of targets) {
-        const name = key.slice('save:'.length);
-        const record = await kv.get(key);
+    for (const name of targets) {
+        const record = await kv.get(`save:${name}`);
         if (!record || typeof record !== 'object' || !record.character) { summary.skipped += 1; continue; }
 
         const ledger = await readCurrencyLedger(name);
-        const result = compareLedger(record, ledger);
-        summary[result.status] += 1;
+        const status = classifyCurrencyLedger(record, ledger);
+        summary[status] += 1;
 
-        if (result.status === 'divergent') {
-            divergences.push({ name, version: result.version, fields: result.fields });
-            // A divergence is never "fixed" by overwriting it — that would hide
-            // the bug. Report it; the blob stays authoritative meanwhile.
-            log(`[ledger-audit] DIVERGENT ${name} @v${result.version}:`,
-                result.fields.map((f) => `${f.field} blob=${f.blob} ledger=${f.ledger}`).join(', '));
-            continue;
+        if (status === 'divergent') {
+            const fields = CURRENCY_LEDGER_FIELDS
+                .map((field) => ({ field, save: Number(record.character[field] ?? 0), ledger: Number(ledger?.balances?.[field] ?? 0) }))
+                .filter((entry) => entry.save !== entry.ledger);
+            divergences.push({ name, version: record._saveVersion, fields });
+            log(`[ledger-audit] DIVERGENT ${name} @v${record._saveVersion}:`,
+                fields.map((f) => `${f.field} save=${f.save} ledger=${f.ledger}`).join(', '));
         }
 
-        if (BACKFILL && (result.status === 'missing' || result.status === 'stale')) {
-            const written = await syncCurrencyLedger(name, record);
-            if (written) summary.backfilled += 1;
+        if (REPAIR && status !== 'match' && status !== 'lagging') {
+            try {
+                const outcome = await reconcileCurrencyLedger(name);
+                if (outcome.action === 'written') summary.repaired += 1;
+                else if (outcome.action !== 'none') log(`[ledger-audit] ${name}: ${outcome.status} → ${outcome.action}`);
+            } catch (error) {
+                summary.repairFailed += 1;
+                log(`[ledger-audit] repair of ${name} failed: ${error?.message ?? error}`);
+            }
         }
     }
 
@@ -68,7 +88,7 @@ async function main() {
         console.log(JSON.stringify({ ...summary, divergences }, null, 2));
     } else {
         log('[ledger-audit] summary:', JSON.stringify(summary));
-        if (divergences.length === 0) log('[ledger-audit] no divergence — the projection agrees with every blob it has seen.');
+        if (divergences.length === 0) log('[ledger-audit] no divergence — every ledger row agrees with its save at the version it shares.');
     }
     return divergences.length === 0 ? 0 : 1;
 }
