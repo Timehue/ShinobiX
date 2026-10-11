@@ -443,8 +443,9 @@ describe('kv.compareSetMany on a real Postgres', () => {
     });
 
     pgTest('control: the next test\'s two batches, run in the order passed, really do deadlock', async () => {
-        // Raw transactions replay the statements compareSetMany would issue if it
-        // ran a batch in the order passed instead of key order. Postgres must
+        // Raw transactions replay the statements compareSetMany would issue for
+        // the next test's two batches (same keys, same expected values) if it ran
+        // each batch in the order passed instead of key order. Postgres must
         // abort one of them, which shows the next test's schedule is a genuine
         // deadlock, so its passing is the key sort's doing.
         await seed('pgit:order:a', { n: 0 });
@@ -489,9 +490,14 @@ describe('kv.compareSetMany on a real Postgres', () => {
     pgTest('two batches on overlapping keys, passed in opposite orders, serialize instead of deadlocking', async () => {
         // Each batch is parked on a gate row after touching its first key. Run in
         // the order passed, the first would hold `a` and the second `b`, each then
-        // wanting the other's: Postgres would abort one with "deadlock detected".
-        // compareSetMany runs every batch in key order, so both take `a` first and
-        // the second simply waits for the first.
+        // wanting the other's: Postgres aborts one with "deadlock detected" (the
+        // control above). compareSetMany runs every batch in key order, so both
+        // take `a` first and the second simply waits for the first.
+        //
+        // Both batches expect the COMMITTED {n:0}, exactly as the control does.
+        // Postgres judges an UPDATE's WHERE against the committed row before it
+        // waits for a row lock, so a batch expecting the first one's uncommitted
+        // {n:1} would not wait at all: it would refuse at once.
         await seed('pgit:order:a', { n: 0 });
         await seed('pgit:order:b', { n: 0 });
         await seed('pgit:order:gate-1', { open: true });
@@ -507,16 +513,18 @@ describe('kv.compareSetMany on a real Postgres', () => {
             ]));
             await waitForLockWaiters(1);
             const second = settleLater(many([
-                { op: 'cas', key: 'pgit:order:b', expected: { n: 1 }, value: { n: 2 } },
+                { op: 'cas', key: 'pgit:order:b', expected: { n: 0 }, value: { n: 2 } },
                 { op: 'assert', key: 'pgit:order:gate-2', expected: { open: true } },
-                { op: 'cas', key: 'pgit:order:a', expected: { n: 1 }, value: { n: 2 } },
+                { op: 'cas', key: 'pgit:order:a', expected: { n: 0 }, value: { n: 2 } },
             ]));
             await waitForLockWaiters(2);
             await holder.query('ROLLBACK');
 
-            assert.deepEqual(await Promise.all([first, second]), [true, true], 'neither batch was aborted as a deadlock victim');
-            assert.deepEqual((await row('pgit:order:a'))?.value, { n: 2 }, 'the second batch judged the first one\'s committed rows');
-            assert.deepEqual((await row('pgit:order:b'))?.value, { n: 2 });
+            // No 40P01: the second batch waited behind the first, re-checked `a`
+            // once the first committed, and refused cleanly because it had moved.
+            assert.deepEqual(await Promise.all([first, second]), [true, false], 'neither batch was aborted as a deadlock victim');
+            assert.deepEqual((await row('pgit:order:a'))?.value, { n: 1 }, 'the second batch judged the first one\'s committed row and wrote nothing');
+            assert.deepEqual((await row('pgit:order:b'))?.value, { n: 1 });
         } finally {
             await holder.query('ROLLBACK').catch(() => undefined);
             await holder.end();
