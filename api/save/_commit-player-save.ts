@@ -74,6 +74,9 @@ export class CurrencyLedgerDivergenceError extends Error {
  * gate in docs/runbooks/currency-ledger-cutover.md is met; that step flips
  * CURRENCY_LEDGER_GATE_ENFORCED in code. DISABLE_CURRENCY_LEDGER_GATE=1 is the
  * emergency opt-out once it is on.
+ *
+ * ⛔ Do not flip it alone: the runbook's step 4 lists what must land with it
+ * (this error mapped to the clean-refusal path, and an operator repair route).
  */
 export const CURRENCY_LEDGER_GATE_ENFORCED = false;
 export function currencyLedgerGateEnforced(env: NodeJS.ProcessEnv = process.env, enforced = CURRENCY_LEDGER_GATE_ENFORCED): boolean {
@@ -150,14 +153,11 @@ async function commitInScope(
     // Two attempts: the second only when the SAVE is unchanged, i.e. the ledger
     // row alone moved (an older process's best-effort projection during a deploy
     // overlap, or an unlocked audit repair). The save lock is held throughout.
-    let reported: LedgerStatus | null = null;
     for (let attempt = 1; ; attempt++) {
         const ledger = await store.get<CurrencyLedger>(ledgerKey);
         const status = classifyCurrencyLedger(expected, ledger);
-        // A retry re-reads the row; count what it finds only if that changed.
-        if (status !== reported) reportStatus(playerName, status, expected, ledger);
-        reported = status;
         if (status === 'divergent' && currencyLedgerGateEnforced(process.env, opts.gateEnforced)) {
+            reportStatus(playerName, status, expected, ledger);
             throw new CurrencyLedgerDivergenceError(playerName);
         }
         // An orphan belongs to a deleted account: nothing of it carries over.
@@ -166,7 +166,13 @@ async function commitInScope(
             { op: 'cas', key: saveKey, expected, value: intended },
             { op: 'cas', key: ledgerKey, expected: ledger ?? null, value: buildCurrencyLedgerRow(playerName, intended, continuing, opts.now) },
         ];
-        if (await store.compareSetMany(ops)) return true;
+        if (await store.compareSetMany(ops)) {
+            // Counted only once committed: a caller without the save lock (the
+            // ranked-season rollover) can classify a save it then loses the
+            // race for, and that row state was never acted on.
+            reportStatus(playerName, status, expected, ledger);
+            return true;
+        }
         if (attempt >= 2) return false;
         // Retry only for the one refusal this helper can explain and repair:
         // the save is exactly as read, and the ledger row is not. Anything else

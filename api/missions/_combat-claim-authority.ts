@@ -1,5 +1,6 @@
 import type { KvLike } from '../_storage.js';
 import { storedValueEquals } from '../_stored-value.js';
+import { commitPlayerSaveExact, playerNameOfSaveKey } from '../save/_commit-player-save.js';
 
 export const COMBAT_MISSION_CLAIM_TOKEN_TTL_SECONDS = 6 * 60 * 60;
 export const COMBAT_MISSION_CLAIM_TOKEN_TTL_MS = COMBAT_MISSION_CLAIM_TOKEN_TTL_SECONDS * 1000;
@@ -81,7 +82,7 @@ export interface SpentCombatMissionClaimToken {
     settledAt: number;
 }
 
-type ClaimAuthorityStore = Pick<KvLike, 'get' | 'set' | 'compareSet'>;
+type ClaimAuthorityStore = Pick<KvLike, 'get' | 'set' | 'compareSet'> & Partial<Pick<KvLike, 'compareSetMany'>>;
 
 function cleanBoundedString(value: unknown, max: number): string {
     return typeof value === 'string' && value.length > 0 && value.length <= max ? value : '';
@@ -542,7 +543,14 @@ export async function publishCombatMissionClaimRows(params: {
     await compareSetExactKvRow(params.store, params.tokenKey, params.expectedToken, params.token, {
         ex: COMBAT_MISSION_CLAIM_TOKEN_TTL_SECONDS,
     });
-    await compareSetExactKvRow(params.store, params.saveKey, params.expectedSave, params.saveRecord);
+    // The player save commits through the one save-commit path (exact read-back
+    // acceptance, the currency ledger alongside when currency moves).
+    await commitPlayerSaveExact(params.store, {
+        playerName: playerNameOfSaveKey(params.saveKey),
+        saveKey: params.saveKey,
+        expected: params.expectedSave,
+        intended: params.saveRecord,
+    });
     const [tokenReadback, saveReadback] = await Promise.all([
         params.store.get(params.tokenKey).catch(() => null),
         params.store.get(params.saveKey).catch(() => null),
