@@ -5,6 +5,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { getActiveSilence } from '../admin/moderation.js';
 import { withKvLock } from '../_lock.js';
+import { VILLAGE_CHAT_TTL_SECONDS, villageChatKey } from './_chat-key.js';
 import { isCleanText, sanitizeUserText, TEXT_LIMITS, hasReservedTitleTerm } from '../_text-moderation.js';
 import { LEGACY_BY_ID } from '../_legacy-defs.js';
 import { legacyEnabled } from '../_legacy-track.js';
@@ -42,11 +43,8 @@ type ChatMessage = {
 const REPLY_SNIPPET_LIMIT = 140;
 
 const MAX_MESSAGES = 30; // hold the most recent 30 messages; the oldest drops as new ones arrive (count-based, no age expiry)
-const KV_TTL_SECONDS = 30 * 24 * 60 * 60; // 30-day KV key TTL (refreshed on every POST) — only garbage-collects truly abandoned villages, not active chat
-
-function chatKey(village: string): string {
-    return `chat:village:${village.toLowerCase().replace(/\s+/g, '-')}`;
-}
+const KV_TTL_SECONDS = VILLAGE_CHAT_TTL_SECONDS; // the one TTL every writer of the key must use — see _chat-key.ts
+const chatKey = villageChatKey;
 
 export function sameVillage(storedVillage: unknown, requestedVillage: unknown): boolean {
     return typeof storedVillage === 'string'
