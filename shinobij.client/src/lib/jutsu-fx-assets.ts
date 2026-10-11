@@ -1,8 +1,8 @@
 /*
  * Bundled jutsu-FX frame sequences — the CC0 "Pixel Magic Effects" (Foozle)
  * frames extracted into src/assets/fx/<element>/NNN.png. Loaded at build time
- * via Vite's import.meta.glob so they ship in the bundle (works on both Vercel
- * and the cPanel/Express static serve).
+ * via Vite's import.meta.glob so they ship in the bundle (served by the
+ * Express static serve like any other built asset).
  *
  * CLIENT-ONLY: this module uses import.meta.glob (a Vite feature) and therefore
  * is NOT node-testable — keep it out of the test runner. The pure element →

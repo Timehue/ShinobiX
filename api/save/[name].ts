@@ -751,11 +751,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (req.method === 'POST') {
         try {
-            // Body size guard. We strip image fields server-side post-parse,
-            // but a multi-MB body still has to be parsed (synchronous work
-            // on a tight Vercel cold-start budget). Cap incoming payloads at
-            // 1 MB — any legit save is under ~100 KB after image stripping
-            // and the client already strips embedded images before POSTing.
+            // Body size guard. server.ts's `jsonSave` parser already refuses
+            // a save body over 1 MB before it is parsed; this is the
+            // handler's own copy of that cap, so the limit holds whatever
+            // parser sits in front. Any legit save is under ~100 KB after
+            // image stripping, and the client strips embedded images before
+            // POSTing.
             const contentLengthHeader = req.headers['content-length'];
             const contentLength = Array.isArray(contentLengthHeader) ? Number(contentLengthHeader[0]) : Number(contentLengthHeader);
             if (Number.isFinite(contentLength) && contentLength > 1_000_000) {
