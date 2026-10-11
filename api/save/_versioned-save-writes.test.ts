@@ -329,8 +329,10 @@ test('the versionless-by-design escape hatch stays at its one intended call site
  * earned since the regeneration cursor, so the version bump discards it and the
  * player watches their HP, chakra and stamina fall back. It also skips the
  * owned-pet migration, the breeding settlement, elder-focus reconciliation,
- * elder-win credit, the currency-ledger projection, the public-index refresh,
- * and the world-crisis level-crossing observers.
+ * elder-win credit, the public-index refresh, and the world-crisis
+ * level-crossing observers — and, unless it commits through
+ * commitPlayerSaveRecord (api/save/_commit-player-save.ts), the currency
+ * ledger that must move in the same transaction as a currency change.
  *
  * Every RAW writer that could move onto mutatePlayerSave, or mutatePlayerSaves
  * for two saves at once, has moved (docs/refactor-plan-2026-10-02.md, owner
@@ -345,20 +347,18 @@ test('the versionless-by-design escape hatch stays at its one intended call site
  */
 const RAW_PLAYER_SAVE_WRITES: Readonly<Record<string, number>> = {
     // ── Stays raw by design ─────────────────────────────────────────────────
-    // The autosave route owns the save contract that mutatePlayerSave builds on.
+    // The autosave route owns the save contract that mutatePlayerSave builds
+    // on. Both remaining raw writes are on the CLAN-save branch; every player
+    // save it writes commits through commitPlayerSaveRecord.
     'save/[name].ts': 2,
-    // The owner-read settle projection: unversioned on purpose, exact CAS.
-    '_elapsed-state.ts': 1,
     // Mirrors published content into the admin slots, which are not player saves.
     'admin/content-publish.ts': 1,
     // Test-only journey fixture (NODE_ENV=test + QA memory KV) that positions two saves.
     '_qa-sector-war.ts': 2,
-    // Crash-recoverable compare-and-set sagas whose embedded receipts are the
-    // authority for a commit whose acknowledgement was lost.
-    'cron/_ranked-season.ts': 1,
-    'pet/_ranked-settlement.ts': 1,
-    'pvp/_consumable-settlement.ts': 1,
-    'pvp/_player-ranked-journal.ts': 1,
+    // (The owner-read settle in _elapsed-state.ts and the crash-recoverable
+    // ranked / consumable settlement sagas used to be listed here. They now
+    // commit through commitPlayerSave — the same exact compare-and-set, with
+    // the currency ledger alongside — so their raw count is zero.)
 };
 
 test('raw player-save writes only ever shrink', () => {

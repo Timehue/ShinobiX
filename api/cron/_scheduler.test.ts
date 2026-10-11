@@ -51,6 +51,17 @@ test('stuck player trades are recovered on the leased settlement tick', () => {
     assert.match(tick, /await recoverPendingPlayerTrades\(\)/);
 });
 
+test('the currency-ledger sweep runs on its own leased tick after boot and stops with the scheduler', () => {
+    // Behaviour is covered in api/cron/_currency-ledger-sweep.test.ts; this pins
+    // that the always-on server runs the backfill the cutover runbook relies on.
+    const source = readFileSync('api/cron/_scheduler.ts', 'utf8');
+    assert.match(source, /setInterval\(\(\) => void fireCurrencyLedgerSweep\(\), CURRENCY_LEDGER_SWEEP_TICK_MS\)/);
+    assert.match(source, /withScheduledJobLease\(\s*'currency-ledger-sweep',\s*\(\) => runCurrencyLedgerSweep\(\),/);
+    assert.match(source, /_currencyLedgerSweepBootTimeout = setTimeout\(\(\) => \{\s*_currencyLedgerSweepBootTimeout = null;\s*void fireCurrencyLedgerSweep\(\);\s*\}, CURRENCY_LEDGER_SWEEP_BOOT_DELAY_MS\)/);
+    assert.match(source, /clearInterval\(_currencyLedgerSweepInterval\)/);
+    assert.match(source, /clearTimeout\(_currencyLedgerSweepBootTimeout\)/);
+});
+
 test('clan-boss lease changes at the Monday UTC week boundary', () => {
     const sundayBoot = Date.UTC(2026, 7, 9, 23, 50);
     const mondayTick = Date.UTC(2026, 7, 10, 3, 0);

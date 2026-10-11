@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { buildRestoredSave, restoreSnapshotUnderLock } from './save-snapshot.js';
+import { buildRestoredSave, restoreSnapshotUnderLock, RestoreConflictError } from './save-snapshot.js';
+import { _makeMemoryKv } from '../_storage.js';
 
 describe('buildRestoredSave', () => {
     it('restores at max(live, snapshot)+1 and stamps the restore time', () => {
@@ -29,10 +30,7 @@ describe('restoreSnapshotUnderLock', () => {
             ['save:alice', { _saveVersion: 4, character: { ryo: 9 } }],
         ]);
         const seen: Array<{ target: string; failClosed: boolean }> = [];
-        const store = {
-            async get<T>(key: string) { return (data.get(key) ?? null) as T | null; },
-            async set(key: string, value: unknown) { data.set(key, structuredClone(value)); return 'OK' as const; },
-        };
+        const store = mapStore(data);
         const lock = async <T>(target: string, fn: () => Promise<T>, opts: { failClosed: true }) => {
             seen.push({ target, failClosed: opts.failClosed });
             return fn();
@@ -59,10 +57,7 @@ describe('restoreSnapshotUnderLock', () => {
         const data = new Map<string, unknown>([
             ['save:alice', { _saveVersion: 5, character: { marker: 'live' } }],
         ]);
-        const store = {
-            async get<T>(key: string) { return (data.get(key) ?? null) as T | null; },
-            async set(key: string, value: unknown) { data.set(key, structuredClone(value)); return 'OK' as const; },
-        };
+        const store = mapStore(data);
         let tail: Promise<unknown> = Promise.resolve();
         const lock = <T>(_target: string, fn: () => Promise<T>, _opts: { failClosed: true }): Promise<T> => {
             const run = tail.then(fn);
@@ -100,4 +95,59 @@ describe('restoreSnapshotUnderLock', () => {
             character: { marker: 'snapshot' },
         });
     });
+
+    it('moves the currency ledger to the restored balances in the same commit', async () => {
+        const store = _makeMemoryKv();
+        await store.set('save:alice', { _saveVersion: 9, character: { createdAt: 1, ryo: 50, fateShards: 2 } });
+        const unlocked = <T>(_target: string, fn: () => Promise<T>) => fn();
+        await restoreSnapshotUnderLock({
+            playerName: 'alice',
+            saveKey: 'save:alice',
+            snapshotKey: 'save-snapshot:alice:5',
+            snapshot: { _saveVersion: 6, character: { createdAt: 1, ryo: 4_000, fateShards: 7 } },
+            store,
+            lock: unlocked,
+            now: () => 300,
+        });
+        const ledger = await store.get<Record<string, unknown>>('ledger:currency:alice');
+        assert.equal(ledger?.saveVersion, 10);
+        assert.deepEqual(ledger?.balances, { ryo: 4_000, fateShards: 7 });
+    });
+
+    it('refuses, writing nothing, when the live save moved after the restore read it', async () => {
+        const data = new Map<string, unknown>([['save:alice', { _saveVersion: 3, character: { marker: 'live' } }]]);
+        const base = mapStore(data);
+        const store = {
+            ...base,
+            // Another writer commits between the restore's read and its write,
+            // as when the restore's lock lapsed on a stalled database.
+            async compareSet(key: string, expected: unknown, value: unknown) {
+                if (key === 'save:alice') data.set(key, { _saveVersion: 4, character: { marker: 'newer' } });
+                return base.compareSet(key, expected, value);
+            },
+        };
+        await assert.rejects(restoreSnapshotUnderLock({
+            playerName: 'alice',
+            saveKey: 'save:alice',
+            snapshotKey: 'save-snapshot:alice:1',
+            snapshot: { _saveVersion: 1, character: { marker: 'snapshot' } },
+            store,
+            lock: <T>(_target: string, fn: () => Promise<T>) => fn(),
+            now: () => 400,
+        }), RestoreConflictError);
+        assert.deepEqual(data.get('save:alice'), { _saveVersion: 4, character: { marker: 'newer' } }, 'the newer commit survives');
+        assert.equal(data.has('reset-signal:alice'), false);
+    });
 });
+
+function mapStore(data: Map<string, unknown>) {
+    return {
+        async get<T>(key: string) { return (data.get(key) ?? null) as T | null; },
+        async set(key: string, value: unknown) { data.set(key, structuredClone(value)); return 'OK' as const; },
+        async compareSet(key: string, expected: unknown, value: unknown) {
+            if (JSON.stringify(data.get(key) ?? null) !== JSON.stringify(expected ?? null)) return false;
+            data.set(key, structuredClone(value));
+            return true;
+        },
+    };
+}

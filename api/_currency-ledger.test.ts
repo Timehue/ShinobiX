@@ -11,6 +11,13 @@ import {
     compareLedger,
     syncCurrencyLedger,
     readCurrencyLedger,
+    decreaseOnlyCurrencyDrops,
+    recordCurrencyLedgerEvent,
+    currencyLedgerTelemetryKey,
+    readCurrencyLedgerTelemetry,
+    CURRENCY_LEDGER_EVENTS,
+    buildCurrencyLedgerRow,
+    classifyCurrencyLedger,
     type CurrencyLedger,
 } from './_currency-ledger.js';
 import { SAVE_FIELD_CONTRACT } from './save/_state-ownership.js';
@@ -137,15 +144,117 @@ describe('divergence comparison — the cutover signal', () => {
     });
 });
 
-describe('write-path wiring', () => {
-    it('the shared versioned writer projects the ledger', () => {
-        const src = readFileSync(join(process.cwd(), 'api', 'save', '_mutate-player-save.ts'), 'utf8');
-        assert.match(src, /syncCurrencyLedger\(/);
-        assert.match(src, /previousCharacter/, 'the previous character must be passed so a no-op write costs nothing');
+describe('decrease-only autosave measurement', () => {
+    it('reports only the decrease-only currencies an autosave lowered', () => {
+        const before = record().character;
+        const after = { ...before, honorSeals: 1, boneCharms: 4, ryo: 10 };
+        assert.deepEqual(decreaseOnlyCurrencyDrops(before, after), [
+            { field: 'honorSeals', before: 3, after: 1 },
+        ], 'a gain is not a drop, and ryo is server-owned (never in this list)');
     });
 
-    it('the generic save path projects the ledger for player saves only', () => {
+    it('ignores a field the stored character never had, and a missing side', () => {
+        const before = { ryo: 5 } as Record<string, unknown>;
+        assert.deepEqual(decreaseOnlyCurrencyDrops(before, { ryo: 5, auraDust: 0 }), []);
+        assert.deepEqual(decreaseOnlyCurrencyDrops(null, { auraDust: 0 }), []);
+        assert.deepEqual(decreaseOnlyCurrencyDrops(before, undefined), []);
+    });
+});
+
+describe('telemetry', () => {
+    it('counts one event per day under a namespaced key', async () => {
+        const kv = _makeMemoryKv();
+        const now = Date.UTC(2026, 9, 10, 12);
+        await recordCurrencyLedgerEvent('autosave-decrease', { kv, now });
+        await recordCurrencyLedgerEvent('autosave-decrease', { kv, now });
+        const key = currencyLedgerTelemetryKey('autosave-decrease', new Date(now).toISOString());
+        assert.equal(key, 'telemetry:currency-ledger:autosave-decrease:2026-10-10');
+        assert.equal(Number(await kv.get(key)), 2);
+    });
+
+    it('reads back a fixed window per event, oldest day first, absent days as zero', async () => {
+        const kv = _makeMemoryKv();
+        const now = Date.UTC(2026, 9, 10, 12);
+        await recordCurrencyLedgerEvent('autosave-decrease', { kv, now });
+        await recordCurrencyLedgerEvent('autosave-decrease', { kv, now: now - 2 * 86_400_000 });
+        const window = await readCurrencyLedgerTelemetry(3, { kv, now });
+        assert.deepEqual(window['autosave-decrease'], [
+            { date: '2026-10-08', count: 1 },
+            { date: '2026-10-09', count: 0 },
+            { date: '2026-10-10', count: 1 },
+        ]);
+        assert.deepEqual(Object.keys(window), [...CURRENCY_LEDGER_EVENTS], 'every counted event is reported');
+    });
+
+    it('can never fail or poison the write it describes', async () => {
+        const broken = { incr: async () => { throw new Error('kv down'); } } as never;
+        await assert.doesNotReject(recordCurrencyLedgerEvent('autosave-decrease', { kv: broken }));
+    });
+});
+
+describe('write-path wiring', () => {
+    it('the shared versioned writer commits the ledger with the save', () => {
+        const src = readFileSync(join(process.cwd(), 'api', 'save', '_mutate-player-save.ts'), 'utf8');
+        assert.match(src, /await commitPlayerSaveRecord\(store, \{/);
+        assert.doesNotMatch(src, /syncCurrencyLedger\(/, 'no separate post-commit projection remains');
+    });
+
+    it('the projected writer commits the ledger with the save', () => {
+        const src = readFileSync(join(process.cwd(), 'api', 'save', '_projected-write.ts'), 'utf8');
+        assert.match(src, /await commitPlayerSaveRecord\(kv, \{/);
+        assert.doesNotMatch(src, /syncCurrencyLedger\(/);
+    });
+
+    it('the generic save path commits the ledger for player saves only', () => {
         const src = readFileSync(join(process.cwd(), 'api', 'save', '[name].ts'), 'utf8');
-        assert.match(src, /if \(!isClanSave\) \{\s*await syncCurrencyLedger\(/s);
+        assert.match(src, /isClanSave\s*\?\s*await kv\.compareSet\(key, existing \?\? null, committedRecord\)\s*:\s*await commitPlayerSaveRecord\(kv, \{/s);
+        assert.doesNotMatch(src, /syncCurrencyLedger\(/);
+    });
+});
+
+describe('v2 rows and classification', () => {
+    const save = (over: { version?: number; createdAt?: number | null; balances?: Record<string, unknown> } = {}) => {
+        const base = record({ version: over.version ?? 5, balances: over.balances });
+        if (over.createdAt !== null) base.character.createdAt = over.createdAt ?? 1_700_000_000_000;
+        return base;
+    };
+
+    it('builds a v2 row that a v1 reader still understands', () => {
+        const row = buildCurrencyLedgerRow('LedgerProbe', save({ version: 7 }), null, 42);
+        assert.deepEqual(row, {
+            v: 2, name: 'ledgerprobe', bornAt: 1_700_000_000_000, saveVersion: 7, seq: 1,
+            balances: projectBalances(save().character), updatedAt: 42,
+        });
+        assert.deepEqual(compareLedger(save({ version: 7 }), row), { status: 'match' }, 'the v1 comparison reads a v2 row');
+        assert.equal(buildCurrencyLedgerRow('LedgerProbe', save({ version: 8 }), row).seq, 2, 'the write counter continues');
+        assert.equal(buildCurrencyLedgerRow('LedgerProbe', save({ version: 8 }), { saveVersion: 7, balances: {} }).seq, 1, 'a v1 row restarts it');
+    });
+
+    it('classifies every state a stored row can be in', () => {
+        const v2 = (over: Partial<ReturnType<typeof buildCurrencyLedgerRow>> = {}) => ({ ...buildCurrencyLedgerRow('p', save()), ...over });
+        assert.equal(classifyCurrencyLedger(save(), null), 'missing');
+        assert.equal(classifyCurrencyLedger(save(), { saveVersion: 5, balances: {} }), 'legacy');
+        assert.equal(classifyCurrencyLedger(null, v2()), 'orphan', 'a row with no save at all');
+        assert.equal(classifyCurrencyLedger(save(), v2({ bornAt: 1 })), 'orphan', 'another account of the same name');
+        assert.equal(classifyCurrencyLedger(save(), v2({ saveVersion: 6 })), 'ahead');
+        assert.equal(classifyCurrencyLedger(save({ version: 9 }), v2()), 'lagging');
+        assert.equal(classifyCurrencyLedger(save({ version: 9, balances: { ryo: 1 } }), v2()), 'lagging-different');
+        assert.equal(classifyCurrencyLedger(save(), v2()), 'match');
+        assert.equal(classifyCurrencyLedger(save({ balances: { ryo: 1 } }), v2()), 'divergent');
+    });
+
+    it('does not call a legacy save that has just gained createdAt an orphan', () => {
+        const unborn = buildCurrencyLedgerRow('p', save({ createdAt: null }));
+        assert.equal(unborn.bornAt, null);
+        assert.equal(classifyCurrencyLedger(save({ version: 6 }), unborn), 'lagging');
+    });
+
+    it('syncCurrencyLedger writes v2 rows and replaces an orphan instead of honouring its version', async () => {
+        const kv = _makeMemoryKv();
+        await kv.set(currencyLedgerKey('LedgerProbe'), { ...buildCurrencyLedgerRow('LedgerProbe', save({ version: 40 })), bornAt: 1 });
+        const out = await syncCurrencyLedger('LedgerProbe', save({ version: 3, balances: { ryo: 7 } }), { kv });
+        assert.equal(out!.v, 2);
+        assert.equal(out!.saveVersion, 3, 'a dead account\'s higher version does not block the new account');
+        assert.equal(out!.balances.ryo, 7);
     });
 });

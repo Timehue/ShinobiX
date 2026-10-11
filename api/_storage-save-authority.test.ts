@@ -396,6 +396,24 @@ test('player trade markers, pending pointers and journals are read from shared s
     }
 });
 
+test('per-player domain ledgers are read from shared storage on every worker', async () => {
+    // A currency ledger row is classified against the save it mirrors and
+    // committed with it (api/_currency-ledger.ts). A worker-local snapshot of a
+    // row another worker has since advanced would read as behind or divergent,
+    // and an audit run would report a balance that is no longer true.
+    for (const key of ['ledger:currency:cache-race-player', 'ledger:inventory:cache-race-player']) {
+        await workerA._pgKvForTest.set(key, { saveVersion: 1, balances: { ryo: 100 } });
+        assert.deepEqual(await workerA._pgKvForTest.get(key), { saveVersion: 1, balances: { ryo: 100 } });
+        const readsBeforeRemoteWrite = selectCount.get(key) ?? 0;
+        settleInOtherProcess(key, { saveVersion: 2, balances: { ryo: 40 } });
+
+        assert.deepEqual(await workerA._pgKvForTest.get(key), { saveVersion: 2, balances: { ryo: 40 } },
+            `${key} must observe the other worker's committed ledger row`);
+        assert.ok((selectCount.get(key) ?? 0) > readsBeforeRemoteWrite,
+            `${key} must re-read Postgres instead of serving a process-local snapshot`);
+    }
+});
+
 test('mentor records, discovery pointers and student markers are read from shared storage on every worker', async () => {
     // Pending mentor settlements live in `clan-mentor:<sensei>` and are only
     // replaced by exact CAS; a worker-local snapshot would hide another

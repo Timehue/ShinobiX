@@ -2,10 +2,31 @@ import { createHash, randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import type { KvLike } from './_storage.js';
 import { mergePreservingImages } from './_utils.js';
-import { syncCurrencyLedger } from './_currency-ledger.js';
+import { commitPlayerSaveRecord } from './save/_commit-player-save.js';
 import { carriedRegenCursor, settleIdleRecovery, versionedPlayerRecord } from './save/_mutate-player-save.js';
 
-type FundingStore = Pick<KvLike, 'get' | 'set' | 'compareSet'>;
+type FundingStore = Pick<KvLike, 'get' | 'set' | 'compareSet'> & Partial<Pick<KvLike, 'compareSetMany'>>;
+
+/**
+ * Exact-CAS one source-row write. An Honor Seal source is the Kage's player
+ * save, so it commits through commitPlayerSaveRecord: a debit lands together
+ * with the currency ledger row. A village's war-resource row is shared state
+ * and keeps its plain compare-and-set.
+ */
+function commitSourceRow(
+    store: FundingStore,
+    source: WarDeclarationFundingSource,
+    current: Record<string, unknown>,
+    next: Record<string, unknown>,
+): Promise<boolean> {
+    if (source.kind !== 'honor-seals') return store.compareSet(source.recordKey, current, next);
+    return commitPlayerSaveRecord(store, {
+        playerName: source.accountId,
+        saveKey: source.recordKey,
+        expected: current,
+        intended: next,
+    });
+}
 
 export const WAR_DECLARATION_FUNDING_FIELD = 'declarationFunding';
 export const WAR_DECLARATION_FUNDING_RECEIPTS_FIELD = 'warDeclarationFundingReceipts';
@@ -482,7 +503,7 @@ export async function abortWarDeclarationFunding<T extends Record<string, unknow
         );
         const fencedRow = projectSourceEntry(sourceRow, marker.source, abortedIntent, await settledSource(store, marker.source, sourceRow));
         try {
-            if (await store.compareSet(marker.source.recordKey, sourceRow, fencedRow)) {
+            if (await commitSourceRow(store, marker.source, sourceRow, fencedRow)) {
                 sourceFenced = true;
                 durableSourceFence = true;
                 break;
@@ -838,7 +859,7 @@ async function ensureSourceIntent<T extends Record<string, unknown>>(
         const pending = sourceEntryFor(marker, 'pending', reservedAt);
         const desired = projectSourceEntry(current, marker.source, pending, await settledSource(store, marker.source, current));
         try {
-            if (await store.compareSet(marker.source.recordKey, current, desired)) {
+            if (await commitSourceRow(store, marker.source, current, desired)) {
                 return { status: 'ready', row: desired };
             }
         } catch (error) {
@@ -858,15 +879,6 @@ async function ensureSourceIntent<T extends Record<string, unknown>>(
     throw new Error('war-declaration-funding-intent-busy');
 }
 
-async function syncHonorLedger(
-    store: FundingStore,
-    marker: WarDeclarationFundingMarker,
-    row: Record<string, unknown>,
-): Promise<void> {
-    if (marker.source.kind !== 'honor-seals') return;
-    await syncCurrencyLedger(marker.source.accountId, row, { kv: store });
-}
-
 /** Exact-CAS the currency debit and its non-evicting receipt in one source-row write. */
 export async function debitWarDeclarationFunding<T extends Record<string, unknown>>(
     store: FundingStore,
@@ -883,9 +895,8 @@ export async function debitWarDeclarationFunding<T extends Record<string, unknow
         if (intent.status === 'stale-lease') return { status: 'stale-lease' };
         if (intent.status === 'fenced') return { status: 'source-fenced' };
         if (intent.status === 'debited') {
-            // A crash can land the authoritative save blob before its best-effort
-            // currency projection. Replays help the projection forward too.
-            await syncHonorLedger(store, marker, intent.row);
+            // The debit committed its currency ledger row in the same
+            // transaction (commitSourceRow), so a replay has nothing to repair.
             return { status: 'debited', receipt: intent.receipt, row: intent.row, replayed: true };
         }
         if (!isDeepStrictEqual(await store.get<Record<string, unknown>>(warKey), fundingRow)) {
@@ -897,8 +908,7 @@ export async function debitWarDeclarationFunding<T extends Record<string, unknow
             return { status: 'insufficient', have: projection.insufficient, cost: marker.source.amount };
         }
         try {
-            if (await store.compareSet(marker.source.recordKey, current, projection.next)) {
-                await syncHonorLedger(store, marker, projection.next);
+            if (await commitSourceRow(store, marker.source, current, projection.next)) {
                 return { status: 'debited', receipt: projection.receipt, row: projection.next, replayed: false };
             }
         } catch (error) {
@@ -906,7 +916,6 @@ export async function debitWarDeclarationFunding<T extends Record<string, unknow
             if (recovered) {
                 const recoveredEntry = exactSourceEntryFromRow(recovered, marker);
                 if (recoveredEntry?.state === 'committed') {
-                    await syncHonorLedger(store, marker, recovered);
                     return { status: 'debited', receipt: recoveredEntry, row: recovered, replayed: false };
                 }
             }

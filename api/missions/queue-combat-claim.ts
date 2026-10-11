@@ -6,6 +6,7 @@ import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { carriedRegenCursor, settleIdleRecovery } from '../save/_mutate-player-save.js';
+import { commitPlayerSaveExact } from '../save/_commit-player-save.js';
 import { combatMissionByKey } from './_mission-catalog.js';
 import { canPlayerReceiveMission, missionEligibilityFailureBody } from './_eligibility.js';
 import { readSoloPveSession, writeSoloPveSession } from '../solo-pve/_store.js';
@@ -216,7 +217,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // `paying` authority and self-heal the mission-scoped pending
                     // flag. Restore that UI affordance without rolling the durable
                     // reservation back to old-compatible active authority.
-                    await compareSetExactKvRow(kv, saveKey, record, persisted);
+                    await commitPlayerSaveExact(kv, { playerName, saveKey, expected: record, intended: persisted });
                     return {
                         queued: true,
                         saveVersion: Number(updated._saveVersion ?? 0),
