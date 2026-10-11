@@ -116,7 +116,12 @@ export async function reconcileCurrencyLedger(
     opts: { store?: SweepStore; gateEnforced?: boolean; now?: number } = {},
 ): Promise<LedgerReconcileOutcome> {
     const store = opts.store ?? kv;
-    const name = playerName.toLowerCase();
+    // Only a canonical (safeName) name. Lowercasing a legacy `save:Rill` would
+    // reconcile `save:rill` instead, and could delete a ledger row that belongs
+    // to the legacy save as an "orphan" (the data-integrity scan walks every
+    // `save:*` key, legacy spellings included).
+    if (!isPlayerSaveName(playerName)) return { name: playerName, status: 'no-save', action: 'skipped' };
+    const name = playerName;
     const saveKey = `${SAVE_PREFIX}${name}`;
     const ledgerKey = currencyLedgerKey(name);
     if (!store.compareSetMany) return { name, status: 'no-save', action: 'skipped' };
