@@ -8,6 +8,7 @@ import { withKvLock } from '../_lock.js';
 import { withoutKvLeaseContext } from '../_kv-lock-context.js';
 import { runBackgroundWork } from '../_background-work.js';
 import { onlineStore } from '../_realtime/online-store.js';
+import { kickVillageChat } from '../_realtime/notify.js';
 
 // ─── Moderation key model ─────────────────────────────────────────────────────
 //
@@ -534,6 +535,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const next = list.filter(m => !(m.author === author && m.ts === ts));
                 await kv.set(chatBlobKey, next, { ex: 4 * 60 * 60 });
             });
+            // Open taverns drop the removed line now, not on their next reconcile poll.
+            kickVillageChat(village, Date.now());
             await appendAudit({
                 ts: Date.now(),
                 actor: actorName,

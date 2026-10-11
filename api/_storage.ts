@@ -140,7 +140,8 @@ const _noCachePrefixes = [
     // deleted row or lose a concurrently delivered message. Sector chat is the
     // same shape, and its socket hint makes every reader refetch at once: a
     // cached row would answer that hint with the line it was sent to announce.
-    'chat:village:', 'chat:sector:', 'dm:',
+    // The tavern and clan chat get the same hint (shared/chat-push.ts).
+    'chat:village:', 'chat:sector:', 'clan-chat:', 'dm:',
     // Solo-PvE move/state versions and their story bindings are likewise
     // distributed-lock authority. A cached pre-move session can accept an old
     // expectedVersion after another worker committed, overwriting that move and

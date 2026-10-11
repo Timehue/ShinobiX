@@ -11,6 +11,7 @@
  */
 import { kv } from './_storage.js';
 import { withKvLock } from './_lock.js';
+import { kickVillageChat } from './_realtime/notify.js';
 
 export type AnnouncementImportance = 'low' | 'medium' | 'high' | 'mythic';
 
@@ -116,9 +117,11 @@ export async function announce(
 
 /** Canonical village names (data/sectors.ts) → chat keys, matching
  *  api/village/chat.ts's chatKey() format exactly. */
-const VILLAGE_CHAT_KEYS = [
+const VILLAGE_CHAT_NAMES = [
     'Stormveil Village', 'Ashen Leaf Village', 'Frostfang Village', 'Moonshadow Village',
-].map((v) => `chat:village:${v.toLowerCase().replace(/\s+/g, '-')}`);
+];
+const villageChatKey = (v: string) => `chat:village:${v.toLowerCase().replace(/\s+/g, '-')}`;
+const VILLAGE_CHAT_KEYS = VILLAGE_CHAT_NAMES.map(villageChatKey);
 const CHAT_MAX_MESSAGES = 30; // mirror api/village/chat.ts MAX_MESSAGES
 
 /** System line in every village chat for high/mythic world moments. */
@@ -136,16 +139,20 @@ async function broadcastToVillageChats(a: Announcement, receiptId?: string): Pro
         system: true,
     };
     let delivered = true;
-    for (const key of VILLAGE_CHAT_KEYS) {
+    for (const village of VILLAGE_CHAT_NAMES) {
+        const key = villageChatKey(village);
         try {
-            await withKvLock(key, async () => {
+            const wrote = await withKvLock(key, async () => {
                 const existing = (await kv.get<unknown[]>(key)) ?? [];
                 if (receiptId && existing.some((item) => (
                     item && typeof item === 'object' && (item as { receiptId?: unknown }).receiptId === receiptId
-                ))) return;
+                ))) return false;
                 const next = [...(Array.isArray(existing) ? existing : []), line].slice(-CHAT_MAX_MESSAGES);
                 await kv.set(key, next, { ex: 30 * 24 * 60 * 60 });
+                return true;
             }, { failClosed: true });
+            // Open taverns show the herald now, not on their next reconcile poll.
+            if (wrote) kickVillageChat(village, line.ts);
         } catch { delivered = false; }
     }
     return delivered;
@@ -176,14 +183,16 @@ export async function postVillageHerald(
         system: true, // server-authored; the tavern can't be tricked into forging it
     };
     try {
-        await withKvLock(key, async () => {
+        const wrote = await withKvLock(key, async () => {
             const existing = (await kv.get<unknown[]>(key)) ?? [];
             if (receiptId && existing.some((item) => (
                 item && typeof item === 'object' && (item as { receiptId?: unknown }).receiptId === receiptId
-            ))) return;
+            ))) return false;
             const next = [...(Array.isArray(existing) ? existing : []), line].slice(-CHAT_MAX_MESSAGES);
             await kv.set(key, next, { ex: 30 * 24 * 60 * 60 });
+            return true;
         }, { failClosed: true });
+        if (wrote) kickVillageChat(villageName, line.ts);
         return true;
     } catch { return false; }
 }

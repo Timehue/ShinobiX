@@ -41,6 +41,7 @@ import { normalizeSector, normalizeTile, slimPresenceCharacter, capTravelingUnti
 import { queuePresenceUpdate, registerPresenceClient, setPresenceBroadcastIo } from './presence-broadcast.js';
 import { setOnSweep, setOnDuelDrop, setOnDuelExpire } from './game-loop.js';
 import { wirePetDuel, notifyPeerGone, notifyInviteExpired } from './pet-duel-socket.js';
+import { wireChatRooms } from './chat-rooms.js';
 import { setRealtimeEmitter } from './notify.js';
 import { clearSleeperCampOnBeat } from './sleeper-camps.js';
 import { getTravelLease, settleTravelLease, travelLeaseSectorAt } from './travel-lease.js';
@@ -389,6 +390,10 @@ function wireRealtime(io: IOServer): void {
         // Live two-player pet duels (docs/pet-coliseum-player-control-plan.md §10).
         // All rules live in pet-duel-session.ts; this only attaches the handlers.
         wirePetDuel(io, socket);
+
+        // Tavern + clan chat hints (chat-rooms.ts): join on request, after the
+        // same membership check the chat's GET applies.
+        wireChatRooms(socket);
 
         // Tile movement has a dedicated tiny delta path. This avoids rebuilding
         // and broadcasting the whole sector roster for every click/WASD step.

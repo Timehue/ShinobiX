@@ -16,6 +16,7 @@
 
 import { safeName } from '../_utils.js';
 import { SECTOR_CHAT_EVENT } from '../../shared/sector-chat.js';
+import { CHAT_PUSH_EVENT, chatPushRoom, villageChatSlug, type ChatPush, type ChatPushChannel } from '../../shared/chat-push.js';
 import type { WorldPosition } from '../../shared/world-position.js';
 
 type Emitter = (room: string, event: string, payload: unknown) => void;
@@ -110,6 +111,31 @@ export function kickSectorChat(sector: number, ts: number): void {
     } catch {
         /* best-effort — the chat's own poll is the fallback */
     }
+}
+
+function kickChat(channel: ChatPushChannel, slug: string, ts: number): void {
+    if (!_emit || !slug) return;
+    const payload: ChatPush = { channel, key: slug, ts };
+    try {
+        _emit(chatPushRoom(channel, slug), CHAT_PUSH_EVENT, payload);
+    } catch {
+        /* best-effort — the chat's own poll is the fallback */
+    }
+}
+
+/**
+ * Tell every reader with this village's tavern open that its chat changed. A
+ * hint, not the line, for the same reason as kickSectorChat: the tavern GET
+ * applies the reader's block list and the guest lock. `village` is the
+ * trimmed name the chat key was built from (api/village/chat.ts chatKey).
+ */
+export function kickVillageChat(village: string, ts: number): void {
+    kickChat('village', villageChatSlug(village), ts);
+}
+
+/** Same hint for a clan's chat; `slug` is the clanBareSlug its key was built from. */
+export function kickClanChat(slug: string, ts: number): void {
+    kickChat('clan', slug, ts);
 }
 
 /** Publish only a revision hint; clients refetch authenticated Tower authority. */
