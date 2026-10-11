@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page, type Route } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import AxeBuilder from '@axe-core/playwright';
 import { installUiAuditRuntime, uiAuditSave } from './helpers/ui-audit-runtime';
@@ -225,14 +225,28 @@ test('dismissal consumes the gesture, isolates shortcuts and keeps the canvas mo
 
 test('empty and unknown presence are distinct', async ({page}) => {
     await boot(page, 0);
+    const heading = page.locator('.sector-nearby-heading');
     await expect(page.getByText('No other players are here.', {exact:false})).toBeVisible();
+    await expect(heading).toContainText('0 in sector');
     await page.screenshot({path:`${evidence}/empty.png`});
+    // Every fixture heartbeat carries a full snapshot, and a snapshot rightly
+    // makes the roster current again. Hold the beats roster-less while the
+    // unknown state is checked. Beats run one at a time, so once a held beat
+    // arrives, every earlier snapshot has already been applied.
+    let heldBeats = 0;
+    const holdRoster = (route: Route) => { heldBeats++; return route.fulfill({json:{ok:true,sector:22}}); };
+    await page.route('**/api/player/heartbeat', holdRoster);
+    await expect.poll(() => heldBeats).toBeGreaterThan(0);
     await page.evaluate(async () => {
         const store = await import('/src/lib/presence-store.ts');
         store.markSectorRosterUnavailable(22);
     });
     await expect(page.getByText('Reconnecting.', {exact:false})).toBeVisible();
-    await expect(page.locator('.sector-nearby-heading')).not.toContainText('0 in sector');
+    await expect(heading).not.toContainText('in sector');
+    // The next full snapshot shows the empty roster and its count again.
+    await page.unroute('**/api/player/heartbeat', holdRoster);
+    await expect(heading).toContainText('0 in sector');
+    await expect(page.getByText('No other players are here.', {exact:false})).toBeVisible();
 });
 
 test('stable rows, scrolling, status updates and target departure', async ({page}) => {
