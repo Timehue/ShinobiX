@@ -73,6 +73,21 @@ export async function villageChatWatchable(player: string, village: string): Pro
     return !await socialSurfacesLocked(player);
 }
 
+// The transcript as one reader may see it: lines from players they block are
+// dropped, World Herald (system) lines always stay, and admins read it whole.
+// Both GET and the POST reply go through this — the client replaces its list
+// with either body, so a POST that skipped it re-showed blocked authors.
+// Returns the filter rather than applying it so POST can read the block list
+// BEFORE it writes: a failed read then refuses the post outright, instead of
+// answering 500 for a line already stored and inviting a duplicate retry.
+async function transcriptFilterFor(
+    identity: { admin: true } | { admin: false; name: string },
+): Promise<(messages: ChatMessage[]) => ChatMessage[]> {
+    if (identity.admin) return (messages) => messages;
+    const blocked = new Set(await blockedPlayersFor(identity.name));
+    return (messages) => messages.filter((message) => message.system || !blocked.has(safeName(message.author)));
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -96,8 +111,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // village room, not a feed, and a locked room shows no transcript.
         if (await rejectUnclaimedGuest(res, identity)) return;
         const allMessages = await kv.get<ChatMessage[]>(key) ?? [];
-        const blocked = identity.admin ? new Set<string>() : new Set(await blockedPlayersFor(identity.name));
-        const messages = allMessages.filter((message) => message.system || !blocked.has(safeName(message.author)));
+        const messages = (await transcriptFilterFor(identity))(allMessages);
         res.setHeader('X-Message-Count', String(messages.length));
         // X-Last-Ts too: once the log sits at MAX_MESSAGES, every append keeps
         // the count at 30, so a count-only skip check would never show new
@@ -232,6 +246,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ...(replyRef ? { replyTo: replyRef } : {}),
             };
 
+            const visible = await transcriptFilterFor(identity);
+
             // Read-modify-write under a short-lived KV lock so two concurrent
             // posters can't silently overwrite each other's message. Lock TTL
             // is bounded so a crashed lambda releases the key after a second
@@ -247,7 +263,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // next poll. Only after the write landed — a refused post kicks nobody.
             kickVillageChat(village, newMsg.ts);
 
-            return res.status(200).json(updated);
+            return res.status(200).json(visible(updated));
         } catch (err) {
             console.error('[village/chat]', err);
             return res.status(500).json({ error: 'Internal server error.' });
