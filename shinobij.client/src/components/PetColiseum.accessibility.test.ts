@@ -49,7 +49,7 @@ test("Pet Arena does not preload the retired Coliseum renderer", () => {
 
 test("the shared Showdown battle owns the stylesheet that constrains its fullscreen replay", () => {
     assert.match(showdownBattle, /import "\.\.\/screens\/PetShowdown\.css";/);
-    assert.match(showdownBattle, /className="pet-combat-takeover showdown-takeover"/);
+    assert.match(showdownBattle, /className=\{`pet-combat-takeover showdown-takeover /);
     assert.match(showdownStyles, /\.showdown-takeover\s*\{[^}]*background:/);
     assert.match(showdownStyles, /\.showdown-vs-side img\s*\{[^}]*width:\s*84px;[^}]*height:\s*84px;/);
     assert.match(showdownStyles, /\.showdown-result\s*\{[^}]*position:\s*absolute;[^}]*inset:\s*0;/);

@@ -11,6 +11,12 @@ import {
 
 const EMPTY: NotifInputs = { inBattle: false, territoryBreach: null, clanWar: null, villageWar: null, tournament: null };
 
+test("ranked pet lobby retains chrome; its fullscreen battle hides it", () => {
+    assert.equal(isLobbyFightScreen("petLadder"), true);
+    assert.equal(shouldHideBattleChrome({ screen: "petLadder", arenaBattleActive: false, petBattleActive: false }), false);
+    assert.equal(shouldHideBattleChrome({ screen: "petLadder", arenaBattleActive: false, petBattleActive: true }), true);
+});
+
 test("no signals → no notifications", () => {
     assert.deepEqual(buildNotifications(EMPTY), []);
 });

@@ -14,6 +14,7 @@ export const RUNTIME_AUTHORITY_ENGINES = Object.freeze({
     SOLO_PVE: 'solo-pve',
     TOWER: 'tower',
     PET_SHOWDOWN: 'pet-showdown',
+    PET_TACTICS: 'pet-tactics',
     PET_WARFRONT: 'pet-warfront',
     CHRONICLE: 'chronicle',
     PET_GAUNTLET_GRID: 'pet-gauntlet-grid',
@@ -172,16 +173,17 @@ const E = RUNTIME_AUTHORITY_ENGINES;
 const O = RUNTIME_ORCHESTRATORS;
 
 export const INTENTIONAL_ENGINE_SEPARATIONS: Readonly<Record<RuntimeAuthorityEngineId, readonly RuntimeAuthorityEngineId[]>> = Object.freeze({
+    [E.PET_TACTICS]: Object.freeze([E.PET_SHOWDOWN, E.PET_CINEMATIC_DUEL, E.PET_WARFRONT, E.PET_GAUNTLET_GRID, E.LEGACY_PET_DUEL, E.CLIENT_LOCAL_PET_DUEL]),
     [E.PVP]: Object.freeze([E.SOLO_PVE, E.TOWER]),
     [E.SOLO_PVE]: Object.freeze([E.PVP, E.TOWER]),
     [E.TOWER]: Object.freeze([E.PVP, E.SOLO_PVE]),
-    [E.PET_SHOWDOWN]: Object.freeze([E.PET_WARFRONT, E.PET_GAUNTLET_GRID, E.PET_CINEMATIC_DUEL, E.LEGACY_PET_DUEL, E.CLIENT_LOCAL_PET_DUEL]),
-    [E.PET_WARFRONT]: Object.freeze([E.PET_SHOWDOWN, E.PET_GAUNTLET_GRID, E.PET_CINEMATIC_DUEL, E.LEGACY_PET_DUEL, E.CLIENT_LOCAL_PET_DUEL]),
+    [E.PET_SHOWDOWN]: Object.freeze([E.PET_TACTICS, E.PET_WARFRONT, E.PET_GAUNTLET_GRID, E.PET_CINEMATIC_DUEL, E.LEGACY_PET_DUEL, E.CLIENT_LOCAL_PET_DUEL]),
+    [E.PET_WARFRONT]: Object.freeze([E.PET_TACTICS, E.PET_SHOWDOWN, E.PET_GAUNTLET_GRID, E.PET_CINEMATIC_DUEL, E.LEGACY_PET_DUEL, E.CLIENT_LOCAL_PET_DUEL]),
     [E.CHRONICLE]: Object.freeze([E.PVP, E.SOLO_PVE, E.TOWER, E.PET_SHOWDOWN, E.PET_WARFRONT, E.PET_GAUNTLET_GRID]),
-    [E.PET_GAUNTLET_GRID]: Object.freeze([E.PET_SHOWDOWN, E.PET_WARFRONT, E.CHRONICLE, E.PET_CINEMATIC_DUEL, E.LEGACY_PET_DUEL, E.CLIENT_LOCAL_PET_DUEL]),
-    [E.PET_CINEMATIC_DUEL]: Object.freeze([E.PET_SHOWDOWN, E.PET_WARFRONT, E.PET_GAUNTLET_GRID, E.LEGACY_PET_DUEL, E.CLIENT_LOCAL_PET_DUEL]),
-    [E.LEGACY_PET_DUEL]: Object.freeze([E.PET_SHOWDOWN, E.PET_WARFRONT, E.PET_GAUNTLET_GRID, E.PET_CINEMATIC_DUEL, E.CLIENT_LOCAL_PET_DUEL]),
-    [E.CLIENT_LOCAL_PET_DUEL]: Object.freeze([E.PET_SHOWDOWN, E.PET_WARFRONT, E.PET_GAUNTLET_GRID, E.PET_CINEMATIC_DUEL, E.LEGACY_PET_DUEL]),
+    [E.PET_GAUNTLET_GRID]: Object.freeze([E.PET_TACTICS, E.PET_SHOWDOWN, E.PET_WARFRONT, E.CHRONICLE, E.PET_CINEMATIC_DUEL, E.LEGACY_PET_DUEL, E.CLIENT_LOCAL_PET_DUEL]),
+    [E.PET_CINEMATIC_DUEL]: Object.freeze([E.PET_TACTICS, E.PET_SHOWDOWN, E.PET_WARFRONT, E.PET_GAUNTLET_GRID, E.LEGACY_PET_DUEL, E.CLIENT_LOCAL_PET_DUEL]),
+    [E.LEGACY_PET_DUEL]: Object.freeze([E.PET_TACTICS, E.PET_SHOWDOWN, E.PET_WARFRONT, E.PET_GAUNTLET_GRID, E.PET_CINEMATIC_DUEL, E.CLIENT_LOCAL_PET_DUEL]),
+    [E.CLIENT_LOCAL_PET_DUEL]: Object.freeze([E.PET_TACTICS, E.PET_SHOWDOWN, E.PET_WARFRONT, E.PET_GAUNTLET_GRID, E.PET_CINEMATIC_DUEL, E.LEGACY_PET_DUEL]),
 });
 
 function mountedRoute(path: `/${string}`, handler: string, roles: readonly RuntimeRouteRole[]): RuntimeRoute {
@@ -803,19 +805,26 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
         participantModel: 'two-player', rewardPolicy: 'none', replayKind: 'memory-only-server-replayed-lockstep-cinematic-log', status: 'match',
     }),
     defineMode({
-        id: 'pet-ranked-live', label: 'Pet ranked live queue', category: 'pet-showdown', authorityEngine: E.PET_SHOWDOWN,
+        id: 'pet-tactics-prototype', label: 'Pet Arena player-controlled sparring', category: 'pet-tactical', authorityEngine: E.PET_TACTICS,
+        clientEntries: ['screens/PetArena.tsx', 'components/PetTacticsArena.tsx', 'lib/pet-tactics-api.ts'],
+        routes: [mountedRoute('/pet/tactics', 'pet/tactics', ['start', 'action', 'state', 'recovery', 'record', 'lifecycle'])],
+        participantModel: 'two-player', rewardPolicy: 'none', replayKind: 'sealed-human-round-transcript', status: 'match',
+        statusDetail: 'Equal-access 12-pet loan roster, normalized level-50 profiles and four-pet teams with two active. Both authenticated seats submit private immutable orders; persisted rounds resolve under a distributed lock. Results have no economy or rating effect. Existing modes retain their rules.',
+    }),
+    defineMode({
+        id: 'pet-ranked-live', label: 'Ranked Pet Colosseum', category: 'pet-showdown', authorityEngine: E.PET_TACTICS,
         clientEntries: [
             'screens/PetLadder.tsx', 'components/PetLadderQueuePanel.tsx',
-            'lib/pet-ranked-queue-api.ts', 'lib/pet-ranked-watch-api.ts',
+            'components/PetTacticsArena.tsx', 'lib/pet-tactics-api.ts', 'lib/pet-ranked-queue-api.ts',
         ],
         routes: [
-            mountedRoute('/pvp/pet-ranked-queue', 'pvp/pet-ranked-queue', ['lifecycle']),
-            mountedRoute('/pet/ranked-start', 'pet/ranked-start', ['start']),
+            mountedRoute('/pvp/pet-ranked-queue', 'pvp/pet-ranked-queue', ['start', 'lifecycle']),
+            mountedRoute('/pet/tactics', 'pet/tactics', ['action', 'state', 'recovery', 'record', 'lifecycle']),
             mountedRoute('/pet/ranked-watch', 'pet/ranked-watch', ['state', 'observation']),
             mountedRoute('/pet/battle-result', 'pet/battle-result', ['settlement']),
         ],
-        participantModel: 'two-player', rewardPolicy: 'server-settled', replayKind: 'derived-showdown-script', status: 'match',
-        statusDetail: 'The queue produces only a reciprocal pairing. resolveRankedPetDuel is the single resolution: /pet/ranked-watch re-derives it for BOTH players and settlement rates that same derivation, so the fight on screen is the rated fight. DISABLE_PET_RANKED_QUEUE=1 closes matchmaking; DISABLE_PET_RANKED_SERVER_V1=1 closes the whole mode.',
+        participantModel: 'two-player', rewardPolicy: 'server-settled', replayKind: 'sealed-human-round-transcript', status: 'match',
+        statusDetail: 'New ranked Pet Colosseum matches use the 12-pet equal-access roster and immutable private player orders. Queue admission seals a durable command room, not an AI verdict; battle-result refuses nonterminal rooms and rates both saves from the committed terminal. Unsettled rooms and proofs have no TTL. The old headless resolver rejects player-control tokens. Historical receipts retain their sealed replay. Beastbound Warfront remains AI-driven on its own resolver and ladder. Existing ranked disable switches still apply.',
     }),
     defineMode({
         id: 'pet-ranked-legacy-compat', label: 'Pet ranked legacy compatibility challenge', category: 'pet-legacy', authorityEngine: E.PET_SHOWDOWN,

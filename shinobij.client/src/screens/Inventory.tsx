@@ -35,7 +35,7 @@ import {
     normalizeEquipmentSlot,
 } from "../lib/equipment";
 import { getCharacterElements, hasCharacterElement } from "../lib/elements";
-import { AURA_SPHERE_ITEM_ID, ELEMENTAL_CORE_ID } from "../constants/game";
+import { AURA_SPHERE_ITEM_ID, ELEMENTAL_CORE_ID, HOLLOW_BEAST_CACHE_ID } from "../constants/game";
 import { getAllTileCards, type TileCard } from "../data/tile-cards";
 import { getChronicleCard } from "../lib/chronicle-duel";
 import { addItem, countItem, removeItem, unifiedItemStacks } from "../lib/inventory";
@@ -52,7 +52,8 @@ import { formatItemBonus, presentItem } from "../lib/item-presentation";
 import { settleInventorySale } from "../lib/shop-settlement";
 import { AMBIGUOUS_ACTION_MESSAGE } from "../lib/ambiguous-action";
 import { gameToast } from "../components/GameToast";
-import { openWarCrate } from "../lib/inventory-settlement";
+import { CacheRewardReveal, type CacheRevealReward } from "../components/CacheRewardReveal";
+import { openHollowBeastCache, openWarCrate } from "../lib/inventory-settlement";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { useCapabilityViewAvailability } from "../lib/live-capabilities-context";
 import { capabilityAdmissionAllowed } from "../lib/live-capability-admission";
@@ -134,6 +135,10 @@ export function Inventory({
     }, [saleError, selectedInventoryItem]);
     const [openingWarCrate, setOpeningWarCrate] = useState(false);
     const openingWarCrateRef = useRef(false);
+    const [openingHollowBeastCache, setOpeningHollowBeastCache] = useState(false);
+    const openingHollowBeastCacheRef = useRef(false);
+    const hollowBeastCacheRequestIdRef = useRef<{ owner: string; id: string } | null>(null);
+    const [cacheReveal, setCacheReveal] = useState<{ key: string; title: string; rewards: CacheRevealReward[] } | null>(null);
     const [attunePickFor, setAttunePickFor] = useState<string | null>(null);
     const [attuneBusy, setAttuneBusy] = useState(false);
     const [attuneMsg, setAttuneMsg] = useState("");
@@ -460,7 +465,54 @@ export function Inventory({
         setSelectedInventoryItem(null);
     }
 
+    function hollowBeastCacheRequestId(): string {
+        const owner = character.name.toLowerCase();
+        if (hollowBeastCacheRequestIdRef.current?.owner === owner) return hollowBeastCacheRequestIdRef.current.id;
+        const storageKey = `hollow-beast-cache-open:${owner}`;
+        try {
+            const saved = localStorage.getItem(storageKey);
+            if (saved && /^[A-Za-z0-9_-]{16,80}$/.test(saved)) {
+                hollowBeastCacheRequestIdRef.current = { owner, id: saved };
+                return saved;
+            }
+        } catch { /* session continues without persisted retry state */ }
+        const requestId = crypto.randomUUID();
+        hollowBeastCacheRequestIdRef.current = { owner, id: requestId };
+        try { localStorage.setItem(storageKey, requestId); } catch { /* session continues without persisted retry state */ }
+        return requestId;
+    }
+
     async function consumeItem(entry: string) {
+        if (entry === HOLLOW_BEAST_CACHE_ID) {
+            if (!requireServerSettlement("hollowBeastCacheOpen")) return;
+            if (openingHollowBeastCacheRef.current) return;
+            openingHollowBeastCacheRef.current = true;
+            setOpeningHollowBeastCache(true);
+            try {
+                const requestId = hollowBeastCacheRequestId();
+                const result = await openHollowBeastCache(character.name, requestId);
+                if (result.ok === false) throw new Error(result.error);
+                onVersionedCharacter(result.character, result._saveVersion);
+                hollowBeastCacheRequestIdRef.current = null;
+                try { localStorage.removeItem(`hollow-beast-cache-open:${character.name.toLowerCase()}`); } catch { /* ignore storage cleanup failure */ }
+                setSelectedInventoryItem(null);
+                const material = getItemById(allItems, result.rewards.materialId);
+                const dungeonKey = getItemById(allItems, "dungeon-key");
+                const rewards: CacheRevealReward[] = [
+                    { id: "ryo", name: "Ryo", quantity: result.rewards.ryo, prefix: "+", iconKind: "ryo" },
+                    { id: "bone-charms", name: "Bone Charm", quantity: result.rewards.boneCharms, prefix: "+", iconKind: "boneCharm" },
+                    { id: result.rewards.materialId, name: material?.name ?? result.rewards.materialId, quantity: 1, ...(material?.image ? { iconSrc: material.image } : {}) },
+                    ...(result.rewards.dungeonKey ? [{ id: "dungeon-key", name: dungeonKey?.name ?? "Dungeon Key", quantity: 1, ...(dungeonKey?.image ? { iconSrc: dungeonKey.image } : {}) }] : []),
+                ];
+                setCacheReveal({ key: `hollow-beast:${requestId}`, title: "Hollow Beast Cache", rewards });
+            } catch (error) {
+                alert(error instanceof Error ? error.message : "Hollow Beast Cache could not be opened. Retry the same request.");
+            } finally {
+                openingHollowBeastCacheRef.current = false;
+                setOpeningHollowBeastCache(false);
+            }
+            return;
+        }
         if (entry === LEGENDARY_WAR_CRATE_ID) {
             if (!requireServerSettlement("warCrateOpen")) return;
             if (openingWarCrateRef.current) return;
@@ -472,12 +524,19 @@ export function Inventory({
                 // Opened and paid even if this commit is refused as stale; say so.
                 onVersionedCharacter(result.character, result._saveVersion);
                 setSelectedInventoryItem(null);
-                const honorGain = Math.max(0, Number(result.rewards.honorSeals) || 0);
-                const charmGain = Math.max(0, Number(result.rewards.boneCharms) || 0);
-                const honorMsg = honorGain > 0 ? `, +${honorGain} Honor Seals` : `, +${charmGain} Bone Charm`;
-                const bonusRelic = result.rewards.equippableRelicId ? getItemById(allItems, result.rewards.equippableRelicId)?.name : undefined;
-                const bonusMsg = bonusRelic ? `, +1 ${bonusRelic}` : result.rewards.fateShards ? `, +${result.rewards.fateShards} Fate Shards (duplicate relic)` : "";
-                alert(`War crate opened. +1 Warforged Relic, +500 ryo${honorMsg}${result.rewards.dungeonKey ? ", +1 Dungeon Key" : ""}${bonusMsg}.`);
+                const warforgedRelic = getItemById(allItems, "warforged-relic");
+                const bonusRelic = result.rewards.equippableRelicId ? getItemById(allItems, result.rewards.equippableRelicId) : undefined;
+                const dungeonKey = getItemById(allItems, "dungeon-key");
+                const rewards: CacheRevealReward[] = [
+                    { id: "ryo", name: "Ryo", quantity: result.rewards.ryo, prefix: "+", iconKind: "ryo" },
+                    ...(result.rewards.honorSeals > 0 ? [{ id: "honor-seals", name: "Honor Seals", quantity: result.rewards.honorSeals, prefix: "+" as const, iconKind: "crown" as const }] : []),
+                    { id: "bone-charms", name: "Bone Charm", quantity: result.rewards.boneCharms, prefix: "+", iconKind: "boneCharm" },
+                    { id: "warforged-relic", name: warforgedRelic?.name ?? "Warforged Relic", quantity: 1, ...(warforgedRelic?.image ? { iconSrc: warforgedRelic.image } : {}) },
+                    ...(bonusRelic ? [{ id: bonusRelic.id, name: bonusRelic.name, quantity: 1, ...(bonusRelic.image ? { iconSrc: bonusRelic.image } : {}) }] : []),
+                    ...(result.rewards.fateShards ? [{ id: "fate-shards", name: "Fate Shards", quantity: result.rewards.fateShards, prefix: "+" as const, iconKind: "fateShard" as const }] : []),
+                    ...(result.rewards.dungeonKey ? [{ id: "dungeon-key", name: dungeonKey?.name ?? "Dungeon Key", quantity: 1, ...(dungeonKey?.image ? { iconSrc: dungeonKey.image } : {}) }] : []),
+                ];
+                setCacheReveal({ key: `war-crate:${crypto.randomUUID()}`, title: "Legendary War Crate", rewards });
             } catch (error) {
                 alert(error instanceof Error ? error.message : "War crate could not be opened.");
             } finally {
@@ -650,6 +709,17 @@ export function Inventory({
     return (
         <>
             {!selected && saleNotice}
+            {cacheReveal && <CacheRewardReveal
+                open
+                title={cacheReveal.title}
+                rewards={cacheReveal.rewards}
+                onClose={() => setCacheReveal(null)}
+                rewardKey={cacheReveal.key}
+                intro="The cache seal gives way. Something glows inside…"
+                deliveryCopy="These rewards have already been added to your inventory."
+                revealLabel="Reveal the contents"
+                autoRevealAfterMs={720}
+            />}
             <div className="inventory-page">
                 <GatheringEquipment character={character} commit={onVersionedCharacter} />
                 <section className="inventory-equipped-panel">
@@ -1217,6 +1287,17 @@ export function Inventory({
                                             onClick={() => void consumeItem(selected.entry)}
                                         >
                                             {openingWarCrate ? "Opening…" : "Open Crate"}
+                                        </button>
+                                    )}
+
+                                    {selectedGameItem?.id === HOLLOW_BEAST_CACHE_ID && selected.source === "backpack" && (
+                                        <button
+                                            type="button"
+                                            className="item-action-primary"
+                                            disabled={openingHollowBeastCache}
+                                            onClick={() => void consumeItem(selected.entry)}
+                                        >
+                                            {openingHollowBeastCache ? "Opening…" : "Open Cache"}
                                         </button>
                                     )}
 

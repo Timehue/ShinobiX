@@ -1,0 +1,8 @@
+Asset: Hollow Gate guardian widescreen event key art.
+Production file: shinobij.client/public/world-boss/hollow-gate-bull-key-art-v1.webp
+Source image: hollow-gate-bull-key-art-v1.png
+Canvas: 1672 x 940 RGB, composed for a 16:9-style event hero with clear dark space at left for UI text.
+Reference: hollow-gate-bull-map-sprite-v1.webp.
+
+Generation prompt:
+Create original premium widescreen fantasy game key art for a cooperative world boss encounter, 16:9 landscape. Use the provided transparent Hollow Gate bull guardian as the exact character reference: enormous ancient bull with curved ivory horns, a broken stone gate fused to its armored back, dark basalt plates, hanging chains, glowing violet runes and a broad grounded silhouette. Keep its identity distinct from wolves, dragons, and village-themed guardians. Place the guardian on the right half, emerging through a fractured, freestanding stone threshold in a remote misty highland pass. Three tiny adventurers approach along the road for scale. Leave the left third dark, quiet, and uncluttered for game UI text. Polished cinematic game concept painting, layered fog, restrained violet and warm stone palette, dramatic readable silhouette, crisp professional finish. No village, no recognizable franchise cues, no text, no lettering, no logos, no border, no watermark.

@@ -7,7 +7,8 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { creditRankedOutcome } from '../_ranked-rating.js';
-import { resolveRankedPetDuel } from './_ranked-duel.js';
+import { rankedArenaWinner, retainSettledRankedArena } from '../_pet-tactics/ranked.js';
+import { TacticsError } from '../_pet-tactics/engine.js';
 import { replayCasualPetDuel, parseDuelInputLog } from './_duel-replay.js';
 import type { SealedDuelParams } from './_duel-replay.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
@@ -343,8 +344,8 @@ async function retireRankedMatchProof(key: string, token: RankedPetMatchToken): 
  *  a player watched and the fight that moved their Elo were unrelated. Both now
  *  come from resolveRankedPetDuel, and api/pet/ranked-watch.ts hands the client
  *  the very log this call produces. */
-function rankedWinnerFromToken(token: RankedPetMatchToken): string | null {
-    return resolveRankedPetDuel(token).winnerName;
+async function rankedWinnerFromToken(token: RankedPetMatchToken): Promise<string | null> {
+    return rankedArenaWinner(token);
 }
 
 async function projectPetRankedLeaderboardSide(slug: string): Promise<void> {
@@ -375,7 +376,7 @@ async function establishRankedSettlementIntent(
         version: 1,
         matchToken,
         token,
-        winnerName: rankedWinnerFromToken(token),
+        winnerName: await rankedWinnerFromToken(token),
         createdAt: Date.now(),
     };
     const placed = await kv.set(key, candidate, { nx: true });
@@ -395,6 +396,7 @@ async function cleanupRankedMatchAuthority(
     matchToken: string,
     token: RankedPetMatchToken,
 ): Promise<void> {
+    await retainSettledRankedArena(token);
     try {
         await withKvLock(PET_RANKED_QUEUE_KEY, async () => {
             const registry = pruneRankedPetActiveRegistry(await kv.get(PET_RANKED_ACTIVE_REGISTRY_KEY));
@@ -1267,7 +1269,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // first claimed. Both derivations go through resolveRankedPetDuel,
             // so this is a real guard against an engine change landing between
             // intent and settlement — not two engines being compared.
-            const simulatedWinner = resolveRankedPetDuel(tok).winnerName;
+            const simulatedWinner = await rankedWinnerFromToken(tok);
             if (settlementIntent?.winnerName !== simulatedWinner) {
                 return res.status(409).json({ error: 'Ranked settlement intent does not match the sealed server replay.' });
             }
@@ -1448,6 +1450,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
              }
                 }, { failClosed: true });
             } catch (rankedProofErr) {
+                if (rankedProofErr instanceof TacticsError) return res.status(rankedProofErr.status).json({ error: rankedProofErr.message });
                 console.error('[pet/battle-result] ranked proof lock failed', rankedProofErr);
                 return res.status(503).json({ error: 'Could not verify ranked result — please retry.' });
             }

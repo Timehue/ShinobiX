@@ -80,11 +80,8 @@ describe('live ranked pet matchmaking', { concurrency: false }, () => {
         assert.doesNotMatch(source, /petRankedRating\s*[:=]|creditRankedOutcome|writeSaveProjected\(/);
         assert.match(source, /petRankedQueueMatchKey/);
         // Both reciprocal records, exactly one initiator, identical createdAt.
-        assert.match(source, /queueMatch\(opponent, true, pairId, now, joiner.petIds\)/);
-        assert.match(source, /queueMatch\(joiner, false, pairId, now, opponent.petIds\)/);
-        // Ranked eligibility and pet availability are re-checked server-side.
-        assert.match(source, /rankedLevelEligible\(level\)/);
-        assert.match(source, /selectRankedTeam\(character, requestedIds/);
+        assert.match(source, /await rankedArenaQueue\(me, action, body\)/);
+        assert.match(source, /action === 'join' \|\| arena.state !== 'idle'/);
     });
 
     it('blocks level 10 from the live queue and admits level 11 past the level gate', async () => {
@@ -109,6 +106,7 @@ describe('live ranked pet matchmaking', { concurrency: false }, () => {
         assert.match(String(blocked.body?.error), /level 11/);
         await kv.set(`save:${name}`, { character: { name, level: 11 } });
         const eligible = await post();
-        assert.equal(eligible.body?.errorCode, 'no-ranked-team');
+        assert.equal(eligible.status, 200);
+        assert.equal(eligible.body?.state, 'queued'); // Equal-access roster does not require four owned pets.
     });
 });
