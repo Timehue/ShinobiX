@@ -96,9 +96,9 @@ export async function readSnapshotSuccessMarker(): Promise<SnapshotSuccessMarker
     return await kv.get<SnapshotSuccessMarker>(SNAPSHOT_SUCCESS_KEY);
 }
 
-// Cron auth: a Bearer CRON_SECRET only. (The old `x-vercel-cron` header
-// shortcut was removed — Vercel is retired, and a merely-present request header
-// is trivially spoofable, so it amounted to unauthenticated trust.)
+// Cron auth: a Bearer CRON_SECRET only. Never trust a scheduler-identifying
+// request header instead — a merely-present header is trivially spoofable, so
+// it would amount to unauthenticated trust.
 function isCronAuthorized(req: VercelRequest): boolean {
     const auth = req.headers.authorization;
     const secret = process.env.CRON_SECRET;

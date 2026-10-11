@@ -4,8 +4,8 @@
  * Lets request handlers (attack.ts, challenge.ts, …) push an instant "something
  * is waiting for you, poll now" KICK to a specific player WITHOUT importing the
  * socket.io server library into their bundle. socket.ts registers the actual
- * emitter at boot via setRealtimeEmitter(); until then (and on Vercel/cPanel
- * where the socket may never attach) every kick is a silent no-op.
+ * emitter at boot via setRealtimeEmitter(); until then (and in tests or
+ * harnesses where the socket never attaches) every kick is a silent no-op.
  *
  * Design note — why a kick and not the payload itself:
  *   The HTTP heartbeat stays the SINGLE authoritative delivery+clear path for

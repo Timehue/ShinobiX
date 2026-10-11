@@ -11,9 +11,7 @@ import pg from 'pg';
  */
 
 process.env.DATABASE_URL = 'postgresql://csm-test:csm-test@127.0.0.1/csm-test';
-process.env.FORCE_PG_KV = '1';
 delete process.env.SHINOBIX_QA_MEMORY_KV;
-delete process.env.VERCEL;
 
 type Row = { value: unknown; expiresAt: string | null };
 type Client = { id: number; pending: Map<string, Row | null>; released: boolean };

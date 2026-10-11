@@ -388,6 +388,8 @@ publish/
 
 # Migration backups (contain player data — never commit)
 upstash-backup-*.json
+# Vercel is retired, but old checkouts still hold a `vercel link` directory
+# (.vercel/project.json: org/project ids). Keep it out of commits.
 .vercel
 
 

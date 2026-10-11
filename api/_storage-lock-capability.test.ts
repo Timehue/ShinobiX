@@ -18,8 +18,8 @@ test('retired overlay settings keep base-store routing and cannot bypass REST lo
         NODE_ENV: 'test', SUPABASE_URL: 'https://storage-lock-fixture.invalid',
         SUPABASE_SERVICE_ROLE_KEY: 'isolated-fixture-key', DISK_KV_DIR: directory,
         KV_PROXY_URL: 'https://retired-overlay-fixture.invalid', REQUIRE_DISK_OVERLAY: '1',
-        SHINOBIX_QA_MEMORY_KV: undefined, KV_PROXY_TOKEN: undefined, VERCEL: undefined,
-        FORCE_PG_KV: undefined, DATABASE_URL: undefined, SUPABASE_POSTGRES_URL: undefined,
+        SHINOBIX_QA_MEMORY_KV: undefined, KV_PROXY_TOKEN: undefined,
+        DATABASE_URL: undefined, SUPABASE_POSTGRES_URL: undefined,
         SUPABASE_DNS_BYPASS: undefined, SUPABASE_DNS_HOST: undefined, SUPABASE_HARDCODED_IP: undefined,
     };
     const previous = Object.fromEntries(Object.keys(fixtureEnv).map(key => [key, process.env[key]]));

@@ -40,9 +40,8 @@ import { readRequestMetrics, recordRequestMetric, requestSloAlert } from './api/
 import { safeLogValue } from './api/_safe-log.js';
 
 // ─── Handler imports ─────────────────────────────────────────────────────────
-// All handlers use import type { VercelRequest, VercelResponse } for TypeScript
-// only — those types are erased at compile time, so there is zero runtime
-// dependency on @vercel/node in the Railway bundle.
+// Handlers import their req/res types from the local shim api/_vercel.d.ts
+// with `import type` only — erased at compile time, no runtime dependency.
 
 import { registerApiRoutes, type AnyHandler, villageWarMapEnabled, googleRedirectUriProblem } from './server-api-routes.js';
 
@@ -318,9 +317,8 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 // cors() can never drift.
 // Mirror the safe-method allowlist from api/_utils.ts cors(). The old
 // version sent `*` for ANY method when no Origin was present, which is
-// strictly looser than the Vercel path (which only allows `*` for safe
-// methods). An unsafe method with no Origin gets no ACAO header now,
-// matching Vercel behaviour.
+// strictly looser than cors() (which only allows `*` for safe methods). An
+// unsafe method with no Origin gets no ACAO header now, matching cors().
 const SAFE_METHODS = new Set<string>(['GET', 'HEAD', 'OPTIONS']);
 app.use((req: Request, res: Response, next: NextFunction) => {
     const origin = (req.headers.origin as string | undefined) ?? '';
@@ -1086,8 +1084,8 @@ server.listen(PORT, () => {
         // Phase 2: start the 1s in-memory presence/game tick (single instance).
         startGameLoop();
     }
-    // Vercel removal: the always-on server now runs the daily save-snapshot
-    // backup itself (was a Vercel cron). No-op if DISABLE_SNAPSHOT_CRON=1.
+    // The always-on server runs the daily save-snapshot backup itself.
+    // No-op if DISABLE_SNAPSHOT_CRON=1.
     startSnapshotCron();
     _stopTournamentClock = startTournamentClock();
     // War-map territory self-seed. Every deploy (and the coming account wipe)
