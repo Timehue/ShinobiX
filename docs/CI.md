@@ -32,6 +32,7 @@ only with the branch-protection migration procedure in this guide.
 | --- | --- | ---: | --- |
 | `CI / server-contracts` | `server_contracts` | 29 min | Locked root/client installs; the complete root auto-discovered suite and deployment, rollback, mission, asset, pet-breeding, and tooling contracts. CI uses `npm run test:ci`, the same runner as `npm test` without repeating the already-completed client install hook. |
 | `CI / server-build-security` | `server_build_security` | 15 min | Locked root install; backup/restore contract, root audit, one server build, checksum/provenance generation, and server artifact production. |
+| `CI / pg-integration` | `pg_integration` | 10 min | Locked root install; runs `kv.compareSetMany` (the multi-key compare-and-set every currency-moving save write commits through) against a real `postgres:16` service container: jsonb equality, `ON CONFLICT ... WHERE`, `FOR SHARE` holds, rollback, opposite-order batches, and lock-lease fencing. The schema is read from `supabase-schema.sql`. `PG_INTEGRATION_REQUIRED=1` fails the job if the suite would skip. Required through `CI / test-build` (see below), not yet as its own context. |
 | `CI / client-quality` | `client_quality` | 20 min | Locked root/client installs; lint, story-content/TypeScript/production build, build-size and visual-baseline-size gates, client audit, and checksum-backed client artifact production. |
 | `CI / release-certification` | `release_certification` | 15 min | Downloads and verifies the exact compiled release artifacts, then runs the fresh-account/combat certification against them. |
 | `CI / concurrency-smoke` | `concurrency_smoke` | 15 min | Downloads and verifies the release artifacts, then runs the short real-server concurrent-player smoke. It is not a database capacity test. |
@@ -67,6 +68,11 @@ branch-protection contract.
 the former monolithic check. Keep it required while branch protection migrates
 to the split contexts. It performs no substitute testing: it succeeds only when
 all split jobs it depends on succeeded.
+
+`CI / pg-integration` was added after the ten contexts above were made required.
+It gates merges through `CI / test-build`, which lists it in `needs`. Adding it
+to the protection rule directly is optional, and it follows the rollout below:
+only after GitHub has observed the context on a real run.
 
 The separate path-filtered `Clan Boss operation certification / certify` and
 manual-only `Visual regression (manual) / visual` workflows remain useful
@@ -203,8 +209,9 @@ local concurrency smoke.
 4. Require the branch to be up to date, and observe at least one normal pull
    request and one `main` run through the new policy.
 5. Remove `CI / test-build` from the required list only after the split contexts
-   are proven stable. The compatibility job can be removed in a later reviewed
-   workflow change.
+   are proven stable, and only after adding `CI / pg-integration`, which is
+   required solely through it today. The compatibility job can be removed in a
+   later reviewed workflow change.
 6. Record the ruleset/protection identifier, operator, date, and resulting exact
    required contexts in [`required-branch-protection.md`](required-branch-protection.md).
 
