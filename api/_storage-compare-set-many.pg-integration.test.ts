@@ -41,10 +41,8 @@ const SKIP = DATABASE_URL ? false : 'set PG_INTEGRATION_DATABASE_URL to a throwa
 if (DATABASE_URL) {
     // Read on first use by _storage.ts, which is imported only in before().
     process.env.DATABASE_URL = DATABASE_URL;
-    process.env.FORCE_PG_KV = '1';
     process.env.PG_SSL = 'disable';
     delete process.env.SHINOBIX_QA_MEMORY_KV;
-    delete process.env.VERCEL;
 }
 
 const pgTest = (name: string, fn: () => Promise<void>) => test(name, { skip: SKIP, timeout: 60_000 }, fn);
