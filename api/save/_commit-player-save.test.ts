@@ -136,6 +136,17 @@ describe('money writes — save and ledger in one transaction', () => {
         assert.equal(ledgerMod.classifyCurrencyLedger(current, row), 'match');
     });
 
+    test('a commit that loses its race counts nothing (only committed classifications are evidence)', async () => {
+        const aheadBefore = await counter('ledger-ahead');
+        // An unlocked caller read save v5; a locked writer then committed v6 and
+        // its ledger. The caller now sees a ledger "ahead" of what it read.
+        const stale = saveRecord(5);
+        await store.set(SAVE, saveRecord(6, { ryo: 1_100 }));
+        await store.set(LEDGER, ledgerMod.buildCurrencyLedgerRow('coinkeeper', saveRecord(6, { ryo: 1_100 }), null));
+        assert.equal(await commit(store, stale, saveRecord(6, { ryo: 900 })), false);
+        assert.equal(await counter('ledger-ahead'), aheadBefore, 'the losing classification was never acted on');
+    });
+
     test('a moved save refuses the write and leaves the ledger untouched', async () => {
         const before = saveRecord(4);
         await store.set(SAVE, saveRecord(5, { ryo: 1 }));

@@ -67,8 +67,10 @@ next money write or sweep pass recreates each row from its save.
 | `divergent` | same account, same version, different balances — a bug | **report-only today:** the save wins, CRITICAL log; **after step 4:** the write is refused |
 
 Each non-normal status is counted per day at
-`telemetry:currency-ledger:<event>:<YYYY-MM-DD>` and shown by
-`GET /api/admin/economy` (`currencyLedger`, last eight days).
+`telemetry:currency-ledger:<event>:<YYYY-MM-DD>`, returned by
+`GET /api/admin/economy` (`currencyLedger`, last eight days), and shown in the
+Admin Panel under **Diagnostics → Economy → Currency ledger**, with the two
+events that block step 4 listed first.
 
 ### Backfill
 
@@ -91,7 +93,16 @@ no step is "set a Railway variable".
    raw writes surfaced by the runtime guard.
 4. **Fail closed (next, gated).** Flip `CURRENCY_LEDGER_GATE_ENFORCED` in
    `api/save/_commit-player-save.ts` so a `divergent` row refuses the write
-   (and the sweep holds it for review instead of repairing it).
+   (and the sweep holds it for review instead of repairing it). Two things
+   must land WITH that flip, or a divergent account is wedged rather than
+   protected:
+   - `CurrencyLedgerDivergenceError` is not the save-version-conflict error,
+     so `mutatePlayerSave` routes it through `onUnconfirmedWrite`, not
+     `onConflict`. Map it to the clean-refusal path, and give the player a
+     retryable reply rather than a 500.
+   - An operator route that repairs one held account from its save (the
+     sweep's `reconcileCurrencyLedger` with the gate bypassed for that name),
+     so a held account is never stuck until a deploy.
 5. **Atomic settlements.** Trade, the Sunscar Exchange, the save-debit sagas and
    the cross-key treasury transfers commit every row they touch in one
    transaction — retiring F9 for money.
@@ -105,7 +116,8 @@ npm run ledger:audit      # read-only; must exit 0
 ```
 
 Step 4 is gated on: **zero `ledger-divergent` and zero `raw-save-write`
-across at least seven days of normal play**, including at least one
+across at least seven days of normal play** (the Currency ledger box reads
+"nothing blocking the fail-closed step"), including at least one
 ranked-season rollover, one clan-boss weekly settlement and one PvP-heavy
 period, with `ledger-lagging-different` trending to zero and the audit
 reporting no `missing` / `legacy` rows (the sweep has reached everyone).

@@ -144,6 +144,14 @@ describe('runCurrencyLedgerSweep', () => {
         assert.equal(sweep.isPlayerSaveName(''), false);
     });
 
+    test('reconcile refuses a legacy name instead of reconciling (and possibly deleting) the lowercase row', async () => {
+        await store.set('save:Rill', save(9));
+        const row = ledgerMod.buildCurrencyLedgerRow('Rill', save(9), null, 1);
+        await store.set('ledger:currency:rill', row);
+        assert.deepEqual(await sweep.reconcileCurrencyLedger('Rill', { store }), { name: 'Rill', status: 'no-save', action: 'skipped' });
+        assert.deepEqual(await store.get('ledger:currency:rill'), row, 'the row the legacy save owns survives');
+    });
+
     test('a ledger row whose save exists only under a legacy spelling is neither reconciled nor removed', async () => {
         // Ledger keys are always lowercase. Treating this row as an orphan would
         // delete it on every pass and have the next money write recreate it.

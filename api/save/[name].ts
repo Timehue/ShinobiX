@@ -1486,6 +1486,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         expected: (existing ?? null) as Record<string, unknown> | null,
                         intended: payload as Record<string, unknown>,
                     })) {
+                        // A definite refusal wrote nothing, so lift the admin-edit
+                        // signal set above: otherwise this player's autosaves would
+                        // be dropped for its 5-minute TTL with no reload signal.
+                        await kv.del(adminLockKey);
                         return res.status(409).json({
                             error: 'This record changed while it was being saved. Reload before saving so you do not revert newer content.',
                             storedVersion: adminStoredVersion,
