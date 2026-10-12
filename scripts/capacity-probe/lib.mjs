@@ -165,12 +165,18 @@ export class EdgeCache {
     }
 }
 
-/** s-maxage in ms from a Cache-Control header, or null when the edge must not cache. */
+/**
+ * Edge TTL in ms from a Cache-Control header, or null when the edge must not
+ * cache: s-maxage wins, else max-age (Cloudflare falls back to it — e.g.
+ * /api/images?ids=1 sends only `public, max-age=60` and is a verified HIT).
+ */
 export function sMaxAgeMs(cacheControl) {
     if (!cacheControl) return null;
-    if (/\b(no-store|private)\b/i.test(cacheControl)) return null;
-    const m = /\bs-maxage=(\d+)/i.exec(cacheControl);
-    return m ? Number(m[1]) * 1_000 : null;
+    if (/\b(no-store|no-cache|private)\b/i.test(cacheControl)) return null;
+    const s = /\bs-maxage=(\d+)/i.exec(cacheControl);
+    if (s) return Number(s[1]) * 1_000;
+    const m = /(?:^|[\s,])max-age=(\d+)/i.exec(cacheControl);
+    return m && Number(m[1]) > 0 ? Number(m[1]) * 1_000 : null;
 }
 
 // ── Synthetic client addresses ───────────────────────────────────────────────
