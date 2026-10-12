@@ -1,5 +1,12 @@
 # Visual-novel wiring follow-up — 2026-09-18
 
+Pet-flow retirement follow-up: the Rare Beast fixture below is historical evidence.
+Its old renderer stub, legacy API mocks and capture have been removed from the
+reproduction script. Current Dungeon commands and parent proof recovery are
+verified by `verify-pet-battle-menus.mjs --dungeon-only` and
+`api/pet/showdown.dungeon.test.ts`; the remaining script covers story navigation
+and Chronicle handoff only.
+
 This follows the [reader/layout pass](vn-reader-layout-pass.md), which covered 341 event/replay variants, 1,225 shipped pages and 2,522 browser layout cases. This follow-up checks navigation, avatar propagation, dungeon identity recovery and battle-result timing. It does not repeat the full layout sweep; no production layout or art changed during this follow-up.
 
 ## Fixed

@@ -3,7 +3,7 @@
  * next to the Tactical Pet Arena).
  *
  * Self-contained: it owns its GauntletRun state (lib/pet-gauntlet.ts) and its own
- * full-screen fight via PetColiseumDuel, so it never tangles with PetArena's
+ * full-screen fight via PetBoardArena, so it never tangles with PetArena's
  * existing battle/duel state — adding the tab is therefore zero-risk to the
  * Coliseum + Tactical flows.
  *
