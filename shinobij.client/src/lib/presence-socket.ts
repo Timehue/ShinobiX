@@ -28,6 +28,7 @@ import { io, type Socket } from 'socket.io-client';
 import { getSocketAuth, SAVE_VERSION_EVENT, type SaveVersionEventDetail } from '../authFetch';
 import { getFingerprintSync } from '../fingerprint';
 import { SECTOR_CHAT_EVENT } from '../../../shared/sector-chat';
+import { CHAT_PUSH_EVENT, parseChatPush, type ChatPush } from '../../../shared/chat-push';
 import type { PlayerRecord } from '../types/character';
 import type { WorldPosition } from '../../../shared/world-position';
 
@@ -62,6 +63,8 @@ export type TowerRealtimeKick =
 type TowerKickHandler = (kick: TowerRealtimeKick) => void;
 /** A sector's chat has a new line; the payload is a hint, the text is refetched. */
 type SectorChatHandler = (sector: number, ts: number) => void;
+/** A subscribed tavern or clan chat changed; the payload is a hint (lib/chat-push.ts). */
+type ChatPushHandler = (push: ChatPush) => void;
 
 let socket: Socket | null = null;
 let pingTimer: ReturnType<typeof setInterval> | null = null;
@@ -76,6 +79,7 @@ const goneHandlers = new Set<GoneHandler>();
 const kickHandlers = new Set<KickHandler>();
 const towerKickHandlers = new Set<TowerKickHandler>();
 const sectorChatHandlers = new Set<SectorChatHandler>();
+const chatPushHandlers = new Set<ChatPushHandler>();
 const statusHandlers = new Set<StatusHandler>();
 
 // Keepalive cadence — the "15-30s client heartbeat" that keeps server presence
@@ -194,6 +198,10 @@ export function connectRealtime(initialFrame: PresenceFrame): void {
         if (!data || typeof data.sector !== 'number') return;
         sectorChatHandlers.forEach((handler) => handler(data.sector!, Number(data.ts ?? 0)));
     });
+    socket.on(CHAT_PUSH_EVENT, (data: unknown) => {
+        const push = parseChatPush(data);
+        if (push) chatPushHandlers.forEach((handler) => handler(push));
+    });
     // A save version the server committed with no response of ours to carry it
     // (a travel arrival settled by the heartbeat). Routed through the same event
     // authFetch raises for `_saveVersion` bodies, so adoption stays monotonic and
@@ -311,6 +319,11 @@ export function onTowerKick(fn: TowerKickHandler): () => void {
 export function onSectorChat(fn: SectorChatHandler): () => void {
     sectorChatHandlers.add(fn);
     return () => { sectorChatHandlers.delete(fn); };
+}
+/** Subscribe before or after the shared socket connects; handlers survive reconnects. */
+export function onChatPush(fn: ChatPushHandler): () => void {
+    chatPushHandlers.add(fn);
+    return () => { chatPushHandlers.delete(fn); };
 }
 export function onStatus(fn: StatusHandler): () => void {
     statusHandlers.add(fn);

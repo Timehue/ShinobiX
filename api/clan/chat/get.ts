@@ -3,6 +3,7 @@ import { kv } from '../../_storage.js';
 import { cors, safeName, clanBareSlug } from '../../_utils.js';
 import { authedPlayerOrAdmin } from '../../_auth.js';
 import { clanChatKey, messagesSince, type ClanChatMessage } from './_storage.js';
+import { isClanChatMember } from './_access.js';
 
 /*
  * /api/clan/chat/get — GET only. Returns clan chat messages newer than `since`
@@ -30,12 +31,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!slug) return res.status(400).json({ error: 'Invalid clan name.' });
 
         // Membership: caller's character must belong to this clan (admin exempt).
-        if (!identity.admin) {
-            const save = await kv.get<Record<string, unknown>>(`save:${playerName}`);
-            const char = (save?.character ?? null) as Record<string, unknown> | null;
-            if (!char || clanBareSlug(String(char.clan ?? '')) !== slug) {
-                return res.status(403).json({ error: 'You are not a member of this clan.' });
-            }
+        if (!identity.admin && !(await isClanChatMember(playerName, slug))) {
+            return res.status(403).json({ error: 'You are not a member of this clan.' });
         }
 
         const buf = (await kv.get<ClanChatMessage[]>(clanChatKey(slug))) ?? [];
