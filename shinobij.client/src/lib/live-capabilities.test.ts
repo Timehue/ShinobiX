@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { PublicCapabilities } from "../../../shared/public-capabilities";
 import {
+    CAPABILITY_FIRST_RETRY_MS,
     CAPABILITY_HIDDEN_KEEPALIVE_MS,
     CAPABILITY_MAX_AGE_MS,
     LiveCapabilitiesStore,
@@ -207,7 +208,14 @@ describe("live capability messaging", () => {
     it("jitters healthy polling and exponentially backs off failures", () => {
         assert.equal(nextCapabilityRefreshDelay(0, () => 0), 25_500);
         assert.equal(nextCapabilityRefreshDelay(0, () => 1), 34_500);
-        assert.equal(nextCapabilityRefreshDelay(1, () => 0.5), 60_000);
+        // A blip (one failure) retries in ~4–11 s instead of a fixed ~60 s, so a
+        // deploy no longer parks a player outside gameplay for a minute.
+        assert.equal(nextCapabilityRefreshDelay(1, () => 0.5), 7_500);
+        assert.equal(nextCapabilityRefreshDelay(1, () => 0), 3_750);
+        assert.equal(nextCapabilityRefreshDelay(1, () => 1), 11_250);
+        assert.equal(nextCapabilityRefreshDelay(2, () => 0.5), 15_000);
+        assert.equal(nextCapabilityRefreshDelay(4, () => 0.5), 60_000);
+        // A long outage still backs off to the same 5-minute cap.
         assert.equal(nextCapabilityRefreshDelay(20, () => 0.5), 300_000);
     });
 
@@ -387,7 +395,7 @@ describe("live capability messaging", () => {
         release();
         await flushTasks();
 
-        assert.deepEqual(delays, [60_000], "one coalesced failure must advance backoff exactly once");
+        assert.deepEqual(delays, [CAPABILITY_FIRST_RETRY_MS], "one coalesced failure must advance backoff exactly once");
         stop();
     });
 

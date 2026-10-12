@@ -18,14 +18,24 @@ export const CAPABILITY_MAX_BACKOFF_MS = 5 * 60_000;
  * queue. Past this window the tab is treated as abandoned and lapses as before. */
 export const CAPABILITY_HIDDEN_KEEPALIVE_MS = 30 * 60_000;
 
+/**
+ * First retry after a failed refresh. A failure revokes admission (stale truth
+ * fails closed), so this wait is how long a player sits outside gameplay after
+ * a blip. It used to be 60 s; a deploy blip now costs about 10 s. Later
+ * failures double from here up to CAPABILITY_MAX_BACKOFF_MS, with a wide
+ * ±50% spread so a whole fleet that failed together does not retry together.
+ */
+export const CAPABILITY_FIRST_RETRY_MS = 7_500;
+
 export function nextCapabilityRefreshDelay(
     consecutiveFailures: number,
     random: () => number = Math.random,
 ): number {
     const failures = Math.max(0, Math.min(8, Math.floor(consecutiveFailures)));
-    const backoff = Math.min(CAPABILITY_MAX_BACKOFF_MS, CAPABILITY_REFRESH_MS * (2 ** failures));
-    const jitter = 0.85 + Math.max(0, Math.min(1, random())) * 0.3;
-    return Math.round(backoff * jitter);
+    const r = Math.max(0, Math.min(1, random()));
+    if (failures === 0) return Math.round(CAPABILITY_REFRESH_MS * (0.85 + r * 0.3));
+    const backoff = Math.min(CAPABILITY_MAX_BACKOFF_MS, CAPABILITY_FIRST_RETRY_MS * (2 ** (failures - 1)));
+    return Math.round(backoff * (0.5 + r));
 }
 
 // (No module-level memoized `capabilityRequest` promise here. main carried one,
