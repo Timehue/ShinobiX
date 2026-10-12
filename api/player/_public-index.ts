@@ -275,13 +275,17 @@ export function needsPublicPlayerIndexBackfill(raw: unknown): boolean {
 }
 
 export function publicPlayerIndexChanged(existingCharacter: Record<string, unknown> | null, next: PublicPlayerIndexEntry): boolean {
-    const existing = existingCharacter ?? {};
+    // Derive the previous row exactly the way `next` was derived. Comparing raw
+    // character fields broke for `xp`: the stored character keeps the frozen
+    // legacy XP, while the row holds earned stat points, so every save looked
+    // changed and rewrote the whole shared registry row (2026-10-12).
+    const existing = buildPublicPlayerIndexEntry(existingCharacter ?? {}, '', 0, 0);
     if (publicString(existing.accountName) !== publicString(next.accountName)) return true;
     for (const key of STRING_FIELDS) {
-        if (publicString(existing[key]) !== next[key]) return true;
+        if (existing[key] !== next[key]) return true;
     }
-    for (const { key, fallback } of NUMBER_FIELDS) {
-        if (publicNumber(existing[key], fallback) !== next[key]) return true;
+    for (const { key } of NUMBER_FIELDS) {
+        if (existing[key] !== next[key]) return true;
     }
     return false;
 }
