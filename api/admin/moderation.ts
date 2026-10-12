@@ -9,6 +9,7 @@ import { VILLAGE_CHAT_TTL_SECONDS, villageChatKey } from '../village/_chat-key.j
 import { withoutKvLeaseContext } from '../_kv-lock-context.js';
 import { runBackgroundWork } from '../_background-work.js';
 import { onlineStore } from '../_realtime/online-store.js';
+import { kickVillageChat } from '../_realtime/notify.js';
 
 // ─── Moderation key model ─────────────────────────────────────────────────────
 //
@@ -537,6 +538,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // expiry of the WHOLE transcript, not just the deleted line.
                 await kv.set(chatBlobKey, next, { ex: VILLAGE_CHAT_TTL_SECONDS });
             });
+            // Open taverns drop the removed line now, not on their next reconcile poll.
+            kickVillageChat(village, Date.now());
             await appendAudit({
                 ts: Date.now(),
                 actor: actorName,
