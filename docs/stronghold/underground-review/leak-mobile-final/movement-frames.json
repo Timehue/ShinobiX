@@ -1,0 +1,257 @@
+[
+  {
+    "engine": "chromium",
+    "scene": "stronghold",
+    "viewport": {
+      "width": 320,
+      "height": 568
+    },
+    "cpuSlowdown": 4,
+    "frames": 112,
+    "p95Ms": 16.800000000000182,
+    "longestMs": 149.9000000000001,
+    "visibility": "visible",
+    "focused": true,
+    "tiles": 61
+  },
+  {
+    "engine": "chromium",
+    "scene": "obsidian",
+    "viewport": {
+      "width": 320,
+      "height": 568
+    },
+    "cpuSlowdown": 4,
+    "frames": 120,
+    "p95Ms": 16.800000000000182,
+    "longestMs": 33.299999999999955,
+    "visibility": "visible",
+    "focused": true,
+    "tiles": 61
+  },
+  {
+    "engine": "chromium",
+    "scene": "cave",
+    "viewport": {
+      "width": 320,
+      "height": 568
+    },
+    "cpuSlowdown": 4,
+    "frames": 77,
+    "p95Ms": 50,
+    "longestMs": 283.3000000000002,
+    "visibility": "visible",
+    "focused": true,
+    "tiles": 33
+  },
+  {
+    "engine": "chromium",
+    "scene": "rift",
+    "viewport": {
+      "width": 320,
+      "height": 568
+    },
+    "cpuSlowdown": 4,
+    "frames": 96,
+    "p95Ms": 33.299999999999955,
+    "longestMs": 200,
+    "visibility": "visible",
+    "focused": true,
+    "tiles": 22
+  },
+  {
+    "engine": "chromium",
+    "scene": "stronghold",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "cpuSlowdown": 4,
+    "frames": 114,
+    "p95Ms": 16.700000000000273,
+    "longestMs": 116.70000000000005,
+    "visibility": "visible",
+    "focused": true,
+    "tiles": 61
+  },
+  {
+    "engine": "chromium",
+    "scene": "obsidian",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "cpuSlowdown": 4,
+    "frames": 110,
+    "p95Ms": 16.800000000000182,
+    "longestMs": 83.30000000000018,
+    "visibility": "visible",
+    "focused": true,
+    "tiles": 61
+  },
+  {
+    "engine": "chromium",
+    "scene": "cave",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "cpuSlowdown": 4,
+    "frames": 69,
+    "p95Ms": 66.69999999999982,
+    "longestMs": 533.3000000000002,
+    "visibility": "visible",
+    "focused": true,
+    "tiles": 33
+  },
+  {
+    "engine": "chromium",
+    "scene": "rift",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "cpuSlowdown": 4,
+    "frames": 91,
+    "p95Ms": 33.30000000000018,
+    "longestMs": 333.2999999999997,
+    "visibility": "visible",
+    "focused": true,
+    "tiles": 22
+  },
+  {
+    "engine": "chromium",
+    "scene": "stronghold",
+    "viewport": {
+      "width": 430,
+      "height": 932
+    },
+    "cpuSlowdown": 4,
+    "frames": 107,
+    "p95Ms": 16.800000000000182,
+    "longestMs": 166.60000000000014,
+    "visibility": "visible",
+    "focused": true,
+    "tiles": 61
+  },
+  {
+    "engine": "chromium",
+    "scene": "obsidian",
+    "viewport": {
+      "width": 430,
+      "height": 932
+    },
+    "cpuSlowdown": 4,
+    "frames": 114,
+    "p95Ms": 16.799999999999727,
+    "longestMs": 116.60000000000014,
+    "visibility": "visible",
+    "focused": true,
+    "tiles": 61
+  },
+  {
+    "engine": "chromium",
+    "scene": "cave",
+    "viewport": {
+      "width": 430,
+      "height": 932
+    },
+    "cpuSlowdown": 4,
+    "frames": 73,
+    "p95Ms": 49.90000000000009,
+    "longestMs": 300.0999999999999,
+    "visibility": "visible",
+    "focused": true,
+    "tiles": 33
+  },
+  {
+    "engine": "chromium",
+    "scene": "rift",
+    "viewport": {
+      "width": 430,
+      "height": 932
+    },
+    "cpuSlowdown": 4,
+    "frames": 103,
+    "p95Ms": 33.299999999999955,
+    "longestMs": 133.4000000000001,
+    "visibility": "visible",
+    "focused": true,
+    "tiles": 22
+  },
+  {
+    "engine": "chromium",
+    "scene": "stronghold",
+    "viewport": {
+      "width": 844,
+      "height": 390
+    },
+    "cpuSlowdown": 4,
+    "frames": 113,
+    "p95Ms": 16.799999999999727,
+    "longestMs": 149.9000000000001,
+    "visibility": "visible",
+    "focused": true,
+    "tiles": 61
+  },
+  {
+    "engine": "chromium",
+    "scene": "obsidian",
+    "viewport": {
+      "width": 844,
+      "height": 390
+    },
+    "cpuSlowdown": 4,
+    "frames": 113,
+    "p95Ms": 16.800000000000182,
+    "longestMs": 83.40000000000009,
+    "visibility": "visible",
+    "focused": true,
+    "tiles": 61
+  },
+  {
+    "engine": "chromium",
+    "scene": "cave",
+    "viewport": {
+      "width": 844,
+      "height": 390
+    },
+    "cpuSlowdown": 4,
+    "frames": 74,
+    "p95Ms": 33.30000000000018,
+    "longestMs": 366.6999999999998,
+    "visibility": "visible",
+    "focused": true,
+    "tiles": 33
+  },
+  {
+    "engine": "chromium",
+    "scene": "rift",
+    "viewport": {
+      "width": 844,
+      "height": 390
+    },
+    "cpuSlowdown": 4,
+    "frames": 110,
+    "p95Ms": 16.700000000000273,
+    "longestMs": 150,
+    "visibility": "visible",
+    "focused": true,
+    "tiles": 22
+  },
+  {
+    "engine": "webkit",
+    "scene": "stronghold",
+    "viewport": {
+      "width": 320,
+      "height": 568
+    },
+    "cpuSlowdown": 1,
+    "frames": 31,
+    "p95Ms": 216,
+    "longestMs": 761,
+    "visibility": "visible",
+    "focused": true,
+    "tiles": 61
+  }
+]

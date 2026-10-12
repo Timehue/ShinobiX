@@ -197,7 +197,7 @@
     box-shadow: 0 0 24px rgba(192, 38, 211, 0.42);
 }
 
-.hg-boss-cinematic-backdrop[data-mode="victory"] .hg-boss-cinematic__veil {
+:is(.hg-boss-cinematic-backdrop, .hg-boss-dialog)[data-mode="victory"] .hg-boss-cinematic__veil {
     background:
         linear-gradient(90deg, rgba(3, 1, 8, 0.97) 0%, rgba(3, 1, 8, 0.78) 34%, rgba(3, 1, 8, 0.12) 72%),
         linear-gradient(0deg, rgba(19, 4, 35, 0.82), transparent 60%);

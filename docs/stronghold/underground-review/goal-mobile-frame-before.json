@@ -1,0 +1,223 @@
+[
+  {
+    "engine": "chromium",
+    "scene": "stronghold",
+    "viewport": {
+      "width": 320,
+      "height": 568
+    },
+    "cpuSlowdown": 4,
+    "frames": 104,
+    "p95Ms": 49.899999999999636,
+    "longestMs": 66.80000000000018,
+    "tiles": 61
+  },
+  {
+    "engine": "chromium",
+    "scene": "obsidian",
+    "viewport": {
+      "width": 320,
+      "height": 568
+    },
+    "cpuSlowdown": 4,
+    "frames": 108,
+    "p95Ms": 16.800000000000182,
+    "longestMs": 183.20000000000005,
+    "tiles": 61
+  },
+  {
+    "engine": "chromium",
+    "scene": "cave",
+    "viewport": {
+      "width": 320,
+      "height": 568
+    },
+    "cpuSlowdown": 4,
+    "frames": 103,
+    "p95Ms": 16.800000000000182,
+    "longestMs": 183.39999999999986,
+    "tiles": 33
+  },
+  {
+    "engine": "chromium",
+    "scene": "rift",
+    "viewport": {
+      "width": 320,
+      "height": 568
+    },
+    "cpuSlowdown": 4,
+    "frames": 104,
+    "p95Ms": 16.800000000000182,
+    "longestMs": 150,
+    "tiles": 22
+  },
+  {
+    "engine": "chromium",
+    "scene": "stronghold",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "cpuSlowdown": 4,
+    "frames": 83,
+    "p95Ms": 83.30000000000018,
+    "longestMs": 183.30000000000018,
+    "tiles": 61
+  },
+  {
+    "engine": "chromium",
+    "scene": "obsidian",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "cpuSlowdown": 4,
+    "frames": 117,
+    "p95Ms": 16.800000000000182,
+    "longestMs": 50.100000000000136,
+    "tiles": 61
+  },
+  {
+    "engine": "chromium",
+    "scene": "cave",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "cpuSlowdown": 4,
+    "frames": 110,
+    "p95Ms": 16.799999999999727,
+    "longestMs": 100,
+    "tiles": 33
+  },
+  {
+    "engine": "chromium",
+    "scene": "rift",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "cpuSlowdown": 4,
+    "frames": 84,
+    "p95Ms": 16.800000000000182,
+    "longestMs": 316.7000000000003,
+    "tiles": 22
+  },
+  {
+    "engine": "chromium",
+    "scene": "stronghold",
+    "viewport": {
+      "width": 430,
+      "height": 932
+    },
+    "cpuSlowdown": 4,
+    "frames": 120,
+    "p95Ms": 16.700000000000273,
+    "longestMs": 33.40000000000009,
+    "tiles": 61
+  },
+  {
+    "engine": "chromium",
+    "scene": "obsidian",
+    "viewport": {
+      "width": 430,
+      "height": 932
+    },
+    "cpuSlowdown": 4,
+    "frames": 115,
+    "p95Ms": 16.800000000000182,
+    "longestMs": 50.100000000000136,
+    "tiles": 61
+  },
+  {
+    "engine": "chromium",
+    "scene": "cave",
+    "viewport": {
+      "width": 430,
+      "height": 932
+    },
+    "cpuSlowdown": 4,
+    "frames": 98,
+    "p95Ms": 16.700000000000273,
+    "longestMs": 216.70000000000005,
+    "tiles": 33
+  },
+  {
+    "engine": "chromium",
+    "scene": "rift",
+    "viewport": {
+      "width": 430,
+      "height": 932
+    },
+    "cpuSlowdown": 4,
+    "frames": 90,
+    "p95Ms": 16.800000000000182,
+    "longestMs": 250,
+    "tiles": 22
+  },
+  {
+    "engine": "chromium",
+    "scene": "stronghold",
+    "viewport": {
+      "width": 844,
+      "height": 390
+    },
+    "cpuSlowdown": 4,
+    "frames": 115,
+    "p95Ms": 16.700000000000273,
+    "longestMs": 116.59999999999991,
+    "tiles": 61
+  },
+  {
+    "engine": "chromium",
+    "scene": "obsidian",
+    "viewport": {
+      "width": 844,
+      "height": 390
+    },
+    "cpuSlowdown": 4,
+    "frames": 118,
+    "p95Ms": 16.800000000000182,
+    "longestMs": 33.40000000000009,
+    "tiles": 61
+  },
+  {
+    "engine": "chromium",
+    "scene": "cave",
+    "viewport": {
+      "width": 844,
+      "height": 390
+    },
+    "cpuSlowdown": 4,
+    "frames": 102,
+    "p95Ms": 16.800000000000182,
+    "longestMs": 250,
+    "tiles": 33
+  },
+  {
+    "engine": "chromium",
+    "scene": "rift",
+    "viewport": {
+      "width": 844,
+      "height": 390
+    },
+    "cpuSlowdown": 4,
+    "frames": 107,
+    "p95Ms": 16.799999999999727,
+    "longestMs": 166.70000000000005,
+    "tiles": 22
+  },
+  {
+    "engine": "webkit",
+    "scene": "stronghold",
+    "viewport": {
+      "width": 320,
+      "height": 568
+    },
+    "cpuSlowdown": 1,
+    "frames": 58,
+    "p95Ms": 132,
+    "longestMs": 185,
+    "tiles": 61
+  }
+]

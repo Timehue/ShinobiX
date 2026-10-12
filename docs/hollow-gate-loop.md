@@ -9,10 +9,10 @@ heal-and-resume exploit were fixed in commit `1e3d656d` (no balance changes).
 That fix is the reason the no-heal rule and the Torch/Threat meters are now
 actually enforceable — which is what makes this redesign worth doing.
 
-## Current authoritative contract (2026-08-04 cutover)
+## Current authoritative contract (2026-08-04 cutover; 2026-10-11 local cave upgrade)
 
 - The standard run is exactly **five floors**, shared by client and server.
-- Every current `battle`, `elite`, ambush, and boss node is a **Hollow Hound**.
+- Fixed `battle`, `elite`, threat ambush, and boss nodes retain the **Hollow Hound** flow. The October cave upgrade assigns up to three existing battle identities per floor to human hunters (Cavern Bandit, Night Ninja, and a rival village patrol). Hunters use shinobi Solo PvE with the existing battle reward and combat cap; they do not open a pet duel or award village/sector PvP war scores.
   If the active pet is battle-ready, the player explicitly chooses either
   mission/explore-style shinobi PvE or a server-sealed cinematic Hollow Hound
   duel. This parent mode is separate from the paid Showdown Coliseum. There is
@@ -20,7 +20,7 @@ actually enforceable — which is what makes this redesign worth doing.
 - Combat tiles resolve only after a server-accepted win. Old saved
   `tile_game`/`pet_battle` nodes migrate into this same Hound encounter flow.
 - Player healing, lifesteal, pet summoning, consumables, and post-fight healing
-  are sealed during Gate combat. The Shrine Keeper is the intentional exception.
+  are sealed during Gate combat. Keeper and roaming medic healing happen outside combat; Treasure Sense blocks both healing rites.
 - Run token, immutable floor manifest, position, encounter identity, floor
   progression, pet results, rewards, HP, and every shard consumable settle
   through the server. A Pet-mode parent preselects one cinematic proof and

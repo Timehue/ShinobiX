@@ -14,6 +14,7 @@ import { computeHollowGateVisible } from "./hollow-gate-visibility";
 import { hollowGateFlavorFor } from "../data/hollow-gate-flavor";
 import type { HollowGateShrineRun, HollowGateTile } from "../types/character";
 import type { WingStep } from "./hollow-gate-wings";
+import { undergroundFeatureBlocks } from '../../../shared/underground-floor-collision';
 
 const CARD: ReadonlyArray<readonly [number, number]> = [[0, -1], [0, 1], [-1, 0], [1, 0]];
 
@@ -96,7 +97,7 @@ export function findHollowGatePath(
     if (targetIdx < 0 || targetIdx >= run.tiles.length) return null;
     const walkable = (i: number) => {
         const t = run.tiles[i];
-        return !!t && t.terrain !== "wall" && t.kind !== "wall" && known.has(i);
+        return !!t && t.terrain !== "wall" && t.kind !== "wall" && !t.solid && !undergroundFeatureBlocks(run.floorFeatures, i) && known.has(i);
     };
     if (!walkable(targetIdx)) return null;
 

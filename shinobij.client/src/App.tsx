@@ -498,7 +498,9 @@ import { hollowGateEncounterPresentation } from "./lib/hollow-gate-presentation"
 import { resumeHollowGateServerRun, settleHollowGateRunOnly, startHollowGateServerRun, attachStartedRun, clearHollowGateRunLocal, reportHollowGateRunError } from "./lib/hollow-gate-server";
 import { startHollowGateCombat, settleHollowGateCombat, type HollowGateCombatKind, type HollowGateCombatSettleResult, type HollowGateServerFight } from "./lib/hollow-gate-combat-api";
 import { hollowGateRewardLines, hollowGateSealRunMarkers, resolveHollowGateServerEvent, sealHollowGateFloor } from "./lib/hollow-gate-event-api";
-import { sealHollowGateStep, hollowGateSealedCombatOpts } from "./lib/hollow-gate-step-api";
+import { hollowGateRunSummary } from "./lib/hollow-gate-summary";
+import { hollowGateNpcCanTalk } from './lib/hollow-gate-npc-range';
+import { hollowGateRunScopeMatches } from "./lib/hollow-gate-run-scope";
 import { startHollowGateCardAmbush, settleHollowGateCardAmbush, hollowGateCardAmbushLogLine } from "./lib/hollow-gate-card-api";
 import {
     formatHollowGateCombatReward,
@@ -1262,7 +1264,7 @@ export default function App() {
     // them after React publishes the movement state.
     const hollowGateMoveFxRef = useRef<HollowGateMoveEffect[]>([]);
     const [hollowGatePendingAmbush, setHollowGatePendingAmbush] = useState<{
-        token: string; floor: number; nodeId: string; kind: "ambush" | "boss" | "card";
+        token: string; floor: number; nodeId: string; kind: "battle" | "ambush" | "boss" | "card";
     } | null>(null);
     const [hollowGateCardAmbush, setHollowGateCardAmbush] = useState<{ token: string; nodeId: string; matchId: string } | null>(null);
     const [hollowGateCardStarting, setHollowGateCardStarting] = useState(false);
@@ -1307,7 +1309,7 @@ export default function App() {
         let cancelled = false;
         void sealHollowGateFloor(playerName, token, hollowGateRun).then((result) => {
             if (cancelled) return;
-            if (result.position || result.activeCombat || result.detour || result.riftSignal) {
+            if (result.position || result.activeCombat || result.detour || result.riftSignal || result.wanderers) {
                 setHollowGateRun((previous) => {
                     if (!previous || previous.runToken !== token || previous.floor !== floor) return previous;
                     return {
@@ -4911,7 +4913,8 @@ export default function App() {
     }
     // The server chooses one card ambush for a rift. Other threat encounters
     // keep the same readable Hollow Hound choice as authored battle tiles.
-    function triggerHollowGateAmbush(sealed?: { nodeId: string; kind: "ambush" | "boss" | "card" }) {
+    function triggerHollowGateAmbush(sealed?: { nodeId: string; kind: "battle" | "ambush" | "boss" | "card" }) {
+        if (sealed?.kind === 'battle') { void startHollowGateBattle({ nodeId: sealed.nodeId, forceMode: 'pve' }); return; }
         if (!character) return;
         if (sealed?.kind === "card") {
             const token = hollowGateRun?.runToken;
@@ -4992,12 +4995,13 @@ export default function App() {
             return;
         }
         const floor = hollowGateRun?.floor ?? 1;
+        const currentCombatScope = () => characterRef.current?.name === character.name && hollowGateRunScopeMatches(hollowGateMovementRunRef.current, hollowGateRun);
         const kind: HollowGateCombatKind = opts.isBoss ? "boss" : opts.isAmbush ? "ambush" : opts.isBeast ? "beast" : opts.isElite ? "elite" : "battle";
         const houndPresentation = hollowGateEncounterPresentation(floor, kind);
         const nodeId = opts.nodeId ?? `floor:${floor}:ambush:threat-${hollowGateRun?.playerX ?? 0}-${hollowGateRun?.playerY ?? 0}-${hollowGateRun?.tiles.filter((tile) => tile.resolved).length ?? 0}`;
         const activePet = activeCarriedPets<Pet>(character).find((pet) => pet.id === character.activePetId);
         const petReady = Boolean(activePet?.unlockedForPve && !isPetOnExpedition(activePet));
-        if (!opts.forceMode && petReady && activePet) {
+        if (!opts.forceMode && petReady && activePet && !hollowGateRun?.wanderers?.some(n => n.nodeId === nodeId)) {
             setHollowGateEvent({
                 title: houndPresentation.name,
                 body: `${opts.isBoss ? "The Alpha seals the way forward." : `${houndPresentation.epithet} blocks the corridor.`}\n\nIts spectral chakra gathers into ${houndPresentation.signature}.\n\nChoose who enters combat. Shinobi combat uses the normal mission/explore PvE arena. Pet combat is a Pet Colosseum duel led by ${activePet.name}: 1v1, 2v2 or 3v3 at random, with partners from your ready carried pets. A pet defeat deals 20% max HP recoil but does not clear this encounter.`,
@@ -5035,15 +5039,17 @@ export default function App() {
                 kind,
                 mode,
             });
+            if (!currentCombatScope()) return;
             const activeCombat = { runId: started.runId, nodeId, floor, kind, mode };
-            setHollowGateRun((prev) => prev ? { ...prev, activeCombat } : prev);
-            setCharacter((prev) => prev?.hollowGateRun ? { ...prev, hollowGateRun: { ...prev.hollowGateRun, activeCombat } } : prev);
+            setHollowGateRun((prev) => hollowGateRunScopeMatches(prev, hollowGateRun) ? { ...prev!, activeCombat } : prev);
+            setCharacter((prev) => prev?.name === character.name && hollowGateRunScopeMatches(prev.hollowGateRun ?? null, hollowGateRun)
+                ? { ...prev, hollowGateRun: { ...prev.hollowGateRun!, activeCombat } } : prev);
             if (mode === "pet") launchHollowGatePetFight(activeCombat);
             else if (started.session) launchHollowGatePveFight(activeCombat, started.session);
             else throw new Error("The Hollow Gate returned no sealed combat session.");
             return;
         } catch (error) {
-            reportHollowGateRunError(error, "The Hollow Gate encounter could not start.", () => clearHollowGateRunState(true));
+            if (currentCombatScope()) reportHollowGateRunError(error, "The Hollow Gate encounter could not start.", () => clearHollowGateRunState(true));
             return;
         } finally {
             hollowGateCombatStartRef.current = false;
@@ -5100,139 +5106,44 @@ export default function App() {
     // tile modal, the trap-death modal, and the F5 victory modal so a
     // player gets a consistent post-run report regardless of how they
     // exited.
-    function buildHollowGateRunSummary(): string {
-        if (!hollowGateRun || !character) return "";
-        const t = hollowGateRun.tiles;
-        const stats = {
-            floors: hollowGateRun.floor,
-            chests: t.filter(x => x.kind === "chest" && x.resolved).length,
-            battles: t.filter(x => (x.kind === "battle" || x.kind === "elite") && x.resolved).length,
-            beasts: t.filter(x => x.kind === "pet_battle" && x.resolved).length,
-            tileSeals: t.filter(x => x.kind === "tile_game" && x.resolved).length,
-            hiddenChambers: t.filter(x => x.kind === "shrine" && x.resolved).length,
-            traps: t.filter(x => x.kind === "trap" && x.resolved).length,
-            keepers: t.filter(x => x.kind === "npc" && x.resolved).length,
-        };
-        return [
-            `Floor reached: ${stats.floors} / ${hollowGateRunMaxFloor(hollowGateRun)}`,
-            `Chests opened: ${stats.chests}`,
-            `Hollow Hounds defeated: ${stats.battles}`,
-            `Pet-duel Hounds defeated: ${stats.beasts}`,
-            `Tile Seals claimed: ${stats.tileSeals}`,
-            `Hidden Chambers: ${stats.hiddenChambers}`,
-            `Keepers blessed by: ${stats.keepers}`,
-            `Traps survived: ${stats.traps}`,
-            `HP remaining: ${character.hp} / ${character.maxHp}`,
-        ].join("\n");
-    }
+    function buildHollowGateRunSummary(): string { return hollowGateRunSummary(character, hollowGateRun); }
 
     // Body lives in lib/hollow-gate-tile (drained 2026-07-28; it alone pinned App.tsx
     // to its line budget). Everything it used to close over is handed over here.
-    async function resolveHollowGateTile(tile: HollowGateTile, x: number, y: number) {
+    async function resolveHollowGateTile(tile: HollowGateTile, x: number, y: number, wanderers?: HollowGateShrineRun['wanderers']) {
         // The whole queued fx batch was already emptied by the drain, so a
         // rejection here is invisible without this: the player steps onto a
         // chest / staircase / exit and simply nothing happens.
+        const current = () => characterRef.current?.name === character?.name && hollowGateRunScopeMatches(hollowGateMovementRunRef.current, hollowGateRun);
+        if (!current()) return;
         const runtime = await loadHollowGateTileRuntime().catch(() => null);
+        if (!current()) return;
         if (!runtime) {
             pushHollowGateLog("The shrine could not read that tile because the connection dropped while loading it. Step off and back onto it to try again. If it still does not answer, reload the page; your run resumes where you stand.");
             return;
         }
         const { resolveHollowGateTile: resolveHollowGateTileImpl } = runtime;
         await resolveHollowGateTileImpl(tile, x, y, {
-            character, hollowGateRun,
-            setHollowGateRun, setHollowGateEvent, setHollowGateHiddenChamber,
-            onVersionedCharacter: commitVersionedCharacter,
-            pushHollowGateLog, buildHollowGateRunSummary, startHollowGateBattle,
-            leaveHollowGateShrine,
+            character: characterRef.current, hollowGateRun: wanderers && hollowGateMovementRunRef.current ? { ...hollowGateMovementRunRef.current, wanderers } : hollowGateMovementRunRef.current,
+            setHollowGateRun: update => { if (current()) setHollowGateRun(update); },
+            setHollowGateEvent: update => { if (current()) setHollowGateEvent(update); },
+            setHollowGateHiddenChamber: update => { if (current()) setHollowGateHiddenChamber(update); },
+            onVersionedCharacter: (next, version) => current() && commitVersionedCharacter(next, version),
+            pushHollowGateLog: line => { if (current()) pushHollowGateLog(line); }, buildHollowGateRunSummary,
+            startHollowGateBattle: opts => { if (current()) return startHollowGateBattle(opts); },
+            leaveHollowGateShrine: opts => { if (current()) leaveHollowGateShrine(opts); }, isCurrentRun: current,
         });
     }
     // Drain the queued move side-effects. Runs on a macrotask AFTER React has
     // flushed the state updater(s) that enqueued them, so the tile fire can
     // never be dropped by the eager-updater timing race (see hollowGateMoveFxRef).
     async function drainHollowGateMoveFx() {
-        const queue = hollowGateMoveFxRef.current;
-        if (queue.length === 0) return;
-        hollowGateMoveFxRef.current = [];
-        for (const fx of queue) {
-            if (fx.wallBump) {
-                pushHollowGateLog(fx.blockMessage ?? "Solid shrine stone. You cannot pass.");
-                continue;
-            }
-            if (fx.committedTheme) {
-                pushHollowGateLog(`You commit to the ${fx.committedTheme === "treasure" ? "Treasure" : "Beast"} wing — the other detour seals behind you. The Trial path remains open.`);
-            }
-            if (!fx.step || !character || !hollowGateRun?.runToken) continue;
-            const step = await sealHollowGateStep({
-                playerName: character.name,
-                token: hollowGateRun.runToken,
-                ...fx.step,
-            });
-            if (!step.ok) {
-                pushHollowGateLog(step.error || "The shrine rejected that step.");
-                setHollowGateRun((previous) => previous ? {
-                    ...previous,
-                    playerX: step.position?.x ?? fx.step!.fromX,
-                    playerY: step.position?.y ?? fx.step!.fromY,
-                } : previous);
-                if (step.pendingAmbush) {
-                    setHollowGatePendingAmbush({ ...step.pendingAmbush, token: hollowGateRun.runToken, floor: hollowGateRun.floor });
-                } else if (step.activeCombat) {
-                    setHollowGateRun((previous) => previous && previous.runToken === hollowGateRun.runToken
-                        ? { ...previous, activeCombat: step.activeCombat }
-                        : previous);
-                } else if (step.sealedCombat) void startHollowGateBattle(hollowGateSealedCombatOpts(step.sealedCombat));
-                // The remaining queued origins were plotted from an unaccepted
-                // position. Discard them instead of replaying a string of 409s.
-                hollowGateMoveFxRef.current = [];
-                break;
-            }
-            acceptExternalSaveVersion(step._saveVersion, character.name);
-            setHollowGateRun((previous) => previous ? {
-                ...previous,
-                // The position is already projected locally, and later inputs
-                // may be ahead of this acknowledgment. Rewinding to this one
-                // server step made held keys and click-walk stutter on latency.
-                torch: step.torch ?? previous.torch,
-                threat: step.threat ?? previous.threat,
-                wardSteps: step.wardSteps ?? previous.wardSteps,
-            } : previous);
-            if (step.torchSputtered) pushHollowGateLog("The Torch of Reiki sputters out. Threat builds faster in the dark.");
-            if (fx.justResolved) {
-                const { tile, nx, ny } = fx.justResolved;
-                await resolveHollowGateTile(tile, nx, ny);
-                // Stop a click-walk at interactions. The shrine can open a
-                // modal or start combat asynchronously, so queued steps must
-                // not continue through it before React publishes the blocker.
-                if (tile.kind !== "empty" && tile.kind !== "shard_vein") {
-                    stopHollowGateWalk();
-                    hollowGateMoveFxRef.current = [];
-                    setHollowGateRun((previous) => previous ? {
-                        ...previous,
-                        playerX: step.position?.x ?? nx,
-                        playerY: step.position?.y ?? ny,
-                    } : previous);
-                }
-            }
-            if (step.ambush) {
-                // A click-walk may have optimistically drawn one more tile while
-                // this request was in flight. Restore the accepted server tile
-                // before opening combat and discard that unsealed queued step.
-                setHollowGateRun((previous) => previous ? {
-                    ...previous,
-                    playerX: step.position?.x ?? fx.step!.toX,
-                    playerY: step.position?.y ?? fx.step!.toY,
-                } : previous);
-                // An authored fight on this tile takes priority and clears the
-                // threat ambush when its server binding starts. Other tiles may
-                // open a modal; the effect waits until that modal closes.
-                const kind = fx.justResolved?.tile.kind;
-                if (kind !== "battle" && kind !== "elite" && kind !== "boss" && kind !== "pet_battle" && kind !== "tile_game") {
-                    setHollowGatePendingAmbush({ ...step.ambush, token: hollowGateRun.runToken, floor: hollowGateRun.floor });
-                }
-                hollowGateMoveFxRef.current = [];
-                break;
-            }
-        }
+        if (!character || !hollowGateRun) return;
+        const { drainHollowGateMovement } = await import('./lib/hollow-gate-movement-drain');
+        await drainHollowGateMovement({ playerName: character.name, run: hollowGateRun,
+            currentPlayer: () => characterRef.current?.name, currentRun: () => hollowGateMovementRunRef.current,
+            queue: hollowGateMoveFxRef, setRun: setHollowGateRun, log: pushHollowGateLog, stopWalk: stopHollowGateWalk,
+            acceptVersion: acceptExternalSaveVersion, openPending: setHollowGatePendingAmbush, openBattle: startHollowGateBattle, resolveTile: resolveHollowGateTile });
     }
     function moveHollowGatePlayer(dx: number, dy: number) {
         if (hollowGateEvent || hollowGateHiddenChamber || hollowGatePendingAmbush || hollowGateCardStarting || hollowGateRun?.activeCombat || hollowGateCombatStartRef.current) return;
@@ -5287,10 +5198,11 @@ export default function App() {
             nodeId: hollowGateHiddenChamber.nodeId,
             action: "hidden-tablet",
         });
+        if (characterRef.current?.name !== character.name || !hollowGateRunScopeMatches(hollowGateMovementRunRef.current, hollowGateRun)) return;
         if (!result.ok || !result.character) return pushHollowGateLog(result.error || "The Ancient Tablet's inscription cannot be read.");
         commitVersionedCharacter(result.character, result._saveVersion);
         pushHollowGateLog(`You decipher the Ancient Tablet. ${hollowGateRewardLines(result.reward).join(", ")}.`);
-        setHollowGateHiddenChamber({ ...hollowGateHiddenChamber, searched: true });
+        setHollowGateHiddenChamber(previous => previous?.nodeId === hollowGateHiddenChamber.nodeId ? { ...previous, searched: true } : previous);
     }
 
     async function takeHollowGateHiddenChamberRelic() {
@@ -5301,11 +5213,12 @@ export default function App() {
             nodeId: hollowGateHiddenChamber.nodeId,
             action: "hidden-relic",
         });
+        if (characterRef.current?.name !== character.name || !hollowGateRunScopeMatches(hollowGateMovementRunRef.current, hollowGateRun)) return;
         if (!result.ok || !result.character) return pushHollowGateLog(result.error || "The chamber relic did not answer.");
-        commitVersionedCharacter(result.character, result._saveVersion);
-        setHollowGateRun((previous) => previous && result.runState ? { ...previous, ...result.runState } : previous);
+        const accepted = commitVersionedCharacter(result.character, result._saveVersion);
+        if (accepted) setHollowGateRun((previous) => hollowGateRunScopeMatches(previous, hollowGateRun) && result.runState ? { ...previous!, ...result.runState } : previous);
         pushHollowGateLog(`You claim the chamber relic. ${hollowGateRewardLines(result.reward).join(", ")}, +1 Shrine Key.`);
-        setHollowGateHiddenChamber({ ...hollowGateHiddenChamber, relicTaken: true });
+        setHollowGateHiddenChamber(previous => previous?.nodeId === hollowGateHiddenChamber.nodeId ? { ...previous, relicTaken: true } : previous);
     }
 
     const hideBattleChrome = shouldHideBattleChrome({
@@ -5693,7 +5606,18 @@ export default function App() {
                         hollowGateEvent={hollowGateEvent}
                         hollowGateHiddenChamber={hollowGateHiddenChamber}
                         moveHollowGatePlayer={moveHollowGatePlayer}
-                        onTileClick={hollowGateWalkTo}
+                        onTileClick={index => {
+                            if (hollowGateEvent || hollowGatePendingAmbush || hollowGateRun?.activeCombat || hollowGateCombatStarting || hollowGateDescending) return;
+                            if (hollowGateRun && hollowGateNpcCanTalk(hollowGateRun, index)) {
+                                stopHollowGateWalk();
+                                void hollowGateStepDrainRef.current.then(() => {
+                                    const live = hollowGateMovementRunRef.current;
+                                    if (characterRef.current?.name === character?.name && hollowGateRunScopeMatches(live, hollowGateRun) && hollowGateNpcCanTalk(live, index) && !live?.activeCombat && !hollowGateCombatStartRef.current)
+                                        void resolveHollowGateTile({ ...live!.tiles[index], kind: 'npc' }, index % live!.width, Math.floor(index / live!.width), live!.wanderers);
+                                });
+                            }
+                            else hollowGateWalkTo(index);
+                        }}
                         walkTarget={hollowGateWalkTarget}
                         setHollowGateRun={setHollowGateRun}
                         onVersionedCharacter={commitVersionedCharacter}

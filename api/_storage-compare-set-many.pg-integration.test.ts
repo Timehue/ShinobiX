@@ -23,6 +23,12 @@ import type { KvCasOp } from './_storage.js';
  * PG_INTEGRATION_REQUIRED=1, which turns a missing URL into a failure instead
  * of a green run that tested nothing. To run it locally:
  *
+ *   npm run test:ci:postgres -- --pg-bin=PATH --integration-only
+ *
+ * PATH contains Postgres 16 initdb/pg_ctl. The helper creates a fresh isolated
+ * cluster and stops/removes it afterward. Omit --integration-only for the full
+ * canonical suite with these tests required. For an existing throwaway database:
+ *
  *   PG_INTEGRATION_DATABASE_URL=postgresql://user:pass@127.0.0.1:5432/scratch \
  *     node --import tsx --test api/_storage-compare-set-many.pg-integration.test.ts
  *

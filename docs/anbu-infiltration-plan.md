@@ -7,13 +7,15 @@ switch), decoupled from `ENABLE_VILLAGE_WAR`; the client is on unless
 sector falls back to its home village, and a village with no appointed Anbu
 defends with its seated Kage.
 
-A level-100 daily **sector-attrition** activity. A player infiltrates an
+A level-100 daily **sector-attrition** activity. Shared stronghold exploration unlocks at level 50; the treasury raid against the Anbu still requires level 100. A player infiltrates an
 enemy-held war sector's base — navigating a reskinned Hollow Gate dungeon to the
 supply vault — where a full-strength AI snapshot of one of that village's
 appointed **Anbu** defends it. Beating the Anbu skims 1% of the sector's/village's
 war economy into **cache items**, which the raider turns in to their clan or
 village for standing points. **It never captures territory** — conquest stays with
 Kage-declared sector wars.
+
+Strongholds use the shared twelve-room sector interior described in `docs/stronghold/README.md`. Raid recovery is account- and sector-bound: the client can recover an admitted run from the server even when its start response or browser run ID was lost. Prepared publication and daily-attempt receipts complete idempotently; ready runs reconnect without a new attempt, including across UTC midnight. Recovery preserves a newer combat version from another request. Anbu/patrol admission respects competing battles and world-boss queues. See [the async/queue CI review](stronghold/underground-review/anbu-async-queue-ci-review.md) for implementation and test evidence.
 
 All numbers below are **PROPOSED and pending balance sign-off** (per the
 game-balance rules). The feature is gated so it can't affect live players until

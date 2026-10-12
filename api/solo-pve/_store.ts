@@ -74,6 +74,19 @@ export async function writeSoloPveSession(
     }
 }
 
+/** Complete an interrupted publication without rewriting a newer combat row. */
+export async function repairSoloPveSessionPublication(sessionId: string, deps: SoloPveStoreDeps = {}): Promise<void> {
+    const session = await readSoloPveSession(sessionId, deps);
+    if (!session || session.status !== 'active') return;
+    const store = deps.kv ?? realKv;
+    void recordSoloPveLifecycle('combat.session_created', session, deps.telemetry);
+    await publishBattleProjection(store, session.ownerSlug, {
+        kind: 'solo-pve', sessionId: session.sessionId, startedAt: session.createdAt, expiresAt: session.expiresAt,
+    }, soloPveRowTtlSeconds(session));
+    noteBattleStarted(session.ownerSlug);
+    await noteHeldFight(store, session);
+}
+
 /**
  * The ROW's storage lifetime, which is not the fight's gameplay expiry: an
  * active row is retained past `expiresAt` (F08) so a lapse is terminalized

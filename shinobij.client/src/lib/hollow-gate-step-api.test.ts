@@ -19,5 +19,7 @@ test("each sealed tile kind reopens as the same encounter", () => {
 
 test("App opens the sealed tile's encounter when the server refuses a step off it", () => {
     const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
-    assert.match(app, /else if \(step\.sealedCombat\) void startHollowGateBattle\(hollowGateSealedCombatOpts\(step\.sealedCombat\)\);/);
+    const drain = readFileSync(new URL('./hollow-gate-movement-drain.ts', import.meta.url), 'utf8');
+    assert.match(app, /openBattle: startHollowGateBattle/);
+    assert.match(drain, /else if \(step\.sealedCombat\) void ctx\.openBattle\(hollowGateSealedCombatOpts\(step\.sealedCombat\)\);/);
 });
