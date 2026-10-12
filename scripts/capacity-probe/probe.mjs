@@ -17,6 +17,8 @@
  *   CAPACITY_WORKERS           simulated Cloudflare POPs = worker processes (6)
  *   CAPACITY_ACTIVE_FRACTION   share of players that autosave and travel (0.5)
  *   CAPACITY_PROVISION_PER_SEC registrations per second during setup (4)
+ *   CAPACITY_RAMP_SECONDS      spread each step's new arrivals over this long (60)
+ *   CAPACITY_SETTLE_SECONDS    wait after arrivals before measuring (30)
  *   CAPACITY_MAX_DB_GROWTH_MB  abort when the database grows this much (600)
  *   CAPACITY_MAX_WAL_MB        abort when this much WAL is generated (2500)
  *   CAPACITY_RUN_ID            account-name tag (random)
@@ -36,6 +38,10 @@ const RUN_ID = env.CAPACITY_RUN_ID || randomBytes(2).toString('hex');
 const WORKERS = Math.max(1, Number(env.CAPACITY_WORKERS ?? 6));
 const STEPS = parseStepPlan(env.CAPACITY_STEPS ?? '50-500/50@180');
 const PROVISION_PER_SEC = Math.max(0.5, Number(env.CAPACITY_PROVISION_PER_SEC ?? 4));
+// New players arrive spread over this many seconds, then the step waits SETTLE
+// seconds before measuring steady state.
+const RAMP_SECONDS = Math.max(0, Number(env.CAPACITY_RAMP_SECONDS ?? 60));
+const SETTLE_SECONDS = Math.max(0, Number(env.CAPACITY_SETTLE_SECONDS ?? 30));
 const MAX_DB_GROWTH = Number(env.CAPACITY_MAX_DB_GROWTH_MB ?? 600) * 1024 * 1024;
 const MAX_WAL = Number(env.CAPACITY_MAX_WAL_MB ?? 2500) * 1024 * 1024;
 const OUT = env.CAPACITY_OUT ?? `capacity-result-${RUN_ID}.json`;
@@ -218,13 +224,26 @@ async function main() {
                 console.log(`[capacity] provisioned ${ok}/${step.players - provisioned} accounts`);
                 provisioned = step.players;
             }
-            // Ramp the new players in (about 40 ms apart per POP, like real arrivals).
+            // Arrivals are spread over RAMP_SECONDS. Each login fires ~15 requests
+            // at once (polls, image lists, socket, save read); on 2026-10-12 a
+            // 200-player step arriving within ~1.3 s queued ~2,000 requests for the
+            // 15 DB connections, so a burst step measured a login stampede, not
+            // steady capacity. The arrival window is recorded separately below.
+            let arrival = null;
             if (step.players > active) {
-                await Promise.all(workers.map((w) => w.ask({ type: 'activate', indices: indicesFor(w.pop, active, step.players), gapMs: 40 }, 'activated')));
+                const perPop = Math.max(1, Math.ceil((step.players - active) / WORKERS));
+                const gapMs = Math.max(10, Math.round((RAMP_SECONDS * 1_000) / perPop));
+                await Promise.all(workers.map((w) => w.ask({ type: 'activate', indices: indicesFor(w.pop, active, step.players), gapMs }, 'activated')));
                 active = step.players;
+                await sleep(SETTLE_SECONDS * 1_000);
+                const arrivalBook = new StatsBook();
+                for (const reply of await Promise.all(workers.map((w) => w.ask({ type: 'flush' }, 'stats')))) arrivalBook.merge(reply.stats);
+                arrival = arrivalBook.summary()
+                    .filter((r) => CORE_ROUTE.test(r.label) || r.errors > 0)
+                    .map(({ label, n, errors, p50, p95, p99 }) => ({ label, n, errors, p50, p95, p99 }));
+            } else {
+                await Promise.all(workers.map((w) => w.ask({ type: 'flush' }, 'stats')));
             }
-            // Discard the ramp's stats, then measure the steady state.
-            await Promise.all(workers.map((w) => w.ask({ type: 'flush' }, 'stats')));
             const from = Date.now();
             await sleep(step.seconds * 1_000);
             const to = Date.now();
@@ -255,6 +274,7 @@ async function main() {
                 resources,
                 walGeneratedMb: Math.round(walGenerated / 1024 / 1024),
                 endpoints: summary,
+                arrival,
                 breaches,
                 failures,
             };
