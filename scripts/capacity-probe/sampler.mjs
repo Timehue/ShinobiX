@@ -15,6 +15,23 @@
  */
 import { performance } from 'node:perf_hooks';
 
+/**
+ * The sampler's connection string. Production's DATABASE_URL is Supabase's
+ * Supavisor pooler in SESSION mode (port 5432), capped at pool_size 15, and the
+ * game's own pool can hold all 15 sessions: a sampler there either fails with
+ * EMAXCONNSESSION or, worse, takes a slot the game needs. `portOverride`
+ * (CAPACITY_SAMPLER_PG_PORT=6543) moves it to the pooler's TRANSACTION mode,
+ * which multiplexes and does not count against the game's sessions. The
+ * sampler's statements are single-statement reads, so transaction mode fits.
+ */
+export function samplerDatabaseUrl(databaseUrl, portOverride) {
+    const cleaned = String(databaseUrl).replace(/([?&])sslmode=[^&]*/g, '$1').replace(/[?&]$/, '');
+    if (!portOverride) return cleaned;
+    const url = new URL(cleaned);
+    url.port = String(portOverride);
+    return url.toString();
+}
+
 export function parsePrometheus(text) {
     const out = [];
     for (const line of String(text).split('\n')) {
@@ -90,7 +107,7 @@ export class ResourceSampler {
                     ? { rejectUnauthorized: true, ca: (await import('node:fs')).readFileSync(caPath, 'utf8') }
                     : { rejectUnauthorized: false };
             this.pgClient = new pg.Client({
-                connectionString: this.databaseUrl.replace(/([?&])sslmode=[^&]*/g, '$1').replace(/[?&]$/, ''),
+                connectionString: samplerDatabaseUrl(this.databaseUrl, process.env.CAPACITY_SAMPLER_PG_PORT),
                 ssl,
                 statement_timeout: 5_000,
                 application_name: 'capacity-probe-sampler',
