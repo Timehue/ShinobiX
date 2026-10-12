@@ -26,6 +26,8 @@ import { requireServerSettlement } from "./server-settlement-gate";
 import { descendHollowGateRun } from "./hollow-gate-combat-api";
 import { activeCarriedPets, maxPets } from "./entitlements";
 import { hollowGateRewardLines, resolveHollowGateServerEvent, sealHollowGateFloor } from "./hollow-gate-event-api";
+import { hollowGateWandererFriendly, hollowGateWandererOrigin } from '../../../shared/hollow-gate-wanderers';
+import { openHollowGateTraveler, openHollowGateKeeper } from './hollow-gate-wanderer-event';
 import type {
     Character,
     HollowGateShrineRun,
@@ -42,6 +44,10 @@ export type HollowGateEventModal = {
     presentation?: "standard" | "boss-victory";
     image?: string;
     eyebrow?: string;
+    pending?: boolean;
+    error?: string;
+    interactionId?: string;
+    onDismiss?: () => void;
     choices: Array<{ label: string; onSelect: () => void; tone?: "danger" | "safe" | "primary" }>;
 } | null;
 
@@ -71,6 +77,7 @@ export interface HollowGateTileCtx {
     buildHollowGateRunSummary: () => string;
     startHollowGateBattle: (opts: { isBoss?: boolean; isAmbush?: boolean; isBeast?: boolean; isElite?: boolean; nodeId?: string }) => void | Promise<void>;
     leaveHollowGateShrine: (opts?: { death?: boolean }) => void;
+    isCurrentRun?: () => boolean;
 }
 
 export function resolveHollowGateTile(
@@ -88,6 +95,9 @@ export function resolveHollowGateTile(
     } = ctx;
     if (!hollowGateRun || !character) return;
     const idx = y * hollowGateRun.width + x;
+    const traveler = hollowGateRun.wanderers?.find(n => !n.spent && n.tile === idx && hollowGateWandererFriendly(n));
+    if (traveler) { openHollowGateTraveler(traveler, ctx); return; }
+    if (hollowGateWandererOrigin(hollowGateRun.wanderers, idx)) return;
     const flavor = hollowGateFlavorFor(tile.kind);
     const floorProfile = hollowGateFloorProfile(hollowGateRun.floor);
     // Mark resolved immediately so re-entering the tile doesn't fire it again.
@@ -349,6 +359,9 @@ export function resolveHollowGateTile(
                                 chosenAugment: hollowGateRun.chosenAugment,
                                 secondWindArmed: hollowGateRun.secondWindArmed,
                                 detourTileIndex: sealed.detour?.tileIndex,
+                                wanderers: sealed.wanderers,
+                                floorFeatures: sealed.floorFeatures,
+                                floorFeaturesVersion: sealed.floorFeatures ? 1 : undefined,
                                 detourExtraSteps: sealed.detour?.extraSteps,
                                 riftSignalTileIndex: sealed.riftSignal?.tileIndex,
                                 earnedXp: hollowGateRun.earnedXp,
@@ -366,44 +379,8 @@ export function resolveHollowGateTile(
             return;
         }
         case "npc": {
-            // Shrine Keeper — one per floor. Offers a one-time blessing.
             pushHollowGateLog(flavor);
-            const resolveKeeper = async (action: "keeper-heal" | "keeper-torch" | "keeper-key", success: string) => {
-                if (!hollowGateRun.runToken) return;
-                const result = await resolveHollowGateServerEvent({ playerName: character.name, token: hollowGateRun.runToken, nodeId: `floor:${hollowGateRun.floor}:tile:${idx}`, action });
-                if (!result.ok) return pushHollowGateLog(result.error || "The Shrine Keeper's seal did not answer.");
-                adoptServerEvent(result);
-                pushHollowGateLog(success);
-                setHollowGateEvent(null);
-            };
-            setHollowGateEvent({
-                title: "The Shrine Keeper",
-                body: `${flavor}\n\n"Choose your gift, traveler. The shrine offers what it can spare."`,
-                kind: "npc",
-                choices: [
-                    // Treasure Sense ("fewer healing tiles") seals the Keeper's heal — HG-only.
-                    ...(hollowGateAugmentEffects(hollowGateRun).noKeeperHeal ? [] : [{
-                        label: "Restore HP (33% of max)",
-                        tone: "primary" as const,
-                        onSelect: () => {
-                            void resolveKeeper("keeper-heal", "The Shrine Keeper restores 33% of your maximum HP.");
-                        },
-                    }]),
-                    {
-                        label: "Refill Torch of Reiki",
-                        onSelect: () => {
-                            void resolveKeeper("keeper-torch", "The Shrine Keeper rekindles the Torch of Reiki to full.");
-                        },
-                    },
-                    {
-                        label: "Gift a Shrine Key",
-                        onSelect: () => {
-                            void resolveKeeper("keeper-key", "The Shrine Keeper presses a Shrine Key into your palm. +1 Shrine Key.");
-                        },
-                    },
-                ],
-            });
-            markResolved();
+            openHollowGateKeeper(idx, flavor, ctx);
             return;
         }
         case "exit": {

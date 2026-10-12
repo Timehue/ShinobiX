@@ -1,0 +1,457 @@
+{
+  "checks": [
+    {
+      "engine": "chromium",
+      "floor": 1,
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "playfield": {
+        "x": 11,
+        "y": 183,
+        "width": 298,
+        "height": 314
+      },
+      "palette": "#584f48"
+    },
+    {
+      "engine": "chromium",
+      "floor": 1,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "playfield": {
+        "x": 17,
+        "y": 264,
+        "width": 356,
+        "height": 489.515625
+      },
+      "palette": "#584f48"
+    },
+    {
+      "engine": "chromium",
+      "floor": 1,
+      "viewport": {
+        "width": 844,
+        "height": 390
+      },
+      "playfield": {
+        "x": 9,
+        "y": 121,
+        "width": 826,
+        "height": 192
+      },
+      "palette": "#584f48"
+    },
+    {
+      "engine": "chromium",
+      "floor": 2,
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "playfield": {
+        "x": 11,
+        "y": 203.5,
+        "width": 298,
+        "height": 278
+      },
+      "palette": "#354d4f"
+    },
+    {
+      "engine": "chromium",
+      "floor": 2,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "playfield": {
+        "x": 17,
+        "y": 253.5,
+        "width": 356,
+        "height": 489.515625
+      },
+      "palette": "#354d4f"
+    },
+    {
+      "engine": "chromium",
+      "floor": 2,
+      "viewport": {
+        "width": 844,
+        "height": 390
+      },
+      "playfield": {
+        "x": 9,
+        "y": 128.5,
+        "width": 826,
+        "height": 164
+      },
+      "palette": "#354d4f"
+    },
+    {
+      "engine": "chromium",
+      "floor": 3,
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "playfield": {
+        "x": 11,
+        "y": 183,
+        "width": 298,
+        "height": 314
+      },
+      "palette": "#35495c"
+    },
+    {
+      "engine": "chromium",
+      "floor": 3,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "playfield": {
+        "x": 17,
+        "y": 264,
+        "width": 356,
+        "height": 489.515625
+      },
+      "palette": "#35495c"
+    },
+    {
+      "engine": "chromium",
+      "floor": 3,
+      "viewport": {
+        "width": 844,
+        "height": 390
+      },
+      "playfield": {
+        "x": 9,
+        "y": 121,
+        "width": 826,
+        "height": 192
+      },
+      "palette": "#35495c"
+    },
+    {
+      "engine": "chromium",
+      "floor": 4,
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "playfield": {
+        "x": 11,
+        "y": 183,
+        "width": 298,
+        "height": 314
+      },
+      "palette": "#494359"
+    },
+    {
+      "engine": "chromium",
+      "floor": 4,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "playfield": {
+        "x": 17,
+        "y": 264,
+        "width": 356,
+        "height": 489.515625
+      },
+      "palette": "#494359"
+    },
+    {
+      "engine": "chromium",
+      "floor": 4,
+      "viewport": {
+        "width": 844,
+        "height": 390
+      },
+      "playfield": {
+        "x": 9,
+        "y": 121,
+        "width": 826,
+        "height": 192
+      },
+      "palette": "#494359"
+    },
+    {
+      "engine": "chromium",
+      "floor": 5,
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "playfield": {
+        "x": 11,
+        "y": 183,
+        "width": 298,
+        "height": 314
+      },
+      "palette": "#543d51"
+    },
+    {
+      "engine": "chromium",
+      "floor": 5,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "playfield": {
+        "x": 17,
+        "y": 264,
+        "width": 356,
+        "height": 489.515625
+      },
+      "palette": "#543d51"
+    },
+    {
+      "engine": "chromium",
+      "floor": 5,
+      "viewport": {
+        "width": 844,
+        "height": 390
+      },
+      "playfield": {
+        "x": 9,
+        "y": 121,
+        "width": 826,
+        "height": 192
+      },
+      "palette": "#543d51"
+    },
+    {
+      "engine": "webkit",
+      "floor": 1,
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "playfield": {
+        "x": 11,
+        "y": 183,
+        "width": 298,
+        "height": 313.984375
+      },
+      "palette": "#584f48"
+    },
+    {
+      "engine": "webkit",
+      "floor": 1,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "playfield": {
+        "x": 17,
+        "y": 264,
+        "width": 356,
+        "height": 489.515625
+      },
+      "palette": "#584f48"
+    },
+    {
+      "engine": "webkit",
+      "floor": 1,
+      "viewport": {
+        "width": 844,
+        "height": 390
+      },
+      "playfield": {
+        "x": 9,
+        "y": 121,
+        "width": 826,
+        "height": 192
+      },
+      "palette": "#584f48"
+    },
+    {
+      "engine": "webkit",
+      "floor": 2,
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "playfield": {
+        "x": 11,
+        "y": 203.484375,
+        "width": 298,
+        "height": 277.984375
+      },
+      "palette": "#354d4f"
+    },
+    {
+      "engine": "webkit",
+      "floor": 2,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "playfield": {
+        "x": 17,
+        "y": 253.484375,
+        "width": 356,
+        "height": 489.515625
+      },
+      "palette": "#354d4f"
+    },
+    {
+      "engine": "webkit",
+      "floor": 2,
+      "viewport": {
+        "width": 844,
+        "height": 390
+      },
+      "playfield": {
+        "x": 9,
+        "y": 128.484375,
+        "width": 826,
+        "height": 164
+      },
+      "palette": "#354d4f"
+    },
+    {
+      "engine": "webkit",
+      "floor": 3,
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "playfield": {
+        "x": 11,
+        "y": 183,
+        "width": 298,
+        "height": 313.984375
+      },
+      "palette": "#35495c"
+    },
+    {
+      "engine": "webkit",
+      "floor": 3,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "playfield": {
+        "x": 17,
+        "y": 264,
+        "width": 356,
+        "height": 489.515625
+      },
+      "palette": "#35495c"
+    },
+    {
+      "engine": "webkit",
+      "floor": 3,
+      "viewport": {
+        "width": 844,
+        "height": 390
+      },
+      "playfield": {
+        "x": 9,
+        "y": 121,
+        "width": 826,
+        "height": 192
+      },
+      "palette": "#35495c"
+    },
+    {
+      "engine": "webkit",
+      "floor": 4,
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "playfield": {
+        "x": 11,
+        "y": 183,
+        "width": 298,
+        "height": 313.984375
+      },
+      "palette": "#494359"
+    },
+    {
+      "engine": "webkit",
+      "floor": 4,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "playfield": {
+        "x": 17,
+        "y": 264,
+        "width": 356,
+        "height": 489.515625
+      },
+      "palette": "#494359"
+    },
+    {
+      "engine": "webkit",
+      "floor": 4,
+      "viewport": {
+        "width": 844,
+        "height": 390
+      },
+      "playfield": {
+        "x": 9,
+        "y": 121,
+        "width": 826,
+        "height": 192
+      },
+      "palette": "#494359"
+    },
+    {
+      "engine": "webkit",
+      "floor": 5,
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "playfield": {
+        "x": 11,
+        "y": 183,
+        "width": 298,
+        "height": 313.984375
+      },
+      "palette": "#543d51"
+    },
+    {
+      "engine": "webkit",
+      "floor": 5,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "playfield": {
+        "x": 17,
+        "y": 264,
+        "width": 356,
+        "height": 489.515625
+      },
+      "palette": "#543d51"
+    },
+    {
+      "engine": "webkit",
+      "floor": 5,
+      "viewport": {
+        "width": 844,
+        "height": 390
+      },
+      "playfield": {
+        "x": 9,
+        "y": 121,
+        "width": 826,
+        "height": 192
+      },
+      "palette": "#543d51"
+    }
+  ],
+  "errors": [],
+  "assetErrors": [],
+  "performanceSamples": []
+}

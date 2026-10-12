@@ -136,8 +136,13 @@ export function startInfiltration(
 }
 
 /** Reconnect / poll the live run (refresh-restore). */
-export async function fetchInfiltrationState(runId: string, playerName: string, signal?: AbortSignal): Promise<{ session: SoloPveSession; sector: number; targetVillage: string; anbu: { name: string } }> {
+export async function fetchInfiltrationState(runId: string, playerName: string, signal?: AbortSignal): Promise<{ runId: string; session: SoloPveSession; sector: number; targetVillage: string; anbu: { name: string } }> {
     return post({ action: 'state', runId, playerName }, signal);
+}
+
+/** Recover the server-owned active run after a start response was lost. */
+export function recoverActiveInfiltration(playerName: string, sector: number, signal?: AbortSignal): ReturnType<typeof fetchInfiltrationState> {
+    return post({ action: 'recover', playerName, sector }, signal);
 }
 
 /** Settle a FINISHED run. Win → the server rolls the skim and mints caches + ryo;
