@@ -229,6 +229,9 @@ test('required live Express CI runs the two-client sector presence journey on a 
     assert.ok(step, 'the required live Express job must execute the two-client presence journey');
     const command = step.split('\n').find(line => line.trim().startsWith('run:'));
     assert.ok(command?.includes('connected-sector-presence.spec.ts'), 'the spec must be in the step command, not a comment');
+    // The tavern push journey skips itself without realtime, so it is only a
+    // gate while it rides this step's LIVE_E2E_REALTIME server.
+    assert.ok(command.includes('tavern-chat-push.spec.ts'), 'the two-client tavern push journey must run on the realtime server');
     assert.match(step, /LIVE_E2E_REALTIME: '1'/, 'both clients need the real Socket.IO transport');
     assert.ok(command.includes('--project=chromium-desktop-live'), 'the desktop project runs a desktop mover and the spec\'s own phone observer');
     assert.ok(!command.includes('first-defeat-recovery-express.spec.ts'), 'it must not share a server with the recovery matrix');
