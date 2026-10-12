@@ -67,9 +67,13 @@ test('EdgeCache never stores an uncacheable response', async () => {
     assert.equal(calls, 2);
 });
 
-test('sMaxAgeMs reads s-maxage and refuses private/no-store', () => {
+test('sMaxAgeMs reads s-maxage, falls back to max-age, and refuses private/no-store', () => {
     assert.equal(sMaxAgeMs('s-maxage=5, stale-while-revalidate=5'), 5_000);
     assert.equal(sMaxAgeMs('s-maxage=30, stale-while-revalidate=30'), 30_000);
+    assert.equal(sMaxAgeMs('public, max-age=60, stale-while-revalidate=120'), 60_000);
+    assert.equal(sMaxAgeMs('max-age=600, s-maxage=10'), 10_000, 's-maxage wins');
+    assert.equal(sMaxAgeMs('public, max-age=0'), null);
+    assert.equal(sMaxAgeMs('no-cache'), null);
     assert.equal(sMaxAgeMs('private, no-store'), null);
     assert.equal(sMaxAgeMs('no-store'), null);
     assert.equal(sMaxAgeMs(''), null);
