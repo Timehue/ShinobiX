@@ -145,6 +145,7 @@ export class ResourceSampler {
                 active: row.active,
                 lockWaits: row.lock_waits,
                 walBytesPerSec,
+                walPos,
                 kvDeadTuples: Number(row.kv_dead_tuples),
             };
         } catch (err) {
