@@ -171,6 +171,8 @@ describe('kv.compareSetMany on a real Postgres', () => {
         await admin.query(schemaStatement(schema, 'create table if not exists public.kv_store (', '\n);'));
         await admin.query(schemaStatement(schema, 'create or replace function public.kv_set_nx(', '\n$$;'));
         await admin.query(schemaStatement(schema, 'create or replace function public.kv_incr(', '\n$$;'));
+        await admin.query(schemaStatement(schema, 'create or replace function public.kv_hset(', '\n$$;'));
+        await admin.query(schemaStatement(schema, 'create or replace function public.kv_hdel(', '\n$$;'));
 
         // Test-only instrumentation for dataWrites(); dropped in after().
         await admin.query('CREATE SEQUENCE IF NOT EXISTS public.pgit_data_writes');
@@ -694,6 +696,60 @@ describe('kv.compareSetMany on a real Postgres', () => {
             assert.equal(await dataWrites(), before);
         }, critical);
         assert.deepEqual((await row('pgit:single:takeover'))?.value, { v: 1 });
+    });
+
+    // kv_hset / kv_hdel (2026-10-12): a hash write that changes nothing writes
+    // nothing, and hdel is one UPDATE that cannot undo a concurrent hset. The
+    // pg.Pool shim cannot evaluate these functions, so they are proven here.
+    pgTest('hset writes new or changed fields, and skips a merge that changes nothing', async () => {
+        await storage.kv.hset('pgit:hash:a', { b: 2, a: { x: 1, y: 2 } });
+        assert.deepEqual((await row('pgit:hash:a'))?.value, { a: { x: 1, y: 2 }, b: 2 });
+
+        const before = await dataWrites();
+        const xmin = (await row('pgit:hash:a'))?.xmin;
+        // Same values, different key order at both levels: jsonb equality is structural.
+        await storage.kv.hset('pgit:hash:a', { a: { y: 2, x: 1 } });
+        await storage.kv.hset('pgit:hash:a', { b: 2 });
+        assert.equal(await dataWrites(), before, 'an unchanged merge never reaches the row');
+        assert.equal((await row('pgit:hash:a'))?.xmin, xmin, 'the row version is untouched');
+
+        await storage.kv.hset('pgit:hash:a', { b: 3, c: 'new' });
+        assert.equal(await dataWrites(), before + 1);
+        assert.deepEqual((await row('pgit:hash:a'))?.value, { a: { x: 1, y: 2 }, b: 3, c: 'new' });
+    });
+
+    pgTest('hdel removes present fields, and leaves the row untouched when none is present', async () => {
+        await seed('pgit:hash:d', { keep: 1, gone: 2, also: 3 });
+        const before = await dataWrites();
+        await storage.kv.hdel('pgit:hash:d', 'missing', 'nothere');
+        await storage.kv.hdel('pgit:hash:absent-row', 'x');
+        assert.equal(await dataWrites(), before, 'deleting absent fields writes nothing');
+
+        await storage.kv.hdel('pgit:hash:d', 'gone', 'missing', 'also');
+        assert.equal(await dataWrites(), before + 1);
+        assert.deepEqual((await row('pgit:hash:d'))?.value, { keep: 1 });
+        assert.equal(await row('pgit:hash:absent-row'), null, 'hdel never creates a row');
+    });
+
+    pgTest('an hdel racing an hset can no longer undo the hset', async () => {
+        // The old kv_hdel read the row, then wrote back its own copy: an hset
+        // committing in between was silently erased.
+        await seed('pgit:hash:race', { stale: 1, keep: 1 });
+        const holder = await openClient();
+        try {
+            await holder.query('BEGIN');
+            await holder.query(
+                "UPDATE public.kv_store SET value = value || '{\"fresh\": 1}'::jsonb WHERE key = 'pgit:hash:race'",
+            );
+            const del = settleLater(storage.kv.hdel('pgit:hash:race', 'stale'));
+            await waitForLockWaiters(1);
+            await holder.query('COMMIT');
+            await del;
+        } finally {
+            await holder.end();
+        }
+        assert.deepEqual((await row('pgit:hash:race'))?.value, { keep: 1, fresh: 1 },
+            'the concurrent write survives and only the named field is removed');
     });
 
     // kv.mgetProjected detoasts each row once and reads every path from that
