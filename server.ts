@@ -25,6 +25,7 @@ import { runtimeMetricsSampler } from './api/_runtime-metrics.js';
 import { restorePresenceSnapshot, savePresenceSnapshot, startPresenceSnapshots, stopPresenceSnapshots } from './api/_realtime/presence-snapshot.js';
 import { startSnapshotCron, stopSnapshotCron } from './api/cron/_scheduler.js';
 import { closeStoragePool, storagePoolStats } from './api/_storage.js';
+import { handOffLiveStreams } from './api/pvp/_stream-handoff.js';
 import { flushBetaMetrics } from './api/_beta-metrics.js';
 import { drainBackgroundWork, stopBackgroundWork } from './api/_background-work.js';
 import { startTerritoryInitialization, stopStartupInitialization } from './api/_startup-initialization.js';
@@ -122,6 +123,15 @@ function gracefulShutdown(code: number, reason: string): void {
     if (_shutdownStarted) return;
     _shutdownStarted = true;
     console.log(`[shutdown] draining in-flight requests (${reason})`);
+    // Hand every open PvP battle stream to the replacement server first: each
+    // viewer is told to reconnect now (api/pvp/_stream-handoff.ts) instead of
+    // being held here, unable to hear moves made on the new server, until the
+    // drain budget cuts it. This also stops long-lived streams holding the
+    // HTTP drain open.
+    try {
+        const handedOff = handOffLiveStreams();
+        if (handedOff) console.log(`[shutdown] handed ${handedOff} PvP stream(s) to the replacement`);
+    } catch { /* a handoff failure must never block shutdown */ }
     // Write the rate-limit refusals counted since the last minute's summary, so
     // a deploy doesn't swallow them (api/_ratelimit.ts).
     try { flushRefusalLog(); } catch { /* logging must never block shutdown */ }

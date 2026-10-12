@@ -1411,7 +1411,7 @@ export default function App() {
     // Socket.IO "kick" on an incoming challenge. A former anon-Realtime push on
     // `challenges:<slug>` was removed when that key left the kv_store anon SELECT
     // allowlist (2026-07-23 Chronicle-leak migration) — the row is no longer
-    // anon-readable, so the subscription could only ever be silent. See lib/realtime.ts.
+    // anon-readable, so the subscription could only ever be silent. (No Realtime client remains.)
     const [processingChallengeIds, setProcessingChallengeIds] = useState<string[]>([]);
     const [pendingPetBattleOpponent, setPendingPetBattleOpponent] = useState<PetArenaOpponent | null>(null);
     const {
