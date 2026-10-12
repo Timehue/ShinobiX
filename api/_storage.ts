@@ -777,15 +777,24 @@ const pgKv = {
         // tombstones never become broken image URLs. Ordinary hash callers keep
         // normal Redis-style hkeys semantics.
         if (options?.nonEmptyStrings) {
+            // jsonb_each materialized every (key, multi-MB value) pair into a
+            // tuplestore that spilled to disk on each call: production's
+            // pg_stat_statements put this query at 73 GB of temp writes over
+            // 26,299 calls (2026-10-12), on an 8 GB spend-capped disk. Detoast
+            // the object once (OFFSET 0 keeps it a single in-memory datum, as in
+            // mgetProjected), list only its KEYS, and test each value in memory.
+            // Same rows; shared:imgfields:jutsu (11 MB) went 1,455 temp blocks →
+            // 0 and 50 → 31 ms.
             const { rows } = await getPgDb().query<{ k: string }>(
-                `SELECT field.key AS k FROM public.kv_store
-                 CROSS JOIN LATERAL jsonb_each(
-                     CASE WHEN jsonb_typeof(kv_store.value) = 'object' THEN kv_store.value ELSE '{}'::jsonb END
-                 ) AS field(key, value)
-                 WHERE kv_store.key = $1 AND (expires_at IS NULL OR expires_at > now())
-                   AND jsonb_typeof(kv_store.value) = 'object'
-                   AND jsonb_typeof(field.value) = 'string'
-                   AND field.value <> '""'::jsonb`,
+                `SELECT k FROM (
+                     SELECT value || '{}'::jsonb AS v FROM public.kv_store
+                     WHERE key = $1 AND (expires_at IS NULL OR expires_at > now())
+                       AND jsonb_typeof(value) = 'object'
+                     OFFSET 0
+                 ) AS d
+                 CROSS JOIN LATERAL jsonb_object_keys(d.v) AS k
+                 WHERE jsonb_typeof(d.v -> k) = 'string'
+                   AND d.v -> k <> '""'::jsonb`,
                 [key],
             );
             return rows.map((r) => r.k);

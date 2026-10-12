@@ -652,4 +652,22 @@ describe('kv.compareSetMany on a real Postgres', () => {
         ]);
         assert.deepEqual(await storage.kv.mgetProjected!(['pgit:proj:full'], {}), [{}], 'an empty projection of an object is {}');
     });
+
+    // hkeys(nonEmptyStrings) lists image-manifest ids. It used jsonb_each, which
+    // spilled every multi-MB value to temp files (73 GB in production); it now
+    // lists keys only and tests values in memory. This proves the rows are the
+    // same; the spill reduction was measured on production (see _storage.ts).
+    pgTest('hkeys nonEmptyStrings keeps exactly the non-empty string fields', async () => {
+        const art = 'data:image/png;base64,' + 'A'.repeat(400_000);
+        await seed('pgit:hk:images', {
+            good: art, tiny: 'x', empty: '', number: 7, nested: { a: 'b' }, list: ['c'], nil: null, flag: true,
+        });
+        await seed('pgit:hk:array', ['a', 'b']);
+        await seed('pgit:hk:expired', { gone: 'yes' }, 'past');
+        assert.deepEqual((await storage.kv.hkeys('pgit:hk:images', { nonEmptyStrings: true })).sort(), ['good', 'tiny']);
+        assert.deepEqual((await storage.kv.hkeys('pgit:hk:images')).sort(), ['empty', 'flag', 'good', 'list', 'nested', 'nil', 'number', 'tiny']);
+        assert.deepEqual(await storage.kv.hkeys('pgit:hk:array', { nonEmptyStrings: true }), []);
+        assert.deepEqual(await storage.kv.hkeys('pgit:hk:expired', { nonEmptyStrings: true }), []);
+        assert.deepEqual(await storage.kv.hkeys('pgit:hk:missing', { nonEmptyStrings: true }), []);
+    });
 });
