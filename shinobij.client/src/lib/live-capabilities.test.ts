@@ -205,6 +205,32 @@ describe("live capability messaging", () => {
         assert.equal(calls, 2, "a completed request must not be cached forever");
     });
 
+    it("current() reuses a fresh lease and refreshes a cold, failed, or aged one", async () => {
+        let calls = 0;
+        let fail = false;
+        let now = 1_000;
+        const store = new LiveCapabilitiesStore(async () => {
+            calls += 1;
+            if (fail) throw new Error("offline");
+            return okResponse(available);
+        }, () => now);
+
+        await store.current();
+        assert.equal(calls, 1, "a cold store fetches");
+        assert.equal((await store.current()).freshness, "fresh");
+        assert.equal(calls, 1, "a fresh lease is reused: the login gate costs no request");
+
+        now += CAPABILITY_MAX_AGE_MS + 1;
+        await store.current();
+        assert.equal(calls, 2, "an aged lease is refreshed");
+
+        fail = true;
+        await store.refresh();
+        assert.equal(store.getSnapshot().freshness, "stale");
+        await store.current();
+        assert.equal(calls, 4, "a stale snapshot is never reused");
+    });
+
     it("jitters healthy polling and exponentially backs off failures", () => {
         assert.equal(nextCapabilityRefreshDelay(0, () => 0), 25_500);
         assert.equal(nextCapabilityRefreshDelay(0, () => 1), 34_500);

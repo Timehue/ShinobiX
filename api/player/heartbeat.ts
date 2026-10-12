@@ -12,6 +12,7 @@ import { normalizeSector, normalizeTile, slimPresenceCharacter, capTravelingUnti
 import { queuePresenceUpdate } from '../_realtime/presence-broadcast.js';
 import { clearSleeperCampOnBeat } from '../_realtime/sleeper-camps.js';
 import { getTravelLease, settleTravelLease, travelLeaseSectorAt } from '../_realtime/travel-lease.js';
+import { readSavedLocation } from '../_realtime/saved-location.js';
 import { durablePresenceSectorForWrite } from '../_realtime/world-duel-engagement.js';
 import { noteWalkedTile, readWalkedTile, resumeTileFor, resumeWorldPositionFor } from '../_realtime/walked-tile.js';
 import { battleAuthorityKeys, battleEvidenceFrom, resolveBattleAuthority } from '../_realtime/battle-authority.js';
@@ -220,7 +221,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const battleKeys = battleAuthorityKeys(name);
         let [signals, savedLocation, persistedTravel, walkedTile] = await Promise.all([
             kv.mget(challengeKey, resetSignalKey, healSignalKey, noticesKey, stakeRefundKey, towerInviteKey, ...battleKeys),
-            existing ? Promise.resolve(null) : kv.get<{ currentSector?: number; currentTile?: number; worldPosition?: unknown }>(`save:${safeName(name)}`),
+            existing ? Promise.resolve(null) : readSavedLocation(safeName(name)),
             existing ? Promise.resolve(null) : getTravelLease(name),
             // F03: the tile the player last stood on, cold start only.
             existing ? Promise.resolve(null) : readWalkedTile(kv, name).catch(() => null),

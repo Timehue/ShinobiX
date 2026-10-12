@@ -50,6 +50,28 @@ beforeEach(async () => {
     });
 });
 
+/**
+ * Pause the cold-start read of where the player stood, then answer it with an
+ * old town snapshot (currentSector 0). That read is a projection
+ * (api/_realtime/saved-location.ts); on this in-memory store a projection is
+ * `kv.mget` followed by picking the fields, so the pause sits on `mget`.
+ */
+function pauseColdSaveRead(t: { mock: { method: (obj: object, name: string, impl: unknown) => unknown } }) {
+    const original = kv.mget.bind(kv);
+    let release!: () => void;
+    let captured!: () => void;
+    const paused = new Promise<void>((resolve) => { captured = resolve; });
+    const resume = new Promise<void>((resolve) => { release = resolve; });
+    t.mock.method(kv, 'mget', async (...keys: string[]) => {
+        const values = await original(...keys);
+        const at = keys.indexOf(SAVE);
+        if (at < 0) return values;
+        captured(); await resume;
+        return values.map((value, index) => (index === at ? { ...(value as Json), currentSector: 0 } : value));
+    });
+    return { paused, release: () => release() };
+}
+
 async function request(handler: Handler, method: string, body: Json = {}) {
     const out: { status: number; body?: Json } = { status: 200 };
     const res = { setHeader() {}, status(code: number) { out.status = code; return res; },
@@ -339,16 +361,7 @@ test('town admission fails closed when world-duel evidence cannot be read', asyn
 });
 
 test('a delayed cold heartbeat cannot restore an old town snapshot over a newer journey', async (t) => {
-    const original = kv.get.bind(kv);
-    let release!: () => void;
-    let captured!: () => void;
-    const paused = new Promise<void>((resolve) => { captured = resolve; });
-    const resume = new Promise<void>((resolve) => { release = resolve; });
-    t.mock.method(kv, 'get', async (key: string) => {
-        const value = await original(key);
-        if (key === SAVE) { captured(); await resume; return { ...(value as Json), currentSector: 0 }; }
-        return value;
-    });
+    const { paused, release } = pauseColdSaveRead(t);
     const beat = request(heartbeat, 'POST', { name: PLAYER, sector: 0, tile: 1 });
     await paused;
     presence.onlineStore.upsert({ name: PLAYER, sector: 12, tile: 44, character: null });
@@ -444,16 +457,7 @@ test('a real socket reconnect discards delayed hydration superseded by HTTP pres
     assert.equal((await coldPublished).sector, 12);
     assert.equal(presence.onlineStore.get(PLAYER)?.tile, 77, 'socket-first hydration also restores the durable walk');
     presence.onlineStore.remove(PLAYER);
-    const original = kv.get.bind(kv);
-    let release!: () => void;
-    let captured!: () => void;
-    const paused = new Promise<void>((resolve) => { captured = resolve; });
-    const resume = new Promise<void>((resolve) => { release = resolve; });
-    t.mock.method(kv, 'get', async (key: string) => {
-        const value = await original(key);
-        if (key === SAVE) { captured(); await resume; return { ...(value as Json), currentSector: 0 }; }
-        return value;
-    });
+    const { paused, release } = pauseColdSaveRead(t);
     const published = new Promise<Json>((resolve) => client.once('presence:sector', resolve));
     client.emit('presence', { sector: 55, tile: 1 });
     await paused;
