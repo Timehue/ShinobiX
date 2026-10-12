@@ -129,6 +129,69 @@ describe('snapshot run health', () => {
         }
     });
 
+    it('renews an unchanged save\'s newest snapshot instead of copying it, and copies a changed one', async () => {
+        const originalKeys = kv.keys;
+        const originalGet = kv.get;
+        const originalSet = kv.set;
+        const originalCompareSet = kv.compareSet;
+        const originalNow = Date.now;
+        const now = 1_800_000_000_000;
+        const dayAgo = now - 25 * 60 * 60 * 1000;
+        // Same content, different key order: the store compares JSON structurally.
+        const idle = { character: { name: 'Idle', level: 3 }, currentSector: 7 };
+        const records = new Map<string, unknown>([
+            ['save:idle', idle],
+            [`save-snapshot:idle:${dayAgo}`, { currentSector: 7, character: { level: 3, name: 'Idle' } }],
+            ['save:active', { character: { name: 'Active', level: 9 } }],
+            [`save-snapshot:active:${dayAgo}`, { character: { name: 'Active', level: 8 } }],
+        ]);
+        const ttls = new Map<string, number | undefined>();
+        const canonical = (v: unknown): string => JSON.stringify(v, (_k, val) => (
+            val && typeof val === 'object' && !Array.isArray(val)
+                ? Object.fromEntries(Object.entries(val).sort(([a], [b]) => a.localeCompare(b)))
+                : val
+        ));
+        Date.now = () => now;
+        kv.keys = async (pattern: string) => {
+            const prefix = pattern.replace(/\*$/, '');
+            return [...records.keys()].filter((key) => key.startsWith(prefix));
+        };
+        kv.get = async <T = unknown>(key: string) => (records.get(key) ?? null) as T | null;
+        kv.set = async (key: string, value: unknown, options?: { ex?: number }) => {
+            records.set(key, value);
+            ttls.set(key, options?.ex);
+            return 'OK' as const;
+        };
+        kv.compareSet = async (key: string, expected: unknown, value: unknown, options?: { ex?: number }) => {
+            if (!records.has(key) || canonical(records.get(key)) !== canonical(expected)) return false;
+            records.set(key, value);
+            ttls.set(key, options?.ex);
+            return true;
+        };
+
+        try {
+            const result = await runSnapshotSaves(5_000);
+            assert.equal(result.ok, true);
+            assert.equal(result.snapshotted, 1, 'only the changed save is copied');
+            assert.equal(result.unchanged, 1);
+            assert.equal(result.skipped, 1);
+            const snapshotKeys = [...records.keys()].filter((key) => key.startsWith('save-snapshot:'));
+            assert.deepEqual(snapshotKeys.filter((key) => key.startsWith('save-snapshot:idle:')), [`save-snapshot:idle:${dayAgo}`]);
+            assert.equal(ttls.get(`save-snapshot:idle:${dayAgo}`), 90 * 24 * 60 * 60, 'the kept copy gets a fresh 90-day TTL');
+            assert.deepEqual(
+                snapshotKeys.filter((key) => key.startsWith('save-snapshot:active:')).sort(),
+                [`save-snapshot:active:${dayAgo}`, `save-snapshot:active:${now}`],
+            );
+            assert.deepEqual(records.get(`save-snapshot:active:${now}`), { character: { name: 'Active', level: 9 } });
+        } finally {
+            Date.now = originalNow;
+            kv.keys = originalKeys;
+            kv.get = originalGet;
+            kv.set = originalSet;
+            kv.compareSet = originalCompareSet;
+        }
+    });
+
     it('recovers an interrupted run without duplicating completed snapshots', async () => {
         const originalKeys = kv.keys;
         const originalGet = kv.get;

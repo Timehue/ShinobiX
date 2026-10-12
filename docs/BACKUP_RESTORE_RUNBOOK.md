@@ -13,7 +13,11 @@ order, on the day, before touching any data:
 2. **Nightly in-DB snapshots are healthy**: the deep health probe
    (`GET /health/db` with `HEALTH_DEEP_TOKEN`) must report `backupFresh: true`,
    or query `backup:save-snapshots:last-success` directly — `completedAt` must
-   be within 24h and `skipped: 0`. (Verified green 2026-08-21: 113/113 saves,
+   be within 24h and `snapshotted + skipped = total`. Since 2026-10-12 an
+   unchanged save is not copied again: its newest snapshot's 90-day TTL is
+   renewed and it counts under both `skipped` and `unchanged`, so a healthy
+   nightly run shows `skipped = unchanged` (only a same-day re-run skips more).
+   (Verified green 2026-08-21: 113/113 saves,
    0 skipped.)
 3. **Take the independent offsite export** with the command below, using
    `DATABASE_URL` from Railway's environment variables. Record the SHA-256 and

@@ -85,6 +85,11 @@ const _noCachePrefixes = [
     // Player deletion generations are durable cross-worker save authority. A
     // cached floor would let another worker resurrect an old save.
     'save-delete-version:',
+    // Nightly save snapshots are whole saves (~80 KB each), written once a night
+    // and read almost never (admin restore). The LRU caps entries, not bytes, so
+    // write-through caching parked up to 5,000 full saves in process memory per
+    // run; a restore must also read the stored row, not a renewed copy's cache.
+    'save-snapshot:',
     'presence:', 'challenges:', 'reset-signal:', 'admin-lock:', 'auth:', 'auth-session:', 'world:travel-lease:',
     // Natural-wanderer cooldown proofs are NX claims shared by all workers.
     // A process-local cached null can make an idempotent readback look absent.
@@ -248,6 +253,21 @@ const { Pool } = pg;
 let _pool: pg.Pool | null = null;
 let _storageClosed = false;
 let _poolClose: Promise<void> | null = null;
+
+/**
+ * Read-only pool occupancy for runtime metrics (api/_runtime-metrics.ts). Null
+ * until the pool exists (REST/memory backends never create one). `waiting` > 0
+ * means requests are queued for a connection — the pool is the bottleneck.
+ */
+export function storagePoolStats(): { max: number; total: number; idle: number; waiting: number } | null {
+    if (!_pool) return null;
+    return {
+        max: _pool.options.max ?? 0,
+        total: _pool.totalCount,
+        idle: _pool.idleCount,
+        waiting: _pool.waitingCount,
+    };
+}
 
 export async function closeStoragePool(): Promise<void> {
     _storageClosed = true;
@@ -726,14 +746,27 @@ const pgKv = {
             params.push(field, path);
             const fieldParam = `$${params.length - 1}::text`;
             const pathParam = `$${params.length}::text[]`;
-            return `CASE WHEN value #> ${pathParam} IS NULL THEN '{}'::jsonb ELSE jsonb_build_object(${fieldParam}, value #> ${pathParam}) END`;
+            return `CASE WHEN v #> ${pathParam} IS NULL THEN '{}'::jsonb ELSE jsonb_build_object(${fieldParam}, v #> ${pathParam}) END`;
         });
         const expression = fragments.length ? fragments.join(' || ') : "'{}'::jsonb";
         // Read the current row directly. A projection must never seed the cache
         // consumed by get/mget or become authority for a subsequent save write.
+        //
+        // Every reference to a TOASTed jsonb column decompresses the whole value
+        // again, so a save read through N paths was inflated N+1 times. The inner
+        // `value || '{}'` detoasts each row ONCE into an in-memory datum that every
+        // path then reads (OFFSET 0 keeps the planner from inlining it back). The
+        // result is identical: an object is returned unchanged by `|| '{}'`, and a
+        // non-object becomes an array, which the typeof guard still maps to NULL.
+        // Production 2026-10-11, the roster's 7-path read of 190 saves: 1,145 ms →
+        // 183 ms, 36,738 → 2,960 shared buffers.
         const { rows } = await getPgDb().query<{ key: string; value: Record<string, unknown> | null }>(
-            `SELECT key, CASE WHEN jsonb_typeof(value) = 'object' THEN ${expression} ELSE NULL END AS value
-             FROM public.kv_store WHERE key = ANY($1::text[]) AND (expires_at IS NULL OR expires_at > now())`,
+            `SELECT key, CASE WHEN jsonb_typeof(v) = 'object' THEN ${expression} ELSE NULL END AS value
+             FROM (
+                 SELECT key, value || '{}'::jsonb AS v
+                 FROM public.kv_store WHERE key = ANY($1::text[]) AND (expires_at IS NULL OR expires_at > now())
+                 OFFSET 0
+             ) AS detoasted`,
             params,
         );
         const byKey = new Map(rows.map(row => [row.key, row.value]));
@@ -749,15 +782,24 @@ const pgKv = {
         // tombstones never become broken image URLs. Ordinary hash callers keep
         // normal Redis-style hkeys semantics.
         if (options?.nonEmptyStrings) {
+            // jsonb_each materialized every (key, multi-MB value) pair into a
+            // tuplestore that spilled to disk on each call: production's
+            // pg_stat_statements put this query at 73 GB of temp writes over
+            // 26,299 calls (2026-10-12), on an 8 GB spend-capped disk. Detoast
+            // the object once (OFFSET 0 keeps it a single in-memory datum, as in
+            // mgetProjected), list only its KEYS, and test each value in memory.
+            // Same rows; shared:imgfields:jutsu (11 MB) went 1,455 temp blocks →
+            // 0 and 50 → 31 ms.
             const { rows } = await getPgDb().query<{ k: string }>(
-                `SELECT field.key AS k FROM public.kv_store
-                 CROSS JOIN LATERAL jsonb_each(
-                     CASE WHEN jsonb_typeof(kv_store.value) = 'object' THEN kv_store.value ELSE '{}'::jsonb END
-                 ) AS field(key, value)
-                 WHERE kv_store.key = $1 AND (expires_at IS NULL OR expires_at > now())
-                   AND jsonb_typeof(kv_store.value) = 'object'
-                   AND jsonb_typeof(field.value) = 'string'
-                   AND field.value <> '""'::jsonb`,
+                `SELECT k FROM (
+                     SELECT value || '{}'::jsonb AS v FROM public.kv_store
+                     WHERE key = $1 AND (expires_at IS NULL OR expires_at > now())
+                       AND jsonb_typeof(value) = 'object'
+                     OFFSET 0
+                 ) AS d
+                 CROSS JOIN LATERAL jsonb_object_keys(d.v) AS k
+                 WHERE jsonb_typeof(d.v -> k) = 'string'
+                   AND d.v -> k <> '""'::jsonb`,
                 [key],
             );
             return rows.map((r) => r.k);
@@ -1109,6 +1151,11 @@ function _jsonValueEqual(a: unknown, b: unknown): boolean {
     };
     const left = canonical(a);
     return left !== null && left === canonical(b);
+}
+
+/** JSONB-style structural equality, the same comparison compareSet applies in Postgres. */
+export function jsonValueEqual(a: unknown, b: unknown): boolean {
+    return _jsonValueEqual(a, b);
 }
 
 export interface KvLike {

@@ -75,7 +75,10 @@ export function newestSnapshotByPlayer(snapshotKeys: string[]): Map<string, numb
 export type SnapshotSuccessMarker = {
     completedAt: number;
     snapshotted: number;
+    /** Saves not copied this run: already copied within 20h, or `unchanged`. */
     skipped: number;
+    /** Of `skipped`: saves equal to their newest snapshot, whose TTL was renewed. Absent on markers written before 2026-10-12. */
+    unchanged?: number;
     total: number;
     elapsedMs: number;
 };
@@ -113,9 +116,10 @@ function isCronAuthorized(req: VercelRequest): boolean {
  * a list of player names that failed so the response surfaces partial
  * outages to whoever's looking.
  */
-async function runBatches<T>(items: T[], worker: (item: T) => Promise<{ ok: boolean; skip?: boolean; validPlayer?: boolean; err?: string }>, deadline: number) {
+async function runBatches<T>(items: T[], worker: (item: T) => Promise<{ ok: boolean; skip?: boolean; unchanged?: boolean; validPlayer?: boolean; err?: string }>, deadline: number) {
     let snapshotted = 0;
     let skipped = 0;
+    let unchanged = 0;
     let validPlayers = 0;
     const failed: string[] = [];
     let cursor = 0;
@@ -134,7 +138,10 @@ async function runBatches<T>(items: T[], worker: (item: T) => Promise<{ ok: bool
         results.forEach((r, i) => {
             if (r.validPlayer) validPlayers += 1;
             if (r.ok) snapshotted += 1;
-            else if (r.skip) skipped += 1;
+            else if (r.skip) {
+                skipped += 1;
+                if ('unchanged' in r && r.unchanged) unchanged += 1;
+            }
             else failed.push(String((slice[i] as unknown as string)));
         });
         // Yield to the event loop between batches so this nightly pass doesn't
@@ -144,7 +151,7 @@ async function runBatches<T>(items: T[], worker: (item: T) => Promise<{ ok: bool
         if (cursor < items.length) await new Promise<void>((resolve) => setImmediate(resolve));
     }
 
-    return { snapshotted, skipped, validPlayers, failed, processed: cursor, total: items.length };
+    return { snapshotted, skipped, unchanged, validPlayers, failed, processed: cursor, total: items.length };
 }
 
 export type SnapshotRunResult = {
@@ -154,7 +161,10 @@ export type SnapshotRunResult = {
     /** True when every write failed and none succeeded (snapshot store down). */
     writeOutage: boolean;
     snapshotted: number;
+    /** Includes `unchanged`. */
     skipped: number;
+    /** Saves identical to their newest snapshot, whose TTL was renewed instead of copied. */
+    unchanged: number;
     validPlayers: number;
     failed: string[];
     processed: number;
@@ -201,12 +211,12 @@ export async function runSnapshotSaves(maxRuntimeMs: number = MAX_RUNTIME_MS): P
     // happen before this point, so the early return is side-effect free.
     if (saveKeys.length === 0) {
         console.error('[cron/snapshot-saves] ALARM: zero save:* rows found — storage misconfigured (check DATABASE_URL / SUPABASE_POSTGRES_URL point at the production database). Snapshotted 0 players.');
-        return { ok: false, emptyKeyspace: true, writeOutage: false, snapshotted: 0, skipped: 0, validPlayers: 0, failed: [], processed: 0, total: 0, elapsedMs: Date.now() - startedAt, truncated: false };
+        return { ok: false, emptyKeyspace: true, writeOutage: false, snapshotted: 0, skipped: 0, unchanged: 0, validPlayers: 0, failed: [], processed: 0, total: 0, elapsedMs: Date.now() - startedAt, truncated: false };
     }
     const playerSaveKeys = saveKeys.filter(isPlayerSnapshotSaveKey);
     if (playerSaveKeys.length === 0) {
         console.error('[cron/snapshot-saves] ALARM: save:* rows exist but none are player saves — refusing to refresh backup health from admin/clan data only.');
-        return { ok: false, emptyKeyspace: true, writeOutage: false, snapshotted: 0, skipped: 0, validPlayers: 0, failed: [], processed: 0, total: 0, elapsedMs: Date.now() - startedAt, truncated: false };
+        return { ok: false, emptyKeyspace: true, writeOutage: false, snapshotted: 0, skipped: 0, unchanged: 0, validPlayers: 0, failed: [], processed: 0, total: 0, elapsedMs: Date.now() - startedAt, truncated: false };
     }
 
     // Dedup source: ONE scan of all snapshot keys, bucketed to the newest ts per
@@ -240,6 +250,18 @@ export async function runSnapshotSaves(maxRuntimeMs: number = MAX_RUNTIME_MS): P
             return { ok: false, skip: true, validPlayer: true };
         }
 
+        // Unchanged since the newest snapshot: renew that copy's TTL instead of
+        // writing an identical one. A nightly copy of every save regardless of
+        // change measured 96% duplicates in production (11,709 rows, 461
+        // distinct, 1.17 GB of an 8 GB disk) and grew with ACCOUNTS, not play.
+        // The compareSet is one atomic statement that matches the complete JSON
+        // (key order insensitive) and rewrites it with a fresh 90-day expiry, so
+        // an idle player's last backup never ages out while their save exists.
+        // Lossless: any point in time restores to the same state as before.
+        if (newest > 0 && await kv.compareSet(snapshotKey(playerName, newest), live, live, { ex: SNAPSHOT_TTL_SECONDS })) {
+            return { ok: false, skip: true, unchanged: true, validPlayer: true };
+        }
+
         const ts = Date.now();
         await kv.set(snapshotKey(playerName, ts), live, { ex: SNAPSHOT_TTL_SECONDS });
         return { ok: true, validPlayer: true };
@@ -264,6 +286,7 @@ export async function runSnapshotSaves(maxRuntimeMs: number = MAX_RUNTIME_MS): P
             completedAt,
             snapshotted: result.snapshotted,
             skipped: result.skipped,
+            unchanged: result.unchanged,
             total: result.validPlayers,
             elapsedMs: elapsed,
         };
@@ -313,6 +336,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ok: r.ok,
             snapshotted: r.snapshotted,
             skipped: r.skipped,
+            unchanged: r.unchanged,
             failed: r.failed,
             processed: r.processed,
             total: r.total,
