@@ -91,6 +91,10 @@ async function exerciseConcessionRecovery(page: Page, withoutWebGL2 = false) {
     }
     await page.getByRole('button', { name: 'Forfeit the battle', exact: true }).click({ timeout: 45_000 });
     const confirmation = page.getByRole('alertdialog', { name: 'Forfeit the battle?', exact: true });
+    await expect(confirmation).toBeVisible();
+    const backgroundForfeit = page.getByRole('button', { name: 'Forfeit the battle', exact: true });
+    await backgroundForfeit.evaluate(button => button.focus());
+    await expect(backgroundForfeit).not.toBeFocused();
     await confirmation.getByRole('button', { name: 'Yes, concede', exact: true }).click();
 
     const error = page.locator('.fp-battle-network-error');

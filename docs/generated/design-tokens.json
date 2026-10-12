@@ -2875,7 +2875,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/pet-battle-theme.css",
-            "line": 129
+            "line": 131
           }
         ]
       },
@@ -4021,7 +4021,7 @@
           },
           {
             "source": "shinobij.client/src/styles/pet-battle-theme.css",
-            "line": 105
+            "line": 107
           },
           {
             "source": "shinobij.client/src/styles/pet-tactics.css",
@@ -4844,7 +4844,7 @@
           },
           {
             "source": "shinobij.client/src/styles/pet-battle-theme.css",
-            "line": 101
+            "line": 103
           },
           {
             "source": "shinobij.client/src/styles/sunscar-exchange.css",
