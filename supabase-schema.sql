@@ -253,6 +253,12 @@ $$;
 -- ── kv_hset — atomic hash-set (merge JSON fields) ────────────────────────────
 -- Equivalent to Redis HSET: inserts the hash or merges new fields into it.
 -- Uses Postgres || operator to merge JSONB objects in a single statement.
+--
+-- A merge that changes nothing writes nothing (2026-10-12). Every write of a
+-- jsonb row rewrites the WHOLE row (and its TOAST and WAL), and hash rows are
+-- the big shared ones: the player registry, sleeper camps, image manifests of
+-- 10-20 MB. jsonb equality is structural, so key order never forces a write;
+-- updated_at then keeps the time of the last real change.
 
 create or replace function public.kv_hset(
     p_key    text,
@@ -266,43 +272,32 @@ as $$
     values (p_key, p_fields, now())
     on conflict (key) do update
         set value      = kv_store.value || excluded.value,
-            updated_at = now();
+            updated_at = now()
+        where (kv_store.value || excluded.value) is distinct from kv_store.value;
 $$;
 
 -- ── kv_hdel — atomic hash-delete (remove specific JSON fields) ───────────────
 -- Equivalent to Redis HDEL: removes named fields from the stored JSON object.
+--
+-- One statement (2026-10-12). The old version read the row, removed the fields
+-- in PL/pgSQL, then wrote it back: an hset committing in between was silently
+-- undone, and a delete of fields the row lacked still rewrote the whole row
+-- (nearly every sleeper-camp beat). The UPDATE re-checks its WHERE against the
+-- latest row under the row lock, and touches nothing when no field is present.
 
 create or replace function public.kv_hdel(
     p_key    text,
     p_fields text[]
 )
 returns void
-language plpgsql
+language sql
 set search_path = ''
 as $$
-declare
-    v_current jsonb;
-    v_new     jsonb;
-    v_field   text;
-begin
-    select value into v_current
-    from public.kv_store
-    where key = p_key;
-
-    if not found then
-        return;  -- Nothing to delete from.
-    end if;
-
-    v_new := v_current;
-    foreach v_field in array p_fields loop
-        v_new := v_new - v_field;
-    end loop;
-
     update public.kv_store
-    set value      = v_new,
+    set value      = value - p_fields,
         updated_at = now()
-    where key = p_key;
-end;
+    where key = p_key
+      and value ?| p_fields;
 $$;
 
 -- ── kv_delete_expired — periodic cleanup ─────────────────────────────────────
