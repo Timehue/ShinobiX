@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { buildRestoredSave, restoreSnapshotUnderLock, RestoreConflictError } from './save-snapshot.js';
-import { _makeMemoryKv } from '../_storage.js';
+import handler, { buildRestoredSave, restoreSnapshotUnderLock, RestoreConflictError, snapshotValidUntil } from './save-snapshot.js';
+import { _makeMemoryKv, kv } from '../_storage.js';
 
 describe('buildRestoredSave', () => {
     it('restores at max(live, snapshot)+1 and stamps the restore time', () => {
@@ -151,3 +151,79 @@ function mapStore(data: Map<string, unknown>) {
         },
     };
 }
+
+describe('snapshot validity (deduplicated nightly snapshots)', () => {
+    const DAY = 24 * 60 * 60 * 1000;
+
+    it('an older snapshot was current until the next one was taken', () => {
+        assert.equal(snapshotValidUntil(100, [100, 500, 300], true, 9_999), 300);
+    });
+
+    it('the newest snapshot is current now while it equals the live save, else until its capture', () => {
+        assert.equal(snapshotValidUntil(500, [100, 500], true, 9_999), 9_999);
+        assert.equal(snapshotValidUntil(500, [100, 500], false, 9_999), 500);
+    });
+
+    function stubStore(records: Map<string, unknown>) {
+        const original = { keys: kv.keys, get: kv.get, mget: kv.mget, set: kv.set };
+        kv.keys = async (pattern: string) => [...records.keys()].filter((k) => k.startsWith(pattern.replace(/\*$/, '')));
+        kv.get = async <T = unknown>(key: string) => (records.get(key) ?? null) as T | null;
+        kv.mget = async (...keys: string[]) => keys.map((k) => records.get(k) ?? null) as never;
+        // Hermetic: the age gate is under test, so the restore's lock write is refused.
+        kv.set = async () => { throw new Error('stubbed store: writes refused'); };
+        return () => Object.assign(kv, original);
+    }
+
+    function call(body: Record<string, unknown>) {
+        const out: { status: number; body: any } = { status: 0, body: null };
+        const res = {
+            setHeader() { return res; },
+            status(code: number) { out.status = code; return res; },
+            json(payload: unknown) { out.body = payload; return res; },
+            end() { return res; },
+        };
+        const req = { method: 'POST', headers: { 'x-admin-password': 'snapshot-test-admin' }, body };
+        return Promise.resolve(handler(req as never, res as never)).then(() => out);
+    }
+
+    it('list reports when each state stopped being current, and the restore age check uses it', async () => {
+        const now = Date.now();
+        const firstTs = now - 60 * DAY;   // an idle player's first (and renewed) copy
+        const olderTs = now - 90 * DAY + DAY;
+        const live = { _saveVersion: 7, character: { name: 'Idle', level: 4 } };
+        const records = new Map<string, unknown>([
+            ['save:idle', live],
+            [`save-snapshot:idle:${olderTs}`, { _saveVersion: 3, character: { name: 'Idle', level: 2 } }],
+            // Same content as the live save, different key order.
+            [`save-snapshot:idle:${firstTs}`, { character: { level: 4, name: 'Idle' }, _saveVersion: 7 }],
+        ]);
+        const restore = stubStore(records);
+        const previousAdmin = process.env.ADMIN_PASSWORD;
+        process.env.ADMIN_PASSWORD = 'snapshot-test-admin';
+        try {
+            const listed = await call({ action: 'list', playerName: 'idle' });
+            assert.equal(listed.status, 200);
+            const [newest, older] = listed.body.snapshots;
+            assert.equal(newest.ts, firstTs);
+            assert.equal(newest.matchesLive, true);
+            assert.ok(newest.validUntil >= now, 'a 60-day-old key holding the live state is current, not 60 days stale');
+            assert.equal(older.validUntil, firstTs);
+            assert.equal('matchesLive' in older, false);
+
+            // Restoring the live-equal newest copy passes the age gate (no confirmation)
+            // and reaches the lock, which the stub refuses: proof it got past the gate.
+            const fresh = await call({ action: 'restore', playerName: 'idle', snapshotKey: `save-snapshot:idle:${firstTs}` });
+            assert.notEqual(fresh.status, 400, JSON.stringify(fresh.body));
+            assert.doesNotMatch(JSON.stringify(fresh.body), /days old/);
+
+            // The older state ended 60 days ago: still gated.
+            const stale = await call({ action: 'restore', playerName: 'idle', snapshotKey: `save-snapshot:idle:${olderTs}` });
+            assert.equal(stale.status, 400);
+            assert.match(stale.body.error, /60 days old/);
+        } finally {
+            restore();
+            if (previousAdmin === undefined) delete process.env.ADMIN_PASSWORD;
+            else process.env.ADMIN_PASSWORD = previousAdmin;
+        }
+    });
+});

@@ -1139,6 +1139,11 @@ function _jsonValueEqual(a: unknown, b: unknown): boolean {
     return left !== null && left === canonical(b);
 }
 
+/** JSONB-style structural equality, the same comparison compareSet applies in Postgres. */
+export function jsonValueEqual(a: unknown, b: unknown): boolean {
+    return _jsonValueEqual(a, b);
+}
+
 export interface KvLike {
     get<T = unknown>(key: string): Promise<T | null>;
     set(key: string, value: unknown, options?: { ex?: number; nx?: boolean }): Promise<'OK' | null>;

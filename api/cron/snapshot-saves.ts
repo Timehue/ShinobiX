@@ -75,7 +75,10 @@ export function newestSnapshotByPlayer(snapshotKeys: string[]): Map<string, numb
 export type SnapshotSuccessMarker = {
     completedAt: number;
     snapshotted: number;
+    /** Saves not copied this run: already copied within 20h, or `unchanged`. */
     skipped: number;
+    /** Of `skipped`: saves equal to their newest snapshot, whose TTL was renewed. Absent on markers written before 2026-10-12. */
+    unchanged?: number;
     total: number;
     elapsedMs: number;
 };
@@ -283,6 +286,7 @@ export async function runSnapshotSaves(maxRuntimeMs: number = MAX_RUNTIME_MS): P
             completedAt,
             snapshotted: result.snapshotted,
             skipped: result.skipped,
+            unchanged: result.unchanged,
             total: result.validPlayers,
             elapsedMs: elapsed,
         };
@@ -332,6 +336,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ok: r.ok,
             snapshotted: r.snapshotted,
             skipped: r.skipped,
+            unchanged: r.unchanged,
             failed: r.failed,
             processed: r.processed,
             total: r.total,
