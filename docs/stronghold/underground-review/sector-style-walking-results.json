@@ -1,0 +1,744 @@
+{
+  "checks": [
+    {
+      "engine": "chromium",
+      "scene": "stronghold",
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "chromium",
+      "scene": "obsidian",
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "chromium",
+      "scene": "cave",
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "chromium",
+      "scene": "rift",
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "chromium",
+      "scene": "stronghold",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "chromium",
+      "scene": "obsidian",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "chromium",
+      "scene": "cave",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "chromium",
+      "scene": "rift",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "chromium",
+      "scene": "stronghold",
+      "viewport": {
+        "width": 430,
+        "height": 932
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "chromium",
+      "scene": "obsidian",
+      "viewport": {
+        "width": 430,
+        "height": 932
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "chromium",
+      "scene": "cave",
+      "viewport": {
+        "width": 430,
+        "height": 932
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "chromium",
+      "scene": "rift",
+      "viewport": {
+        "width": 430,
+        "height": 932
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "chromium",
+      "scene": "stronghold",
+      "viewport": {
+        "width": 844,
+        "height": 390
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "chromium",
+      "scene": "obsidian",
+      "viewport": {
+        "width": 844,
+        "height": 390
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "chromium",
+      "scene": "cave",
+      "viewport": {
+        "width": 844,
+        "height": 390
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "chromium",
+      "scene": "rift",
+      "viewport": {
+        "width": 844,
+        "height": 390
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "webkit",
+      "scene": "stronghold",
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "webkit",
+      "scene": "obsidian",
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "webkit",
+      "scene": "cave",
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "webkit",
+      "scene": "rift",
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "webkit",
+      "scene": "stronghold",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "webkit",
+      "scene": "obsidian",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "webkit",
+      "scene": "cave",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "webkit",
+      "scene": "rift",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "webkit",
+      "scene": "stronghold",
+      "viewport": {
+        "width": 430,
+        "height": 932
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "webkit",
+      "scene": "obsidian",
+      "viewport": {
+        "width": 430,
+        "height": 932
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "webkit",
+      "scene": "cave",
+      "viewport": {
+        "width": 430,
+        "height": 932
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "webkit",
+      "scene": "rift",
+      "viewport": {
+        "width": 430,
+        "height": 932
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "webkit",
+      "scene": "stronghold",
+      "viewport": {
+        "width": 844,
+        "height": 390
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "webkit",
+      "scene": "obsidian",
+      "viewport": {
+        "width": 844,
+        "height": 390
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "webkit",
+      "scene": "cave",
+      "viewport": {
+        "width": 844,
+        "height": 390
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "webkit",
+      "scene": "rift",
+      "viewport": {
+        "width": 844,
+        "height": 390
+      },
+      "movement": true,
+      "exit": true
+    }
+  ],
+  "errors": [],
+  "assetErrors": [],
+  "performanceSamples": [
+    {
+      "engine": "chromium",
+      "scene": "stronghold",
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "cpuSlowdown": 4,
+      "frames": 120,
+      "p95Ms": 16.799999999999955,
+      "longestMs": 50,
+      "tiles": 61
+    },
+    {
+      "engine": "chromium",
+      "scene": "obsidian",
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "cpuSlowdown": 4,
+      "frames": 119,
+      "p95Ms": 16.799999999999955,
+      "longestMs": 66.60000000000002,
+      "tiles": 61
+    },
+    {
+      "engine": "chromium",
+      "scene": "cave",
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "cpuSlowdown": 4,
+      "frames": 107,
+      "p95Ms": 16.799999999999955,
+      "longestMs": 133.29999999999995,
+      "tiles": 33
+    },
+    {
+      "engine": "chromium",
+      "scene": "rift",
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "cpuSlowdown": 4,
+      "frames": 116,
+      "p95Ms": 16.800000000000182,
+      "longestMs": 66.70000000000005,
+      "tiles": 22
+    },
+    {
+      "engine": "chromium",
+      "scene": "stronghold",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "cpuSlowdown": 4,
+      "frames": 121,
+      "p95Ms": 16.799999999999955,
+      "longestMs": 33.299999999999955,
+      "tiles": 61
+    },
+    {
+      "engine": "chromium",
+      "scene": "obsidian",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "cpuSlowdown": 4,
+      "frames": 121,
+      "p95Ms": 16.799999999999955,
+      "longestMs": 33.299999999999955,
+      "tiles": 61
+    },
+    {
+      "engine": "chromium",
+      "scene": "cave",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "cpuSlowdown": 4,
+      "frames": 114,
+      "p95Ms": 16.800000000000182,
+      "longestMs": 83.30000000000007,
+      "tiles": 33
+    },
+    {
+      "engine": "chromium",
+      "scene": "rift",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "cpuSlowdown": 4,
+      "frames": 119,
+      "p95Ms": 16.700000000000273,
+      "longestMs": 50.10000000000002,
+      "tiles": 22
+    },
+    {
+      "engine": "chromium",
+      "scene": "stronghold",
+      "viewport": {
+        "width": 430,
+        "height": 932
+      },
+      "cpuSlowdown": 4,
+      "frames": 121,
+      "p95Ms": 16.700000000000273,
+      "longestMs": 33.299999999999955,
+      "tiles": 61
+    },
+    {
+      "engine": "chromium",
+      "scene": "obsidian",
+      "viewport": {
+        "width": 430,
+        "height": 932
+      },
+      "cpuSlowdown": 4,
+      "frames": 121,
+      "p95Ms": 16.700000000000273,
+      "longestMs": 33.30000000000007,
+      "tiles": 61
+    },
+    {
+      "engine": "chromium",
+      "scene": "cave",
+      "viewport": {
+        "width": 430,
+        "height": 932
+      },
+      "cpuSlowdown": 4,
+      "frames": 113,
+      "p95Ms": 16.799999999999727,
+      "longestMs": 83.29999999999995,
+      "tiles": 33
+    },
+    {
+      "engine": "chromium",
+      "scene": "rift",
+      "viewport": {
+        "width": 430,
+        "height": 932
+      },
+      "cpuSlowdown": 4,
+      "frames": 118,
+      "p95Ms": 16.800000000000182,
+      "longestMs": 66.70000000000005,
+      "tiles": 22
+    },
+    {
+      "engine": "chromium",
+      "scene": "stronghold",
+      "viewport": {
+        "width": 844,
+        "height": 390
+      },
+      "cpuSlowdown": 4,
+      "frames": 121,
+      "p95Ms": 16.799999999999727,
+      "longestMs": 33.299999999999955,
+      "tiles": 61
+    },
+    {
+      "engine": "chromium",
+      "scene": "obsidian",
+      "viewport": {
+        "width": 844,
+        "height": 390
+      },
+      "cpuSlowdown": 4,
+      "frames": 121,
+      "p95Ms": 16.799999999999955,
+      "longestMs": 33.39999999999998,
+      "tiles": 61
+    },
+    {
+      "engine": "chromium",
+      "scene": "cave",
+      "viewport": {
+        "width": 844,
+        "height": 390
+      },
+      "cpuSlowdown": 4,
+      "frames": 113,
+      "p95Ms": 16.799999999999955,
+      "longestMs": 83.29999999999995,
+      "tiles": 33
+    },
+    {
+      "engine": "chromium",
+      "scene": "rift",
+      "viewport": {
+        "width": 844,
+        "height": 390
+      },
+      "cpuSlowdown": 4,
+      "frames": 119,
+      "p95Ms": 16.799999999999955,
+      "longestMs": 50,
+      "tiles": 22
+    },
+    {
+      "engine": "webkit",
+      "scene": "stronghold",
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "cpuSlowdown": 1,
+      "frames": 126,
+      "p95Ms": 17,
+      "longestMs": 29,
+      "tiles": 61
+    },
+    {
+      "engine": "webkit",
+      "scene": "obsidian",
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "cpuSlowdown": 1,
+      "frames": 126,
+      "p95Ms": 18,
+      "longestMs": 41,
+      "tiles": 61
+    },
+    {
+      "engine": "webkit",
+      "scene": "cave",
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "cpuSlowdown": 1,
+      "frames": 123,
+      "p95Ms": 26,
+      "longestMs": 33,
+      "tiles": 33
+    },
+    {
+      "engine": "webkit",
+      "scene": "rift",
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "cpuSlowdown": 1,
+      "frames": 124,
+      "p95Ms": 21,
+      "longestMs": 29,
+      "tiles": 22
+    },
+    {
+      "engine": "webkit",
+      "scene": "stronghold",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "cpuSlowdown": 1,
+      "frames": 125,
+      "p95Ms": 17,
+      "longestMs": 40,
+      "tiles": 61
+    },
+    {
+      "engine": "webkit",
+      "scene": "obsidian",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "cpuSlowdown": 1,
+      "frames": 123,
+      "p95Ms": 17,
+      "longestMs": 58,
+      "tiles": 61
+    },
+    {
+      "engine": "webkit",
+      "scene": "cave",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "cpuSlowdown": 1,
+      "frames": 121,
+      "p95Ms": 24,
+      "longestMs": 50,
+      "tiles": 33
+    },
+    {
+      "engine": "webkit",
+      "scene": "rift",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "cpuSlowdown": 1,
+      "frames": 123,
+      "p95Ms": 23,
+      "longestMs": 36,
+      "tiles": 22
+    },
+    {
+      "engine": "webkit",
+      "scene": "stronghold",
+      "viewport": {
+        "width": 430,
+        "height": 932
+      },
+      "cpuSlowdown": 1,
+      "frames": 125,
+      "p95Ms": 17,
+      "longestMs": 47,
+      "tiles": 61
+    },
+    {
+      "engine": "webkit",
+      "scene": "obsidian",
+      "viewport": {
+        "width": 430,
+        "height": 932
+      },
+      "cpuSlowdown": 1,
+      "frames": 123,
+      "p95Ms": 17,
+      "longestMs": 57,
+      "tiles": 61
+    },
+    {
+      "engine": "webkit",
+      "scene": "cave",
+      "viewport": {
+        "width": 430,
+        "height": 932
+      },
+      "cpuSlowdown": 1,
+      "frames": 120,
+      "p95Ms": 24,
+      "longestMs": 57,
+      "tiles": 33
+    },
+    {
+      "engine": "webkit",
+      "scene": "rift",
+      "viewport": {
+        "width": 430,
+        "height": 932
+      },
+      "cpuSlowdown": 1,
+      "frames": 122,
+      "p95Ms": 23,
+      "longestMs": 35,
+      "tiles": 22
+    },
+    {
+      "engine": "webkit",
+      "scene": "stronghold",
+      "viewport": {
+        "width": 844,
+        "height": 390
+      },
+      "cpuSlowdown": 1,
+      "frames": 125,
+      "p95Ms": 17,
+      "longestMs": 37,
+      "tiles": 61
+    },
+    {
+      "engine": "webkit",
+      "scene": "obsidian",
+      "viewport": {
+        "width": 844,
+        "height": 390
+      },
+      "cpuSlowdown": 1,
+      "frames": 125,
+      "p95Ms": 17,
+      "longestMs": 31,
+      "tiles": 61
+    },
+    {
+      "engine": "webkit",
+      "scene": "cave",
+      "viewport": {
+        "width": 844,
+        "height": 390
+      },
+      "cpuSlowdown": 1,
+      "frames": 123,
+      "p95Ms": 24,
+      "longestMs": 33,
+      "tiles": 33
+    },
+    {
+      "engine": "webkit",
+      "scene": "rift",
+      "viewport": {
+        "width": 844,
+        "height": 390
+      },
+      "cpuSlowdown": 1,
+      "frames": 126,
+      "p95Ms": 17,
+      "longestMs": 24,
+      "tiles": 22
+    }
+  ]
+}

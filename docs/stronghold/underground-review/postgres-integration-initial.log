@@ -1,0 +1,25 @@
+[pg-integration] PostgreSQL 16.15
+▶ kv.compareSetMany on a real Postgres
+  ✔ commits every operation together, in one transaction (90.8857ms)
+  ✔ one moved predecessor rolls back statements that already ran, and returns false (11.9498ms)
+  ✔ null-expected cas inserts an absent key and replaces an expired row, but never a live one (13.8924ms)
+  ✔ jsonb matching ignores object key order and spelling, and nothing else (6.6736ms)
+  ✔ delete removes only a live row equal to expected (6.2265ms)
+  ✔ assert: null means absent (or expired); a value means that exact live row (7.2447ms)
+  ✔ an asserted row is held FOR SHARE until COMMIT: a concurrent writer waits for the batch (128.9535ms)
+  ✔ an assert blocked by a concurrent writer judges the row that writer committed (83.6269ms)
+  ✔ control: the next test's two batches, run in the order passed, really do deadlock (1166.7717ms)
+  ✔ two batches on overlapping keys, passed in opposite orders, serialize instead of deadlocking (209.7826ms)
+  ✔ racing opposite-order batches never throw, and exactly one wins each round (52.1844ms)
+  ✔ under a live lock the lease check passes and the batch commits (25.4272ms)
+  ✔ an expired lease fails the batch with LockOwnershipLostError before any write (1097.4814ms)
+  ✔ a lease taken over by another owner fails the batch before any write (40.4333ms)
+✔ kv.compareSetMany on a real Postgres (3467.7323ms)
+ℹ tests 14
+ℹ suites 1
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3993.8442

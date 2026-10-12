@@ -5,7 +5,7 @@ import { getPvpJutsuLoadout } from "../lib/jutsu-loadout";
 import { useSectorOrder } from "../lib/use-sector-order";
 import { normalizeNarrativeCharacter as normalizeCharacter } from "../lib/normalize-narrative-character";
 import { StrongholdDialog } from '../features/anbuInfiltration/StrongholdDialog';
-import { isDeathsGateStronghold, strongholdTitle } from '../../../shared/sector-stronghold';
+import { ANBU_RAID_MIN_LEVEL, STRONGHOLD_MIN_LEVEL, isDeathsGateStronghold, strongholdLevelEligible, strongholdTitle } from '../../../shared/sector-stronghold';
 import { HollowGateEntryMenu } from './world-map/HollowGateEntryMenu';
 import { sectorBackgroundImage, sectorDepthImage, sectorMapUrl, ambienceBiomeForSector } from './world-map/sector-art';
 import { fetchVillageGuards } from "../lib/village-guard-api";
@@ -4403,15 +4403,15 @@ function WorldMapContent({
             };
         })();
         const sectorOverlayVault = (() => {
+            if (!anbuViewOpen || !strongholdLevelEligible(character.level)) return null;
             if (isDeathsGateStronghold(selectedSector)) return {
                 village: 'Death’s Gate', obsidian: true,
                 onOpen: () => setVaultPrompt({ sector: selectedSector, village: 'Death’s Gate' }),
             };
-            if (!anbuViewOpen || (character.level ?? 0) < 100) return null;
             // Prefer the captured owner; fall back to the sector's home village
             // before any sector-war capture, matching the server's ownership fallback.
             const owner = territory.ownerVillage || homeVillageForSector(selectedSector);
-            if (!owner || owner === character.village) return null;
+            if (!owner) return null;
             return {
                 village: owner,
                 onOpen: () => setVaultPrompt({ sector: selectedSector, village: owner }),
@@ -4558,19 +4558,22 @@ function WorldMapContent({
                                         <p style={{ fontSize: 13, opacity: 0.82, margin: "0.3rem 0 0.8rem" }}>
                                             {isDeathsGateStronghold(vaultPrompt.sector)
                                                 ? 'Enter twelve obsidian chambers shared with other players. Every step raises threat; a patrol attacks after 25 steps. Your current health and supplies carry into every fight.'
-                                                : 'Explore 12 chambers, fight patrols, and watch for rival players. An Anbu guards the war vault at the far end. Each step raises threat. Break through to raid this sector’s war supplies.'}
+                                                : vaultPrompt.village === character.village
+                                                    ? 'Explore your village’s twelve-chamber stronghold, fight patrols, and watch for rival players. Your Anbu protects the war reserves in the vault at the far end.'
+                                                    : 'Explore 12 chambers, fight patrols, and watch for rival players. An Anbu guards the war vault at the far end. Each step raises threat. Break through to raid this sector’s war supplies.'}
                                         </p>
+                                        <p className="stronghold-reward-detail">Stronghold entry unlocks at level {STRONGHOLD_MIN_LEVEL}.{!isDeathsGateStronghold(vaultPrompt.sector) && vaultPrompt.village !== character.village && ` Anbu treasury raids require level ${ANBU_RAID_MIN_LEVEL}.`}</p>
                                         {isDeathsGateStronghold(vaultPrompt.sector) && <p className="stronghold-reward-detail"><b>4× normal Ryo, stat growth and Jutsu XP on PvP wins.</b> That’s double Death’s Gate’s usual rewards. Both fighters must start inside. Patrols do not earn this bonus. Normal reward limits apply.</p>}
                                         <div className="stronghold-dialog-actions">
                                             <button
-                                                disabled={!anbuAdmissionOpen}
-                                                style={{ padding: "0.55rem 1.15rem", opacity: anbuAdmissionOpen ? 1 : 0.55 }}
+                                                disabled={!anbuAdmissionOpen || !strongholdLevelEligible(character.level)}
+                                                style={{ padding: "0.55rem 1.15rem", opacity: anbuAdmissionOpen && strongholdLevelEligible(character.level) ? 1 : 0.55 }}
                                                 onClick={() => {
-                                                    if (!anbuInfiltrationAdmissionEnabled(mutationAvailability("anbuInfiltration"))) return;
+                                                    if (!strongholdLevelEligible(character.level) || !anbuInfiltrationAdmissionEnabled(mutationAvailability("anbuInfiltration"))) return;
                                                     setVaultRaid(vaultPrompt);
                                                     setVaultPrompt(null);
                                                 }}
-                                            >{anbuAdmissionOpen ? (isDeathsGateStronghold(vaultPrompt.sector) ? "Enter stronghold" : "Infiltrate") : "Operation paused"}</button>
+                                            >{!anbuAdmissionOpen ? "Operation paused" : !strongholdLevelEligible(character.level) ? `Requires level ${STRONGHOLD_MIN_LEVEL}` : "Enter stronghold"}</button>
                                             <button style={{ padding: "0.55rem 1.15rem", opacity: 0.8 }} onClick={() => setVaultPrompt(null)}>Retreat</button>
                                         </div>
                                 </StrongholdDialog>,
@@ -4588,12 +4591,10 @@ function WorldMapContent({
                                                 character={character}
                                                 sharedImages={sharedImages}
                                                 sector={vaultRaid.sector}
-                                                onAttackPlayer={player => {
-                                                    const environment = selectedSectorCombatEnvironment();
-                                                    if (!environment) return;
-                                                    focusSectorCombat(environment.sector, environment.biome, environment.weather);
-                                                    return sectorAttackPlayer(player);
-                                                }}
+                                                onAttackPlayer={handleSelectedSectorPlayerAttack}
+                                                sectorContest={sectorWarContest}
+                                                onOpenSectorContest={() => handleOpenSectorContest(false)}
+                                                onFightSectorGarrison={() => handleOpenSectorContest(true)}
                                                 targetVillage={vaultRaid.village}
                                                 onVersionedCharacter={onVersionedCharacter}
                                                 onExit={() => setVaultRaid(null)}

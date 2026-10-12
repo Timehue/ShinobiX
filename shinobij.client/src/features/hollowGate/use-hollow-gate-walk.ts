@@ -45,13 +45,15 @@ export function useHollowGateWalk({ active, run, blocked, moveStep }: {
     // re-arming on every render. Written in a passive effect (never during
     // render — the hooks purity rule) which commits before any timer fires.
     const runRef = useRef(run);
+    const activeRef = useRef(active);
     const blockedRef = useRef(blocked);
     const moveRef = useRef(moveStep);
-    useEffect(() => { runRef.current = run; blockedRef.current = blocked; moveRef.current = moveStep; });
+    useEffect(() => { runRef.current = run; activeRef.current = active; blockedRef.current = blocked; moveRef.current = moveStep; });
 
     const pathRef = useRef<number[]>([]);
     const targetRef = useRef<number | null>(null);
     const walkFloorRef = useRef<number>(-1);      // floor the walk started on
+    const walkTokenRef = useRef<string | undefined>(undefined);
     const stepTimerRef = useRef<number | null>(null);
     const watchdogRef = useRef<number | null>(null);
 
@@ -73,7 +75,8 @@ export function useHollowGateWalk({ active, run, blocked, moveStep }: {
     function issueNext() {
         stepTimerRef.current = null;
         const r = runRef.current;
-        if (!r || blockedRef.current || targetRef.current == null || r.floor !== walkFloorRef.current) { stopRef.current(); return; }
+        if (!r || !activeRef.current || document.hidden || blockedRef.current || targetRef.current == null
+            || r.floor !== walkFloorRef.current || r.runToken !== walkTokenRef.current) { stopRef.current(); return; }
         const pos = r.playerY * r.width + r.playerX;
         if (pos === targetRef.current) { stopRef.current(); return; }        // arrived
         let next = pathRef.current[0];
@@ -101,23 +104,27 @@ export function useHollowGateWalk({ active, run, blocked, moveStep }: {
     const posKey = run ? run.playerY * run.width + run.playerX : -1;
     useEffect(() => {
         if (targetRef.current == null) return;
+        if (!run || run.floor !== walkFloorRef.current || run.runToken !== walkTokenRef.current) { stopRef.current(); return; }
         if (watchdogRef.current != null) { window.clearTimeout(watchdogRef.current); watchdogRef.current = null; }
         if (posKey === targetRef.current || posKey < 0) { stopRef.current(); return; }
         if (stepTimerRef.current != null) window.clearTimeout(stepTimerRef.current);
         stepTimerRef.current = window.setTimeout(() => issueRef.current(), HOLLOW_GATE_STEP_MS);
         // Timers are intentionally NOT cleared on effect cleanup here — the
         // next commit re-arms them and stopWalk owns teardown.
-    }, [posKey]);
+        // Floor/run identity can change without changing the tile index.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [posKey, run?.floor, run?.runToken]);
 
     function walkTo(targetIdx: number) {
         const r = runRef.current;
-        if (!r || blockedRef.current) return;
+        if (!r || !activeRef.current || document.hidden || blockedRef.current) return;
         const path = findHollowGatePath(r, targetIdx);
         if (!path || path.length === 0) return;   // unknown / unreachable / already there
         clearTimers();
         pathRef.current = path;
         targetRef.current = targetIdx;
         walkFloorRef.current = r.floor;
+        walkTokenRef.current = r.runToken;
         setWalkTarget(targetIdx);
         issueNext();                               // first step immediately — snappy
     }
@@ -126,6 +133,18 @@ export function useHollowGateWalk({ active, run, blocked, moveStep }: {
     useEffect(() => {
         if (!active || blocked) stopRef.current();
     }, [active, blocked]);
+    useEffect(() => {
+        if (!active) return;
+        const onVisibility = () => { if (document.hidden) stopRef.current(); };
+        const onPageHide = () => stopRef.current();
+        document.addEventListener('visibilitychange', onVisibility);
+        window.addEventListener('pagehide', onPageHide);
+        onVisibility();
+        return () => {
+            document.removeEventListener('visibilitychange', onVisibility);
+            window.removeEventListener('pagehide', onPageHide);
+        };
+    }, [active]);
     useEffect(() => clearTimers, []);              // unmount safety
 
     // WASD / Arrow keys move one tile (and cancel any click-walk in flight).
@@ -139,6 +158,8 @@ export function useHollowGateWalk({ active, run, blocked, moveStep }: {
         // the hollow-gate-step limit. Fresh presses are never delayed.
         let lastKeyStepAt = 0;
         function handleKey(e: KeyboardEvent) {
+            if (document.hidden) return;
+            if ((e.target as HTMLElement)?.closest('dialog, [role="dialog"], [role="alertdialog"], [contenteditable="true"]')) return;
             const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
             if (tag === "input" || tag === "textarea" || tag === "select") return;
             const k = e.key.toLowerCase();

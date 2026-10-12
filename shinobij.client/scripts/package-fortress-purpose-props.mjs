@@ -1,0 +1,14 @@
+import sharp from 'sharp';
+import { resolve } from 'node:path';
+import { writeFile } from 'node:fs/promises';
+const source = resolve(process.env.USERPROFILE, '.codex/generated_images/01a12d35-3bb5-7352-9515-62574768609e/exec-b3b14254-8da8-47e8-b511-1d2fe9dda586.png');
+const meta = await sharp(source).metadata();
+if (!meta.hasAlpha) throw new Error('Room props must retain transparency.');
+const roles = ['cistern', 'training-dummy', 'reserve-chest'];
+for (let i = 0; i < roles.length; i++) {
+    const left = Math.floor(i * meta.width / 3), right = Math.floor((i + 1) * meta.width / 3);
+    const cell = await sharp(source).extract({ left, top: 0, width: right - left, height: meta.height }).png().toBuffer();
+    await sharp(cell).trim().resize({ width: 288, height: 320, fit: 'inside' }).webp({ quality: 85, alphaQuality: 100 }).toFile(resolve(`public/underground/fortress-${roles[i]}-v1.webp`));
+}
+await writeFile(resolve('../docs/art/fortress-purpose-props.json'), JSON.stringify({ tool: 'image_gen.imagegen', source, transparent: true, roles, outputs: roles.map(role => `shinobij.client/public/underground/fortress-${role}-v1.webp`), normalization: 'equal thirds, trim transparent margins, fit 288x320, WebP quality 85', prompt: "Create a polished transparent sprite atlas for a dark anime shinobi fortress interior game. Exactly THREE separated functional room props in one horizontal row, equal-width cells, generous clear gutters, all fully visible with no cropped edges, no grid, no text, no labels, no environment. Painterly detailed game illustration with slightly elevated three-quarter top-down view, consistent lighting and scale, aged dark slate stone, charcoal timber, burgundy cloth and restrained antique brass, match an ancient underground military stronghold. Left cell: a squat round stone cistern well, heavy worn masonry ring with a small visible pool of still dark teal fresh water, simple rope bucket resting on its rim, absolutely no flames or crystals. Middle cell: a practical shinobi training dummy on a low wooden stand, compact wrapped straw torso and practice targets, small rack with two wooden practice swords beside it within the same compact assembly. Right cell: an imposing secured village war-reserve strongbox, low heavy dark steel chest with reinforced antique-brass corners, subtle engraved crest medallion, red seal tags and locking bar, closed lid, visually reads as protected treasury resources rather than ordinary wooden luggage, not overflowing coins. Compact ground footprint, no large shadow, consistent three-dimensional painted shading, suitable for stamping into a tile dungeon. Transparent background including all gutters, landscape aspect 3:1." }, null, 2) + '\n');
+console.log('Packaged cistern, practice station and war reserve strongbox.');

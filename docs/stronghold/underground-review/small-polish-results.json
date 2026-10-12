@@ -1,0 +1,186 @@
+{
+  "checks": [
+    {
+      "engine": "chromium",
+      "scene": "stronghold",
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "chromium",
+      "scene": "obsidian",
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "chromium",
+      "scene": "cave",
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "chromium",
+      "scene": "rift",
+      "viewport": {
+        "width": 320,
+        "height": 568
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "chromium",
+      "npc": "medic",
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "art": true,
+      "gift": 1
+    },
+    {
+      "engine": "chromium",
+      "npc": "medic",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "art": true,
+      "gift": 1
+    },
+    {
+      "engine": "chromium",
+      "npc": "wayfarer",
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "art": true,
+      "gift": 1
+    },
+    {
+      "engine": "chromium",
+      "npc": "wayfarer",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "art": true,
+      "gift": 1
+    },
+    {
+      "engine": "chromium",
+      "npc": "bandit",
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "art": true,
+      "gift": 0
+    },
+    {
+      "engine": "chromium",
+      "npc": "bandit",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "art": true,
+      "gift": 0
+    },
+    {
+      "engine": "chromium",
+      "npc": "night-ninja",
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "art": true,
+      "gift": 0
+    },
+    {
+      "engine": "chromium",
+      "npc": "night-ninja",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "art": true,
+      "gift": 0
+    },
+    {
+      "engine": "chromium",
+      "npc": "patrol",
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "art": true,
+      "gift": 0
+    },
+    {
+      "engine": "chromium",
+      "npc": "patrol",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "art": true,
+      "gift": 0
+    },
+    {
+      "engine": "chromium",
+      "emergencyForfeit": true,
+      "nativeModalYield": true,
+      "reauth": true
+    },
+    {
+      "engine": "chromium",
+      "intro": "?floor=5&bossIntro",
+      "focusContainment": true,
+      "noBackgroundMovement": true
+    },
+    {
+      "engine": "chromium",
+      "intro": "?floor=1&intro",
+      "focusContainment": true,
+      "noBackgroundMovement": true
+    },
+    {
+      "engine": "chromium",
+      "npc": "medic",
+      "retry": true,
+      "pending": true,
+      "focusContainment": true,
+      "noBackgroundMovement": true
+    },
+    {
+      "engine": "chromium",
+      "npc": "keeper",
+      "retry": true,
+      "pending": true,
+      "focusContainment": true,
+      "noBackgroundMovement": true
+    },
+    {
+      "engine": "chromium",
+      "vault": true,
+      "raidTrigger": true
+    }
+  ],
+  "errors": [],
+  "assetErrors": [],
+  "performanceSamples": []
+}

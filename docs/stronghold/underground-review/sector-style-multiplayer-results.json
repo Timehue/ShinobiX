@@ -1,0 +1,130 @@
+{
+  "checks": [
+    {
+      "engine": "chromium",
+      "sector": 12,
+      "twoAuthenticatedBrowsers": true,
+      "livePeerMovement": true,
+      "exteriorIsolation": true,
+      "collisionRejected": true,
+      "leaveReconnect": true,
+      "offlineRecovery": true,
+      "staleLeaseRejected": true,
+      "battleAdmission": true,
+      "bothJoins": true,
+      "combatMovementBlocked": true,
+      "koAndRewards": true,
+      "rewardReplay": true
+    },
+    {
+      "engine": "chromium",
+      "sector": 99,
+      "twoAuthenticatedBrowsers": true,
+      "livePeerMovement": true,
+      "exteriorIsolation": true,
+      "collisionRejected": true,
+      "leaveReconnect": true,
+      "offlineRecovery": true,
+      "staleLeaseRejected": true,
+      "battleAdmission": true,
+      "bothJoins": true,
+      "combatMovementBlocked": true,
+      "koAndRewards": true,
+      "rewardReplay": true
+    },
+    {
+      "engine": "webkit",
+      "sector": 12,
+      "twoAuthenticatedBrowsers": true,
+      "livePeerMovement": true,
+      "exteriorIsolation": true,
+      "collisionRejected": true,
+      "leaveReconnect": true,
+      "offlineRecovery": true,
+      "staleLeaseRejected": true,
+      "battleAdmission": true,
+      "bothJoins": true,
+      "combatMovementBlocked": true,
+      "koAndRewards": true,
+      "rewardReplay": true
+    },
+    {
+      "engine": "webkit",
+      "sector": 99,
+      "twoAuthenticatedBrowsers": true,
+      "livePeerMovement": true,
+      "exteriorIsolation": true,
+      "collisionRejected": true,
+      "leaveReconnect": true,
+      "offlineRecovery": true,
+      "staleLeaseRejected": true,
+      "battleAdmission": true,
+      "bothJoins": true,
+      "combatMovementBlocked": true,
+      "koAndRewards": true,
+      "rewardReplay": true
+    }
+  ],
+  "metrics": [
+    {
+      "engine": "chromium",
+      "sector": 12,
+      "cpuSlowdown": 4,
+      "responseDelay": 120,
+      "frames": 150,
+      "p95Ms": 16.799999999999727,
+      "longestMs": 49.90000000000009
+    },
+    {
+      "engine": "chromium",
+      "sector": 99,
+      "cpuSlowdown": 4,
+      "responseDelay": 120,
+      "frames": 151,
+      "p95Ms": 16.799999999999727,
+      "longestMs": 33.30000000000018
+    },
+    {
+      "engine": "webkit",
+      "sector": 12,
+      "cpuSlowdown": 1,
+      "responseDelay": 120,
+      "frames": 152,
+      "p95Ms": 30,
+      "longestMs": 31
+    },
+    {
+      "engine": "webkit",
+      "sector": 99,
+      "cpuSlowdown": 1,
+      "responseDelay": 120,
+      "frames": 150,
+      "p95Ms": 30,
+      "longestMs": 32
+    }
+  ],
+  "loadSamples": [
+    {
+      "sector": 12,
+      "players": 24,
+      "stepsPerPlayer": 6,
+      "requests": 192,
+      "responseDelay": 120,
+      "p95Ms": 170.64170000000013,
+      "longestMs": 174.4756999999954
+    },
+    {
+      "sector": 99,
+      "players": 24,
+      "stepsPerPlayer": 6,
+      "requests": 192,
+      "responseDelay": 120,
+      "p95Ms": 140.636599999998,
+      "longestMs": 141.04509999999573
+    }
+  ],
+  "errors": [],
+  "storage": "isolated-memory",
+  "handlers": "actual-authenticated-http",
+  "simulatedLatencyMs": 120
+}

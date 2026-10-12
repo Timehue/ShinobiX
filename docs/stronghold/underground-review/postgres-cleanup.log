@@ -1,0 +1,11 @@
+{
+  "version": "16.15",
+  "listen_addresses": "127.0.0.1",
+  "remaining_kv_rows": 0,
+  "remaining_test_triggers": 0,
+  "remaining_test_sequence": null
+}
+waiting for server to shut down.... done
+server stopped
+pg_ctl: no server running
+Removed the original throwaway cluster, temporary credentials, and downloaded zip; portable runtime binaries retained for repeat runs.

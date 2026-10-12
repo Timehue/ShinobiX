@@ -15,6 +15,8 @@ import {
 } from './_run-token.js';
 import { hollowGateCombatBindingKey, type HollowGateCombatBinding } from './_combat-session.js';
 import { hollowGateEncounterRecovery } from './_encounter-recovery.js';
+import { hollowGateWanderersForRun } from './_wanderers.js';
+import { hollowGateFloorFeatures } from './_floor-features.js';
 
 /*
  * /api/hollow-gate/resume  — POST only
@@ -88,6 +90,8 @@ export function hollowGateResumeState(
         manifest: run.floorManifests?.[String(floor)] ?? null,
         activeCombat: recovery.activeCombat ?? null,
         pendingAmbush: recovery.pendingAmbush ?? null,
+        wanderers: hollowGateWanderersForRun(run),
+        floorFeatures: hollowGateFloorFeatures(run),
         entryCurrencies: run.entryCurrencies ?? {},
     };
 }

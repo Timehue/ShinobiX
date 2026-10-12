@@ -2,6 +2,7 @@ import { hollowGateFlavorFor } from "../data/hollow-gate-flavor";
 import type { HollowGateShrineRun, HollowGateTile } from "../types/character";
 import { markHollowGateSeen } from "./hollow-gate-path";
 import { wingEntryEffect } from "./hollow-gate-wings";
+import { undergroundFeatureBlocks } from '../../../shared/underground-floor-collision';
 
 export type HollowGateMoveEffect = {
     wallBump: boolean;
@@ -24,7 +25,7 @@ export function projectHollowGateMovement(
     const idx = ny * prev.width + nx;
     const tile = prev.tiles[idx];
     if (!tile) return null;
-    if (tile.kind === "wall" || tile.terrain === "wall") {
+    if (tile.kind === "wall" || tile.terrain === "wall" || tile.solid || undergroundFeatureBlocks(prev.floorFeatures, idx)) {
         return { nextRun: prev, effect: { wallBump: true, torchSputtered: false, justResolved: null, ambushImmediate: false } };
     }
     const wingEff = wingEntryEffect(prev, tile.wing);

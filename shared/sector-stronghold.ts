@@ -1,6 +1,14 @@
 /** One shared floor per sector: clients and server must agree on every doorway. */
+import { planUndergroundFloorFeatures, type UndergroundFloorFeature } from './underground-floor-features.js';
 export const STRONGHOLD_DIMS = { width: 37, height: 23 } as const;
 export const STRONGHOLD_LAYOUT_VERSION = 1;
+export const STRONGHOLD_MIN_LEVEL = 50;
+/** Treasury raids remain endgame activities even when exploration unlocks earlier. */
+export const ANBU_RAID_MIN_LEVEL = 100;
+export function strongholdLevelEligible(level: unknown): boolean {
+    const value = Number(level);
+    return Number.isFinite(value) && value >= STRONGHOLD_MIN_LEVEL;
+}
 export const STRONGHOLD_THREAT_PER_STEP = 4;
 export const DEATHS_GATE_STRONGHOLD_SECTOR = 99;
 export const isDeathsGateStronghold = (sector: number) => sector === DEATHS_GATE_STRONGHOLD_SECTOR;
@@ -27,6 +35,7 @@ export type StrongholdTile = {
     decoration?: number;
     revealed: boolean;
     resolved: boolean;
+    solid?: boolean;
 };
 
 export const strongholdIndex = (x: number, y: number) => y * STRONGHOLD_DIMS.width + x;
@@ -36,7 +45,10 @@ export const STRONGHOLD_VAULT = strongholdIndex(32, 18);
 export const STRONGHOLD_INTEL_ROOM_ID = 6;
 export const STRONGHOLD_INTEL_TILE = strongholdIndex(23, 11);
 
+const floorTemplates = new Map<boolean, StrongholdTile[]>();
 export function buildStrongholdTiles(sector = 0): StrongholdTile[] {
+    const key = isDeathsGateStronghold(sector), template = floorTemplates.get(key);
+    if (template) return template.map(tile => ({ ...tile }));
     const { width, height } = STRONGHOLD_DIMS;
     const tiles: StrongholdTile[] = Array.from({ length: width * height }, () => ({
         kind: 'wall', terrain: 'wall', roomId: null, revealed: false, resolved: false,
@@ -46,7 +58,6 @@ export function buildStrongholdTiles(sector = 0): StrongholdTile[] {
             for (let x = room.x; x < room.x + room.width; x++) {
                 tiles[strongholdIndex(x, y)] = {
                     kind: 'empty', terrain: 'room_floor', roomId: room.id, revealed: false, resolved: false,
-                    ...((x === room.x || x === room.x + room.width - 1) && y === room.y ? { decoration: room.id % 2 } : {}),
                 };
             }
         }
@@ -70,7 +81,24 @@ export function buildStrongholdTiles(sector = 0): StrongholdTile[] {
     }
     // The Blood Altar is an open dueling chamber, with no village treasury boss.
     if (!isDeathsGateStronghold(sector)) tiles[STRONGHOLD_VAULT].kind = 'boss';
+    for (const feature of strongholdFloorFeatures(sector, tiles)) for (const index of feature.cells) tiles[index].solid = true;
+    floorTemplates.set(key, tiles.map(tile => ({ ...tile })));
     return tiles;
+}
+
+export function strongholdFloorFeatures(sector: number, tiles: StrongholdTile[]): UndergroundFloorFeature[] {
+    return planUndergroundFloorFeatures(tiles, STRONGHOLD_DIMS.width, false, !isDeathsGateStronghold(sector), STRONGHOLD_SPAWN);
+}
+
+/** Move an old visit out of a newly solid footprint without erasing threat. */
+export function strongholdSafeTile(tile: number, sector: number): number {
+    const tiles = buildStrongholdTiles(sector), queue = [tile], seen = new Set(queue), width = STRONGHOLD_DIMS.width;
+    for (let i = 0; i < queue.length; i++) {
+        const index = queue[i];
+        if (tiles[index]?.kind === 'empty' && !tiles[index].solid) return index;
+        for (const next of [index - width, index + 1, index + width, index - 1]) if (tiles[next] && tiles[next].kind !== 'wall' && !seen.has(next) && Math.abs(next % width - index % width) + Math.abs(Math.floor(next / width) - Math.floor(index / width)) === 1) { seen.add(next); queue.push(next); }
+    }
+    return STRONGHOLD_SPAWN;
 }
 
 export type StrongholdVisit = {
@@ -91,10 +119,12 @@ export type StrongholdVisit = {
 
 /** Reject repeats, row wrapping, teleporting, walls and the occupied boss tile. */
 export function canStepStronghold(from: number, to: number, sector = 0): boolean {
+    if (!Number.isInteger(from) || from < 0 || from >= STRONGHOLD_DIMS.width * STRONGHOLD_DIMS.height) return false;
     if (!Number.isInteger(to) || to < 0 || to >= STRONGHOLD_DIMS.width * STRONGHOLD_DIMS.height) return false;
     const width = STRONGHOLD_DIMS.width;
     const adjacent = Math.abs(from % width - to % width) + Math.abs(Math.floor(from / width) - Math.floor(to / width)) === 1;
-    return adjacent && buildStrongholdTiles(sector)[to].kind === 'empty';
+    const tile = buildStrongholdTiles(sector)[to];
+    return adjacent && tile.kind === 'empty' && !tile.solid;
 }
 
 export function advanceStronghold(visit: StrongholdVisit, to: number): StrongholdVisit | null {

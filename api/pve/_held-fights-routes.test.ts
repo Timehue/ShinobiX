@@ -181,7 +181,7 @@ describe('each route that seals a fight from the save settles a held fight first
                 const { STRONGHOLD_SPAWN } = await import('../../shared/sector-stronghold.js');
                 const sector = 12;
                 const presenceId = `held-routes-${name}`;
-                // A stronghold admits level 100, standing in its sector.
+                // This level-100 fixture also meets stronghold entry's level-50 minimum.
                 const record = await kv.get<Json>(`save:${name}`);
                 const character = { ...record?.character, level: 100 };
                 await kv.set(`save:${name}`, { ...record, character });

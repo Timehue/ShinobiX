@@ -74,7 +74,9 @@ export type HollowGateResumeState = {
     visited: string | null;
     manifest: HollowGateSealedManifest | null;
     activeCombat: HollowGateShrineRun["activeCombat"] | null;
-    pendingAmbush: { nodeId: string; kind: "ambush" | "boss" | "card" } | null;
+    wanderers?: HollowGateShrineRun["wanderers"];
+    floorFeatures?: HollowGateShrineRun["floorFeatures"];
+    pendingAmbush: { nodeId: string; kind: "battle" | "ambush" | "boss" | "card" } | null;
     entryCurrencies: Partial<Record<string, number>>;
 };
 
@@ -229,6 +231,9 @@ export function rebuildHollowGateRun(
         chosenAugment: state.augmentOffers.find((offer) => offer.id === state.chosenAugmentId) ?? null,
         entryCurrencies: state.entryCurrencies,
         activeCombat: state.activeCombat ?? undefined,
+        wanderers: state.wanderers,
+        floorFeatures: state.floorFeatures,
+        ...(state.floorFeatures ? { floorFeaturesVersion: 1 as const } : {}),
         ...(variant ? { variant } : {}),
     };
 }

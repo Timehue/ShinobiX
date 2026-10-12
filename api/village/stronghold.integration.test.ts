@@ -3,6 +3,7 @@ import { before, test } from 'node:test';
 import { STRONGHOLD_INTEL_TILE, STRONGHOLD_SPAWN, type StrongholdVisit } from '../../shared/sector-stronghold.js';
 import { resolveSectorWeather, sectorWeatherElements } from '../../shared/sector-weather.js';
 import { sectorBiomeOf } from '../../shared/sector-geo.js';
+import { homeVillageForSector } from '../_war-map-sectors.js';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -24,19 +25,59 @@ before(async () => {
     solo = await import('../solo-pve/_store.js');
 });
 
-async function seed(name: string, level = 100, atSector = sector) {
-    const character = { name, level, village: 'Frostfang Village', hp: 10000, maxHp: 10000, chakra: 1000, maxChakra: 1000,
+async function seed(name: string, level = 50, atSector = sector, village = 'Frostfang Village') {
+    const character = { name, level, village, hp: 10000, maxHp: 10000, chakra: 1000, maxChakra: 1000,
         stamina: 1000, maxStamina: 1000, stats: {}, equipment: {}, inventory: [], itemStacks: [], jutsu: [], jutsuMastery: [] };
     await kv.set(`save:${name}`, { _saveVersion: 1, character });
     onlineStore.upsert({ name, sector: atSector, character });
 }
+
+test('a reserved PvP session blocks exploration, vault access and exit before presence catches up', async () => {
+    const name = 'shbattleproof'; await seed(name);
+    const entered = await action(name, 'stronghold-enter', { sector }); const visit = visitOf(entered);
+    const { pvpPendingSessionKey } = await import('../pvp/_pending-session.js');
+    const pointerKey = pvpPendingSessionKey(name);
+    await kv.set(pointerKey, JSON.stringify({ version: 1, playerName: name, battleId: 'stronghold-proof-battle-01', role: 'p1', createdAt: Date.now(), phase: 'reserving', reservedUntil: Date.now() + 30_000 }));
+    assert.equal(onlineStore.get(name)?.inBattle, undefined, 'there is no heartbeat hint to rely on');
+    const blocked = await action(name, 'stronghold-step', { sector, version: visit.version, tile: visit.tile + 1 }); assert.equal(blocked.status, 409);
+    assert.deepEqual(await kv.get(`stronghold:${name}:${sector}`), visit);
+    assert.equal((await action(name, 'stronghold-state', { sector })).body.combatBlocked, true);
+    assert.equal((await action(name, 'stronghold-leave', { sector })).status, 409);
+    const { strongholdVaultReady } = await import('./_stronghold.js'); assert.equal(await strongholdVaultReady(name, sector), false);
+    await kv.del(pointerKey);
+    assert.equal((await action(name, 'stronghold-step', { sector, version: visit.version, tile: visit.tile + 1 })).status, 200);
+});
+
+test('a legacy visit inside new architecture relocates safely without erasing owed threat', async () => {
+    const name = 'sharchitecturemigration'; await seed(name);
+    const original = visitOf(await action(name, 'stronghold-enter', { sector }));
+    const { buildStrongholdTiles } = await import('../../shared/sector-stronghold.js');
+    const blocked = buildStrongholdTiles(sector).findIndex(tile => tile.solid);
+    await kv.set(`stronghold:${name}:${sector}`, { ...original, tile: blocked, threat: 96, steps: 24, visited: [...original.visited, blocked], presenceId: undefined });
+    const resumed = visitOf(await action(name, 'stronghold-enter', { sector }));
+    assert.equal(resumed.id, original.id); assert.equal(resumed.steps, 24); assert.equal(resumed.threat, 96);
+    assert.notEqual(resumed.tile, blocked); assert(!buildStrongholdTiles(sector)[resumed.tile].solid);
+    assert.equal(resumed.version, original.version + 1); assert(resumed.visited.includes(blocked));
+});
+
+test('an adjacent solid furnishing rejects movement without charging threat or steps', async () => {
+    const name = 'shsolidstep'; await seed(name);
+    const visit = visitOf(await action(name, 'stronghold-enter', { sector }));
+    const { buildStrongholdTiles, STRONGHOLD_DIMS } = await import('../../shared/sector-stronghold.js');
+    const tiles = buildStrongholdTiles(sector), width = STRONGHOLD_DIMS.width;
+    const target = tiles.findIndex((tile, index) => tile.solid && [index - width, index + 1, index + width, index - 1].some(n => tiles[n]?.kind === 'empty' && !tiles[n].solid));
+    const from = [target - width, target + 1, target + width, target - 1].find(n => tiles[n]?.kind === 'empty' && !tiles[n].solid)!;
+    assert(from != null); const before = { ...visit, tile: from }; await kv.set(`stronghold:${name}:${sector}`, before);
+    const result = await action(name, 'stronghold-step', { sector, version: visit.version, tile: target });
+    assert.equal(result.status, 409); assert.deepEqual(await kv.get(`stronghold:${name}:${sector}`), before);
+});
 const visitOf = (result: Awaited<ReturnType<typeof action>>) => result.body.visit as StrongholdVisit;
 
-test('Obsidian Stronghold admits level 100, opens the altar, and patrol victory adds no bonus rewards', async () => {
+test('Obsidian Stronghold admits level 50, opens the altar, and patrol victory adds no bonus rewards', async () => {
     const name = 'shobsidian', sector = 99;
-    await seed('shobsidianlow', 99, sector);
+    await seed('shobsidianlow', 49, sector);
     assert.equal((await action('shobsidianlow', 'stronghold-enter', { sector })).status, 403);
-    await seed(name, 100, sector);
+    await seed(name, 50, sector);
     const entered = await action(name, 'stronghold-enter', { sector });
     assert.equal(entered.status, 200, JSON.stringify(entered.body));
     let visit = visitOf(entered);
@@ -66,12 +107,36 @@ test('Obsidian Stronghold admits level 100, opens the altar, and patrol victory 
     assert.equal(visitOf(report).threat, 0);
 });
 
-test('admission needs actual sector presence and level 100', async () => {
+test('admission needs actual sector presence and saved level 50, ignoring client level claims', async () => {
     assert.equal((await action('shmissing', 'stronghold-enter', { sector })).status, 409);
-    await seed('shlow', 99);
-    assert.equal((await action('shlow', 'stronghold-enter', { sector })).status, 403);
+    await seed('shlow', 49);
+    const rejected = await action('shlow', 'stronghold-enter', { sector, level: 100, character: { level: 100 } });
+    assert.equal(rejected.status, 403);
+    assert.match(String(rejected.body.error), /level 50/);
+    assert.equal(await kv.get(`stronghold:shlow:${sector}`), null);
+    assert.equal(location.strongholdLocation('shlow', sector), undefined);
+    await seed('shminimum', 50);
+    assert.equal((await action('shminimum', 'stronghold-enter', { sector, level: 1 })).status, 200);
     await seed('shwrong');
     assert.equal((await action('shwrong', 'stronghold-enter', { sector: 21 })).status, 409);
+});
+
+test('re-entry validates the saved minimum and preserves the visit when rejected', async () => {
+    for (const atSector of [sector, 99]) {
+        const name = `shlevelresume${atSector}`; await seed(name, 50, atSector);
+        assert.equal((await action(name, 'stronghold-enter', { sector: atSector })).status, 200);
+        await action(name, 'stronghold-leave', { sector: atSector });
+        const before = await kv.get(`stronghold:${name}:${atSector}`);
+        const save = (await kv.get<{ character: Record<string, unknown> }>(`save:${name}`))!;
+        for (const level of [49, undefined, 'invalid', Infinity]) {
+            await kv.set(`save:${name}`, { ...save, character: { ...save.character, level } });
+            assert.equal((await action(name, 'stronghold-enter', { sector: atSector, level: 100 })).status, 403);
+            assert.deepEqual(await kv.get(`stronghold:${name}:${atSector}`), before);
+            assert.equal(location.strongholdLocation(name, atSector), undefined);
+        }
+        await kv.set(`save:${name}`, save);
+        assert.equal((await action(name, 'stronghold-enter', { sector: atSector })).status, 200);
+    }
 });
 
 test('War Archives intel is optional, visit-bound, idempotent, and has no economic payout', async () => {
@@ -128,7 +193,7 @@ test('War Archives intel cannot be claimed during combat', async () => {
 test('the authenticated public route drives entry, movement and exit and rejects another identity', async () => {
     const { default: handler } = await import('./anbu-infiltration.js');
     const { issuePlayerToken } = await import('../_auth.js');
-    const name = 'shhttproute'; await seed(name);
+    const name = 'shhttproute'; await seed(name, 50, sector, homeVillageForSector(sector));
     async function post(operation: string, fields: Record<string, unknown> = {}) {
         const result: { status: number; body: Record<string, unknown> } = { status: 200, body: {} };
         const response = { setHeader() { return response; }, status(status: number) { result.status = status; return response; },
@@ -139,6 +204,21 @@ test('the authenticated public route drives entry, movement and exit and rejects
     }
     assert.equal((await post('enter', { playerName: 'somebodyelse' })).status, 403);
     const enter = await post('enter'); assert.equal(enter.status, 200, JSON.stringify(enter.body));
+    for (const level of [50, 99]) {
+        const save = (await kv.get<{ character: Record<string, unknown> }>(`save:${name}`))!;
+        await kv.set(`save:${name}`, { ...save, character: { ...save.character, level } });
+        const beforeSave = await kv.get(`save:${name}`), beforeVisit = await kv.get(`stronghold:${name}:${sector}`);
+        const raid = await post('enter', { action: 'start', level: 100 });
+        assert.equal(raid.status, 403, JSON.stringify(raid.body));
+        assert.match(String(raid.body.error), /requires level 100/);
+        assert.deepEqual(await kv.get(`save:${name}`), beforeSave, 'under-level raid admission has no save/economy side effects');
+        assert.deepEqual(await kv.get(`stronghold:${name}:${sector}`), beforeVisit, 'under-level raid leaves exploration intact');
+    }
+    const saved = (await kv.get<{ character: Record<string, unknown> }>(`save:${name}`))!;
+    await kv.set(`save:${name}`, { ...saved, character: { ...saved.character, level: 100 } });
+    const defended = await post('enter', { action: 'start' });
+    assert.equal(defended.status, 400, JSON.stringify(defended.body));
+    assert.match(String(defended.body.error), /cannot infiltrate your own village/);
     const visit = enter.body.visit as StrongholdVisit;
     const moved = await post('step', { tile: visit.tile + 1, version: visit.version });
     assert.equal((moved.body.visit as StrongholdVisit).threat, 4);
@@ -286,6 +366,12 @@ test('final Anbu admission requires vault proximity and refuses an unresolved pa
     await kv.set(strongholdVisitKey(name, sector), atVault);
     location.touchStrongholdPresence(name, sector, atVault.tile);
     assert.equal(await strongholdVaultReady(name, sector), true);
+    onlineStore.startTravel(name, 21, Date.now() - 1);
+    assert.equal(await strongholdVaultReady(name, sector), false, 'a fresh interior stamp cannot admit a player who left the sector');
+    onlineStore.startTravel(name, sector, Date.now() - 1); onlineStore.get(name);
+    onlineStore.startTravel(name, 21, Date.now() + 10_000);
+    assert.equal(await strongholdVaultReady(name, sector), false, 'travel cannot race the async vault admission');
+    onlineStore.startTravel(name, sector, Date.now() - 1); onlineStore.get(name);
     await kv.set(strongholdVisitKey(name, sector), { ...atVault, threat: 100, patrolId: 'owed' });
     assert.equal(await strongholdVaultReady(name, sector), false);
 });
