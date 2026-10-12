@@ -46,17 +46,17 @@ test('slow side routes are a comfort breach, not a failure: the run keeps climbi
     assert.deepEqual(stepFailures(summary, resources), []);
 });
 
-test('failure thresholds: errors, core-route latency, health, sustained loop saturation, pool starvation', () => {
+test('failure thresholds: errors, core-route latency, health, sustained loop saturation', () => {
     const failures = stepFailures(
         [row('POST /api/player/heartbeat', 1_000, 20, 2_500), row('GET /api/messages', 500, 0, 9_000), row('SETUP register', 50, 50, 1)],
         { healthMsMax: 2_500, eluAvg: 0.97, poolWaitingMax: 11 },
     );
-    assert.equal(failures.length, 5);
+    assert.equal(failures.length, 4);
     assert.match(failures[0], /heartbeat p95 2500/);
     assert.match(failures[1], /error rate 1\.33%/);
     assert.match(failures[2], /round trip 2500/);
     assert.match(failures[3], /97% busy on average/);
-    assert.match(failures[4], /11 requests waiting/);
     assert.ok(!failures.some((f) => f.includes('messages')), 'a slow side route alone never fails a step');
+    assert.ok(!failures.some((f) => f.includes('waiting')), 'pool waits alone never fail a step');
     assert.equal(FAILURE.maxErrorRate, 0.01);
 });
