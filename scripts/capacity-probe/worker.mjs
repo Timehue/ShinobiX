@@ -13,7 +13,7 @@
  *     the client holds a roster, dropped once a minute to refresh it);
  *   - the gameplay polls at the client's own cadence, the edge-cached ones
  *     through the POP's EdgeCache;
- *   - ACTIVE players also autosave (a change every ~15 s, server-paced by
+ *   - ACTIVE players also autosave (about once a minute, server-paced by
  *     nextSaveInMs, 409 → refetch) and take a map trip every few minutes.
  * Players never post chat: test lines would be visible to real testers.
  *
@@ -35,6 +35,9 @@ const POP = Number(process.env.CAPACITY_POP ?? 0);
 const ACTIVE_FRACTION = Number(process.env.CAPACITY_ACTIVE_FRACTION ?? 0.5);
 const SECTOR = Number(process.env.CAPACITY_SECTOR ?? 40);
 const TRAVEL = process.env.CAPACITY_TRAVEL !== '0';
+// Chance an active player's 15 s autosave tick has a change to save. Production
+// (2026-10-11) showed about one save a minute per active player, so 0.25.
+const SAVE_CHANCE = Number(process.env.CAPACITY_SAVE_CHANCE ?? 0.25);
 const REQUEST_TIMEOUT_MS = 15_000;
 
 // Verified edge-cached at Cloudflare on 2026-10-11 (cf-cache-status HIT).
@@ -266,8 +269,8 @@ class VirtualPlayer {
     }
 
     async autosave() {
-        // Only a dirty client saves; an active player changes something most ticks.
-        if (Math.random() > 0.7) return;
+        // Only a dirty client saves: about once a minute for an active player.
+        if (Math.random() >= SAVE_CHANCE) return;
         this.hp = 90 + Math.floor(Math.random() * 10);
         const res = await request(this, 'POST', `/api/save/${this.name}`, {
             body: {

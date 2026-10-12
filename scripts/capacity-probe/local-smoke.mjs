@@ -66,9 +66,9 @@ if (code !== 0 || !existsSync(out)) {
 }
 const result = JSON.parse(readFileSync(out, 'utf8'));
 rmSync(out, { force: true });
-console.log(`[smoke] ${result.steps.length} step(s); last healthy ${result.lastHealthyPlayers}; stopped: ${result.stoppedBecause}; cleanup ${JSON.stringify(result.cleanup)}`);
+console.log(`[smoke] ${result.steps.length} step(s); comfortable ${result.lastComfortablePlayers}, stable ${result.lastStablePlayers}; stopped: ${result.stoppedBecause}; cleanup ${JSON.stringify(result.cleanup)}`);
 if (!result.cleanup || result.cleanup.deleted !== result.accounts.provisioned) process.exitCode = 1;
 for (const step of result.steps) {
-    console.log(`[smoke] ${step.players} players: ${step.requestsPerSec} req/s, edge ${step.edge.hits}/${step.edge.hits + step.edge.misses} hits, breaches: ${step.breaches.join('; ') || 'none'}`);
+    console.log(`[smoke] ${step.players} players: ${step.requestsPerSec} req/s, edge ${step.edge.hits}/${step.edge.hits + step.edge.misses} hits, breaches: ${step.breaches.join('; ') || 'none'}; failures: ${step.failures.join('; ') || 'none'}`);
     for (const e of step.endpoints) console.log(`         ${e.label.padEnd(40)} n=${String(e.n).padStart(5)} err=${e.errors} p95=${e.p95} ${JSON.stringify(e.statuses)}`);
 }
