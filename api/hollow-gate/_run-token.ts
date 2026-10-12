@@ -6,6 +6,7 @@ import {
 } from '../../shared/hollow-gate-contract.js';
 import type { HollowGateRewardLedger, HollowGateLedgerItemId } from './_ledger.js';
 import type { HollowGateFloorManifest } from './_floor-manifest.js';
+import type { HollowGateWanderer, HollowGatePendingEncounter } from '../../shared/hollow-gate-wanderers.js';
 
 // The run token seals entry, depth, augment choice, exact reward credits, and
 // single-use settlement. Combat is resolved through a run-bound server session.
@@ -176,7 +177,9 @@ export interface HollowGateRunToken {
     recentConsumableIds?: string[];
     wardSteps?: number;
     divinerUsed?: boolean;
-    pendingAmbush?: { nodeId: string; kind: 'ambush' | 'boss' | 'card' } | null;
+    pendingAmbush?: HollowGatePendingEncounter | null;
+    wanderers?: Record<string, HollowGateWanderer[]>;
+    floorFeatures?: Record<string, import('../../shared/underground-floor-features.js').UndergroundFloorFeature[]>;
     /** Chronicle AI match bound to the currently sealed card ambush. */
     cardAmbushMatchId?: string | null;
     floorManifests?: Record<string, HollowGateFloorManifest>;

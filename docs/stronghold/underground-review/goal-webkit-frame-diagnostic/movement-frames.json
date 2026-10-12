@@ -1,0 +1,15 @@
+[
+  {
+    "engine": "webkit",
+    "scene": "stronghold",
+    "viewport": {
+      "width": 320,
+      "height": 568
+    },
+    "cpuSlowdown": 1,
+    "frames": 86,
+    "p95Ms": 57,
+    "longestMs": 101,
+    "tiles": 61
+  }
+]

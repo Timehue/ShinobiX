@@ -96,7 +96,7 @@ export async function enterHollowGateShrineFlow(params: HollowGateEntryParams) {
             return;
         }
         const floorSeal = await sealHollowGateFloor(character.name, recovered.token, run);
-        const sealedRun = { ...run, detourTileIndex: floorSeal.detour?.tileIndex, detourExtraSteps: floorSeal.detour?.extraSteps, riftSignalTileIndex: floorSeal.riftSignal?.tileIndex };
+        const sealedRun = { ...run, wanderers: floorSeal.wanderers, floorFeatures: floorSeal.floorFeatures, floorFeaturesVersion: floorSeal.floorFeatures ? 1 as const : undefined, detourTileIndex: floorSeal.detour?.tileIndex, detourExtraSteps: floorSeal.detour?.extraSteps, riftSignalTileIndex: floorSeal.riftSignal?.tileIndex };
         setHollowGateRun(sealedRun);
         setHollowGateLog([
             "You recover the descent interrupted at the broken torii. The same sealed key record restores your route.",
@@ -185,7 +185,7 @@ export async function enterHollowGateShrineFlow(params: HollowGateEntryParams) {
         return;
     }
     const floorSeal = await sealHollowGateFloor(character.name, serverStart.token, run);
-    const sealedRun = { ...run, detourTileIndex: floorSeal.detour?.tileIndex, detourExtraSteps: floorSeal.detour?.extraSteps, riftSignalTileIndex: floorSeal.riftSignal?.tileIndex };
+    const sealedRun = { ...run, wanderers: floorSeal.wanderers, floorFeatures: floorSeal.floorFeatures, floorFeaturesVersion: floorSeal.floorFeatures ? 1 as const : undefined, detourTileIndex: floorSeal.detour?.tileIndex, detourExtraSteps: floorSeal.detour?.extraSteps, riftSignalTileIndex: floorSeal.riftSignal?.tileIndex };
     setHollowGateRun(sealedRun);
     setHollowGateLog([
         keyCost > 0

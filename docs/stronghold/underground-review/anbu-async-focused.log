@@ -1,0 +1,66 @@
+✔ ANBU combat has no Tower runtime dependency and retires its custom action channel (11.5338ms)
+✔ ANBU start and report paths retain durable replay state (5.5588ms)
+✔ runtime mode registry records the ANBU participant and Solo authority decision (0.4989ms)
+[kv] isolated in-memory QA backend active
+[village/anbu-infiltration] Error: simulated lost combat write acknowledgement
+[village/anbu-infiltration] Error: simulated lost attempt acknowledgement
+✔ a lost start response recovers the exact admitted Anbu run without its browser run ID (12769.5578ms)
+✔ recovery distinguishes no saved fight from an invalid sector (0.9082ms)
+✔ a committed combat write with a lost acknowledgement keeps a recoverable prepared start (9.1979ms)
+✔ a committed attempt with a lost acknowledgement completes once on recovery (8.0672ms)
+✔ retrying the same ready run after UTC midnight does not spend another day’s attempt (17.7041ms)
+✔ a queued world-boss player cannot also start an Anbu raid or spend its daily attempt (3.1239ms)
+✔ an owed patrol waits for a world-boss queue without creating simultaneous combat (25.4534ms)
+[kv] isolated in-memory QA backend active
+✔ a reserved PvP session blocks exploration, vault access and exit before presence catches up (12921.1059ms)
+✔ a legacy visit inside new architecture relocates safely without erasing owed threat (5.2106ms)
+✔ an adjacent solid furnishing rejects movement without charging threat or steps (1.7335ms)
+✔ Obsidian Stronghold admits level 50, opens the altar, and patrol victory adds no bonus rewards (161.7159ms)
+✔ admission needs actual sector presence and saved level 50, ignoring client level claims (1.1202ms)
+✔ re-entry validates the saved minimum and preserves the visit when rejected (3.1806ms)
+✔ War Archives intel is optional, visit-bound, idempotent, and has no economic payout (3.3783ms)
+✔ War Archives intel waits until an owed patrol is resolved (0.8737ms)
+✔ War Archives intel cannot be claimed during combat (0.8467ms)
+✔ the authenticated public route drives entry, movement and exit and rejects another identity (95.1339ms)
+✔ server rejects walls and stale steps; reload and leave retain exploration and threat (5.6674ms)
+✔ only interior peers appear, and PvP co-location separates the stronghold from outside (2.4874ms)
+✔ queued polls and steps cannot re-enter after exit; another tab replaces the old exploration lease (2.0052ms)
+✔ combat retains interior presence while the exploration screen is unmounted (0.3751ms)
+✔ patrol loss settles once, removes interior presence and returns to the entrance (17.9138ms)
+✔ patrol fled settles once, removes interior presence and returns to the entrance (17.7207ms)
+✔ 25 steps seal one patrol; retries resume it, victory settles once and resumes the same tile (16.143ms)
+✔ a patrol fights under the sector sky, the same one the vault fight in this stronghold seals (7.2764ms)
+✔ an engaged player cannot leave or move through a pending PvP attack (2.7486ms)
+✔ final Anbu admission requires vault proximity and refuses an unresolved patrol (3.2622ms)
+[kv] isolated in-memory QA backend active
+[pvp-loadout] unlearned equipped jutsu id(s) dropped garrheld1 starter-universal-flicker
+[pvp-loadout] unlearned equipped jutsu id(s) dropped garrheld1 starter-universal-flicker
+[pvp-loadout] unlearned equipped jutsu id(s) dropped garropen2 starter-universal-flicker
+[pvp-loadout] unlearned equipped jutsu id(s) dropped garropen2 starter-universal-flicker
+[pvp-loadout] unlearned equipped jutsu id(s) dropped garrrefused3 starter-universal-flicker
+[pvp-loadout] unlearned equipped jutsu id(s) dropped garrko4 starter-universal-flicker
+[pvp-loadout] unlearned equipped jutsu id(s) dropped garrgate5 starter-universal-flicker
+[pvp-loadout] unlearned equipped jutsu id(s) dropped vaultheld6 starter-universal-flicker
+[pvp-loadout] unlearned equipped jutsu id(s) dropped vaultheld6 starter-universal-flicker
+[pvp-loadout] unlearned equipped jutsu id(s) dropped vaultrefused7 starter-universal-flicker
+[pvp-loadout] unlearned equipped jutsu id(s) dropped vaultko8 starter-universal-flicker
+▶ garrison assault: the fights a player is holding are settled before the attacker is seated
+  ✔ a mission won and held back: the assault starts on what the mission left, and the mission's own report is a replay (135.6338ms)
+  ✔ a mission still being fought is walked away from: a loss, at the 10% cost (42.5872ms)
+  ✔ an assault the war refuses ends no fight (4.5034ms)
+  ✔ a knockout held back sends the attacker to the hospital instead of the garrison (31.3921ms)
+  ✔ an open Hollow Gate dive fight refuses the assault, and is left to its dive (478.4591ms)
+✔ garrison assault: the fights a player is holding are settled before the attacker is seated (13596.4009ms)
+▶ ANBU Vault raid: the fights a player is holding are settled before the raider is seated
+  ✔ a mission won and held back: the raid starts on what the mission left (53.5549ms)
+  ✔ a raid refused short of the vault ends no fight (5.3941ms)
+  ✔ a knockout held back sends the raider to the hospital, and spends no daily attempt (102.0832ms)
+✔ ANBU Vault raid: the fights a player is holding are settled before the raider is seated (163.4405ms)
+ℹ tests 38
+ℹ suites 2
+ℹ pass 38
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 16486.0519

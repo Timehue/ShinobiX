@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';
 import { expect } from '@playwright/test';
 
-async function instrument(page) {
+export async function instrument(page) {
     await page.addInitScript(() => {
         const timeouts = new Map(), intervals = new Set(), frames = new Set();
         const timeout = window.setTimeout.bind(window), clearTimeout = window.clearTimeout.bind(window);
@@ -19,13 +19,42 @@ async function instrument(page) {
         window.clearInterval = id => { intervals.delete(id); timeouts.delete(id); clearInterval(id); };
         window.requestAnimationFrame = fn => { const id = frame(now => { frames.delete(id); fn(now); }); frames.add(id); return id; };
         window.cancelAnimationFrame = id => { frames.delete(id); cancelFrame(id); };
-        let observers = 0, webglCreated = 0, webglActive = 0, canvasDraws = 0;
+        let observers = 0, mutationObservers = 0, webglCreated = 0, webglActive = 0, canvasDraws = 0, frameCallbacks = 0;
+        const countedFrame = window.requestAnimationFrame;
+        window.requestAnimationFrame = fn => countedFrame(now => { frameCallbacks++; fn(now); });
         const NativeObserver = window.ResizeObserver;
         window.ResizeObserver = class extends NativeObserver {
             targets = new Set();
             observe(target, options) { if (!this.targets.size) observers++; this.targets.add(target); super.observe(target, options); }
             unobserve(target) { if (this.targets.delete(target) && !this.targets.size) observers--; super.unobserve(target); }
             disconnect() { if (this.targets.size) observers--; this.targets.clear(); super.disconnect(); }
+        };
+        const NativeMutationObserver = window.MutationObserver;
+        window.MutationObserver = class extends NativeMutationObserver {
+            observing = false;
+            observe(target, options) { if (!this.observing) mutationObservers++; this.observing = true; super.observe(target, options); }
+            disconnect() { if (this.observing) mutationObservers--; this.observing = false; super.disconnect(); }
+        };
+        let audioContexts = 0, audioSources = 0, audioConnectedSources = 0;
+        const NativeAudioContext = window.AudioContext;
+        if (NativeAudioContext) window.AudioContext = class extends NativeAudioContext {
+            constructor(...args) { super(...args); audioContexts++; }
+            createBufferSource() {
+                const source = super.createBufferSource();
+                const start = source.start.bind(source);
+                const stop = source.stop.bind(source), connect = source.connect.bind(source), disconnect = source.disconnect.bind(source);
+                let active = false, connected = false;
+                const ended = () => { if (active) audioSources--; active = false; };
+                source.start = (...args) => { start(...args); active = true; audioSources++; };
+                // The audio context suspends in hidden tabs. Its ended event
+                // may arrive only on resume, although stop/disconnect already
+                // released the playing source. Count actual lifecycle calls.
+                source.stop = (...args) => { stop(...args); ended(); };
+                source.connect = (...args) => { const result = connect(...args); if (!connected) audioConnectedSources++; connected = true; return result; };
+                source.disconnect = (...args) => { disconnect(...args); if (connected) audioConnectedSources--; connected = false; };
+                source.addEventListener('ended', ended, { once: true });
+                return source;
+            }
         };
         const getContext = HTMLCanvasElement.prototype.getContext;
         const contexts = new WeakSet(), webglRenderers = new Set();
@@ -41,7 +70,7 @@ async function instrument(page) {
         };
         const clearRect = CanvasRenderingContext2D.prototype.clearRect;
         CanvasRenderingContext2D.prototype.clearRect = function (...args) { canvasDraws++; return clearRect.apply(this, args); };
-        window.resourceSnapshot = () => ({ timeouts: [...timeouts.values()].map(timer => timer.delayMs), timeoutDetails: [...timeouts.values()], intervals: intervals.size, frames: frames.size, observers, webglCreated, webglActive, webglRenderers: [...webglRenderers], canvasDraws,
+        window.resourceSnapshot = () => ({ timeouts: [...timeouts.values()].map(timer => timer.delayMs), timeoutDetails: [...timeouts.values()], intervals: intervals.size, frames: frames.size, frameCallbacks, observers, mutationObservers, audioAvailable: Boolean(NativeAudioContext), audioContexts, audioSources, audioConnectedSources, webglCreated, webglActive, webglRenderers: [...webglRenderers], canvasDraws,
             animations: document.getAnimations().filter(a => a.playState === 'running').length });
     });
 }
@@ -51,7 +80,14 @@ export async function auditStrongholdResources({ browser, fixture, prepare, read
     const baselineMode = process.argv.includes('--baseline');
     for (const sector of [12, 99]) {
         const state = fixture({ sector, crowd: 18, visited: Array.from({ length: 851 }, (_, i) => i) });
-        const page = await prepare(browser, { width: 390, height: 844 }, state, `?host=1&sector=${sector}&lifecycle=1&resourceAudit=1`, instrument);
+        const page = await prepare(browser, { width: 390, height: 844 }, state, `?host=1&sector=${sector}&lifecycle=1&resourceAudit=1`, async page => {
+            await instrument(page);
+            await page.addInitScript(() => {
+                let hidden = false;
+                Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden });
+                window.setAuditVisibility = value => { hidden = value; document.dispatchEvent(new Event('visibilitychange')); };
+            });
+        });
         const cdp = await page.context().newCDPSession(page);
         await cdp.send('Performance.enable'); await cdp.send('LayerTree.enable');
         let layers = [];
@@ -108,6 +144,20 @@ export async function auditStrongholdResources({ browser, fixture, prepare, read
         const polls = state.polls; await page.waitForTimeout(2300); assert.equal(state.polls, polls, 'polling survives unmount');
         checks.push({ sector, cycles: 12, stoppedTimersAndPolling: true, stableListenersNodesHeapLayers: true });
         await page.getByRole('button', { name: 'Enter preview', exact: true }).click(); await ready(page);
+        // A submitted step may finish while hidden, but its remaining path must
+        // not schedule more work or resume when the player returns.
+        let releaseStep, submitted = false;
+        state.onStep = async () => { submitted = true; await new Promise(resolve => { releaseStep = resolve; }); };
+        await page.locator('.stronghold-tile[data-tile="155"]').evaluate(tile => tile.click());
+        await expect.poll(() => submitted).toBe(true);
+        await page.evaluate(() => window.setAuditVisibility(true));
+        delete state.onStep; releaseStep();
+        await expect.poll(() => state.steps).toBeGreaterThan(0);
+        const hiddenSteps = state.steps;
+        await page.waitForTimeout(350); assert.equal(state.steps, hiddenSteps, 'hidden stronghold walk keeps issuing steps');
+        await page.evaluate(() => window.setAuditVisibility(false));
+        await page.waitForTimeout(350); assert.equal(state.steps, hiddenSteps, 'old stronghold walk resumes after return');
+        checks.push({ sector, syntheticVisibility: true, hiddenWalkStopped: true, pendingStepReconciled: true });
         // Sample real JS CPU stacks over several idle presence responses, with all rooms discovered.
         await cdp.send('Profiler.enable'); await cdp.send('Profiler.setSamplingInterval', { interval: 100 }); await cdp.send('Profiler.start');
         const idleStart = await snapshot('fully discovered idle start');

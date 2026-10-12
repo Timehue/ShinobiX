@@ -1,0 +1,758 @@
+{
+  "checks": [
+    {
+      "engine": "chromium",
+      "scene": "stronghold",
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "chromium",
+      "scene": "obsidian",
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "chromium",
+      "scene": "cave",
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "chromium",
+      "scene": "rift",
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "chromium",
+      "scene": "stronghold",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "chromium",
+      "scene": "obsidian",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "chromium",
+      "scene": "cave",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "chromium",
+      "scene": "rift",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "chromium",
+      "scene": "stronghold",
+      "viewport": {
+        "width": 844,
+        "height": 390
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "chromium",
+      "scene": "obsidian",
+      "viewport": {
+        "width": 844,
+        "height": 390
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "chromium",
+      "scene": "cave",
+      "viewport": {
+        "width": 844,
+        "height": 390
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "chromium",
+      "scene": "rift",
+      "viewport": {
+        "width": 844,
+        "height": 390
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "chromium",
+      "npc": "medic",
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "art": true,
+      "gift": 1
+    },
+    {
+      "engine": "chromium",
+      "npc": "medic",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "art": true,
+      "gift": 1
+    },
+    {
+      "engine": "chromium",
+      "npc": "wayfarer",
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "art": true,
+      "gift": 1
+    },
+    {
+      "engine": "chromium",
+      "npc": "wayfarer",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "art": true,
+      "gift": 1
+    },
+    {
+      "engine": "chromium",
+      "npc": "bandit",
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "art": true,
+      "gift": 0
+    },
+    {
+      "engine": "chromium",
+      "npc": "bandit",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "art": true,
+      "gift": 0
+    },
+    {
+      "engine": "chromium",
+      "npc": "night-ninja",
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "art": true,
+      "gift": 0
+    },
+    {
+      "engine": "chromium",
+      "npc": "night-ninja",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "art": true,
+      "gift": 0
+    },
+    {
+      "engine": "chromium",
+      "npc": "patrol",
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "art": true,
+      "gift": 0
+    },
+    {
+      "engine": "chromium",
+      "npc": "patrol",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "art": true,
+      "gift": 0
+    },
+    {
+      "engine": "chromium",
+      "emergencyForfeit": true,
+      "nativeModalYield": true,
+      "reauth": true
+    },
+    {
+      "engine": "chromium",
+      "intro": "?floor=5&bossIntro",
+      "focusContainment": true,
+      "noBackgroundMovement": true
+    },
+    {
+      "engine": "chromium",
+      "intro": "?floor=1&intro",
+      "focusContainment": true,
+      "noBackgroundMovement": true
+    },
+    {
+      "engine": "chromium",
+      "npc": "medic",
+      "retry": true,
+      "pending": true,
+      "focusContainment": true,
+      "noBackgroundMovement": true
+    },
+    {
+      "engine": "chromium",
+      "npc": "keeper",
+      "retry": true,
+      "pending": true,
+      "focusContainment": true,
+      "noBackgroundMovement": true
+    },
+    {
+      "engine": "chromium",
+      "room": "Entry Hall",
+      "purposes": [
+        "entry insignia",
+        "entry insignia"
+      ]
+    },
+    {
+      "engine": "chromium",
+      "room": "Watch Barracks",
+      "purposes": [
+        "barracks sleeping row",
+        "barracks sleeping row"
+      ]
+    },
+    {
+      "engine": "chromium",
+      "room": "Armory",
+      "purposes": [
+        "armory storage wall",
+        "armory storage wall"
+      ]
+    },
+    {
+      "engine": "chromium",
+      "room": "Signal Chamber",
+      "purposes": [
+        "signal operations desk",
+        "signal insignia"
+      ]
+    },
+    {
+      "engine": "chromium",
+      "room": "Supply Depot",
+      "purposes": [
+        "supply storage row",
+        "supply storage row"
+      ]
+    },
+    {
+      "engine": "chromium",
+      "room": "Training Hall",
+      "purposes": [
+        "practice station",
+        "practice weapons"
+      ]
+    },
+    {
+      "engine": "chromium",
+      "room": "War Archives",
+      "purposes": [
+        "archive shelves",
+        "archive shelves"
+      ]
+    },
+    {
+      "engine": "chromium",
+      "room": "Officer Quarters",
+      "purposes": [
+        "officer planning desk",
+        "officer sleeping alcove"
+      ]
+    },
+    {
+      "engine": "chromium",
+      "room": "Cistern",
+      "purposes": [
+        "fortress water reserve"
+      ]
+    },
+    {
+      "engine": "chromium",
+      "room": "Seal Workshop",
+      "purposes": [
+        "seal workbench",
+        "seal records"
+      ]
+    },
+    {
+      "engine": "chromium",
+      "room": "Inner Guard",
+      "purposes": [
+        "vault approach sentry",
+        "vault approach sentry"
+      ]
+    },
+    {
+      "engine": "chromium",
+      "room": "Anbu Vault",
+      "purposes": [
+        "entrance sentry",
+        "entrance sentry",
+        "sealed war reserve row",
+        "sealed war reserve row"
+      ]
+    },
+    {
+      "engine": "chromium",
+      "vault": true,
+      "raidTrigger": true
+    },
+    {
+      "engine": "chromium",
+      "floor": 1,
+      "palette": "#584f48"
+    },
+    {
+      "engine": "chromium",
+      "floor": 3,
+      "palette": "#35495c"
+    },
+    {
+      "engine": "chromium",
+      "floor": 4,
+      "palette": "#494359"
+    },
+    {
+      "engine": "chromium",
+      "floor": 5,
+      "palette": "#543d51"
+    },
+    {
+      "engine": "webkit",
+      "scene": "stronghold",
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "webkit",
+      "scene": "obsidian",
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "webkit",
+      "scene": "cave",
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "webkit",
+      "scene": "rift",
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "webkit",
+      "scene": "stronghold",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "webkit",
+      "scene": "obsidian",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "webkit",
+      "scene": "cave",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "webkit",
+      "scene": "rift",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "webkit",
+      "scene": "stronghold",
+      "viewport": {
+        "width": 844,
+        "height": 390
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "webkit",
+      "scene": "obsidian",
+      "viewport": {
+        "width": 844,
+        "height": 390
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "webkit",
+      "scene": "cave",
+      "viewport": {
+        "width": 844,
+        "height": 390
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "webkit",
+      "scene": "rift",
+      "viewport": {
+        "width": 844,
+        "height": 390
+      },
+      "movement": true,
+      "exit": true
+    },
+    {
+      "engine": "webkit",
+      "npc": "medic",
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "art": true,
+      "gift": 1
+    },
+    {
+      "engine": "webkit",
+      "npc": "medic",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "art": true,
+      "gift": 1
+    },
+    {
+      "engine": "webkit",
+      "npc": "wayfarer",
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "art": true,
+      "gift": 1
+    },
+    {
+      "engine": "webkit",
+      "npc": "wayfarer",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "art": true,
+      "gift": 1
+    },
+    {
+      "engine": "webkit",
+      "npc": "bandit",
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "art": true,
+      "gift": 0
+    },
+    {
+      "engine": "webkit",
+      "npc": "bandit",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "art": true,
+      "gift": 0
+    },
+    {
+      "engine": "webkit",
+      "npc": "night-ninja",
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "art": true,
+      "gift": 0
+    },
+    {
+      "engine": "webkit",
+      "npc": "night-ninja",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "art": true,
+      "gift": 0
+    },
+    {
+      "engine": "webkit",
+      "npc": "patrol",
+      "viewport": {
+        "width": 1366,
+        "height": 900
+      },
+      "art": true,
+      "gift": 0
+    },
+    {
+      "engine": "webkit",
+      "npc": "patrol",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "art": true,
+      "gift": 0
+    },
+    {
+      "engine": "webkit",
+      "emergencyForfeit": true,
+      "nativeModalYield": true,
+      "reauth": true
+    },
+    {
+      "engine": "webkit",
+      "intro": "?floor=5&bossIntro",
+      "focusContainment": true,
+      "noBackgroundMovement": true
+    },
+    {
+      "engine": "webkit",
+      "intro": "?floor=1&intro",
+      "focusContainment": true,
+      "noBackgroundMovement": true
+    },
+    {
+      "engine": "webkit",
+      "npc": "medic",
+      "retry": true,
+      "pending": true,
+      "focusContainment": true,
+      "noBackgroundMovement": true
+    },
+    {
+      "engine": "webkit",
+      "npc": "keeper",
+      "retry": true,
+      "pending": true,
+      "focusContainment": true,
+      "noBackgroundMovement": true
+    },
+    {
+      "engine": "webkit",
+      "room": "Entry Hall",
+      "purposes": [
+        "entry insignia",
+        "entry insignia"
+      ]
+    },
+    {
+      "engine": "webkit",
+      "room": "Watch Barracks",
+      "purposes": [
+        "barracks sleeping row",
+        "barracks sleeping row"
+      ]
+    },
+    {
+      "engine": "webkit",
+      "room": "Armory",
+      "purposes": [
+        "armory storage wall",
+        "armory storage wall"
+      ]
+    },
+    {
+      "engine": "webkit",
+      "room": "Signal Chamber",
+      "purposes": [
+        "signal operations desk",
+        "signal insignia"
+      ]
+    },
+    {
+      "engine": "webkit",
+      "room": "Supply Depot",
+      "purposes": [
+        "supply storage row",
+        "supply storage row"
+      ]
+    },
+    {
+      "engine": "webkit",
+      "room": "Training Hall",
+      "purposes": [
+        "practice station",
+        "practice weapons"
+      ]
+    },
+    {
+      "engine": "webkit",
+      "room": "War Archives",
+      "purposes": [
+        "archive shelves",
+        "archive shelves"
+      ]
+    },
+    {
+      "engine": "webkit",
+      "room": "Officer Quarters",
+      "purposes": [
+        "officer planning desk",
+        "officer sleeping alcove"
+      ]
+    },
+    {
+      "engine": "webkit",
+      "room": "Cistern",
+      "purposes": [
+        "fortress water reserve"
+      ]
+    },
+    {
+      "engine": "webkit",
+      "room": "Seal Workshop",
+      "purposes": [
+        "seal workbench",
+        "seal records"
+      ]
+    },
+    {
+      "engine": "webkit",
+      "room": "Inner Guard",
+      "purposes": [
+        "vault approach sentry",
+        "vault approach sentry"
+      ]
+    },
+    {
+      "engine": "webkit",
+      "room": "Anbu Vault",
+      "purposes": [
+        "entrance sentry",
+        "entrance sentry",
+        "sealed war reserve row",
+        "sealed war reserve row"
+      ]
+    },
+    {
+      "engine": "webkit",
+      "vault": true,
+      "raidTrigger": true
+    },
+    {
+      "engine": "webkit",
+      "floor": 1,
+      "palette": "#584f48"
+    },
+    {
+      "engine": "webkit",
+      "floor": 3,
+      "palette": "#35495c"
+    },
+    {
+      "engine": "webkit",
+      "floor": 4,
+      "palette": "#494359"
+    },
+    {
+      "engine": "webkit",
+      "floor": 5,
+      "palette": "#543d51"
+    }
+  ],
+  "errors": [],
+  "assetErrors": []
+}

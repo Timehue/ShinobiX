@@ -25,6 +25,8 @@ import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_to
 import { hollowGateManifestNode, hollowGatePositionNodeId } from './_floor-manifest.js';
 import { retireUnstartedHollowGatePetBinding } from './_pet-authority.js';
 import { settleHeldFights } from '../pve/_held-fights.js';
+import { hollowGateWandererForNode } from './_wanderers.js';
+import { hollowGateWandererFriendly, hollowGateWandererDistance } from '../../shared/hollow-gate-wanderers.js';
 
 type StartOutcome =
     | { status: number; body: Record<string, unknown> }
@@ -143,7 +145,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!savedRun || savedRun.runToken !== token || savedRun.serverSeed !== run.seed || Math.floor(Number(savedRun.floor)) !== currentFloor) {
                 return { status: 409, body: { error: 'The saved shrine floor does not match the sealed run.' } };
             }
-            if (nodeId.includes(':tile:')) {
+            const wanderer = hollowGateWandererForNode(run, nodeId);
+            if (wanderer) {
+                if (run.pendingAmbush && run.pendingAmbush.nodeId !== nodeId) return { status: 409, body: { error: 'Resolve the pending sealed encounter before challenging another hunter.' } };
+                const manifest = run.floorManifests?.[String(currentFloor)];
+                const playerTile = manifest && run.position ? run.position.y * manifest.width + run.position.x : -1;
+                if (!manifest || playerTile < 0 || hollowGateWandererFriendly(wanderer) || wanderer.spent || kind !== 'battle'
+                    || hollowGateWandererDistance(playerTile, wanderer.tile, manifest.width) > 1) {
+                    return { status: 409, body: { error: 'That hunter is not within reach on the sealed floor.' } };
+                }
+                if (combatMode !== 'solo-pve') return { status: 409, body: { error: 'Human hunters must be fought as a shinobi.' } };
+            } else if (nodeId.includes(':tile:')) {
                 const expectedTileKind = kind === 'beast' ? 'pet_battle' : kind;
                 const manifest = run.floorManifests?.[String(currentFloor)];
                 if (hollowGatePositionNodeId(manifest, run.position) !== nodeId
@@ -169,6 +181,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 secondWindArmed: run.secondWindArmed === true && savedRun?.runToken === token,
             });
 
+            if (wanderer) binding.enemyProfileId = `hollow-hunter-${wanderer.role}-f${floor}`;
             try {
                 const session = combatMode === 'solo-pve'
                     ? buildHollowGateSoloPveEncounter({ binding, run, save, now: binding.createdAt, admin: await loadAdminCombatContent() })
