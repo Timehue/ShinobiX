@@ -17,7 +17,7 @@ import {
 import { sectorPresenceBlock } from '../_sector-presence-gate.js';
 import { kv } from '../_storage.js';
 import { LockContendedError } from '../_lock.js';
-import { cleanPetEncounterPointer, petEncounterActiveKey } from '../pet/_encounter-pointer.js';
+import { cleanPetEncounterPointer, petEncounterActiveKey, petEncounterRequestKey, petEncounterPointerIsResolved } from '../pet/_encounter-pointer.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req); if (req.method === 'OPTIONS') return res.status(200).end(); if (req.method !== 'POST') return res.status(405).end();
@@ -42,12 +42,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const activePet = action === 'probe-free'
                 ? cleanPetEncounterPointer(await kv.get(petEncounterActiveKey(playerName)))
                 : null;
-            if (action === 'probe-free' && activePet?.playerName.toLowerCase() === playerName.toLowerCase()) {
+            const petResolved = activePet && petEncounterPointerIsResolved(activePet,
+                await kv.get(petEncounterRequestKey(playerName, activePet.requestId)));
+            if (action === 'probe-free' && activePet?.playerName.toLowerCase() === playerName.toLowerCase()
+                && (!petResolved || activePet.requestId === requestId)) {
                 // One discovery operation owns the pipeline. If another device
                 // starts at the dungeon probe while an older pet result awaits,
                 // rebound directly to that pet authority instead of minting a
                 // second dungeon miss that would deadlock the two request IDs.
-                const reconciled = pendingMiss
+                // A stale terminal pointer can coexist with a newer admitted
+                // miss. Its exact retry may only reconcile its own discovery.
+                const reconciled = pendingMiss && (!petResolved || pendingMiss.requestId === activePet.requestId)
                     ? resolveFreeDungeonMiss(character, pendingMiss.requestId)
                     : character;
                 return {
