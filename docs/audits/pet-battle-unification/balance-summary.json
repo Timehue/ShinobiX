@@ -15,7 +15,7 @@
     "api/_pet-tactics/engine.ts": "1e357ddafbd0aabd0638ef56d83277cde4fff5d0f606f767f6ca84bae3995ad3",
     "shared/pet-tactics-roster.ts": "4189018c0529957e35c07110ca07dc9e98f5328ad115a876d8bdc2d4b2297dfc",
     "shared/pet-tactics-contract.ts": "973b21b75d4364caad431fb3170dc352c9a2266c4bd99a0bc65ade675836e353",
-    "api/pet/_dungeon-showdown.ts": "bb09d2e4e6da81ed4d5c8c850a544f3036916b31d97a2210c26667bf996d817a",
+    "api/pet/_dungeon-showdown.ts": "4f1f890a3982537ec8c39d3dad873c64725c1a148ac0e929efff765d8d0af5fa",
     "api/pet/_dungeon-command-beast.ts": "281eb25c2c295f7915b88f1a2e37c8ef3cecfb16e1b13b5a0ffe86c05db90f79",
     "scripts/dungeon-pet-balance-audit.mts": "cd18dae75ecd68bc5baa19a41fb85fd50e1776b788937af60c0d73ec27f03ddc",
     "api/_realtime/pet-duel-socket.ts": "3fcfe485ba733698a82fc23812e15f11f8bf88d04247a019facccb0b8302eb22",

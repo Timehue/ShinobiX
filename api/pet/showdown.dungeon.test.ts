@@ -130,3 +130,23 @@ test('Dungeon admission and settlement preserve idle regeneration through canoni
     }
     assert.equal(settled.body._saveVersion, 3);
 });
+
+test('Dungeon terminal commits the kickoff item once and preserves a replacement equipped later', async () => {
+    for (const replace of [false, true]) {
+        const f = await fixture(replace ? 'newitem' : 'item');
+        f.character.pets[0].loadout = { consumable: 'consum-smoke-pellet' };
+        await kv.set(`save:${f.name}`, { _saveVersion: 1, character: f.character });
+        const opened = await f.start(); assert.equal(opened.status, 200);
+        const save = (await kv.get<Json>(`save:${f.name}`))!;
+        if (replace) {
+            save.character.pets[0].loadout.consumable = 'consum-second-wind';
+            await kv.set(`save:${f.name}`, save);
+        }
+        const settled = await call(f.name, { action: 'forfeit', sessionId: opened.body.state.sessionId });
+        assert.equal(settled.status, 200);
+        assert.equal(settled.body.character.pets[0].loadout.consumable, replace ? 'consum-second-wind' : undefined);
+        const retry = await call(f.name, { action: 'forfeit', sessionId: opened.body.state.sessionId });
+        assert.equal(retry.body._saveVersion, settled.body._saveVersion);
+        assert.equal(retry.body.character.pets[0].loadout.consumable, replace ? 'consum-second-wind' : undefined);
+    }
+});

@@ -183,3 +183,9 @@ and proof-repair tests still pass. Forty-five targeted follow-up tests pass, wit
 zero failures/skips/cancellations; server build, client types, scoped lint,
 fresh Dungeon desktop/mobile browser checks and 92/92 release certification
 also pass. Numeric combat rules are unchanged by this follow-up.
+
+A final parent-mode check restores the kickoff one-use item commitment. Terminal
+proof and item spend share one canonical save mutation; retries do not spend
+twice, and a different item equipped later is preserved. The expanded parent and
+integration group passes 53/53, including historical receipts, with seven current
+Dungeon command cases. Server build passes after this correction.

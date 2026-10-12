@@ -47,6 +47,9 @@ export async function startDungeonShowdown(name: string, runToken: string, petId
         // Presentation identity is assigned only AFTER combat sealing. Passing
         // it into growth/kit normalization would change the fixed boss's stats.
         if (visual?.templateId) session.enemy[0].templateId = visual.templateId;
+        // This seal belongs to a rewarding parent run. Its kickoff one-use item
+        // is committed even though the battle itself has no arena purse.
+        if (session.player[0].consumable) session.player[0].consumableSpent = true;
         const nextCharacter = { ...character, activeDungeonRun: { ...authority.activeRun, petArenaSessionId: sessionId } };
         // Store combat first. A failed CAS leaves an unreachable, unpaid orphan;
         // publishing a pointer to missing combat could strand the parent run.
@@ -86,7 +89,15 @@ export async function settleDungeonShowdown(name: string, session: DungeonShowdo
         if (!run || run.token !== binding.runToken || run.petArenaSessionId !== session.sessionId) return { ok: false as const, status: 409, error: 'This battle does not belong to the active Dungeon run.' };
         const applied = applyDungeonPetTerminal({ character, dungeonRunToken: binding.runToken, proofId: session.sessionId, outcome, petIds: [binding.petId] });
         if (!applied.ok) return { ok: false as const, status: 409, error: applied.error };
-        return { ok: true as const, value: null, character: applied.character, ...(applied.alreadyApplied ? { write: false } : {}) };
+        if (applied.alreadyApplied) return { ok: true as const, value: null, character, write: false };
+        const consumableId = session.player[0].consumable?.id;
+        const pets = Array.isArray(applied.character.pets) ? applied.character.pets as Array<Record<string, unknown>> : [];
+        const next = consumableId ? { ...applied.character, pets: pets.map(pet => {
+            const loadout = pet.loadout as Record<string, unknown> | undefined;
+            return pet.id === binding.petId && loadout?.consumable === consumableId
+                ? { ...pet, loadout: { ...loadout, consumable: undefined } } : pet;
+        }) } : applied.character;
+        return { ok: true as const, value: null, character: next };
     }));
     return mutation.ok ? { ok: true, character: mutation.character, _saveVersion: mutation._saveVersion } : { ok: false, error: mutation.error };
 }
