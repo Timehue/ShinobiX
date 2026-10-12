@@ -4,8 +4,11 @@
  * its players share one EdgeCache, so origin load from edge-cached polls scales
  * with POPs, as it does in production.
  *
- * Each virtual player mirrors the real signed-in client idling or playing on the
- * world map, as mapped from shinobij.client/src on 2026-10-12:
+ * Each virtual player first logs in the way the real client does (password
+ * verify, save load, admin content, village tax, fight-resume probes: see
+ * VirtualPlayer.login; CAPACITY_LOGIN_PHASE=0 skips it), then mirrors the real
+ * signed-in client idling or playing on the world map, as mapped from
+ * shinobij.client/src on 2026-10-12:
  *   - Socket.IO presence: auth { x-player-token, x-player-name, x-client-fp,
  *     presenceBatch: 1, presence }, a `presence` frame every 20 s, and
  *     `presence:request` on connect;
@@ -39,6 +42,9 @@ const TRAVEL = process.env.CAPACITY_TRAVEL !== '0';
 // (2026-10-11) showed about one save a minute per active player, so 0.25.
 const SAVE_CHANCE = Number(process.env.CAPACITY_SAVE_CHANCE ?? 0.25);
 const REQUEST_TIMEOUT_MS = 15_000;
+// Each activation logs in the way a real player does (VirtualPlayer.login).
+// CAPACITY_LOGIN_PHASE=0 restores the idle-only model for comparison.
+const LOGIN_PHASE = process.env.CAPACITY_LOGIN_PHASE !== '0';
 
 // Verified edge-cached at Cloudflare on 2026-10-11 (cf-cache-status HIT).
 // Anything else reaches the origin even when it sends s-maxage (e.g.
@@ -191,10 +197,55 @@ class VirtualPlayer {
         void loop();
     }
 
+    /**
+     * The real interactive login burst, in the client's order (mapped from
+     * shinobij.client/src on 2026-10-12). The edge-cached polls that follow it
+     * were already modelled; these are the origin-heavy requests that were not:
+     *   - POST /api/player-auth verify   (scrypt: ~100 ms of server CPU)
+     *   - GET  /api/save/:name           (the owner save load)
+     *   - GET  /api/save/Admin 1, Admin 2 (shared admin content; no-store)
+     *   - POST /api/village/tax          (level-1 probe players are exempt:
+     *                                     nothing is debited or written)
+     *   - POST /api/missions/ai-fight-start resumeWorldFight, then resumeAiFight
+     *     (both 204 for a player with no fight, as for most real logins)
+     * plus the second heartbeat the client fires within a second or two.
+     */
+    async login() {
+        const verify = await request(this, 'POST', '/api/player-auth', {
+            auth: false, statLabel: 'LOGIN verify',
+            body: { action: 'verify', name: this.name, password: this.password },
+        });
+        if (verify.status === 200 && verify.json?.token) this.token = verify.json.token;
+        const own = await request(this, 'GET', `/api/save/${this.name}`, { statLabel: 'LOGIN own save' });
+        this.adopt(own.json);
+        await Promise.all([
+            request(this, 'GET', '/api/save/Admin%201', { statLabel: 'LOGIN admin content' }),
+            request(this, 'GET', '/api/save/Admin%202', { statLabel: 'LOGIN admin content' }),
+            request(this, 'POST', '/api/village/tax', { statLabel: 'LOGIN village tax', body: { playerName: this.name } }),
+            (async () => {
+                const world = await request(this, 'POST', '/api/missions/ai-fight-start', {
+                    statLabel: 'LOGIN resume world fight',
+                    body: { playerName: this.name, resumeWorldFight: true, recoveryProbeVersion: 2 },
+                });
+                const noWorldFight = world.status === 204 || world.status === 404
+                    || (world.status === 409 && world.json?.mode === 'generic');
+                if (noWorldFight) {
+                    await request(this, 'POST', '/api/missions/ai-fight-start', {
+                        statLabel: 'LOGIN resume ai fight',
+                        body: { playerName: this.name, resumeAiFight: true, recoveryProbeVersion: 2 },
+                    });
+                }
+            })(),
+        ]);
+    }
+
     async start() {
         if (this.running || !this.token) return;
         this.running = true;
+        if (LOGIN_PHASE) await this.login();
         await this.connectSocket();
+        // The client's second boot heartbeat (village reset / socket connect).
+        if (LOGIN_PHASE) void sleep(jittered(1_500)).then(() => (this.running ? this.heartbeat() : undefined)).catch(() => undefined);
         // Session start: image manifests (edge-cached, once per category).
         for (const cat of IMAGE_CATEGORIES) void poll(this, `/api/images?cat=${cat}&ids=1&ver=1`);
         this.every(20_000, () => this.heartbeat(), { immediate: true });
