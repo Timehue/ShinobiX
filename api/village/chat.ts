@@ -10,6 +10,8 @@ import { LEGACY_BY_ID } from '../_legacy-defs.js';
 import { legacyEnabled } from '../_legacy-track.js';
 import { blockedPlayersFor } from '../player/_blocks.js';
 import { rejectUnclaimedGuest } from '../_guest-gate.js';
+import { socialSurfacesLocked } from '../_guest-gate.js';
+import { kickVillageChat } from '../_realtime/notify.js';
 
 // A quoted reference to the message being replied to. Display-only — just the
 // original author + a short snippet so the client can render a quote block.
@@ -58,6 +60,17 @@ async function memberCharacter(player: string, village: string): Promise<Record<
     const save = await kv.get<Record<string, unknown>>(`save:${player}`);
     const char = (save?.character ?? null) as Record<string, unknown> | null;
     return char && sameVillage(char.village, village) ? char : null;
+}
+
+/**
+ * Whether this player may hear the tavern's socket hints: the same two gates
+ * the GET applies to a player (membership, then the guest lock), so the socket
+ * never reaches anyone the transcript itself would refuse. The hint carries no
+ * text either way; this only keeps outsiders from timing a village's talk.
+ */
+export async function villageChatWatchable(player: string, village: string): Promise<boolean> {
+    if (!await memberCharacter(player, village)) return false;
+    return !await socialSurfacesLocked(player);
 }
 
 // The transcript as one reader may see it: lines from players they block are
@@ -246,6 +259,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 await kv.set(key, next, { ex: KV_TTL_SECONDS });
                 return next;
             });
+            // Everyone with this tavern open refetches now instead of on their
+            // next poll. Only after the write landed — a refused post kicks nobody.
+            kickVillageChat(village, newMsg.ts);
 
             return res.status(200).json(visible(updated));
         } catch (err) {
