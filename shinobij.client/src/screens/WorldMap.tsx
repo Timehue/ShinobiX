@@ -140,6 +140,7 @@ import {
     recordSectorExplore,
     worldRewardFailureMessage,
     type ExploreCredit,
+    type AncientChestLoot,
     type ExternalExploreProof,
     type FieldExploreProgress,
     type SectorExploreOutcome,
@@ -2622,16 +2623,7 @@ function WorldMapContent({
     }, [anbuViewOpen]);
     const [creatorEventPage, setCreatorEventPage] = useState(0);
     const [creatorEventLine, setCreatorEventLine] = useState(0);
-    type ChestLoot = {
-        xp: number;
-        ryo?: number;
-        itemId?: string;
-        cardId?: string;
-        fateShards?: number;
-        boneCharms?: number;
-        auraStones?: number;
-        auraDust?: number;
-    };
+    type ChestLoot = AncientChestLoot & { replayed?: boolean };
     const [activeGather, setActiveGather] = useState<PendingGatherFind | null>(null);
     const savedFinds = pendingGatherFinds(character);
     const savedFindsBanner = savedFinds.length > 0 ? <aside className="gather-resume" aria-label="Saved Finds">
@@ -3134,7 +3126,7 @@ function WorldMapContent({
         onVersionedCharacter(chest.character, chest.saveVersion); // The loot is paid even if refused as stale, so open the chest.
         completeWorldRewardOperation(character.name, chestOperation.id);
         completeWorldRewardOperation(character.name, worldExploreRequestId);
-        setActiveChest(chest.loot);
+        setActiveChest({ ...chest.loot, replayed: chest.replayed === true });
         setChestVnPage(0);
         setChestVnLine(0);
         setChestVnDone(false);
@@ -4187,22 +4179,25 @@ function WorldMapContent({
         const lootItem = activeChest.itemId ? starterItems.find((i) => i.id === activeChest.itemId) : null;
         const lootCard = activeChest.cardId ? allCards.find((c) => c.id === activeChest.cardId) : null;
         const alreadyHaveCard = lootCard && character.tileCards.includes(lootCard.id);
+        const rewardPrefix = activeChest.replayed ? "" : "+";
         const rewards: { icon: ReactNode; label: string; sub: string }[] = [];
-        if (activeChest.ryo) rewards.push({ icon: <GameIcon name="ryo" size={22} />, label: `+${activeChest.ryo} Ryo`, sub: "Ancient gold" });
+        if (activeChest.ryo) rewards.push({ icon: <GameIcon name="ryo" size={22} />, label: `${rewardPrefix}${activeChest.ryo} Ryo`, sub: "Ancient gold" });
         if (lootItem) rewards.push({ icon: <GameIcon name="bag" size={22} />, label: lootItem.name, sub: itemRevealSub(lootItem) });
         if (lootCard) rewards.push({ icon: <GiCardPickup size={22} />, label: `${lootCard.name}${alreadyHaveCard ? " (duplicate)" : ""}`, sub: `${lootCard.rarity.charAt(0).toUpperCase() + lootCard.rarity.slice(1)} · ${lootCard.element}` });
-        if (activeChest.fateShards) rewards.push({ icon: <GameIcon name="shard" size={22} />, label: "+1 Fate Shard", sub: "Premium currency" });
-        if (activeChest.boneCharms) rewards.push({ icon: <GameIcon name="bone" size={22} />, label: "+1 Bone Charm", sub: "Awakening Stone material" });
-        if (activeChest.auraStones) rewards.push({ icon: <GameIcon name="crystal" size={22} />, label: "+1 Aura Stone", sub: "Awakening Stone material" });
-        if (activeChest.auraDust) rewards.push({ icon: <GameIcon name="sparkle" size={22} />, label: `+${activeChest.auraDust} Aura Dust`, sub: "Feeds the Aura Sphere" });
+        if (activeChest.fateShards) rewards.push({ icon: <GameIcon name="shard" size={22} />, label: `${rewardPrefix}1 Fate Shard`, sub: "Premium currency" });
+        if (activeChest.boneCharms) rewards.push({ icon: <GameIcon name="bone" size={22} />, label: `${rewardPrefix}1 Bone Charm`, sub: "Awakening Stone material" });
+        if (activeChest.auraStones) rewards.push({ icon: <GameIcon name="crystal" size={22} />, label: `${rewardPrefix}1 Aura Stone`, sub: "Awakening Stone material" });
+        if (activeChest.auraDust) rewards.push({ icon: <GameIcon name="sparkle" size={22} />, label: `${rewardPrefix}${activeChest.auraDust} Aura Dust`, sub: "Feeds the Aura Sphere" });
 
         return (
             <div className="card cinematic-card ancient-chest-reveal-card">
                 <div className="chest-reveal">
                     <div className="chest-reveal-header">
                         <p className="act-label"><GiOpenTreasureChest style={{ verticalAlign: "-0.14em", marginRight: "0.3rem" }} />ANCIENT CHEST CONTENTS</p>
-                        <h2 className="chest-reveal-title">The chest yields its secrets</h2>
-                        <p className="chest-reveal-sub">A relic of the shinobi wars, now yours to keep.</p>
+                        <h2 className="chest-reveal-title">{activeChest.replayed ? "Previously saved chest" : "Rewards saved"}</h2>
+                        <p className="chest-reveal-sub">{activeChest.replayed
+                            ? "These rewards were saved when this chest was first opened."
+                            : "These rewards are saved to your character."}</p>
                     </div>
                     <div className="chest-rewards">
                         {rewards.map((r, i) => (
@@ -4216,7 +4211,7 @@ function WorldMapContent({
                         ))}
                     </div>
                     <button className="chest-claim-btn" onClick={() => claimChest()}>
-                        <GiOpenTreasureChest style={{ verticalAlign: "-0.14em", marginRight: "0.3rem" }} />Claim All Rewards
+                        Continue
                     </button>
                 </div>
             </div>
