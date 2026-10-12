@@ -398,6 +398,8 @@ export type ShowdownJudgeReason = "pets" | "hp" | "stamina" | "speed";
  *  mirror by design, so a showdown row is replayed by asking the server for the
  *  log. The row is the request, not the answer. */
 export interface ShowdownReplayDescriptor {
+    /** Missing on historical records. The server replays those under legacy rules. */
+    damageRules?: 'legacy-v1' | 'response-v2';
     kind: "showdown";
     /** Bumped only if a stored descriptor's MEANING changes. Readers refuse a
      *  version they do not know rather than silently replaying it wrong. */
@@ -511,6 +513,7 @@ export interface ShowdownPetView {
 }
 
 export interface ShowdownStateView {
+    damageRules?: 'legacy-v1' | 'response-v2';
     sessionId: string;
     format: ShowdownFormat;
     tier: ShowdownTier;

@@ -19,7 +19,8 @@ test("the fallback-capable stage has no static Three/R3F/rig edge", () => {
     assert.match(riteSource, /from "\.\/PetWarfrontRiteStage"/);
     assert.doesNotMatch(riteSource, /from "\.\/PetWarfrontRiteStage3D"/);
     assert.match(entrySource, /import\("\.\/petvfx-rite"\)/);
-    assert.match(entrySource, /import\("\.\/petvfx-legacy"\)/);
+    assert.doesNotMatch(entrySource, /import\("\.\/petvfx-legacy"\)/);
+    assert.match(entrySource, /This preview has been retired/);
 });
 
 test("the lightweight Warfront Stage has no static rig/GLTF/LOD/postprocessing edge", () => {

@@ -17,6 +17,7 @@ import { createHash } from 'node:crypto';
 import { join, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { findCollapsedPrefixes } from './lib/css-prefix-collapse.mjs';
+import { assertNoRetiredPetUi } from './lib/retired-pet-ui.mjs';
 import { compactGlbDelivery } from '../shinobij.client/scripts/compact-glb-delivery.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -119,6 +120,12 @@ function walkFiles(dir) {
 }
 
 const clientFiles = walkFiles(clientDist);
+try {
+    assertNoRetiredPetUi(clientFiles);
+} catch (error) {
+    fail(error.message);
+}
+console.log('[verify:dist] Retired pet battle UI is absent from executable client assets.');
 const clientRelativeFiles = clientFiles.map((file) => relative(clientDist, file).replaceAll('\\', '/'));
 const clientRelativeFileSet = new Set(clientRelativeFiles);
 const rallyAtlasFiles = clientFiles.filter((file) =>

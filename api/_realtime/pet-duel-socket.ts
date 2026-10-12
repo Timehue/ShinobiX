@@ -1,18 +1,18 @@
 /**
- * pet-duel-socket.ts — the Socket.IO protocol for LIVE two-player pet duels
+ * pet-duel-socket.ts — retained recovery for pre-cutover live pet duels
  * (docs/pet-coliseum-player-control-plan.md §10).
  *
  * Thin glue: every rule lives in `pet-duel-session.ts`, which is pure and tested.
  * This file only moves messages and decides who may hear them.
  *
- * PvP pet fights are live-only — there is no async path — so a challenge to
- * someone who is not connected is refused outright rather than queued.
+ * New challenges are refused. Current PvP lives in Pet Arena's human command
+ * rooms. Only an already-existing memory session can finish through this file.
  *
  * Protocol, all events namespaced `petduel:`
  *
  *   client → server           server → client
  *   ───────────────────       ─────────────────────────────────────────────
- *   challenge {to,mode,pets}  invite   {id,from,mode}          (to the target)
+ *   challenge {to,mode,pets}  error    {error}                 (retired)
  *   accept    {id,pets}       start    {id,seed,mode,side,…}   (to both)
  *   decline   {id}            declined {id}                    (to the challenger)
  *   input     {id,tick,cmd}   sync     {id,safeTick,inputs}    (to both)
@@ -29,10 +29,8 @@
  * round trip and nothing else — which is why there is no per-message ack.
  */
 import type { Server as IOServer, Socket } from 'socket.io';
-import { randomUUID, randomInt } from 'node:crypto';
-import { onlineStore } from './online-store.js';
 import {
-    makeSession, putSession, getSession, sessionForPlayer, endSession,
+    getSession, sessionForPlayer, endSession,
     acceptInput, reportProgress, safeTick, syncPayload, sideOf, startIfReady,
     type PetDuelSession, type DuelSide, type DuelCommandLike,
 } from './pet-duel-session.js';
@@ -64,6 +62,14 @@ interface Seat { pets: unknown[] | null; doctrine: PetDoctrine }
 const doctrineOf = (pets: unknown[]): PetDoctrine =>
     parseDoctrine((pets[0] as { doctrine?: unknown } | undefined)?.doctrine);
 const rosters = new Map<string, { p1: Seat; p2: Seat }>();
+
+/** Historical in-process fixture; never an admission API or production switch. */
+export function _seedRetainedDuelRosterForTest(id: string, challengerPets: Pet[]): void {
+    if (process.env.NODE_ENV !== 'test') throw new Error('Retained duel fixtures are test-only.');
+    const session = getSession(id);
+    if (!session || session.status !== 'pending') throw new Error('A retained pending session is required.');
+    rosters.set(id, { p1: { pets: challengerPets, doctrine: doctrineOf(challengerPets) }, p2: { pets: null, doctrine: parseDoctrine(null) } });
+}
 
 /** Resolve requested ids from the server-owned, entitlement-active roster. */
 export function sealAuthoritativePetRoster(
@@ -266,44 +272,11 @@ export function wirePetDuel(io: IOServer, socket: Socket): void {
         }
     });
 
-    socket.on('petduel:challenge', async (payload: unknown) => {
-        const p = (payload ?? {}) as { to?: unknown; mode?: unknown; pets?: unknown };
-        const to = typeof p.to === 'string' ? p.to.trim().toLowerCase() : '';
-        const mode = p.mode === '2v2' ? '2v2' : '1v1';
-        if (!to || to === name) return socket.emit('petduel:error', { error: 'Pick an opponent.' });
-        // LIVE ONLY: no invite is queued for someone who is not connected.
-        if (!onlineStore.get(to)) return socket.emit('petduel:error', { error: 'That player is not online.' });
-        if (sessionForPlayer(name)) return socket.emit('petduel:error', { error: 'You are already in a duel.' });
-        if (sessionForPlayer(to)) return socket.emit('petduel:error', { error: 'That player is already in a duel.' });
-
-        let pets: Pet[] | null;
-        try {
-            pets = await loadAuthoritativePetRoster(name, p.pets, mode);
-        } catch {
-            return socket.emit('petduel:error', { error: 'Your carried pets could not be verified.' });
-        }
-        if (!pets?.length) return socket.emit('petduel:error', { error: 'Choose an eligible carried pet.' });
-        if (!onlineStore.get(to)) return socket.emit('petduel:error', { error: 'That player is not online.' });
-        if (sessionForPlayer(name)) return socket.emit('petduel:error', { error: 'You are already in a duel.' });
-        if (sessionForPlayer(to)) return socket.emit('petduel:error', { error: 'That player is already in a duel.' });
-
-        const s = makeSession({
-            id: randomUUID().replace(/-/g, ''),
-            mode,
-            // Server-minted: a client must never choose the fight it is about to play.
-            seed: randomInt(1, 0x7fffffff),
-            challenger: name, opponent: to, now: Date.now(),
-        });
-        s.p1.ready = true;
-        putSession(s);
-        rosters.set(s.id, {
-            p1: { pets, doctrine: doctrineOf(pets) },
-            p2: { pets: null, doctrine: parseDoctrine(null) },
-        });
-        socket.join(duelRoom(s.id));
-        io.to(userRoom(to)).emit('petduel:invite', { id: s.id, from: name, mode });
+    // New duels use Pet Arena's persisted two-human round commands. Existing
+    // sessions retain their input/result protocol until bounded completion.
+    socket.on('petduel:challenge', () => {
+        socket.emit('petduel:error', { error: 'Start player-controlled battles in Pet Arena and share an arena code.' });
     });
-
     socket.on('petduel:accept', async (payload: unknown) => {
         const p = (payload ?? {}) as { id?: unknown; pets?: unknown };
         const pending = sessionFor(p.id);

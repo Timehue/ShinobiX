@@ -6,7 +6,7 @@ const baseURL = `http://127.0.0.1:${port}`;
 export default defineConfig({
     testDir: "./e2e",
     testMatch: ["**/pet-gauntlet-board.spec.ts"],
-    // The cold Vite transform of the legacy visual harness is CPU-heavy on this project.
+    // The current board fixture includes real models and context-loss recovery.
     timeout: 300_000,
     expect: { timeout: 20_000 },
     fullyParallel: false,
@@ -16,7 +16,7 @@ export default defineConfig({
     use: {
         baseURL,
         browserName: "chromium",
-        launchOptions: { headless: false, args: ["--window-size=1188,848"] },
+        launchOptions: { headless: true, args: ["--window-size=1188,848"] },
         viewport: { width: 1188, height: 848 },
         contextOptions: { reducedMotion: "no-preference" },
         serviceWorkers: "block",

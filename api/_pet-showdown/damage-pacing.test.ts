@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { paceShowdownTechniqueDamage } from './damage-pacing.js';
 
-test('low-level burst leaves a response while ordinary hits retain their damage', () => {
-    for (const level of [1, 5, 10, 20, 25]) {
+test('burst leaves a response at every level while ordinary hits retain their damage', () => {
+    for (const level of [1, 5, 10, 20, 25, 50, 100]) {
         assert.equal(paceShowdownTechniqueDamage(200, 400, level, level), 200);
         for (const damage of [241, 400, 800, 1600, 10000]) {
             const paced = paceShowdownTechniqueDamage(damage, 400, level, level);
@@ -23,24 +23,26 @@ test('burst pacing is continuous, monotonic, and does not protect wounded pets f
     assert.ok(paceShowdownTechniqueDamage(450, 400, 1, 1) > 300, 'a wounded 300-HP target can be finished');
 });
 
-test('the curve fades smoothly with progression and preserves higher-level combat', () => {
-    const novice = paceShowdownTechniqueDamage(800, 400, 25, 25);
-    const middle = paceShowdownTechniqueDamage(800, 400, 37.5, 37.5);
-    assert.equal(middle, (novice + 800) / 2);
-    assert.equal(paceShowdownTechniqueDamage(800, 400, 50, 50), 800);
-    assert.equal(paceShowdownTechniqueDamage(800, 400, 100, 1), 800);
-    assert.equal(paceShowdownTechniqueDamage(800, 400, 1, 100), 800);
+test('progression cannot remove the response curve; stronger input still earns more damage', () => {
+    for (const [attacker, defender] of [[1, 100], [100, 1], [50, 50]]) {
+        assert.equal(paceShowdownTechniqueDamage(800, 400, attacker, defender), paceShowdownTechniqueDamage(800, 400, 1, 1));
+        assert.ok(paceShowdownTechniqueDamage(800, 400, attacker, defender) > paceShowdownTechniqueDamage(400, 400, attacker, defender));
+    }
 });
 
 test('early-access ultimates keep moderate damage and soften extreme hits at every level', () => {
     for (const level of [1, 25, 50, 100]) {
-        assert.equal(paceShowdownTechniqueDamage(280, 400, level, level, true), 280);
-        let previous = 280;
-        for (const damage of [281, 300, 400, 800, 1600, 100000]) {
-            const paced = paceShowdownTechniqueDamage(damage, 400, level, level, true);
-            assert.ok(paced > previous && paced < 360);
-            previous = paced;
+        for (const prepared of [false, true]) {
+            const threshold = prepared ? 220 : 160;
+            assert.equal(paceShowdownTechniqueDamage(threshold, 400, level, level, true, prepared), threshold);
+            let previous = threshold;
+            for (const damage of [221, 300, 400, 800, 1600, 100000]) {
+                const paced = paceShowdownTechniqueDamage(damage, 400, level, level, true, prepared);
+                assert.ok(paced > previous && paced < (prepared ? 300 : 240));
+                previous = paced;
+            }
         }
-        assert.ok(paceShowdownTechniqueDamage(800, 400, level, level, true) > 300, 'wounded targets can still be finished');
+        assert.ok(paceShowdownTechniqueDamage(800, 400, level, level, true) > 200, 'wounded targets can still be finished');
+        assert.ok(paceShowdownTechniqueDamage(800, 400, level, level, true, true) > paceShowdownTechniqueDamage(800, 400, level, level, true), 'setup rewards the invested turn');
     }
 });

@@ -69,6 +69,7 @@ import {
     type RiteFormationChoice,
 } from "../lib/pet-rite-continuity";
 import "../styles/pet-warfront-rite.css";
+import "../styles/pet-battle-theme.css";
 
 const ELEMENT_COLOR: Readonly<Record<string, string>> = {
     Fire: "#ff7a45", Water: "#4cc2ff", Wind: "#6ff0c8",
@@ -1255,7 +1256,7 @@ function WarfrontRiteMatch({
 
     if (phase === "deploy") {
         return (
-            <div className="wfr-root">
+            <div className="wfr-root pet-battle-theme">
                 <DeployPanel
                     band={blueBand}
                     enemyBand={redBand}
@@ -1274,7 +1275,7 @@ function WarfrontRiteMatch({
         const won = result.winner === "blue";
         const mvp = result.mvpSlot === null ? null : blueBand[result.mvpSlot] ?? null;
         return (
-            <div className="wfr-root">
+            <div className="wfr-root pet-battle-theme">
                 <div className="wfr-result">
                     <p className="wfr-eyebrow">Beastbound Warfront</p>
                     <h2 className={won ? "is-win" : "is-loss"}>{won ? "The Rite is yours" : "The Rite is lost"}</h2>
@@ -1320,14 +1321,14 @@ function WarfrontRiteMatch({
         );
     }
 
-    if (!clash || !result) return <div className="wfr-root"><div className="wfr-result" role="status">
+    if (!clash || !result) return <div className="wfr-root pet-battle-theme"><div className="wfr-result" role="status">
         <p>{preparationError ?? "Preparing Beastbound Warfront…"}</p>
         {preparationError ? <button type="button" className="wfr-btn-primary" onClick={() => setReplayAttempt((attempt) => attempt + 1)}>Retry battle</button> : null}
         <button type="button" className="wfr-btn-ghost" onClick={onExit}>Leave the Warfront</button>
     </div></div>;
 
     return (
-        <div className="wfr-root">
+        <div className="wfr-root pet-battle-theme">
             <div className="wfr-stage">
                 <PetWarfrontRiteStage
                     sceneKey={clash.index}

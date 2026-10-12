@@ -17,6 +17,7 @@ import {
 } from '../lib/wild-binding-api';
 import './WildPetBinding.css';
 import './WildPetBindingCinematic.css';
+import '../styles/pet-battle-theme.css';
 
 type Outcome = 'captured' | 'ended' | 'left';
 const CAPTURE_ANIMATION_MS = 3600;
@@ -173,7 +174,7 @@ export function WildPetBinding({
     }
 
     if (!battle || !wild) return (
-        <section className="wild-binding-intro card cinematic-card" aria-label="Wild companion encounter">
+        <section className="wild-binding-intro card cinematic-card pet-battle-theme pet-battle-lobby" aria-label="Wild companion encounter">
             <div className="wild-binding-intro-art">
                 <span className="wild-binding-intro-crest" aria-hidden="true">✦</span>
                 {cardArt && <img src={cardArt} alt={pet.name} />}
@@ -201,8 +202,13 @@ export function WildPetBinding({
         </section>
     );
 
-    const overlay = <aside className={`wild-binding-overlay${open ? ' is-open' : ''}${captureStage !== 'idle' ? ` is-${captureStage}` : ''}${arenaAvailable && bindingCinematic ? ' has-arena-cinematic' : ''}`}
+    const overlay = <aside className={`wild-binding-overlay pet-battle-theme${open ? ' is-open' : ''}${captureStage !== 'idle' ? ` is-${captureStage}` : ''}${arenaAvailable && bindingCinematic ? ' has-arena-cinematic' : ''}`}
         onKeyDown={(event) => {
+            if (captureStage === 'idle' && open && event.key === 'Escape') {
+                event.preventDefault(); event.stopPropagation();
+                event.currentTarget.querySelector<HTMLButtonElement>('.wild-binding-toggle')?.focus();
+                setOpen(false); return;
+            }
             if (captureStage === 'idle') return;
             if (event.key === 'Tab') {
                 event.preventDefault();

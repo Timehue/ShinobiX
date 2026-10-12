@@ -27,6 +27,9 @@ import { createPortal } from "react-dom";
 // only the PetShowdown screen imports this sheet, a fresh load into another
 // host mounts a transparent takeover with native-size portrait artwork.
 import "../screens/PetShowdown.css";
+import "../styles/pet-tactics.css";
+import "../styles/pet-arena-presentation.css";
+import "../styles/pet-battle-theme.css";
 import "../styles/layout/adaptive-stages.css";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { RendererRetirement } from "./RendererRetirement";
@@ -1912,7 +1915,7 @@ function buildMenuRows({
             // SHOWDOWN_METER_ON_GUARDED_HIT, not _ON_HIT_TAKEN) — it is only ahead
             // per point of health, because the hit is halved. Both figures come
             // from the contract so the sentence cannot drift from the table.
-            description: `Brace. Incoming damage is halved this round. A guarded hit banks ${SHOWDOWN_METER_ON_GUARDED_HIT} meter instead of the usual ${SHOWDOWN_METER_ON_HIT_TAKEN} — less per hit, but more per point of health spent. Guard resolves before almost everything else.`,
+            description: `Brace. Direct hits are halved this round; ongoing damage still applies. A guarded hit banks ${SHOWDOWN_METER_ON_GUARDED_HIT} meter instead of the usual ${SHOWDOWN_METER_ON_HIT_TAKEN} — less per hit, but more per point of health spent. Guard resolves before almost everything else.`,
             stats: [
                 { k: "METER", v: `+${SHOWDOWN_METER_ON_GUARDED_HIT}` },
                 { k: "STA", v: String(SHOWDOWN_GUARD_COST) },
@@ -2016,9 +2019,11 @@ function ActionMenu({ rows, focus, onFocusRow, onSelect }: {
             }}
         >
             <span className={`showdown-menu-icon fam-${row.family ?? "none"}`} aria-hidden="true">
-                <ShowdownIcon name={row.icon} size={15} />
+                {row.element && ELEMENT_ICON[row.element] && row.family !== 'sup' && row.family !== 'ctl'
+                    ? <img src={ELEMENT_ICON[row.element]} alt="" />
+                    : <ShowdownIcon name={row.icon} size={22} />}
             </span>
-            <span className="showdown-menu-label">{row.label}</span>
+            <span className="showdown-menu-label">{row.label}{!row.chip && <small>{row.detail.category}</small>}</span>
             {row.note && <span className="showdown-menu-note">{row.note}</span>}
         </button>
     );
@@ -2297,14 +2302,21 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     const hasExternalControls = !!externalControls;
     useEffect(() => {
         const root = takeoverRef.current;
-        if (!root || !hasExternalControls) return;
-        const menu = root.querySelector('.showdown-bottombar');
-        const measure = () => root.style.setProperty('--showdown-command-height', `${Math.ceil(menu?.getBoundingClientRect().height ?? 0)}px`);
-        const observer = new ResizeObserver(measure);
+        if (!root) return;
+        const menu = root.querySelector('.pta-console') ?? root.querySelector('.showdown-bottombar');
+        let frame = 0;
+        const measure = () => {
+            const height = `${Math.ceil(menu?.getBoundingClientRect().height ?? 0)}px`;
+            if (root.style.getPropertyValue('--showdown-command-height') !== height) root.style.setProperty('--showdown-command-height', height);
+        };
+        const observer = new ResizeObserver(() => {
+            cancelAnimationFrame(frame);
+            frame = requestAnimationFrame(measure);
+        });
         if (menu) observer.observe(menu);
         measure();
-        return () => { observer.disconnect(); root.style.removeProperty('--showdown-command-height'); };
-    }, [hasExternalControls]);
+        return () => { observer.disconnect(); cancelAnimationFrame(frame); root.style.removeProperty('--showdown-command-height'); };
+    }, [hasExternalControls, phase]);
     // VS intro card over the opening seconds.
     const [intro, setIntro] = useState(true);
     useEffect(() => {
@@ -3601,13 +3613,13 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     const overlay = (
         <div
             ref={takeoverRef}
-            className={`pet-combat-takeover showdown-takeover ${hasExternalControls ? 'pta-hud' : ''}`}
+            className={`pet-combat-takeover showdown-takeover pet-battle-theme pta-hud ${hasExternalControls ? '' : 'pet-native-hud'}`}
             data-testid="pet-showdown-root"
             data-pet-visual-audit={visualAudit}
             data-wild-binding={wildBinding ? "active" : undefined}
             inert={inputLocked && !externalControls}
-            role="dialog"
-            aria-modal="true"
+            role={panel ? 'presentation' : 'dialog'}
+            aria-modal={panel ? undefined : true}
             aria-label={`${hasExternalControls ? 'Pet Arena' : 'Pet Showdown'} — your team against ${stateView.enemyTeamName}`}
             tabIndex={-1}
         >
@@ -3622,7 +3634,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 sat a hair flat next to the painted arenas — a slight push
                 deepens the blacks and lets the VFX (toneMapped:false) pop
                 against them without touching any material. */}
-            <div className="showdown-scene-viewport" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: hasExternalControls ? 'var(--showdown-command-height, 0px)' : 0 }}>
+            <div className="showdown-scene-viewport" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 'var(--showdown-command-height, 0px)' }}>
             {webGlAvailable ? <Canvas
                 frameloop={battleFrameloop}
                 key={renderQuality.id}
@@ -3634,7 +3646,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
             >
                 <RendererRetirement />
                 <StageEnvironment stage={stage} beatRef={beatRef} fxRef={fxRef} quality={renderQuality} reduced={reducedMotion} />
-                <CameraDirector beatRef={beatRef} fxRef={fxRef} posRef={posRef} lineup={lineup} reduced={reducedMotion} wildBinding={wildBinding} framedCommands={hasExternalControls} />
+                <CameraDirector beatRef={beatRef} fxRef={fxRef} posRef={posRef} lineup={lineup} reduced={reducedMotion} wildBinding={wildBinding} framedCommands={hasExternalControls || (phase === 'command' && !spectator)} />
                 {wildBinding && <WildBindingArenaFx
                     cinematic={wildBinding}
                     player={slots.get(wildBinding.playerId)?.basePos ?? [0, FLOOR_Y, PLAYER_Z]}
@@ -3776,7 +3788,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
 
             {/* ── HUD ── */}
             <div className="showdown-hud">
-                <div className="showdown-topbar">
+                <div className="showdown-topbar" inert={Boolean(panel)}>
                     <TeamPanel
                         side="enemy"
                         pets={stateView.enemy}
@@ -3830,7 +3842,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 {banner && panel !== "result" && <div key={banner.key} className={`showdown-banner ${banner.cls}`}>{banner.text}</div>}
 
 
-                {!hidePlayerHud && <div className="showdown-playerbar">
+                {!hidePlayerHud && !(phase === 'command' && commander && !spectator && !hasExternalControls) && <div className="showdown-playerbar">
                     <TeamPanel
                         side="player"
                         pets={stateView.player}
@@ -3849,7 +3861,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                     />
                 </div>}
 
-                <div className="showdown-bottombar">
+                <div className="showdown-bottombar" inert={Boolean(panel)}>
                     {/* No pet can be given an order this round. Name the reason
                         and show it resolving — the failure this replaces was a
                         silent empty bar. The button is a manual escape hatch in
@@ -3899,7 +3911,20 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                     )}
                     {externalControls}
                     {phase === "command" && commander && !failedOrders && !externalControls && (
-                        <>
+                        <section className="pta-console pet-native-console" aria-label="Battle commands">
+                            <div className="pta-orders">
+                            <header className="pta-orders-heading">
+                                <div><span className="pta-kicker">Pet Arena · Round {stateView.round + 1}</span><strong>Plan your next play</strong></div>
+                                <span className="pet-native-prompt">Choose an order for <b>{commander.name}</b></span>
+                            </header>
+                            <div className="pet-native-layout">
+                            <aside className="pet-native-team" aria-label="Your squad resources">
+                                <TeamPanel side="player" pets={stateView.player} display={display}
+                                    targeting={!!pendingMove && targetingAllies} onPickTarget={pickTarget}
+                                    commanderId={commander.id} art={panelArt} benchedIds={playerBenchedIds}
+                                    hoveredId={activeHover} />
+                            </aside>
+                            <div className="pet-native-actions">
                             {/* Targeting takes over the menu column: the choice is
                                 made in the 3D scene, so the panel only says who
                                 is asking and offers the way back. */}
@@ -3910,8 +3935,8 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                                        the standoff shot, so their PLATE is named as the
                                        reliable click target. */
                                     sub={pickingSwitch
-                                        ? "Click a reserve — its plate or its model"
-                                        : `Click a ${targetingAllies ? "team-mate" : "rival"} — its model or its plate`}
+                                        ? "Choose a reserve below or on the field"
+                                        : `Choose a ${targetingAllies ? "team-mate" : "rival"} below or on the field`}
                                     onBack={() => {
                                         if (pickingSwitch) { setPickingSwitch(false); return; }
                                         setPendingMove(null);
@@ -3926,7 +3951,8 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                                     onSelect={runMenuAction}
                                 />
                             )}
-                            <div className="showdown-bottombar-right">
+                            </div>
+                            <div className="showdown-bottombar-right pet-native-detail">
                                 {draft.length > 0 && !pendingMove && !pickingSwitch && (
                                     <button type="button" className="showdown-chip showdown-undo" onClick={() => {
                                         playPetSfx("uiCancel");
@@ -3937,8 +3963,25 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                                     </button>
                                 )}
                                 <MoveInspector spec={inspectorSpec} targetName={hoveredName} />
+                                {(pendingMove || pickingSwitch) && <div className="pet-native-targets" aria-label={pickingSwitch ? 'Reserve choices' : 'Target choices'}>
+                                    {(pickingSwitch ? livingBench : targetingAllies ? livingPlayer : livingEnemies).map(pet => (
+                                        <button type="button" key={pet.id} data-pet-target={pet.id}
+                                            onMouseEnter={() => setHoveredTarget(pet.id)} onFocus={() => setHoveredTarget(pet.id)}
+                                            onClick={() => pickTarget(pet.id)}>
+                                            {panelArt[pet.id] && <img src={panelArt[pet.id]} alt="" />}
+                                            <span><strong>{pet.name}</strong><small>{Math.round((display[pet.id]?.hp ?? pet.hp) / Math.max(1, pet.maxHp) * 100)}% HP</small></span>
+                                        </button>
+                                    ))}
+                                </div>}
                             </div>
-                        </>
+                            </div>
+                            <footer className="pet-native-review"><b>{draft.length}/{promptable.length} orders chosen</b><span>The final choice sends this round. Earlier orders can be undone.</span>
+                                <details><summary>Battle rules</summary><p>Guard reduces direct-hit damage. Rest restores energy and costs your action. Switching changes who receives the next attacks.</p>
+                                    {stateView.damageRules === 'response-v2' && <p>Unprepared signatures approach 60% of maximum HP. Empower, Mark or a favorable field raises that limit to 75%. Guard and shields reduce the hit further; wounded pets can still be finished.</p>}
+                                </details>
+                            </footer>
+                            </div>
+                        </section>
                     )}
                 </div>
 
