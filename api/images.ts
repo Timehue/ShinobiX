@@ -7,6 +7,7 @@ import { recordAudit } from './_audit.js';
 import { r2ReadEnabled, r2WriteEnabled, putImage, deleteImage } from './_r2.js';
 import { bumpImageVersion, readImageVersion } from './_image-version.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
+import { cachedFor } from './_proc-cache.js';
 
 /*
  * Player upload budget. Every POST rewrites a whole shared category row (kv_hset)
@@ -208,6 +209,55 @@ const KNOWN_PREFIXES: Record<string, string> = {
     petlayers: 'pet',
 };
 const KNOWN_CATEGORIES = Array.from(new Set(Object.values(KNOWN_PREFIXES)));
+
+/** Manifest memo lifetime: the edge already serves these for max-age=60. */
+export const MANIFEST_CACHE_TTL_MS = 60_000;
+
+/** Categories an image write can target (unknown ids fall into 'misc'). */
+export function isManifestCategory(cat: string): boolean {
+    return cat === 'misc' || KNOWN_CATEGORIES.includes(cat);
+}
+
+class ManifestUnavailableError extends Error {
+    constructor() {
+        super('image index temporarily unavailable');
+        this.name = 'ManifestUnavailableError';
+    }
+}
+
+type ReadTimeout = <T>(p: Promise<T | null>, ms?: number) => Promise<T | null>;
+
+/**
+ * The id list behind `GET /api/images?cat=<cat>&ids=1`: keys of the category's
+ * hash row and legacy blob (plus `leader:` entries filed under 'misc'), keys
+ * only — never the multi-MB image payloads. Null when any read failed (NOT
+ * empty), so a caller never serves or caches a silently incomplete manifest.
+ */
+export async function buildManifestIds(cat: string, withTimeout: ReadTimeout): Promise<string[] | null> {
+    // hkeys with a one-deploy-skew fallback: if the remote proxy doesn't know the
+    // op yet (rolling deploy), fall back to the old full read. null = both
+    // attempts failed (NOT empty).
+    const keysOf = async (key: string): Promise<string[] | null> => {
+        try { return await kv.hkeys(key, { nonEmptyStrings: true }); } catch { /* old proxy / transient */ }
+        try {
+            const all = await kv.hgetall<Record<string, string>>(key);
+            return all && typeof all === 'object'
+                ? Object.entries(all)
+                    .filter(([, value]) => typeof value === 'string' && value.length > 0)
+                    .map(([id]) => id)
+                : [];
+        } catch { return null; }
+    };
+    const [hashKeys, blobKeys, leaderKeys] = await Promise.all([
+        withTimeout(keysOf(catHashKey(cat))),
+        withTimeout(keysOf(catKey(cat))),
+        cat === 'leader'
+            ? withTimeout(keysOf(catHashKey('misc'))).then((ks) => (ks === null ? null : ks.filter((k) => k.startsWith('leader:'))))
+            : Promise.resolve([] as string[]),
+    ]);
+    if (hashKeys === null || blobKeys === null || leaderKeys === null) return null;
+    return Array.from(new Set([...leaderKeys, ...blobKeys, ...hashKeys]));
+}
 
 export function categoryFromId(id: string): string {
     const prefix = id.split(':')[0];
@@ -444,34 +494,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // keys-only reads, and a hard 503 (no-store) when the primary
                 // read fails so a degraded list is never served or cached.
                 if (req.query.ids) {
-                    // hkeys with a one-deploy-skew fallback: if the remote proxy
-                    // doesn't know the op yet (rolling deploy), fall back to the
-                    // old full read. null = both attempts failed (NOT empty).
-                    const keysOf = async (key: string): Promise<string[] | null> => {
-                        try { return await kv.hkeys(key, { nonEmptyStrings: true }); } catch { /* old proxy / transient */ }
+                    // Every client load asks for ~8 of these manifests, and each
+                    // build lists the keys of a multi-MB image row. The 2026-10-12
+                    // load test showed them among the slowest DB reads under load.
+                    // The id list only changes when a write bumps the category
+                    // version (upload, delete, batch delete, server reset), so it
+                    // is memoised per (category, version) for the same 60 s the
+                    // edge already allows (Cache-Control max-age=60). Only known
+                    // categories are cached, so a request cannot mint unbounded
+                    // cache entries; a failed read throws and is never cached.
+                    if (isManifestCategory(cat)) {
+                        const [version, miscVersion] = await Promise.all([
+                            readImageVersion(cat),
+                            cat === 'leader' ? readImageVersion('misc') : Promise.resolve(null),
+                        ]);
+                        let ids: string[];
                         try {
-                            const all = await kv.hgetall<Record<string, string>>(key);
-                            return all && typeof all === 'object'
-                                ? Object.entries(all)
-                                    .filter(([, value]) => typeof value === 'string' && value.length > 0)
-                                    .map(([id]) => id)
-                                : [];
-                        } catch { return null; }
-                    };
-                    const [hashKeys, blobKeys, leaderKeys] = await Promise.all([
-                        withTimeout(keysOf(catHashKey(cat))),
-                        withTimeout(keysOf(catKey(cat))),
-                        cat === 'leader'
-                            ? withTimeout(keysOf(catHashKey('misc'))).then((ks) => (ks === null ? null : ks.filter((k) => k.startsWith('leader:'))))
-                            : Promise.resolve([] as string[]),
-                    ]);
-                    if (hashKeys === null || blobKeys === null || leaderKeys === null) {
+                            ids = await cachedFor(
+                                `images:manifest:${cat}:${version ?? '-'}:${miscVersion ?? '-'}`,
+                                MANIFEST_CACHE_TTL_MS,
+                                async () => {
+                                    const built = await buildManifestIds(cat, withTimeout);
+                                    if (built === null) throw new ManifestUnavailableError();
+                                    return built;
+                                },
+                            );
+                        } catch (error) {
+                            if (!(error instanceof ManifestUnavailableError)) throw error;
+                            res.setHeader('Cache-Control', 'no-store');
+                            return res.status(503).json({ error: 'image index temporarily unavailable' });
+                        }
+                        if (req.query.ver) return res.status(200).json(version === null ? { ids } : { version, ids });
+                        return res.status(200).json(ids);
+                    }
+                    const ids = await buildManifestIds(cat, withTimeout);
+                    if (ids === null) {
                         // Storage unavailable — make the client retry rather than
                         // caching/running with a silently incomplete manifest.
                         res.setHeader('Cache-Control', 'no-store');
                         return res.status(503).json({ error: 'image index temporarily unavailable' });
                     }
-                    const ids = Array.from(new Set([...leaderKeys, ...blobKeys, ...hashKeys]));
                     // `?ver=1` opts into the versioned shape so this endpoint's
                     // long-standing bare-array contract is untouched for anything
                     // still asking the old way (a CDN-cached client, admin tooling).
