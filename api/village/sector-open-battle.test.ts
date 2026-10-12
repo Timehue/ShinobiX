@@ -154,6 +154,41 @@ async function shieldSpent(name: string): Promise<boolean> {
 }
 
 describe('an open-world attack in a Pet war is a pet battle with that player', { concurrency: false }, () => {
+    for (const kind of ['pet', 'card'] as const) it(`${kind} war fights respect the stronghold boundary and retain the parent sector`, async () => {
+        const { touchStrongholdPresence, leaveStrongholdPresence } = await import('../_stronghold-presence.js');
+        const contest = await seedContest(kind);
+        const handler = kind === 'pet' ? petHandler : cardHandler;
+        touchStrongholdPresence(HOLDOUT, SECTOR, 154);
+        try {
+            const outside = await call(handler, { action: 'engage', playerName: RAIDER, sectorWarId: contest.id, target: HOLDOUT });
+            assert.equal(outside.statusCode, 409);
+            assert.match(String(outside.body?.error), /stronghold/);
+            assert.equal((await ledgerOf(contest.id)).receipts.length, 0);
+            touchStrongholdPresence(RAIDER, SECTOR, 153);
+            const inside = await call(handler, { action: 'engage', playerName: RAIDER, sectorWarId: contest.id, target: HOLDOUT });
+            assert.equal(inside.statusCode, 200, JSON.stringify(inside.body));
+            const session = kind === 'pet' ? inside.body?.session : await kv.get<Record<string, any>>(`sector-card-open:${inside.body?.engageId}`);
+            assert.equal(session?.sector, SECTOR);
+            assert.equal(session?.sectorWarId, contest.id);
+            if (kind === 'pet') assert.equal((await ledgerOf(contest.id)).receipts.length, 1);
+            else {
+                const notice = (await inboxOf(HOLDOUT)).find(entry => entry.sectorContest?.engageId === inside.body?.engageId);
+                assert.equal(notice?.sectorContest.kind, 'card');
+                assert.equal((await ledgerOf(contest.id)).receipts.length, 0, 'a pending card challenge does not score before its match');
+                const engageId = inside.body?.engageId;
+                assert.equal((await call(cardHandler, { action: 'join', playerName: HOLDOUT, sectorWarId: contest.id, engageId })).statusCode, 200);
+                const result = await call(cardHandler, { action: 'forfeit', playerName: RAIDER, sectorWarId: contest.id, engageId });
+                assert.equal(result.body?.warResult?.scored, true);
+                const scored = await ledgerOf(contest.id);
+                assert.equal(scored.receipts.length, 1);
+                assert.ok(scored.row.defenderPoints > 0);
+                await call(cardHandler, { action: 'state', playerName: HOLDOUT, sectorWarId: contest.id, engageId });
+                assert.equal((await ledgerOf(contest.id)).receipts.length, 1, 'an interior duel scores only once');
+            }
+        } finally {
+            leaveStrongholdPresence(RAIDER); leaveStrongholdPresence(HOLDOUT);
+        }
+    });
     it('fights both sealed teams at once, scores it for the winner\'s village, and tells the target', async () => {
         const contest = await seedContest('pet');
         const out = await call(petHandler, { action: 'engage', playerName: RAIDER, sectorWarId: contest.id, target: HOLDOUT });

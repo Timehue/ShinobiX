@@ -2677,12 +2677,24 @@
             "line": 60
           },
           {
-            "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
-            "line": 96
+            "source": "shinobij.client/src/components/underground-sector.css",
+            "line": 105
+          },
+          {
+            "source": "shinobij.client/src/components/underground-sector.css",
+            "line": 132
+          },
+          {
+            "source": "shinobij.client/src/components/underground-sector.css",
+            "line": 173
           },
           {
             "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
-            "line": 120
+            "line": 105
+          },
+          {
+            "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
+            "line": 129
           },
           {
             "source": "shinobij.client/src/features/sunscar/rally-render.css",
@@ -3260,16 +3272,28 @@
             "line": 6
           },
           {
-            "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
-            "line": 95
+            "source": "shinobij.client/src/components/underground-sector.css",
+            "line": 115
+          },
+          {
+            "source": "shinobij.client/src/components/underground-sector.css",
+            "line": 132
+          },
+          {
+            "source": "shinobij.client/src/components/underground-sector.css",
+            "line": 152
           },
           {
             "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
-            "line": 105
+            "line": 104
           },
           {
             "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
-            "line": 131
+            "line": 114
+          },
+          {
+            "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
+            "line": 140
           },
           {
             "source": "shinobij.client/src/screens/WorldCrisis80.css",
@@ -3561,6 +3585,10 @@
           {
             "source": "shinobij.client/src/components/resource-minigames.css",
             "line": 57
+          },
+          {
+            "source": "shinobij.client/src/components/underground-sector.css",
+            "line": 152
           },
           {
             "source": "shinobij.client/src/features/character-creator/character-creator.css",
@@ -4235,8 +4263,12 @@
         "valuePx": 900,
         "occurrences": [
           {
+            "source": "shinobij.client/src/components/underground-sector.css",
+            "line": 96
+          },
+          {
             "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
-            "line": 97
+            "line": 106
           },
           {
             "source": "shinobij.client/src/features/dojo-circuit/dojo-circuit.css",

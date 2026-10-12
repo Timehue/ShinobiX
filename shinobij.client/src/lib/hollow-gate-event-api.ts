@@ -12,6 +12,7 @@ export type HollowGateEventAction =
     | "keeper-heal"
     | "keeper-torch"
     | "keeper-key";
+export type HollowGateTravelerAction = "traveler-heal" | "traveler-key" | "traveler-torch";
 
 export type HollowGateEventReward = {
     currencies?: Partial<Record<"ryo" | "auraDust" | "auraStones" | "boneCharms" | "fateShards" | "honorSeals" | "hollowShards", number>>;
@@ -20,7 +21,7 @@ export type HollowGateEventReward = {
 
 export type HollowGateEventResult = {
     ok: boolean;
-    action?: HollowGateEventAction;
+    action?: HollowGateEventAction | HollowGateTravelerAction;
     alreadyReported?: boolean;
     reward?: HollowGateEventReward;
     lockedResult?: HollowLockedDoorClientResult;
@@ -37,7 +38,7 @@ export async function resolveHollowGateServerEvent(params: {
     playerName: string;
     token: string;
     nodeId: string;
-    action: HollowGateEventAction;
+    action: HollowGateEventAction | HollowGateTravelerAction;
 }): Promise<HollowGateEventResult> {
     try {
         const response = await fetch("/api/hollow-gate/event", {
@@ -56,9 +57,11 @@ export async function resolveHollowGateServerEvent(params: {
 
 export async function sealHollowGateFloor(playerName: string, token: string, run: HollowGateShrineRun): Promise<{
     ok: boolean;
+    wanderers?: HollowGateShrineRun['wanderers'];
+    floorFeatures?: HollowGateShrineRun['floorFeatures'];
     detour?: { tileIndex: number; extraSteps: number; condition: "echo-cache" } | null;
     riftSignal?: { tileIndex: number; kind: string; distortionId: string } | null;
-    pendingAmbush?: { nodeId: string; kind: "ambush" | "boss" | "card" } | null;
+    pendingAmbush?: { nodeId: string; kind: "battle" | "ambush" | "boss" | "card" } | null;
     activeCombat?: HollowGateShrineRun["activeCombat"];
     position?: { x: number; y: number };
     error?: string;
@@ -75,12 +78,14 @@ export async function sealHollowGateFloor(playerName: string, token: string, run
                 height: run.height,
                 playerX: run.playerX,
                 playerY: run.playerY,
-                tiles: run.tiles.map((tile) => ({ kind: tile.kind, terrain: tile.terrain })),
+                tiles: run.tiles.map((tile) => ({ kind: tile.kind, terrain: tile.terrain, roomId: tile.roomId })),
+                wanderersVersion: 1,
+                floorFeaturesVersion: 1,
             }),
         });
-        const data = await response.json().catch(() => ({})) as { ok?: boolean; detour?: { tileIndex: number; extraSteps: number; condition: "echo-cache" } | null; riftSignal?: { tileIndex: number; kind: string; distortionId: string } | null; pendingAmbush?: { nodeId: string; kind: "ambush" | "boss" | "card" } | null; activeCombat?: HollowGateShrineRun["activeCombat"]; position?: { x: number; y: number }; error?: string };
+        const data = await response.json().catch(() => ({})) as { ok?: boolean; wanderers?: HollowGateShrineRun['wanderers']; floorFeatures?: HollowGateShrineRun['floorFeatures']; detour?: { tileIndex: number; extraSteps: number; condition: "echo-cache" } | null; riftSignal?: { tileIndex: number; kind: string; distortionId: string } | null; pendingAmbush?: { nodeId: string; kind: "battle" | "ambush" | "boss" | "card" } | null; activeCombat?: HollowGateShrineRun["activeCombat"]; position?: { x: number; y: number }; error?: string };
         return response.ok && data.ok
-            ? { ok: true, position: data.position, detour: data.detour, riftSignal: data.riftSignal, pendingAmbush: data.pendingAmbush }
+            ? { ok: true, position: data.position, detour: data.detour, riftSignal: data.riftSignal, pendingAmbush: data.pendingAmbush, wanderers: data.wanderers, floorFeatures: data.floorFeatures }
             : { ok: false, position: data.position, activeCombat: data.activeCombat, error: data.error || `Floor seal failed (${response.status}).` };
     } catch {
         return { ok: false, error: "The Hollow Gate floor seal is unreachable." };
@@ -89,6 +94,8 @@ export async function sealHollowGateFloor(playerName: string, token: string, run
 
 export function hollowGateSealRunMarkers(result: Awaited<ReturnType<typeof sealHollowGateFloor>>) {
     return {
+        ...(result.wanderers ? { wanderers: result.wanderers } : {}),
+        ...(result.floorFeatures ? { floorFeatures: result.floorFeatures, floorFeaturesVersion: 1 as const } : {}),
         detourTileIndex: result.detour?.tileIndex,
         detourExtraSteps: result.detour?.extraSteps,
         riftSignalTileIndex: result.riftSignal?.tileIndex,

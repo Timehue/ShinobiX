@@ -11,6 +11,10 @@ import { hollowGateRunKey, type HollowGateRunToken } from './_run-token.js';
 import { hollowGateManifestNode, hollowGateMarkVisited, hollowGatePositionNodeId } from './_floor-manifest.js';
 import { hollowGateCombatBindingKey, type HollowGateCombatBinding } from './_combat-session.js';
 import { hollowGateEncounterRecovery } from './_encounter-recovery.js';
+import { advanceHollowGateWanderers, hollowGateWandererDistance, hollowGateWandererFriendly, hollowGateWandererOrigin } from '../../shared/hollow-gate-wanderers.js';
+import { hollowGateWanderersForRun } from './_wanderers.js';
+import { hollowGatePhysicalBoard, hollowGateFloorFeatures } from './_floor-features.js';
+import { undergroundFeatureBlocks } from '../../shared/underground-floor-collision.js';
 
 const coord = (value: unknown): number => Math.floor(Number(value));
 const bounded = (x: number, y: number): boolean => Number.isInteger(x) && Number.isInteger(y) && x >= 0 && x < 31 && y >= 0 && y < 21;
@@ -97,9 +101,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!run || run.playerName !== playerName) return { status: 409, body: { error: 'The Hollow Gate run has expired.' } };
             if (!run.chosenAugmentId) return { status: 409, body: { error: 'Choose the sealed augment before moving.' } };
             const floor = Math.max(1, Math.floor(Number(run.currentFloor) || 1));
+            if (body.floor != null && Number(body.floor) !== floor) return { status: 409, body: { error: 'The step belongs to a different shrine floor.' } };
             const manifest = run.floorManifests?.[String(floor)];
+            if (hollowGateFloorFeatures(run) && body.floorFeaturesVersion !== 1) return { status: 409, body: { error: 'Reload to draw the current cavern architecture before moving.' } };
             const targetIndex = manifest ? to.y * manifest.width + to.x : -1;
-            if (!manifest || to.x >= manifest.width || to.y >= manifest.height || manifest.walkable[targetIndex] !== '1') {
+            if (!manifest || to.x >= manifest.width || to.y >= manifest.height || manifest.walkable[targetIndex] !== '1' || undergroundFeatureBlocks(hollowGateFloorFeatures(run), targetIndex)) {
                 return { status: 409, body: { error: 'The step does not match the sealed shrine floor.' } };
             }
             const recent = Array.isArray(run.recentStepIds) ? run.recentStepIds : [];
@@ -113,6 +119,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     threat: Math.max(0, Math.floor(Number(run.threat) || 0)),
                     wardSteps: Math.max(0, Math.floor(Number(run.wardSteps) || 0)),
                     stepVersion: Math.max(0, Math.floor(Number(run.stepVersion) || 0)),
+                    wanderers: hollowGateWanderersForRun(run),
+                    ambush: run.pendingAmbush ?? null,
                     _saveVersion: saveVersion,
                 } };
             }
@@ -131,7 +139,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             const currentNodeId = hollowGatePositionNodeId(manifest, run.position);
             const currentKind = hollowGateManifestNode(manifest, currentNodeId);
-            if (currentKind === 'battle' || currentKind === 'elite' || currentKind === 'boss' || currentKind === 'pet_battle') {
+            const roster = hollowGateWanderersForRun(run);
+            if (!hollowGateWandererOrigin(roster, run.position.y * manifest.width + run.position.x) && (currentKind === 'battle' || currentKind === 'elite' || currentKind === 'boss' || currentKind === 'pet_battle')) {
                 const expectedKind = currentKind === 'pet_battle' ? 'beast' : currentKind;
                 const encounterKey = `${floor}:${expectedKind}:${currentNodeId}`;
                 const resolved = Array.isArray(run.resolvedEncounterIds) ? run.resolvedEncounterIds : [];
@@ -160,7 +169,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const playerLevel = rawLevel == null ? 20 : Math.max(1, Math.floor(Number(rawLevel) || 1));
                 if (playerLevel < 20) derived = deriveHollowGateStepState(run, torchDrains, playerLevel);
             }
-            const { torchBefore, torch, wardSteps, threat, stepVersion, pendingAmbush } = derived;
+            const { torchBefore, torch, wardSteps, threat, stepVersion } = derived;
+            const wanderers = roster ? advanceHollowGateWanderers(hollowGatePhysicalBoard(run, manifest), roster, to, stepVersion, run.withdrawnEncounterIds) : undefined;
+            const targetKind = manifest.nodes[String(targetIndex)];
+            // Authored tile interactions have priority over hunter contact.
+            const hunter = !targetKind || hollowGateWandererOrigin(roster, targetIndex)
+                ? wanderers?.find(npc => !npc.spent && !hollowGateWandererFriendly(npc)
+                    && hollowGateWandererDistance(npc.tile, targetIndex, manifest.width) <= 1
+                    && (!(run.withdrawnEncounterIds ?? []).includes(`${floor}:battle:${npc.nodeId}`) || npc.tile === targetIndex)) : undefined;
+            const pendingAmbush = derived.pendingAmbush ?? (hunter ? { nodeId: hunter.nodeId, kind: 'battle' as const } : null);
             const next: HollowGateRunToken = {
                 ...run,
                 position: to,
@@ -170,6 +187,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 stepVersion,
                 recentStepIds: [...recent, requestId].slice(-64),
                 pendingAmbush,
+                ...(wanderers ? { wanderers: { ...run.wanderers, [String(floor)]: wanderers } } : {}),
                 visitedTiles: hollowGateMarkVisited(run.visitedTiles, manifest, to),
             };
             await kv.set(runKey, next);
@@ -189,6 +207,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 stepVersion,
                 torchSputtered: torch === 0 && torchBefore > 0,
                 ambush: pendingAmbush,
+                wanderers,
                 _saveVersion: saveVersion,
             } };
         }, { failClosed: true, ttlSec: 10 });

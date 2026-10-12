@@ -79,6 +79,46 @@ manual-only `Visual regression (manual) / visual` workflows remain useful
 evidence, but they must not be globally required on every pull request because
 they do not run for every change.
 
+## Real Postgres tests locally
+
+Use Postgres 16 binaries (`initdb` and `pg_ctl`) to match the hosted service.
+An existing installation or the [official Windows portable binaries](https://www.enterprisedb.com/download-postgresql-binaries)
+work; this command does not install software or register a system service.
+From the repository root, after installing the root and client dependencies:
+
+```powershell
+npm run test:ci:postgres -- --pg-bin=.tmp/pg-local/pgsql/bin
+```
+
+Replace `--pg-bin` with your binaries directory. The helper creates a fresh
+cluster beneath workspace `.tmp`, uses a random password with SCRAM authentication,
+binds only `127.0.0.1` on an automatically selected port, and runs the same full,
+unsharded runner as `test:ci` with `PG_INTEGRATION_REQUIRED=1`. It stops the server
+and removes its temporary cluster afterward. It never uses an existing database
+URL. Add `--integration-only` to run just the 14 storage integration tests.
+
+Two additional modes use the same isolated cluster and the canonical KV table
+and function definitions from `supabase-schema.sql`:
+
+```powershell
+npm run test:ci:postgres -- --pg-bin=.tmp/pg-local/pgsql/bin --stronghold-multiplayer
+npm run test:ci:postgres -- --pg-bin=.tmp/pg-local/pgsql/bin --underground-api
+```
+
+The multiplayer mode exercises separately authenticated mobile browsers, both
+strongholds, reward settlement/replay, and 24 concurrent players per stronghold.
+It requires the existing client Playwright dependencies and browsers.
+`--output=PATH` selects its evidence directory relative to `shinobij.client`.
+The API mode runs the eight Anbu async/queue cases and seven cave traveler/collision
+cases in separate fresh databases. Direct SQL checks prove persistence;
+queued telemetry drains before storage closes. Ordinary auto-discovered API
+tests retain their isolated memory mode unless this dedicated fixture is enabled.
+
+The ordinary `npm run test:ci` still skips these optional local tests unless
+`PG_INTEGRATION_DATABASE_URL` is supplied. The hosted `CI / pg-integration` job
+already supplies its disposable service and requires the tests; its workflow
+and assertions are unchanged.
+
 ## CodeQL checks
 
 The advanced CodeQL workflow has two independent, stable contexts:
