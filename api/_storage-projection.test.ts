@@ -46,10 +46,15 @@ test('Postgres projects in one parameterized query and never seeds a partial ful
     const query = t.mock.method(pg.Pool.prototype, 'query', async (sql: string, params: unknown[]) => {
         selects++;
         if (sql.startsWith('SELECT key, CASE')) {
-            assert.match(sql, /jsonb_typeof\(value\) = 'object'/);
+            assert.match(sql, /jsonb_typeof\(v\) = 'object'/);
             assert.match(sql, /key = ANY\(\$1::text\[\]\)/);
             assert.match(sql, /expires_at IS NULL OR expires_at > now\(\)/);
-            assert.match(sql, /value #> \$3::text\[\] IS NULL/);
+            // Each row is detoasted ONCE (value || '{}', kept un-inlined by
+            // OFFSET 0) and every path reads that copy; a path read straight off
+            // the stored `value` would decompress the whole save per path again.
+            assert.match(sql, /SELECT key, value \|\| '\{\}'::jsonb AS v\b[\s\S]*OFFSET 0/);
+            assert.match(sql, /v #> \$3::text\[\] IS NULL/);
+            assert.doesNotMatch(sql, /value #>/);
             assert.ok(!sql.includes(alias) && !sql.includes(field));
             assert.deepEqual(params, [['projection:a', 'projection:missing', 'projection:a'], alias, ['character', field]]);
             return { rows: [{ key: 'projection:a', value: { [alias]: 'projected' } }] };
