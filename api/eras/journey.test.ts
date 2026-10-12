@@ -25,7 +25,8 @@ async function finishFirstCampaign(name: string) {
     const record = await kv.get<any>(`save:${name}`);
     let character = record.character;
     for (let n = 0; n < 60; n++) character = recordEraCampaignEvidence(character, { kind: 'mission', receiptId: `mission:${name}:${n}`, missionId: n < 30 ? 'combat-c-patrol' : 'combat-b-escort', at: Date.now() });
-    character = recordEraCampaignEvidence(character, { kind: 'tower', receiptId: `tower:${name}:exam`, at: Date.now(), startedAt: Date.now(), floor: 5, story: true, clean: true, withinPar: true, disrupted: true, avoided: false, baited: false });
+    const examAt = Date.now();
+    character = recordEraCampaignEvidence(character, { kind: 'tower', receiptId: `tower:${name}:exam`, at: examAt, startedAt: examAt, floor: 5, story: true, clean: true, withinPar: true, disrupted: true, avoided: false, baited: false });
     await kv.set(`save:${name}`, { ...record, character });
 }
 async function finishCampaign(name: string, index: number) {
@@ -58,7 +59,11 @@ async function endgamePlayer(name: string) {
     await kv.set(`save:${name}`, { ...record, character: { ...record.character, level: 100, legacy: { legacyId: 'first-steps', stage: 5 } } });
 }
 
-test('fresh proof, atomic cosmetic reward, and replay-safe start/completion', async () => {
+test('fresh proof, atomic cosmetic reward, and replay-safe start/completion', async t => {
+    // Always cross a millisecond boundary between clock reads. A proof fixture
+    // must not read completion first and then accidentally start in its future.
+    let clock = Date.now();
+    t.mock.method(Date, 'now', () => ++clock);
     await player('erafresh');
     assert.equal((await call('erafresh', 'complete')).status, 409);
     const started = await call('erafresh', 'start');
