@@ -48,7 +48,7 @@ const ALLOWED: Record<string, { count: number; why: string }> = {
         why: "imports react-dom/client, which main.tsx imports statically; by the time the digest mounts, the entry has evaluated it, so the import resolves from the module map and requests nothing (checked against the 2026-09-13 build)",
     },
     "petvfx.tsx": {
-        count: 3,
+        count: 2,
         why: "standalone dev-only VFX harness (petvfx.html), not in the player bundle; the import IS the page, so a failed load has nothing to fall back to",
     },
 };

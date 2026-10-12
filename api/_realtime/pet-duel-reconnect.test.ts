@@ -48,6 +48,17 @@ const running = (id: string, p1: string, p2: string) => {
 
 beforeEach(() => _resetSessions());
 
+test('retired socket challenges cannot create a fight or send an invite', () => {
+    const log: Emitted[] = [];
+    const { socket, handlers, joined } = fakeSocket('ayame', log);
+    wirePetDuel(fakeIo(log), socket);
+    handlers.get('petduel:challenge')?.({ to: 'kenji', mode: '2v2', petIds: ['forged'] });
+    assert.deepEqual(joined, []);
+    assert.equal(log.length, 1);
+    assert.equal(log[0].event, 'petduel:error');
+    assert.match(String((log[0].payload as { error: string }).error), /Pet Arena/);
+});
+
 test('a lapsed invite tells the challenger, mirroring the explicit-decline path', () => {
     const s = makeSession({ id: 'exp1', mode: '1v1', seed: 7, challenger: 'ayame', opponent: 'kenji', now: NOW });
     putSession(s);

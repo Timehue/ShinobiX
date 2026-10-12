@@ -85,6 +85,10 @@ export function buildServerHollowHound(activePet: Pet, floorRaw: unknown, reques
     } as Pet;
 }
 
+// Keep historical snapshot construction available to retained proof readers;
+// the public admission boundary never starts another cinematic Dungeon fight.
+function retiredDungeonAdmission(selector: unknown): boolean { return Boolean(selector); }
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -199,6 +203,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (hollowGateBody && dungeonBody) {
             return res.status(400).json({ error: 'A pet battle cannot carry both Dungeon and Hollow Gate authority.' });
         }
+        if (retiredDungeonAdmission(dungeonBody)) return res.status(410).json({ error: 'The Dungeon Rare Beast now uses Pet Arena command battles.' });
         // A sealed player duel is checked FIRST: its teams were fixed at accept,
         // so it must not be re-derived from a parent-mode body the caller also
         // happened to send.

@@ -53,6 +53,17 @@ test("ordinary Showdown callers retain their boolean concession contract", async
     assert.equal(await forfeitShowdown("Rin", "ordinary"), false);
 });
 
+test('Dungeon concession waits for an accepted versioned parent snapshot', async () => {
+    const character = { name: 'Rin', activeDungeonRun: { petLastOutcome: 'loss' } };
+    globalThis.fetch = async () => json({ ok: true, character, _saveVersion: 3 });
+    assert.equal(await forfeitShowdown('Rin', 'dungeon', (snapshot, version) => {
+        assert.deepEqual(snapshot, character); assert.equal(version, 3); return true;
+    }), true);
+    assert.equal(await forfeitShowdown('Rin', 'dungeon', () => false), false);
+    globalThis.fetch = async () => json({ ok: true });
+    assert.equal(await forfeitShowdown('Rin', 'dungeon', () => true), false);
+});
+
 test("a malformed success response does not dismiss an unconfirmed concession", async () => {
     let requests = 0;
     globalThis.fetch = async () => { requests++; return new Response("<html>Proxy page</html>"); };

@@ -12,6 +12,7 @@ let kv: typeof import('../_storage.js').kv;
 let onlineStore: typeof import('./online-store.js').onlineStore;
 let wirePetDuel: typeof import('./pet-duel-socket.js').wirePetDuel;
 let notifyPeerGone: typeof import('./pet-duel-socket.js').notifyPeerGone;
+let seedRetainedRoster: typeof import('./pet-duel-socket.js')._seedRetainedDuelRosterForTest;
 let sessions: typeof import('./pet-duel-session.js');
 let engine: typeof import('../_pet-sim/pet-duel-cinematic.js');
 
@@ -19,6 +20,7 @@ before(async () => {
     ({ kv } = await import('../_storage.js'));
     ({ onlineStore } = await import('./online-store.js'));
     ({ wirePetDuel, notifyPeerGone } = await import('./pet-duel-socket.js'));
+    ({ _seedRetainedDuelRosterForTest: seedRetainedRoster } = await import('./pet-duel-socket.js'));
     sessions = await import('./pet-duel-session.js');
     engine = await import('../_pet-sim/pet-duel-cinematic.js');
 });
@@ -63,9 +65,11 @@ async function startDuel() {
         await kv.set(`save:${names[i]}`, { character });
         onlineStore.upsert({ name: names[i], sector: 40, character });
     }
-    await sockets[0].call('petduel:challenge', { to: names[1], mode: '1v1', pets: [{ id: pets[0].id }] });
-    const session = sessions.sessionForPlayer(names[0]);
-    assert.ok(session);
+    // Pre-cutover in-memory fixture. Fresh socket challenges stay closed.
+    const session = sessions.makeSession({ id: `retained${serial}`, mode: '1v1', seed: 771, challenger: names[0], opponent: names[1], now: Date.now() });
+    sessions.putSession(session);
+    session.p1.ready = true;
+    seedRetainedRoster(session.id, [pets[0]]);
     await sockets[1].call('petduel:accept', { id: session.id, pets: [{ id: pets[1].id }] });
     assert.equal(session.status, 'running');
     log.length = 0;

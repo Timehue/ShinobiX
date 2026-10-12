@@ -103,18 +103,28 @@ async function installSave(playerName: string, runToken: string) {
 }
 
 async function startDungeonBattle(playerName: string, authToken: string, runToken: string, ip: string) {
-    const started = response();
-    await startHandler(request({
-        playerName,
-        playerPetIds: [PLAYER_PET_ID],
-        opponentPetIds: ['forged-client-beast'],
-        opponentName: 'forged-opponent',
-        opponentLevel: 100,
-        seed: 0,
-        mode: '1v1',
-        dungeon: { token: runToken },
-    }, authToken, ip), started.res);
-    return started.out;
+    // Historical proof fixture: fresh cinematic admission is permanently shut.
+    // Preserve the pre-cutover result, retry and parent-payment regressions.
+    void authToken; void ip;
+    const { createCasualPveBattleSeal } = await import('./_casual-pve-seal.js');
+    const { buildDungeonRareBeast } = await import('./_dungeon-battle.js');
+    const { replayCasualPetDuel } = await import('./_duel-replay.js');
+    const { randomUUID } = await import('node:crypto');
+    const token = randomUUID().replace(/-/g, '');
+    const reportKey = `pet:${token}`;
+    const seed = 771;
+    const params = { mode: '1v1' as const, seed, damageMult: 1, hpMult: 1, revive: false, applyItems: true, accuracy: true, terrain: null };
+    const save = await kv.get<{ character: ReturnType<typeof readyCharacter> }>(`save:${playerName}`);
+    const seal = createCasualPveBattleSeal(save!.character.pets as never, [buildDungeonRareBeast()], params);
+    await kv.set(`pet:battle-token:${playerName}:${token}`, {
+        playerName, opponentName: 'Sealed Rare Beast', opponentLevel: 55, rewardRyo: 0,
+        reportKey, seed, mode: '1v1', createdAt: Date.now(), playerPetIds: [PLAYER_PET_ID],
+        opponentPetIds: ['dungeon-rare-beast'], dungeon: { authorityVersion: 1, runToken },
+        settlementPolicy: 'parent-mode', sealedParams: params, casualPveSeal: seal,
+        authoritativeOutcome: replayCasualPetDuel(seal.playerPets, seal.opponentPets, params, []).outcome,
+    }, { ex: 900 });
+    await kv.set(`pet:battle-active:${playerName}`, token, { ex: 900 });
+    return { statusCode: 200, body: { token, reportKey, seed, dungeon: true, opponentPets: [buildDungeonRareBeast()] } };
 }
 
 async function reportDungeonBattle(
@@ -158,82 +168,16 @@ after(() => {
 });
 
 describe('Dungeon Rare Beast server authority', () => {
-    it('requires the exact proved run, fixes the Beast and refuses cross-authority resume', async () => {
-        const playerName = 'dungeonpetstartprobe';
-        const runToken = 'dungeonpetstart01';
-        const authToken = issuePlayerToken(playerName)!;
-        await kv.set(`save:${playerName}`, {
-            _saveVersion: 1,
-            character: {
-                ...readyCharacter(playerName, runToken),
-                activeDungeonRun: { token: runToken },
-            },
-        });
-        const premature = await startDungeonBattle(playerName, authToken, runToken, '127.0.3.1');
-        assert.equal(premature.statusCode, 409);
-        assert.match(String(premature.body?.error), /Warden win/);
-
-        await installSave(playerName, runToken);
-        const started = await startDungeonBattle(playerName, authToken, runToken, '127.0.3.2');
-        assert.equal(started.statusCode, 200);
-        assert.equal(started.body?.dungeon, true);
-        assert.notEqual(started.body?.seed, 0, 'the caller cannot choose the replay seed');
-        const opponents = started.body?.opponentPets as Array<Record<string, unknown>>;
-        assert.equal(opponents.length, 1);
-        assert.deepEqual(
-            { id: opponents[0]?.id, name: opponents[0]?.name, rarity: opponents[0]?.rarity, level: opponents[0]?.level },
-            { id: 'dungeon-rare-beast', name: 'Sealed Rare Beast', rarity: 'rare', level: 55 },
-        );
-        const battleToken = String(started.body?.token ?? '');
-        const seal = await kv.get<Record<string, unknown>>(`pet:battle-token:${playerName}:${battleToken}`);
-        assert.deepEqual(seal?.dungeon, { authorityVersion: 1, runToken });
-        assert.deepEqual(seal?.opponentPetIds, ['dungeon-rare-beast']);
-        assert.equal(seal?.rewardRyo, 0);
-
-        const ordinary = response();
-        await startHandler(request({
-            playerName,
-            playerPetIds: [PLAYER_PET_ID],
-            opponentPetIds: ['generic-ai-pet-sparrow'],
-            mode: '1v1',
-        }, authToken, '127.0.3.3'), ordinary.res);
-        assert.equal(ordinary.out.statusCode, 410, 'retired picked-AI admission stays closed even while Dungeon owns the active lease');
-        assert.notEqual(ordinary.out.body?.resumed, true);
-
-        const prior = await kv.get<Record<string, unknown>>(`save:${playerName}`);
-        await kv.set(`save:${playerName}`, {
-            ...prior,
-            character: readyCharacter(playerName, 'dungeonpetstart02'),
-        });
-        const differentRun = await startDungeonBattle(playerName, authToken, 'dungeonpetstart02', '127.0.3.4');
-        assert.equal(differentRun.statusCode, 409);
-        assert.notEqual(differentRun.body?.resumed, true);
-
-        const mixed = response();
-        await startHandler(request({
-            playerName,
-            playerPetIds: [PLAYER_PET_ID],
-            mode: '1v1',
-            dungeon: { token: 'dungeonpetstart02' },
-            hollowGate: { token: 'hollowtoken01', runId: 'hollowrun01' },
-        }, authToken, '127.0.3.5'), mixed.res);
-        assert.equal(mixed.out.statusCode, 400);
-    });
-
-    it('heals a pointer-first crash whose active battle seal is missing', async () => {
-        const playerName = 'dungeonpetorphanpointer';
-        const runToken = 'dungeonpetorphan01';
-        const authToken = issuePlayerToken(playerName)!;
-        await installSave(playerName, runToken);
-        await kv.set(`pet:battle-active:${playerName}`, 'missingseal0001', { ex: 900 });
-
-        const started = await startDungeonBattle(playerName, authToken, runToken, '127.0.3.6');
-        assert.equal(started.statusCode, 200);
-        const battleToken = String(started.body?.token ?? '');
-        assert.ok(battleToken);
-        assert.notEqual(battleToken, 'missingseal0001');
-        assert.ok(await kv.get(`pet:battle-token:${playerName}:${battleToken}`));
-        assert.equal(await kv.get(`pet:battle-active:${playerName}`), battleToken);
+    it('refuses every new cinematic Dungeon admission without minting a token', async () => {
+        const name = 'dungeonretiredadmit';
+        const runToken = 'retiredrun0001';
+        await installSave(name, runToken);
+        const rejected = response();
+        await startHandler(request({ playerName: name, playerPetIds: [PLAYER_PET_ID], mode: '1v1', dungeon: { token: runToken } }, issuePlayerToken(name)!, '127.0.3.1'), rejected.res);
+        assert.equal(rejected.out.statusCode, 410);
+        assert.match(String(rejected.out.body?.error), /Pet Arena command/);
+        assert.equal(await kv.get(`pet:battle-active:${name}`), null);
+        assert.equal((await kv.get<Record<string, unknown>>(`save:${name}`))?._saveVersion, 1);
     });
 
     it('replays the sealed outcome and terminalizes without Coliseum, Legacy, or witness rewards', async () => {
@@ -464,7 +408,7 @@ describe('Dungeon Rare Beast server authority', () => {
         await runCleanupCrash('token-gone', 2);
     });
 
-    it('retires a completed Dungeon lease before admitting the next pet battle', async () => {
+    it('keeps fresh admission closed after a historical Dungeon settlement', async () => {
         const playerName = 'dungeonpetnextadmit';
         const runToken = 'dungeonpetnext001';
         const authToken = issuePlayerToken(playerName)!;
@@ -494,24 +438,9 @@ describe('Dungeon Rare Beast server authority', () => {
         const claimed = await settleDungeonRun(playerName, authToken, runToken, '127.0.11.3');
         assert.equal(claimed.statusCode, 200);
 
-        // The next admission is the Rare Beast battle of a fresh Dungeon run. (It
-        // used to be an unchallenged social duel; that path was retired with the
-        // legacy duel sim on 2026-10-02.)
-        const nextRunToken = 'dungeonpetnext002';
-        const playerSave = await kv.get<Record<string, unknown>>(`save:${playerName}`);
-        const playerCharacter = playerSave?.character as Record<string, unknown>;
-        await kv.set(`save:${playerName}`, {
-            ...playerSave,
-            character: { ...playerCharacter, activeDungeonRun: readyCharacter(playerName, nextRunToken).activeDungeonRun },
-        });
-
-        const next = await startDungeonBattle(playerName, authToken, nextRunToken, '127.0.11.4');
-        assert.equal(next.statusCode, 200);
-        const nextToken = String(next.body?.token ?? '');
-        assert.ok(nextToken);
-        assert.notEqual(nextToken, oldBattleToken);
-        assert.equal(await kv.get(oldTokenKey), null);
-        assert.equal(await kv.get(activeKey), nextToken);
-        assert.ok(await kv.get(`pet:battle-token:${playerName}:${nextToken}`));
+        const rejected = response();
+        await startHandler(request({ playerName, playerPetIds: [PLAYER_PET_ID], mode: '1v1', dungeon: { token: 'dungeonpetnext002' } }, authToken, '127.0.11.4'), rejected.res);
+        assert.equal(rejected.out.statusCode, 410, 'historical cleanup cannot reopen fresh cinematic admission');
     });
+
 });
