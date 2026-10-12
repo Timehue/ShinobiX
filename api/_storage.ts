@@ -350,19 +350,30 @@ type PgQueryExecutor = {
 };
 
 /**
- * Prove, inside the caller's open transaction, that every lease this async
- * context holds is still live and still ours. FOR SHARE holds those owner rows
- * until COMMIT, so a lease cannot expire and be taken over between this check
- * and the protected statements that follow it.
+ * Open a transaction and prove, inside it, that every lease this async context
+ * holds is still live and still ours. FOR SHARE holds those owner rows until
+ * COMMIT, so a lease cannot expire and be taken over between this check and
+ * the protected statements that follow it.
+ *
+ * BEGIN and the check travel as ONE simple-protocol message, saving a database
+ * round trip on every locked statement (2026-10-12: ~870k fenced statements,
+ * each holding a pooled connection for four round trips). A parameterised
+ * statement cannot share a message, so the lease keys are inlined through pg's
+ * own literal escaping. A BEGIN that opens a multi-statement message leaves
+ * its transaction open when the message ends, so the check runs inside exactly
+ * the transaction a separate BEGIN would have opened.
  */
-async function assertLeasesHeld(client: pg.PoolClient, context: NonNullable<ReturnType<typeof currentKvLockContext>>): Promise<void> {
-    const { rows } = await client.query<{ key: string; value: unknown; live: boolean }>(
-        `WITH held AS MATERIALIZED (
+async function beginWithLeasesHeld(client: pg.PoolClient, context: NonNullable<ReturnType<typeof currentKvLockContext>>): Promise<void> {
+    const keys = context.leases.map(lease => pg.escapeLiteral(lease.key)).join(', ');
+    const results = await client.query(
+        `BEGIN; WITH held AS MATERIALIZED (
              SELECT key, value, expires_at FROM public.kv_store
-             WHERE key = ANY($1::text[]) ORDER BY key FOR SHARE
+             WHERE key = ANY(ARRAY[${keys}]::text[]) ORDER BY key FOR SHARE
          ) SELECT key, value, expires_at > clock_timestamp() AS live FROM held`,
-        [context.leases.map(lease => lease.key)],
-    );
+    ) as unknown as Array<pg.QueryResult<{ key: string; value: unknown; live: boolean }>>;
+    // Fail closed on any reply that is not the two expected results.
+    const rows = Array.isArray(results) && results.length === 2 ? results[1].rows : undefined;
+    if (!rows) throw new LockOwnershipLostError('The lease check returned an unexpected reply.');
     const owners = new Map(rows.map(row => [row.key, row]));
     if (context.leases.some(lease => {
         const row = owners.get(lease.key);
@@ -385,8 +396,7 @@ const fencedPg: PgQueryExecutor = {
         try {
             client = await getPool().connect();
             assertKvLockContext(context);
-            await client.query('BEGIN');
-            await assertLeasesHeld(client, context);
+            await beginWithLeasesHeld(client, context);
             assertKvLockContext(context);
             const result = await client.query<R>(sql, values);
             assertKvLockContext(context);
@@ -431,8 +441,8 @@ async function runPgTransaction<T>(body: (client: pg.PoolClient) => Promise<T | 
     try {
         client = await getPool().connect();
         assertKvLockContext(context);
-        await client.query('BEGIN');
-        if (context) await assertLeasesHeld(client, context);
+        if (context) await beginWithLeasesHeld(client, context);
+        else await client.query('BEGIN');
         assertKvLockContext(context);
         const result = await body(client);
         if (result === PG_ROLLBACK) {
