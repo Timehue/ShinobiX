@@ -451,7 +451,7 @@ async function runBootSnapshotCatchUpCore(): Promise<void> {
             return;
         }
         const result = recovery.value;
-        console.log(`[cron-scheduler] boot catch-up: ${result.snapshotted} saved, ${result.skipped} skipped, ${result.failed.length} failed (${result.processed}/${result.total}, ${result.elapsedMs}ms${result.truncated ? ', TRUNCATED' : ''}${result.emptyKeyspace ? ', EMPTY KEYSPACE' : ''}${result.writeOutage ? ', WRITE OUTAGE' : ''}${result.healthMarkerFailed ? ', MARKER WRITE FAILED' : ''}); ${result.ok ? 'healthy' : 'UNHEALTHY'}.`);
+        console.log(`[cron-scheduler] boot catch-up: ${result.snapshotted} saved, ${result.skipped} skipped (${result.unchanged} unchanged), ${result.failed.length} failed (${result.processed}/${result.total}, ${result.elapsedMs}ms${result.truncated ? ', TRUNCATED' : ''}${result.emptyKeyspace ? ', EMPTY KEYSPACE' : ''}${result.writeOutage ? ', WRITE OUTAGE' : ''}${result.healthMarkerFailed ? ', MARKER WRITE FAILED' : ''}); ${result.ok ? 'healthy' : 'UNHEALTHY'}.`);
         if (!result.ok) scheduleSnapshotRecoveryRetry();
     } catch (err) {
         console.error('[cron-scheduler] boot catch-up threw:', (err as Error).message);
@@ -472,7 +472,7 @@ async function fireCore(): Promise<void> {
             } else if (r.emptyKeyspace) {
                 console.error('[cron-scheduler] snapshot run found ZERO saves — check DATABASE_URL / SUPABASE_POSTGRES_URL.');
             } else {
-                console.log(`[cron-scheduler] snapshot run: ${r.snapshotted} saved, ${r.skipped} skipped, ${r.failed.length} failed (${r.processed}/${r.total}, ${r.elapsedMs}ms${r.truncated ? ', TRUNCATED' : ''}).`);
+                console.log(`[cron-scheduler] snapshot run: ${r.snapshotted} saved, ${r.skipped} skipped (${r.unchanged} unchanged), ${r.failed.length} failed (${r.processed}/${r.total}, ${r.elapsedMs}ms${r.truncated ? ', TRUNCATED' : ''}).`);
             }
         } catch (err) {
             console.error('[cron-scheduler] snapshot run threw:', (err as Error).message);
