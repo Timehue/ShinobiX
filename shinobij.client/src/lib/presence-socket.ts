@@ -14,8 +14,8 @@
  *      authoritative carrier of pendingAttacker / pendingChallenges, so there is
  *      no double-delivery and nothing is lost if a push is missed.
  *
- * NOTE: this is the SHINOBIX game socket — distinct from src/lib/realtime.ts,
- * which is the Supabase Realtime client for pvp:* / challenges:* row subs.
+ * NOTE: this is the SHINOBIX game socket. PvP battles use their own stream
+ * (/api/pvp/stream, lib/pvp-stream-transport.ts); no Supabase Realtime client remains.
  *
  * Auth mirrors the HTTP interceptor (token preferred, password fallback) and is
  * re-read on every (re)connect so a token the HTTP path just re-minted is used.

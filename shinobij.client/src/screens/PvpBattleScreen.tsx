@@ -5,7 +5,7 @@ import { cardArtBackdrop } from "../lib/card-art-backdrop";
 import { combatItemTooltip } from "../lib/combat-item-tooltip";
 import { normalizeNarrativeCharacter as normalizeCharacter } from "../lib/normalize-narrative-character";
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
-import { useState, useEffect, useLayoutEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from "react";
 // Compact local command-deck glyphs — one per basic action.
 import {
     GiCrossedSwords, GiBootPrints, GiHealing, GiMagicSwirl, GiWaterDrop, GiRun, GiSandsOfTime,
@@ -52,7 +52,7 @@ import { hasAffordablePvpPaidAction } from "../lib/pvp-action-affordability";
 import { normalizeJutsu } from "../lib/jutsu";
 import { jutsuDetailDescription, jutsuTargetingLabel } from "../lib/jutsu-effects";
 import { normalizeTagName, tagMatchesName, pvpAffectsOpponent } from "../lib/tags";
-import { realtimeAvailable, subscribeKvKey } from "../lib/realtime";
+import { PVP_RECONNECT_BADGE_GRACE_MS, pvpStreamHandoffDelayMs, pvpStreamRetryDelayMs } from "../lib/pvp-stream-transport";
 import { buildActionsFromPvpLog, makeBattleEntry } from "../lib/battle-log-history";
 import { useBoardScale } from "../lib/use-board-scale";
 import { useBattleTabs } from "../lib/use-battle-tabs";
@@ -336,7 +336,32 @@ export function PvpBattleScreen({
         // result property makes the event useful for competitive engagement.
         void recordServerConfirmedPlayEvent("pvp_match_completed", { result });
     }, [session?.status, session?.winner, battleId, role, spectatorOrigin, effectiveIsSpar]);
-    // Tracks the battleId we've already seeded so a later Realtime/move
+    // "reconnecting" shows a pill instead of a silently frozen board. It is
+    // raised through markStreamReconnecting, which waits
+    // PVP_RECONNECT_BADGE_GRACE_MS first: a gap the stream closes inside that
+    // window (a planned server handoff, a one-off blip) never flashes the pill,
+    // and moves never wait on the stream anyway. Going offline, and a session
+    // the server reports unavailable, still raise it at once.
+    const [connectionState, setConnectionState] = useState<"connected" | "reconnecting">("connected");
+    const reconnectBadgeTimerRef = useRef<number | null>(null);
+    const markStreamConnected = useCallback(() => {
+        if (reconnectBadgeTimerRef.current !== null) {
+            window.clearTimeout(reconnectBadgeTimerRef.current);
+            reconnectBadgeTimerRef.current = null;
+        }
+        setConnectionState("connected");
+    }, []);
+    const markStreamReconnecting = useCallback(() => {
+        if (reconnectBadgeTimerRef.current !== null) return;
+        reconnectBadgeTimerRef.current = window.setTimeout(() => {
+            reconnectBadgeTimerRef.current = null;
+            setConnectionState("reconnecting");
+        }, PVP_RECONNECT_BADGE_GRACE_MS);
+    }, []);
+    useEffect(() => () => {
+        if (reconnectBadgeTimerRef.current !== null) window.clearTimeout(reconnectBadgeTimerRef.current);
+    }, []);
+    // Tracks the battleId we've already seeded so a later stream/move
     // update on the same fight doesn't get clobbered by a re-apply of the
     // (now-stale) initial seed.
     const seededBattleIdRef = useRef<string | null>(session ? battleId : null);
@@ -352,9 +377,9 @@ export function PvpBattleScreen({
         // a board whose earlier fetch effect already stopped.
         setSessionLoadFailure("");
         setSessionExitCheck("unchecked");
-        setConnectionState("reconnecting");
+        markStreamReconnecting();
         setSessionRetryKey(key => key + 1);
-    }, [seedSession, battleId]);
+    }, [seedSession, battleId, markStreamReconnecting]);
     const [submitting, setSubmitting] = useState(false);
     const submitInFlightRef = useRef(false);
     // A timed-out POST may still commit on the server. Keep its token for an
@@ -392,11 +417,6 @@ export function PvpBattleScreen({
     const [pvpPrefightFirstActor, setPvpPrefightFirstActor] = useState<"p1" | "p2" | null>(null);
     // Connection state for the live-update channel (Realtime → SSE → poll
     // fallback chain). "connected" stays in place during normal play;
-    // "reconnecting" fires when the WebSocket drops or SSE errors, so
-    // players see a visible pill instead of staring at a frozen board
-    // wondering whether to refresh. The fetch/subscribe effect flips
-    // this on Realtime status callbacks and SSE error/open events.
-    const [connectionState, setConnectionState] = useState<"connected" | "reconnecting">("connected");
     // An established stream can stay silent when the browser loses network,
     // so transport callbacks alone may leave the board looking connected.
     const [browserOffline, setBrowserOffline] = useState(() => typeof navigator !== "undefined" && !navigator.onLine);
@@ -407,7 +427,7 @@ export function PvpBattleScreen({
         };
         const online = () => {
             setBrowserOffline(false);
-            setConnectionState("reconnecting");
+            markStreamReconnecting();
             // Re-read the server and rebuild the stream after a lost link.
             setSessionRetryKey(key => key + 1);
         };
@@ -417,7 +437,7 @@ export function PvpBattleScreen({
             window.removeEventListener("offline", offline);
             window.removeEventListener("online", online);
         };
-    }, []);
+    }, [markStreamReconnecting]);
     // Weak phones / desktops skip the dash-trail flourish (the only animation-heavy
     // PvP cosmetic); the floating ±damage numbers below are kept as the impact cue.
     const liteFx = prefersLiteCombatFx();
@@ -560,7 +580,7 @@ export function PvpBattleScreen({
             }
             setSession(current => acceptRevision(current, pending.session));
             setSessionLoadFailure("");
-            setConnectionState("connected");
+            markStreamConnected();
             setSessionExitCheck("unchecked");
             // Restart live transports after the earlier terminal/failure path
             // stopped them; the recovered authoritative row remains visible.
@@ -604,17 +624,6 @@ export function PvpBattleScreen({
         let streamFailures = 0;
         let es: EventSource | null = null;
         let pollTimer: number | null = null;
-        let unsubscribeRealtime: (() => void) | null = null;
-        // Set once we've escalated from Realtime to the SSE/poll fallback, so
-        // the channel-error path and the no-payload watchdog can't start SSE
-        // twice. (#11)
-        let fallbackStarted = false;
-        // Watchdog: if the Realtime subscription comes up but never delivers a
-        // payload within this window, we assume it's silently dead (e.g.
-        // kv_store not in the supabase_realtime publication, #13) and fall back
-        // to SSE so the board still updates. Canceled on the first real push.
-        let firstPayloadTimer: number | null = null;
-        const REALTIME_PAYLOAD_WATCHDOG_MS = 10_000;
         const MAX_MISSING_SESSION_ATTEMPTS = 5;
         setSessionLoadFailure("");
         setSessionExitCheck("unchecked");
@@ -622,10 +631,8 @@ export function PvpBattleScreen({
         function stopLiveTransports(): void {
             active = false;
             transportAbort.abort();
-            if (unsubscribeRealtime) { try { unsubscribeRealtime(); } catch { /* noop */ } unsubscribeRealtime = null; }
             if (es) { try { es.close(); } catch { /* noop */ } es = null; }
             if (pollTimer !== null) { window.clearTimeout(pollTimer); pollTimer = null; }
-            if (firstPayloadTimer !== null) { window.clearTimeout(firstPayloadTimer); firstPayloadTimer = null; }
         }
 
         function endSession(message: string): void {
@@ -648,10 +655,9 @@ export function PvpBattleScreen({
             return parsed.session;
         }
 
-        // Tier 0 fetch — even with Realtime/SSE pushing changes, we
-        // need an initial snapshot since subscriptions only fire on
-        // NEW writes. Without this the screen would render blank
-        // until the first move.
+        // Tier 0 fetch: one authoritative GET alongside the stream, which also
+        // sends the full session the moment it opens. Without either the screen
+        // would render blank until the first move.
         async function fetchInitial(): Promise<PvpSessionState | null> {
             const initial = await fetchInitialPvpProjection({
                 battleId,
@@ -672,13 +678,13 @@ export function PvpBattleScreen({
                 // A transient authority outage may keep the already-validated
                 // seed visible, but it is explicitly degraded until live GET or
                 // push traffic resumes.
-                setConnectionState("reconnecting");
+                markStreamReconnecting();
             }
             return null;
         }
 
-        // Long-poll fallback used when neither Realtime nor SSE is
-        // available (very old browser or both failed).
+        // Long-poll fallback used when the stream is unavailable (a browser
+        // without EventSource, or the stream could not be constructed).
         async function pollFallback() {
             let misses = 0;
             while (active) {
@@ -696,6 +702,7 @@ export function PvpBattleScreen({
                             misses += 1;
                         } else {
                             misses = 0;
+                            if (active) markStreamConnected();
                             if (data.status === "done") break;
                         }
                     } else if (res.status === 404 || res.status === 409) {
@@ -715,9 +722,11 @@ export function PvpBattleScreen({
             }
         }
 
-        // SSE fallback. Server pushes `session` events every ~100ms
-        // when the KV record changes. Used when Realtime isn't
-        // configured (env vars missing) or fails.
+        // The battle stream: the screen's one live transport (fighters and
+        // spectators alike). The server pushes `session` the moment the battle
+        // row is written, `end` when the battle is over, and `reconnect` when it
+        // ends a stream on purpose: the 13-minute renewal, or a deploy handing
+        // the battle to the new server. Timing: lib/pvp-stream-transport.ts.
         function startStream() {
             if (!active) return;
             if (typeof EventSource === "undefined") {
@@ -731,14 +740,28 @@ export function PvpBattleScreen({
                 es.addEventListener("session", (e) => {
                     if (!active || !isCurrentScope()) return;
                     // Any message arriving means the channel is healthy.
-                    setConnectionState("connected");
+                    markStreamConnected();
                     try {
                         const parsed = acceptSession(JSON.parse((e as MessageEvent).data));
-                        if (!parsed) setConnectionState("reconnecting");
-                    } catch { setConnectionState("reconnecting"); }
+                        if (!parsed) markStreamReconnecting();
+                    } catch { markStreamReconnecting(); }
                 });
                 es.addEventListener("open", () => {
-                    if (active) setConnectionState("connected");
+                    if (active) markStreamConnected();
+                });
+                // A planned cut, not a failure: reopen at once (spread a little
+                // so a whole server's viewers don't land together) without
+                // counting a failure. The badge only shows if the new stream is
+                // not up within the grace window.
+                es.addEventListener("reconnect", () => {
+                    es?.close();
+                    es = null;
+                    if (!active) return;
+                    markStreamReconnecting();
+                    pollTimer = window.setTimeout(() => {
+                        pollTimer = null;
+                        if (active) startStream();
+                    }, pvpStreamHandoffDelayMs());
                 });
                 es.addEventListener("end", (event) => {
                     es?.close();
@@ -760,91 +783,37 @@ export function PvpBattleScreen({
                         setSessionLoadFailure("The battle session is unavailable or expired.");
                         return;
                     }
-                    // Surface the gap so players see "reconnecting…" rather
-                    // than a frozen board.
-                    setConnectionState("reconnecting");
-                    // Once a session has loaded, back off 1.5s → 3s → 6s → 10s cap: a
-                    // flat 1.5s retry through a sustained error ran ~40 reconnects/min
-                    // against a 30/min limit, so the outage itself locked the stream
-                    // out. Before the first session keep the flat 1.5s, so a battle
-                    // that never existed is still reported within a few seconds. Any
-                    // accepted session resets streamFailures (acceptSession).
+                    // The badge waits out the grace window: a blip the retry
+                    // closes in time never shows. The first retry comes in
+                    // under a second, then 1.5s → 3s → 6s → 10s cap, which keeps
+                    // a sustained outage inside the server's 30/min stream
+                    // budget. Before the first session the retry stays a flat
+                    // 1.5s, so a battle that never existed is still reported
+                    // within a few seconds. Any accepted session resets
+                    // streamFailures (acceptSession).
+                    markStreamReconnecting();
                     pollTimer = window.setTimeout(() => {
+                        pollTimer = null;
                         if (!active) return;
                         startStream();
-                    }, hasLoadedSession ? Math.min(10_000, 1500 * 2 ** Math.max(0, streamFailures - 1)) : 1500);
+                    }, pvpStreamRetryDelayMs(streamFailures, hasLoadedSession));
                 };
             } catch {
-                if (active) setConnectionState("reconnecting");
+                if (active) markStreamReconnecting();
                 void pollFallback();
             }
         }
 
-        // Escalate from a degraded/silent Realtime channel to the SSE (then
-        // poll) fallback. Tears down the Realtime subscription so SSE is the
-        // sole transport — no double setSession, no competing auto-retries.
-        // Idempotent via fallbackStarted. (#11)
-        function escalateToStreamFallback() {
-            if (!active || fallbackStarted) return;
-            fallbackStarted = true;
-            if (firstPayloadTimer !== null) { window.clearTimeout(firstPayloadTimer); firstPayloadTimer = null; }
-            if (unsubscribeRealtime) { try { unsubscribeRealtime(); } catch { /* noop */ } unsubscribeRealtime = null; }
-            setConnectionState("reconnecting");
-            startStream();
-        }
-
-        // Primary path: Supabase Realtime. Subscribes directly to the
-        // kv_store row for this battle — Supabase pushes the new
-        // session JSON via WebSocket the moment Postgres commits the
-        // write. Latency: ~30-80ms vs. ~100ms for SSE vs. up to 1s
-        // for old polling.
-        if (realtimeAvailable()) {
-            unsubscribeRealtime = subscribeKvKey<unknown>(
-                `pvp:${battleId}`,
-                (next) => {
-                    if (!active || fallbackStarted) return;
-                    // A real push proves the channel is healthy: cancel the
-                    // no-payload watchdog and clear any "reconnecting" state.
-                    if (firstPayloadTimer !== null) { window.clearTimeout(firstPayloadTimer); firstPayloadTimer = null; }
-                    setConnectionState("connected");
-                    const parsed = acceptSession(next);
-                    if (!parsed && active) escalateToStreamFallback();
-                },
-                (status) => {
-                    if (!active || fallbackStarted) return;
-                    if (status === "SUBSCRIBED") setConnectionState("connected");
-                    else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
-                        // Don't trust Supabase's auto-retry alone — if the
-                        // channel can't recover the board would freeze on
-                        // "reconnecting…" forever. Fall back to SSE (then poll),
-                        // which is independent of the Realtime publication.
-                        escalateToStreamFallback();
-                    }
-                },
-            );
-            // Arm the silent-failure watchdog. If no payload arrives in the
-            // window (subscription "up" but the row isn't published, #13),
-            // switch to SSE. A genuinely quiet battle just gets SSE as its
-            // transport — harmless (same data, ~100ms).
-            firstPayloadTimer = window.setTimeout(() => {
-                escalateToStreamFallback();
-            }, REALTIME_PAYLOAD_WATCHDOG_MS);
-        }
         // A seed is first-paint data, not current authority. Always perform one
-        // GET (with bounded 404 retries): Realtime emits writes but does not
-        // replay a deletion/tombstone that happened before subscription.
+        // GET (with bounded 404 retries): a push stream does not replay a
+        // deletion/tombstone that happened before it connected.
         void fetchInitial();
-        // If Realtime didn't initialize (env vars missing or client
-        // construct failed), fall back to SSE. We don't run both —
-        // they'd both setSession with the same data, wasting cycles.
-        if (!unsubscribeRealtime) {
-            startStream();
-        }
+        startStream();
 
         return () => {
             stopLiveTransports();
         };
-    }, [battleId, runtimeScopeKey, sessionRetryKey]);
+    }, [battleId, runtimeScopeKey, sessionRetryKey, markStreamConnected, markStreamReconnecting]);
 
     // A fighter is reward-eligible only after this authenticated handshake.
     // Ranked queue sessions are seated server-side as soon as both players are
