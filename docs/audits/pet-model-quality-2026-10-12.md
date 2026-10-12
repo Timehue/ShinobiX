@@ -89,6 +89,12 @@ The full production build passes; the final controller changes also pass a fresh
 
 ## Further art polish
 
+### Main integration verification
+
+The release was first integrated over live main `635e14ed0`, whose production health, Railway status, and full CI were green. Full client lint exposed render-time ref reads in swap/evolution code; those are corrected with an observable immutable mounted-entry set and a layout effect for the evolution timeline. A failed scene exit retains the current swapped pet so it can resummon. Browser lifecycle and recall checks pass after these changes, including a controlled late-GLB commit during an active recall.
+
+The full local regression run initially passed 14,564 tests, skipped 16, and reported 71 failures. Those included stale face-only skinning comparisons, the previous portrait-camera source shape, an unhandled development-preview import, and Windows resource-exhaustion process failures. The asset checks now retain independent geometry/topology, facial deformation, head/foot isolation, rigid outer-paw and whole-strike checks while pinning approved whole-body repairs to their runtime source hashes. Compacted index streams are compared by their values rather than typed-array width. The failed files were rerun at bounded concurrency; the initial 42-file retry passed 321 of 322 checks, and the remaining Crystal Bear coordinate-selection assertion is corrected and passes all three of its checks. Full lint, server/client production build, final type checks, shipping inventory and size budgets pass. Detailed release evidence is retained in `.tmp/pet-release-*.log`.
+
 The existing generated anatomy and species rigs limit further AAA polish. Deliberate retopology, more precise anatomical joint placement, facial animation, and bespoke locomotion would improve close-up performances further. Tempest Roc (`starter-wind-l`) retains its established illustrated fallback for large portraits because its GLB still falls below that portrait identity bar.
 
 ## Evidence and repeat checks
