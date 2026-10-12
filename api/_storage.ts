@@ -85,6 +85,11 @@ const _noCachePrefixes = [
     // Player deletion generations are durable cross-worker save authority. A
     // cached floor would let another worker resurrect an old save.
     'save-delete-version:',
+    // Nightly save snapshots are whole saves (~80 KB each), written once a night
+    // and read almost never (admin restore). The LRU caps entries, not bytes, so
+    // write-through caching parked up to 5,000 full saves in process memory per
+    // run; a restore must also read the stored row, not a renewed copy's cache.
+    'save-snapshot:',
     'presence:', 'challenges:', 'reset-signal:', 'admin-lock:', 'auth:', 'auth-session:', 'world:travel-lease:',
     // Natural-wanderer cooldown proofs are NX claims shared by all workers.
     // A process-local cached null can make an idempotent readback look absent.
