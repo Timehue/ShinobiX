@@ -282,7 +282,9 @@ export function buildColosseumAiTeam(
 ) {
     const team = buildShowdownAiTeam(playerPets, size, tier, seed, {
         mirrorLevels: sparring,
-        mirrorRarities: sparring,
+        // Difficulty comes from training, policy and loadout, not an unrelated
+        // rarity cliff. Story/boss callers keep their authored generic pools.
+        mirrorRarities: true,
         leadTemplateId: opts?.leadTemplateId,
     });
     return {

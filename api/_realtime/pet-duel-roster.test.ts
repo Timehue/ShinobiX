@@ -35,10 +35,10 @@ describe('live pet-duel authoritative roster cardinality', () => {
         assert.equal(sealAuthoritativePetRoster(character, [{ id: lead.id }, { id: busy.id }], '2v2'), null);
     });
 
-    it('applies the same seal at challenge and both accept-time reseals without adding reward writes', () => {
+    it('closes challenges and preserves both accept-time reseals for retained sessions without reward writes', () => {
         const source = readFileSync(join(process.cwd(), 'api', '_realtime', 'pet-duel-socket.ts'), 'utf8');
-        assert.match(source, /loadAuthoritativePetRoster\(name, p\.pets, mode\)/);
-        assert.match(source, /if \(!pets\?\.length\) return socket\.emit\('petduel:error'/);
+        assert.match(source, /Start player-controlled battles in Pet Arena/);
+        assert.doesNotMatch(source, /makeSession\(|putSession\(/);
         assert.match(source, /loadAuthoritativePetRoster\(pending\.p1\.name, pendingSeat\.p1\.pets, pending\.mode\)/);
         assert.match(source, /loadAuthoritativePetRoster\(name, p\.pets, pending\.mode\)/);
         assert.match(source, /if \(!challengerPets\?\.length\)/);

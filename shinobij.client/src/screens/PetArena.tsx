@@ -44,7 +44,6 @@ import { GameArtIcon } from "../components/GameArtIcon";
 import { BattleLogLine } from "../components/BattleLogLine";
 import { PetChronicleCeremony } from "../components/PetChronicleCeremony";
 import { PetChronicleProgress } from "../components/PetChronicleProgress";
-import { PetDuelLiveHost, type PetDuelLiveHandle } from "../components/PetDuelLiveHost";
 import { fetchRankedPetDuel } from "../lib/pet-ranked-watch-api";
 import type { ShowdownReplayScript } from "../../../shared/pet-showdown-contract";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
@@ -104,7 +103,6 @@ import { lazyWithRetry } from "../lib/lazyWithRetry";
 import { activeCarriedPets } from "../lib/entitlements";
 import { activeClientBreedingParentIds } from "../lib/pet-breeding";
 import { publicEligiblePets } from "../lib/public-pet-roster";
-import { buildPetArenaLiveRoster, isLivePetDuelAvailable } from "../lib/pet-duel-live-roster";
 import type { ArenaSlot, ArenaRole } from "../lib/pet-arena-sim";
 import type { WfTheme } from "../lib/pet-warfront-map";
 import { riteBandElements, riteBandProblem, type RitePlan, type RiteResult } from "../lib/pet-warfront-rite";
@@ -427,17 +425,6 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
     const [settlementPresentation, setSettlementPresentation] = useState<PetSettlementPresentation | null>(null);
     const battleSetupRetryRef = useRef<(() => void) | null>(null);
     const [battleSetupIssue, setBattleSetupIssue] = useState<{ scope: PetArenaPlayerScope; message: string } | null>(null);
-    // Live PvP duels (lockstep) are owned end-to-end by PetDuelLiveHost; this
-    // screen only asks it to send a challenge and reports the settled result.
-    const liveDuelRef = useRef<PetDuelLiveHandle>(null);
-    // 2v2 party mode — works for both AI and PvP battles. AI auto-picks a
-    // random second opponent from the AI pool. PvP attaches both pet IDs to
-    // the duel challenge so the target's client knows to run the party variant
-    // (with their own top-2 pets auto-selected for them).
-    const [partyMode, setPartyMode] = useState(false);
-    // Default the 2v2 reserve to the saved "2v2 Partner" set in the Pet Yard
-    // (character.activePetId2v2). Still overridable per battle via the dropdown.
-    const [reservePetId, setReservePetId] = useState<string>(character.activePetId2v2 ?? "");
     // Beastbound Warfront: a full-screen 4v4 clash where both bands
     // fight at once on owned cells, best of three. Teams are built and frozen on
     // launch; the player then commits every pet to a free deployment cell.
@@ -707,45 +694,9 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
     const [respondPicks, setRespondPicks] = useState<string[]>([]);
 
     function sendDirectPetChallenge(toName: string) {
-        const targetRecord = allServerPlayers.find((player) => player.name.toLowerCase() === toName.toLowerCase());
-        if (targetRecord && publicEligiblePets(targetRecord).filter((pet) => isLivePetDuelAvailable(pet)).length === 0) {
-            setPetChallengeMsg(`${toName} does not have a pet available for battle.`);
-            return;
-        }
-        if (!selectedPet) {
-            setPetChallengeMsg("Choose one of your pets first.");
-            return;
-        }
-        if (!isLivePetDuelAvailable(selectedPet, character.petBreeding)) {
-            setPetChallengeMsg(`${petDisplayName(selectedPet)} is busy with breeding or an expedition reward.`);
-            return;
-        }
-        // A requested 2v2 stays 2v2. Auto-pick supplies the local reserve; if
-        // either known roster is undersized, fail closed instead of relabelling
-        // the challenge as 1v1 — the server enforces exact cardinality and
-        // rejects a mismatched roster rather than truncating it.
-        if (partyMode && liveDuelPets.length < 2) {
-            setPetChallengeMsg("A 2v2 challenge needs a second eligible pet that is not busy.");
-            return;
-        }
-        const targetCanParty = !targetRecord
-            || publicEligiblePets(targetRecord).filter((pet) => isLivePetDuelAvailable(pet)).length >= 2;
-        if (partyMode && !targetCanParty) {
-            setPetChallengeMsg(`${toName} needs two eligible pets for a 2v2 challenge.`);
-            return;
-        }
         setBattleReady(false);
-        // LIVE PvP (docs/pet-coliseum-player-control-plan.md §10). Player-versus-
-        // player pet duels are lockstep and require both people present, so the
-        // challenge goes over the realtime socket instead of being queued as a
-        // DuelChallenge. There is deliberately no async fallback: if the target is
-        // not connected the server refuses and says so.
-        const liveErr = liveDuelRef.current?.challenge(
-            toName,
-            partyMode ? "2v2" : "1v1",
-        ) ?? "Live duels need a realtime connection — reconnect and try again.";
-        setPetChallengeMsg(liveErr ?? `Challenge sent to ${toName}. Waiting for them to accept…`);
-        return;
+        setPetChallengeMsg(`Create an arena code for ${toName}. Both players choose their squad and issue orders each round.`);
+        setShowTactics(true);
     }
 
     function queueSealedWarfront(seal: WarfrontRewardSeal, scope: PetArenaPlayerScope): void {
@@ -1169,7 +1120,6 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
     // The exact roster a live duel may send. Filters pets that are busy for any
     // reason (expedition, breeding), not just expeditions, so a 2v2
     // cannot be assembled from a pet the server will refuse.
-    const liveDuelPets = buildPetArenaLiveRoster(combatEligiblePets, selectedPet, reservePetId, character.petBreeding);
 
     // The champion card is visible for several seconds before a challenge is
     // answered. Spend that idle time fetching/parsing this pet's GLB so a duel
@@ -1216,7 +1166,6 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
             ?? combatEligiblePets[0]?.id
             ?? "",
         );
-        setReservePetId(character.activePetId2v2 ?? "");
         setTacticalPicks(pickArenaTeam(combatEligiblePets, 4, arenaHintPetId, warfrontBreedingPetIds).map((pet) => pet.id));
         setBattleOpponent(null);
         setBattleReady(false);
@@ -1909,11 +1858,6 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                 <button type="button" className="btn-primary" onClick={() => setShowTactics(true)}>Enter player-controlled battles</button>
             </section>
 
-            {/* The async "accept a pet challenge" banner is GONE with the sender that fed
-                it: PvP pet duels are live-only now (plan §10), so an invite arrives over
-                the realtime socket and is answered by PetDuelLiveHost. Keeping this half
-                would leave a button that starts a precomputed PvP fight — exactly the
-                thing live-only exists to prevent. */}
 
             {arenaView === "gauntlet" && (
                 <Suspense fallback={<div className="summary-box" style={{ padding: "2rem", textAlign: "center", color: "var(--text-dim)" }}>Loading the Gauntlet…</div>}>
@@ -1931,7 +1875,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                         <strong>{combatEligiblePets.length} rostered</strong>
                     </div>
                     {combatEligiblePets.length === 0 ? (
-                        <p className="hint">You need a pet before entering the arena.</p>
+                        <p className="hint">Own a companion for NPC bouts. Player battles use the equal-access arena squad.</p>
                     ) : (
                         <div className="pet-pick-panel">
                             {petPicker(
@@ -1954,9 +1898,9 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                     <div className="pet-arena-panel-heading">
                         <span className="pet-arena-step">02</span>
                         <span><small>Set opposition</small><h2>Challenge a shinobi</h2></span>
-                        <strong>Live duel</strong>
+                        <strong>Player commands</strong>
                     </div>
-                    <p className="hint">Social duels are live, unrated sparring. Paid Colosseum bouts use the server-owned Showdown below.</p>
+                    <p className="hint">Create an arena code and share it with your opponent. Both players choose four pets from the same twelve-pet roster and command two active pets each round. Sparring does not award ryo or rating.</p>
                     <div className="pet-player-search">
                         <label htmlFor="pet-arena-player-search">Search player name</label>
                         <div className="pet-player-search-field">
@@ -1977,7 +1921,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                                                     <div className="pet-challenge-row" key={p.name}>
                                                         <span className={`pet-online-dot ${p.online ? "on" : "off"}`} aria-label={p.online ? "Online" : "Offline"} />
                                                         <span><strong>{p.name}</strong><small>Level {p.level} · {p.village || "Unknown"}</small></span>
-                                                        <button type="button" onClick={() => sendDirectPetChallenge(p.name)}><GameIcon name="sword" size={15} /> Challenge</button>
+                                                        <button type="button" onClick={() => sendDirectPetChallenge(p.name)}><GameIcon name="sword" size={15} /> Create arena code</button>
                                                     </div>
                                                 ))}
                                                 {petChallengeMsg && <p className="hint" style={{ color: petChallengeMsg.startsWith("Success:") ? "var(--green-400)" : "var(--red-400)", marginTop: 6 }}>{petChallengeMsg}</p>}
@@ -1987,7 +1931,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                                     return (
                                         <>
                                             <p className="hint">No account found for "{opponentSearch.trim()}".</p>
-                                            <button type="button" onClick={() => sendDirectPetChallenge(opponentSearch.trim())}><GameIcon name="sword" size={15} /> Challenge "{opponentSearch.trim()}"</button>
+                                            <button type="button" onClick={() => sendDirectPetChallenge(opponentSearch.trim())}><GameIcon name="sword" size={15} /> Create arena code</button>
                                             {petChallengeMsg && <p className="hint" style={{ color: petChallengeMsg.startsWith("Success:") ? "var(--green-400)" : "var(--red-400)", marginTop: 6 }}>{petChallengeMsg}</p>}
                                         </>
                                     );
@@ -1997,8 +1941,8 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                             <div>
                                 <p className="hint" style={{ marginTop: 4 }}>Type a player's name above to find and challenge them.</p>
                                 <div className="pet-arena-tips">
-                                    <div><GameArtIcon kind="attack" size={17} /> Win pet duels to earn ryo (daily cap).</div>
-                                    <div><GameArtIcon kind="petTamer" size={17} /> Toggle 2v2 below to bring two pets into the challenge.</div>
+                                    <div><GameArtIcon kind="attack" size={17} /> Sparring uses equal competitive stats and an equal-access roster.</div>
+                                    <div><GameArtIcon kind="petTamer" size={17} /> Build a four-pet squad with two active and two reserves.</div>
                                     <div><GameArtIcon kind="roleDefender" size={17} /> Roles &amp; element edge decide close fights — check the matchup hint.</div>
                                     <div><GameArtIcon kind="arena" size={17} /> Want a fight right now? The Colosseum matches you against the arena.</div>
                                 </div>
@@ -2008,37 +1952,6 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                     )}
                 </section>
             </div>
-
-            {combatEligiblePets.length >= 2 && (
-                <section className="summary-box pet-party-config">
-                    <label className="pet-party-toggle">
-                        <span className="pet-party-switch"><input type="checkbox" checked={partyMode} onChange={(e) => setPartyMode(e.target.checked)} /><i aria-hidden="true" /></span>
-                        <GameIcon name="paw" size={22} />
-                        <span><strong>2v2 party battle</strong><small>Both players need 2 available pets; if either side is short, the challenge is declined rather than resized.</small></span>
-                        <em>{partyMode ? "Enabled" : "Optional"}</em>
-                    </label>
-                    {partyMode && (
-                        <div className="pet-party-reserve">
-                            <label>Reserve pet <small>Faces their reserve in match two</small></label>
-                            <div className="pet-pick-panel" style={{ marginTop: 6 }}>
-                                <div className="pet-pick-grid">
-                                    <button type="button"
-                                        className={`pet-pick pet-pick-auto${reservePetId === "" ? " selected" : ""}`}
-                                        aria-pressed={reservePetId === ""}
-                                        onClick={() => setReservePetId("")}>
-                                        <GameArtIcon kind="dice" size={18} className="pet-pick-auto-glyph" />
-                                        <span className="pet-pick-name">Auto-pick</span>
-                                        <span className="pet-pick-meta">best counter</span>
-                                    </button>
-                                    {combatEligiblePets.filter((p) => p.id !== selectedPetId).map((pet) =>
-                                        petPickCard(pet.id, pet, reservePetId === pet.id, () => setReservePetId(pet.id), { dim: isPetOnExpedition(pet) }),
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </section>
-            )}
 
             {/* THE COLISEUM. One mode, two doors:
                   • the Colosseum bout — the arena matches you, the daily win cap
@@ -2077,21 +1990,6 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                 </div>
             )}
 
-            {/* Live PvP: the invite prompt, the "waiting to be accepted" notice and
-                the fight itself all live here. Renders nothing when idle. */}
-            <PetDuelLiveHost
-                ref={liveDuelRef}
-                myPets={liveDuelPets}
-                onError={(message) => setPetChallengeMsg(`Error: ${message}`)}
-                onOutcome={(outcome, opponent) => {
-                    setResult(outcome === "win" ? "Victory" : outcome === "draw" ? "Draw" : "Defeat");
-                    setPetChallengeMsg(outcome === "win" ? `Success: You beat ${opponent}!` : outcome === "draw" ? `Draw with ${opponent}.` : `${opponent} won that one.`);
-                    // Clan-war pet battles still record through the existing helper;
-                    // it no-ops when this fight was not part of one.
-                    onClanWarBattleEnd?.(outcome === "draw" ? "draw" : outcome === "win", opponent);
-                }}
-                sharedImages={sharedImages}
-            />
 
             {/* THE BATTLEFIELD. Every duel this screen starts is a replay of a
                 fight the SERVER resolved — ranked from its match token, a player

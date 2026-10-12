@@ -36,6 +36,7 @@ import { useBattleFrameloop } from "../lib/use-battle-frameloop";
 import gauntletHero from "../assets/coliseum/gauntlet-hero.webp";
 import gauntletBoard from "../assets/coliseum/gauntlet-board.webp";
 import "./PetBoardArena.css";
+import "../styles/pet-battle-theme.css";
 
 // PetGauntlet imports this renderer while the player is drafting/positioning.
 // Warm the approved arena texture during that setup time so entering combat does
@@ -871,7 +872,7 @@ export function PetBoardArena({ result, sharedImages = {}, stars, onDone }: { re
 
     return createPortal((
         <div
-            className="pet-combat-takeover gauntlet-board-takeover"
+            className="pet-combat-takeover gauntlet-board-takeover pet-battle-theme"
             data-testid="pet-gauntlet-3d-arena"
             data-arena-map="stone-lava"
             data-model-count={modelConfigs.size}
@@ -929,7 +930,6 @@ export function PetBoardArena({ result, sharedImages = {}, stars, onDone }: { re
             <div className="gauntlet-board-side-label gauntlet-board-side-label--player" aria-hidden="true">
                 <span>Your line</span>
             </div>
-            <div className="gauntlet-board-build" aria-hidden="true">build g27 · {quality.id}</div>
 
             {done && (
                 <div className="gauntlet-board-result" role="dialog" aria-modal="true" aria-labelledby="gauntlet-result-title">

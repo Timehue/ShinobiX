@@ -1,6 +1,30 @@
 # Pet Showdown — the flagship pet battle mode
 
-Current balance proposal: [Pet PvP balance and decision-depth plan — October 10, 2026](pet-battle-balance-plan-2026-10-10.md). It records wounded-target damage probes, verified PvP call chains, and proposed live two-player commands, selectable move pools, competitive stat budgets, counterplay and NPC changes; it does not change the implemented rules described by the code.
+## Current runtime — October 11, 2026
+
+Pet Arena and the ranked Pet Colosseum now use the two-human, twelve-species
+command lifecycle in [Pet Arena](pet-tactics-prototype.md). Beastfront remains
+AI-driven. All battle menus share the accepted slate/gold presentation; native
+NPC/story/wild commands use the same cinematic renderer and a responsive squad,
+move and target console. Direct challenges enter the current command room. The continuous-time owned-pet
+duel and Fight Plan screen are retired. Gauntlet retains its board authority;
+Dungeon Rare Beast uses a server command session bound to its parent run.
+
+Fresh NPC fights seal `response-v2`: Guard/protection precede attacks, damage
+compression remains active at every level, and unprepared/prepared signatures
+approach 60%/75% maximum HP before defense. Paid NPC difficulty uses matched
+rarity with different training, policy, traits and gear. Existing sessions,
+historical descriptors and input-only territorial/retained ranked proofs keep
+their sealed legacy rules. The numeric source remains the server engine;
+[the October 11 audit](audits/pet-battle-unification/README.md) records evidence
+and limitations. Broader full-roster competitive expansion remains in the
+[balance plan](pet-battle-balance-plan-2026-10-10.md).
+
+## Historical launch design
+
+The sections below describe the August launch and subsequent historical design
+notes. They are not the current ruleset; use the runtime owners and dated audit
+above where those earlier mechanics differ.
 
 *Shipped 2026-08. Replaces the continuous-sim Pet Coliseum as the player-facing
 flagship; the legacy engines remain live only for their cross-system consumers

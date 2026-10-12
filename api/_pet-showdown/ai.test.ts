@@ -100,6 +100,15 @@ describe('buildShowdownAiTeam', () => {
 });
 
 describe('Colosseum progression and AI side ownership', () => {
+    it('every practice tier matches roster rarity while preserving its own loadout difficulty', () => {
+        const players = [{ ...pet('a', 30), rarity: 'standard' }, { ...pet('b', 30), rarity: 'mythic' }] as Pet[];
+        for (const tier of ['scrapper', 'warrior', 'champion'] as const) {
+            const team = buildColosseumAiTeam(players, 2, tier, 91);
+            assert.deepEqual(team.pets.map(p => p.rarity), players.map(p => p.rarity));
+            if (tier === 'scrapper') assert.ok(team.pets.every(p => !p.trait));
+            else assert.ok(team.pets.every(p => !!p.trait));
+        }
+    });
     it('sparring matches spent points and traits without handing untrained pets a trained rival', () => {
         const players = [
             { ...pet('unspent', 100), trait: undefined },
