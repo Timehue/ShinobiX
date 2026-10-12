@@ -121,7 +121,12 @@ function startWorkers() {
             stdio: ['ignore', 'inherit', 'inherit', 'ipc'],
         });
         let markReady;
+        let markDead;
         const ready = new Promise((resolve) => { markReady = resolve; });
+        // A worker that dies used to leave every later ask() waiting forever: the
+        // run hung with no error. Now its death rejects every pending and future ask.
+        const dead = new Promise((_resolve, reject) => { markDead = reject; });
+        dead.catch(() => undefined);
         const waiters = [];
         child.on('message', (msg) => {
             if (msg.type === 'ready') { markReady(); return; }
@@ -129,8 +134,15 @@ function startWorkers() {
             if (msg.type === 'error') console.error(`[capacity] worker ${pop}: ${msg.message}`);
             if (i >= 0) waiters.splice(i, 1)[0].resolve(msg);
         });
-        const ask = (message, replyType) => ready.then(() => new Promise((resolve) => {
-            waiters.push({ type: replyType, resolve });
+        child.on('exit', (code, signal) => {
+            const error = new Error(`worker ${pop} exited (code ${code}${signal ? `, signal ${signal}` : ''})`);
+            // Exit 0 is the normal end after `shutdown`; anything else is a death.
+            if (code !== 0) console.error(`[capacity] ${error.message}`);
+            markDead(error);
+            for (const waiter of waiters.splice(0)) waiter.reject(error);
+        });
+        const ask = (message, replyType) => Promise.race([dead, ready]).then(() => new Promise((resolve, reject) => {
+            waiters.push({ type: replyType, resolve, reject });
             child.send(message);
         }));
         workers.push({ pop, child, ask });
