@@ -47,5 +47,5 @@ test("world rewards finish when their reply is refused as stale", () => {
     }
     // The ambush loot reports claimed (clearing the pending marker) and the chest opens.
     assert.match(handler(worldMap, "claimAmbushReward"), /onVersionedCharacter\(d\.character, d\._saveVersion\);[\s\S]*?return true;/);
-    assert.match(handler(worldMap, "settleDiscoveredChest"), /onVersionedCharacter\(chest\.character, chest\.saveVersion\);(?: *\/\/[^\n]*)?\s*completeWorldRewardOperation\([\s\S]*?setActiveChest\(chest\.loot\);[\s\S]*?return "settled";/);
+    assert.match(handler(worldMap, "settleDiscoveredChest"), /onVersionedCharacter\(chest\.character, chest\.saveVersion\);(?: *\/\/[^\n]*)?\s*completeWorldRewardOperation\([\s\S]*?setActiveChest\(\{ \.\.\.chest\.loot, replayed: chest\.replayed === true \}\);[\s\S]*?return "settled";/);
 });

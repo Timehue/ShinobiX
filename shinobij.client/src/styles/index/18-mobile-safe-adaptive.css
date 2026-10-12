@@ -272,6 +272,11 @@ button.combat-jutsu-button,
     max-width: 100% !important;
 }
 
+/* The chest owns this action surface; ambient help returns after dismissal. */
+body:has(.ancient-chest-reveal-card) > .screen-hint-banner.screen-hint-worldMap.screen-hint-collapsed {
+    display: none !important;
+}
+
 /* ===== Adaptive layout sizing ===== */
 :root {
     --banner-h: clamp(108px, 15dvh, 170px);

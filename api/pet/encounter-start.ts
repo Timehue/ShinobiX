@@ -12,6 +12,8 @@ import { resolveSectorWeather, type SectorWeatherOverride } from '../../shared/s
 import { LockContendedError, withKvLock } from '../_lock.js';
 import {
     cleanPetEncounterPointer,
+    cleanPetAttemptReceipt as cleanReceipt,
+    type PetAttemptReceipt,
     petEncounterActiveKey,
     petEncounterRequestKey,
     PET_ENCOUNTER_POINTER_TTL_SECONDS,
@@ -22,64 +24,9 @@ import { loadTrackerTrail, saveTrackerTrail, trackerTrailCanFlush } from '../sec
 
 const ATTEMPT_RECEIPT_TTL_SECONDS = PET_ENCOUNTER_POINTER_TTL_SECONDS;
 
-type PetAttemptReceipt = {
-    version: 1;
-    playerName: string;
-    requestId: string;
-    day: string;
-    sector: number;
-    mintedAt: number;
-    token?: string;
-    pet?: Record<string, unknown>;
-    resolvedAt?: number;
-    worldExploreRequestId?: string;
-    caravanRunId?: string;
-    trackerTrailId?: string;
-    resolution?: 'explored-miss' | 'befriended' | 'declined' | 'expired';
-    battleRequired?: boolean;
-};
-
 function cleanRequestId(value: unknown): string {
     const id = typeof value === 'string' ? value.trim().slice(0, 96) : '';
     return /^[A-Za-z0-9_-]{8,96}$/.test(id) ? id : '';
-}
-
-function cleanReceipt(raw: unknown): PetAttemptReceipt | null {
-    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
-    const value = raw as Partial<PetAttemptReceipt>;
-    const sector = Math.floor(Number(value.sector));
-    const mintedAt = Math.floor(Number(value.mintedAt));
-    if (value.version !== 1 || typeof value.playerName !== 'string'
-        || !cleanRequestId(value.requestId) || typeof value.day !== 'string'
-        || !isWildSector(sector) || !Number.isSafeInteger(mintedAt) || mintedAt <= 0) return null;
-    const token = typeof value.token === 'string' && /^[A-Za-z0-9]{16,96}$/.test(value.token) ? value.token : undefined;
-    const pet = value.pet && typeof value.pet === 'object' && !Array.isArray(value.pet)
-        ? value.pet as Record<string, unknown>
-        : undefined;
-    if (Boolean(token) !== Boolean(pet)) return null;
-    const resolvedAt = Math.floor(Number(value.resolvedAt));
-    const worldExploreRequestId = cleanRequestId(value.worldExploreRequestId);
-    const resolution = value.resolution === 'explored-miss'
-        || value.resolution === 'befriended'
-        || value.resolution === 'declined'
-        || value.resolution === 'expired'
-        ? value.resolution
-        : undefined;
-    return {
-        version: 1,
-        playerName: value.playerName,
-        requestId: value.requestId!,
-        day: value.day,
-        sector,
-        mintedAt,
-        ...(token && pet ? { token, pet } : {}),
-        ...(Number.isSafeInteger(resolvedAt) && resolvedAt > 0 ? { resolvedAt } : {}),
-        ...(worldExploreRequestId ? { worldExploreRequestId } : {}),
-        ...(typeof value.caravanRunId === 'string' ? { caravanRunId: value.caravanRunId } : {}),
-        ...(typeof value.trackerTrailId === 'string' ? { trackerTrailId: value.trackerTrailId } : {}),
-        ...(resolution ? { resolution } : {}),
-        ...(value.battleRequired === true ? { battleRequired: true } : {}),
-    };
 }
 
 async function persistAuthority(playerName: string, receipt: PetAttemptReceipt): Promise<void> {
@@ -182,21 +129,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (activeReceipt.resolvedAt) {
                     if (active.token) await kv.del(`pet-encounter:${playerName}:${active.token}`);
                     await kv.del(activeKey);
-                    return responseFor(activeReceipt, true);
+                    if (activeReceipt.requestId === stableRequestId) return responseFor(activeReceipt, true);
+                    // A new id must not reopen a completed discovery.
+                } else {
+                    if (Date.now() - activeReceipt.mintedAt >= ATTEMPT_RECEIPT_TTL_SECONDS * 1_000) {
+                        activeReceipt = { ...activeReceipt, resolvedAt: Date.now(), resolution: 'expired' };
+                        await kv.set(petEncounterRequestKey(playerName, activeReceipt.requestId), activeReceipt, { ex: ATTEMPT_RECEIPT_TTL_SECONDS });
+                        if (active.token) await kv.del(`pet-encounter:${playerName}:${active.token}`).catch(() => undefined);
+                        await kv.del(activeKey).catch(() => undefined);
+                        return responseFor(activeReceipt, true);
+                    }
+                    await persistAuthority(playerName, activeReceipt);
+                    const encounter = active.token
+                        ? await kv.get<Record<string, unknown>>(`pet-encounter:${playerName}:${active.token}`)
+                        : null;
+                    const bound = typeof encounter?.exploreReceiptId === 'string' ? encounter.exploreReceiptId : undefined;
+                    return responseFor(activeReceipt, true, bound);
                 }
-                if (Date.now() - activeReceipt.mintedAt >= ATTEMPT_RECEIPT_TTL_SECONDS * 1_000) {
-                    activeReceipt = { ...activeReceipt, resolvedAt: Date.now(), resolution: 'expired' };
-                    await kv.set(petEncounterRequestKey(playerName, activeReceipt.requestId), activeReceipt, { ex: ATTEMPT_RECEIPT_TTL_SECONDS });
-                    if (active.token) await kv.del(`pet-encounter:${playerName}:${active.token}`).catch(() => undefined);
-                    await kv.del(activeKey).catch(() => undefined);
-                    return responseFor(activeReceipt, true);
-                }
-                await persistAuthority(playerName, activeReceipt);
-                const encounter = active.token
-                    ? await kv.get<Record<string, unknown>>(`pet-encounter:${playerName}:${active.token}`)
-                    : null;
-                const bound = typeof encounter?.exploreReceiptId === 'string' ? encounter.exploreReceiptId : undefined;
-                return responseFor(activeReceipt, true, bound);
             } else if (active) {
                 await kv.del(activeKey).catch(() => undefined);
             }
