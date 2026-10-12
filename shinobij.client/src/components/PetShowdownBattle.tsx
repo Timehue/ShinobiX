@@ -49,6 +49,8 @@ import { PetModelBoundary } from "./PetModelBoundary";
 import { WildBindingArenaFx, type WildBindingCinematic } from "./WildBindingArenaFx";
 import { PetSwitchSealFx } from "./pet-showdown/pet-switch-seal-fx";
 import { PetSummon3D } from "./PetSummon3D";
+import { withPetSceneRecall, usePetRecallController, usePetSceneIsRecalling } from './PetSceneRecall';
+import type { PetCardPresence } from "../lib/pet-summon-presentation";
 import { useBattleFrameloop } from "../lib/use-battle-frameloop";
 import { supportsPetWebGl2 } from "../lib/pet-webgl-capability";
 import { PetGraphicsQualityControl } from "./PetGraphicsQualityControl";
@@ -1193,6 +1195,8 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
     const standing = useRef<[number, number, number] | null>(null);
     /** Hit-stop-aware presentation clock fed to the skeletal mixer. */
     const timeline = useRef(0);
+    const cardPresence = useRef<PetCardPresence>({ present: !ko });
+    const cardGone = useRef(false);
     /** Opening pet entrance begins once the VS card clears. */
     const entranceAt = useRef<number | null>(null);
     /** When this pet went down (0 = standing) and the beat it fell on, which
@@ -1240,6 +1244,7 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
         signature,
     });
     const statusKinds = useMemo(() => statuses.map(status => status.kind), [statuses]);
+    const recallScene = usePetRecallController();
     const fallbackTexture = useMemo(() => {
         if (info.model && !modelFailed) return null;
         const t = new THREE.TextureLoader().load(info.fallbackImage);
@@ -1250,6 +1255,7 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
 
     useFrame((_, delta) => {
         const f = frame.current;
+        if (recallScene?.snapshot()) return;
         const beat = beatRef.current;
         const fx = fxRef.current;
         const now = performance.now();
@@ -1319,10 +1325,8 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
 
         // KO WITHDRAWAL. The fallen body holds where it dropped through the
         // fall and the KO ritual — that beat is the point — and then LEAVES.
-        // A corpse parked in its slot for the rest of the match reads as a bug,
-        // clutters the lane the survivors fight in, and is the one thing both
-        // other monster battlers clear the instant the ceremony is over. It sinks
-        // and shrinks out rather than popping, so the exit is still a beat.
+        // Player pets return to their Beast Seal after the fallen pose holds.
+        // Opponent withdrawal keeps its existing floor exit.
         if (ko) {
             if (!koAt.current) {
                 koAt.current = now;
@@ -1343,6 +1347,7 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
             koAt.current = 0;
             koSinkAt.current = 0;
             koBeat.current = -1;
+            cardGone.current = false;
         }
         mounted.current = true;
         const koSink = koSinkAt.current
@@ -1355,7 +1360,7 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
         // visible; neither one walks to a different slot.
         if (group.current) {
             const visibleForSwitch = switchMotion ? !switchHidden : !benchedRef.current.has(info.view.id) || walking || ko;
-            group.current.visible = visibleForSwitch && !withdrawn;
+            group.current.visible = visibleForSwitch && (info.side === 'player' ? !cardGone.current : !withdrawn);
         }
 
         // Hit-stop-aware presentation clock: skeletal time crawls during the
@@ -1363,6 +1368,8 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
         const presentationScale = now < fx.hitStopUntil ? 0.06 : now < fx.slowUntil ? fx.slowScale : 1;
         timeline.current += delta * presentationScale;
         f.timeline = timeline.current;
+        cardPresence.current.present = !koSinkAt.current;
+        cardPresence.current.timeline = f.timeline;
         f.contactPose = true;
         f.performanceVariant = performanceVariant;
         f.signature = signature;
@@ -1565,7 +1572,7 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
         if (group.current) {
             // The withdrawal rides on the group transform, so it composes with
             // whatever pose the death clip left the rig in.
-            const ease = koSink * koSink;
+            const ease = info.side === 'player' ? 0 : koSink * koSink;
             const calibratedGround = info.model && !modelFailed ? modelCalibration?.groundOffset ?? 0 : 0;
             group.current.position.set(px, py + calibratedGround - ease * 1.7 + pull * 2.35 + switchLift, pz);
             group.current.scale.setScalar(Math.max(0.02, 1 - ease * 0.55) * (1 - pull * .98) * switchScale);
@@ -1632,7 +1639,7 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
             {info.model && !modelFailed ? (
                 <PetModelBoundary onFail={() => setModelFailed(true)}>
                     <Suspense fallback={null}>
-                        <PetSummon3D dynamicLight={quality.dynamicPetLight} enabled={info.side === 'player' && introActive && !info.view.benched && !ko} reducedMotion={reduced}>
+                        <PetSummon3D dynamicLight={quality.dynamicPetLight} enabled={info.side === 'player'} summonOnMount={introActive && !info.view.benched && !ko} presence={cardPresence} reducedMotion={reduced} onRecallComplete={() => { cardGone.current = ko; }}>
                         {/* Physical presence follows rarity — a mythic stands
                             visibly larger than a standard. Purely visual; the
                             reticle, rings and popups are siblings and keep
@@ -1645,7 +1652,7 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
                 </PetModelBoundary>
             ) : (
                 // No approved 3D model: full-body card art on a grounded billboard.
-                <PetSummon3D dynamicLight={quality.dynamicPetLight} enabled={info.side === 'player' && introActive && !info.view.benched && !ko} reducedMotion={reduced}><Billboard lockX lockZ>
+                <PetSummon3D dynamicLight={quality.dynamicPetLight} enabled={info.side === 'player'} summonOnMount={introActive && !info.view.benched && !ko} presence={cardPresence} reducedMotion={reduced} onRecallComplete={() => { cardGone.current = ko; }}><Billboard lockX lockZ>
                     <mesh position={[0, 1.05, 0]}>
                         <planeGeometry args={[2.0, 2.0]} />
                         <meshBasicMaterial map={fallbackTexture} {...TRANSPARENT_UNLIT_PROPS} alphaTest={0.06} />
@@ -2163,7 +2170,8 @@ const SR_ONLY: React.CSSProperties = {
     border: 0,
 };
 
-export function PetShowdownBattle({ initialState, playerPets, sharedImages, submitTurn, onForfeit, onFinished, onExit, onRematch, resultNote, resultTitle, exitLabel = "Leave the Showdown", hideRematch = false, eventLabel, spectator = false, reducedMotion: motionPreference, wildBinding, onRenderMode, onCommandReady, inputLocked = false, externalControls, hidePlayerHud = false, onRoundPresented }: {
+export const PetShowdownBattle = withPetSceneRecall(PetShowdownBattleView, ['onExit', 'onRematch', 'onForfeit']);
+function PetShowdownBattleView({ initialState, playerPets, sharedImages, submitTurn, onForfeit, onFinished, onExit, onRematch, resultNote, resultTitle, exitLabel = "Leave the Showdown", hideRematch = false, eventLabel, spectator = false, reducedMotion: motionPreference, wildBinding, onRenderMode, onCommandReady, inputLocked = false, externalControls, hidePlayerHud = false, onRoundPresented }: {
     eventLabel?: string;
     initialState: ShowdownStateView;
     /** The player's real roster Pets (for 3D model + art resolution). */
@@ -2210,6 +2218,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     const [stateView, setStateView] = useState(initialState);
     const [phase, setPhase] = useState<"command" | "playing" | "finished">("command");
     const battleFrameloop = useBattleFrameloop(phase === 'finished');
+    const recalling = usePetSceneIsRecalling();
     const [display, setDisplay] = useState<Record<string, DisplayEntry>>(() => buildDisplay(initialState));
     const [queue, setQueue] = useState<ShowdownEvent[]>([]);
     const [queueIndex, setQueueIndex] = useState(0);
@@ -3617,7 +3626,8 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
             data-testid="pet-showdown-root"
             data-pet-visual-audit={visualAudit}
             data-wild-binding={wildBinding ? "active" : undefined}
-            inert={inputLocked && !externalControls}
+            inert={recalling || inputLocked && !externalControls}
+            data-recalling={recalling}
             role={panel ? 'presentation' : 'dialog'}
             aria-modal={panel ? undefined : true}
             aria-label={`${hasExternalControls ? 'Pet Arena' : 'Pet Showdown'} — your team against ${stateView.enemyTeamName}`}

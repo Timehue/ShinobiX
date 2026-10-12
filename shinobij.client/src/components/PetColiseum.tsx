@@ -26,6 +26,7 @@ import "../styles/pet-skin.css";
 import * as THREE from "three";
 import { Canvas } from "@react-three/fiber";
 import { RendererRetirement } from "./RendererRetirement";
+import { withPetSceneRecall, usePetRecallController } from './PetSceneRecall';
 import { useOwnedTimeouts } from "../lib/use-owned-timeouts";
 import { useBattleFrameloop } from "../lib/use-battle-frameloop";
 import { Html, PerformanceMonitor, Sparkles } from "@react-three/drei";
@@ -169,7 +170,9 @@ const isVersusPlayer = (d: LiveDuel | undefined | null): boolean =>
 
 
 
-export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyReservePet, result, live, onOutcome, onProgress, sharedImages = {}, initialTick = 0, onFightAgain, settlementStatus, onRetrySettlement, settlementCopy, resultSupplement, onExit, onConnectionLost }: PetColiseumDuelProps) {
+export const PetColiseumDuel = withPetSceneRecall(PetColiseumDuelView, ['onExit', 'onFightAgain', 'onConnectionLost']);
+function PetColiseumDuelView({ playerPet, enemyPet, playerReservePet, enemyReservePet, result, live, onOutcome, onProgress, sharedImages = {}, initialTick = 0, onFightAgain, settlementStatus, onRetrySettlement, settlementCopy, resultSupplement, onExit, onConnectionLost }: PetColiseumDuelProps) {
+    const recallScene = usePetRecallController();
     const [qualityId, setQualityId] = useState<PetVisualQuality>(() => petVisualQuality().id);
     const [elementImpactAtlas, setElementImpactAtlas] = useState<THREE.Texture | null>(null);
     const quality = PET_VISUAL_QUALITY_PRESETS[qualityId];
@@ -713,6 +716,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     // from DuelDirector's useFrame.
     const clashHold = useRef(false);
     const advanceClock = (maxT: number, delta: number) => {
+        if (recallScene?.snapshot()) return;
         // Before the fight plays, advance the still size-up / power-gather clock.
         if (!clock.current.playing || cutIn) {
             // The tactical briefing is a real decision screen, not a countdown.
@@ -945,7 +949,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             stopBattleMusic();
         }, 2350);
     };
-    const replay = () => {
+    const replay = () => { void recallScene?.run(() => {
         if (resultTimer.current !== null) timers.cancel(resultTimer.current);
         resultTimer.current = null;
         finishScheduled.current = false;
@@ -983,7 +987,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         setFinisherCue(null);
         if (!isAudioMuted()) startBattleMusic(battleMusicTheme);
         setRunId((r) => r + 1);
-    };
+    }); };
     const togglePause = () => { setPaused((wasPaused) => { clock.current.playing = wasPaused; return !wasPaused; }); };
     // The live pump. Declared AFTER every clock mutation above on purpose: the
     // immutability lint treats a ref read inside an effect as pinning that ref, so

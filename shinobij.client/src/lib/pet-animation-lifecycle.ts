@@ -1,15 +1,20 @@
 import * as THREE from "three";
 
-// Three disables a zero-weight action after fadeOut, but leaves it in the
-// mixer's active list. Retire completed fades so a long fight costs at most
-// the current take plus the short transition, rather than every visited take.
-const pendingFades = new WeakMap<THREE.AnimationMixer, Map<THREE.AnimationAction, number>>();
+type Blend = { start: number; end: number; from: number; to: number };
+const pendingFades = new WeakMap<THREE.AnimationMixer, Map<THREE.AnimationAction, Blend>>();
+
+export function petAnimationBlend(delta: number, rate: number): number {
+    return 1 - Math.exp(-Math.max(0, delta) * rate);
+}
 
 export function advancePetAnimationMixer(mixer: THREE.AnimationMixer, delta: number): void {
     const fades = pendingFades.get(mixer);
     const nextTime = mixer.time + delta * mixer.timeScale;
-    if (fades) for (const [action, until] of fades) {
-        if (nextTime >= until) { action.stop(); fades.delete(action); }
+    if (fades) for (const [action, blend] of fades) {
+        const progress = THREE.MathUtils.clamp((nextTime - blend.start) / (blend.end - blend.start), 0, 1);
+        const eased = progress * progress * (3 - 2 * progress);
+        action.setEffectiveWeight(THREE.MathUtils.lerp(blend.from, blend.to, eased));
+        if (progress >= 1) { if (blend.to === 0) action.stop(); fades.delete(action); }
     }
     mixer.update(delta);
 }
@@ -74,20 +79,30 @@ export function transitionPetAnimation(
     const mixer = next.getMixer();
     let fades = pendingFades.get(mixer);
     if (!fades) { fades = new Map(); pendingFades.set(mixer, fades); }
-    fades.delete(next);
-    if (contact) {
+    if (contact || duration <= 0 || !previous) {
         // A rapid third transition may still be fading the take before
         // `previous`. No outgoing pose may dilute the frozen contact frame.
-        for (const action of fades.keys()) action.stop();
+        for (const action of fades.keys()) if (action !== next) action.stop();
         fades.clear();
         if (previous && previous !== next) previous.stop();
         next.stopFading().setEffectiveWeight(1).play();
     } else {
-        next.fadeIn(duration).play();
-        if (previous && previous !== next) {
-            previous.fadeOut(duration * 0.85);
-            fades.set(previous, mixer.time + duration * 0.85);
+        // Reversing a fade or interrupting it with a third take starts from
+        // the currently displayed blend, rather than resetting its weights.
+        // A common envelope keeps total weight at one, so the bind pose never
+        // bleeds through (the former outgoing fade ended 15% too early).
+        const outgoing = new Set([...fades.keys(), previous]);
+        const incomingWeight = outgoing.has(next) ? next.getEffectiveWeight() : 0;
+        outgoing.delete(next);
+        const start = mixer.time, end = start + duration;
+        fades.clear();
+        for (const action of outgoing) {
+            const from = action.getEffectiveWeight();
+            action.stopFading().setEffectiveWeight(from);
+            fades.set(action, { start, end, from, to: 0 });
         }
+        next.stopFading().setEffectiveWeight(incomingWeight).play();
+        fades.set(next, { start, end, from: incomingWeight, to: 1 });
     }
 }
 

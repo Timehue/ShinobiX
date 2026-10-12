@@ -2,7 +2,9 @@
 // must never remount the old Fight Plan flow, even through a saved preview URL.
 const params = new URLSearchParams(window.location.search);
 
-if (params.get("modelresources") === "1") {
+if (params.get("cards") === "1") {
+    void import('./pet-card-preview');
+} else if (params.get("modelresources") === "1") {
     void import("./pet-model-lifecycle-preview");
 } else if (params.get("rite") === "1" || params.get("warfront") === "1") {
     // Old shared Warfront preview links open the current game mode.

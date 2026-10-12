@@ -575,7 +575,7 @@ async function processAsset(sourcePath) {
         : breedingMythic ? BREEDING_MYTHIC_LOD_TEXTURE_SIZE : null;
     const reducedTextures = textureSize ? await reducedLodTextures(source, textureSize) : null;
     const expectedTextures = reducedTextures ? textureStats(reducedTextures) : sourceStats.textures;
-    if (!checkOnly) {
+    if (!checkOnly && !argv.has('--certify-existing')) {
         const lowPolySource = sourceStats.triangles <= LOW_POLY_SOURCE_LIMIT;
         let ratio = lowPolySource
             ? Math.min(0.7, 12_000 / sourceStats.triangles)
@@ -626,7 +626,7 @@ async function processAsset(sourcePath) {
         sourceUrl: `/${sourceRelative}`,
         // A battle-only texture change leaves the close source hash untouched.
         // Include the LOD hash for these variants so a cached LOD cannot survive.
-        lodUrl: `/${lodRelative}?v=${REVISION}-${sourceHash.slice(0, 12)}${breedingMythic ? `-tx${textureSize}-${lodHash.slice(0, 12)}` : ""}`,
+        lodUrl: `/${lodRelative}?v=${REVISION}-${sourceHash.slice(0, 12)}-${lodHash.slice(0, 12)}`,
         sourceBytes: sourceFile.size,
         lodBytes: lodFile.size,
         sourceSha256: sourceHash,

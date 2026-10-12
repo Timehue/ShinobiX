@@ -20,7 +20,7 @@ test("all five base starter forms have an approved combat model", () => {
         const base = petCombatModel(pet(`starter-${element}`, 0));
         const rare = petCombatModel(pet(`starter-${element}`, 1, "rare"));
         if (element === "earth") {
-            assert.equal(base?.url, `/pet-models/roster/standard-5.glb?v=${ROSTER_MODEL_ASSET_REVISION}`);
+            assert.equal(base?.url, `/pet-models/roster/standard-5.glb?v=${PET_RIG_REPAIR_REVISIONS['standard-5'] ?? ROSTER_MODEL_ASSET_REVISION}`);
         } else {
             assert.equal(base?.url, `/pet-models/starter-${element}.glb?v=${PET_RIG_REPAIR_REVISIONS[`starter-${element}`] ?? STARTER_MODEL_ASSET_REVISION}`);
         }
@@ -44,8 +44,8 @@ test("all ten evolved starter forms have a combat model", () => {
             assert.equal(rare?.url, `/pet-models/starter-${element}-r.glb?v=${PET_RIG_REPAIR_REVISIONS[`starter-${element}-r`] ?? STARTER_MODEL_ASSET_REVISION}`);
             assert.equal(legendary?.url, `/pet-models/showdown-v2/starter-${element}-l.glb?v=${PET_RIG_REPAIR_REVISIONS[`starter-${element}-l`] ?? PET_SHOWDOWN_ANIMATION_ASSET_REVISION}`);
         } else if (element === "water") {
-            assert.equal(rare?.url, `/pet-models/starter-water-r.glb?v=${STARTER_MODEL_ASSET_REVISION}`);
-            assert.equal(legendary?.url, `/pet-models/starter-water-l.glb?v=${STARTER_MODEL_ASSET_REVISION}`);
+            assert.equal(rare?.url, `/pet-models/starter-water-r.glb?v=${PET_RIG_REPAIR_REVISIONS['starter-water-r'] ?? STARTER_MODEL_ASSET_REVISION}`);
+            assert.equal(legendary?.url, `/pet-models/starter-water-l.glb?v=${PET_RIG_REPAIR_REVISIONS['starter-water-l'] ?? STARTER_MODEL_ASSET_REVISION}`);
         } else {
             assert.equal(rare?.url, `/pet-models/starter-${element}-r.glb?v=${PET_RIG_REPAIR_REVISIONS[`starter-${element}-r`] ?? STARTER_MODEL_ASSET_REVISION}`);
             assert.equal(legendary?.url, `/pet-models/starter-${element}-l.glb?v=${PET_RIG_REPAIR_REVISIONS[`starter-${element}-l`] ?? STARTER_MODEL_ASSET_REVISION}`);
@@ -57,7 +57,7 @@ test("all ten evolved starter forms have a combat model", () => {
 test("the four-pet Showdown lineup resolves to its species-authored animation assets", () => {
     assert.equal(
         petCombatModel({ ...pet("rare-1", undefined, "rare"), name: "Frost Hare" })?.url,
-        `/pet-models/showdown-v2/rare-1.glb?v=${PET_SHOWDOWN_ANIMATION_ASSET_REVISION}`,
+        `/pet-models/showdown-v2/rare-1.glb?v=${PET_RIG_REPAIR_REVISIONS["rare-1"] ?? PET_SHOWDOWN_ANIMATION_ASSET_REVISION}`,
     );
     assert.equal(
         petCombatModel({ ...pet("standard-7"), name: "Ashen Crow" })?.url,
@@ -91,8 +91,8 @@ test("malformed legacy identities fall back instead of crashing model resolution
 
 test("all built-in Coliseum AI opponents resolve to approved roster models", () => {
     assert.equal(petCombatModel(pet("generic-ai-pet-sparrow"))?.url, `/pet-models/roster/standard-44.glb?v=${PET_RIG_REPAIR_REVISIONS["standard-44"] ?? ROSTER_MODEL_ASSET_REVISION}`);
-    assert.equal(petCombatModel(pet("generic-ai-pet-guardhound"))?.url, `/pet-models/roster/rare-24.glb?v=${ROSTER_MODEL_ASSET_REVISION}`);
-    assert.equal(petCombatModel(pet("generic-ai-pet-emberlynx"))?.url, `/pet-models/roster/rare-26.glb?v=${ROSTER_MODEL_ASSET_REVISION}`);
+    assert.equal(petCombatModel(pet("generic-ai-pet-guardhound"))?.url, `/pet-models/roster/rare-24.glb?v=${PET_RIG_REPAIR_REVISIONS['rare-24'] ?? ROSTER_MODEL_ASSET_REVISION}`);
+    assert.equal(petCombatModel(pet("generic-ai-pet-emberlynx"))?.url, `/pet-models/roster/rare-26.glb?v=${PET_RIG_REPAIR_REVISIONS['rare-26'] ?? ROSTER_MODEL_ASSET_REVISION}`);
 });
 
 test("all 146 approved roster models have a certified motion family", () => {
@@ -109,7 +109,7 @@ test("breeding-exclusive Mythics keep their own combat identity and model", () =
     for (const id of ["mythic-10", "mythic-11", "mythic-12", "mythic-13", "mythic-14", "mythic-15"]) {
         const model = petCombatModel({ id, name: id });
         assert.equal(model?.visualId, id);
-        assert.equal(model?.url, `/pet-models/roster/${id}.glb?v=${ROSTER_MODEL_ASSET_REVISION}`);
+        assert.equal(model?.url, `/pet-models/roster/${id}.glb?v=${PET_RIG_REPAIR_REVISIONS[id] ?? ROSTER_MODEL_ASSET_REVISION}`);
     }
 });
 
@@ -122,7 +122,7 @@ test("hatched owned-instance ids resolve their breeding Mythic template model", 
             rarity: "mythic",
         });
         assert.equal(owned?.visualId, id);
-        assert.equal(owned?.url, `/pet-models/roster/${id}.glb?v=${ROSTER_MODEL_ASSET_REVISION}`);
+        assert.equal(owned?.url, `/pet-models/roster/${id}.glb?v=${PET_RIG_REPAIR_REVISIONS[id] ?? ROSTER_MODEL_ASSET_REVISION}`);
     }
 });
 
@@ -137,12 +137,12 @@ test("legacy owned-instance ids recover the roster template from their safe pref
 });
 
 test("timestamped encounter clones retain their canonical combat model", () => {
-    assert.equal(petCombatModel(pet("mythic-7-1784319745000"))?.url, `/pet-models/roster/mythic-7.glb?v=${ROSTER_MODEL_ASSET_REVISION}`);
+    assert.equal(petCombatModel(pet("mythic-7-1784319745000"))?.url, `/pet-models/roster/mythic-7.glb?v=${PET_RIG_REPAIR_REVISIONS['mythic-7'] ?? ROSTER_MODEL_ASSET_REVISION}`);
 });
 
 test("legacy evolved saves infer the model from rarity", () => {
-    assert.equal(petCombatModel(pet("starter-water", undefined, "rare"))?.url, `/pet-models/starter-water-r.glb?v=${STARTER_MODEL_ASSET_REVISION}`);
-    assert.equal(petCombatModel(pet("starter-water", undefined, "legendary"))?.url, `/pet-models/starter-water-l.glb?v=${STARTER_MODEL_ASSET_REVISION}`);
+    assert.equal(petCombatModel(pet("starter-water", undefined, "rare"))?.url, `/pet-models/starter-water-r.glb?v=${PET_RIG_REPAIR_REVISIONS['starter-water-r'] ?? STARTER_MODEL_ASSET_REVISION}`);
+    assert.equal(petCombatModel(pet("starter-water", undefined, "legendary"))?.url, `/pet-models/starter-water-l.glb?v=${PET_RIG_REPAIR_REVISIONS['starter-water-l'] ?? STARTER_MODEL_ASSET_REVISION}`);
 });
 
 test("close-up presentation falls back only for the unapproved legendary Wind model", () => {

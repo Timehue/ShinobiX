@@ -20,6 +20,9 @@ import {
     type WarfrontBodyReactionPhase,
 } from "../lib/pet-warfront-attack-causality";
 import { warfrontImpostorAtlasUrl } from "../lib/pet-warfront-impostor-url";
+import { advancePetCardState, createPetCardState, petCardStatePose, type PetCardState } from "../lib/pet-summon-presentation";
+import { drawPetCardSeal } from "../lib/pet-card-canvas";
+import { usePetRecallController, usePetSceneIsRecalling } from './PetSceneRecall';
 import { createWarfrontImageCache, loadWarfrontImage } from "../lib/pet-warfront-image-cache";
 import {
     RITE_TEAM_COLOR,
@@ -97,6 +100,8 @@ export type StageFighter = {
 export type PetWarfrontRiteStageProps = {
     sceneKey: number;
     paused?: boolean;
+    entrancePlaying?: boolean;
+    onSummonsComplete?: () => void;
     result: DuelResult;
     fighters: StageFighter[];
     clockRef: MutableRefObject<number>;
@@ -192,6 +197,7 @@ type CanvasActor = {
     bodyRoll: number;
     bodyLift: number;
     bodyTick: number;
+    card: PetCardState;
 };
 
 function sampleBody(beats: readonly CanvasBeat[], tick: number, phase: WarfrontBodyReactionPhase, scratch: WarfrontBodyReactionPhase): CanvasBeat | null {
@@ -451,12 +457,16 @@ function drawArena(
     };
 }
 
-function Canvas2DStage({ sceneKey, paused = false, result, fighters, clockRef, quality, reducedMotion, onReady, onLoadProgress, onRendererAvailability, onAssetFailure }: PetWarfrontRiteStageProps & Readonly<{ onAssetFailure: () => void }>) {
+function Canvas2DStage({ sceneKey, paused = false, entrancePlaying = true, onSummonsComplete, result, fighters, clockRef, quality, reducedMotion, onReady, onLoadProgress, onRendererAvailability, onAssetFailure }: PetWarfrontRiteStageProps & Readonly<{ onAssetFailure: () => void }>) {
+    const recallScene = usePetRecallController();
+    const recalling = usePetSceneIsRecalling();
+    const exitResolve = useRef<(() => void) | null>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const urls = useMemo(() => fighters.map((fighter) => impostorUrl(fighter.pet)), [fighters]);
     const [images, setImages] = useState<readonly HTMLImageElement[] | null>(null);
     const [heroImpactSprite, setHeroImpactSprite] = useState<HTMLImageElement | null>(null);
     const [elementImpactAtlas, setElementImpactAtlas] = useState<HTMLImageElement | null>(null);
+    const [sealImage, setSealImage] = useState<HTMLImageElement | null>(null);
     const actionTimeline = useMemo(() => buildWarfrontActionTimeline(result, new Map(fighters.map((fighter) =>
         [`${fighter.team}-${fighter.lane}`, fighter.pet.element]))), [result, fighters]);
     const cues = useMemo(() => warfrontAttackCues(result.events), [result.events]);
@@ -494,6 +504,7 @@ function Canvas2DStage({ sceneKey, paused = false, result, fighters, clockRef, q
     const staticSize = useRef("");
     const staticArenaMetrics = useRef<CanvasArenaSubmissionMetrics>(EMPTY_CANVAS_ARENA_METRICS);
     const readyReported = useRef(false);
+    const summonsReported = useRef(false);
     const groundingQaEnabled = useMemo(
         () => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("ritemotionqa") === "1",
         [],
@@ -502,6 +513,7 @@ function Canvas2DStage({ sceneKey, paused = false, result, fighters, clockRef, q
     useEffect(() => {
         let active = true;
         readyReported.current = false;
+        summonsReported.current = false;
         // Clearing the previous scene before its replacement loads is the point of
         // this effect; without it the old impostors stay on screen through the load.
         // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -514,11 +526,12 @@ function Canvas2DStage({ sceneKey, paused = false, result, fighters, clockRef, q
             ? loadImpostorImage(url)
             : Promise.reject<HTMLImageElement>(new Error("Missing exact Warfront impostor")));
         const optionalImpactAtlas = loadImpostorImage(PET_ELEMENT_IMPACT_ATLAS_URL).catch(() => null);
-        void Promise.all([Promise.all(load), loadImpostorImage(WARFRONT_HERO_FIRE_IMPACT_SPRITE_URL), optionalImpactAtlas]).then(([loaded, impactSprite, impactAtlas]) => {
+        void Promise.all([Promise.all(load), loadImpostorImage(WARFRONT_HERO_FIRE_IMPACT_SPRITE_URL), optionalImpactAtlas, loadImpostorImage('/items/beast-seal-reinforced.webp')]).then(([loaded, impactSprite, impactAtlas, seal]) => {
             if (active) {
                 setImages(loaded);
                 setHeroImpactSprite(impactSprite);
                 setElementImpactAtlas(impactAtlas);
+                setSealImage(seal);
             }
         }).catch(() => {
             if (active) onAssetFailure();
@@ -550,13 +563,20 @@ function Canvas2DStage({ sceneKey, paused = false, result, fighters, clockRef, q
             bodyRoll: 0,
             bodyLift: 0,
             bodyTick: 0,
+            card: { ...createPetCardState(fighter.entryHp > 0, !reducedMotion), timeline: 0 },
         }));
     }, [beatsByActor, fighters, heroImpactSprite, images, reducedMotion]);
 
     useEffect(() => {
+        if (!recallScene || !images || !sealImage) return;
+        const unregister = recallScene.register(() => new Promise<void>(resolve => { exitResolve.current = resolve; }));
+        return () => { unregister(); exitResolve.current?.(); exitResolve.current = null; };
+    }, [recallScene, images, sealImage, sceneKey]);
+
+    useEffect(() => {
         const canvas = canvasRef.current;
         const impactSpriteImage = heroImpactSprite;
-        if (!canvas || !images || !impactSpriteImage) return;
+        if (!canvas || !images || !impactSpriteImage || !sealImage) return;
         const context = canvas.getContext("2d", { alpha: true, desynchronized: true });
         if (!context) { onAssetFailure(); return; }
         let frame = 0;
@@ -566,6 +586,7 @@ function Canvas2DStage({ sceneKey, paused = false, result, fighters, clockRef, q
         let performanceTimer: number | null = null;
         let sampleWindow: { warmup: number; end: number } | null = null;
         let lastFrameAt: number | null = null;
+        let cardFrameAt = performance.now();
         let maxGap = 0;
         let gaps = 0;
         let maxActiveCues = 0;
@@ -618,6 +639,8 @@ function Canvas2DStage({ sceneKey, paused = false, result, fighters, clockRef, q
 
         const paint = (now: number) => {
             if (document.hidden) { frame = 0; return; }
+            const cardDelta = Math.min(.05, Math.max(0, now - cardFrameAt) / 1000);
+            cardFrameAt = now;
             if (actionQaEnabled) canvas.dataset.riteRenderFrame = String(++paintCount);
             const cssWidth = Math.max(1, canvas.clientWidth);
             const cssHeight = Math.max(1, canvas.clientHeight);
@@ -954,6 +977,7 @@ function Canvas2DStage({ sceneKey, paused = false, result, fighters, clockRef, q
             let submittedArenaLightMultiplyMaxAlpha = 0;
             let submittedArenaLightEdgeRecoveryMaxAlpha = 0;
             let groundingFootprints = "";
+            let petCardPhases = "";
             const authoritativeGroundingActorId = authoritativeGroundingActorAt(cues, tick);
             ordered.sort((a, b) => a.pose.z - b.pose.z || a.fighter.lane - b.fighter.lane);
             for (const actor of ordered) {
@@ -1007,6 +1031,11 @@ function Canvas2DStage({ sceneKey, paused = false, result, fighters, clockRef, q
                 const [x, y] = project(pose.x + bodyX, pose.z + bodyZ);
                 const teamColor = RITE_TEAM_COLOR[fighter.team];
                 const alive = pose.hp > 0 && pose.state !== "dead";
+                if (fighter.team === 'player') {
+                    if (recalling || entrancePlaying && !paused) advancePetCardState(actor.card, recalling ? { present: false } : { present: alive, timeline: tick > 0 ? presentationTick / DUEL_TPS : undefined }, cardDelta, recalling ? 0 : .9, reducedMotion);
+                    petCardPhases += `${petCardPhases ? ';' : ''}${id}:${actor.card.phase}:${actor.card.elapsed.toFixed(3)}`;
+                }
+                const cardPose = fighter.team === 'player' ? petCardStatePose(actor.card) : { visible: true, scale: 1, lift: 0 };
                 const isFocusActor = focusCue?.actorId === id || focusCue?.targetId === id;
                 const focusScale = focusVisualStrength > 0.12 ? (isFocusActor ? 1.16 : 0.88) : 1;
                 const baseSize = Math.max(54, Math.min(portrait ? 128 : 140,
@@ -1021,15 +1050,15 @@ function Canvas2DStage({ sceneKey, paused = false, result, fighters, clockRef, q
                 );
                 if (visualState === "idle" && alive) idleGroundingActors++;
                 if (!alive) deadGroundingActors++;
-                const deathVisibility = visualState === "dead" ? Math.max(0, 1 - Math.max(0, stateAge - 18) / 10) : 1;
-                const actorVisibility = deathVisibility * (focusVisualStrength > 0.18 && !isFocusActor ? 0.46 : 1);
+                const deathVisibility = fighter.team !== 'player' && visualState === "dead" ? Math.max(0, 1 - Math.max(0, stateAge - 18) / 10) : 1;
+                const actorVisibility = (cardPose.visible ? deathVisibility : 0) * (focusVisualStrength > 0.18 && !isFocusActor ? 0.46 : 1);
 
                 // Natural contact AO: a compact, fully feathered falloff whose
                 // transparent edge reveals the authored wet slate. This is not
                 // a filled base disc and carries no team ownership by itself.
                 const groundingSuppressedForQa = groundingQaEnabled
                     && canvas.dataset.riteGroundingQaHide === "1";
-                const aoVisibility = groundingSuppressedForQa ? 0 : alive ? 1 : deathVisibility * 0.24;
+                const aoVisibility = (groundingSuppressedForQa ? 0 : alive ? 1 : deathVisibility * 0.24) * (cardPose.visible ? cardPose.scale : 0);
                 const shadowRadius = baseSize * 0.28;
                 const aoDepthScale = riteCanvasGroundingAoDepthScale(fighter.pet.element);
                 const aoForwardOffset = riteGroundingAoCameraForwardOffset(fighter.pet.element, baseSize);
@@ -1114,6 +1143,9 @@ function Canvas2DStage({ sceneKey, paused = false, result, fighters, clockRef, q
                 scaleY = actor.bodyScaleY = dampRiteBodyValue(actor.bodyScaleY, 1 + (scaleY - 1) * actor.motionGain, bodyDelta);
                 roll = actor.bodyRoll = dampRiteBodyValue(actor.bodyRoll, roll * actor.motionGain, bodyDelta);
                 lift = actor.bodyLift = dampRiteBodyValue(actor.bodyLift, lift * actor.motionGain, bodyDelta);
+                scaleX *= cardPose.scale;
+                scaleY *= cardPose.scale;
+                lift -= cardPose.lift * baseSize * .3;
                 renderedActors.set(id, {
                     x,
                     footY: renderFootY + lift,
@@ -1127,6 +1159,7 @@ function Canvas2DStage({ sceneKey, paused = false, result, fighters, clockRef, q
                     )),
                     visibility: actorVisibility,
                 });
+                if (fighter.team === 'player') drawPetCardSeal(context, sealImage, actor.card, x, renderFootY, baseSize);
                 if (actorLightContext && actorLightMaskContext && actorVisibility > 0.001) {
                     const lightMargin = Math.ceil(baseSize * 0.24);
                     const lightSize = Math.ceil(baseSize + lightMargin * 2);
@@ -1435,6 +1468,14 @@ function Canvas2DStage({ sceneKey, paused = false, result, fighters, clockRef, q
             canvas.dataset.riteGroundingMaxActiveRings = String(maxGroundingActiveRings);
             canvas.dataset.riteGroundingIdleActors = String(idleGroundingActors);
             canvas.dataset.riteGroundingDeadActors = String(deadGroundingActors);
+            canvas.dataset.ritePetCardPhases = petCardPhases;
+            if (recalling && actorsRef.current.every(actor => actor.fighter.team !== 'player' || actor.card.phase === 'hidden')) {
+                exitResolve.current?.(); exitResolve.current = null;
+            }
+            if (entrancePlaying && !summonsReported.current && actorsRef.current.every(actor => actor.fighter.team !== 'player' || actor.card.phase === 'settled' || actor.card.phase === 'hidden')) {
+                summonsReported.current = true;
+                onSummonsComplete?.();
+            }
             canvas.dataset.riteGroundingIdleRings = String(idleGroundingRings);
             canvas.dataset.riteGroundingDeadRings = String(deadGroundingRings);
             canvas.dataset.riteGroundingSubmittedAoCount = String(submittedAoCount);
@@ -1639,7 +1680,7 @@ function Canvas2DStage({ sceneKey, paused = false, result, fighters, clockRef, q
                 if (gap > 100) gaps++;
             }
             lastFrameAt = now;
-            if (!paused) frame = requestAnimationFrame(paint);
+            if (!paused || recalling) frame = requestAnimationFrame(paint);
         };
         const handleVisibility = () => {
             cancelAnimationFrame(frame);
@@ -1664,11 +1705,11 @@ function Canvas2DStage({ sceneKey, paused = false, result, fighters, clockRef, q
                 root.style.removeProperty("--wfr-camera-shift-y");
             }
         };
-    }, [actionTimeline, paused, clockRef, cues, elementImpactAtlas, fighterByActorId, fighters.length, groundingQaEnabled, heroCue, heroImpactSprite, images, onAssetFailure, quality, reducedMotion, result]);
+    }, [actionTimeline, paused, recalling, entrancePlaying, onSummonsComplete, clockRef, cues, elementImpactAtlas, fighterByActorId, fighters.length, groundingQaEnabled, heroCue, heroImpactSprite, images, onAssetFailure, quality, reducedMotion, result, sealImage]);
 
     useEffect(() => {
         const canvas = canvasRef.current;
-        if (!canvas || !images || !heroImpactSprite || readyReported.current) return;
+        if (!canvas || !images || !heroImpactSprite || !sealImage || readyReported.current) return;
         let first = 0;
         let second = 0;
         first = requestAnimationFrame(() => {
@@ -1680,7 +1721,7 @@ function Canvas2DStage({ sceneKey, paused = false, result, fighters, clockRef, q
             });
         });
         return () => { cancelAnimationFrame(first); cancelAnimationFrame(second); };
-    }, [fighters.length, heroImpactSprite, images, onLoadProgress, onReady]);
+    }, [fighters.length, heroImpactSprite, sealImage, images, onLoadProgress, onReady]);
 
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -1802,7 +1843,7 @@ class WarfrontRenderBoundary extends Component<{ children: ReactNode; onFail: ()
  * the renderer. Tokens and health are painted from the same authoritative
  * snapshots as the HUD, by one rAF loop that writes the DOM directly.
  */
-function ReducedBattleStage({ sceneKey, result, fighters, clockRef, onReady, onLoadProgress, onRendererAvailability, onRetryGraphics }: PetWarfrontRiteStageProps & Readonly<{ onRetryGraphics: () => void }>) {
+function ReducedBattleStage({ sceneKey, result, fighters, clockRef, onReady, onSummonsComplete, onLoadProgress, onRendererAvailability, onRetryGraphics }: PetWarfrontRiteStageProps & Readonly<{ onRetryGraphics: () => void }>) {
     const tokens = useRef<(HTMLSpanElement | null)[]>([]);
     const standingOut = useRef<HTMLElement>(null);
     const poses = useMemo(() => fighters.map(() => createActorPoseSample()), [fighters]);
@@ -1812,7 +1853,8 @@ function ReducedBattleStage({ sceneKey, result, fighters, clockRef, onReady, onL
         onRendererAvailability?.(true);
         onLoadProgress?.(fighters.length);
         onReady?.();
-    }, [fighters.length, onLoadProgress, onReady, onRendererAvailability, sceneKey]);
+        onSummonsComplete?.();
+    }, [fighters.length, onLoadProgress, onReady, onSummonsComplete, onRendererAvailability, sceneKey]);
 
     // Layout effect: the first positions are written before the browser paints,
     // so no token ever flashes at the board's corner.
