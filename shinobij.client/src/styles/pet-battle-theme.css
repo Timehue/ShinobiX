@@ -17,6 +17,7 @@
 .pet-native-console { position: relative; width: 100%; max-height: 48dvh; }
 .pet-native-hud .showdown-bottombar { padding: 0; display: block; width: 100%; margin-top: auto; flex-shrink: 0; }
 .showdown-takeover.pet-native-hud .pet-native-console { position: fixed; bottom: 0; left: 0; overflow-y: auto; }
+.pet-native-hud .showdown-result { position: fixed; z-index: 10; }
 .pet-native-console .pta-orders { max-height: none; }
 .pet-native-layout { display: grid; grid-template-columns: 224px minmax(0, 1fr) 280px; gap: 18px; min-width: 0; }
 .pet-native-prompt { font-size: 12px; color: var(--pet-battle-muted); text-align: right; }
@@ -91,6 +92,7 @@
 .pet-battle-theme .wfr-pet-card, .pet-battle-theme .wfr-deploy-actions,
 .pet-battle-theme .wfr-hud, .pet-battle-theme .gauntlet-board-team { background: var(--pet-battle-surface); border-color: var(--pet-battle-line); border-radius: 3px; }
 .pet-battle-theme .wfr-eyebrow, .pet-battle-theme .gauntlet-board-team__eyebrow { color: var(--pet-battle-gold); font-size: 10px; font-weight: 600; letter-spacing: .14em; }
+.pet-battle-theme .wfr-reform-evidence .wfr-eyebrow { font-size: 14px; letter-spacing: .1em; }
 .pet-battle-theme .wfr-btn-ghost, .pet-battle-theme .wfr-btn-danger, .pet-battle-theme .wfr-skip { min-height: 44px; border-radius: 3px; border-color: var(--pet-battle-line); background: #14202be6; color: var(--pet-battle-ink); }
 .pet-battle-theme .gauntlet-board-team__bar { border-radius: 2px; background: #050b0e; }
 .pet-battle-theme .gauntlet-board-team__bar > span { background: linear-gradient(90deg, #598773, #a4d3a0); }

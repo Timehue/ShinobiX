@@ -231,3 +231,23 @@ The graph guard proves reachability for the checked imports; it does not replace
 interactive browser tests. Automated balance evidence establishes pacing and
 counterplay for the recorded policies, not a guarantee of an optimized human
 metagame. Publication, full CI and the live revision are verified separately.
+
+### Browser integration corrections
+
+Full browser CI on `fcbe42eee` exposed two layout regressions beyond the initial
+menu smoke checks. Shared caption styling reduced the Beastfront report heading
+to 10 px; report evidence now retains its 14 px minimum. Both exact QHD phone
+portrait/landscape release checks pass without changing the readability gate.
+
+The fixed native command console could intercept clicks on the concession
+dialog, affecting First Pact recovery on desktop, tablet and compact layouts.
+Native result/expiry/concession panels now cover the viewport above the console;
+top and bottom battle controls are inert while a panel is open. The existing
+concession retry test also checks that background controls cannot take focus.
+The seven-project run passes all 14 concession/retry cases. Three real World Map
+wild-encounter story/battle/return checks also pass on desktop and both mobile
+browser engines; they previously hit the same overlapping console. Seventeen
+renderer/warm-up/retirement contracts pass. The final production-feature client
+build, scoped lint, generated handoff check and distribution verification pass;
+budgeted JS/CSS is 9,168,111 bytes against the unchanged ceiling. These are local
+correction results; the failed full-CI revision must still be rerun after push.

@@ -3788,7 +3788,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
 
             {/* ── HUD ── */}
             <div className="showdown-hud">
-                <div className="showdown-topbar">
+                <div className="showdown-topbar" inert={Boolean(panel)}>
                     <TeamPanel
                         side="enemy"
                         pets={stateView.enemy}
@@ -3861,7 +3861,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                     />
                 </div>}
 
-                <div className="showdown-bottombar">
+                <div className="showdown-bottombar" inert={Boolean(panel)}>
                     {/* No pet can be given an order this round. Name the reason
                         and show it resolving — the failure this replaces was a
                         silent empty bar. The button is a manual escape hatch in
