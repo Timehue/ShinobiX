@@ -166,3 +166,20 @@ handlers; fixture pages are excluded from production build inputs.
 These are local automated results. Main publication, CI and the actual Railway
 revision are checked separately at release time. This file does not assert a
 production rollout or optimized human balance.
+
+## Full-CI follow-up
+
+The first published revision, `c14cf951a`, passed the production image build/boot,
+client quality, PostgreSQL integration and the 652 selected regressions. The full
+suite found seven integration failures outside that selection. Six were stale
+source-contract assumptions or the QA entry's missing model warm-up; the new
+Dungeon save writer also needed the canonical `mutatePlayerSave` path.
+
+Dungeon admission and terminal writes now use that shared mutation path, so idle
+HP/chakra/stamina regeneration and its cursor survive a versioned parent commit.
+A behavioral regression verifies both admission and concession after 30 seconds
+of recovery. Existing lost-reply, concurrent-admission, exact-parent, unpaid-win
+and proof-repair tests still pass. Forty-five targeted follow-up tests pass, with
+zero failures/skips/cancellations; server build, client types, scoped lint,
+fresh Dungeon desktop/mobile browser checks and 92/92 release certification
+also pass. Numeric combat rules are unchanged by this follow-up.
