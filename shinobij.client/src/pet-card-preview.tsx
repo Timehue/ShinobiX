@@ -25,14 +25,16 @@ function Model({ pet, paused, ko }: { pet: Pet; paused: boolean; ko: boolean }) 
         if (!paused) frame.current.timeline = (frame.current.timeline ?? 0) + Math.min(delta, .05);
         frame.current.motion = ko ? 'dead' : 'idle';
     }, -1);
-    return <PetModel3D config={petCombatModel(pet)!} frame={frame} quality={PET_VISUAL_QUALITY_PRESETS.low} element={pet.element} showIdentity={false} />;
+    return <group userData={{ qaPetId: pet.id }}><PetModel3D config={petCombatModel(pet)!} frame={frame} quality={PET_VISUAL_QUALITY_PRESETS.low} element={pet.element} showIdentity={false} /></group>;
 }
 function Probe() {
     useFrame(({ scene, gl }) => {
         const phases: string[] = [];
+        const identities: string[] = [];
         const poses: number[][] = [];
-        scene.traverse(object => { if (object.userData.petCardEnabled) { phases.push(object.userData.petCardPhase); const body = object.children[0]; poses.push([body.scale.x, body.position.y]); } });
+        scene.traverse(object => { if (object.userData.petCardEnabled) { phases.push(object.userData.petCardPhase); const body = object.children[0]; poses.push([body.scale.x, body.position.y]); object.traverse(child => { if (child.userData.qaPetId) identities.push(`${child.userData.qaPetId}:${object.userData.petCardPhase}`); }); } });
         gl.domElement.dataset.petCardPhases = phases.join(',');
+        gl.domElement.dataset.petCardIdentities = identities.join(',');
         gl.domElement.dataset.petCardPoses = JSON.stringify(poses);
         gl.domElement.dataset.geometries = String(gl.info.memory.geometries);
         gl.domElement.dataset.textures = String(gl.info.memory.textures);
@@ -41,6 +43,15 @@ function Probe() {
 }
 function Preview() {
     const scene = usePetSceneRecall();
+    useEffect(() => {
+        const qa = window as Window & { petCardQaHoldExit?: () => () => void };
+        qa.petCardQaHoldExit = () => {
+            let release: (() => void) | undefined;
+            const unregister = scene.controller.register(() => new Promise<void>(resolve => { release = resolve; }));
+            return () => { release?.(); unregister(); };
+        };
+        return () => { delete qa.petCardQaHoldExit; };
+    }, [scene.controller]);
     const [closed, setClosed] = useState(false);
     const [sceneExits, setSceneExits] = useState(0);
     const [exitError, setExitError] = useState('');

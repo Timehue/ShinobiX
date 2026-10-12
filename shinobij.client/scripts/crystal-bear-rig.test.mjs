@@ -47,6 +47,8 @@ test('Crystal Bear keeps its rest mesh and binds both visible arms with normaliz
     const oldPoint = new THREE.Vector3(), newPoint = new THREE.Vector3();
     const skin = after.surface.geometry.attributes.skinIndex, weights = after.surface.geometry.attributes.skinWeight;
     const armCounts = { L: 0, R: 0 };
+    const outerPawCounts = { L: 0, R: 0 };
+    let facialVertices = 0;
     let maximumRestDrift = 0;
     for (let i = 0; i < skin.count; i++) {
         before.surface.getVertexPosition(i, oldPoint); after.surface.getVertexPosition(i, newPoint);
@@ -60,11 +62,26 @@ test('Crystal Bear keeps its rest mesh and binds both visible arms with normaliz
         }
         assert.ok(Math.abs(total - 1) < 1e-6);
         for (const side of ['L', 'R']) if (shares[side] > 0.5) armCounts[side]++;
-        if (Math.abs(oldPoint.x) < 0.13 || oldPoint.y > 0.18 || oldPoint.y < -0.37) assert.equal(shares.L + shares.R, 0, 'belly, head and feet retain their existing skinning');
-        if (Math.abs(oldPoint.x) > 0.27 && oldPoint.y < -0.23 && oldPoint.y > -0.33) assert.ok(shares.L + shares.R > 0.99, 'paw tips must follow the wrist instead of stretching back toward the torso');
+        // y=.18 includes the neck/shoulder blend; the independently selected
+        // upper face is above y=.22 and must never follow either arm.
+        if (oldPoint.y > .22) { facialVertices++; assert.equal(shares.L + shares.R, 0, 'the face must remain isolated from the arms'); }
+        if (oldPoint.y < -.37) assert.equal(shares.L + shares.R, 0, 'the feet must remain isolated from the arms');
+        if (Math.abs(oldPoint.x) < .13) assert.ok(shares.L + shares.R < .2, 'the torso must retain its body binding through the shoulder blend');
+        if (Math.abs(oldPoint.x) > 0.27 && oldPoint.y < -0.23 && oldPoint.y > -0.33) {
+            const side = oldPoint.x > 0 ? 'L' : 'R', opposite = side === 'L' ? 'R' : 'L';
+            assert.ok(shares[side] > .75 && shares[opposite] === 0, 'the smooth paw attachment must remain dominated by its own arm');
+            // x=.27 includes the attachment blend. The outer tips are beyond
+            // x=.35 and must still move rigidly with the wrist after seam repair.
+            if (Math.abs(oldPoint.x) > .35) {
+                outerPawCounts[side]++;
+                assert.ok(shares[side] > .99, 'outer paw tips must follow the wrist');
+            }
+        }
     }
     assert.ok(maximumRestDrift < 1e-5, `rest-mesh drift: ${maximumRestDrift}`);
     assert.ok(armCounts.L > 2500 && armCounts.R > 2500);
+    assert.ok(outerPawCounts.L > 50 && outerPawCounts.R > 50);
+    assert.ok(facialVertices > 1000);
 });
 
 test('the lower-detail battle asset retains weighted paws and the forward strike', async () => {

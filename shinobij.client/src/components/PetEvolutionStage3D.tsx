@@ -20,7 +20,7 @@
  * back to a flat <img> when WebGL is unavailable, so the cutscene never hard-fails,
  * and to the 2D standee for any pet without an approved model.
  */
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { RendererRetirement } from "./RendererRetirement";
@@ -32,7 +32,6 @@ import {
     isOldFormVisible,
     evolutionStageMotion,
     evolutionSpin,
-    morphProgress,
     whiteness,
     gridIntensity,
     ringBurst,
@@ -760,8 +759,10 @@ function EvoModel({ pet, isNew, oldVisualId, element, phase, reduced }: {
         [pet, isNew, oldVisualId],
     );
     const scl = useRef(1);
-    const cardPresence = useRef<PetCardPresence>({ present: !isNew, timeline: 0 });
-    cardPresence.current = { present: isNew ? phase.elapsedMs >= 3500 : phase.elapsedMs < 2600, timeline: phase.elapsedMs / 1000 };
+    const cardPresence = useRef<PetCardPresence>({ present: isNew ? phase.elapsedMs >= 3500 : phase.elapsedMs < 2600, timeline: phase.elapsedMs / 1000 });
+    useLayoutEffect(() => {
+        cardPresence.current = { present: isNew ? phase.elapsedMs >= 3500 : phase.elapsedMs < 2600, timeline: phase.elapsedMs / 1000 };
+    }, [isNew, phase.elapsedMs]);
     // PetModel3D reads frame.current live each render frame — mutate, don't replace.
     const frame = useRef({ ...DEFAULT_PET_MODEL_FRAME });
     // All 15 starter GLBs now come from one grounded, rigged production pipeline

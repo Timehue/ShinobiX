@@ -3,7 +3,12 @@
 const params = new URLSearchParams(window.location.search);
 
 if (params.get("cards") === "1") {
-    void import('./pet-card-preview');
+    void import('./pet-card-preview').catch(error => {
+        console.error('Pet card preview could not load', error);
+        const notice = document.createElement('p');
+        notice.textContent = 'The pet card preview could not load. Reload this page to try again.';
+        document.getElementById('root')?.append(notice);
+    });
 } else if (params.get("modelresources") === "1") {
     void import("./pet-model-lifecycle-preview");
 } else if (params.get("rite") === "1" || params.get("warfront") === "1") {
