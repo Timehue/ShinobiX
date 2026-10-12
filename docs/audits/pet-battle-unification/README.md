@@ -189,3 +189,10 @@ proof and item spend share one canonical save mutation; retries do not spend
 twice, and a different item equipped later is preserved. The expanded parent and
 integration group passes 53/53, including historical receipts, with seven current
 Dungeon command cases. Server build passes after this correction.
+
+The remaining browser duel-terminal fixture was retired too: saved preview
+links now have an absence/retirement guard rather than rendering that duel.
+Gauntlet's reported-lineup/context-loss fixture moved to `gauntlet-qa.html` and
+still exercises the real board resolver and run advancement. These three
+headless checks pass (desktop/mobile retirement plus board recovery), with no
+retired-menu screenshots. Client types and scoped lint pass.
