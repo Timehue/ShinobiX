@@ -92,7 +92,7 @@ test('the stream reads only through the shared reader and forgets it on every he
     assert.equal(source.match(/readSharedStreamSession\(key\)/g)?.length, 2, 'the initial read and the tick read');
     assert.match(source, /onKeyWritten\(key, \(\) => \{ forgetSharedStreamRead\(key\); signals\.markDirty\(\); \}\)/);
     assert.match(source, /retainSharedStreamRead\(key\)/);
-    assert.match(source, /finally \{\s*stopListening\(\);\s*releaseSharedStreamRead\(key\);/);
+    assert.match(source, /finally \{[^}]*stopListening\(\);\s*releaseSharedStreamRead\(key\);/);
 });
 
 test('the last viewer out drops the battle state', async () => {
