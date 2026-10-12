@@ -79,9 +79,19 @@ export class ResourceSampler {
     async start() {
         if (this.databaseUrl) {
             const pg = (await import('pg')).default;
+            // Same TLS posture as the game server's own pool (api/_storage.ts):
+            // encrypted, but unverified unless a CA is supplied. Set
+            // PG_CA_CERT_PATH to the provider's CA (Supabase: Database settings →
+            // SSL certificate) to verify the server certificate as well.
+            const caPath = process.env.PG_CA_CERT_PATH;
+            const ssl = process.env.PG_SSL === 'disable'
+                ? false
+                : caPath
+                    ? { rejectUnauthorized: true, ca: (await import('node:fs')).readFileSync(caPath, 'utf8') }
+                    : { rejectUnauthorized: false };
             this.pgClient = new pg.Client({
                 connectionString: this.databaseUrl.replace(/([?&])sslmode=[^&]*/g, '$1').replace(/[?&]$/, ''),
-                ssl: process.env.PG_SSL === 'disable' ? false : { rejectUnauthorized: false },
+                ssl,
                 statement_timeout: 5_000,
                 application_name: 'capacity-probe-sampler',
             });
