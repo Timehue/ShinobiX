@@ -35,7 +35,8 @@ import {
     showdownStateView,
     type ShowdownSession as EngineShowdownSession,
 } from '../_pet-showdown/engine.js';
-type ShowdownSession = EngineShowdownSession & { circuitFinishedAt?: number };
+type ShowdownSession = EngineShowdownSession & { circuitFinishedAt?: number } & DungeonShowdownSession;
+import { startDungeonShowdown, settleDungeonShowdown, dungeonShowdownIsActive, type DungeonShowdownSession } from './_dungeon-showdown.js';
 import { buildColosseumAiTeam, buildShowdownAiTeam, chooseShowdownAiCommands } from '../_pet-showdown/ai.js';
 import {
     bumpLegacyStats,
@@ -50,8 +51,6 @@ import { buildServerHollowHound } from './battle-start.js';
 import { loadAdminEventObjects } from '../_admin-event-catalog.js';
 import {
     buildAuthoredEventBeast,
-    buildDungeonSealBeast,
-    dungeonSealRunIssue,
     findAuthoredPetBattle,
 } from './_authored-encounter.js';
 import { hollowGateRunKey, type HollowGateRunToken } from '../hollow-gate/_run-token.js';
@@ -882,6 +881,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const myPetId = Array.isArray(body.petIds) ? String(body.petIds[0] ?? '').slice(0, 96) : '';
             if (!myPetId) return res.status(400).json({ error: 'Pick one pet for this encounter.' });
 
+            if (kind === 'dungeon-seal') {
+                const opened = await startDungeonShowdown(playerName, String(spec?.runToken ?? ''), myPetId);
+                if (!opened.ok) return res.status(409).json({ error: opened.error });
+                return res.status(200).json({ ok: true, ...('session' in opened ? { state: viewOf(opened.session) } : { completed: true }), character: opened.character, _saveVersion: opened._saveVersion });
+            }
+
             const mySave = await kv.get<Record<string, unknown>>(`save:${playerName}`);
             const myChar = mySave?.character as Record<string, unknown> | undefined;
             if (!myChar) return res.status(404).json({ error: 'No save found.' });
@@ -893,14 +898,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             let beast: Pet | null = null;
             let tier: ShowdownTier = 'champion';
-            if (kind === 'dungeon-seal') {
-                // Seal 3 sits behind seal 1 — the run must exist, be this
-                // player's, and have its Warden already down. That ordering was
-                // only ever enforced by the dungeon screen's own stage machine.
-                const issue = dungeonSealRunIssue(myChar, spec?.runToken);
-                if (issue) return res.status(409).json({ error: issue });
-                beast = buildDungeonSealBeast(playerName, String(spec?.runToken ?? ''));
-            } else {
+            {
                 const eventId = String(spec?.eventId ?? '').trim().slice(0, 120);
                 if (!eventId) return res.status(400).json({ error: 'An event id is required.' });
                 const events = await loadAdminEventObjects();
@@ -944,6 +942,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pet-showdown-state', 30, 60_000, identity.name))) return;
             const session = await kv.get<ShowdownSession>(key);
             if (!session || session.playerName !== playerName) return res.status(404).json({ error: 'No active showdown.' });
+            if (!(await dungeonShowdownIsActive(playerName, session))) return res.status(409).json({ error: 'This battle no longer belongs to the active Dungeon run.' });
             return res.status(200).json({ ok: true, state: viewOf(session) });
         }
 
@@ -968,6 +967,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const conceded = await withKvLock(key, async () => {
                 const session = await kv.get<ShowdownSession>(key);
                 if (!session || session.playerName !== playerName) return null;
+                if (!(await dungeonShowdownIsActive(playerName, session))) return { bindingMissing: true as const };
                 const bindings = await refreshShowdownBindings(playerName, session);
                 if (isShowdownBindingMissing(session, bindings)) return { bindingMissing: true as const };
                 if (!session.finished) {
@@ -984,6 +984,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(503).json({ error: 'This bound Showdown is safe, but its campaign record is unavailable. Retry before conceding.' });
             }
             const { session: concededSession, bindings } = conceded;
+            if (concededSession.dungeonRun) {
+                const recorded = await settleDungeonShowdown(playerName, concededSession);
+                if (!recorded.ok) return res.status(409).json({ error: recorded.error });
+                return res.status(200).json({ ok: true, conceded: true, state: viewOf(concededSession), character: recorded.character, _saveVersion: recorded._saveVersion });
+            }
             const hgBinding = bindings.hollowGate;
             if (hgBinding) {
                 // `nx`, so a concession cannot overwrite an outcome the fight
@@ -1044,6 +1049,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const turnResult = await withKvLock(key, async () => {
                 const session = await kv.get<ShowdownSession>(key);
                 if (!session || session.playerName !== playerName) return { error: 404 as const };
+                if (!(await dungeonShowdownIsActive(playerName, session))) return { error: 409 as const };
                 const bindings = await refreshShowdownBindings(playerName, session);
                 if (isShowdownBindingMissing(session, bindings)) return { error: 503 as const };
                 if (session.finished) {
@@ -1072,6 +1078,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }, { failClosed: true });
 
             if ('error' in turnResult) {
+                if (turnResult.error === 409) return res.status(409).json({ error: 'This battle no longer belongs to the active Dungeon run.' });
                 return turnResult.error === 404
                     ? res.status(404).json({ error: 'No active showdown.' })
                     : res.status(503).json({ error: 'This bound Showdown is safe, but its campaign record is unavailable. Retry this turn.' });
@@ -1080,6 +1087,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             if (!session.finished) {
                 return res.status(200).json({ ok: true, events, state: viewOf(session) });
+            }
+
+            if (session.dungeonRun) {
+                const recorded = await settleDungeonShowdown(playerName, session);
+                if (!recorded.ok) return res.status(409).json({ error: recorded.error });
+                return res.status(200).json({ ok: true, events, state: viewOf(session), reward: 0, practice: true, character: recorded.character, _saveVersion: recorded._saveVersion });
             }
 
             // Finishing turn: settle, then KEEP the finished session for one

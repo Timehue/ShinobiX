@@ -1,0 +1,136 @@
+/* Shared Pet Arena material, typography and controls across battle renderers. */
+.pet-battle-theme {
+    --pet-battle-ink: var(--sj-text-primary, #f0ede5);
+    --pet-battle-muted: var(--sj-text-secondary, #b7c0c8);
+    --pet-battle-line: #a98b515c;
+    --pet-battle-gold: #e6c477;
+    --pet-battle-surface: linear-gradient(110deg, #18232be8, #0c131bec), url('../assets/pet-arena/command-ink-v2.webp') center / cover;
+    color: var(--pet-battle-ink);
+    font-family: var(--font-body, Inter, sans-serif);
+}
+.pet-battle-theme button:focus-visible { outline: 2px solid var(--pet-battle-gold); outline-offset: 3px; }
+.pet-battle-theme, .pet-battle-theme * { box-sizing: border-box; }
+.pet-battle-lobby { background: var(--pet-battle-surface); border-color: var(--pet-battle-line); border-radius: 5px; }
+.pet-battle-lobby h2, .pet-battle-lobby h3 { font-family: var(--font-display, Georgia, serif); font-weight: 400; }
+.pet-battle-lobby button { min-height: 44px; border-radius: 3px; }
+.pet-battle-record-error { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 30000; max-width: min(90vw, 560px); padding: 12px 16px; background: var(--pet-battle-surface); border: 1px solid #d6ad77; border-radius: 3px; }
+.pet-native-console { position: relative; width: 100%; max-height: 48dvh; }
+.pet-native-hud .showdown-bottombar { padding: 0; display: block; width: 100%; margin-top: auto; flex-shrink: 0; }
+.showdown-takeover.pet-native-hud .pet-native-console { position: fixed; bottom: 0; left: 0; overflow-y: auto; }
+.pet-native-console .pta-orders { max-height: none; }
+.pet-native-layout { display: grid; grid-template-columns: 224px minmax(0, 1fr) 280px; gap: 18px; min-width: 0; }
+.pet-native-prompt { font-size: 12px; color: var(--pet-battle-muted); text-align: right; }
+.pet-native-prompt b { display: block; margin-top: 4px; color: var(--pet-battle-gold); font-weight: 600; }
+.pet-native-console .pta-orders-heading { position: relative; z-index: 1; }
+.pet-native-team .showdown-team-panel { display: grid; gap: 8px; width: 100%; max-width: 100%; }
+.pet-native-team .showdown-team-panel .showdown-plate { width: 100%; min-height: 94px; }
+.pet-native-team .showdown-plate.commanding { border-color: #dbc28f; box-shadow: inset 3px 0 #d6bd8b; }
+.pet-native-team .showdown-plate-portrait { width: 64px; height: 76px; }
+.pet-native-team .showdown-plate-name { white-space: normal; }
+.pet-native-team .showdown-reserve-pips { display: flex; margin: 3px 0; }
+.pet-native-team, .pet-native-actions, .pet-native-detail { min-width: 0; }
+.pet-native-console .showdown-menu { width: 100%; max-width: none; padding: 0; background: none; border: 0; box-shadow: none; }
+.pet-native-console .showdown-tech-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.pet-native-console .showdown-tech-pill {
+    min-height: 68px; width: 100%; border: 1px solid #697986; border-radius: 3px; padding: 9px;
+    background: linear-gradient(115deg, #22303cbf, #14202bf2); transform: none; box-shadow: none;
+    display: flex; align-items: center; gap: 9px; text-align: left; color: var(--pet-battle-ink);
+}
+.pet-native-console .showdown-tech-pill::before, .pet-native-console .showdown-tech-pill::after { display: none; }
+.pet-native-console .showdown-tech-pill.focused { border-color: #ddc48c; background: #b7984930; box-shadow: inset 2px 0 #ddc48c; }
+.pet-native-console .showdown-tech-pill.is-disabled { opacity: .55; border-style: dashed; }
+.pet-native-console .showdown-tech-pill.signature { grid-column: auto; border-color: #b89d65; }
+.pet-native-console .showdown-menu-icon { border: 0; background: none; box-shadow: none; width: 38px; height: 38px; flex-shrink: 0; }
+.pet-native-console .showdown-menu-icon img { width: 100%; height: 100%; object-fit: contain; }
+.pet-native-console .showdown-menu-label { font-size: 13px; font-weight: 600; line-height: 1.25; white-space: normal; text-shadow: none; min-width: 0; flex: 1; }
+.pet-native-console .showdown-menu-label small { display: block; font-size: 9px; margin-top: 5px; color: var(--pet-battle-muted); font-weight: 400; }
+.pet-native-console .showdown-menu-note { font-size: 17px; font-weight: 600; color: var(--pet-battle-gold); text-shadow: none; }
+.pet-native-console .showdown-stance-chips { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin-top: 8px; }
+.pet-native-console .showdown-stance-chip { min-height: 44px; border-radius: 3px; border: 1px solid #697986; background: #15212ae6; padding: 6px; min-width: 0; }
+.pet-native-console .showdown-stance-chip .showdown-menu-icon { width: 22px; height: 22px; }
+.pet-native-console .showdown-stance-chip .showdown-menu-label { font-size: 11px; }
+.pet-native-console .showdown-stance-chip .showdown-menu-note { font-size: 10px; }
+.pet-native-console .showdown-bottombar-right { display: flex; align-items: stretch; gap: 8px; width: 100%; }
+.pet-native-console .showdown-inspector {
+    width: 100%; max-width: none; min-width: 0; padding: 13px; border: 1px solid #536572;
+    border-radius: 3px; background: var(--pet-battle-surface); box-shadow: none;
+}
+.pet-native-console .showdown-inspector-glyph { display: none; }
+.pet-native-console .showdown-inspector::before, .pet-native-console .showdown-inspector::after { display: none; }
+.pet-native-console .showdown-inspector-head { flex-wrap: wrap; }
+.pet-native-console .showdown-inspector-title { color: var(--pet-battle-ink); font-family: var(--font-display, Georgia, serif); font-size: 22px; font-weight: 400; }
+.pet-native-console .showdown-inspector-cat { width: 100%; border: 0; background: none; padding: 0; font-size: 9px; color: var(--pet-battle-muted); }
+.pet-native-console .showdown-inspector-desc { font-size: 12px; color: var(--pet-battle-muted); }
+.pet-native-console .showdown-inspector-stats { flex-wrap: wrap; }
+.pet-native-console .showdown-inspector-stats > span { border-radius: 2px; background: #14212bbf; border-color: #536572; }
+.pet-native-console .showdown-inspector-stats i { color: var(--pet-battle-muted); }
+.pet-native-targets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.pet-native-targets button { min-height: 64px; display: flex; align-items: center; gap: 7px; padding: 7px; text-align: left; border: 1px solid #82907e; border-radius: 3px; background: #192832; color: var(--pet-battle-ink); }
+.pet-native-targets img { width: 38px; height: 46px; object-fit: contain; }
+.pet-native-targets strong { display: block; font-size: 12px; font-weight: 600; }
+.pet-native-targets small { display: block; margin-top: 4px; font-size: 10px; color: var(--pet-battle-muted); }
+.pet-native-review { display: flex; gap: 12px; align-items: center; border-top: 1px solid #ac93623d; padding: 10px 0 0; margin-top: 12px; font-size: 11px; }
+.pet-native-review b { color: var(--pet-battle-gold); flex-shrink: 0; }
+.pet-native-review span { color: var(--pet-battle-muted); }
+.pet-native-review details { margin-left: auto; min-width: 100px; color: var(--pet-battle-muted); }
+.pet-native-review summary { cursor: pointer; min-height: 32px; display: flex; align-items: center; color: var(--pet-battle-gold); }
+.pet-native-review details[open] { flex: 1; }
+.pet-native-review p { font-size: 11px; line-height: 1.5; }
+.pet-native-hud .showdown-team-panel { flex-wrap: wrap; }
+.pet-native-hud .showdown-team-panel.enemy .showdown-plate { width: clamp(170px, 18vw, 258px); }
+.pet-battle-theme .showdown-result, .pet-battle-theme .showdown-stalled,
+.pet-battle-theme .wfr-result, .pet-battle-theme .wfr-interlude,
+.pet-battle-theme .gauntlet-board-result__card { background: var(--pet-battle-surface); border-color: var(--pet-battle-line); border-radius: 5px; color: var(--pet-battle-ink); }
+.pet-battle-theme .showdown-result-title, .pet-battle-theme .wfr-result h2,
+.pet-battle-theme .gauntlet-board-result__card h2 { font-family: var(--font-display, Georgia, serif); font-weight: 400; color: var(--pet-battle-gold); }
+.pet-battle-theme .showdown-result-title.loss, .pet-battle-theme .wfr-result h2.is-loss { color: #dc8271; }
+.pet-battle-theme .showdown-cta, .pet-battle-theme .wfr-btn-primary,
+.pet-battle-theme .gauntlet-board-result__card button { min-height: 44px; border-radius: 3px; border: 1px solid #f7dc9f; background: linear-gradient(#f3dc9f, #ba955a); color: #242014; font-weight: 600; box-shadow: inset 0 0 0 2px #7b613343; }
+.pet-battle-theme .showdown-cta.danger { background: #482b2d; border-color: #c88675; color: #f1d5cc; }
+.pet-battle-theme .wfr-deploy-head, .pet-battle-theme .wfr-scout,
+.pet-battle-theme .wfr-pet-card, .pet-battle-theme .wfr-deploy-actions,
+.pet-battle-theme .wfr-hud, .pet-battle-theme .gauntlet-board-team { background: var(--pet-battle-surface); border-color: var(--pet-battle-line); border-radius: 3px; }
+.pet-battle-theme .wfr-eyebrow, .pet-battle-theme .gauntlet-board-team__eyebrow { color: var(--pet-battle-gold); font-size: 10px; font-weight: 600; letter-spacing: .14em; }
+.pet-battle-theme .wfr-btn-ghost, .pet-battle-theme .wfr-btn-danger, .pet-battle-theme .wfr-skip { min-height: 44px; border-radius: 3px; border-color: var(--pet-battle-line); background: #14202be6; color: var(--pet-battle-ink); }
+.pet-battle-theme .gauntlet-board-team__bar { border-radius: 2px; background: #050b0e; }
+.pet-battle-theme .gauntlet-board-team__bar > span { background: linear-gradient(90deg, #598773, #a4d3a0); }
+.pet-battle-theme .gauntlet-board-team__eyebrow { font-size: 8px; letter-spacing: .08em; white-space: normal; line-height: 1.3; }
+.pet-battle-theme .wild-binding-panel, .pet-battle-theme .wild-binding-result { background: var(--pet-battle-surface); border-color: var(--pet-battle-line); border-radius: 3px; }
+.pet-battle-theme .wild-binding-toggle, .pet-battle-theme .wild-binding-seal { min-height: 44px; border-radius: 3px; background: #14202be6; border-color: var(--pet-battle-line); }
+.pet-battle-theme .wild-binding-primary { min-height: 44px; border-radius: 3px; background: linear-gradient(#f3dc9f,#ba955a); border-color: #f7dc9f; color: #242014; font-weight: 600; }
+@media(max-width: 1050px) {
+    .pet-native-layout { grid-template-columns: 180px minmax(0, 1fr) 240px; gap: 12px; }
+    .pet-native-team .showdown-plate-portrait { width: 44px; }
+}
+@media(max-width: 800px) {
+    .pet-native-layout { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+    .pet-native-console { max-height: 56dvh; }
+    .pet-native-console .pta-orders { max-height: none; }
+    .pet-native-team .showdown-team-panel { display: flex; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 3px; }
+    .pet-native-team .showdown-team-panel .showdown-plate { flex: 0 0 calc(50% - 4px); width: calc(50% - 4px); min-height: 90px; }
+    .pet-native-team .showdown-plate-portrait { width: 40px; height: 52px; }
+    .pet-native-console .showdown-inspector { padding: 10px; }
+    .pet-native-console .showdown-inspector-title { font-size: 20px; }
+    .pet-native-console .showdown-inspector .showdown-inspector-desc, .pet-native-console .showdown-inspector .showdown-inspector-warn { display: block; }
+    .pet-native-console .showdown-inspector .showdown-inspector-stats { display: flex; }
+    .pet-native-console .showdown-inspector-toggle { display: none; }
+    .pet-native-console .showdown-tech-pill { min-height: 62px; padding: 7px; gap: 6px; }
+    .pet-native-console .showdown-menu-label { font-size: 12px; }
+    .pet-native-console .showdown-menu-icon { width: 33px; height: 33px; }
+    .pet-native-review { display: block; }
+    .pet-native-review span { display: block; margin-top: 4px; }
+    .pet-native-targets { position: sticky; bottom: -8px; padding: 8px 0; background: #0d1218; z-index: 2; }
+    .pet-native-targets button { min-height: 48px; }
+    .pet-native-hud .showdown-topbar { flex-direction: column; }
+    .pet-native-hud .showdown-topbar-right { flex-direction: row; align-items: center; justify-content: flex-end; min-height: 32px; }
+    .pet-native-hud .showdown-team-panel.enemy { flex-wrap: nowrap; overflow-x: auto; }
+    .pet-native-hud .showdown-team-panel.enemy .showdown-plate { flex: 0 0 calc((100vw - 28px) / 2); width: calc((100vw - 28px) / 2); }
+}
+@media(max-height: 550px) and (orientation: landscape) {
+    .pet-native-console { max-height: 54dvh; padding: 8px 12px; }
+    .pet-native-layout { grid-template-columns: 180px minmax(0, 1fr) 220px; }
+    .pet-native-team .showdown-team-panel { display: grid; }
+    .pet-native-team .showdown-team-panel .showdown-plate { width: 100%; min-height: 72px; }
+    .pet-native-console .pta-orders-heading strong { font-size: 18px; }
+    .pet-native-console .showdown-tech-pill { min-height: 44px; }
+}

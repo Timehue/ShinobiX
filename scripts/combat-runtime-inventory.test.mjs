@@ -163,7 +163,7 @@ describe('executable multi-engine runtime registry', () => {
     // 67 as of 2026-10-01: caravan ambushes use the Tower engine while
     // preserving the parent caravan run as their settlement owner.
     // 68 as of 2026-10-10: live simultaneous-order Pet Tactics prototype.
-    assert.equal(ids.length, 68, 'The inventory must retain the independently pinned 68-row model.');
+    assert.equal(ids.length, 69, 'The inventory must retain the independently pinned 69-row model including Dungeon command authority.');
     assert.equal(new Set(ids).size, ids.length, 'Runtime mode ids must be unique.');
     assert.equal(new Set(labels).size, labels.length, 'Runtime mode labels must be unique.');
     assert.equal(new Set(expectedIds).size, expectedIds.length, 'Independent expected mode ids must be unique.');
@@ -378,14 +378,13 @@ describe('executable multi-engine runtime registry', () => {
     assert.deepEqual(failures, [], failures.join('\n'));
   });
 
-  it('retires user-picked Pet Arena AI while preserving live PvP and issued-token recovery', () => {
+  it('retires old Pet Arena AI and socket admission while preserving issued-token recovery', () => {
     const startSource = readFileSync(join(ROOT, 'api', 'pet', 'battle-start.ts'), 'utf8');
     const resultSource = readFileSync(join(ROOT, 'api', 'pet', 'battle-result.ts'), 'utf8');
     const replaySource = readFileSync(join(ROOT, 'api', 'pet', '_duel-replay.ts'), 'utf8');
     const socketSource = readFileSync(join(ROOT, 'api', '_realtime', 'pet-duel-socket.ts'), 'utf8');
     const socketSessionSource = readFileSync(join(ROOT, 'api', '_realtime', 'pet-duel-session.ts'), 'utf8');
     const arenaSource = clientSource('screens/PetArena.tsx');
-    const rosterSource = clientSource('lib/pet-duel-live-roster.ts');
     const petModeIds = [
       'pet-arena-ai-1v1',
       'pet-arena-ai-2v2',
@@ -475,23 +474,10 @@ describe('executable multi-engine runtime registry', () => {
       'the paid Coliseum CTA must enter the server-owned Showdown arena');
     assert.match(arenaSource, /const pvpParty = Boolean\(/);
     assert.match(arenaSource, /sendDirectPetChallenge/);
-    assert.match(arenaSource, /liveDuelRef\.current\?\.challenge/);
-    assert.match(arenaSource, /buildPetArenaLiveRoster\(combatEligiblePets, selectedPet, reservePetId, character\.petBreeding\)/,
-      'Pet Arena must build the live roster through the exact-cardinality helper.');
-    assert.match(arenaSource, /myPets=\{liveDuelPets\}/,
-      'The live host must receive the selected lead plus the resolved reserve.');
-    assert.match(rosterSource, /eligibleCarriedPets\.find\(\(pet\) => \([\s\S]*?pet\.id !== authoritativeLead\.id/,
-      'Auto-pick must select another eligible carried pet as the reserve.');
-    assert.match(rosterSource, /selectLiveDuelRoster\(pets, mode\)/,
-      'Client challenge and accept paths must share exact roster validation.');
-    assert.match(socketSource, /const required = mode === ['"]2v2['"] \? 2 : 1/,
-      'The server must bind roster cardinality to the requested live-duel mode.');
-    assert.match(socketSource, /requestedPets\.length !== required/,
-      'The server must reject undersized and oversized live rosters.');
-    assert.doesNotMatch(socketSource, /requestedPets[\s\S]{0,400}\.slice\(0,\s*required\)/,
-      'The server must not truncate a mismatched roster into a different encounter contract.');
-    assert.match(socketSource, /randomUUID\(\)/, 'Realtime duel identity must be server minted.');
-    assert.match(socketSource, /randomInt\(1, 0x7fffffff\)/, 'Realtime duel seed must be server minted.');
+    assert.doesNotMatch(arenaSource, /PetDuelLiveHost|liveDuelRef|buildPetArenaLiveRoster/);
+    assert.match(arenaSource, /function sendDirectPetChallenge[\s\S]*?setShowTactics\(true\)/);
+    assert.match(socketSource, /Start player-controlled battles in Pet Arena/);
+    assert.doesNotMatch(socketSource, /makeSession\(|putSession\(/);
     assert.match(socketSource, /loadAuthoritativePetRoster/, 'Both live rosters must be loaded from server saves.');
     assert.match(socketSource, /replayLockstepPetDuel/, 'A client terminal hint must be replayed by the server.');
     assert.match(socketSessionSource, /const sessions = new Map/, 'The live duel record is memory-only.');
@@ -634,6 +620,12 @@ describe('executable multi-engine runtime registry', () => {
     assert.equal(dungeonPet.status, 'match');
     assert.equal(dungeonPet.authorityEngine, E.PET_CINEMATIC_DUEL);
     assert.equal(dungeonPet.replayKind, 'server-replayed-cinematic-input-log-and-parent-run-receipt');
+    assert.equal(dungeonPet.migrationStatus, 'migrated');
+    const dungeonCommands = runtimeModeById('dungeon-pet-showdown');
+    assert.equal(dungeonCommands.authorityEngine, E.PET_SHOWDOWN);
+    assert.equal(dungeonCommands.rewardPolicy, 'parent-mode-settlement');
+    assert.ok(dungeonCommands.routes.some(route => route.path === '/pet/showdown'));
+    assert.match(petBattleStartSource, /retiredDungeonAdmission\(dungeonBody\).*status\(410\)/);
     assert.match(petBattleStartSource, /resolveDungeonPetAuthority/);
     assert.match(petBattleStartSource, /buildDungeonRareBeast/);
     assert.match(dungeonPetAuthoritySource, /DUNGEON_RARE_BEAST_ID = 'dungeon-rare-beast'/);

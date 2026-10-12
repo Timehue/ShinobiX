@@ -22,13 +22,10 @@ describe('live pet-duel roster UI contracts', () => {
         assert.match(host, /acceptDuel\(invite\.id, roster\)/);
     });
 
-    it('passes Pet Arena Auto-pick candidates to the host without 2v2-to-1v1 degradation', () => {
-        assert.match(arena, /const liveDuelPets = buildPetArenaLiveRoster\(combatEligiblePets, selectedPet, reservePetId, character\.petBreeding\)/);
-        assert.match(arena, /!isLivePetDuelAvailable\(selectedPet, character\.petBreeding\)/);
-        assert.match(arena, /myPets=\{liveDuelPets\}/);
-        assert.match(arena, /partyMode && liveDuelPets\.length < 2/);
-        assert.match(arena, /partyMode \? "2v2" : "1v1"/);
-        assert.doesNotMatch(arena, /sending a 1v1 challenge instead|otherwise it falls back to 1v1/);
+    it('routes current Pet Arena challenges to the human command room and excludes the retired host', () => {
+        assert.doesNotMatch(arena, /PetDuelLiveHost|buildPetArenaLiveRoster|partyMode/);
+        assert.match(arena, /function sendDirectPetChallenge[\s\S]*?setShowTactics\(true\)/);
+        assert.match(arena, /<PetTacticsArena/);
     });
 
     it('keeps live ranked admission outside the shared duel host', () => {

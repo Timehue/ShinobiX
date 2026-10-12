@@ -16,7 +16,7 @@
  * from, deliberately unnamed because this repository is public.
  */
 
-import { paceShowdownTechniqueDamage } from './damage-pacing.js';
+import { paceShowdownTechniqueDamage, paceLegacyShowdownTechniqueDamage } from './damage-pacing.js';
 import {
     SHOWDOWN_COST_BASIC,
     SHOWDOWN_COST_CONTROL_FLOOR,
@@ -207,6 +207,8 @@ export interface ShowdownPet {
 }
 
 export interface ShowdownSession {
+    /** Absent on pre-cutover sessions; their numeric authority stays legacy. */
+    damageRules?: 'legacy-v1' | 'response-v2';
     sessionId: string;
     playerName: string;
     format: ShowdownFormat;
@@ -1203,6 +1205,7 @@ export function createShowdownSession(input: {
     /** Live player-vs-player. Arms the endpoint's 45s command timer; every
      *  caller today is an AI entry and omits it. */
     pvp?: boolean;
+    damageRules?: ShowdownSession['damageRules'];
 }): ShowdownSession {
     const size = SHOWDOWN_FORMAT_SIZE[input.format];
     const sealTeam = (pets: Pet[], commitConsumables: boolean): ShowdownPet[] =>
@@ -1225,6 +1228,7 @@ export function createShowdownSession(input: {
         });
     return {
         sessionId: input.sessionId,
+        damageRules: input.damageRules ?? 'response-v2',
         playerName: input.playerName,
         format: input.format,
         tier: input.tier,
@@ -1749,9 +1753,12 @@ function rawDamage(session: ShowdownSession, attacker: ShowdownPet, defender: Sh
     }
     // Price extreme low-level bursts and all-level ultimates before Guard,
     // so a healthy opponent gets a response and guarding still halves the
-    // same hit. Ordinary damage and the random draw sequence stay intact.
+    // same hit. The random draw sequence stays intact; the sealed rules choose
+    // whether ordinary high-level damage receives the response curve.
     const unguarded = base * mult;
-    const paced = move ? paceShowdownTechniqueDamage(unguarded, defender.maxHp, attacker.level, defender.level, superCast) : unguarded;
+    const prepared = !!mark || attacker.statuses.some(status => status.kind === 'buff') || weatherMult > 1;
+    const pace = session.damageRules === 'response-v2' ? paceShowdownTechniqueDamage : paceLegacyShowdownTechniqueDamage;
+    const paced = move ? pace(unguarded, defender.maxHp, attacker.level, defender.level, superCast, prepared) : unguarded;
     // Guardian pets block harder than the standard guard.
     let guard = 1;
     if (defender.guarding) {
@@ -2287,10 +2294,12 @@ export function resolveShowdownRound(
             return {
                 ...entry,
                 command,
+                defensive: session.damageRules === 'response-v2' && (command.kind === 'guard'
+                    || command.kind === 'move' && entry.pet.moves[command.moveIndex]?.kind === 'protect'),
                 sortKey: effSpeed(entry.pet) * priorityFor(entry.pet, command) + nextRand(session) * 0.5,
             };
         })
-        .sort((a, b) => b.sortKey - a.sortKey);
+        .sort((a, b) => Number(b.defensive) - Number(a.defensive) || b.sortKey - a.sortKey);
 
     for (const { pet, side, command } of order) {
         if (session.finished) break;
@@ -2546,6 +2555,7 @@ function petView(pet: ShowdownPet): ShowdownPetView {
 
 export function showdownStateView(session: ShowdownSession): ShowdownStateView {
     return {
+        damageRules: session.damageRules ?? 'legacy-v1',
         sessionId: session.sessionId,
         format: session.format,
         tier: session.tier,
