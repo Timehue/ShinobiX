@@ -183,7 +183,7 @@ export function PetTacticsArena({ playerName, sharedImages = {}, onExit, onActiv
         const commandReady = view.phase === 'planning' && presented === view.round;
         return <PetShowdownBattle key={view.roomId} spectator initialState={initial} playerPets={[]} sharedImages={sharedImages}
             submitTurn={playback} inputLocked={view.round <= presented && view.phase !== 'finished'}
-            onRoundPresented={acknowledge} onForfeit={() => void run('concede')} onExit={leaveResult}
+            onRoundPresented={acknowledge} onForfeit={async () => { await run('concede'); }} onExit={leaveResult}
             onFinished={() => setTerminalPresented(true)} onRematch={leaveResult} hideRematch
             exitLabel={view.ranked && settlement !== 'recorded' ? 'Record ranked result' : 'Back to squad builder'} eventLabel={`Pet Arena · ${view.opponent}`}
             resultTitle={() => view.result === 'draw' ? 'DRAW' : view.result === 'win' ? 'VICTORY' : 'DEFEAT'}

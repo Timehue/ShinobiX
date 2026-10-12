@@ -1,6 +1,6 @@
 // Local review only. Exercises the production PetModel3D, including unkeyed joints.
 /* eslint-disable react-refresh/only-export-components -- standalone local QA entry */
-import { StrictMode, Suspense, useRef, useState } from 'react';
+import { StrictMode, Suspense, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Canvas, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -14,31 +14,47 @@ import { STARTER_EVOLUTIONS } from './data/pet-evolutions';
 
 const params = new URLSearchParams(location.search);
 const catalog = [...rawPetPool, ...STARTER_PETS.map(s => s.pet), ...STARTER_EVOLUTIONS];
-const pet = catalog.find(p => p.id === params.get('pet')) ?? catalog.find(p => p.id === 'standard-10')!;
-const config = petCombatModel(pet)!;
+const initialPet = catalog.find(p => p.id === params.get('pet')) ?? catalog.find(p => p.id === 'standard-10')!;
 const quality = PET_VISUAL_QUALITY_PRESETS[params.get('quality') === 'low' ? 'low' : 'medium'];
 const motions: PetModelMotion[] = ['idle', 'run', 'dash', 'windup', 'strike', 'recover', 'stagger', 'dodge', 'guard', 'rest', 'dead'];
-function Fighter({ motion, paused, victorious }: {motion: PetModelMotion; paused: boolean; victorious: boolean}) {
+function Fighter({ pet, motion, paused, victorious }: {pet: typeof initialPet; motion: PetModelMotion; paused: boolean; victorious: boolean}) {
+    const config = useMemo(() => {
+        const production = petCombatModel(pet)!;
+        return params.has('candidates') ? { ...production, url: `/.tmp/pet-skin-candidates/${new URL(production.url, location.origin).pathname.slice('/pet-models/'.length)}` } : production;
+    }, [pet]);
     const frame = useRef({ ...DEFAULT_PET_MODEL_FRAME });
     const elapsed = useRef(0);
     useFrame((_, delta) => {
         if (!paused) elapsed.current += Math.min(delta, .05);
         Object.assign(frame.current, { motion, moving: motion === 'run' || motion === 'dash', speed: motion === 'dash' ? 5 : 3,
-            timeline: elapsed.current, faceX: .7, faceZ: .7, contactPose: motion === 'strike' || motion === 'stagger', victorious });
+            timeline: elapsed.current, faceX: params.get('view') === 'front' ? 0 : .7, faceZ: params.get('view') === 'front' ? 1 : .7, contactPose: motion === 'strike' || motion === 'stagger', victorious });
     }, -1);
     return <PetModel3D config={config} frame={frame} quality={quality} element={pet.element} showIdentity={false} />;
 }
-function Probe() {
+function Probe({ petId }: { petId: string }) {
     useFrame(({ scene, gl }) => {
         const bones: Record<string, number[]> = {};
-        scene.traverse(o => { if (o instanceof THREE.Bone && !bones[o.name]) bones[o.name] = o.quaternion.toArray(); });
+        let skinned = 0, atlases = 0;
+        scene.traverse(object => {
+            if (object instanceof THREE.Bone && !bones[object.name]) bones[object.name] = object.quaternion.toArray();
+            if (!(object instanceof THREE.SkinnedMesh)) return;
+            skinned++;
+            const materials = Array.isArray(object.material) ? object.material : [object.material];
+            for (const material of materials) if ((material as THREE.MeshStandardMaterial).map?.image) atlases++;
+        });
         gl.domElement.dataset.bones = JSON.stringify(bones);
         gl.domElement.dataset.renderCalls = String(gl.info.render.calls);
         gl.domElement.dataset.renderTriangles = String(gl.info.render.triangles);
+        gl.domElement.dataset.petReady = petId;
+        gl.domElement.dataset.skinned = String(skinned);
+        gl.domElement.dataset.atlases = String(atlases);
     });
     return null;
 }
 function Preview() {
+    const [petId, setPetId] = useState(initialPet.id);
+    const pet = catalog.find(p => p.id === petId)!;
+    const config = petCombatModel(pet)!;
     const [motion, setMotion] = useState<PetModelMotion>('idle');
     const [paused, setPaused] = useState(false);
     const [victorious, setVictorious] = useState(false);
@@ -46,6 +62,7 @@ function Preview() {
     return <main style={{height:'100dvh', background:'#101726', color:'#eef2ff', display:'flex', flexDirection:'column', fontFamily:'system-ui'}}>
         <div style={{padding:12, display:'flex', flexWrap:'wrap', gap:8, alignItems:'center'}}>
             <strong>{pet.name} · {config.visualId}</strong>
+            <select aria-label="Pet" value={petId} onChange={e => {setPetId(e.target.value); setGeneration(g => g + 1);}}>{catalog.map(p => <option key={p.id} value={p.id}>{p.name} · {p.id}</option>)}</select>
             <select aria-label="Motion" value={motion} onChange={e => {setMotion(e.target.value as PetModelMotion); setVictorious(false);}}>{motions.map(m => <option key={m}>{m}</option>)}</select>
             <button onClick={() => setVictorious(v => !v)}>Victory</button>
             <button onClick={() => setPaused(p => !p)}>{paused ? 'Resume' : 'Pause'}</button>
@@ -55,7 +72,7 @@ function Preview() {
             <RendererRetirement />
             <color attach="background" args={['#101726']}/><ambientLight intensity={1.4}/>
             <directionalLight position={[3,6,4]} intensity={2.2}/><directionalLight position={[-3,2,-3]} color="#8bc5ff" intensity={1.2}/>
-            <Suspense fallback={null}><Fighter key={generation} motion={motion} paused={paused} victorious={victorious}/><Probe/></Suspense>
+            <Suspense fallback={null}><Fighter key={generation} pet={pet} motion={motion} paused={paused} victorious={victorious}/><Probe petId={petId}/></Suspense>
             <gridHelper args={[10,20,'#667085','#2b3547']}/>
             <mesh rotation={[-Math.PI/2,0,0]} position={[0,-.01,0]}><planeGeometry args={[20,20]}/><meshStandardMaterial color="#202d40"/></mesh>
         </Canvas></div>

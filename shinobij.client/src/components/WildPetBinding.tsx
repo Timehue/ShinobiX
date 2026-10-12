@@ -4,6 +4,7 @@ import type { Character, VersionedCharacterCommit } from '../types/character';
 import type { Pet } from '../types/pet';
 import type { ShowdownStateView, ShowdownTurnResponse } from '../../../shared/pet-showdown-contract';
 import { PetShowdownBattle } from './PetShowdownBattle';
+import { withPetSceneRecall } from './PetSceneRecall';
 import type { WildBindingCinematic } from './WildBindingArenaFx';
 import { petCardImage } from '../lib/pet-battle-anim';
 import { warmShowdownModels } from '../lib/pet-model-preload';
@@ -22,7 +23,8 @@ import '../styles/pet-battle-theme.css';
 type Outcome = 'captured' | 'ended' | 'left';
 const CAPTURE_ANIMATION_MS = 3600;
 
-export function WildPetBinding({
+export const WildPetBinding = withPetSceneRecall(WildPetBindingView, ['onResolved']);
+function WildPetBindingView({
     character, token, pet, sharedImages, onVersionedCharacter, onResolved,
 }: {
     character: Character;
@@ -305,7 +307,7 @@ export function WildPetBinding({
             playerPets={battlePets}
             sharedImages={sharedImages}
             submitTurn={submitTurn}
-            onForfeit={() => void forfeit()}
+            onForfeit={forfeit}
             onFinished={() => { setBattleReady(false); setBattleEnded(true); }}
             onExit={() => finish('ended')}
             onRematch={() => finish('ended')}

@@ -3,7 +3,7 @@ import { mkdir, writeFile, rename } from 'node:fs/promises';
 import { resolve } from 'node:path';
 const label = process.argv[2] ?? 'before';
 const videoMode = process.argv[3] === 'video';
-const output = resolve(import.meta.dirname, '../../docs/pet-motion-evidence', label);
+const output = resolve(import.meta.dirname, '../../.tmp/pet-motion-evidence', label);
 await mkdir(output, {recursive:true});
 const browser = await chromium.launch({headless:true});
 const results = [];

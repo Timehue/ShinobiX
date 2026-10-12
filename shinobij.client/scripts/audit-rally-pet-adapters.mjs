@@ -17,7 +17,7 @@ await mkdir(out, { recursive: true });
 const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder), rows = [];
 // Node has no browser image decoder. This audit covers skeletons/geometry;
 // real atlas loading and material appearance are checked by the browser QA.
-loader.register(() => ({ name: 'RALLY_GEOMETRY_AUDIT', loadTexture: () => Promise.resolve(null) }));
+loader.register(() => ({ name: 'EXT_texture_webp', loadTexture: () => Promise.resolve(null) }));
 const pets = [...rawPetPool, ...STARTER_PETS.map(p => p.pet), ...STARTER_EVOLUTIONS];
 for (const pet of pets) {
     const model = warfrontPetModelConfig(petCombatModel(pet), true);

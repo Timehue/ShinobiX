@@ -46,7 +46,7 @@ export default defineConfig([
       // affects production behaviour). Kept as 'warn' globally so genuine
       // violations in normal modules stay visible; scoped OFF below for the two
       // files that export non-components by design.
-      'react-refresh/only-export-components': 'warn',
+      'react-refresh/only-export-components': ['warn', { allowConstantExport: true, extraHOCs: ['withPetSceneRecall'] }],
     },
   },
   {

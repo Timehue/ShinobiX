@@ -1,3 +1,5 @@
+import { PET_SKIN_REPAIR_REVISIONS } from '../generated/pet-skin-repair-revisions';
+
 /** Asset revision for the roster-wide identity-performance skeletal pass. */
 export const PROPER_PET_ANIMATION_ASSET_REVISION = "20260825-identity-v5";
 
@@ -35,6 +37,7 @@ export const PET_RIG_REPAIR_REVISIONS: Readonly<Record<string, string>> = Object
     'starter-wind': '20260916-bird-face-binding-v2',
     'starter-wind-r': '20260916-bird-face-binding-v2',
     'starter-wind-l': '20260916-bird-face-binding-v2',
+    ...PET_SKIN_REPAIR_REVISIONS,
 });
 
 /** These four showcase pets keep the detailed individual banks authored before
