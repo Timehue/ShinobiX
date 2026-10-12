@@ -251,3 +251,9 @@ renderer/warm-up/retirement contracts pass. The final production-feature client
 build, scoped lint, generated handoff check and distribution verification pass;
 budgeted JS/CSS is 9,168,111 bytes against the unchanged ceiling. These are local
 correction results; the failed full-CI revision must still be rerun after push.
+
+Production retirement safeguard: `npm run verify:dist`, which also runs in the
+deployment image build, rejects executable client assets containing the retired
+Fight Plan renderer or realtime host markers. Its artifact-fixture tests verify
+both rejection paths and allow current commands and non-executable old receipts.
+Source import guards and blocked legacy admissions remain independent checks.
