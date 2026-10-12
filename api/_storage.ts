@@ -249,6 +249,21 @@ let _pool: pg.Pool | null = null;
 let _storageClosed = false;
 let _poolClose: Promise<void> | null = null;
 
+/**
+ * Read-only pool occupancy for runtime metrics (api/_runtime-metrics.ts). Null
+ * until the pool exists (REST/memory backends never create one). `waiting` > 0
+ * means requests are queued for a connection — the pool is the bottleneck.
+ */
+export function storagePoolStats(): { max: number; total: number; idle: number; waiting: number } | null {
+    if (!_pool) return null;
+    return {
+        max: _pool.options.max ?? 0,
+        total: _pool.totalCount,
+        idle: _pool.idleCount,
+        waiting: _pool.waitingCount,
+    };
+}
+
 export async function closeStoragePool(): Promise<void> {
     _storageClosed = true;
     _readCache.clear();
