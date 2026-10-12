@@ -2870,6 +2870,17 @@
       },
       {
         "direction": "max",
+        "axis": "height",
+        "valuePx": 550,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/pet-battle-theme.css",
+            "line": 129
+          }
+        ]
+      },
+      {
+        "direction": "max",
         "axis": "width",
         "valuePx": 559,
         "occurrences": [
@@ -2930,7 +2941,7 @@
           },
           {
             "source": "shinobij.client/src/components/PetBoardArena.css",
-            "line": 473
+            "line": 460
           },
           {
             "source": "shinobij.client/src/styles/pet-warfront-rite.css",
@@ -3638,7 +3649,7 @@
           },
           {
             "source": "shinobij.client/src/components/PetBoardArena.css",
-            "line": 426
+            "line": 413
           },
           {
             "source": "shinobij.client/src/features/character-creator/character-creator.css",
@@ -4007,6 +4018,10 @@
           {
             "source": "shinobij.client/src/styles/pet-arena-presentation.css",
             "line": 164
+          },
+          {
+            "source": "shinobij.client/src/styles/pet-battle-theme.css",
+            "line": 105
           },
           {
             "source": "shinobij.client/src/styles/pet-tactics.css",
@@ -4826,6 +4841,10 @@
           {
             "source": "shinobij.client/src/styles/pet-arena-presentation.css",
             "line": 157
+          },
+          {
+            "source": "shinobij.client/src/styles/pet-battle-theme.css",
+            "line": 101
           },
           {
             "source": "shinobij.client/src/styles/sunscar-exchange.css",
