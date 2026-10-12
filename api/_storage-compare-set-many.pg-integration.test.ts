@@ -632,17 +632,22 @@ describe('kv.compareSetMany on a real Postgres', () => {
         await storage.kv.hset('pgit:hash:a', { b: 2, a: { x: 1, y: 2 } });
         assert.deepEqual((await row('pgit:hash:a'))?.value, { a: { x: 1, y: 2 }, b: 2 });
 
-        const before = await dataWrites();
-        const xmin = (await row('pgit:hash:a'))?.xmin;
+        // Judged by the row version, not dataWrites(): kv_hset is an
+        // INSERT ... ON CONFLICT, and Postgres fires the BEFORE INSERT trigger
+        // for the proposed row before it finds the conflict, so the counter
+        // ticks even when the guarded DO UPDATE writes nothing.
+        const original = await row('pgit:hash:a');
         // Same values, different key order at both levels: jsonb equality is structural.
         await storage.kv.hset('pgit:hash:a', { a: { y: 2, x: 1 } });
         await storage.kv.hset('pgit:hash:a', { b: 2 });
-        assert.equal(await dataWrites(), before, 'an unchanged merge never reaches the row');
-        assert.equal((await row('pgit:hash:a'))?.xmin, xmin, 'the row version is untouched');
+        const unchanged = await row('pgit:hash:a');
+        assert.equal(unchanged?.xmin, original?.xmin, 'an unchanged merge never rewrites the row');
+        assert.equal(unchanged?.updated_at.getTime(), original?.updated_at.getTime(), 'updated_at keeps the last real change');
 
         await storage.kv.hset('pgit:hash:a', { b: 3, c: 'new' });
-        assert.equal(await dataWrites(), before + 1);
-        assert.deepEqual((await row('pgit:hash:a'))?.value, { a: { x: 1, y: 2 }, b: 3, c: 'new' });
+        const changed = await row('pgit:hash:a');
+        assert.notEqual(changed?.xmin, original?.xmin, 'a real change still writes');
+        assert.deepEqual(changed?.value, { a: { x: 1, y: 2 }, b: 3, c: 'new' });
     });
 
     pgTest('hdel removes present fields, and leaves the row untouched when none is present', async () => {
