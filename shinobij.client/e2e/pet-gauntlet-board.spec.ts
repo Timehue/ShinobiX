@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-const reportedFormation = "/petvfx.html?board=1&boardLineup=reported";
+const reportedFormation = "/gauntlet-qa.html?reported=1";
 
 test.beforeEach(async ({ page }) => {
     page.on("pageerror", (error) => console.error(`[pageerror] ${error.stack ?? error.message}`));
