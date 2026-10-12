@@ -5,6 +5,7 @@ import {
     COMBAT_MS,
     FIELD_MS,
     HEARTBEAT_JITTER_PCT,
+    HEARTBEAT_RECONNECT_SPREAD_MS,
     HEARTBEAT_RECONNECT_STAGGER_MS,
     HIDDEN_TAB_MS,
     SOCKET_RECONCILE_MS,
@@ -180,6 +181,23 @@ describe("heartbeat scheduling", () => {
         assert.equal(beats, 1);
         assert.equal(box.current, false, "the box adopts the state it was compared against");
         stop();
+    });
+
+    it("spreads the flip's first beat wider for a player outside a fight or guard queue", (t) => {
+        t.mock.timers.enable({ apis: ["setTimeout"] });
+        let beats = 0;
+        const stop = scheduleHeartbeat(() => { beats++; }, VISIBLE_IDLE, { lastSocketConnected: { current: true }, random: () => 1 });
+        t.mock.timers.tick(HEARTBEAT_RECONNECT_SPREAD_MS - 1);
+        assert.equal(beats, 0, "an idle player's flip beat may wait up to the wider spread");
+        t.mock.timers.tick(1);
+        assert.equal(beats, 1);
+        stop();
+        // On guard duty the narrow stagger still applies: raids must be answered fast.
+        let guardBeats = 0;
+        const stopGuard = scheduleHeartbeat(() => { guardBeats++; }, { ...VISIBLE_IDLE, guardQueued: true }, { lastSocketConnected: { current: true }, random: () => 1 });
+        t.mock.timers.tick(HEARTBEAT_RECONNECT_STAGGER_MS);
+        assert.equal(guardBeats, 1);
+        stopGuard();
     });
 
     it("keeps beating immediately for the triggers that carry player state", (t) => {
