@@ -2,6 +2,7 @@
 import { createRoot } from 'react-dom/client';
 import { useEffect, useState } from 'react';
 import { PetShowdownBattle } from '../components/PetShowdownBattle';
+import { warmShowdownModels } from '../lib/pet-model-preload';
 import type { ShowdownStateView, ShowdownTurnResponse } from '../lib/pet-showdown-api';
 import '../styles/tokens.css';
 
@@ -32,7 +33,7 @@ function NativeHarness() {
         const timer = window.setTimeout(() => void post(dungeonSeat
             ? { action: 'encounter', petIds: ['native-0'], encounter: { kind: 'dungeon-seal', runToken: `qadungeon${playerName}01` } }
             : { action: 'start', format, sparring: true, petIds: Array.from({ length: size + 2 }, (_, i) => `native-${i}`) })
-            .then(result => { if (!cancelled) { setInitial(result.state); setLatest(result.state); } })
+            .then(async result => { await warmShowdownModels(result.state, []); if (!cancelled) { setInitial(result.state); setLatest(result.state); } })
             .catch(cause => { if (!cancelled) setError(String(cause)); }), 0);
         return () => { cancelled = true; window.clearTimeout(timer); };
     }, []);

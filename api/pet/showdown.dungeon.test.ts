@@ -113,3 +113,20 @@ test('a saved terminal session repairs an interrupted parent write on reopening'
     const retry = await f.start(); assert.equal(retry.body.completed, true);
     assert.equal(retry.body._saveVersion, 3);
 });
+
+test('Dungeon admission and settlement preserve idle regeneration through canonical save mutations', async () => {
+    const f = await fixture('regen');
+    const at = Date.now() - 30000;
+    const tired = { ...f.character, hp: 10, maxHp: 100, chakra: 20, maxChakra: 100, stamina: 0, maxStamina: 100 };
+    await kv.set(`save:${f.name}`, { _saveVersion: 1, _saveAt: at, _regenAt: at, character: tired });
+    const opened = await f.start(); assert.equal(opened.status, 200, JSON.stringify(opened.body));
+    assert.ok(opened.body.character.hp >= 40);
+    const save = (await kv.get<Json>(`save:${f.name}`))!;
+    await kv.set(`save:${f.name}`, { ...save, _saveAt: at, _regenAt: at, character: { ...save.character, hp: 10, chakra: 20, stamina: 0 } });
+    const settled = await call(f.name, { action: 'forfeit', sessionId: opened.body.state.sessionId });
+    assert.equal(settled.status, 200, JSON.stringify(settled.body));
+    for (const character of [settled.body.character, (await kv.get<Json>(`save:${f.name}`))!.character]) {
+        assert.ok(character.hp >= 40); assert.ok(character.chakra >= 50); assert.ok(character.stamina >= 30);
+    }
+    assert.equal(settled.body._saveVersion, 3);
+});

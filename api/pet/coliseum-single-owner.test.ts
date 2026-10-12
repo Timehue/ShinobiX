@@ -73,7 +73,7 @@ test('the product surface and registry expose Showdown as the sole paid Pet Coli
 
     assert.doesNotMatch(arenaSource, /setOpponentMode\("ai"\)|opponentMode === "ai"|Choose both contenders/);
     assert.match(arenaSource, /setScreen\("petColiseum"\)/);
-    assert.match(arenaSource, /Paid Colosseum bouts use the server-owned Showdown/);
+    assert.match(arenaSource, /Paid circuit · daily purse/);
     assert.match(startSource, /pick-your-opponent Pet Colosseum is retired/);
 
     const paid = runtimeModeById('pet-coliseum');
