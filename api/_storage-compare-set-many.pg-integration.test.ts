@@ -616,4 +616,40 @@ describe('kv.compareSetMany on a real Postgres', () => {
         assert.deepEqual((await row('pgit:takeover:target'))?.value, { v: 1 });
         assert.deepEqual((await row('lock:pgit:takeover:target'))?.value, 'another-worker', 'release never deletes a lease it no longer owns');
     });
+
+    // kv.mgetProjected detoasts each row once and reads every path from that
+    // copy (the roster's 7-path read went 1,145 ms → 183 ms in production). The
+    // pg.Pool shim cannot evaluate SQL, so the identical-result claim is proven
+    // here: objects, missing paths, non-object rows, expiry, absent keys, input
+    // order, and a value large enough to be stored out of line (TOAST).
+    pgTest('mgetProjected returns the same projection for every row shape', async () => {
+        const bulky = 'x'.repeat(300_000); // well past the ~2 kB TOAST threshold
+        await seed('pgit:proj:full', { character: { name: 'A', lvl: 3 }, currentSector: 7, blob: bulky, deep: { a: { b: 5 } } });
+        await seed('pgit:proj:partial', { character: { name: 'B' } });
+        await seed('pgit:proj:array', [1, 2, 3]);
+        await seedJson('pgit:proj:string', '"just text"');
+        await seedJson('pgit:proj:null', 'null');
+        await seed('pgit:proj:expired', { character: { name: 'C' } }, 'past');
+        await seed('pgit:proj:live-ttl', { currentSector: 2 }, 'future');
+        const { rows: [stored] } = await admin.query<{ external: boolean }>(
+            "SELECT pg_column_size(value) < octet_length(value::text) AS external FROM public.kv_store WHERE key = 'pgit:proj:full'",
+        );
+        assert.equal(stored.external, true, 'the bulky row must actually be compressed/out of line for this test to mean anything');
+
+        const keys = ['pgit:proj:live-ttl', 'pgit:proj:full', 'pgit:proj:missing', 'pgit:proj:partial', 'pgit:proj:array', 'pgit:proj:string', 'pgit:proj:null', 'pgit:proj:expired'];
+        const got = await storage.kv.mgetProjected!(keys, {
+            character: ['character'], currentSector: ['currentSector'], depth: ['deep', 'a', 'b'],
+        });
+        assert.deepEqual(got, [
+            { currentSector: 2 },
+            { character: { name: 'A', lvl: 3 }, currentSector: 7, depth: 5 },
+            null,
+            { character: { name: 'B' } },
+            null,
+            null,
+            null,
+            null,
+        ]);
+        assert.deepEqual(await storage.kv.mgetProjected!(['pgit:proj:full'], {}), [{}], 'an empty projection of an object is {}');
+    });
 });

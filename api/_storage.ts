@@ -741,14 +741,27 @@ const pgKv = {
             params.push(field, path);
             const fieldParam = `$${params.length - 1}::text`;
             const pathParam = `$${params.length}::text[]`;
-            return `CASE WHEN value #> ${pathParam} IS NULL THEN '{}'::jsonb ELSE jsonb_build_object(${fieldParam}, value #> ${pathParam}) END`;
+            return `CASE WHEN v #> ${pathParam} IS NULL THEN '{}'::jsonb ELSE jsonb_build_object(${fieldParam}, v #> ${pathParam}) END`;
         });
         const expression = fragments.length ? fragments.join(' || ') : "'{}'::jsonb";
         // Read the current row directly. A projection must never seed the cache
         // consumed by get/mget or become authority for a subsequent save write.
+        //
+        // Every reference to a TOASTed jsonb column decompresses the whole value
+        // again, so a save read through N paths was inflated N+1 times. The inner
+        // `value || '{}'` detoasts each row ONCE into an in-memory datum that every
+        // path then reads (OFFSET 0 keeps the planner from inlining it back). The
+        // result is identical: an object is returned unchanged by `|| '{}'`, and a
+        // non-object becomes an array, which the typeof guard still maps to NULL.
+        // Production 2026-10-11, the roster's 7-path read of 190 saves: 1,145 ms →
+        // 183 ms, 36,738 → 2,960 shared buffers.
         const { rows } = await getPgDb().query<{ key: string; value: Record<string, unknown> | null }>(
-            `SELECT key, CASE WHEN jsonb_typeof(value) = 'object' THEN ${expression} ELSE NULL END AS value
-             FROM public.kv_store WHERE key = ANY($1::text[]) AND (expires_at IS NULL OR expires_at > now())`,
+            `SELECT key, CASE WHEN jsonb_typeof(v) = 'object' THEN ${expression} ELSE NULL END AS value
+             FROM (
+                 SELECT key, value || '{}'::jsonb AS v
+                 FROM public.kv_store WHERE key = ANY($1::text[]) AND (expires_at IS NULL OR expires_at > now())
+                 OFFSET 0
+             ) AS detoasted`,
             params,
         );
         const byKey = new Map(rows.map(row => [row.key, row.value]));
