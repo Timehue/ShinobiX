@@ -1,6 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cpuBusyFraction, memoryUsedFraction, parsePrometheus, summarizeSamples } from './sampler.mjs';
+import { cpuBusyFraction, memoryUsedFraction, parsePrometheus, samplerDatabaseUrl, summarizeSamples } from './sampler.mjs';
+
+test('samplerDatabaseUrl moves to the transaction-mode port and drops sslmode', () => {
+    const session = 'postgresql://postgres.ref:p%40ss@aws-0-us-east-1.pooler.supabase.com:5432/postgres?sslmode=require';
+    assert.equal(samplerDatabaseUrl(session, '6543'), 'postgresql://postgres.ref:p%40ss@aws-0-us-east-1.pooler.supabase.com:6543/postgres');
+    assert.equal(samplerDatabaseUrl(session, ''), 'postgresql://postgres.ref:p%40ss@aws-0-us-east-1.pooler.supabase.com:5432/postgres');
+});
 
 const scrape = (idle0, user0, idle1, user1) => `# HELP node_cpu_seconds_total x
 # TYPE node_cpu_seconds_total counter
