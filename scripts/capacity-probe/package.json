@@ -1,0 +1,16 @@
+{
+  "name": "shinobix-capacity-probe",
+  "private": true,
+  "description": "Load generator for the ShinobiX capacity probe; deployed as its own short-lived Railway service. See README.md.",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node probe.mjs"
+  },
+  "dependencies": {
+    "pg": "8.23.0",
+    "socket.io-client": "4.8.3"
+  }
+}

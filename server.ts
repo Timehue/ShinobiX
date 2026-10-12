@@ -19,10 +19,12 @@
 import './api/_force-ipv4.js';
 
 import { startGameLoop, stopGameLoop } from './api/_realtime/game-loop.js';
-import { attachSocketServer, closeSocketServer } from './api/_realtime/socket.js';
+import { attachSocketServer, closeSocketServer, getIo } from './api/_realtime/socket.js';
+import { onlineStore } from './api/_realtime/online-store.js';
+import { runtimeMetricsSampler } from './api/_runtime-metrics.js';
 import { restorePresenceSnapshot, savePresenceSnapshot, startPresenceSnapshots, stopPresenceSnapshots } from './api/_realtime/presence-snapshot.js';
 import { startSnapshotCron, stopSnapshotCron } from './api/cron/_scheduler.js';
-import { closeStoragePool } from './api/_storage.js';
+import { closeStoragePool, storagePoolStats } from './api/_storage.js';
 import { flushBetaMetrics } from './api/_beta-metrics.js';
 import { drainBackgroundWork, stopBackgroundWork } from './api/_background-work.js';
 import { startTerritoryInitialization, stopStartupInitialization } from './api/_startup-initialization.js';
@@ -649,6 +651,31 @@ async function runDbHealthProbe(): Promise<{
 
 app.get(['/health/db', '/api/health/db'], async (req, res) => {
     await sendDeepHealth(req, res);
+});
+
+// Runtime capacity metrics: event-loop utilization and delay, process CPU,
+// memory, DB pool occupancy and socket count (api/_runtime-metrics.ts). Same
+// token as the deep probe, but it never touches storage, so a load-test sampler
+// can poll it every few seconds without adding DB load. Each read covers the
+// interval since the previous read.
+const _runtimeSampler = runtimeMetricsSampler();
+app.get(['/health/runtime', '/api/health/runtime'], (req, res) => {
+    res.setHeader('Cache-Control', 'private, no-store');
+    if (!deepHealthAuthorized(req)) {
+        res.status(401).json({ ok: false, error: 'Deep health token required.' });
+        return;
+    }
+    if (!enforceRateLimit(req, res, 'runtime-health', 60, 60_000)) return;
+    res.json({
+        ok: true,
+        runtime: _runtimeSampler.snapshot({
+            pool: storagePoolStats,
+            sockets: () => getIo()?.engine.clientsCount ?? 0,
+            onlinePlayers: () => onlineStore.size(),
+        }),
+        requestMetrics: readRequestMetrics(),
+        ..._BUILD_INFO,
+    });
 });
 
 // Normalize a possibly-array header to a single string (Express can hand

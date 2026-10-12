@@ -37,7 +37,7 @@ and is removed by the deletion process in §5.
 | Player session tokens (`x-player-token`) | Auth without re-running scrypt each request | **24h** TTL, self-expiring; revoked immediately on credential change (`api/_auth.ts`) |
 | Admin session tokens | Admin auth | **12h** TTL (`api/_auth.ts`) |
 | Character save (`save:<name>`) | Core gameplay/progression | While account active; removed on deletion |
-| Player save snapshots — daily cron + manual (`save-snapshot:*`) | Corruption/rollback recovery | **90-day** TTL, auto-expiring (`api/cron/snapshot-saves.ts`, `api/admin/save-snapshot.ts`) |
+| Player save snapshots — daily cron + manual (`save-snapshot:*`) | Corruption/rollback recovery | **90-day** TTL, auto-expiring (`api/cron/snapshot-saves.ts`, `api/admin/save-snapshot.ts`). A copy that still equals the live save has its TTL renewed nightly instead of being duplicated, so a past state is gone within 90 days of being superseded |
 | Snapshot success marker | Backup-health monitoring | **180-day** TTL |
 | Battle receipts (`receipt:*`) | Reward-dispute / debugging | **90-day** TTL (`api/_receipts.ts`) |
 | Mission progress receipts | Anti-replay of reward claims | **14-day** TTL (`api/missions/record-progress.ts`) |
@@ -71,7 +71,7 @@ Process is described to users on the [Privacy Request](../shinobij.client/src/sc
 5. Security linkage indexes (`mod:ip`, `mod:fp`) — retained only where a lawful safety/fraud need exists, otherwise removed.
 6. Shared records that cannot be deleted without corrupting other players' history (e.g. a battle both fought, clan-war logs) are **anonymized** (the departing name is scrubbed) rather than deleted.
 
-Snapshots (`save-snapshot:*`) self-expire within 90 days; managed DB backups reconcile on their own rotation.
+Snapshots (`save-snapshot:*`) self-expire within 90 days of the deletion: the nightly renewal only touches copies that equal a live save, and a deleted account has none. Managed DB backups reconcile on their own rotation.
 
 ## 6. Children's data (COPPA)
 
