@@ -617,6 +617,79 @@ describe('kv.compareSetMany on a real Postgres', () => {
         assert.deepEqual((await row('lock:pgit:takeover:target'))?.value, 'another-worker', 'release never deletes a lease it no longer owns');
     });
 
+    // A single locked statement sends BEGIN and its lease check as ONE
+    // simple-protocol message with the lease keys inlined as escaped literals.
+    // These prove, on a real server, that the transaction that message opens
+    // stays open for the statement, and that the escaping holds.
+    pgTest('a single locked statement commits under a live lease, even for a lock target with a quote and a backslash', async () => {
+        const target = String.raw`pgit:it's a \odd' target`;
+        await locks.withKvLock(target, async () => {
+            await storage.kv.set('pgit:single:quoted', { v: 1 });
+            assert.deepEqual(await storage.kv.get('pgit:single:quoted'), { v: 1 });
+        }, critical);
+        assert.deepEqual((await row('pgit:single:quoted'))?.value, { v: 1 });
+        assert.equal(await row(`lock:${target}`), null, 'the lease was found by its exact key and released');
+    });
+
+    pgTest('a single locked statement holds the owner row FOR SHARE until COMMIT', async () => {
+        // Hold the data row with a row lock so the locked write parks AFTER its
+        // combined BEGIN + lease-check message has run.
+        await seed('pgit:single:held', { v: 1 });
+        const holder = await openClient();
+        try {
+            await holder.query('BEGIN');
+            await holder.query("SELECT 1 FROM public.kv_store WHERE key = 'pgit:single:held' FOR UPDATE");
+            const write = settleLater(locks.withKvLock('pgit:single:held', () => storage.kv.set('pgit:single:held', { v: 2 }), critical));
+            await waitForLockWaiters(1);
+            // The owner row is share-locked by the parked transaction: a takeover
+            // write on it cannot proceed until that transaction ends.
+            const { rows: [lock] } = await admin.query<{ locked: boolean }>(
+                `SELECT NOT EXISTS (SELECT 1 FROM public.kv_store WHERE key = 'lock:pgit:single:held' FOR UPDATE SKIP LOCKED) AS locked`,
+            );
+            assert.equal(lock.locked, true, 'the lease row is held by the open fenced transaction');
+            await holder.query('COMMIT');
+            await write;
+        } finally {
+            await holder.end();
+        }
+        assert.deepEqual((await row('pgit:single:held'))?.value, { v: 2 });
+    });
+
+    pgTest('an expired lease stops a single locked statement before it writes', async () => {
+        await seed('pgit:single:expired', { v: 1 });
+        await locks.withKvLock('pgit:single:expired', async () => {
+            const deadline = Date.now() + 15_000;
+            for (;;) {
+                const { rows: [lease] } = await admin.query<{ expired: boolean }>(
+                    "SELECT expires_at <= clock_timestamp() AS expired FROM public.kv_store WHERE key = 'lock:pgit:single:expired'",
+                );
+                if (lease?.expired) break;
+                assert.ok(Date.now() < deadline, 'the one-second lease never expired');
+                await sleep(100);
+            }
+            const before = await dataWrites();
+            await assert.rejects(storage.kv.set('pgit:single:expired', { v: 2 }), locks.LockOwnershipLostError);
+            assert.equal(await dataWrites(), before, 'not one data statement executed');
+        }, { ...critical, ttlSec: 1 });
+        assert.deepEqual((await row('pgit:single:expired'))?.value, { v: 1 });
+    });
+
+    pgTest('a quoted lock target taken over by another owner stops a single locked statement', async () => {
+        const target = String.raw`pgit:o'clock \takeover`;
+        await seed('pgit:single:takeover', { v: 1 });
+        await locks.withKvLock(target, async () => {
+            const { rowCount } = await admin.query(
+                "UPDATE public.kv_store SET value = to_jsonb('another-worker'::text), expires_at = now() + interval '1 minute' WHERE key = $1",
+                [`lock:${target}`],
+            );
+            assert.equal(rowCount, 1);
+            const before = await dataWrites();
+            await assert.rejects(storage.kv.set('pgit:single:takeover', { v: 2 }), locks.LockOwnershipLostError);
+            assert.equal(await dataWrites(), before);
+        }, critical);
+        assert.deepEqual((await row('pgit:single:takeover'))?.value, { v: 1 });
+    });
+
     // kv.mgetProjected detoasts each row once and reads every path from that
     // copy (the roster's 7-path read went 1,145 ms → 183 ms in production). The
     // pg.Pool shim cannot evaluate SQL, so the identical-result claim is proven
