@@ -10,6 +10,12 @@ import {
 import { pvpSessionPublicationTombstoneFor } from './_session-publication-tombstone.js';
 import { enforcePvpTurnDeadline, pvpTurnNextCheckAt } from './_turn-deadline.js';
 import { onKeyWritten } from '../_kv-write-signal.js';
+import {
+    forgetSharedStreamRead,
+    readSharedStreamSession,
+    releaseSharedStreamRead,
+    retainSharedStreamRead,
+} from './_stream-shared-read.js';
 
 // GET /api/pvp/stream?id=<battleId>
 //
@@ -104,11 +110,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // a later subscription would otherwise wait for the safety poll; heard
     // here, it marks the stream dirty and the first wake re-reads at once.
     const signals = createStreamSignals();
-    const stopListening = onKeyWritten(key, signals.markDirty);
+    // Every viewer of this battle shares one read (_stream-shared-read.ts); a
+    // heard write discards it before waking anyone.
+    retainSharedStreamRead(key);
+    const stopListening = onKeyWritten(key, () => { forgetSharedStreamRead(key); signals.markDirty(); });
     try {
         await streamSession(req, res, battleId, key, signals);
     } finally {
         stopListening();
+        releaseSharedStreamRead(key);
     }
 }
 
@@ -132,7 +142,7 @@ function createStreamSignals() {
 async function streamSession(req: VercelRequest, res: VercelResponse, battleId: string, key: string, signals: StreamSignals) {
     // Initial session fetch — bail with 404 if the battle doesn't exist
     // BEFORE upgrading to a stream. Saves an SSE connection on bad IDs.
-    const initialRaw = await kv.get<unknown>(key);
+    const initialRaw = await readSharedStreamSession(key);
     // A rolled-back publication is an absent battle, not a malformed one — a
     // 502 here would read to the client as a server fault worth retrying.
     if (!initialRaw || pvpSessionPublicationTombstoneFor(initialRaw, battleId)) {
@@ -202,7 +212,7 @@ async function streamSession(req: VercelRequest, res: VercelResponse, battleId: 
             await sleep(streamWakeDelayMs(current));
             signals.clearDirty();
             if (signals.isAborted()) break;
-            const rawSession = await kv.get<unknown>(key);
+            const rawSession = await readSharedStreamSession(key);
             if (!rawSession || pvpSessionPublicationTombstoneFor(rawSession, battleId)) {
                 sendEvent('end', { reason: 'session-expired' });
                 break;
