@@ -190,6 +190,16 @@ export class LiveCapabilitiesStore {
         return this.#inFlight;
     };
 
+    /** The snapshot while it is still inside its admission lease, else a
+     * refresh. The page's own poll keeps the lease warm, so a screen that only
+     * asks "which doors are open" (the login gate) no longer costs a request. */
+    current = (): Promise<LiveCapabilitiesSnapshot> => {
+        this.expireIfAged();
+        const snapshot = this.#snapshot;
+        if (snapshot.freshness === "fresh" && snapshot.capabilities) return Promise.resolve(snapshot);
+        return this.refresh();
+    };
+
     /** Synchronously revoke a fresh snapshot once its admission lease expires.
      * Foreground/online handlers call this before their network refresh, so a
      * backgrounded tab cannot retain actionable controls during that request. */
@@ -342,7 +352,8 @@ export function startLiveCapabilitiesPolling(
 export const liveCapabilitiesStore = new LiveCapabilitiesStore();
 
 /** Compatibility entry point for non-React callers. Unlike the retired
- * permanent promise, this coalesces only the current request and can refresh. */
+ * permanent promise, a cold or aged snapshot is refreshed; a fresh one is
+ * reused, since the page's poll already fetched it moments ago. */
 export async function loadPublicCapabilities(): Promise<PublicCapabilities | null> {
-    return (await liveCapabilitiesStore.refresh()).capabilities;
+    return (await liveCapabilitiesStore.current()).capabilities;
 }
