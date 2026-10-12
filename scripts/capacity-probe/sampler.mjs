@@ -210,6 +210,8 @@ export function compactSample(s) {
         walMBs: s.db?.walBytesPerSec == null ? undefined : Math.round(s.db.walBytesPerSec / 1e4) / 100,
         sbCpu: s.host?.cpuBusy,
         sbMem: s.host?.memUsed == null ? undefined : Math.round(s.host.memUsed * 1_000) / 1_000,
+        // Why the Supabase host metrics are missing, when they are.
+        ...(s.host && s.host.cpuBusy === undefined ? { sbStatus: s.host.status ?? s.host.error } : {}),
     };
 }
 
