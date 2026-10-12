@@ -196,3 +196,38 @@ Gauntlet's reported-lineup/context-loss fixture moved to `gauntlet-qa.html` and
 still exercises the real board resolver and run advancement. These three
 headless checks pass (desktop/mobile retirement plus board recovery), with no
 retired-menu screenshots. Client types and scoped lint pass.
+
+## Entry-point closure audit
+
+`scripts/pet-battle-retirement.test.mjs` traverses runtime imports, re-exports
+and literal dynamic imports from all 35 application, preview and browser-fixture
+HTML entries (1,375 modules at this revision). It rejects any path to the retired
+duel host, renderer or workbench, including a future mount outside Pet Arena and
+Dungeon. Historical resolver/receipt sources remain available for old proofs.
+The obsolete animation capture now exits with a retirement explanation before
+launching a browser; the VN tool no longer mocks or captures the old pet flow.
+The stale-invite notice directs players to current Pet Arena codes.
+The closure group passed 21 tests with zero failures/skips, including ranked
+HTTP human-lock enforcement, Dungeon parent recovery and acceptance account
+fences. Client types and full lint passed (zero errors, 18 existing warnings).
+All 23 balance-report source hashes still match; no combat numbers changed.
+The production-feature client build and distribution verification passed;
+budgeted JS/CSS is 9,168,002 bytes against the unchanged 9,513,000-byte ceiling.
+Emitted JavaScript still contains no retired Fight Plan menu.
+
+| Entry | Current presentation and control | Verification |
+| --- | --- | --- |
+| Pet Arena codes | Shared commands, two human seats | Authenticated locks, privacy, reconnect and full match |
+| Ranked Pet Colosseum | Shared commands, two human seats | Ranked integration forbids AI resolution; exact-once rating receipts |
+| NPC Colosseum | Shared commands, server AI opponent | Native desktop/mobile browser checks and all-tier pacing audit |
+| Dungeon Rare Beast | Shared commands, server AI opponent | Exact parent, lost reply, recovery, concession and one-use item tests |
+| Hollow Gate, story, crisis, wild binding | Shared command renderer | Import traversal, existing parent contracts; capture success/failure browser checks |
+| Beastfront | Formation UI and AI battle playback | Desktop/mobile UI checks and seeded formation/comeback audit |
+| Gauntlet | Draft, position and AI board resolution | Desktop/mobile UI, context-loss/run advancement and complete-run audit |
+| Historical ranked/clan/sector receipts | Shared replay renderer | Replay and settlement contracts; no retired renderer edge |
+| Saved obsolete preview links | Retirement notice | Desktop/mobile absence guard; no canvas or Fight Plan |
+
+The graph guard proves reachability for the checked imports; it does not replace
+interactive browser tests. Automated balance evidence establishes pacing and
+counterplay for the recorded policies, not a guarantee of an optimized human
+metagame. Publication, full CI and the live revision are verified separately.
