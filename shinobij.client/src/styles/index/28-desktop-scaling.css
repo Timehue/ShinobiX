@@ -243,24 +243,9 @@
     .sector-scatter-glow { animation: none; opacity: .55; }
 }
 
-/* ═══ World-map biome atmosphere + settlement life ═══════════════════════════
-   Per-nation elemental glows so the four homelands read at a glance, plus a soft
-   hearth glow + rising smoke over each town. All pointer-events:none, below the
-   z-10 atlas markers. */
-.world-biome-glow {
-    position: absolute;
-    width: 26%;
-    height: 30%;
-    transform: translate(-50%, -50%);
-    pointer-events: none;
-    z-index: 1;
-    border-radius: 50%;
-    mix-blend-mode: screen;
-    filter: blur(8px);
-    animation: biomeGlowPulse 9s ease-in-out infinite;
-}
-@keyframes biomeGlowPulse { 0%, 100% { opacity: .38; } 50% { opacity: .62; } }
-
+/* ═══ World-map settlement life ══════════════════════════════════════════════
+   A soft hearth glow + rising smoke over each town. All pointer-events:none,
+   below the z-10 atlas markers. */
 .world-poi-life {
     position: absolute;
     width: 0;
@@ -299,7 +284,7 @@
     100% { opacity: 0; transform: translate(-50%, -26px) scaleY(1.3); }
 }
 @media (prefers-reduced-motion: reduce) {
-    .world-biome-glow, .world-poi-glow, .world-poi-smoke { animation: none; }
+    .world-poi-glow, .world-poi-smoke { animation: none; }
     .world-poi-smoke { opacity: 0; }
 }
 
@@ -315,7 +300,6 @@
 .lite-fx .sector-foreground,
 .lite-fx .sector-scatter-sway { animation: none; }
 .lite-fx .sector-scatter-glow { animation: none; opacity: .5; }
-.lite-fx .world-biome-glow { animation: none; filter: none; }
 .lite-fx .world-poi-glow { animation: none; }
 .lite-fx .world-poi-smoke { animation: none; opacity: 0; }
 /* Idle bob only — the walking animation lives on a more specific selector and
