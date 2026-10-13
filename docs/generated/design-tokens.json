@@ -2404,6 +2404,10 @@
         "valuePx": 420,
         "occurrences": [
           {
+            "source": "shinobij.client/src/features/villageWar/village-campaign.css",
+            "line": 39
+          },
+          {
             "source": "shinobij.client/src/styles/battle-skin.css",
             "line": 2072
           },
@@ -3160,6 +3164,10 @@
             "line": 57
           },
           {
+            "source": "shinobij.client/src/features/villageWar/village-campaign.css",
+            "line": 12
+          },
+          {
             "source": "shinobij.client/src/styles/bloodline-ritual.css",
             "line": 67
           },
@@ -3415,7 +3423,7 @@
           },
           {
             "source": "shinobij.client/src/styles/town-hall-aaa.css",
-            "line": 674
+            "line": 692
           }
         ]
       },
@@ -3785,6 +3793,14 @@
           {
             "source": "shinobij.client/src/components/first-contract.css",
             "line": 263
+          },
+          {
+            "source": "shinobij.client/src/features/villageWar/town-hall-war-display.css",
+            "line": 33
+          },
+          {
+            "source": "shinobij.client/src/features/villageWar/war-shrine-room.css",
+            "line": 36
           },
           {
             "source": "shinobij.client/src/screens/FirstPact.css",
@@ -4378,7 +4394,7 @@
           },
           {
             "source": "shinobij.client/src/styles/town-hall-aaa.css",
-            "line": 644
+            "line": 646
           }
         ]
       },
@@ -4493,6 +4509,10 @@
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
             "line": 484
+          },
+          {
+            "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
+            "line": 491
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-stages.css",
@@ -4956,7 +4976,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/town-hall-aaa.css",
-            "line": 622
+            "line": 624
           }
         ]
       },
