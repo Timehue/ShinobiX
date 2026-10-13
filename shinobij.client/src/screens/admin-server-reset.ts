@@ -131,7 +131,7 @@ export function clearLocalWorldCaches() {
         toRemove.forEach((k) => localStorage.removeItem(k));
     } catch { /* storage unavailable */ }
     // Drop sessionStorage image-category caches so portraits re-fetch fresh
-    // from the server's re-seeded shared:imgfields:misc bucket.
+    // from the leader portraits the server re-seeded.
     try {
         for (let i = sessionStorage.length - 1; i >= 0; i--) {
             const key = sessionStorage.key(i);
