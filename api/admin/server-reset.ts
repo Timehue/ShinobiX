@@ -1,10 +1,11 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
-import { kv } from '../_storage.js';
+import { kv, type KvLike } from '../_storage.js';
 import { cors } from '../_utils.js';
 import { isFullAdmin, rotatePlayerSessionEpoch } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { RESERVED_USERNAMES } from '../player-auth.js';
 import { bumpImageVersion } from '../_image-version.js';
+import { legacyHashWriteEnabled, perImageKey } from '../images.js';
 import { deletePlayerFirstPactState } from '../_delete-player-account.js';
 import { readKvProjection } from '../_storage-projection.js';
 import {
@@ -238,6 +239,60 @@ const KAGE_VILLAGES = [
     'Moonshadow Village',
 ] as const;
 
+/**
+ * Re-seed Kage AND Elder portraits from the preserved
+ * game:village-leadership-images key into each portrait's own image row
+ * (`shared:img:leader:…`), so the NPC Kage / Elders show up correctly the moment
+ * a player visits the Town Hall after a reset — no waiting for cache hydration.
+ * The actual NPC NAMES come from the hardcoded villageLeadership map on the
+ * client; this step is just for portraits. Returns how many it wrote.
+ */
+export async function reseedLeaderPortraits(
+    store: Pick<KvLike, 'get' | 'set' | 'hset'> = kv,
+    bump: (cat: string) => Promise<void> = (cat) => bumpImageVersion(cat),
+): Promise<number> {
+    // The leadership blob has two shapes in the wild: `{ images: { ... } }`
+    // (the wrapped form persisted via persistSharedGameState) and the
+    // bare `{ [village]: { kage, elders } }` form (older direct writes).
+    // Accept both.
+    type VillageLeaders = { kage?: string; elders?: string[] };
+    type LeadershipBlob =
+        | { images?: Record<string, VillageLeaders> }
+        | Record<string, VillageLeaders>;
+    const raw = await store.get<LeadershipBlob>('game:village-leadership-images');
+    const images: Record<string, VillageLeaders> =
+        (raw && typeof raw === 'object' && 'images' in raw && raw.images && typeof raw.images === 'object')
+            ? raw.images as Record<string, VillageLeaders>
+            : (raw as Record<string, VillageLeaders>) ?? {};
+
+    const imgPayload: Record<string, string> = {};
+    for (const village of KAGE_VILLAGES) {
+        const v = images[village];
+        if (!v) continue;
+        if (v.kage) imgPayload[`leader:${village}:kage`] = v.kage;
+        const elders = Array.isArray(v.elders) ? v.elders : [];
+        for (let i = 0; i < Math.min(3, elders.length); i++) {
+            const elderImg = elders[i];
+            if (elderImg) imgPayload[`leader:${village}:elder:${i}`] = elderImg;
+        }
+    }
+    const count = Object.keys(imgPayload).length;
+    if (count === 0) return 0;
+    // The image's own row lists and serves it. Before the shared-row split this
+    // went only into the misc hash, so /api/img, which reads the row first, could
+    // keep serving an older portrait. The rollback lever keeps the old hash write
+    // too.
+    for (const [imageId, image] of Object.entries(imgPayload)) await store.set(perImageKey(imageId), image);
+    if (legacyHashWriteEnabled()) await store.hset('shared:imgfields:misc', imgPayload);
+    // Reseeded portraits are new bytes behind existing ids, so the immutable
+    // /api/img URLs holding the old ones have to retire (api/_image-version.ts).
+    // They are served as the `leader` category, and older copies still sit in the
+    // `misc` hash that the leader manifest also reads, so both counters move.
+    await bump('leader');
+    await bump('misc');
+    return count;
+}
+
 // Delete in batches rather than one request per key. kv.del takes varargs and
 // chunks internally; a per-key Promise.all fired thousands of key deletes at a
 // 15-connection pool.
@@ -459,50 +514,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
         }
 
-        // Re-seed Kage AND Elder portraits from the preserved
-        // game:village-leadership-images key into the shared:imgfields:misc hash
-        // so the NPC Kage / Elders show up correctly the moment a player
-        // visits the Town Hall after a reset — no waiting for cache hydration.
-        // The actual NPC NAMES come from the hardcoded villageLeadership map
-        // on the client; this step is just for portraits.
         let leaderReseed = 0;
         try {
-            // The leadership blob has two shapes in the wild: `{ images: { ... } }`
-            // (the wrapped form persisted via persistSharedGameState) and the
-            // bare `{ [village]: { kage, elders } }` form (older direct writes).
-            // Accept both.
-            type VillageLeaders = { kage?: string; elders?: string[] };
-            type LeadershipBlob =
-                | { images?: Record<string, VillageLeaders> }
-                | Record<string, VillageLeaders>;
-            const raw = await kv.get<LeadershipBlob>('game:village-leadership-images');
-            const images: Record<string, VillageLeaders> =
-                (raw && typeof raw === 'object' && 'images' in raw && raw.images && typeof raw.images === 'object')
-                    ? raw.images as Record<string, VillageLeaders>
-                    : (raw as Record<string, VillageLeaders>) ?? {};
-
-            const imgPayload: Record<string, string> = {};
-            for (const village of KAGE_VILLAGES) {
-                const v = images[village];
-                if (!v) continue;
-                if (v.kage) imgPayload[`leader:${village}:kage`] = v.kage;
-                const elders = Array.isArray(v.elders) ? v.elders : [];
-                for (let i = 0; i < Math.min(3, elders.length); i++) {
-                    const elderImg = elders[i];
-                    if (elderImg) imgPayload[`leader:${village}:elder:${i}`] = elderImg;
-                }
-            }
-            if (Object.keys(imgPayload).length > 0) {
-                await kv.hset('shared:imgfields:misc', imgPayload);
-                leaderReseed = Object.keys(imgPayload).length;
-                // Reseeded portraits are new bytes behind existing ids, so the
-                // immutable /api/img URLs holding the old ones have to retire
-                // (api/_image-version.ts). These land in the `misc` hash but are
-                // served as the `leader` category, and the leader manifest reads
-                // both — so both counters move.
-                await bumpImageVersion('leader');
-                await bumpImageVersion('misc');
-            }
+            leaderReseed = await reseedLeaderPortraits();
         } catch {
             // Non-fatal — portraits still load from game:village-leadership-images
             // via the per-client cache hydration on next /api/game-state fetch.

@@ -11,13 +11,24 @@ import handler, { isManifestCategory } from './images.js';
  * once, and a failed read must never be cached.
  */
 
-type Stub = { hkeysCalls: number; rows: Map<string, Record<string, string>>; versions: Map<string, number>; failHkeys: boolean };
-const original = { hkeys: kv.hkeys, hgetall: kv.hgetall, get: kv.get };
+type Stub = {
+    hkeysCalls: number;
+    rows: Map<string, Record<string, string>>;
+    versions: Map<string, number>;
+    failHkeys: boolean;
+    /** Per-image row keys (`shared:img:<id>`), listed by the manifest's key scan. */
+    imageKeys: string[];
+};
+const original = { hkeys: kv.hkeys, hgetall: kv.hgetall, get: kv.get, keys: kv.keys };
 let stub: Stub;
 
 beforeEach(() => {
     __clearProcCache();
-    stub = { hkeysCalls: 0, rows: new Map(), versions: new Map(), failHkeys: false };
+    stub = { hkeysCalls: 0, rows: new Map(), versions: new Map(), failHkeys: false, imageKeys: [] };
+    kv.keys = async (pattern: string) => {
+        const prefix = pattern.replace(/\*$/, '');
+        return stub.imageKeys.filter((key) => key.startsWith(prefix));
+    };
     kv.hkeys = async (key: string) => {
         stub.hkeysCalls += 1;
         if (stub.failHkeys) throw new Error('storage down');
@@ -118,6 +129,30 @@ test('a failed version read never evicts the live list (no full rebuild when the
     await cachedFor(manifestCacheKey('pet', null, null), 60_000, build); // version read failed
     await cachedFor(manifestCacheKey('pet', '7', null), 60_000, build);
     assert.equal(builds, 2, 'version 7 is still served from memory after the blip');
+});
+
+test('a per-image row the legacy rows do not hold joins the manifest (the shared-row split)', async () => {
+    stub.rows.set('shared:imgfields:avatar', { 'avatar:old': 'data:x' });
+    stub.imageKeys = ['shared:img:avatar:old', 'shared:img:avatar:new', 'shared:imgfields:avatar', 'shared:img:avatarx:no'];
+    stub.versions.set('avatar', 2);
+    assert.deepEqual((await get({ cat: 'avatar', ids: '1', ver: '1' })).body, { version: '2', ids: ['avatar:old', 'avatar:new'] });
+    // Pet owns several prefixes; a misc-filed stray of another category is not pet's.
+    stub.imageKeys = ['shared:img:pet:a', 'shared:img:petbody:a', 'shared:img:petlayers:a:mid', 'shared:img:sector-base:x'];
+    assert.deepEqual((await get({ cat: 'pet', ids: '1' })).body, ['pet:a', 'petbody:a', 'petlayers:a:mid']);
+});
+
+test('the legacy rows are read once per category version, not on every manifest build', async () => {
+    const { buildManifestIds } = await import('./images.js');
+    stub.rows.set('shared:imgfields:card', { 'card:a': 'data:x' });
+    const versions = { version: '5', miscVersion: null };
+    const now = <T,>(read: Promise<T | null>) => read;
+    assert.deepEqual(await buildManifestIds('card', now, versions), ['card:a']);
+    const afterFirst = stub.hkeysCalls;
+    stub.imageKeys = ['shared:img:card:b'];
+    assert.deepEqual(await buildManifestIds('card', now, versions), ['card:a', 'card:b'], 'the key scan is always live');
+    assert.equal(stub.hkeysCalls, afterFirst, 'the 9-16 MB legacy rows were not read again for the same version');
+    await buildManifestIds('card', now, { version: '6', miscVersion: null });
+    assert.ok(stub.hkeysCalls > afterFirst, 'a version bump (a delete) reads them again');
 });
 
 test('only known categories are memoised, so a request cannot mint cache entries', async () => {

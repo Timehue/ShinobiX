@@ -1,27 +1,30 @@
 import type { KvLike } from './_storage.js';
-import { KNOWN_PREFIXES, categoryFromId } from './images.js';
-import { legacyImageValue, perImageKey } from './img.js';
+import {
+    PER_IMAGE_PREFIX, categoryPrefixes, legacyBlobKey, legacyHashKey, legacyImageValue, perImageKey, scanCategoryIds,
+} from './images.js';
 import { assetMetaKey, contentHashOf, type AssetMeta } from './_asset-registry.js';
 
+export { PER_IMAGE_PREFIX, categoryPrefixes, legacyBlobKey, legacyHashKey, scanCategoryIds };
+
 /*
- * Read-only audit of the shared image store, one category at a time.
+ * The shared image store's admin tools, one category at a time: a read-only
+ * audit, and the rollback write-back.
  *
- * Every image is stored twice today. It has its own row, `shared:img:<id>`,
- * which GET /api/img serves first. It is also a field of the category's legacy
- * rows: the hash `shared:imgfields:<cat>` and the frozen blob
- * `shared:images:<cat>`. The manifest lists the legacy rows, and every upload
- * rewrites the whole hash (9-16 MB for the big categories).
+ * Every pre-split image is stored twice: as its own row, `shared:img:<id>`,
+ * which GET /api/img serves first, and as a field of the category's legacy
+ * rows, the hash `shared:imgfields:<cat>` and the frozen blob
+ * `shared:images:<cat>`. Before the split (docs/SHARED_HASH_ROW_SPLIT_PLAN.md)
+ * the manifest listed only the legacy rows, and every upload rewrote the whole
+ * hash (9-16 MB for the big categories). The split stops writing those rows and
+ * also lists ids by per-image key. The audit compares the two:
  *
- * The planned split (docs/SHARED_HASH_ROW_SPLIT_PLAN.md) stops writing the
- * legacy rows and lists ids from the per-image rows instead. This audit shows,
- * before anything changes, exactly what that would change:
- *
- *   orphans          per-image rows that today's manifest does not list. They
- *                    would start appearing, so each one needs a decision first.
- *                    An image lost to the old parallel-publish race comes back;
- *                    a deleted image whose row survived must be deleted properly.
- *   missingPerImage  listed ids with no per-image row. Only the legacy rows
- *                    serve them.
+ *   orphans          per-image rows the legacy rows do not list. Before the
+ *                    split these needed a decision: an image lost to the old
+ *                    parallel-publish race comes back, while a deleted image
+ *                    whose row survived must be deleted properly. After it,
+ *                    every new upload appears here too.
+ *   missingPerImage  legacy ids with no per-image row. Only the legacy rows
+ *                    serve them, so they block dropping those rows (Phase 3).
  *   differing        ids whose per-image bytes differ from the legacy bytes.
  *                    /api/img already serves the per-image ones.
  *   tombstones       empty legacy fields, which no manifest lists.
@@ -35,9 +38,6 @@ import { assetMetaKey, contentHashOf, type AssetMeta } from './_asset-registry.j
  * It never calls GET /api/img, which writes on a miss.
  */
 
-export const PER_IMAGE_PREFIX = 'shared:img:';
-export const legacyHashKey = (cat: string) => `shared:imgfields:${cat}`;
-export const legacyBlobKey = (cat: string) => `shared:images:${cat}`;
 const imgOwnerKey = (id: string) => `img-owner:${id}`;
 
 /** Longest id list a report section returns. The counts are always exact. */
@@ -46,37 +46,6 @@ export const REPORT_LIST_CAP = 500;
 const DUPLICATE_GROUP_CAP = 20;
 /** Keys per batched read, so no single read carries more than ~25 images. */
 const READ_CHUNK = 25;
-
-/** The id prefixes stored under a category, or null for `misc` (every unknown prefix). */
-export function categoryPrefixes(cat: string): string[] | null {
-    if (cat === 'misc') return null;
-    return Object.entries(KNOWN_PREFIXES)
-        .filter(([, category]) => category === cat)
-        .map(([prefix]) => prefix)
-        .sort();
-}
-
-/**
- * The ids in this category that have a per-image row, listed by key prefix
- * (`shared:img:<prefix>:*`). It reads keys only, never a value.
- */
-export async function scanCategoryIds(cat: string, store: Pick<KvLike, 'keys'>): Promise<string[]> {
-    const prefixes = categoryPrefixes(cat);
-    const patterns = prefixes === null
-        ? [`${PER_IMAGE_PREFIX}*`]
-        : prefixes.map((prefix) => `${PER_IMAGE_PREFIX}${prefix}:*`);
-    const ids = new Set<string>();
-    for (const pattern of patterns) {
-        for (const key of await store.keys(pattern)) {
-            if (!key.startsWith(PER_IMAGE_PREFIX)) continue;
-            const id = key.slice(PER_IMAGE_PREFIX.length);
-            // `misc` scans every per-image row and keeps the ones it owns. For a
-            // named prefix this check changes nothing.
-            if (id && categoryFromId(id) === cat) ids.add(id);
-        }
-    }
-    return [...ids].sort();
-}
 
 export type OrphanDetail = {
     id: string;
@@ -245,4 +214,43 @@ export async function auditImageCategory(cat: string, deps: {
         duplicates: { distinctImages: byContent.size, groups },
         readOnly: true,
     };
+}
+
+/** The storage calls a write-back makes: the audit's reads plus one hset. */
+export type WriteBackStore = AuditStore & Pick<KvLike, 'hset'>;
+
+export type WriteBackResult = {
+    category: string;
+    /** Ids whose bytes went into the legacy hash (capped list; the count is exact). */
+    written: string[];
+    writtenCount: number;
+};
+
+/**
+ * Rollback (plan §3.8). Pre-split code lists and serves only the legacy rows, so
+ * before reverting to it, copy into the category's legacy hash every image whose
+ * bytes those rows lack: each per-image row the legacy rows do not hold (uploaded
+ * since the split), or hold with other bytes (replaced since). It is ONE hset, so
+ * the multi-MB row is rewritten once however many images it restores (the
+ * 2026-09-19 lesson). Turn the rollback lever on first
+ * (IMAGE_LEGACY_HASH_WRITE=1), so no upload can land after the copy without also
+ * reaching the hash.
+ */
+export async function writeBackImageCategory(cat: string, deps: { store: WriteBackStore }): Promise<WriteBackResult> {
+    const { store } = deps;
+    const scanned = await scanCategoryIds(cat, store);
+    const hash = asObject(await store.hgetall<Values>(legacyHashKey(cat)));
+    const blob = asObject(await store.get<Values>(legacyBlobKey(cat)));
+    const misc = cat === 'leader' ? asObject(await store.hgetall<Values>(legacyHashKey('misc'))) : {};
+    const stored = await readInChunks(store, scanned.map(perImageKey));
+    const fields: Record<string, string> = {};
+    scanned.forEach((id, index) => {
+        const value = stored[index];
+        if (!isImage(value)) return;
+        const legacy = legacyImageValue(id, hash as Record<string, string>, blob as Record<string, string>, misc as Record<string, string>);
+        if (legacy !== value) fields[id] = value;
+    });
+    const written = Object.keys(fields).sort();
+    if (written.length) await store.hset(legacyHashKey(cat), fields);
+    return { category: cat, written: written.slice(0, REPORT_LIST_CAP), writtenCount: written.length };
 }
