@@ -132,8 +132,15 @@ async function helpAppliedSectorWarEffects(
         } : {}),
     });
     if (!legacySettled) throw new Error('sector-war-legacy-effects-unconfirmed');
-    // Era delivery is also receipt-backed. Existing receipts confirm replay;
-    // write/read failures keep PvP completion pending for help-forward.
+    // The era war-battle credit is receipt-backed too, but unlike Legacy it
+    // never holds the PvP claim: no era gates on warBattles yet, so neither
+    // fighter's payout waits on that counter. A failed write is logged, and
+    // bumpEraContributionOnce returns false rather than throwing. Any later
+    // replay of this battle (either fighter's claim) retries it; otherwise the
+    // battle stays uncounted. Once an era gates on warBattles, throw on false
+    // here so the claim stays pending, as the ANBU raid's report already does.
+    // _sector-war-continuation.test.ts fails as soon as an era does, as a
+    // reminder.
     await bumpEraContributionOnce('warBattles', receiptId);
 }
 
