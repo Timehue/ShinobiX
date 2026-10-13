@@ -11,22 +11,23 @@ import { useEffect, useState } from "react";
 import { startGoogleSignIn } from "../lib/google-signin";
 import { loadGuestSession } from "../lib/guest-play";
 import { loadPublicCapabilities } from "../lib/live-capabilities";
+import { useLiveCapabilities } from "../lib/live-capabilities-context";
 import { useBfcacheRestore } from "../lib/use-bfcache-restore";
 
 export function GoogleLinkCard({ playerName }: { playerName: string }) {
-    const [available, setAvailable] = useState(false);
+    // Follows the live capability store, so a first check that failed does not
+    // hide linking until a reload; the last known answer holds during a failing refresh.
+    const { snapshot: capabilitySnapshot } = useLiveCapabilities();
+    const available = capabilitySnapshot.capabilities?.googleSignIn?.state === "available";
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
     // A guest is the player this card is really for, so say so directly rather
     // than offering the same neutral copy to someone who already has a password.
     const [isGuest] = useState(() => loadGuestSession()?.name.toLowerCase() === playerName.toLowerCase());
 
+    // Warm a cold store; a fresh lease is reused, and the answer arrives above.
     useEffect(() => {
-        let cancelled = false;
-        void loadPublicCapabilities().then((capabilities) => {
-            if (!cancelled) setAvailable(capabilities?.googleSignIn?.state === "available");
-        });
-        return () => { cancelled = true; };
+        void loadPublicCapabilities();
     }, []);
 
     // Back from Google's consent page can restore this page from bfcache with

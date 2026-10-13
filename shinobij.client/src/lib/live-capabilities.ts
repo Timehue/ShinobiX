@@ -34,8 +34,9 @@ export function nextCapabilityRefreshDelay(
     const failures = Math.max(0, Math.min(8, Math.floor(consecutiveFailures)));
     const r = Math.max(0, Math.min(1, random()));
     if (failures === 0) return Math.round(CAPABILITY_REFRESH_MS * (0.85 + r * 0.3));
-    const backoff = Math.min(CAPABILITY_MAX_BACKOFF_MS, CAPABILITY_FIRST_RETRY_MS * (2 ** (failures - 1)));
-    return Math.round(backoff * (0.5 + r));
+    const backoff = CAPABILITY_FIRST_RETRY_MS * (2 ** (failures - 1));
+    // The cap applies AFTER the spread, so a long outage never waits past it.
+    return Math.min(CAPABILITY_MAX_BACKOFF_MS, Math.round(backoff * (0.5 + r)));
 }
 
 // (No module-level memoized `capabilityRequest` promise here. main carried one,
