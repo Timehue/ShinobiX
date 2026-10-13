@@ -71,17 +71,18 @@
 }
 
 /* Bureau rail ------------------------------------------------------------ */
+/* Town Hall owns a wrapping grid; the shared mobile rail uses !important flex/overflow rules. */
 
-.app-shell.screen-townHall .town-tabs {
-    position: sticky;
-    top: 8px;
-    z-index: 20;
-    display: grid;
-    grid-template-columns: repeat(7, minmax(0, 1fr));
+.app-shell.screen-townHall .town-hall-screen > .town-tabs {
+    position: relative;
+    inset: auto;
+    z-index: auto;
+    display: grid !important;
+    grid-template-columns: repeat(8, minmax(0, 1fr));
     gap: 5px;
     margin: 0;
     padding: 6px;
-    overflow: hidden;
+    overflow: visible !important;
     border: 1px solid rgba(230, 184, 92, 0.3);
     border-radius: 12px;
     background: rgba(5, 10, 16, 0.88);
@@ -164,11 +165,12 @@
 }
 
 .app-shell.screen-townHall .town-tabs button strong {
-    overflow: hidden;
+    overflow: visible;
     font-size: 0.76rem;
     line-height: 1.15;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    text-overflow: clip;
+    white-space: normal;
+    overflow-wrap: anywhere;
 }
 
 .app-shell.screen-townHall .town-tabs button small {
@@ -643,8 +645,24 @@
 
 @media (max-width: 920px) {
     .app-shell.screen-townHall .town-hall-screen { padding: 10px; }
-    .app-shell.screen-townHall .town-tabs {
-        top: calc(var(--mobile-aaa-hud-height, 0px) + env(safe-area-inset-top, 0px));
+    .app-shell.screen-townHall .town-hall-screen > .town-tabs {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+    .app-shell.screen-townHall .town-hall-screen > .town-tabs > button,
+    .app-shell.screen-townHall .town-hall-screen > .town-tabs > button:last-child {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        justify-items: center;
+        min-width: 0;
+        min-height: 68px;
+        padding-inline: 4px;
+        grid-column: auto;
+    }
+    .app-shell.screen-townHall .town-hall-screen > .town-tabs > button strong {
+        font-size: .7rem !important;
+        line-height: 1.2 !important;
+        letter-spacing: 0 !important;
+        white-space: nowrap;
     }
     .app-shell.screen-townHall .town-tabs > button {
         display: inline-flex;
@@ -669,6 +687,31 @@
     .app-shell.screen-townHall .town-elder-bonus,
     .app-shell.screen-townHall .elder-card > button,
     .app-shell.screen-townHall .town-elder-selected { grid-column: 1 / -1; }
+}
+
+/* Keep actionable Town Hall content above fixed mobile navigation and notices. */
+@media (max-width: 979px) {
+    .app-shell[data-shell="adaptive"][data-ui-mode="noncombat"].screen-townHall {
+        --town-mobile-notice-clearance: 0px;
+    }
+    .app-shell[data-shell="adaptive"][data-ui-mode="noncombat"].screen-townHall:has(.mobile-notif-bar) {
+        --town-mobile-notice-clearance: 56px;
+    }
+    .app-shell[data-shell="adaptive"][data-ui-mode="noncombat"].screen-townHall > .center-game {
+        position: fixed;
+        inset-block-start: calc(var(--mobile-aaa-hud-height, 56px) + env(safe-area-inset-top, 0px) + 8px);
+        inset-block-end: calc(var(--mobile-aaa-nav-height, 72px) + env(safe-area-inset-bottom, 0px) + var(--town-mobile-notice-clearance) + 12px);
+        inset-inline: 0;
+        block-size: auto;
+        min-block-size: 0;
+        max-block-size: none;
+        padding-block: 8px;
+        scroll-padding-block: 12px;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        overscroll-behavior-y: contain;
+        -webkit-overflow-scrolling: touch;
+    }
 }
 
 @media (max-width: 640px) {

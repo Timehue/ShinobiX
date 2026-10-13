@@ -16,7 +16,7 @@ export type VillageWarRewardRecord = {
     contributions?: Record<string, { damage: number; side: string; name: string }>;
 };
 
-function villageWarRewardToken(war: VillageWarRewardRecord): string {
+export function villageWarRewardToken(war: VillageWarRewardRecord): string {
     const generation = Math.floor(Number(war.declarationGeneration));
     return Number.isSafeInteger(generation) && generation > 0
         ? `${war.id}-g${generation}`
@@ -112,7 +112,11 @@ export function settleVillageWarRewards(
     // written before every writer used the slug.
     const contribution = war.contributions?.[safeName(playerName)]
         ?? war.contributions?.[playerName.toLowerCase()];
-    const isMvp = sameName(war.mvpByVillage?.[village], playerName);
+    const mvpName = war.mvpByVillage?.[village];
+    // Campaign pet/card/support writers record the authenticated account slug;
+    // legacy/combat writers may record its display name. Both name one account.
+    const isMvp = sameName(mvpName, playerName)
+        || (!!safeName(mvpName ?? '') && safeName(mvpName ?? '') === safeName(playerName));
 
     // The winner's crate is for members of the winning village who FOUGHT for it
     // (owner ruling 2026-10-08): damage for that side, or its MVP. Winning alone

@@ -1,6 +1,6 @@
 # Standard-PvE enemy AI
 
-**Status:** current, 2026-09-25. Replaces `docs/pve-ai-smarter-plan.md`, whose
+**Status:** current, 2026-10-12. Replaces `docs/pve-ai-smarter-plan.md`, whose
 premise (a browser-owned `Arena.tsx` reducer) no longer exists.
 
 Standard PvE runs entirely on the server, on the Solo-PvE runtime
@@ -8,6 +8,15 @@ Standard PvE runs entirely on the server, on the Solo-PvE runtime
 events it gets back. Enemy decisions are made inside the player's own request,
 after the player's action resolves, by the same engine that resolves every
 action. There is no client AI and no client authority for PvE outcomes.
+
+Village-war ANBU combat copies also explicitly opt into this planner. The war
+handler seals the selected member's current build through the player combat
+hydrator and sets `masterAi` for tactical decisions. It keeps the player's
+stats, moves, equipment and bloodline; it adds no boss flag or difficulty
+guard. The copy uses the village's masked ANBU artwork and starts with full
+copied resource pools. Vault ANBU and sector-garrison sessions keep their
+existing runner. See `village-war-objectives-plan.md` for campaign ownership,
+repeat use, scoring and the other stronghold specialties.
 
 ## Where an enemy turn is decided
 

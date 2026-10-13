@@ -26,6 +26,7 @@ import facilityCafeteria from "../assets/village-icons/cafeteria.webp";
 import facilityTownHall from "../assets/village-icons/townhall.webp";
 import facilityBank from "../assets/village-icons/bank.webp";
 import facilityTraining from "../assets/village-icons/stat-training.webp";
+import facilityUpgrades from "../assets/village-icons/village-upgrades-v1.webp";
 import facilityHospital from "../assets/village-icons/hospital.webp";
 import facilityWorldMap from "../assets/village-icons/world-map.webp";
 import facilityStoryHall from "../assets/village-icons/story-hall.webp";
@@ -41,7 +42,7 @@ export type GameArtIconKind = "vitality" | "attack" | "guard" | "speed" | "missi
     | "biomeForest" | "biomeSnow" | "biomeVolcano" | "biomeCentral" | "biomeShadow"
     | "healer" | "vanguard" | "petTamer" | "tavern" | "arena" | "missionHall" | "cardHall"
     | "dice" | "crown" | "warning" | "shop" | "key" | "scroll" | "clanHall" | "rations"
-    | "townHall" | "bank" | "training" | "hospital" | "worldMap" | "storyHall"
+    | "townHall" | "bank" | "training" | "upgrades" | "hospital" | "worldMap" | "storyHall"
     | "petHome" | "community" | "blacksmith" | "logbook" | "premiumShop"
     | "auraStone" | "reward" | "potion" | "gate" | "map" | "supply" | "event";
 
@@ -65,6 +66,7 @@ const ART: Record<GameArtIconKind, string> = {
     scroll: "/items/item-territory-control-scroll-v1.webp",
     clanHall: facilityClanHall, rations: facilityCafeteria,
     townHall: facilityTownHall, bank: facilityBank, training: facilityTraining,
+    upgrades: facilityUpgrades,
     hospital: facilityHospital, worldMap: facilityWorldMap,
     storyHall: facilityStoryHall, petHome: facilityPetHome, community: facilityCommunity,
     blacksmith: facilityBlacksmith, logbook: facilityLogbook,

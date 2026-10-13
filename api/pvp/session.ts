@@ -16,6 +16,8 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv, PUBLIC_READ_IP_BACKSTOP, requestPlayerKey } from '../_ratelimit.js';
 import { onlineStore } from '../_realtime/online-store.js';
 import { strongholdLocation } from '../_stronghold-presence.js';
+import { villageCampaignStronghold } from '../_village-war-campaign.js';
+import { sealEspionageBattleEvidence, type EspionageBattleEvidence } from '../_village-war-field-operations.js';
 import { sessionOpponentBlock, worldInteractionBlock, isBelowAttackableFloor, ATTACKABLE_MIN_LEVEL } from '../_realtime/presence-gating.js';
 import { rankedLevelEligible, RANKED_LEVEL_WARNING } from '../../shared/ranked-eligibility.js';
 import {
@@ -177,6 +179,8 @@ export type PvpGroundEffect = {
 };
 
 export type PvpSession = {
+    villageWarEspionage?: EspionageBattleEvidence[];
+    villageWarObjective?: { warId: string; generation: number; objectiveId: string; runId: string };
     battleId: string;
     /** Exact stable-create request generation; lets a lost POST ACK resume the original row. */
     createRequestFingerprint?: string;
@@ -2393,6 +2397,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // session can't bypass the attack.ts / ranked-queue gates. Consensual
             // spars (useCurrentVitals=false & not ranked) stay open to everyone;
             // admin sector-raid test overrides retain their existing behavior.
+            for (const [slug, fighter] of [[p1Norm, finalP1Character], [p2Norm, finalP2Character]] as const) {
+                const sector = onlineStore.get(slug)?.sector;
+                if (sector === undefined || !strongholdLocation(slug, sector)) continue;
+                const objective = await villageCampaignStronghold(String(fighter.village ?? ''), sector);
+                if (objective && objective.objective.mode !== 'combat') return res.status(409).json({ error: `This war stronghold allows ${objective.objective.mode} battles only.` });
+            }
             if (useCurrentVitals === true || ranked === true) {
                 const p1Level = Number((finalP1Character.level as number) ?? 0);
                 const p2Level = Number((finalP2Character.level as number) ?? 0);
@@ -2812,6 +2822,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // only by a purpose-built server receipt (ranked/world/Clan War) or
             // an explicit admin test session.
             const progressionAuthority = identity.admin
+                || !!challengeReservation?.villageWarObjective
                 || rankedStamp.ranked === true
                 || !!clanWarReservation
                 || worldAttackVerified;
@@ -2946,6 +2957,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 (p2Save?.character as Record<string, unknown>) ?? null,
             );
             const session: PvpSession = {
+                ...(rewardAuthority === 'world' ? { villageWarEspionage: (await Promise.all([
+                    sealEspionageBattleEvidence(safeName(p1Name), String(finalP2Character.village ?? ''), safeName(p2Name)),
+                    sealEspionageBattleEvidence(safeName(p2Name), String(finalP1Character.village ?? ''), safeName(p1Name)),
+                ])).filter((e): e is EspionageBattleEvidence => !!e) } : {}),
                 battleId,
                 createRequestFingerprint: createRequestFingerprintFor(battleId),
                 stateRevision: INITIAL_PVP_STATE_REVISION,
@@ -2970,6 +2985,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ...(rewardAuthority === 'world' && worldTerritoryEvidence ? { worldTerritoryEvidence } : {}),
                 ...(warRoleEvidence ? { warRoleEvidence } : {}),
                 ...(challengeReservation ? { challengeId: challengeReservation.id } : {}),
+                ...(challengeReservation?.villageWarObjective ? { villageWarObjective: challengeReservation.villageWarObjective } : {}),
                 ...(challengeReservation?.kageDuelAuthority
                     ? { kageDuelAuthority: challengeReservation.kageDuelAuthority }
                     : {}),
@@ -2983,7 +2999,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // combat can start. Seating both sides here keeps a matched
                 // pair from being frozen if one client's recovery handshake is
                 // delayed while it changes screens.
-                joined: playerRankedV2
+                joined: playerRankedV2 || !!challengeReservation?.villageWarObjective
                     ? { p1: true, p2: true }
                     : {
                         p1: identity.admin || identity.name === p1Norm,

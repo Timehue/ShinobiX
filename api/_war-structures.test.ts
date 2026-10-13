@@ -8,7 +8,7 @@ import {
     defenderPointsMultiplier,
     mercCostMultiplier,
     sectorWarDamageMultiplier,
-    wrPerSector,
+    wrPerSector, depotDailyIncome,
     taxRateMultiplier,
     applyStructureUpgrade,
     applyPerWarStructureUpgrade,
@@ -49,18 +49,20 @@ describe('war-structures: effects (dormancy-aware)', () => {
         assert.equal(villageWarHpMax(rec({ ramparts: 10 })), 5750); // 5000 × 1.15
         assert.equal(villageWarHpMax(rec({ ramparts: 10 }, true)), 5000); // dormant → no bonus
     });
-    it('Watchtower raises sector Control HP', () => {
+    it('legacy Watchtower levels cannot multiply human scoring', () => {
         assert.equal(defenderPointsMultiplier(rec()), 1);
-        assert.equal(defenderPointsMultiplier(rec({ watchtower: 10 })), 1.15);  // +15% defender points at L10
+        assert.equal(defenderPointsMultiplier(rec({ watchtower: 10 })), 1);  // +15% defender points at L10
     });
     it('Barracks discount mercenary cost; War Academy boosts sector-war damage', () => {
-        assert.ok(Math.abs(mercCostMultiplier(rec({ barracks: 10 })) - 0.85) < 1e-9);
-        assert.ok(Math.abs(sectorWarDamageMultiplier(rec({ warAcademy: 10 })) - 1.15) < 1e-9);
+        assert.ok(Math.abs(mercCostMultiplier(rec({ barracks: 10 })) - 1) < 1e-9);
+        assert.ok(Math.abs(sectorWarDamageMultiplier(rec({ warAcademy: 10 })) - 1) < 1e-9);
         assert.equal(mercCostMultiplier(rec()), 1);
     });
-    it('Supply Depot raises per-sector WR income (+0.5/level)', () => {
+    it('Supply Depot provides flat daily income without multiplying territory income', () => {
         assert.equal(wrPerSector(rec()), 25);
-        assert.equal(wrPerSector(rec({ supplyDepot: 10 })), 30);
+        assert.equal(wrPerSector(rec({ supplyDepot: 10 })), 25);
+        assert.equal(depotDailyIncome(rec({ supplyDepot: 10 })), 50);
+        assert.equal(depotDailyIncome(rec({ supplyDepot: 10 }, true)), 0);
         assert.equal(wrPerSector(rec({ supplyDepot: 10 }, true)), 25); // dormant → base
     });
     it('Treasury Vault softens the tax rate (×0.7 at L10)', () => {
@@ -71,21 +73,21 @@ describe('war-structures: effects (dormancy-aware)', () => {
 
 describe('war-structures: applyStructureUpgrade (permanent, seal-funded)', () => {
     it('upgrades a permanent structure when affordable, debiting seals', () => {
-        const r = applyStructureUpgrade(rec(), 100, 'barracks');
+        const r = applyStructureUpgrade(rec(), 100, 'supplyDepot');
         assert.equal(r.ok, true);
         assert.equal(r.cost, 5);
         assert.equal(r.nextSeals, 95);
         assert.equal(r.newLevel, 1);
-        assert.equal(r.record!.structures.barracks, 1);
+        assert.equal(r.record!.structures.supplyDepot, 1);
     });
     it('rejects when seals are insufficient (reporting the cost)', () => {
-        const r = applyStructureUpgrade(rec({ barracks: 4 }), 10, 'barracks');
+        const r = applyStructureUpgrade(rec({ supplyDepot: 4 }), 10, 'supplyDepot');
         assert.equal(r.ok, false);
         assert.equal(r.error, 'insufficient-seals');
         assert.equal(r.cost, 48);
     });
     it('rejects at max level', () => {
-        const r = applyStructureUpgrade(rec({ barracks: VILLAGE_STRUCTURE_MAX_LEVEL }), 99999, 'barracks');
+        const r = applyStructureUpgrade(rec({ supplyDepot: VILLAGE_STRUCTURE_MAX_LEVEL }), 99999, 'supplyDepot');
         assert.equal(r.ok, false);
         assert.equal(r.error, 'max-level');
     });
@@ -100,50 +102,42 @@ describe('war-structures: applyStructureUpgrade (permanent, seal-funded)', () =>
     });
     it('does not mutate the input record', () => {
         const base = rec();
-        applyStructureUpgrade(base, 100, 'barracks');
-        assert.equal(base.structures.barracks, 0);
+        applyStructureUpgrade(base, 100, 'supplyDepot');
+        assert.equal(base.structures.supplyDepot, 0);
     });
 });
 
 describe('war-structures: per-war structures (Ramparts + Watchtower, WR-funded)', () => {
     it('classifies exactly Ramparts + Watchtower as per-war', () => {
-        assert.deepEqual([...PER_WAR_STRUCTURE_KEYS].sort(), ['ramparts', 'watchtower']);
+        assert.deepEqual([...PER_WAR_STRUCTURE_KEYS].sort(), ['barracks', 'ramparts', 'warAcademy', 'watchtower']);
         assert.equal(isPerWarStructure('ramparts'), true);
         assert.equal(isPerWarStructure('watchtower'), true);
-        assert.equal(isPerWarStructure('barracks'), false);
+        assert.equal(isPerWarStructure('barracks'), true);
     });
-    it('WR cost rises with level (12 + 6·level)', () => {
-        assert.equal(perWarStructureWrCost(0), 12);
-        assert.equal(perWarStructureWrCost(4), 36);
-        assert.equal(perWarStructureWrCost(9), 66);
+    it('temporary tiers use the shared 40 / 80 / 120 WR schedule', () => {
+        assert.equal(perWarStructureWrCost(0), 40);
+        assert.equal(perWarStructureWrCost(1), 80);
+        assert.equal(perWarStructureWrCost(2), 120);
     });
-    it('upgrades a per-war structure by debiting WR from the war pool', () => {
+    it('refuses village-wide temporary purchases without a live instance', () => {
         const base = rec(); base.warResources = 100;
-        const r = applyPerWarStructureUpgrade(base, 'watchtower');
-        assert.equal(r.ok, true);
-        assert.equal(r.cost, 12);
-        assert.equal(r.newLevel, 1);
-        assert.equal(r.record!.warResources, 88);
-        assert.equal(r.record!.structures.watchtower, 1);
-        assert.equal(base.warResources, 100); // input untouched
+        for (const key of ['watchtower', 'barracks', 'warAcademy']) {
+            assert.equal(applyPerWarStructureUpgrade(base, key).error, 'war-required');
+        }
+        assert.equal(base.warResources, 100);
+        assert.equal(applyPerWarStructureUpgrade(base, 'supplyDepot').error, 'not-per-war');
     });
-    it('rejects when the war pool is short (reporting the cost)', () => {
-        const base = rec({ ramparts: 4 }); base.warResources = 5;
-        const r = applyPerWarStructureUpgrade(base, 'ramparts');
-        assert.equal(r.ok, false);
-        assert.equal(r.error, 'insufficient-wr');
-        assert.equal(r.cost, 36);
+    it('refuses obsolete HP fortifications without spending WR or granting a level', () => {
+        const base = rec(); base.warResources = 5000;
+        assert.deepEqual(applyPerWarStructureUpgrade(base, 'ramparts'), { ok: false, error: 'retired-structure' });
+        assert.equal(base.warResources, 5000);
+        assert.equal(base.structures.ramparts, 0);
     });
-    it('rejects a permanent structure, and rejects at max level', () => {
-        assert.equal(applyPerWarStructureUpgrade(rec(), 'barracks').error, 'not-per-war');
-        const maxed = rec({ watchtower: VILLAGE_STRUCTURE_MAX_LEVEL }); maxed.warResources = 9999;
-        assert.equal(applyPerWarStructureUpgrade(maxed, 'watchtower').error, 'max-level');
-    });
-    it('resetPerWarStructures zeroes Ramparts + Watchtower, leaves the permanent four', () => {
+    it('resetPerWarStructures zeroes Ramparts + Watchtower, leaves permanent infrastructure', () => {
         const r = resetPerWarStructures(rec({ ramparts: 8, watchtower: 6, barracks: 5, warAcademy: 3 }));
         assert.equal(r.structures.ramparts, 0);
         assert.equal(r.structures.watchtower, 0);
-        assert.equal(r.structures.barracks, 5);
-        assert.equal(r.structures.warAcademy, 3);
+        assert.equal(r.structures.barracks, 0);
+        assert.equal(r.structures.warAcademy, 0);
     });
 });

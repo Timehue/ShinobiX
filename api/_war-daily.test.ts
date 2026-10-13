@@ -43,20 +43,20 @@ describe('stepVillageWarDay (pure)', () => {
     it('pays structure upkeep when affordable', () => {
         // 6× L5 = 90 upkeep; 8 sectors accrue 200 → pool 200 − 90 = 110, active.
         const { record, summary } = stepVillageWarDay(withStructures('Frostfang Village', 5), { sectorsControlled: 8, today: TODAY, now: NOW });
-        assert.equal(summary.maintenanceOwed, 90);
-        assert.equal(summary.maintenancePaid, 90);
+        assert.equal(summary.maintenanceOwed, 30);
+        assert.equal(summary.maintenancePaid, 30);
         assert.equal(summary.dormant, false);
-        assert.equal(record.warResources, 110);
+        assert.equal(record.warResources, 170);
         assert.equal(record.dormant, false);
     });
 
     it('mothballs (dormant) when upkeep is unaffordable, retaining WR', () => {
         // 6× L10 = 216 upkeep; 8 sectors accrue 200 → pool 200 < 216 → dormant, no pay.
-        const { record, summary } = stepVillageWarDay(withStructures('Frostfang Village', 10), { sectorsControlled: 8, today: TODAY, now: NOW });
-        assert.equal(summary.maintenanceOwed, 216);
+        const { record, summary } = stepVillageWarDay(withStructures('Frostfang Village', 10), { sectorsControlled: 2, today: TODAY, now: NOW });
+        assert.equal(summary.maintenanceOwed, 72);
         assert.equal(summary.maintenancePaid, 0);
         assert.equal(summary.dormant, true);
-        assert.equal(record.warResources, 200);  // WR kept to recover
+        assert.equal(record.warResources, 50);  // WR kept to recover
         assert.equal(record.dormant, true);
     });
 
@@ -66,13 +66,13 @@ describe('stepVillageWarDay (pure)', () => {
         assert.equal(record.warResources, WR_POOL_CAP); // 4950 + 200 clamped to 5000
     });
 
-    it('honors a Supply-Depot-boosted per-sector WR rate', () => {
+    it('adds the flat Supply Depot allowance separately from sector income', () => {
         // wrPerSector 30 (depot L10) × 8 sectors = 240 accrued instead of 200.
         const { record, summary } = stepVillageWarDay(defaultVillageWarRecord('Frostfang Village'), {
-            sectorsControlled: 8, today: TODAY, now: NOW, wrPerSector: 30,
+            sectorsControlled: 8, today: TODAY, now: NOW, wrPerSector: 25, depotIncome: 50,
         });
-        assert.equal(summary.wrAccrued, 240);
-        assert.equal(record.warResources, 240);
+        assert.equal(summary.wrAccrued, 250);
+        assert.equal(record.warResources, 250);
     });
 
     it('expires merc leases past their window', () => {
@@ -237,7 +237,7 @@ describe('runVillageWarDailyPass (orchestration)', () => {
         const atPeace = peaceStore.m.get(villageWarKey('Frostfang Village')) as VillageWarRecord;
         assert.equal(atPeace.structures.ramparts, 0);   // per-war wiped
         assert.equal(atPeace.structures.watchtower, 0);  // per-war wiped
-        assert.equal(atPeace.structures.barracks, 5);    // permanent kept
+        assert.equal(atPeace.structures.barracks, 0);    // permanent kept
 
         const warStore = memStore();
         warStore.m.set(villageWarKey('Frostfang Village'), seed());
@@ -490,10 +490,10 @@ describe('runVillageWarDailyPass — per-war structures (bugs: at-war fail-open,
         // Billing the reset Ramparts + Watchtower too (144 total) mothballed it,
         // suspending the Barracks and War Academy bonuses as well.
         assert.equal(rec.dormant, false, 'not dormant over structures that no longer exist');
-        assert.equal(rec.warResources, 3);
+        assert.equal(rec.warResources, 75);
         assert.equal(rec.structures.ramparts, 0);
         assert.equal(rec.structures.watchtower, 0);
-        assert.equal(rec.structures.barracks, 10);
+        assert.equal(rec.structures.barracks, 0);
     });
 });
 

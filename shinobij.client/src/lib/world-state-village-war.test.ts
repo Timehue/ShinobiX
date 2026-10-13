@@ -165,6 +165,14 @@ describe("war mission damage is a server command the client waits for", () => {
 });
 
 describe("the winner's-crate sweep only asks for crates the player earned", () => {
+    it("recognizes an account-slug MVP whose display name contains spaces", async () => {
+        const character = { ...kaya, name: "Kaya Uchiha" };
+        hydrateSharedWorldState({ wars: [{ ...ended({}), mvpByVillage: { [MOON]: "kayauchiha" } }] });
+        const sent = recordFetch(() => respondWith(200, { ok: true, granted: true, character, _saveVersion: 9 }));
+        assert.deepEqual((await claimServerWarCrates(character)).ids, ["war-crate-moonshadowvillage-vs-stormveilvillage-g2"]);
+        assert.equal(sent.length, 1);
+        assert.equal(sent[0].body.playerName, "Kaya Uchiha");
+    });
     const ended = (contributions: VillageWar["contributions"]) => liveWar({
         endedAt: Date.now() - 60_000,
         winnerVillage: MOON,

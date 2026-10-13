@@ -1,4 +1,5 @@
 import { handleStrongholdAction, strongholdVaultReady } from './_stronghold.js';
+import { villageCampaignStronghold } from '../_village-war-campaign.js';
 import { seatedKageOf } from '../_sector-war-garrison-defender.js';
 import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
@@ -154,6 +155,7 @@ async function doStart(req: VercelRequest, res: VercelResponse, identity: Identi
         return res.status(403).json({ error: `Anbu infiltration requires level ${LEVEL_REQUIREMENT}.` });
     }
     const raiderVillage = String(char.village ?? '').trim();
+    if (await villageCampaignStronghold(raiderVillage, sector)) return res.status(409).json({ error: 'This is a village war objective. Use its nominated battle mode to attack the ANBU defense.' });
     if (!raiderVillage) return res.status(403).json({ error: 'You must belong to a village.' });
 
     // The target: an enemy-held war sector. Prefer the live captured owner; fall

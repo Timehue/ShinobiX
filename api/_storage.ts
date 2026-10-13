@@ -168,6 +168,7 @@ const _noCachePrefixes = [
     // that predates another worker's pending or terminal receipt.
     'world:territory:', 'raid-territory-proof:',
     'world:war:', 'world:village-war-', 'clan-war:', 'clan-war-xp:',
+    'village-campaign-',
     // Sector-war battle receipts are exactly-once scoring evidence. A
     // process-local cached null for a receipt another worker has since written
     // would make a replayed battle look new and score it twice.

@@ -1,0 +1,31 @@
+.town-war-display { --war-room-line: var(--town-line, #384654); --war-room-gold: var(--town-gold, #e6b85c); min-width: 0; }
+.town-command > .town-hall-grid > .town-hall-panel:only-child { grid-column: 1 / -1; }
+.town-war-display-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.town-war-display-card { display: flex; flex-direction: column; min-width: 0; overflow: hidden; border: 1px solid var(--war-room-line); border-radius: 12px; background: linear-gradient(155deg, #121d27, #080e15 75%); box-shadow: inset 0 1px 0 #ffffff08, 0 8px 24px #00000022; }
+.town-war-display-shrine-banner, .town-war-display-sector-banner { display: flex; align-items: center; justify-content: center; gap: 18px; height: 136px; flex-shrink: 0; border-bottom: 1px solid var(--war-room-line); color: var(--war-room-gold); background: radial-gradient(ellipse at center, #393127, #101923 72%); font-family: var(--font-display, serif); font-size: 1.3rem; }
+.town-war-display-shrine-banner img { display: block; width: 190px; height: 130px; object-fit: contain; filter: drop-shadow(0 6px 12px #00000066); }
+.town-war-display-sector-banner { background: radial-gradient(ellipse at center, #263a42, #101923 72%); }
+.town-war-display-sector-banner img { width: 80px; height: 80px; object-fit: contain; }
+.town-war-display-copy { display: flex; flex-direction: column; flex: 1; padding: clamp(12px, 2vw, 20px); overflow-wrap: anywhere; }
+.town-war-display-copy h4 { margin: 0 0 8px; color: var(--war-room-gold); font-size: 1.25rem; }
+.town-war-display-copy p { margin: .45rem 0; line-height: 1.5; }
+.town-war-display-status { font-weight: 700; color: #f5ead4; }
+.town-war-display-schedule { padding: 9px 12px; border-left: 2px solid var(--war-room-gold); border-radius: 0 6px 6px 0; background: #e6b85c0a; color: #ead7ae; font-size: .85rem; }
+.town-war-scoreboard { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: .7rem 0 .3rem; }
+.town-war-display-copy .town-war-score { margin: 0; padding: 10px; border: 1px solid var(--war-room-line); border-radius: 7px; background: #050a1066; }
+.town-war-score strong { display: block; font-size: .78rem; line-height: 1.4; color: #cbd5e1; }
+.town-war-score span { display: block; margin-top: 5px; color: #f7d98c; font-size: 1.3rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.town-war-score small { display: block; margin-top: 2px; font-size: .65rem; font-weight: 600; letter-spacing: .06em; color: #c6b891; }
+.town-war-shrine-location { font-size: .8rem; color: #a6b6c6; }
+.town-war-display-copy .town-war-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: auto 0 12px; padding-top: 16px; }
+.app-shell.screen-townHall .town-war-display .town-war-actions > .town-war-control { display: inline-flex; flex: 1 1 128px; align-items: center; justify-content: center; gap: 6px; height: 44px; min-height: 44px; min-width: 0; margin: 0; padding: 8px 12px; border: 1px solid #e6b85c66; border-radius: 6px; background: linear-gradient(180deg, #33302a, #1a2027); color: #f4e5c3; font-size: .82rem; font-weight: 600; line-height: 1.2; white-space: nowrap; box-shadow: inset 0 1px 0 #fff3; }
+.app-shell.screen-townHall .town-war-display .town-war-actions > .town-war-control:not(:disabled):hover { border-color: var(--war-room-gold); background: linear-gradient(180deg, #40392b, #232930); }
+.app-shell.screen-townHall .town-war-display .town-war-actions > .town-war-control:disabled { opacity: .5; }
+.town-war-display-copy details { border-top: 1px solid var(--war-room-line); padding-top: 10px; }
+.town-war-display-copy summary { min-height: 44px; padding: 10px 0; cursor: pointer; color: var(--war-room-gold); }
+.town-war-display-copy summary:focus-visible { outline: 2px solid var(--war-room-gold); outline-offset: 3px; }
+.town-war-display-copy ol { padding-left: 22px; line-height: 1.6; }
+.town-war-display-copy li + li { margin-top: 10px; }
+.town-war-display-contests { padding: 0; list-style: none; }
+.town-war-display-contests li { display: grid; gap: 5px; padding: 12px; border: 1px solid var(--war-room-line); border-radius: 8px; }
+@media (max-width: 760px) { .town-war-display-grid { grid-template-columns: minmax(0, 1fr); } }

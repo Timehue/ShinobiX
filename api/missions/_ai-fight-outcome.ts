@@ -344,6 +344,7 @@ export function sessionHpIsDecreaseOnly(session: AiFightSession | null | undefin
     if (sessionSeedsFullHp(session)) return true;
     if (!isSoloPveSession(session)) return false;
     return session.encounter.kind === ANBU_INFILTRATION_ENCOUNTER_KIND
+        || session.encounter.kind === 'village-war-garrison'
         || session.encounter.kind === SECTOR_WAR_GARRISON_ENCOUNTER_KIND;
 }
 

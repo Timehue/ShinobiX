@@ -93,11 +93,11 @@ export interface OnlineStateStore {
      */
     upsert(entry: PresenceUpsert): OnlinePlayer;
     /** A player's live presence, or null if absent/stale (past the offline window). */
-    get(name: string): OnlinePlayer | null;
+    get(name: string, at?: number): OnlinePlayer | null;
     /** All currently-online (non-stale) players. */
     list(): OnlinePlayer[];
     /** Currently-online players in one sector (sector-indexed, no global scan). */
-    listSector(sector: number): OnlinePlayer[];
+    listSector(sector: number, at?: number): OnlinePlayer[];
     /** Forget a player entirely (logout, ban/kick, disconnect). */
     remove(name: string): void;
     /** Queue an incoming attacker on a target. Returns false if the target is offline. */

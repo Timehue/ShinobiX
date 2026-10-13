@@ -196,6 +196,36 @@ describe('village-war hires: Kage seat 3, each Elder seat 1, per war instance', 
 });
 
 describe('sector-war hires: the DEFENDER only, 3 per contest', { concurrency: false }, () => {
+    it('refuses a hire when its contest settles while the quote is being prepared', async (t) => {
+        const contest = await seedContest();
+        const before = await record(DEFENDER);
+        const keys = kv.keys.bind(kv);
+        let ended = false;
+        t.mock.method(kv, 'keys', async (pattern: string) => {
+            if (pattern === 'world:territory:*' && !ended) {
+                ended = true;
+                await kv.set(war.sectorWarKey(contest.id), { ...contest, expiredAt: Date.now(), defended: true });
+            }
+            return keys(pattern);
+        });
+        const out = await hire(D_KAGE, DEFENDER, { context: 'sector', contestId: contest.id });
+        assert.equal(ended, true);
+        assert.equal(out.statusCode, 409);
+        assert.deepEqual(await record(DEFENDER), before, 'a band that can no longer serve must cost nothing');
+    });
+    it('never charges or lists HP mercenaries for a five-day score campaign', async () => {
+        await seedVillageWar();
+        const row = await kv.get<Json>(`world:war:${WAR_ID}`);
+        const { createVillageCampaign } = await import('../_village-war-campaign.js');
+        await kv.set(`world:war:${WAR_ID}`, { ...row, campaign: createVillageCampaign([DEFENDER, ATTACKER], Date.now() - 1000, 47) });
+        const before = await record(DEFENDER);
+        const out = await hire(D_KAGE, DEFENDER, { context: 'village' });
+        assert.equal(out.statusCode, 409);
+        assert.deepEqual(await record(DEFENDER), before);
+        const list = await post(D_KAGE, { action: 'list', village: DEFENDER });
+        assert.equal(list.statusCode, 200);
+        assert.deepEqual(list.body?.contexts, []);
+    });
     it('lets the defending Kage and Elders hire 3 in all, and refuses the attacker', async () => {
         const contest = await seedContest();
         const refused = await hire(A_KAGE, ATTACKER, { context: 'sector', contestId: contest.id });

@@ -13,13 +13,16 @@ import {
     villageWarSlug,
     STRUCTURE_KEYS,
 } from '../_war-state.js';
-import { applyStructureUpgrade, applyPerWarStructureUpgrade, isPerWarStructure, STRUCTURE_DEFS } from '../_war-structures.js';
+import { applyStructureUpgrade, isPerWarStructure, STRUCTURE_DEFS } from '../_war-structures.js';
+import { upgradeWarPreparation } from '../_war-preparations.js';
 import { recordWarEcoEvent } from '../_war-telemetry.js';
 import { villageWarMapEnabled, villageStoresEnabled } from '../_release-flags.js';
 import { appendStoresLedger, readStores, structureMaterialsCost, STRUCTURE_HERALD_MIN_LEVEL } from '../_village-stores.js';
 import { announce } from '../_announce.js';
-import { completeEconomyTx, failEconomyTx, makeEconomyTxId, markEconomyTx, reserveEconomyTx, type EconomyTxState } from '../_economy-tx.js';
-import { raiseVillageWarRampartsHp } from '../world-state.js';
+import { completeEconomyTx, economyTxKey, failEconomyTx, markEconomyTx, reserveEconomyTx, type EconomyTxRecord, type EconomyTxState } from '../_economy-tx.js';
+import { inspectStructurePayment, withStructurePayment, STRUCTURE_PAYMENT_RECEIPT_LIMIT } from '../_war-structure-payment.js';
+import { receiptAbsenceProvable } from '../_save-debit-saga.js';
+import { VILLAGE_STRUCTURE_MAX_LEVEL } from '../_war-economy.js';
 
 /*
  * /api/village/war-structure — POST only
@@ -88,6 +91,13 @@ export function structureUpgradeErrorMessage(
             return `${structureName} is already at its maximum level.`;
         case 'level-changed':
             return `${structureName} is already at level ${amount(opts.level)}, so nothing was spent. Check the level before raising it again.`;
+        case 'retired-structure':
+            return 'Ramparts have been retired because village wars are decided by War Points. No resources were spent.';
+        case 'purchase-reconcile-required':
+            return 'An earlier payment cannot be safely verified. No more resources were spent; an administrator must reconcile this purchase.';
+        case 'war-required': return 'Choose an active war and the tier to purchase. No resources were spent.';
+        case 'war-ended': return 'That war has ended or changed. No resources were spent; refresh the war room.';
+        case 'preparation-limit': return 'Too many preparations are active. No resources were spent.';
         case 'unknown-structure':
         case 'not-per-war':
             return `${structureName} cannot be raised here.`;
@@ -143,22 +153,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // record); PERMANENT structures are bought with treasury Honor Seals (treasury
         // lock outer, war-record inner, debit-before-credit). Both failClosed.
         const result = isPerWarStructure(structure)
-            ? await withKvLock(warKey, async () => {
-                const record = normalizeVillageWarRecord(village, (await kv.get<Record<string, unknown>>(warKey)) ?? undefined);
-                const up = applyPerWarStructureUpgrade(record, structure);
-                if (!up.ok) return { ok: false as const, error: up.error, cost: up.cost };
-                if (toLevel !== null && up.newLevel !== toLevel) {
-                    return { ok: false as const, error: 'level-changed' as const, cost: up.cost, currentLevel: (up.newLevel ?? 1) - 1 };
-                }
-                await kv.set(warKey, up.record);
-                return { ok: true as const, structure, newLevel: up.newLevel, cost: up.cost, currency: 'wr' as const, remainingWr: up.record!.warResources };
-            }, { failClosed: true })
+            ? await upgradeWarPreparation(village, structure, String(body.warInstance ?? ''), toLevel)
             : await withKvLock(stateKey, async () => {
                 const state = (await kv.get<Record<string, unknown>>(stateKey)) ?? {};
                 const treasury = (state.treasury ?? {}) as Record<string, unknown>;
                 const seals = num(treasury.honorSeals);
                 return await withKvLock(warKey, async () => {
                     const record = normalizeVillageWarRecord(village, (await kv.get<Record<string, unknown>>(warKey)) ?? undefined);
+                    const currentLevel = record.structures[structure as keyof typeof record.structures];
+                    const intendedLevel = toLevel ?? currentLevel + 1;
+                    const payment = inspectStructurePayment(state, village, structure, intendedLevel);
+                    if (payment.status === 'invalid') return { ok: false as const, error: 'purchase-reconcile-required' as const };
+                    const previousTx = await kv.get<EconomyTxRecord>(economyTxKey(payment.id));
+                    if (previousTx?.state === 'refunded') return { ok: false as const, error: 'purchase-reconcile-required' as const };
+                    if (payment.status === 'paid') {
+                        if (currentLevel >= intendedLevel && previousTx?.state === 'complete') {
+                            return { ok: false as const, error: 'level-changed' as const, cost: payment.payment.cost, currentLevel };
+                        }
+                        if (intendedLevel > VILLAGE_STRUCTURE_MAX_LEVEL || intendedLevel < 1 || (currentLevel < intendedLevel && intendedLevel !== currentLevel + 1)) {
+                            return { ok: false as const, error: 'purchase-reconcile-required' as const };
+                        }
+                        txId = payment.id;
+                        txState = 'debit-applied';
+                        if (currentLevel < intendedLevel) {
+                            const { materials } = payment.payment;
+                            await kv.set(warKey, { ...record, structures: { ...record.structures, [structure]: intendedLevel },
+                                ...(materials > 0 ? { storesLedger: appendStoresLedger(record.storesLedger, [{ at: Date.now(), kind: 'structure' as const, amount: materials, by: playerName, ref: `${structure}:${intendedLevel}` }]) } : {}) });
+                        }
+                        txState = 'complete';
+                        await completeEconomyTx(txId).catch(error => console.warn('[village/war-structure] recovered journal completion deferred', txId, safeLogValue(error)));
+                        return { ok: true as const, structure, newLevel: Math.max(currentLevel, intendedLevel), cost: payment.payment.cost,
+                            currency: 'seals' as const, remainingSeals: seals, materialsSpent: payment.payment.materials,
+                            remainingMaterialPoints: readStores(treasury).materialPoints, replayed: true };
+                    }
+                    if (previousTx && (previousTx.state === 'complete' || !receiptAbsenceProvable(
+                        Array.isArray(state.settlementReceipts) ? state.settlementReceipts : [], STRUCTURE_PAYMENT_RECEIPT_LIMIT, 'appliedAt', previousTx.createdAt))) {
+                        return { ok: false as const, error: 'purchase-reconcile-required' as const };
+                    }
                     const up = applyStructureUpgrade(record, seals, structure);
                     if (!up.ok) return { ok: false as const, error: up.error, cost: up.cost };
                     if (toLevel !== null && up.newLevel !== toLevel) {
@@ -178,7 +209,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // its seal cost — out of nothing. Now the only thing a mid-way failure can
                     // cost is the payment (recoverable, and visible to the economy reconciler
                     // as a `needs-reconcile` row), never a free structure.
-                    txId = makeEconomyTxId('village-war-structure');
+                    txId = payment.id;
                     await reserveEconomyTx({
                         id: txId,
                         kind: 'village-war-structure',
@@ -189,7 +220,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         meta: { village, structure, level: up.newLevel, materials: need, by: playerName },
                     });
                     txState = 'reserved';
-                    await kv.set(stateKey, { ...state, treasury: { ...treasury, honorSeals: up.nextSeals, ...(need > 0 ? { materialPoints: have - need } : {}) } });
+                    await kv.set(stateKey, withStructurePayment(
+                        { ...state, treasury: { ...treasury, honorSeals: up.nextSeals, ...(need > 0 ? { materialPoints: have - need } : {}) } },
+                        { village, structure, level: up.newLevel!, cost: up.cost!, materials: need },
+                    ));
                     invalidateProcCache('game-state:frame');
                     await markEconomyTx(txId, 'debit-applied');
                     txState = 'debit-applied';
@@ -208,29 +242,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         if (!result.ok) {
             const status = (result.error === 'insufficient-seals' || result.error === 'insufficient-wr' || result.error === 'materials-required') ? 402
-                : (result.error === 'max-level' || result.error === 'level-changed') ? 409 : 400;
+                : (result.error === 'max-level' || result.error === 'level-changed' || result.error === 'retired-structure' || result.error === 'purchase-reconcile-required' || result.error === 'war-ended') ? 409 : 400;
             const need = 'need' in result ? result.need : undefined;
             const have = 'have' in result ? result.have : undefined;
             const level = 'currentLevel' in result ? result.currentLevel : undefined;
+            const cost = 'cost' in result ? result.cost : undefined;
             return res.status(status).json({
                 error: result.error,
                 // Humanised twin of `error` — the clients render this, so a refusal
                 // never surfaces a machine code to the Kage. `error` is unchanged so
                 // machine callers and the endpoint contract tests keep working.
-                message: structureUpgradeErrorMessage(String(result.error ?? ''), { structure, cost: result.cost, need, have, level }),
-                cost: result.cost,
+                message: structureUpgradeErrorMessage(String(result.error ?? ''), { structure, cost, need, have, level }),
+                cost,
                 ...('need' in result ? { need: result.need, have: result.have } : {}),
                 ...(level !== undefined ? { currentLevel: level } : {}),
-            });
-        }
-        // Ramparts bought during an all-out village war raise this village's war
-        // HP straight away (api/world-state.ts raiseVillageWarRampartsHp). The
-        // level is already granted, so a contended war row must not fail the
-        // purchase; the raise is recomputed from the live level, so the next
-        // Ramparts purchase catches up whatever this one could not land.
-        if (structure === 'ramparts') {
-            await raiseVillageWarRampartsHp(village).catch((error) => {
-                console.warn('[village/war-structure] ramparts war-HP raise deferred', safeLogValue(error));
             });
         }
         // World Herald for a major (L8+) permanent structure. Receipt = village/structure/level.
@@ -247,7 +272,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // The id is unique per PURCHASE: Ramparts and Watchtower reset at peace and
         // are bought again in the next war, and an id of village/structure/level
         // alone made that second purchase read as a replay and dropped its spend.
-        void recordWarEcoEvent({ eventId: `structure:${villageWarSlug(village)}:${structure}:${result.newLevel}:${Date.now()}`, village, kind: isPerWarStructure(structure) ? 'wr.spend.structure' : 'seals.spend.structure', amount: result.cost ?? 0, meta: structure });
+        void recordWarEcoEvent({ eventId: isPerWarStructure(structure) ? `structure:${villageWarSlug(village)}:${String(body.warInstance ?? "")}:${structure}:${result.newLevel}` : txId, village, kind: isPerWarStructure(structure) ? 'wr.spend.structure' : 'seals.spend.structure', amount: result.cost ?? 0, meta: structure });
         return res.status(200).json(result);
     } catch (err) {
         // A reserved/debited-but-unfinished purchase is parked for the economy
