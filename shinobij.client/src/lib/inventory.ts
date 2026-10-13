@@ -60,6 +60,20 @@ export function countItem(character: Character, id: string): number {
     return n;
 }
 
+/**
+ * countItem for every id in one pass: `itemCountsById(c).get(id) ?? 0` equals
+ * `countItem(c, id)` for every string id. Same two stores and the same cleaned
+ * stacks (deduped, floored, non-positive dropped, clamped), summed per id. A
+ * list that shows a count per row builds this once instead of re-cleaning
+ * itemStacks for every row.
+ */
+export function itemCountsById(character: Pick<Character, "inventory" | "itemStacks">): Map<string, number> {
+    const counts = new Map<string, number>();
+    for (const e of character.inventory ?? []) counts.set(e, (counts.get(e) ?? 0) + 1);
+    for (const s of cleanItemStacks(character.itemStacks)) counts.set(s.itemId, (counts.get(s.itemId) ?? 0) + s.count);
+    return counts;
+}
+
 export function ownsItem(character: Character, id: string): boolean {
     return countItem(character, id) > 0;
 }

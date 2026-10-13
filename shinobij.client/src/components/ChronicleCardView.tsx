@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { CSSProperties, ReactElement } from "react";
 import type { ChronicleDisplayCard } from "../lib/chronicle-duel";
 import { chronicleCardArtSrcSet, CARD_ART_SIZES_DEFAULT, ELEMENT } from "../lib/chronicle-card-art";
@@ -64,7 +65,10 @@ const RARITY: Record<string, string> = {
   mythic: "#ff875f",
 };
 
-export function ChronicleCardView({
+// Memoized: the card face is a pure function of its props (no hooks, context or
+// mutable module state), and a Card Hall grid renders dozens of them, so a
+// parent re-render that hands every card the same props skips them all.
+export const ChronicleCardView = memo(function ChronicleCardView({
   card,
   hidden = false,
   compact = false,
@@ -300,4 +304,4 @@ export function ChronicleCardView({
       </footer>
     </CardRoot>
   );
-}
+});

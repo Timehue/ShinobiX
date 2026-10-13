@@ -417,5 +417,6 @@
 }
 @media (prefers-reduced-motion: reduce) {
     .activity-spine * { scroll-behavior:auto;transition:none; }
+    .db-claim-btn { animation: none; }
 }
 

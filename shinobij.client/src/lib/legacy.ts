@@ -299,8 +299,21 @@ export type EraView = {
     unlockedBy: string | null; unlockedVillage: string | null; unlockedAt: number | null;
 };
 
+// Hall of Legends' Eras tab asks for the eras from two effects on the same
+// commit. A call made within ERAS_SHARE_MS of a request that is still in flight
+// shares it (getJson never rejects, so every caller gets the same result it
+// would have fetched). Any later call fetches fresh, exactly as before: the
+// 30 s refresh, Retry and the Daily Briefing never wait on a stalled request.
+const ERAS_SHARE_MS = 1_000;
+let erasInFlight: { request: Promise<{ eras: EraView[] } | null>; startedAt: number } | null = null;
 export function fetchEras(): Promise<{ eras: EraView[] } | null> {
-    return getJson(`/api/eras`);
+    const now = Date.now();
+    if (erasInFlight && now - erasInFlight.startedAt < ERAS_SHARE_MS) return erasInFlight.request;
+    const request = getJson<{ eras: EraView[] }>(`/api/eras`);
+    const entry = { request, startedAt: now };
+    erasInFlight = entry;
+    void request.finally(() => { if (erasInFlight === entry) erasInFlight = null; });
+    return request;
 }
 
 // ── Custom-title cosmetics (handoff §Title System pricing tiers) ────────────

@@ -13,8 +13,18 @@ import { ChronicleCardView } from "./ChronicleCardView";
 function renderCard(id: string, hidden = false): string {
   const card = getChronicleCard(id);
   assert.ok(card, `${id} must exist in the Chronicle catalog`);
-  return renderToStaticMarkup(ChronicleCardView({ card, hidden }));
+  return renderToStaticMarkup(React.createElement(ChronicleCardView, { card, hidden }));
 }
+
+test("the card face is memoized so an unchanged card skips a parent re-render", () => {
+  // A Card Hall grid renders dozens of faces; React.memo is what lets a parent
+  // re-render with the same props skip them. A plain function component has no
+  // $$typeof, so this fails if the wrapper is ever dropped.
+  assert.equal(
+    (ChronicleCardView as unknown as { $$typeof?: symbol }).$$typeof,
+    Symbol.for("react.memo"),
+  );
+});
 
 test("Monster cards render the complete physical TCG information hierarchy", () => {
   const html = renderCard("tc-142");
@@ -101,7 +111,7 @@ test("face-down rendering uses the card back and leaks no card identity", () => 
 
 test("every Chronicle catalog entry renders through the same complete card face", () => {
   for (const card of CHRONICLE_CARD_CATALOG) {
-    const html = renderToStaticMarkup(ChronicleCardView({ card }));
+    const html = renderToStaticMarkup(React.createElement(ChronicleCardView, { card }));
     assert.ok(html.includes(card.id), `${card.id} must render its stable ID`);
     assert.match(html, /chronicle-card__art-frame/);
     assert.match(html, /chronicle-card__dossier/);

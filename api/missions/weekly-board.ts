@@ -70,9 +70,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (isGet) {
             const save = await kv.get<Record<string, unknown>>(`save:${playerName}`);
             const char = (save?.character ?? {}) as Record<string, unknown>;
+            // The record read overlaps the village-state read. It still starts
+            // after the save read, as before, so it sees nothing older than the
+            // save it scores, and it is awaited where it used to run, so a
+            // failure surfaces at the same point.
+            const recordRead = kv.get<WeeklyRecord>(key);
+            recordRead.catch(() => undefined);
             const eligibilityContext = await missionEligibilityContextFor(char, now);
             const board = pickWeeklyBoardForPlayer(wk, char, undefined, eligibilityContext);
-            let record = await kv.get<WeeklyRecord>(key);
+            let record = await recordRead;
             if (!record) {
                 const fresh: WeeklyRecord = { baseline: snapshotCounters(char), claimed: [] };
                 const placed = await kv.set(key, fresh, { nx: true, ex: RECORD_TTL_SECONDS } as never);
