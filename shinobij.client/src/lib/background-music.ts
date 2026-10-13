@@ -26,6 +26,13 @@ export const BACKGROUND_MUSIC_VOLUME = 0.18;
 
 let audioEl: HTMLAudioElement | null = null;
 let currentScene: BackgroundMusicScene = null;
+// The track chosen for the scene, and the one the element actually holds. The
+// game starts muted, and an element with preload="auto" downloads its src
+// whether or not it ever plays: every session used to fetch 1.3-2.5 MB of MP3
+// on arrival, and again on each village/combat switch, for music nobody heard.
+// The element only receives a track once playback is allowed.
+let currentTrack = "";
+let loadedTrack = "";
 const lastTrackIndex = { village: -1, combat: -1 };
 let unsubscribeLifecycle: (() => void) | null = null;
 
@@ -46,12 +53,17 @@ function syncPlayback(): void {
     el.volume = BACKGROUND_MUSIC_VOLUME * getAudioVolume();
     if (blocked) {
         el.pause();
-    } else {
-        void el.play().catch(() => {
-            // Autoplay policies may require the player to unmute from Settings
-            // or interact with the game once; audio must never block gameplay.
-        });
+        return;
     }
+    if (loadedTrack !== currentTrack) {
+        el.src = currentTrack;
+        el.currentTime = 0;
+        loadedTrack = currentTrack;
+    }
+    void el.play().catch(() => {
+        // Autoplay policies may require the player to unmute from Settings
+        // or interact with the game once; audio must never block gameplay.
+    });
 }
 
 function ensureAudio(): HTMLAudioElement | null {
@@ -62,8 +74,7 @@ function ensureAudio(): HTMLAudioElement | null {
         el.preload = "auto";
         el.onended = () => {
             if (currentScene === null || el.loop) return;
-            el.src = trackFor(currentScene);
-            el.currentTime = 0;
+            currentTrack = trackFor(currentScene);
             syncPlayback();
         };
         unsubscribeLifecycle = subscribeAudioLifecycle(syncPlayback);
@@ -81,7 +92,7 @@ function trackFor(scene: Exclude<BackgroundMusicScene, null>): string {
 
 /** Select the score for the player's actual location or active battle. */
 export function setBackgroundMusicScene(scene: BackgroundMusicScene): void {
-    if (scene === currentScene && (scene === null || audioEl?.src)) return;
+    if (scene === currentScene && (scene === null || currentTrack)) return;
     currentScene = scene;
     if (scene === null) {
         syncPlayback();
@@ -91,8 +102,7 @@ export function setBackgroundMusicScene(scene: BackgroundMusicScene): void {
     const el = ensureAudio();
     if (!el) return;
     el.loop = TRACKS[scene].length === 1;
-    el.src = trackFor(scene);
-    el.currentTime = 0;
+    currentTrack = trackFor(scene);
     syncPlayback();
 }
 
