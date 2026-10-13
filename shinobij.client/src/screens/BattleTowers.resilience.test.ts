@@ -106,7 +106,10 @@ test("active co-op reconciliation is push-led, bounded, and revision-safe", () =
     assert.match(fight, /const controller = new AbortController\(\)/);
     assert.match(fight, /stateFn\(runId, me, controller\.signal\)/);
     assert.match(fight, /controller\.abort\(\); stopPush\(\); stopFallback\(\)/);
-    assert.match(fight, /\(next\.actionVersion \?\? 0\) >= \(current\.actionVersion \?\? 0\)/);
+    // Revision-safe adoption: older versions are refused, and an equal version
+    // replaces the session only when its content actually differs.
+    assert.match(fight, /function adoptTowerSession\(current: TowerSession, next: TowerSession\): TowerSession \{[\s\S]{0,260}?if \(nextVersion < currentVersion\) return current;[\s\S]{0,160}?sameJsonValue\(next, current\)\) return current;/);
+    assert.match(fight, /setSession\(current => adoptTowerSession\(current, next\)\)/);
     assert.doesNotMatch(fight, /session\.status !== "active" \|\| myTurn/, "own-turn polling must remain live for authoritative AFK auto-pass");
     assert.match(api, /if \(errorBody\.session\)[\s\S]*?applied: false/, "action conflicts must preserve an authoritative response session");
     assert.doesNotMatch(fight, /setInterval\([\s\S]{0,300}?2500/);

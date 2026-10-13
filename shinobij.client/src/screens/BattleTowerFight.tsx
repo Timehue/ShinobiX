@@ -1,4 +1,5 @@
 import { TowerResultHeader } from "../components/TowerResultHeader";
+import { sameJsonValue } from "../lib/pvp-session-runtime";
 import { TowerPersonalBestReceipt } from "../components/TowerPersonalBestReceipt";
 import { TOWER_DISRUPT_AP, TOWER_SIGNATURES, TOWER_HONORS, towerSignaturePattern } from "../../../shared/tower-progression";
 import { towerImpactCues, type TowerImpactCue } from "../lib/tower-impact-cues";
@@ -256,6 +257,21 @@ function TowerTurnCountdown({ turnStartedAt }: { turnStartedAt: number }) {
     }, [turnStartedAt]);
     // The digits sit in a fixed tabular box: at ~1024px the header title row is within a pixel of its wrap threshold, and proportional digits ("58s" vs "57s") flipped the turn pill between rows every tick — a 48px board jump.
     return <span role="timer" aria-label={`${remaining} seconds remaining`}> · <span style={{ display: "inline-block", minWidth: "2ch", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{remaining}</span>s</span>;
+}
+
+/**
+ * Adopt a server session only when it is newer, or the same version with
+ * different content. The realtime kick also reaches the player who acted, so
+ * every action was followed by a re-read of an identical session; adopting that
+ * copy changed object identity and re-rendered the whole board, both battle logs
+ * and every memo keyed on the session. sameJsonValue ignores key order (jsonb).
+ */
+function adoptTowerSession(current: TowerSession, next: TowerSession): TowerSession {
+    const nextVersion = next.actionVersion ?? 0;
+    const currentVersion = current.actionVersion ?? 0;
+    if (nextVersion < currentVersion) return current;
+    if (nextVersion === currentVersion && sameJsonValue(next, current)) return current;
+    return next;
 }
 
 type TowerRoundPresentation = {
@@ -698,10 +714,13 @@ export function BattleTowerFight({
             combatVfxAnchorKey(fx.spec, session.actors.find(a => a.id === fx.target)?.pos ?? -1));
         setCombatVfx((existing) => [...existing, ...deduped].slice(liteFx ? -6 : -14));
         const lifetime = Math.max(...deduped.map((fx) => fx.spec.durationMs), 900);
-        const timeout = window.setTimeout(() => {
+        // Not the effect's cleanup: the next batch re-runs this effect, and a
+        // cleared removal stranded the previous plates in the DOM (invisible,
+        // but each kept its GPU layer) until the slice cap pushed them out.
+        // Unmount still clears every presentation timer.
+        presentationTimersRef.current.push(window.setTimeout(() => {
             setCombatVfx((existing) => existing.filter((fx) => !deduped.some((added) => added.id === fx.id)));
-        }, lifetime + 80);
-        return () => window.clearTimeout(timeout);
+        }, lifetime + 80));
         // Keyed on vfxSeq ALONE: session.vfx/actors get fresh identities on every
         // poll, so listing them would replay the same plates on an idle board.
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1049,7 +1068,7 @@ export function BattleTowerFight({
         const controller = new AbortController();
         stateFn(runId, me, controller.signal).then(next => {
             if (controller.signal.aborted) return;
-            setSession(current => (next.actionVersion ?? 0) >= (current.actionVersion ?? 0) ? next : current);
+            setSession(current => adoptTowerSession(current, next));
         }).catch(() => {});
         return () => controller.abort();
     }, [runId, me, initialSession.status, stateFn]);
@@ -1062,7 +1081,7 @@ export function BattleTowerFight({
         let alive = true;
         joinTowerRun(runId, me, hostLoadout).then(next => {
             if (!alive || !next) return;
-            setSession(current => (next.actionVersion ?? 0) >= (current.actionVersion ?? 0) ? next : current);
+            setSession(current => adoptTowerSession(current, next));
         });
         return () => { alive = false; };
     }, [runId, me, hostLoadout]);
@@ -1086,7 +1105,7 @@ export function BattleTowerFight({
             inFlight = true;
             stateFn(runId, me, controller.signal).then(next => {
                 if (!alive) return;
-                setSession(current => (next.actionVersion ?? 0) >= (current.actionVersion ?? 0) ? next : current);
+                setSession(current => adoptTowerSession(current, next));
             }).catch(() => {
                 // The bounded poll retries after a transient read failure.
             }).finally(() => {
@@ -1435,7 +1454,7 @@ export function BattleTowerFight({
             const nextSession = responseActionVersion != null && res.session.actionVersion == null
                 ? { ...res.session, actionVersion: responseActionVersion }
                 : res.session;
-            setSession(current => (nextSession.actionVersion ?? 0) >= (current.actionVersion ?? 0) ? nextSession : current);
+            setSession(current => adoptTowerSession(current, nextSession));
             if (res.applied) {
                 const impactId = Date.now();
                 const targetId = "targetId" in action ? action.targetId : undefined;
