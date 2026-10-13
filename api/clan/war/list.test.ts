@@ -47,9 +47,9 @@ async function list(viewer?: string): Promise<Out> {
 beforeEach(async () => {
     for (const key of await kv.keys('clan-war:*')) await kv.del(key);
     const pending: ClanChallenge = {
-        id: 'c1', mode: 'pvp', fromClan: 'alpha', toClan: 'beta', fromPlayer: 'ash',
-        status: 'pending', createdAt: Date.now(),
-    } as ClanChallenge;
+        id: 'c1', mode: 'pvp1v1', fromClan: 'alpha', fromPlayer: 'ash',
+        status: 'pending', createdAt: Date.now(), expiresAt: Date.now() + 3_600_000,
+    };
     await kv.set(`clan-war:${WAR_ID}`, {
         id: WAR_ID,
         clans: ['alpha', 'beta'],
