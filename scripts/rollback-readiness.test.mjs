@@ -13,6 +13,18 @@ test('comment stripping prevents documentation examples from tripping the gate',
     assert.deepEqual(destructiveSchemaStatements('-- drop table saves'), []);
 });
 
+test('taking a table out of a publication is not a destructive DROP TABLE', () => {
+    assert.deepEqual(destructiveSchemaStatements('alter publication supabase_realtime drop table public.kv_store;'), []);
+    assert.deepEqual(destructiveSchemaStatements('ALTER PUBLICATION supabase_realtime\n    DROP TABLE public.kv_store;'), []);
+    // ...but a real DROP TABLE after one is still caught, and so is one alone.
+    assert.deepEqual(
+        destructiveSchemaStatements('alter publication p drop table public.a; drop table public.kv_store;'),
+        ['drop table'],
+    );
+    const input = good(); input.schemaSql += 'do $$ begin alter publication supabase_realtime drop table public.kv_store; end $$;';
+    assert.equal(validateRollbackReadiness(input).ok, true);
+});
+
 test('destructive table, column, and truncate changes fail readiness', () => {
     for (const sql of ['drop table public.kv_store;', 'alter table public.kv_store drop column value;', 'truncate table public.kv_store;']) {
         const input = good(); input.schemaSql += sql;
