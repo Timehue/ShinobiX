@@ -328,7 +328,10 @@ or the upload's validation and messages:
   stores its own re-encoded copy of one of them (up to 200 KB) as `avatar:<name>`, so that
   other players can find it by name.
   - Instead, `avatar:<name>` stores the preset path itself, about 30 bytes.
-  - `/api/img` already redirects stored links, so it sends viewers to the static file.
+  - `/api/img` today redirects only stored `http(s)://` links. A relative preset path
+    would get a 415, so Deploy 3 extends the redirect to exactly the two preset paths
+    (the `PRESET_AVATARS` allowlist in `api/_entitlements.ts`) and sends viewers to the
+    static file.
   - That file ships with the game and is cached once for every player who uses it.
   - Result: near-zero storage per free player, and their avatars load faster everywhere.
 - **The subscriber perk is enforced on the server.** Custom avatars are a subscriber perk
@@ -341,8 +344,11 @@ or the upload's validation and messages:
 - **Subscribers keep custom uploads exactly as they are today,** per the owner's condition.
 - **Existing avatars are left alone.** The dry run counts how many are preset copies (its
   duplicate groups), which shows how much a later conversion would save.
-- **Client change:** one line in `starterAvatarPublish.ts`, which sends the preset path
-  instead of the re-encoded copy.
+- **Changes:**
+  - client: `starterAvatarPublish.ts` sends the preset path instead of the re-encoded copy;
+  - server: `POST /api/images` accepts a preset path for `avatar:<own name>` and requires a
+    subscription for custom bytes;
+  - server: `/api/img` redirects the two preset paths.
 
 **Later, not planned:** every login fetches every player's avatar id, which is O(players)
 per login. That is fine up to several thousand players; a per-name lookup is the later fix.
