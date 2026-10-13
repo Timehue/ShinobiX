@@ -5,7 +5,7 @@ import { isFullAdmin, rotatePlayerSessionEpoch } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { RESERVED_USERNAMES } from '../player-auth.js';
 import { bumpImageVersion } from '../_image-version.js';
-import { forgetImageLists, legacyHashWriteEnabled, perImageKey } from '../images.js';
+import { copyImageToR2, forgetImageLists, legacyHashWriteEnabled, perImageKey } from '../images.js';
 import { deletePlayerFirstPactState } from '../_delete-player-account.js';
 import { readKvProjection } from '../_storage-projection.js';
 import {
@@ -287,6 +287,9 @@ export async function reseedLeaderPortraits(
     if (legacyHashWriteEnabled()) await store.hset('shared:imgfields:misc', imgPayload);
     forgetImageLists('leader', { legacyRows: true });
     forgetImageLists('misc', { legacyRows: true });
+    // /api/img redirects to R2 when it holds a copy, so R2 must hold these
+    // bytes, or no copy, before the bumps below send clients to new versions.
+    await Promise.all(Object.entries(imgPayload).map(([imageId, image]) => copyImageToR2(imageId, image)));
     // Reseeded portraits are new bytes behind existing ids, so the immutable
     // /api/img URLs holding the old ones have to retire (api/_image-version.ts).
     // They are served as the `leader` category, and older copies still sit in the
