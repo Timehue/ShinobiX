@@ -102,7 +102,8 @@ export function Missions({
     const onMissionBattleEndRef = useRef(onMissionBattleEnd);
     useEffect(() => { onMissionBattleEndRef.current = onMissionBattleEnd; }, [onMissionBattleEnd]);
     useEffect(() => () => { onMissionBattleEndRef.current?.(); }, []);
-    const [startingCombat, setStartingCombat] = useState(false);
+    // The mission whose fight is being opened, so its button can say so.
+    const [startingCombat, setStartingCombat] = useState<string | null>(null);
     const [fieldTrailPending, setFieldTrailPending] = useState<string | null>(null);
     // Keep every hook above the authoritative-fight early return so hook order is
     // stable while entering and leaving the inline server-resolved battle.
@@ -165,7 +166,7 @@ export function Missions({
         if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`);
         if (startingCombat) return;
         onMissionBattleStart?.();
-        setStartingCombat(true);
+        setStartingCombat(mission.key);
         let fightMounted = false;
         try {
             const response = await fetch("/api/missions/combat-start", {
@@ -181,7 +182,7 @@ export function Missions({
             setAuthoritativeFight({ mission, runId: data.runId, session: data.session });
             fightMounted = true;
         } finally {
-            setStartingCombat(false);
+            setStartingCombat(null);
             if (!fightMounted) onMissionBattleEnd?.();
         }
     }
@@ -625,10 +626,10 @@ export function Missions({
                                     </button>
                                     : <button
                                         className="mh-combat-btn"
-                                        disabled={locked || todayMissions >= DAILY_MISSION_LIMIT}
+                                        disabled={locked || todayMissions >= DAILY_MISSION_LIMIT || startingCombat !== null}
                                         onClick={() => startMissionBattle(mission)}
                                     >
-                                        <span className="mh-combat-btn-label">{locked ? `Lv ${mission.min} Required` : "Begin Mission"}</span>
+                                        <span className="mh-combat-btn-label">{locked ? `Lv ${mission.min} Required` : startingCombat === mission.key ? "Starting…" : "Begin Mission"}</span>
                                         <span className="mh-combat-btn-arrow" aria-hidden="true">›</span>
                                     </button>}
                             </div>
