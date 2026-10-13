@@ -171,6 +171,8 @@ describe('kv.compareSetMany on a real Postgres', () => {
         await admin.query(schemaStatement(schema, 'create table if not exists public.kv_store (', '\n);'));
         await admin.query(schemaStatement(schema, 'create or replace function public.kv_set_nx(', '\n$$;'));
         await admin.query(schemaStatement(schema, 'create or replace function public.kv_incr(', '\n$$;'));
+        await admin.query(schemaStatement(schema, 'create or replace function public.kv_hset(', '\n$$;'));
+        await admin.query(schemaStatement(schema, 'create or replace function public.kv_hdel(', '\n$$;'));
 
         // Test-only instrumentation for dataWrites(); dropped in after().
         await admin.query('CREATE SEQUENCE IF NOT EXISTS public.pgit_data_writes');
@@ -621,6 +623,138 @@ describe('kv.compareSetMany on a real Postgres', () => {
         }, critical);
         assert.deepEqual((await row('pgit:takeover:target'))?.value, { v: 1 });
         assert.deepEqual((await row('lock:pgit:takeover:target'))?.value, 'another-worker', 'release never deletes a lease it no longer owns');
+    });
+
+    // A single locked statement sends BEGIN and its lease check as ONE
+    // simple-protocol message with the lease keys inlined as escaped literals.
+    // These prove, on a real server, that the transaction that message opens
+    // stays open for the statement, and that the escaping holds.
+    pgTest('a single locked statement commits under a live lease, even for a lock target with a quote and a backslash', async () => {
+        const target = String.raw`pgit:it's a \odd' target`;
+        await locks.withKvLock(target, async () => {
+            await storage.kv.set('pgit:single:quoted', { v: 1 });
+            assert.deepEqual(await storage.kv.get('pgit:single:quoted'), { v: 1 });
+        }, critical);
+        assert.deepEqual((await row('pgit:single:quoted'))?.value, { v: 1 });
+        assert.equal(await row(`lock:${target}`), null, 'the lease was found by its exact key and released');
+    });
+
+    pgTest('a single locked statement holds the owner row FOR SHARE until COMMIT', async () => {
+        // Hold the data row with a row lock so the locked write parks AFTER its
+        // combined BEGIN + lease-check message has run.
+        await seed('pgit:single:held', { v: 1 });
+        const holder = await openClient();
+        try {
+            await holder.query('BEGIN');
+            await holder.query("SELECT 1 FROM public.kv_store WHERE key = 'pgit:single:held' FOR UPDATE");
+            const write = settleLater(locks.withKvLock('pgit:single:held', () => storage.kv.set('pgit:single:held', { v: 2 }), critical));
+            await waitForLockWaiters(1);
+            // The owner row is share-locked by the parked transaction: a takeover
+            // write on it cannot proceed until that transaction ends.
+            const { rows: [lock] } = await admin.query<{ locked: boolean }>(
+                `SELECT NOT EXISTS (SELECT 1 FROM public.kv_store WHERE key = 'lock:pgit:single:held' FOR UPDATE SKIP LOCKED) AS locked`,
+            );
+            assert.equal(lock.locked, true, 'the lease row is held by the open fenced transaction');
+            await holder.query('COMMIT');
+            await write;
+        } finally {
+            await holder.end();
+        }
+        assert.deepEqual((await row('pgit:single:held'))?.value, { v: 2 });
+    });
+
+    pgTest('an expired lease stops a single locked statement before it writes', async () => {
+        await seed('pgit:single:expired', { v: 1 });
+        await locks.withKvLock('pgit:single:expired', async () => {
+            const deadline = Date.now() + 15_000;
+            for (;;) {
+                const { rows: [lease] } = await admin.query<{ expired: boolean }>(
+                    "SELECT expires_at <= clock_timestamp() AS expired FROM public.kv_store WHERE key = 'lock:pgit:single:expired'",
+                );
+                if (lease?.expired) break;
+                assert.ok(Date.now() < deadline, 'the one-second lease never expired');
+                await sleep(100);
+            }
+            const before = await dataWrites();
+            await assert.rejects(storage.kv.set('pgit:single:expired', { v: 2 }), locks.LockOwnershipLostError);
+            assert.equal(await dataWrites(), before, 'not one data statement executed');
+        }, { ...critical, ttlSec: 1 });
+        assert.deepEqual((await row('pgit:single:expired'))?.value, { v: 1 });
+    });
+
+    pgTest('a quoted lock target taken over by another owner stops a single locked statement', async () => {
+        const target = String.raw`pgit:o'clock \takeover`;
+        await seed('pgit:single:takeover', { v: 1 });
+        await locks.withKvLock(target, async () => {
+            const { rowCount } = await admin.query(
+                "UPDATE public.kv_store SET value = to_jsonb('another-worker'::text), expires_at = now() + interval '1 minute' WHERE key = $1",
+                [`lock:${target}`],
+            );
+            assert.equal(rowCount, 1);
+            const before = await dataWrites();
+            await assert.rejects(storage.kv.set('pgit:single:takeover', { v: 2 }), locks.LockOwnershipLostError);
+            assert.equal(await dataWrites(), before);
+        }, critical);
+        assert.deepEqual((await row('pgit:single:takeover'))?.value, { v: 1 });
+    });
+
+    // kv_hset / kv_hdel (2026-10-12): a hash write that changes nothing writes
+    // nothing, and hdel is one UPDATE that cannot undo a concurrent hset. The
+    // pg.Pool shim cannot evaluate these functions, so they are proven here.
+    pgTest('hset writes new or changed fields, and skips a merge that changes nothing', async () => {
+        await storage.kv.hset('pgit:hash:a', { b: 2, a: { x: 1, y: 2 } });
+        assert.deepEqual((await row('pgit:hash:a'))?.value, { a: { x: 1, y: 2 }, b: 2 });
+
+        // Judged by the row version, not dataWrites(): kv_hset is an
+        // INSERT ... ON CONFLICT, and Postgres fires the BEFORE INSERT trigger
+        // for the proposed row before it finds the conflict, so the counter
+        // ticks even when the guarded DO UPDATE writes nothing.
+        const original = await row('pgit:hash:a');
+        // Same values, different key order at both levels: jsonb equality is structural.
+        await storage.kv.hset('pgit:hash:a', { a: { y: 2, x: 1 } });
+        await storage.kv.hset('pgit:hash:a', { b: 2 });
+        const unchanged = await row('pgit:hash:a');
+        assert.equal(unchanged?.xmin, original?.xmin, 'an unchanged merge never rewrites the row');
+        assert.equal(unchanged?.updated_at.getTime(), original?.updated_at.getTime(), 'updated_at keeps the last real change');
+
+        await storage.kv.hset('pgit:hash:a', { b: 3, c: 'new' });
+        const changed = await row('pgit:hash:a');
+        assert.notEqual(changed?.xmin, original?.xmin, 'a real change still writes');
+        assert.deepEqual(changed?.value, { a: { x: 1, y: 2 }, b: 3, c: 'new' });
+    });
+
+    pgTest('hdel removes present fields, and leaves the row untouched when none is present', async () => {
+        await seed('pgit:hash:d', { keep: 1, gone: 2, also: 3 });
+        const before = await dataWrites();
+        await storage.kv.hdel('pgit:hash:d', 'missing', 'nothere');
+        await storage.kv.hdel('pgit:hash:absent-row', 'x');
+        assert.equal(await dataWrites(), before, 'deleting absent fields writes nothing');
+
+        await storage.kv.hdel('pgit:hash:d', 'gone', 'missing', 'also');
+        assert.equal(await dataWrites(), before + 1);
+        assert.deepEqual((await row('pgit:hash:d'))?.value, { keep: 1 });
+        assert.equal(await row('pgit:hash:absent-row'), null, 'hdel never creates a row');
+    });
+
+    pgTest('an hdel racing an hset can no longer undo the hset', async () => {
+        // The old kv_hdel read the row, then wrote back its own copy: an hset
+        // committing in between was silently erased.
+        await seed('pgit:hash:race', { stale: 1, keep: 1 });
+        const holder = await openClient();
+        try {
+            await holder.query('BEGIN');
+            await holder.query(
+                "UPDATE public.kv_store SET value = value || '{\"fresh\": 1}'::jsonb WHERE key = 'pgit:hash:race'",
+            );
+            const del = settleLater(storage.kv.hdel('pgit:hash:race', 'stale'));
+            await waitForLockWaiters(1);
+            await holder.query('COMMIT');
+            await del;
+        } finally {
+            await holder.end();
+        }
+        assert.deepEqual((await row('pgit:hash:race'))?.value, { keep: 1, fresh: 1 },
+            'the concurrent write survives and only the named field is removed');
     });
 
     // kv.mgetProjected detoasts each row once and reads every path from that

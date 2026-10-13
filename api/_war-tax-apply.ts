@@ -33,6 +33,7 @@
 import { villageWarMapEnabled } from './_release-flags.js';
 
 import { kv } from './_storage.js';
+import { readKvProjection, type KvProjection } from './_storage-projection.js';
 import { mutatePlayerSave } from './save/_mutate-player-save.js';
 import { retryOnSaveVersionConflict } from './save/_projected-write.js';
 import { applyPlayerTax, type PlayerTaxOutcome } from './_war-tax.js';
@@ -111,6 +112,15 @@ export interface VillageTaxResult {
      *  back to the client instead of re-reading the record. */
     _saveVersion?: number;
 }
+
+/** Everything the unlocked pre-check and `assess` read from the character. */
+const TAX_PEEK_PROJECTION: KvProjection = {
+    village: ['character', 'village'],
+    lastTaxDate: ['character', 'lastTaxDate'],
+    ryo: ['character', 'ryo'],
+    bankRyo: ['character', 'bankRyo'],
+    level: ['character', 'level'],
+};
 
 const NOT_APPLIED = (ryo = 0, bankRyo = 0, kageSeated = false): VillageTaxResult =>
     ({ applied: false, taxed: 0, toBurn: 0, toTreasury: 0, rateSectors: 0, kageSeated, ryo, bankRyo });
@@ -194,9 +204,13 @@ export async function assessVillageTax(playerName: string, now: number = Date.no
     try {
         const saveKey = `save:${name}`;
         // Cheap pre-check OUTSIDE the lock: the overwhelmingly common case is
-        // "already taxed today", and that must cost one read and no lock.
-        const peek = await kv.get<{ character?: Record<string, unknown> }>(saveKey);
-        const peekChar = peek?.character;
+        // "already taxed today", and that must cost one read and no lock. It
+        // reads only the five fields the assessment uses, not the whole save
+        // (80-200 KB, never cached), since every session start calls this. A
+        // character lacking all five assesses exactly like no character: no
+        // village, nothing due, NOT_APPLIED(0, 0).
+        const [peek] = await readKvProjection(kv, [saveKey], TAX_PEEK_PROJECTION);
+        const peekChar = peek && Object.keys(peek).length ? peek : null;
         if (!peekChar) return NOT_APPLIED();
         const today = utcDateString(now);
         const village = String(peekChar.village ?? '').trim();

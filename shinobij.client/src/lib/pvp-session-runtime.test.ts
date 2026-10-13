@@ -385,13 +385,23 @@ describe("PvP reliability source wiring", () => {
             "no move path may retain an unconditional session overwrite helper");
 
         assert.match(screen, /acceptSession\(JSON\.parse\(\(e as MessageEvent\)\.data\)\)/);
-        assert.match(screen, /subscribeKvKey<unknown>/);
+        // One live transport: the battle stream (2026-10-12). Supabase Realtime is
+        // no longer subscribed, and the stream starts unconditionally on mount.
+        assert.doesNotMatch(screen, /subscribeKvKey|realtimeAvailable|lib\/realtime/);
+        assert.match(screen, /void fetchInitial\(\);\s*startStream\(\);/);
+        // A planned server cut reopens at once and does not count as a failure.
+        assert.match(screen, /es\.addEventListener\("reconnect", \(\) => \{[\s\S]*?markStreamReconnecting\(\);[\s\S]*?pvpStreamHandoffDelayMs\(\)\);/);
+        assert.match(screen, /pvpStreamRetryDelayMs\(streamFailures, hasLoadedSession\)/);
+        // The badge waits out the grace window; going offline still shows it at once.
+        assert.match(screen, /window\.setTimeout\(\(\) => \{\s*reconnectBadgeTimerRef\.current = null;\s*setConnectionState\("reconnecting"\);\s*\}, PVP_RECONNECT_BADGE_GRACE_MS\)/);
+        assert.match(screen, /const offline = \(\) => \{\s*setBrowserOffline\(true\);\s*setConnectionState\("reconnecting"\);/);
         assert.match(screen, /acceptRevision\(current, parsed\.session\)/,
             "every parsed authority frame must pass through the conflict-aware revision fence");
         assert.match(screen, /endSession\("The battle session is unavailable or expired\."\)/);
         assert.match(screen, /function stopLiveTransports\(\): void \{[\s\S]*?transportAbort\.abort\(\)/,
             "terminal and unmount paths must stop stale transport continuations");
-        assert.match(stream, /sendEvent\('end', \{ reason: 'ranked-no-contest' \}\)/);
+        assert.match(stream, /const endStream = \(reason: string\) => \{ ended = true; sendEvent\('end', \{ reason \}\); \};/);
+        assert.match(stream, /endStream\('ranked-no-contest'\)/);
         assert.match(stream, /pvpSessionHasRankedCloseFence/,
             "the live stream must not keep rendering a close-fenced active row");
         assert.match(screen, /A seed is first-paint data, not current authority\.[\s\S]*void fetchInitial\(\);/,

@@ -329,3 +329,64 @@ test('a fight that is already over is answered at once, without waiting for a po
     assert.deepEqual(run.events.at(-1), { event: 'end', data: { reason: 'session-done' } });
     assert.ok(elapsed < 500, `a finished fight held the connection for ${elapsed}ms`);
 });
+
+// ── Seamless reconnects (2026-10-12): a planned end says `reconnect`, never a silent cut ──
+
+test('a deploy hands every open stream to the new server with `reconnect`, and refuses new ones fast', async () => {
+    const handoff = await import('./_stream-handoff.js');
+    try {
+        store.set('pvp:sse-handoff', clone(session('sse-handoff')));
+        const run = openStream('sse-handoff', '10.4.9.1');
+        while (!run.chunks.length) await new Promise<void>((r) => setTimeout(r, 5));
+        const startedAt = Date.now();
+        assert.equal(handoff.handOffLiveStreams(), 1, 'the open stream was registered for handoff');
+        await run.done;
+        assert.ok(Date.now() - startedAt < 500, 'the stream ended at once, not at the next poll or the drain budget');
+        assert.deepEqual(run.events.at(-1), { event: 'reconnect', data: { reason: 'server-restart' } });
+
+        const late = openStream('sse-handoff', '10.4.9.2');
+        await late.done;
+        assert.equal(late.statusCode, 503, 'a stream arriving at a draining server is sent back at once');
+        assert.equal(late.headers['Retry-After'], '1');
+        assert.equal(late.chunks.length, 0);
+    } finally {
+        handoff.__resetStreamHandoffForTest();
+    }
+});
+
+test('server shutdown hands PvP streams off before it starts draining HTTP', async () => {
+    const { readFileSync } = await import('node:fs');
+    const server = readFileSync('server.ts', 'utf8');
+    assert.match(server, /import \{ handOffLiveStreams \} from '\.\/api\/pvp\/_stream-handoff\.js';/);
+    const shutdown = server.slice(server.indexOf('function gracefulShutdown('));
+    const handOffAt = shutdown.indexOf('handOffLiveStreams()');
+    assert.ok(handOffAt > 0, 'gracefulShutdown hands the streams off');
+    assert.ok(handOffAt < shutdown.indexOf('drainRuntime('), 'before the HTTP drain waits on them');
+});
+
+test('the 13-minute renewal says `reconnect`, so the client never reads it as an error', async () => {
+    store.set('pvp:sse-renew', clone(session('sse-renew')));
+    const realNow = Date.now;
+    const run = openStream('sse-renew', '10.4.9.3');
+    try {
+        while (!run.chunks.length) await new Promise<void>((r) => setTimeout(r, 5));
+        const skew = 14 * 60 * 1000;
+        Date.now = () => realNow() + skew;
+        await run.done;
+    } finally {
+        Date.now = realNow;
+    }
+    assert.deepEqual(run.events.at(-1), { event: 'reconnect', data: { reason: 'renew' } });
+});
+
+test('a viewer who leaves gets no `reconnect`, and the finished fight still gets `end`', async () => {
+    store.set('pvp:sse-leave', clone(session('sse-leave')));
+    const run = openStream('sse-leave', '10.4.9.4');
+    while (!run.chunks.length) await new Promise<void>((r) => setTimeout(r, 5));
+    run.close();
+    await run.done;
+    assert.equal(run.events.some((e) => e.event === 'reconnect'), false);
+    const handoff = await import('./_stream-handoff.js');
+    assert.equal(handoff.handOffLiveStreams(), 0, 'a closed stream unregisters its handoff');
+    handoff.__resetStreamHandoffForTest();
+});

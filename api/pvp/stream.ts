@@ -10,6 +10,13 @@ import {
 import { pvpSessionPublicationTombstoneFor } from './_session-publication-tombstone.js';
 import { enforcePvpTurnDeadline, pvpTurnNextCheckAt } from './_turn-deadline.js';
 import { onKeyWritten } from '../_kv-write-signal.js';
+import { registerStreamHandoff, streamsDraining } from './_stream-handoff.js';
+import {
+    forgetSharedStreamRead,
+    readSharedStreamSession,
+    releaseSharedStreamRead,
+    retainSharedStreamRead,
+} from './_stream-shared-read.js';
 
 // GET /api/pvp/stream?id=<battleId>
 //
@@ -27,13 +34,15 @@ import { onKeyWritten } from '../_kv-write-signal.js';
 //   • SSE:     opponent move appears within 250ms (the server-side
 //     poll cadence), with no client wakeup overhead.
 //
-// Lifecycle:
-//   • Stream lasts up to STREAM_DURATION_MS (13 min). The client reconnects
-//     automatically via EventSource's built-in reconnect logic when the
-//     stream ends.
-//   • Closes early when session.status === 'done' so the client knows
-//     to stop and tear down.
-//   • Closes early if the underlying KV key disappears (TTL expired).
+// Lifecycle (the battle screen's only live transport):
+//   • Stream lasts up to STREAM_DURATION_MS (13 min), then sends
+//     `event: reconnect` (reason 'renew') and ends; the client reopens at
+//     once, without showing "Reconnecting...".
+//   • A deploy does the same with reason 'server-restart' the moment
+//     shutdown starts (_stream-handoff.ts), and a draining server refuses
+//     new streams with a fast 503 so they land on its replacement.
+//   • Sends `event: end` and closes when session.status === 'done' so the
+//     client knows to stop and tear down, or when the battle is gone.
 //
 // Auth: GET is unauthenticated (matches /api/pvp/session GET) so
 // EventSource works without custom headers. Session state is
@@ -86,6 +95,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'GET') return res.status(405).end();
 
+    // This process is handing its streams to its replacement (a deploy): send
+    // the viewer straight back so the retry lands on the new server. Checked
+    // before the rate limit, so it costs the viewer nothing from their budget.
+    if (streamsDraining()) {
+        res.setHeader('Retry-After', '1');
+        return res.status(503).json({ error: 'Server restarting; reconnect.' });
+    }
+
     // Each streaming connection counts as one expensive invocation; 30/min
     // covers reconnects under flaky networks. EventSource cannot send the
     // x-player-name header, so the client names itself in `viewer`, and the
@@ -104,11 +121,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // a later subscription would otherwise wait for the safety poll; heard
     // here, it marks the stream dirty and the first wake re-reads at once.
     const signals = createStreamSignals();
-    const stopListening = onKeyWritten(key, signals.markDirty);
+    // Every viewer of this battle shares one read (_stream-shared-read.ts); a
+    // heard write discards it before waking anyone.
+    retainSharedStreamRead(key);
+    const stopListening = onKeyWritten(key, () => { forgetSharedStreamRead(key); signals.markDirty(); });
+    // A deploy asks every open stream to move to the new server (_stream-handoff.ts).
+    const stopHandoff = registerStreamHandoff(signals.handOff);
     try {
         await streamSession(req, res, battleId, key, signals);
     } finally {
+        stopHandoff();
         stopListening();
+        releaseSharedStreamRead(key);
     }
 }
 
@@ -119,12 +143,16 @@ function createStreamSignals() {
     let wake: (() => void) | null = null;
     let dirty = false;
     let aborted = false;
+    let handedOff = false;
     return {
         markDirty: () => { dirty = true; wake?.(); },
         isDirty: () => dirty,
         clearDirty: () => { dirty = false; },
         isAborted: () => aborted,
         abort: () => { aborted = true; wake?.(); },
+        /** Stop streaming because this server is handing off; the viewer is told to reconnect. */
+        handOff: () => { handedOff = true; aborted = true; wake?.(); },
+        isHandedOff: () => handedOff,
         setWake: (next: (() => void) | null) => { wake = next; },
     };
 }
@@ -132,7 +160,7 @@ function createStreamSignals() {
 async function streamSession(req: VercelRequest, res: VercelResponse, battleId: string, key: string, signals: StreamSignals) {
     // Initial session fetch — bail with 404 if the battle doesn't exist
     // BEFORE upgrading to a stream. Saves an SSE connection on bad IDs.
-    const initialRaw = await kv.get<unknown>(key);
+    const initialRaw = await readSharedStreamSession(key);
     // A rolled-back publication is an absent battle, not a malformed one — a
     // 502 here would read to the client as a server fault worth retrying.
     if (!initialRaw || pvpSessionPublicationTombstoneFor(initialRaw, battleId)) {
@@ -191,29 +219,32 @@ async function streamSession(req: VercelRequest, res: VercelResponse, battleId: 
 
     const startedAt = Date.now();
     let current: PvpSession = initial;
+    // Set once the battle itself is over for this viewer (an `end` event).
+    let ended = false;
+    const endStream = (reason: string) => { ended = true; sendEvent('end', { reason }); };
     try {
         // A finished fight has nothing left to stream. Checked before the first
         // sleep, which would otherwise hold this answer for the safety poll.
         if (initial.status === 'done') {
-            sendEvent('end', { reason: 'session-done' });
+            endStream('session-done');
             return;
         }
         while (!signals.isAborted() && (Date.now() - startedAt) < STREAM_DURATION_MS) {
             await sleep(streamWakeDelayMs(current));
             signals.clearDirty();
             if (signals.isAborted()) break;
-            const rawSession = await kv.get<unknown>(key);
+            const rawSession = await readSharedStreamSession(key);
             if (!rawSession || pvpSessionPublicationTombstoneFor(rawSession, battleId)) {
-                sendEvent('end', { reason: 'session-expired' });
+                endStream('session-expired');
                 break;
             }
             if (isRankedSessionTerminalControl(rawSession, battleId)) {
-                sendEvent('end', { reason: 'ranked-no-contest' });
+                endStream('ranked-no-contest');
                 break;
             }
             let session = parseLiveSession(rawSession, battleId);
             if (!session) {
-                sendEvent('end', { reason: 'session-invalid' });
+                endStream('session-invalid');
                 break;
             }
             // Server-authoritative turn expiry on the SSE tick, so a match whose
@@ -242,9 +273,17 @@ async function streamSession(req: VercelRequest, res: VercelResponse, battleId: 
             // will fall back to the (now-done) session and stop
             // listening.
             if (session.status === 'done') {
-                sendEvent('end', { reason: 'session-done' });
+                endStream('session-done');
                 break;
             }
+        }
+        // The battle goes on but this stream stops on purpose: the 13-minute
+        // renewal, or a deploy handing the battle to the new server. Say so, so
+        // the client reopens at once instead of reading the cut as an error and
+        // showing "Reconnecting...". A viewer who left (client close) or a
+        // failed write gets nothing more.
+        if (!ended && (signals.isHandedOff() || !signals.isAborted())) {
+            sendEvent('reconnect', { reason: signals.isHandedOff() ? 'server-restart' : 'renew' });
         }
     } catch (err) {
         console.error('[pvp/stream]', err);
