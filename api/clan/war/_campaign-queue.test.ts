@@ -203,7 +203,7 @@ test('shrine movement is adjacent, room-bound and cannot use an ordinary strongh
 test('coincident shrine appearances and ordinary field players occupy distinct attack/presence rooms',async()=>{
     const now=Date.now(),war=await seed(now);const presence=await import('../../_stronghold-presence.js');
     online.upsert({name:'a-0',sector:12,character:null});await queue('a-0','shrine-enter',{scope:'shrine',windowIndex:0},now);
-    online.upsert({name:'rival',sector:12,character:null});presence.touchStrongholdPresence('rival',12,126,now,'clan-shrine:another-campaign:0',now+3600_000);
+    online.upsert({name:'rival',sector:12,character:null});presence.touchStrongholdPresence('rival',12,126,now,'clan-shrine:another-campaign:0',{ttlMs:presence.STRONGHOLD_PRESENCE_TTL,closesAt:now+3600_000});
     online.upsert({name:'field',sector:12,character:null});
     assert.equal(presence.sameStrongholdLocation({name:'a-0',sector:12},{name:'rival',sector:12},now),false);
     assert.equal(presence.sameStrongholdLocation({name:'a-0',sector:12},{name:'field',sector:12},now),false);
