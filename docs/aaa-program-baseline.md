@@ -43,7 +43,7 @@ The checked-in deployment contract is:
 - The Docker builder and runtime images are both `node:22.23.1-bookworm-slim`.
 - The builder performs locked root and client installs, builds the server and client, verifies the distribution, and runs the size gate.
 - The runtime installs root production dependencies only, receives `dist/` and `shinobij.client/dist/`, and starts `node dist/server.js`.
-- Railway runs exactly one replica. `railway.json` configures a shallow `/health` probe with a 120-second timeout and `ON_FAILURE` restart policy with at most 10 retries.
+- Railway runs exactly one replica. `railway.json` configures a shallow `/health` probe with a 120-second timeout and `ON_FAILURE` restart policy with at most 10 retries. The operator `/restart` endpoint exits non-zero (75) so that policy brings the process back, and each use spends one of those 10 retries; for a routine restart, use Railway's own Restart or Redeploy instead. A SIGTERM from Railway exits 0.
 - One Express process serves both the API and SPA. It also owns Socket.IO, in-memory presence, the one-second game loop, presence snapshots, and in-process scheduled jobs.
 - The single-replica limit is intentional. Presence and Socket.IO are not backed by a shared multi-instance adapter. Durable scheduled-job leases reduce duplicate cron execution, but they do not make the full gameplay runtime horizontally safe.
 - `/health` proves process liveness. `/health/db` or `/health?deep=1` performs the storage/readiness probe and must be used for release verification.

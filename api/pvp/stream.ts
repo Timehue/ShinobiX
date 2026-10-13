@@ -8,7 +8,7 @@ import {
     parsePlayerRankedSessionOrphanTombstone,
 } from '../pet/_ranked-preparation.js';
 import { pvpSessionPublicationTombstoneFor } from './_session-publication-tombstone.js';
-import { enforcePvpTurnDeadline, pvpTurnNextCheckAt } from './_turn-deadline.js';
+import { enforcePvpTurnDeadline, pvpTurnDeadlineNeedsWork, pvpTurnNextCheckAt } from './_turn-deadline.js';
 import { onKeyWritten } from '../_kv-write-signal.js';
 import { registerStreamHandoff, streamsDraining } from './_stream-handoff.js';
 import {
@@ -66,6 +66,35 @@ const SAFETY_POLL_MS = 1_000;
 const MIN_WAKE_MS = 100;
 // Wake a hair after the lapse so the deadline check sees it as due.
 const DEADLINE_WAKE_SLACK_MS = 5;
+
+/** A run of failed session reads this long ends the stream (the client then backs off). */
+const MAX_CONSECUTIVE_READ_FAILURES = 5;
+
+/**
+ * One turn-deadline enforcement per battle at a time in this process. Every
+ * open stream of a battle (both fighters and every spectator) wakes when a turn
+ * lapses; without this, each would race for the move lock with its own write,
+ * and the losers would retry every 100 ms until the winner committed. The
+ * enforcer re-reads the session under the lock, so sharing its result is safe.
+ */
+const deadlineInFlight = new Map<string, ReturnType<typeof enforcePvpTurnDeadline>>();
+function enforceTurnDeadlineOnce(battleId: string, session: PvpSession): ReturnType<typeof enforcePvpTurnDeadline> {
+    // Nothing due: answer from this viewer's own session, never another's.
+    if (!pvpTurnDeadlineNeedsWork(session)) return Promise.resolve({ session, applied: 'none' });
+    const pending = deadlineInFlight.get(battleId);
+    if (pending) return pending;
+    const run = enforcePvpTurnDeadline(kv, battleId, session).then((result) => {
+        // The turn moved: no viewer may keep reading the lapsed session from
+        // the shared read, even if this write path raised no in-process
+        // signal, or each would race for the lock again.
+        if (result.applied !== 'none') forgetSharedStreamRead(`pvp:${battleId}`);
+        return result;
+    }).finally(() => {
+        if (deadlineInFlight.get(battleId) === run) deadlineInFlight.delete(battleId);
+    });
+    deadlineInFlight.set(battleId, run);
+    return run;
+}
 
 /** How long the stream may sleep before its next read of `session`. */
 export function streamWakeDelayMs(session: PvpSession, now = Date.now()): number {
@@ -219,6 +248,7 @@ async function streamSession(req: VercelRequest, res: VercelResponse, battleId: 
 
     const startedAt = Date.now();
     let current: PvpSession = initial;
+    let readFailures = 0;
     // Set once the battle itself is over for this viewer (an `end` event).
     let ended = false;
     const endStream = (reason: string) => { ended = true; sendEvent('end', { reason }); };
@@ -230,10 +260,31 @@ async function streamSession(req: VercelRequest, res: VercelResponse, battleId: 
             return;
         }
         while (!signals.isAborted() && (Date.now() - startedAt) < STREAM_DURATION_MS) {
-            await sleep(streamWakeDelayMs(current));
+            // After a failed read, wait the full safety poll (spread, so a
+            // battle's viewers don't retry in step) rather than the 100 ms turn
+            // cadence: a struggling database gets breathing room.
+            await sleep(readFailures > 0
+                ? SAFETY_POLL_MS + Math.floor(Math.random() * 250)
+                : streamWakeDelayMs(current));
             signals.clearDirty();
             if (signals.isAborted()) break;
-            const rawSession = await readSharedStreamSession(key);
+            // A failed read is a missed tick, not the end of the stream: one
+            // statement timeout must not drop every viewer of the battle at
+            // once (they share the read) and send them all into a reconnect
+            // loop. Only a run of failures ends the stream, through the
+            // error path, so the client backs off.
+            let rawSession: unknown;
+            try {
+                rawSession = await readSharedStreamSession(key);
+                readFailures = 0;
+            } catch (error) {
+                readFailures += 1;
+                if (readFailures >= MAX_CONSECUTIVE_READ_FAILURES) throw error;
+                console.warn('[pvp/stream] session read failed; retrying on the next tick', (error as Error)?.message ?? error);
+                // The connection itself is fine; keep the client's watch fed.
+                if (Date.now() - lastSentAt > HEARTBEAT_INTERVAL_MS) sendEvent('ping', { at: Date.now() });
+                continue;
+            }
             if (!rawSession || pvpSessionPublicationTombstoneFor(rawSession, battleId)) {
                 endStream('session-expired');
                 break;
@@ -252,7 +303,7 @@ async function streamSession(req: VercelRequest, res: VercelResponse, battleId: 
             // Cheap pre-check inside; takes the move lock only when due.
             if (session.status === 'active') {
                 try {
-                    session = (await enforcePvpTurnDeadline(kv, battleId, session)).session;
+                    session = (await enforceTurnDeadlineOnce(battleId, session)).session;
                 } catch (error) {
                     console.error('[pvp/stream] turn deadline enforcement failed', error);
                 }
@@ -263,11 +314,12 @@ async function streamSession(req: VercelRequest, res: VercelResponse, battleId: 
                 sendEvent('session', session);
                 lastJson = json;
             }
-            // Periodic heartbeat keeps intermediaries from closing the
-            // connection on idle. Most fights have natural traffic, but
-            // a long staring contest needs a keepalive.
+            // Periodic heartbeat. It keeps intermediaries from closing an idle
+            // connection, and it is a real `ping` EVENT (not an SSE comment,
+            // which EventSource never surfaces) so the client can tell a quiet
+            // fight from a silently dead connection and reopen the latter.
             if (Date.now() - lastSentAt > HEARTBEAT_INTERVAL_MS) {
-                try { res.write(`: ping\n\n`); lastSentAt = Date.now(); } catch { signals.abort(); }
+                sendEvent('ping', { at: Date.now() });
             }
             // Wind down the stream once the fight resolves — client
             // will fall back to the (now-done) session and stop

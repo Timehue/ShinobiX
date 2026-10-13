@@ -18,6 +18,21 @@
 /** How long a gap must last before the "Reconnecting..." badge appears. */
 export const PVP_RECONNECT_BADGE_GRACE_MS = 1_500;
 
+/**
+ * An open stream that has delivered nothing (no session, no ping) for this long
+ * is treated as silently dead (a half-open connection after a network switch)
+ * and reopened like a planned reconnect. The server pings every 15 s
+ * (api/pvp/stream.ts HEARTBEAT_INTERVAL_MS), so a quiet fight never trips it.
+ */
+export const PVP_STREAM_SILENCE_LIMIT_MS = 40_000;
+
+/**
+ * A stream must stay up this long before its failures are forgiven. Resetting
+ * on the first frame let a stream that connects then dies loop at the fastest
+ * retry until it hit the server's 30-per-minute budget.
+ */
+export const PVP_STREAM_HEALTHY_AFTER_MS = 5_000;
+
 /** Spread for answering a server `reconnect`, so a whole server's viewers don't land in one instant. */
 export const PVP_STREAM_HANDOFF_SPREAD_MS = 300;
 

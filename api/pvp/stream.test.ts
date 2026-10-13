@@ -387,6 +387,72 @@ test('a viewer who leaves gets no `reconnect`, and the finished fight still gets
     await run.done;
     assert.equal(run.events.some((e) => e.event === 'reconnect'), false);
     const handoff = await import('./_stream-handoff.js');
-    assert.equal(handoff.handOffLiveStreams(), 0, 'a closed stream unregisters its handoff');
-    handoff.__resetStreamHandoffForTest();
+    try {
+        assert.equal(handoff.handOffLiveStreams(), 0, 'a closed stream unregisters its handoff');
+    } finally {
+        handoff.__resetStreamHandoffForTest();
+    }
+});
+
+// ── 2026-10-13 audit hardening ──
+
+test('a stream registering after the handoff already ran is handed off at once, not stranded', async () => {
+    const handoff = await import('./_stream-handoff.js');
+    try {
+        handoff.handOffLiveStreams(); // shutdown began while this stream waited on the rate limit
+        let handedOff = false;
+        const unregister = handoff.registerStreamHandoff(() => { handedOff = true; });
+        await Promise.resolve();
+        assert.equal(handedOff, true);
+        unregister();
+    } finally {
+        handoff.__resetStreamHandoffForTest();
+    }
+});
+
+test('a failed session read is a missed tick: the stream keeps serving its viewers', async () => {
+    const storage = await import('../_storage.js');
+    const original = storage.kv.get;
+    let failNext = 0;
+    storage.kv.get = (async (key: string) => {
+        if (key === 'pvp:sse-flaky' && failNext > 0) { failNext -= 1; throw new Error('statement timeout'); }
+        return original(key);
+    }) as typeof original;
+    const warn = console.warn;
+    console.warn = () => undefined;
+    try {
+        store.set('pvp:sse-flaky', clone(session('sse-flaky')));
+        const run = openStream('sse-flaky', '10.4.9.5');
+        while (!run.chunks.length) await new Promise<void>((r) => setTimeout(r, 5));
+        failNext = 2; // two consecutive failed ticks, under the cap
+        await new Promise<void>((r) => setTimeout(r, 2_600));
+        store.set('pvp:sse-flaky', clone(session('sse-flaky', { round: 2 })));
+        const delivered = await untilThenClose(run, () => run.chunks.some((chunk) => chunk.includes('"round":2')), 4_000);
+        assert.ok(delivered, 'the stream survived the failed reads and pushed the next change');
+        assert.equal(run.events.some((e) => e.event === 'end'), false, 'a read failure is not the end of the battle');
+    } finally {
+        storage.kv.get = original;
+        console.warn = warn;
+    }
+});
+
+test('every viewer of a lapsed turn shares one deadline enforcement', async () => {
+    store.set('pvp:sse-crowd', clone(session('sse-crowd', { turnStartedAt: Date.now() - LAPSED })));
+    const storage = await import('../_storage.js');
+    const originalSet = storage.kv.set;
+    let lockAttempts = 0;
+    storage.kv.set = (async (key: string, value: unknown, options?: { ex?: number; nx?: boolean }) => {
+        if (key === 'pvp:sse-crowd:lock') lockAttempts += 1;
+        return originalSet(key, value, options as never);
+    }) as typeof originalSet;
+    try {
+        const runs = [0, 1, 2, 3].map((i) => openStream('sse-crowd', `10.4.9.${10 + i}`));
+        const deadline = Date.now() + 8_000;
+        while (stored('sse-crowd').activePlayer !== 'p2' && Date.now() < deadline) await new Promise<void>((r) => setTimeout(r, 25));
+        for (const run of runs) { run.close(); await run.done; }
+        assert.equal(stored('sse-crowd').activePlayer, 'p2', 'the lapsed turn was advanced');
+        assert.ok(lockAttempts <= 2, `${lockAttempts} lock attempts for one lapse across four viewers`);
+    } finally {
+        storage.kv.set = originalSet;
+    }
 });
