@@ -201,7 +201,12 @@ describe('authoritative field mission lifecycle', () => {
         assert.equal((recovered.body?.missionProgress as Record<string, unknown>)[`${MISSION_ID}:raids`], 0);
     });
 
-    it('allows field mission acceptance through 19 daily claims and blocks new work at 20', async () => {
+    it('allows field mission acceptance through 19 daily claims and blocks new work at 20', async (t) => {
+        // The seeded lastDailyReset and the handler's own day both come from a
+        // no-argument `new Date()`. A run that straddles UTC midnight would
+        // seed a day the handler no longer counts, so the cap would not bite.
+        // Freeze Date (Date.now and new Date alike) for the whole check.
+        t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
         const today = new Date().toISOString().slice(0, 10);
         const player = 'fieldtraildailycap';
         await seedPlayer(player, { lastDailyReset: today, dailyMissionsCompleted: 19 });

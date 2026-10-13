@@ -8,7 +8,7 @@
  * (the same one scripts/release-certification.mjs uses), so it needs no
  * database and no secrets.
  */
-import { after, before, beforeEach, describe, it } from 'node:test';
+import { after, before, beforeEach, describe, it, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { contractSectorsForDay, sectorContractFor, utcDayOf } from '../../shared/sector-contracts.js';
 import { FESTIVAL_SECTOR, WILD_SECTOR_IDS } from '../../shared/sector-geo.js';
@@ -28,7 +28,13 @@ let contractClaimKey: typeof import('../_sector-contracts.js').contractClaimKey;
 
 const PLAYER = 'contractor';
 const SAVE_KEY = `save:${PLAYER}`;
-const DAY = utcDayOf(Date.now());
+// One held instant for the whole file. DAY, and the board and contract built
+// from it, are fixed here at import, while the handler reads its own day from
+// Date.now() inside the lock. A run that straddles UTC midnight would seed
+// progress and claims under a day the handler no longer uses, so the claim
+// refusals would change reason. `before` holds Date at this instant.
+const NOW = Date.now();
+const DAY = utcDayOf(NOW);
 const BOARD = contractSectorsForDay(DAY);
 const POSTED = BOARD[0];
 const UNPOSTED = WILD_SECTOR_IDS.find((sector) => !BOARD.includes(sector))!;
@@ -39,6 +45,7 @@ before(async () => {
     ({ kv } = await import('../_storage.js'));
     ({ contractProgressKey, contractClaimKey } = await import('../_sector-contracts.js'));
     handler = (await import('./contract.js')).default as unknown as Handler;
+    mock.timers.enable({ apis: ['Date'], now: NOW });
 });
 
 beforeEach(async () => {
@@ -48,6 +55,7 @@ beforeEach(async () => {
 });
 
 after(() => {
+    mock.timers.reset();
     delete process.env.ADMIN_PASSWORD;
     delete process.env.SHINOBIX_QA_MEMORY_KV;
 });

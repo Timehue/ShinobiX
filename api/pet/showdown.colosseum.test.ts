@@ -21,7 +21,14 @@ before(async () => {
     // server test compiles to CommonJS, whose dynamic import wraps the module.
     handler = require('./showdown.js').default;
 });
-beforeEach(async () => {
+beforeEach(async (context) => {
+    // The save below is stamped with lastDailyReset from a no-argument
+    // `new Date()`, and showdown.ts reads its own day the same way. A run that
+    // straddles UTC midnight would seed a day the daily win cap no longer
+    // counts. Freeze Date (Date.now and new Date alike) from before the seed
+    // to the end of each test.
+    if (!('mock' in context)) throw new Error('needs a per-test clock');
+    context.mock.timers.enable({ apis: ['Date'], now: Date.now() });
     player = `colosseumlifecycle${++caseIndex}`;
     token = issuePlayerToken(player)!;
     const keys = await kv.keys('*');
