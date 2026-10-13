@@ -333,8 +333,10 @@ export function validateTargetSchemaEvidence(evidence) {
     for (const name of ['kv_store_pkey', 'kv_store_expires_at_idx', 'kv_store_key_pattern_idx']) {
         if (!evidence.indexes.includes(name)) throw new Error(`Target schema is missing index ${name}.`);
     }
-    if (!evidence.rlsEnabled || !evidence.anonReadPolicy || !evidence.anonCanSelect || evidence.anonCanInsert || evidence.anonCanUpdate || evidence.anonCanDelete) {
-        throw new Error('Target kv_store RLS or anon privileges do not match the hardened schema.');
+    // Hardened since 2026-10-12: RLS on and the anon role with no policy and no
+    // privilege at all (supabase-migrations/2026-10-12_drop_anon_kv_read.sql).
+    if (!evidence.rlsEnabled || evidence.anonReadPolicy || evidence.anonCanSelect || evidence.anonCanInsert || evidence.anonCanUpdate || evidence.anonCanDelete) {
+        throw new Error('Target kv_store RLS or anon privileges do not match the hardened schema. Apply the current supabase-schema.sql (or supabase-migrations/2026-10-12_drop_kv_store_from_realtime.sql then 2026-10-12_drop_anon_kv_read.sql) to the target first.');
     }
     return evidence;
 }

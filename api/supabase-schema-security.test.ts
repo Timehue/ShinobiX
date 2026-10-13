@@ -30,10 +30,16 @@ describe('Supabase KV schema hardening', () => {
         }
     });
 
-    it('preserves the narrow Realtime-only anonymous table policy', () => {
-        assert.match(schema, /create policy "kv_store_anon_select"/i);
-        assert.match(schema, /key like 'pvp:%'/i);
+    it('gives the browser roles no access to kv_store (the Realtime-only read is retired)', () => {
+        // 2026-10-12: nothing subscribes over Supabase Realtime, so the anon
+        // `pvp:%` read policy and grant were dropped; RLS stays on.
+        assert.match(schema, /alter table public\.kv_store enable row level security;/i);
+        assert.match(schema, /drop policy if exists "kv_store_anon_select"\s+on public\.kv_store;/i);
+        assert.doesNotMatch(schema, /create policy "kv_store_anon_select"/i, 'no anon read policy may come back');
+        assert.doesNotMatch(schema, /grant\s+select\s+on public\.kv_store to\s+anon/i, 'no anon table grant may come back');
+        assert.match(schema, /revoke all\s+on public\.kv_store from anon;/i);
         assert.match(schema, /revoke all\s+on public\.kv_store from authenticated;/i);
+        assert.match(schema, /alter publication supabase_realtime drop table public\.kv_store;/i);
     });
 
     it('does NOT expose the per-player challenge inbox to the anon role', () => {
