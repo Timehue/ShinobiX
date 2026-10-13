@@ -60,6 +60,8 @@ import {
 } from "../lib/pet-rite-playback";
 import { createActorPoseSample, RITE_REVEAL_FIGHTER_COUNT, riteTacticalReport, sampleActorInto } from "../lib/pet-warfront-rite-presentation";
 import { PetWarfrontRiteStage, preloadRitePetModels, type StageFighter } from "./PetWarfrontRiteStage";
+import { withPetSceneRecall, usePetRecallController, usePetSceneIsRecalling } from './PetSceneRecall';
+import { PET_KO_HOLD_SECONDS } from '../lib/pet-summon-presentation';
 import { resolveRite } from "../lib/pet-rite-worker-client";
 import {
     automaticRiteReformChoice,
@@ -69,6 +71,7 @@ import {
     type RiteFormationChoice,
 } from "../lib/pet-rite-continuity";
 import "../styles/pet-warfront-rite.css";
+import "../styles/pet-battle-theme.css";
 
 const ELEMENT_COLOR: Readonly<Record<string, string>> = {
     Fire: "#ff7a45", Water: "#4cc2ff", Wind: "#6ff0c8",
@@ -856,7 +859,8 @@ function useReducedMotionPreference(): boolean {
     return reduced;
 }
 
-export function PetWarfrontRite(props: PetWarfrontRiteProps) {
+export const PetWarfrontRite = withPetSceneRecall(PetWarfrontRiteView, ['onExit']);
+function PetWarfrontRiteView(props: PetWarfrontRiteProps) {
     useBodyScrollLock(true);
     // Escape the lobby's relative-positioned children and clipping ancestors.
     return typeof document === "undefined" ? null : createPortal(<WarfrontRiteMatch {...props} />, document.body);
@@ -868,6 +872,8 @@ function WarfrontRiteMatch({
     settlementDetail, onRetrySettlement,
     spectator = false, sealedReplay, playbackRate = 0.78,
 }: PetWarfrontRiteProps) {
+    const recallScene = usePetRecallController();
+    const recalling = usePetSceneIsRecalling();
     const blueBand = useMemo(() => blue.slice(0, RITE_BAND_SIZE).map((slot) => slot.pet), [blue]);
     const redBand = useMemo(() => red.slice(0, RITE_BAND_SIZE).map((slot) => slot.pet), [red]);
     const sealedRedPlan = sealedReplay?.redPlan;
@@ -957,6 +963,7 @@ function WarfrontRiteMatch({
     const [formationHold, setFormationHold] = useState(spectator);
     const [stageReady, setStageReady] = useState(false);
     const [formationRevealed, setFormationRevealed] = useState(false);
+    const [summonsSettled, setSummonsSettled] = useState(false);
     const [modelsReady, setModelsReady] = useState(0);
     const [rendererAvailable, setRendererAvailable] = useState(true);
 
@@ -1021,6 +1028,7 @@ function WarfrontRiteMatch({
         winnerRefs.current.enemy = false;
         setStageReady(false);
         setFormationRevealed(false);
+        setSummonsSettled(false);
         setModelsReady(0);
         setFormationHold(true);
         setPhase("clash");
@@ -1050,6 +1058,7 @@ function WarfrontRiteMatch({
         winnerRefs.current.enemy = false;
         setStageReady(false);
         setFormationRevealed(false);
+        setSummonsSettled(false);
         setModelsReady(0);
         setFormationHold(true);
         setPhase("clash");
@@ -1060,12 +1069,14 @@ function WarfrontRiteMatch({
         if (reducedMotion) setFormationRevealed(true);
     }, [reducedMotion]);
     const handleModelProgress = useCallback((readyCount: number) => setModelsReady(readyCount), []);
+    const handleSummonsSettled = useCallback(() => setSummonsSettled(true), []);
     const handleRouteTransition = useCallback(() => {
         // Pause at the current authoritative tick and put the opaque formation
         // veil back before Stage swaps all eight presentation actors. The clock
         // resumes from this same tick once the replacement family has painted.
         setStageReady(false);
         setFormationRevealed(false);
+        setSummonsSettled(false);
     }, []);
     const handleRendererAvailability = useCallback((available: boolean) => setRendererAvailable(available), []);
     const handleCurtainTransitionEnd = useCallback((event: ReactTransitionEvent<HTMLDivElement>) => {
@@ -1087,15 +1098,15 @@ function WarfrontRiteMatch({
         // The tableau is part of the match contract, not a loading screen. Hold
         // tick zero for a full beat AFTER the atomic reveal, then let the player
         // read the cells they committed before any route begins.
-        if (!formationHold || !formationRevealed) return;
+        if (!formationHold || !formationRevealed || !summonsSettled) return;
         const id = window.setTimeout(() => setFormationHold(false), reducedMotion ? 500 : FORMATION_HOLD_MS);
         return () => window.clearTimeout(id);
-    }, [formationHold, formationRevealed, reducedMotion]);
+    }, [formationHold, formationRevealed, summonsSettled, reducedMotion]);
 
     // ── Playback clock ──────────────────────────────────────────────────────
     // Fractional ticks in a ref. Nothing here calls setState per frame.
     useEffect(() => {
-        if (phase !== "clash" || !clash || formationHold || !formationRevealed || !rendererAvailable) return;
+        if (recalling || skipping || phase !== "clash" || !clash || formationHold || !formationRevealed || !rendererAvailable) return;
         const total = clash.result.ticks;
         let koTick: number | null = null;
         for (let i = clash.result.events.length - 1; i >= 0; i--) {
@@ -1103,6 +1114,8 @@ function WarfrontRiteMatch({
         }
         let last = performance.now();
         let stopPulses = () => {};
+        let ending = false;
+        let departureTimer: number | null = null;
         const step = (now: number) => {
             if (document.visibilityState !== "visible") {
                 last = now;
@@ -1139,10 +1152,14 @@ function WarfrontRiteMatch({
                     audioDispatchesRef.current++;
                 }
             }
-            if (clockRef.current >= total) {
+            if (clockRef.current >= total && !ending) {
+                ending = true;
                 winnerRefs.current.player = clash.winner === "blue";
                 winnerRefs.current.enemy = clash.winner === "red";
-                setPhase("interlude");
+                departureTimer = window.setTimeout(() => {
+                    if (recallScene) void recallScene.run(() => setPhase("interlude"));
+                    else setPhase("interlude");
+                }, reducedMotion ? 0 : PET_KO_HOLD_SECONDS * 1000);
                 stopPulses();
                 try { playPetSfx(clash.winner === "blue" ? "victory" : "hit"); } catch { /* The result must remain reachable without audio. */ }
             }
@@ -1165,9 +1182,10 @@ function WarfrontRiteMatch({
         syncVisibility();
         return () => {
             stopPulses();
+            if (departureTimer !== null) window.clearTimeout(departureTimer);
             document.removeEventListener("visibilitychange", syncVisibility);
         };
-    }, [phase, clash, formationHold, formationRevealed, rendererAvailable, reducedMotion, effectivePlaybackRate, audioArmed, audioPlan]);
+    }, [phase, clash, formationHold, formationRevealed, rendererAvailable, reducedMotion, effectivePlaybackRate, audioArmed, audioPlan, recalling, recallScene, skipping]);
 
     // Every non-terminal clash enters the same decision state. Interactive play
     // has no timeout; spectator/autostart traverses it through the deterministic
@@ -1211,14 +1229,18 @@ function WarfrontRiteMatch({
                 resolve: (nextPlan) => resolveRite({ blue: blueBand, red: redBand, seed, bluePlan: nextPlan, redPlan: sealedRedPlan }, controller.signal),
             });
             if (controller.signal.aborted) return;
-            setPlan(finished.plan);
-            setResult(finished.result);
-            setClashIndex(finished.result.clashes.length - 1);
-            setPhase("result");
+            const showVerdict = () => {
+                setPlan(finished.plan);
+                setResult(finished.result);
+                setClashIndex(finished.result.clashes.length - 1);
+                setPhase("result");
+            };
+            if (recallScene) await recallScene.run(showVerdict);
+            else showVerdict();
         } catch {
             // Only an abort reaches here: the viewer closed the replay.
         }
-    }, [spectator, result, plan, clashIndex, blueBand, redBand, seed, sealedReplay, sealedRedPlan]);
+    }, [spectator, result, plan, clashIndex, blueBand, redBand, seed, sealedReplay, sealedRedPlan, recallScene]);
 
     useEffect(() => {
         if (phase !== "interlude" || !result || reformOpen) return;
@@ -1255,7 +1277,7 @@ function WarfrontRiteMatch({
 
     if (phase === "deploy") {
         return (
-            <div className="wfr-root">
+            <div className="wfr-root pet-battle-theme">
                 <DeployPanel
                     band={blueBand}
                     enemyBand={redBand}
@@ -1274,7 +1296,7 @@ function WarfrontRiteMatch({
         const won = result.winner === "blue";
         const mvp = result.mvpSlot === null ? null : blueBand[result.mvpSlot] ?? null;
         return (
-            <div className="wfr-root">
+            <div className="wfr-root pet-battle-theme">
                 <div className="wfr-result">
                     <p className="wfr-eyebrow">Beastbound Warfront</p>
                     <h2 className={won ? "is-win" : "is-loss"}>{won ? "The Rite is yours" : "The Rite is lost"}</h2>
@@ -1320,18 +1342,20 @@ function WarfrontRiteMatch({
         );
     }
 
-    if (!clash || !result) return <div className="wfr-root"><div className="wfr-result" role="status">
+    if (!clash || !result) return <div className="wfr-root pet-battle-theme"><div className="wfr-result" role="status">
         <p>{preparationError ?? "Preparing Beastbound Warfront…"}</p>
         {preparationError ? <button type="button" className="wfr-btn-primary" onClick={() => setReplayAttempt((attempt) => attempt + 1)}>Retry battle</button> : null}
         <button type="button" className="wfr-btn-ghost" onClick={onExit}>Leave the Warfront</button>
     </div></div>;
 
     return (
-        <div className="wfr-root">
+        <div className="wfr-root pet-battle-theme" data-recalling={recalling} inert={recalling}>
             <div className="wfr-stage">
                 <PetWarfrontRiteStage
                     sceneKey={clash.index}
-                    paused={phase !== "clash"}
+                    paused={phase !== "clash" || recalling || skipping}
+                    entrancePlaying={formationRevealed && phase === 'clash'}
+                    onSummonsComplete={handleSummonsSettled}
                     result={clash.result}
                     fighters={fighters}
                     clockRef={clockRef}

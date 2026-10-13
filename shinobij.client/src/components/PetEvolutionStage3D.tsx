@@ -20,7 +20,7 @@
  * back to a flat <img> when WebGL is unavailable, so the cutscene never hard-fails,
  * and to the 2D standee for any pet without an approved model.
  */
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { RendererRetirement } from "./RendererRetirement";
@@ -32,7 +32,6 @@ import {
     isOldFormVisible,
     evolutionStageMotion,
     evolutionSpin,
-    morphProgress,
     whiteness,
     gridIntensity,
     ringBurst,
@@ -42,6 +41,8 @@ import { petCloseupPresentationModel } from "../lib/pet-3d-models";
 import { supportsPetWebGl2 } from "../lib/pet-webgl-capability";
 import { petVisualId } from "../data/pet-evolutions";
 import { PetModel3D, DEFAULT_PET_MODEL_FRAME } from "./PetModel3D";
+import { PetSummon3D } from "./PetSummon3D";
+import type { PetCardPresence } from "../lib/pet-summon-presentation";
 import { petModelVariantSurface, petPaletteVariant, petVisualVariantClass } from "../lib/pet-visual-variant";
 import {
     groundedSpriteLayout,
@@ -757,7 +758,11 @@ function EvoModel({ pet, isNew, oldVisualId, element, phase, reduced }: {
         () => petCloseupPresentationModel(isNew ? pet : priorForm(pet, oldVisualId)),
         [pet, isNew, oldVisualId],
     );
-    const scl = useRef(isNew ? 0.0001 : 1);
+    const scl = useRef(1);
+    const cardPresence = useRef<PetCardPresence>({ present: isNew ? phase.elapsedMs >= 3500 : phase.elapsedMs < 2600, timeline: phase.elapsedMs / 1000 });
+    useLayoutEffect(() => {
+        cardPresence.current = { present: isNew ? phase.elapsedMs >= 3500 : phase.elapsedMs < 2600, timeline: phase.elapsedMs / 1000 };
+    }, [isNew, phase.elapsedMs]);
     // PetModel3D reads frame.current live each render frame — mutate, don't replace.
     const frame = useRef({ ...DEFAULT_PET_MODEL_FRAME });
     // All 15 starter GLBs now come from one grounded, rigged production pipeline
@@ -772,14 +777,9 @@ function EvoModel({ pet, isNew, oldVisualId, element, phase, reduced }: {
         // frame: the gap is computed in modelG's own local space, so it is unaffected
         // by the correction we apply here (idempotent) and it picks up the combat
         // renderer's scale/offset whenever those settle in after the GLB loads.
-        const show = isNew ? isNewFormVisible(phase.beat) : isOldFormVisible(phase.beat);
-        g.visible = show;
-        if (!show) return;
-        // NEW: emerge from nothing across the morph + a small boom pop. OLD: full
-        // size, shrinking away as the morph hands off to the evolved form.
-        const target = isNew
-            ? (phase.beat === "morph" ? morphProgress(phase) : 1) * (phase.beat === "reveal" ? 1 + (1 - phase.progress) * 0.12 : 1)
-            : (phase.beat === "morph" ? 1 - morphProgress(phase) * 0.4 : 1);
+        // The card owns presence and scale during the form handoff. Keep the
+        // authored white-out, spin, and final colour reveal inside that lifecycle.
+        const target = isNew && phase.beat === "reveal" ? 1 + (1 - phase.progress) * .12 : 1;
         scl.current = reduced ? target : lerp(scl.current, target, 0.35);
         sg.scale.setScalar(Math.max(0.0001, scl.current));
         // ONE continuous turntable, shared by BOTH forms so the hand-off inside the
@@ -805,9 +805,12 @@ function EvoModel({ pet, isNew, oldVisualId, element, phase, reduced }: {
 
     if (!config) {
         // No closeup-approved GLB → use the form's approved evolution standee.
-        return <EvoStandee visualId={petVisualId(isNew ? pet : priorForm(pet, oldVisualId))} element={element} isNew={isNew} phase={phase} reduced={reduced} chromatic={Boolean(petPaletteVariant(pet))} />;
+        return <PetSummon3D presence={cardPresence} reducedMotion={reduced}>
+            <EvoStandee visualId={petVisualId(isNew ? pet : priorForm(pet, oldVisualId))} element={element} isNew={isNew} phase={phase} reduced={reduced} chromatic={Boolean(petPaletteVariant(pet))} />
+        </PetSummon3D>;
     }
     return (
+        <PetSummon3D presence={cardPresence} reducedMotion={reduced}>
         <group ref={group}>
             <group ref={scaleG}>
                 <group ref={modelG}>
@@ -821,6 +824,7 @@ function EvoModel({ pet, isNew, oldVisualId, element, phase, reduced }: {
                 </group>
             </group>
         </group>
+        </PetSummon3D>
     );
 }
 

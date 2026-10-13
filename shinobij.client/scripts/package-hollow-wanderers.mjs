@@ -1,0 +1,14 @@
+import sharp from 'sharp';
+import { resolve } from 'node:path';
+import { writeFile } from 'node:fs/promises';
+const source = resolve(process.env.USERPROFILE, '.codex/generated_images/01a12d35-3bb5-7352-9515-62574768609e/exec-76c8f95e-ba83-440e-ba03-494cbb99552c.png');
+const meta = await sharp(source).metadata();
+if (!meta.hasAlpha) throw new Error('Wanderers must retain transparency.');
+const roles = ['medic', 'wayfarer', 'bandit', 'night-ninja', 'patrol'];
+for (let i = 0; i < roles.length; i++) {
+    const left = Math.floor(i * meta.width / 5), right = Math.floor((i + 1) * meta.width / 5);
+    const cell = await sharp(source).extract({ left, top: 0, width: right - left, height: meta.height }).png().toBuffer();
+    await sharp(cell).trim().resize({ width: 224, height: 320, fit: 'inside' }).webp({ quality: 87, alphaQuality: 100 }).toFile(resolve(`public/underground/wanderer-${roles[i]}-v1.webp`));
+}
+await writeFile(resolve('../docs/art/hollow-gate-wanderers.json'), JSON.stringify({ tool: 'image_gen.imagegen', source, transparent: true, roles, outputs: roles.map(role => `shinobij.client/public/underground/wanderer-${role}-v1.webp`), normalization: 'equal fifths, trim transparent margins, fit 224x320, WebP quality 87', prompt: "Create a professional game sprite atlas for a dark anime shinobi fantasy RPG, five separate full-body characters, painterly polished ink and shaded illustration, readable silhouettes for a top-down dungeon game, viewing each from slightly above, feet all visible, facing toward camera with slight three-quarter angle. EXACT layout: a wide horizontal sheet with FIVE equal-width cells in one row, each isolated and centered with generous clear gutters, NO touching or overlaps, no props spilling beyond cell, no text, no labels, no scenery. Left to right: 1 wandering cave medic, kind elderly woman with silver hair, sage-green travel cloak and small shoulder satchel and jade healing talisman in one hand; 2 relic wayfarer, friendly young adventurer in warm ochre cloth, scarf, bundled pack, lantern and small ring of keys; 3 cave bandit, ragged dark-brown hood, cloth face covering, one short sword at hip, threatening stance; 4 Night Ninja, sleek midnight-indigo shinobi outfit with violet accents, wrapped hood, pale half mask, paired short blades lowered; 5 rival village patrol scout, masked armored shinobi with charcoal-blue layered lamellar vest, cool steel and teal cloth accents, spear held close and lowered. All human, no pets or monsters, matching style, restrained muted palette, soft small grounding shadow, consistent head-to-body proportions, detailed faces/masks but clear at small size. Transparent background throughout including gutters. Wide landscape aspect ratio 3:1. Do not add any framing grid or decorative background." }, null, 2) + '\n');
+console.log('Packaged five Hollow Gate characters.');

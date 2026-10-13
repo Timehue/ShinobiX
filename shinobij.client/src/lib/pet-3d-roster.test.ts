@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { PET_RIG_REPAIR_REVISIONS } from './pet-proper-animation-assets';
 import { APPROVED_ROSTER_MODEL_IDS, ROSTER_MODEL_ASSET_REVISION, approvedRosterCombatModel, inferPet3dProfile, qaRosterBakedRetopoProofModel, qaRosterCombatModel, qaRosterProofModel, qaRosterRetopoProofModel, qaRosterRiggedProofModel } from "./pet-3d-roster";
 
 test("roster profile inference keeps major silhouettes in the right locomotion family", () => {
@@ -41,7 +42,7 @@ test("only explicitly reviewed roster models leave quarantine", () => {
         "mythic-5", "mythic-6", "mythic-7", "mythic-8", "mythic-9",
         "mythic-10", "mythic-11", "mythic-12", "mythic-13", "mythic-14", "mythic-15",
     ]);
-    assert.equal(approvedRosterCombatModel({ id: "standard-0", name: "Red Fox" })?.url, `/pet-models/roster/standard-0.glb?v=${ROSTER_MODEL_ASSET_REVISION}`);
+    assert.equal(approvedRosterCombatModel({ id: "standard-0", name: "Red Fox" })?.url, `/pet-models/roster/standard-0.glb?v=${PET_RIG_REPAIR_REVISIONS['standard-0'] ?? ROSTER_MODEL_ASSET_REVISION}`);
     assert.equal(approvedRosterCombatModel({ id: "standard-1", name: "Snow Rabbit" })?.profile, "biped");
     assert.equal(approvedRosterCombatModel({ id: "standard-2", name: "Black Cat" })?.profile, "biped");
     assert.equal(approvedRosterCombatModel({ id: "standard-3", name: "Forest Hawk" })?.profile, "avian");
@@ -199,7 +200,7 @@ test("only explicitly reviewed roster models leave quarantine", () => {
         assert.match(model?.url ?? "", new RegExp(`/roster/${id}\\.glb\\?`));
     }
     const qa = qaRosterCombatModel({ id: "standard-0", name: "Red Fox" });
-    assert.equal(qa.url, `/pet-models/roster/standard-0.glb?v=${ROSTER_MODEL_ASSET_REVISION}`);
+    assert.equal(qa.url, `/pet-models/roster/standard-0.glb?v=${PET_RIG_REPAIR_REVISIONS['standard-0'] ?? ROSTER_MODEL_ASSET_REVISION}`);
     assert.equal(qa.profile, "quadruped");
     const proof = qaRosterProofModel({ id: "standard-0", name: "Red Fox" });
     assert.equal(proof.url, "/pet-models/proofs/standard-0-multiview.glb");

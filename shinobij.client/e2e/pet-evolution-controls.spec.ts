@@ -38,6 +38,17 @@ async function evolve(page: Page, manualClock = false) {
     await expect(page.locator(".pet-evo-cutscene")).toHaveCSS("opacity", "1");
 }
 
+async function expectEvolutionClosed(page: Page, manualClock = false) {
+    if (manualClock) {
+        // Continue keeps the stage mounted until the pet's card recall finishes.
+        // A paused layout clock must advance those frames before asserting close.
+        await expect.poll(async () => {
+            await page.clock.runFor(100);
+            return page.locator(".pet-evo-cutscene").count();
+        }, { intervals: [100] }).toBe(0);
+    } else await expect(page.locator(".pet-evo-cutscene")).toHaveCount(0);
+}
+
 async function hitEvidence(control: Locator) {
     return control.evaluate(node => {
         const r = node.getBoundingClientRect();
@@ -164,7 +175,7 @@ test("evolution controls receive real pointer hits after scrolling, resizing and
     await page.screenshot({ path: info.outputPath("continue.png") });
     if (info.project.use.hasTouch) await proceed.tap();
     else await proceed.click();
-    await expect(page.locator(".pet-evo-cutscene")).toHaveCount(0);
+    await expectEvolutionClosed(page, true);
     await expect(page.locator("#root")).not.toHaveAttribute("inert", "");
     await expect(page.getByRole("heading", { name: "Growth & training" })).toBeVisible();
     await evolve(page, true);
@@ -174,7 +185,7 @@ test("evolution controls receive real pointer hits after scrolling, resizing and
     await expectReachable(proceed);
     await proceed.focus();
     await proceed.press("Enter");
-    await expect(page.locator(".pet-evo-cutscene")).toHaveCount(0);
+    await expectEvolutionClosed(page, true);
     expect(writes()).toBe(2);
     await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "pets");
 });
@@ -245,5 +256,5 @@ test("nonzero phone safe areas keep both controls clear in portrait and landscap
     expect(box.y + box.height).toBeLessThanOrEqual(353);
     await page.screenshot({ path: info.outputPath("safe-area-continue.png") });
     await proceed.tap();
-    await expect(page.locator(".pet-evo-cutscene")).toHaveCount(0);
+    await expectEvolutionClosed(page, true);
 });

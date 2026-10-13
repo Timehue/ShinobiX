@@ -830,6 +830,24 @@ one finisher but reward everyone, and never let a small server stall out
 
 Contributions: settle hooks (§4.2) also `kv.incr("era:contrib:<era>:<metric>")`
 when that metric belongs to the active era (atomic, contention-free).
+
+> **Storage as built (2026-10-13), superseding the sentence above.** A metric's
+> total is the sum of these rows, read in one batch by `readEraContributions`
+> (`api/_era.ts`):
+> - `era:contrib:<metric>`: plain `kv.incr` counters. Boss kills write here, and
+>   so did the older hooks.
+> - `era:contrib-idempotent:<metric>`: a bounded exact-once ledger (at most 256
+>   pending and 256 settled receipts, compacted on acknowledgement). Missions,
+>   PvP wins and gate clears use it.
+> - The receipt-backed metrics (discoveries, war battles, legacy awakenings):
+>   - one row per settlement, `era:receipt:<metric>:<id>`, with a 30-day TTL;
+>   - plus 16 counter rows, `era:contrib-sum:<metric>:<shard>`;
+>   - both committed in one transaction (`kv.compareSetMany`).
+>
+>   The retired one-row hash `era:contrib-receipts:<metric>` is still read. Every
+>   receipt rewrote that whole row, so it was replaced
+>   (docs/SHARED_HASH_ROW_SPLIT_PLAN.md §5).
+
 Unlock check: nightly cron job (`_scheduler.ts fire()` + a new
 `runEraMilestonePass()`) plus opportunistic check on the credited-trigger
 endpoints. Unlock transaction: `era:unlocked:<id>` NX marker (double-fire

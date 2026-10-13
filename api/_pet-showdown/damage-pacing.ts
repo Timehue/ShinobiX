@@ -1,13 +1,20 @@
-/** Low-level pets need a response to a single technique. Keep ordinary hits
- * unchanged, then smoothly compress the excess above 60% of the target's max
- * health toward 90%. This is based on max HP, so wounded pets can still be
- * finished and stronger attacks never deal less damage than weaker ones.
- * Full effect through level 25; fades out by level 50. Taking the higher level
- * preserves earned level advantages. Ultimates retain the response window at
- * every level, with a stronger untouched band through 70% of max HP: their
- * first cast is now available early in an ordinary fight.
- * Applies equally to both teams, before Guard and damage absorption. */
-export function paceShowdownTechniqueDamage(damage: number, maxHp: number, attackerLevel: number, defenderLevel: number, ultimate = false): number {
+/** Preserve a response to one direct hit at every level. Ordinary techniques
+ * keep their damage through 60% HP, then approach 90%. A signature approaches
+ * 60% without setup, or 75% with Empower, Mark or a favorable field. Compression
+ * stays strictly increasing; max HP keeps wounded-target finishing intact.
+ * Both teams use the same curve, before Guard and damage absorption. Level
+ * arguments remain for callers; progression still prices the incoming damage. */
+export function paceShowdownTechniqueDamage(damage: number, maxHp: number, _attackerLevel: number, _defenderLevel: number, ultimate = false, prepared = false): number {
+    const threshold = maxHp * (ultimate ? prepared ? 0.55 : 0.4 : 0.6);
+    if (damage <= threshold || maxHp <= 0) return damage;
+    const room = maxHp * (ultimate ? 0.2 : 0.3);
+    const excess = damage - threshold;
+    const paced = threshold + room * excess / (room + excess);
+    return paced;
+}
+
+/** Persisted sessions and pre-cutover descriptors retain their original curve. */
+export function paceLegacyShowdownTechniqueDamage(damage: number, maxHp: number, attackerLevel: number, defenderLevel: number, ultimate = false): number {
     const strength = ultimate ? 1 : 1 - Math.max(0, Math.min(1, (Math.max(attackerLevel, defenderLevel) - 25) / 25));
     const threshold = maxHp * (ultimate ? 0.7 : 0.6);
     if (strength <= 0 || damage <= threshold || maxHp <= 0) return damage;

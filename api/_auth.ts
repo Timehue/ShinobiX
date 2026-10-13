@@ -80,8 +80,8 @@ export function safeEqual(a: string, b: string): boolean {
 // The existing per-request ban check remains an independent immediate gate.
 //
 // SESSION_SECRET is a master key: anyone holding it can forge a token for any
-// player. It MUST be a high-entropy env var set on BOTH cPanel (.env) and
-// Vercel, and never committed. If unset, token issuing/verifying is disabled
+// player. It MUST be a high-entropy env var set on Railway (and in a local
+// .env for development), and never committed. If unset, token issuing/verifying is disabled
 // and the system transparently falls back to the password path (no outage,
 // just no speedup until the secret is configured).
 

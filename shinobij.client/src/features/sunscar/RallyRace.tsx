@@ -8,6 +8,7 @@ import type { RallyResponse } from '../../lib/sunscar-rally';
 import { RallyControls } from './RallyControls';
 import RallyEconomyCanvas from './RallyEconomyCanvas';
 import { PetModelBoundary } from '../../components/PetModelBoundary';
+import { withPetSceneRecall, usePetSceneIsRecalling } from '../../components/PetSceneRecall';
 import { festivalPrestige } from '../../../../shared/sunscar/prestige';
 import { startGameAmbience, stopGameAmbience } from '../../lib/game-audio';
 import { rallyFeedback } from './rally-feedback';
@@ -42,7 +43,9 @@ type Props = {
     onFinishPresented?: () => void;
     reputation?: number;
 };
-export function RallyRace({ initial, difficulty, official, title, onBegin, onCheckpoint, onExit, onFinished, onFinishPresented, reputation = 0 }: Props) {
+export const RallyRace = withPetSceneRecall(RallyRaceView, ['onExit']);
+function RallyRaceView({ initial, difficulty, official, title, onBegin, onCheckpoint, onExit, onFinished, onFinishPresented, reputation = 0 }: Props) {
+    const sceneRecalling = usePetSceneIsRecalling();
     const [initialState] = useState(() => restoreRallyRace(initial));
     const state = useRef(initialState);
     const [hud, setHud] = useState(() => raceHud(initialState));
@@ -70,6 +73,7 @@ export function RallyRace({ initial, difficulty, official, title, onBegin, onChe
     const presenting = useRef(false);
     const presentationReported = useRef(false);
     const [finishSettled, setFinishSettled] = useState(false);
+    const [leaving, setLeaving] = useState(false);
     const saveRef = useRef(onCheckpoint);
     const onFinishedRef = useRef(onFinished);
     const onPresentedRef = useRef(onFinishPresented);
@@ -78,7 +82,7 @@ export function RallyRace({ initial, difficulty, official, title, onBegin, onChe
     const track = rallyTrack(initial.trackId);
     const prestige = festivalPrestige('rally', reputation);
     useLayoutEffect(() => {
-        const active = started && ready.length >= initial.racers.length && !paused && !error && !modelError;
+        const active = !sceneRecalling && started && ready.length >= initial.racers.length && !paused && !error && !modelError;
         presenting.current = active && !finishSettled;
         running.current = active && !state.current.finished && (!official || state.current.tick - acknowledged.current < 600);
     });
@@ -116,8 +120,9 @@ export function RallyRace({ initial, difficulty, official, title, onBegin, onChe
     </select><small>{economy ? 'Battery saver active' : '3D active'}</small></label>;
     const input = useCallback((kind: RallyAction['kind']) => {
         // Releases must survive a pause or a checkpoint stall.
-        if ((running.current || kind === 'burst-off') && !queued.current.includes(kind) && queued.current.length < 7) queued.current.push(kind);
-    }, []);
+        if (!leaving && (running.current || kind === 'burst-off') && !queued.current.includes(kind) && queued.current.length < 7) queued.current.push(kind);
+    }, [leaving]);
+    useEffect(() => { if (leaving && (economy || modelError)) onExit(); }, [leaving, economy, modelError, onExit]);
     const advance = useCallback((delta: number) => {
         if (!running.current) { accumulator.current = 0; return; }
         accumulator.current += delta;
@@ -242,31 +247,33 @@ export function RallyRace({ initial, difficulty, official, title, onBegin, onChe
         running.current = false; setPaused(true);
         if (saveBusy.current) return;
         while (official && state.current.tick > acknowledged.current) if (!await checkpoint(true)) return;
-        onExit();
+        if (economy || modelError || !ready.includes(state.current.racers[0].id)) onExit();
+        else setLeaving(true);
     }
     return <section className="rally-race" aria-label={`${track.name} race`}>
         <div className="rally-hud">
             {prestige && <span className="rally-prestige-pennant" title={prestige.cosmetic} style={{ color: prestige.color }}>✥</span>}
             <div className="rally-position"><strong>{hud.position}<small>/4</small></strong><span>{hud.section || title}</span></div>
             <div className={`rally-progress${hud.finalStretch ? ' is-final-stretch' : ''}`}><span>{hud.finalStretch ? 'Final stretch' : track.name} · {hud.remaining} m</span><progress aria-label="Race progress" value={hud.progress} max={1} /><small>{(hud.raceTime / RALLY_HZ).toFixed(1)}s {saving ? '· Saving' : official ? '· Official' : '· Practice'}{hud.terrain === 'deep-sand' && !hud.finished ? ' · Deep sand slows' : ''}</small></div>
-            <button className="rally-pause" aria-label={paused ? 'Resume race' : 'Pause race'} onClick={() => { running.current = false; queued.current = ['burst-off']; setPaused(p => !p); }} disabled={!started || hud.finished}>{paused ? 'Resume' : 'Pause'}</button>
+            <button className="rally-pause" aria-label={paused ? 'Resume race' : 'Pause race'} onClick={() => { running.current = false; queued.current = ['burst-off']; setPaused(p => !p); }} disabled={!started || hud.finished || leaving}>{paused ? 'Resume' : 'Pause'}</button>
         </div>
         <div className={`rally-stage${!started && countdown === null ? ' has-rally-intro' : ''}`} aria-label="Race course">
             <PetModelBoundary key={`${economy ? 'economy' : '3d'}:${renderGeneration}`} onFail={onFail}><Suspense fallback={<div className="sunscar-loading" role="status">Preparing the course…</div>}>
                 {economy ? <RallyEconomyCanvas state={state} onReady={onReady} onPresentationFrame={onPresentationFrame} reducedMotion={reducedMotion}
                     frameloop={paused || finishSettled || modelError || !!error || !started && countdown === null && ready.length >= 4 ? 'demand' : 'always'} />
                     : <RallyCanvas state={state} onReady={onReady} onPresentationFrame={onPresentationFrame} onFail={onFail} onEconomy={onEconomy} allowEconomy={renderPreference !== '3d'} reducedMotion={reducedMotion} moving={running}
-                        frameloop={paused || finishSettled || modelError || !!error || !started && countdown === null && ready.length >= 4 ? 'demand' : 'always'} />}
+                        present={!leaving} summonOnMount={!started} onRecallComplete={onExit}
+                        frameloop={leaving ? 'always' : paused || finishSettled || modelError || !!error || !started && countdown === null && ready.length >= 4 ? 'demand' : 'always'} />}
             </Suspense></PetModelBoundary>
             {!started && countdown === null && <div className="rally-intro-overlay"><div className="rally-intro-copy" tabIndex={0} role="region" aria-label="Race instructions"><p className="sunscar-eyebrow">{title}</p><h2>{track.name}</h2><p>{track.description}</p><p className="rally-learn">Amber arrows: jump low barriers (+4 Burst). Coral crosses: steer around tall loads. Green arrows: Burst + jump into a shortcut (+7 Burst). Hold Shift for +28% pace. E uses {RALLY_TECHNIQUES[initial.racers[0].pet.element].name} once per race.</p><p className="rally-learn">Q fires a shot every 8 seconds. {RALLY_SHOT_PROFILES[initial.racers[0].pet.element].description} Look for the aiming ring. Firing slows you 10% for 0.45 seconds. Jump or steer to dodge.</p></div>
                 {modelError ? <p className="rally-intro-status" role="alert">The race graphics could not load. Choose another graphics mode or return to the race desk and retry; your entry is safe.</p> : <p className="rally-intro-status" role="status">{ready.length < 4 ? `Preparing companions · ${ready.length}/4` : 'All companions ready'}</p>}
                 {graphicsControl}{graphicsNotice && <p role="status">{graphicsNotice}</p>}
-                <div className="sunscar-button-row"><button onClick={() => void begin()} disabled={ready.length < 4 || modelError || saving}>{saving ? 'Starting…' : initial.tick > 0 ? 'Resume from checkpoint' : 'Ready to race'}</button><button className="sunscar-secondary" onClick={onExit}>Race desk</button></div>
+                <div className="sunscar-button-row"><button onClick={() => void begin()} disabled={ready.length < 4 || modelError || saving || leaving}>{saving ? 'Starting…' : initial.tick > 0 ? 'Resume from checkpoint' : 'Ready to race'}</button><button className="sunscar-secondary" disabled={leaving} onClick={() => void leave()}>Race desk</button></div>
             </div>}
             {countdown !== null && <div className="rally-countdown" role="status" aria-live="assertive">{countdown || 'GO'}</div>}
             {(paused || error || started && modelError) && <div className="rally-pause-overlay"><h2>{error ? 'Race held safely' : modelError ? 'Rendering interrupted' : 'Taking a breather'}</h2><p role={error ? 'alert' : undefined}>{error || 'Your race clock is paused. Continue when you are ready.'}</p>{graphicsControl}{graphicsNotice && <p role="status">{graphicsNotice}</p>}<div className="sunscar-button-row">
-                <button onClick={() => { if (error && started) void checkpoint(true); else if (error) { setError(''); void begin(); } else setPaused(false); }} disabled={saving || modelError || ready.length < 4}>{saving ? 'Saving…' : error ? 'Retry connection' : 'Continue race'}</button>
-                <button className="sunscar-secondary" disabled={saving} onClick={() => void leave()}>Save & return</button>{error && <button className="sunscar-secondary" onClick={onExit}>Return to last saved checkpoint</button>}</div>{error && <small>Returning to the saved checkpoint discards only inputs the race desk has not confirmed.</small>}</div>}
+                <button onClick={() => { if (error && started) void checkpoint(true); else if (error) { setError(''); void begin(); } else setPaused(false); }} disabled={saving || modelError || ready.length < 4 || leaving}>{saving ? 'Saving…' : error ? 'Retry connection' : 'Continue race'}</button>
+                <button className="sunscar-secondary" disabled={saving || leaving} onClick={() => void leave()}>Save & return</button>{error && <button className="sunscar-secondary" onClick={onExit}>Return to last saved checkpoint</button>}</div>{error && <small>Returning to the saved checkpoint discards only inputs the race desk has not confirmed.</small>}</div>}
         </div>
         <div className="rally-dashboard">
             <span className="rally-warning-announcement" role="status" aria-atomic="true">{started && !hud.playerFinished ? hud.incomingLabel.split(' · ').slice(0, 2).join(' · ') : ''}</span>
@@ -282,7 +289,7 @@ export function RallyRace({ initial, difficulty, official, title, onBegin, onChe
             <div className="rally-telemetry"><span className="rally-speed">{hud.playerFinished ? 'Finished' : `${(hud.speed * 3.6).toFixed(0)} km/h`}</span><span>{hud.status}</span></div>
             <div className={`rally-stamina${hud.bursting ? ' is-active' : ''}`}><span>Burst</span><meter min={0} max={100} value={hud.stamina} aria-label="Burst stamina" /><span>{Math.ceil(hud.stamina)}%</span></div>
         </div>
-        <RallyControls input={input} disabled={!started || paused || !!error || modelError || hud.playerFinished || ready.length < initial.racers.length} technique={RALLY_TECHNIQUES[initial.racers[0].pet.element].name} techniqueUsed={hud.used} techniqueActive={hud.techniqueActive} stamina={hud.stamina}
+        <RallyControls input={input} disabled={!started || paused || !!error || modelError || leaving || hud.playerFinished || ready.length < initial.racers.length} technique={RALLY_TECHNIQUES[initial.racers[0].pet.element].name} techniqueUsed={hud.used} techniqueActive={hud.techniqueActive} stamina={hud.stamina}
             bursting={hud.bursting} attack={RALLY_ATTACK_NAMES[initial.racers[0].pet.element]} attackDescription={RALLY_SHOT_PROFILES[initial.racers[0].pet.element].description} charge={hud.charge} attackBlocked={hud.attackBlocked} />
         <p className="rally-save-note">{official ? 'Official checkpoints save during the race. Backgrounding pauses the clock.' : 'Practice is unlimited. No entry or reward is consumed.'}</p>
     </section>;

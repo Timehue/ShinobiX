@@ -11,9 +11,20 @@ import {
     advancePetAnimationMixer,
     preparePetAnimationPhase,
     synchronizePetLocomotionPhase,
+    petAnimationBlend,
 } from "./pet-animation-lifecycle";
 
 type Family = "idle" | "attack" | "hit";
+
+test('secondary pose settling has the same response at 10 through 144 Hz and holds during hit-stop', () => {
+    const endpoints = [10, 30, 60, 144].map(fps => {
+        let value = 0;
+        for (let frame = 0; frame < fps; frame++) value = THREE.MathUtils.lerp(value, 1, petAnimationBlend(1 / fps, 15));
+        return value;
+    });
+    assert.ok(Math.max(...endpoints) - Math.min(...endpoints) < 1e-10);
+    assert.equal(petAnimationBlend(0, 15), 0);
+});
 
 test("host-sampled takes preserve full poses at normal/fast speed and keep crossfades advancing", () => {
     for (const fps of [30, 60, 144]) for (const speed of [1, 1.7]) {
@@ -65,7 +76,7 @@ test("ordinary animation changes retain a smooth crossfade", () => {
     const previous = mixer.clipAction(clip('idle', 0)).play();
     const next = mixer.clipAction(clip('run', 1));
     transitionPetAnimation(next, previous, 0.2, false);
-    mixer.update(0.05);
+    advancePetAnimationMixer(mixer, 0.05);
     assert.ok(root.position.x > 0 && root.position.x < 1);
 });
 
@@ -91,7 +102,7 @@ test('fade retirement respects paused and scaled mixer clocks', () => {
         const idle = take('idle', -2).play(), run = take('run', 2);
         mixer.update(0); mixer.timeScale = rate;
         transitionPetAnimation(run, idle, .2, false);
-        advancePetAnimationMixer(mixer, rate === 2 ? .09 : .2);
+        advancePetAnimationMixer(mixer, rate === 2 ? .11 : .2);
         assert.equal(mixer.stats.actions.inUse, rate === 2 ? 1 : 2,
             'retirement must use the same clock as Three fade interpolation');
         if (rate === 0) assert.equal(root.position.x, -2, 'a paused fade retains its existing pose');
@@ -117,6 +128,33 @@ test('walk/gallop switches retain normalized stride and phase preparation evalua
     attack.play(); preparePetAnimationPhase(attack,.54,.74,0); advancePetAnimationMixer(mixer,0);
     assert.equal(root.position.x,.54);
     assert.equal(mixer.time,0);
+});
+
+test('a crossfade never pulls two offset poses toward the bind position', () => {
+    const root = new THREE.Object3D(), mixer = new THREE.AnimationMixer(root);
+    const take = (name: string, x: number) => mixer.clipAction(new THREE.AnimationClip(name, 1, [new THREE.NumberKeyframeTrack('.position[x]', [0, 1], [x, x])]));
+    const a = take('a', 10).play(), b = take('b', 12);
+    mixer.update(0);
+    transitionPetAnimation(b, a, .2, false);
+    for (let i = 0; i < 20; i++) {
+        advancePetAnimationMixer(mixer, .01);
+        assert.ok(root.position.x >= 10 && root.position.x <= 12, 'the blended surface must stay between the authored poses');
+    }
+});
+
+test('rapid three-way fades and reversal preserve the displayed pose and unit total weight', () => {
+    const root = new THREE.Object3D(), mixer = new THREE.AnimationMixer(root);
+    const actions = [10, 12, 14].map((x, i) => mixer.clipAction(new THREE.AnimationClip(`take-${i}`, 1, [new THREE.NumberKeyframeTrack('.position[x]', [0, 1], [x, x])])));
+    let previous = actions[0].play(); mixer.update(0);
+    for (const next of [actions[1], actions[2], actions[0], actions[2], actions[1]]) {
+        const before = root.position.x;
+        next.reset(); transitionPetAnimation(next, previous, .2, false); advancePetAnimationMixer(mixer, 0);
+        assert.ok(Math.abs(root.position.x - before) < 1e-6, 'interrupting a transition cannot jump on the same presentation tick');
+        advancePetAnimationMixer(mixer, .04);
+        assert.ok(Math.abs(actions.reduce((sum, action) => sum + (action.isScheduled() ? action.getEffectiveWeight() : 0), 0) - 1) < 1e-6);
+        previous = next;
+    }
+    advancePetAnimationMixer(mixer, .21); assert.equal(mixer.stats.actions.inUse, 1);
 });
 
 const clips = (["idle", "attack", "hit"] as const).map((family, index) => new THREE.AnimationClip(

@@ -2,6 +2,13 @@
 
 The production Supabase project must have platform backups or PITR enabled with retention recorded in the release evidence. Repository snapshots are not substitutes for that control.
 
+**After ANY platform restore (PITR or a daily backup) to a point before 2026-10-13**, re-apply, in order:
+1. `supabase-migrations/2026-10-12_kv_hash_noop_guards.sql`
+2. `supabase-migrations/2026-10-12_drop_kv_store_from_realtime.sql`
+3. `supabase-migrations/2026-10-12_drop_anon_kv_read.sql`
+
+An older restore point brings back the old hash functions, the Supabase Realtime publication on `kv_store` (about 9% of database time spent for nothing), and anon read access to every PvP session. All three migrations are idempotent. `kv-backup.mjs` refuses to restore into a target that still has anon access, and its error names these files.
+
 ## Launch-wipe day checklist (run IMMEDIATELY before the reset)
 
 The wipe is the single most dangerous operation on the launch calendar. In
@@ -13,7 +20,11 @@ order, on the day, before touching any data:
 2. **Nightly in-DB snapshots are healthy**: the deep health probe
    (`GET /health/db` with `HEALTH_DEEP_TOKEN`) must report `backupFresh: true`,
    or query `backup:save-snapshots:last-success` directly — `completedAt` must
-   be within 24h and `skipped: 0`. (Verified green 2026-08-21: 113/113 saves,
+   be within 24h and `snapshotted + skipped = total`. Since 2026-10-12 an
+   unchanged save is not copied again: its newest snapshot's 90-day TTL is
+   renewed and it counts under both `skipped` and `unchanged`, so a healthy
+   nightly run shows `skipped = unchanged` (only a same-day re-run skips more).
+   (Verified green 2026-08-21: 113/113 saves,
    0 skipped.)
 3. **Take the independent offsite export** with the command below, using
    `DATABASE_URL` from Railway's environment variables. Record the SHA-256 and

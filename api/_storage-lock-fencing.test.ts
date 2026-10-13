@@ -3,9 +3,7 @@ import { after, before, beforeEach, test } from 'node:test';
 import pg from 'pg';
 
 process.env.DATABASE_URL = 'postgresql://fencing-test:fencing-test@127.0.0.1/fencing-test';
-process.env.FORCE_PG_KV = '1';
 delete process.env.SHINOBIX_QA_MEMORY_KV;
-delete process.env.VERCEL;
 delete process.env.KV_PROXY_URL;
 delete process.env.DISK_KV_DIR;
 
@@ -14,6 +12,8 @@ type Client = { pending: Map<string, Row | null>; shares: Set<string>; released:
 const rows = new Map<string, Row>();
 const shared = new Map<string, Set<Client>>();
 const commands: Array<{ text: string; keys?: unknown[]; client: boolean }> = [];
+/** Every message sent on a checked-out client — one database round trip each. */
+const messages: string[] = [];
 const originalQuery = pg.Pool.prototype.query;
 const originalConnect = pg.Pool.prototype.connect;
 const originalEnd = pg.Pool.prototype.end;
@@ -48,8 +48,20 @@ async function waitForShares(key: string, client?: Client) {
     }
 }
 
-async function query(sql: unknown, parameters: unknown[] = [], client?: Client) {
+/** The lease keys inlined (pg.escapeLiteral) into the combined BEGIN + lease-check message. */
+function inlinedLeaseKeys(text: string): string[] {
+    const list = /ARRAY\[(.*)\]::text\[\]/.exec(text)?.[1] ?? '';
+    return [...list.matchAll(/(E?)'((?:[^']|'')*)'/g)]
+        .map(([, e, body]) => { const unquoted = body.replace(/''/g, "'"); return e ? unquoted.replace(/\\\\/g, '\\') : unquoted; });
+}
+
+async function query(sql: unknown, parameters: unknown[] = [], client?: Client): Promise<unknown> {
     const text = String(sql).replace(/\s+/g, ' ').trim();
+    // BEGIN + lease check arrive as one simple-protocol message; pg answers a
+    // multi-statement message with one result per statement.
+    if (text.startsWith('BEGIN; ')) {
+        return [await query('BEGIN', [], client), await query(text.slice('BEGIN; '.length), [inlinedLeaseKeys(text)], client)];
+    }
     commands.push({ text, keys: parameters, client: !!client });
     const key = String(parameters[0] ?? '');
     const current = (item: string) => client?.pending.has(item) ? client.pending.get(item) : rows.get(item);
@@ -121,7 +133,7 @@ before(async () => {
     pg.Pool.prototype.connect = (async () => {
         const client: Client = { pending: new Map(), shares: new Set(), released: false };
         return {
-            query: (sql: unknown, parameters?: unknown[]) => query(sql, parameters, client),
+            query: (sql: unknown, parameters?: unknown[]) => { messages.push(String(sql)); return query(sql, parameters, client); },
             release: () => { assert.equal(client.released, false); client.released = true; releaseShares(client); },
         };
     }) as unknown as typeof pg.Pool.prototype.connect;
@@ -131,7 +143,7 @@ before(async () => {
 });
 
 beforeEach(() => {
-    rows.clear(); shared.clear(); commands.length = 0;
+    rows.clear(); shared.clear(); commands.length = 0; messages.length = 0;
     mutationGate = undefined; commitGate = undefined; loseCommit = false; loseAcquire = false;
     fenceFailure = undefined;
 });
@@ -290,6 +302,32 @@ test('scheduled-job leases fence their protected database statements too', async
     assert.equal(rows.has('scheduled-output'), false);
     const check = commands.find(command => command.text.includes('FOR SHARE'));
     assert.deepEqual(check?.keys?.[0], ['cron:lease:fenced-job']);
+});
+
+test('a locked statement costs three round trips: BEGIN + lease check share one message', async () => {
+    await locks.withKvLock('round-trips', async () => {
+        messages.length = 0;
+        await storage.kv.set('round-trip-value', 1);
+    }, critical);
+    assert.equal(messages.length, 3, messages.join('\n---\n'));
+    assert.match(messages[0], /^BEGIN; WITH held AS MATERIALIZED/);
+    assert.match(messages[1], /^INSERT INTO public\.kv_store/);
+    assert.equal(messages[2], 'COMMIT');
+    assert.equal(rows.get('round-trip-value')?.value, 1);
+});
+
+test('inlined lease keys are escaped literals, so a quote or backslash in a lock target is checked as written', async () => {
+    const target = String.raw`it's a \odd' target`;
+    await locks.withKvLock(target, () => storage.kv.set('escaped-value', 1), critical);
+    const check = commands.find(command => command.text.includes('FOR SHARE'));
+    assert.deepEqual(check?.keys?.[0], [`lock:${target}`]);
+    assert.equal(rows.get('escaped-value')?.value, 1);
+    // ...and the same target with an expired lease still fails closed.
+    await locks.withKvLock(target, async () => {
+        clock += 6000;
+        await assert.rejects(storage.kv.set('escaped-value', 2), locks.LockOwnershipLostError);
+    }, critical);
+    assert.equal(rows.get('escaped-value')?.value, 1);
 });
 
 test('pool close is idempotent and permanently rejects reads and writes instead of recreating a pool', async () => {

@@ -1,0 +1,299 @@
+{
+  "date": "2026-10-11",
+  "integratedMain": "eb8073e56b588fbb6455111e1247b45469dec002",
+  "evidence": "Local deterministic production-resolver simulations; no new human playtest or live-traffic meta certification.",
+  "sourceSha256": {
+    "api/pet/_catalog.ts": "0748a19f7ad3a269583cb4a7453c157a9b8d0584bac417e7a1b914355feae768",
+    "api/pet/_growth.ts": "da64f0c10ba8bf9f77a05b62a6144e57a548927150d705914380b6eae906d1e7",
+    "api/_pet-stat-ceil.ts": "82903457511608ee90c86de9c1ec20ef48d7e7419c9cac8d47768807026da7b2",
+    "api/_pet-showdown/engine.ts": "6fa4427b8491231db58dbc73ef051f4fa3daa2b0ac1c704434bf81e60deb847b",
+    "api/_pet-showdown/damage-pacing.ts": "5622acdb27ffd7100e703fdcfb86547193a587447278db0c35039d560ff83c7b",
+    "api/_pet-showdown/ai.ts": "bb9f3d295e5a24454304e8bc16e4ac53ac3cc90e3d4fd11342d4917a7793f95a",
+    "api/_pet-showdown/replay.ts": "051ee76ea513d272f57a785c35288944346f5e3d0ddfb6f24aff4b5e90aad321",
+    "api/_pet-showdown/war-duel.ts": "e1c9d047bb458cd0c72854fd8ae183d27590fdf6e47bd8aa53a7a68f6fe2dcb8",
+    "shared/pet-showdown-contract.ts": "7116fc8dee0b4569cb4d02f45bd2d32aa1eab63c9d52adc1bb7da4c818c9d37b",
+    "api/_pet-tactics/engine.ts": "1e357ddafbd0aabd0638ef56d83277cde4fff5d0f606f767f6ca84bae3995ad3",
+    "shared/pet-tactics-roster.ts": "4189018c0529957e35c07110ca07dc9e98f5328ad115a876d8bdc2d4b2297dfc",
+    "shared/pet-tactics-contract.ts": "973b21b75d4364caad431fb3170dc352c9a2266c4bd99a0bc65ade675836e353",
+    "api/pet/_dungeon-showdown.ts": "4f1f890a3982537ec8c39d3dad873c64725c1a148ac0e929efff765d8d0af5fa",
+    "api/pet/_dungeon-command-beast.ts": "281eb25c2c295f7915b88f1a2e37c8ef3cecfb16e1b13b5a0ffe86c05db90f79",
+    "scripts/dungeon-pet-balance-audit.mts": "cd18dae75ecd68bc5baa19a41fb85fd50e1776b788937af60c0d73ec27f03ddc",
+    "api/_realtime/pet-duel-socket.ts": "3fcfe485ba733698a82fc23812e15f11f8bf88d04247a019facccb0b8302eb22",
+    "shinobij.client/src/lib/pet-warfront-rite.ts": "44c3a751f1a2f1e12888589753d3f93964dba9edd77a378e0044b5faf60aa491",
+    "shinobij.client/src/lib/pet-gauntlet.ts": "2e0d9bf6d1ac5d432cc3a76717a752901442d89ed4abddb63f84f51d953b49e7",
+    "shinobij.client/src/lib/pet-board-sim.ts": "9a92ccf72f0dfa7afb4673aa81d8be951dc0a13d690655dd696a850b688f897f",
+    "scripts/showdown-training-audit.mjs": "f140a2172f063708a33c02d27fcbb11405e1b1bf7c0e8c2588bd95c853db72e1",
+    "scripts/showdown-burst-audit.mjs": "5dbf6ed96bbc19df526325673f84de82757ab5bfd86c08fb7e2d309990fa1de5",
+    "scripts/pet-gauntlet-balance-audit.mts": "d52229b6ac6f6a788c0549ea18a3cc3c96065036befe0fe5794b30a933884418",
+    "scripts/warfront-rite-harness.mts": "c7ce4f8a8e6705310735d200e5774c5256bfdc24bc62898edd092995437570ed"
+  },
+  "competitivePreviousEvidenceHashesMatch": true,
+  "npc": [
+    {
+      "format": "1v1",
+      "matches": 5152,
+      "tiers": [
+        {
+          "tier": "scrapper",
+          "matches": 1288,
+          "playerScore": 0.6211180124223602,
+          "meanRounds": 11.222826086956522,
+          "playerOpeningKos": 0,
+          "enemyOpeningKos": 0
+        },
+        {
+          "tier": "warrior",
+          "matches": 1288,
+          "playerScore": 0.2857142857142857,
+          "meanRounds": 12.549689440993788,
+          "playerOpeningKos": 0,
+          "enemyOpeningKos": 0
+        },
+        {
+          "tier": "champion",
+          "matches": 1288,
+          "playerScore": 0.3167701863354037,
+          "meanRounds": 13.347049689440993,
+          "playerOpeningKos": 0,
+          "enemyOpeningKos": 0
+        },
+        {
+          "tier": "sparring",
+          "matches": 1288,
+          "playerScore": 0.4922360248447205,
+          "meanRounds": 12.375,
+          "playerOpeningKos": 0,
+          "enemyOpeningKos": 0
+        }
+      ]
+    },
+    {
+      "format": "2v2",
+      "matches": 5152,
+      "tiers": [
+        {
+          "tier": "scrapper",
+          "matches": 1288,
+          "playerScore": 0.7204968944099379,
+          "meanRounds": 6.866459627329193,
+          "playerOpeningKos": 0,
+          "enemyOpeningKos": 0
+        },
+        {
+          "tier": "warrior",
+          "matches": 1288,
+          "playerScore": 0.31521739130434784,
+          "meanRounds": 7.625776397515528,
+          "playerOpeningKos": 0,
+          "enemyOpeningKos": 0
+        },
+        {
+          "tier": "champion",
+          "matches": 1288,
+          "playerScore": 0.2360248447204969,
+          "meanRounds": 8.13586956521739,
+          "playerOpeningKos": 0,
+          "enemyOpeningKos": 0
+        },
+        {
+          "tier": "sparring",
+          "matches": 1288,
+          "playerScore": 0.48990683229813664,
+          "meanRounds": 7.59083850931677,
+          "playerOpeningKos": 0,
+          "enemyOpeningKos": 0
+        }
+      ]
+    },
+    {
+      "format": "3v3",
+      "matches": 5152,
+      "tiers": [
+        {
+          "tier": "scrapper",
+          "matches": 1288,
+          "playerScore": 0.7220496894409938,
+          "meanRounds": 5.312111801242236,
+          "playerOpeningKos": 0,
+          "enemyOpeningKos": 0
+        },
+        {
+          "tier": "warrior",
+          "matches": 1288,
+          "playerScore": 0.2577639751552795,
+          "meanRounds": 5.615683229813665,
+          "playerOpeningKos": 0,
+          "enemyOpeningKos": 0
+        },
+        {
+          "tier": "champion",
+          "matches": 1288,
+          "playerScore": 0.2391304347826087,
+          "meanRounds": 6.006987577639752,
+          "playerOpeningKos": 0,
+          "enemyOpeningKos": 0
+        },
+        {
+          "tier": "sparring",
+          "matches": 1288,
+          "playerScore": 0.45729813664596275,
+          "meanRounds": 5.752329192546584,
+          "playerOpeningKos": 0,
+          "enemyOpeningKos": 0
+        }
+      ]
+    }
+  ],
+  "signatures": [
+    {
+      "setup": "none",
+      "hits": 30124,
+      "fullHealthKos": 0,
+      "maxHpFraction": 0.5948717948717949
+    },
+    {
+      "setup": "buff",
+      "hits": 30124,
+      "fullHealthKos": 0,
+      "maxHpFraction": 0.7461538461538462
+    },
+    {
+      "setup": "mark",
+      "hits": 30124,
+      "fullHealthKos": 0,
+      "maxHpFraction": 0.7461538461538462
+    },
+    {
+      "setup": "weather",
+      "hits": 30124,
+      "fullHealthKos": 0,
+      "maxHpFraction": 0.7461538461538462
+    },
+    {
+      "setup": "guarded",
+      "hits": 30124,
+      "fullHealthKos": 0,
+      "maxHpFraction": 0.3740053050397878
+    }
+  ],
+  "gauntlet": [
+    {
+      "policy": "draft-and-position",
+      "runs": 32,
+      "fullClears": 1,
+      "meanRoundsCleared": 6.125,
+      "fights": 289
+    },
+    {
+      "policy": "first-offer-front-row",
+      "runs": 32,
+      "fullClears": 0,
+      "meanRoundsCleared": 5.03125,
+      "fights": 257
+    }
+  ],
+  "dungeon": {
+    "evidence": "Unpaid production command resolver, fixed boss, balanced growth, no player gear or trait, champion public-sheet policy for both seats. Progression comparison, not ranked parity or optimized human play.",
+    "matches": 966,
+    "openingHits": 4542,
+    "openingFullHealthKos": 0,
+    "summary": [
+      {
+        "level": 45,
+        "rarity": "standard",
+        "matches": 110,
+        "playerWins": 74,
+        "draws": 0,
+        "meanRounds": 4.1
+      },
+      {
+        "level": 45,
+        "rarity": "rare",
+        "matches": 110,
+        "playerWins": 84,
+        "draws": 0,
+        "meanRounds": 3.709090909090909
+      },
+      {
+        "level": 45,
+        "rarity": "legendary",
+        "matches": 70,
+        "playerWins": 56,
+        "draws": 0,
+        "meanRounds": 3.2285714285714286
+      },
+      {
+        "level": 45,
+        "rarity": "mythic",
+        "matches": 32,
+        "playerWins": 23,
+        "draws": 0,
+        "meanRounds": 3.0625
+      },
+      {
+        "level": 55,
+        "rarity": "standard",
+        "matches": 110,
+        "playerWins": 74,
+        "draws": 0,
+        "meanRounds": 4.0636363636363635
+      },
+      {
+        "level": 55,
+        "rarity": "rare",
+        "matches": 110,
+        "playerWins": 88,
+        "draws": 0,
+        "meanRounds": 3.709090909090909
+      },
+      {
+        "level": 55,
+        "rarity": "legendary",
+        "matches": 70,
+        "playerWins": 58,
+        "draws": 0,
+        "meanRounds": 3.2857142857142856
+      },
+      {
+        "level": 55,
+        "rarity": "mythic",
+        "matches": 32,
+        "playerWins": 24,
+        "draws": 0,
+        "meanRounds": 3.09375
+      },
+      {
+        "level": 65,
+        "rarity": "standard",
+        "matches": 110,
+        "playerWins": 78,
+        "draws": 0,
+        "meanRounds": 4.0181818181818185
+      },
+      {
+        "level": 65,
+        "rarity": "rare",
+        "matches": 110,
+        "playerWins": 89,
+        "draws": 0,
+        "meanRounds": 3.7
+      },
+      {
+        "level": 65,
+        "rarity": "legendary",
+        "matches": 70,
+        "playerWins": 60,
+        "draws": 0,
+        "meanRounds": 3.257142857142857
+      },
+      {
+        "level": 65,
+        "rarity": "mythic",
+        "matches": 32,
+        "playerWins": 28,
+        "draws": 0,
+        "meanRounds": 2.96875
+      }
+    ]
+  }
+}

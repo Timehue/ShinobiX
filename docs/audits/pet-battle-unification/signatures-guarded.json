@@ -1,0 +1,36 @@
+{
+  "seeds": 1,
+  "charged": true,
+  "ultimatesOnly": true,
+  "guarded": true,
+  "setup": "buff",
+  "templates": 161,
+  "assumptions": "Same level and rarity; balanced growth; no gear or traits; every signature with full readiness and meter against a full-health target ordered to Guard using the current defensive initiative phase. Separate fresh session per probe. Both counter and neutral/resisted matchups included.",
+  "rows": [
+    {
+      "level": 1,
+      "hits": 7531,
+      "oneShots": 0,
+      "maxHpFraction": 0.3740053050397878
+    },
+    {
+      "level": 25,
+      "hits": 7531,
+      "oneShots": 0,
+      "maxHpFraction": 0.3726851851851852
+    },
+    {
+      "level": 50,
+      "hits": 7531,
+      "oneShots": 0,
+      "maxHpFraction": 0.37184115523465705
+    },
+    {
+      "level": 100,
+      "hits": 7531,
+      "oneShots": 0,
+      "maxHpFraction": 0.37066666666666664
+    }
+  ],
+  "worst": []
+}

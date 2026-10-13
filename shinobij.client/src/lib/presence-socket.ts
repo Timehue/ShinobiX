@@ -14,8 +14,8 @@
  *      authoritative carrier of pendingAttacker / pendingChallenges, so there is
  *      no double-delivery and nothing is lost if a push is missed.
  *
- * NOTE: this is the SHINOBIX game socket — distinct from src/lib/realtime.ts,
- * which is the Supabase Realtime client for pvp:* / challenges:* row subs.
+ * NOTE: this is the SHINOBIX game socket. PvP battles use their own stream
+ * (/api/pvp/stream, lib/pvp-stream-transport.ts); no Supabase Realtime client remains.
  *
  * Auth mirrors the HTTP interceptor (token preferred, password fallback) and is
  * re-read on every (re)connect so a token the HTTP path just re-minted is used.
@@ -27,7 +27,9 @@
 import { io, type Socket } from 'socket.io-client';
 import { getSocketAuth, SAVE_VERSION_EVENT, type SaveVersionEventDetail } from '../authFetch';
 import { getFingerprintSync } from '../fingerprint';
+import { RECONNECT_DELAY_MAX_MS, RECONNECT_RANDOMIZATION_FACTOR, reconnectBaseDelayMs } from './reconnect-spread';
 import { SECTOR_CHAT_EVENT } from '../../../shared/sector-chat';
+import { CHAT_PUSH_EVENT, parseChatPush, type ChatPush } from '../../../shared/chat-push';
 import type { PlayerRecord } from '../types/character';
 import type { WorldPosition } from '../../../shared/world-position';
 
@@ -62,9 +64,19 @@ export type TowerRealtimeKick =
 type TowerKickHandler = (kick: TowerRealtimeKick) => void;
 /** A sector's chat has a new line; the payload is a hint, the text is refetched. */
 type SectorChatHandler = (sector: number, ts: number) => void;
+/** A subscribed tavern or clan chat changed; the payload is a hint (lib/chat-push.ts). */
+type ChatPushHandler = (push: ChatPush) => void;
 
 let socket: Socket | null = null;
 let pingTimer: ReturnType<typeof setInterval> | null = null;
+// Retrying a handshake the server refused (see the connect_error handler).
+let handshakeRetryTimer: ReturnType<typeof setTimeout> | null = null;
+let handshakeRefusals = 0;
+const HANDSHAKE_RETRY_MAX_MS = 30_000;
+// A blip clears within a few tries; a credential that is really wrong never
+// will, and with the password fallback each try spends the player's login
+// budget. Stop after this many; the next connectRealtime() starts afresh.
+const HANDSHAKE_RETRY_LIMIT = 8;
 let latestFrame: PresenceFrame | null = null;
 
 const sectorHandlers = new Set<SectorHandler>();
@@ -76,6 +88,7 @@ const goneHandlers = new Set<GoneHandler>();
 const kickHandlers = new Set<KickHandler>();
 const towerKickHandlers = new Set<TowerKickHandler>();
 const sectorChatHandlers = new Set<SectorChatHandler>();
+const chatPushHandlers = new Set<ChatPushHandler>();
 const statusHandlers = new Set<StatusHandler>();
 
 // Keepalive cadence — the "15-30s client heartbeat" that keeps server presence
@@ -116,10 +129,14 @@ export function connectRealtime(initialFrame: PresenceFrame): void {
         return;
     }
     const opts = {
-        auth: buildAuth(),
+        // Function form: every handshake, including socket.io's automatic
+        // reconnects, carries the CURRENT presence frame and credentials, not
+        // the ones captured when this socket was first created.
+        auth: (cb: (auth: Record<string, unknown>) => void) => cb(buildAuth()),
         reconnection: true,
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 8000,
+        reconnectionDelay: reconnectBaseDelayMs(!!initialFrame.inBattle),
+        reconnectionDelayMax: RECONNECT_DELAY_MAX_MS,
+        randomizationFactor: RECONNECT_RANDOMIZATION_FACTOR,
         // Let socket.io negotiate the best transport (polling → upgrade) for
         // maximum compatibility behind proxies.
     };
@@ -130,6 +147,7 @@ export function connectRealtime(initialFrame: PresenceFrame): void {
         // pull the current sector roster so a reconnecting client repopulates its
         // sector-mates at once instead of waiting up to 20s for the next HTTP
         // reconcile. Without this, peers briefly vanish after any socket blip.
+        handshakeRefusals = 0;
         if (latestFrame) {
             socket?.emit('presence', latestFrame);
             socket?.emit('presence:request', { sector: latestFrame.sector });
@@ -137,12 +155,32 @@ export function connectRealtime(initialFrame: PresenceFrame): void {
         statusHandlers.forEach((h) => h(true));
     });
     socket.on('disconnect', () => {
+        // Runs before socket.io schedules its reconnect, so this drop's first
+        // retry uses a freshly spread base delay (lib/reconnect-spread.ts): a
+        // deploy that drops everyone at once no longer reconnects everyone in
+        // the same second, and a player mid-fight still comes back fast.
+        socket?.io.reconnectionDelay(reconnectBaseDelayMs(!!latestFrame?.inBattle));
         statusHandlers.forEach((h) => h(false));
     });
+    // A handshake the SERVER refused (the auth middleware's `next(error)`)
+    // destroys the socket and socket.io never retries it. Storage hiccups
+    // surface there as "unauthorized" (a timed-out session read during a
+    // reconnect rush), so without this the player stayed off the live socket
+    // until a reload. Retry with a spread, capped backoff; the function-form
+    // `auth` above sends fresh credentials each time. Transport errors leave
+    // the socket `active` and socket.io's own reconnect handles them.
     socket.on('connect_error', () => {
-        // The HTTP path may have re-minted the token since the last attempt —
-        // refresh the handshake creds so socket.io's auto-retry uses them.
-        if (socket) socket.auth = buildAuth();
+        const refused = socket;
+        if (!refused || refused.active) return;
+        handshakeRefusals += 1;
+        if (handshakeRefusals > HANDSHAKE_RETRY_LIMIT) return;
+        const delay = Math.min(HANDSHAKE_RETRY_MAX_MS,
+            reconnectBaseDelayMs(false) * 2 ** Math.min(4, handshakeRefusals - 1));
+        if (handshakeRetryTimer) clearTimeout(handshakeRetryTimer);
+        handshakeRetryTimer = setTimeout(() => {
+            handshakeRetryTimer = null;
+            if (socket === refused && !refused.connected && !refused.active) refused.connect();
+        }, delay);
     });
 
     socket.on('presence:sector', (data: { sector: number; players: PlayerRecord[] } | null) => {
@@ -194,6 +232,10 @@ export function connectRealtime(initialFrame: PresenceFrame): void {
         if (!data || typeof data.sector !== 'number') return;
         sectorChatHandlers.forEach((handler) => handler(data.sector!, Number(data.ts ?? 0)));
     });
+    socket.on(CHAT_PUSH_EVENT, (data: unknown) => {
+        const push = parseChatPush(data);
+        if (push) chatPushHandlers.forEach((handler) => handler(push));
+    });
     // A save version the server committed with no response of ours to carry it
     // (a travel arrival settled by the heartbeat). Routed through the same event
     // authFetch raises for `_saveVersion` bodies, so adoption stays monotonic and
@@ -235,6 +277,11 @@ export function disconnectRealtime(): void {
         clearInterval(pingTimer);
         pingTimer = null;
     }
+    if (handshakeRetryTimer) {
+        clearTimeout(handshakeRetryTimer);
+        handshakeRetryTimer = null;
+    }
+    handshakeRefusals = 0;
     if (socket) {
         socket.removeAllListeners();
         socket.disconnect();
@@ -311,6 +358,11 @@ export function onTowerKick(fn: TowerKickHandler): () => void {
 export function onSectorChat(fn: SectorChatHandler): () => void {
     sectorChatHandlers.add(fn);
     return () => { sectorChatHandlers.delete(fn); };
+}
+/** Subscribe before or after the shared socket connects; handlers survive reconnects. */
+export function onChatPush(fn: ChatPushHandler): () => void {
+    chatPushHandlers.add(fn);
+    return () => { chatPushHandlers.delete(fn); };
 }
 export function onStatus(fn: StatusHandler): () => void {
     statusHandlers.add(fn);

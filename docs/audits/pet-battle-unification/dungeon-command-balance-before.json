@@ -1,0 +1,7832 @@
+{
+  "evidence": "Pre-calibration command boss using the historical cinematic stat frame. Match outcomes only; opening damage probes were not collected in this baseline.",
+  "matches": 966,
+  "summary": [
+    {
+      "level": 45,
+      "rarity": "standard",
+      "matches": 110,
+      "playerWins": 0,
+      "draws": 0,
+      "meanRounds": 5.590909090909091
+    },
+    {
+      "level": 45,
+      "rarity": "rare",
+      "matches": 110,
+      "playerWins": 0,
+      "draws": 0,
+      "meanRounds": 5.881818181818182
+    },
+    {
+      "level": 45,
+      "rarity": "legendary",
+      "matches": 70,
+      "playerWins": 0,
+      "draws": 0,
+      "meanRounds": 6.257142857142857
+    },
+    {
+      "level": 45,
+      "rarity": "mythic",
+      "matches": 32,
+      "playerWins": 2,
+      "draws": 0,
+      "meanRounds": 4.96875
+    },
+    {
+      "level": 55,
+      "rarity": "standard",
+      "matches": 110,
+      "playerWins": 0,
+      "draws": 0,
+      "meanRounds": 5.7
+    },
+    {
+      "level": 55,
+      "rarity": "rare",
+      "matches": 110,
+      "playerWins": 1,
+      "draws": 0,
+      "meanRounds": 5.909090909090909
+    },
+    {
+      "level": 55,
+      "rarity": "legendary",
+      "matches": 70,
+      "playerWins": 1,
+      "draws": 0,
+      "meanRounds": 6.4
+    },
+    {
+      "level": 55,
+      "rarity": "mythic",
+      "matches": 32,
+      "playerWins": 3,
+      "draws": 0,
+      "meanRounds": 4.9375
+    },
+    {
+      "level": 65,
+      "rarity": "standard",
+      "matches": 110,
+      "playerWins": 0,
+      "draws": 0,
+      "meanRounds": 5.872727272727273
+    },
+    {
+      "level": 65,
+      "rarity": "rare",
+      "matches": 110,
+      "playerWins": 1,
+      "draws": 0,
+      "meanRounds": 6.118181818181818
+    },
+    {
+      "level": 65,
+      "rarity": "legendary",
+      "matches": 70,
+      "playerWins": 2,
+      "draws": 0,
+      "meanRounds": 6.6571428571428575
+    },
+    {
+      "level": 65,
+      "rarity": "mythic",
+      "matches": 32,
+      "playerWins": 5,
+      "draws": 0,
+      "meanRounds": 4.6875
+    }
+  ],
+  "rows": [
+    {
+      "species": "Red Fox",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Red Fox",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Red Fox",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Red Fox",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Red Fox",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Red Fox",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Snow Rabbit",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Snow Rabbit",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Snow Rabbit",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Snow Rabbit",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Snow Rabbit",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Snow Rabbit",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Black Cat",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Black Cat",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Black Cat",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Black Cat",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Black Cat",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Black Cat",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Forest Hawk",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Forest Hawk",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Forest Hawk",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Forest Hawk",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Forest Hawk",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Forest Hawk",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "River Otter",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "River Otter",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "River Otter",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "River Otter",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "River Otter",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "River Otter",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Stone Turtle",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Stone Turtle",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Stone Turtle",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Stone Turtle",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Stone Turtle",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Stone Turtle",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Desert Lizard",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Desert Lizard",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Desert Lizard",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Desert Lizard",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Desert Lizard",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Desert Lizard",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Ashen Crow",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Ashen Crow",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Ashen Crow",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Ashen Crow",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Ashen Crow",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Ashen Crow",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Blue Frog",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Blue Frog",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Blue Frog",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Blue Frog",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Blue Frog",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Blue Frog",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Wild Boar",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Wild Boar",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Wild Boar",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Wild Boar",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Wild Boar",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Wild Boar",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Pine Owl",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Pine Owl",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Pine Owl",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Pine Owl",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Pine Owl",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Pine Owl",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Sand Snake",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Sand Snake",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Sand Snake",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Sand Snake",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Sand Snake",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Sand Snake",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Mist Ferret",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Mist Ferret",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Mist Ferret",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Mist Ferret",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Mist Ferret",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Mist Ferret",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Iron Beetle",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Iron Beetle",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Iron Beetle",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Iron Beetle",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Iron Beetle",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Iron Beetle",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "White Crane",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "White Crane",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "White Crane",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "White Crane",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "White Crane",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "White Crane",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Cinder Rat",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Cinder Rat",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Cinder Rat",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Cinder Rat",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Cinder Rat",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Cinder Rat",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Meadow Deer",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Meadow Deer",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Meadow Deer",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Meadow Deer",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Meadow Deer",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Meadow Deer",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Storm Gull",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Storm Gull",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Storm Gull",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Storm Gull",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Storm Gull",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Storm Gull",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Shadow Bat",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Shadow Bat",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Shadow Bat",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Shadow Bat",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Shadow Bat",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Shadow Bat",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Mud Toad",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Mud Toad",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Mud Toad",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Mud Toad",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Mud Toad",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Mud Toad",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Leaf Monkey",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Leaf Monkey",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Leaf Monkey",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Leaf Monkey",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Leaf Monkey",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Leaf Monkey",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Frost Cub",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Frost Cub",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Frost Cub",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Frost Cub",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Frost Cub",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Frost Cub",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Temple Gecko",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Temple Gecko",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Temple Gecko",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Temple Gecko",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Temple Gecko",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Temple Gecko",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Rock Badger",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Rock Badger",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Rock Badger",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Rock Badger",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Rock Badger",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Rock Badger",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Tiny Wolf",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Tiny Wolf",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Tiny Wolf",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Tiny Wolf",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Tiny Wolf",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Tiny Wolf",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Flint Jackal",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Flint Jackal",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Flint Jackal",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Flint Jackal",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Flint Jackal",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Flint Jackal",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Ember Mole",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Ember Mole",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Ember Mole",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Ember Mole",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Ember Mole",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Ember Mole",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Cinder Moth",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Cinder Moth",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Cinder Moth",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Cinder Moth",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Cinder Moth",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Cinder Moth",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Scorch Skink",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Scorch Skink",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Scorch Skink",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Scorch Skink",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Scorch Skink",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Scorch Skink",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Magma Pup",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Magma Pup",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Magma Pup",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Magma Pup",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Magma Pup",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Magma Pup",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Brook Newt",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Brook Newt",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Brook Newt",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Brook Newt",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Brook Newt",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Brook Newt",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Pebble Crab",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 2
+    },
+    {
+      "species": "Pebble Crab",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 2
+    },
+    {
+      "species": "Pebble Crab",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 2
+    },
+    {
+      "species": "Pebble Crab",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 2
+    },
+    {
+      "species": "Pebble Crab",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 2
+    },
+    {
+      "species": "Pebble Crab",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 2
+    },
+    {
+      "species": "Tide Minnow",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Tide Minnow",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Tide Minnow",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Tide Minnow",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Tide Minnow",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Tide Minnow",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Reed Heron",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Reed Heron",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Reed Heron",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Reed Heron",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Reed Heron",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Reed Heron",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Marsh Eel",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Marsh Eel",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Marsh Eel",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Marsh Eel",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Marsh Eel",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Marsh Eel",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Breeze Finch",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Breeze Finch",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Breeze Finch",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Breeze Finch",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Breeze Finch",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 10
+    },
+    {
+      "species": "Breeze Finch",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Dust Swift",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Dust Swift",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Dust Swift",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Dust Swift",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Dust Swift",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Dust Swift",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Cliff Swallow",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Cliff Swallow",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Cliff Swallow",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Cliff Swallow",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Cliff Swallow",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Cliff Swallow",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Kite Magpie",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Kite Magpie",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Kite Magpie",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Kite Magpie",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Kite Magpie",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Kite Magpie",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Glide Sparrow",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Glide Sparrow",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Glide Sparrow",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Glide Sparrow",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Glide Sparrow",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 10
+    },
+    {
+      "species": "Glide Sparrow",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Spark Shrew",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Spark Shrew",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Spark Shrew",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Spark Shrew",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Spark Shrew",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Spark Shrew",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Bolt Mouse",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Bolt Mouse",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Bolt Mouse",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Bolt Mouse",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Bolt Mouse",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Bolt Mouse",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Arc Vole",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Arc Vole",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Arc Vole",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Arc Vole",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Arc Vole",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Arc Vole",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Storm Shrike",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Storm Shrike",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Storm Shrike",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Storm Shrike",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Storm Shrike",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Storm Shrike",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 11
+    },
+    {
+      "species": "Zap Quail",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Zap Quail",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Zap Quail",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Zap Quail",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Zap Quail",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Zap Quail",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Clay Tortoise",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Clay Tortoise",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Clay Tortoise",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Clay Tortoise",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Clay Tortoise",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Clay Tortoise",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Moss Hedgehog",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Moss Hedgehog",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Moss Hedgehog",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Moss Hedgehog",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Moss Hedgehog",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Moss Hedgehog",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Dune Armadillo",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Dune Armadillo",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Dune Armadillo",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Dune Armadillo",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Dune Armadillo",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Dune Armadillo",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Gravel Pangolin",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Gravel Pangolin",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Gravel Pangolin",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Gravel Pangolin",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Gravel Pangolin",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Gravel Pangolin",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Loam Marmot",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Loam Marmot",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Loam Marmot",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Loam Marmot",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Loam Marmot",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Loam Marmot",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Crimson Fox",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Crimson Fox",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Crimson Fox",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Crimson Fox",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Crimson Fox",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Crimson Fox",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Frost Hare",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Frost Hare",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Frost Hare",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Frost Hare",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Frost Hare",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Frost Hare",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Night Panther",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Night Panther",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Night Panther",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Night Panther",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Night Panther",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 13
+    },
+    {
+      "species": "Night Panther",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Sky Falcon",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Sky Falcon",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Sky Falcon",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 10
+    },
+    {
+      "species": "Sky Falcon",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Sky Falcon",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Sky Falcon",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Tide Otter",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Tide Otter",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Tide Otter",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Tide Otter",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Tide Otter",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Tide Otter",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Ironback Turtle",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Ironback Turtle",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Ironback Turtle",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Ironback Turtle",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Ironback Turtle",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Ironback Turtle",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Dune Viper",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Dune Viper",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Dune Viper",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Dune Viper",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Dune Viper",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Dune Viper",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Ashwing Raven",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Ashwing Raven",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Ashwing Raven",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Ashwing Raven",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Ashwing Raven",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Ashwing Raven",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Azure Toad",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Azure Toad",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Azure Toad",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Azure Toad",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Azure Toad",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Azure Toad",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Bristle Boar",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Bristle Boar",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Bristle Boar",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Bristle Boar",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Bristle Boar",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Bristle Boar",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Silver Owl",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Silver Owl",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Silver Owl",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Silver Owl",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Silver Owl",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Silver Owl",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Glass Serpent",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 10
+    },
+    {
+      "species": "Glass Serpent",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Glass Serpent",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Glass Serpent",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Glass Serpent",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Glass Serpent",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Mist Lynx",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Mist Lynx",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Mist Lynx",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Mist Lynx",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Mist Lynx",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Mist Lynx",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Steel Beetle",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Steel Beetle",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Steel Beetle",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 10
+    },
+    {
+      "species": "Steel Beetle",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 11
+    },
+    {
+      "species": "Steel Beetle",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 11
+    },
+    {
+      "species": "Steel Beetle",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 10
+    },
+    {
+      "species": "Pearl Crane",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Pearl Crane",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Pearl Crane",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Pearl Crane",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Pearl Crane",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Pearl Crane",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Cinder Weasel",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Cinder Weasel",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Cinder Weasel",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Cinder Weasel",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Cinder Weasel",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Cinder Weasel",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Thorn Stag",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Thorn Stag",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Thorn Stag",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Thorn Stag",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Thorn Stag",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Thorn Stag",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Stormfin Gull",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 10
+    },
+    {
+      "species": "Stormfin Gull",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 10
+    },
+    {
+      "species": "Stormfin Gull",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 10
+    },
+    {
+      "species": "Stormfin Gull",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 11
+    },
+    {
+      "species": "Stormfin Gull",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Stormfin Gull",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 11
+    },
+    {
+      "species": "Duskwings Bat",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Duskwings Bat",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Duskwings Bat",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Duskwings Bat",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Duskwings Bat",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Duskwings Bat",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Mossback Toad",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Mossback Toad",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Mossback Toad",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Mossback Toad",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Mossback Toad",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Mossback Toad",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 11
+    },
+    {
+      "species": "Bamboo Ape",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Bamboo Ape",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Bamboo Ape",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Bamboo Ape",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Bamboo Ape",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Bamboo Ape",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Frostbite Cub",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Frostbite Cub",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Frostbite Cub",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Frostbite Cub",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Frostbite Cub",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Frostbite Cub",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Shrine Salamander",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Shrine Salamander",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Shrine Salamander",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Shrine Salamander",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Shrine Salamander",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Shrine Salamander",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Granite Badger",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Granite Badger",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Granite Badger",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Granite Badger",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Granite Badger",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Granite Badger",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 11
+    },
+    {
+      "species": "Young Direwolf",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Young Direwolf",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Young Direwolf",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Young Direwolf",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Young Direwolf",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Young Direwolf",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Magma Hyena",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 10
+    },
+    {
+      "species": "Magma Hyena",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Magma Hyena",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Magma Hyena",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Magma Hyena",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Magma Hyena",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Ember Ocelot",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Ember Ocelot",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Ember Ocelot",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Ember Ocelot",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Ember Ocelot",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Ember Ocelot",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Pyre Kestrel",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Pyre Kestrel",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Pyre Kestrel",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Pyre Kestrel",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Pyre Kestrel",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Pyre Kestrel",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Scoria Mongoose",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Scoria Mongoose",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Scoria Mongoose",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Scoria Mongoose",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Scoria Mongoose",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Scoria Mongoose",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Blaze Caracal",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 10
+    },
+    {
+      "species": "Blaze Caracal",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Blaze Caracal",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Blaze Caracal",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Blaze Caracal",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 10
+    },
+    {
+      "species": "Blaze Caracal",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Tidal Mink",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Tidal Mink",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 2
+    },
+    {
+      "species": "Tidal Mink",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Tidal Mink",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 2
+    },
+    {
+      "species": "Tidal Mink",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Tidal Mink",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 2
+    },
+    {
+      "species": "Frost Seal",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 2
+    },
+    {
+      "species": "Frost Seal",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 2
+    },
+    {
+      "species": "Frost Seal",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 2
+    },
+    {
+      "species": "Frost Seal",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 2
+    },
+    {
+      "species": "Frost Seal",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 2
+    },
+    {
+      "species": "Frost Seal",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 2
+    },
+    {
+      "species": "Coral Serval",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Coral Serval",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Coral Serval",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Coral Serval",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Coral Serval",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Coral Serval",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Brine Cormorant",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Brine Cormorant",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Brine Cormorant",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Brine Cormorant",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Brine Cormorant",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Brine Cormorant",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Glacier Marten",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Glacier Marten",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 2
+    },
+    {
+      "species": "Glacier Marten",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Glacier Marten",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 2
+    },
+    {
+      "species": "Glacier Marten",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Glacier Marten",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 2
+    },
+    {
+      "species": "Cyclone Harrier",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Cyclone Harrier",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Cyclone Harrier",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Cyclone Harrier",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Cyclone Harrier",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Cyclone Harrier",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Zephyr Osprey",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Zephyr Osprey",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Zephyr Osprey",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Zephyr Osprey",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Zephyr Osprey",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Zephyr Osprey",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Gust Tern",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 10
+    },
+    {
+      "species": "Gust Tern",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 10
+    },
+    {
+      "species": "Gust Tern",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 10
+    },
+    {
+      "species": "Gust Tern",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 11
+    },
+    {
+      "species": "Gust Tern",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Gust Tern",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 10
+    },
+    {
+      "species": "Squall Plover",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Squall Plover",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Squall Plover",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Squall Plover",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Squall Plover",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Squall Plover",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Drift Albatross",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Drift Albatross",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Drift Albatross",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Drift Albatross",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Drift Albatross",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Drift Albatross",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Volt Polecat",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Volt Polecat",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Volt Polecat",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Volt Polecat",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Volt Polecat",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Volt Polecat",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Surge Stoat",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Surge Stoat",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Surge Stoat",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 10
+    },
+    {
+      "species": "Surge Stoat",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Surge Stoat",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 11
+    },
+    {
+      "species": "Surge Stoat",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Thunder Jerboa",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Thunder Jerboa",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Thunder Jerboa",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Thunder Jerboa",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Thunder Jerboa",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Thunder Jerboa",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Static Meerkat",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 10
+    },
+    {
+      "species": "Static Meerkat",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Static Meerkat",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Static Meerkat",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Static Meerkat",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Static Meerkat",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Arc Buzzard",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Arc Buzzard",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Arc Buzzard",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Arc Buzzard",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Arc Buzzard",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Arc Buzzard",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Granite Wombat",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Granite Wombat",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Granite Wombat",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Granite Wombat",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Granite Wombat",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Granite Wombat",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Stoneback Tapir",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Stoneback Tapir",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Stoneback Tapir",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Stoneback Tapir",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Stoneback Tapir",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Stoneback Tapir",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Quartz Aardvark",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Quartz Aardvark",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Quartz Aardvark",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Quartz Aardvark",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Quartz Aardvark",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Quartz Aardvark",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 11
+    },
+    {
+      "species": "Terra Porcupine",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Terra Porcupine",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Terra Porcupine",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Terra Porcupine",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Terra Porcupine",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Terra Porcupine",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Bramble Capybara",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 10
+    },
+    {
+      "species": "Bramble Capybara",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Bramble Capybara",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Bramble Capybara",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Bramble Capybara",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Bramble Capybara",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Glacier Wolf",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Glacier Wolf",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Glacier Wolf",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Glacier Wolf",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Glacier Wolf",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Glacier Wolf",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Tempest Hawk",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Tempest Hawk",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Tempest Hawk",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Tempest Hawk",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Tempest Hawk",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Tempest Hawk",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Umbra Fox",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 11
+    },
+    {
+      "species": "Umbra Fox",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Umbra Fox",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 12
+    },
+    {
+      "species": "Umbra Fox",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Umbra Fox",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 771,
+      "outcome": "win",
+      "rounds": 7
+    },
+    {
+      "species": "Umbra Fox",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Spirit Deer",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Spirit Deer",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Spirit Deer",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Spirit Deer",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Spirit Deer",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Spirit Deer",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Ironfang Tiger",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Ironfang Tiger",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Ironfang Tiger",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Ironfang Tiger",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Ironfang Tiger",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Ironfang Tiger",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Azure Kirin",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Azure Kirin",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Azure Kirin",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Azure Kirin",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Azure Kirin",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Azure Kirin",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Ember Phoenix",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Ember Phoenix",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Ember Phoenix",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Ember Phoenix",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Ember Phoenix",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Ember Phoenix",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Moon Serpent",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Moon Serpent",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Moon Serpent",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Moon Serpent",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Moon Serpent",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Moon Serpent",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Storm Lion",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Storm Lion",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Storm Lion",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Storm Lion",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Storm Lion",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Storm Lion",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Crystal Bear",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Crystal Bear",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Crystal Bear",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Crystal Bear",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Crystal Bear",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Crystal Bear",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Void Raven",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Void Raven",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Void Raven",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Void Raven",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Void Raven",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Void Raven",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Thunder Drake",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Thunder Drake",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Thunder Drake",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 14
+    },
+    {
+      "species": "Thunder Drake",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Thunder Drake",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Thunder Drake",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Frost Lynx",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Frost Lynx",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Frost Lynx",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Frost Lynx",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Frost Lynx",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Frost Lynx",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Armored Polar Bear",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Armored Polar Bear",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Armored Polar Bear",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 12
+    },
+    {
+      "species": "Armored Polar Bear",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Armored Polar Bear",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 11
+    },
+    {
+      "species": "Armored Polar Bear",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Ancient Crane",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Ancient Crane",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Ancient Crane",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Ancient Crane",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Ancient Crane",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Ancient Crane",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Inferno Chimera",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Inferno Chimera",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Inferno Chimera",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Inferno Chimera",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Inferno Chimera",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Inferno Chimera",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Ash Garuda",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Ash Garuda",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Ash Garuda",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Ash Garuda",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Ash Garuda",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Ash Garuda",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Magma Behemoth",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Magma Behemoth",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Magma Behemoth",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Magma Behemoth",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Magma Behemoth",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Magma Behemoth",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Tidelord Leviathan",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Tidelord Leviathan",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Tidelord Leviathan",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Tidelord Leviathan",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Tidelord Leviathan",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Tidelord Leviathan",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Frost Wyrm",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 2
+    },
+    {
+      "species": "Frost Wyrm",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 2
+    },
+    {
+      "species": "Frost Wyrm",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 2
+    },
+    {
+      "species": "Frost Wyrm",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 2
+    },
+    {
+      "species": "Frost Wyrm",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 2
+    },
+    {
+      "species": "Frost Wyrm",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 2
+    },
+    {
+      "species": "Abyss Kraken",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Abyss Kraken",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Abyss Kraken",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Abyss Kraken",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Abyss Kraken",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Abyss Kraken",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Storm Roc",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Storm Roc",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Storm Roc",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Storm Roc",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Storm Roc",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 10
+    },
+    {
+      "species": "Storm Roc",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Tempest Pegasus",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Tempest Pegasus",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Tempest Pegasus",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Tempest Pegasus",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Tempest Pegasus",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Tempest Pegasus",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Cyclone Sphinx",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Cyclone Sphinx",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Cyclone Sphinx",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Cyclone Sphinx",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Cyclone Sphinx",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Cyclone Sphinx",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Thunder Raiju",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Thunder Raiju",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Thunder Raiju",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Thunder Raiju",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Thunder Raiju",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Thunder Raiju",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Storm Wyvern",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Storm Wyvern",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Storm Wyvern",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Storm Wyvern",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Storm Wyvern",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Storm Wyvern",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Galvanic Manticore",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Galvanic Manticore",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Galvanic Manticore",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Galvanic Manticore",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Galvanic Manticore",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Galvanic Manticore",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Titan Golem",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Titan Golem",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 5
+    },
+    {
+      "species": "Titan Golem",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Titan Golem",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Titan Golem",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Titan Golem",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 10
+    },
+    {
+      "species": "Granite Gargoyle",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Granite Gargoyle",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Granite Gargoyle",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Granite Gargoyle",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Granite Gargoyle",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Granite Gargoyle",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Verdant Treant",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Verdant Treant",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Verdant Treant",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Verdant Treant",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Verdant Treant",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Verdant Treant",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Eclipse Kitsune",
+      "rarity": "mythic",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Eclipse Kitsune",
+      "rarity": "mythic",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Eclipse Kitsune",
+      "rarity": "mythic",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Eclipse Kitsune",
+      "rarity": "mythic",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Eclipse Kitsune",
+      "rarity": "mythic",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Eclipse Kitsune",
+      "rarity": "mythic",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Worldstorm Dragon",
+      "rarity": "mythic",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Worldstorm Dragon",
+      "rarity": "mythic",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Worldstorm Dragon",
+      "rarity": "mythic",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Worldstorm Dragon",
+      "rarity": "mythic",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "win",
+      "rounds": 5
+    },
+    {
+      "species": "Worldstorm Dragon",
+      "rarity": "mythic",
+      "level": 65,
+      "seed": 771,
+      "outcome": "win",
+      "rounds": 3
+    },
+    {
+      "species": "Worldstorm Dragon",
+      "rarity": "mythic",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "win",
+      "rounds": 3
+    },
+    {
+      "species": "Ancient Frost Titan",
+      "rarity": "mythic",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Ancient Frost Titan",
+      "rarity": "mythic",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Ancient Frost Titan",
+      "rarity": "mythic",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Ancient Frost Titan",
+      "rarity": "mythic",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Ancient Frost Titan",
+      "rarity": "mythic",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Ancient Frost Titan",
+      "rarity": "mythic",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Solar Stag",
+      "rarity": "mythic",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Solar Stag",
+      "rarity": "mythic",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Solar Stag",
+      "rarity": "mythic",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Solar Stag",
+      "rarity": "mythic",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Solar Stag",
+      "rarity": "mythic",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Solar Stag",
+      "rarity": "mythic",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Abyssal Oni Hound",
+      "rarity": "mythic",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Abyssal Oni Hound",
+      "rarity": "mythic",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Abyssal Oni Hound",
+      "rarity": "mythic",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Abyssal Oni Hound",
+      "rarity": "mythic",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Abyssal Oni Hound",
+      "rarity": "mythic",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Abyssal Oni Hound",
+      "rarity": "mythic",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Vermillion Suzaku",
+      "rarity": "mythic",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Vermillion Suzaku",
+      "rarity": "mythic",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Vermillion Suzaku",
+      "rarity": "mythic",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Vermillion Suzaku",
+      "rarity": "mythic",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Vermillion Suzaku",
+      "rarity": "mythic",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Vermillion Suzaku",
+      "rarity": "mythic",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Azure Ryujin",
+      "rarity": "mythic",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Azure Ryujin",
+      "rarity": "mythic",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Azure Ryujin",
+      "rarity": "mythic",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Azure Ryujin",
+      "rarity": "mythic",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Azure Ryujin",
+      "rarity": "mythic",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Azure Ryujin",
+      "rarity": "mythic",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Turtle Duck",
+      "rarity": "mythic",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Turtle Duck",
+      "rarity": "mythic",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Turtle Duck",
+      "rarity": "mythic",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Turtle Duck",
+      "rarity": "mythic",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Turtle Duck",
+      "rarity": "mythic",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Turtle Duck",
+      "rarity": "mythic",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Stormgod Raijin",
+      "rarity": "mythic",
+      "level": 45,
+      "seed": 771,
+      "outcome": "win",
+      "rounds": 6
+    },
+    {
+      "species": "Stormgod Raijin",
+      "rarity": "mythic",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "win",
+      "rounds": 6
+    },
+    {
+      "species": "Stormgod Raijin",
+      "rarity": "mythic",
+      "level": 55,
+      "seed": 771,
+      "outcome": "win",
+      "rounds": 6
+    },
+    {
+      "species": "Stormgod Raijin",
+      "rarity": "mythic",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "win",
+      "rounds": 6
+    },
+    {
+      "species": "Stormgod Raijin",
+      "rarity": "mythic",
+      "level": 65,
+      "seed": 771,
+      "outcome": "win",
+      "rounds": 7
+    },
+    {
+      "species": "Stormgod Raijin",
+      "rarity": "mythic",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "win",
+      "rounds": 3
+    },
+    {
+      "species": "Worldroot Colossus",
+      "rarity": "mythic",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Worldroot Colossus",
+      "rarity": "mythic",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Worldroot Colossus",
+      "rarity": "mythic",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Worldroot Colossus",
+      "rarity": "mythic",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Worldroot Colossus",
+      "rarity": "mythic",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Worldroot Colossus",
+      "rarity": "mythic",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Ash Crown Phoenix",
+      "rarity": "mythic",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Ash Crown Phoenix",
+      "rarity": "mythic",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Ash Crown Phoenix",
+      "rarity": "mythic",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Ash Crown Phoenix",
+      "rarity": "mythic",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Ash Crown Phoenix",
+      "rarity": "mythic",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Ash Crown Phoenix",
+      "rarity": "mythic",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Moonwell Leviathan",
+      "rarity": "mythic",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Moonwell Leviathan",
+      "rarity": "mythic",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Moonwell Leviathan",
+      "rarity": "mythic",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Moonwell Leviathan",
+      "rarity": "mythic",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Moonwell Leviathan",
+      "rarity": "mythic",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Moonwell Leviathan",
+      "rarity": "mythic",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Skyglass Kirin",
+      "rarity": "mythic",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Skyglass Kirin",
+      "rarity": "mythic",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Skyglass Kirin",
+      "rarity": "mythic",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Skyglass Kirin",
+      "rarity": "mythic",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Skyglass Kirin",
+      "rarity": "mythic",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 4
+    },
+    {
+      "species": "Skyglass Kirin",
+      "rarity": "mythic",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Thunderbloom Kirin",
+      "rarity": "mythic",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Thunderbloom Kirin",
+      "rarity": "mythic",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Thunderbloom Kirin",
+      "rarity": "mythic",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Thunderbloom Kirin",
+      "rarity": "mythic",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Thunderbloom Kirin",
+      "rarity": "mythic",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Thunderbloom Kirin",
+      "rarity": "mythic",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "win",
+      "rounds": 6
+    },
+    {
+      "species": "Gravepeak Behemoth",
+      "rarity": "mythic",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Gravepeak Behemoth",
+      "rarity": "mythic",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Gravepeak Behemoth",
+      "rarity": "mythic",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Gravepeak Behemoth",
+      "rarity": "mythic",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Gravepeak Behemoth",
+      "rarity": "mythic",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Gravepeak Behemoth",
+      "rarity": "mythic",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Celestial Lion",
+      "rarity": "mythic",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Celestial Lion",
+      "rarity": "mythic",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Celestial Lion",
+      "rarity": "mythic",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Celestial Lion",
+      "rarity": "mythic",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Celestial Lion",
+      "rarity": "mythic",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Celestial Lion",
+      "rarity": "mythic",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Cinder Cub",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Cinder Cub",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Cinder Cub",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Cinder Cub",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Cinder Cub",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Cinder Cub",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Ripple Seal",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Ripple Seal",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Ripple Seal",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Ripple Seal",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Ripple Seal",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Ripple Seal",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Gale Chick",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Gale Chick",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Gale Chick",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Gale Chick",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Gale Chick",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Gale Chick",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Spark Pup",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Spark Pup",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Spark Pup",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Spark Pup",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Spark Pup",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Spark Pup",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Pebble Tortoise",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Pebble Tortoise",
+      "rarity": "standard",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Pebble Tortoise",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Pebble Tortoise",
+      "rarity": "standard",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Pebble Tortoise",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Pebble Tortoise",
+      "rarity": "standard",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Ember Wolf",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Ember Wolf",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Ember Wolf",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Ember Wolf",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Ember Wolf",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Ember Wolf",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Inferno Fenrir",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Inferno Fenrir",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Inferno Fenrir",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Inferno Fenrir",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Inferno Fenrir",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Inferno Fenrir",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 6
+    },
+    {
+      "species": "Tidal Selkie",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Tidal Selkie",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Tidal Selkie",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Tidal Selkie",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Tidal Selkie",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Tidal Selkie",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Abyssal Leviathan",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Abyssal Leviathan",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Abyssal Leviathan",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Abyssal Leviathan",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Abyssal Leviathan",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Abyssal Leviathan",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Storm Hawk",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Storm Hawk",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Storm Hawk",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Storm Hawk",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Storm Hawk",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Storm Hawk",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Tempest Roc",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Tempest Roc",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Tempest Roc",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Tempest Roc",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Tempest Roc",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 9
+    },
+    {
+      "species": "Tempest Roc",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Bolt Fang",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Bolt Fang",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Bolt Fang",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "win",
+      "rounds": 6
+    },
+    {
+      "species": "Bolt Fang",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Bolt Fang",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "win",
+      "rounds": 6
+    },
+    {
+      "species": "Bolt Fang",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Raijin Hound",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Raijin Hound",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Raijin Hound",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 771,
+      "outcome": "win",
+      "rounds": 5
+    },
+    {
+      "species": "Raijin Hound",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 7
+    },
+    {
+      "species": "Raijin Hound",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 771,
+      "outcome": "win",
+      "rounds": 5
+    },
+    {
+      "species": "Raijin Hound",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 8
+    },
+    {
+      "species": "Granite Tortoise",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Granite Tortoise",
+      "rarity": "rare",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Granite Tortoise",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Granite Tortoise",
+      "rarity": "rare",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Granite Tortoise",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Granite Tortoise",
+      "rarity": "rare",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Mountain Genbu",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Mountain Genbu",
+      "rarity": "legendary",
+      "level": 45,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Mountain Genbu",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Mountain Genbu",
+      "rarity": "legendary",
+      "level": 55,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Mountain Genbu",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 771,
+      "outcome": "loss",
+      "rounds": 3
+    },
+    {
+      "species": "Mountain Genbu",
+      "rarity": "legendary",
+      "level": 65,
+      "seed": 1771,
+      "outcome": "loss",
+      "rounds": 3
+    }
+  ]
+}

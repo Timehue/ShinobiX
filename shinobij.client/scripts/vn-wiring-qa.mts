@@ -26,22 +26,6 @@ try {
         cardAuthorityVersion: 1, cardDefeated: true, cardLastOutcome: 'player', cardSettledAt: 1, cardDefeatedAt: 1, cardProofId: 'previewcards', cardLastProofId: 'previewcards' };
     const pet = { id: 'qa-pet', name: 'QA Wolf', rarity: 'standard', level: 10, xp: 0, maxLevel: 100,
         hp: 100, attack: 20, defense: 10, speed: 15, jutsus: [], unlockedForPve: true, happiness: 100 };
-    // Keep the real Dungeon host, authority adapter and result callbacks. Replace
-    // only the 3D renderer so this check can control when its animation finishes.
-    await context.route('**/src/components/PetColiseum.tsx*', async route => {
-        const source = await (await route.fetch()).text();
-        const reactModule = source.match(/from\s+["']([^"']*\/react\.js[^"']*)["']/)?.[1];
-        assert.ok(reactModule, 'Vite must expose the renderer React dependency');
-        await route.fulfill({ contentType: 'application/javascript', body: `
-            import React from ${JSON.stringify(reactModule)};
-            export function PetColiseumDuel(props) {
-                return React.createElement('section', null,
-                    React.createElement('h2', null, 'Pet result fixture'),
-                    React.createElement('p', {'data-testid': 'pet-settlement'}, props.settlementStatus),
-                    React.createElement('button', {onClick: () => props.onOutcome({result: 'win'})}, 'Finish fixture battle'),
-                    React.createElement('button', {onClick: props.onExit}, 'Return to Dungeon'));
-            }` });
-    });
     await context.route('**/api/**', async route => {
         const pathname = new URL(route.request().url()).pathname;
         requests.push(pathname);
@@ -49,16 +33,6 @@ try {
             ok: true, matchId: 'qacards12345', _saveVersion: 5,
             character: { name: 'QA Shinobi', pets: [pet], activePetId: pet.id, activeDungeonRun: proof },
             session: { ...projectMatchForViewer(match, 'p1'), matchId: 'qacards12345', aiDifficulty: 'medium', aiDeckName: 'QA Keeper' },
-        } : pathname === '/api/pet/battle-start' ? {
-            dungeon: true, token: 'qapet12345678', reportKey: '7319:casual', seed: 7319,
-            playerPets: [pet], opponentPets: [{ ...pet, id: 'dungeon-rare-beast', name: 'Sealed Beast' }],
-            battleConfig: { mode: '1v1', seed: 7319, damageMult: 1, hpMult: 1, revive: false, applyItems: true, accuracy: true, terrain: null },
-        } : pathname === '/api/pet/battle-result' ? {
-            dungeon: true, outcome: 'win', _saveVersion: 6,
-            character: { name: 'QA Shinobi', pets: [pet], activePetId: pet.id, activeDungeonRun: {
-                ...proof, petAuthorityVersion: 1, petDefeated: true, petLastOutcome: 'win', petSettledAt: 1,
-                petDefeatedAt: 1, petProofId: 'qapet12345678', petLastProofId: 'qapet12345678', petLastPetIds: [pet.id],
-            } },
         } : { ok: false, error: 'No live API calls from the wiring preview' };
         await route.fulfill({ contentType: 'application/json', body: JSON.stringify(body) });
     });
@@ -112,18 +86,8 @@ try {
     assert.equal(requests.filter(url => url === '/api/card-clash/ai-start').length, 1);
     checks.push('Real Chronicle result stays mounted after proof adoption and Continue starts the next seal at line one');
 
-    await advance('Next');
-    await page.getByRole('button', { name: 'Challenge Rare Pet', exact: true }).click();
-    await page.getByRole('button', { name: 'Start Pet Battle', exact: true }).click();
-    await page.getByRole('button', { name: 'Finish fixture battle', exact: true }).click();
-    await page.getByTestId('pet-settlement').filter({ hasText: 'settled' }).waitFor();
-    assert.equal(await page.getByRole('button', { name: 'Claim Dungeon Reward', exact: true }).count(), 0,
-        'pet proof must not unmount its result renderer');
-    await page.screenshot({ path: `${output}/pet-result-before-exit.png` });
-    await page.getByRole('button', { name: 'Return to Dungeon', exact: true }).click();
-    await page.getByRole('button', { name: 'Claim Dungeon Reward', exact: true }).waitFor();
-    assert.equal(requests.filter(url => url === '/api/pet/battle-result').length, 1);
-    checks.push('Rare Beast authority proof retains the result host until exit, then exposes reward claim (3D renderer stubbed)');
+    // Current Dungeon pet commands and proof recovery are covered by
+    // verify-pet-battle-menus.mjs --dungeon-only and api/pet/showdown.dungeon.test.ts.
 
     await open({ event: row.eventId });
     await page.getByRole('button', { name: 'Visual novel settings' }).click();

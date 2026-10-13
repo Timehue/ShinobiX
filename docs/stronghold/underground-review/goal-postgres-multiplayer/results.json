@@ -1,0 +1,140 @@
+{
+  "checks": [
+    {
+      "engine": "chromium",
+      "sector": 12,
+      "playerLevel": 50,
+      "defenderVillage": "Ashen Leaf Village",
+      "twoAuthenticatedBrowsers": true,
+      "livePeerMovement": true,
+      "exteriorIsolation": true,
+      "collisionRejected": true,
+      "leaveReconnect": true,
+      "offlineRecovery": true,
+      "staleLeaseRejected": true,
+      "battleAdmission": true,
+      "bothJoins": true,
+      "combatMovementBlocked": true,
+      "koAndRewards": true,
+      "rewardReplay": true
+    },
+    {
+      "engine": "chromium",
+      "sector": 99,
+      "playerLevel": 50,
+      "defenderVillage": "Frostfang Village",
+      "twoAuthenticatedBrowsers": true,
+      "livePeerMovement": true,
+      "exteriorIsolation": true,
+      "collisionRejected": true,
+      "leaveReconnect": true,
+      "offlineRecovery": true,
+      "staleLeaseRejected": true,
+      "battleAdmission": true,
+      "bothJoins": true,
+      "combatMovementBlocked": true,
+      "koAndRewards": true,
+      "rewardReplay": true
+    },
+    {
+      "engine": "webkit",
+      "sector": 12,
+      "playerLevel": 50,
+      "defenderVillage": "Ashen Leaf Village",
+      "twoAuthenticatedBrowsers": true,
+      "livePeerMovement": true,
+      "exteriorIsolation": true,
+      "collisionRejected": true,
+      "leaveReconnect": true,
+      "offlineRecovery": true,
+      "staleLeaseRejected": true,
+      "battleAdmission": true,
+      "bothJoins": true,
+      "combatMovementBlocked": true,
+      "koAndRewards": true,
+      "rewardReplay": true
+    },
+    {
+      "engine": "webkit",
+      "sector": 99,
+      "playerLevel": 50,
+      "defenderVillage": "Frostfang Village",
+      "twoAuthenticatedBrowsers": true,
+      "livePeerMovement": true,
+      "exteriorIsolation": true,
+      "collisionRejected": true,
+      "leaveReconnect": true,
+      "offlineRecovery": true,
+      "staleLeaseRejected": true,
+      "battleAdmission": true,
+      "bothJoins": true,
+      "combatMovementBlocked": true,
+      "koAndRewards": true,
+      "rewardReplay": true
+    }
+  ],
+  "metrics": [
+    {
+      "engine": "chromium",
+      "sector": 12,
+      "cpuSlowdown": 4,
+      "responseDelay": 120,
+      "frames": 152,
+      "p95Ms": 16.700000000000728,
+      "longestMs": 16.800000000000182
+    },
+    {
+      "engine": "chromium",
+      "sector": 99,
+      "cpuSlowdown": 4,
+      "responseDelay": 120,
+      "frames": 149,
+      "p95Ms": 16.799999999999727,
+      "longestMs": 50
+    },
+    {
+      "engine": "webkit",
+      "sector": 12,
+      "cpuSlowdown": 1,
+      "responseDelay": 120,
+      "frames": 149,
+      "p95Ms": 30,
+      "longestMs": 51
+    },
+    {
+      "engine": "webkit",
+      "sector": 99,
+      "cpuSlowdown": 1,
+      "responseDelay": 120,
+      "frames": 148,
+      "p95Ms": 30,
+      "longestMs": 57
+    }
+  ],
+  "loadSamples": [
+    {
+      "sector": 12,
+      "playerLevel": 50,
+      "players": 24,
+      "stepsPerPlayer": 6,
+      "requests": 192,
+      "responseDelay": 120,
+      "p95Ms": 282.50960000000487,
+      "longestMs": 289.1886000000013
+    },
+    {
+      "sector": 99,
+      "playerLevel": 50,
+      "players": 24,
+      "stepsPerPlayer": 6,
+      "requests": 192,
+      "responseDelay": 120,
+      "p95Ms": 292.34270000000106,
+      "longestMs": 301.7189999999973
+    }
+  ],
+  "errors": [],
+  "storage": "isolated-PostgreSQL 16.15",
+  "handlers": "actual-authenticated-http",
+  "simulatedLatencyMs": 120
+}

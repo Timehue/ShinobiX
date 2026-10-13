@@ -64,6 +64,7 @@ export type HollowGateTileKind =
 export type HollowGateTerrain = "wall" | "room_floor" | "corridor_floor" | "door";
 
 export type HollowGateTile = {
+    solid?: boolean;
     kind: HollowGateTileKind;
     terrain?: HollowGateTerrain;
     // BSP room membership — every floor cell inside a room shares the same
@@ -128,6 +129,9 @@ export type HollowGateEventConfig = HollowGateVariant & {
 };
 
 export type HollowGateShrineRun = {
+    floorFeatures?: import('../../../shared/underground-floor-features').UndergroundFloorFeature[];
+    floorFeaturesVersion?: 1;
+    wanderers?: import('../../../shared/hollow-gate-wanderers').HollowGateWanderer[];
     width: number;
     height: number;
     playerX: number;

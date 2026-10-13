@@ -181,7 +181,11 @@ describe('/api/sector/chat', () => {
         assert.equal(heard[0], 'seed 1');
     });
 
-    it('rate limits each speaker', async () => {
+    it('rate limits each speaker', async (t) => {
+        // The post limit's windows are aligned to the wall clock (floor(now /
+        // 60 s)), so posts that straddle a minute boundary start a fresh window
+        // and the over-limit post is allowed. Hold the clock while it fills.
+        t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
         const statuses: number[] = [];
         for (let i = 0; i <= SECTOR_CHAT_POSTS_PER_MINUTE; i++) statuses.push((await call('POST', LISTENER, { sector: SECTOR, text: `line ${i}` }, '10.9.9.9')).status);
         assert.deepEqual(statuses.slice(0, SECTOR_CHAT_POSTS_PER_MINUTE), Array(SECTOR_CHAT_POSTS_PER_MINUTE).fill(200));

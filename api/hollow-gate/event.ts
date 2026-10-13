@@ -22,6 +22,8 @@ import {
 } from './_ledger.js';
 import { rollHollowLockedDoor, type HollowLockedDoorResult } from './_locked-door.js';
 import { hollowGateManifestNode, hollowGatePositionNodeId } from './_floor-manifest.js';
+import { hollowGateWandererForNode } from './_wanderers.js';
+import { hollowGateWandererDistance } from '../../shared/hollow-gate-wanderers.js';
 
 type HollowGateEventAction =
     | 'shrine'
@@ -34,9 +36,12 @@ type HollowGateEventAction =
     | 'keeper-heal'
     | 'keeper-torch'
     | 'keeper-key';
+// Traveler gifts have their own bounded, one-use identity per sealed NPC.
+type TravelerAction = 'traveler-heal' | 'traveler-key' | 'traveler-torch';
+type EventAction = HollowGateEventAction | TravelerAction;
 
 type EventRoll = {
-    action: HollowGateEventAction;
+    action: EventAction;
     credit: HollowGateRewardCredit;
     keyDelta?: number;
     torchDelta?: number;
@@ -56,11 +61,12 @@ export function hollowGateEventNeedsSaveRecovery(
     return alreadyResolved && !appliedIds.includes(sourceId);
 }
 
-function isAction(value: unknown): value is HollowGateEventAction {
+function isAction(value: unknown): value is EventAction {
     return value === 'shrine' || value === 'chest' || value === 'shard-vein' || value === 'trap'
         || value === 'hidden-tablet' || value === 'hidden-relic'
         || value === 'locked-door'
-        || value === 'keeper-heal' || value === 'keeper-torch' || value === 'keeper-key';
+        || value === 'keeper-heal' || value === 'keeper-torch' || value === 'keeper-key'
+        || value === 'traveler-heal' || value === 'traveler-key' || value === 'traveler-torch';
 }
 
 function parseNodeId(value: unknown, floor: number): { nodeId: string; index: number } | null {
@@ -71,7 +77,8 @@ function parseNodeId(value: unknown, floor: number): { nodeId: string; index: nu
     return Number.isInteger(index) && index >= 0 && index < 31 * 21 ? { nodeId, index } : null;
 }
 
-function maxEvents(action: HollowGateEventAction, floor: number): number {
+function maxEvents(action: EventAction, floor: number): number {
+    if (action.startsWith('traveler-')) return 2;
     if (action === 'chest') return 3;
     if (action === 'shard-vein') return 1 + Math.floor(floor / 2);
     if (action === 'trap') return 3 + Math.floor(floor / 2);
@@ -79,7 +86,7 @@ function maxEvents(action: HollowGateEventAction, floor: number): number {
     return 1;
 }
 
-function rollEvent(action: HollowGateEventAction, floor: number, profession: unknown): EventRoll {
+function rollEvent(action: EventAction, floor: number, profession: unknown): EventRoll {
     if (action === 'shrine') return { action, credit: {}, torchDelta: 10 };
     if (action === 'chest') {
         return {
@@ -113,7 +120,7 @@ function rollEvent(action: HollowGateEventAction, floor: number, profession: unk
         } };
     }
     if (action === 'locked-door') throw new Error('Locked-door rolls require the persisted pet-token path.');
-    return { action, credit: {}, ...(action === 'keeper-key' ? { keyDelta: 1 } : {}), ...(action === 'keeper-torch' ? { torchDelta: 10 } : {}) };
+    return { action, credit: {}, ...(action === 'keeper-key' || action === 'traveler-key' ? { keyDelta: 1 } : {}), ...(action === 'keeper-torch' || action === 'traveler-torch' ? { torchDelta: 10 } : {}) };
 }
 
 function addCredit(character: Record<string, unknown>, credit: HollowGateRewardCredit): Record<string, unknown> {
@@ -196,7 +203,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const floor = Math.max(1, Math.floor(Number(run.currentFloor) || 1));
             const parsedNode = parseNodeId(body.nodeId, floor);
             if (!parsedNode) return { status: 409, body: { error: 'The event node does not match the sealed floor.' } };
-            const group = action.startsWith('keeper-') ? 'keeper' : action;
+            const travelerAction = action.startsWith('traveler-');
+            const group = action.startsWith('keeper-') ? 'keeper' : travelerAction ? 'traveler' : action;
             const sourceId = `event:${floor}:${group}:${parsedNode.nodeId}`;
             const resolved = Array.isArray(run.resolvedEventIds) ? run.resolvedEventIds : [];
             const alreadyResolved = resolved.includes(sourceId);
@@ -221,14 +229,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             : action === 'shrine' || action.startsWith('hidden-') ? 'shrine'
                                 : 'npc';
             const manifest = run.floorManifests?.[String(floor)];
-            if (!alreadyResolved && (hollowGatePositionNodeId(manifest, run.position) !== parsedNode.nodeId
+            const traveler = travelerAction ? hollowGateWandererForNode(run, parsedNode.nodeId) : undefined;
+            if (!alreadyResolved && travelerAction && (!traveler || traveler.spent || !manifest || !run.position || run.pendingAmbush
+                || (action === 'traveler-heal' ? traveler.role !== 'medic' : traveler.role !== 'wayfarer')
+                || hollowGateWandererDistance(run.position.y * manifest.width + run.position.x, traveler.tile, manifest.width) > 1)) {
+                return { status: 409, body: { error: 'That traveler is not available within reach on the sealed floor.' } };
+            }
+            if (!alreadyResolved && !travelerAction && (hollowGatePositionNodeId(manifest, run.position) !== parsedNode.nodeId
                 || hollowGateManifestNode(manifest, parsedNode.nodeId) !== expectedKind)) {
                 return { status: 409, body: { error: 'The event node does not match the sealed shrine floor.' } };
             }
             if (!alreadyResolved && action === 'locked-door' && whole(run.keys) < 1) {
                 return { status: 409, body: { error: 'A Shrine Key is required.' } };
             }
-            if (!alreadyResolved && action === 'keeper-heal' && run.chosenAugmentId === 'treasure-sense') {
+            if (!alreadyResolved && (action === 'keeper-heal' || action === 'traveler-heal') && run.chosenAugmentId === 'treasure-sense') {
                 return { status: 409, body: { error: 'Treasure Sense has sealed the Keeper healing rite.' } };
             }
             let roll = await kv.get<EventRoll>(receiptKey);
@@ -298,7 +312,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         : Math.max(0, whole(run.keys) + Math.floor(Number(roll!.keyDelta) || 0)),
                     torch: alreadyResolved
                         ? whole(run.torch)
-                        : roll!.action === 'keeper-torch' || roll!.action === 'shrine'
+                        : roll!.action === 'keeper-torch' || roll!.action === 'traveler-torch' || roll!.action === 'shrine'
                             ? 10
                             : Math.max(0, Math.min(10, whole(run.torch) + whole(roll!.torchDelta))),
                     resolvedEventIds: alreadyResolved ? resolved : [...resolved, sourceId].slice(-512),
@@ -307,7 +321,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 let damage = 0;
                 let revived = false;
                 let ended = false;
-                if (action === 'keeper-heal') {
+                if (action === 'keeper-heal' || action === 'traveler-heal') {
                     const heal = Math.floor(whole(next.maxHp) * 0.33);
                     next.hp = Math.min(whole(next.maxHp), whole(next.hp) + heal);
                 } else if (action === 'trap' || (action === 'locked-door' && roll!.lockedResult?.outcome === 'trap')) {

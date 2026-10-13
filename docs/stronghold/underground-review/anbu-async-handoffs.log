@@ -1,0 +1,5 @@
+
+> shinobix-api@1.0.0 check:tooling-handoffs
+> node --import tsx scripts/export-tooling-handoffs.mjs --check
+
+[handoff] generated artifacts are current

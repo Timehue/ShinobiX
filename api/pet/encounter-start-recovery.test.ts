@@ -72,11 +72,9 @@ describe('terminal wild-pet recovery cleanup', { concurrency: false }, () => {
         it(`cleans interrupted ${resolution} authority and admits the next fresh search`, async () => {
             const receipt = await seedTerminal(resolution);
             const recovered = await post('newpetrequest001');
-            assert.equal(recovered.status, 200);
-            assert.equal(recovered.body?.requestId, requestId);
-            assert.equal(recovered.body?.resolved, true);
-            assert.equal(recovered.body?.resolution, resolution);
-            assert.equal(recovered.body?.pet, null);
+            assert.equal(recovered.status, 409, 'a fresh request must pass presence admission after cleanup');
+            assert.equal(recovered.body?.reason, 'no-presence');
+            assert.equal(recovered.body?.requestId, undefined, 'never redirect a fresh id to a terminal receipt');
             assert.equal(recovered.body?.token, undefined);
             assert.equal(await kv.get(activeKey), null);
             assert.equal(await kv.get(tokenKey), null);

@@ -24,12 +24,15 @@ function prefersReducedMotion(): boolean {
         && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 }
 
-export function HollowGateAvatar({ tileX, tileY, tilePx, avatarImage, name }: {
+export function HollowGateAvatar({ tileX, tileY, tilePx, avatarImage, name, onSelect, disposition, label }: {
     tileX: number;
     tileY: number;
     tilePx: number;
     avatarImage?: string;
     name: string;
+    onSelect?: () => void;
+    disposition?: 'friendly' | 'hostile';
+    label?: string;
 }) {
     const figRef = useRef<HTMLDivElement | null>(null);
     const spriteRef = useRef<HTMLSpanElement | null>(null);
@@ -42,7 +45,7 @@ export function HollowGateAvatar({ tileX, tileY, tilePx, avatarImage, name }: {
     // Layout effects run in declaration order, so the tile-size mirror lands
     // before the first paint below (a ref write during render trips the
     // hooks purity rule).
-    useLayoutEffect(() => { tileRef.current = tilePx; });
+    useLayoutEffect(() => { tileRef.current = tilePx; paint(); }, [tilePx]);
 
     function paint() {
         const fig = figRef.current;
@@ -57,12 +60,19 @@ export function HollowGateAvatar({ tileX, tileY, tilePx, avatarImage, name }: {
     // First paint before the browser paints — no flash at the board origin.
     useLayoutEffect(() => { paint(); }, []);
 
+    function stopGlide() {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = 0;
+        lastTsRef.current = 0;
+        waypointsRef.current = [];
+        figRef.current?.classList.remove('is-walking');
+    }
+
     useEffect(() => {
-        if (prefersReducedMotion()) {
-            waypointsRef.current = [];
+        if (document.hidden || prefersReducedMotion()) {
+            stopGlide();
             posRef.current = { x: tileX, y: tileY };
             paint();
-            figRef.current?.classList.remove("is-walking");
             return;
         }
         // Enqueue the new logical tile as a waypoint (skip exact duplicates).
@@ -111,39 +121,50 @@ export function HollowGateAvatar({ tileX, tileY, tilePx, avatarImage, name }: {
         rafRef.current = requestAnimationFrame(tick);
         // No cleanup between waypoints — the loop drains the queue and stops
         // itself; unmount cleanup below cancels for real.
-    }, [tileX, tileY]);
-
-    useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
+    }, [tileX, tileY, tilePx]);
 
     // rAF suspends in hidden tabs, which would freeze a glide mid-stride and
     // replay the backlog on return. Snap to the newest waypoint instead.
     useEffect(() => {
-        const onVis = () => {
-            if (document.visibilityState !== "hidden") return;
+        const snap = () => {
             const q = waypointsRef.current;
-            if (q.length > 0) { posRef.current = q[q.length - 1]; q.length = 0; }
+            if (q.length > 0) posRef.current = q[q.length - 1];
+            stopGlide();
             paint();
-            figRef.current?.classList.remove("is-walking");
         };
+        const onVis = () => { if (document.hidden) snap(); };
+        const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
+        const onMotion = () => { if (motion.matches) snap(); };
         document.addEventListener("visibilitychange", onVis);
-        return () => document.removeEventListener("visibilitychange", onVis);
+        window.addEventListener('pagehide', snap);
+        motion.addEventListener('change', onMotion);
+        return () => {
+            document.removeEventListener("visibilitychange", onVis);
+            window.removeEventListener('pagehide', snap);
+            motion.removeEventListener('change', onMotion);
+            stopGlide();
+        };
     }, []);
 
     const initials = name.slice(0, 2).toUpperCase();
-    const figSize = tilePx * 0.72;
+    const figSize = Math.min(56, tilePx * 0.64);
 
     return (
-        <div className="hg-avatar" ref={figRef} style={{ width: figSize, height: figSize * 1.28 }} aria-hidden="true">
+        <div className={`hg-avatar${disposition ? ` hg-wanderer is-${disposition}` : ''}`} ref={figRef}
+            style={{ width: figSize, height: figSize * 1.28 }} aria-hidden={onSelect ? undefined : true}
+            role={onSelect ? 'button' : undefined} tabIndex={onSelect ? 0 : undefined} aria-label={onSelect ? `${name}, ${label}` : undefined}
+            onClick={onSelect} onKeyDown={onSelect ? event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); onSelect(); } } : undefined}>
             <span className="hg-avatar-shadow" />
             <span className="hg-avatar-aura" />
             <span className="hg-avatar-sprite" ref={spriteRef}>
                 <span className="hg-avatar-body">
                     {avatarImage
-                        ? <img src={avatarImage} alt={name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                        ? <img src={avatarImage} alt={name} style={disposition ? { objectFit: 'contain' } : undefined} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
                         : <span className="hg-avatar-initials">{initials}</span>}
                 </span>
                 <span className="hg-avatar-pin" />
             </span>
+            {label && <span className="hg-avatar-label"><b>{name}</b><small>{label}</small></span>}
         </div>
     );
 }

@@ -215,6 +215,8 @@ export type AncientChestLoot = {
 
 export type AncientChestResult = {
     loot?: AncientChestLoot;
+    /** The discovery was already paid; loot describes its saved receipt. */
+    replayed?: boolean;
     character?: Character;
     saveVersion?: number;
     sectorPool?: SectorPoolView;
@@ -253,7 +255,7 @@ async function requestAncientChest(
             body: JSON.stringify({ playerName, sector, requestId: operationId, worldExploreRequestId }),
         });
         const data = await response.json().catch(() => null) as
-            { loot?: AncientChestLoot; character?: Character; _saveVersion?: number; sectorPool?: SectorPoolView; error?: string; reason?: string } | null;
+            { loot?: AncientChestLoot; replayed?: boolean; character?: Character; _saveVersion?: number; sectorPool?: SectorPoolView; error?: string; reason?: string } | null;
         if (data?.sectorPool) noteSectorPoolView(sector, data.sectorPool);
         if (!response.ok || !data?.loot || !data.character) {
             // The chest already exists — it was discovered, sealed, and charged
@@ -264,7 +266,7 @@ async function requestAncientChest(
         // The chest opens its own reveal for this item, so the gear pop-up stays quiet
         // for it. Asked before the caller adopts the character that holds the item.
         if (data.loot.itemId) expectGearDropReveal(data.loot.itemId);
-        return { loot: data.loot, character: data.character, saveVersion: data._saveVersion, ...(data.sectorPool ? { sectorPool: data.sectorPool } : {}) };
+        return { loot: data.loot, replayed: data.replayed === true, character: data.character, saveVersion: data._saveVersion, ...(data.sectorPool ? { sectorPool: data.sectorPool } : {}) };
     } catch {
         return worldRewardFailure('offline', undefined, { committedReward: true });
     }

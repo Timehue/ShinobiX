@@ -473,6 +473,11 @@ test('awaken completion survives save→delete and delete→effects failures, th
     // Second attempt consumes the active trial, then fails the first
     // exact-once Era contribution. The in-save receipt must still make the
     // third attempt successful even though the active proof is now gone.
+    // This store patches the Supabase REST adapter, which has no multi-key
+    // transactions, so Era receipts take the one-row-hash fallback here. The
+    // transactional path (receipt row + counter shard) is proven in
+    // api/_era-receipts.test.ts and end to end in
+    // api/sector/wanderer-claim-authority.test.ts.
     const originalHset = kv.hset;
     let remainingEraFailures = 2;
     kv.hset = async (key: string, fields: Record<string, unknown>) => {

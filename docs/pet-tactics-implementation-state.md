@@ -81,3 +81,31 @@ Storm Hawk/Gale Chick and Granite Tortoise/Abyssal Leviathan remain tuning watch
 items under controlled lead substitutions. Full owned-pet direct duels and NPC
 rules stay separate from this 12-species balance claim. Findings and reproduction
 are in [the review](audits/pet-tactics-prototype/review-2026-10-10.md).
+
+## Current follow-up — October 11
+
+The owner's latest ruling retires the continuous-time owned-pet duel and its
+Fight Plan screen. Restyling that system was incorrect and has been reverted.
+Pet Arena no longer mounts its live host; direct challenges open the current
+twelve-pet command room. Socket challenges and old Dungeon admission fail
+closed. Historical receipt settlement remains available without new admission.
+
+Dungeon Rare Beast now uses the server Showdown command arena with one immutable
+session bound to the exact proved parent run. Terminal commands/concessions
+record the parent proof before advancing; only Dungeon run settlement pays.
+Ranked stays controlled by both human players, while Beastfront stays AI-driven.
+
+The accepted slate/gold material, original ink artwork, responsive commands,
+left-side squad HP/energy, targets and result panels cover current native
+NPC/story/wild/Dungeon fights, Beastfront and Gauntlet. The retired renderer is
+excluded from current presentation and screenshot QA.
+
+Fresh NPC response-v2 sessions give Guard/protection an earlier phase and
+compress unprepared/prepared signatures toward 60%/75% maximum HP. Paid NPC
+tiers match rarity; training, policy, traits and gear distinguish difficulty.
+Unversioned sessions, descriptors and input-only historical proofs keep their
+legacy rules. Competitive twelve-pet and Beastfront numbers remain unchanged.
+
+Automated evidence and final validation are maintained in
+[the current audit](audits/pet-battle-unification/README.md). These simulations
+do not establish a final human meta or complete full-roster PvP expansion.

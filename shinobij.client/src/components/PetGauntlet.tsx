@@ -3,7 +3,7 @@
  * next to the Tactical Pet Arena).
  *
  * Self-contained: it owns its GauntletRun state (lib/pet-gauntlet.ts) and its own
- * full-screen fight via PetColiseumDuel, so it never tangles with PetArena's
+ * full-screen fight via PetBoardArena, so it never tangles with PetArena's
  * existing battle/duel state — adding the tab is therefore zero-risk to the
  * Coliseum + Tactical flows.
  *
@@ -29,6 +29,7 @@ import { teamStatTotals, elementalEdge, type TeamStatTotals } from "../lib/pet-g
 import { petCardImage } from "../lib/pet-battle-anim";
 import { ROLE_META, derivePetRole, type PetRole } from "../lib/pet-roles";
 import { PetBoardArena } from "./PetBoardArena";
+import "../styles/pet-battle-theme.css";
 import { GameArtIcon, type GameArtIconKind } from "./GameArtIcon";
 import gauntletHero from "../assets/coliseum/gauntlet-hero.webp";
 import gauntletBoard from "../assets/coliseum/gauntlet-board.webp";
@@ -105,8 +106,8 @@ function PetMiniCard({ pet, footer, sharedImages = {}, badge }: { pet: Pet; foot
 }
 
 const btn = (bg: string, disabled = false): React.CSSProperties => ({
-    padding: "5px 12px", borderRadius: 8, border: "1px solid #334155", background: disabled ? "#1e293b" : bg,
-    color: disabled ? "#64748b" : "#0b1220", fontWeight: 800, fontSize: "0.78rem", cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.6 : 1,
+    padding: "7px 12px", minHeight: 44, borderRadius: 3, border: "1px solid #a98b515c", background: disabled ? "#1e293b" : `linear-gradient(115deg,${bg}45,#15212bee)`,
+    color: disabled ? "#94a3b8" : "#f0ede5", fontWeight: 600, fontSize: "0.78rem", cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.6 : 1,
 });
 
 // Compact stat-art parts for the run-wide buffs (Quartermaster items + stat relics).
@@ -356,7 +357,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
     const rerollCost = hasFreeReroll(run.relics) && run.rerolls === 0 ? 0 : GAUNTLET_REROLL_COST;
 
     return (
-        <section className="summary-box" style={{ marginTop: "0.2rem", display: "grid", gap: "0.9rem" }}>
+        <section className="summary-box pet-battle-theme pet-battle-lobby" style={{ marginTop: "0.2rem", display: "grid", gap: "0.9rem" }}>
             {/* Hero header — generated banner (fal Flux) under a dark gradient for text legibility. */}
             <div style={{ borderRadius: 12, padding: "22px 20px", border: "1px solid #3b2f55", backgroundImage: `linear-gradient(105deg, rgba(8,11,22,0.86), rgba(8,11,22,0.4) 70%), url(${gauntletHero})`, backgroundSize: "cover", backgroundPosition: "center 38%" }}>
                 <h3 style={{ display: "flex", alignItems: "center", gap: 7, margin: 0, font: "800 1.15rem var(--font-display)", color: "#fcd34d" }}><GameArtIcon kind="attack" size={30} /> Pet Gauntlet</h3>

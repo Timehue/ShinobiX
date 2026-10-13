@@ -129,7 +129,8 @@ function StatusPlate({ pet, d, side, benched, clickable, onPick, commanding, hin
                 </span>
                 <span className="showdown-plate-bar hp">
                     <span className="showdown-plate-key"><ShowdownIcon name="hp" size={12} title="Health" /></span>
-                    <span className="showdown-plate-track">
+                    <span className="showdown-plate-track" role="progressbar" aria-label={`${pet.name} HP`}
+                        aria-valuemin={0} aria-valuemax={pet.maxHp} aria-valuenow={Math.max(0, d.hp)}>
                         {/* The chip layer drains SLOWLY behind the instant fill —
                             the classic "damage you just took" read. */}
                         <span className="chip" style={{ width: `${hpPct}%` }} />
@@ -139,7 +140,8 @@ function StatusPlate({ pet, d, side, benched, clickable, onPick, commanding, hin
                 </span>
                 <span className="showdown-plate-bar en">
                     <span className="showdown-plate-key"><ShowdownIcon name="stamina" size={12} title="Stamina" /></span>
-                    <span className="showdown-plate-track">
+                    <span className="showdown-plate-track" role="progressbar" aria-label={`${pet.name} energy`}
+                        aria-valuemin={0} aria-valuemax={pet.maxStamina} aria-valuenow={Math.max(0, d.stamina)}>
                         <span className="fill" style={{ width: `${stPct}%` }} />
                     </span>
                     <Num cur={d.stamina} max={pet.maxStamina} pct={side === "enemy"} />

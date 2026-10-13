@@ -44,6 +44,7 @@ import {
     type ShowdownTurnResponse,
 } from "../lib/pet-showdown-api";
 import { PetShowdownBattle } from "../components/PetShowdownBattle";
+import "../styles/pet-battle-theme.css";
 
 /*
  * Refresh-resume breadcrumb: the server session outlives the tab (45-min KV
@@ -100,13 +101,13 @@ const FORMATS: { id: ShowdownFormat; label: string; size: number; blurb: string 
 //
 // SPARRING leads, and is the default, because it is the answer to the question
 // a player actually arrives with: give me a fight worth practising against, now.
-// The three tiers below it are the deliberate choice — a specific rarity band,
+// The three tiers below it are the deliberate choice — rarity-matched opponents,
 // held level after level — and they stay for the player drilling one matchup.
 const TIERS: { id: ShowdownOpposition; label: string; icon: GameIconName; blurb: string }[] = [
     { id: "sparring", label: "Sparring", icon: "dice", blurb: "Random rivals matched to your pets’ levels, rarities, Growth Points and traits." },
-    { id: "scrapper", label: "Scrapper", icon: "paw", blurb: "Standard pets with lighter training. Higher-rarity teams have an advantage." },
-    { id: "warrior", label: "Warrior", icon: "sword", blurb: "Rare pets with trained tactics and a trait." },
-    { id: "champion", label: "Champion", icon: "medal", blurb: "Legendary and mythic pets with traits and battle gear." },
+    { id: "scrapper", label: "Scrapper", icon: "paw", blurb: "Rarity-matched rivals with lighter training and impulsive tactics." },
+    { id: "warrior", label: "Warrior", icon: "sword", blurb: "Rarity-matched rivals with trained tactics and a combat trait." },
+    { id: "champion", label: "Champion", icon: "medal", blurb: "Rarity-matched rivals with expert tactics, traits and battle gear." },
 ];
 
 export function PetShowdown({ character, updateCharacter, setScreen, sharedImages, onBattleActiveChange, onFullscreenActiveChange, bout = "practice", pendingWanderer, onPendingWandererStarted, onVersionedCharacter }: {
@@ -379,7 +380,7 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
     }, [launch, setSignals]);
 
     if (roadChallenge && !battle) {
-        return <div className="showdown-screen">
+        return <div className="showdown-screen pet-battle-theme pet-battle-lobby">
             <div className="showdown-header">
                 <h1>Pet Colosseum Challenge</h1>
                 <p className="showdown-tagline">{starting ? "Sending out your pets to meet the beast…" : "The road beast is ready to fight."}</p>
@@ -393,7 +394,7 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
     }
 
     return (
-        <div className="showdown-screen">
+        <div className="showdown-screen pet-battle-theme pet-battle-lobby">
             <div className="showdown-header">
                 <button type="button" className="showdown-chip" onClick={() => setScreen("petArena")}>← Pet Arena</button>
                 {/* Name the door the player walked through. Both bouts are the
@@ -487,17 +488,17 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
                         action</b>.</li>
                     <li><b>Hold</b> — the heaviest techniques and signatures need a round or two in
                         battle before they come online.</li>
-                    <li><b>Early battles</b> — when both pets are level 25 or below, extreme technique
-                        hits are softened so a full-health pet can respond. Ordinary hits keep their
-                        damage, and this adjustment fades out by level 50. Focus fire and lingering
-                        damage can still finish a pet within a round.</li>
-                    <li><b>Turn order</b> — speed × the priority of the move you picked. Guard
-                        resolves early; haymakers and signatures swing last.</li>
+                    <li><b>Response window</b> — extreme direct hits are softened at every level
+                        so a full-health pet can respond. Ordinary hits below 60% maximum HP keep
+                        their damage. Focus fire and lingering damage can still finish a pet within a round.</li>
+                    <li><b>Turn order</b> — switches happen first, then Guard and protection.
+                        Other actions use speed × move priority; haymakers and signatures swing late.</li>
                     <li><b>Signature</b> — your first ultimate gains 50 charge each round on the
                         field, ready after two rounds even if you guard or heal. Dealing and taking
                         damage also build charge. Casting spends the full bar; later ultimates
-                        charge through combat. Extreme ultimate damage is softened at every level,
-                        so a full-health pet can survive one hit; wounded pets can still be finished.</li>
+                        charge through combat. Unprepared signature damage approaches 60% maximum
+                        HP; Empower, Mark or a favorable field raises that limit to 75%. Guard and
+                        shields reduce it further. Wounded pets can still be finished.</li>
                     <li><b>25 rounds, then the judges</b> — most fights end well before. From
                         round 14 <b>attrition</b> bleeds both sides and healing fades; a fight
                         still standing after round 25 goes to the ladder: pets left, total

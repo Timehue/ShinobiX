@@ -38,10 +38,12 @@ export function showdownReplayDescriptor(input: {
     enemyTeamName: string;
     playerPets: Pet[];
     enemyPets: Pet[];
+    damageRules?: ShowdownReplayDescriptor['damageRules'];
 }): ShowdownReplayDescriptor {
     return {
         kind: 'showdown',
         version: SHOWDOWN_REPLAY_VERSION,
+        damageRules: input.damageRules ?? 'response-v2',
         seed: input.seed,
         format: input.format,
         tier: input.tier,
@@ -57,6 +59,7 @@ export function isShowdownReplayDescriptor(value: unknown): value is ShowdownRep
     const d = value as Partial<ShowdownReplayDescriptor>;
     return d.kind === 'showdown'
         && d.version === SHOWDOWN_REPLAY_VERSION
+        && (d.damageRules === undefined || d.damageRules === 'legacy-v1' || d.damageRules === 'response-v2')
         && typeof d.seed === 'number'
         && Array.isArray(d.playerPets)
         && Array.isArray(d.enemyPets);
@@ -87,6 +90,7 @@ export function replayShowdownDescriptor(descriptor: unknown): HeadlessResult {
         // A replay can never pay. Sealed false so no code path downstream can
         // mistake a re-derived match for a fresh, earning one.
         rewardEligible: false,
+        damageRules: descriptor.damageRules ?? 'legacy-v1',
     });
     return resolveShowdownHeadless(session);
 }

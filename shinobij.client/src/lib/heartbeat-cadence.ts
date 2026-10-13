@@ -130,8 +130,15 @@ export function heartbeatIntervalMs(input: HeartbeatCadenceInput): number {
 /** Interval spread, as a fraction of the cadence. Matches visiblePoll's ±10%. */
 export const HEARTBEAT_JITTER_PCT = 0.1;
 
-/** Upper bound on the delay applied to a staggered first beat. */
+/** Upper bound on the delay applied to a staggered first beat in a fight or on guard duty. */
 export const HEARTBEAT_RECONNECT_STAGGER_MS = 500;
+
+/**
+ * Upper bound for everyone else. Their beat owes nothing urgent (a challenge
+ * also arrives by `presence:kick` once the socket is back), so a deploy's
+ * simultaneous flip is spread across three seconds instead of half of one.
+ */
+export const HEARTBEAT_RECONNECT_SPREAD_MS = 3_000;
 
 /** One interval, spread ±HEARTBEAT_JITTER_PCT around the cadence. */
 export function jitterHeartbeatMs(baseMs: number, random: () => number = Math.random): number {
@@ -144,7 +151,8 @@ export type HeartbeatScheduleOptions = {
      * Mutable box holding the `socketConnected` this scheduler last saw. When it
      * disagrees with the incoming input, the run is treated as a socket-state
      * FLIP and its first beat is delayed by up to
-     * {@link HEARTBEAT_RECONNECT_STAGGER_MS}; the box is then updated.
+     * {@link HEARTBEAT_RECONNECT_STAGGER_MS} in a fight or on guard duty, and
+     * {@link HEARTBEAT_RECONNECT_SPREAD_MS} otherwise; the box is then updated.
      *
      * The discrimination matters. App's heartbeat effect re-runs on many
      * triggers, and most of them — a sector change, a screen change, travel —
@@ -194,7 +202,10 @@ export function scheduleHeartbeat(
     };
 
     if (socketStateFlipped) {
-        armNext(Math.round(random() * HEARTBEAT_RECONNECT_STAGGER_MS));
+        const staggerMs = input.inBattleFlow || input.guardQueued
+            ? HEARTBEAT_RECONNECT_STAGGER_MS
+            : HEARTBEAT_RECONNECT_SPREAD_MS;
+        armNext(Math.round(random() * staggerMs));
     } else {
         beat();
         armNext(jitterHeartbeatMs(baseMs, random));

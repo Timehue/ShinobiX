@@ -19,6 +19,13 @@ integration and release-gate evidence are recorded in
 [the main integration notes](audits/pet-tactics-prototype/main-integration-2026-10-10.md).
 A successful push and a verified production rollout are separate events.
 
+The October 11 follow-up extends the accepted Pet Arena presentation to native
+NPC/story/wild/Dungeon battles, Beastfront and the gauntlet. Direct challenges
+use the current command room; the old owned-pet duel and Fight Plan are retired.
+Competitive twelve-species rules below are unchanged. NPC response tuning,
+legacy replay preservation and mode-specific automated balance evidence are in
+[the all-mode audit](audits/pet-battle-unification/README.md).
+
 ## Competitive rules
 
 | Decision | Implemented rule |

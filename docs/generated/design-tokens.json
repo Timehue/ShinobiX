@@ -2677,12 +2677,24 @@
             "line": 60
           },
           {
-            "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
-            "line": 96
+            "source": "shinobij.client/src/components/underground-sector.css",
+            "line": 105
+          },
+          {
+            "source": "shinobij.client/src/components/underground-sector.css",
+            "line": 132
+          },
+          {
+            "source": "shinobij.client/src/components/underground-sector.css",
+            "line": 173
           },
           {
             "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
-            "line": 120
+            "line": 105
+          },
+          {
+            "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
+            "line": 129
           },
           {
             "source": "shinobij.client/src/features/sunscar/rally-render.css",
@@ -2870,6 +2882,17 @@
       },
       {
         "direction": "max",
+        "axis": "height",
+        "valuePx": 550,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/pet-battle-theme.css",
+            "line": 131
+          }
+        ]
+      },
+      {
+        "direction": "max",
         "axis": "width",
         "valuePx": 559,
         "occurrences": [
@@ -2930,7 +2953,7 @@
           },
           {
             "source": "shinobij.client/src/components/PetBoardArena.css",
-            "line": 473
+            "line": 460
           },
           {
             "source": "shinobij.client/src/styles/pet-warfront-rite.css",
@@ -2981,7 +3004,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/18-mobile-safe-adaptive.css",
-            "line": 445
+            "line": 450
           },
           {
             "source": "shinobij.client/src/styles/index/28-desktop-scaling.css",
@@ -3249,16 +3272,28 @@
             "line": 6
           },
           {
-            "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
-            "line": 95
+            "source": "shinobij.client/src/components/underground-sector.css",
+            "line": 115
+          },
+          {
+            "source": "shinobij.client/src/components/underground-sector.css",
+            "line": 132
+          },
+          {
+            "source": "shinobij.client/src/components/underground-sector.css",
+            "line": 152
           },
           {
             "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
-            "line": 105
+            "line": 104
           },
           {
             "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
-            "line": 131
+            "line": 114
+          },
+          {
+            "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
+            "line": 140
           },
           {
             "source": "shinobij.client/src/screens/WorldCrisis80.css",
@@ -3552,6 +3587,10 @@
             "line": 57
           },
           {
+            "source": "shinobij.client/src/components/underground-sector.css",
+            "line": 152
+          },
+          {
             "source": "shinobij.client/src/features/character-creator/character-creator.css",
             "line": 805
           },
@@ -3638,7 +3677,7 @@
           },
           {
             "source": "shinobij.client/src/components/PetBoardArena.css",
-            "line": 426
+            "line": 413
           },
           {
             "source": "shinobij.client/src/features/character-creator/character-creator.css",
@@ -4009,6 +4048,10 @@
             "line": 164
           },
           {
+            "source": "shinobij.client/src/styles/pet-battle-theme.css",
+            "line": 107
+          },
+          {
             "source": "shinobij.client/src/styles/pet-tactics.css",
             "line": 87
           },
@@ -4220,8 +4263,12 @@
         "valuePx": 900,
         "occurrences": [
           {
+            "source": "shinobij.client/src/components/underground-sector.css",
+            "line": 96
+          },
+          {
             "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
-            "line": 97
+            "line": 106
           },
           {
             "source": "shinobij.client/src/features/dojo-circuit/dojo-circuit.css",
@@ -4389,11 +4436,11 @@
           },
           {
             "source": "shinobij.client/src/styles/index/18-mobile-safe-adaptive.css",
-            "line": 396
+            "line": 401
           },
           {
             "source": "shinobij.client/src/styles/index/18-mobile-safe-adaptive.css",
-            "line": 405
+            "line": 410
           },
           {
             "source": "shinobij.client/src/styles/index/23-mobile-shell.css",
@@ -4559,7 +4606,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/index/18-mobile-safe-adaptive.css",
-            "line": 379
+            "line": 384
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
@@ -4828,6 +4875,10 @@
             "line": 157
           },
           {
+            "source": "shinobij.client/src/styles/pet-battle-theme.css",
+            "line": 103
+          },
+          {
             "source": "shinobij.client/src/styles/sunscar-exchange.css",
             "line": 117
           }
@@ -4938,7 +4989,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/index/18-mobile-safe-adaptive.css",
-            "line": 364
+            "line": 369
           },
           {
             "source": "shinobij.client/src/styles/inventory-aaa.css",

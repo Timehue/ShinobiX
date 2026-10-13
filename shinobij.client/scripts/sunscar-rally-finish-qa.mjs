@@ -16,6 +16,11 @@ try {
     page = await context.newPage(); page.setDefaultTimeout(60000);
     page.on('pageerror', error => report.errors.push(error.message));
     await page.addInitScript(() => {
+        const getContext = HTMLCanvasElement.prototype.getContext;
+        HTMLCanvasElement.prototype.getContext = function(type, ...args) {
+            if (type === 'webgl2' || type === 'webgl') args[0] = { ...args[0], preserveDrawingBuffer: true };
+            return getContext.call(this, type, ...args);
+        };
         Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 16 });
         Object.defineProperty(navigator, 'deviceMemory', { get: () => 8 });
         localStorage.setItem('petRally.render.v1', '3d');
@@ -90,8 +95,31 @@ try {
     await page.waitForTimeout(1000);
     assert.equal(await page.evaluate(() => window.sunscarRallyQa.frameCount), idle, 'idle results stop 3D rendering');
     assert.equal(await page.evaluate(() => window.__rallyFinishTrace.reported), 1);
+    await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+    await page.evaluate(() => {
+        document.addEventListener('click', event => {
+            if (event.target.closest('button')?.textContent.trim() !== 'Return to the race desk') return;
+            const start = performance.now();
+            const capture = now => {
+                const canvas = document.querySelector('.rally-stage canvas');
+                if (!canvas) return;
+                if (now - start >= 300) window.__rallyRecallPixels = canvas.toDataURL('image/png');
+                else requestAnimationFrame(capture);
+            };
+            requestAnimationFrame(capture);
+        }, { capture: true, once: true });
+    });
+    const departureAt = Date.now();
+    await page.getByRole('button', { name: 'Return to the race desk', exact: true }).click();
+    assert.equal(await page.evaluate(() => window.sunscarRallyRootCount?.()), 1, 'finish-board departure retains the mounted 3D scene during recall');
+    await page.waitForFunction(() => !!window.__rallyRecallPixels);
+    const pixels = await page.evaluate(() => window.__rallyRecallPixels);
+    await writeFile(new URL('finish-board-card-recall.png', out), Buffer.from(pixels.split(',')[1], 'base64'));
+    await page.getByRole('heading', { name: 'Pet Rally', exact: true }).waitFor();
+    assert.ok(Date.now() - departureAt >= 800, 'the finish-board waits for the full card recall');
+    await expect.poll(() => page.evaluate(() => window.sunscarRallyRootCount?.())).toBe(0);
     assert.deepEqual(report.errors, []);
-    report.checks.push('forced light 3D on SwiftShader with 4x CPU throttle', 'crossing during jump waiting screenshot', 'rendered-frame victory timing', 'simulation stops independently', 'once-only presentation callback', 'idle results sleep');
+    report.checks.push('forced light 3D on SwiftShader with 4x CPU throttle', 'crossing during jump waiting screenshot', 'rendered-frame victory timing', 'simulation stops independently', 'once-only presentation callback', 'idle results sleep', 'finish-board card recall precedes scene teardown');
     await writeFile(new URL('report.json', out), JSON.stringify(report, null, 2));
     console.log(JSON.stringify(report, null, 2));
     await context.close();

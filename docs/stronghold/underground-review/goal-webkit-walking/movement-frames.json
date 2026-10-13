@@ -1,0 +1,242 @@
+[
+  {
+    "engine": "webkit",
+    "scene": "stronghold",
+    "viewport": {
+      "width": 320,
+      "height": 568
+    },
+    "cpuSlowdown": 1,
+    "frames": 120,
+    "p95Ms": 18,
+    "longestMs": 66,
+    "visibility": "visible",
+    "focused": true,
+    "tiles": 61
+  },
+  {
+    "engine": "webkit",
+    "scene": "obsidian",
+    "viewport": {
+      "width": 320,
+      "height": 568
+    },
+    "cpuSlowdown": 1,
+    "frames": 115,
+    "p95Ms": 19,
+    "longestMs": 111,
+    "visibility": "visible",
+    "focused": true,
+    "tiles": 61
+  },
+  {
+    "engine": "webkit",
+    "scene": "cave",
+    "viewport": {
+      "width": 320,
+      "height": 568
+    },
+    "cpuSlowdown": 1,
+    "frames": 94,
+    "p95Ms": 36,
+    "longestMs": 239,
+    "visibility": "visible",
+    "focused": true,
+    "tiles": 33
+  },
+  {
+    "engine": "webkit",
+    "scene": "rift",
+    "viewport": {
+      "width": 320,
+      "height": 568
+    },
+    "cpuSlowdown": 1,
+    "frames": 100,
+    "p95Ms": 35,
+    "longestMs": 191,
+    "visibility": "visible",
+    "focused": true,
+    "tiles": 22
+  },
+  {
+    "engine": "webkit",
+    "scene": "stronghold",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "cpuSlowdown": 1,
+    "frames": 119,
+    "p95Ms": 19,
+    "longestMs": 99,
+    "visibility": "visible",
+    "focused": true,
+    "tiles": 61
+  },
+  {
+    "engine": "webkit",
+    "scene": "obsidian",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "cpuSlowdown": 1,
+    "frames": 115,
+    "p95Ms": 21,
+    "longestMs": 123,
+    "visibility": "visible",
+    "focused": true,
+    "tiles": 61
+  },
+  {
+    "engine": "webkit",
+    "scene": "cave",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "cpuSlowdown": 1,
+    "frames": 97,
+    "p95Ms": 32,
+    "longestMs": 368,
+    "visibility": "visible",
+    "focused": true,
+    "tiles": 33
+  },
+  {
+    "engine": "webkit",
+    "scene": "rift",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "cpuSlowdown": 1,
+    "frames": 90,
+    "p95Ms": 42,
+    "longestMs": 417,
+    "visibility": "visible",
+    "focused": true,
+    "tiles": 22
+  },
+  {
+    "engine": "webkit",
+    "scene": "stronghold",
+    "viewport": {
+      "width": 430,
+      "height": 932
+    },
+    "cpuSlowdown": 1,
+    "frames": 112,
+    "p95Ms": 18,
+    "longestMs": 166,
+    "visibility": "visible",
+    "focused": true,
+    "tiles": 61
+  },
+  {
+    "engine": "webkit",
+    "scene": "obsidian",
+    "viewport": {
+      "width": 430,
+      "height": 932
+    },
+    "cpuSlowdown": 1,
+    "frames": 113,
+    "p95Ms": 21,
+    "longestMs": 169,
+    "visibility": "visible",
+    "focused": true,
+    "tiles": 61
+  },
+  {
+    "engine": "webkit",
+    "scene": "cave",
+    "viewport": {
+      "width": 430,
+      "height": 932
+    },
+    "cpuSlowdown": 1,
+    "frames": 88,
+    "p95Ms": 39,
+    "longestMs": 447,
+    "visibility": "visible",
+    "focused": true,
+    "tiles": 33
+  },
+  {
+    "engine": "webkit",
+    "scene": "rift",
+    "viewport": {
+      "width": 430,
+      "height": 932
+    },
+    "cpuSlowdown": 1,
+    "frames": 96,
+    "p95Ms": 35,
+    "longestMs": 335,
+    "visibility": "visible",
+    "focused": true,
+    "tiles": 22
+  },
+  {
+    "engine": "webkit",
+    "scene": "stronghold",
+    "viewport": {
+      "width": 844,
+      "height": 390
+    },
+    "cpuSlowdown": 1,
+    "frames": 123,
+    "p95Ms": 20,
+    "longestMs": 41,
+    "visibility": "visible",
+    "focused": true,
+    "tiles": 61
+  },
+  {
+    "engine": "webkit",
+    "scene": "obsidian",
+    "viewport": {
+      "width": 844,
+      "height": 390
+    },
+    "cpuSlowdown": 1,
+    "frames": 122,
+    "p95Ms": 18,
+    "longestMs": 48,
+    "visibility": "visible",
+    "focused": true,
+    "tiles": 61
+  },
+  {
+    "engine": "webkit",
+    "scene": "cave",
+    "viewport": {
+      "width": 844,
+      "height": 390
+    },
+    "cpuSlowdown": 1,
+    "frames": 81,
+    "p95Ms": 34,
+    "longestMs": 617,
+    "visibility": "visible",
+    "focused": true,
+    "tiles": 33
+  },
+  {
+    "engine": "webkit",
+    "scene": "rift",
+    "viewport": {
+      "width": 844,
+      "height": 390
+    },
+    "cpuSlowdown": 1,
+    "frames": 116,
+    "p95Ms": 22,
+    "longestMs": 48,
+    "visibility": "visible",
+    "focused": true,
+    "tiles": 22
+  }
+]

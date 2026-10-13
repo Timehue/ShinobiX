@@ -4,9 +4,10 @@
  *
  * State model: definitions are static (api/_era-defs.ts); the KV row
  * `game:era-state` stores only OVERRIDES (admin status/milestone tuning) and
- * unlock records. Contributions are global `era:contrib:<metric>` counters
- * bumped with atomic kv.incr from the same settle endpoints that feed Legacy
- * tracking — contention-free by design (plan §14.3).
+ * unlock records. A metric's contribution total is summed from three kinds of
+ * row, fed by the same settle endpoints that feed Legacy tracking: plain
+ * `era:contrib:<metric>` counters, the bounded idempotent ledger, and receipt
+ * rows with counter shards (see below; the list is in plan §14.3).
  *
  * The credited trigger can land BEFORE the milestones finish: it is recorded
  * once (NX) at `era:trigger:<id>` and honored when the nightly pass finds the
@@ -25,12 +26,118 @@ import {
 
 export const ERA_STATE_KEY = 'game:era-state';
 const contribKey = (m: EraMetric) => `era:contrib:${m}`;
-const contributionReceiptKey = (m: EraMetric) => `era:contrib-receipts:${m}`;
 const idempotentContribKey = (m: EraMetric) => `era:contrib-idempotent:${m}`;
 // These sources already have permanent settlement identities and do not own
 // a cross-row acknowledgement saga. An unacknowledged bounded pending list
 // would otherwise stop discoveries before Era V's 400-encounter requirement.
 const RECEIPT_BACKED_METRICS = new Set<EraMetric>(['legaciesAwakened', 'discoveries', 'warBattles']);
+
+/*
+ * Receipt-backed contributions (docs/SHARED_HASH_ROW_SPLIT_PLAN.md §5).
+ *
+ * They used to be one hash row per metric, `era:contrib-receipts:<metric>`,
+ * with one field per settlement. That row never shrank, and Postgres rewrites
+ * a jsonb row whole on every write, so each new receipt rewrote every earlier
+ * one: the WAL grew with the square of the receipt count.
+ *
+ * Now each settlement is its own small row, `era:receipt:<metric>:<id>`, and
+ * the total lives in 16 counter rows, `era:contrib-sum:<metric>:<shard>`. One
+ * transaction (kv.compareSetMany) creates the receipt and adds to its shard,
+ * so exactly-once holds with no crash window: a receipt row exists exactly
+ * when its amount was counted. Each write touches two small rows and the cost
+ * no longer grows. The shards make it rare for two concurrent settlements to
+ * meet on one counter row; when they do, the refused one retries.
+ *
+ * Receipt rows expire after 30 days. A retry only has to find its receipt for
+ * as long as the settlement can still be retried. Wanderer encounters, war
+ * battles and trials settle within minutes to days, and expired rows are
+ * purged (kv_delete_expired, pg_cron).
+ *
+ * The old hash is still read, so any total it holds keeps counting, and an id
+ * it already holds is never counted twice. Production held no such rows on
+ * 2026-10-13. A store without multi-key transactions (the Supabase REST
+ * fallback) keeps writing the old hash.
+ */
+const legacyReceiptHashKey = (m: EraMetric) => `era:contrib-receipts:${m}`;
+const receiptKey = (m: EraMetric, receiptId: string) => `era:receipt:${m}:${receiptId}`;
+const receiptSumKey = (m: EraMetric, shard: number) => `era:contrib-sum:${m}:${shard}`;
+export const ERA_RECEIPT_SHARDS = 16;
+export const ERA_RECEIPT_TTL_SECONDS = 30 * 24 * 60 * 60;
+/*
+ * On Postgres, a refused write means another settlement committed to the same
+ * counter row first: each statement waits for a competing writer to finish,
+ * then re-checks. Every settlement commits at most once, so a writer racing
+ * N-1 others on one counter row needs at most N attempts. Eight attempts
+ * cover eight simultaneous settlements on one row (the pg-integration suite
+ * races exactly that), and the 16 rows spread them out.
+ */
+export const ERA_RECEIPT_WRITE_ATTEMPTS = 8;
+const receiptSumKeys = (m: EraMetric) => Array.from({ length: ERA_RECEIPT_SHARDS }, (_, shard) => receiptSumKey(m, shard));
+
+/** FNV-1a, so the same receipt id always lands on the same counter row. */
+export function eraReceiptShard(receiptId: string): number {
+    let hash = 0x811c9dc5;
+    for (let i = 0; i < receiptId.length; i++) {
+        hash ^= receiptId.charCodeAt(i);
+        hash = Math.imul(hash, 0x01000193);
+    }
+    return (hash >>> 0) % ERA_RECEIPT_SHARDS;
+}
+
+/** A counter row's total. Absent is 0; anything else must be a non-negative safe integer. */
+function parseReceiptSum(value: unknown): number {
+    if (value === null || value === undefined) return 0;
+    const total = Number(value);
+    if (typeof value !== 'number' || !Number.isSafeInteger(total) || total < 0) {
+        throw new Error('era-receipt-sum-corrupt');
+    }
+    return total;
+}
+
+/** Sum of the old one-row receipt hash, read the way the old code read it. */
+function legacyReceiptTotal(value: unknown): number {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return 0;
+    return Object.values(value as Record<string, unknown>).reduce<number>(
+        (sum, amount) => sum + Math.max(0, Math.floor(Number(amount) || 0)),
+        0,
+    );
+}
+
+const receiptRetryDelay = (attempt: number) =>
+    new Promise<void>((resolve) => setTimeout(resolve, 5 + Math.floor(Math.random() * 20 * (attempt + 1))));
+
+/**
+ * Count `amount` for `receiptId` exactly once. Returns true once the receipt
+ * is counted, whether by this call or an earlier one. Throws if the
+ * contribution could not be confirmed, so the caller keeps the settlement
+ * retryable.
+ */
+async function addReceiptContribution(metric: EraMetric, receiptId: string, amount: number): Promise<boolean> {
+    const legacy = await kv.get<unknown>(legacyReceiptHashKey(metric));
+    if (legacy && typeof legacy === 'object' && !Array.isArray(legacy)
+        && Object.prototype.hasOwnProperty.call(legacy, receiptId)) return true;
+    if (typeof kv.compareSetMany !== 'function') {
+        await kv.hset(legacyReceiptHashKey(metric), { [receiptId]: amount });
+        return true;
+    }
+    const receipt = receiptKey(metric, receiptId);
+    const sum = receiptSumKey(metric, eraReceiptShard(receiptId));
+    for (let attempt = 0; attempt < ERA_RECEIPT_WRITE_ATTEMPTS; attempt++) {
+        if (attempt > 0) await receiptRetryDelay(attempt);
+        if (await kv.get(receipt) !== null) return true;
+        const current = await kv.get<unknown>(sum);
+        const total = parseReceiptSum(current);
+        const committed = await kv.compareSetMany([
+            { op: 'cas', key: receipt, expected: null, value: amount, ex: ERA_RECEIPT_TTL_SECONDS },
+            { op: 'cas', key: sum, expected: current ?? null, value: total + amount },
+        ]);
+        if (committed) return true;
+        // Refused: either this receipt landed meanwhile (the next check
+        // returns true) or another settlement moved the counter (try again).
+    }
+    if (await kv.get(receipt) !== null) return true;
+    throw new Error('era-receipt-contended');
+}
 const triggerKey = (id: string) => `era:trigger:${id}`;
 
 type IdempotentEraContributionState = {
@@ -135,7 +242,7 @@ export async function getEraState(): Promise<EraState> {
 export async function readEraContributions(): Promise<Record<EraMetric, number>> {
     const keys = ERA_METRICS.flatMap(metric => [
         contribKey(metric), idempotentContribKey(metric),
-        ...(RECEIPT_BACKED_METRICS.has(metric) ? [contributionReceiptKey(metric)] : []),
+        ...(RECEIPT_BACKED_METRICS.has(metric) ? [legacyReceiptHashKey(metric), ...receiptSumKeys(metric)] : []),
     ]);
     // All counters/receipts are uncached authority keys. Read the independent
     // rows together instead of serializing independent database round trips.
@@ -144,17 +251,13 @@ export async function readEraContributions(): Promise<Record<EraMetric, number>>
     const out = {} as Record<EraMetric, number>;
     for (const m of ERA_METRICS) {
         const raw = Math.max(0, Math.floor(Number(rows.get(contribKey(m))) || 0));
-        // Receipt-backed contributions use one hash field per authoritative
-        // settlement. HSET is atomic at the field level, so a retry overwrites
-        // the same field rather than incrementing twice, and a crash cannot
-        // strand a pre-claimed marker ahead of the actual contribution.
-        const receiptMap = RECEIPT_BACKED_METRICS.has(m)
-            ? rows.get(contributionReceiptKey(m)) as Record<string, unknown> | null
-            : null;
-        const receipted = Object.values(receiptMap ?? {}).reduce<number>(
-            (sum, value) => sum + Math.max(0, Math.floor(Number(value) || 0)),
-            0,
-        );
+        // Receipt-backed contributions: the counter shards that each receipt
+        // row was added to in the same transaction, plus whatever the retired
+        // one-row receipt hash still holds.
+        const receipted = RECEIPT_BACKED_METRICS.has(m)
+            ? legacyReceiptTotal(rows.get(legacyReceiptHashKey(m)))
+                + receiptSumKeys(m).reduce((sum, key) => sum + parseReceiptSum(rows.get(key)), 0)
+            : 0;
         const exact = parseIdempotentContributions(rows.get(idempotentContribKey(m)));
         out[m] = raw + receipted + exact.compactedTotal
             + exact.pending.reduce((sum, entry) => sum + entry.amount, 0);
@@ -188,9 +291,10 @@ export async function bumpEraContribution(metric: EraMetric, n = 1): Promise<voi
     }
 }
 
-/** Exact-once contribution for a durable server settlement. The receipt and
- * value are the same atomic hash-field write; unlike NX-then-INCR there is no
- * crash window that can either lose or double-count the contribution. */
+/** Exact-once contribution for a durable server settlement. For the
+ * receipt-backed metrics, the receipt row and its counter are one transaction
+ * (see addReceiptContribution); unlike NX-then-INCR there is no crash window
+ * that can either lose or double-count the contribution. */
 export async function bumpEraContributionOnce(
     metric: EraMetric,
     receiptId: string,
@@ -226,8 +330,7 @@ export async function bumpEraContributionOnce(
         }, { failClosed: true });
     }
     try {
-        await kv.hset(contributionReceiptKey(metric), { [id]: Math.max(1, Math.floor(n)) });
-        return true;
+        return await addReceiptContribution(metric, id, Math.max(1, Math.floor(n)));
     } catch (err) {
         console.error(`[era] receipt contribution failed (${metric}):`, err instanceof Error ? err.message : err);
         return false;

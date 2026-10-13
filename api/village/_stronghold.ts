@@ -18,14 +18,23 @@ import { settlePveFightOutcome } from '../pve/_fight-outcome-settlement.js';
 import { settleHeldFights } from '../pve/_held-fights.js';
 import { withSoloPveSettlementReceipt } from '../solo-pve/_settlement.js';
 import { terminalizeLapsedSoloPveSession } from '../solo-pve/_abandon.js';
-import { advanceStronghold, isDeathsGateStronghold, STRONGHOLD_INTEL_TILE, STRONGHOLD_LAYOUT_VERSION, STRONGHOLD_SPAWN, STRONGHOLD_VAULT, STRONGHOLD_DIMS, type StrongholdVisit } from '../../shared/sector-stronghold.js';
+import { advanceStronghold, isDeathsGateStronghold, strongholdLevelEligible, strongholdSafeTile, STRONGHOLD_MIN_LEVEL, STRONGHOLD_INTEL_TILE, STRONGHOLD_LAYOUT_VERSION, STRONGHOLD_SPAWN, STRONGHOLD_VAULT, STRONGHOLD_DIMS, type StrongholdVisit } from '../../shared/sector-stronghold.js';
 import { sectorPlace } from '../../shared/sector-geo.js';
 import { sealedSectorWeather } from '../_sector-weather-seal.js';
+import { withWorldBossPvpLock } from '../world-boss-event/_pvp-protection.js';
 
 const TTL = 24 * 60 * 60;
 export const strongholdVisitKey = (name: string, sector: number) => `stronghold:${name}:${sector}`;
 type Result = { status: number; body: Record<string, unknown> };
 const fail = (error: string, status = 409): Result => ({ status, body: { error } });
+
+async function unrelatedStrongholdBattle(playerName: string, ownedPatrolId?: string): Promise<boolean> {
+    const evidence = battleEvidenceFrom(await kv.mget(...battleAuthorityKeys(playerName)));
+    const authority = await resolveBattleAuthority(playerName, evidence);
+    const projection = evidence.battleState as { kind?: string; sessionId?: string } | null;
+    const ownedPatrol = !!ownedPatrolId && authority.source === 'solo-pve' && projection?.kind === 'solo-pve' && projection.sessionId === ownedPatrolId;
+    return authority.inBattle && !ownedPatrol;
+}
 
 function snapshot(playerName: string, visit: StrongholdVisit, extra: Record<string, unknown> = {}): Result {
     if (visit.presenceId) touchStrongholdPresence(playerName, visit.sector, visit.tile);
@@ -38,8 +47,12 @@ function snapshot(playerName: string, visit: StrongholdVisit, extra: Record<stri
 /** Shared by final-boss admission: the Anbu cannot be reached by skipping patrols. */
 export async function strongholdVaultReady(playerName: string, sector: number): Promise<boolean> {
     if (isDeathsGateStronghold(sector)) return false;
+    if (sectorPresenceBlock(playerName, sector)) return false;
+    const presence = onlineStore.get(playerName);
+    if (presence?.pendingAttacker || (presence?.travelingUntil ?? 0) > Date.now()) return false;
     const visit = await kv.get<StrongholdVisit>(strongholdVisitKey(playerName, sector));
     if (!visit?.presenceId || visit.layoutVersion !== STRONGHOLD_LAYOUT_VERSION || visit.patrolId || visit.threat >= 100) return false;
+    if (await unrelatedStrongholdBattle(playerName)) return false;
     const w = STRONGHOLD_DIMS.width;
     return !!strongholdLocation(playerName, sector) && !strongholdLocation(playerName, sector)?.room
         && Math.abs(visit.tile % w - STRONGHOLD_VAULT % w) + Math.abs(Math.floor(visit.tile / w) - Math.floor(STRONGHOLD_VAULT / w)) === 1;
@@ -55,7 +68,7 @@ export async function handleStrongholdAction(playerName: string, action: string,
             const visit = await kv.get<StrongholdVisit>(key);
             if (body.presenceId && visit?.presenceId !== body.presenceId) return fail('This stronghold is open in another tab.');
             const presence = onlineStore.get(playerName);
-            if (presence?.pendingAttacker || presence?.inBattle) return fail('Finish your current battle before leaving.');
+            if (presence?.pendingAttacker || presence?.inBattle || await unrelatedStrongholdBattle(playerName)) return fail('Finish your current battle before leaving.');
             if (visit) await kv.set(key, { ...visit, presenceId: undefined }, { ex: TTL });
             leaveStrongholdPresence(playerName);
             // A queued poll/step must carry the still-active tab lease. Keep exploration
@@ -77,25 +90,31 @@ export async function handleStrongholdAction(playerName: string, action: string,
             const presence = onlineStore.get(playerName);
             if (presence?.pendingAttacker || (presence?.travelingUntil ?? 0) > Date.now()) return fail('Finish your current combat or travel before entering.');
             if (presence?.inBattle && !visit?.patrolId) return fail('Finish your current battle before entering.');
+            if (await unrelatedStrongholdBattle(playerName, visit?.patrolId)) return fail('Finish your current battle before entering.');
             const record = await kv.get<{ character?: Record<string, unknown> }>(`save:${playerName}`);
-            if (!record?.character || Number(record.character.level) < 100) return fail('Strongholds require level 100.', 403);
+            if (!record?.character || !strongholdLevelEligible(record.character.level)) return fail(`Strongholds require level ${STRONGHOLD_MIN_LEVEL}.`, 403);
             // A pending patrol may be terminal and still owe its settlement after a reload.
             if (!visit?.patrolId && isIncapacitated(record.character, Date.now())) return fail('Recover before entering the stronghold.');
         }
         if (!visit || visit.layoutVersion !== STRONGHOLD_LAYOUT_VERSION) {
             if (action !== 'stronghold-enter') return fail('Re-enter the stronghold to reconnect.');
             const record = await kv.get<{ character?: Record<string, unknown> }>(`save:${playerName}`);
-            if (!record?.character || Number(record.character.level) < 100) return fail('Strongholds require level 100.', 403);
+            if (!record?.character || !strongholdLevelEligible(record.character.level)) return fail(`Strongholds require level ${STRONGHOLD_MIN_LEVEL}.`, 403);
             if (isIncapacitated(record.character, Date.now())) return fail('Recover before entering the stronghold.');
             visit = { id: randomUUID(), layoutVersion: STRONGHOLD_LAYOUT_VERSION, sector, tile: STRONGHOLD_SPAWN,
                 steps: 0, threat: 0, version: 0, visited: [STRONGHOLD_SPAWN] };
             await kv.set(key, visit, { ex: TTL });
         }
         if (action === 'stronghold-enter') {
-            visit = { ...visit, presenceId };
+            const safeTile = strongholdSafeTile(visit.tile, sector);
+            visit = { ...visit, presenceId, ...(safeTile !== visit.tile ? { tile: safeTile, version: visit.version + 1, visited: [...new Set([...visit.visited, safeTile])] } : {}) };
             await kv.set(key, visit, { ex: TTL });
         } else if (action !== 'stronghold-patrol-report' && (!presenceId || visit.presenceId !== presenceId)) {
             return fail('This stronghold session ended or opened in another tab. Reconnect to continue.');
+        }
+        if (action !== 'stronghold-patrol-report' && action !== 'stronghold-enter' && await unrelatedStrongholdBattle(playerName, visit.patrolId)) {
+            if (action === 'stronghold-state') return snapshot(playerName, visit, { combatBlocked: true });
+            return fail('Finish your current battle before exploring the stronghold.');
         }
         if (action === 'stronghold-patrol-report') {
             const session = await readSoloPveSession(String(body.runId ?? ''));
@@ -171,7 +190,12 @@ export async function handleStrongholdAction(playerName: string, action: string,
                 });
                 // An attack may have been reserved while the loadout was loading.
                 if (onlineStore.get(playerName)?.inBattle || onlineStore.get(playerName)?.pendingAttacker) return snapshot(playerName, visit, { combatBlocked: true });
-                await writeSoloPveSession(session);
+                const admission = await withWorldBossPvpLock([playerName], async () => {
+                    if (onlineStore.get(playerName)?.pendingAttacker || await unrelatedStrongholdBattle(playerName)) return false;
+                    await writeSoloPveSession(session!);
+                    return true;
+                });
+                if (!admission.ok || !admission.value) return snapshot(playerName, visit, { combatBlocked: true });
             } else if (session.status === 'active' && session.expiresAt <= Date.now()) {
                 const lapsed = await terminalizeLapsedSoloPveSession(session.sessionId);
                 if (lapsed.ok && lapsed.session) session = lapsed.session;

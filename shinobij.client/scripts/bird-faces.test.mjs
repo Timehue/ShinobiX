@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { BIRD_FACE_REPAIRS, BIRD_FACE_REPAIR_REVISION, birdSkullShare, birdEnvelopeMatrix, loadBird } from './repair-bird-faces.mjs';
 
 const BEAK_SURFACES = JSON.parse(await readFile(new URL('./fixtures/bird-beak-vertices.json', import.meta.url), 'utf8')).models;
+const RUNTIME_MODELS = JSON.parse(await readFile(new URL('../public/pet-models/warfront-lod/manifest.json', import.meta.url), 'utf8')).entries;
 
 // Authored beak edges identified independently from the repair envelope using
 // the source atlas and bind coordinates. These caught lateral jaw holes that
@@ -26,15 +27,24 @@ async function load(id) {
     assert.ok(bytes.length < 1024 * 1024, `${id}: repaired runtime model exceeds the 1 MiB download budget`);
     const json = JSON.parse(bytes.subarray(20, 20 + length)), binary = bytes.subarray(28 + length);
     assert.equal(json.extras?.birdFaceRepair?.revision, BIRD_FACE_REPAIR_REVISION, `${id} is missing its reviewed binding repair`);
+    const bodyRepair = json.extras?.skinSeamRepair;
+    if (bodyRepair) {
+        assert.match(bodyRepair.revision, /^20261012-connected-weight-v[12]$/);
+        assert.ok(bodyRepair.changedVertices > 0);
+        const sourceUrl = `/pet-models/${kind === 'base' ? '' : kind + '/'}${id}.glb`;
+        const certificate = RUNTIME_MODELS.find(entry => entry.sourceUrl === sourceUrl);
+        assert.ok(certificate, `${id}: reviewed runtime certificate is missing`);
+        assert.equal(createHash('sha256').update(bytes).digest('hex'), certificate.sourceSha256, `${id}: body binding must match its reviewed runtime certificate`);
+    }
     const original = structuredClone(json);
     original.meshes[0].primitives[0].attributes = json.extras.birdFaceRepair.original.attributes;
     original.animations = [];
-    return { before: await loadBird(original, binary), after: await loadBird(json, binary) };
+    return { before: await loadBird(original, binary), after: await loadBird(json, binary), bodyRepair };
 }
 
 for (const [id, envelope] of Object.entries(BIRD_FACE_REPAIRS)) {
     test(`${id} retains its mesh and wings while the eyes/beak remain cohesive in all clips`, async () => {
-        const { before, after } = await load(id);
+        const { before, after, bodyRepair } = await load(id);
         const oldMesh = before.surface, mesh = after.surface, geometry = mesh.geometry;
         for (const name of ['position', 'normal', 'uv']) assert.deepEqual(geometry.attributes[name].array, oldMesh.geometry.attributes[name].array, `${id}: ${name} must remain unchanged`);
         assert.deepEqual(geometry.index.array, oldMesh.geometry.index.array);
@@ -51,6 +61,14 @@ for (const [id, envelope] of Object.entries(BIRD_FACE_REPAIRS)) {
         }
         let unchanged = 0, restDrift = 0;
         for (let vertex = 0; vertex < joints.count; vertex++) {
+            let total = 0;
+            for (let slot = 0; slot < 4; slot++) {
+                const joint = joints.getComponent(vertex, slot), weight = weights.getComponent(vertex, slot);
+                assert.ok(Number.isInteger(joint) && joint >= 0 && joint < mesh.skeleton.bones.length);
+                assert.ok(Number.isFinite(weight) && weight >= 0 && weight <= 1);
+                total += weight;
+            }
+            assert.ok(Math.abs(total - 1) < 1e-6, `${id}: body weights must remain normalized`);
             const point = mesh.getVertexPosition(vertex, new THREE.Vector3());
             points.push(point);
             restDrift = Math.max(restDrift, point.distanceTo(oldMesh.getVertexPosition(vertex, new THREE.Vector3())));
@@ -58,7 +76,10 @@ for (const [id, envelope] of Object.entries(BIRD_FACE_REPAIRS)) {
             const share = birdSkullShare(bind, envelope);
             if (share === 0) {
                 unchanged++;
-                for (let slot = 0; slot < 4; slot++) {
+                // Face-only candidates retain the original wing/body binding.
+                // Reviewed whole-body seam repairs instead pin the runtime hash
+                // above, while keeping the independent facial pose tests below.
+                if (!bodyRepair) for (let slot = 0; slot < 4; slot++) {
                     assert.equal(joints.getComponent(vertex, slot), oldJoints.getComponent(vertex, slot), 'wing/body joints must stay unchanged');
                     assert.ok(Math.abs(weights.getComponent(vertex, slot) - oldWeights.getComponent(vertex, slot)) < 1e-7, 'wing/body weights must stay unchanged');
                 }

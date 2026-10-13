@@ -19,10 +19,13 @@
 import './api/_force-ipv4.js';
 
 import { startGameLoop, stopGameLoop } from './api/_realtime/game-loop.js';
-import { attachSocketServer, closeSocketServer } from './api/_realtime/socket.js';
+import { attachSocketServer, closeSocketServer, getIo } from './api/_realtime/socket.js';
+import { onlineStore } from './api/_realtime/online-store.js';
+import { runtimeMetricsSampler } from './api/_runtime-metrics.js';
 import { restorePresenceSnapshot, savePresenceSnapshot, startPresenceSnapshots, stopPresenceSnapshots } from './api/_realtime/presence-snapshot.js';
 import { startSnapshotCron, stopSnapshotCron } from './api/cron/_scheduler.js';
-import { closeStoragePool } from './api/_storage.js';
+import { closeStoragePool, storagePoolStats } from './api/_storage.js';
+import { handOffLiveStreams } from './api/pvp/_stream-handoff.js';
 import { flushBetaMetrics } from './api/_beta-metrics.js';
 import { drainBackgroundWork, stopBackgroundWork } from './api/_background-work.js';
 import { startTerritoryInitialization, stopStartupInitialization } from './api/_startup-initialization.js';
@@ -40,9 +43,8 @@ import { readRequestMetrics, recordRequestMetric, requestSloAlert } from './api/
 import { safeLogValue } from './api/_safe-log.js';
 
 // ─── Handler imports ─────────────────────────────────────────────────────────
-// All handlers use import type { VercelRequest, VercelResponse } for TypeScript
-// only — those types are erased at compile time, so there is zero runtime
-// dependency on @vercel/node in the Railway bundle.
+// Handlers import their req/res types from the local shim api/_vercel.d.ts
+// with `import type` only — erased at compile time, no runtime dependency.
 
 import { registerApiRoutes, type AnyHandler, villageWarMapEnabled, googleRedirectUriProblem } from './server-api-routes.js';
 
@@ -121,6 +123,15 @@ function gracefulShutdown(code: number, reason: string): void {
     if (_shutdownStarted) return;
     _shutdownStarted = true;
     console.log(`[shutdown] draining in-flight requests (${reason})`);
+    // Hand every open PvP battle stream to the replacement server first: each
+    // viewer is told to reconnect now (api/pvp/_stream-handoff.ts) instead of
+    // being held here, unable to hear moves made on the new server, until the
+    // drain budget cuts it. This also stops long-lived streams holding the
+    // HTTP drain open.
+    try {
+        const handedOff = handOffLiveStreams();
+        if (handedOff) console.log(`[shutdown] handed ${handedOff} PvP stream(s) to the replacement`);
+    } catch { /* a handoff failure must never block shutdown */ }
     // Write the rate-limit refusals counted since the last minute's summary, so
     // a deploy doesn't swallow them (api/_ratelimit.ts).
     try { flushRefusalLog(); } catch { /* logging must never block shutdown */ }
@@ -318,9 +329,8 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 // cors() can never drift.
 // Mirror the safe-method allowlist from api/_utils.ts cors(). The old
 // version sent `*` for ANY method when no Origin was present, which is
-// strictly looser than the Vercel path (which only allows `*` for safe
-// methods). An unsafe method with no Origin gets no ACAO header now,
-// matching Vercel behaviour.
+// strictly looser than cors() (which only allows `*` for safe methods). An
+// unsafe method with no Origin gets no ACAO header now, matching cors().
 const SAFE_METHODS = new Set<string>(['GET', 'HEAD', 'OPTIONS']);
 app.use((req: Request, res: Response, next: NextFunction) => {
     const origin = (req.headers.origin as string | undefined) ?? '';
@@ -653,6 +663,31 @@ app.get(['/health/db', '/api/health/db'], async (req, res) => {
     await sendDeepHealth(req, res);
 });
 
+// Runtime capacity metrics: event-loop utilization and delay, process CPU,
+// memory, DB pool occupancy and socket count (api/_runtime-metrics.ts). Same
+// token as the deep probe, but it never touches storage, so a load-test sampler
+// can poll it every few seconds without adding DB load. Each read covers the
+// interval since the previous read.
+const _runtimeSampler = runtimeMetricsSampler();
+app.get(['/health/runtime', '/api/health/runtime'], (req, res) => {
+    res.setHeader('Cache-Control', 'private, no-store');
+    if (!deepHealthAuthorized(req)) {
+        res.status(401).json({ ok: false, error: 'Deep health token required.' });
+        return;
+    }
+    if (!enforceRateLimit(req, res, 'runtime-health', 60, 60_000)) return;
+    res.json({
+        ok: true,
+        runtime: _runtimeSampler.snapshot({
+            pool: storagePoolStats,
+            sockets: () => getIo()?.engine.clientsCount ?? 0,
+            onlinePlayers: () => onlineStore.size(),
+        }),
+        requestMetrics: readRequestMetrics(),
+        ..._BUILD_INFO,
+    });
+});
+
 // Normalize a possibly-array header to a single string (Express can hand
 // back string[] for repeated headers).
 function headerValue(h: string | string[] | undefined): string {
@@ -660,9 +695,9 @@ function headerValue(h: string | string[] | undefined): string {
     return h ?? '';
 }
 
-// Internal restart endpoint. Passenger respawns the worker when the process
-// exits, which reliably picks up new code from disk even when tmp/restart.txt
-// isn't honored.
+// Internal restart endpoint. The process drains and exits non-zero, and
+// Railway's ON_FAILURE restart policy starts a fresh container (on the retired
+// cPanel host, Passenger respawned the worker on any exit).
 //
 // Auth hardening (see "Route parity + deployment safety" handoff):
 //   • Prefer a DEDICATED `RESTART_TOKEN`. KV_PROXY_TOKEN is a legacy fallback
@@ -678,6 +713,7 @@ function headerValue(h: string | string[] | undefined): string {
 // The token is still sent in the existing `x-kv-token` header (also accepts
 // `x-restart-token`) so no CORS change is needed — restart is an operational
 // server-to-server call, never a browser request.
+const OPERATOR_RESTART_EXIT_CODE = 75;
 const RESTART_MAX_ATTEMPTS = 5;
 const RESTART_WINDOW_MS = 60_000;
 let restartAttempts: number[] = [];   // epoch-ms of recent attempts
@@ -719,7 +755,13 @@ app.post(['/restart', '/api/restart'], (req, res) => {
     // Let THIS response flush, then drain any OTHER in-flight requests before
     // exiting. The old hard process.exit(0) severed concurrent requests — on
     // cPanel a save-read proxied here mid-restart came back as a Passenger 502.
-    setTimeout(() => gracefulShutdown(0, 'operator restart'), 250);
+    // Exit NON-zero: Railway's restartPolicyType is ON_FAILURE (railway.json),
+    // which restarts a container only after a non-zero exit, so a clean 0 left
+    // the game down until someone redeployed by hand. 75 is EX_TEMPFAIL.
+    // Each such exit spends one of the deployment's 10 on-failure restarts
+    // (restartPolicyMaxRetries), so for a routine restart prefer Railway's own
+    // Restart/Redeploy; keep this endpoint for scripted recovery.
+    setTimeout(() => gracefulShutdown(OPERATOR_RESTART_EXIT_CODE, 'operator restart'), 250);
 });
 
 // Register the explicit list through the same dual-path adapter.
@@ -1086,8 +1128,8 @@ server.listen(PORT, () => {
         // Phase 2: start the 1s in-memory presence/game tick (single instance).
         startGameLoop();
     }
-    // Vercel removal: the always-on server now runs the daily save-snapshot
-    // backup itself (was a Vercel cron). No-op if DISABLE_SNAPSHOT_CRON=1.
+    // The always-on server runs the daily save-snapshot backup itself.
+    // No-op if DISABLE_SNAPSHOT_CRON=1.
     startSnapshotCron();
     _stopTournamentClock = startTournamentClock();
     // War-map territory self-seed. Every deploy (and the coming account wipe)

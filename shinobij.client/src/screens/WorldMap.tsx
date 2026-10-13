@@ -8,7 +8,7 @@ import { StrongholdDialog } from '../features/anbuInfiltration/StrongholdDialog'
 import { useVillageCampaign } from '../lib/use-village-campaign';
 import { useWarShrine } from '../features/villageWar/use-war-shrine';
 import { sectorVaultMarker, warStrongholdEntryText } from '../features/villageWar/sector-vault-marker';
-import { isDeathsGateStronghold, strongholdTitle } from '../../../shared/sector-stronghold';
+import { ANBU_RAID_MIN_LEVEL, STRONGHOLD_MIN_LEVEL, isDeathsGateStronghold, strongholdLevelEligible, strongholdTitle } from '../../../shared/sector-stronghold';
 import { HollowGateEntryMenu } from './world-map/HollowGateEntryMenu';
 import { sectorBackgroundImage, sectorDepthImage, sectorMapUrl, ambienceBiomeForSector } from './world-map/sector-art';
 import { fetchVillageGuards } from "../lib/village-guard-api";
@@ -140,6 +140,7 @@ import {
     recordSectorExplore,
     worldRewardFailureMessage,
     type ExploreCredit,
+    type AncientChestLoot,
     type ExternalExploreProof,
     type FieldExploreProgress,
     type SectorExploreOutcome,
@@ -2613,8 +2614,13 @@ function WorldMapContent({
     const [selectedCreatorEvent, setSelectedCreatorEvent] = useState<CreatorEvent | null>(null);
     // Anbu Vault Infiltration (anbuInfiltration.v1): the walk-up prompt on the
     // sector's vault structure, and the live raid screen (portaled full-screen).
-    const [vaultPrompt, setVaultPrompt] = useState<{ sector: number; village: string } | null>(null);
+    const [vaultPrompt, setVaultPrompt] = useState<{ sector: number; village: string; warEntry?: boolean } | null>(null);
     const [vaultRaid, setVaultRaid] = useState<{ sector: number; village: string } | null>(null);
+    const vaultMinimumLevel = vaultPrompt?.warEntry ? 15 : STRONGHOLD_MIN_LEVEL;
+    const vaultEntryEligible = vaultPrompt?.warEntry ? (character.level ?? 0) >= 15 : strongholdLevelEligible(character.level);
+    const vaultSpecialtyEntry = !!vaultPrompt?.warEntry
+        && !!villageCampaign.state?.campaign.strongholds.some(o => o.sector === vaultPrompt.sector && o.village !== character.village)
+        && !(villageCampaign.state?.mission?.kind === 'espionage' && villageCampaign.state.mission.status === 'active' && villageCampaign.state.mission.sectors[0] === vaultPrompt.sector);
     const warShrine = useWarShrine({ character, state: villageCampaign.state, sharedImages, onVersionedCharacter,
         sector: selectedSector, currentSector, blocked: isTraveling || !villageWarAdmissionOpen, onEnterStronghold: target => { setSelectedSector(target.sector); setVaultRaid(target); } });
     useEffect(() => {
@@ -2622,16 +2628,7 @@ function WorldMapContent({
     }, [anbuViewOpen]);
     const [creatorEventPage, setCreatorEventPage] = useState(0);
     const [creatorEventLine, setCreatorEventLine] = useState(0);
-    type ChestLoot = {
-        xp: number;
-        ryo?: number;
-        itemId?: string;
-        cardId?: string;
-        fateShards?: number;
-        boneCharms?: number;
-        auraStones?: number;
-        auraDust?: number;
-    };
+    type ChestLoot = AncientChestLoot & { replayed?: boolean };
     const [activeGather, setActiveGather] = useState<PendingGatherFind | null>(null);
     const savedFinds = pendingGatherFinds(character);
     const savedFindsBanner = savedFinds.length > 0 ? <aside className="gather-resume" aria-label="Saved Finds">
@@ -3134,7 +3131,7 @@ function WorldMapContent({
         onVersionedCharacter(chest.character, chest.saveVersion); // The loot is paid even if refused as stale, so open the chest.
         completeWorldRewardOperation(character.name, chestOperation.id);
         completeWorldRewardOperation(character.name, worldExploreRequestId);
-        setActiveChest(chest.loot);
+        setActiveChest({ ...chest.loot, replayed: chest.replayed === true });
         setChestVnPage(0);
         setChestVnLine(0);
         setChestVnDone(false);
@@ -4187,22 +4184,25 @@ function WorldMapContent({
         const lootItem = activeChest.itemId ? starterItems.find((i) => i.id === activeChest.itemId) : null;
         const lootCard = activeChest.cardId ? allCards.find((c) => c.id === activeChest.cardId) : null;
         const alreadyHaveCard = lootCard && character.tileCards.includes(lootCard.id);
+        const rewardPrefix = activeChest.replayed ? "" : "+";
         const rewards: { icon: ReactNode; label: string; sub: string }[] = [];
-        if (activeChest.ryo) rewards.push({ icon: <GameIcon name="ryo" size={22} />, label: `+${activeChest.ryo} Ryo`, sub: "Ancient gold" });
+        if (activeChest.ryo) rewards.push({ icon: <GameIcon name="ryo" size={22} />, label: `${rewardPrefix}${activeChest.ryo} Ryo`, sub: "Ancient gold" });
         if (lootItem) rewards.push({ icon: <GameIcon name="bag" size={22} />, label: lootItem.name, sub: itemRevealSub(lootItem) });
         if (lootCard) rewards.push({ icon: <GiCardPickup size={22} />, label: `${lootCard.name}${alreadyHaveCard ? " (duplicate)" : ""}`, sub: `${lootCard.rarity.charAt(0).toUpperCase() + lootCard.rarity.slice(1)} · ${lootCard.element}` });
-        if (activeChest.fateShards) rewards.push({ icon: <GameIcon name="shard" size={22} />, label: "+1 Fate Shard", sub: "Premium currency" });
-        if (activeChest.boneCharms) rewards.push({ icon: <GameIcon name="bone" size={22} />, label: "+1 Bone Charm", sub: "Awakening Stone material" });
-        if (activeChest.auraStones) rewards.push({ icon: <GameIcon name="crystal" size={22} />, label: "+1 Aura Stone", sub: "Awakening Stone material" });
-        if (activeChest.auraDust) rewards.push({ icon: <GameIcon name="sparkle" size={22} />, label: `+${activeChest.auraDust} Aura Dust`, sub: "Feeds the Aura Sphere" });
+        if (activeChest.fateShards) rewards.push({ icon: <GameIcon name="shard" size={22} />, label: `${rewardPrefix}1 Fate Shard`, sub: "Premium currency" });
+        if (activeChest.boneCharms) rewards.push({ icon: <GameIcon name="bone" size={22} />, label: `${rewardPrefix}1 Bone Charm`, sub: "Awakening Stone material" });
+        if (activeChest.auraStones) rewards.push({ icon: <GameIcon name="crystal" size={22} />, label: `${rewardPrefix}1 Aura Stone`, sub: "Awakening Stone material" });
+        if (activeChest.auraDust) rewards.push({ icon: <GameIcon name="sparkle" size={22} />, label: `${rewardPrefix}${activeChest.auraDust} Aura Dust`, sub: "Feeds the Aura Sphere" });
 
         return (
             <div className="card cinematic-card ancient-chest-reveal-card">
                 <div className="chest-reveal">
                     <div className="chest-reveal-header">
                         <p className="act-label"><GiOpenTreasureChest style={{ verticalAlign: "-0.14em", marginRight: "0.3rem" }} />ANCIENT CHEST CONTENTS</p>
-                        <h2 className="chest-reveal-title">The chest yields its secrets</h2>
-                        <p className="chest-reveal-sub">A relic of the shinobi wars, now yours to keep.</p>
+                        <h2 className="chest-reveal-title">{activeChest.replayed ? "Previously saved chest" : "Rewards saved"}</h2>
+                        <p className="chest-reveal-sub">{activeChest.replayed
+                            ? "These rewards were saved when this chest was first opened."
+                            : "These rewards are saved to your character."}</p>
                     </div>
                     <div className="chest-rewards">
                         {rewards.map((r, i) => (
@@ -4216,7 +4216,7 @@ function WorldMapContent({
                         ))}
                     </div>
                     <button className="chest-claim-btn" onClick={() => claimChest()}>
-                        <GiOpenTreasureChest style={{ verticalAlign: "-0.14em", marginRight: "0.3rem" }} />Claim All Rewards
+                        Continue
                     </button>
                 </div>
             </div>
@@ -4403,7 +4403,7 @@ function WorldMapContent({
                 },
             };
         })();
-        const sectorOverlayVault = sectorVaultMarker({ campaign: villageCampaign.state?.campaign, sector: selectedSector,
+        const sectorOverlayVault = sectorVaultMarker({ campaign: villageCampaign.state?.campaign, mission: villageCampaign.state?.mission, sector: selectedSector,
             village: character.village, level: character.level ?? 0, anbuViewOpen, ownerVillage: territory.ownerVillage, onOpen: setVaultPrompt });
         const sectorOverlayShrine = (() => {
             if (!isSectorTracesEnabled()) return null;
@@ -4546,21 +4546,24 @@ function WorldMapContent({
                                 <StrongholdDialog title={strongholdTitle(vaultPrompt.sector)} onClose={() => setVaultPrompt(null)}>
                                         <img src="/landmarks/anbu-vault.webp" alt="" className={`stronghold-boss-portrait${isDeathsGateStronghold(vaultPrompt.sector) ? ' stronghold-obsidian-portrait' : ''}`} />
                                         <p style={{ fontSize: 13, opacity: 0.82, margin: "0.3rem 0 0.8rem" }}>
-                                            {warStrongholdEntryText(villageCampaign.state?.campaign, vaultPrompt.sector, character.village) ?? (isDeathsGateStronghold(vaultPrompt.sector)
+                                            {warStrongholdEntryText(villageCampaign.state?.campaign, vaultPrompt.sector, character.village, villageCampaign.state?.mission) ?? (isDeathsGateStronghold(vaultPrompt.sector)
                                                 ? 'Enter twelve obsidian chambers shared with other players. Every step raises threat; a patrol attacks after 25 steps. Your current health and supplies carry into every fight.'
-                                                : vaultPrompt.village === character.village ? 'Take guard duty from level 15 to confront enemy espionage visitors. Enter your owned stronghold and challenge enemy players inside. Your allied Anbu stays on guard.' : 'Explore 12 chambers, fight patrols, and watch for rival players. An Anbu guards the war vault at the far end. Each step raises threat. Break through to raid this sector’s war supplies.')}
+                                                : vaultPrompt.village === character.village
+                                                    ? vaultPrompt.warEntry ? 'Take guard duty from level 15 to confront enemy espionage visitors. Your allied Anbu stays on guard.' : 'Explore your village’s twelve-chamber stronghold, fight patrols, and watch for rival players. Your Anbu protects the war reserves in the vault at the far end.'
+                                                    : vaultPrompt.warEntry ? 'Enter the assigned enemy stronghold and defeat its sentry or an enemy player to complete Espionage.' : 'Explore 12 chambers, fight patrols, and watch for rival players. An Anbu guards the war vault at the far end. Each step raises threat. Break through to raid this sector’s war supplies.')}
                                         </p>
+                                        <p className="stronghold-reward-detail">Stronghold entry unlocks at level {vaultMinimumLevel}.{!vaultPrompt.warEntry && !isDeathsGateStronghold(vaultPrompt.sector) && vaultPrompt.village !== character.village && ` Anbu treasury raids require level ${ANBU_RAID_MIN_LEVEL}.`}</p>
                                         {isDeathsGateStronghold(vaultPrompt.sector) && <p className="stronghold-reward-detail"><b>4× normal Ryo, stat growth and Jutsu XP on PvP wins.</b> That’s double Death’s Gate’s usual rewards. Both fighters must start inside. Patrols do not earn this bonus. Normal reward limits apply.</p>}
                                         <div className="stronghold-dialog-actions">
                                             <button
-                                                disabled={!anbuAdmissionOpen}
-                                                style={{ padding: "0.55rem 1.15rem", opacity: anbuAdmissionOpen ? 1 : 0.55 }}
+                                                disabled={!anbuAdmissionOpen || !vaultEntryEligible}
+                                                style={{ padding: "0.55rem 1.15rem", opacity: anbuAdmissionOpen && vaultEntryEligible ? 1 : 0.55 }}
                                                 onClick={() => {
-                                                    if (!anbuInfiltrationAdmissionEnabled(mutationAvailability("anbuInfiltration"))) return;
+                                                    if (!vaultEntryEligible || !anbuInfiltrationAdmissionEnabled(mutationAvailability("anbuInfiltration"))) return;
                                                     setVaultRaid(vaultPrompt);
                                                     setVaultPrompt(null);
                                                 }}
-                                            >{anbuAdmissionOpen ? (warStrongholdEntryText(villageCampaign.state?.campaign, vaultPrompt.sector, character.village) ? "Enter war stronghold" : isDeathsGateStronghold(vaultPrompt.sector) || vaultPrompt.village === character.village ? "Enter stronghold" : "Infiltrate") : "Operation paused"}</button>
+                                            >{!anbuAdmissionOpen ? "Operation paused" : vaultSpecialtyEntry ? "Enter war stronghold" : !vaultEntryEligible ? `Requires level ${vaultMinimumLevel}` : "Enter stronghold"}</button>
                                             <button style={{ padding: "0.55rem 1.15rem", opacity: 0.8 }} onClick={() => setVaultPrompt(null)}>Retreat</button>
                                         </div>
                                 </StrongholdDialog>,
@@ -4578,12 +4581,10 @@ function WorldMapContent({
                                                 character={character}
                                                 sharedImages={sharedImages}
                                                 sector={vaultRaid.sector}
-                                                onAttackPlayer={player => {
-                                                    const environment = selectedSectorCombatEnvironment();
-                                                    if (!environment) return;
-                                                    focusSectorCombat(environment.sector, environment.biome, environment.weather);
-                                                    return sectorAttackPlayer(player);
-                                                }}
+                                                onAttackPlayer={handleSelectedSectorPlayerAttack}
+                                                sectorContest={sectorWarContest}
+                                                onOpenSectorContest={() => handleOpenSectorContest(false)}
+                                                onFightSectorGarrison={() => handleOpenSectorContest(true)}
                                                 targetVillage={vaultRaid.village}
                                                 onVersionedCharacter={onVersionedCharacter}
                                                 onExit={() => setVaultRaid(null)}

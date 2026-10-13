@@ -101,10 +101,47 @@ test('extreme live ultimates preserve a full-health response, Guard halves each 
         };
         const hits = cast(false), guarded = cast(true), finishes = cast(false, true);
         for (let i = 0; i < hits.length; i++) {
-            assert.ok(hits[i].damage <= 360 && !hits[i].ko);
+            assert.ok(hits[i].damage <= 240 && !hits[i].ko);
             assert.equal(guarded[i].guarded, true);
             assert.ok(Math.abs(guarded[i].damage - hits[i].damage / 2) <= 1);
             assert.equal(finishes[i].ko, true);
         }
     }
+});
+
+test('new response rules reward setup and survive serialization; old sessions retain their curve', () => {
+    const hit = (rules: ShowdownSession['damageRules'], setup: boolean) => {
+        const session = fixture('standard-0');
+        session.damageRules = rules;
+        session.player[0].meter = 100; session.player[0].readiness = 99;
+        session.player[0].attack = session.player[0].spAttack = 10000;
+        if (setup) session.player[0].statuses.push({ kind: 'buff', magnitude: 1.25, rounds: 2, bornRound: 0 });
+        session.enemy[0].hp = session.enemy[0].maxHp = 400;
+        session.enemy[0].defense = session.enemy[0].spDefense = 1;
+        const stored = JSON.parse(JSON.stringify(session)) as ShowdownSession;
+        const events = resolveShowdownRound(stored, [{ kind: 'super', petId: 'p-0', targetId: 'e-0' }], [{ kind: 'rest', petId: 'e-0' }]);
+        const action = events.find(e => e.t === 'action' && e.super);
+        assert.ok(action?.t === 'action');
+        return action.targets[0].damage;
+    };
+    const unprepared = hit('response-v2', false), prepared = hit('response-v2', true);
+    assert.ok(unprepared <= 240);
+    assert.ok(prepared > unprepared && prepared <= 300);
+    assert.equal(hit(undefined, false), hit('legacy-v1', false));
+    assert.ok(hit(undefined, false) > prepared);
+});
+
+test('new Guard resolves before extreme speed; legacy sessions keep their sealed initiative order', () => {
+    const attack = (rules: ShowdownSession['damageRules']) => {
+        const session = fixture('standard-0'); session.damageRules = rules;
+        session.player[0].meter = 100; session.player[0].readiness = 99;
+        session.player[0].speed = 10000; session.enemy[0].speed = 1;
+        const events = resolveShowdownRound(session, [{ kind: 'super', petId: 'p-0', targetId: 'e-0' }], [{ kind: 'guard', petId: 'e-0' }]);
+        const action = events.find(e => e.t === 'action' && e.super);
+        assert.ok(action?.t === 'action');
+        return action.targets[0].guarded;
+    };
+    assert.equal(attack('response-v2'), true);
+    assert.equal(attack('legacy-v1'), false);
+    assert.equal(attack(undefined), false);
 });

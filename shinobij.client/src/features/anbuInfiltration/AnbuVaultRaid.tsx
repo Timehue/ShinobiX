@@ -8,11 +8,13 @@ import { campaignRequest } from '../../lib/village-war-campaign';
 import { VillageCampaignPanel } from '../villageWar/VillageCampaignPanel';
 import { EspionageStronghold } from '../villageWar/EspionageStronghold';
 import { WarGuardStronghold } from '../villageWar/WarGuardStronghold';
-import { isDeathsGateStronghold } from '../../../../shared/sector-stronghold';
+import { ANBU_RAID_MIN_LEVEL, isDeathsGateStronghold } from '../../../../shared/sector-stronghold';
+import type { SectorWarContestView } from '../../lib/sector-war-engagement';
 import {
     startInfiltration,
     reportInfiltration,
     fetchInfiltrationState,
+    recoverActiveInfiltration,
     anbuInfiltrationAdmissionEnabled,
     anbuAvatarForVillage,
     anbuDisplayName,
@@ -34,7 +36,8 @@ type Phase = "traverse" | "fight" | "result" | "patrol-result";
 
 export function AnbuVaultRaid(props: Parameters<typeof AnbuVaultRaidLegacy>[0]) {
     const { state, loaded } = useVillageCampaign(props.character.name, props.character.village);
-    const objective = state?.campaign.strongholds.find(o => o.sector === props.sector);
+    const campaignActive = !!state && Date.now() >= state.campaign.startsAt && Date.now() < state.campaign.endsAt;
+    const objective = campaignActive ? state.campaign.strongholds.find(o => o.sector === props.sector) : undefined;
     const objectiveId = objective?.id;
     const campaignWarId = state?.warId;
     const [entered, setEntered] = useState(false);
@@ -48,7 +51,7 @@ export function AnbuVaultRaid(props: Parameters<typeof AnbuVaultRaidLegacy>[0]) 
         return () => { active = false; };
     }, [props.character.name, campaignWarId, objectiveId]);
     if (!loaded) return <p>Checking stronghold orders…</p>;
-    if (state?.mission?.kind === 'espionage' && state.mission.status === 'active' && state.mission.sectors[0] === props.sector)
+    if (campaignActive && state?.mission?.kind === 'espionage' && state.mission.status === 'active' && state.mission.sectors[0] === props.sector)
         return <EspionageStronghold {...props} warId={state.warId} mission={state.mission} />;
     const leave = () => {
         if (campaignWarId && objectiveId) void campaignRequest(props.character.name, campaignWarId, 'leave', { objectiveId }).catch(() => undefined);
@@ -57,7 +60,7 @@ export function AnbuVaultRaid(props: Parameters<typeof AnbuVaultRaidLegacy>[0]) 
     if (objective && state) return entered ? <VillageCampaignPanel character={props.character} warId={state.warId}
         sector={props.sector} sharedImages={props.sharedImages} onVersionedCharacter={props.onVersionedCharacter} onExit={leave} />
         : <div className='summary-box'><p>{entryError || 'Entering the war stronghold…'}</p><button onClick={leave}>Leave</button></div>;
-    if (state && props.targetVillage === props.character.village && !isDeathsGateStronghold(props.sector))
+    if (campaignActive && state && props.targetVillage === props.character.village && !isDeathsGateStronghold(props.sector))
         return <WarGuardStronghold {...props} warId={state.warId} />;
     return <AnbuVaultRaidLegacy {...props} />;
 }
@@ -70,6 +73,9 @@ function AnbuVaultRaidLegacy({
     onRecordBattle,
     onAttackPlayer,
     onExit,
+    sectorContest,
+    onOpenSectorContest,
+    onFightSectorGarrison,
 }: {
     character: Character;
     sharedImages: Record<string, string>;
@@ -79,10 +85,15 @@ function AnbuVaultRaidLegacy({
     onRecordBattle?: (entry: BattleHistoryEntry) => void;
     onAttackPlayer: (player: PlayerRecord) => void | Promise<void>;
     onExit: () => void;
+    sectorContest?: SectorWarContestView | null;
+    onOpenSectorContest?: () => void;
+    onFightSectorGarrison?: () => void;
 }) {
     const anbuMutationAvailability = useCapabilityMutationAvailability("anbuInfiltration");
     const { mutationAvailability, viewAvailability } = useLiveCapabilities();
     const actionsAvailable = anbuInfiltrationAdmissionEnabled(anbuMutationAvailability);
+    const raidLevelEligible = (character.level ?? 0) >= ANBU_RAID_MIN_LEVEL;
+    const defendingVillage = targetVillage === character.village;
     const recoveryAvailable = viewAvailability('anbuInfiltration') === 'available';
     const [phase, setPhase] = useState<Phase>("traverse");
     const [fight, setFight] = useState<{ runId: string; session: SoloPveSession; anbuName: string; patrol?: boolean; sector?: number; targetVillage?: string } | null>(null);
@@ -114,18 +125,20 @@ function AnbuVaultRaidLegacy({
     // the player reopened a different sector's vault to get here.
     const [resumeRunId, setResumeRunId] = useState<string | null>(() => {
         if (isDeathsGateStronghold(sector)) return null;
-        try { return localStorage.getItem(runKey) ?? localStorage.getItem(INFIL_RUN_KEY); } catch { return null; }
+        try { return localStorage.getItem(runKey) ?? localStorage.getItem(INFIL_RUN_KEY) ?? ''; } catch { return ''; }
     });
     useEffect(() => {
-        if (!resumeRunId) return;
+        if (resumeRunId === null) return;
         if (!recoveryAvailable) return;
         let alive = true;
         const controller = new AbortController();
-        fetchInfiltrationState(resumeRunId, character.name, controller.signal)
+        const recovery = resumeRunId ? fetchInfiltrationState(resumeRunId, character.name, controller.signal)
+            : recoverActiveInfiltration(character.name, sector, controller.signal);
+        recovery
             .then(res => {
                 if (!alive) return;
-                setFight({ runId: resumeRunId, session: res.session, anbuName: res.anbu.name, sector: res.sector, targetVillage: res.targetVillage });
-                try { localStorage.setItem(runKey, resumeRunId); localStorage.removeItem(INFIL_RUN_KEY); } catch { /* storage disabled */ }
+                setFight({ runId: res.runId, session: res.session, anbuName: res.anbu.name, sector: res.sector, targetVillage: res.targetVillage });
+                try { localStorage.setItem(runKey, res.runId); localStorage.removeItem(INFIL_RUN_KEY); } catch { /* storage disabled */ }
                 setPhase("fight");
                 setResumeRunId(null);
             })
@@ -134,10 +147,10 @@ function AnbuVaultRaidLegacy({
                 if (e instanceof InfiltrationRequestError && ((e.status === 404 && e.message === 'Run not found or expired.') || e.status === 403)) {
                     try { localStorage.removeItem(runKey); localStorage.removeItem(INFIL_RUN_KEY); } catch { /* storage disabled */ }
                     setResumeRunId(null);
-                } else setResumeError('Your fight is saved. We could not reconnect yet. Retry when your connection returns.');
+                } else setResumeError(resumeRunId ? 'Your fight is saved. We could not reconnect yet. Retry when your connection returns.' : 'We could not check this stronghold visit. Retry when your connection returns.');
             });
         return () => { alive = false; controller.abort(); };
-    }, [resumeRunId, recoveryAvailable, resumeAttempt, runKey, character.name]);
+    }, [resumeRunId, recoveryAvailable, resumeAttempt, runKey, character.name, sector]);
 
     const startingRef = useRef(false);
     function leaveResolvedRaid() {
@@ -157,6 +170,11 @@ function AnbuVaultRaidLegacy({
     async function enterVault() {
         if (isDeathsGateStronghold(sector)) return;
         if (startingRef.current || phase !== "traverse") return;
+        if (defendingVillage) return;
+        if (!raidLevelEligible) {
+            setError(`Anbu treasury raids require level ${ANBU_RAID_MIN_LEVEL}. You can continue exploring the stronghold.`);
+            return;
+        }
         if (!anbuInfiltrationAdmissionEnabled(mutationAvailability("anbuInfiltration"))) {
             setError("ANBU infiltration actions are paused. No raid attempt was started.");
             return;
@@ -241,11 +259,11 @@ function AnbuVaultRaidLegacy({
     }), [mutationAvailability, viewAvailability]);
 
     // ── phases ─────────────────────────────────────────────────────────────────
-    if (resumeRunId) {
+    if (resumeRunId !== null) {
         return (
             <div className="stronghold-recovery" role="status">
-                <h2>Rejoining your infiltration</h2>
-                <p>{resumeError || (viewAvailability('anbuInfiltration') !== 'available' ? 'Fight recovery is temporarily paused. Your fight remains saved.' : 'Reconnecting to your saved fight…')}</p>
+                <h2>{resumeRunId ? 'Rejoining your infiltration' : 'Checking your stronghold visit'}</h2>
+                <p>{resumeError || (viewAvailability('anbuInfiltration') !== 'available' ? 'Fight recovery is temporarily paused. Your fight remains saved.' : resumeRunId ? 'Reconnecting to your saved fight…' : 'Checking for an active raid…')}</p>
                 {resumeError && <button onClick={() => { setResumeError(''); setResumeAttempt(value => value + 1); }}>Retry connection</button>}
                 <button onClick={onExit}>Back to sector</button>
             </div>
@@ -354,6 +372,7 @@ function AnbuVaultRaidLegacy({
     return (
         <>
             <StrongholdExplore
+                sectorContest={sectorContest} onOpenSectorContest={onOpenSectorContest} onFightSectorGarrison={onFightSectorGarrison}
                 character={character} sector={sector} targetVillage={targetVillage} sharedImages={sharedImages}
                 anbuAvatar={anbuAvatar} anbuName={anbuName} blocked={challenge || starting || startUncertain || !actionsAvailable}
                 admissionPending={starting || startUncertain} admissionError={error}
@@ -369,14 +388,15 @@ function AnbuVaultRaidLegacy({
                 onExit={onExit}
             />
             {/* Boss room — the Challenge / Retreat confrontation at the vault. */}
-            {challenge && <StrongholdDialog title="Challenge the Anbu" busy={starting} onClose={() => setChallenge(false)}>
+            {challenge && <StrongholdDialog title={defendingVillage ? "Your village’s Anbu" : "Challenge the Anbu"} busy={starting} onClose={() => setChallenge(false)}>
                 {anbuAvatar && <img className="stronghold-boss-portrait" src={anbuAvatar} alt={anbuName} />}
                 <h3>{anbuName}</h3>
-                <p>The masked operative guards the vault at full strength. Defeat them to raid this sector’s war reserves. Your current health and supplies carry into the fight.</p>
+                <p>{defendingVillage ? 'This Anbu protects your village’s war reserves. Explore the stronghold and confront rival players. Your own treasury cannot be raided.' : 'The masked operative guards the vault at full strength. Defeat them to raid this sector’s war reserves. Your current health and supplies carry into the fight.'}</p>
+                {!defendingVillage && !raidLevelEligible && <p role="status">Anbu treasury raids unlock at level {ANBU_RAID_MIN_LEVEL}. You can continue exploring and fighting patrols or rival players.</p>}
                 {error && <p className="stronghold-error" role="alert">{error}</p>}
                 <div className="stronghold-dialog-actions">
-                    <button className="stronghold-attack" onClick={() => void enterVault()} disabled={starting || !actionsAvailable}>{starting ? 'Engaging…' : 'Challenge'}</button>
-                    <button onClick={() => setChallenge(false)}>Retreat</button>
+                    {!defendingVillage && <button className="stronghold-attack" onClick={() => void enterVault()} disabled={starting || !actionsAvailable || !raidLevelEligible}>{starting ? 'Engaging…' : !raidLevelEligible ? `Requires level ${ANBU_RAID_MIN_LEVEL}` : 'Challenge'}</button>}
+                    <button onClick={() => setChallenge(false)}>{defendingVillage ? 'Return to stronghold' : 'Retreat'}</button>
                 </div>
             </StrongholdDialog>}
         </>

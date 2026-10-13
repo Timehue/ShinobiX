@@ -31,6 +31,11 @@ context only after GitHub has observed every split context, all ten permanent
 contexts have completed successfully on a pull request, and at least one merged
 revision has completed them on `main`.
 
+`CI / pg-integration` (the storage adapter against a real Postgres) is required
+today only through `CI / test-build`, which lists it in `needs`. **Before
+removing `CI / test-build`, add `CI / pg-integration` to the required list**, or
+it stops gating merges without anyone noticing.
+
 Do not globally require `CI / release-artifact`; it is an internal dependency of
 required consumers. Do not globally require the path-filtered Clan Boss workflow
 or manual visual workflow, because an unrelated pull request does not emit those
@@ -78,9 +83,10 @@ recorded with the SHA, operator, reason, and follow-up repair.
 4. Enable strict up-to-date branches, review requirements, conversation
    resolution, and force-push/deletion restrictions.
 5. Verify one pull request merge and its subsequent `main` run without bypass.
-6. Remove only the `CI / test-build` requirement. Keep the compatibility workflow
-   job until a separate reviewed cleanup confirms no integration still depends on
-   the old context.
+6. Add `CI / pg-integration` to the required list, then remove only the
+   `CI / test-build` requirement. Keep the compatibility workflow job until a
+   separate reviewed cleanup confirms no integration still depends on the old
+   context.
 
 Adding a required context before GitHub has observed it can leave pull requests
 permanently waiting for an “Expected” check. Apply context changes in the order

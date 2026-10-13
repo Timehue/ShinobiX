@@ -169,6 +169,32 @@ numbers stand.
 **Not yet measured:** combat traffic, the PvP SSE fallback, and real Railway
 and Supabase CPU.
 
+## Measuring it on the real stack (2026-10-12)
+
+Every figure above came from a local run with simulated database costs. Railway's real
+CPU and Supabase Micro have never been measured under load.
+
+Two tools now make that measurement possible:
+
+- **`/health/runtime`** (the `HEALTH_DEEP_TOKEN` header; it never touches storage)
+  reports the game process from the inside:
+  - main-thread utilization and event-loop delay;
+  - process CPU and memory;
+  - pg pool `waiting`;
+  - socket and online-player counts.
+
+  The container has 24 vCPUs, but game logic runs on one thread, so main-thread
+  utilization is the server-side ceiling. A bigger Railway plan does not raise it.
+- **`scripts/capacity-probe/`** steps real-client virtual players (presence socket,
+  heartbeat, polls, autosaves, travel) up a plan against the live stack. It simulates
+  Cloudflare's edge cache and aborts on database or WAL growth, because the disk is
+  spend-capped at 8 GB. See its README for the Railway service recipe and how to read a
+  result.
+
+Also fixed on 2026-10-12, all of which lowers the database's share per player:
+- the roster's projected read: 1,145 → 183 ms per refresh;
+- the image-manifest key listing: it no longer writes temp files;
+- nightly snapshots: they no longer copy unchanged saves.
 ## Corrected automated local gate
 
 `npm run soak:smoke` now runs in CI after the built-server certification. The

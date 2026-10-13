@@ -30,6 +30,15 @@ const normalize = (x: number, z: number): [number, number] => {
 };
 const wrappedAngle = (angle: number) => Math.atan2(Math.sin(angle), Math.cos(angle));
 
+/** Avoid repeatedly restarting a gait when measured velocity jitters around
+ * its threshold. An existing run cycle persists until speed falls below the
+ * lower boundary; a walking pet accelerates past the upper boundary first. */
+export function petLocomotionUsesGallop(profile: string, speed: number, previousClip = ''): boolean {
+    const threshold = profile === 'quadruped' ? 7.5 : profile === 'biped' ? 3.45 : Infinity;
+    const margin = profile === 'quadruped' ? .45 : .2;
+    return speed >= threshold + (previousClip === 'gallop' ? -margin : margin);
+}
+
 /** Advance a visible body yaw without ever taking the long way around or
  * rotating farther than one readable frame allows. `maxFrameStep` is a hard
  * safety rail (independent of a dropped-frame delta); `turnRate` keeps ordinary

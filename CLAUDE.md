@@ -1,13 +1,11 @@
 # CLAUDE.md
 
 ShinobiX / "Shinobi Journey" — a shinobi RPG browser game. React 19 + Vite SPA
-frontend, a set of Vercel-style TypeScript serverless handlers for the API, and
+frontend, a set of `(req, res)` TypeScript handlers for the API, and
 Supabase (Postgres) for storage. The handlers run under a single Express server
 (`server.ts` → `dist/server.js`) that serves both the API and the SPA on one
-port — deployed on Railway (Docker). (cPanel / Phusion Passenger was a maintained
-fallback but is **RETIRED as of 2026-07-17** — Railway is the sole host. Vercel
-was the original target and is also retired; the handlers keep their Vercel-style
-shape.)
+port — deployed on Railway (Docker), the **only** host. (Vercel and cPanel are
+both retired; the handlers keep the shape they were first written in for Vercel.)
 
 ## Architecture
 
@@ -21,32 +19,26 @@ shape.)
 - **`server.ts`** (repo root) — the Express server (Railway). Its
   `server-api-routes.ts` registration module imports the `api/**` handlers unchanged;
   the server's route adapter registers each on **both** the bare path and
-  the `/api`-prefixed path (a dormant holdover from Passenger, which may or may not
-  have stripped `/api`; harmless on Railway). It also serves
-  the React SPA static build and provides `/health` and `/restart`. Compiles to
-  `dist/server.js`.
-- **`app.js`** (repo root, CommonJS) — the (retired) cPanel/Passenger entry point;
-  Railway runs `node dist/server.js` directly, so this is now dormant. It hardcodes
-  Supabase DNS and forces IPv4 (CageFS/CloudLinux couldn't resolve DNS or route
-  IPv6), loads `.env`, then `require('./dist/server.js')`.
+  the `/api`-prefixed path (a harmless holdover from the retired cPanel host). It
+  also serves the React SPA static build and provides `/health` and `/restart`.
+  Compiles to `dist/server.js`.
+- **`app.js`** (repo root, CommonJS) — local-run entry point only
+  (`npm start`/`npm run dev`); Railway runs `node dist/server.js` directly. It
+  loads `.env`, applies a Supabase DNS/IPv4 workaround left over from cPanel, then
+  `require('./dist/server.js')`.
 - **`shinobij.client/`** — React 19 + TypeScript + Vite SPA. `src/main.tsx` →
   `src/App.tsx`. `authFetch.ts` wraps authenticated API calls; `fingerprint.ts`
   produces the `x-client-fp` header.
 - **Storage** — Supabase Postgres via `@supabase/supabase-js` (and `pg`). Schema in
-  `supabase-schema.sql`; historical migration notes in
-  `docs/archive/SUPABASE_MIGRATION.md` (rollback section references retired
-  Upstash/Vercel architecture — not a current plan). The legacy
-  Upstash/Redis KV layer has been fully migrated to Supabase (the one-off
-  `migrate-upstash-*` / `import-*` scripts have been removed; see git history).
-  **cPanel disk overlay RETIRED 2026-07-17, code REMOVED 2026-10-02:** `save:*`,
-  `shared:images*`, `shared:imgfields*` live in Supabase Postgres (the base
-  `kv_store`), same as every other key. There is no overlay, KV proxy, routing
-  wrapper or overlay migration endpoint any more, so `saveStoreKind` is always
-  `'base-store'` (`'memory-qa'` under the QA harness). `DISK_KV_DIR`,
-  `KV_PROXY_URL` and `REQUIRE_DISK_OVERLAY` do nothing except log a boot warning.
-  cPanel is shut down, so there is no rollback path to it;
-  `docs/RETIRE_CPANEL_RUNBOOK.md` records the cutover. `kv-backup.mjs` refuses to
-  restore a pre-cutover backup whose saves lived on the overlay.
+  `supabase-schema.sql`. `api/_storage.ts` uses a direct `pg` pool when
+  `DATABASE_URL` is set (Railway), the Supabase REST API otherwise, and an
+  isolated in-memory store under `SHINOBIX_QA_MEMORY_KV=1` (tests only). Every
+  key — `save:*` and `shared:images*` included — lives in the one `kv_store`
+  table, so `saveStoreKind` is always `'base-store'` (`'memory-qa'` under the QA
+  harness). The old cPanel disk overlay is gone (`docs/RETIRE_CPANEL_RUNBOOK.md`):
+  `DISK_KV_DIR`, `KV_PROXY_URL` and `REQUIRE_DISK_OVERLAY` only log a boot
+  warning, and `kv-backup.mjs` refuses to restore a pre-cutover backup whose
+  saves lived on the overlay. `docs/archive/` holds historical migration notes, not current plans.
 - **`scripts/`** — build/test tooling (incl. `run-tests.mjs`, the test auto-discoverer
   described under Conventions) plus one-off migration and balance-simulation scripts.
   Notably `gen-story-pdf.mjs` (+ `_story-pdf-build.py`): render the whole story
@@ -66,30 +58,23 @@ in-process daily snapshot cron.
 - **Railway** (`railway.json` → `Dockerfile`) — `node dist/server.js`. The Docker
   build runs `npm run build` fresh (server + client) on every push to `main`, so
   it **self-builds from source** — committed `dist/` is NOT used. Health check
-  `/health`.
-- **cPanel / Phusion Passenger — RETIRED (2026-07-17).** No longer a deploy
-  target. `app.js` (the Passenger entry) and the dual bare-path/`/api`-path route
-  registration in `server.ts` remain as dormant, harmless code, but nothing
-  serves the committed `dist/` anymore. **Do not commit `dist/`** — it is served
-  by no one, and a source rebuild churns ~600 files on line-endings alone.
-  The cPanel deploy scaffolding (`CPANEL_SETUP.md`, `Passengerfile.json`,
-  `.cpanel.yml`, `startup.cjs`) has been removed; `app.js` is kept only as a
-  local-run entry point (`npm start`/`npm run dev`).
+  `/health`. **Do not commit `dist/`** — it is served by no one, and a source
+  rebuild churns ~600 files on line-endings alone.
 
-(Vercel was the original target and is retired. Do not add `vercel.json`,
-Vercel routes, builds, env, cron, or runtime settings back to this repo. If a
-retired Vercel project starts reporting GitHub statuses again, disconnect or
-delete that project outside the repo instead.)
+**Do not add `vercel.json`**, Vercel routes, builds, env, cron, or runtime
+settings back to this repo (`scripts/verify-dist.mjs` fails on a `vercel.json`).
+If a retired Vercel project starts reporting GitHub statuses again, disconnect
+or delete that project outside the repo instead.
 
-Note: there is **no folder-convention auto-routing** anymore — every `api/**`
-handler must be imported and `route()`-registered in `server-api-routes.ts`,
-which `server.ts` invokes through its existing dual-path adapter, or it is
+There is **no folder-convention auto-routing** — every `api/**` handler must be
+imported and `route()`-registered in `server-api-routes.ts`, or it is
 unreachable. `server-routes.test.ts` enforces this both ways
 (client call ↔ registration, and handler file ↔ wiring).
 
 ## Conventions
 
-- Handlers are Vercel-style and check `req.method` directly (`GET`/`POST`/`DELETE`/`OPTIONS`); return early on `OPTIONS`.
+- Handlers default-export a `(req, res)` function (almost always `async function handler`) and check `req.method` directly (`GET`/`POST`/`DELETE`/`OPTIONS`); return early on `OPTIONS`.
+- Handler req/res types come from the local shim `api/_vercel.d.ts` (`import type` only, no runtime dependency). **New code uses `ApiRequest` / `ApiResponse`**; they are aliases of the `VercelRequest` / `VercelResponse` names that existing handlers import, so the two mix freely. Don't mass-rename the existing imports.
 - CORS lives in `api/_utils.ts` `cors()`; the Express server in `server.ts`
   mirrors the same origin allowlist and headers — **keep the two in sync** when
   changing allowed origins or custom headers (`x-admin-password`,
@@ -106,6 +91,15 @@ unreachable. `server-routes.test.ts` enforces this both ways
   short explicit list at the top of that script — which is why the two repo-root
   files (`cpanel-dns.test.cjs`, `server-routes.test.ts`) are listed there. Put new
   tests under a scan root, or they silently never run.
+- **`*.pg-integration.test.ts` files run against a real Postgres** and skip
+  unless `PG_INTEGRATION_DATABASE_URL` names a throwaway database, so `npm test`
+  reports them as skipped. `CI / pg-integration` (a `postgres:16` service
+  container, with `PG_INTEGRATION_REQUIRED=1` so a skip fails the job) runs
+  **exactly one file**: `api/_storage-compare-set-many.pg-integration.test.ts`,
+  named in `.github/workflows/ci.yml` and `scripts/test-with-postgres.mjs`. Put
+  new real-Postgres tests in that file, or add a new file to both places;
+  otherwise CI never runs it. Use it for any storage behaviour the `pg.Pool`
+  shim tests cannot prove.
 - **The Node version lives in exactly one file: `.nvmrc`** (currently `24.21.0`).
   Every workflow reads it through `node-version-file`, `scripts/run-tests.mjs`
   reads it to warn when your local major differs, and the Dockerfile repeats it
@@ -173,14 +167,13 @@ Full details in `docs/auth-and-anti-cheat-patterns.md`. The load-bearing invaria
 - Do not modify auth, password, admin, rate-limit, or IP-tracking logic without explaining the risk first.
 - Keep player auth **token-first**: never reintroduce durable plaintext-password storage on the client, and never break the no-token (`SESSION_SECRET` unset) fallback path.
 - A new client-reported reward/currency endpoint must be **server-authoritative** — recompute the reward, or use the mint-token pattern (see `docs/auth-and-anti-cheat-patterns.md`); never pay out from client-supplied amounts/outcomes.
-- Do not remove Railway support when changing API handlers. (cPanel/Passenger is retired; its dormant `app.js` and the dual-path `route()` registration can stay but need not be maintained.)
+- Do not remove Railway support when changing API handlers.
 - When adding a new API endpoint, you must BOTH create the `api/**` handler AND
   import + `route()`-register it in `server-api-routes.ts` — there is no auto-routing, so an
   unregistered handler is unreachable.
 - **Do NOT commit `dist/`.** Railway self-builds from source on every push to
-  `main`, and cPanel (which used to serve committed `dist/`) is retired — so a
-  committed `dist/` is served by no one, and a source rebuild only churns it on
-  line-endings.
+  `main`, so a committed `dist/` is served by no one, and a source rebuild only
+  churns it on line-endings.
 - Keep CORS headers in `api/_utils.ts` and `server.ts` synchronized.
 - Do not commit secrets, API keys, Supabase service keys, passwords, or `.env` contents.
 - Always run the relevant tests before saying a task is complete.

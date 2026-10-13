@@ -48,11 +48,13 @@ async function prepare(browser, viewport, state, query = '', beforeNavigate, { h
     await page.route('**/api/**', route => diagnostics.route(page, route, async () => {
         const body = route.request().method() === 'POST' ? route.request().postDataJSON() : {};
         const action = body?.action;
+        if (action === 'recover' && !state.recoverActive) return route.fulfill({ status: 404, json: { error: 'Run not found or expired.' } });
         const fail = error => route.fulfill({ status: 503, json: { error } });
         if (action === 'stronghold-enter') state.visit.presenceId = body.presenceId;
         if (action === 'stronghold-state') { state.polls++; if (state.onState) return state.onState(route); }
         if (action === 'stronghold-leave') { state.leaves++; if (state.onLeave) return state.onLeave(route); if (state.failLeave) return fail('Connection interrupted. Try leaving again.'); return route.fulfill({ json: { ok: true } }); }
         if (action === 'stronghold-step') {
+            await state.onStep?.();
             if (state.failStep) return fail('Connection interrupted.');
             if (body.version === state.visit.version) { state.steps++; Object.assign(state.visit, { tile: body.tile, version: state.visit.version + 1, steps: state.visit.steps + 1, threat: Math.min(100, state.visit.threat + 4) }); if (!state.visit.visited.includes(body.tile)) state.visit.visited.push(body.tile); }
         }
@@ -60,7 +62,7 @@ async function prepare(browser, viewport, state, query = '', beforeNavigate, { h
         if (action === 'state' && state.failResume) return fail('Connection temporarily unavailable.');
         if (action === 'start') { state.starts++; if (state.onStart) return state.onStart(route); }
         if (route.request().url().includes('/api/qa/stronghold-attack')) { state.attacks++; return state.onAttack ? state.onAttack(route) : route.fulfill({ json: { ok: true } }); }
-        if (action === 'state' || action === 'start') return route.fulfill({ json: { ok: true, runId: 'qa-patrol', session: state.session, sector: 12, targetVillage: 'Moonshadow Village', anbu: { name: 'The Moonshadow Anbu' } } });
+        if (action === 'state' || action === 'start' || action === 'recover') return route.fulfill({ json: { ok: true, runId: 'qa-patrol', session: state.session, sector: 12, targetVillage: 'Moonshadow Village', anbu: { name: 'The Moonshadow Anbu' } } });
         if (action === 'stronghold-patrol-report' || action === 'report') {
             state.reports++;
             if (state.failReport) return fail('Settlement temporarily unavailable.');
@@ -169,7 +171,7 @@ try {
             assert(await page.getByText('4× PvP rewards', { exact: true }).isVisible());
             assert(await page.getByText('Ashen Threshold', { exact: true }).first().isVisible());
             await page.screenshot({ path: `${output}/${engineName}-obsidian-${width}x${height}.png` });
-            if (width < 900) await page.getByRole('button', { name: /^Players/ }).click();
+            await page.getByRole('button', { name: /^Players/ }).click();
             await page.locator('.stronghold-roster:visible').last().getByRole('button', { name: 'Inspect' }).first().click();
             assert(await page.getByText('4× normal rewards on a PvP win.', { exact: true }).isVisible());
             await page.getByRole('button', { name: 'Attack player' }).click();
@@ -200,14 +202,18 @@ try {
             await page.close();
         }
         for (const [width, height] of [[320, 568], [390, 844], [430, 932], [844, 390], [1920, 1080]]) {
-            const state = fixture({ crowd: 18 }); const page = await prepare(browser, { width, height }, state); await ready(page); await fits(page);
+            const state = fixture({ crowd: 18 }); const page = await prepare(browser, { width, height }, state, '?holdAttack=1'); await ready(page); await fits(page);
             await page.screenshot({ path: `${output}/${engineName}-${width}x${height}.png` });
             if (width < 900) {
                 await page.getByRole('button', { name: /^Players/ }).click();
                 await page.getByRole('dialog').getByRole('button', { name: 'Inspect' }).last().click();
-            } else await page.locator('.stronghold-roster-row button').first().click();
+            } else {
+                await page.getByRole('button', { name: 'Dungeon intel', exact: true }).click();
+                await page.locator('.stronghold-roster-row button').first().click();
+            }
             await page.getByRole('button', { name: 'Attack player' }).click();
             assert(await page.getByRole('button', { name: 'Connecting…' }).isDisabled());
+            await page.evaluate(() => window.releaseStrongholdAttack());
             await page.getByRole('dialog').waitFor({ state: 'hidden' });
             await page.getByRole('button', { name: 'Move right', exact: true }).click();
             await page.waitForFunction(() => document.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow') === '4');
@@ -285,6 +291,18 @@ try {
             } finally { release(); }
             assert.equal(state.starts, 0, 'navigation must not admit a battle');
             checks.push(`${engineName}: navigation during a pending presence read recovers`);
+            await page.close();
+        }
+        {
+            const lostResponse = fixture({ recoverActive: true });
+            const page = await prepare(browser, { width: 390, height: 844 }, lostResponse, '?host=1');
+            await page.waitForFunction(() => localStorage.getItem('anbuInfiltration.activeRun:scout') === 'qa-patrol');
+            await page.locator('.stronghold-shell').waitFor({ state: 'hidden' });
+            assert.equal(lostResponse.starts, 0, 'server recovery cannot start a second raid');
+            await page.reload();
+            await page.getByRole('heading', { name: 'Rejoining your infiltration' }).waitFor({ state: 'hidden' });
+            assert.equal(lostResponse.starts, 0);
+            checks.push(`${engineName}: missing browser run ID recovers the server’s exact Anbu fight through reload`);
             await page.close();
         }
         for (const outcome of ['win', 'loss', 'save-rejected', 'report-failure']) {

@@ -27,9 +27,13 @@ function parseGlb(path: string) {
 
 // A repair appends identical binding streams after each asset's own animation
 // bank. Accessor indices can differ while the actual reviewed mesh stays equal.
-async function meshContent({ file, json }: ReturnType<typeof parseGlb>) {
+async function meshContent({ file, json }: ReturnType<typeof parseGlb>, repairedBindings = false) {
     await MeshoptDecoder.ready;
     const meshes = structuredClone(json.meshes);
+    if (repairedBindings) {
+        for (const mesh of meshes) for (const primitive of mesh.primitives) { delete primitive.attributes.JOINTS_0; delete primitive.attributes.WEIGHTS_0; }
+        return meshes;
+    }
     if (!json.extras?.birdFaceRepair) return meshes;
     const binStart = 28 + file.readUInt32LE(12);
     for (const mesh of meshes) for (const primitive of mesh.primitives) {
@@ -79,7 +83,9 @@ test("each replacement preserves its reviewed model but carries a full identity 
         const source = parseGlb(sourcePath);
         const authored = parseGlb(authoredPath);
 
-        assert.deepEqual(await meshContent(authored), await meshContent(source), `${id}: mesh changed during animation authoring`);
+        const repairedBindings = !!authored.json.extras?.skinSeamRepair;
+        assert.deepEqual(await meshContent(authored, repairedBindings), await meshContent(source, repairedBindings), `${id}: reviewed topology/UV/normals changed during animation authoring`);
+        if (repairedBindings) assert.match(authored.json.extras.skinSeamRepair.sourceSha256, /^[a-f0-9]{64}$/);
         assert.deepEqual(authored.json.materials, source.json.materials, `${id}: materials changed during animation authoring`);
         assert.deepEqual(authored.json.skins, source.json.skins, `${id}: reviewed skin changed during animation authoring`);
         assert.equal(authored.json.extras?.showdownAnimationBank, PET_SHOWDOWN_ANIMATION_ASSET_REVISION);

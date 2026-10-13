@@ -1,0 +1,36 @@
+
+> shinobix-api@1.0.0 test:ci:postgres
+> node scripts/test-with-postgres.mjs --pg-bin=.tmp/pg-local/pgsql/bin --stronghold-multiplayer --output=../docs/stronghold/underground-review/goal-postgres-multiplayer
+
+[local-postgres] initdb (PostgreSQL) 16.15
+The files belonging to this database system will be owned by user "Tyler R".
+This user must also own the server process.
+
+The database cluster will be initialized with locale "C".
+The default text search configuration will be set to "english".
+
+Data page checksums are disabled.
+
+creating directory C:/Users/Tyler R/.codex/worktrees/282b/NinjaK/.tmp/pg-tests-KBlpYN/data ... ok
+creating subdirectories ... ok
+selecting dynamic shared memory implementation ... windows
+selecting default max_connections ... 100
+selecting default shared_buffers ... 128MB
+selecting default time zone ... America/Chicago
+creating configuration files ... ok
+running bootstrap script ... ok
+performing post-bootstrap initialization ... ok
+syncing data to disk ... ok
+
+Success. You can now start the database server using:
+
+    ^"C^:^\Users^\Tyler^ R^\^.codex^\worktrees^\282b^\NinjaK^\^.tmp^\pg^-local^\pgsql^\bin^\pg^_ctl^" -D ^"C^:^\Users^\Tyler^ R^\^.codex^\worktrees^\282b^\NinjaK^\^.tmp^\pg^-tests^-KBlpYN^\data^" -l logfile start
+
+waiting for server to start.... done
+server started
+[local-postgres] server 16.15; fresh database on loopback port 57884
+[currency-ledger] raw save write (set) outside the commit helper at at seed (C:\Users\Tyler R\.codex\worktrees\282b\NinjaK\shinobij.client\scripts\stronghold-multiplayer-qa.mjs:60:14)
+Four authenticated two-browser stronghold scenarios passed: C:\Users\Tyler R\.codex\worktrees\282b\NinjaK\docs\stronghold\underground-review\goal-postgres-multiplayer
+waiting for server to shut down..... done
+server stopped
+[local-postgres] isolated server stopped; temporary cluster removed.

@@ -133,7 +133,7 @@ describe('showdown.ts wires practice as unpaid', () => {
         }
         assert.ok(/buildDungeonSealBeast|buildAuthoredEventBeast/.test(encounterBlock),
             'its opponent comes from the server-side authored-encounter builders');
-        assert.ok(encounterBlock.includes('dungeonSealRunIssue'),
+        assert.ok(encounterBlock.includes('startDungeonShowdown'),
             'and a dungeon seal is gated on the player\'s own active run');
 
         // `hollowGate` must be SERVER-derived — built only after the run token

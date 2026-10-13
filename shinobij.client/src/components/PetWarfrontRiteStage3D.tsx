@@ -43,6 +43,9 @@ import { Canvas, addAfterEffect, useFrame, useLoader, useThree } from "@react-th
 import * as THREE from "three";
 import type { Pet } from "../types/pet";
 import { PetModelBoundary } from "./PetModelBoundary";
+import { PetSummon3D } from "./PetSummon3D";
+import { usePetRecallController } from './PetSceneRecall';
+import type { PetCardPresence } from "../lib/pet-summon-presentation";
 import { DUEL_TPS, type DuelEvent, type DuelObjectiveId, type DuelObjectiveSnap, type DuelResult } from "../lib/pet-duel-sim";
 import {
     WARFRONT_ARENA_X,
@@ -673,7 +676,7 @@ function RendererContextGuard({ onLost, onRestored }: { onLost: () => void; onRe
     return null;
 }
 
-function RiteFighter3D({ result, fighter, clockRef, victorious, quality, reducedMotion, contactBeats, performanceProbeRef, SkinnedModel, onModelReady, onModelFail }: {
+function RiteFighter3D({ result, fighter, clockRef, victorious, quality, reducedMotion, contactBeats, performanceProbeRef, SkinnedModel, onModelReady, onModelFail, entrancePlaying, onSummoned }: {
     result: DuelResult;
     fighter: StageFighter;
     clockRef: MutableRefObject<number>;
@@ -685,8 +688,11 @@ function RiteFighter3D({ result, fighter, clockRef, victorious, quality, reduced
     SkinnedModel: WarfrontSkinnedModelComponent;
     onModelFail: () => void;
     onModelReady: (fighterId: string) => void;
+    entrancePlaying: boolean;
+    onSummoned: (fighterId: string) => void;
 }) {
     const { team, lane, pet, entryHp } = fighter;
+    const recallScene = usePetRecallController();
     const sourceConfig = useMemo(() => petCombatModel(pet), [pet]);
     useEffect(() => {
         // Older ranked snapshots can lack the template identity needed for art.
@@ -726,6 +732,7 @@ function RiteFighter3D({ result, fighter, clockRef, victorious, quality, reduced
     const lastFacing = useRef<{ x: number; z: number }>({ x: initialFaceX, z: initialFaceZ });
     const attackFacing = useRef({ x: initialFaceX, z: initialFaceZ, committed: false });
     const deathAt = useRef<number | null>(null);
+    const cardPresence = useRef<PetCardPresence>({ present: initialPose.hp > 0, timeline: 0 });
     const terminalTimeline = useRef<{ wall: number; base: number } | null>(null);
     const visualTick = useRef(-1);
     const contactCursor = useRef(0);
@@ -752,6 +759,7 @@ function RiteFighter3D({ result, fighter, clockRef, victorious, quality, reduced
 
     useFrame((state, delta) => {
         const group = root.current;
+        if (recallScene?.snapshot()) return;
         if (!group) return;
         const t = clockRef.current;
         const priorVisualTick = visualTick.current;
@@ -811,6 +819,8 @@ function RiteFighter3D({ result, fighter, clockRef, victorious, quality, reduced
             bodyReactionScratch.current,
         );
         if (down && deathAt.current === null) deathAt.current = presentationTimeline;
+        cardPresence.current.present = !down;
+        cardPresence.current.timeline = clockRef.current > 0 ? presentationTimeline : undefined;
 
         // A trailing replay tangent cannot reveal future movement while the
         // formation clock is held at zero. It also avoids a direction change
@@ -934,7 +944,7 @@ function RiteFighter3D({ result, fighter, clockRef, victorious, quality, reduced
         lastHp.current = hpFrac;
 
         if (body.current) {
-            const fade = deathAt.current === null ? 0 : Math.min(1, Math.max(0, (presentationTimeline - deathAt.current) / 0.9));
+            const fade = team === 'player' || deathAt.current === null ? 0 : Math.min(1, Math.max(0, (presentationTimeline - deathAt.current) / 0.9));
             // Warfront keeps the exact authored clip, then adds one bold
             // centre-of-mass phrase around its authoritative state edge. The
             // outer group never changes X/Z, so stronger anticipation/contact
@@ -999,6 +1009,7 @@ function RiteFighter3D({ result, fighter, clockRef, victorious, quality, reduced
 
     return (
         <group ref={root} position={[initialPose.x * WORLD_SCALE, 0, initialPose.z * WORLD_SCALE]}>
+            <PetSummon3D enabled={team === 'player'} presence={cardPresence} playing={entrancePlaying} recallDelay={.9} effectScale={.65} reducedMotion={reducedMotion} onComplete={team === 'player' ? () => onSummoned(fighterId) : undefined} onRecallComplete={team === 'player' ? () => onSummoned(fighterId) : undefined}>
             <group ref={body}>
                 {sourceConfig ? (
                     <group scale={scale}>
@@ -1006,6 +1017,7 @@ function RiteFighter3D({ result, fighter, clockRef, victorious, quality, reduced
                     </group>
                 ) : null}
             </group>
+            </PetSummon3D>
         </group>
     );
 }
@@ -1021,15 +1033,19 @@ function criticalSoftwareImpostorUrl(pet: Pet): string | null {
  * QA renderer. This exact-model offline atlas retains authored clip poses and
  * texture identity while the authoritative root, facing, hit and KO timing are
  * still sampled every rendered frame. Hardware and real phones never use it. */
-function SoftwareRiteFighter3D({ result, fighter, clockRef, impostorUrl, contactBeats, onModelReady }: {
+function SoftwareRiteFighter3D({ result, fighter, clockRef, impostorUrl, contactBeats, onModelReady, reducedMotion, entrancePlaying, onSummoned }: {
     result: DuelResult;
     fighter: StageFighter;
     clockRef: MutableRefObject<number>;
     impostorUrl: string;
     contactBeats: readonly FighterContactBeat[];
     onModelReady: (fighterId: string) => void;
+    reducedMotion: boolean;
+    entrancePlaying: boolean;
+    onSummoned: (fighterId: string) => void;
 }) {
     const { team, lane, pet } = fighter;
+    const recallScene = usePetRecallController();
     const fighterId = `${team}-${lane}`;
     const config = useMemo(() => petCombatModel(pet), [pet]);
     const sourceTexture = useLoader(THREE.TextureLoader, impostorUrl);
@@ -1068,6 +1084,7 @@ function SoftwareRiteFighter3D({ result, fighter, clockRef, impostorUrl, contact
     const cameraRight = useMemo(() => new THREE.Vector3(), []);
     const height = config?.targetHeight ? Math.min(1.7, config.targetHeight * 1.08) : 1.5;
     const initialPose = useMemo(() => sampleActor(result, team, lane, 0), [lane, result, team]);
+    const cardPresence = useRef<PetCardPresence>({ present: initialPose.hp > 0, timeline: 0 });
     const heroMoveWindows = useMemo(
         () => petHeroMoveWindows(result.events, fighterId, { id: pet.id, name: pet.name, profile: config?.profile }),
         [config?.profile, fighterId, pet.id, pet.name, result.events],
@@ -1075,6 +1092,7 @@ function SoftwareRiteFighter3D({ result, fighter, clockRef, impostorUrl, contact
     const reportReady = useCallback(() => onModelReady(fighterId), [fighterId, onModelReady]);
 
     useFrame(({ camera, clock }) => {
+        if (recallScene?.snapshot()) return;
         const group = root.current;
         const plane = sprite.current;
         if (!group || !plane) return;
@@ -1107,6 +1125,8 @@ function SoftwareRiteFighter3D({ result, fighter, clockRef, impostorUrl, contact
         const presentationTick = terminalTimeline.current
             ? terminalTimeline.current.baseTick + Math.max(0, clock.elapsedTime - terminalTimeline.current.wall) * DUEL_TPS
             : t;
+        cardPresence.current.present = pose.hp > 0 && pose.state !== 'dead';
+        cardPresence.current.timeline = t > 0 ? presentationTick / DUEL_TPS : undefined;
         const activeContact = sampleFighterBodyReaction(
             contactBeats,
             presentationTick,
@@ -1240,17 +1260,19 @@ function SoftwareRiteFighter3D({ result, fighter, clockRef, impostorUrl, contact
         plane.rotation.z = roll;
         plane.scale.set(height * 1.48 * scaleX, height * 1.48 * scaleY, 1);
         const material = plane.material as THREE.MeshBasicMaterial;
-        material.opacity = visualState === "dead" ? Math.max(0, 1 - Math.max(0, stateAge - 18) / 10) : 1;
+        material.opacity = team !== 'player' && visualState === "dead" ? Math.max(0, 1 - Math.max(0, stateAge - 18) / 10) : 1;
         plane.visible = material.opacity > 0.001;
         if (contactHoldFrames.current > 0) contactHoldFrames.current -= 1;
     });
 
     return (
         <group ref={root} position={[initialPose.x * WORLD_SCALE, 0, initialPose.z * WORLD_SCALE]}>
+            <PetSummon3D enabled={team === 'player'} presence={cardPresence} playing={entrancePlaying} recallDelay={.9} effectScale={.65} reducedMotion={reducedMotion} onComplete={team === 'player' ? () => onSummoned(fighterId) : undefined} onRecallComplete={team === 'player' ? () => onSummoned(fighterId) : undefined}>
             <mesh ref={sprite} renderOrder={4}>
                 <planeGeometry args={[1, 1]} />
                 <meshBasicMaterial map={texture} transparent alphaTest={0.035} depthWrite={false} toneMapped={false} />
             </mesh>
+            </PetSummon3D>
             <ModelReadySignal onReady={reportReady} />
         </group>
     );
@@ -3485,7 +3507,17 @@ function BodyReactionProbe({ result, beatsByActor, clockRef }: {
     return null;
 }
 
-function Scene({ result, fighters, clockRef, quality, winnerRef, reducedMotion, onReady, onLoadProgress, onRouteTransition, onGraphicsFailure }: PetWarfrontRiteStage3DProps) {
+function Scene({ result, fighters, clockRef, quality, winnerRef, reducedMotion, onReady, onLoadProgress, onRouteTransition, onGraphicsFailure, entrancePlaying = true, paused = false, onSummonsComplete }: PetWarfrontRiteStage3DProps) {
+    const summoned = useRef(new Set<string>());
+    const summonsReported = useRef(false);
+    useEffect(() => { if (!entrancePlaying) { summoned.current.clear(); summonsReported.current = false; } }, [entrancePlaying]);
+    const reportSummoned = useCallback((id: string) => {
+        summoned.current.add(id);
+        if (!summonsReported.current && fighters.every(fighter => fighter.team !== 'player' || summoned.current.has(`${fighter.team}-${fighter.lane}`))) {
+            summonsReported.current = true;
+            onSummonsComplete?.();
+        }
+    }, [fighters, onSummonsComplete]);
     const gl = useThree((state) => state.gl);
     const viewport = useThree((state) => state.size);
     const canvas = useThree((state) => state.gl.domElement);
@@ -3829,8 +3861,11 @@ function Scene({ result, fighters, clockRef, quality, winnerRef, reducedMotion, 
                         fighter={fighter}
                         clockRef={routedClockRef}
                         impostorUrl={impostorUrls[index]!}
+                        reducedMotion={reducedMotion}
                         contactBeats={contactBeatsByActor.get(`${fighter.team}-${fighter.lane}`) ?? NO_CONTACT_BEATS}
                         onModelReady={reportModelReady}
+                        entrancePlaying={entrancePlaying && !paused}
+                        onSummoned={reportSummoned}
                     />
                 </Suspense>
             ) : SkinnedModel ? (
@@ -3847,6 +3882,8 @@ function Scene({ result, fighters, clockRef, quality, winnerRef, reducedMotion, 
                     SkinnedModel={SkinnedModel}
                     onModelFail={() => setRigChunkStatus("failed")}
                     onModelReady={reportModelReady}
+                    entrancePlaying={entrancePlaying && !paused}
+                    onSummoned={reportSummoned}
                 />
             ) : null) : null}
             {hydrationPhase >= 3 ? (
@@ -3869,6 +3906,8 @@ export type PetWarfrontRiteStage3DProps = {
     /** Remount combat-owned scene resources without replacing the WebGL context. */
     sceneKey: number;
     paused?: boolean;
+    entrancePlaying?: boolean;
+    onSummonsComplete?: () => void;
     result: DuelResult;
     /** Every active rig on the field — four a side. */
     fighters: StageFighter[];

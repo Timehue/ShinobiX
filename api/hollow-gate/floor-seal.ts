@@ -10,6 +10,9 @@ import { hollowGateRunKey, type HollowGateRunToken } from './_run-token.js';
 import { hollowGateMarkVisited, validateHollowGateFloorManifest } from './_floor-manifest.js';
 import { hollowGateCombatBindingKey, type HollowGateCombatBinding } from './_combat-session.js';
 import { hollowGateEncounterRecovery } from './_encounter-recovery.js';
+import { createHollowGateWanderers } from '../../shared/hollow-gate-wanderers.js';
+import { hollowGateWanderersForRun } from './_wanderers.js';
+import { deriveHollowGateFloorFeatures, hollowGateFloorFeatures, hollowGatePhysicalBoard } from './_floor-features.js';
 
 /** Validate a generated floor once and seal its gameplay-relevant manifest into
  * the run token. Later endpoints never trust mutable saved tiles. */
@@ -65,13 +68,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 riftDistortionId: !existing || existing.riftSignal ? run.riftDistortionId : undefined,
             });
             if (!validation.ok) return { status: 409, body: { error: `Invalid Hollow Gate floor: ${validation.reason}.` } };
+            if (existing && !storedValueEquals(existing, validation.manifest)) {
+                return { status: 409, body: { error: 'The floor manifest is already sealed.' } };
+            }
+            if (body.floorFeaturesVersion === 1 && !run.floorFeatures?.[String(floor)]) {
+                const protectedTiles = [run.position ? run.position.y * validation.manifest.width + run.position.x : -1,
+                    ...(run.wanderers?.[String(floor)]?.map(n => n.tile) ?? [])];
+                run.floorFeatures = { ...run.floorFeatures, [String(floor)]: deriveHollowGateFloorFeatures(validation.manifest, body.tiles, protectedTiles) };
+                if (existing) await kv.set(runKey, run);
+            }
+            // Explicit client-version opt-in keeps an older browser from
+            // gaining invisible hunters during a rolling release.
+            if (body.wanderersVersion === 1 && !run.wanderers?.[String(floor)]) {
+                const save = await kv.get<{ character?: { village?: string } }>(`save:${playerName}`);
+                run.wanderers = { ...run.wanderers, [String(floor)]: createHollowGateWanderers(hollowGatePhysicalBoard(run, validation.manifest), run.seed, save?.character?.village) };
+                if (existing) await kv.set(runKey, run);
+            }
             if (existing) {
                 // `existing` is read back from jsonb, which reorders object keys,
                 // so compare values rather than JSON text.
-                if (!storedValueEquals(existing, validation.manifest)) {
-                    return { status: 409, body: { error: 'The floor manifest is already sealed.' } };
-                }
-                return { status: 200, body: { ok: true, alreadyReported: true, manifest: existing, detour: existing.detour ?? null, riftSignal: existing.riftSignal ?? null, position: run.position, pendingAmbush: run.pendingAmbush ?? null } };
+                return { status: 200, body: { ok: true, alreadyReported: true, manifest: existing, detour: existing.detour ?? null, riftSignal: existing.riftSignal ?? null, position: run.position, pendingAmbush: run.pendingAmbush ?? null, wanderers: hollowGateWanderersForRun(run), floorFeatures: hollowGateFloorFeatures(run) } };
             }
             const next: HollowGateRunToken = {
                 ...run,
@@ -80,7 +96,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 visitedTiles: hollowGateMarkVisited(run.visitedTiles, validation.manifest, validation.manifest.spawn),
             };
             await kv.set(runKey, next);
-            return { status: 200, body: { ok: true, manifest: validation.manifest, detour: validation.manifest.detour ?? null, riftSignal: validation.manifest.riftSignal ?? null, position: next.position, pendingAmbush: next.pendingAmbush ?? null } };
+            return { status: 200, body: { ok: true, manifest: validation.manifest, detour: validation.manifest.detour ?? null, riftSignal: validation.manifest.riftSignal ?? null, position: next.position, pendingAmbush: next.pendingAmbush ?? null, wanderers: hollowGateWanderersForRun(next), floorFeatures: hollowGateFloorFeatures(next) } };
         }, { failClosed: true, ttlSec: 10 });
         return res.status(result.status).json(result.body);
     } catch (error) {
