@@ -43,7 +43,7 @@ for (const activity of ['mining', 'fishing'] as const) {
             localStorage.setItem('dailyBriefing.seen.v1', new Date().toISOString().slice(0, 10));
             localStorage.setItem('legacyRumors.seen.v1:' + name, JSON.stringify([10, 20, 30, 40, 45]));
             localStorage.setItem('resource-recovery-installed', name);
-        }, { name, token, canonical, patch: LATEST_PATCH_NOTE.version });
+        }, { name, token, canonical, patch: LATEST_PATCH_NOTE?.version ?? '' });
         await page.goto('/#/worldMap', { waitUntil: 'domcontentloaded' });
         const enter = page.getByRole('button', { name: 'Enter World Map', exact: true });
         const back = page.getByRole('button', { name: /Return to Sector \d+\b/ });

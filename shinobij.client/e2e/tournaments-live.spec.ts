@@ -34,7 +34,7 @@ test('production app boot resumes a tournament into Arena District and keeps its
         localStorage.setItem('shinobix:storage-notice-ack', '1');
         localStorage.setItem('patchNotes.lastSeenVersion.v1', patch);
         localStorage.setItem('dailyBriefing.seen.v1', new Date().toISOString().slice(0, 10));
-    }, { player, patch: LATEST_PATCH_NOTE.version });
+    }, { player, patch: LATEST_PATCH_NOTE?.version ?? '' });
     await page.goto('http://127.0.0.1:5198/#/worldMap', { waitUntil: 'domcontentloaded' });
     await expect(page.locator('.app-shell[data-screen="arenaDistrict"]')).toBeVisible({ timeout: 60_000 });
     await page.getByRole('button', { name: 'Enter tournament match' }).click();

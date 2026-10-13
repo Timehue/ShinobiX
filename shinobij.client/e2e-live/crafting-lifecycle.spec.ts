@@ -41,7 +41,7 @@ test.beforeEach(async ({ page, request, context }) => {
         localStorage.setItem('shinobix:storage-notice-ack', '1');
         localStorage.setItem('patchNotes.lastSeenVersion.v1', patch);
         localStorage.setItem('dailyBriefing.seen.v1', new Date().toISOString().slice(0, 10));
-    }, { name, token, canonical, patch: LATEST_PATCH_NOTE.version });
+    }, { name, token, canonical, patch: LATEST_PATCH_NOTE?.version ?? '' });
     await page.goto('/#/hunting', { waitUntil: 'domcontentloaded' });
     await page.getByRole('tab', { name: 'Mining', exact: true }).click();
     await page.getByRole('button', { name: 'Visit the Crafter in Central', exact: true }).click();
