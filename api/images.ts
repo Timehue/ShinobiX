@@ -173,7 +173,7 @@ async function leaderImagesFromMisc(
     return out;
 }
 
-const KNOWN_PREFIXES: Record<string, string> = {
+export const KNOWN_PREFIXES: Readonly<Record<string, string>> = {
     avatar:    'avatar',
     pet:       'pet',
     jutsu:     'jutsu',
