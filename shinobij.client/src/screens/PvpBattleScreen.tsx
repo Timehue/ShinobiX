@@ -52,7 +52,13 @@ import { hasAffordablePvpPaidAction } from "../lib/pvp-action-affordability";
 import { normalizeJutsu } from "../lib/jutsu";
 import { jutsuDetailDescription, jutsuTargetingLabel } from "../lib/jutsu-effects";
 import { normalizeTagName, tagMatchesName, pvpAffectsOpponent } from "../lib/tags";
-import { PVP_RECONNECT_BADGE_GRACE_MS, pvpStreamHandoffDelayMs, pvpStreamRetryDelayMs } from "../lib/pvp-stream-transport";
+import {
+    PVP_RECONNECT_BADGE_GRACE_MS,
+    PVP_STREAM_HEALTHY_AFTER_MS,
+    PVP_STREAM_SILENCE_LIMIT_MS,
+    pvpStreamHandoffDelayMs,
+    pvpStreamRetryDelayMs,
+} from "../lib/pvp-stream-transport";
 import { buildActionsFromPvpLog, makeBattleEntry } from "../lib/battle-log-history";
 import { useBoardScale } from "../lib/use-board-scale";
 import { useBattleTabs } from "../lib/use-battle-tabs";
@@ -624,15 +630,51 @@ export function PvpBattleScreen({
         let streamFailures = 0;
         let es: EventSource | null = null;
         let pollTimer: number | null = null;
+        // Liveness: when the open stream last delivered anything (session or
+        // ping). A half-open connection stays OPEN and silent forever, and
+        // with Realtime gone nothing else would notice.
+        let lastStreamEventAt = 0;
+        let healthyTimer: number | null = null;
+        // Set when the stream gave up before any session loaded; a later
+        // successful GET restarts it instead of leaving the board frozen.
+        let streamGaveUp = false;
         const MAX_MISSING_SESSION_ATTEMPTS = 5;
         setSessionLoadFailure("");
         setSessionExitCheck("unchecked");
 
+        const silenceWatch = window.setInterval(() => {
+            if (!active || !es || lastStreamEventAt === 0) return;
+            if (Date.now() - lastStreamEventAt > PVP_STREAM_SILENCE_LIMIT_MS) reopenStream();
+        }, 5_000);
+
+        function clearHealthyTimer(): void {
+            if (healthyTimer !== null) { window.clearTimeout(healthyTimer); healthyTimer = null; }
+        }
+
         function stopLiveTransports(): void {
             active = false;
             transportAbort.abort();
+            window.clearInterval(silenceWatch);
+            clearHealthyTimer();
             if (es) { try { es.close(); } catch { /* noop */ } es = null; }
             if (pollTimer !== null) { window.clearTimeout(pollTimer); pollTimer = null; }
+        }
+
+        // A planned cut, not a failure (a server `reconnect`, or a stream gone
+        // silent): reopen almost at once, spread a little so a whole server's
+        // viewers don't land together, without counting a failure. The badge
+        // only shows if the new stream is not up within the grace window.
+        function reopenStream(): void {
+            if (es) { try { es.close(); } catch { /* noop */ } es = null; }
+            clearHealthyTimer();
+            lastStreamEventAt = 0;
+            if (!active) return;
+            markStreamReconnecting();
+            if (pollTimer !== null) window.clearTimeout(pollTimer);
+            pollTimer = window.setTimeout(() => {
+                pollTimer = null;
+                if (active) startStream();
+            }, pvpStreamHandoffDelayMs());
         }
 
         function endSession(message: string): void {
@@ -648,9 +690,16 @@ export function PvpBattleScreen({
             }
             if (parsed.kind !== "session") return null;
             hasLoadedSession = true;
-            streamFailures = 0;
             if (active && isCurrentScope()) {
                 setSessionLoadFailure("");
+            }
+            // The stream gave up before any session existed (an unseeded
+            // spectator, a slow create); the GET has now proved the battle is
+            // live, so bring the push stream back rather than a frozen board.
+            if (streamGaveUp && active && !es && pollTimer === null && parsed.session.status === "active") {
+                streamGaveUp = false;
+                streamFailures = 0;
+                startStream();
             }
             return parsed.session;
         }
@@ -739,6 +788,7 @@ export function PvpBattleScreen({
                 es = new EventSource(`/api/pvp/stream?id=${encodeURIComponent(battleId)}&viewer=${encodeURIComponent(character.name)}`);
                 es.addEventListener("session", (e) => {
                     if (!active || !isCurrentScope()) return;
+                    lastStreamEventAt = Date.now();
                     // Any message arriving means the channel is healthy.
                     markStreamConnected();
                     try {
@@ -746,26 +796,25 @@ export function PvpBattleScreen({
                         if (!parsed) markStreamReconnecting();
                     } catch { markStreamReconnecting(); }
                 });
+                // The server's 15 s heartbeat: proof a quiet fight's stream is alive.
+                es.addEventListener("ping", () => { lastStreamEventAt = Date.now(); });
                 es.addEventListener("open", () => {
-                    if (active) markStreamConnected();
-                });
-                // A planned cut, not a failure: reopen at once (spread a little
-                // so a whole server's viewers don't land together) without
-                // counting a failure. The badge only shows if the new stream is
-                // not up within the grace window.
-                es.addEventListener("reconnect", () => {
-                    es?.close();
-                    es = null;
                     if (!active) return;
-                    markStreamReconnecting();
-                    pollTimer = window.setTimeout(() => {
-                        pollTimer = null;
-                        if (active) startStream();
-                    }, pvpStreamHandoffDelayMs());
+                    lastStreamEventAt = Date.now();
+                    markStreamConnected();
+                    // Failures are forgiven only once the stream has stayed up a
+                    // while: one that connects then dies keeps backing off.
+                    clearHealthyTimer();
+                    healthyTimer = window.setTimeout(() => {
+                        healthyTimer = null;
+                        streamFailures = 0;
+                    }, PVP_STREAM_HEALTHY_AFTER_MS);
                 });
+                es.addEventListener("reconnect", () => { reopenStream(); });
                 es.addEventListener("end", (event) => {
                     es?.close();
                     es = null;
+                    clearHealthyTimer();
                     let message = "The battle session is unavailable or expired.";
                     try {
                         const reason = JSON.parse((event as MessageEvent).data) as { reason?: string };
@@ -777,9 +826,12 @@ export function PvpBattleScreen({
                 es.onerror = () => {
                     es?.close();
                     es = null;
+                    clearHealthyTimer();
+                    lastStreamEventAt = 0;
                     if (!active) return;
                     streamFailures += 1;
                     if (!hasLoadedSession && streamFailures >= MAX_MISSING_SESSION_ATTEMPTS) {
+                        streamGaveUp = true;
                         setSessionLoadFailure("The battle session is unavailable or expired.");
                         return;
                     }
@@ -789,8 +841,8 @@ export function PvpBattleScreen({
                     // a sustained outage inside the server's 30/min stream
                     // budget. Before the first session the retry stays a flat
                     // 1.5s, so a battle that never existed is still reported
-                    // within a few seconds. Any accepted session resets
-                    // streamFailures (acceptSession).
+                    // within a few seconds. streamFailures resets only after a
+                    // stream stays up PVP_STREAM_HEALTHY_AFTER_MS.
                     markStreamReconnecting();
                     pollTimer = window.setTimeout(() => {
                         pollTimer = null;
