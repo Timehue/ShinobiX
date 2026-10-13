@@ -92,6 +92,54 @@ test("snapshot tags suppress dirty/flush once; subsequent local travel requests 
     assert.equal(f.owner.flushSaveRef.current, true);
 });
 
+test("an idle-regen tick re-running the trackers leaves the save clean; real changes still dirty it", () => {
+    const f = fixture();
+    const guard = { lastSnapshotAppliedSectorRef: { current: 40 as number | null }, lastLocalSectorChangeRef: { current: 0 } };
+    const sectorTracked = { current: null as string | null }, missionTracked = { current: null as string | null };
+    // The restore applies the server snapshot (sector and mission tags), then
+    // the lifecycle effects run once.
+    f.fields.lastSnapshotMissionSigRef.current = JSON.stringify([[], {}, [], "central", null]);
+    trackPlayerSectorChange(f.initial, f.initial.name, 40, f.owner, guard, sectorTracked);
+    trackPlayerMissionChange(f.initial, f.initial.name, f.fields, f.owner, missionTracked);
+    assert.equal(f.owner.charDirtyRef.current, false);
+
+    // A minute of idle regen: `character` changes every second, nothing else does.
+    let character = { ...f.initial, hp: 1 };
+    f.owner.prevCharRef.current = character;
+    for (let second = 1; second <= 60; second += 1) {
+        character = regenerateIdleVitals(character, 1);
+        refreshPlayerSaveSnapshot(character, character.name, f.fields, f.owner);
+        trackPlayerSectorChange(character, character.name, 40, f.owner, guard, sectorTracked);
+        trackPlayerMissionChange(character, character.name, f.fields, f.owner, missionTracked);
+    }
+    assert.equal(f.owner.charDirtyRef.current, false, "regen alone must not schedule saves");
+    assert.equal(guard.lastLocalSectorChangeRef.current, 0, "and must not keep the local-sector guard armed");
+
+    trackPlayerSectorChange(character, character.name, 41, f.owner, guard, sectorTracked);
+    assert.equal(f.owner.charDirtyRef.current, true, "a real sector change still saves");
+    f.owner.charDirtyRef.current = false;
+
+    const travelling = { ...f.fields, pendingTravel: { destinationSector: 42, arrivalAt: Date.now() + 30_000 } };
+    trackPlayerMissionChange(character, character.name, travelling, f.owner, missionTracked);
+    assert.equal(f.owner.charDirtyRef.current, true, "starting a journey still saves");
+    assert.equal(f.owner.flushSaveRef.current, true, "and flushes immediately");
+    f.owner.charDirtyRef.current = false;
+    f.owner.flushSaveRef.current = false;
+    trackPlayerMissionChange(regenerateIdleVitals(character, 1), character.name, travelling, f.owner, missionTracked);
+    assert.equal(f.owner.charDirtyRef.current, false, "a regen tick mid-journey does not re-dirty");
+    assert.equal(f.owner.flushSaveRef.current, false, "nor force another flush");
+
+    trackPlayerMissionChange(character, character.name, { ...travelling, acceptedMissionIds: ["fetch-d-supply-trail"] }, f.owner, missionTracked);
+    assert.equal(f.owner.charDirtyRef.current, true, "accepting a mission still saves");
+});
+
+test("the save lifecycle passes the trackers their last-tracked refs", async () => {
+    const { readFile } = await import("node:fs/promises");
+    const source = await readFile(new URL("./use-player-save-lifecycle.ts", import.meta.url), "utf8");
+    assert.match(source, /trackPlayerSectorChange\([^;]*, lastTrackedSectorRef\)/);
+    assert.match(source, /trackPlayerMissionChange\([^;]*, lastTrackedMissionRef\)/);
+});
+
 test("versioned commits reject stale or foreign characters and synchronously publish an accepted character", () => {
     const f = fixture();
     assert.equal(f.owner.commitVersionedCharacter({ ...f.initial, level: 2 }, 4), false);
