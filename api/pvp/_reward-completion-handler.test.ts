@@ -208,7 +208,13 @@ test('a versioned terminal recovery remains first-claimable after the legacy two
     );
 });
 
-test('a legacy caller cannot create an invalid completed/server-pending receipt', async () => {
+test('a legacy caller cannot create an invalid completed/server-pending receipt', async (t) => {
+    // The claim stamps the winner's elderWinDays row with the UTC day of the
+    // save writer's Date.now(), and the check at the end rebuilds that day
+    // from the `now` this test reads first. A run that straddles UTC midnight
+    // between the two reads would expect the previous day's row. Freeze Date
+    // (Date.now and new Date alike) for the whole check.
+    t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
     const now = Date.now();
     const winner = 'legacycreditwinner';
     const loser = 'legacycreditloser';

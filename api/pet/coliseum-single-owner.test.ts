@@ -208,7 +208,13 @@ test('a sealed player challenge settles its win without paid progression', async
     assert.equal(await kv.get(`legacy:stats:${playerName}`), null);
 });
 
-test('a pre-cutover win at the cap cannot farm counters, witness deeds, or Legacy on report or replay', async () => {
+test('a pre-cutover win at the cap cannot farm counters, witness deeds, or Legacy on report or replay', async (t) => {
+    // The seeded lastDailyReset and battle-result's own day both come from a
+    // no-argument `new Date()`. A run that straddles UTC midnight would seed a
+    // day the cap no longer counts, so the win would pay. Freeze Date
+    // (Date.now and new Date alike). The replay below still steps Date.now
+    // past the result burst limit, on top of the held clock.
+    t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
     const playerName = 'legacycapclosed';
     const authToken = issuePlayerToken(playerName)!;
     const pet = { ...battlePet('cap-pet'), element: 'Water', nickname: 'Cap Mizu', chronicleArenaWins: 9 };

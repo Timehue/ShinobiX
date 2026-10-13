@@ -23,31 +23,38 @@ export function useAcademyGuideVisibility(active: boolean, screen: string, step:
             // Visibility preserves the measured clearance and prevents hide/show loops.
             guide.classList.toggle("coach-guide-yielding", blocked);
         };
-        const resize = new ResizeObserver(check);
+        // check() reads layout. Every body mutation and every scroll anywhere
+        // used to run it synchronously; coalesce them to one check per frame.
+        let frame = 0;
+        const schedule = () => {
+            if (frame) return;
+            frame = window.requestAnimationFrame(() => { frame = 0; check(); });
+        };
+        const resize = new ResizeObserver(schedule);
         resize.observe(guide);
-        const mutations = new MutationObserver(check);
+        const mutations = new MutationObserver(schedule);
         mutations.observe(document.body, { childList: true, subtree: true });
-        document.addEventListener("scroll", check, true);
-        document.addEventListener("focusin", check);
-        document.addEventListener("focusout", check);
-        window.addEventListener("resize", check);
-        window.visualViewport?.addEventListener("resize", check);
-        window.visualViewport?.addEventListener("scroll", check);
+        document.addEventListener("scroll", schedule, { capture: true, passive: true });
+        document.addEventListener("focusin", schedule);
+        document.addEventListener("focusout", schedule);
+        window.addEventListener("resize", schedule);
+        window.visualViewport?.addEventListener("resize", schedule);
+        window.visualViewport?.addEventListener("scroll", schedule);
         // OnboardingCoach's layout and target-reveal effects run in the same
         // commit. Check after they have reserved banner space and moved the
         // highlighted control, so an initial overlap does not hide the guide
         // before its own layout can settle.
-        const initialFrame = window.requestAnimationFrame(check);
+        schedule();
         return () => {
             resize.disconnect();
             mutations.disconnect();
-            document.removeEventListener("scroll", check, true);
-            document.removeEventListener("focusin", check);
-            document.removeEventListener("focusout", check);
-            window.removeEventListener("resize", check);
-            window.visualViewport?.removeEventListener("resize", check);
-            window.visualViewport?.removeEventListener("scroll", check);
-            window.cancelAnimationFrame(initialFrame);
+            document.removeEventListener("scroll", schedule, true);
+            document.removeEventListener("focusin", schedule);
+            document.removeEventListener("focusout", schedule);
+            window.removeEventListener("resize", schedule);
+            window.visualViewport?.removeEventListener("resize", schedule);
+            window.visualViewport?.removeEventListener("scroll", schedule);
+            window.cancelAnimationFrame(frame);
             guide.classList.remove("coach-guide-yielding");
         };
     }, [active, screen, step]);

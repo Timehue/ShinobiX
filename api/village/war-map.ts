@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
+import { readKvProjection } from '../_storage-projection.js';
 import { cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { normalizeVillageWarRecord, villageWarKey, villageWarSlug } from '../_war-state.js';
@@ -57,7 +58,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // 2026-10-08).
         const [warRaws, stateRaws, contests, { counts: heldCount, lists: heldLists }, kageSeats, resolvedViewerVillage] = await Promise.all([
             Promise.all(WAR_VILLAGES.map((v) => kv.get<Record<string, unknown>>(villageWarKey(v)))),
-            Promise.all(WAR_VILLAGES.map((v) => kv.get<Record<string, unknown>>(`${VILLAGE_STATE_PREFIX}${villageWarSlug(v)}`))),
+            // Only each village's treasury is read below, so fetch that projection
+            // rather than the whole village-state rows (logs, orders, upgrades).
+            readKvProjection(kv, WAR_VILLAGES.map((v) => `${VILLAGE_STATE_PREFIX}${villageWarSlug(v)}`), { treasury: ['treasury'] }),
             listActiveSectorWars(),
             loadHeldSectors(),
             // The seat drives the tax rate (no Kage → 0%), so it has to be read here

@@ -49,7 +49,12 @@ test('assignments unlock in order and unrelated activity cannot finish the activ
     assert.equal(applyAcademyNarrativeAction(finished, {}, 'combat').ok, false, 'completed steps cannot be selected again');
 });
 
-test('completion acknowledgements and next-day return are durable and replay-safe', () => {
+test('completion acknowledgements and next-day return are durable and replay-safe', (t) => {
+    // The last check stamps completedAt from today's Date.now(), then asks for a
+    // later-day return, which the narrative action judges from its own
+    // Date.now(). A run that straddles UTC midnight between the two would make
+    // that return legitimate. Freeze Date (Date.now and new Date alike).
+    t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
     assert.equal(applyAcademyNarrativeAction(rookie, {}, 'complete', undefined, 'companion').ok, false, 'graduation must start at the first assignment');
     const { character } = action(rookie, 'complete', 'combat');
     assert.equal(applyAcademyNarrativeAction(character, {}, 'contract-acknowledge').ok, false);

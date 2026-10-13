@@ -44,6 +44,10 @@ export function useStoryDelivery({
     openEpilogue: (event: CreatorEvent) => void;
 }) {
     const inFlight = useRef(new Set<string>());
+    // Reports that just failed, held until their 6 s retry fires. Without this
+    // the effect re-POSTed on every character change (about once a second
+    // during idle regen) instead of once per retry.
+    const backingOff = useRef(new Set<string>());
     const [retry, setRetry] = useState(0);
     const accountIsCurrentRef = useRef(accountIsCurrent);
     const openEpilogueRef = useRef(openEpilogue);
@@ -58,8 +62,15 @@ export function useStoryDelivery({
         if (!report) return;
         const account = character.name.trim().toLowerCase();
         const key = `${account}:${report.kind}:${report.eventId}:${report.trait}`;
-        if (inFlight.current.has(key)) return;
+        if (inFlight.current.has(key) || backingOff.current.has(key)) return;
         inFlight.current.add(key);
+        const retryLater = () => {
+            backingOff.current.add(key);
+            window.setTimeout(() => {
+                backingOff.current.delete(key);
+                setRetry((value) => value + 1);
+            }, 6_000);
+        };
         const send = report.kind === "interlude"
             ? loadStoryTrigger().then(({ reportStoryInterlude }) => reportStoryInterlude(character, report.eventId, report.trait))
             : import("./story-road-events").then(({ reportStoryRoadEvent }) => reportStoryRoadEvent(character.name, report.eventId, report.trait));
@@ -73,9 +84,9 @@ export function useStoryDelivery({
                     ? recordStoryReportConflict(current, report, result.recordedTrait)
                     : current);
             } else {
-                window.setTimeout(() => setRetry((value) => value + 1), 6_000);
+                retryLater();
             }
-        }).catch(() => window.setTimeout(() => setRetry((value) => value + 1), 6_000))
+        }).catch(retryLater)
             .finally(() => inFlight.current.delete(key));
     }, [character, retry, setCharacter]);
 

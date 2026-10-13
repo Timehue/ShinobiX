@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { after, before, mock, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { sanitizeCharacterSave } from './[name].js';
 import { definitionsFor } from './_state-ownership.js';
@@ -21,7 +21,12 @@ const wrap = (character: Char) => ({ character });
 const sanitize = (incoming: Char, existing: Char | null) =>
     sanitizeCharacterSave(wrap(incoming), existing ? wrap(existing) : null).character as Record<string, any>;
 
-const TODAY = new Date().toISOString().slice(0, 10); // matches the sanitizer's SERVER_UTC_DATE
+// Fixed clock, so the sanitizer's own `new Date()` and TODAY below can never
+// straddle UTC midnight and fail the suite for the calendar.
+const FIXED_NOW = Date.UTC(2026, 8, 14, 12, 0, 0);
+before(() => mock.timers.enable({ apis: ['Date'], now: FIXED_NOW }));
+after(() => mock.timers.reset());
+const TODAY = new Date(FIXED_NOW).toISOString().slice(0, 10); // matches the sanitizer's SERVER_UTC_DATE
 
 test('dailyPetWins: a save carrying a lower count within the same UTC day is floored to the server count', () => {
     const out = sanitize(

@@ -986,9 +986,11 @@ test("Mission Hall Field board follows D-to-S progression and is alphabetized wi
 
     await fieldCards.last().scrollIntoViewIfNeeded();
     const artwork = fieldCards.locator(".mh-field-art img");
+    // Each card shows its sector painting: the 1024 px painting, or on phones its
+    // 256 px srcset copy (public/sector-map/thumbs, scripts/gen-sector-map-thumbs.mjs).
     await expect.poll(() => artwork.evaluateAll((images) => images.every((image) => {
         const source = (image as HTMLImageElement).currentSrc || (image as HTMLImageElement).src;
-        return source.includes("/sector-map/s") && (image as HTMLImageElement).naturalWidth > 0;
+        return /\/sector-map\/(?:thumbs\/)?s\d+[-.]/.test(source) && (image as HTMLImageElement).naturalWidth > 0;
     }))).toBe(true);
 
     await expectViewportSafe(page, { horizontalScrollers: [".expanded-tabs"] });

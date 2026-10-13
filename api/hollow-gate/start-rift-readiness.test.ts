@@ -73,7 +73,13 @@ after(() => {
     delete process.env.SESSION_SECRET;
 });
 
-test('a level-12 player with no pets and no deck enters the intro rift', async () => {
+test('a level-12 player with no pets and no deck enters the intro rift', async (t) => {
+    // The count key below takes its day from a no-argument `new Date()`, and
+    // start.ts counts the entry under its own `new Date()` day. A run that
+    // straddles UTC midnight between them would count the entry on the next
+    // day, so this day's counter would read null instead of 1. Freeze Date
+    // (Date.now and new Date alike) for the whole check.
+    t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
     const playerName = 'rift-novice-player';
     const saveKey = `save:${playerName}`;
     const countKey = `hg-runs:${playerName}:${new Date().toISOString().slice(0, 10)}`;

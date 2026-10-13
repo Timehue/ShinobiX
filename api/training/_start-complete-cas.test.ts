@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { after, before, describe, it } from 'node:test';
+import { after, before, beforeEach, describe, it } from 'node:test';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -94,6 +94,16 @@ after(async () => {
 });
 
 describe('training start/complete exact-CAS authority', { concurrency: false }, () => {
+    beforeEach((context) => {
+        // dailyStartKey() and training/start.ts both derive the UTC day from a
+        // no-argument `new Date()`. A run that straddles UTC midnight would
+        // hold the lock, inject the faults or read the slot count on a day the
+        // handler no longer uses, so the fail-closed checks would never fire.
+        // Freeze Date (Date.now and new Date alike) for each test.
+        if (!('mock' in context)) throw new Error('needs a per-test clock');
+        context.mock.timers.enable({ apis: ['Date'], now: Date.now() });
+    });
+
     it('commits a first start from the exact predecessor, then publishes one cache token', async () => {
         const name = `${TEST_PREFIX}firststart`;
         await seedSave(name, { _saveVersion: 1, character: character(name) });

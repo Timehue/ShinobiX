@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { after, before, describe, it } from 'node:test';
+import { after, before, describe, it, mock } from 'node:test';
 
 /*
  * The weekly claim records itself BEFORE it pays, so a failed claim write can
@@ -28,10 +28,19 @@ before(async () => {
     ({ kv } = await import('../_storage.js'));
     handler = (await import('./weekly-board.js')).default as unknown as Handler;
     const { weekKey } = await import('./_weekly-board.js');
+    // The record key below takes its week from Date.now(), and the handler
+    // reads its own week from Date.now() on every call. A run that straddles
+    // Monday 00:00 UTC between them would seed one week's record while the
+    // handler claims against the next, which has no progress, so the claim
+    // would be refused as incomplete. Hold Date (Date.now and new Date alike)
+    // at one instant for the file. It is enabled after the imports, so no
+    // module captures the mock clock.
+    mock.timers.enable({ apis: ['Date'], now: Date.now() });
     recordKey = `weekly-board:${NAME}:${weekKey(Date.now())}`;
 });
 
 after(async () => {
+    mock.timers.reset();
     for (const key of await kv.keys(`*${NAME}*`)) await kv.del(key);
     delete process.env.SHINOBIX_QA_MEMORY_KV;
     delete process.env.ADMIN_PASSWORD;

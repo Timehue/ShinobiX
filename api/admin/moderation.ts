@@ -222,6 +222,51 @@ async function recordClientIpCore(name: string, ip: string): Promise<void> {
     }
 }
 
+// Heartbeat re-check throttle. Every heartbeat (each online player every ~20 s)
+// used to call both recorders above, and each one paid two reads (forward row
+// plus reverse index) just to find nothing had changed. That is ~40 reads/s at
+// 200 players, and the 10 s `mod:*` read cache never helps because the beat is
+// slower than it. The same (player, ip) or (player, fp) pair is now re-checked at
+// most once per window, as api/_player-ips.ts already does for its stamps.
+// Moderation semantics are unchanged: a NEW ip or fp is a new memo key and is
+// recorded on the very beat it appears, the recorders still decide what is
+// written, and a restart clears the memo (more checks, never fewer). Only the
+// already-recorded pair's `lastSeenAt` refresh can trail by up to one window.
+// Login, recovery and Google sign-in keep calling the recorders directly.
+const HEARTBEAT_OBSERVATION_RECHECK_MS = 5 * 60_000;
+const lastHeartbeatObservation = new Map<string, number>();
+
+/** Exported for deterministic tests (time injected). True = re-check now. */
+export function _shouldRecheckHeartbeatObservation(memoKey: string, now: number): boolean {
+    const last = lastHeartbeatObservation.get(memoKey);
+    if (last !== undefined && now - last < HEARTBEAT_OBSERVATION_RECHECK_MS) return false;
+    lastHeartbeatObservation.set(memoKey, now);
+    if (lastHeartbeatObservation.size > 5000) {
+        for (const [key, at] of lastHeartbeatObservation) {
+            if (now - at >= HEARTBEAT_OBSERVATION_RECHECK_MS * 2) lastHeartbeatObservation.delete(key);
+        }
+    }
+    return true;
+}
+
+/** Test-only: forget every heartbeat observation. */
+export function _resetHeartbeatObservationMemo(): void {
+    lastHeartbeatObservation.clear();
+}
+
+/**
+ * The heartbeat's fire-and-forget IP + fingerprint capture, throttled per
+ * (player, value) pair. Never blocks or fails the heartbeat.
+ */
+export function recordHeartbeatObservation(name: string, ip: string, fp: string, now = Date.now()): Promise<void> {
+    const n = normalizeName(name);
+    if (!n) return Promise.resolve();
+    const pending: Promise<void>[] = [];
+    if (ip && _shouldRecheckHeartbeatObservation(`ip\u0000${n}\u0000${ip}`, now)) pending.push(recordClientIp(name, ip));
+    if (fp && _shouldRecheckHeartbeatObservation(`fp\u0000${n}\u0000${fp}`, now)) pending.push(recordClientFingerprint(name, fp));
+    return Promise.all(pending).then(() => undefined);
+}
+
 async function appendAudit(entry: AuditEntry): Promise<void> {
     try {
         // Lock so two simultaneous mod actions don't overwrite each other in

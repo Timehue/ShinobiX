@@ -133,12 +133,14 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerR
                 // look like the message just vanished.
                 const errData = await res.json().catch(() => ({} as { error?: string }));
                 alert(errData?.error ?? `Failed to send (${res.status}).`);
-                setInput(text);
+                // The input stays live while sending (disabling it blurred the
+                // field and closed the phone keyboard), so keep anything newer.
+                setInput((typed) => typed || text);
                 setReplyingTo(reply);
             }
         } catch {
             alert("Network error — message not sent.");
-            setInput(text);
+            setInput((typed) => typed || text);
             setReplyingTo(reply);
         }
         setSending(false);
@@ -276,8 +278,9 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerR
                         onChange={(e: ChangeEvent<HTMLInputElement>) => setInput(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Enter") void send(); }}
                         placeholder={replyingTo ? `Reply to ${replyingTo.author}...` : `Say something to ${character.village}...`}
+                        aria-label={replyingTo ? `Your reply to ${replyingTo.author}` : "Message the tavern"}
+                        enterKeyHint="send"
                         maxLength={300}
-                        disabled={sending}
                     />
                     <button type="button" className="tavern-send-btn" onClick={() => void send()} disabled={!input.trim() || sending}>
                         {sending ? "…" : "→ Send"}

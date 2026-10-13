@@ -90,14 +90,48 @@ export function Profile({
     const feedingAuraRef = useRef(false);
     const avatarInputRef = useRef<HTMLInputElement>(null);
     const customAvatarAllowed = canCustomAvatar(character);
-    const allJutsus = getAllJutsus(savedBloodlines, creatorJutsus, character);
+    // Idle regen replaces `character` every second while a vital is below max, so
+    // the catalog lists below are keyed on the only character fields they read:
+    // getAllJutsus/getCharacterBloodlines read bloodline + equippedBloodlineId,
+    // canEquipElementJutsu adds element + elements, and getJutsuMastery reads
+    // jutsuMastery + legacy.stage.
+    const {
+        bloodline: characterBloodline,
+        equippedBloodlineId,
+        element: characterElement,
+        elements: characterElements,
+        jutsuMastery: characterJutsuMastery,
+    } = character;
+    const legacyStage = character.legacy?.stage;
+    const allJutsus = useMemo(
+        () => getAllJutsus(savedBloodlines, creatorJutsus, character),
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the fields read (see above)
+        [savedBloodlines, creatorJutsus, characterBloodline, equippedBloodlineId],
+    );
     // The slots that actually reach combat. An equipped id outlives the jutsu it
     // points at (an admin-deleted custom jutsu is kept in the save by its mastery
     // row), and such a dead id must not consume a loadout slot the player can
     // never fill or see. Rebuilding the loadout from this list also prunes the
     // dead id the next time the player edits their loadout.
     const liveEquippedIds = liveEquippedJutsuIds(allJutsus, character.equippedJutsuIds);
-    const allItems = getAllItems(creatorItems);
+    const allItems = useMemo(() => getAllItems(creatorItems), [creatorItems]);
+    // Jutsu tab lists: learned (any element), learned and equippable, and the
+    // jutsu id -> granting bloodline name map for the loadout panel's labels.
+    const learnedAnyJutsus = useMemo(
+        () => allJutsus.filter((jutsu) => getJutsuMastery(character, jutsu.id).level >= 1),
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the fields read (see above)
+        [allJutsus, characterJutsuMastery, legacyStage],
+    );
+    const learnedJutsus = useMemo(
+        () => learnedAnyJutsus.filter((jutsu) => canEquipElementJutsu(character, jutsu, savedBloodlines)),
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the fields read (see above)
+        [learnedAnyJutsus, savedBloodlines, characterBloodline, equippedBloodlineId, characterElement, characterElements],
+    );
+    const bloodlineJutsuNames = useMemo(
+        () => bloodlineNamesByJutsuId(getCharacterBloodlines(character, savedBloodlines)),
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the fields read (see above)
+        [savedBloodlines, characterBloodline, equippedBloodlineId],
+    );
     // Every distinct equipped id across all slots (weapon, armor pieces, the
     // three combat-item slots, throwable, potion, aura, …). Deduped so legacy
     // alias keys (weapon/armor/accessory) don't double-count.
@@ -209,9 +243,12 @@ export function Profile({
         });
         return () => { active = false; };
     }, []);
+    // Only the Achievements tab reads these, and it is only mounted while open,
+    // so other tabs skip re-checking every achievement on each regen tick.
+    const achievementsTabOpen = visibleMobileTab === 'achievements';
     const achievementStates = useMemo(
-        () => ACHIEVEMENTS.map(a => ({ a, unlocked: isAchievementUnlocked(character, a) })),
-        [character],
+        () => achievementsTabOpen ? ACHIEVEMENTS.map(a => ({ a, unlocked: isAchievementUnlocked(character, a) })) : [],
+        [achievementsTabOpen, character],
     );
     const unlockedAchievementTotal = achievementStates.reduce((total, entry) => total + (entry.unlocked ? 1 : 0), 0);
     const visibleAchievementEntries = useMemo(
@@ -964,11 +1001,9 @@ export function Profile({
             {/* ── Jutsu tab ────────────────────────────── */}
             <div className={visibleMobileTab !== 'jutsu' ? 'profile-tab-hidden' : ''}>
             {(() => {
-                const learnedAnyJutsus = allJutsus.filter((jutsu) => getJutsuMastery(character, jutsu.id).level >= 1);
-                const learnedJutsus = learnedAnyJutsus.filter((jutsu) => canEquipElementJutsu(character, jutsu, savedBloodlines));
-                // Jutsu id -> granting bloodline name, so the loadout panel can
-                // label bloodline jutsu and filter the collection down to them.
-                const bloodlineJutsuNames = bloodlineNamesByJutsuId(getCharacterBloodlines(character, savedBloodlines));
+                // learnedAnyJutsus / learnedJutsus / bloodlineJutsuNames are
+                // memoized above. The bloodline map lets the loadout panel label
+                // bloodline jutsu and filter the collection down to them.
                 if (learnedJutsus.length === 0) {
                     return (
                         <section className="profile-build-panel jutsu-workbench-empty">
@@ -995,7 +1030,10 @@ export function Profile({
             </div>{/* end jutsu tab */}
 
             {/* ── Achievements tab ─────────────────────── */}
+            {/* Tabs hide at every viewport (profile-skin.css), so the hidden
+                achievements grid is not mounted at all. */}
             <div className={visibleMobileTab !== 'achievements' ? 'profile-tab-hidden' : ''}>
+            {achievementsTabOpen && (
             <section className="achievements-panel">
                 <div className="achievements-heading">
                     <h3>Achievements</h3>
@@ -1083,11 +1121,14 @@ export function Profile({
                     );
                 })()}
             </section>
+            )}
             </div>{/* end achievements tab */}
 
             {/* ── Battle Logs tab ──────────────────────── */}
+            {/* Mounted only while open: the panel fetches the server battle
+                history on mount, and tabs hide at every viewport anyway. */}
             <div className={visibleMobileTab !== 'battlelogs' ? 'profile-tab-hidden' : ''}>
-                <BattleLogHistoryPanel character={character} onOpenBattle={onOpenBattle} />
+                {visibleMobileTab === 'battlelogs' && <BattleLogHistoryPanel character={character} onOpenBattle={onOpenBattle} />}
             </div>{/* end battle logs tab */}
 
             {/* ── Legacy tab (fully gated: no empty tab/heading when the
