@@ -120,10 +120,11 @@ function isCronAuthorized(req: VercelRequest): boolean {
  * a list of player names that failed so the response surfaces partial
  * outages to whoever's looking.
  */
-async function runBatches<T>(items: T[], worker: (item: T) => Promise<{ ok: boolean; skip?: boolean; unchanged?: boolean; validPlayer?: boolean; err?: string }>, deadline: number) {
+async function runBatches<T>(items: T[], worker: (item: T) => Promise<{ ok: boolean; skip?: boolean; unchanged?: boolean; renewed?: boolean; validPlayer?: boolean; err?: string }>, deadline: number) {
     let snapshotted = 0;
     let skipped = 0;
     let unchanged = 0;
+    let renewed = 0;
     let validPlayers = 0;
     const failed: string[] = [];
     let cursor = 0;
@@ -145,6 +146,7 @@ async function runBatches<T>(items: T[], worker: (item: T) => Promise<{ ok: bool
             else if (r.skip) {
                 skipped += 1;
                 if ('unchanged' in r && r.unchanged) unchanged += 1;
+                if ('renewed' in r && r.renewed) renewed += 1;
             }
             else failed.push(String((slice[i] as unknown as string)));
         });
@@ -155,7 +157,7 @@ async function runBatches<T>(items: T[], worker: (item: T) => Promise<{ ok: bool
         if (cursor < items.length) await new Promise<void>((resolve) => setImmediate(resolve));
     }
 
-    return { snapshotted, skipped, unchanged, validPlayers, failed, processed: cursor, total: items.length };
+    return { snapshotted, skipped, unchanged, renewed, validPlayers, failed, processed: cursor, total: items.length };
 }
 
 export type SnapshotRunResult = {
@@ -276,7 +278,7 @@ export async function runSnapshotSaves(maxRuntimeMs: number = MAX_RUNTIME_MS): P
         // Lossless: any point in time restores to the same state as before.
         if (newest > 0 && await kv.compareSet(snapshotKey(playerName, newest), live, live, { ex: SNAPSHOT_TTL_SECONDS })) {
             renewedAt.set(playerName, Date.now());
-            return { ok: false, skip: true, unchanged: true, validPlayer: true };
+            return { ok: false, skip: true, unchanged: true, renewed: true, validPlayer: true };
         }
 
         const ts = Date.now();
@@ -290,8 +292,10 @@ export async function runSnapshotSaves(maxRuntimeMs: number = MAX_RUNTIME_MS): P
     // least one failed — i.e. the snapshot store is rejecting writes. (All-
     // skipped is normal: every player already has a recent snapshot, so we
     // don't alarm on that.) A renewal of an unchanged save IS a successful
-    // write, so a quiet night with one transient failure is not an outage.
-    const writeOutage = result.snapshotted + result.unchanged === 0 && result.failed.length > 0;
+    // write, so a quiet night with one transient failure is not an outage. A
+    // read-only skip (renewed earlier this window, still identical) wrote
+    // nothing, so it proves nothing about the store and does not count.
+    const writeOutage = result.snapshotted + result.renewed === 0 && result.failed.length > 0;
     if (writeOutage) {
         console.error(`[cron/snapshot-saves] ALARM: ${result.failed.length} snapshot writes failed and 0 succeeded — snapshot store may be down. Sample: ${result.failed.slice(0, 5).join(', ')}`);
     }

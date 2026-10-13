@@ -758,6 +758,9 @@ app.post(['/restart', '/api/restart'], (req, res) => {
     // Exit NON-zero: Railway's restartPolicyType is ON_FAILURE (railway.json),
     // which restarts a container only after a non-zero exit, so a clean 0 left
     // the game down until someone redeployed by hand. 75 is EX_TEMPFAIL.
+    // Each such exit spends one of the deployment's 10 on-failure restarts
+    // (restartPolicyMaxRetries), so for a routine restart prefer Railway's own
+    // Restart/Redeploy; keep this endpoint for scripted recovery.
     setTimeout(() => gracefulShutdown(OPERATOR_RESTART_EXIT_CODE, 'operator restart'), 250);
 });
 

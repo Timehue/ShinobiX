@@ -109,6 +109,17 @@ test('a superseded version list is dropped, so version bumps cannot pile up list
     assert.equal(builds, 3);
 });
 
+test('a failed version read never evicts the live list (no full rebuild when the read recovers)', async () => {
+    const { manifestCacheKey } = await import('./images.js');
+    const { cachedFor } = await import('./_proc-cache.js');
+    let builds = 0;
+    const build = async () => { builds += 1; return ['x']; };
+    await cachedFor(manifestCacheKey('pet', '7', null), 60_000, build);
+    await cachedFor(manifestCacheKey('pet', null, null), 60_000, build); // version read failed
+    await cachedFor(manifestCacheKey('pet', '7', null), 60_000, build);
+    assert.equal(builds, 2, 'version 7 is still served from memory after the blip');
+});
+
 test('only known categories are memoised, so a request cannot mint cache entries', async () => {
     assert.equal(isManifestCategory('pet'), true);
     assert.equal(isManifestCategory('misc'), true);
