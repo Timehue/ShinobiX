@@ -825,6 +825,28 @@ const WIDE_LOOK: readonly [number, number, number] = [0, 1.0, -0.6];
  *  now pulls back by however much its horizontal FOV actually demands. */
 const BOARD_RADIUS = SLOT_SPACING + 1.4;
 
+/** Working vectors for CameraDirector's frame callback. Each is fully written
+ *  before it is read inside one callback and nothing keeps a reference past
+ *  it (pos/look and the camera COPY the values), so reusing them computes the
+ *  exact same shot as fresh `new Vector3()`/`.clone()` temporaries did — without
+ *  a dozen throwaway allocations per frame for the phone GC to collect. */
+const CAM_SCRATCH = {
+    targetPos: new THREE.Vector3(),
+    targetLook: new THREE.Vector3(),
+    a: new THREE.Vector3(),
+    b: new THREE.Vector3(),
+    mid: new THREE.Vector3(),
+    dir: new THREE.Vector3(),
+    perp: new THREE.Vector3(),
+    lateral: new THREE.Vector3(),
+    tmp: new THREE.Vector3(),
+    tmp2: new THREE.Vector3(),
+    view: new THREE.Vector3(),
+    viewDir: new THREE.Vector3(),
+};
+/** Read-only: the portrait master-shot position, as a Vector3 for `lerp`. */
+const CAM_PORTRAIT_POS = new THREE.Vector3(...SHOWDOWN_PORTRAIT_FRAMING.position);
+
 function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced, wildBinding, framedCommands = false }: {
     beatRef: React.MutableRefObject<SceneBeat>;
     fxRef: React.MutableRefObject<SceneFx>;
@@ -851,22 +873,24 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced, wildBinding, 
         // back again from (0, 6.2, 12.8) — that framing still put a big species
         // across half the frame height, so the board read as two creatures in a
         // close-up rather than a match in an arena.
-        let targetPos = new THREE.Vector3(...WIDE_POS);
-        let targetLook = new THREE.Vector3(...WIDE_LOOK);
+        const targetPos = CAM_SCRATCH.targetPos.set(WIDE_POS[0], WIDE_POS[1], WIDE_POS[2]);
+        const targetLook = CAM_SCRATCH.targetLook.set(WIDE_LOOK[0], WIDE_LOOK[1], WIDE_LOOK[2]);
         let nextShot = "wide";
         let cutOnChange = false;
         // Every body that is IN the shot, and how much room this beat's element
         // work needs around them — both feed the fit-to-frame dolly below.
-        const bodies: THREE.Vector3[] = [];
+        const bodies: Array<readonly [number, number, number]> = [];
         let weight: ShotWeight = "quiet";
         if (!reduced && beat.event && beat.event.t === "action" && beat.event.moveKind !== "guard" && beat.event.moveKind !== "rest") {
             const actorPos = posRef.current.get(beat.event.actorId);
             const victimId = showdownActionTargetId(beat.event);
             const victimPos = victimId ? posRef.current.get(victimId) : undefined;
             if (actorPos) {
-                const a = new THREE.Vector3(...actorPos);
-                const b = victimPos ? new THREE.Vector3(...victimPos) : a;
-                bodies.push(a, b);
+                // Neither a nor b is written after this point; every derived
+                // vector below copies out of them first.
+                const a = CAM_SCRATCH.a.set(actorPos[0], actorPos[1], actorPos[2]);
+                const b = victimPos ? CAM_SCRATCH.b.set(victimPos[0], victimPos[1], victimPos[2]) : a;
+                bodies.push([a.x, a.y, a.z], [b.x, b.y, b.z]);
                 const frac = showdownBeatProgress(beat, now);
                 // Deterministic shot seed: the QUEUE INDEX, so a replay of the
                 // same script picks the same framings every time.
@@ -886,7 +910,7 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced, wildBinding, 
                         targetLook.set(0, 2.3, enemyActing ? .8 : -.8);
                         for (const target of beat.event.targets) {
                             const at = posRef.current.get(target.id);
-                            if (at) bodies.push(new THREE.Vector3(...at));
+                            if (at) bodies.push([at[0], at[1], at[2]]);
                         }
                     } else if (beat.presentation?.hero) {
                         const launch = beat.meleeRoute?.points[0];
@@ -897,34 +921,35 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced, wildBinding, 
                     } else if (enemyActing) {
                         // Enemy signature: a high side dolly along the lane —
                         // dramatic, but unmistakably THEIR move coming at you.
-                        const mid = a.clone().lerp(b, 0.5);
-                        const dirS = b.clone().sub(a).setY(0).normalize();
-                        const perpS = new THREE.Vector3(-dirS.z, 0, dirS.x);
-                        targetPos = mid.clone()
+                        const mid = CAM_SCRATCH.mid.copy(a).lerp(b, 0.5);
+                        const dirS = CAM_SCRATCH.dir.copy(b).sub(a).setY(0).normalize();
+                        const perpS = CAM_SCRATCH.perp.set(-dirS.z, 0, dirS.x);
+                        targetPos.copy(mid)
                             .add(perpS.multiplyScalar(8.8 - swoop * 1.0))
                             .setY(4.6 + swoop * 0.6);
-                        targetLook = (reduced || frac >= 0.45 ? b : a).clone().setY(1.1);
+                        targetLook.copy(reduced || frac >= 0.45 ? b : a).setY(1.1);
                     } else {
                         // Player signature: the established shoulder swoop.
-                        const behind = a.clone().sub(b).normalize().multiplyScalar(8.2);
-                        targetPos = a.clone().add(behind).add(new THREE.Vector3(2.8 - swoop * 1.1, 3.6 + swoop * 0.8, 0));
-                        targetLook = reduced || frac >= 0.45 ? b.clone().setY(1.1) : a.clone().setY(1.2);
+                        const behind = CAM_SCRATCH.dir.copy(a).sub(b).normalize().multiplyScalar(8.2);
+                        targetPos.copy(a).add(behind).add(CAM_SCRATCH.tmp.set(2.8 - swoop * 1.1, 3.6 + swoop * 0.8, 0));
+                        if (reduced || frac >= 0.45) targetLook.copy(b).setY(1.1);
+                        else targetLook.copy(a).setY(1.2);
                     }
                 } else if (beat.event.delivery === "self" || victimId === beat.event.actorId) {
                     nextShot = `utility:${beat.index}`;
                     weight = "normal";
-                    targetPos = a.clone().add(new THREE.Vector3(4.8, 3.6, enemyActing ? -5.5 : 5.5));
-                    targetLook = a.clone().setY(1.1);
+                    targetPos.copy(a).add(CAM_SCRATCH.tmp.set(4.8, 3.6, enemyActing ? -5.5 : 5.5));
+                    targetLook.copy(a).setY(1.1);
                 } else {
                     // Colosseum cut sequence: a windup framing, then a HARD CUT
                     // to the impact. Ranged and melee are shot differently —
                     // a thrown attack needs both bodies in frame to read.
                     cutOnChange = true;
-                    const dir = b.clone().sub(a);
+                    const dir = CAM_SCRATCH.dir.copy(b).sub(a);
                     dir.y = 0;
                     if (dir.lengthSq() < 0.05) dir.set(0, 0, -1);
                     dir.normalize();
-                    const perp = new THREE.Vector3(-dir.z, 0, dir.x);
+                    const perp = CAM_SCRATCH.perp.set(-dir.z, 0, dir.x);
                     const ranged = beat.event.delivery === "ranged";
                     const heavy = beat.event.weight === "heavy" || beat.event.targets.some((t) => t.ko);
                     const rhythm = actionRhythm(beat.event);
@@ -941,18 +966,18 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced, wildBinding, 
                             // is player grammar (orientation rule above). An
                             // enemy windup rides a touch higher: reading down
                             // the lane keeps YOUR pets' backs toward the lens.
-                            const mid = a.clone().lerp(b, 0.5);
-                            targetPos = mid.clone()
-                                .add(perp.clone().multiplyScalar(variant === 1 ? -8.6 : 8.6))
+                            const mid = CAM_SCRATCH.mid.copy(a).lerp(b, 0.5);
+                            targetPos.copy(mid)
+                                .add(CAM_SCRATCH.tmp.copy(perp).multiplyScalar(variant === 1 ? -8.6 : 8.6))
                                 .setY(enemyActing ? (variant === 2 ? 5.2 : 4.4) : variant === 2 ? 4.4 : 3.6);
-                            targetLook = mid.clone().setY(1.2);
+                            targetLook.copy(mid).setY(1.2);
                         } else {
-                            const lateral = perp.clone().multiplyScalar(variant === 1 ? -2.6 : 2.6);
-                            targetPos = a.clone()
-                                .sub(dir.clone().multiplyScalar(variant === 2 ? 7.6 : 6.8))
+                            const lateral = CAM_SCRATCH.lateral.copy(perp).multiplyScalar(variant === 1 ? -2.6 : 2.6);
+                            targetPos.copy(a)
+                                .sub(CAM_SCRATCH.tmp.copy(dir).multiplyScalar(variant === 2 ? 7.6 : 6.8))
                                 .add(lateral)
                                 .setY(variant === 2 ? 3.7 : 3.0);
-                            targetLook = b.clone().setY(1.2);
+                            targetLook.copy(b).setY(1.2);
                         }
                     } else {
                         // Keep the same side of the action axis across the cut.
@@ -969,15 +994,15 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced, wildBinding, 
                         // keeps the victim's full silhouette inside the frame.
                         const sideDist = heavy ? 7.0 : 8.4;
                         const height = heavy ? 2.8 : 3.2;
-                        targetPos = b.clone()
-                            .add(perp.clone().multiplyScalar(variant === 1 ? -sideDist : sideDist))
-                            .add(dir.clone().multiplyScalar(variant === 2 ? -4.0 : -2.8))
+                        targetPos.copy(b)
+                            .add(CAM_SCRATCH.tmp.copy(perp).multiplyScalar(variant === 1 ? -sideDist : sideDist))
+                            .add(CAM_SCRATCH.tmp2.copy(dir).multiplyScalar(variant === 2 ? -4.0 : -2.8))
                             .setY(variant === 2 ? height + 0.7 : height);
-                        targetLook = b.clone().setY(1.05);
+                        targetLook.copy(b).setY(1.05);
                         if (ranged) {
-                            const mid = a.clone().lerp(b, 0.5);
-                            targetPos = mid.clone().add(perp.clone().multiplyScalar(variant === 1 ? -9 : 9)).setY(4.2);
-                            targetLook = mid.setY(1.2);
+                            const mid = CAM_SCRATCH.mid.copy(a).lerp(b, 0.5);
+                            targetPos.copy(mid).add(CAM_SCRATCH.tmp.copy(perp).multiplyScalar(variant === 1 ? -9 : 9)).setY(4.2);
+                            targetLook.copy(mid).setY(1.2);
                         }
                     }
                 }
@@ -987,8 +1012,8 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced, wildBinding, 
                 if (beat.event.delivery === "melee" && frac >= actionRhythm(beat.event).contactEnd) {
                     nextShot = `recover:${beat.index}`;
                     cutOnChange = true;
-                    targetPos = new THREE.Vector3(...WIDE_POS);
-                    targetLook = new THREE.Vector3(...WIDE_LOOK);
+                    targetPos.set(WIDE_POS[0], WIDE_POS[1], WIDE_POS[2]);
+                    targetLook.set(WIDE_LOOK[0], WIDE_LOOK[1], WIDE_LOOK[2]);
                     weight = "quiet";
                 }
             }
@@ -998,14 +1023,14 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced, wildBinding, 
             // like a run to a random point instead of a deliberate handoff.
             const anchor = beat.switches?.get(beat.event.inId)?.position ?? posRef.current.get(beat.event.outId);
             if (anchor) {
-                const p = new THREE.Vector3(...anchor);
-                bodies.push(p);
+                const p = CAM_SCRATCH.a.set(anchor[0], anchor[1], anchor[2]);
+                bodies.push([p.x, p.y, p.z]);
                 nextShot = `switch:${beat.index}`;
                 cutOnChange = true;
                 // Raise the switch framing with the overhead Beast Seal so its
                 // larger paper silhouette stays in frame above the pet.
-                targetPos = p.clone().add(new THREE.Vector3(7.2, 5.8, 7.2));
-                targetLook = p.clone().setY(2.1);
+                targetPos.copy(p).add(CAM_SCRATCH.tmp.set(7.2, 5.8, 7.2));
+                targetLook.copy(p).setY(2.1);
             }
         } else if (!reduced && beat.event && beat.event.t === "end") {
             // Orbit the survivor under the result panel — beatRef is never
@@ -1014,12 +1039,12 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced, wildBinding, 
             const focusId = winners[0];
             const at = focusId ? posRef.current.get(focusId) : undefined;
             if (at) {
-                const p = new THREE.Vector3(...at);
-                bodies.push(p);
+                const p = CAM_SCRATCH.a.set(at[0], at[1], at[2]);
+                bodies.push([p.x, p.y, p.z]);
                 nextShot = "end";
                 const th = (now - beat.startedAt) * 0.00045;
-                targetPos = p.clone().add(new THREE.Vector3(Math.sin(th) * 7.4, 3.6, Math.cos(th) * 7.4));
-                targetLook = p.clone().setY(1.15);
+                targetPos.copy(p).add(CAM_SCRATCH.tmp.set(Math.sin(th) * 7.4, 3.6, Math.cos(th) * 7.4));
+                targetLook.copy(p).setY(1.15);
             }
         }
         // Idle drift: a slow broadcast-crane sway so the wide shot never sits
@@ -1045,14 +1070,14 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced, wildBinding, 
         const aspect = size.width / Math.max(1, size.height);
         const portrait = showdownPortraitComposition(aspect);
         if (nextShot === "wide" || nextShot.startsWith("recover:")) {
-            targetPos.lerp(new THREE.Vector3(...SHOWDOWN_PORTRAIT_FRAMING.position), portrait);
+            targetPos.lerp(CAM_PORTRAIT_POS, portrait);
         }
-        const view = targetPos.clone().sub(targetLook);
+        const view = CAM_SCRATCH.view.copy(targetPos).sub(targetLook);
         if (view.lengthSq() < 0.01) view.set(0, 2, 6);
-        const viewDir = view.clone().normalize();
+        const viewDir = CAM_SCRATCH.viewDir.copy(view).normalize();
         const extent = framedExtent(
             [targetLook.x, targetLook.y, targetLook.z],
-            bodies.map((b) => [b.x, b.y, b.z] as const),
+            bodies,
             weight,
         );
         const horiz = Math.max(extent.horiz, nextShot === "wide" ? BOARD_RADIUS : 0);
@@ -1087,7 +1112,7 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced, wildBinding, 
         }
         const needed = fitDistance(horiz, extent.vert, fov, aspect);
         if (view.length() < needed) {
-            targetPos.copy(targetLook).add(viewDir.clone().multiplyScalar(needed));
+            targetPos.copy(targetLook).add(CAM_SCRATCH.tmp.copy(viewDir).multiplyScalar(needed));
         }
         // Wild binding is a player-initiated arena beat, outside the server's
         // combat event queue. Begin over the caster, then dolly onto the wild
@@ -1100,8 +1125,8 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced, wildBinding, 
                 const t = Math.max(0, Math.min(1, (now - wildBinding.startedAt) / wildBinding.durationMs));
                 const advance = THREE.MathUtils.smoothstep(t, .22, .7);
                 const portraitDistance = Math.max(0, .9 - aspect) * 6;
-                const opening = new THREE.Vector3(caster[0] + 3.3, 4.8, caster[2] + 6.3 + portraitDistance);
-                const close = new THREE.Vector3(target[0] + 3.7, 3.25, target[2] + 5.9 + portraitDistance);
+                const opening = CAM_SCRATCH.tmp.set(caster[0] + 3.3, 4.8, caster[2] + 6.3 + portraitDistance);
+                const close = CAM_SCRATCH.tmp2.set(target[0] + 3.7, 3.25, target[2] + 5.9 + portraitDistance);
                 targetPos.copy(opening.lerp(close, advance));
                 targetLook.set(
                     THREE.MathUtils.lerp(caster[0], target[0], .48 + advance * .52),
