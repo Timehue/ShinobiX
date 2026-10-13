@@ -4,6 +4,8 @@ import type { ReactNode } from "react";
 // Compact local chrome glyphs shared with the rest of the game.
 import { GiOgre, GiTrophy, GiTombstone, GiPadlock, GiCrossedSwords } from "../components/icons/LightweightGameIcons";
 const WB_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
+// A thrown request never reached the server; show this, not the browser's wording.
+const WEEKLY_BOSS_UNREACHABLE = "The Weekly Boss could not be reached. Check your connection and try again.";
 import { visiblePoll } from "../lib/poll";
 import { isWeeklyBossRoamEnabled, weeklyBossRoamState } from "../lib/weekly-boss-roam";
 import { weeklyBossHpView } from "../lib/weekly-boss-hp";
@@ -60,7 +62,10 @@ export function WeeklyBossArena({
     const [fightEnabled, setFightEnabled] = useState(true);
     const [fightDisabledReason, setFightDisabledReason] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
+    // `error` belongs to the last action and clears when the next one starts;
+    // `loadError` belongs to the status poll and clears on its next success.
     const [error, setError] = useState("");
+    const [loadError, setLoadError] = useState(false);
     const [startingFight, setStartingFight] = useState(false);
     const [fight, setFight] = useState<{ runId: string; session: SoloPveSession } | null>(null);
     // "Stand & Fight" on the World Map stages a launch (lib/weekly-boss-launch).
@@ -92,8 +97,10 @@ export function WeeklyBossArena({
             setBossState(data.boss ?? null);
             setFightEnabled(data.fightEnabled !== false);
             setFightDisabledReason(typeof data.fightDisabledReason === "string" ? data.fightDisabledReason : null);
-        } catch (e) {
-            setError(String((e as Error).message || e));
+            setLoadError(false);
+        } catch {
+            // The poll retries on its own; the banner says so instead of an HTTP code.
+            setLoadError(true);
         } finally {
             setLoading(false);
         }
@@ -106,6 +113,7 @@ export function WeeklyBossArena({
 
     async function launchAuthoritativeFight() {
         if (startingFight) return;
+        setError("");
         if (!weeklyBossActionsAvailable || !capabilityAdmissionAllowed(mutationAvailability())) {
             setError("New Weekly Boss fights are paused. Leaderboard status and accepted-fight recovery remain available.");
             return;
@@ -127,8 +135,8 @@ export function WeeklyBossArena({
             // the stored save back), so open the fight that was paid for.
             if (data.character) onVersionedCharacter(data.character, data._saveVersion);
             setFight({ runId: data.runId, session: data.session });
-        } catch (cause) {
-            setError(String((cause as Error).message || cause));
+        } catch {
+            setError(WEEKLY_BOSS_UNREACHABLE);
         } finally {
             setStartingFight(false);
         }
@@ -136,6 +144,7 @@ export function WeeklyBossArena({
 
     async function recoverAuthoritativeFight() {
         if (startingFight) return;
+        setError("");
         if (!capabilityAdmissionAllowed(viewAvailability())) {
             setError("Weekly Boss recovery status is temporarily unavailable.");
             return;
@@ -187,8 +196,8 @@ export function WeeklyBossArena({
             // Open the recovered fight even if refused as stale (see launchAuthoritativeFight).
             if (data.character) onVersionedCharacter(data.character, data._saveVersion);
             setFight({ runId: data.runId, session: data.session });
-        } catch (cause) {
-            setError(String((cause as Error).message || cause));
+        } catch {
+            setError(WEEKLY_BOSS_UNREACHABLE);
         } finally {
             setStartingFight(false);
         }
@@ -286,14 +295,19 @@ export function WeeklyBossArena({
                     onBack={() => setScreen(backScreen)}
                 />
                 {worldBossTabs}
-                <section className="weekly-boss-empty-state" aria-label="Weekly Boss status">
-                    <span aria-hidden="true"><GiTombstone /></span>
-                    <div>
-                        <p className="weekly-boss-kicker">No active incursion</p>
-                        <h2>The arena is quiet—for now.</h2>
-                        <p>No boss has been summoned this week. Return when the next world threat is announced.</p>
-                    </div>
-                </section>
+                {/* A failed first read is not "no boss": say so until the poll recovers. */}
+                {loadError ? (
+                    <div role="status" style={{ color: "#fbbf24", margin: "0.8rem 0" }}><GameArtIcon kind="warning" size={16} /> The Weekly Boss status could not be loaded. It will try again automatically.</div>
+                ) : (
+                    <section className="weekly-boss-empty-state" aria-label="Weekly Boss status">
+                        <span aria-hidden="true"><GiTombstone /></span>
+                        <div>
+                            <p className="weekly-boss-kicker">No active incursion</p>
+                            <h2>The arena is quiet—for now.</h2>
+                            <p>No boss has been summoned this week. Return when the next world threat is announced.</p>
+                        </div>
+                    </section>
+                )}
             </div>
         );
     }
@@ -363,7 +377,8 @@ export function WeeklyBossArena({
                 onBack={() => setScreen(backScreen)}
             />
             {worldBossTabs}
-            {error && <div style={{ color: "var(--red-400)", marginBottom: "0.5rem" }}><GameArtIcon kind="warning" size={16} /> {error}</div>}
+            {loadError && <div role="status" style={{ color: "#fbbf24", marginBottom: "0.5rem" }}><GameArtIcon kind="warning" size={16} /> The Weekly Boss status could not be refreshed. It will try again automatically.</div>}
+            {error && <div role="alert" style={{ color: "var(--red-400)", marginBottom: "0.5rem" }}><GameArtIcon kind="warning" size={16} /> {error}</div>}
             {guardCycleAvailability !== "available" && (
                 <div role="status" style={{ background: "rgba(15,23,42,0.55)", border: "1px solid rgba(148,163,184,0.35)", borderRadius: 6, padding: "0.55rem 0.75rem", margin: "0.5rem 0", fontSize: "0.84rem", color: "var(--slate-300)" }}>
                     <GiPadlock style={WB_ICON} />{guardCycleAvailability === "unknown" ? "Guard-cycle status is being checked. The core Weekly Boss fight remains available." : "The Weekly Boss guard cycle is temporarily disabled. The core fight remains available."}

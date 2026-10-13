@@ -73,6 +73,12 @@ export function HunterBoard({
     const [claimingHuntId, setClaimingHuntId] = useState<string | null>(null);
     const claimCooldownMs = useActionDeadline(missionClaimActionScope(character.name));
     const [lastClaim, setLastClaim] = useState<{ title: string; reward: string } | null>(null);
+    // One Guild request at a time (rank up, accept, give up, purse). The button
+    // that started it says what it is doing and the others wait, so a double
+    // tap cannot send the same contract request twice.
+    const guildActionRef = useRef<string | null>(null);
+    const [guildAction, setGuildAction] = useState<string | null>(null);
+    const guildBusy = guildAction !== null || claimingHuntId !== null;
     const acceptedHuntKey = builtinHuntMissions
         .filter((mission) => acceptedMissionIds.includes(mission.id))
         .map((mission) => mission.id)
@@ -121,6 +127,19 @@ export function HunterBoard({
         return countItem(character, itemId);
     }
 
+    /** Runs one Guild request; resolves null without sending while another is in flight. */
+    async function guildRequest<T>(key: string, request: () => Promise<T>): Promise<T | null> {
+        if (guildActionRef.current !== null || huntClaimInFlight.current) return null;
+        guildActionRef.current = key;
+        setGuildAction(key);
+        try {
+            return await request();
+        } finally {
+            guildActionRef.current = null;
+            setGuildAction(null);
+        }
+    }
+
     async function rankUp() {
         if (!requireServerSettlement("fieldHuntMissions")) return;
         if (hunterRank >= HUNTER_RANKUP.length) return alert("You have reached the highest Hunter Rank.");
@@ -129,7 +148,8 @@ export function HunterBoard({
             return alert(`You need ${req.qty}x ${HUNT_MATERIAL_NAMES[req.itemId]} to advance your Hunter Rank.`);
         }
         try {
-            const result = await rankUpHunterServer(character.name);
+            const result = await guildRequest("rank", () => rankUpHunterServer(character.name));
+            if (!result) return;
             if (!onVersionedCharacter(result.character, result._saveVersion)) return;
             alert(`Hunter Rank advanced! You are now a ${HUNTER_RANK_LABELS[hunterRank + 1]}.`);
         } catch (error) {
@@ -143,7 +163,8 @@ export function HunterBoard({
         if ((HUNT_MIN_RANK[mission.rank] ?? 0) > hunterRank) return alert(`Requires Hunter Rank: ${HUNTER_RANK_LABELS[HUNT_MIN_RANK[mission.rank] ?? 0]}.`);
         // Idempotent on the server. Calling accept for an already-visible legacy
         // contract lets rollout migration materialize its authoritative trail.
-        const result = await postWorldHunt({ playerName: character.name, action: "accept", missionId: mission.id });
+        const result = await guildRequest(`accept:${mission.id}`, () => postWorldHunt({ playerName: character.name, action: "accept", missionId: mission.id }));
+        if (!result) return;
         if (!result.ok) {
             // Claimed-today/stale cross-device cards return a cleaned snapshot
             // even with a conflict status. Adopt it before explaining why this
@@ -196,7 +217,7 @@ export function HunterBoard({
     }
 
     async function claimHunt(mission: CreatorMission) {
-        if (huntClaimInFlight.current) return;
+        if (huntClaimInFlight.current || guildActionRef.current !== null) return;
         huntClaimInFlight.current = true;
         setClaimingHuntId(mission.id);
         try {
@@ -303,7 +324,8 @@ export function HunterBoard({
     // Marked danger — abandoning discards tracking progress.
     async function abandonHunt(mission: CreatorMission) {
         if (!await gameConfirm(`Abandon "${mission.name}"? You'll lose your tracking progress on this contract.`, { title: "Abandon contract", confirmLabel: "Abandon", danger: true })) return;
-        const result = await postWorldHunt({ playerName: character.name, action: "abandon", missionId: mission.id });
+        const result = await guildRequest(`abandon:${mission.id}`, () => postWorldHunt({ playerName: character.name, action: "abandon", missionId: mission.id }));
+        if (!result) return;
         if (!result.ok) return alert(result.error ?? "The Guild could not release this contract. Try again.");
         if (result.character) {
             if (!onVersionedCharacter(result.character, result._saveVersion)) return;
@@ -344,8 +366,9 @@ export function HunterBoard({
      */
     async function claimApex() {
         if (!requireServerSettlement("fieldHuntMissions")) return;
-        if (claimCooldownMs > 0) return;
-        const result = await postClaimMission(character.name, "apex", "apex-weekly");
+        // Checked here so the null below can only mean the claim never reached the server.
+        if (claimCooldownMs > 0 || guildActionRef.current !== null || huntClaimInFlight.current) return;
+        const result = await guildRequest("apex", () => postClaimMission(character.name, "apex", "apex-weekly"));
         if (result === null) return alert("Could not reach the server. Try again.");
         if (result.ok === false) return alert(claimHttpFailureMessage(result));
         if (result.applied === true) {
@@ -397,10 +420,11 @@ export function HunterBoard({
                 {hunterRank < HUNTER_RANKUP.length && (
                     <button
                         className="rank-up-btn"
-                        disabled={invCount(HUNTER_RANKUP[hunterRank].itemId) < HUNTER_RANKUP[hunterRank].qty}
+                        disabled={invCount(HUNTER_RANKUP[hunterRank].itemId) < HUNTER_RANKUP[hunterRank].qty || guildBusy}
+                        aria-busy={guildAction === "rank"}
                         onClick={rankUp}
                     >
-                        Rank Up → {HUNTER_RANK_LABELS[Math.min(hunterRank + 1, HUNTER_RANK_LABELS.length - 1)]}
+                        {guildAction === "rank" ? "Ranking up…" : <>Rank Up → {HUNTER_RANK_LABELS[Math.min(hunterRank + 1, HUNTER_RANK_LABELS.length - 1)]}</>}
                     </button>
                 )}
             </div>
@@ -435,8 +459,8 @@ export function HunterBoard({
                                     <button type="button" className="apex-fight" onClick={faceApex}>
                                         Face the Apex
                                     </button>
-                                    <button type="button" className="apex-claim" disabled={claimCooldownMs > 0} onClick={claimApex}>
-                                        {claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Purse"}
+                                    <button type="button" className="apex-claim" disabled={claimCooldownMs > 0 || guildBusy} aria-busy={guildAction === "apex"} onClick={claimApex}>
+                                        {guildAction === "apex" ? "Claiming…" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Purse"}
                                     </button>
                                 </>}
                         </div>
@@ -507,13 +531,13 @@ export function HunterBoard({
                                             )}
                                             <div className="menu">
                                                 {!accepted
-                                                    ? <button disabled={character.level < mission.levelReq} onClick={() => acceptHunt(mission)}>{character.level < mission.levelReq ? `Requires level ${mission.levelReq}` : "Accept Hunt"}</button>
+                                                    ? <button disabled={character.level < mission.levelReq || guildBusy} aria-busy={guildAction === `accept:${mission.id}`} onClick={() => { void acceptHunt(mission); }}>{character.level < mission.levelReq ? `Requires level ${mission.levelReq}` : guildAction === `accept:${mission.id}` ? "Accepting…" : "Accept Hunt"}</button>
                                                     : <>
                                                         {complete
-                                                            ? <button aria-busy={claimingHuntId === mission.id} disabled={claimingHuntId !== null || claimCooldownMs > 0} onClick={() => { void claimHunt(mission); }}>{claimingHuntId === mission.id ? "Claiming..." : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Reward"}</button>
+                                                            ? <button aria-busy={claimingHuntId === mission.id} disabled={guildBusy || claimCooldownMs > 0} onClick={() => { void claimHunt(mission); }}>{claimingHuntId === mission.id ? "Claiming..." : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Reward"}</button>
                                                             : null
                                                         }
-                                                        <button className="danger-button" disabled={claimingHuntId !== null} onClick={() => void abandonHunt(mission)}>Give Up</button>
+                                                        <button className="danger-button" disabled={guildBusy} aria-busy={guildAction === `abandon:${mission.id}`} onClick={() => void abandonHunt(mission)}>{guildAction === `abandon:${mission.id}` ? "Giving up…" : "Give Up"}</button>
                                                     </>
                                                 }
                                             </div>

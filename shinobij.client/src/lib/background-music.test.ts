@@ -5,7 +5,11 @@ import { setAudioMuted, setAudioVolume, startBattleMusic, stopBattleMusic } from
 
 class MockAudio {
     static instances: MockAudio[] = [];
-    src = ""; loop = false; preload = ""; volume = 1; muted = false; currentTime = 0; paused = true;
+    loop = false; preload = ""; volume = 1; muted = false; currentTime = 0; paused = true;
+    srcAssignments = 0;
+    #src = "";
+    get src() { return this.#src; }
+    set src(value: string) { this.#src = value; this.srcAssignments += 1; }
     onended: (() => void) | null = null;
     playCount = 0;
     constructor() { MockAudio.instances.push(this); }
@@ -81,6 +85,35 @@ test("village music rotates through all tracks while combat uses the pet battle 
         assert.equal(music.paused, true);
     } finally {
         Math.random = random;
+        setBackgroundMusicScene(null);
+        setAudioMuted(true);
+        setAudioVolume(1);
+    }
+});
+
+test("a muted game downloads no music until the player unmutes", () => {
+    // preload="auto" fetches whatever src the element holds, played or not, and
+    // the game starts muted. Choosing a scene must not hand the element a track.
+    try {
+        setAudioMuted(true);
+        setBackgroundMusicScene("village");
+        const music = MockAudio.instances.at(-1)!;
+        const assignments = music.srcAssignments;
+        setBackgroundMusicScene("combat");
+        setBackgroundMusicScene("village");
+        assert.equal(music.srcAssignments, assignments, "no track is handed to the element while muted");
+
+        setAudioMuted(false);
+        assert.equal(music.srcAssignments, assignments + 1, "unmuting loads the current scene's track once");
+        assert.match(music.src, /^\/music\/world\/.+\.mp3$/);
+        assert.equal(music.paused, false);
+        const loaded = music.src;
+        music.currentTime = 12;
+        setAudioMuted(true);
+        setAudioMuted(false);
+        assert.equal(music.src, loaded, "re-muting keeps the loaded track");
+        assert.equal(music.currentTime, 12, "and resumes where it stopped");
+    } finally {
         setBackgroundMusicScene(null);
         setAudioMuted(true);
         setAudioVolume(1);

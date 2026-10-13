@@ -17,6 +17,11 @@ import { GameIcon } from "../components/icons/GameIcon";
 import { normalizeOnboardingStep } from "../lib/onboarding-step";
 import { hospitalDischargeBaseCost } from "../../../shared/hospital-discharge-cost";
 
+/** Display only: no discount reads "None", otherwise at most one decimal ("2.5%", "5%"). */
+function discountLabel(percent: number): string {
+    return percent > 0 ? `${Math.max(0.1, Math.round(percent * 10) / 10)}%` : "None";
+}
+
 export
 function Hospital({ character, updateCharacter, setScreen, playerRoster, onServerVersion, onVersionedCharacter }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; setScreen: (s: Screen, authoritativeCharacter?: Character) => void; playerRoster: PlayerRecord[]; onServerVersion: (version: unknown) => boolean; onVersionedCharacter: VersionedCharacterCommit }) {
     const isHealer = character.profession === "healer";
@@ -202,8 +207,8 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
                     description="Your injuries prevent travel and combat until discharge. Treatment restores full HP and returns you to the village."
                     metrics={[
                         { label: "Patient status", value: "Admitted", tone: "warning" },
-                        { label: "Vital condition", value: `${character.hp} / ${character.maxHp} HP`, tone: "warning" },
-                        { label: "Village discount", value: `${hospitalDiscount.toFixed(2)}%`, tone: hospitalDiscount > 0 ? "good" : "default" },
+                        { label: "Vital condition", value: `${character.hp.toLocaleString()} / ${character.maxHp.toLocaleString()} HP`, tone: "warning" },
+                        { label: "Village discount", value: discountLabel(hospitalDiscount), tone: hospitalDiscount > 0 ? "good" : "default" },
                     ]}
                 />
 
@@ -288,7 +293,7 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
                 metrics={[
                     { label: "Current HP", value: `${character.hp.toLocaleString()} / ${character.maxHp.toLocaleString()}`, tone: hpPercent >= 75 ? "good" : "warning" },
                     { label: "Wallet", value: `${character.ryo.toLocaleString()} ryo` },
-                    { label: "Hospital discount", value: `${hospitalDiscount.toFixed(2)}%`, tone: hospitalDiscount > 0 ? "good" : "default" },
+                    { label: "Hospital discount", value: discountLabel(hospitalDiscount), tone: hospitalDiscount > 0 ? "good" : "default" },
                 ]}
             />
 
@@ -324,7 +329,7 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
                             <p>Walk-in restoration is reserved for the Healer profession. After a knockout, the ward offers a timed free discharge or an immediate paid release.</p>
                         </div>
                     )}
-                    <p className="facility-fine-print">Your Town Hall hospital upgrade currently reduces eligible treatment costs by {hospitalDiscount.toFixed(2)}%.</p>
+                    {hospitalDiscount > 0 && <p className="facility-fine-print">Your Town Hall hospital upgrade currently reduces eligible treatment costs by {discountLabel(hospitalDiscount)}.</p>}
                 </section>
 
                 <section className="facility-panel hospital-roster-panel">

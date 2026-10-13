@@ -1,6 +1,6 @@
 import { getPvpJutsuLoadout } from "../lib/jutsu-loadout";
 /* eslint-disable react-hooks/set-state-in-effect, react-hooks/purity */
-import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { visiblePoll } from "../lib/poll";
 import type { Screen } from "../types/core";
 import type { Character, PlayerRecord, VersionedCharacterCommit } from "../types/character";
@@ -142,6 +142,9 @@ export function Arena({
     const [arenaTournament, setArenaTournament] = useState<ArenaTournament | null>(() => loadArenaTournament());
     const [dojoCircuitEnabled, setDojoCircuitEnabled] = useState(() => loadDojoCircuitEnabled());
     const [tournamentWinnerBusy, setTournamentWinnerBusy] = useState(false);
+    // One lobby challenge at a time: a double tap must not send it twice.
+    const challengeInFlight = useRef(false);
+    const [challengeBusy, setChallengeBusy] = useState(false);
     const [spectatorFights, setSpectatorFights] = useState<ArenaSpectatorFight[]>(() => loadArenaActiveFights());
     async function refreshSpectatorFights() {
         try {
@@ -338,6 +341,17 @@ export function Arena({
         }
     }
 
+    /** The lobby buttons' entry point: ignores taps while a challenge is still being sent. */
+    function sendLobbyChallenge(...args: Parameters<typeof challengePlayer>) {
+        if (challengeInFlight.current) return;
+        challengeInFlight.current = true;
+        setChallengeBusy(true);
+        void challengePlayer(...args).finally(() => {
+            challengeInFlight.current = false;
+            setChallengeBusy(false);
+        });
+    }
+
     async function launchRankedMatch(
         match: RankedQueueMatch,
         rankedAuthority: PlayerRankedAuthority,
@@ -474,9 +488,10 @@ export function Arena({
                         currentSector: 0,
                         lastSeenAt: Date.now(),
                     } as PlayerRecord;
-                    void challengePlayer(stub);
+                    sendLobbyChallenge(stub);
                 }}
-                onChallengePlayer={(...args) => { void challengePlayer(...args); }}
+                onChallengePlayer={sendLobbyChallenge}
+                challengeBusy={challengeBusy}
                 onAcceptChallenge={onAcceptChallenge}
                 onDeclineChallenge={onDeclineChallenge}
                 onAcceptPetChallenge={onAcceptPetChallenge}
@@ -597,7 +612,8 @@ export function Arena({
             pendingSpectatorChallenges={pendingSpectatorChallenges}
             onBack={() => setScreen("centralHub")}
             onTabChange={(tab) => tab === 'dojoCircuit' ? setScreen('dojoCircuit') : setActiveArenaTab(tab)}
-            onChallengePlayer={(...args) => { void challengePlayer(...args); }}
+            onChallengePlayer={sendLobbyChallenge}
+            challengeBusy={challengeBusy}
             onAcceptDistrictChallenge={acceptDistrictChallenge}
             onDeclineChallenge={onDeclineChallenge}
             onAdvanceTournamentPlayer={advanceTournamentPlayer}
