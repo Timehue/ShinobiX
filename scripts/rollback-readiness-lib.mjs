@@ -7,7 +7,10 @@ export function stripSqlComments(sql) {
 export function destructiveSchemaStatements(sql) {
     const clean = stripSqlComments(sql);
     const patterns = [
-        /\bdrop\s+table\b/gi,
+        // A real DROP TABLE. `ALTER PUBLICATION ... DROP TABLE` only takes a
+        // table out of a replication publication and deletes no data (the
+        // Supabase Realtime removal, 2026-10-12), so it is not counted.
+        /(?<!\balter\s+publication\b[^;]*)\bdrop\s+table\b/gi,
         /\balter\s+table\b[\s\S]{0,300}?\bdrop\s+column\b/gi,
         /\btruncate\s+(?:table\s+)?/gi,
     ];
