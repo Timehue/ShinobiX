@@ -31,6 +31,33 @@ test("overlapping fetchEras calls share one request, and a later call fetches fr
     assert.deepEqual(await third, { eras: [{ id: "era-2" }] });
 });
 
+test("a call more than a second after a still-pending request fetches fresh, so a stall never blocks a retry", async (t) => {
+    const urls: string[] = [];
+    const pending: Array<(response: Response) => void> = [];
+    const original = globalThis.fetch;
+    let clock = 1_000_000;
+    t.mock.method(Date, "now", () => clock);
+    t.after(() => { globalThis.fetch = original; });
+    globalThis.fetch = ((input: RequestInfo | URL) => {
+        urls.push(String(input));
+        return new Promise<Response>((resolve) => { pending.push(resolve); });
+    }) as typeof fetch;
+
+    const stalled = fetchEras();
+    clock += 999;
+    const sameCommit = fetchEras();
+    assert.equal(urls.length, 1, "a call within the share window joins the request");
+    assert.equal(sameCommit, stalled);
+
+    clock += 2;
+    const retry = fetchEras();
+    assert.equal(urls.length, 2, "a retry after the window sends its own request");
+    pending[1](new Response(JSON.stringify({ eras: [{ id: "fresh" }] }), { status: 200 }));
+    assert.deepEqual(await retry, { eras: [{ id: "fresh" }] });
+    pending[0](new Response("{}", { status: 200 }));
+    await stalled;
+});
+
 test("a failed eras request still resolves null for every overlapping caller", async (t) => {
     const original = globalThis.fetch;
     t.after(() => { globalThis.fetch = original; });
