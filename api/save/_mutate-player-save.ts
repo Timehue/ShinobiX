@@ -144,6 +144,9 @@ export async function writeVersionedPlayerSaveWithStore(
     return { record: intended, _saveVersion: out._saveVersion };
 }
 
+/** Registry fields the village/ANBU rankings act on at once (never deferred). */
+const URGENT_REGISTRY_FIELDS = ['village', 'level', 'monthlyPvpKills', 'pvpKillMonth', 'totalPvpKills', 'accountName'] as const;
+
 export async function writeVersionedPlayerSave(
     saveKey: string,
     currentRecord: PlayerSaveRecord,
@@ -154,15 +157,31 @@ export async function writeVersionedPlayerSave(
     const { kv } = await import('../_storage.js');
     const out = await writeVersionedPlayerSaveWithStore(kv, saveKey, currentRecord, nextCharacter, recordPatch, opts);
     const beforeCharacter = currentRecord.character as PlayerCharacter | undefined;
-    if (['village', 'level', 'monthlyPvpKills', 'pvpKillMonth', 'totalPvpKills', 'accountName'].some(field => beforeCharacter?.[field] !== nextCharacter[field])) {
-        // ANBU ranking must see committed PvP results and village changes even
-        // before the owner's next generic autosave refreshes the public index.
-        try {
-            const { buildPublicPlayerIndexEntry, isPublicPlayerIndexKey, REGISTRY_KEY } = await import('../player/_public-index.js');
-            const name = saveKey.slice('save:'.length);
-            if (isPublicPlayerIndexKey(name)) await kv.hset(REGISTRY_KEY, { [name]: buildPublicPlayerIndexEntry(nextCharacter, name) });
-        } catch (error) { console.warn('[village-roles] public ranking refresh deferred:', error); }
-    }
+    // Re-index whenever ANY leaderboard-visible field moved, judged exactly as
+    // the autosave throttle judges it (publicPlayerIndexChanged), so boards see
+    // server-side changes (stat points, profession XP, tower floors...) without
+    // waiting for the owner's next session. A hand-picked six-field list here
+    // used to leave the other boards stale. Those six (village, level, PvP
+    // kills, account name) still write at once for the ANBU/village rankings;
+    // the rest share a once-a-minute budget per player (_registry-reindex.ts),
+    // because this is the ONE shared row every leaderboard reads.
+    try {
+        const { buildPublicPlayerIndexEntry, isPublicPlayerIndexKey, publicPlayerIndexChanged, REGISTRY_KEY } = await import('../player/_public-index.js');
+        const name = saveKey.slice('save:'.length);
+        if (isPublicPlayerIndexKey(name)) {
+            // "Last seen" is the owner's own last presence (the registry stamp
+            // their autosave carries), never this server write: a clan change
+            // or settlement on an absent player's save must not make them look
+            // active (the guest sweep reclaims by registry lastSeen).
+            const ownerSeenAt = Math.floor(Number((currentRecord as { _registryAt?: unknown })._registryAt) || 0);
+            const entry = buildPublicPlayerIndexEntry(nextCharacter, name, Date.now(), ownerSeenAt > 0 ? ownerSeenAt : Date.now());
+            if (publicPlayerIndexChanged((beforeCharacter ?? null) as Record<string, unknown> | null, entry)) {
+                const urgent = URGENT_REGISTRY_FIELDS.some(field => beforeCharacter?.[field] !== nextCharacter[field]);
+                const { reindexPublicPlayer } = await import('../player/_registry-reindex.js');
+                await reindexPublicPlayer(kv, REGISTRY_KEY, name, entry, { urgent });
+            }
+        }
+    } catch (error) { console.warn('[village-roles] public ranking refresh deferred:', error); }
     // The currency ledger row (P0-5) was committed in the same transaction as
     // the save above, when the write moved currency — see commitPlayerSaveRecord.
     const beforeLevel = Math.max(0, Math.floor(Number((currentRecord.character as PlayerCharacter | undefined)?.level) || 0));
