@@ -79,7 +79,11 @@ describe('computeSleeperSeals (capped Vanguard payout, no escort / no fight gate
         assert.equal(computeSleeperSeals({ professionRank: 5, level: 100 }, { level: 40 }, 'victim'), null);
     });
 
-    it('respects the per-target daily cap (no seals once the target is maxed today)', () => {
+    it('respects the per-target daily cap (no seals once the target is maxed today)', (t) => {
+        // todayKey() here and computeSleeperSeals both read the UTC day from a
+        // no-argument `new Date()`. Freeze Date so a run that straddles UTC
+        // midnight cannot stamp one day and check the next.
+        t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
         const maxedWinner = {
             professionRank: 5,
             level: 40,
@@ -89,7 +93,9 @@ describe('computeSleeperSeals (capped Vanguard payout, no escort / no fight gate
         assert.equal(computeSleeperSeals(maxedWinner, loser, 'victim'), null);
     });
 
-    it('respects the global daily seal cap', () => {
+    it('respects the global daily seal cap', (t) => {
+        // Same freeze as the per-target cap test above.
+        t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
         const cappedWinner = {
             professionRank: 5,
             level: 40,

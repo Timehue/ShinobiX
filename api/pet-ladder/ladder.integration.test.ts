@@ -94,7 +94,11 @@ test('the retired Colosseum positional ladder cannot accept new ranked challenge
     assert.deepEqual(await kv.get('petladder:coliseum'), oldOrder);
 });
 
-test('save → offer → challenge scores the sealed Rite and preserves history, quota, and offline notification', async () => {
+test('save → offer → challenge scores the sealed Rite and preserves history, quota, and offline notification', async (t) => {
+    // The challenge counts today's quota under its own `new Date()` day, and
+    // dailyKey() reads it back under another. Freeze Date so midnight UTC
+    // cannot fall between the two.
+    t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
     const f = await fixture();
     const legacy = await call(f.defender, null);
     assert.deepEqual(legacy.body.you.warfrontPlan, defaultWarfrontLadderPlan());
@@ -189,7 +193,10 @@ test('legacy random-instance defenses recover missing model identity on both sea
     }
 });
 
-test('a losing human challenge preserves rank and records a held offline defense', async () => {
+test('a losing human challenge preserves rank and records a held offline defense', async (t) => {
+    // Same quota read-back as above: freeze Date so midnight UTC cannot fall
+    // between the challenge's day and dailyKey()'s.
+    t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
     const f = await fixture();
     await kv.set(ORDER, [...f.entries].reverse());
     const result = await call(f.defender, 'challenge', { targetId: f.attacker, warfrontRules: WARFRONT_LADDER_RULES, won: true });

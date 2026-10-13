@@ -1,4 +1,4 @@
-import { after, before, test } from 'node:test';
+import { after, before, beforeEach, test } from 'node:test';
 import assert from 'node:assert/strict';
 
 process.env.NODE_ENV = 'test';
@@ -46,6 +46,17 @@ before(async () => {
 after(() => {
     delete process.env.SHINOBIX_QA_MEMORY_KV;
     delete process.env.SESSION_SECRET;
+});
+
+beforeEach((context) => {
+    // Each countKey below is built from a no-argument `new Date()`, and
+    // hollow-gate/start reads its own day the same way. A run that straddles
+    // UTC midnight would seed, fault or pause a key the handler no longer
+    // uses: the injected failures would never fire, and the out-of-order test
+    // would wait forever on a lock claim that never comes. Freeze Date
+    // (Date.now and new Date alike) for each test.
+    if (!('mock' in context)) throw new Error('needs a per-test clock');
+    context.mock.timers.enable({ apis: ['Date'], now: Date.now() });
 });
 
 test('a definitive save CAS failure rolls back only its Hollow Gate reservation and the same request can retry', async () => {

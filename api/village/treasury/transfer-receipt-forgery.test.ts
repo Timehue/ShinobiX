@@ -106,11 +106,16 @@ test('a village-state save cannot plant the receipt that lets a treasury gift sk
     assert.equal((await kv.get<{ treasury: { ryo: number } }>(VILLAGE_KEY))?.treasury.ryo, 0);
 });
 
-test('a village-state save cannot erase the agenda receipts that stop a second treasury tithe', async () => {
+test('a village-state save cannot erase the agenda receipts that stop a second treasury tithe', async (t) => {
     // The daily agenda credits the VILLAGE treasury once per player per UTC
     // day, gated only by `agendaClaimReceipts` on the same row. A blob that
     // resets that list must not let the same villager claim the tithe again.
     const agenda = (await import('../claim-daily-agenda.js')).default as unknown as Handler;
+    // claim-daily-agenda reads its UTC day from a no-argument `new Date()` on
+    // each claim. A run that straddles UTC midnight between the two claims
+    // would put the second on a fresh day, so the tithe would pay again.
+    // Freeze Date (Date.now and new Date alike) from here on.
+    t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
     for (let sector = 1; sector <= 10; sector++) {
         await kv.set(`world:territory:${sector}`, { sector, ownerVillage: VILLAGE });
     }
