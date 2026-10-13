@@ -101,6 +101,9 @@
     0%, 100% { filter: none; }
     50% { filter: brightness(1.25) saturate(1.2); }
 }
+@media (prefers-reduced-motion: reduce) {
+    .legacy-aura-s5 { animation: none; }
+}
 
 /* World Herald system lines in the village tavern (api/_announce.ts
    broadcastToVillageChats). `system` is server-authored only, so this styling

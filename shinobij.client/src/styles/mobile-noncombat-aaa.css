@@ -383,7 +383,9 @@
       var(--sj-surface-low);
     border-block-start: 1px solid color-mix(in srgb, var(--sj-gold) 34%, transparent);
     box-shadow: 0 -12px 30px rgba(0, 0, 0, 0.42);
-    backdrop-filter: blur(14px) saturate(1.12);
+    /* No backdrop-filter: the opaque --sj-surface-low base layer hides
+       anything behind the nav, so a blur here was recomputed every scroll
+       frame without changing a pixel. */
   }
 
   .app-shell[data-ui-mode="noncombat"] .mobile-nav-btn {
