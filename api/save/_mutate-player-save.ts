@@ -154,15 +154,23 @@ export async function writeVersionedPlayerSave(
     const { kv } = await import('../_storage.js');
     const out = await writeVersionedPlayerSaveWithStore(kv, saveKey, currentRecord, nextCharacter, recordPatch, opts);
     const beforeCharacter = currentRecord.character as PlayerCharacter | undefined;
-    if (['village', 'level', 'monthlyPvpKills', 'pvpKillMonth', 'totalPvpKills', 'accountName'].some(field => beforeCharacter?.[field] !== nextCharacter[field])) {
-        // ANBU ranking must see committed PvP results and village changes even
-        // before the owner's next generic autosave refreshes the public index.
-        try {
-            const { buildPublicPlayerIndexEntry, isPublicPlayerIndexKey, REGISTRY_KEY } = await import('../player/_public-index.js');
-            const name = saveKey.slice('save:'.length);
-            if (isPublicPlayerIndexKey(name)) await kv.hset(REGISTRY_KEY, { [name]: buildPublicPlayerIndexEntry(nextCharacter, name) });
-        } catch (error) { console.warn('[village-roles] public ranking refresh deferred:', error); }
-    }
+    // Re-index whenever ANY leaderboard-visible field moved, judged exactly as
+    // the autosave throttle judges it (publicPlayerIndexChanged). ANBU ranking
+    // and every board must see a server-side change (PvP results, village,
+    // stat points, profession XP, tower floors, raids...) without waiting for
+    // the owner's next autosave, which skips the registry when its own
+    // character already matches the stored one. A hand-picked six-field list
+    // here used to leave the other boards stale until the next session.
+    try {
+        const { buildPublicPlayerIndexEntry, isPublicPlayerIndexKey, publicPlayerIndexChanged, REGISTRY_KEY } = await import('../player/_public-index.js');
+        const name = saveKey.slice('save:'.length);
+        if (isPublicPlayerIndexKey(name)) {
+            const entry = buildPublicPlayerIndexEntry(nextCharacter, name);
+            if (publicPlayerIndexChanged((beforeCharacter ?? null) as Record<string, unknown> | null, entry)) {
+                await kv.hset(REGISTRY_KEY, { [name]: entry });
+            }
+        }
+    } catch (error) { console.warn('[village-roles] public ranking refresh deferred:', error); }
     // The currency ledger row (P0-5) was committed in the same transaction as
     // the save above, when the write moved currency — see commitPlayerSaveRecord.
     const beforeLevel = Math.max(0, Math.floor(Number((currentRecord.character as PlayerCharacter | undefined)?.level) || 0));
