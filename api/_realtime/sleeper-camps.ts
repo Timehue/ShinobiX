@@ -100,17 +100,20 @@ export async function clearSleeperCamp(name: string): Promise<void> {
 /**
  * Heartbeat path: skip the shared-row rewrite when this player was cleared
  * recently, and when they have no camp at all. Almost every beat lands on an
- * absent field, and a read is far cheaper than kv_hdel's full-row rewrite. Any
- * camp this process writes invalidates its read cache for the row, so only a
- * camp written by another process can be missed, and the recheck bounds that
- * exactly as before. A failed read falls back to the unconditional clear.
+ * absent field, and reading the field names is far cheaper than a full-row
+ * rewrite. The read is uncached (hkeys), so it sees the latest committed camps.
+ * A failed read falls back to the unconditional clear.
  */
 export async function clearSleeperCampOnBeat(name: string, now = Date.now()): Promise<void> {
     const key = safeName(name);
     if (!key) return;
     const clearedAt = beatCleared.get(key);
     if (clearedAt !== undefined && now - clearedAt < BEAT_CLEAR_RECHECK_MS) return;
-    const present = await listSleeperCamps().then(camps => camps.has(key), () => true);
+    // A FRESH read of just the field names: hkeys bypasses the process read
+    // cache, so a camp written a moment ago (by this process or another) is
+    // never missed the way a cached hgetall could miss it for up to 15 s.
+    const present = await kv.hkeys(SLEEPER_CAMPS_KEY)
+        .then(fields => fields.some(field => safeName(field) === key), () => true);
     if (!present) {
         recordBeatCleared(key, now);
         return;

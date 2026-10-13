@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
-import { kv } from '../_storage.js';
+import { jsonValueEqual, kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { isFullAdmin, safeEqual } from '../_auth.js';
 
@@ -39,6 +39,10 @@ const SNAPSHOT_TTL_SECONDS = 90 * 24 * 60 * 60;
 const SNAPSHOT_SUCCESS_TTL_SECONDS = 180 * 24 * 60 * 60;
 export const SNAPSHOT_FRESHNESS_MS = 26 * 60 * 60 * 1000;
 const SKIP_IF_RECENT_MS = 20 * 60 * 60 * 1000;       // 20h — covers cron retries
+/** When this process last renewed each player's newest snapshot (see the run loop). */
+const renewedAt = new Map<string, number>();
+/** Test-only. */
+export function __resetSnapshotRenewalsForTest(): void { renewedAt.clear(); }
 const MAX_PARALLEL = 8;                              // throttle KV writes
 const MAX_RUNTIME_MS = 25_000;                       // leave 5s headroom on a 30s fn
 
@@ -250,6 +254,18 @@ export async function runSnapshotSaves(maxRuntimeMs: number = MAX_RUNTIME_MS): P
             return { ok: false, skip: true, validPlayer: true };
         }
 
+        // Renewed by this process within the window and still identical: a
+        // re-run (the recovery retry loop, a manual trigger) must not rewrite
+        // every unchanged snapshot again. The 20 h skip above keys on capture
+        // time, which renewal never moves, so it never fires for them. A READ
+        // costs no WAL; a changed save still falls through and is captured.
+        if (newest > 0 && Date.now() - (renewedAt.get(playerName) ?? 0) < SKIP_IF_RECENT_MS) {
+            const snapshot = await kv.get<Record<string, unknown>>(snapshotKey(playerName, newest));
+            if (snapshot && jsonValueEqual(snapshot, live)) {
+                return { ok: false, skip: true, unchanged: true, validPlayer: true };
+            }
+        }
+
         // Unchanged since the newest snapshot: renew that copy's TTL instead of
         // writing an identical one. A nightly copy of every save regardless of
         // change measured 96% duplicates in production (11,709 rows, 461
@@ -259,6 +275,7 @@ export async function runSnapshotSaves(maxRuntimeMs: number = MAX_RUNTIME_MS): P
         // an idle player's last backup never ages out while their save exists.
         // Lossless: any point in time restores to the same state as before.
         if (newest > 0 && await kv.compareSet(snapshotKey(playerName, newest), live, live, { ex: SNAPSHOT_TTL_SECONDS })) {
+            renewedAt.set(playerName, Date.now());
             return { ok: false, skip: true, unchanged: true, validPlayer: true };
         }
 
@@ -272,8 +289,9 @@ export async function runSnapshotSaves(maxRuntimeMs: number = MAX_RUNTIME_MS): P
     // Backup-health alarm: we had players to snapshot but wrote none and at
     // least one failed — i.e. the snapshot store is rejecting writes. (All-
     // skipped is normal: every player already has a recent snapshot, so we
-    // don't alarm on that.)
-    const writeOutage = result.snapshotted === 0 && result.failed.length > 0;
+    // don't alarm on that.) A renewal of an unchanged save IS a successful
+    // write, so a quiet night with one transient failure is not an outage.
+    const writeOutage = result.snapshotted + result.unchanged === 0 && result.failed.length > 0;
     if (writeOutage) {
         console.error(`[cron/snapshot-saves] ALARM: ${result.failed.length} snapshot writes failed and 0 succeeded — snapshot store may be down. Sample: ${result.failed.slice(0, 5).join(', ')}`);
     }

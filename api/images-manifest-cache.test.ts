@@ -96,6 +96,19 @@ test('a failed read answers 503 no-store and is never cached', async () => {
     assert.deepEqual(recovered.body, { version: '0', ids: ['card:a'] });
 });
 
+test('a superseded version list is dropped, so version bumps cannot pile up lists in memory', async () => {
+    const { manifestCacheKey } = await import('./images.js');
+    const { cachedFor } = await import('./_proc-cache.js');
+    let builds = 0;
+    const build = async () => { builds += 1; return ['x']; };
+    await cachedFor(manifestCacheKey('avatar', '1', null), 60_000, build);
+    await cachedFor(manifestCacheKey('avatar', '2', null), 60_000, build);
+    // Version 1's entry was invalidated when version 2's key was minted, so
+    // reading it again rebuilds instead of returning a list kept forever.
+    await cachedFor(manifestCacheKey('avatar', '1', null), 60_000, build);
+    assert.equal(builds, 3);
+});
+
 test('only known categories are memoised, so a request cannot mint cache entries', async () => {
     assert.equal(isManifestCategory('pet'), true);
     assert.equal(isManifestCategory('misc'), true);
