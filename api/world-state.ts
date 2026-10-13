@@ -1,5 +1,8 @@
 import { readVillageAnbu } from './village/_anbu.js';
-import { createHash } from 'node:crypto';
+import { advanceCampaignWar, awardCampaignBattle, createVillageCampaign } from './_village-war-campaign.js';
+import { applyEspionageBattleEvidence } from './_village-war-field-operations.js';
+import { campaignScore, type VillageCampaign } from '../shared/village-war-campaign.js';
+import { createHash, randomInt } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { MAX_WILD_SECTOR } from '../shared/sector-geo.js';
 import type { VercelRequest, VercelResponse } from './_vercel.js';
@@ -247,6 +250,11 @@ function endZeroHpVillageWar(war: VillageWar, now: number): VillageWar | null {
  * dropped; every field a client or a settlement reads is kept as stored.
  */
 function publicVillageWar(war: VillageWar): VillageWar {
+    if (war.campaign) {
+        const { campaign, ...publicRow } = war;
+        war = { ...publicRow, campaignVersion: 2, campaignEndsAt: campaign.endsAt,
+            warPoints: Object.fromEntries(war.villages.map(v => [v, campaignScore(campaign, v).total])) };
+    }
     const receipts = war.mercenaryHireReceipts;
     if (!receipts || typeof receipts !== 'object') return war;
     const scrubbed: Record<string, unknown> = {};
@@ -269,6 +277,11 @@ function publicVillageWar(war: VillageWar): VillageWar {
  */
 function bringVillageWarCurrent(war: VillageWar, now: number): { war: VillageWar; changed: boolean } {
     if (!warIsMutableGameplayActive(war) || war.endedAt) return { war, changed: false };
+    if (war.campaign) {
+        let next = advanceCampaignWar(war, now);
+        if (next.endedAt) next = stampVillageWarEnding(next, { endedAt: next.endedAt, winnerVillage: next.winnerVillage });
+        return { war: next, changed: !isDeepStrictEqual(next, war) };
+    }
     const liveStart = warEffectiveStartMs(war);
     if (now - liveStart > VILLAGE_WAR_MAX_DURATION_MS) {
         // Timed out: no winner, so no spoils and no crates — but the MVPs are
@@ -281,16 +294,14 @@ function bringVillageWarCurrent(war: VillageWar, now: number): { war: VillageWar
 }
 
 // The war ground is neutral ground both villages can reach: one of the central
-// keep's sectors, chosen from the pair so every war between the same two
-// villages fights over the same place. The declaring Kage used to send it (the
+// keep's sectors, randomly sealed for each declaration. The declaring Kage used to send it (the
 // War Hall sent the first sector with no clan owner, which was often a village
 // gate), so a war could be fought over one side's own doorstep.
 const WAR_GROUND_SECTORS: readonly number[] = CENTRAL_SECTORS.filter(
     (sector) => !NON_WAR_SPECIAL_SECTORS.includes(sector),
 );
-function villageWarGroundSector(warId: string): number {
-    const digest = createHash('sha256').update(String(warId)).digest();
-    return WAR_GROUND_SECTORS[digest[0] % WAR_GROUND_SECTORS.length];
+function villageWarGroundSector(): number {
+    return WAR_GROUND_SECTORS[randomInt(WAR_GROUND_SECTORS.length)];
 }
 
 async function isSeatedKageOf(playerName: string, village: string): Promise<boolean> {
@@ -350,6 +361,10 @@ type SectorTerritory = {
 };
 
 type VillageWar = {
+    campaign?: VillageCampaign;
+    campaignVersion?: 2;
+    campaignEndsAt?: number;
+    warPoints?: Record<string, number>;
     id: string;
     villages: [string, string];
     hp: Record<string, number>;
@@ -1031,7 +1046,7 @@ export async function applyMercVillageWarDamage(
     const warKey = `${VILLAGE_WAR_KEY_PREFIX}${villageWarId(attackerVillage, enemyVillage)}`;
     return withKvLock(warKey, async () => {
         let war = await kv.get<VillageWar>(warKey);
-        if (!warIsMutableGameplayActive(war) || war.endedAt) return null;
+        if (!warIsMutableGameplayActive(war) || war.endedAt || war.campaign) return null;
         // Bring the war current first, like every other war writer: its 14-day
         // limit, any owed decay, a zero-HP ending. Decay alone let a merc chip a
         // war that had already timed out but that nobody had polled since.
@@ -1396,6 +1411,7 @@ async function applyVillageWarMissionToken(args: {
     now: number;
 }): Promise<{ status: number; body: Record<string, unknown> }> {
     const { existing, tokenId, now } = args;
+    if (existing.campaign) return { status: 409, body: { error: 'Use the capped campaign operations for this village war.' } };
     if (!tokenId) {
         return { status: 403, body: { error: 'Village-war damage comes from real battles and war missions, so that update was not applied.' } };
     }
@@ -1654,6 +1670,32 @@ export async function settlePvpVillageWarContinuation(
                 return { status: 503, body: { error: 'A mercenary strike is settling; retry village-war rewards.' } };
             }
             if (!warIsGameplayActive(raw)) return writeNoop();
+            if (raw.campaign) {
+                if (session.ranked === true || session.playerRankedAuthorityVersion || session.rewardAuthority === 'ranked') return writeNoop();
+                const recorded = raw.campaign.receipts[`combat:${battleId}`];
+                if (recorded) {
+                    await commitPvpWarContinuationReceipt({ version: 1, battleId, actorName: actor, outcome: 'applied', warId,
+                        settledAt, warGroundRewardEligible: false });
+                    return { status: 200, body: { ok: true, settlement: 'applied', replayed: true, points: recorded.points,
+                        warGroundRewardEligible: false, war: publicVillageWar(raw) } };
+                }
+                if (!session.joined?.p1 || !session.joined?.p2 || createdAt < raw.campaign.startsAt
+                    || settledAt >= raw.campaign.endsAt || raw.endedAt) return writeNoop();
+                const binding = session.villageWarObjective;
+                if (binding && (binding.warId !== raw.id || binding.generation !== raw.declarationGeneration
+                    || !raw.campaign.admissions[binding.runId])) return writeNoop();
+                const result = awardCampaignBattle(raw, { receipt: `combat:${battleId}`, village: actorVillage,
+                    player: actor, at: settledAt, createdAt, objectiveId: binding?.objectiveId }, String(winnerFighter?.name ?? actor));
+                if (binding) result.row.campaign!.admissions[binding.runId].finished = true;
+                if (!binding && session.rewardAuthority === 'world') result.row = applyEspionageBattleEvidence(result.row,
+                    session.villageWarEspionage?.find(e => e.player === actor), actor, createdAt, settledAt);
+                const publication = await commitWarBattleSettlement(kv, warKey, raw, result.row);
+                if (publication.status === 'conflict') continue;
+                await commitPvpWarContinuationReceipt({ version: 1, battleId, actorName: actor,
+                    outcome: 'applied', warId, settledAt, warGroundRewardEligible: false });
+                return { status: 200, body: { ok: true, settlement: 'applied', replayed: result.replayed,
+                    warGroundRewardEligible: false, war: publicVillageWar(publication.row), points: result.points } };
+            }
             try {
                 parseEmbeddedWarBattleReceipts(raw.pvpBattleReceipts);
             } catch {
@@ -2337,7 +2379,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
                     return { status: 200, body: { war: publicVillageWar(publication.row) } };
                 }, { failClosed: true });
-                return res.status(result.status).json(result.body);
+                return res.status(result.status).json(result.body && 'war' in result.body && result.body.war ? { ...result.body, war: publicVillageWar(result.body.war as VillageWar) } : result.body);
             }
 
             if (body?.kind === 'war') {
@@ -2425,6 +2467,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         war.hpMax = existing.hpMax;
                         war.peaceProposals = existing.peaceProposals;
                         war.surrenderedBy = existing.surrenderedBy;
+                        war.campaign = existing.campaign;
                     }
 
                     // Bring the stored war up to now before judging this write:
@@ -2596,11 +2639,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 war.updatedAt = mutationNow;
                                 war.hpMax = hpMax;
                                 war.hp = { ...hpMax };
-                                war.warGroundSector = villageWarGroundSector(war.id);
+                                war.warGroundSector = villageWarGroundSector();
                                 delete war.peaceProposals;
                                 delete war.surrenderedBy;
                                 war.warGroundHp = VILLAGE_WAR_GROUND_HP_MAX;
                                 war.pendingUntil = mutationNow + VILLAGE_WAR_PENDING_WINDOW_MS;
+                                war.campaign = createVillageCampaign(war.villages, war.pendingUntil, war.warGroundSector);
                                 war.declaredBy = safeName(identity.name);
                                 war.declarationGeneration = generation.generation;
                                 delete war.endedAt;
@@ -2855,7 +2899,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (isEnding) await ensureWarRematchCooldown(publication.row);
                     return { status: 200 as const, body: { war: publication.row } };
                 }, { failClosed: true });
-                return res.status(result.status).json(result.body);
+                return res.status(result.status).json(result.body && 'war' in result.body && result.body.war ? { ...result.body, war: publicVillageWar(result.body.war as VillageWar) } : result.body);
             }
 
             return res.status(400).json({ error: 'Invalid world state update.' });

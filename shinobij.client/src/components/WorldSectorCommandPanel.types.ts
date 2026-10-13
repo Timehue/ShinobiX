@@ -1,9 +1,4 @@
 // Props and row shapes for WorldSectorCommandPanel.
-// Split out of the component verbatim so the panel stays under the line
-// ratchet in screens/WorldMap.projection.test.ts. That budget exists to keep
-// commands and authority in WorldMap — type declarations are neither, so they
-// live here and the panel re-exports them, leaving every existing import site
-// (WorldMap.tsx, SectorIntelCard.tsx, the projection test) untouched.
 import type { SectorTracesView } from "../lib/sector-traces";
 import type { SectorPoolPlateView } from "../lib/sector-pool";
 import type { SectorContractStatus } from "../lib/sector-contract";
@@ -20,6 +15,7 @@ export type WorldSectorCommandWar = Readonly<{
     enemyVillageHp: number;
     enemyVillageHpMax: number;
     ended: boolean;
+    campaign?: { ourPoints: number; enemyPoints: number };
 }>;
 
 export type WorldSectorCommandTerritory = Readonly<{

@@ -50,7 +50,7 @@ for (const [key,title,opponent,level,moveName] of cases) test(`${title} renders 
         localStorage.setItem('shinobix:storage-notice-ack','1');
         localStorage.setItem('patchNotes.lastSeenVersion.v1',patch);
         localStorage.setItem('dailyBriefing.seen.v1',new Date().toISOString().slice(0,10));
-    },{name,token,patch:LATEST_PATCH_NOTE.version});
+    },{name,token,patch:LATEST_PATCH_NOTE?.version ?? ''});
     const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
     await page.goto('/#/missions',{waitUntil:'networkidle'});
     for(let i=0;i<6;i++) {

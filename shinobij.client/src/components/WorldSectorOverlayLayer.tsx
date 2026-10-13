@@ -18,7 +18,7 @@ export type WorldSectorRiftMarker = Readonly<{
 
 export type WorldSectorVaultMarker = Readonly<{
     village: string;
-    obsidian?: boolean;
+    obsidian?: boolean; defending?: boolean;
     onOpen: () => void;
 }>;
 
@@ -116,11 +116,11 @@ export function WorldSectorOverlayLayer({
                     className={`sector-vault-standee${vault.obsidian ? ' sector-obsidian-stronghold' : ''}`}
                     style={{ left: `${strongholdAt.left}%`, top: `${strongholdAt.top}%` }}
                     onClick={vault.onOpen}
-                    title={vault.obsidian ? 'Obsidian Stronghold · 4× rewards on PvP wins' : `${vault.village} Sector Stronghold — infiltrate?`}
-                    aria-label={vault.obsidian ? 'Obsidian Stronghold — enter for 4× PvP rewards' : `Sector Stronghold — infiltrate ${vault.village}'s war cache`}
+                    title={vault.obsidian ? 'Obsidian Stronghold · 4× rewards on PvP wins' : `${vault.village} Sector Stronghold — ${vault.defending ? 'defend' : 'infiltrate?'}`}
+                    aria-label={vault.obsidian ? 'Obsidian Stronghold — enter for 4× PvP rewards' : vault.defending ? `Sector Stronghold — defend ${vault.village}` : `Sector Stronghold — infiltrate ${vault.village}'s war cache`}
                 >
                     <img src="/landmarks/anbu-vault.webp" alt="" draggable={false} />
-                    <span className="sector-vault-standee-name">{vault.obsidian ? 'Obsidian Stronghold · 4× PvP' : 'Sector Stronghold'}</span>
+                    <span className="sector-vault-standee-name">{vault.obsidian ? 'Obsidian Stronghold · 4× PvP' : vault.defending ? 'Defend Stronghold' : 'Sector Stronghold'}</span>
                 </button>
             )}
 

@@ -1,6 +1,7 @@
 import { isDeepStrictEqual } from 'node:util';
 import type { KvLike } from '../_storage.js';
 import { safeName } from '../_utils.js';
+import { releaseDefeatedShrinePlayer } from '../_village-war-shrine-presence.js';
 import { PVP_LAPSED_RETENTION_SECONDS, PVP_TERMINAL_REPLAY_TTL, SESSION_TTL } from '../combat-core/constants.js';
 import {
     makePlayerRankedSessionCloseFence,
@@ -100,9 +101,13 @@ export async function commitPvpSessionMutation(
         if (!durableTerminal) {
             await boundExactPvpSession(store, key, next, ttlSeconds);
         }
+        releaseDefeatedShrinePlayer(next);
         return { status: 'committed', session: next };
     }
-    if (acknowledged) return { status: 'committed', session: next };
+    if (acknowledged) {
+        releaseDefeatedShrinePlayer(next);
+        return { status: 'committed', session: next };
+    }
 
     // A remote CAS may commit but return a false/null acknowledgement. Exact
     // readback distinguishes that from a real stale-writer conflict.
@@ -111,6 +116,7 @@ export async function commitPvpSessionMutation(
         if (!durableTerminal) {
             await boundExactPvpSession(store, key, next, ttlSeconds);
         }
+        releaseDefeatedShrinePlayer(next);
         return { status: 'committed', session: next };
     }
     return { status: 'conflict', session: current };

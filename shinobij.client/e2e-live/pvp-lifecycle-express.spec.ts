@@ -81,7 +81,7 @@ async function boot(page: Page, account: Fighter, battleId?: string, role: 'p1' 
             owner: player.name, pvpBattleId: battleId, pvpRole: role,
             pvpBattleContext: { mode: 'standard', sectorAttack: true, sector: 12, raidKind: role === 'p1' ? 'raidPlayer' : 'defense' }, savedAt: Date.now(),
         }));
-    }, { player: account, battleId, role, patch: LATEST_PATCH_NOTE.version });
+    }, { player: account, battleId, role, patch: LATEST_PATCH_NOTE?.version ?? '' });
     await page.goto(battleId ? '/#/pvpBattle' : '/#/worldMap', { waitUntil: 'domcontentloaded' });
     await expect(page.locator(`.app-shell[data-screen="${battleId ? 'pvpBattle' : 'worldMap'}"]`)).toBeVisible({ timeout: 45_000 });
     if (process.env.LIVE_E2E_REALTIME === '1') {
