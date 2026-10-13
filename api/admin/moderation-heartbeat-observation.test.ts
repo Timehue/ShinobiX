@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { before, beforeEach, test } from 'node:test';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
 
 let kv: typeof import('../_storage.js').kv;
-let moderation: typeof import('./moderation.js');
+let moderation: Pick<typeof import('./moderation.js'),
+    '_resetHeartbeatObservationMemo' | '_shouldRecheckHeartbeatObservation' | 'recordHeartbeatObservation'>;
 
 const NAME = 'beatwatcher';
 const FIVE_MIN = 5 * 60_000;
@@ -53,11 +56,11 @@ test('a heartbeat records a new IP and fingerprint, then skips the reads for an 
     assert.deepEqual(await kv.get('mod:by-ip-v2:1.1.1.1'), [NAME]);
 });
 
-test('the heartbeat uses the throttled recorder; sign-in paths still record directly', async () => {
-    const { readFile } = await import('node:fs/promises');
-    const heartbeat = await readFile(new URL('../player/heartbeat.ts', import.meta.url), 'utf8');
+test('the heartbeat uses the throttled recorder; sign-in paths still record directly', () => {
+    const readApi = (file: string) => readFileSync(join(process.cwd(), 'api', file), 'utf8');
+    const heartbeat = readApi('player/heartbeat.ts');
     assert.match(heartbeat, /void recordHeartbeatObservation\(identity\.name, clientIpFrom\(req\), clientFpFrom\(req\)\)/);
     assert.doesNotMatch(heartbeat, /recordClientIp\(|recordClientFingerprint\(/);
-    const auth = await readFile(new URL('../player-auth.ts', import.meta.url), 'utf8');
+    const auth = readApi('player-auth.ts');
     assert.match(auth, /void recordClientIp\(name, clientIpFrom\(req\)\)/);
 });
