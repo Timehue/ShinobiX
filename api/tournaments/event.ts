@@ -60,8 +60,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const playerId = identity.admin ? '' : identity.name;
         if (!(await enforceRateLimitKv(req, res, 'tournaments', 90, 60_000, playerId || 'admin'))) return;
         if (req.method === 'GET') {
-            await tickTournaments();
-            return res.status(200).json({ event: await readTournament(), serverNow: Date.now(), playerId });
+            // When the tick found nothing due it wrote nothing, so the event it
+            // read is the current one; otherwise read it again as before.
+            const unchanged = await tickTournaments();
+            return res.status(200).json({ event: unchanged !== undefined ? unchanged : await readTournament(), serverNow: Date.now(), playerId });
         }
         const body = (typeof req.body === 'string' ? JSON.parse(req.body) : req.body ?? {}) as Record<string, unknown>;
         const action = String(body.action ?? '');
