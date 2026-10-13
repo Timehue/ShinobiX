@@ -299,8 +299,17 @@ export type EraView = {
     unlockedBy: string | null; unlockedVillage: string | null; unlockedAt: number | null;
 };
 
+// Hall of Legends' Eras tab asks for the eras from two effects on the same
+// commit. Callers that overlap share one request (getJson never rejects, so
+// every caller gets the same result it would have fetched); a call made after
+// it settles fetches fresh, so the 30 s refresh is unchanged.
+let erasInFlight: Promise<{ eras: EraView[] } | null> | null = null;
 export function fetchEras(): Promise<{ eras: EraView[] } | null> {
-    return getJson(`/api/eras`);
+    if (erasInFlight) return erasInFlight;
+    const request = getJson<{ eras: EraView[] }>(`/api/eras`);
+    erasInFlight = request;
+    void request.finally(() => { if (erasInFlight === request) erasInFlight = null; });
+    return request;
 }
 
 // ── Custom-title cosmetics (handoff §Title System pricing tiers) ────────────
