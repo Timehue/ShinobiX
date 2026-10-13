@@ -74,6 +74,10 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerR
     // Newest first — the tavern reads top-to-bottom with the latest message on
     // top. The server stores oldest→newest, so reverse a shallow copy.
     const ordered = useMemo(() => messages.slice().reverse(), [messages]);
+    // One formatter per render instead of one per message row. Built here (not
+    // at module scope) so the current default locale/time zone resolve on every
+    // render, exactly as the per-row toLocaleTimeString did.
+    const timeFormat = new Intl.DateTimeFormat([], { hour: "2-digit", minute: "2-digit" });
 
     function startReply(m: TavernMsg) {
         setReplyingTo(m);
@@ -188,6 +192,10 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerR
                     const titleStyle = live?.customTitleStyle ?? m.customTitleStyle;
                     const titleIcon = live?.customTitleIcon ?? m.customTitleIcon;
                     const isKage = !!seatedKage && m.author.toLowerCase() === seatedKage.toLowerCase();
+                    // format() throws on an invalid Date where toLocaleTimeString
+                    // returned "Invalid Date"; keep that output.
+                    const sentAt = new Date(m.ts);
+                    const sentTime = Number.isNaN(sentAt.getTime()) ? "Invalid Date" : timeFormat.format(sentAt);
                     return (
                         <div key={`${m.ts}-${m.author}`} className={`tavern-message ${m.author === character.name ? "tavern-mine" : ""}${m.system ? " tavern-herald" : ""}`}>
                             <div className="tavern-avatar-col">
@@ -230,7 +238,7 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerR
                                             style={{ fontSize: ".72rem", fontWeight: 800, color: "#c084fc" }}
                                         ><GiLaurelCrown aria-hidden="true" />{STAGE_ROMAN[m.legacyStage!] ?? m.legacyStage}</span>
                                     )}
-                                    <span className="tavern-time">{new Date(m.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                                    <span className="tavern-time">{sentTime}</span>
                                     <button
                                         type="button"
                                         className="tavern-reply-btn"

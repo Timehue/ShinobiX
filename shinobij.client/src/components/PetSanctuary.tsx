@@ -18,9 +18,11 @@ function title(value: string): string {
     return value ? value.charAt(0).toUpperCase() + value.slice(1) : "Unknown";
 }
 
-function storedLabel(storedAt: number): string {
+// Takes the grid's per-render formatter (arrivalDateFormat below) rather than
+// building one per card.
+function storedLabel(storedAt: number, dateFormat: Intl.DateTimeFormat): string {
     if (!storedAt) return "Safe in the preserve";
-    return `Arrived ${new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" }).format(storedAt)}`;
+    return `Arrived ${dateFormat.format(storedAt)}`;
 }
 
 export function PetSanctuary({ character, updateCharacter, onVersionedCharacter, onServerVersion, sharedImages }: {
@@ -55,6 +57,10 @@ export function PetSanctuary({ character, updateCharacter, onVersionedCharacter,
     const selectedDepositPetId = character.pets.some((pet) => pet.id === depositPetId)
         ? depositPetId
         : character.pets[0]?.id ?? "";
+    // One arrival-date formatter per render, shared by every card. Built here
+    // (not at module scope) so the current default locale/time zone resolve on
+    // every render, exactly as the per-card formatter did.
+    const arrivalDateFormat = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" });
 
     const load = useCallback(async (mode: "replace" | "append", cursor?: string | null, signal?: AbortSignal) => {
         const request = ++requestRef.current;
@@ -149,7 +155,7 @@ export function PetSanctuary({ character, updateCharacter, onVersionedCharacter,
             return <article key={pet.id} className={`pet-sanctuary-card companion-card rarity-${pet.rarity} ${petVisualVariantClass(pet)}`}>
                 <CompanionIdentity pet={pet} sharedImages={sharedImages} />
                 {pet.paletteVariantId && <strong className="chromatic-ribbon">Chromatic</strong>}{apex && <strong className="apex-trait-ribbon">Apex · {apex}</strong>}
-                <div className="pet-sanctuary-copy"><p>{pet.trait ?? "Unrevealed trait"} · {title(item.source)} arrival</p><small>{storedLabel(item.storedAt)}</small></div>
+                <div className="pet-sanctuary-copy"><p>{pet.trait ?? "Unrevealed trait"} · {title(item.source)} arrival</p><small>{storedLabel(item.storedAt, arrivalDateFormat)}</small></div>
                 <dl><div><dt>HP</dt><dd>{pet.hp}</dd></div><div><dt>ATK</dt><dd>{pet.attack}</dd></div><div><dt>DEF</dt><dd>{pet.defense}</dd></div><div><dt>SPD</dt><dd>{pet.speed}</dd></div></dl>
                 <div className="pet-sanctuary-actions"><button type="button" className="pet-home-primary" disabled={rosterFull || Boolean(busyPetId)} title={rosterFull ? `Carried roster full (${eligibleCarried.length}/${carriedCapacity})` : undefined} onClick={() => void moveToRoster(item)}>{isBusy ? "Moving…" : rosterFull ? "Roster full" : "Add to carried"}</button><button type="button" className="pet-sanctuary-release" disabled={Boolean(busyPetId)} onClick={() => void release(item)}>Release</button></div>
             </article>;
