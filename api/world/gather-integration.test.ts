@@ -83,7 +83,13 @@ test('queue cap is actionable and collecting a find clears it without spending a
     const collected=await post(claim,player,choice);assert.equal(collected.status,200);
     assert.equal(((collected.body.character as Json).pendingGatherFinds as unknown[]).length,MAX_PENDING_FINDS-1);
 });
-test('one atomic explore seals the find, consumes one pool slot, and replays without more credit',async()=>{
+test('one atomic explore seals the find, consumes one pool slot, and replays without more credit',async(t)=>{
+    // The test keys the pool row to the UTC day of its own Date.now(), and
+    // explore.ts debits the row for the day of its own Date.now(). A run that
+    // straddles UTC midnight between the two would debit the next day's row,
+    // so the row read here would never move. Freeze Date (Date.now and new
+    // Date alike) for the whole check.
+    t.mock.timers.enable({apis:['Date'],now:Date.now()});
     const player='gatherintegrationatomic';await seed(player,{itemStacks:[{itemId:'hunt-beast-meat',count:3},{itemId:'gather-iron-sand',count:3},{itemId:'gather-heartwood-bark',count:1},{itemId:'gather-binding-fiber',count:2}]});
     const {sectorPoolKey,cleanSectorPoolRow}=await import('./_sector-pool.js');
     const poolKey=sectorPoolKey(33,Date.now());const beforePool=cleanSectorPoolRow(await kv.get(poolKey)).explores;

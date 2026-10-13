@@ -12,12 +12,24 @@ export function getJutsuSelectOptions(
     elementFilter: "All" | JutsuElement,
     sortBy: JutsuSort,
 ) {
-    return [...jutsus]
+    const filtered = [...jutsus]
         .filter((jutsu) => typeFilter === "All" || jutsu.type === typeFilter)
-        .filter((jutsu) => elementFilter === "All" || jutsu.element === elementFilter)
-        .sort((a, b) => {
-            if (sortBy === "ap" || sortBy === "range" || sortBy === "effectPower") return a[sortBy] - b[sortBy];
-            if (sortBy === "effect") return describeJutsuEffects(a).localeCompare(describeJutsuEffects(b)) || a.name.localeCompare(b.name);
-            return String(a[sortBy]).localeCompare(String(b[sortBy])) || a.name.localeCompare(b.name);
-        });
+        .filter((jutsu) => elementFilter === "All" || jutsu.element === elementFilter);
+    // The effect sort describes each jutsu once up front instead of twice per
+    // comparison. Keyed by object (not id) so the ordering is exactly the same
+    // even if two catalog entries ever shared an id.
+    const effectText = sortBy === "effect"
+        ? new Map(filtered.map((jutsu) => [jutsu, describeJutsuEffects(jutsu)] as const))
+        : null;
+    return filtered.sort((a, b) => {
+        if (sortBy === "ap" || sortBy === "range" || sortBy === "effectPower") return a[sortBy] - b[sortBy];
+        if (sortBy === "effect") {
+            // The fallback never runs (every sorted jutsu is in the map); it only
+            // keeps the lookup total for the type checker.
+            const textA = effectText?.get(a) ?? describeJutsuEffects(a);
+            const textB = effectText?.get(b) ?? describeJutsuEffects(b);
+            return textA.localeCompare(textB) || a.name.localeCompare(b.name);
+        }
+        return String(a[sortBy]).localeCompare(String(b[sortBy])) || a.name.localeCompare(b.name);
+    });
 }

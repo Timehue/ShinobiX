@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { after, before, test } from 'node:test';
+import { after, before, beforeEach, test } from 'node:test';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -76,6 +76,17 @@ before(async () => {
     ({ kv } = await import('../_storage.js'));
     ({ issuePlayerToken } = await import('../_auth.js'));
     handler = (await import('./expedition-start.js')).default as unknown as Handler;
+});
+
+beforeEach((context) => {
+    // seedPlayer stamps the allowance with the UTC day from a no-argument
+    // `new Date()`, and so does the legacy counter in the migration test.
+    // expedition-start reads its own day the same way. A run that straddles
+    // UTC midnight would seed a day the handler no longer counts, so the cap
+    // would not bite and every count would restart at 1. Freeze Date
+    // (Date.now and new Date alike) for each test.
+    if (!('mock' in context)) throw new Error('needs a per-test clock');
+    context.mock.timers.enable({ apis: ['Date'], now: Date.now() });
 });
 
 after(() => {

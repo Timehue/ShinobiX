@@ -223,6 +223,20 @@ async function editExpeditionLog(name: string, edit: (entry: Json) => Json): Pro
 }
 
 describe('a collected pet expedition counts toward the daily missions exactly once', { concurrency: false }, () => {
+    beforeEach((context) => {
+        // seedReturnedExpedition dates the board from a no-argument
+        // `new Date()`, and the first collect's report reads its day the same
+        // way. The settle stamps settledAt from Date.now(), and the retry only
+        // re-reports an expedition settled on the day of its own `new Date()`.
+        // A run that straddles UTC midnight between the first report and the
+        // retry would make the retry count nothing. A straddle between the
+        // seed and the first collect would make a report issue a fresh board
+        // for the new day instead. Freeze Date (Date.now and new Date alike)
+        // for each test.
+        if (!('mock' in context)) throw new Error('needs a per-test clock');
+        context.mock.timers.enable({ apis: ['Date'], now: Date.now() });
+    });
+
     it('counts it on the retry when the daily-mission lock was contended after the settle', async () => {
         const name = `${PREFIX}contended`;
         await seedReturnedExpedition(name);

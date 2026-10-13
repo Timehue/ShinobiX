@@ -10,6 +10,8 @@ import { invalidateProcCache } from '../_proc-cache.js';
 import { elderVillageKey, readVillageElders } from './_elders.js';
 import { elderCouncilKey, readElderCouncil, resolveElderCouncil, validElderSeats } from './_elder-council.js';
 import { elderTermScore } from '../../shared/elder-elections.js';
+import { readKvProjection } from '../_storage-projection.js';
+import { createVillageMembershipReader } from './_membership-reader.js';
 import { ELDER_FOCI, elderFocusForSeats } from '../../shared/village-elders.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -28,14 +30,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Not your elder focus.' });
         if (req.method === 'POST' && !identity.admin && !(await enforceRateLimitKv(req, res, 'elder-focus', 20, 60_000, identity.name))) return;
+        if (req.method === 'GET') {
+            // Town Hall polls this every 10s per viewer. It needs two fields of
+            // the caller's save and the village of each seat holder, so read
+            // those projections instead of four whole save rows per poll.
+            const [viewer] = await readKvProjection(kv, [`save:${playerName}`], {
+                village: ['character', 'village'],
+                elderWinDays: ['character', 'elderWinDays'],
+            });
+            const village = String(viewer?.village ?? '').trim();
+            if (!village) return res.status(404).json({ error: 'Player village not found.' });
+            const council = await readElderCouncil(village, undefined, Date.now(), createVillageMembershipReader(kv));
+            return res.status(200).json({ elderAppointees: council.seats, elderTerm: council,
+                elderProgress: elderTermScore(viewer?.elderWinDays, village, council.startedAt, Math.min(Date.now(), council.nextSelectionAt)) });
+        }
         const save = await kv.get<{ character?: Record<string, unknown> }>(`save:${playerName}`);
         const village = String(save?.character?.village ?? '').trim();
         if (!village) return res.status(404).json({ error: 'Player village not found.' });
-        if (req.method === 'GET') {
-            const council = await readElderCouncil(village);
-            return res.status(200).json({ elderAppointees: council.seats, elderTerm: council,
-                elderProgress: elderTermScore(save?.character?.elderWinDays, village, council.startedAt, Math.min(Date.now(), council.nextSelectionAt)) });
-        }
         if (action !== 'select' && seatIndex !== 0) return res.status(403).json({ error: 'Only the first Elder is Kage-appointed. The other seats are selected by 30-day PvP and PvE wins.' });
 
         const stateKey = elderVillageKey(village);

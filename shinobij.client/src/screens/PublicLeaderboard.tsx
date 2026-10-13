@@ -56,13 +56,15 @@ export function PublicLeaderboard({ onBack }: { onBack: () => void }) {
     const [boards, setBoards] = useState<Partial<Record<PublicLeaderboardBoardId, PublicLeaderboardBoard>>>({});
     const [tournament, setTournament] = useState<PublicTournament>(null);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
+    const [error, setError] = useState(false);
+    // Bumped by Retry to run the same load again.
+    const [loadAttempt, setLoadAttempt] = useState(0);
 
     useEffect(() => {
         let cancelled = false;
         (async () => {
             setLoading(true);
-            setError("");
+            setError(false);
             try {
                 const [leaderboardRes, gameStateRes] = await Promise.all([
                     fetch("/api/player/leaderboards?limit=25"),
@@ -82,14 +84,14 @@ export function PublicLeaderboard({ onBack }: { onBack: () => void }) {
                     const gs = await gameStateRes.json() as { arenaTournament?: PublicTournament };
                     if (!cancelled) setTournament(gs.arenaTournament ?? null);
                 }
-            } catch (err) {
-                if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load leaderboard");
+            } catch {
+                if (!cancelled) setError(true);
             } finally {
                 if (!cancelled) setLoading(false);
             }
         })();
         return () => { cancelled = true; };
-    }, []);
+    }, [loadAttempt]);
 
     const tabs: { id: PublicLeaderboardTab; label: string; icon: GameIconName }[] = [
         { id: "ranked",      label: "Ranked",       icon: "medal" },
@@ -159,7 +161,10 @@ export function PublicLeaderboard({ onBack }: { onBack: () => void }) {
 
                 {loading && <p className="start-leaderboard-empty">Summoning legends...</p>}
                 {!loading && error && (
-                    <p className="start-leaderboard-empty">Could not load leaderboard ({error}).</p>
+                    <div className="start-leaderboard-empty" role="status">
+                        <p style={{ margin: "0 0 12px" }}>The Hall of Legends could not be loaded right now. Check your connection and try again.</p>
+                        <button type="button" className="start-back-button" style={{ fontStyle: "normal" }} onClick={() => setLoadAttempt((n) => n + 1)}>Retry</button>
+                    </div>
                 )}
 
                 {!loading && !error && tab !== "tournament" && (

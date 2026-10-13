@@ -45,12 +45,19 @@ export async function postWorldHunt(params: {
     sector?: number;
     choiceId?: string;
 }): Promise<WorldHuntState> {
-    const response = await fetch("/api/missions/hunt-trail", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(params),
-    });
+    let response: Response;
+    try {
+        response = await fetch("/api/missions/hunt-trail", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(params),
+        });
+    } catch {
+        // Offline or dropped: every caller already handles `ok: false`, so the
+        // player gets the board's normal error instead of an unhandled rejection.
+        return { ok: false, error: "The Hunter Guild could not be reached. Check your connection and try again." };
+    }
     const body = await response.json().catch(() => ({})) as WorldHuntState;
-    if (!response.ok) return { ...body, ok: false, error: body.error ?? `Hunt request failed (${response.status}).` };
+    if (!response.ok) return { ...body, ok: false, error: body.error ?? "The Hunter Guild could not complete that request. Try again in a moment." };
     return body;
 }

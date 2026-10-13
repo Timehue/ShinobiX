@@ -89,7 +89,13 @@ beforeEach(async () => {
 });
 
 describe('a raid proved on an earlier UTC day', () => {
-    it('leaves today\'s daily missions intact when it settles', async () => {
+    it('leaves today\'s daily missions intact when it settles', async (t) => {
+        // The board's day comes from a no-argument `new Date()`, and the stale
+        // proof is Date.now() minus one day. A run that straddles UTC midnight
+        // between those two reads would date the proof on the board's own day,
+        // so the raid would count toward that board and rewrite it. Freeze
+        // Date (Date.now and new Date alike) for the whole check.
+        t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
         const today = new Date().toISOString().slice(0, 10);
         const earlierToday = Date.now() - 60_000;
         // Today's board already holds a paid completion and an earlier raid.

@@ -464,7 +464,13 @@ test("a sub-threshold natural finish remains progression-neutral", async () => {
   assert.equal(store.get("legacy:stats:alpha"), undefined);
 });
 
-test("qualifying sealed play grants one exact-once Legacy Card Clash win", async () => {
+test("qualifying sealed play grants one exact-once Legacy Card Clash win", async (t) => {
+  // Legacy keys the repeat win to the UTC day of Date.now(), and the check
+  // below rebuilds that day from a no-argument `new Date()`. A run that
+  // straddles UTC midnight between the two would look the win up under the
+  // next day's key and find nothing. Freeze Date (Date.now and new Date alike)
+  // for the whole check.
+  t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
   store.clear();
   installTerminalMatch({ matchId: MATCH_ID, winner: "p1" });
 
@@ -482,6 +488,12 @@ test("qualifying sealed play grants one exact-once Legacy Card Clash win", async
 });
 
 test("same-account repeat wins decay to zero after four credited legs and renew the next UTC day", async (t) => {
+  // Legacy keys each repeat win to the UTC day of Date.now(), and the check
+  // below rebuilds that day from a no-argument `new Date()`. A run that
+  // straddles UTC midnight would split the five legs across two days, so the
+  // fifth leg would pay again. Freeze Date (Date.now and new Date alike), then
+  // move the held clock a whole day for the renewal half.
+  t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
   store.clear();
   const matchIds = [
     "31111111-1111-4111-8111-111111111111",
@@ -502,7 +514,7 @@ test("same-account repeat wins decay to zero after four credited legs and renew 
   const day = new Date().toISOString().slice(0, 10);
   assert.equal(stats.repeatKills?.[`${day}:bravo`], 5);
   const tomorrow = Date.now() + 86_400_000;
-  t.mock.method(Date, "now", () => tomorrow);
+  t.mock.timers.setTime(tomorrow);
   const nextMatchId = "81111111-1111-4111-8111-111111111111";
   installTerminalMatch({ matchId: nextMatchId, winner: "p1" });
   assert.equal((await call({ action: "state", matchId: nextMatchId, playerName: "alpha" })).statusCode, 200);

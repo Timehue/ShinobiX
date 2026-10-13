@@ -773,7 +773,7 @@ export default function App() {
     usePlayerAccountNameMirror(character);
     const [currentAccountName, setCurrentAccountName] = useState("");
     const [viewingUserName, setViewingUserName] = useState<string | null>(null);
-
+    const [messageTarget, setMessageTarget] = useState<string | null>(null); // set only by a profile's Message button; Messages consumes it once
     // State restoration, hashes, and leaf components can all write `screen`
     // directly. Keep the render boundary fail-closed as well as the normal
     // navigate() path so a paused Sector campaign never mounts its polling
@@ -5970,7 +5970,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "professions" && character && <Professions sharedImages={sharedImages} character={character} updateCharacter={setCharacter} setScreen={navigate} onBack={goBack} playerRoster={playerRoster} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} />}
                 {!activeTriggeredEvent && screen === "cafeteria" && character && <Cafeteria character={character} onVersionedCharacter={commitVersionedCharacter} onBack={goBack} />}
                 {!activeTriggeredEvent && screen === "tavern" && character && <VillageTavern character={character} onBack={() => navigate("village")} sharedImages={sharedImages} onViewProfile={(name) => { setViewingUserName(name); navigate("userView"); }} playerRoster={playerRoster} />}
-                {!activeTriggeredEvent && screen === "messages" && character && <Messages character={character} onBack={goBack} initialWith={viewingUserName} />}
+                {!activeTriggeredEvent && screen === "messages" && character && <Messages character={character} onBack={goBack} initialWith={messageTarget} onConsumeInitialWith={setMessageTarget} />}
                 {!activeTriggeredEvent && screen === "hallOfLegends" && character && <HallOfLegends character={character} setScreen={navigate} playerRoster={playerRoster} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} />}
                 {!activeTriggeredEvent && screen === "worldCrisis" && character && <WorldCrisis character={character} creatorItems={creatorItems} savedBloodlines={savedBloodlines} setScreen={navigate} sharedImages={sharedImages} onVersionedCharacter={commitVersionedCharacter} onRecordBattle={recordBattle} />}
                 {!activeTriggeredEvent && screen === "echoesOfWar" && character && <EchoesOfWar character={character} creatorCards={creatorCards} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onBack={goBack} onOpenCardPacks={() => { try { sessionStorage.setItem("cardHall.initialTab", "packs"); } catch { /* Card Hall still opens at Collection */ } setScreen("shinobiTiles"); }} sharedImages={sharedImages} />}
@@ -6070,7 +6070,7 @@ export default function App() {
                         savedBloodlines={savedBloodlines}
                         creatorJutsus={creatorJutsus}
                         sharedImages={sharedImages}
-                        onMessage={() => setScreen("messages")}
+                        onMessage={() => { setMessageTarget(viewingUserName); setScreen("messages"); }}
                         onBack={goBack}
                     />
                 )}

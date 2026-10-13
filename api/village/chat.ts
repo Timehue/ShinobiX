@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
+import { readKvProjection } from '../_storage-projection.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
@@ -54,10 +55,12 @@ export function sameVillage(storedVillage: unknown, requestedVillage: unknown): 
         && storedVillage.trim().toLowerCase() === requestedVillage.trim().toLowerCase();
 }
 
-async function memberCharacter(player: string, village: string): Promise<Record<string, unknown> | null> {
-    const save = await kv.get<Record<string, unknown>>(`save:${player}`);
-    const char = (save?.character ?? null) as Record<string, unknown> | null;
-    return char && sameVillage(char.village, village) ? char : null;
+// Every subscribed member re-reads the transcript after each new line, so this
+// gate runs once per member per message. It needs one string of the save, so it
+// reads that projection, not the whole row (avatar, inventory, jutsu, pets).
+async function memberCharacter(player: string, village: string): Promise<boolean> {
+    const [row] = await readKvProjection(kv, [`save:${player}`], { village: ['character', 'village'] });
+    return sameVillage(row?.village, village);
 }
 
 /**
