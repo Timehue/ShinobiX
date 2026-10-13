@@ -42,7 +42,12 @@ function request() {
     } as never;
 }
 
-test('Gauntlet start debits the stored wallet after the daily free run', async () => {
+test('Gauntlet start debits the stored wallet after the daily free run', async (t) => {
+    // gauntlet.ts stamps and checks the free run's day with a no-argument
+    // `new Date()`. A run that straddles UTC midnight between two starts would
+    // hand out a second free run, so neither the fee nor the 409 would follow.
+    // Freeze Date (Date.now and new Date alike) for the whole check.
+    t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
     const first = response();
     await handler(request(), first.res);
     assert.equal(first.out.statusCode, 200);

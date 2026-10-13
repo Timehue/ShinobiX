@@ -121,7 +121,14 @@ test('all seven earned seats have real ANBU powers and rotate at UTC month rollo
     assert.deepEqual(await roles.sectorWarRoleOf('fighter1', village), roles.ROLE_VILLAGER);
 });
 
-test('village changes remove appointed and earned powers and do not block the next candidate', async () => {
+test('village changes remove appointed and earned powers and do not block the next candidate', async (t) => {
+    // The fighters' pvpKillMonth is the UTC month of this test's Date.now(),
+    // and the roster keeps only candidates whose month matches the UTC month
+    // of its own Date.now(). A run that straddles a UTC month rollover between
+    // the two reads would leave no earned candidate, so the earned list would
+    // come back empty. Freeze Date (Date.now and new Date alike) for the whole
+    // check.
+    t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
     const currentMonth = new Date(Date.now()).toISOString().slice(0, 7);
     for (let i = 0; i < 8; i++) await seed(`fighter${i}`, { monthlyPvpKills: 9 - i, pvpKillMonth: currentMonth });
     await request(anbu, 'kage', { action: 'appoint', seat: 0, appointee: 'operative' });
@@ -218,8 +225,15 @@ test('shared frame clears stale Kage seats and returns the same verified ANBU an
     assert.deepEqual(state.elderAppointees, ['elder', '', '']);
 });
 
-test('committed PvP rewards refresh earned seats before the next client autosave', async () => {
+test('committed PvP rewards refresh earned seats before the next client autosave', async (t) => {
     const { mutatePlayerSave } = await import('../save/_mutate-player-save.js');
+    // The committed save stamps pvpKillMonth with the UTC month of this test's
+    // Date.now(), and the roster keeps only candidates whose month matches the
+    // UTC month of its own Date.now(). A run that straddles a UTC month
+    // rollover between the two reads would leave 'operative' out of the
+    // earned list. Freeze Date (Date.now and new Date alike) after the import
+    // above.
+    t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
     assert.equal((await roster(village)).members.includes('operative'), false);
     const currentMonth = new Date(Date.now()).toISOString().slice(0, 7);
     const result = await mutatePlayerSave('operative', ({ character }) => ({ ok: true as const, character: {

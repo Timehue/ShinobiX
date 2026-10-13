@@ -414,9 +414,19 @@ describe('mission writes keep the idle recovery the player earned', { concurrenc
         assert.ok(Number(character.ryo) > 100, 'the payout still landed');
     });
 
-    it('post-claim effects helped forward after a crash', async () => {
+    it('post-claim effects helped forward after a crash', async (t) => {
         // The payout landed, then the claim crashed before its run-bound
         // effects. Finishing them on a later claim can come long after.
+        //
+        // seedNewbieDaily dates the board from a no-argument `new Date()`, and
+        // the first claim stamps its settlement with Date.now(), which picks
+        // the board day the newbie effect lands on. A run that straddles UTC
+        // midnight between them would reissue a fresh board whose real lessons
+        // need two or three wins, so the 280 newbie Ryo would never land. Hold
+        // Date (Date.now and new Date alike) until that effect is pinned. The
+        // recovery check needs real elapsed time to tell a carried regen cursor
+        // from a fenced one, so the clock is released before tire().
+        t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
         const player = 'missionsagaresteffects';
         await seedPlayer(player, 100, null);
         await seedNewbieDaily(player);
@@ -428,6 +438,7 @@ describe('mission writes keep the idle recovery the player earned', { concurrenc
             () => claim(player),
         );
         assert.equal(failed.statusCode, 500);
+        t.mock.timers.reset();
         await kv.del(tokenKey(player, MISSION_ID));
         const at = await tire(player);
         const retry = await claim(player);
@@ -903,7 +914,13 @@ describe('mission payout receipt recovery', { concurrency: false }, () => {
         assert.equal(await kv.get(tokenKey(player, MISSION_ID)), null);
     });
 
-    it('recovers commit-then-throw and replays the exact reward/character without a second payout', async () => {
+    it('recovers commit-then-throw and replays the exact reward/character without a second payout', async (t) => {
+        // The payout credits elderWinDays to the UTC day of Date.now(), and
+        // the check below rebuilds that day from a no-argument `new Date()`. A
+        // run that straddles UTC midnight between them would credit one day and
+        // expect the next. Freeze Date (Date.now and new Date alike) for the
+        // whole check.
+        t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
         const player = 'missionsagaclaimack';
         await seedPlayer(player);
         const seeded = await kv.get<Record<string, any>>(`save:${player}`);
@@ -1198,7 +1215,14 @@ describe('mission payout receipt recovery', { concurrency: false }, () => {
         assert.equal((await kv.get<Record<string, unknown>>(tokenKey(player, MISSION_ID)))?.runId, secondRun);
     });
 
-    it('helps a newbie reward forward after crashing between progress and save credit', async () => {
+    it('helps a newbie reward forward after crashing between progress and save credit', async (t) => {
+        // seedNewbieDaily dates the board from a no-argument `new Date()`, and
+        // the claim stamps its settlement with Date.now(), which picks the
+        // board day the newbie effect lands on. A run that straddles UTC
+        // midnight between them would reissue a fresh board whose real lessons
+        // need two or three wins, so the 280 newbie Ryo would never be paid.
+        // Freeze Date (Date.now and new Date alike) for the whole check.
+        t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
         const player = 'missionsaganewbieeffect';
         await seedPlayer(player, 100, null);
         await seedNewbieDaily(player);
@@ -1238,7 +1262,14 @@ describe('mission payout receipt recovery', { concurrency: false }, () => {
         assert.equal(Number((await savedCharacter(player)).ryo), 440);
     });
 
-    it('honors pinned newbie Ryo when a profession is chosen after the target marker commits', async () => {
+    it('honors pinned newbie Ryo when a profession is chosen after the target marker commits', async (t) => {
+        // seedNewbieDaily dates the board from a no-argument `new Date()`, and
+        // the claim stamps its settlement with Date.now(), which picks the
+        // board day the newbie effect lands on. A run that straddles UTC
+        // midnight between them would reissue a fresh board whose real lessons
+        // need two or three wins, so no newbie Ryo would be pinned at all.
+        // Freeze Date (Date.now and new Date alike) for the whole check.
+        t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
         const player = 'missionsagaprofessiontransition';
         await seedPlayer(player, 100, null);
         await seedNewbieDaily(player);
@@ -1275,13 +1306,21 @@ describe('mission payout receipt recovery', { concurrency: false }, () => {
         assert.equal(Number((await savedCharacter(player)).ryo), 440);
     });
 
-    it('help-forwards an unstaged receipt instead of silently declaring its post-effects complete', async () => {
+    it('help-forwards an unstaged receipt instead of silently declaring its post-effects complete', async (t) => {
         const player = 'missionsagaunstagedreceipt';
         const previousFlag = process.env.ENABLE_LEGACY;
         process.env.ENABLE_LEGACY = '1';
         await kv.del('era:contrib:missions', 'era:contrib-idempotent:missions');
         try {
             const { readEraContributions } = await import('../_era.js');
+            // seedNewbieDaily dates the board from a no-argument `new Date()`,
+            // and the unstaged receipt below is stamped with Date.now(), which
+            // picks the board day its newbie effect lands on. A run that
+            // straddles UTC midnight between them would reissue a fresh board
+            // whose real lessons need two or three wins, so the 280 newbie Ryo
+            // would never be paid. Freeze Date (Date.now and new Date alike)
+            // after the import, so no module captures the mock clock.
+            t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
             await seedPlayer(player, 100, null);
             await seedNewbieDaily(player);
             const runId = await seedWonRun(player, 'unstagedreceipt');

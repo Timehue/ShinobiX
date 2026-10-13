@@ -147,10 +147,18 @@ describe('server writers keep the idle recovery a player earned', { concurrency:
         assert.equal(out.body?._saveVersion, stored._saveVersion);
     });
 
-    it('weekly board claim', async () => {
+    it('weekly board claim', async (t) => {
         const name = `${PREFIX}weekly`;
         await seedTired(name, { totalMissionsCompleted: 500, rankedWins: 500, hollowGateWardenKills: 500 });
         const handler = await load('../missions/weekly-board.js');
+        // The baseline row below is keyed by weekKey(Date.now()), and the
+        // handler keys its own row and board by weekKey(Date.now()) on every
+        // call. A run that straddles Monday 00:00 UTC would seed last week's
+        // row and claim in a new week with no baseline, so the claim would
+        // come back unfinished. Freeze Date (Date.now and new Date alike) once
+        // the handler has loaded. The save was seeded first, so its 30 seconds
+        // of idle recovery stay real.
+        t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
         const board = await call(handler, { playerName: name }, 'GET');
         assert.equal(board.statusCode, 200, JSON.stringify(board.body));
         const missionId = String(((board.body?.missions as Json[]) ?? [])[0]?.id ?? '');
@@ -275,12 +283,19 @@ describe('server writers keep the idle recovery a player earned', { concurrency:
         assert.equal(((stored.character as Json).patreon as Json).active, true);
     });
 
-    it('village tax day (no treasury share)', async () => {
+    it('village tax day (no treasury share)', async (t) => {
         const name = `${PREFIX}tax`;
         // No seated Kage forces the rate to zero, so the day is only stamped:
         // the save write with no treasury share.
         await seedTired(name);
         const { assessVillageTax } = await import('../_war-tax-apply.js');
+        // assessVillageTax stamps the day from Date.now() (its default `now`),
+        // and the check below takes the expected day from a no-argument
+        // `new Date()` after it returns. A run that straddles UTC midnight
+        // would stamp one day and expect the next. Freeze Date (Date.now and
+        // new Date alike) once the module has loaded. The save was seeded
+        // first, so its 30 seconds of idle recovery stay real.
+        t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
         const out = await assessVillageTax(name);
 
         assert.equal(out.applied, false);
