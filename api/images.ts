@@ -403,7 +403,8 @@ export async function readImageValues(
         const values = await withTimeout(kv.mget<unknown[]>(...chunk.map(perImageKey)));
         chunk.forEach((id, index) => {
             const value = values?.[index];
-            missing.push(id);
+            if (typeof value === 'string' && value.length > 0) out[id] = value;
+            else missing.push(id);
         });
     }
     if (missing.length) {
