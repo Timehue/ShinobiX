@@ -23,7 +23,7 @@ import { hexZone, towerArenaMap } from './_floor-catalog.js';
 import { SPIRE_MAX_TIER } from './_modifiers.js';
 
 /** Increment only when generated Spire floor rules change. Active runs seal this value. */
-export const SPIRE_CATALOG_VERSION = 'endless-spire-v8' as const;
+export const SPIRE_CATALOG_VERSION = 'endless-spire-v9' as const;
 
 export type SpireBossKey =
     | 'warden' | 'revenant' | 'ravager' | 'sovereign'

@@ -27,6 +27,7 @@ import "./styles/layout/adaptive-stages.css";
 import "./styles/layout/adaptive-tools.css";
 import "./styles/lite-fx-compositing.css";
 import { BattleTowerFight } from "./screens/BattleTowerFight";
+import { useViewportContract } from "./lib/use-viewport-contract";
 import { rollTowerEnvironment, placeTowerEnvironment } from '../../shared/tower-environment';
 import type {
     TowerSession,
@@ -35,10 +36,12 @@ import type {
     TowerActionResponse,
 } from "./lib/towers-api";
 
-// The showcase uses the shipped STANDARD arena. Major bosses retain 20×14 and
-// early Story tutorials use 16×10; the combat screen reads either size from the
+// The showcase uses the shipped STANDARD arena. Major bosses retain 14×10 and
+// early Story tutorials use 12×8; the combat screen reads either size from the
 // sealed session and applies the same responsive scale path.
-const W = 18, H = 12;
+const previewParams = new URLSearchParams(window.location.search);
+const W = previewParams.get("map") === "major" ? 14 : previewParams.get("map") === "legacy" ? 18 : 12;
+const H = previewParams.get("map") === "compact" ? 8 : previewParams.get("map") === "legacy" ? 12 : 10;
 const at = (x: number, y: number) => y * W + x;
 function neighbors(pos: number): number[] {
     const x = pos % W, y = Math.floor(pos / W);
@@ -65,26 +68,26 @@ const session: TowerSession = {
     map: {
         width: W, height: H, biome: "forest",
         // Scattered terrain pillars (non-adjacent, like the server's scatterTerrain).
-        blockedTiles: [at(4, 1), at(9, 3), at(10, 4), at(11, 5), at(11, 7), at(15, 9)],
+        blockedTiles: [at(4, 1), at(6, 3), at(7, 4), at(7, 5), at(7, 7), at(9, 9)],
         hazardTiles: [], objectiveTiles: [],
         // Candidate pool; the shared server roll below selects one of each kind.
         features: [
             { kind: "pylon", tiles: zone(at(6, 2)), element: "Fire", weakenElement: "Water", percent: 25, label: "Flame Pylon" },
-            { kind: "pylon", tiles: zone(at(12, 2)), element: "Earth", weakenElement: "Lightning", percent: 25, label: "Stone Pylon" },
+            { kind: "pylon", tiles: zone(at(8, 2)), element: "Earth", weakenElement: "Lightning", percent: 25, label: "Stone Pylon" },
             { kind: "pylon", tiles: zone(at(7, 5)), element: "Wind", weakenElement: "Fire", percent: 25, label: "Gale Pylon" },
-            { kind: "ward", tiles: zone(at(13, 8)), percent: 20, label: "Warded Stone" },
-            { kind: "hazard", tiles: zone(at(9, 9)), percent: 12, label: "Frost Spikes" },
+            { kind: "ward", tiles: zone(at(8, 7)), percent: 20, label: "Warded Stone" },
+            { kind: "hazard", tiles: zone(at(6, 8)), percent: 12, label: "Frost Spikes" },
         ],
         // Board objects: a healing spring on the flank, a squad-held shrine (cyan ring —
         // Rill's ally stands on it) and an enemy-held shrine (rose ring).
         boardObjects: [
             { kind: "font", resource: "hp", percent: 8, cap: 120, tiles: [at(3, 3)], label: "Healing Spring" },
             { kind: "shrine", percent: 10, tiles: [at(5, 5)], label: "Battle Shrine" },
-            { kind: "shrine", percent: 10, tiles: [at(14, 10)], label: "Battle Shrine" },
+            { kind: "shrine", percent: 10, tiles: [at(9, 8)], label: "Battle Shrine" },
         ],
         // Dynamic hazards: three geyser vents (the first is PRIMED — it joins the crimson
         // telegraph below to show the about-to-erupt pulse; the other two idle-pulse).
-        dynamicHazards: [{ kind: "geyser", tiles: [at(5, 3), at(9, 6), at(17, 8)], pct: 4, everyRounds: 3 }],
+        dynamicHazards: [{ kind: "geyser", tiles: [at(5, 3), at(9, 6), at(11, 8)], pct: 4, everyRounds: 3 }],
         // The volley's tiles double into the crimson channel like the server's union
         // (the client subtracts them back out for the violet read). The primed vent
         // rides the same channel so its eruption telegraphs a round ahead.
@@ -117,16 +120,16 @@ const session: TowerSession = {
         },
         // A squadmate HOLDING the near shrine (its ring reads cyan).
         { id: "sq-1", side: "squad", name: "Roku", ownerSlug: null, ai: true, hp: 1200, maxHp: 1500, chakra: 90, maxChakra: 120, stamina: 90, maxStamina: 120, shield: 0, statuses: [], pos: at(5, 5), character: { specialty: "Taijutsu", stats: {} } },
-        // Formation: grunts in two ranks (cols 14-16), boss anchoring the back (col 17).
-        enemy("en-0", "bandit", "Bandit", at(14, 4)),
-        enemy("en-1", "archer", "Archer", at(15, 4), 270, 270),
-        enemy("en-2", "brute", "Brute", at(16, 4), 570, 570),
-        enemy("en-3", "acolyte", "Acolyte", at(16, 8), 250, 250),
-        enemy("en-4", "bandit", "Bandit", at(15, 8)),
+        // Formation: grunts in two ranks (cols 9-10), boss anchoring the back (col 11).
+        enemy("en-0", "bandit", "Bandit", at(9, 4)),
+        enemy("en-1", "archer", "Archer", at(10, 3), 270, 270),
+        enemy("en-2", "brute", "Brute", at(9, 5), 570, 570),
+        enemy("en-3", "acolyte", "Acolyte", at(10, 7), 250, 250),
+        enemy("en-4", "bandit", "Bandit", at(9, 7)),
         // This one HOLDS the far shrine (its ring reads rose).
-        enemy("en-5", "archer", "Archer", at(14, 10), 270, 270),
+        enemy("en-5", "archer", "Archer", at(9, 8), 270, 270),
         {
-            ...enemy("boss", "warden", "Spire Warden", at(17, 6), 2520, 2520),
+            ...enemy("boss", "warden", "Spire Warden", at(11, 6), 2520, 2520),
             shield: 300, // the aegis it raised at the 60% gate
             character: {
                 specialty: "Taijutsu", stats: {}, visual: "warden", boss: true, mechanic: "bulwark",
@@ -165,6 +168,15 @@ const session: TowerSession = {
 
 // Match production's environment budget and footprint, while keeping this
 // scripted preview's actors at their authored demonstration positions.
+const inBounds = (tile: number) => tile >= 0 && tile < W * H;
+session.actors = session.actors.filter(actor => inBounds(actor.pos));
+session.turnQueue = session.turnQueue.filter(id => session.actors.some(actor => actor.id === id));
+session.map.blockedTiles = session.map.blockedTiles.filter(inBounds);
+session.map.nextRoundHazardTiles = session.map.nextRoundHazardTiles?.filter(inBounds);
+session.groundEffects = session.groundEffects?.map(effect => ({ ...effect, tiles: effect.tiles.filter(inBounds) }));
+for (const zone of [...session.map.features ?? [], ...session.map.boardObjects ?? [], ...session.map.dynamicHazards ?? []]) {
+    zone.tiles = zone.tiles?.filter(inBounds);
+}
 session.map.features = placeTowerEnvironment(
     rollTowerEnvironment(session.map.features ?? [], session.seed), W, H, session.seed,
     session.actors.map(actor => actor.pos),
@@ -180,9 +192,11 @@ for (const hazard of session.map.dynamicHazards ?? []) hazard.tiles = hazard.til
 // adoption guard (`next.actionVersion >= current.actionVersion`) accepts it.
 // Deliberately NOT a combat simulator — it exists to make the real screen
 // advance through real state transitions, not to reproduce server damage.
-const live = new URLSearchParams(window.location.search).has("live");
-const variant = new URLSearchParams(window.location.search).has("team") ? "team-pvp" : undefined;
-const reviewBiome = new URLSearchParams(window.location.search).get("biome");
+const live = previewParams.has("live");
+const requestedVariant = previewParams.get("variant");
+const variant = previewParams.has("team") || requestedVariant === "team-pvp" ? "team-pvp"
+    : requestedVariant === "hunt" || requestedVariant === "world-boss" || requestedVariant === "caravan-ambush" ? requestedVariant : "tower";
+const reviewBiome = previewParams.get("biome");
 if (reviewBiome && ["forest", "central", "snow", "volcano", "shadow"].includes(reviewBiome)) {
     session.map.biome = reviewBiome as typeof session.map.biome;
 }
@@ -191,12 +205,35 @@ if (reviewBiome && ["forest", "central", "snow", "volcano", "shadow"].includes(r
 // formation. Live mode starts the player adjacent to the front grunt so Attack,
 // weapons, and short-range jutsu are actually
 // exercisable. Only the live session is moved; the showcase is untouched.
-const LIVE_PLAYER_TILE = at(13, 4);
+const LIVE_PLAYER_TILE = at(8, 4);
 const liveSession: TowerSession = {
     ...session,
     actionVersion: 0,
     actors: session.actors.map((actor) => (actor.id === "sq-0" ? { ...actor, pos: LIVE_PLAYER_TILE } : actor)),
 };
+
+// Exercise the production variant gates without changing the action transport.
+if (previewParams.has("solo")) liveSession.partySize = 1;
+if (variant === "team-pvp") {
+    liveSession.actors = liveSession.actors.filter(actor => ["sq-0", "sq-1", "en-0", "en-1"].includes(actor.id));
+    liveSession.actors = liveSession.actors.map(actor => ({ ...actor, ai: false, ownerSlug: actor.ownerSlug ?? actor.id }));
+    liveSession.turnQueue = liveSession.actors.map(actor => actor.id);
+    liveSession.bossStrike = undefined;
+    liveSession.phaseState = { pendingPhases: [], triggeredPhases: [] };
+}
+if (previewParams.has("waiting")) liveSession.activeIndex = 1;
+if (previewParams.has("companion")) {
+    liveSession.pendingCompanion = { petId: "preview-wolf", name: "Stormveil Guardian Wolf", hp: 400, damage: 60 };
+}
+if (previewParams.has("spire")) {
+    liveSession.ascensionTier = 1;
+    if (previewParams.has("intro")) liveSession.round = 1;
+}
+if (previewParams.has("done")) {
+    liveSession.status = "done";
+    liveSession.winner = "squad";
+    liveSession.actors = liveSession.actors.map(actor => actor.side === "enemy" ? { ...actor, hp: 0 } : actor);
+}
 
 // Optional mechanics fixture; all consequences here are preview-only.
 if (new URLSearchParams(location.search).has('tactics')) {
@@ -281,7 +318,7 @@ function harnessVfx(action: TowerActionInput, victimId?: string): TowerSession["
     }
     if (action.type === "jutsu") {
         // Stand in for an elemental AOE so the tile-spread path renders too.
-        return victimId ? [{ key: "fire60", target: victimId, anchor: "area", tiles: [at(14, 4), at(15, 4), at(14, 5)] }] : [];
+        return victimId ? [{ key: "fire60", target: victimId, anchor: "area", tiles: [at(9, 4), at(10, 3), at(9, 5)] }] : [];
     }
     return [];
 }
@@ -291,6 +328,7 @@ const harnessActionFn = async (
     _playerName: string,
     action: TowerActionInput,
 ): Promise<TowerActionResponse> => {
+    if (previewParams.has("reject")) return { applied: false, reason: "Not enough AP for this action.", session: current, currentVersion: current.actionVersion ?? version };
     version += 1;
     const victimId = "targetId" in action && action.targetId
         ? action.targetId
@@ -307,17 +345,28 @@ const harnessActionFn = async (
 /** Polls and the on-mount reconcile both read back the same authored session,
  *  so a refresh never rolls the board backwards mid-inspection. */
 const harnessStateFn = async (): Promise<TowerSession> => current;
+let settlementAttempts = 0;
+const harnessSettleFn = async () => {
+    if (previewParams.has("settle-error") && settlementAttempts++ === 0) throw new Error("Preview settlement connection interrupted.");
+    return {};
+};
 
-createRoot(document.getElementById("root")!).render(
-    live
+function TowerPreview() {
+    useViewportContract();
+    return live
         ? <BattleTowerFight
             variant={variant}
+            pvpContextLabel={previewParams.get("context") ?? undefined}
+            teamPvpConsumables={previewParams.has("consumables")}
             character={{ name: "Rill" } as never}
             runId="preview"
             initialSession={liveSession}
             onExit={() => {}}
             actionFn={harnessActionFn}
             stateFn={harnessStateFn}
+            settleFn={previewParams.has("done") ? harnessSettleFn : undefined}
         />
-        : <BattleTowerFight variant={variant} character={{ name: "Rill" } as never} runId="preview" initialSession={session} onExit={() => {}} stateFn={harnessStateFn} />,
-);
+        : <BattleTowerFight variant={variant} character={{ name: "Rill" } as never} runId="preview" initialSession={session} onExit={() => {}} stateFn={harnessStateFn} />;
+}
+
+createRoot(document.getElementById("root")!).render(<TowerPreview />);
