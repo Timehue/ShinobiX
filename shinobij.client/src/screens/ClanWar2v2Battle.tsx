@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
+import {prepareClanWarReturn} from '../lib/clan-war-navigation';
 import { BattleTowerFight } from "./BattleTowerFight";
 import { GameArtIcon } from "../components/GameArtIcon";
 import { fetchTowerPvpSession, submitTowerPvpActionWithLostResponseRetry, type TowerPvpMatch } from "../lib/tower-pvp-api";
@@ -27,7 +28,7 @@ export function ClanWar2v2Battle({ character, setScreen }: { character: Characte
     const [error, setError] = useState<string | null>(null);
     const mountedRef = useRef(true);
 
-    const back = useCallback(() => setScreen("clan"), [setScreen]);
+    const back = useCallback(() => setScreen(prepareClanWarReturn()), [setScreen]);
 
     useEffect(() => {
         mountedRef.current = true;

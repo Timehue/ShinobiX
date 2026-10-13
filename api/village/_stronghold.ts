@@ -38,7 +38,7 @@ async function unrelatedStrongholdBattle(playerName: string, ownedPatrolId?: str
 function snapshot(playerName: string, visit: StrongholdVisit, extra: Record<string, unknown> = {}): Result {
     if (visit.presenceId) touchStrongholdPresence(playerName, visit.sector, visit.tile);
     const peers = onlineStore.listSector(visit.sector)
-        .filter(p => p.name !== playerName && strongholdLocation(p.name, p.sector))
+        .filter(p => p.name !== playerName && strongholdLocation(p.name, p.sector)&&!strongholdLocation(p.name,p.sector)?.room)
         .map(toPlayerRecord);
     return { status: 200, body: { ok: true, visit, peers, ...extra } };
 }
@@ -53,7 +53,7 @@ export async function strongholdVaultReady(playerName: string, sector: number): 
     if (!visit?.presenceId || visit.layoutVersion !== STRONGHOLD_LAYOUT_VERSION || visit.patrolId || visit.threat >= 100) return false;
     if (await unrelatedStrongholdBattle(playerName)) return false;
     const w = STRONGHOLD_DIMS.width;
-    return !!strongholdLocation(playerName, sector)
+    return !!strongholdLocation(playerName, sector)&&!strongholdLocation(playerName,sector)?.room
         && Math.abs(visit.tile % w - STRONGHOLD_VAULT % w) + Math.abs(Math.floor(visit.tile / w) - Math.floor(STRONGHOLD_VAULT / w)) === 1;
 }
 

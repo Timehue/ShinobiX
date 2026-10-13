@@ -95,7 +95,10 @@ describe('clan cache wording matches the 20 percent step roll', () => {
         for (const id of ['weaponCache', 'armorCache']) {
             const server = CLAN_EXCHANGE_ITEMS.find((item) => item.id === id)!;
             assert.match(server.description, /one (scroll|vault) in five instead holds an upgrade/, id);
-            assert.ok(client.includes(server.description), `${id}: the client copy must match the server copy`);
+            // The storefront imports the authoritative shared catalog rather
+            // than maintaining a second literal list of descriptions.
+            assert.match(client,/import\s*\{[^}]*CLAN_EXCHANGE_ITEMS[^}]*\}\s*from\s*["'][^"']*shared\/clan-exchange-catalog["']/,
+                `${id}: the client must use the server's shared description`);
         }
     });
 });

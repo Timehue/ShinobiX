@@ -229,6 +229,7 @@ const GuidesLibrary = lazyWithRetry(() => import("./components/GuidesLibrary").t
 const DungeonEncounter = lazyWithRetry(() => import("./screens/Dungeon").then(m => ({ default: m.DungeonEncounter })));
 const DungeonPetBattle = lazyWithRetry(() => import("./screens/Dungeon").then(m => ({ default: m.DungeonPetBattle })));
 import { sharedClanWarCache, cwListWars, type CwChallenge, type CwChallengeResult } from "./lib/clan-war-api";
+import {clanWarLaunchOrigin} from './lib/clan-war-navigation';
 const loadPvpBattleScreen = () => import("./screens/PvpBattleScreen").then(m => ({ default: m.PvpBattleScreen }));
 const PvpBattleScreen = lazyWithRetry(loadPvpBattleScreen);
 const Arena = lazyWithRetry(() => import("./screens/Arena").then(m => ({ default: m.Arena })));
@@ -1549,25 +1550,17 @@ export default function App() {
         }
     }, [character]);
 
-    // Launch helper for clan-war challenges. ClanBattlesTab calls this
-    // when the player clicks "Launch Battle" on an accepted challenge.
-    // We thread it through ShinobiCouncilHall → ClanBattlesTab so the
-    // battle screen state is set BEFORE navigation (avoids the blank-
-    // screen bug from the audit). PvP routing maps fromPlayer→p1,
-    // acceptedPlayer→p2. Pet modes stash the shared seed in
-    // sessionStorage for the PetArena screen to pick up. Tile cards
-    // currently route to the tavern for manual play; cross-confirmation
-    // on report still keeps the result honest. onLaunchFailed fires only on retryable failures, never the permanent 2v2 block.
+    // Stage the accepted server capability before routing into one of the
+    // four existing battle hosts. Each host owns its outcome and rewards.
     const launchClanWarBattle = useCallback((ch: CwChallenge, warId?: string, onLaunchFailed?: () => void) => {
         if (!character) return;
         const me = character.name.toLowerCase();
         const onFromSide = (ch.fromPlayer ?? "").toLowerCase() === me
             || (ch.fromPlayer2 ?? "").toLowerCase() === me;
-        // Stash the clan-war context for the battle screen + any return
-        // path. Kept in sessionStorage so it survives a tab refresh.
-        // warId is supplied by the caller (ClanBattlesTab knows it from
-        // myWar.id); on refresh we look it up via the cache.
+        // Stash the server-matched context for battle and return;
+        // Browser navigation never decides battle or reward authority.
         const inferredWarId = warId ?? Object.values(sharedClanWarCache).find(w => w.pendingChallenges.some(c => c.id === ch.id))?.id ?? "";
+        const origin = clanWarLaunchOrigin(sharedClanWarCache[inferredWarId], ch.campaignMatchId);
         try {
             sessionStorage.setItem("clanWarChallenge.v1", JSON.stringify({
                 warId: inferredWarId,
@@ -1580,7 +1573,7 @@ export default function App() {
                 acceptedPlayer2: ch.acceptedPlayer2 ?? null,
                 battleId: ch.battleId ?? null,
                 petBattleSeed: ch.petBattleSeed ?? null,
-                stashedAt: Date.now(),
+                stashedAt: Date.now(), ...origin,
             }));
         } catch { /* sessionStorage may be unavailable */ }
 
@@ -1628,7 +1621,7 @@ export default function App() {
                         if (result.kind === "created") setPvpSeedSession(result.session);
                         setPvpBattleId(battleId);
                         setPvpRole(onFromSide ? "p1" : "p2");
-                        setPvpBattleContext({ mode: "clanWar1v1", clanWarChallengeId: ch.id });
+                        setPvpBattleContext({ mode: "clanWar1v1", clanWarChallengeId: ch.id, clanWarReturnScreen: origin.returnScreen });
                         setScreen("pvpBattle");
                         if (result.kind === "ambiguous") alert("The battle response was interrupted. Reconnecting to the authoritative session…");
                     } catch (error) {
@@ -5799,7 +5792,7 @@ export default function App() {
                 </>)}
                 {!activeTriggeredEvent && screen === "worldMap" && character && (
                     <WorldMap
-                        key={worldMapKey}
+                        key={worldMapKey} onLaunchClanWarBattle={launchClanWarBattle}
                         onLaunchWeeklyBoss={() => navigate("weeklyBoss")}
                         onExplorePresentationActiveChange={setWorldExplorePresentationActive}
                         setCurrentBiome={setCurrentBiome}
@@ -5923,7 +5916,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "hunting" && character && <HunterBoard character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} creatorAis={playableAis} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setScreen={navigate} />}
                 {!activeTriggeredEvent && screen === "logbook" && character && <Logbook character={character} updateCharacter={setCharacter} creatorAis={playableAis} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} creatorMissions={creatorMissions} creatorEvents={creatorEvents} creatorRaids={creatorRaids} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} currentSector={currentSector} setScreen={navigate} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} />}
                 {!activeTriggeredEvent && screen === "townHall" && character && <TownHall character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} creatorItems={creatorItems} allServerPlayers={allServerPlayers} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} sharedImages={sharedImages} setScreen={navigate} onBack={goBack} />}
-                {!activeTriggeredEvent && screen === "clan" && character && <ClanHall character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} creatorItems={creatorItems} savedBloodlines={savedBloodlines} setScreen={navigate} sharedImages={sharedImages} onRecordBattle={recordBattle} />}
+                {!activeTriggeredEvent && screen === "clan" && character && <ClanHall character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} creatorItems={creatorItems} savedBloodlines={savedBloodlines} setScreen={navigate} sharedImages={sharedImages} onRecordBattle={recordBattle} onLaunchClanWarBattle={launchClanWarBattle} />}
                 {!activeTriggeredEvent && screen === "bank" && character && <Bank character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onBack={goBack} />}
                 {!activeTriggeredEvent && screen === "shop" && character && <Shop character={character} creatorItems={creatorItems} onBack={goBack} onVersionedCharacter={commitVersionedCharacter} />}
                 {!activeTriggeredEvent && screen === "premiumShop" && character && <PremiumShop character={character} onBack={goBack} onVersionedCharacter={commitVersionedCharacter} />}
