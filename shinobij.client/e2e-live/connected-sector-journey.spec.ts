@@ -35,7 +35,7 @@ test('quiet village to lavafront journey',async({page,request,context},info)=>{
   localStorage.setItem('dailyBriefing.seen.v1',new Date().toISOString().slice(0,10));
   localStorage.setItem('legacyRumors.seen.v1:'+name,JSON.stringify([10,20,30,40,45]));
   localStorage.setItem('liteFx.v1','0');
- },{name,token,canonical,patch:LATEST_PATCH_NOTE.version});
+ },{name,token,canonical,patch:LATEST_PATCH_NOTE?.version ?? ''});
  const queue:Array<{sector:number;roads:SectorExit[]}>= [{sector:9,roads:[]}], seen=new Set([9]);
  let roads:SectorExit[]=[];
  for(let index=0;index<queue.length;index++){

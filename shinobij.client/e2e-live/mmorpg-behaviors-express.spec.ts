@@ -78,7 +78,7 @@ async function signIn(page: Page, account: Account) {
         localStorage.setItem('patchNotes.lastSeenVersion.v1', patchVersion);
         localStorage.setItem('dailyBriefing.seen.v1', new Date().toISOString().slice(0, 10));
         localStorage.setItem('live-mmo-installed', name);
-    }, { ...account, patchVersion: LATEST_PATCH_NOTE.version });
+    }, { ...account, patchVersion: LATEST_PATCH_NOTE?.version ?? '' });
 }
 
 /** A resumed story scene can mount over any screen; skip it wherever it appears. */

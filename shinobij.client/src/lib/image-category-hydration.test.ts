@@ -98,6 +98,24 @@ test("the combat buckets stay URL-mode so opening a fight costs manifests, not b
     }
 });
 
+test("every category a player can load is URL-mode, because full-content image reads are admin-only", () => {
+    // A category outside URL_MODE_CATEGORIES falls to App's full-content branch
+    // (`/api/images?cat=<category>` without `ids`). The server answers that only
+    // for admins, so a player would get a 403 and never see the art.
+    const screenCategories = [...read("./screen-image-categories.ts").matchAll(/\|\s*"([a-z]+)"/g)].map(([, category]) => category);
+    const literalLoads = [read("../App.tsx"), read("./image-category-hydration.ts")]
+        .flatMap((source) => [...source.matchAll(/loadCategory\(\s*["'`]([a-z]+)["'`]\s*\)/g)].map(([, category]) => category));
+    // Guard against a silent no-op: prove both scans still see real code.
+    assert.ok(screenCategories.length >= 10, `the ScreenImageCategory scan found only: ${screenCategories.join(", ")}`);
+    assert.ok(literalLoads.includes("avatar") && literalLoads.includes("event"), `the loadCategory scan found only: ${literalLoads.join(", ")}`);
+    const loadable = new Set<string>([...COMBAT_IMAGE_CATEGORIES, ...screenCategories, ...literalLoads]);
+    assert.deepEqual(
+        [...loadable].filter((category) => !URL_MODE_CATEGORIES.has(category)),
+        [],
+        "Add the category to URL_MODE_CATEGORIES in lib/shared-image-cache.ts.",
+    );
+});
+
 test("App hydrates image categories through the hook, not a screen-only effect", () => {
     const app = read("../App.tsx");
     assert.match(

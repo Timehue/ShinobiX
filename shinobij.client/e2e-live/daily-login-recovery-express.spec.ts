@@ -55,7 +55,7 @@ test('daily claim survives a lost response, receipt retry, logout and relogin', 
         localStorage.setItem(`ninjav-save-preview-v1:${name}`, JSON.stringify(before));
         localStorage.setItem('shinobix:storage-notice-ack', '1');
         localStorage.setItem('patchNotes.lastSeenVersion.v1', patch);
-    }, { name, token, before, patch: LATEST_PATCH_NOTE.version });
+    }, { name, token, before, patch: LATEST_PATCH_NOTE?.version ?? '' });
     let dropped = false;
     await page.route('**/api/player/daily-login', async route => {
         if (dropped) return route.continue();

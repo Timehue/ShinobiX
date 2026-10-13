@@ -396,6 +396,14 @@ type ItemLike = {
 const ORB = 50;          // squad/enemy orb diameter (scales with the board)
 const BOSS_ORB = 78;     // bosses render larger
 
+// One shared array per tile, so a single-tile terrain zone keeps its memo across renders.
+const singleTileArrays = new Map<number, readonly number[]>();
+function singleTile(tile: number): readonly number[] {
+    let tiles = singleTileArrays.get(tile);
+    if (!tiles) singleTileArrays.set(tile, tiles = [tile]);
+    return tiles;
+}
+
 // Tower combatant art is resolved through the Tower-only manifest. Unknown enemy
 // visual IDs deliberately render the visible unknown treatment below; player and
 // allied actors may use their sealed avatarImage.
@@ -1392,6 +1400,9 @@ export function BattleTowerFight({
         [session.map.nextRoundHazardTiles, strikeTiles, ringTiles],
     );
     const crimsonTileSet = useMemo(() => new Set(crimsonTiles), [crimsonTiles]);
+    // Stable arrays for the memoized terrain zones (a fresh spread defeats the memo).
+    const strikeTileList = useMemo(() => [...strikeTiles], [strikeTiles]);
+    const ringTileList = useMemo(() => [...ringTiles], [ringTiles]);
 
     function actionLabel(action: TowerActionInput): string {
         if (action.type === "jutsu") return selJutsu?.name ?? "jutsu";
@@ -2098,9 +2109,9 @@ export function BattleTowerFight({
                                         label={zone.name + " — " + zone.rounds + " rounds left"} />
                                 ))}
                                 <TowerTerrainZone tiles={crimsonTiles} width={w} height={h} kind="fire" urgent label="Hazard — burns at round end" />
-                                <TowerTerrainZone tiles={[...strikeTiles]} width={w} height={h} kind="strike" urgent
+                                <TowerTerrainZone tiles={strikeTileList} width={w} height={h} kind="strike" urgent
                                     label={(session.bossStrike?.label ?? "Boss strike") + " — erupts at round end"} />
-                                <TowerTerrainZone tiles={[...ringTiles]} width={w} height={h} kind="collapse" urgent label="Collapsing arena — damage at round end" />
+                                <TowerTerrainZone tiles={ringTileList} width={w} height={h} kind="collapse" urgent label="Collapsing arena — damage at round end" />
 
                                 {/* Aiming stays a precise outline above the physical artwork. */}
                                 {[{ tiles: instantGroundPreviewTiles, kind: "field" }, { tiles: aoeBurstTiles, kind: "burst" }].flatMap(preview => [...preview.tiles].map(tile => {
@@ -2121,7 +2132,7 @@ export function BattleTowerFight({
                                     kind={towerObstacleProp(session.map.biome)} label="Impassable terrain" size={66} />)}
                                 {(session.map.dynamicHazards ?? []).flatMap((hazard, index) => (hazard.tiles ?? []).map(tile => (
                                     <span key={"geyser-" + index + "-" + tile}>
-                                        <TowerTerrainZone tiles={[tile]} width={w} height={h} kind="eruption" urgent={(session.map.nextRoundHazardTiles ?? []).includes(tile)} />
+                                        <TowerTerrainZone tiles={singleTile(tile)} width={w} height={h} kind="eruption" urgent={(session.map.nextRoundHazardTiles ?? []).includes(tile)} />
                                         <TowerTerrainProp tile={tile} width={w} kind="geyser" size={54}
                                             label={"Geyser — erupts every " + Math.max(2, Number(hazard.everyRounds ?? 3)) + " rounds for " + hazard.pct + "% max HP"} />
                                     </span>
@@ -2131,7 +2142,7 @@ export function BattleTowerFight({
                                         ? session.actors.find(actor => actor.hp > 0 && (actor.side === "squad" || actor.side === "enemy") && actor.pos === tile)?.side
                                         : undefined;
                                     return <span key={"object-" + index + "-" + tile}>
-                                        <TowerTerrainZone tiles={[tile]} width={w} height={h} kind={object.kind === "font" ? "healing" : "shrine"} holder={holder} />
+                                        <TowerTerrainZone tiles={singleTile(tile)} width={w} height={h} kind={object.kind === "font" ? "healing" : "shrine"} holder={holder} />
                                         <TowerTerrainProp tile={tile} width={w} kind={object.kind} label={objectLabel(object)} size={54} />
                                     </span>;
                                 }))}
