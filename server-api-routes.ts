@@ -473,7 +473,8 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     // (/admin/migrate-kv, /admin/migrate-to-base) were removed with the overlay
     // on 2026-10-02; docs/RETIRE_CPANEL_RUNBOOK.md records the cutover they ran.
     route('/admin/migrate-images-to-r2', migrateImagesToR2Handler);
-    // Read-only image-store audit (docs/SHARED_HASH_ROW_SPLIT_PLAN.md).
+    // Image-store tools: the read-only audit, and the rollback write-back
+    // (docs/SHARED_HASH_ROW_SPLIT_PLAN.md).
     route('/admin/image-store', imageStoreHandler);
 
     // Missions — AI raid token mint (PvP raids cross-validate via PvpSession;
