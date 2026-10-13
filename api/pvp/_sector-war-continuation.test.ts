@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { after, before, beforeEach, describe, it } from 'node:test';
+import { after, before, beforeEach, describe, it, type TestContext } from 'node:test';
+import type { KvCasOp } from '../_storage.js';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -106,6 +107,26 @@ async function register(session: PvpSession, contestId: string) {
 
 async function row(id: string): Promise<Session> {
     return war.normalizeSectorWarSession((await kv.get(war.sectorWarKey(id))) as never)!;
+}
+
+/** Fail every era war-battle write: the one-row receipt hash, and the receipt
+ *  row plus counter shard of docs/SHARED_HASH_ROW_SPLIT_PLAN.md §5. */
+function failEraWarBattleWrites(t: TestContext): () => void {
+    const originalHset = kv.hset.bind(kv);
+    const hset = t.mock.method(kv, 'hset', async (key: string, fields: Record<string, unknown>) => {
+        if (key === 'era:contrib-receipts:warBattles') throw new Error('injected era war-battle write failure');
+        return originalHset(key, fields);
+    });
+    type Many = (ops: readonly KvCasOp[]) => Promise<boolean>;
+    const originalMany = kv.compareSetMany?.bind(kv) as Many | undefined;
+    const many = originalMany && t.mock.method(kv as unknown as { compareSetMany: Many }, 'compareSetMany', async (ops: readonly KvCasOp[]) => {
+        if (ops.some((op) => op.key.startsWith('era:receipt:warBattles:'))) throw new Error('injected era war-battle write failure');
+        return originalMany(ops);
+    });
+    return () => {
+        hset.mock.restore();
+        if (many) many.mock.restore();
+    };
 }
 
 describe('world PvP sector continuation past the old 200-receipt ceiling', { concurrency: false }, () => {
@@ -242,6 +263,53 @@ describe('world PvP sector continuation: an unreadable contest row', { concurren
         const bound = battle({ createdAt: now - 1000, endedAt: now - 10, winner: 'p1' });
         await register(bound, w.id);
         await assert.rejects(settle(bound), /ledger-invalid/, 'a fight bound to the broken war waits for the repair');
+    });
+});
+
+describe('world PvP sector continuation: the era war-battle credit', { concurrency: false }, () => {
+    // Legacy failures keep both fighters' rewards pending until a retry lands
+    // them. The era war-battle credit deliberately does not: no era gates on
+    // warBattles yet, so a failed write must not hold either payout.
+    it('never holds the claim, and a later replay counts the battle once', async (t) => {
+        const previousFlag = process.env.ENABLE_LEGACY;
+        process.env.ENABLE_LEGACY = '1';
+        try {
+            const { readEraContributions } = await import('../_era.js');
+            const w = await contest();
+            const now = Date.now();
+            for (const [name, village] of [[RAIDER, ATTACKER], [HOLDOUT, DEFENDER]]) {
+                await kv.set(`save:${name}`, { _saveVersion: 1, character: { name, village, level: 50 } });
+            }
+            // Long enough to earn Legacy war credit (15 s), so the first
+            // settle proves Legacy lands before the era write fails.
+            const fight = { ...battle({ createdAt: now - 60_000, endedAt: now - 10, winner: 'p1' }), lastMoveAt: now - 10 } as PvpSession;
+            await register(fight, w.id);
+
+            const restore = failEraWarBattleWrites(t);
+            const receipt = await settle(fight);
+            restore();
+            assert.equal(receipt.outcome, 'applied', 'the battle settles through the failed era write');
+            assert.equal((await row(w.id)).attackerPoints, 5);
+            assert.equal((await kv.get<{ warPvpKills?: number }>(`legacy:stats:${RAIDER}`))?.warPvpKills, 1);
+            assert.equal((await readEraContributions()).warBattles, 0, 'the failed write counted nothing');
+
+            assert.deepEqual(await settle(fight), receipt, 'either fighter\'s replay returns the same receipt');
+            assert.equal((await readEraContributions()).warBattles, 1, 'and retries the era credit');
+            assert.deepEqual(await settle(fight), receipt);
+            assert.equal((await readEraContributions()).warBattles, 1, 'a replay never counts the battle twice');
+            assert.equal((await row(w.id)).attackerPoints, 5, 'nor scores it twice');
+            assert.equal((await kv.get<{ warPvpKills?: number }>(`legacy:stats:${RAIDER}`))?.warPvpKills, 1, 'nor credits Legacy twice');
+        } finally {
+            if (previousFlag === undefined) delete process.env.ENABLE_LEGACY;
+            else process.env.ENABLE_LEGACY = previousFlag;
+        }
+    });
+
+    it('stays non-blocking only while no era gates on war battles', async () => {
+        const { ERA_DEFS } = await import('../_era-defs.js');
+        const gating = ERA_DEFS.filter((def) => def.milestones.some((m) => m.metric === 'warBattles')).map((def) => def.name);
+        assert.deepEqual(gating, [], 'An era now gates on warBattles. Make helpAppliedSectorWarEffects throw when '
+            + 'bumpEraContributionOnce returns false, so a failed write keeps the claim pending, and rewrite the test above to expect that.');
     });
 });
 
