@@ -1,9 +1,10 @@
 # Legacy System — onboarding / tutorial copy
 
 Reusable player-facing copy for the Legacy System, saved for when the **new-player
-tutorial** is edited to introduce Legacies. The canonical launch announcement also
-lives in code at `shinobij.client/src/data/patch-notes.ts` (version
-`2026.07.02-legacy`) and shows as the in-game "What's New" popup.
+tutorial** is edited to introduce Legacies. The launch announcement below used to
+ship as the in-game "What's New" popup (`shinobij.client/src/data/patch-notes.ts`,
+version `2026.07.02-legacy`). The testing-phase notes were removed from that
+registry on 2026-10-13, so this file is now its only copy.
 
 ## Design rules the copy MUST keep
 
@@ -40,7 +41,7 @@ lives in code at `shinobij.client/src/data/patch-notes.ts` (version
 > You may only ever accept **one**, so there's no rush — the right path will feel like
 > yours when you see it.
 
-## Full launch announcement (from patch-notes.ts)
+## Full launch announcement (formerly in patch-notes.ts)
 
 **The Legacy System**
 

@@ -43,7 +43,7 @@ async function install(context: BrowserContext, player: Awaited<ReturnType<typeo
         localStorage.setItem('patchNotes.lastSeenVersion.v1', patch);
         localStorage.setItem('dailyBriefing.seen.v1', new Date().toISOString().slice(0, 10));
         localStorage.setItem('legacyRumors.seen.v1:' + name, JSON.stringify([10, 20, 30, 40, 45]));
-    }, { ...player, patch: LATEST_PATCH_NOTE.version });
+    }, { ...player, patch: LATEST_PATCH_NOTE?.version ?? '' });
 }
 
 /** Count this page's tavern reads, so the spec knows which fetch a line arrived on. */

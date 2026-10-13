@@ -301,7 +301,7 @@ describe('reads', () => {
         const out = await pending;
         assert.equal(out.statusCode, 200);
         assert.deepEqual(out.body, {}, 'the old legacy bytes are not served in place of the row');
-        assert.equal(out.headers['cache-control'], 'no-store');
+        assert.equal(out.headers['cache-control'], 'private, no-store');
     });
 
     it('the all-categories answer is never cached when one category could not be read fully', async (t) => {
@@ -322,7 +322,7 @@ describe('reads', () => {
         const out = await pending;
         assert.equal(out.statusCode, 200);
         assert.deepEqual(out.body, { 'card:a': png('a') });
-        assert.equal(out.headers['cache-control'], 'no-store');
+        assert.equal(out.headers['cache-control'], 'private, no-store');
     });
 
     it('full-content reads reuse the memoised lists, so a burst never re-lists the 9-16 MB rows', async (t) => {
@@ -333,7 +333,7 @@ describe('reads', () => {
         const keys = t.mock.method(kv, 'keys');
         const first = await call(imagesHandler, 'GET', { cat: 'card' });
         assert.deepEqual(first.body, { 'card:a': png('a'), 'card:b': png('b') });
-        assert.match(first.headers['cache-control'] ?? '', /^public/, 'a complete answer stays cacheable');
+        assert.equal(first.headers['cache-control'], 'private, no-store', 'admin-only bytes never reach a shared cache');
         const listed = { hkeys: hkeys.mock.callCount(), keys: keys.mock.callCount() };
         for (const cb of ['1', '2', '3']) {
             assert.deepEqual((await call(imagesHandler, 'GET', { cat: 'card', cb })).body, first.body);
