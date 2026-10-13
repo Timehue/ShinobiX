@@ -695,9 +695,9 @@ function headerValue(h: string | string[] | undefined): string {
     return h ?? '';
 }
 
-// Internal restart endpoint. Passenger respawns the worker when the process
-// exits, which reliably picks up new code from disk even when tmp/restart.txt
-// isn't honored.
+// Internal restart endpoint. The process drains and exits non-zero, and
+// Railway's ON_FAILURE restart policy starts a fresh container (on the retired
+// cPanel host, Passenger respawned the worker on any exit).
 //
 // Auth hardening (see "Route parity + deployment safety" handoff):
 //   • Prefer a DEDICATED `RESTART_TOKEN`. KV_PROXY_TOKEN is a legacy fallback
@@ -713,6 +713,7 @@ function headerValue(h: string | string[] | undefined): string {
 // The token is still sent in the existing `x-kv-token` header (also accepts
 // `x-restart-token`) so no CORS change is needed — restart is an operational
 // server-to-server call, never a browser request.
+const OPERATOR_RESTART_EXIT_CODE = 75;
 const RESTART_MAX_ATTEMPTS = 5;
 const RESTART_WINDOW_MS = 60_000;
 let restartAttempts: number[] = [];   // epoch-ms of recent attempts
@@ -754,7 +755,10 @@ app.post(['/restart', '/api/restart'], (req, res) => {
     // Let THIS response flush, then drain any OTHER in-flight requests before
     // exiting. The old hard process.exit(0) severed concurrent requests — on
     // cPanel a save-read proxied here mid-restart came back as a Passenger 502.
-    setTimeout(() => gracefulShutdown(0, 'operator restart'), 250);
+    // Exit NON-zero: Railway's restartPolicyType is ON_FAILURE (railway.json),
+    // which restarts a container only after a non-zero exit, so a clean 0 left
+    // the game down until someone redeployed by hand. 75 is EX_TEMPFAIL.
+    setTimeout(() => gracefulShutdown(OPERATOR_RESTART_EXIT_CODE, 'operator restart'), 250);
 });
 
 // Register the explicit list through the same dual-path adapter.
