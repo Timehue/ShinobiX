@@ -3,7 +3,7 @@ import { kv } from './_storage.js';
 import { cors } from './_utils.js';
 import { categoryFromId, legacyBlobKey, legacyHashKey, legacyImageValue, perImageKey } from './images.js';
 import { r2ReadEnabled, r2ObjectExists, r2PublicUrl } from './_r2.js';
-import { isValidImageVersion } from './_image-version.js';
+import { isPublishedImageVersion, isValidImageVersion, readImageVersion } from './_image-version.js';
 
 // Kept here for existing importers; images.ts owns them since the shared-row split.
 export { legacyImageValue, perImageKey };
@@ -21,6 +21,21 @@ export { legacyImageValue, perImageKey };
 // fall back, READ-ONLY, to the frozen legacy per-category hash/blob. Public +
 // unauthenticated, same as the bulk `GET /api/images` (shared art is not secret).
 const IMAGE_READ_TIMEOUT = Symbol('image-read-timeout');
+
+// Per-call timeout so one slow KV read can't hang the function.
+const withTimeout = <T>(p: Promise<T | null>, ms = 8_000): Promise<T | null | typeof IMAGE_READ_TIMEOUT> =>
+    Promise.race([p, new Promise<typeof IMAGE_READ_TIMEOUT>((resolve) => setTimeout(() => resolve(IMAGE_READ_TIMEOUT), ms))]);
+
+// The version read sits in front of the R2 redirect, which otherwise never
+// touches the database. A slow read costs only this answer's long cache life,
+// so it gets a short budget, not the 8 s a byte read gets.
+const VERSION_READ_TIMEOUT_MS = 2_000;
+
+/** The category's current version, or null when it cannot be read in time. */
+async function readCurrentVersion(cat: string): Promise<string | null> {
+    const version = await withTimeout(readImageVersion(cat), VERSION_READ_TIMEOUT_MS);
+    return version === IMAGE_READ_TIMEOUT ? null : version;
+}
 
 function temporaryImageFailure(res: VercelResponse) {
     res.setHeader('Cache-Control', 'no-store');
@@ -60,7 +75,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // (api/_image-version.ts). Serve it immutable and stop paying a revalidation
     // per image per five minutes. Anything without a usable `v` (an old cached
     // client, admin tooling, a hand-typed URL) keeps the original short TTL.
-    const versioned = isValidImageVersion(req.query.v);
+    //
+    // Usable means the category has already reached it. A higher `v` is the URL
+    // the next replace will hand out, and one immutable answer to it would pin
+    // today's art there, at the edge, for a year. It is served like a request
+    // with no `v`, and so is one whose version read failed or ran out of time.
+    // The version is read BEFORE the bytes. A writer stores the new bytes, and
+    // its R2 copy, before it bumps, so a version that counts here names bytes
+    // that are already readable.
+    const requestedVersion = isValidImageVersion(req.query.v) ? req.query.v : undefined;
+    const currentVersion = requestedVersion === undefined ? null : await readCurrentVersion(cat);
+    const versioned = requestedVersion !== undefined && isPublishedImageVersion(requestedVersion, currentVersion);
     const IMMUTABLE_CACHE = 'public, max-age=31536000, immutable';
     const REVALIDATED_CACHE = 'public, max-age=300, stale-while-revalidate=86400';
     const artCache = versioned ? IMMUTABLE_CACHE : REVALIDATED_CACHE;
@@ -74,17 +99,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // id, external-URL image, or a HEAD failure) falls through to the existing
     // Postgres path below — so nothing regresses and the fallback stays intact.
     if (r2ReadEnabled()) {
-        const imageVersion = versioned ? req.query.v as string : undefined;
+        const imageVersion = versioned ? requestedVersion : undefined;
         const url = r2PublicUrl(id, imageVersion);
         if (url && (await r2ObjectExists(id, { version: imageVersion }))) {
             res.setHeader('Cache-Control', artCache);
             return res.redirect(302, url);
         }
     }
-
-    // Per-call timeout so one slow KV read can't hang the function.
-    const withTimeout = <T>(p: Promise<T | null>, ms = 8_000): Promise<T | null | typeof IMAGE_READ_TIMEOUT> =>
-        Promise.race([p, new Promise<typeof IMAGE_READ_TIMEOUT>((resolve) => setTimeout(() => resolve(IMAGE_READ_TIMEOUT), ms))]);
 
     try {
         // 1. Fast path: the per-image key (one small read).
