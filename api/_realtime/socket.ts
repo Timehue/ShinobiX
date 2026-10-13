@@ -45,6 +45,7 @@ import { wireChatRooms } from './chat-rooms.js';
 import { setRealtimeEmitter } from './notify.js';
 import { clearSleeperCampOnBeat } from './sleeper-camps.js';
 import { getTravelLease, settleTravelLease, travelLeaseSectorAt } from './travel-lease.js';
+import { readSavedLocation } from './saved-location.js';
 import { durablePresenceSectorForWrite } from './world-duel-engagement.js';
 import { readWalkedTile, resumeTileFor, resumeWorldPositionFor } from './walked-tile.js';
 import { applyWorldMovement } from './world-movement-service.js';
@@ -242,7 +243,7 @@ function wireRealtime(io: IOServer): void {
             const prevSector: number = socket.data.sector;
             let previous = onlineStore.get(name);
             let [saved, persistedTravel, walkedTile] = previous ? [null, null, null] : await Promise.all([
-                kv.get<{ currentSector?: number; currentTile?: number; worldPosition?: unknown }>(`save:${name}`),
+                readSavedLocation(name),
                 getTravelLease(name),
                 readWalkedTile(kv, name).catch(() => null),
             ]);

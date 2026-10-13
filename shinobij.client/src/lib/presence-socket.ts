@@ -14,8 +14,8 @@
  *      authoritative carrier of pendingAttacker / pendingChallenges, so there is
  *      no double-delivery and nothing is lost if a push is missed.
  *
- * NOTE: this is the SHINOBIX game socket — distinct from src/lib/realtime.ts,
- * which is the Supabase Realtime client for pvp:* / challenges:* row subs.
+ * NOTE: this is the SHINOBIX game socket. PvP battles use their own stream
+ * (/api/pvp/stream, lib/pvp-stream-transport.ts); no Supabase Realtime client remains.
  *
  * Auth mirrors the HTTP interceptor (token preferred, password fallback) and is
  * re-read on every (re)connect so a token the HTTP path just re-minted is used.
@@ -27,6 +27,7 @@
 import { io, type Socket } from 'socket.io-client';
 import { getSocketAuth, SAVE_VERSION_EVENT, type SaveVersionEventDetail } from '../authFetch';
 import { getFingerprintSync } from '../fingerprint';
+import { RECONNECT_DELAY_MAX_MS, RECONNECT_RANDOMIZATION_FACTOR, reconnectBaseDelayMs } from './reconnect-spread';
 import { SECTOR_CHAT_EVENT } from '../../../shared/sector-chat';
 import { CHAT_PUSH_EVENT, parseChatPush, type ChatPush } from '../../../shared/chat-push';
 import type { PlayerRecord } from '../types/character';
@@ -120,10 +121,14 @@ export function connectRealtime(initialFrame: PresenceFrame): void {
         return;
     }
     const opts = {
-        auth: buildAuth(),
+        // Function form: every handshake, including socket.io's automatic
+        // reconnects, carries the CURRENT presence frame and credentials, not
+        // the ones captured when this socket was first created.
+        auth: (cb: (auth: Record<string, unknown>) => void) => cb(buildAuth()),
         reconnection: true,
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 8000,
+        reconnectionDelay: reconnectBaseDelayMs(!!initialFrame.inBattle),
+        reconnectionDelayMax: RECONNECT_DELAY_MAX_MS,
+        randomizationFactor: RECONNECT_RANDOMIZATION_FACTOR,
         // Let socket.io negotiate the best transport (polling → upgrade) for
         // maximum compatibility behind proxies.
     };
@@ -141,13 +146,15 @@ export function connectRealtime(initialFrame: PresenceFrame): void {
         statusHandlers.forEach((h) => h(true));
     });
     socket.on('disconnect', () => {
+        // Runs before socket.io schedules its reconnect, so this drop's first
+        // retry uses a freshly spread base delay (lib/reconnect-spread.ts): a
+        // deploy that drops everyone at once no longer reconnects everyone in
+        // the same second, and a player mid-fight still comes back fast.
+        socket?.io.reconnectionDelay(reconnectBaseDelayMs(!!latestFrame?.inBattle));
         statusHandlers.forEach((h) => h(false));
     });
-    socket.on('connect_error', () => {
-        // The HTTP path may have re-minted the token since the last attempt —
-        // refresh the handshake creds so socket.io's auto-retry uses them.
-        if (socket) socket.auth = buildAuth();
-    });
+    // (No connect_error handler: the function-form `auth` above rebuilds the
+    // handshake credentials on every attempt, including a re-minted token.)
 
     socket.on('presence:sector', (data: { sector: number; players: PlayerRecord[] } | null) => {
         if (!data) return;

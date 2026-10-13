@@ -73,6 +73,22 @@ describe('shouldWriteRegistry', () => {
         assert.equal(shouldWriteRegistry({ ...base, prevRegistryAt: 0 }), true);
     });
 
+    it('skips a re-save of a real character whose stored xp is the frozen legacy value', () => {
+        // Real saves carry stats, so the row's `xp` is earned stat points while
+        // character.xp stays frozen. That mismatch made EVERY autosave rewrite
+        // the whole shared registry row (2026-10-12).
+        const char = {
+            name: 'Akira', level: 5, village: 'Stormveil', specialty: 'Ninjutsu',
+            xp: 4200, stats: { strength: 12, speed: 8 }, unspentStats: 3,
+        };
+        const next = buildPublicPlayerIndexEntry(char, 'akira', 1_001_000, 1_001_000);
+        assert.notEqual(next.xp, char.xp, 'the row and the character really do disagree on xp');
+        assert.equal(shouldWriteRegistry({ ...base, existingChar: { ...char }, next }), false);
+        // A real change to earned stat points still reaches the leaderboard at once.
+        const grown = buildPublicPlayerIndexEntry({ ...char, unspentStats: 4 }, 'akira', 1_001_000, 1_001_000);
+        assert.equal(shouldWriteRegistry({ ...base, existingChar: { ...char }, next: grown }), true);
+    });
+
     it('tolerates missing/absent fields on the existing character', () => {
         // A legacy save missing village/specialty should be seen as "changed"
         // against a populated incoming identity, so the registry gets corrected.

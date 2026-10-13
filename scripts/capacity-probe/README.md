@@ -18,6 +18,15 @@ The traffic mirrors the real signed-in client, as mapped from `shinobij.client/s
   frame every 20 s, and `presence:request` on connect.
 - **Heartbeat.** It posts `POST /api/player/heartbeat` every 20 s. Once it holds a sector
   roster it sends `socketLive`, and it drops that flag once a minute to refresh the roster.
+- **Logs in the way the real client does** when it activates. The login phase was added on 2026-10-12, after mapping the client showed that the idle model skipped every origin-heavy login request. It sends, in order:
+  - `player-auth` verify (scrypt, about 100 ms of server CPU);
+  - the owner save load;
+  - both admin-content saves;
+  - `village/tax` (level-1 players are exempt, so nothing is debited or written);
+  - the two `ai-fight-start` resume probes;
+  - a second heartbeat.
+
+  `CAPACITY_LOGIN_PHASE=0` turns it off, for comparison with earlier runs.
 - **Polls at the client's cadence:**
 
   | Interval | Endpoints |
