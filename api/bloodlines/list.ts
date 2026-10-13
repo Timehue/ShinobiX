@@ -4,16 +4,10 @@ import { cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { cachedFor } from '../_proc-cache.js';
 import { readKvProjection } from '../_storage-projection.js';
+import { readImageValues } from '../images.js';
 
 const BLOODLINE_LIST_CACHE_KEY = 'bloodlines:list:public';
 const BLOODLINE_LIST_CACHE_TTL_MS = 60_000;
-
-// NOTE: LEGACY_IMAGE_KEY ('shared:images') intentionally omitted here — it is a
-// multi-MB all-categories blob that causes connection-pool exhaustion when
-// fetched alongside N save reads.  Bloodline images migrated to the per-category
-// keys below, so the legacy blob is redundant for this endpoint.
-const bloodlineImageBlobKey = 'shared:images:bloodline';
-const bloodlineImageHashKey = 'shared:imgfields:bloodline';
 // Persistent player index — every saved player is upserted here atomically
 // with their save (see api/save/[name].ts + api/player/roster.ts). Deriving
 // save keys from it avoids a full save:* keyspace scan (a recursive walk of
@@ -56,17 +50,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             BLOODLINE_LIST_CACHE_KEY,
             BLOODLINE_LIST_CACHE_TTL_MS,
             async () => {
-        // Skip the legacy per-cat blob (bloodlineImageBlobKey). All current
-        // bloodline images live in the new hash key. The blob is reserved
-        // for one final read+delete in a future migration step. Reading it
-        // on every list call cost a multi-KB transfer per request that
-        // never contributed entries the hash didn't already have.
-        const [registryKeys, bloodlineHashImages] = await Promise.all([
-            kv.hkeys(REGISTRY_KEY),
-            kv.hgetall<Record<string, string>>(bloodlineImageHashKey),
-        ]);
-        const sharedBloodlineImages = bloodlineHashImages ?? {};
-        void bloodlineImageBlobKey; // legacy key reference retained for documentation
+        const registryKeys = await kv.hkeys(REGISTRY_KEY);
 
         // Derive the save keys from the player registry instead of scanning the
         // whole save:* keyspace (every saved player is in the registry — see the
@@ -100,7 +84,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     id,
                     name: String(bloodline.name),
                     rank: String(bloodline.rank ?? 'B Rank'),
-                    image: bloodline.image ? String(bloodline.image) : sharedBloodlineImages[`bloodline:${id}`],
+                    image: bloodline.image ? String(bloodline.image) : undefined,
                     ownerImage: bloodline.image ? String(bloodline.image) : undefined,
                     specialElement: bloodline.specialElement ? String(bloodline.specialElement) : undefined,
                     lore: bloodline.lore ? String(bloodline.lore) : undefined,
@@ -111,6 +95,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 });
             }
         }
+        // A bloodline whose save keeps no inline image shows its shared
+        // `bloodline:<id>` image: each one's own row, read for exactly the
+        // bloodlines listed. This used to read the whole 11.6 MB bloodline hash.
+        const missingImageIds = [...new Set(bloodlines.filter((b) => !b.image).map((b) => `bloodline:${b.id}`))];
+        const sharedImages = missingImageIds.length ? await readImageValues('bloodline', missingImageIds) : {};
+        for (const entry of bloodlines) if (!entry.image) entry.image = sharedImages[`bloodline:${entry.id}`];
         bloodlines.sort((a, b) => a.name.localeCompare(b.name) || a.ownerName.localeCompare(b.ownerName));
                 return bloodlines;
             },

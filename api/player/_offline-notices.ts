@@ -15,7 +15,7 @@ import { isExchangeSaleReceipt, type ExchangeSaleReceipt } from '../../shared/su
 // 14-day TTL (refreshed on every push). Appends run under the key's own lock so
 // two raids landing in the same tick can't drop each other's entry.
 
-export type OfflineNoticeKind = 'sleeper-kill' | 'merc-raid' | 'bounty-placed' | 'bounty-claimed' | 'kage-seat-lost' | 'kage-challenge-refunded' | 'village-unfed' | 'exchange-sale';
+export type OfflineNoticeKind = 'sleeper-kill' | 'merc-raid' | 'bounty-placed' | 'bounty-claimed' | 'kage-seat-lost' | 'kage-challenge-refunded' | 'village-unfed' | 'exchange-sale' | 'village-war-card-defense';
 
 export type OfflineNotice = {
     kind: OfflineNoticeKind;
@@ -38,9 +38,10 @@ export type OfflineNotice = {
     tenureMs?: number;
     /** Server-issued receipt; a notification never grants these proceeds. */
     sale?: ExchangeSaleReceipt;
+    campaignRunId?: string;
 };
 
-const NOTICE_KINDS: ReadonlySet<string> = new Set<OfflineNoticeKind>(['sleeper-kill', 'merc-raid', 'bounty-placed', 'bounty-claimed', 'kage-seat-lost', 'kage-challenge-refunded', 'village-unfed', 'exchange-sale']);
+const NOTICE_KINDS: ReadonlySet<string> = new Set<OfflineNoticeKind>(['sleeper-kill', 'merc-raid', 'bounty-placed', 'bounty-claimed', 'kage-seat-lost', 'kage-challenge-refunded', 'village-unfed', 'exchange-sale', 'village-war-card-defense']);
 
 export const OFFLINE_NOTICES_CAP = 10;
 /** Sales have their own allowance so a busy stall cannot bury other reports. */
@@ -69,6 +70,7 @@ export async function pushOfflineNotice(targetSlug: string, notice: OfflineNotic
         const current = Array.isArray(raw) ? raw.filter(isNotice) : [];
         // An uncertain inbox write can be retried by Exchange reconciliation.
         if (notice.kind === 'exchange-sale' && current.some(n => n.kind === 'exchange-sale' && n.sale?.listingId === notice.sale?.listingId)) return;
+        if (notice.kind === 'village-war-card-defense' && current.some(n => n.kind === notice.kind && n.campaignRunId === notice.campaignRunId)) return;
         const combined = [...current, notice];
         const retained = new Set([
             ...combined.filter(n => n.kind !== 'exchange-sale').slice(-OFFLINE_NOTICES_CAP),
@@ -76,7 +78,7 @@ export async function pushOfflineNotice(targetSlug: string, notice: OfflineNotic
         ]);
         const next = combined.filter(n => retained.has(n));
         await kv.set(key, next, { ex: OFFLINE_NOTICES_TTL_SEC });
-    }, { failClosed: notice.kind === 'exchange-sale' });
+    }, { failClosed: notice.kind === 'exchange-sale' || notice.kind === 'village-war-card-defense' });
 }
 
 /** Read + clear the inbox (one-shot delivery). Returns [] when there is nothing. */

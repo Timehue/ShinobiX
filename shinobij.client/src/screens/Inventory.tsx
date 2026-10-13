@@ -4,7 +4,7 @@ import { getAllItems, getItemById } from "../lib/items";
 import { weaponTagCombatPercent } from "../lib/tags";
 import { weaponEffectDisplayValue } from "../lib/weapon-effect-display";
 import { petFeedXpForItem } from "../data/pet-config";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { GameArtIcon, type GameArtIconKind } from "../components/GameArtIcon";
 import "../styles/profile-skin.css";
 import "../styles/inventory-aaa.css";
@@ -82,6 +82,20 @@ function chronicleInventorySummary(id: string): string {
             : "Snare";
 }
 
+// Reads only the item and module tables, so the backpack precomputes it once
+// per stack (see backpackStacks) instead of on every render of every row.
+function describeBonuses(item: GameItem) {
+    const petXp = petFeedXpForItem(item.id);
+    if (petXp) return `Pet XP +${petXp}`;
+    // Use the shared consolidation helper so the inline card summary
+    // matches what the popup shows — "All Offense +30" instead of
+    // four near-identical ninjutsu/taijutsu/buki/genjutsu lines.
+    const bonuses = consolidateItemBonuses(item.bonuses);
+    return bonuses.length
+        ? bonuses.map((b) => `${b.stat} +${b.value}`).join(", ")
+        : "No bonuses";
+}
+
 export function Inventory({
     character,
     updateCharacter,
@@ -143,8 +157,12 @@ export function Inventory({
     const [attuneBusy, setAttuneBusy] = useState(false);
     const [attuneMsg, setAttuneMsg] = useState("");
     const academyInventoryStep = normalizeOnboardingStep(character.onboardingStep) === "inventory";
-    const allItems = getAllItems(creatorItems, character.weaponElements);
-    const allTileCards = getAllTileCards(creatorCards);
+    // Idle regen replaces `character` every second while a vital is below max;
+    // the catalogs only change with their real inputs, so they stay stable and
+    // the stack lists below can be keyed on them.
+    const weaponElements = character.weaponElements;
+    const allItems = useMemo(() => getAllItems(creatorItems, weaponElements), [creatorItems, weaponElements]);
+    const allTileCards = useMemo(() => getAllTileCards(creatorCards), [creatorCards]);
     // Village Stores: BOTH destinations this signpost can send a player to gate
     // themselves on the villageWar capability — the Cafeteria hides its whole
     // kitchen behind it, and the Town Hall hides the stores rows. An ungated
@@ -229,30 +247,63 @@ export function Inventory({
         });
     }, [character, updateCharacter]);
 
-    const tileCardStacks = Object.values(
-        character.tileCards.reduce<Record<string, { id: string; card?: TileCard; count: number }>>((stacks, cardId) => {
-            const card = allTileCards.find((c) => c.id === cardId);
+    const tileCards = character.tileCards;
+    const tileCardStacks = useMemo(() => {
+        // First match wins, exactly like the Array.find this replaced.
+        const cardsById = new Map<string, TileCard>();
+        for (const c of allTileCards) if (!cardsById.has(c.id)) cardsById.set(c.id, c);
+        return Object.values(
+            tileCards.reduce<Record<string, { id: string; card?: TileCard; count: number }>>((stacks, cardId) => {
+                const card = cardsById.get(cardId);
 
-            if (!stacks[cardId]) {
-                stacks[cardId] = {
-                    id: cardId,
-                    card,
-                    count: 0,
-                };
-            }
+                if (!stacks[cardId]) {
+                    stacks[cardId] = {
+                        id: cardId,
+                        card,
+                        count: 0,
+                    };
+                }
 
-            stacks[cardId].count += 1;
-            return stacks;
-        }, {})
-    );
+                stacks[cardId].count += 1;
+                return stacks;
+            }, {})
+        );
+    }, [tileCards, allTileCards]);
 
     // Unified backpack stacks across BOTH stores (inventory[] uniques +
     // itemStacks counted bulk items). One row per distinct id, with its total
     // count — the UI is fully id/count based now, no array indices.
-    const backpackStacks = unifiedItemStacks(character).map(({ itemId, count }) => {
-        const item = getItemById(allItems, itemId) ?? allItems.find((candidate) => candidate.name === itemId);
-        return { entry: itemId, item, count, stackKey: item?.id ?? itemId, category: itemCategory(itemId, item) };
-    });
+    // unifiedItemStacks reads only inventory + itemStacks.
+    const { inventory: backpackInventory, itemStacks: backpackItemStacks } = character;
+    const backpackStacks = useMemo(() => {
+        // Id lookup first, then the legacy name fallback; first match wins in
+        // both, exactly like the getItemById / Array.find pair this replaced.
+        const itemsById = new Map<string, GameItem>();
+        const itemsByName = new Map<string, GameItem>();
+        for (const candidate of allItems) {
+            if (!itemsById.has(candidate.id)) itemsById.set(candidate.id, candidate);
+            if (!itemsByName.has(candidate.name)) itemsByName.set(candidate.name, candidate);
+        }
+        return unifiedItemStacks(character).map(({ itemId, count }) => {
+            const item = itemsById.get(itemId) ?? itemsByName.get(itemId);
+            const category = itemCategory(itemId, item);
+            // The row's type and summary lines are pure functions of the item
+            // and module tables, so they are worked out here once per stack
+            // rather than on every render of every visible row.
+            const itemType = item
+                ? presentItem(item, petFeedXpForItem(item.id)).category
+                : ITEM_CATEGORY_META[category].label;
+            const itemSummary = item
+                ? describeBonuses(item)
+                : itemId === "Soldier Pill"
+                    ? "Restores 25 stamina."
+                    : itemId === "Chakra Pill"
+                        ? "Restores 25 chakra."
+                        : "General inventory item.";
+            return { entry: itemId, item, count, stackKey: item?.id ?? itemId, category, itemType, itemSummary };
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the two fields unifiedItemStacks reads
+    }, [backpackInventory, backpackItemStacks, allItems]);
 
     const categoryCounts = backpackStacks.reduce<Record<string, number>>(
         (counts, { category }) => {
@@ -265,7 +316,7 @@ export function Inventory({
 
     const backpackUnitCount = backpackStacks.reduce((total, stack) => total + stack.count, 0);
     const normalizedSearch = itemSearch.trim().toLowerCase();
-    const visibleBackpackStacks = backpackStacks
+    const visibleBackpackStacks = useMemo(() => backpackStacks
         .filter(({ item, category }) => {
             if (slotFilter) {
                 return item && (
@@ -279,7 +330,8 @@ export function Inventory({
         .filter(({ entry, item }) => !normalizedSearch || (item?.name ?? entry).toLowerCase().includes(normalizedSearch))
         .sort((a, b) =>
             rarityWeight(b.item?.rarity) - rarityWeight(a.item?.rarity)
-            || (a.item?.name ?? a.entry).localeCompare(b.item?.name ?? b.entry));
+            || (a.item?.name ?? a.entry).localeCompare(b.item?.name ?? b.entry)),
+    [backpackStacks, slotFilter, categoryFilter, normalizedSearch]);
 
     const academyAutoScrollStackKey = academyInventoryStep
         ? visibleBackpackStacks.find(({ item }) => item
@@ -626,18 +678,6 @@ export function Inventory({
         }
     }
 
-    function describeBonuses(item: GameItem) {
-        const petXp = petFeedXpForItem(item.id);
-        if (petXp) return `Pet XP +${petXp}`;
-        // Use the shared consolidation helper so the inline card summary
-        // matches what the popup shows — "All Offense +30" instead of
-        // four near-identical ninjutsu/taijutsu/buki/genjutsu lines.
-        const bonuses = consolidateItemBonuses(item.bonuses);
-        return bonuses.length
-            ? bonuses.map((b) => `${b.stat} +${b.value}`).join(", ")
-            : "No bonuses";
-    }
-
     function itemBonusLines(item: GameItem) {
         // Armor hides maxChakra/maxStamina in the popup to avoid
         // double-reporting against the armor reduction effect.
@@ -963,19 +1003,9 @@ export function Inventory({
                                 <p className="inventory-empty">{backpackEmptyMessage}</p>
                             ) : (
                                 <div className="backpack-grid">
-                                    {visibleBackpackStacks.map(({ entry, item, count, stackKey, category }) => {
+                                    {visibleBackpackStacks.map(({ entry, item, count, stackKey, itemType, itemSummary }) => {
                                         const itemName = item?.name ?? entry;
                                         const rarity = item?.rarity ?? "common";
-                                        const itemType = item
-                                            ? presentItem(item, petFeedXpForItem(item.id)).category
-                                            : ITEM_CATEGORY_META[category].label;
-                                        const itemSummary = item
-                                            ? describeBonuses(item)
-                                            : entry === "Soldier Pill"
-                                                ? "Restores 25 stamina."
-                                                : entry === "Chakra Pill"
-                                                    ? "Restores 25 chakra."
-                                                    : "General inventory item.";
                                         const academyStarterTarget = academyInventoryStep
                                             && Boolean(item)
                                             && ACADEMY_STARTER_GEAR_IDS.some((id) => id === item?.id);
@@ -1064,7 +1094,7 @@ export function Inventory({
                                         >
                                             <div className="tile-card-inventory-art">
                                                 {card?.image ? (
-                                                    <img src={card.image} alt={card.name} onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                                                    <img src={card.image} alt={card.name} loading="lazy" decoding="async" onError={(e) => { e.currentTarget.style.display = "none"; }} />
                                                 ) : (
                                                     <span>🃏</span>
                                                 )}

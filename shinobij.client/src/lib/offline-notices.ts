@@ -18,7 +18,7 @@
 import { relativeAgo } from './village-stores';
 import { takeUnseenNotices } from './notice-ack';
 
-export type OfflineNoticeKind = 'sleeper-kill' | 'merc-raid' | 'bounty-placed' | 'bounty-claimed' | 'kage-seat-lost' | 'kage-challenge-refunded' | 'village-unfed';
+export type OfflineNoticeKind = 'sleeper-kill' | 'merc-raid' | 'bounty-placed' | 'bounty-claimed' | 'kage-seat-lost' | 'kage-challenge-refunded' | 'village-unfed' | 'village-war-card-defense';
 
 export type OfflineNotice = {
     kind: OfflineNoticeKind;
@@ -35,7 +35,7 @@ export type OfflineNotice = {
     tenureMs?: number;
 };
 
-const NOTICE_KINDS: ReadonlySet<string> = new Set<OfflineNoticeKind>(['sleeper-kill', 'merc-raid', 'bounty-placed', 'bounty-claimed', 'kage-seat-lost', 'kage-challenge-refunded', 'village-unfed']);
+const NOTICE_KINDS: ReadonlySet<string> = new Set<OfflineNoticeKind>(['sleeper-kill', 'merc-raid', 'bounty-placed', 'bounty-claimed', 'kage-seat-lost', 'kage-challenge-refunded', 'village-unfed', 'village-war-card-defense']);
 
 function isNotice(v: unknown): v is OfflineNotice {
     if (!v || typeof v !== 'object') return false;
@@ -52,6 +52,7 @@ export function parseOfflineNotices(notices: unknown): OfflineNotice[] {
 // ── Game-art vocabulary ─────────────────────────────────────────────────────
 // One semantic art key per family, shared with the digest's painted icon map.
 const NOTICE_ICON: Record<OfflineNoticeKind, string> = {
+    'village-war-card-defense': 'attack',
     'village-unfed': 'rations',
     'kage-seat-lost': 'crown',
     'kage-challenge-refunded': 'crown',
@@ -62,11 +63,12 @@ const NOTICE_ICON: Record<OfflineNoticeKind, string> = {
 };
 
 /** The one kind that asks the player to DO something — it sorts to the top. */
-const ACTIONABLE_KINDS: ReadonlySet<OfflineNoticeKind> = new Set<OfflineNoticeKind>(['village-unfed']);
+const ACTIONABLE_KINDS: ReadonlySet<OfflineNoticeKind> = new Set<OfflineNoticeKind>(['village-unfed', 'village-war-card-defense']);
 
 export type OfflineNoticeTone = 'action' | 'grave' | 'info';
 
 const NOTICE_TONE: Record<OfflineNoticeKind, OfflineNoticeTone> = {
+    'village-war-card-defense': 'action',
     'village-unfed': 'action',
     'kage-seat-lost': 'grave',
     'kage-challenge-refunded': 'info',
@@ -92,6 +94,7 @@ function formatTenure(ms: number): string {
 /** The notice body, with no icon and no timestamp — those are added around it. */
 export function offlineNoticeBody(n: OfflineNotice): string {
     const who = n.by.trim() || 'someone';
+    if (n.kind === 'village-war-card-defense') return `${who} attacked your queued card stronghold in Sector ${n.sector}. Open the War Hall or Town Hall Guard and enter your assigned card battle now.`;
     if (n.kind === 'village-unfed') {
         const village = n.village ?? (who !== 'someone' ? who : 'Your village');
         return `${village} marched hungry: the siege of Sector ${n.sector} went unfed. Cook rations at the Noodle Den and donate them at the Town Hall.`;

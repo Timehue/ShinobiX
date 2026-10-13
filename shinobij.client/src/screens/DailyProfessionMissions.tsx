@@ -93,7 +93,7 @@ export function DailyProfessionMissions({ character, headquarters = false }: { c
                 const json: Response = await res.json().catch(() => ({} as Response));
                 if (cancelled) return;
                 if (!res.ok) {
-                    setError((json as { error?: string }).error ?? `Failed to load missions (${res.status})`);
+                    setError((json as { error?: string }).error ?? "Today's missions could not be loaded. They will try again automatically.");
                     setLoading(false);
                     return;
                 }
@@ -118,7 +118,7 @@ export function DailyProfessionMissions({ character, headquarters = false }: { c
                 setLoading(false);
             } catch {
                 if (!cancelled) {
-                    setError("Network error");
+                    setError("The mission board could not be reached. It will try again once your connection returns.");
                     setLoading(false);
                 }
             }
@@ -171,7 +171,7 @@ export function DailyProfessionMissions({ character, headquarters = false }: { c
                                         {done && "✓ "}{m.name}
                                     </strong>
                                     <span className="hint ph-mission-reward" style={{ fontSize: "0.75rem" }}>
-                                        {isNewbie ? `+${m.ryoReward ?? 0} ryo` : `+${m.xpReward ?? 0} ${headquarters ? "" : `${label} `}XP`}
+                                        {isNewbie ? `+${m.ryoReward ?? 0} ryo` : `+${m.xpReward ?? 0} ${headquarters ? "profession" : label} XP`}
                                     </span>
                                 </div>
                                 <p className="hint" style={{ margin: "4px 0 6px", fontSize: "0.8rem" }}>

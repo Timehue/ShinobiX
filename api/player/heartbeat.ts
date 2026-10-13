@@ -5,7 +5,7 @@ import { cors, parseJsonBody, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { stampPlayerIp } from '../_player-ips.js';
-import { recordClientIp, clientIpFrom, recordClientFingerprint, clientFpFrom } from '../admin/moderation.js';
+import { recordHeartbeatObservation, clientIpFrom, clientFpFrom } from '../admin/moderation.js';
 import { onlineStore } from '../_realtime/online-store.js';
 import { stampPresenceBeat } from '../_realtime/_presence-beat.js';
 import { normalizeSector, normalizeTile, slimPresenceCharacter, capTravelingUntil, presenceBroadcastSignature, toPlayerRecord } from '../_realtime/presence-input.js';
@@ -181,11 +181,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Moderation tab can link sock-puppet accounts even when the user
         // hops VPNs (the IP changes, the fingerprint doesn't). Never block
         // the heartbeat on these — best-effort only.
-        if (!identity.admin) {
-            void recordClientIp(identity.name, clientIpFrom(req));
-            const fp = clientFpFrom(req);
-            if (fp) void recordClientFingerprint(identity.name, fp);
-        }
+        // A pair already seen is re-checked at most every few minutes; a new
+        // IP or fingerprint is still recorded on the beat it first appears.
+        if (!identity.admin) void recordHeartbeatObservation(identity.name, clientIpFrom(req), clientFpFrom(req));
 
         const challengeKey = `challenges:${safeName(name)}`;
         const resetSignalKey = `reset-signal:${safeName(name)}`;

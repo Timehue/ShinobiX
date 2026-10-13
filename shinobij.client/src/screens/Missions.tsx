@@ -1,6 +1,6 @@
 import { gainXp } from "../lib/character-level-projection";
 import { gameToast } from "../components/GameToast";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import "../styles/hub-screens-skin.css";
 import type React from "react";
 import type { CSSProperties } from "react";
@@ -28,7 +28,9 @@ import { COMBAT_MISSIONS, type CombatMission } from "../data/combat-missions";
 
 import { postClaimMission, applyServerMissionReward, claimReasonMessage, claimHttpFailureMessage } from "../lib/claim-mission";
 import { missionClaimActionScope } from "../lib/action-deadline-store";
-import { useActionDeadline } from "../lib/use-action-deadline";
+import { useLiveActionDeadline } from "../lib/use-action-deadline";
+import { getSharedNow, subscribeSharedNow } from "../lib/shared-now-store";
+import { SharedClockLeaf } from "../components/SharedClockLeaf";
 import { commitAuthoritativeMissionClaim } from "../lib/versioned-mission-claim";
 import { normalizeOnboardingStep } from "../lib/onboarding-step";
 import { questbookEntry, questbookStage, metricLabel } from "../lib/questbook";
@@ -47,11 +49,16 @@ import { queueCombatMissionClaim } from "../lib/mission-combat-claim";
 import { postFieldTrail, type FieldTrailResult } from "../lib/field-trail-api";
 import { useFieldTrailRefreshVersion } from "../lib/use-field-trail-refresh";
 import missionHallArt from "../assets/facilities/mission-hall.webp";
-import { sectorArtKey, sectorName, sectorRegionLabel } from "../../../shared/sector-geo";
+import { sectorName, sectorRegionLabel } from "../../../shared/sector-geo";
+import { sectorFloorImage, sectorFloorThumb } from "../lib/sector-floor-layout";
 import { handleHorizontalTabKeyDown } from "../lib/tab-keyboard";
 import { useFirstContractMissionTab } from "../lib/use-first-contract-mission-tab";
 import { ScreenHint } from "../components/ScreenHint";
 import { companionCoachName, firstFightLessonForMission } from "../lib/first-fight-coach";
+
+// Missions' own clock snapshot while the hall (not an inline fight) is shown:
+// constant, so a tick of the shared clock never re-renders the whole hall.
+const hallClock = () => 0;
 
 export function Missions({
     character,
@@ -96,13 +103,26 @@ export function Missions({
 }) {
     const onVersionedCharacterRef = useRef(onVersionedCharacter);
     useLayoutEffect(() => { onVersionedCharacterRef.current = onVersionedCharacter; }, [onVersionedCharacter]);
-    const claimCooldownMs = useActionDeadline(missionClaimActionScope(character.name));
+    // Live only while a claim cooldown runs. The hall's other render-time clock
+    // reads (the UTC day behind the daily counter and the Begin/Accept gates,
+    // the Weekly Board countdown) sit in SharedClockLeaf, so they still update
+    // on every one-second tick without re-rendering the whole hall.
+    const claimCooldownMs = useLiveActionDeadline(missionClaimActionScope(character.name));
     const missionRewardBonus = getMissionRewardBonus(character) + getActiveAuraSphereBonuses(character).missionRewardPercent;
     const [authoritativeFight, setAuthoritativeFight] = useState<{ mission: CombatMission; runId: string; session: SoloPveSession } | null>(null);
+    // The inline mission fight (the early return below) still re-renders on every
+    // one-second tick, as it did under useActionDeadline: its props are rebuilt
+    // from render-time reads (companionCoachName reads a comped subscription's
+    // expiry clock), and the fight tree's own reads were not moved into leaves.
+    // The subscription spans Missions' whole lifetime, as before, so the shared
+    // ticker is never stopped and restarted at the hall/fight switch; only the
+    // snapshot is frozen while the hall is shown.
+    useSyncExternalStore(subscribeSharedNow, authoritativeFight ? getSharedNow : hallClock, authoritativeFight ? getSharedNow : hallClock);
     const onMissionBattleEndRef = useRef(onMissionBattleEnd);
     useEffect(() => { onMissionBattleEndRef.current = onMissionBattleEnd; }, [onMissionBattleEnd]);
     useEffect(() => () => { onMissionBattleEndRef.current?.(); }, []);
-    const [startingCombat, setStartingCombat] = useState(false);
+    // The mission whose fight is being opened, so its button can say so.
+    const [startingCombat, setStartingCombat] = useState<string | null>(null);
     const [fieldTrailPending, setFieldTrailPending] = useState<string | null>(null);
     // Keep every hook above the authoritative-fight early return so hook order is
     // stable while entering and leaving the inline server-resolved battle.
@@ -165,7 +185,7 @@ export function Missions({
         if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`);
         if (startingCombat) return;
         onMissionBattleStart?.();
-        setStartingCombat(true);
+        setStartingCombat(mission.key);
         let fightMounted = false;
         try {
             const response = await fetch("/api/missions/combat-start", {
@@ -180,8 +200,12 @@ export function Missions({
             }
             setAuthoritativeFight({ mission, runId: data.runId, session: data.session });
             fightMounted = true;
+        } catch {
+            // A dropped connection used to reject silently: the button reset and
+            // nothing told the player why no fight opened.
+            alert("The mission fight could not be started. Check your connection and try again.");
         } finally {
-            setStartingCombat(false);
+            setStartingCombat(null);
             if (!fightMounted) onMissionBattleEnd?.();
         }
     }
@@ -425,7 +449,6 @@ export function Missions({
     }
     const sortedFieldMissions = sortFieldMissions(mergeBuiltinMissions(creatorMissions));
     const rankColor: Record<string, string> = { "E Rank": "#14b8a6", "D Rank": "var(--success)", "C Rank": "#3b82f6", "B Rank": "var(--purple-500)", "A Rank": "#f97316", "S Rank": "var(--danger)", "Daily": "var(--gold)" };
-    const todayMissions = dailyMissionsCompleted(character);
     // Combat wins do not pay on the spot — they queue a durable claim the player
     // settles back here. That reward is invisible unless the Hall says so, so the
     // count drives a tab dot, the section hint, and each card's ready state.
@@ -467,7 +490,7 @@ export function Missions({
                 <div className="mh-stats">
                     <div className="mh-stat-chip">
                         <span className="mh-stat-label">Daily</span>
-                        <span className="mh-stat-value">{todayMissions}<span className="mh-stat-max">/20</span></span>
+                        <span className="mh-stat-value"><SharedClockLeaf>{() => dailyMissionsCompleted(character)}</SharedClockLeaf><span className="mh-stat-max">/20</span></span>
                     </div>
                 </div>
             </div>
@@ -611,7 +634,7 @@ export function Missions({
                                         <span><GameIcon name="ryo" size={14} style={{ verticalAlign: "-2px", marginRight: 3 }} />{boostAmount(mission.ryo, missionRewardBonus)} ryo</span>
                                     </div>
                                 </div>
-                                {claimable
+                                <SharedClockLeaf>{() => claimable
                                     ? <button
                                         className="mh-combat-btn mh-claim-btn"
                                         disabled={claimingKey !== null || claimCooldownMs > 0}
@@ -625,12 +648,12 @@ export function Missions({
                                     </button>
                                     : <button
                                         className="mh-combat-btn"
-                                        disabled={locked || todayMissions >= DAILY_MISSION_LIMIT}
+                                        disabled={locked || dailyMissionsCompleted(character) >= DAILY_MISSION_LIMIT || startingCombat !== null}
                                         onClick={() => startMissionBattle(mission)}
                                     >
-                                        <span className="mh-combat-btn-label">{locked ? `Lv ${mission.min} Required` : "Begin Mission"}</span>
+                                        <span className="mh-combat-btn-label">{locked ? `Lv ${mission.min} Required` : startingCombat === mission.key ? "Starting…" : "Begin Mission"}</span>
                                         <span className="mh-combat-btn-arrow" aria-hidden="true">›</span>
-                                    </button>}
+                                    </button>}</SharedClockLeaf>
                             </div>
                         );
                     })}
@@ -666,7 +689,10 @@ export function Missions({
                             const locked = character.level < mission.levelReq;
                             const placeName = sectorName(mission.targetSector) ?? `Sector ${mission.targetSector}`;
                             const regionName = sectorRegionLabel(mission.targetSector) ?? "Outer territory";
-                            const art = `/sector-map/s${sectorArtKey(mission.targetSector)}.webp`;
+                            // The world map's own URL (shared browser cache), plus a
+                            // 256 px copy that phones pick for the 68 px card art.
+                            const art = sectorFloorImage(mission.targetSector);
+                            const artThumb = sectorFloorThumb(mission.targetSector);
                             const accent = rankColor[mission.rank] ?? "var(--slate-500)";
                             return (
                                 <article
@@ -675,7 +701,7 @@ export function Missions({
                                     style={{ "--mission-rank-color": accent } as CSSProperties}
                                 >
                                     <div className="mh-field-art">
-                                        <img src={art} alt="" loading="lazy" decoding="async" />
+                                        <img src={art} srcSet={artThumb ? `${artThumb} 256w, ${art} 1024w` : undefined} sizes="(max-width: 700px) 68px, (max-width: 1080px) 50vw, 33vw" alt="" loading="lazy" decoding="async" />
                                         <span className="mh-field-rank">{mission.rank}</span>
                                         <span className="mh-field-sector">
                                             <small>Sector {mission.targetSector} · {regionName}</small>
@@ -715,7 +741,7 @@ export function Missions({
                                         )}
                                         {accepted && <p className="mh-field-next-step mh-field-next-step-desktop"><strong>Next:</strong> {nextAction.instruction}</p>}
                                         <div className="mh-fetch-actions">
-                                            {!accepted
+                                            <SharedClockLeaf>{() => !accepted
                                                 ? <button className="mh-field-primary-action" disabled={fieldTrailPending !== null || locked || !hasDailyMissionSlot(character)} onClick={() => { void acceptFetchMission(mission); }}>
                                                     <span className="mh-field-primary-label">{locked ? `Level ${mission.levelReq} required` : !hasDailyMissionSlot(character) ? "Daily Limit Reached" : "Accept Mission"}</span>
                                                     <span className="mh-field-primary-arrow" aria-hidden="true">›</span>
@@ -739,7 +765,7 @@ export function Missions({
                                                     }}>
                                                         <span className="mh-field-primary-label">{nextAction.label}</span>
                                                         <span className="mh-field-primary-arrow" aria-hidden="true">›</span>
-                                                    </button>}
+                                                    </button>}</SharedClockLeaf>
                                             {accepted && <button className="danger-button mh-field-secondary-action" disabled={fieldTrailPending !== null} onClick={() => { void abandonFetchMission(mission); }}>Abandon</button>}
                                             {mission.aiProfileId && (
                                                 <button className="mh-field-secondary-action" onClick={() => startCreatorMissionBattle(mission)}>Battle AI</button>

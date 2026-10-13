@@ -217,19 +217,24 @@ async function streamSession(req: VercelRequest, res: VercelResponse, battleId: 
     let lastJson = JSON.stringify(initial);
     let lastSentAt = 0;
 
-    function sendEvent(event: string, payload: unknown) {
+    // Writes an already-serialized payload. The session is serialized once to
+    // detect a change, and that same string is what gets sent.
+    function sendEventJson(event: string, json: string) {
         try {
             res.write(`event: ${event}\n`);
-            res.write(`data: ${JSON.stringify(payload)}\n\n`);
+            res.write(`data: ${json}\n\n`);
             lastSentAt = Date.now();
         } catch {
             signals.abort();
         }
     }
+    function sendEvent(event: string, payload: unknown) {
+        sendEventJson(event, JSON.stringify(payload));
+    }
 
     // Push the initial state immediately so clients have something to
     // render on connect.
-    sendEvent('session', initial);
+    sendEventJson('session', lastJson);
 
     // Sleep until the session is written, the turn clock is due, or the safety
     // poll — whichever comes first. A write during the read below marks the
@@ -311,7 +316,7 @@ async function streamSession(req: VercelRequest, res: VercelResponse, battleId: 
             current = session;
             const json = JSON.stringify(session);
             if (json !== lastJson) {
-                sendEvent('session', session);
+                sendEventJson('session', json);
                 lastJson = json;
             }
             // Periodic heartbeat. It keeps intermediaries from closing an idle

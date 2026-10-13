@@ -76,7 +76,7 @@ async function installSession(context: BrowserContext, account: Awaited<ReturnTy
         localStorage.setItem('dailyBriefing.seen.v1', new Date().toISOString().slice(0, 10));
         localStorage.setItem('legacyRumors.seen.v1:' + name, JSON.stringify([10, 20, 30, 40, 45]));
         localStorage.setItem('sector-war-journey-installed', name);
-    }, { ...account, patch: LATEST_PATCH_NOTE.version });
+    }, { ...account, patch: LATEST_PATCH_NOTE?.version ?? '' });
 }
 
 async function warMap(request: APIRequestContext, headers: Record<string, string>) {

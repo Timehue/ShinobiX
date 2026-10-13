@@ -11,13 +11,13 @@ type Handler = (req: never, res: never) => Promise<unknown>;
 
 let kv: Storage['kv'];
 let store: ImageStore;
-let buildManifestIds: typeof import('./images.js').buildManifestIds;
+let buildLegacyManifestIds: typeof import('./images.js').buildLegacyManifestIds;
 let handler: Handler;
 
 before(async () => {
     ({ kv } = await import('./_storage.js'));
     store = await import('./_image-store.js');
-    ({ buildManifestIds } = await import('./images.js'));
+    ({ buildLegacyManifestIds } = await import('./images.js'));
     handler = (await import('./admin/image-store.js')).default as unknown as Handler;
 });
 
@@ -27,7 +27,8 @@ beforeEach(async () => {
 });
 
 const png = (tag: string) => `data:image/png;base64,${Buffer.from(`image-${tag}`).toString('base64')}`;
-const todayManifest = (cat: string) => buildManifestIds(cat, <T,>(read: Promise<T | null>) => read);
+/** The legacy rows alone: what the manifest listed before the shared-row split. */
+const todayManifest = (cat: string) => buildLegacyManifestIds(cat, <T,>(read: Promise<T | null>) => read);
 
 /** Every storage method that can write. An audit must call none of them. */
 const WRITE_METHODS = ['set', 'compareSet', 'compareSetMany', 'del', 'delIfEqual', 'incr', 'hset', 'hdel'] as const;

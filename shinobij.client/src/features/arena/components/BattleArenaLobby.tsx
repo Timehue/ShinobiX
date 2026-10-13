@@ -28,6 +28,7 @@ type BattleArenaLobbyProps = {
     onSparSearchChange: (search: string) => void;
     onSendDirectSpar: (name: string) => void;
     onChallengePlayer: (player: PlayerRecord, mode?: DuelChallenge["mode"], clanWarPoints?: number, teamBattle?: boolean) => void;
+    challengeBusy?: boolean; // a challenge is being sent; the challenge buttons wait
     onAcceptChallenge: (challenge: DuelChallenge) => void;
     onDeclineChallenge: (challenge: DuelChallenge) => void;
     onAcceptPetChallenge?: (challenge: DuelChallenge) => void;
@@ -53,7 +54,7 @@ export function BattleArenaLobby({
     onBeginAiBattle,
     onSparSearchChange,
     onSendDirectSpar,
-    onChallengePlayer,
+    onChallengePlayer, challengeBusy = false,
     onAcceptChallenge,
     onDeclineChallenge,
     onAcceptPetChallenge,
@@ -104,21 +105,21 @@ export function BattleArenaLobby({
                                 {sparOpponents.length === 0 ? (
                                     <>
                                         <p className="hint">No roster match. Send a spar challenge directly.</p>
-                                        <button onClick={() => onSendDirectSpar(sparSearch.trim())}>Send Spar Challenge to "{sparSearch.trim()}"</button>
+                                        <button disabled={challengeBusy} onClick={() => onSendDirectSpar(sparSearch.trim())}>Send Spar Challenge to "{sparSearch.trim()}"</button>
                                     </>
                                 ) : sparOpponents.map((player) => (
                                     <div className="summary-box" key={`spar-${player.name}`}>
                                         <strong>{player.name}</strong>
                                         <p>Level {player.level} | {player.village} | {player.specialty}</p>
                                         <div className="menu">
-                                            <button onClick={() => onChallengePlayer(player)}><GiBoxingGlove aria-hidden="true" /> Spar Challenge</button>
+                                            <button disabled={challengeBusy} onClick={() => onChallengePlayer(player)}><GiBoxingGlove aria-hidden="true" /> Spar Challenge</button>
                                             <button
-                                                disabled={availablePetCount < 1}
+                                                disabled={availablePetCount < 1 || challengeBusy}
                                                 title={availablePetCount < 1 ? "You need one available pet" : undefined}
                                                 onClick={() => onChallengePlayer(player, "clanWarPet", 0)}
                                             ><GiPawPrint aria-hidden="true" /> Pet Battle (1v1)</button>
                                             <button
-                                                disabled={availablePetCount < 2}
+                                                disabled={availablePetCount < 2 || challengeBusy}
                                                 title={availablePetCount < 2 ? "Raise a second pet (not on an expedition) to unlock 2v2" : undefined}
                                                 onClick={() => onChallengePlayer(player, "clanWarPet", 0, true)}
                                             ><GiPawPrint aria-hidden="true" /> Pet Battle (2v2)</button>

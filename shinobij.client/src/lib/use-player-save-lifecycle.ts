@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { Character } from "../types/character";
 import type { RefObject } from "react";
 import type { CapabilityAvailability } from "./live-capabilities";
@@ -25,9 +25,13 @@ export function usePlayerSaveLifecycle({ character, currentAccountName, fields, 
     const { charDirtyRef, flushSaveRef, latestSaveRef, saveSoonTimerRef, persistSave } = coordinator;
     const { lastSnapshotAppliedSectorRef, lastLocalSectorChangeRef } = sectorGuard;
     useEffect(() => { refreshPlayerSaveSnapshot(character, currentAccountName, fields, coordinator); });
-    useEffect(() => { trackPlayerSectorChange(character, currentAccountName, currentSector, { charDirtyRef }, { lastSnapshotAppliedSectorRef, lastLocalSectorChangeRef }); },
+    // What each tracker last acted on: an idle-regen `character` tick re-runs both
+    // effects, and must not re-dirty an unchanged sector or mission state.
+    const lastTrackedSectorRef = useRef<string | null>(null);
+    const lastTrackedMissionRef = useRef<string | null>(null);
+    useEffect(() => { trackPlayerSectorChange(character, currentAccountName, currentSector, { charDirtyRef }, { lastSnapshotAppliedSectorRef, lastLocalSectorChangeRef }, lastTrackedSectorRef); },
         [currentSector, character, currentAccountName, charDirtyRef, lastSnapshotAppliedSectorRef, lastLocalSectorChangeRef]);
-    useEffect(() => { trackPlayerMissionChange(character, currentAccountName, { acceptedMissionIds, missionProgress, triggeredEvents, currentBiome, pendingTravel, lastSnapshotMissionSigRef }, { charDirtyRef, flushSaveRef }); },
+    useEffect(() => { trackPlayerMissionChange(character, currentAccountName, { acceptedMissionIds, missionProgress, triggeredEvents, currentBiome, pendingTravel, lastSnapshotMissionSigRef }, { charDirtyRef, flushSaveRef }, lastTrackedMissionRef); },
         [acceptedMissionIds, missionProgress, triggeredEvents, currentBiome, pendingTravel, character, currentAccountName, lastSnapshotMissionSigRef, charDirtyRef, flushSaveRef]);
     useCapabilityGuardedAutosave({
         enabled: gameplayMutationsOpen,

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
-import { after, before, beforeEach, describe, test } from 'node:test';
+import { after, before, beforeEach, describe, test, type TestContext } from 'node:test';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -67,6 +67,18 @@ async function claim(tokenOwner = PLAYER, playerName = PLAYER): Promise<Out> {
 
 const ryo = async () => Number((await kv.get<{ character: { ryo: number } }>(SAVE_KEY))!.character.ryo);
 
+/*
+ * The handler reads its UTC day from a no-argument `new Date()` on every claim.
+ * A run that straddles UTC midnight between two claims, or between the seeded
+ * day marker and a claim, would put them on different days, so the repeat
+ * would pay again. The tests that compare two moments hold Date (Date.now and
+ * new Date alike) for their whole check. The idle-recovery test does not: it
+ * needs real elapsed time to tell a carried regen cursor from a fenced one.
+ */
+function holdUtcDay(t: TestContext): void {
+    t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
+}
+
 /** The next save write fails; `landed` makes it commit first, with a failed readback. */
 function failSaveWriteOnce(landed: boolean): () => void {
     const originalCompareSet = kv.compareSet.bind(kv);
@@ -105,7 +117,8 @@ function failSaveWriteOnce(landed: boolean): () => void {
 }
 
 describe('the personal Map Control reward is paid once per day', { concurrency: false }, () => {
-    test('a claim pays once, and a repeat that day pays nothing', async () => {
+    test('a claim pays once, and a repeat that day pays nothing', async (t) => {
+        holdUtcDay(t);
         const first = await claim();
         assert.equal(first.status, 200, JSON.stringify(first.body));
         assert.equal(first.body?.alreadyClaimed, false);
@@ -116,7 +129,8 @@ describe('the personal Map Control reward is paid once per day', { concurrency: 
         assert.equal(await ryo(), paid);
     });
 
-    test('concurrent claims pay once', async () => {
+    test('concurrent claims pay once', async (t) => {
+        holdUtcDay(t);
         const answers = await Promise.all(Array.from({ length: 5 }, () => claim()));
         assert.equal(answers.filter((a) => a.status === 200 && a.body?.alreadyClaimed === false).length, 1, JSON.stringify(answers.map((a) => a.status)));
         const once = await ryo();
@@ -138,7 +152,8 @@ describe('the personal Map Control reward is paid once per day', { concurrency: 
         assert.ok(await ryo() > 1_000);
     });
 
-    test('a save write that committed but reported an error is not paid twice', async () => {
+    test('a save write that committed but reported an error is not paid twice', async (t) => {
+        holdUtcDay(t);
         const restore = failSaveWriteOnce(true);
         try {
             assert.equal((await claim()).status, 503);
@@ -151,7 +166,8 @@ describe('the personal Map Control reward is paid once per day', { concurrency: 
         assert.equal(await ryo(), paid);
     });
 
-    test("a claim made by the previous build's day marker still counts that day", async () => {
+    test("a claim made by the previous build's day marker still counts that day", async (t) => {
+        holdUtcDay(t);
         const date = new Date().toISOString().slice(0, 10);
         await kv.set(`map-control-personal:${PLAYER}:${date}`, { ts: Date.now() });
         assert.equal((await claim()).body?.alreadyClaimed, true);

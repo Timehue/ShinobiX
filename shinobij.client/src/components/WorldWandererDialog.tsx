@@ -8,8 +8,8 @@ import {
     questbookEntry,
     questbookStage,
     questbookStageText,
-    timeLeftLabel,
 } from "../lib/questbook";
+import { EpicBellCountdown } from "./EpicBellCountdown";
 import {
     lockedQuestMetrics,
     questForWanderer,
@@ -232,14 +232,12 @@ export function WorldWandererDialog({
                         const bossName = stage.bossId ? (QUEST_BOSSES[stage.bossId]?.name ?? "the foe") : "the foe";
                         const rivalTier = character.wandererNemesis?.tier ?? 0;
                         const scalesRivalry = !!(stage.bossId && QUEST_BOSSES[stage.bossId]?.scalesWithRivalry && rivalTier > 0);
-                        const left = stage.timer && epic.deadline ? timeLeftLabel(epic.deadline, now) : null;
-                        const expired = left === "0:00";
                         return (
                             <>
                                 <p style={{ fontSize: ".82rem", margin: "0 0 2px", fontWeight: 700, color: "#c4b5fd" }}><GameArtIcon kind="scroll" size={16} /> {entry.title}</p>
                                 <p style={{ fontSize: ".7rem", color: "#9aa3b2", margin: "0 0 6px" }}>Stage {epic.stage + 1} of {entry.stages.length}</p>
                                 <p style={{ fontSize: ".8rem", margin: "0 0 8px" }}>{questbookStageText(stage, epic.choices)}</p>
-                                {left && <p style={{ fontSize: ".78rem", margin: "0 0 8px", fontWeight: 700, color: expired ? "var(--red-400)" : "#fbbf24" }}><GameArtIcon kind="mission" size={15} /> {expired ? "The bell rang. Your next attempt restarts this stage." : `${left} before the bell rings`}</p>}
+                                {stage.timer && epic.deadline ? <EpicBellCountdown deadline={epic.deadline} now={now} /> : null}
                                 {stage.choice ? (
                                     <>
                                         <p style={{ fontSize: ".76rem", fontStyle: "italic", color: "var(--slate-300)", margin: "0 0 10px" }}>{stage.choice.prompt}</p>

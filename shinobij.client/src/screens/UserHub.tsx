@@ -13,7 +13,7 @@
 
 // Relative-time display reads Date.now() in render by design; verbatim-moved from App.tsx (rule disabled file-wide there).
 /* eslint-disable react-hooks/purity */
-import { useState, useEffect, type FormEvent } from "react";
+import { useState, useEffect, useMemo, type FormEvent } from "react";
 import "../styles/profile-skin.css";
 import type { PlayerRecord, ServerPlayerSummary } from "../types/character";
 import { addFriend, follow, removeFriend, subscribeFollowing, subscribeFriends, unfollow } from "../lib/friends";
@@ -148,7 +148,10 @@ export function UserHub({
     }
 
     // Merge roster + server list so we have avatars for as many players as possible.
-    const merged = (() => {
+    // Reads only the two lists and currentName, so typing in the search box or
+    // switching tabs reuses the merged, sorted directory. Nothing below mutates
+    // it: candidates is a copy, and the filters build new arrays.
+    const merged = useMemo(() => {
         const byName = new Map<string, HubPlayer>();
         for (const p of playerRoster) {
             byName.set(p.name.toLowerCase(), {
@@ -180,7 +183,7 @@ export function UserHub({
                 detailsKnown: true,
             });
         }
-        return [...byName.values()]
+        const players = [...byName.values()]
             .filter(p => p.name.toLowerCase() !== currentName.toLowerCase())
             // Hide admin accounts — they aren't player-facing characters.
             .filter(p => (p.rank ?? "").toLowerCase() !== "admin")
@@ -188,10 +191,11 @@ export function UserHub({
             // these get registered as accounts but shouldn't appear in
             // the player directory.
             .filter(p => !/^clan[-\s]/i.test(p.name.trim()));
-    })();
 
-    // Sort offline group by most-recently-seen; online ones grouped first via render below.
-    merged.sort((a, b) => (b.lastSeenAt ?? 0) - (a.lastSeenAt ?? 0));
+        // Sort offline group by most-recently-seen; online ones grouped first via render below.
+        players.sort((a, b) => (b.lastSeenAt ?? 0) - (a.lastSeenAt ?? 0));
+        return players;
+    }, [playerRoster, allServerPlayers, currentName]);
 
     const selectedList = tab === 'following' ? following : tab === 'friends' ? friends : tab === 'blocked' ? blocked : null;
     const candidates = [...merged];

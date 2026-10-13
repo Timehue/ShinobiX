@@ -60,7 +60,7 @@ import { armorReductionForQuality, consumableHoldCap, equipmentSlotLabel, normal
 import { craftDungeonEvents } from "../data/vn-events";
 import { getCharacterElements } from "../lib/elements";
 import { getAllItems } from "../lib/items";
-import { countItem } from "../lib/inventory";
+import { countItem, unifiedItemStacks } from "../lib/inventory";
 import { publishSharedImage, readImageFile } from "../lib/shared-images";
 import { starterSavedBloodlines } from "../data/jutsu";
 import { WEAPON_POISON_TAG_CAP } from "../lib/tags";
@@ -565,10 +565,22 @@ export function CentralHub({
     // the destination is live before committing to the route.
     const weeklyBoss = weeklyBossSchedule(character, Date.now(), weeklyBossOverrideAi);
     const weeklyBossArtwork = weeklyBossOverrideAi?.image || WEEKLY_BOSS_ART[weeklyBoss.bossId] || weeklyMoonshadowArt;
-    const allHubItems = getAllItems(creatorItems);
+    // Idle regen replaces `character` every second while a vital is below max,
+    // so the catalog and the owned counts are keyed on what they actually read.
+    const allHubItems = useMemo(() => getAllItems(creatorItems), [creatorItems]);
+    // Owned count per item id across BOTH stores, built once per inventory
+    // change. unifiedItemStacks sums inventory[] entries plus the cleaned
+    // itemStacks, which is exactly what countItem adds up for a single id.
+    const { inventory: ownedInventory, itemStacks: ownedItemStacks } = character;
+    const ownedItemCounts = useMemo(
+        () => new Map(unifiedItemStacks(character).map(({ itemId, count }) => [itemId, count] as const)),
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the two fields unifiedItemStacks reads
+        [ownedInventory, ownedItemStacks],
+    );
+    const ownedCount = (itemId: string) => ownedItemCounts.get(itemId) ?? 0;
 
     function countInventory(itemId: string) {
-        return countItem(character, itemId);
+        return ownedCount(itemId);
     }
 
     // Rewards are auto-distributed by the weekly-boss API at the 24h
@@ -589,15 +601,15 @@ export function CentralHub({
     }
 
     function gatheredIngredientsReady(id: string, quantity = 1): boolean {
-        return recipeIngredients(id).length > 0 && planCraftIngredients(recipeIngredients(id), material => countItem(character, material), quantity) !== null
+        return recipeIngredients(id).length > 0 && planCraftIngredients(recipeIngredients(id), ownedCount, quantity) !== null
             && character.ryo >= (VILLAGE_SUPPLY_GOODS[id]?.ryo ?? 0) * quantity;
     }
     function gatheredIngredientsLine(id: string, quantity = 1): string {
         return recipeIngredients(id).map(ingredient =>
-            `${ingredient.label}: ${ingredient.ids.reduce((total, material) => total + countItem(character, material), 0)}/${ingredient.count * quantity}`).join(" · ");
+            `${ingredient.label}: ${ingredient.ids.reduce((total, material) => total + ownedCount(material), 0)}/${ingredient.count * quantity}`).join(" · ");
     }
     function recipeProgress(id: string, quantity = 1): number {
-        return craftIngredientProgress(recipeIngredients(id), material => countItem(character, material), quantity);
+        return craftIngredientProgress(recipeIngredients(id), ownedCount, quantity);
     }
     function selectCraftMaterials(kind: CraftPickerRecipe['kind'], id: string, name: string, quantity: number, opener: HTMLElement) {
         const item = allHubItems.find(entry => entry.id === id);
@@ -627,21 +639,23 @@ export function CentralHub({
 
     // Gear step drops copy their base's rarity and EP but are never a recipe; the
     // server refuses them, so listing one would be a payable button that errors.
-    const craftableWeapons = allHubItems
+    const craftableWeapons = useMemo(() => allHubItems
         .filter((item) => item.slot === "hand" && item.weaponEp != null && ["rare", "epic", "legendary"].includes(item.rarity) && !item.id.startsWith("named-weapon-") && !isStepItemId(item.id))
         .sort((a, b) => {
             const rank = { common: 0, uncommon: 0.5, rare: 1, epic: 2, legendary: 3, mythic: 4 } as Record<string, number>;
             return (rank[a.rarity] ?? 0) - (rank[b.rarity] ?? 0) || a.name.localeCompare(b.name);
-        });
+        }), [allHubItems]);
 
     // Armor items: rare-rarity body/head/waist/legs/feet pieces with
     // armorQuality set. Restricted to rare for now per design — epic/
     // legendary armor crafting can be unlocked later by widening the
     // rarity allowlist.
-    const ARMOR_SLOTS = new Set(["body", "head", "waist", "legs", "feet"]);
-    const craftableArmor = allHubItems
-        .filter((item) => ARMOR_SLOTS.has(normalizeEquipmentSlot(item.slot)) && item.armorQuality && item.rarity === "rare" && !isStepItemId(item.id))
-        .sort((a, b) => a.name.localeCompare(b.name));
+    const craftableArmor = useMemo(() => {
+        const ARMOR_SLOTS = new Set(["body", "head", "waist", "legs", "feet"]);
+        return allHubItems
+            .filter((item) => ARMOR_SLOTS.has(normalizeEquipmentSlot(item.slot)) && item.armorQuality && item.rarity === "rare" && !isStepItemId(item.id))
+            .sort((a, b) => a.name.localeCompare(b.name));
+    }, [allHubItems]);
 
     const awakenedElements = getCharacterElements(character);
     const dungeonKeyCount = countInventory(DUNGEON_KEY_ID);
@@ -1097,8 +1111,10 @@ export function CentralHub({
                                 {allBloodlines.map((bl) => (
                                     <div className="archives-card" key={`${(bl as ReviewBloodline).ownerKey ?? "local"}:${bl.id}`}>
                                         <div className="archives-card-img-wrap">
+                                            {/* Eager on purpose: e2e/item-artwork-coverage reads the built-in
+                                                portraits' naturalWidth without scrolling the codex. */}
                                             {bl.image
-                                                ? <img src={bl.image} alt={bl.name} className="archives-card-img" />
+                                                ? <img src={bl.image} alt={bl.name} className="archives-card-img" decoding="async" />
                                                 : <div className="archives-card-no-img"><GameArtIcon kind="cardHall" size={48} /></div>
                                             }
                                         </div>
@@ -1121,7 +1137,7 @@ export function CentralHub({
                                                 <strong>Techniques ({bl.jutsus.length})</strong>
                                                 {bl.jutsus.map((j) => (
                                                     <div key={j.id} className="archives-jutsu-row">
-                                                        {j.image && <img src={j.image} alt={j.name} className="archives-jutsu-img" />}
+                                                        {j.image && <img src={j.image} alt={j.name} className="archives-jutsu-img" loading="lazy" decoding="async" />}
                                                         <div>
                                                             <span className="archives-jutsu-name">{j.name}</span>
                                                             <span className="archives-jutsu-meta">{j.type} · {j.element} · {j.ap} AP</span>
@@ -1378,12 +1394,12 @@ export function CentralHub({
                 const materialsPanel = (
                     <details className="cf-mats">
                         <summary className="cf-mats-head">
-                            <span className="cf-mat-sum"><GiStoneStack /> <strong>Your Materials</strong> · <span className="cf-mat-total">{Object.keys(CRAFT_MATERIAL_NAMES).filter(id => countItem(character, id) > 0).length} types in stock</span></span>
+                            <span className="cf-mat-sum"><GiStoneStack /> <strong>Your Materials</strong> · <span className="cf-mat-total">{Object.keys(CRAFT_MATERIAL_NAMES).filter(id => ownedCount(id) > 0).length} types in stock</span></span>
                             <span className="cf-mat-toggle" />
                         </summary>
                         <div className="cf-mat-grid">
                             {Object.entries(CRAFT_MATERIAL_NAMES).map(([id, label]) => {
-                                const count = countItem(character, id);
+                                const count = ownedCount(id);
                                 const rarity = allHubItems.find(item => item.id === id)?.rarity ?? 'common';
                                 const Icon = MATERIAL_ICON[id] ?? GiStoneStack;
                                 return (
@@ -1574,10 +1590,12 @@ export function CentralHub({
                                     // crafted past the shared carry cap — show the count and gate.
                                     const capItem = recipe.itemId ? allHubItems.find((i) => i.id === recipe.itemId) : undefined;
                                     const cap = capItem ? consumableHoldCap(capItem) : null;
-                                    const owned = recipe.itemId ? countItem(character, recipe.itemId) : 0;
+                                    const owned = recipe.itemId ? ownedCount(recipe.itemId) : 0;
                                     const atCap = cap != null && owned + (recipe.per ?? 1) * craftQty > cap;
                                     const canAffordOne = gatheredIngredientsReady(recipe.itemId, craftQty);
                                     const img = itemImage(recipe.itemId);
+                                    const ingredientsLine = gatheredIngredientsLine(recipe.itemId, craftQty);
+                                    const supplyGood = VILLAGE_SUPPLY_GOODS[recipe.itemId];
                                     return (
                                         <div key={recipe.name} className="cf-card">
                                             <div className="cf-card-top">
@@ -1598,8 +1616,8 @@ export function CentralHub({
                                                 <div className="cf-meter-fill" style={{ width: `${fillPct}%` }} />
                                             </div>
                                             <small className="cf-points">Materials {fillPct}% · Output ×{(recipe.per ?? 1) * craftQty}</small>
-                                            {gatheredIngredientsLine(recipe.itemId, craftQty) && <small className="cf-cost">{gatheredIngredientsLine(recipe.itemId, craftQty)}</small>}
-                                            {VILLAGE_SUPPLY_GOODS[recipe.itemId] && <small className="cf-cost">{character.ryo}/{VILLAGE_SUPPLY_GOODS[recipe.itemId].ryo * craftQty} ryo · shared 40-provisions donation cap/day</small>}
+                                            {ingredientsLine && <small className="cf-cost">{ingredientsLine}</small>}
+                                            {supplyGood && <small className="cf-cost">Costs {(supplyGood.ryo * craftQty).toLocaleString()} ryo (you have {character.ryo.toLocaleString()}). Supplies you donate count toward your shared limit of 40 provisions a day.</small>}
                                             <button onClick={event => selectCraftMaterials('supply', recipe.itemId, recipe.name, craftQty, event.currentTarget)} disabled={craftBusy || !canAffordOne || atCap || character.level < (recipe.levelReq ?? 1)}>
                                                 {character.level < (recipe.levelReq ?? 1) ? `Level ${recipe.levelReq} required` : atCap ? "At carry limit" : `Craft ×${craftQty}`}
                                             </button>
@@ -1646,6 +1664,7 @@ export function CentralHub({
                                     const ready = character.level >= effectiveItemLevelReq(item) && character.ryo >= ryo && gatheredIngredientsReady(item.id);
                                     const fillPct = recipeProgress(item.id);
                                     const img = itemImage(item.id);
+                                    const ingredientsLine = gatheredIngredientsLine(item.id);
                                     return (
                                         <div key={item.id} className="cf-card" data-rarity={item.rarity}>
                                             <div className="cf-card-top">
@@ -1657,11 +1676,11 @@ export function CentralHub({
                                                 <div className="cf-card-head">
                                                     <div className="cf-card-title">
                                                         <strong>{item.name}</strong>
-                                                        <button className="weapon-info-btn" onClick={() => setWeaponInfoItem(item)} title="View weapon info">i</button>
+                                                        <button type="button" className="weapon-info-btn" onClick={() => setWeaponInfoItem(item)} title="View weapon info" aria-label={`View ${item.name} details`}>i</button>
                                                     </div>
                                                     <small>{item.rarity.toUpperCase()} | Lv {effectiveItemLevelReq(item)} | {item.weaponEp ?? 0} EP | {item.weaponEffect ?? "Weapon"}</small>
                                                     <small className="cf-cost">{ryo.toLocaleString()} ryo</small>
-                                                    {gatheredIngredientsLine(item.id) && <small className="cf-cost">{gatheredIngredientsLine(item.id)}</small>}
+                                                    {ingredientsLine && <small className="cf-cost">{ingredientsLine}</small>}
                                                 </div>
                                             </div>
                                             <div className="cf-meter">
@@ -1686,6 +1705,7 @@ export function CentralHub({
                                         const ready = character.level >= effectiveItemLevelReq(item) && character.ryo >= ryo && gatheredIngredientsReady(item.id);
                                         const fillPct = recipeProgress(item.id);
                                         const img = itemImage(item.id);
+                                        const ingredientsLine = gatheredIngredientsLine(item.id);
                                         return (
                                             <div key={item.id} className="cf-card" data-rarity={item.rarity}>
                                                 <div className="cf-card-top">
@@ -1698,7 +1718,7 @@ export function CentralHub({
                                                         <strong>{item.name}</strong>
                                                         <small>{item.rarity.toUpperCase()} | Lv {effectiveItemLevelReq(item)} | {equipmentSlotLabel(item.slot)} | {item.armorQuality ?? "—"}</small>
                                                         <small className="cf-cost">{ryo.toLocaleString()} ryo</small>
-                                                    {gatheredIngredientsLine(item.id) && <small className="cf-cost">{gatheredIngredientsLine(item.id)}</small>}
+                                                    {ingredientsLine && <small className="cf-cost">{ingredientsLine}</small>}
                                                     </div>
                                                 </div>
                                                 <div className="cf-meter">
@@ -1868,10 +1888,10 @@ export function CentralHub({
                                                 )}
 
                                                 <div>
-                                                    <button className="nw-commit" onClick={forgeNamedArmor}>
-                                                        <GiBlacksmith style={HDR_ICON} />Forge Armor
+                                                    <button className="nw-commit" onClick={forgeNamedArmor} disabled={namedForgeBusy}>
+                                                        <GiBlacksmith style={HDR_ICON} />{namedForgeBusy ? "Forging…" : "Forge Armor"}
                                                     </button>
-                                                    <button className="danger-button" onClick={() => { setNamedArmorRoll(null); setNamedArmorToken(""); }}>
+                                                    <button className="danger-button" onClick={() => { setNamedArmorRoll(null); setNamedArmorToken(""); }} disabled={namedForgeBusy}>
                                                         <GiTrashCan style={HDR_ICON} />Discard Roll
                                                     </button>
                                                 </div>
@@ -2040,10 +2060,10 @@ export function CentralHub({
                                                 )}
 
                                                 <div>
-                                                    <button className="nw-commit" onClick={forgeNamedWeapon}>
-                                                        <GiBlacksmith style={HDR_ICON} />Forge Weapon
+                                                    <button className="nw-commit" onClick={forgeNamedWeapon} disabled={namedForgeBusy}>
+                                                        <GiBlacksmith style={HDR_ICON} />{namedForgeBusy ? "Forging…" : "Forge Weapon"}
                                                     </button>
-                                                    <button className="danger-button" onClick={() => { setNamedWeaponRoll(null); setNamedWeaponToken(""); }}>
+                                                    <button className="danger-button" onClick={() => { setNamedWeaponRoll(null); setNamedWeaponToken(""); }} disabled={namedForgeBusy}>
                                                         <GiTrashCan style={HDR_ICON} />Discard Roll
                                                     </button>
                                                 </div>

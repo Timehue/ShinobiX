@@ -85,6 +85,7 @@ export async function isCurrentKageInvitation(
 }
 
 export type ChallengeSessionReservation = {
+    villageWarObjective?: { warId: string; generation: number; objectiveId: string; runId: string };
     id: string;
     from: string;
     to: string;
@@ -119,10 +120,27 @@ export async function reserveChallengeForPvpSession(args: {
         const creator = safeName(args.creator);
         const p1 = safeName(args.p1);
         const p2 = safeName(args.p2);
-        if (!creator || creator !== record.to || p1 !== record.from || p2 !== record.to) return null;
+        const campaignDispatch = !!record.challenge.villageWarObjective;
+        if (!creator || (creator !== record.to && !(campaignDispatch && creator === record.from))
+            || p1 !== record.from || p2 !== record.to) return null;
         if (isPlayerChallengeMode(args.mode) && args.mode !== record.mode) return null;
         // Pet-only protocols do not create the hex-grid PvP session.
         if (record.mode === 'clanWarPet' || record.mode === 'rankedPet') return null;
+        if (campaignDispatch) {
+            const binding = record.challenge.villageWarObjective as ChallengeSessionReservation['villageWarObjective'];
+            if (!binding || typeof binding.warId !== 'string' || typeof binding.runId !== 'string') return null;
+            const [war, run] = await Promise.all([
+                kv.get<import('../_village-war-campaign.js').CampaignWarRow>(`world:war:${binding.warId}`),
+                kv.get<{ attacker: string; defender: string; npc: boolean; battleId?: string; generation: number; objectiveId?: string }>(`village-campaign-run:${binding.runId}`),
+            ]);
+            const objective = war?.campaign && [...war.campaign.shrine, ...war.campaign.strongholds].find(o => o.id === binding.objectiveId);
+            if (!war?.campaign || war.endedAt || war.declarationGeneration !== binding.generation
+                || (war.declarationFunding && war.declarationFunding.status !== 'active')
+                || !war.campaign.admissions[binding.runId] || !run || run.npc
+                || run.attacker !== p1 || run.defender !== p2 || run.battleId !== args.battleId
+                || run.generation !== binding.generation || run.objectiveId !== binding.objectiveId
+                || !objective || objective.mode !== 'combat' || Date.now() < objective.opensAt || Date.now() >= objective.closesAt) return null;
+        }
 
         const kageVillage = typeof record.challenge.kageVillage === 'string'
             ? record.challenge.kageVillage.trim()
@@ -150,12 +168,16 @@ export async function reserveChallengeForPvpSession(args: {
             resolvedAt: Date.now(),
         };
         await kv.set(key, next, { ex: CHALLENGE_RECORD_TTL_SECONDS });
+        // This field cannot be submitted through the social challenge endpoint;
+        // only the village campaign dispatcher places it on a server record.
+        const villageWarObjective = record.challenge.villageWarObjective as ChallengeSessionReservation['villageWarObjective'];
         return {
             id: record.id,
             from: record.from,
             to: record.to,
             mode: record.mode,
             battleId: args.battleId,
+            ...(villageWarObjective ? { villageWarObjective } : {}),
             ...(kageVillage && kageChallengeId ? {
                 kageDuelAuthority: {
                     version: 1 as const,

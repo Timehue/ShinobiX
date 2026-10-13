@@ -104,6 +104,34 @@ beforeEach(async () => {
 });
 
 describe('world-state village-war declaration authority', { concurrency: false }, () => {
+    it('charges the full 800 WR once at eight held sectors and rejects repeat declarations without charging', async () => {
+        const { HOME_SECTORS } = await import('./_war-map-sectors.js');
+        for (const sector of HOME_SECTORS[LEAF]) await kv.set(`world:territory:${sector}`, { sector, ownerVillage: LEAF });
+        await kv.set(LEAF_WAR_KEY, { warResources: 1000, structures: {} });
+        const first = await invoke('leafkage', [LEAF, MIST]);
+        assert.equal(first.statusCode, 200, first.body?.error);
+        assert.equal((await kv.get<Record<string, any>>(PAIR_KEY))?.declarationFunding.source.amount, 800);
+        assert.equal((await kv.get<Record<string, any>>(LEAF_WAR_KEY))?.warResources, 200);
+        const replay = await invoke('leafkage', [LEAF, MIST]);
+        assert.equal(replay.statusCode, 409);
+        assert.equal((await kv.get<Record<string, any>>(LEAF_WAR_KEY))?.warResources, 200);
+        const row = await kv.get<Record<string, any>>(PAIR_KEY);
+        assert.equal(row?.campaign.startsAt - row?.startedAt, 3_600_000);
+        assert.equal(row?.campaign.endsAt - row?.campaign.startsAt, 5 * 86_400_000);
+    });
+    it('creates funded five-day campaigns through the real declaration route without publishing secret strongholds', async () => {
+        const declared = await invoke('leafkage', [LEAF, MIST]);
+        assert.equal(declared.statusCode, 200, declared.body?.error);
+        const stored = await kv.get<Record<string, any>>(PAIR_KEY);
+        assert.equal(stored?.declarationFunding.status, 'active');
+        assert.equal(stored?.campaign.version, 2);
+        assert.equal(stored?.campaign.endsAt - stored?.campaign.startsAt, 5 * 86_400_000);
+        assert.equal(stored?.campaign.shrine.length, 5);
+        for (const village of [LEAF, MIST]) {
+            assert.deepEqual(stored?.campaign.strongholds.filter((o: any) => o.village === village).map((o: any) => o.mode), ['combat', 'pet', 'card']);
+        }
+        assert.equal(JSON.stringify(declared.body).includes('strongholds'), false);
+    });
     it('lets only one of concurrent A-B / A-C declarations activate and records a zero-WR receipt', async () => {
         const [ab, ac] = await Promise.all([
             invoke('leafkage', [LEAF, MIST]),

@@ -5,7 +5,8 @@ import { kv } from './_storage.js';
 import { allow, allowKv, hasBudget } from './_ratelimit.js';
 
 // Covers the in-memory bucket that underpins both rate-limit tiers AND the
-// strict KV-outage fallback (allowKv strict=true delegates to allow()).
+// strict KV-outage fallback (allowKv strict=true keeps an in-memory window,
+// aligned to the wall clock like the durable one).
 // Deterministic + pure: no KV, no network. Uses unique keys per case so the
 // module-level bucket map doesn't bleed state between tests.
 
@@ -60,11 +61,18 @@ describe('allowKv (durable rate bucket)', () => {
     it('strict mode retains a local ceiling during a KV outage', async () => {
         const original = kv.incr;
         kv.incr = async () => { throw new Error('simulated outage'); };
+        // The fallback window is aligned to the wall clock like the durable one,
+        // so two hits that straddle a minute boundary land in separate windows.
+        // Hold the clock still between them.
+        const realNow = Date.now;
+        const heldAt = realNow();
+        Date.now = () => heldAt;
         try {
             const key = `test-strict-${Math.random()}`;
             assert.equal((await allowKv(key, 1, 60_000, true)).ok, true);
             assert.equal((await allowKv(key, 1, 60_000, true)).ok, false);
         } finally {
+            Date.now = realNow;
             kv.incr = original;
         }
     });

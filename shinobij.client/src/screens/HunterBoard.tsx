@@ -14,7 +14,8 @@ import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";
 import { dailyHuntsCompleted, hasDailyHuntSlot, dailyHuntCap } from "../lib/character-progress";
 import { postClaimMission, applyServerMissionReward, claimReasonMessage, claimHttpFailureMessage } from "../lib/claim-mission";
 import { missionClaimActionScope } from "../lib/action-deadline-store";
-import { useActionDeadline } from "../lib/use-action-deadline";
+import { useLiveActionDeadline } from "../lib/use-action-deadline";
+import { SharedClockLeaf } from "../components/SharedClockLeaf";
 import { commitAuthoritativeMissionClaim } from "../lib/versioned-mission-claim";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { starterItems } from "../data/starter-items";
@@ -71,8 +72,17 @@ export function HunterBoard({
     const [authoritativeHuntStates, setAuthoritativeHuntStates] = useState<Record<string, WorldHuntTrailView>>({});
     const huntClaimInFlight = useRef(false);
     const [claimingHuntId, setClaimingHuntId] = useState<string | null>(null);
-    const claimCooldownMs = useActionDeadline(missionClaimActionScope(character.name));
+    // Live only while a claim cooldown runs. The board's other render-time clock
+    // reads (the UTC day behind the hunt counter, the Apex ISO week) sit in
+    // SharedClockLeaf, so they still update on every one-second tick.
+    const claimCooldownMs = useLiveActionDeadline(missionClaimActionScope(character.name));
     const [lastClaim, setLastClaim] = useState<{ title: string; reward: string } | null>(null);
+    // One Guild request at a time (rank up, accept, give up, purse). The button
+    // that started it says what it is doing and the others wait, so a double
+    // tap cannot send the same contract request twice.
+    const guildActionRef = useRef<string | null>(null);
+    const [guildAction, setGuildAction] = useState<string | null>(null);
+    const guildBusy = guildAction !== null || claimingHuntId !== null;
     const acceptedHuntKey = builtinHuntMissions
         .filter((mission) => acceptedMissionIds.includes(mission.id))
         .map((mission) => mission.id)
@@ -121,6 +131,19 @@ export function HunterBoard({
         return countItem(character, itemId);
     }
 
+    /** Runs one Guild request; resolves null without sending while another is in flight. */
+    async function guildRequest<T>(key: string, request: () => Promise<T>): Promise<T | null> {
+        if (guildActionRef.current !== null || huntClaimInFlight.current) return null;
+        guildActionRef.current = key;
+        setGuildAction(key);
+        try {
+            return await request();
+        } finally {
+            guildActionRef.current = null;
+            setGuildAction(null);
+        }
+    }
+
     async function rankUp() {
         if (!requireServerSettlement("fieldHuntMissions")) return;
         if (hunterRank >= HUNTER_RANKUP.length) return alert("You have reached the highest Hunter Rank.");
@@ -129,7 +152,8 @@ export function HunterBoard({
             return alert(`You need ${req.qty}x ${HUNT_MATERIAL_NAMES[req.itemId]} to advance your Hunter Rank.`);
         }
         try {
-            const result = await rankUpHunterServer(character.name);
+            const result = await guildRequest("rank", () => rankUpHunterServer(character.name));
+            if (!result) return;
             if (!onVersionedCharacter(result.character, result._saveVersion)) return;
             alert(`Hunter Rank advanced! You are now a ${HUNTER_RANK_LABELS[hunterRank + 1]}.`);
         } catch (error) {
@@ -143,7 +167,8 @@ export function HunterBoard({
         if ((HUNT_MIN_RANK[mission.rank] ?? 0) > hunterRank) return alert(`Requires Hunter Rank: ${HUNTER_RANK_LABELS[HUNT_MIN_RANK[mission.rank] ?? 0]}.`);
         // Idempotent on the server. Calling accept for an already-visible legacy
         // contract lets rollout migration materialize its authoritative trail.
-        const result = await postWorldHunt({ playerName: character.name, action: "accept", missionId: mission.id });
+        const result = await guildRequest(`accept:${mission.id}`, () => postWorldHunt({ playerName: character.name, action: "accept", missionId: mission.id }));
+        if (!result) return;
         if (!result.ok) {
             // Claimed-today/stale cross-device cards return a cleaned snapshot
             // even with a conflict status. Adopt it before explaining why this
@@ -196,7 +221,7 @@ export function HunterBoard({
     }
 
     async function claimHunt(mission: CreatorMission) {
-        if (huntClaimInFlight.current) return;
+        if (huntClaimInFlight.current || guildActionRef.current !== null) return;
         huntClaimInFlight.current = true;
         setClaimingHuntId(mission.id);
         try {
@@ -303,7 +328,8 @@ export function HunterBoard({
     // Marked danger — abandoning discards tracking progress.
     async function abandonHunt(mission: CreatorMission) {
         if (!await gameConfirm(`Abandon "${mission.name}"? You'll lose your tracking progress on this contract.`, { title: "Abandon contract", confirmLabel: "Abandon", danger: true })) return;
-        const result = await postWorldHunt({ playerName: character.name, action: "abandon", missionId: mission.id });
+        const result = await guildRequest(`abandon:${mission.id}`, () => postWorldHunt({ playerName: character.name, action: "abandon", missionId: mission.id }));
+        if (!result) return;
         if (!result.ok) return alert(result.error ?? "The Guild could not release this contract. Try again.");
         if (result.character) {
             if (!onVersionedCharacter(result.character, result._saveVersion)) return;
@@ -313,10 +339,11 @@ export function HunterBoard({
     }
 
     // ── Apex Contract ───────────────────────────────────────────────────────
-    const apexWeek = isoWeekKey(new Date());
+    // The ISO week is read in the Apex card's SharedClockLeaf, which hands the
+    // week it rendered to this handler.
 
     /** Straight to the fight: the Apex is already found, there is no trail. */
-    function faceApex() {
+    function faceApex(apexWeek: string) {
         if (!requireServerSettlement("fieldHuntMissions")) return;
         if (!canTakeApex(character)) return;
         // apex-ai-* profiles are real builtins (lib/combat-ai.ts), so both the
@@ -344,8 +371,9 @@ export function HunterBoard({
      */
     async function claimApex() {
         if (!requireServerSettlement("fieldHuntMissions")) return;
-        if (claimCooldownMs > 0) return;
-        const result = await postClaimMission(character.name, "apex", "apex-weekly");
+        // Checked here so the null below can only mean the claim never reached the server.
+        if (claimCooldownMs > 0 || guildActionRef.current !== null || huntClaimInFlight.current) return;
+        const result = await guildRequest("apex", () => postClaimMission(character.name, "apex", "apex-weekly"));
         if (result === null) return alert("Could not reach the server. Try again.");
         if (result.ok === false) return alert(claimHttpFailureMessage(result));
         if (result.applied === true) {
@@ -365,18 +393,20 @@ export function HunterBoard({
             backgroundPosition: "center top",
             backgroundAttachment: "fixed",
         }}>
-            <CentralDestinationHeader
-                backLabel="Central"
-                eyebrow="The Thousand Gates · Tracker Command"
-                icon={<GiDragonHead />}
-                onBack={() => setScreen("centralHub")}
-                statusLabel="Daily hunt rewards"
-                statusValue={`${dailyHuntsCompleted(character)} / ${huntCap}`}
-                subtitle="Read the trail, prepare the right loadout, and turn dangerous quarry into guild standing."
-                title="Hunting"
-                tone="azure"
-            />
-            {!hasDailyHuntSlot(character) && <p role="status">Rewards reset at midnight UTC. You can still accept and track eligible contracts.</p>}
+            <SharedClockLeaf>{() => (
+                <CentralDestinationHeader
+                    backLabel="Central"
+                    eyebrow="The Thousand Gates · Tracker Command"
+                    icon={<GiDragonHead />}
+                    onBack={() => setScreen("centralHub")}
+                    statusLabel="Daily hunt rewards"
+                    statusValue={`${dailyHuntsCompleted(character)} / ${huntCap}`}
+                    subtitle="Read the trail, prepare the right loadout, and turn dangerous quarry into guild standing."
+                    title="Hunting"
+                    tone="azure"
+                />
+            )}</SharedClockLeaf>
+            <SharedClockLeaf>{() => !hasDailyHuntSlot(character) && <p role="status">Rewards reset at midnight UTC. You can still accept and track eligible contracts.</p>}</SharedClockLeaf>
             {lastClaim && <ClaimImpactNotice {...lastClaim} onClose={() => setLastClaim(null)} />}
 
             <div className="hunter-rank-banner">
@@ -397,17 +427,19 @@ export function HunterBoard({
                 {hunterRank < HUNTER_RANKUP.length && (
                     <button
                         className="rank-up-btn"
-                        disabled={invCount(HUNTER_RANKUP[hunterRank].itemId) < HUNTER_RANKUP[hunterRank].qty}
+                        disabled={invCount(HUNTER_RANKUP[hunterRank].itemId) < HUNTER_RANKUP[hunterRank].qty || guildBusy}
+                        aria-busy={guildAction === "rank"}
                         onClick={rankUp}
                     >
-                        Rank Up → {HUNTER_RANK_LABELS[Math.min(hunterRank + 1, HUNTER_RANK_LABELS.length - 1)]}
+                        {guildAction === "rank" ? "Ranking up…" : <>Rank Up → {HUNTER_RANK_LABELS[Math.min(hunterRank + 1, HUNTER_RANK_LABELS.length - 1)]}</>}
                     </button>
                 )}
             </div>
 
             {/* Apex Contract — the Rank 5 capstone. Hidden entirely below max
                 rank so it reads as something to climb toward, not a locked row. */}
-            {canTakeApex(character) && (() => {
+            {canTakeApex(character) && <SharedClockLeaf>{() => {
+                const apexWeek = isoWeekKey(new Date());
                 const beast = apexBeastForWeek(apexWeek);
                 const claimed = apexClaimedThisWeek(character, apexWeek);
                 const portrait = beastPortrait(beast.apexAiId);
@@ -432,17 +464,17 @@ export function HunterBoard({
                             {claimed
                                 ? <span className="apex-done">Claimed this week</span>
                                 : <>
-                                    <button type="button" className="apex-fight" onClick={faceApex}>
+                                    <button type="button" className="apex-fight" onClick={() => faceApex(apexWeek)}>
                                         Face the Apex
                                     </button>
-                                    <button type="button" className="apex-claim" disabled={claimCooldownMs > 0} onClick={claimApex}>
-                                        {claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Purse"}
+                                    <button type="button" className="apex-claim" disabled={claimCooldownMs > 0 || guildBusy} aria-busy={guildAction === "apex"} onClick={claimApex}>
+                                        {guildAction === "apex" ? "Claiming…" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Purse"}
                                     </button>
                                 </>}
                         </div>
                     </div>
                 );
-            })()}
+            }}</SharedClockLeaf>}
 
             {missionRanks.map((rank) => {
                 const minRank = HUNT_MIN_RANK[rank] ?? 0;
@@ -507,13 +539,13 @@ export function HunterBoard({
                                             )}
                                             <div className="menu">
                                                 {!accepted
-                                                    ? <button disabled={character.level < mission.levelReq} onClick={() => acceptHunt(mission)}>{character.level < mission.levelReq ? `Requires level ${mission.levelReq}` : "Accept Hunt"}</button>
+                                                    ? <button disabled={character.level < mission.levelReq || guildBusy} aria-busy={guildAction === `accept:${mission.id}`} onClick={() => { void acceptHunt(mission); }}>{character.level < mission.levelReq ? `Requires level ${mission.levelReq}` : guildAction === `accept:${mission.id}` ? "Accepting…" : "Accept Hunt"}</button>
                                                     : <>
                                                         {complete
-                                                            ? <button aria-busy={claimingHuntId === mission.id} disabled={claimingHuntId !== null || claimCooldownMs > 0} onClick={() => { void claimHunt(mission); }}>{claimingHuntId === mission.id ? "Claiming..." : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Reward"}</button>
+                                                            ? <button aria-busy={claimingHuntId === mission.id} disabled={guildBusy || claimCooldownMs > 0} onClick={() => { void claimHunt(mission); }}>{claimingHuntId === mission.id ? "Claiming..." : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Reward"}</button>
                                                             : null
                                                         }
-                                                        <button className="danger-button" disabled={claimingHuntId !== null} onClick={() => void abandonHunt(mission)}>Give Up</button>
+                                                        <button className="danger-button" disabled={guildBusy} aria-busy={guildAction === `abandon:${mission.id}`} onClick={() => void abandonHunt(mission)}>{guildAction === `abandon:${mission.id}` ? "Giving up…" : "Give Up"}</button>
                                                     </>
                                                 }
                                             </div>

@@ -24,6 +24,15 @@ import type { SoloPveSession } from './_session.js';
 import { GARRISON_ENCOUNTER_KIND } from '../_sector-war-garrison-encounter.js';
 
 export async function settleTerminalGarrisonFight(session: SoloPveSession | null | undefined): Promise<void> {
+    if (session?.status === 'done' && session.encounter?.kind.startsWith('village-war-')) {
+        try {
+            const { settleTerminalCampaignSession } = await import('../village/war-campaign.js');
+            await settleTerminalCampaignSession(session);
+        } catch (error) {
+            console.warn('[solo-pve] village-war settlement deferred:', (error as Error)?.message ?? error);
+        }
+        return;
+    }
     if (!session || session.status !== 'done' || session.encounter?.kind !== GARRISON_ENCOUNTER_KIND) return;
     try {
         const { settleTerminalGarrisonSession } = await import('../_sector-war-garrison-settle.js');

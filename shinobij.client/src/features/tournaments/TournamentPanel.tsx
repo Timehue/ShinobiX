@@ -14,10 +14,12 @@ const PetShowdownReplay = lazy(() => import('../../components/PetShowdownReplay'
 export function TournamentPanel({ character, sharedImages, onVersionedCharacter, onFightStateChange }: {
     character: Character; sharedImages?: Record<string, string>; onVersionedCharacter: VersionedCharacterCommit; onFightStateChange?: (active: boolean) => void;
 }) {
-    const { data, error, busy, now, act, refresh } = useTournament();
-    const [partner, setPartner] = useState(''), [petIds, setPetIds] = useState<string[]>([]);
     const [battle, setBattle] = useState<{ match: TowerPvpMatch; eventId: string; bracketId: string } | null>(null);
     const [script, setScript] = useState<ShowdownReplayScript | null>(null);
+    // The board poll and countdown pause while a battle or replay covers the
+    // board; the hook refreshes the board the moment it is back.
+    const { data, error, busy, now, act, refresh } = useTournament(undefined, !battle && !script);
+    const [partner, setPartner] = useState(''), [petIds, setPetIds] = useState<string[]>([]);
     const [opening, setOpening] = useState(false), [battleError, setBattleError] = useState('');
     const event = data?.event;
     const me = data?.playerId ?? '';
@@ -63,7 +65,8 @@ export function TournamentPanel({ character, sharedImages, onVersionedCharacter,
     const exit = () => {
         setBattle(null); setScript(null); setTowerPvpMatchId(null);
         try { sessionStorage.removeItem('tournament-resume'); } catch { /* optional breadcrumb */ }
-        void refresh();
+        // No refresh here: clearing battle/script re-activates useTournament,
+        // whose board poll restarts with an immediate refresh.
     };
     if (script) return <Suspense fallback={<p>Loading Colosseum replay…</p>}><PetShowdownReplay script={script} playerPets={pets} sharedImages={sharedImages} onExit={exit} /></Suspense>;
     if (battle) return <Suspense fallback={<p>Loading tournament battle…</p>}><BattleTowerFight character={character} sharedImages={sharedImages}

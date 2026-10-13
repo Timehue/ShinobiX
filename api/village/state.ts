@@ -35,7 +35,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const identity = await authedPlayerOrAdmin(req);
     if (!identity) return res.status(401).json({ error: 'Authentication required.' });
-    if (!identity.admin && !(await enforceRateLimitKv(req, res, 'village-state', 30, 60_000, identity.name))) return;
+    // Polled every 10s from Town Hall and 30s from the World Map, and read-only:
+    // count the window in process memory (same decisions, one replica) instead
+    // of a database increment per poll.
+    if (!identity.admin && !(await enforceRateLimitKv(req, res, 'village-state', 30, 60_000, identity.name, { local: true }))) return;
 
     try {
         const asked = String(req.query?.village ?? '').trim();

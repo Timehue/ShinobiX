@@ -59,7 +59,18 @@ before(async () => {
 });
 
 let store: Store;
-beforeEach(() => { store = storage._makeMemoryKv(); });
+beforeEach((context) => {
+    // counter() keys every telemetry read by today(), a no-argument
+    // `new Date()`, while the commit counts its event under the day from
+    // Date.now() (recordCurrencyLedgerEvent). A run that straddles UTC
+    // midnight between a test's two counter reads, or between the event and
+    // the second read, would compare counts from two different days. Freeze
+    // Date (Date.now and new Date alike) for each test. No test here needs
+    // real elapsed time.
+    if (!('mock' in context)) throw new Error('needs a per-test clock');
+    context.mock.timers.enable({ apis: ['Date'], now: Date.now() });
+    store = storage._makeMemoryKv();
+});
 afterEach(() => {
     delete process.env.DISABLE_CURRENCY_LEDGER_ATOMIC;
     delete process.env.DISABLE_CURRENCY_LEDGER_GATE;

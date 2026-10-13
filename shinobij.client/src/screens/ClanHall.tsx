@@ -7,6 +7,11 @@ import "../styles/index/29-clan-exchange-storefront.css";
 // both numbers must be shown, or the levy and the cap surface as failures.
 const CLAN_GIFT_TAX_LABEL = "10%";
 const CLAN_DONATE_MAX_RYO = 200_000;
+// Player-facing names for the non-ryo treasury currencies (matching the
+// Treasury tab), so a refusal never shows a save-field key.
+const CLAN_SPECIAL_CURRENCY_LABELS: Record<Exclude<ClanTreasuryCurrencyKey, "ryo">, string> = {
+    fateShards: "Fate Shards", boneCharms: "Bone Charms", auraStones: "Aura Stones", mythicSeals: "Mythic Seals",
+};
 import { CLAN_ROLE_COLOR, CLAN_UPGRADE_MAX_LEVEL, clanMissionDefinitions } from "../constants/clan";
 import { GameArtIcon, type GameArtIconKind } from "../components/GameArtIcon";
 const CLAN_ROLE_ART: Record<string, GameArtIconKind> = {
@@ -153,8 +158,17 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
     const [clanDeleteBusy, setClanDeleteBusy] = useState(false);
     const clanDeleteBusyRef = useRef(false);
     const clanSaveBusyRef = useRef(false);
-    const allClanItems = getAllItems(creatorItems);
-    const clanInventoryStacks = inventoryItemStacks(character, allClanItems);
+    // Mirrors clanSaveBusyRef for the controls that start a clan save, so a
+    // double tap is a disabled control instead of an "already saving" alert.
+    const [clanSaveBusy, setClanSaveBusy] = useState(false);
+    // Idle regen replaces `character` every second while a vital is below max;
+    // inventoryItemStacks reads only inventory + itemStacks, so key on those.
+    const allClanItems = useMemo(() => getAllItems(creatorItems), [creatorItems]);
+    const { inventory: carriedInventory, itemStacks: carriedItemStacks } = character;
+    const clanInventoryStacks = useMemo(
+        () => inventoryItemStacks(character, allClanItems),
+        [carriedInventory, carriedItemStacks, allClanItems],
+    );
     const clanTreasuryItems = cleanTreasuryItems(clanData?.treasury.items);
     // ── Village Stores clan mirror (display) ────────────────────────────────
     // Donated ration packs land in clanTreasury.provisions and the daily pass
@@ -195,6 +209,7 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
             return false;
         }
         clanSaveBusyRef.current = true;
+        setClanSaveBusy(true);
         try {
             const latest = await fetchClanDataDetailed(clanData.name);
             if (latest.ok !== true) {
@@ -210,6 +225,7 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
             return false;
         } finally {
             clanSaveBusyRef.current = false;
+            setClanSaveBusy(false);
         }
     }
 
@@ -583,7 +599,7 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
     async function donateSpecial(currency: Exclude<ClanTreasuryCurrencyKey, "ryo">, amount: number) {
         if (donateBusyRef.current) return;
         if (!clanData) return; const current = character[currency] ?? 0;
-        if (current < amount && !hasPendingTreasuryDonation("clan", character.name, clanData.name, { currency, amount })) return alert(`Not enough ${currency}.`);
+        if (current < amount && !hasPendingTreasuryDonation("clan", character.name, clanData.name, { currency, amount })) return alert(`Not enough ${CLAN_SPECIAL_CURRENCY_LABELS[currency]}.`);
         donateBusyRef.current = true;
         setDonateBusy(true);
         try {
@@ -993,7 +1009,7 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
         <div className="clan-tabs expanded-tabs"><button className={view==='overview'?'active':''} onClick={()=>setView('overview')}><GameArtIcon kind="clanHall" size={18}/>Overview</button><button className={view === "exchange" ? "active" : ""} onClick={() => setView("exchange")}><GameArtIcon kind="clanExchange" size={18} />Exchange</button><button className={view === "roster" ? "active" : ""} onClick={() => setView("roster")}><GameArtIcon kind="clanRoster" size={18} />Roster</button><button className={view === "treasury" ? "active" : ""} onClick={() => setView("treasury")}><GameArtIcon kind="ryo" size={18} />Treasury</button><button className={view === "boosts" ? "active" : ""} onClick={() => setView("boosts")}><GameArtIcon kind="clanBoost" size={18} />Boosts</button><button className={view === "upgrades" ? "active" : ""} onClick={() => setView("upgrades")}><GameArtIcon kind="blacksmith" size={18} />Upgrades</button><button className={view === "missions" ? "active" : ""} onClick={() => setView("missions")}><GameArtIcon kind="scroll" size={18} />Missions</button><button className={view === "wars" ? "active" : ""} onClick={() => setView("wars")}><GameArtIcon kind="attack" size={18} />Wars</button><button className={view === "rankings" ? "active" : ""} onClick={() => setView("rankings")}><GameArtIcon kind="crown" size={18} />Rankings</button>{bossTabEnabled && <button className={view === "boss" ? "active" : ""} onClick={() => setView("boss")}><GameArtIcon kind="clanBoss" size={18} />Boss</button>}<button className={view === "territory" ? "active" : ""} onClick={() => setView("territory")}><GameArtIcon kind="worldMap" size={18} />Territory</button><button className={view === "guard" ? "active" : ""} onClick={() => setView("guard")}><GameArtIcon kind="roleDefender" size={18} />Guard</button><button className={view === "notices" ? "active" : ""} onClick={() => setView("notices")}><GameArtIcon kind="clanNotices" size={18} />Notices</button><button className={view === "hall" ? "active" : ""} onClick={() => setView("hall")}><GameArtIcon kind="clanHall" size={18} />Hall</button><button className={view === "mentor" ? "active" : ""} onClick={() => setView("mentor")}><GameArtIcon kind="clanMentor" size={18} />Mentor</button><button className={view === "chat" ? "active" : ""} onClick={() => setView("chat")}><GameArtIcon kind="clanChat" size={18} />Chat</button></div>
         {view === "exchange" && <ClanExchange character={character} clanData={clanData} allItems={allClanItems} onVersionedCharacter={onVersionedCharacter} setClanData={setClanData} />}
         {view === "roster" && <div className="clan-roster">
-            {canReviewJoinRequests && <section className="summary-box clan-join-requests"><h3>Join Requests</h3>{clanData.joinRequests.length === 0 ? <p className="hint">No pending join requests.</p> : <div className="clan-request-list">{clanData.joinRequests.map(request => <div className="clan-request-card" key={request.name}><div><strong>{request.name}</strong><small>Lv.{request.level} · {request.specialty} · {request.village}</small><small>Requested {new Date(request.requestedAt).toLocaleString()}</small></div><div className="menu"><button onClick={() => acceptJoinRequest(request)}>Accept</button><button className="danger-button" onClick={() => denyJoinRequest(request)}>Deny</button></div></div>)}</div>}</section>}
+            {canReviewJoinRequests && <section className="summary-box clan-join-requests"><h3>Join Requests</h3>{clanData.joinRequests.length === 0 ? <p className="hint">No pending join requests.</p> : <div className="clan-request-list">{clanData.joinRequests.map(request => <div className="clan-request-card" key={request.name}><div><strong>{request.name}</strong><small>Lv.{request.level} · {request.specialty} · {request.village}</small><small>Requested {new Date(request.requestedAt).toLocaleString()}</small></div><div className="menu"><button onClick={() => acceptJoinRequest(request)} disabled={clanSaveBusy}>Accept</button><button className="danger-button" onClick={() => denyJoinRequest(request)} disabled={clanSaveBusy}>Deny</button></div></div>)}</div>}</section>}
             {sortedMembers.map((member, idx) => {
                 const role = clanRoleOf(member, clanData);
                 const contrib = clanContribTotal(member);
@@ -1006,7 +1022,7 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
                     <span className="clan-rank-badge" style={{ background: roleColor + "1a", color: roleColor, borderColor: roleColor + "44" }}><GameArtIcon kind={CLAN_ROLE_ART[role] ?? "missionHall"} size={16} /> {role}</span>
                     <div className="clan-contrib-col"><span className="clan-contrib-total">{contrib} pts</span><span className="clan-contrib-breakdown"><GameArtIcon kind="attack" size={14} />{member.battleContrib} <GameArtIcon kind="event" size={14} />{member.eventContrib} <GameArtIcon kind="mission" size={14} />{member.missionContrib}</span></div>
                     <div className="clan-member-actions">
-                        {myRole === "Founder" && !isFounderRow && <select className="clan-role-select" aria-label={`Set ${member.name}'s role`} value={role === "Leader" || role === "Officer" ? role : "Member"} onChange={e => void setMemberRole(member, e.target.value as "Leader" | "Officer" | "Member")}><option value="Member">Member</option><option value="Officer">Officer</option><option value="Leader">Leader</option></select>}
+                        {myRole === "Founder" && !isFounderRow && <select className="clan-role-select" aria-label={`Set ${member.name}'s role`} value={role === "Leader" || role === "Officer" ? role : "Member"} disabled={clanSaveBusy} onChange={e => void setMemberRole(member, e.target.value as "Leader" | "Officer" | "Member")}><option value="Member">Member</option><option value="Officer">Officer</option><option value="Leader">Leader</option></select>}
                         {canManageClan(myRole) && !isMe && !isFounderRow && <button className="danger-button clan-kick-btn" title={`Remove ${member.name}`} onClick={() => kickMember(member)}>Kick</button>}
                     </div>
                 </div>;

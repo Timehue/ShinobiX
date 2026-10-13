@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent, type RefObject } from 'react';
+import { memo, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent, type RefObject } from 'react';
 import { sectorName } from '../../../shared/sector-geo';
 import { SECTOR_CHAT_MAX_CHARS } from '../../../shared/sector-chat';
 import { useSectorChat } from '../lib/use-sector-chat';
@@ -9,7 +9,7 @@ import { useDismissGesture } from '../lib/use-dismiss-gesture';
 import { ReportControl } from './ReportControl';
 import { GuestSocialLock } from './GuestSocialLock';
 import { SectorHudPanel } from './SectorHudPanel';
-import type { SectorChatRefusal } from '../lib/sector-chat-api';
+import { sectorChatUnavailable, type SectorChatRefusal } from '../lib/sector-chat-api';
 
 const NEAR_BOTTOM_PX = 48;
 
@@ -29,11 +29,25 @@ function refusalLine(refusal: SectorChatRefusal): string {
  * sheet over the board through the same SectorHudPanel Sector Info uses; the
  * HUD owns which of the two sheets is open (`sheetOpen` / `onSheet`) so they
  * can never stack.
+ *
+ * Memoised: everything it draws comes from these props, its own state and its
+ * subscriptions, so a HUD re-render with the same props would redraw the same
+ * log. The one exception is the chat's 404 latch, which useSectorChat reads
+ * while rendering; it only ever turns on, so while it is off a skipped render
+ * would read the same value, and once it is on every HUD render goes through.
  */
-export function SectorChat({ sector, present, playerName, hudRef, sheetOpen, onSheet }: {
+export const SectorChat = memo(SectorChatView, (previous: SectorChatProps, next: SectorChatProps) => {
+    if (sectorChatUnavailable()) return false;
+    const keys = Object.keys(previous) as (keyof SectorChatProps)[];
+    return keys.length === Object.keys(next).length && keys.every((key) => Object.is(previous[key], next[key]));
+});
+
+type SectorChatProps = {
     sector: number; present: boolean; playerName: string;
     hudRef: RefObject<HTMLDivElement | null>; sheetOpen: boolean; onSheet: (open: boolean) => void;
-}) {
+};
+
+function SectorChatView({ sector, present, playerName, hudRef, sheetOpen, onSheet }: SectorChatProps) {
     const { messages, status, live, skewMs, send } = useSectorChat(sector, present);
     const { locked, loading } = useSocialLock(playerName);
     // Same click lease Sector Info keeps: a touch outside the sheet closes it

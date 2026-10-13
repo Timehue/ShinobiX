@@ -88,11 +88,13 @@ export function CardClashDuelScreen({
   setScreen,
   config,
   sharedImages = {},
+  context,
 }: {
   character: Character;
   setScreen: (screen: Screen) => void;
   config: CardClashDuelConfig;
   sharedImages?: Record<string, string>;
+  context?: Record<string, string>;
 }) {
   const [view, setView] = useState<ChronicleProjection | null>(null);
   const [waiting, setWaiting] = useState(true);
@@ -134,13 +136,14 @@ export function CardClashDuelScreen({
     [character.cardClashDeck, character.tileCards],
   );
   const stash = useMemo(() => {
+    if (context) return context;
     try {
       const raw = sessionStorage.getItem(config.stashKey);
       return raw ? (JSON.parse(raw) as Record<string, string>) : null;
     } catch {
       return null;
     }
-  }, [config.stashKey]);
+  }, [config.stashKey, context]);
 
   const post = useCallback(
     async (action: string, extra: Record<string, unknown> = {}) => {

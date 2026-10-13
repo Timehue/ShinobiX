@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
+import { getSharedNow, subscribeSharedNow } from "../lib/shared-now-store";
 import {
   CHRONICLE_FOUNDING_FORMAT,
   CHRONICLE_ROOM_TITLE,
@@ -49,6 +50,15 @@ type ResolutionFx = {
 const RESPONSE_PROMPT_BEAT_MS = 700;
 const SMART_ASSIST_KEY = "chronicleSmartAssist.v1";
 const EMPTY_PRESENTATION_EVENTS: ChroniclePresentationEvent[] = [];
+
+/** The turn countdown's text. It subscribes to the shared 1s display clock on
+ *  its own, so only this text re-renders each second instead of the whole duel
+ *  board. Display only: the server expires turns (advanceExpiredChronicleTurn).
+ *  The store snapshot doubles as the server snapshot for static rendering. */
+function DuelSecondsLeft({ deadline, format }: { deadline: number; format: (seconds: number) => string }) {
+  const now = useSyncExternalStore(subscribeSharedNow, getSharedNow, getSharedNow);
+  return <>{format(Math.max(0, Math.ceil((deadline - now) / 1_000)))}</>;
+}
 
 function readSmartAssist(): boolean {
   try {
@@ -310,7 +320,6 @@ export function ChronicleDuelBoard({
     cardId: string;
     zoneKey: string;
   } | null>(null);
-  const [clock, setClock] = useState(() => Date.now());
   const [zoomedCardId, setZoomedCardId] = useState<string | null>(null);
   // Which graveyard pile is open for browsing. Piles are face-up public
   // information in this format, so either side's is readable at any time.
@@ -483,7 +492,6 @@ export function ChronicleDuelBoard({
         legalGraveyardTarget(me.graveyard[graveyardIndex])));
   const deadline =
     state.responseWindow?.expiresAt ?? state.turnStartedAt + TURN_TIMEOUT_MS;
-  const secondsRemaining = Math.max(0, Math.ceil((deadline - clock) / 1_000));
   // Two turns in a row left to run out forfeit a PvP duel (shared/chronicle-duel.ts
   // advanceExpiredChronicleTurn). Say so while one strike is on record.
   const missedTurnNotice =
@@ -532,12 +540,6 @@ export function ChronicleDuelBoard({
     : state.responseWindow?.trigger === "onAttackDeclared"
       ? "The attack is paused before damage. Activate a Snare, or pass to let the attack continue."
       : "The Jutsu is waiting to resolve. Activate a Snare, or pass to let its effect continue.";
-
-  useEffect(() => {
-    if (!timedTurns) return;
-    const timer = window.setInterval(() => setClock(Date.now()), 1_000);
-    return () => window.clearInterval(timer);
-  }, [timedTurns]);
 
   useEffect(() => {
     if (!forfeitArmed) return;
@@ -941,7 +943,7 @@ export function ChronicleDuelBoard({
           <b>{eventLabel ? `${eventLabel} · ` : ''}TURN {state.turnNumber}</b>
           <span>
             {phaseMeta?.label.toUpperCase() ?? state.phase.toUpperCase()}
-            {timedTurns ? ` | ${secondsRemaining}s` : ""}
+            {timedTurns ? <DuelSecondsLeft deadline={deadline} format={(seconds) => ` | ${seconds}s`} /> : ""}
           </span>
           {state.responseWindow ? <em>SNARE RESPONSE</em> : null}
           {missedTurnNotice ? <em role="status">{missedTurnNotice}</em> : null}
@@ -1497,7 +1499,7 @@ export function ChronicleDuelBoard({
               : `${responseOwner} is deciding`}
           </strong>
           <p className="chronicle-response-explanation">{pendingTrigger ? chronicleEventCopy(pendingTrigger, cardsById, duelistNames) : responseHint}</p>
-          {timedTurns ? <b>{secondsRemaining}s</b> : <i />}
+          {timedTurns ? <b><DuelSecondsLeft deadline={deadline} format={(seconds) => `${seconds}s`} /></b> : <i />}
         </div>
       ) : null}
 
@@ -1509,7 +1511,7 @@ export function ChronicleDuelBoard({
           aria-label="Snare response"
         >
           <div className="chronicle-response-context">
-            <strong>Your response{timedTurns ? ` · ${secondsRemaining}s` : ""}</strong>
+            <strong>Your response{timedTurns ? <DuelSecondsLeft deadline={deadline} format={(seconds) => ` · ${seconds}s`} /> : ""}</strong>
             <p>{pendingTrigger ? chronicleEventCopy(pendingTrigger, cardsById, duelistNames) : "A Snare can answer this action."}</p>
             <small>{responseHint}</small>
           </div>

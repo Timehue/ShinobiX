@@ -23,6 +23,7 @@
  * players who are not standing in the same sector.
  */
 import { randomUUID } from 'node:crypto';
+import { alertSectorPreparation } from './_war-preparations.js';
 import { kv } from './_storage.js';
 import { safeName } from './_utils.js';
 import { isIncapacitated } from './_elapsed-state.js';
@@ -301,6 +302,9 @@ export async function noticeOpenSectorBattle(args: {
             sectorContest: { kind: args.kind, sectorWarId: args.sectorWarId, engageId: args.engageId },
         });
         kickPlayer(args.to, 'attack');
+        const contest = await loadSectorWar(args.sectorWarId);
+        const target = await characterOf(args.to);
+        if (contest && target) await alertSectorPreparation(contest, args.engageId, args.kind, args.now, String(target.village ?? ''));
     } catch (err) {
         console.warn('[sector-war] open battle notice deferred', args.engageId, (err as Error)?.message ?? err);
     }

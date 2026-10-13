@@ -1,0 +1,37 @@
+.war-shrine-dialog { width: min(940px, calc(100vw - 16px)); max-width: none; max-height: calc(100dvh - 16px); overflow: auto; padding: 0; border: 0; background: transparent; }
+.war-shrine-dialog::backdrop { background: #03090fe6; }
+.war-shrine-room { --war-shrine-gold: #e9c46d; --war-shrine-border: #8b723d; width: min(900px, 100%); margin: auto; padding: clamp(10px, 2.5vw, 20px); border: 1px solid var(--war-shrine-border); border-radius: 12px; background: #111821; color: #f5ead3; font-size: 14px; min-width: 0; box-sizing: border-box; }
+.war-shrine-room .war-shrine-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 8px; row-gap: 4px; padding-bottom: 8px; border-bottom: 1px solid #8b723d66; }
+.war-shrine-room h2 { margin: 0; padding: 0; border: 0; color: var(--war-shrine-gold); font-size: clamp(18px, 2vw, 24px); line-height: 1.2; }
+.war-shrine-room .war-shrine-meta { grid-column: 1 / -1; margin: 0; color: #c5cbd5; font-size: 12px; line-height: 1.4; }
+.war-shrine-room .war-shrine-window { margin: 8px 0 10px; font-size: 13px; line-height: 1.4; }
+.war-shrine-room .war-shrine-leave { width: auto; min-width: 56px; min-height: 36px; margin: 0; padding: 5px 10px; font-size: 13px; line-height: 1.2; }
+.war-shrine-room p { line-height: 1.5; }
+.war-shrine-room button { min-height: 44px; }
+.war-shrine-room [role=alert] { color: #ffb4aa; }
+.war-shrine-room-body { display: grid; grid-template-columns: minmax(0, 1fr) 230px; gap: 16px; align-items: start; }
+.war-shrine-room-body aside { min-width: 0; overflow-wrap: anywhere; }
+.war-shrine-floor { position: relative; width: min(100%, calc(100dvh - 180px)); aspect-ratio: 1; overflow: hidden; border: 1px solid #b4944d; border-radius: 8px; }
+.war-shrine-floor:focus-visible { outline: 3px solid #f1d486; outline-offset: 3px; }
+.war-shrine-floor-art { display: block; width: 100%; height: 100%; object-fit: cover; }
+.war-shrine-tiles { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(12, 1fr); grid-template-rows: repeat(12, 1fr); }
+.war-shrine-tiles button { min-height: 0; min-width: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+@media (hover: hover) {
+    .war-shrine-tiles button:not(:disabled):hover { background: #e8c15c30; outline: 1px solid #edd17b; }
+}
+.war-shrine-player { position: absolute; pointer-events: none; display: grid; place-items: center; width: clamp(24px, 5vw, 42px); z-index: 2; }
+.war-shrine-player > img, .war-shrine-player > b { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 50%; border: 2px solid #e4c96d; background: #182334; display: grid; place-items: center; font-size: 12px; }
+.war-shrine-player.is-enemy > b { border-color: #f18a77; }
+.war-shrine-player small { background: #080d17e8; padding: 2px 4px; border-radius: 3px; font-size: 10px; white-space: nowrap; max-width: 80px; overflow: hidden; text-overflow: ellipsis; }
+.war-shrine-room .war-shrine-input-hint { margin: 0 0 8px; color: #c5cbd5; font-size: 12px; line-height: 1.4; }
+.war-shrine-control { margin: 0; padding: 10px; border-left: 3px solid #d3b16a; background: #302919; }
+.war-shrine-opponents { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.war-shrine-room .war-shrine-rules { margin-top: 10px; color: #c5cbd5; font-size: 12px; line-height: 1.5; }
+.war-shrine-rules summary { cursor: pointer; }
+.war-shrine-rules p { margin: 8px 0 0; }
+.sector-war-shrine-standee { position: absolute; left: 50%; top: 58%; width: clamp(70px, 19%, 160px); transform: translate(-50%, -100%); background: transparent; border: 0; padding: 0; z-index: 7; }
+.sector-war-shrine-standee img { display: block; width: 100%; filter: drop-shadow(0 2px 7px #ecc35688); }
+.sector-war-shrine-standee span { display: block; padding: 3px 5px; background: #14120ae8; border: 1px solid #a98b45; border-radius: 4px; color: #f8dc92; font-size: 11px; }
+.sector-war-shrine-standee:focus-visible { outline: 2px solid #f8dc92; outline-offset: 3px; }
+@media (max-width: 760px) { .war-shrine-room-body { grid-template-columns: minmax(0, 1fr); } .war-shrine-floor { width: 100%; } }
+@media (pointer: coarse) { .war-shrine-room .war-shrine-leave { min-height: 44px; } }

@@ -8,6 +8,9 @@ import { invalidateProcCache } from '../_proc-cache.js';
 import { safeLogValue } from '../_safe-log.js';
 import { elderVillageKey } from './_elders.js';
 import { readVillageAnbu } from './_anbu.js';
+import { createVillageMembershipReader } from './_membership-reader.js';
+import { viewerVillageOf } from '../_viewer-village.js';
+import { readPublicPlayerIndex } from '../player/_public-index-store.js';
 import { leadershipVillageKey } from '../../shared/village-anbu.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -22,10 +25,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Not your village action.' });
+        if (req.method === 'GET') {
+            // Town Hall polls this every 10s per viewer. Read only the village
+            // strings it needs (caller + every seat holder), as the game-state
+            // frame does, instead of ~11 whole save rows per poll.
+            const village = await viewerVillageOf(playerName);
+            if (!village) return res.status(404).json({ error: 'Player village not found.' });
+            const candidates = [...(await readPublicPlayerIndex({ backfill: true, logContext: 'anbu-roster' })).entries.values()];
+            return res.status(200).json(await readVillageAnbu(village, undefined, createVillageMembershipReader(kv), candidates));
+        }
         const save = await kv.get<{ character?: { village?: string } }>(`save:${playerName}`);
         const village = String(save?.character?.village ?? '').trim();
         if (!village) return res.status(404).json({ error: 'Player village not found.' });
-        if (req.method === 'GET') return res.status(200).json(await readVillageAnbu(village));
         if (!['appoint', 'clear'].includes(body.action) || !Number.isInteger(body.seat) || body.seat < 0 || body.seat > 2) return res.status(400).json({ error: 'Invalid ANBU seat action.' });
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'anbu-appointment', 20, 60_000, identity.name))) return;
         const stateKey = elderVillageKey(village);

@@ -30,21 +30,29 @@ test('the local window refuses exactly where the database window refuses, withou
     const incr = t.mock.method(kv, 'incr');
     const name = `local-${Math.random().toString(36).slice(2)}`;
     const window = 2_000;
-    // Start just after an aligned boundary so both runs share one window.
-    await new Promise<void>((resolve) => setTimeout(resolve, window - (Date.now() % window) + 5));
+    // Hold the clock so both runs share one aligned window. Sleeping to just
+    // after a boundary was not enough: a late timer or a slow run could still
+    // cross the next one, and the hits after it land in a fresh window.
+    const realNow = Date.now;
+    const heldAt = realNow();
+    Date.now = () => heldAt;
     const decisions: boolean[] = [];
-    for (let i = 0; i < 5; i++) {
-        const { res } = fakeRes();
-        decisions.push(await rl.enforceRateLimitKv(fakeReq('10.94.0.1'), res, 'local-test', 3, window, name, { local: true }));
-    }
     const kvName = `${name}-kv`;
     const kvDecisions: boolean[] = [];
-    for (let i = 0; i < 5; i++) {
-        const { res } = fakeRes();
-        kvDecisions.push(await rl.enforceRateLimitKv(fakeReq('10.94.0.2'), res, 'local-test', 3, window, kvName));
+    try {
+        for (let i = 0; i < 5; i++) {
+            const { res } = fakeRes();
+            decisions.push(await rl.enforceRateLimitKv(fakeReq('10.94.0.1'), res, 'local-test', 3, window, name, { local: true }));
+        }
+        for (let i = 0; i < 5; i++) {
+            const { res } = fakeRes();
+            kvDecisions.push(await rl.enforceRateLimitKv(fakeReq('10.94.0.2'), res, 'local-test', 3, window, kvName));
+        }
+    } finally {
+        Date.now = realNow;
     }
     assert.deepEqual(decisions, kvDecisions);
-    assert.deepEqual(decisions.slice(0, 3), [true, true, true]);
+    assert.deepEqual(decisions, [true, true, true, false, false], 'both refuse from the 4th hit on');
     const localIncrs = incr.mock.calls.filter((call) => String(call.arguments[0]).includes(`${name}:`) && !String(call.arguments[0]).includes('-kv'));
     assert.equal(localIncrs.length, 0, 'the local path never increments a database counter');
 });
@@ -52,16 +60,24 @@ test('the local window refuses exactly where the database window refuses, withou
 test('a local window refuses with a retry hint and opens again in the next aligned window', async () => {
     const name = `local-reset-${Math.random().toString(36).slice(2)}`;
     const window = 200;
-    // Start just after a window boundary so the two hits share one window.
-    await new Promise<void>((resolve) => setTimeout(resolve, window - (Date.now() % window) + 5));
-    const first = fakeRes();
-    assert.equal(await rl.enforceRateLimitKv(fakeReq('10.94.0.3'), first.res, 'local-reset', 1, window, name, { local: true }), true);
-    const second = fakeRes();
-    assert.equal(await rl.enforceRateLimitKv(fakeReq('10.94.0.3'), second.res, 'local-reset', 1, window, name, { local: true }), false);
-    assert.equal(second.out.status, 429);
-    await new Promise<void>((resolve) => setTimeout(resolve, window - (Date.now() % window) + 5));
-    const third = fakeRes();
-    assert.equal(await rl.enforceRateLimitKv(fakeReq('10.94.0.3'), third.res, 'local-reset', 1, window, name, { local: true }), true);
+    // Drive the clock by hand: just after a window boundary for the two hits
+    // that must share a window, then just after the next one. Real time could
+    // cross a 200 ms boundary between the two hits.
+    const realNow = Date.now;
+    let now = Math.floor(realNow() / window) * window + 5;
+    Date.now = () => now;
+    try {
+        const first = fakeRes();
+        assert.equal(await rl.enforceRateLimitKv(fakeReq('10.94.0.3'), first.res, 'local-reset', 1, window, name, { local: true }), true);
+        const second = fakeRes();
+        assert.equal(await rl.enforceRateLimitKv(fakeReq('10.94.0.3'), second.res, 'local-reset', 1, window, name, { local: true }), false);
+        assert.equal(second.out.status, 429);
+        now += window;
+        const third = fakeRes();
+        assert.equal(await rl.enforceRateLimitKv(fakeReq('10.94.0.3'), third.res, 'local-reset', 1, window, name, { local: true }), true);
+    } finally {
+        Date.now = realNow;
+    }
 });
 
 test('the local fast path and durable limit report the same reset boundary', async () => {

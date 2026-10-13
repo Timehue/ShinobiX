@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { fetchWorldBossEvent, type WorldBossEventClientState } from "../lib/world-boss-event-api";
 import { visiblePoll } from "../lib/poll";
+import { sameJsonValue } from "../lib/pvp-session-runtime";
 import { worldBossDefinition } from "../../../shared/world-boss-event";
 
 type WorldBossMapEvent = NonNullable<WorldBossEventClientState["event"]>;
@@ -24,7 +25,9 @@ export function useWorldBossMap(
         let alive = true;
         const load = () => {
             void fetchWorldBossEvent()
-                .then(data => { if (alive) setView(data); })
+                // This hook lives in the World Map: an unchanged 20s poll keeps the
+                // same object instead of re-rendering the whole map.
+                .then(data => { if (alive) setView(prev => sameJsonValue(prev, data) ? prev : data); })
                 .catch(() => { /* Best effort: hide the event marker if unavailable. */ });
         };
         load();

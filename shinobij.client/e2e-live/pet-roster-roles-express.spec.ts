@@ -83,7 +83,7 @@ async function installSession(page: Page, account: Awaited<ReturnType<typeof see
         localStorage.setItem('patchNotes.lastSeenVersion.v1', patch);
         localStorage.setItem('dailyBriefing.seen.v1', new Date().toISOString().slice(0, 10));
         localStorage.setItem('roster-roles-qa-installed', name);
-    }, { name: account.name, token: account.token, canonical: account.canonical, patch: LATEST_PATCH_NOTE.version });
+    }, { name: account.name, token: account.token, canonical: account.canonical, patch: LATEST_PATCH_NOTE?.version ?? '' });
 }
 
 async function openGrowth(page: Page, petName: string) {

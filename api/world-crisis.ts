@@ -30,7 +30,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
         if (req.method === 'GET') {
-            if (!(await enforceRateLimitKv(req, res, 'world-crisis-read', 90, 60_000, requestPlayerKey(req), { ipBackstopMultiplier: PUBLIC_READ_IP_BACKSTOP }))) return;
+            // Read-only public poll: in-memory window, like pvp-session-get. The
+            // name half of this key is unverified, so a database window let a
+            // client force one write per request by rotating names.
+            if (!(await enforceRateLimitKv(req, res, 'world-crisis-read', 90, 60_000, requestPlayerKey(req), { local: true, ipBackstopMultiplier: PUBLIC_READ_IP_BACKSTOP }))) return;
             const crisis = await readWorldCrisisProjectionCached();
             // Every signed-in tab polls this every 15s and every viewer gets the
             // same public projection, so the edge may serve it for 5s (plus the

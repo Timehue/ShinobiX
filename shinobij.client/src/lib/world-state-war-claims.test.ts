@@ -22,6 +22,25 @@ function endedWars(count: number) {
 }
 
 describe("war reward sweep", () => {
+    for (const previouslyGranted of [true, false]) it(`a rematch is claimed in the same session after a ${previouslyGranted ? 'granted' : 'no-grant'} predecessor`, async () => {
+        const predecessor = { ...endedWars(1)[0], declarationGeneration: 1 };
+        hydrateSharedWorldState({ wars: [predecessor] });
+        const posted: Array<{ kind: string; warId: string }> = [];
+        globalThis.fetch = (async (_input: string | URL | Request, init?: RequestInit) => {
+            posted.push(JSON.parse(String(init?.body)));
+            const granted = posted.length === 1 ? previouslyGranted : true;
+            return new Response(JSON.stringify({ ok: true, granted, crates: granted ? 1 : 0,
+                character, _saveVersion: 7 + posted.length }), { status: 200 });
+        }) as typeof fetch;
+        await claimServerWarRewards(character);
+        await claimServerWarRewards(character);
+        assert.equal(posted.length, 1);
+        hydrateSharedWorldState({ wars: [{ ...predecessor, declarationGeneration: 2, endedAt: Date.now() - 1 }] });
+        assert.equal((await claimServerWarRewards(character))?.crates, 1);
+        await claimServerWarRewards(character);
+        assert.equal(posted.length, 2);
+        assert.deepEqual(posted[1], posted[0], 'the server still receives the canonical pair id');
+    });
     it("asks about each ended war once per session instead of on every world poll", async () => {
         hydrateSharedWorldState({ wars: endedWars(6) });
         const posted: string[] = [];

@@ -1,4 +1,5 @@
 import { TowerResultHeader } from "../components/TowerResultHeader";
+import { sameJsonValue } from "../lib/pvp-session-runtime";
 import { TowerPersonalBestReceipt } from "../components/TowerPersonalBestReceipt";
 import { TOWER_DISRUPT_AP, TOWER_SIGNATURES, TOWER_HONORS, towerSignaturePattern } from "../../../shared/tower-progression";
 import { towerImpactCues, type TowerImpactCue } from "../lib/tower-impact-cues";
@@ -258,6 +259,21 @@ function TowerTurnCountdown({ turnStartedAt }: { turnStartedAt: number }) {
     return <span role="timer" aria-label={`${remaining} seconds remaining`}> · <span style={{ display: "inline-block", minWidth: "2ch", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{remaining}</span>s</span>;
 }
 
+/**
+ * Adopt a server session only when it is newer, or the same version with
+ * different content. The realtime kick also reaches the player who acted, so
+ * every action was followed by a re-read of an identical session; adopting that
+ * copy changed object identity and re-rendered the whole board, both battle logs
+ * and every memo keyed on the session. sameJsonValue ignores key order (jsonb).
+ */
+function adoptTowerSession(current: TowerSession, next: TowerSession): TowerSession {
+    const nextVersion = next.actionVersion ?? 0;
+    const currentVersion = current.actionVersion ?? 0;
+    if (nextVersion < currentVersion) return current;
+    if (nextVersion === currentVersion && sameJsonValue(next, current)) return current;
+    return next;
+}
+
 type TowerRoundPresentation = {
     debriefLabel: string;
     debriefValue: string;
@@ -379,6 +395,14 @@ type ItemLike = {
 
 const ORB = 50;          // squad/enemy orb diameter (scales with the board)
 const BOSS_ORB = 78;     // bosses render larger
+
+// One shared array per tile, so a single-tile terrain zone keeps its memo across renders.
+const singleTileArrays = new Map<number, readonly number[]>();
+function singleTile(tile: number): readonly number[] {
+    let tiles = singleTileArrays.get(tile);
+    if (!tiles) singleTileArrays.set(tile, tiles = [tile]);
+    return tiles;
+}
 
 // Tower combatant art is resolved through the Tower-only manifest. Unknown enemy
 // visual IDs deliberately render the visible unknown treatment below; player and
@@ -698,10 +722,13 @@ export function BattleTowerFight({
             combatVfxAnchorKey(fx.spec, session.actors.find(a => a.id === fx.target)?.pos ?? -1));
         setCombatVfx((existing) => [...existing, ...deduped].slice(liteFx ? -6 : -14));
         const lifetime = Math.max(...deduped.map((fx) => fx.spec.durationMs), 900);
-        const timeout = window.setTimeout(() => {
+        // Not the effect's cleanup: the next batch re-runs this effect, and a
+        // cleared removal stranded the previous plates in the DOM (invisible,
+        // but each kept its GPU layer) until the slice cap pushed them out.
+        // Unmount still clears every presentation timer.
+        presentationTimersRef.current.push(window.setTimeout(() => {
             setCombatVfx((existing) => existing.filter((fx) => !deduped.some((added) => added.id === fx.id)));
-        }, lifetime + 80);
-        return () => window.clearTimeout(timeout);
+        }, lifetime + 80));
         // Keyed on vfxSeq ALONE: session.vfx/actors get fresh identities on every
         // poll, so listing them would replay the same plates on an idle board.
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1049,7 +1076,7 @@ export function BattleTowerFight({
         const controller = new AbortController();
         stateFn(runId, me, controller.signal).then(next => {
             if (controller.signal.aborted) return;
-            setSession(current => (next.actionVersion ?? 0) >= (current.actionVersion ?? 0) ? next : current);
+            setSession(current => adoptTowerSession(current, next));
         }).catch(() => {});
         return () => controller.abort();
     }, [runId, me, initialSession.status, stateFn]);
@@ -1062,7 +1089,7 @@ export function BattleTowerFight({
         let alive = true;
         joinTowerRun(runId, me, hostLoadout).then(next => {
             if (!alive || !next) return;
-            setSession(current => (next.actionVersion ?? 0) >= (current.actionVersion ?? 0) ? next : current);
+            setSession(current => adoptTowerSession(current, next));
         });
         return () => { alive = false; };
     }, [runId, me, hostLoadout]);
@@ -1086,7 +1113,7 @@ export function BattleTowerFight({
             inFlight = true;
             stateFn(runId, me, controller.signal).then(next => {
                 if (!alive) return;
-                setSession(current => (next.actionVersion ?? 0) >= (current.actionVersion ?? 0) ? next : current);
+                setSession(current => adoptTowerSession(current, next));
             }).catch(() => {
                 // The bounded poll retries after a transient read failure.
             }).finally(() => {
@@ -1373,6 +1400,9 @@ export function BattleTowerFight({
         [session.map.nextRoundHazardTiles, strikeTiles, ringTiles],
     );
     const crimsonTileSet = useMemo(() => new Set(crimsonTiles), [crimsonTiles]);
+    // Stable arrays for the memoized terrain zones (a fresh spread defeats the memo).
+    const strikeTileList = useMemo(() => [...strikeTiles], [strikeTiles]);
+    const ringTileList = useMemo(() => [...ringTiles], [ringTiles]);
 
     function actionLabel(action: TowerActionInput): string {
         if (action.type === "jutsu") return selJutsu?.name ?? "jutsu";
@@ -1435,7 +1465,7 @@ export function BattleTowerFight({
             const nextSession = responseActionVersion != null && res.session.actionVersion == null
                 ? { ...res.session, actionVersion: responseActionVersion }
                 : res.session;
-            setSession(current => (nextSession.actionVersion ?? 0) >= (current.actionVersion ?? 0) ? nextSession : current);
+            setSession(current => adoptTowerSession(current, nextSession));
             if (res.applied) {
                 const impactId = Date.now();
                 const targetId = "targetId" in action ? action.targetId : undefined;
@@ -2079,9 +2109,9 @@ export function BattleTowerFight({
                                         label={zone.name + " — " + zone.rounds + " rounds left"} />
                                 ))}
                                 <TowerTerrainZone tiles={crimsonTiles} width={w} height={h} kind="fire" urgent label="Hazard — burns at round end" />
-                                <TowerTerrainZone tiles={[...strikeTiles]} width={w} height={h} kind="strike" urgent
+                                <TowerTerrainZone tiles={strikeTileList} width={w} height={h} kind="strike" urgent
                                     label={(session.bossStrike?.label ?? "Boss strike") + " — erupts at round end"} />
-                                <TowerTerrainZone tiles={[...ringTiles]} width={w} height={h} kind="collapse" urgent label="Collapsing arena — damage at round end" />
+                                <TowerTerrainZone tiles={ringTileList} width={w} height={h} kind="collapse" urgent label="Collapsing arena — damage at round end" />
 
                                 {/* Aiming stays a precise outline above the physical artwork. */}
                                 {[{ tiles: instantGroundPreviewTiles, kind: "field" }, { tiles: aoeBurstTiles, kind: "burst" }].flatMap(preview => [...preview.tiles].map(tile => {
@@ -2102,7 +2132,7 @@ export function BattleTowerFight({
                                     kind={towerObstacleProp(session.map.biome)} label="Impassable terrain" size={66} />)}
                                 {(session.map.dynamicHazards ?? []).flatMap((hazard, index) => (hazard.tiles ?? []).map(tile => (
                                     <span key={"geyser-" + index + "-" + tile}>
-                                        <TowerTerrainZone tiles={[tile]} width={w} height={h} kind="eruption" urgent={(session.map.nextRoundHazardTiles ?? []).includes(tile)} />
+                                        <TowerTerrainZone tiles={singleTile(tile)} width={w} height={h} kind="eruption" urgent={(session.map.nextRoundHazardTiles ?? []).includes(tile)} />
                                         <TowerTerrainProp tile={tile} width={w} kind="geyser" size={54}
                                             label={"Geyser — erupts every " + Math.max(2, Number(hazard.everyRounds ?? 3)) + " rounds for " + hazard.pct + "% max HP"} />
                                     </span>
@@ -2112,7 +2142,7 @@ export function BattleTowerFight({
                                         ? session.actors.find(actor => actor.hp > 0 && (actor.side === "squad" || actor.side === "enemy") && actor.pos === tile)?.side
                                         : undefined;
                                     return <span key={"object-" + index + "-" + tile}>
-                                        <TowerTerrainZone tiles={[tile]} width={w} height={h} kind={object.kind === "font" ? "healing" : "shrine"} holder={holder} />
+                                        <TowerTerrainZone tiles={singleTile(tile)} width={w} height={h} kind={object.kind === "font" ? "healing" : "shrine"} holder={holder} />
                                         <TowerTerrainProp tile={tile} width={w} kind={object.kind} label={objectLabel(object)} size={54} />
                                     </span>;
                                 }))}

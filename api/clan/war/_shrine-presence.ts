@@ -34,7 +34,7 @@ export function enterClanShrine(name: string, war: ClanWar, windowIndex: number,
     const tile=previous?.instanceId===war.campaign!.instanceId&&previous.windowIndex===windowIndex?previous.tile:126;
     visits.set(safeName(name), { instanceId: war.campaign!.instanceId, windowIndex, sector: window.sector,
         epoch: player.resourceEpoch ?? 0, seenAt: now,tile });
-    touchStrongholdPresence(name,window.sector,tile,now,roomKey(war.campaign!.instanceId,windowIndex),window.closesAt);
+    touchStrongholdPresence(name,window.sector,tile,now,roomKey(war.campaign!.instanceId,windowIndex),{ttlMs:OFFLINE_AFTER_MS,closesAt:window.closesAt});
     for (const [key, visit] of visits) if (now - visit.seenAt > OFFLINE_AFTER_MS) visits.delete(key);
     return null;
 }
@@ -68,6 +68,6 @@ export function refreshClanShrine(name:string,war:ClanWar,windowIndex:number,til
         visit.tile=tile;
     }
     visit.seenAt=now;
-    touchStrongholdPresence(name,visit.sector,visit.tile,now,roomKey(visit.instanceId,windowIndex),war.campaign!.shrines[windowIndex].closesAt);
+    touchStrongholdPresence(name,visit.sector,visit.tile,now,roomKey(visit.instanceId,windowIndex),{ttlMs:OFFLINE_AFTER_MS,closesAt:war.campaign!.shrines[windowIndex].closesAt});
     return null;
 }
