@@ -241,8 +241,13 @@ describe("live capability messaging", () => {
         assert.equal(nextCapabilityRefreshDelay(1, () => 1), 11_250);
         assert.equal(nextCapabilityRefreshDelay(2, () => 0.5), 15_000);
         assert.equal(nextCapabilityRefreshDelay(4, () => 0.5), 60_000);
-        // A long outage still backs off to the same 5-minute cap.
+        // A long outage still backs off to the same 5-minute cap, and the
+        // spread never pushes a retry past it.
         assert.equal(nextCapabilityRefreshDelay(20, () => 0.5), 300_000);
+        assert.equal(nextCapabilityRefreshDelay(20, () => 1), 300_000);
+        for (let failures = 1; failures <= 20; failures += 1) {
+            assert.ok(nextCapabilityRefreshDelay(failures, () => 1) <= 300_000, `failure ${failures}`);
+        }
     });
 
     it("coordinates visible polling, foreground/online refresh, and cleanup", async () => {

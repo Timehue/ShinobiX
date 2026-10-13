@@ -390,8 +390,20 @@ describe("PvP reliability source wiring", () => {
         assert.doesNotMatch(screen, /subscribeKvKey|realtimeAvailable|lib\/realtime/);
         assert.match(screen, /void fetchInitial\(\);\s*startStream\(\);/);
         // A planned server cut reopens at once and does not count as a failure.
-        assert.match(screen, /es\.addEventListener\("reconnect", \(\) => \{[\s\S]*?markStreamReconnecting\(\);[\s\S]*?pvpStreamHandoffDelayMs\(\)\);/);
+        assert.match(screen, /es\.addEventListener\("reconnect", \(\) => \{ reopenStream\(\); \}\);/);
+        assert.match(screen, /function reopenStream\(\): void \{[\s\S]*?markStreamReconnecting\(\);[\s\S]*?pvpStreamHandoffDelayMs\(\)\);/);
         assert.match(screen, /pvpStreamRetryDelayMs\(streamFailures, hasLoadedSession\)/);
+        // Liveness (2026-10-13 audit): a silent OPEN stream is reopened, the
+        // server's ping events count as life, and failures are forgiven only
+        // after a stream has stayed up.
+        assert.match(screen, /es\.addEventListener\("ping", \(\) => \{ lastStreamEventAt = Date\.now\(\); \}\);/);
+        assert.match(screen, /Date\.now\(\) - lastStreamEventAt > PVP_STREAM_SILENCE_LIMIT_MS\) reopenStream\(\);/);
+        assert.match(screen, /window\.clearInterval\(silenceWatch\);/);
+        assert.match(screen, /streamFailures = 0;\s*\}, PVP_STREAM_HEALTHY_AFTER_MS\);/);
+        assert.doesNotMatch(screen.slice(screen.indexOf("function acceptSession("), screen.indexOf("async function fetchInitial(")),
+            /hasLoadedSession = true;\s*streamFailures = 0;/, "an accepted frame alone must not reset the stream backoff");
+        // A stream that gave up before any session loaded is restarted by a later successful GET.
+        assert.match(screen, /if \(streamGaveUp && active && !es && pollTimer === null && parsed\.session\.status === "active"\)/);
         // The badge waits out the grace window; going offline still shows it at once.
         assert.match(screen, /window\.setTimeout\(\(\) => \{\s*reconnectBadgeTimerRef\.current = null;\s*setConnectionState\("reconnecting"\);\s*\}, PVP_RECONNECT_BADGE_GRACE_MS\)/);
         assert.match(screen, /const offline = \(\) => \{\s*setBrowserOffline\(true\);\s*setConnectionState\("reconnecting"\);/);

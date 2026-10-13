@@ -16,8 +16,18 @@
 const liveStreams = new Set<() => void>();
 let draining = false;
 
-/** Register an open stream's handoff. Returns the unregister function. */
+/**
+ * Register an open stream's handoff. Returns the unregister function.
+ *
+ * A stream that passed the draining check before shutdown began, then
+ * registers after the handoff already ran (it was waiting on the rate limit),
+ * is handed off at once instead of being stranded on the dying process.
+ */
 export function registerStreamHandoff(handOff: () => void): () => void {
+    if (draining) {
+        queueMicrotask(() => { try { handOff(); } catch { /* best effort */ } });
+        return () => undefined;
+    }
     liveStreams.add(handOff);
     return () => { liveStreams.delete(handOff); };
 }

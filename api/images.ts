@@ -7,7 +7,7 @@ import { recordAudit } from './_audit.js';
 import { r2ReadEnabled, r2WriteEnabled, putImage, deleteImage } from './_r2.js';
 import { bumpImageVersion, readImageVersion } from './_image-version.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
-import { cachedFor } from './_proc-cache.js';
+import { cachedFor, invalidateProcCache } from './_proc-cache.js';
 
 /*
  * Player upload budget. Every POST rewrites a whole shared category row (kv_hset)
@@ -216,6 +216,21 @@ export const MANIFEST_CACHE_TTL_MS = 60_000;
 /** Categories an image write can target (unknown ids fall into 'misc'). */
 export function isManifestCategory(cat: string): boolean {
     return cat === 'misc' || KNOWN_CATEGORIES.includes(cat);
+}
+
+// The memo key embeds the category's image version, which every upload or
+// delete bumps. A superseded key is never read again, and the process cache has
+// no eviction, so each one would keep a full id list until restart (players can
+// bump versions with avatar uploads). Holding at most ONE live key per category
+// drops the old list the moment the version moves; categories are a fixed set.
+const manifestKeyByCategory = new Map<string, string>();
+
+export function manifestCacheKey(cat: string, version: string | number | null, miscVersion: string | number | null): string {
+    const key = `images:manifest:${cat}:${version ?? '-'}:${miscVersion ?? '-'}`;
+    const previous = manifestKeyByCategory.get(cat);
+    if (previous && previous !== key) invalidateProcCache(previous);
+    manifestKeyByCategory.set(cat, key);
+    return key;
 }
 
 class ManifestUnavailableError extends Error {
@@ -511,7 +526,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         let ids: string[];
                         try {
                             ids = await cachedFor(
-                                `images:manifest:${cat}:${version ?? '-'}:${miscVersion ?? '-'}`,
+                                manifestCacheKey(cat, version, miscVersion),
                                 MANIFEST_CACHE_TTL_MS,
                                 async () => {
                                     const built = await buildManifestIds(cat, withTimeout);
@@ -762,6 +777,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             await kv.hdel(catHashKey(cat), id);
             // Phase 2: also drop the per-image key so /api/img stops serving it.
             await kv.del(`shared:img:${id}`).catch(() => undefined);
+            // Also clear the legacy per-cat blob field in case the image
+            // lived there (pre-hash-migration uploads). Done BEFORE the version
+            // bump: a manifest built under the new version must never still find
+            // the id in the blob and cache it (the batch path bumps last too).
+            const blob = await kv.get<Record<string, string>>(catKey(cat));
+            if (blob && id in blob) {
+                const next = { ...blob };
+                delete next[id];
+                await kv.set(catKey(cat), next);
+            }
             // Retire the immutable URLs that still point at the deleted bytes,
             // for the same reason as the upload path above.
             await bumpImageVersion(cat);
@@ -774,14 +799,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 domain: 'content', actor, action: 'image.delete',
                 entityType: 'image', entityId: id, meta: { category: cat },
             });
-            // Also clear the legacy per-cat blob field in case the image
-            // lived there (pre-hash-migration uploads).
-            const blob = await kv.get<Record<string, string>>(catKey(cat));
-            if (blob && id in blob) {
-                const next = { ...blob };
-                delete next[id];
-                await kv.set(catKey(cat), next);
-            }
             return res.status(200).end();
         } catch (err) {
             console.error('[images DELETE]', err);
