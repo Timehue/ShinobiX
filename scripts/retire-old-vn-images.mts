@@ -17,8 +17,9 @@
  * keys, the asset registry and the cache version, rewrites the category hash
  * and legacy bundle ONCE per request, and writes one audit entry. (One DELETE
  * per image rewrote those multi-MB records every time and filled the database
- * disk on 2026-09-19.) Direct database deletes would be resurrected from the
- * legacy bundles by /api/img. Each run backs up to its own timestamped folder.
+ * disk on 2026-09-19.) A direct database delete of the per-image key would
+ * leave the image listed and served from the legacy bundles. Each run backs up
+ * to its own timestamped folder.
  */
 import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
@@ -101,11 +102,14 @@ async function main() {
         const manifest = JSON.parse(readFileSync(join(restoreDir, 'manifest.json'), 'utf8')) as SlotPlan[];
         const only = args.includes('--slots') ? new Set(args[args.indexOf('--slots') + 1]?.split(',')) : undefined;
         const toRestore = manifest.filter(e => e.status === 'retire' && (!only || only.has(e.slot)));
-        // Each upload rewrites the whole category hash (several MB), so a bulk
-        // restore has the same disk cost as the bulk delete that caused the
-        // 2026-09-19 outage. Restore a few chosen slots at a time.
+        // Each upload used to rewrite the whole category hash (several MB), so a
+        // bulk restore had the same disk cost as the bulk delete that caused
+        // the 2026-09-19 outage. Since the 2026-10 shared-row split an upload
+        // writes only the image's own row, but the IMAGE_LEGACY_HASH_WRITE
+        // rollback lever brings the hash rewrite back. Restore a few chosen
+        // slots at a time either way.
         if (toRestore.length > RESTORE_MAX_PER_RUN)
-            throw new Error(`That would restore ${toRestore.length} images one upload at a time, and each upload rewrites several MB of database rows. Pick at most ${RESTORE_MAX_PER_RUN} with --slots id1,id2,... Nothing was changed.`);
+            throw new Error(`That would restore ${toRestore.length} images one upload at a time. Pick at most ${RESTORE_MAX_PER_RUN} with --slots id1,id2,... Nothing was changed.`);
         for (const entry of toRestore) {
             const file = join(restoreDir, `${safeName(entry.slot)}.bin`);
             const image = `data:${entry.contentType};base64,${readFileSync(file).toString('base64')}`;

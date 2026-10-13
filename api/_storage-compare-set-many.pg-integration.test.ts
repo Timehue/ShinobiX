@@ -175,6 +175,8 @@ describe('kv.compareSetMany on a real Postgres', () => {
 
         const schema = readFileSync('supabase-schema.sql', 'utf8').replace(/\r\n/g, '\n');
         await admin.query(schemaStatement(schema, 'create table if not exists public.kv_store (', '\n);'));
+        // The key index image manifests list ids by (the shared-row split).
+        await admin.query(schemaStatement(schema, 'create index if not exists kv_store_key_pattern_idx', ';'));
         await admin.query(schemaStatement(schema, 'create or replace function public.kv_set_nx(', '\n$$;'));
         await admin.query(schemaStatement(schema, 'create or replace function public.kv_incr(', '\n$$;'));
         await admin.query(schemaStatement(schema, 'create or replace function public.kv_hset(', '\n$$;'));
@@ -815,6 +817,49 @@ describe('kv.compareSetMany on a real Postgres', () => {
         assert.deepEqual(await storage.kv.hkeys('pgit:hk:array', { nonEmptyStrings: true }), []);
         assert.deepEqual(await storage.kv.hkeys('pgit:hk:expired', { nonEmptyStrings: true }), []);
         assert.deepEqual(await storage.kv.hkeys('pgit:hk:missing', { nonEmptyStrings: true }), []);
+    });
+
+    // Since the shared-row split (docs/SHARED_HASH_ROW_SPLIT_PLAN.md), image
+    // manifests list ids by key prefix: kv.keys('shared:img:<prefix>:*'), a LIKE
+    // over the key. On Postgres that must match exactly the keys under the
+    // prefix, with `_` and `%` in a key taken literally, and it must be able to
+    // use the key index, so listing ids never reads an image value. On CI's tiny
+    // table the planner rightly prefers a sequential scan, so the plan is checked
+    // with enable_seqscan off: the index must be USABLE (production's plan was
+    // checked with EXPLAIN on 2026-10-13).
+    pgTest('kv.keys lists exactly a key prefix, literally, and can use the key index', async () => {
+        await seed('pgit:img:avatar:a', 'data:a');
+        await seed('pgit:img:avatar:b_c', 'data:b');
+        await seed('pgit:img:avatar_x:z', 'data:other-prefix');
+        await seed('pgit:img:avatarx:no', 'data:other-prefix');
+        // Only an unescaped `_` (LIKE's any-one-character) would match this one.
+        await seed('pgit:img:avatar-x:no', 'data:other-prefix');
+        await seed('pgit:img:avatar%:no', 'data:other-prefix');
+        await seed('pgit:imgfields:avatar', { 'avatar:a': 'data:legacy' });
+        await seed('pgit:img:avatar:gone', 'data:expired', 'past');
+        assert.deepEqual((await storage.kv.keys('pgit:img:avatar:*')).sort(), ['pgit:img:avatar:a', 'pgit:img:avatar:b_c']);
+        assert.deepEqual(await storage.kv.keys('pgit:img:avatar_x:*'), ['pgit:img:avatar_x:z'], '`_` in a pattern is literal');
+        assert.deepEqual(await storage.kv.keys('pgit:img:avatar%:*'), ['pgit:img:avatar%:no'], '`%` in a pattern is literal');
+
+        await admin.query('BEGIN');
+        try {
+            await admin.query('SET LOCAL enable_seqscan = off');
+            // The statement kv.keys runs, with its parameter, as the app sends it.
+            const { rows } = await admin.query<{ 'QUERY PLAN': string }>(
+                'EXPLAIN SELECT key FROM public.kv_store WHERE key LIKE $1 AND (expires_at IS NULL OR expires_at > now())',
+                ['pgit:img:avatar:%'],
+            );
+            const plan = rows.map((r) => r['QUERY PLAN']).join('\n');
+            // A plain or bitmap index scan: either way only matching keys are visited.
+            assert.match(plan, /(?:Index (?:Only )?Scan using|Bitmap Index Scan on) kv_store_key_pattern_idx/, plan);
+            // The prefix becomes a key range: >= the prefix and < the prefix with
+            // its last character incremented (':' + 1 = ';').
+            assert.match(plan, /key ~>=~ 'pgit:img:avatar:'/, plan);
+            assert.match(plan, /key ~<~ 'pgit:img:avatar;'/, plan);
+            assert.doesNotMatch(plan, /Sort|Aggregate|Hash/, plan);
+        } finally {
+            await admin.query('ROLLBACK');
+        }
     });
 
     // Era receipt-backed contributions (api/_era.ts) commit a receipt row and a

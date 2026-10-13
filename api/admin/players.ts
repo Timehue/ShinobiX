@@ -4,6 +4,7 @@ import { cors } from '../_utils.js';
 import { isFullAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { onlineStore } from '../_realtime/online-store.js';
+import { readImageValues } from '../images.js';
 
 const REGISTRY_KEY = 'player:registry';
 const ADMIN_CONTENT_SLOTS = new Set(['admin1', 'admin2']);
@@ -127,8 +128,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
         }
 
-        // Restore bloodline images from shared KV image store
-        // (saveBloodline strips large data-urls on auto-save; they live in shared:imgfields:bloodline).
+        // Restore bloodline images from the shared image store (saveBloodline
+        // strips large data-urls on auto-save; each lives in its own
+        // `shared:img:bloodline:<id>` row, the legacy hash only for old ones).
         //
         // Bandwidth guard: each data-URL can be 100-500 KB, so a moderately
         // populated registry inlining ALL of them could push the response past
@@ -139,7 +141,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const INLINE_IMAGE_LIMIT = 50;
         if (bloodlineEntries.length > 0 && bloodlineEntries.length <= INLINE_IMAGE_LIMIT) {
             try {
-                const sharedImages = await kv.hgetall<Record<string, string>>('shared:imgfields:bloodline') ?? {};
+                const wanted = [...new Set(bloodlineEntries.filter((bl) => !bl.ownerImage).map((bl) => `bloodline:${bl.id}`))];
+                const sharedImages = wanted.length ? await readImageValues('bloodline', wanted) : {};
                 for (const bl of bloodlineEntries) {
                     if (!bl.ownerImage && sharedImages[`bloodline:${bl.id}`]) {
                         bl.image = sharedImages[`bloodline:${bl.id}`];
@@ -151,7 +154,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         // If we skipped inline restore, strip any inline data-URLs the saves
         // happened to keep so the response stays compact. The admin UI can
-        // fetch shared:imgfields:bloodline directly when it needs them.
+        // fetch the shared bloodline images directly when it needs them.
         if (bloodlineEntries.length > INLINE_IMAGE_LIMIT) {
             for (const bl of bloodlineEntries) {
                 if (bl.image && bl.image.startsWith('data:')) bl.image = undefined;
