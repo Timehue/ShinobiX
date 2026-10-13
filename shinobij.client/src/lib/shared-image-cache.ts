@@ -39,8 +39,10 @@ export function clearImgCache(): void {
  * lightweight id MANIFEST (`?ids=1`) and hydrates sharedImages with `/api/img`
  * URLs — the browser then fetches each image individually (CDN/browser-cached)
  * only when a screen shows it, and the multi-MB base64 blob is NEVER pulled.
- * Roll out one category at a time, verifying each in-browser. To REVERT a
- * category, remove it from this set (it falls back to the base64 path).
+ * A category outside this set falls to App's full-content branch
+ * (`?cat=<category>` without `ids`), which the server has answered only for
+ * admins since 2026-10. For a player that is a 403, so every category a player
+ * can load must stay in this set (image-category-hydration.test.ts guards it).
  * ALL loadCategory buckets serve via per-image /api/img URLs (image-as-files
  * complete). Combat avatar/ai opponent portraits render via the widened
  * guards; everything else via plain <img>/background. avatar/pet/bloodline
@@ -51,7 +53,6 @@ export function clearImgCache(): void {
  * deliberately do NOT strip "/api/img" from the localStorage preview, so the
  * own avatar instant-paints instead of flickering. ('leader' village
  * portraits ride the separate game-state?images=1 poll, not loadCategory.)
- * Revert any single category by removing it here.
  */
 export const URL_MODE_CATEGORIES = new Set<string>(['event', 'card', 'item', 'jutsu', 'ai', 'shrine', 'landmark', 'avatar', 'pet', 'bloodline']);
 

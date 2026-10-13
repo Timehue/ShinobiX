@@ -87,10 +87,16 @@ const FALLBACK_PROMPT =
 
 function stripVariant(id) { return id.replace(/-\d{10,}$/, ''); }
 
+// The pet category's ids, each mapped to its public /api/img URL. The
+// full-content read (`?cat=pet` without `ids`) is admin-only and ships every
+// pet image's bytes at once, so this reads the manifest instead, and
+// --dry-run / --no-publish still work without ADMIN_PASSWORD.
 async function fetchRegistry() {
-    const r = await fetch(`${SERVER}/api/images?cat=pet&cb=${Date.now()}`, { headers: { 'Cache-Control': 'no-cache' } });
+    const r = await fetch(`${SERVER}/api/images?cat=pet&ids=1&cb=${Date.now()}`, { headers: { 'Cache-Control': 'no-cache' } });
     if (!r.ok) throw new Error(`registry fetch failed: ${r.status}`);
-    return await r.json();
+    const ids = await r.json();
+    if (!Array.isArray(ids)) throw new Error('registry fetch returned no id list');
+    return Object.fromEntries(ids.map((id) => [id, `/api/img?id=${encodeURIComponent(id)}`]));
 }
 
 /** Resolve a registry value (data URL / reference URL / http URL) to bytes. */

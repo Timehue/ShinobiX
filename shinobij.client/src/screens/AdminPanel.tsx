@@ -971,9 +971,9 @@ export function AdminPanel({
     useEffect(() => {
         if (activeAdminPanel !== "hollowGate") return;
         // Seed current images from the shared image store so previews show up
-        // when the tab is opened. /api/images supports `?cat=<category>` (returns
-        // a {id: image} map) — NOT `?id=<key>`. We load the four categories the
-        // Hollow Gate assets live under and pick the relevant keys.
+        // when the tab is opened. /api/images supports `?cat=<category>` (an
+        // admin-only {id: image} map) — NOT `?id=<key>`. We load the four
+        // categories the Hollow Gate assets live under and pick the relevant keys.
         const keys = new Set<string>([
             "item:" + HOLLOW_GATE_KEY_ID,
             "item:" + DUNGEON_LEGENDARY_FRAGMENT_ID,
@@ -1004,7 +1004,7 @@ export function AdminPanel({
             const next: Record<string, string> = {};
             for (const cat of categories) {
                 try {
-                    const res = await fetch(`/api/images?cat=${encodeURIComponent(cat)}`);
+                    const res = await fetch(`/api/images?cat=${encodeURIComponent(cat)}`, { headers: adminPw ? { "x-admin-password": adminPw } : {} });
                     if (!res.ok) continue;
                     const data = await res.json() as Record<string, string>;
                     for (const [id, image] of Object.entries(data)) {
@@ -1015,7 +1015,7 @@ export function AdminPanel({
             if (!cancelled) setHollowGateAssetImages(prev => ({ ...next, ...prev }));
         })();
         return () => { cancelled = true; };
-    }, [activeAdminPanel]);
+    }, [activeAdminPanel, adminPw]);
 
     // --- Player Management tab state ---
     const [pmTargetName, setPmTargetName] = useState("");
@@ -4173,7 +4173,7 @@ export function AdminPanel({
                                                     onClick={async () => {
                                                         setItemBulkRunning(true);
                                                         try {
-                                                            const r = await fetch("/api/images?cat=item");
+                                                            const r = await fetch("/api/images?cat=item", { headers: adminPw ? { "x-admin-password": adminPw } : {} });
                                                             const registry = r.ok ? await r.json() as Record<string, string> : {};
                                                             const entries = Object.entries(registry);
                                                             if (entries.length === 0) { alert("No shared item images found."); setItemBulkRunning(false); return; }
@@ -4362,7 +4362,7 @@ export function AdminPanel({
                             setJutsuIsGenerating(true);
                             setJutsuGenStatus("Fetching existing jutsu images…");
                             try {
-                                const r = await fetch("/api/images?cat=jutsu");
+                                const r = await fetch("/api/images?cat=jutsu", { headers: adminPw ? { "x-admin-password": adminPw } : {} });
                                 const registry = r.ok ? await r.json() as Record<string, string> : {};
                                 const entries = Object.entries(registry);
                                 if (entries.length === 0) { setJutsuGenStatus("No shared jutsu images found."); setJutsuIsGenerating(false); return; }
@@ -4923,7 +4923,7 @@ export function AdminPanel({
                             setPetIsGenerating(true);
                             setPetGenStatus("Fetching existing pet images…");
                             try {
-                                const r = await fetch("/api/images?cat=pet");
+                                const r = await fetch("/api/images?cat=pet", { headers: adminPw ? { "x-admin-password": adminPw } : {} });
                                 const registry = r.ok ? await r.json() as Record<string, string> : {};
                                 const entries = Object.entries(registry);
                                 if (entries.length === 0) { setPetGenStatus("No shared pet images found."); setPetIsGenerating(false); return; }

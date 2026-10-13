@@ -19,7 +19,8 @@ export { legacyImageValue, perImageKey };
 // Storage: images live as individual KV keys `shared:img:<cat>:<id>`, e.g.
 // shared:img:jutsu:fireball (perImageKey). For an id with no row of its own we
 // fall back, READ-ONLY, to the frozen legacy per-category hash/blob. Public +
-// unauthenticated, same as the bulk `GET /api/images` (shared art is not secret).
+// unauthenticated, same as the `GET /api/images?cat=<cat>&ids=1` manifest (shared
+// art is not secret; only the multi-MB full-content mode there is admin-only).
 const IMAGE_READ_TIMEOUT = Symbol('image-read-timeout');
 
 function temporaryImageFailure(res: VercelResponse) {
