@@ -17,6 +17,7 @@ import { registerAssetServiceWorker } from './lib/register-sw.ts' // prod-only S
 import App from './App.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary.tsx'
 import { LiveCapabilitiesProvider } from './components/LiveCapabilitiesProvider.tsx'
+import { liveCapabilitiesStore } from './lib/live-capabilities.ts'
 import { legalPageForPath } from './data/legal.ts'
 import { hasPlayerIdentity } from './authFetch.ts'
 
@@ -106,6 +107,12 @@ const cinematicVnPreview = qaPreviewsEnabled && new URLSearchParams(window.locat
 // and standalone policy/preview routes keep the stylesheet out of their path.
 if (!hasPlayerIdentity() && !legalSlug && !introPreview && !cinematicVnPreview) {
     void import('./styles/landing-home.css').catch(() => {})
+}
+// The session restore waits on capability truth, and the provider would only
+// ask after App's first render and commit. Ask now; the provider's first poll
+// joins this same in-flight request (LiveCapabilitiesStore.refresh dedupes).
+if (!legalSlug && !introPreview && !cinematicVnPreview) {
+    void liveCapabilitiesStore.refresh().catch(() => {})
 }
 
 const root = createRoot(document.getElementById('root')!)

@@ -864,7 +864,14 @@ function PetColiseumDuelView({ playerPet, enemyPet, playerReservePet, enemyReser
     useEffect(() => {
         if (!clashKey) return;
         const started = performance.now();
-        const timer = window.setInterval(() => setClashTimer({ key: clashKey, started, now: performance.now() }), 60);
+        const timer = window.setInterval(() => {
+            const now = performance.now();
+            setClashTimer({ key: clashKey, started, now });
+            // Once the answer window has lapsed, clashOpen and clashRemaining stop
+            // changing, so stop re-rendering the whole Coliseum (and its 3D scene)
+            // every 60 ms while the bind waits on the opponent.
+            if ((now - started) / 1000 >= CLASH_ANSWER_SECONDS) window.clearInterval(timer);
+        }, 60);
         return () => window.clearInterval(timer);
     }, [clashKey]);
     const clashPick = clashAnswered?.key === clashKey ? clashAnswered.pick : (clash?.pick ?? -1);

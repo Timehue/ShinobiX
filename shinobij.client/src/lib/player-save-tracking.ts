@@ -110,14 +110,27 @@ export function refreshPlayerSaveSnapshot(character: Character | null, currentAc
 // Snapshot-driven changes are tagged via lastSnapshotAppliedSectorRef so
 // they don't falsely flip charDirtyRef.
 
-export function trackPlayerSectorChange(character: Character | null, currentAccountName: string, currentSector: number, coordinator: Pick<Coordinator, "charDirtyRef">, guard: SectorSaveGuard): void {
+//
+// `lastTracked` (optional): the account and sector this tracker last acted on.
+// The lifecycle effect also re-runs on every `character` change, including each
+// one-second idle-regen tick. Without it every tick re-dirtied the save, which
+// defeated the idle-regen guard in refreshPlayerSaveSnapshot: a player
+// regenerating after a fight POSTed a full save every ~3s for up to 30 minutes.
+// With it, only a real sector (or account) change marks the save dirty.
+export function trackPlayerSectorChange(character: Character | null, currentAccountName: string, currentSector: number, coordinator: Pick<Coordinator, "charDirtyRef">, guard: SectorSaveGuard, lastTracked?: { current: string | null }): void {
     const { charDirtyRef } = coordinator;
     const { lastSnapshotAppliedSectorRef, lastLocalSectorChangeRef } = guard;
 
     if (!character || !currentAccountName) return;
+    const trackedKey = `${currentAccountName}\u0000${currentSector}`;
     if (lastSnapshotAppliedSectorRef.current === currentSector) {
         lastSnapshotAppliedSectorRef.current = null;
+        if (lastTracked) lastTracked.current = trackedKey;
         return;
+    }
+    if (lastTracked) {
+        if (lastTracked.current === trackedKey) return;
+        lastTracked.current = trackedKey;
     }
     charDirtyRef.current = true;
     lastLocalSectorChangeRef.current = Date.now();
@@ -130,15 +143,27 @@ export function trackPlayerSectorChange(character: Character | null, currentAcco
 // currentSector, so the autosave timers never scheduled a save (accept a
 // contract then close the tab → lost it). The signature guard skips changes a
 // server snapshot just reapplied so a load doesn't falsely flip dirty.
+// `lastTracked` (optional) works as in trackPlayerSectorChange: an idle-regen
+// re-run with the same mission/travel state no longer dirties (or, during a
+// journey, force-flushes) the save on every tick.
 export function trackPlayerMissionChange(character: Character | null, currentAccountName: string,
     fields: Pick<SaveState, "acceptedMissionIds" | "missionProgress" | "triggeredEvents" | "currentBiome" | "pendingTravel" | "lastSnapshotMissionSigRef">,
-    coordinator: Pick<Coordinator, "charDirtyRef" | "flushSaveRef">): void {
+    coordinator: Pick<Coordinator, "charDirtyRef" | "flushSaveRef">, lastTracked?: { current: string | null }): void {
     const { acceptedMissionIds, missionProgress, triggeredEvents, currentBiome, pendingTravel, lastSnapshotMissionSigRef } = fields;
     const { charDirtyRef, flushSaveRef } = coordinator;
 
     if (!character || !currentAccountName) return;
     const sig = JSON.stringify([acceptedMissionIds, missionProgress, triggeredEvents, currentBiome, pendingTravel]);
-    if (lastSnapshotMissionSigRef.current === sig) { lastSnapshotMissionSigRef.current = null; return; }
+    const trackedKey = `${currentAccountName}\u0000${sig}`;
+    if (lastSnapshotMissionSigRef.current === sig) {
+        lastSnapshotMissionSigRef.current = null;
+        if (lastTracked) lastTracked.current = trackedKey;
+        return;
+    }
+    if (lastTracked) {
+        if (lastTracked.current === trackedKey) return;
+        lastTracked.current = trackedKey;
+    }
     charDirtyRef.current = true;
     if (pendingTravel) flushSaveRef.current = true;
 
