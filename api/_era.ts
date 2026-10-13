@@ -4,9 +4,10 @@
  *
  * State model: definitions are static (api/_era-defs.ts); the KV row
  * `game:era-state` stores only OVERRIDES (admin status/milestone tuning) and
- * unlock records. Contributions are global `era:contrib:<metric>` counters
- * bumped with atomic kv.incr from the same settle endpoints that feed Legacy
- * tracking — contention-free by design (plan §14.3).
+ * unlock records. A metric's contribution total is summed from three kinds of
+ * row, fed by the same settle endpoints that feed Legacy tracking: plain
+ * `era:contrib:<metric>` counters, the bounded idempotent ledger, and receipt
+ * rows with counter shards (see below; the list is in plan §14.3).
  *
  * The credited trigger can land BEFORE the milestones finish: it is recorded
  * once (NX) at `era:trigger:<id>` and honored when the nightly pass finds the
