@@ -43,6 +43,19 @@ test('a server-side stat-point grant reaches the leaderboard at once', async () 
         'the "Total Stat Points Earned" board sees the grant');
 });
 
+test('a server write keeps the owner\'s own last-seen time, so an absent player never looks active', async () => {
+    const name = 'reindexlastseen';
+    const saveKey = `save:${name}`;
+    const ownerSeenAt = Date.now() - 10 * 24 * 60 * 60 * 1000; // 10 days ago
+    await kv.set(saveKey, { _saveVersion: 1, _registryAt: ownerSeenAt, character: { name, level: 20, professionXp: 1 } });
+    await kv.hdel(REGISTRY_KEY, name);
+    const before = (await kv.get<Save>(saveKey))!;
+    await writeVersionedPlayerSave(saveKey, before, { ...before.character, professionXp: 9 });
+    const row = await registryRow(name);
+    assert.equal(row?.professionXp, 9);
+    assert.equal(row?.lastSeen, ownerSeenAt, 'the guest sweep and "last seen" keep the real presence time');
+});
+
 test('profession XP and tower floors re-index too; an unrelated change does not', async () => {
     const name = 'reindexother';
     const saveKey = await seeded(name, { professionXp: 10, battleTowerBestFloor: 3 });
