@@ -269,7 +269,13 @@ describe('sealed raid authority', () => {
         assert.equal(restored?.sector, 18);
     });
 
-    it('returns the UTC reset deadline when the daily launch cap is reached', async () => {
+    it('returns the UTC reset deadline when the daily launch cap is reached', async (t) => {
+        // The seeded counter's day and raid-start's own day both come from a
+        // no-argument `new Date()`, and retryAfterMs counts down to the next
+        // UTC midnight. A run that straddles midnight would seed a day the
+        // handler no longer counts. Freeze Date (Date.now and new Date alike)
+        // for the whole check.
+        t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
         const player = 'raidauthdailycap';
         const acceptedAt = Date.now() - 1_000;
         await seed(player, {

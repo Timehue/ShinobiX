@@ -200,6 +200,21 @@ async function withWritesRefused<T>(
 }
 
 describe('a collected pet training counts toward the daily missions exactly once', { concurrency: false }, () => {
+    beforeEach((context) => {
+        // The board is seeded with today(), a no-argument `new Date()`. The
+        // settle stamps its event from progress.ts's Date.now(), the flush
+        // drops any event whose day differs from its own no-argument
+        // `new Date()`, and the Prodigy check rebuilds its key from the test's
+        // Date.now(). A run that straddles UTC midnight between any two of
+        // those would drop the listed event, count it on a fresh board, or
+        // look up the wrong day's Prodigy key. Freeze Date (Date.now and new
+        // Date alike) from before each seed to the end of each test. The
+        // earlier-day case still backdates its event a whole day behind the
+        // held clock.
+        if (!('mock' in context)) throw new Error('needs a per-test clock');
+        context.mock.timers.enable({ apis: ['Date'], now: Date.now() });
+    });
+
     it('counts a collect whose report could not take the daily-mission lock at the next start', async () => {
         const name = `${PREFIX}nextstart`;
         await seed(name);

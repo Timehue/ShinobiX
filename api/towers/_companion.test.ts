@@ -104,7 +104,13 @@ describe('summoned companion (mission pet)', () => {
         assert.equal(companionObeys(0, false, 0.65), true);
     });
 
-    it('seals a neglected companion at reduced strike damage', () => {
+    it('seals a neglected companion at reduced strike damage', (t) => {
+        // char() stamps each pet's happinessDay from Date.now(), and
+        // sealCompanionFromSave projects the decay against its own default
+        // Date.now(). A run that straddles UTC midnight between them would
+        // charge a missed reset, so 30 would decay to 20 and seal as neglected
+        // instead of unhappy. Freeze Date for the whole check.
+        t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
         const pet = {
             id: 'p1', name: 'Wolf', level: 60, hp: 400, attack: 100, defense: 40, speed: 50,
             jutsus: [{ name: 'Bite', kind: 'damage', power: 60 }],
@@ -119,7 +125,13 @@ describe('summoned companion (mission pet)', () => {
         assert.equal(sealCompanionFromSave(char(0))?.damage, Math.floor(full * 0.8), 'neglected hits softest');
     });
 
-    it('seals the DECAYED happiness, not the stale stored value', () => {
+    it('seals the DECAYED happiness, not the stale stored value', (t) => {
+        // The day below comes from Date.now(), and sealCompanionFromSave
+        // projects the decay against its own default Date.now(). A run that
+        // straddles UTC midnight between them would count a fourth missed
+        // reset, so 100 would decay to 60 instead of 70. Freeze Date for the
+        // whole check.
+        t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
         const day = Math.floor(Date.now() / 86_400_000);
         const seal = sealCompanionFromSave({
             name: 'Ren',

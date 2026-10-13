@@ -260,7 +260,7 @@ describe('showdown.ts wires practice as unpaid', () => {
             'retained HG recovery validates its exact parent only after paid settlement has been suppressed');
     });
 
-    it('transfers paid win witness and Legacy semantics exactly once, with receipt-aware recovery', async () => {
+    it('transfers paid win witness and Legacy semantics exactly once, with receipt-aware recovery', async (t) => {
         const playerName = 'showdownparityprobe';
         const session = createShowdownSession({
             sessionId: 'ShowdownParityReceipt01', playerName, format: '1v1', tier: 'scrapper', seed: 17,
@@ -271,6 +271,12 @@ describe('showdown.ts wires practice as unpaid', () => {
             import('./showdown.js'),
             import('../_legacy-track.js'),
         ]);
+        // The seeded lastDailyReset and showdown.ts's own day both come from a
+        // no-argument `new Date()`. A run that straddles UTC midnight would
+        // seed a day the paid win no longer counts, so dailyPetWins would
+        // restart at 1 instead of reaching 3. Freeze Date (Date.now and new
+        // Date alike) from the seed to the end.
+        t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
         await kv.set(`save:${playerName}`, {
             _saveVersion: 1,
             character: {
@@ -371,7 +377,7 @@ describe('showdown.ts wires practice as unpaid', () => {
         assert.deepEqual(wins, { lead: 1, 'bench-a': 0, 'bench-b': 0 });
     });
 
-    it('stops all paid progression at the Showdown daily cap', async () => {
+    it('stops all paid progression at the Showdown daily cap', async (t) => {
         const playerName = 'showdowncapprobe';
         const session = createShowdownSession({
             sessionId: 'ShowdownCapReceipt01', playerName, format: '1v1', tier: 'scrapper', seed: 19,
@@ -381,6 +387,11 @@ describe('showdown.ts wires practice as unpaid', () => {
             import('../_storage.js'),
             import('./showdown.js'),
         ]);
+        // The seeded lastDailyReset and showdown.ts's own day both come from a
+        // no-argument `new Date()`. A run that straddles UTC midnight would
+        // seed a day the cap no longer counts, so the win would pay. Freeze
+        // Date (Date.now and new Date alike) from the seed to the end.
+        t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
         await kv.set(`save:${playerName}`, {
             _saveVersion: 1,
             character: {
