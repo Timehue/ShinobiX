@@ -27,7 +27,7 @@ import { dailyMissionsCompleted, dailyHuntsCompleted, dailyHuntCap } from "../li
 import { memo, type ReactNode } from "react";
 import { serverNow } from "../lib/server-clock";
 import { useBlackMarketUsage, utcDay, BLACK_MARKET_DAILY_CAP } from "../lib/black-market";
-import { formatCompact, formatExact, formatRatio } from "../lib/format-number";
+import { formatCompact, formatExact } from "../lib/format-number";
 
 import { levelProgress } from "../lib/character-progress";
 import { useOwnAvatar } from "../lib/own-avatar";
@@ -164,7 +164,7 @@ export const ProfileCardBody = memo(function ProfileCardBody({
                     <RankBadge rating={character.rankedRating ?? 1000} showRating size="xs" />
                 </div>
             )}
-            <div className="left-profile-stat" title={`HP ${formatExact(character.hp)}/${formatExact(character.maxHp)}`}>HP {formatRatio(character.hp, character.maxHp)}</div>
+            <div className="left-profile-stat" title={`HP ${formatExact(character.hp)}/${formatExact(character.maxHp)}`}>HP {character.hp}/{character.maxHp}</div>
             <div className="left-profile-stat">Chakra {character.chakra}/{character.maxChakra}</div>
             <div className="left-profile-stat">Stamina {character.stamina}/{character.maxStamina}</div>
             <div className="left-profile-stat">Sector {currentSector}</div>
