@@ -5,12 +5,10 @@
 -- Access model:
 --   * The server uses SUPABASE_SERVICE_ROLE_KEY which BYPASSES RLS — it
 --     can read/write any key. Never expose this key to the client.
---   * The browser uses VITE_SUPABASE_ANON_KEY for Realtime ONLY. RLS
---     allows it to SELECT a strict allowlist of key prefixes that the
---     client subscribes to via Supabase Realtime (PvP sessions,
---     clan-war tile-card duels, incoming duel challenges). Everything
---     else (player saves, auth, IP/fingerprint maps, presence, etc.)
---     stays invisible to the anon role.
+--   * The browser does not talk to Supabase at all (since 2026-10-13: the
+--     Realtime client was removed; PvP uses the server's /api/pvp/stream).
+--     The anon role has NO policy and NO privilege on kv_store, so anyone
+--     holding the public anon key sees nothing. RLS stays enabled.
 -- ============================================================
 --
 -- Security posture — audit item #27 (verified-and-documented; no change needed)
