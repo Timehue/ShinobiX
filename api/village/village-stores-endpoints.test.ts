@@ -133,7 +133,14 @@ describe('sector-war garrison-feed (Village Stores)', { concurrency: false }, ()
         assert.deepEqual([stored?.garrisonFeed?.[DEFENDER].on, stored?.garrisonFeed?.[ATTACKER].on], [false, true]);
         assert.equal(stored?.garrisonFeed?.[DEFENDER].covered, false, 'a feed the daily pass never paid for stays uncovered');
     });
-    it('keeps the day\'s PAID coverage across a same-day re-toggle, and never resurrects an older day\'s', async () => {
+    it('keeps the day\'s PAID coverage across a same-day re-toggle, and never resurrects an older day\'s', async (t) => {
+        // The seeded storesDate is the UTC day of this test's Date.now(), and
+        // sector-war compares it with the UTC day of its own Date.now(), read
+        // once per toggle. A run that straddles UTC midnight between the seed
+        // and the first or second toggle would make the stored verdict a day
+        // old, so that toggle would drop the coverage the village already paid
+        // for. Freeze Date (Date.now and new Date alike) for the whole check.
+        t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
         const now = Date.now();
         const today = new Date(now).toISOString().slice(0, 10);
         const yesterday = new Date(now - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);

@@ -34,7 +34,14 @@ async function seed(name: string, patch: Json = {}) {
 }
 for (const activity of ['mining', 'fishing'] as const) {
     for (const interruption of ['heartbeat', 'battle', 'expiry'] as const) {
-        test(`${activity} status recovery reports ${interruption} and preserves admission accounting on replay`, async () => {
+        test(`${activity} status recovery reports ${interruption} and preserves admission accounting on replay`, async (t) => {
+            // resource.ts dates the admitted action from its own Date.now(), and
+            // resourceActionsToday() below counts the day of the test's
+            // Date.now(). A run that straddles UTC midnight between the start
+            // and that check would count the action on the wrong day, so it
+            // would read as 0. Freeze Date (Date.now and new Date alike) for the
+            // whole check.
+            t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
             const name = `resumestatus${activity}${interruption}`, node = resourceNode(activity === 'mining' ? 'resource-17' : 'resource-1')!;
             await seed(name, { equipment: { pickaxe: 'tool-basic-pickaxe', fishingPole: 'tool-basic-fishing-pole' },
                 gatheringToolUses: { 'tool-basic-pickaxe': 0, 'tool-basic-fishing-pole': 0 } });
@@ -141,7 +148,13 @@ test('refining uses exact units and cooking/refining request IDs cannot be repur
     assert.equal((await post(name, { ...body, quantity: 2 })).status, 409);
 });
 
-test('a committed admission with a lost save acknowledgement spends one action and pool slot', async () => {
+test('a committed admission with a lost save acknowledgement spends one action and pool slot', async (t) => {
+    // The pool key and resourceActionsToday() below take their UTC day from the
+    // test's Date.now(), and resource.ts takes its day from its own Date.now().
+    // A run that straddles UTC midnight between the handler and either check
+    // would read the wrong day, so the debited slot or the spent action would
+    // show as 0. Freeze Date (Date.now and new Date alike) for the whole check.
+    t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
     const name = 'resourcelostack'; await seed(name);
     const poolKey = sectorPoolKey(29, Date.now()), beforePool = cleanSectorPoolRow(await kv.get(poolKey)).explores;
     const original = kv.compareSet; let lost = false;
