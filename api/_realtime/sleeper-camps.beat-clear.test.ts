@@ -67,7 +67,7 @@ describe('heartbeat sleeper-camp clear', () => {
 
     it('a failed camp read falls back to the unconditional clear', { concurrency: false }, async (t) => {
         await camps.setSleeperCamp(camp('rill'));
-        t.mock.method(kv, 'hgetall', async () => { throw new Error('database unavailable'); });
+        t.mock.method(kv, 'hkeys', async () => { throw new Error('database unavailable'); });
         const hdel = t.mock.method(kv, 'hdel');
         await camps.clearSleeperCampOnBeat('rill', NOW);
         assert.equal(hdel.mock.callCount(), 1);

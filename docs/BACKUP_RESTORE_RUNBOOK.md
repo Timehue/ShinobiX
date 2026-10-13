@@ -2,6 +2,13 @@
 
 The production Supabase project must have platform backups or PITR enabled with retention recorded in the release evidence. Repository snapshots are not substitutes for that control.
 
+**After ANY platform restore (PITR or a daily backup) to a point before 2026-10-13**, re-apply, in order:
+1. `supabase-migrations/2026-10-12_kv_hash_noop_guards.sql`
+2. `supabase-migrations/2026-10-12_drop_kv_store_from_realtime.sql`
+3. `supabase-migrations/2026-10-12_drop_anon_kv_read.sql`
+
+An older restore point brings back the old hash functions, the Supabase Realtime publication on `kv_store` (about 9% of database time spent for nothing), and anon read access to every PvP session. All three migrations are idempotent. `kv-backup.mjs` refuses to restore into a target that still has anon access, and its error names these files.
+
 ## Launch-wipe day checklist (run IMMEDIATELY before the reset)
 
 The wipe is the single most dangerous operation on the launch calendar. In

@@ -224,11 +224,20 @@ describe("live capability messaging", () => {
         await store.current();
         assert.equal(calls, 2, "an aged lease is refreshed");
 
+        // A failed refresh keeps the live lease (2026-10-13), so it is reused...
         fail = true;
         await store.refresh();
+        assert.equal(calls, 3);
+        assert.equal(store.getSnapshot().freshness, "fresh");
+        await store.current();
+        assert.equal(calls, 3, "a lease kept through a failed refresh is still reused");
+        // ...until it ages out; then a failed refresh leaves it stale, never reused.
+        now += CAPABILITY_MAX_AGE_MS + 1;
+        await store.current();
+        assert.equal(calls, 4, "an aged lease is refreshed");
         assert.equal(store.getSnapshot().freshness, "stale");
         await store.current();
-        assert.equal(calls, 4, "a stale snapshot is never reused");
+        assert.equal(calls, 5, "a stale snapshot is never reused");
     });
 
     it("jitters healthy polling and exponentially backs off failures", () => {
@@ -241,8 +250,13 @@ describe("live capability messaging", () => {
         assert.equal(nextCapabilityRefreshDelay(1, () => 1), 11_250);
         assert.equal(nextCapabilityRefreshDelay(2, () => 0.5), 15_000);
         assert.equal(nextCapabilityRefreshDelay(4, () => 0.5), 60_000);
-        // A long outage still backs off to the same 5-minute cap.
+        // A long outage still backs off to the same 5-minute cap, and the
+        // spread never pushes a retry past it.
         assert.equal(nextCapabilityRefreshDelay(20, () => 0.5), 300_000);
+        assert.equal(nextCapabilityRefreshDelay(20, () => 1), 300_000);
+        for (let failures = 1; failures <= 20; failures += 1) {
+            assert.ok(nextCapabilityRefreshDelay(failures, () => 1) <= 300_000, `failure ${failures}`);
+        }
     });
 
     it("coordinates visible polling, foreground/online refresh, and cleanup", async () => {
@@ -491,21 +505,54 @@ describe("live capability messaging", () => {
         unsubscribe();
     });
 
-    it("retains the last-known-good snapshot when a later refresh fails", async () => {
+    it("a failed refresh keeps a live lease in force until it ages out, then fails closed", async () => {
+        // 2026-10-13: one blip (a deploy's 502, a timeout) used to revoke every
+        // gameplay control at once. The server's last real answer now stands
+        // for the rest of its CAPABILITY_MAX_AGE_MS lease.
         let fail = false;
+        let now = 42;
         const store = new LiveCapabilitiesStore(async () => {
             if (fail) throw new Error("gateway unavailable");
             return okResponse(available);
-        }, () => 42);
+        }, () => now);
         await store.refresh();
         const knownGood = store.getSnapshot().capabilities;
         fail = true;
+        now += 10_000;
         await store.refresh();
         assert.equal(store.getSnapshot().capabilities, knownGood);
-        assert.equal(store.getSnapshot().freshness, "stale");
-        assert.equal(store.getSnapshot().lastUpdatedAt, 42);
-        assert.equal(canStartCapability(store.getSnapshot(), "clanBoss", 42), false);
+        assert.equal(store.getSnapshot().freshness, "fresh", "a lease inside its window survives a failed refresh");
+        assert.equal(store.getSnapshot().lastUpdatedAt, 42, "the lease is NOT extended by a failure");
+        assert.equal(canStartCapability(store.getSnapshot(), "clanBoss", now), true);
         assert.match(store.getSnapshot().error ?? "", /gateway unavailable/);
+
+        // Past the lease, the same failure leaves it stale: fail closed.
+        now = 42 + CAPABILITY_MAX_AGE_MS + 1;
+        assert.equal(store.expireIfAged(), true);
+        await store.refresh();
+        assert.equal(store.getSnapshot().freshness, "stale");
+        assert.equal(canStartCapability(store.getSnapshot(), "clanBoss", now), false);
+    });
+
+    it("a cold store that fails stays unknown, and an explicit unavailable answer applies at once", async () => {
+        let next: unknown = new Error("offline");
+        let now = 1_000;
+        const store = new LiveCapabilitiesStore(async () => {
+            if (next instanceof Error) throw next;
+            return okResponse(next as never);
+        }, () => now);
+        await store.refresh();
+        assert.equal(store.getSnapshot().freshness, "unknown", "a failure never invents a lease");
+        next = available;
+        await store.refresh();
+        assert.equal(canStartCapability(store.getSnapshot(), "clanBoss", now), true);
+        const paused = Object.fromEntries(Object.entries(available as Record<string, unknown>).map(([id, cap]) => [
+            id, id === "clanBoss" ? { state: "temporarily-unavailable", reason: "maintenance" } : cap,
+        ]));
+        next = paused;
+        now += 1_000;
+        await store.refresh();
+        assert.equal(canStartCapability(store.getSnapshot(), "clanBoss", now), false, "a kill switch is a successful answer: it applies immediately");
     });
 
     it("times out a hung request so a later refresh can recover", async () => {
