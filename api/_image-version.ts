@@ -95,9 +95,12 @@ export async function readImageVersion(
 /**
  * Advance a category after a write that changes what an id resolves to.
  *
- * Call this for uploads and deletes ONLY. The lazy legacy→per-image copies in
- * api/img.ts must NOT bump: they move identical bytes between keys, so bumping
- * would invalidate every client's cache for a migration they cannot observe.
+ * Call this only when a cached URL could hold other bytes for the id: a
+ * replace, a delete, an upload over an id the frozen legacy rows still serve,
+ * or the server-reset portrait reseed (api/images.ts, api/admin/server-reset.ts).
+ * A brand-new id needs no bump, because no client can have cached it, and a
+ * bump would re-key every other image in the category. Nothing that only reads
+ * may bump; api/img.ts never does.
  *
  * Best-effort by contract — an image write is authoritative whether or not the
  * counter moves. A missed bump costs at most one stale-until-next-bump window,

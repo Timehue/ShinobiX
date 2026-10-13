@@ -40,7 +40,7 @@
   - the other five are older admin test art and one player's old bloodline.
 - **Avatars:** 138 avatars hold only 61 distinct images. The biggest groups (19, 11, 10, 9, 7, 7, 7 copies) are the two starter avatars as different browsers re-encode them, which is the data for Deploy 3.
 
-**Deploy 2: built,** on branch `claude/image-store-switch` (see §3). Its tests are `api/images-split.test.ts` (16) and the pg-integration key-scan test. All 7 mutants of a mutation check, run in a scratch worktree, were caught.
+**Deploy 2: built,** on branch `claude/image-store-switch` (see §3). Its tests are `api/images-split.test.ts` (18) and the pg-integration key-scan test. All 7 mutants of a mutation check, run in a scratch worktree, were caught. A final review added the timed-out-read rule in §3.3; both of its tests fail on the code before it, in a scratch copy.
 
 The rest of this document is plan v2, unchanged except where marked.
 
@@ -201,7 +201,7 @@ The receipt-backed metrics simply have no receipts in the one-row hash yet.)*
 |---|---|---|
 | Upload | `hset` the whole category row; `set` `shared:img:<id>` best-effort; always bump | `set` `shared:img:<id>` with `nx`. If that succeeds and the frozen legacy rows do not serve the id, it is new and no bump happens. If the key exists (a replace), or the legacy rows still serve the id, a plain `set` plus a bump. **A failure fails the upload** (same message as today). |
 | Delete (single or batch) | `hdel` the row; rewrite the blob if present; `del` the per-image key best-effort; bump | storage object first; `hdel` the legacy row (guarded); blob only if present; then `del` the per-image key, **awaited, and the request fails if it fails** (it is now what makes the image disappear); bump |
-| Server-reset leader reseed | `hset shared:imgfields:misc` only (so `/api/img`, which reads the per-image key first, never saw a changed portrait) | `set` `shared:img:leader:*`; bump `leader` |
+| Server-reset leader reseed | `hset shared:imgfields:misc` only (so `/api/img`, which reads the per-image key first, never saw a changed portrait) | `set` `shared:img:leader:*`; bump `leader` and `misc` (as built: the leader manifest still reads the `misc` hash's old copies) |
 | `GET /api/img` | per-image key first; on a miss it reads the legacy rows **and writes** copies, including a once-per-process bulk copy | per-image key first; on a miss it reads the legacy rows **read-only**. Coverage is already complete, so the copy is unnecessary, and dropping it removes the race in which a copy could resurrect a just-deleted image. |
 
 ### 3.3 Who reads what
@@ -216,6 +216,10 @@ The receipt-backed metrics simply have no receipts in the one-row hash yet.)*
 - **Full-content mode** (admin and scripts only): the manifest ids, then `mget` of the
   per-image keys in chunks of 25. A miss falls back to the legacy value. The response shape
   is unchanged.
+  - As built: a chunk whose read **times out** is left out, with every later chunk, and
+    is never filled from the legacy value. For an image replaced since the switch, that
+    value is the OLDER art, and the Admin Panel's "recompress" buttons republish what this
+    mode returns. Such an incomplete answer is sent `no-store`, so it is never cached.
 - **`/api/img`:** as in the table above.
 - **`bloodlines/list.ts` and `admin/players.ts`:** `mget` of `shared:img:bloodline:<id>` for
   the bloodlines they list, with the legacy row read only if one is missing. Today they read

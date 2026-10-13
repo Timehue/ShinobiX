@@ -21,6 +21,7 @@ type Out = { statusCode: number; body: unknown; headers: Record<string, string> 
 
 let kv: typeof import('./_storage.js').kv;
 let readImageValues: typeof import('./images.js').readImageValues;
+let readImageValuesReport: typeof import('./images.js').readImageValuesReport;
 let imagesHandler: Handler;
 let imgHandler: Handler;
 let bloodlinesHandler: Handler;
@@ -32,7 +33,7 @@ let readImageVersion: typeof import('./_image-version.js').readImageVersion;
 
 before(async () => {
     ({ kv } = await import('./_storage.js'));
-    ({ readImageValues } = await import('./images.js'));
+    ({ readImageValues, readImageValuesReport } = await import('./images.js'));
     imagesHandler = (await import('./images.js')).default as unknown as Handler;
     imgHandler = (await import('./img.js')).default as unknown as Handler;
     bloodlinesHandler = (await import('./bloodlines/list.js')).default as unknown as Handler;
@@ -225,6 +226,49 @@ describe('reads', () => {
         assert.deepEqual(await readImageValues('bloodline', ['bloodline:x', 'bloodline:y']),
             { 'bloodline:x': png('x'), 'bloodline:y': png('y') });
         assert.ok(hgetall.mock.callCount() > 0);
+    });
+
+    it('leave out ids whose row read timed out, never filling them from older legacy bytes', async (t) => {
+        // 27 ids: a first 25-image read that answers, then one that times out
+        // and holds an image replaced since the split (the legacy hash still
+        // has its old bytes).
+        const first = Array.from({ length: 25 }, (_, i) => `item:filler-${String(i).padStart(2, '0')}`);
+        await kv.set('shared:imgfields:item', { [first[0]]: png('legacy-only'), 'item:replaced': png('old') });
+        await kv.set('shared:img:item:replaced', png('new'));
+        const realMget = kv.mget.bind(kv);
+        const stalled = new Set<unknown>();
+        t.mock.method(kv, 'mget', (...keys: string[]) => {
+            const read = realMget(...keys);
+            if (keys.includes('shared:img:item:replaced')) stalled.add(read);
+            return read;
+        });
+        const timeOutStalled = async <T>(read: Promise<T | null>): Promise<T | null> => (stalled.has(read) ? null : read);
+        const ids = [...first, 'item:replaced', 'item:after'];
+        assert.deepEqual(await readImageValues('item', ids, timeOutStalled), { [first[0]]: png('legacy-only') },
+            'the replaced image is left out, and a rowless id whose read answered still gets its legacy bytes');
+        const { unread } = await readImageValuesReport('item', ids, timeOutStalled);
+        assert.deepEqual(unread, ['item:replaced', 'item:after'], 'the timed-out read and everything after it');
+    });
+
+    it('full-content mode never lets an answer a timed-out read left incomplete be cached', async (t) => {
+        await kv.set('shared:imgfields:item', { 'item:replaced': png('old') });
+        await kv.set('shared:img:item:replaced', png('new'));
+        let stalledRead = false;
+        const realMget = kv.mget.bind(kv);
+        t.mock.method(kv, 'mget', (...keys: string[]) => {
+            if (!keys.includes('shared:img:item:replaced')) return realMget(...keys);
+            stalledRead = true;
+            return new Promise(() => undefined);
+        });
+        t.mock.timers.enable({ apis: ['setTimeout'] });
+        const pending = call(imagesHandler, 'GET', { cat: 'item' });
+        for (let turn = 0; turn < 1000 && !stalledRead; turn++) await new Promise((resolve) => setImmediate(resolve));
+        assert.ok(stalledRead, 'the handler reached the image read');
+        t.mock.timers.tick(18_000);
+        const out = await pending;
+        assert.equal(out.statusCode, 200);
+        assert.deepEqual(out.body, {}, 'the old legacy bytes are not served in place of the row');
+        assert.equal(out.headers['cache-control'], 'no-store');
     });
 
     it('GET /api/img serves an id only the legacy rows hold, and writes nothing', async (t) => {
