@@ -19,6 +19,7 @@
 import {
     VILLAGE_STRUCTURE_MAX_LEVEL,
 } from './_war-economy.js';
+import { preparationCost } from '../shared/war-preparations.js';
 import {
     STRUCTURE_KEYS,
     type StructureKey,
@@ -42,58 +43,47 @@ export interface StructureDef {
 // Per-level effect magnitudes. All bounded so L10 ≈ ±15% (or +5 WR/sector). §7.
 export const STRUCTURE_DEFS: Record<StructureKey, StructureDef> = {
     ramparts: { key: 'ramparts', name: 'Ramparts', perLevel: 1.5, unit: '%', description: '+1.5% village war HP per level (raises the 5,000 cap).' },
-    watchtower: { key: 'watchtower', name: 'Watchtower', perLevel: 1.5, unit: '%', description: '+1.5% defender war-points per level (your kills count for more when defending a sector).' },
-    barracks: { key: 'barracks', name: 'Barracks', perLevel: 1.5, unit: '%', description: '-1.5% mercenary WR cost per level.' },
-    warAcademy: { key: 'warAcademy', name: 'War Academy', perLevel: 1.5, unit: '%', description: '+1.5% attacker war-points per level (your kills count for more when attacking a sector).' },
-    supplyDepot: { key: 'supplyDepot', name: 'Supply Depot', perLevel: 0.5, unit: 'wr', description: '+0.5 War Resources per controlled sector per level.' },
+    watchtower: { key: 'watchtower', name: 'Watchtower', perLevel: 1, unit: 'mult', description: 'Attack alerts and +1 intel per tier on each player’s first successful daily Espionage order.' },
+    barracks: { key: 'barracks', name: 'Barracks', perLevel: 10, unit: '%', description: '-10% temporary-building upkeep and -5% Combat sector mercenary hire costs per tier.' },
+    warAcademy: { key: 'warAcademy', name: 'War Academy', perLevel: 10, unit: '%', description: '+10% raw supporting mission points per tier, within existing PvE and garrison caps.' },
+    supplyDepot: { key: 'supplyDepot', name: 'Supply Depot', perLevel: 5, unit: 'wr', description: '+5 War Resources per village daily per level; increased material conversion capacity.' },
     treasuryVault: { key: 'treasuryVault', name: 'Treasury Vault', perLevel: 3, unit: 'mult', description: '-3% of the daily tax rate per level (softer tax).' },
 };
 
-// Ramparts + Watchtower are PER-WAR fortifications: the Kage buys them up with WR
-// during a war (NOT treasury Honor Seals), and they RESET to 0 once the village is
-// at peace (api/_war-daily). The other four are permanent, Honor-Seal-funded
-// infrastructure (surfaced in the Town Hall Upgrades tab). This makes fortifying a
-// war a live economic gamble — like hiring mercs — instead of a permanent purchase.
-export const PER_WAR_STRUCTURE_KEYS: readonly StructureKey[] = ['ramparts', 'watchtower'];
-export function isPerWarStructure(key: string): key is 'ramparts' | 'watchtower' {
-    return key === 'ramparts' || key === 'watchtower';
+// Watchtower, Barracks and Academy are purchased for a live declaration in
+// _war-preparations.ts. Legacy Ramparts are retired; Depot and Vault are permanent.
+export const PER_WAR_STRUCTURE_KEYS: readonly StructureKey[] = ['ramparts', 'watchtower', 'barracks', 'warAcademy'];
+export function isPerWarStructure(key: string): key is 'ramparts' | 'watchtower' | 'barracks' | 'warAcademy' {
+    return key === 'ramparts' || key === 'watchtower' || key === 'barracks' || key === 'warAcademy';
 }
 
-/** WR cost to raise a PER-WAR structure from `level` to `level+1` (0..9). Cheap
- *  enough to re-buy each war from sector WR income (12 at L0→1 → 66 at L9→10, ~390
- *  cumulative to max one); it resets on peace, so it never compounds. Tunable. */
+/** Three temporary tiers cost 40 / 80 / 120 WR. Purchase requires a live instance. */
 export function perWarStructureWrCost(level: number): number {
-    const lvl = Math.max(0, Math.min(VILLAGE_STRUCTURE_MAX_LEVEL - 1, Math.floor(Number(level) || 0)));
-    return 12 + lvl * 6;
+    return preparationCost(level);
 }
 
-/** Zero the per-war structures (Ramparts + Watchtower) so war-time fortifications
- *  don't carry into the next war. Pure; returns the same ref when already clear. */
+/** Clear legacy village-wide temporary levels. Live preparations are bound to individual wars. */
 export function resetPerWarStructures(record: VillageWarRecord): VillageWarRecord {
-    if (!record.structures.ramparts && !record.structures.watchtower) return record;
-    return { ...record, structures: { ...record.structures, ramparts: 0, watchtower: 0 } };
+    if (!PER_WAR_STRUCTURE_KEYS.some(k => record.structures[k])) return record;
+    return { ...record, structures: { ...record.structures, ramparts: 0, watchtower: 0, barracks: 0, warAcademy: 0 } };
 }
 
 export interface PerWarUpgradeResult {
     ok: boolean;
-    error?: 'not-per-war' | 'max-level' | 'insufficient-wr';
+    error?: 'not-per-war' | 'retired-structure' | 'max-level' | 'insufficient-wr' | 'war-required';
     cost?: number;
     record?: VillageWarRecord;
     newLevel?: number;
 }
 
-/** Pure WR-funded upgrade for a PER-WAR structure (Ramparts/Watchtower): validate
- *  the key + max-level cap, debit the WR from the record's OWN war pool, and return
- *  the next record (level +1). Self-contained — WR lives on the record, so no
- *  external currency. Does NOT touch storage. */
+/** Retired unbound purchase path. Use the locked instance purchase instead. */
 export function applyPerWarStructureUpgrade(record: VillageWarRecord, key: string): PerWarUpgradeResult {
     if (!isPerWarStructure(key)) return { ok: false, error: 'not-per-war' };
-    const cur = Math.max(0, Math.min(VILLAGE_STRUCTURE_MAX_LEVEL, Math.floor(Number(record.structures[key]) || 0)));
-    if (cur >= VILLAGE_STRUCTURE_MAX_LEVEL) return { ok: false, error: 'max-level' };
-    const cost = perWarStructureWrCost(cur);
-    if (record.warResources < cost) return { ok: false, error: 'insufficient-wr', cost };
-    const next: VillageWarRecord = { ...record, warResources: record.warResources - cost, structures: { ...record.structures, [key]: cur + 1 } };
-    return { ok: true, cost, record: next, newLevel: cur + 1 };
+    // Campaign victory uses points. Keep historical HP helpers readable, but
+    // never charge for a new fortification whose effect cannot help win a war.
+    if (key === 'ramparts') return { ok: false, error: 'retired-structure' };
+    void record; return { ok: false, error: 'war-required' }; // Purchases must bind a live instance.
+
 }
 
 /** Honor-Seal cost to raise a structure from `currentLevel` to `currentLevel+1`
@@ -123,22 +113,26 @@ export function villageWarHpMax(record: VillageWarRecord): number {
 export const VILLAGE_WAR_HP_CEILING = Math.round(
     BASE_VILLAGE_WAR_HP_MAX * (1 + STRUCTURE_DEFS.ramparts.perLevel / 100 * VILLAGE_STRUCTURE_MAX_LEVEL),
 );
-/** Sector Control HP cap after Watchtower (Phase 4 sector war reads this). */
+/** Fixed human defensive points; historical village levels never multiply awards. */
 export function defenderPointsMultiplier(record: VillageWarRecord): number {
-    return 1 + STRUCTURE_DEFS.watchtower.perLevel / 100 * effectiveLevel(record, 'watchtower');
+    void record; return 1;
 }
 /** Multiplier on a mercenary's WR cost after Barracks (Phase 5 reads this). */
 export function mercCostMultiplier(record: VillageWarRecord): number {
-    return Math.max(0, 1 - STRUCTURE_DEFS.barracks.perLevel / 100 * effectiveLevel(record, 'barracks'));
+    void record; return 1; // The hire route supplies its exact war's Barracks tier.
 }
-/** Multiplier on sector-war Control-HP damage after War Academy (Phase 4). */
+/** Fixed human attacking points. Academy is consumed by supporting-operation scorers. */
 export function sectorWarDamageMultiplier(record: VillageWarRecord): number {
-    return 1 + STRUCTURE_DEFS.warAcademy.perLevel / 100 * effectiveLevel(record, 'warAcademy');
+    void record; return 1;
 }
 /** WR earned per controlled sector per day after Supply Depot (wired into the
  *  daily pass now). */
 export function wrPerSector(record: VillageWarRecord): number {
-    return BASE_WR_PER_SECTOR + STRUCTURE_DEFS.supplyDepot.perLevel * effectiveLevel(record, 'supplyDepot');
+    void record; return BASE_WR_PER_SECTOR;
+}
+/** Supply infrastructure supports recovery even when no sectors remain. */
+export function depotDailyIncome(record: VillageWarRecord): number {
+    return 5 * effectiveLevel(record, 'supplyDepot');
 }
 /** Multiplier on the daily tax rate after Treasury Vault (wired into the tax). */
 export function taxRateMultiplier(record: VillageWarRecord): number {

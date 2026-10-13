@@ -1,4 +1,5 @@
 import { safeLogValue } from '../_safe-log.js';
+import { preparationLevels } from '../_war-preparations.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
@@ -22,7 +23,7 @@ import { wrMercTierById, WR_MERC_TIERS, mercBandSize } from '../_war-economy.js'
 import { mercBandKey, mercHireAllowance, mercHireCost, mercHireId, newBoundBand, pruneMercHires, type MercHireAllowance } from '../_war-merc.js';
 import { recordWarEcoEvent } from '../_war-telemetry.js';
 import { activeContestOnSector, listActiveSectorWars, loadSectorWar } from '../_sector-war-store.js';
-import { isSectorWarActive, sectorWarInstanceTag, type SectorWarSession } from '../_sector-war.js';
+import { isSectorWarActive, sectorWarInstanceTag, sectorWarKey, type SectorWarSession } from '../_sector-war.js';
 import { deployOneMerc } from '../_merc-auto.js';
 import {
     combatContestLive,
@@ -217,24 +218,33 @@ async function doHire(req: VercelRequest, res: VercelResponse, identity: Identit
     const now = Date.now();
     const resolved = await resolveHireContext(village, body, now);
     if (!resolved.ok) return res.status(resolved.status).json({ error: resolved.error });
-    const { context, endsAt } = resolved.value;
+    const { context } = resolved.value;
     // Live held count from the authoritative territory rows, so a village pushed
     // off the map actually gets the comeback discount on mercenaries.
     const sectorsHeld = await heldSectorsForVillage(village);
 
     const key = villageWarKey(village);
-    const out = await withKvLock(key, async () => {
+    // Match settlement/declaration's lock order: war instance, then war chest.
+    // A quote cannot buy a spent band after settlement or a replaced generation.
+    const contextLock = context.kind === 'sector' ? sectorWarKey(context.contestId) : `world:war:${context.warId}`;
+    const out = await withKvLock(contextLock, () => withKvLock(key, async () => {
         const record = normalizeVillageWarRecord(village, (await kv.get<Record<string, unknown>>(key)) ?? undefined);
         const replayed = findHire(record, hireId);
         if (replayed) return { kind: 'replay' as const, receipt: replayed };
-        const hires = pruneMercHires(record.mercHires ?? [], now);
+        const commitNow = Date.now();
+        const live = await resolveHireContext(village, body, commitNow);
+        if (!live.ok) return { kind: 'closed' as const, status: live.status, error: live.error };
+        if (mercContextKey(live.value.context) !== mercContextKey(context)) {
+            return { kind: 'closed' as const, status: 409, error: 'The war this quote was for has changed. Refresh before hiring.' };
+        }
+        const hires = pruneMercHires(record.mercHires ?? [], commitNow);
         const allowance = mercHireAllowance(hires, context, leader.seats);
         if (!allowance.seat) return { kind: 'limit' as const, allowance };
         // Fail closed rather than evict a live war's receipt (its allowance).
         if (hires.length >= MERC_HIRE_RECEIPTS_MAX) return { kind: 'full' as const };
-        const cost = mercHireCost(tierId, sectorsHeld, record);
+        const cost = mercHireCost(tierId, sectorsHeld, record, preparationLevels(record, mercContextKey(context), commitNow).barracks);
         if (record.warResources < cost) return { kind: 'poor' as const, cost };
-        const { lease, receipt } = newBoundBand({ id: hireId, tierId, player: playerName, seat: allowance.seat, context, contextEndsAt: endsAt, cost, now });
+        const { lease, receipt } = newBoundBand({ id: hireId, tierId, player: playerName, seat: allowance.seat, context, contextEndsAt: live.value.endsAt, cost, now: commitNow });
         await kv.set(key, {
             ...record,
             warResources: record.warResources - cost,
@@ -242,9 +252,10 @@ async function doHire(req: VercelRequest, res: VercelResponse, identity: Identit
             mercHires: [...hires, receipt],
         });
         return { kind: 'hired' as const, receipt, hiresLeft: Math.max(0, allowance.callerLeft - 1) };
-    }, { failClosed: true });
+    }, { failClosed: true }), { failClosed: true });
 
     if (out.kind === 'replay') return replayHire(res, out.receipt, playerName);
+    if (out.kind === 'closed') return res.status(out.status).json({ error: out.error });
     if (out.kind === 'limit') return res.status(409).json({ error: allowanceRefusal(context, out.allowance) });
     if (out.kind === 'full') return res.status(409).json({ error: 'Too many mercenary contracts are on the books. Try again once a war ends.' });
     if (out.kind === 'poor') return res.status(402).json({ error: `Hiring this mercenary costs ${out.cost} War Resources.` });
@@ -347,7 +358,8 @@ async function doList(res: VercelResponse, identity: Identity, playerName: strin
         // `cost` is what the server charges right now (comeback × Barracks
         // applied); `costWr` stays the undiscounted base for older clients.
         tiers: WR_MERC_TIERS.map((t) => ({ ...t, cost: mercHireCost(t.id, sectorsHeld, record), band: mercBandSize(t.id) })),
-        contexts,
+        contexts: contexts.map(c => ({ ...c, tiers: WR_MERC_TIERS.map(t => ({ ...t,
+            cost: mercHireCost(t.id, sectorsHeld, record, preparationLevels(record, c.key, now).barracks), band: mercBandSize(t.id) })) })),
         attacking,
         leases,
         viewer: { role: leader.role, seats: leader.seats, canHire: leader.seats.length > 0, canDeploy: leader.seats.length > 0 },

@@ -19,9 +19,10 @@
  * Make the URL say which generation of the category it wants. The manifest
  * (`GET /api/images?cat=X&ids=1&ver=1`) hands the client a version alongside the
  * id list; the client emits `/api/img?id=X&v=<version>`; and `/api/img` serves
- * anything carrying a `v` as `immutable` for a year. A version only moves when
- * the bytes behind an existing id in that category change or go (see
- * bumpImageVersion), so unchanged art is never re-requested at all.
+ * a `v` the category has already reached as `immutable` for a year (see
+ * isPublishedImageVersion). A version only moves when the bytes behind an
+ * existing id in that category change or go (see bumpImageVersion), so
+ * unchanged art is never re-requested at all.
  *
  * ── Why per-CATEGORY and not per-image ──────────────────────────────────────
  *
@@ -43,10 +44,12 @@
  *
  * Every function here fails soft to "no version", which degrades exactly to the
  * old 300s revalidation. A bump that fails cannot break an upload; a read that
- * fails cannot break a manifest. The one thing that must never happen is serving
- * `immutable` under a version the client cannot distinguish — hence
- * {@link isValidImageVersion}, and hence a read failure omitting the field
- * rather than guessing `0`.
+ * fails cannot break a manifest or an image. The one thing that must never
+ * happen is serving `immutable` under a URL that can later stand for other
+ * bytes. That rules out a version the client cannot distinguish (hence
+ * {@link isValidImageVersion}, and a read failure omitting the field rather
+ * than guessing `0`). It also rules out a version the category has not reached
+ * yet (hence {@link isPublishedImageVersion}).
  */
 
 import { kv, type KvLike } from './_storage.js';
@@ -66,6 +69,28 @@ const VERSION_RE = /^[0-9]{1,20}$/;
 
 export function isValidImageVersion(value: unknown): value is string {
     return typeof value === 'string' && VERSION_RE.test(value);
+}
+
+/**
+ * Has the category already reached `requested`? `/api/img` serves a version
+ * immutable only if it has.
+ *
+ * A version above the counter has never been handed out, so no client can hold
+ * it legitimately. It is, however, exactly the URL the category's next replace
+ * will hand out. Served immutable, one request for it (a typo, a crawler,
+ * anyone) would pin today's bytes under that URL at the edge for a year, and
+ * players would not see the replacement art in that time. A version at or
+ * below the counter is safe: it is answered with bytes at least as new as the
+ * generation it names, and the next replace moves the manifest to a different
+ * URL.
+ *
+ * `current` is null when the counter could not be read. That means unknown,
+ * not zero, so no version counts. The comparison is exact, because a 20-digit
+ * `requested` is past the point where a Number can tell neighbouring versions
+ * apart.
+ */
+export function isPublishedImageVersion(requested: string, current: string | null): boolean {
+    return isValidImageVersion(requested) && isValidImageVersion(current) && BigInt(requested) <= BigInt(current);
 }
 
 /**

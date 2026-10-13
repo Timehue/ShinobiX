@@ -101,7 +101,7 @@ export function VillageWarMercPanel({ character, onChanged }: { character: Chara
                 <p className="hint" style={{ color: "#fbbf24" }}><GameArtIcon kind="crown" size={16} /> Only your seated Kage or a current Elder can hire and send mercenaries.</p>
             )}
             {contexts.length === 0 && (
-                <p className="hint">No war to hire for right now. Bands can be hired during your village's all-out war, or to defend a Combat sector an enemy is attacking.</p>
+                <p className="hint">No Combat sector defense to hire for right now. Bands become available when an enemy attacks one of your Combat sectors.</p>
             )}
             {(data.attacking ?? []).map((a) => (
                 <p key={a.contestId} className="hint">Your village is attacking Sector {a.sector} — only {a.enemy}, the defender, can field mercenaries there.</p>
@@ -111,7 +111,7 @@ export function VillageWarMercPanel({ character, onChanged }: { character: Chara
                     <h4>{mercContextTitle(c)} · {mercContextTime(c, now)}</h4>
                     <p className="hint">{mercAllowanceLine(c, canHire)}</p>
                     <div className="vwm-merc-tiers">
-                        {tiers.map((t) => {
+                        {(c.tiers ?? tiers).map((t) => {
                             const id = `hire-${c.key}-${t.id}`;
                             const portrait = mercPortrait(t.id);
                             const afford = wrAffordability(mercTierCost(t), pool, { verb: "Hire" });
