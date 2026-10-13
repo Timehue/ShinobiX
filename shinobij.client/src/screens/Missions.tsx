@@ -182,6 +182,10 @@ export function Missions({
             }
             setAuthoritativeFight({ mission, runId: data.runId, session: data.session });
             fightMounted = true;
+        } catch {
+            // A dropped connection used to reject silently: the button reset and
+            // nothing told the player why no fight opened.
+            alert("The mission fight could not be started. Check your connection and try again.");
         } finally {
             setStartingCombat(null);
             if (!fightMounted) onMissionBattleEnd?.();

@@ -7,7 +7,7 @@ import "../styles/index/17-shop-inventory-loadout.css";
  * Prop-driven, extracted verbatim from App.tsx with no behavior change
  * (prices/discount formulas unchanged).
  */
-import { useCallback, useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { effectiveItemLevelReq, meetsItemLevelReq } from "../../../shared/item-level-gate";
 import { wildBindingSeal } from "../../../shared/wild-binding";
 import { getAllItems } from "../lib/items";
@@ -54,6 +54,37 @@ function shopArtworkIcon(item: GameItem): GameIconName {
             return "bag";
     }
 }
+
+const SHOP_SLOTS: EquipmentSlot[] = ["head", "body", "waist", "legs", "feet", "hand", "aura", "relic", "weapon", "thrown", "item", "potion", "accessory", "fishingPole", "pickaxe"];
+const ARMOR_SHOP_SLOTS: EquipmentSlot[] = ["body", "head", "waist", "legs", "feet"];
+
+// Combat consumables (the throwable pills + any potion) share one
+// "Consumables" shop section even though they sit on different equip slots
+// ("item" for the pills, "potion" for the Rejuvenation Potion). Identified by
+// weaponEffect / restore fields so other "item"-slot entries (pet treats,
+// crafting mats, evo stones, keys) stay out.
+function isShopConsumable(item: GameItem) {
+    const s = normalizeEquipmentSlot(item.slot);
+    return s === "potion" || (s === "item" && (!!item.weaponEffect || item.restoreChakra != null || item.restoreStamina != null));
+}
+
+const SHOP_SLOT_GROUPS: { label: string; slots: EquipmentSlot[]; consumables?: boolean; beastSeals?: boolean }[] = [
+    { label: "Gathering Tools", slots: ["fishingPole", "pickaxe"] },
+    { label: "Head", slots: ["head"] },
+    { label: "Chest", slots: ["body", "armor"] },
+    { label: "Waist", slots: ["waist"] },
+    { label: "Legs", slots: ["legs"] },
+    { label: "Feet", slots: ["feet"] },
+    { label: "Weapon / Hand", slots: ["hand", "weapon", "thrown"] },
+    { label: "Aura / Accessory", slots: ["aura", "accessory", "item"] },
+    { label: "Relic", slots: ["relic"] },
+    { label: "Beast Seals", slots: ["item"], beastSeals: true },
+    { label: "Consumables", slots: ["potion", "item"], consumables: true },
+];
+
+// Module constants (not inline literals) so ShopBase's listing memo stays stable.
+const VILLAGE_SHOP_RARITIES: GameItem["rarity"][] = ["common", "uncommon", "rare", "epic"];
+const GRAND_MARKETPLACE_RARITIES: GameItem["rarity"][] = ["legendary", "mythic"];
 
 function ShopItemArtwork({ item }: { item: GameItem }) {
     return (
@@ -123,48 +154,33 @@ function ShopBase({
     // value can never overflow the cap/wallet even before this resets it.)
     const openItem = (item: GameItem) => { setSelectedItem(item); setBuyQty(1); };
 
-    const allItems = getAllItems(creatorItems);
-    const shopSlots: EquipmentSlot[] = ["head", "body", "waist", "legs", "feet", "hand", "aura", "relic", "weapon", "thrown", "item", "potion", "accessory", "fishingPole", "pickaxe"];
-    const armorShopSlots: EquipmentSlot[] = ["body", "head", "waist", "legs", "feet"];
-    const shopItems = allItems.filter((item) => {
+    // The catalog and its per-group listings only change with creatorItems and
+    // this shop's rarity band, so they are not rebuilt on every render (idle
+    // regen re-renders the screen every second while a vital is below max).
+    const allItems = useMemo(() => getAllItems(creatorItems), [creatorItems]);
+    const shopItems = useMemo(() => allItems.filter((item) => {
         const craftOnlyWeapon = item.slot === "hand" && item.weaponEp != null && ["rare", "epic", "legendary"].includes(item.rarity);
         // Rare armor is craft-only — players get it from the Crafter's Armor
         // tab, not the shop. Mirrors the craftOnlyWeapon exclusion above so
         // both gear paths funnel through the crafter for rare-tier pieces.
-        const craftOnlyArmor = armorShopSlots.includes(normalizeEquipmentSlot(item.slot)) && item.armorQuality != null && item.rarity === "rare";
+        const craftOnlyArmor = ARMOR_SHOP_SLOTS.includes(normalizeEquipmentSlot(item.slot)) && item.armorQuality != null && item.rarity === "rare";
         // Drops, crafting materials, and keys ship with cost: 0 because they're
         // earned in-game, not bought. Exclude them from shop listings.
-        return shopSlots.includes(item.slot)
+        return SHOP_SLOTS.includes(item.slot)
             && item.id !== VILLAGE_TRANSFER_SCROLL_ID
             && item.id !== PROFESSION_CHANGE_APPROVAL_ID
             && filterRarities.includes(item.rarity)
             && !craftOnlyWeapon
             && !craftOnlyArmor
             && item.cost > 0;
-    });
-
-    // Combat consumables (the throwable pills + any potion) share one
-    // "Consumables" shop section even though they sit on different equip slots
-    // ("item" for the pills, "potion" for the Rejuvenation Potion). Identified by
-    // weaponEffect / restore fields so other "item"-slot entries (pet treats,
-    // crafting mats, evo stones, keys) stay out.
-    const isConsumable = (item: GameItem) => {
-        const s = normalizeEquipmentSlot(item.slot);
-        return s === "potion" || (s === "item" && (!!item.weaponEffect || item.restoreChakra != null || item.restoreStamina != null));
-    };
-    const slotGroups: { label: string; slots: EquipmentSlot[]; consumables?: boolean; beastSeals?: boolean }[] = [
-        { label: "Gathering Tools", slots: ["fishingPole", "pickaxe"] },
-        { label: "Head", slots: ["head"] },
-        { label: "Chest", slots: ["body", "armor"] },
-        { label: "Waist", slots: ["waist"] },
-        { label: "Legs", slots: ["legs"] },
-        { label: "Feet", slots: ["feet"] },
-        { label: "Weapon / Hand", slots: ["hand", "weapon", "thrown"] },
-        { label: "Aura / Accessory", slots: ["aura", "accessory", "item"] },
-        { label: "Relic", slots: ["relic"] },
-        { label: "Beast Seals", slots: ["item"], beastSeals: true },
-        { label: "Consumables", slots: ["potion", "item"], consumables: true },
-    ];
+    }), [allItems, filterRarities]);
+    const groupedShopItems = useMemo(() => SHOP_SLOT_GROUPS.map((group) => ({
+        group,
+        items: shopItems.filter((item) =>
+            group.beastSeals ? Boolean(wildBindingSeal(item.id))
+                : group.consumables ? isShopConsumable(item)
+                    : group.slots.includes(normalizeEquipmentSlot(item.slot)) && !isShopConsumable(item) && !wildBindingSeal(item.id)),
+    })), [shopItems]);
 
     const rarityIcon: Record<string, string> = {
         common: "○",
@@ -268,15 +284,12 @@ function ShopBase({
                 tone={currency === "fateShards" ? "violet" : "gold"}
             />
 
-            {currency === "ryo" && (
-                <p className="shop-discount-note">Town Hall discount <strong>{shopDiscountPercent.toFixed(2)}%</strong></p>
+            {/* Display only: prices still use the exact percent (getShopCost). */}
+            {currency === "ryo" && shopDiscountPercent > 0 && (
+                <p className="shop-discount-note">Town Hall discount <strong>{shopDiscountPercent.toLocaleString(undefined, { maximumFractionDigits: 1 })}%</strong></p>
             )}
 
-            {slotGroups.map((group) => {
-                const groupItems = shopItems.filter((item) =>
-                    group.beastSeals ? Boolean(wildBindingSeal(item.id))
-                        : group.consumables ? isConsumable(item)
-                            : group.slots.includes(normalizeEquipmentSlot(item.slot)) && !isConsumable(item) && !wildBindingSeal(item.id));
+            {groupedShopItems.map(({ group, items: groupItems }) => {
                 if (groupItems.length === 0) return null;
 
                 return (
@@ -310,7 +323,7 @@ function ShopBase({
 
                                         <small>{wildBindingSeal(item.id)
                                             ? `Wild binding · ≤${wildBindingSeal(item.id)!.resolveThreshold}% Resolve`
-                                            : isConsumable(item) ? "Consumable" : equipmentSlotLabel(item.slot)}</small>
+                                            : isShopConsumable(item) ? "Consumable" : equipmentSlotLabel(item.slot)}</small>
 
                                         {levelLocked
                                             ? <small style={{ display: "inline-flex", alignItems: "center", gap: 3, color: "#ef4444", fontWeight: "bold" }}><GameArtIcon kind="key" size={13} /> Lv.{effectiveItemLevelReq(item)} Required</small>
@@ -542,7 +555,7 @@ export function Shop({ character, creatorItems, onBack, onVersionedCharacter }: 
                 creatorItems={creatorItems}
                 title="Shop"
                 subtitle="Standard gear for everyday shinobi."
-                filterRarities={["common", "uncommon", "rare", "epic"]}
+                filterRarities={VILLAGE_SHOP_RARITIES}
                 currency="ryo"
                 onBack={onBack}
                 onVersionedCharacter={onVersionedCharacter}
@@ -559,7 +572,7 @@ export function GrandMarketplace({ character, creatorItems, onBack, onVersionedC
                 creatorItems={creatorItems}
                 title="Grand Marketplace"
                 subtitle="Legendary and Mythic equipment from across the shinobi world. All items cost Fate Shards"
-                filterRarities={["legendary", "mythic"]}
+                filterRarities={GRAND_MARKETPLACE_RARITIES}
                 currency="fateShards"
                 onBack={onBack}
                 backLabel="← Central Hub"

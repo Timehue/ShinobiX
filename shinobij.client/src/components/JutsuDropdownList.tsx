@@ -6,7 +6,7 @@
  * jutsuElements are imported back from ../App (same pattern as TagPicker).
  */
 /* eslint-disable react-hooks/set-state-in-effect */ // matches App.tsx's file-wide suppression; logic moved verbatim
-import { useState, useEffect, type ReactNode } from "react";
+import { useState, useEffect, useMemo, type ReactNode } from "react";
 import { allTags } from "../lib/tags";
 import { getJutsuSelectOptions } from "../lib/jutsu-options";
 import { specialties, jutsuElements } from "../data/jutsu";
@@ -56,15 +56,19 @@ export function JutsuDropdownList({
     const [sortBy, setSortBy] = useState<JutsuSort>("name");
     const reorderable = typeof onReorder === "function";
     // Reorderable lists keep the parent-supplied order (manual loadout order);
-    // everything else uses the filter/sort dropdowns as before.
-    const baseJutsus = reorderable
+    // everything else uses the filter/sort dropdowns as before. Memoized: the
+    // parent screens re-render every second during idle regen, and the
+    // "Effects" sort describes every jutsu in the catalog.
+    const baseJutsus = useMemo(() => reorderable
         ? [...jutsus]
             .filter((jutsu) => typeFilter === "All" || jutsu.type === typeFilter)
             .filter((jutsu) => elementFilter === "All" || jutsu.element === elementFilter)
-        : getJutsuSelectOptions(jutsus, typeFilter, elementFilter, sortBy);
-    const sortedJutsus = baseJutsus
+        : getJutsuSelectOptions(jutsus, typeFilter, elementFilter, sortBy),
+    [reorderable, jutsus, typeFilter, elementFilter, sortBy]);
+    const sortedJutsus = useMemo(() => baseJutsus
         .filter((jutsu) => jutsu.name.toLowerCase().includes(nameFilter.trim().toLowerCase()))
-        .filter((jutsu) => effectFilter === "All" || jutsu.tags.some((tag) => tag.name === effectFilter));
+        .filter((jutsu) => effectFilter === "All" || jutsu.tags.some((tag) => tag.name === effectFilter)),
+    [baseJutsus, nameFilter, effectFilter]);
     const [localSelectedId, setLocalSelectedId] = useState(sortedJutsus[0]?.id ?? "");
     const effectiveSelectedId = selectedJutsuId ?? localSelectedId;
     const selectedJutsu = sortedJutsus.find((jutsu) => jutsu.id === effectiveSelectedId) ?? sortedJutsus[0];
@@ -134,7 +138,7 @@ export function JutsuDropdownList({
                                 type="button"
                             >
                                 <span className="technique-thumb">
-                                    {image ? <img src={image} alt="" onError={(e) => { e.currentTarget.style.display = "none"; }} /> : <strong>{jutsu.type.slice(0, 3).toUpperCase()}</strong>}
+                                    {image ? <img src={image} alt="" loading="lazy" decoding="async" onError={(e) => { e.currentTarget.style.display = "none"; }} /> : <strong>{jutsu.type.slice(0, 3).toUpperCase()}</strong>}
                                 </span>
                                 <span className="technique-name">{jutsu.name}</span>
                                 {isBloodline && (
