@@ -45,7 +45,7 @@ function JutsuArtwork({ jutsu, className = "" }: { jutsu: Jutsu; className?: str
     return (
         <span className={`jutsu-workbench-art ${hasArtwork ? "has-artwork" : "is-fallback"} ${className}`} data-element={jutsu.element} aria-hidden="true">
             {hasArtwork
-                ? <img src={jutsu.image} alt="" onError={() => setFailedImage(jutsu.image ?? "")} />
+                ? <img src={jutsu.image} alt="" loading="lazy" decoding="async" onError={() => setFailedImage(jutsu.image ?? "")} />
                 : <strong>{jutsuGlyph(jutsu)}</strong>}
         </span>
     );

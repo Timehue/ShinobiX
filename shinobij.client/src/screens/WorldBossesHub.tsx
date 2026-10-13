@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { Character, PlayerRecord, VersionedCharacterCommit, BattleHistoryEntry } from '../types/character';
 import type { GameItem, SavedBloodline } from '../types/combat';
 import type { CreatorAi } from '../types/creator-ai';
@@ -50,6 +50,9 @@ export function WorldBossesHub({
         try { sessionStorage.setItem(tabStorageKey, tab); } catch { /* keep the tab switch available */ }
     }, [tabStorageKey]);
     const tabBar = <WorldBossTabs active={activeTab} onSelect={selectTab} />;
+    // Hoisted above the early return (hooks must run unconditionally); the
+    // catalog only changes with creatorItems, not on each idle-regen render.
+    const allItems = useMemo(() => getAllItems(creatorItems), [creatorItems]);
 
     if (activeTab === 'weekly') {
         return <WeeklyBossArena
@@ -64,7 +67,6 @@ export function WorldBossesHub({
         />;
     }
 
-    const allItems = getAllItems(creatorItems);
     const hostLoadout: TowerHostLoadout = {
         pvpItems: getPvpItemLoadout(character, allItems),
         bloodlineMult: getBloodlineMultiplier(character, savedBloodlines),
