@@ -443,25 +443,22 @@ balance‑sensitive progression system, (b) be conceptually wrong (the mock's
 maintenance is a *village* cost paid from a *village* economy), and (c) risk save
 churn on every player. Hard‑rule territory.
 
-**Proposed village structures (6), shared per village, Kage‑upgraded, L1–L10:**
+**Current structures (owner-approved 2026-10-12):** The cross-war rules in [Village campaign economy](village-war-objectives-plan.md#shared-war-economy-and-settlement) supersede the initial building proposals.
 
-| Structure | Village‑wide effect (proposed) | Ties into |
+| Structure | Current effect | Ties into |
 |---|---|---|
-| **Ramparts / Walls** | +X% village war HP (raises the 5,000 cap) | war engine HP |
-| **Watchtower** | +X% home‑sector defense / slower enemy sector capture | territory HP |
-| **Barracks** | mercenary WR discount and/or +1 concurrent merc slot | `_mercenaries.ts` |
-| **War Academy** | +X% village raid/sector‑war damage or sector‑war WR discount | world‑state raid |
-| **Supply Depot** | +X WR per controlled sector (amplifies Loop 1 income) | sector benefits |
-| **Treasury Vault** | −X% daily tax rate (one tier softer) and/or higher WR storage cap | tax loop |
+| **Ramparts / Walls** | Retired; new purchases refused without spending | Historical HP only |
+| **Watchtower** | Individual-war attack reports; bonus intel on each player's first daily campaign Espionage success | Three temporary tiers |
+| **Barracks** | Individual-war temporary upkeep discount; Combat sector-defense mercenary discount | Three temporary tiers |
+| **War Academy** | Raw supporting mission and player-run garrison points, within existing PvE/garrison caps | Three temporary tiers |
+| **Supply Depot** | +5 flat village WR/day per level; increased materials conversion allowance | Permanent, ten levels |
+| **Treasury Vault** | −3% relative occupation-tax rate per level | Permanent, ten levels |
 
-- **Upgrade cost:** Honor Seals from the **treasury seal pool** (Loop 3), reusing the
-  existing per‑level cost curve shape.
-- **Daily maintenance:** WR from the village pool (Loop 1), §6.2 formula.
+- **Upgrade cost:** temporary tiers use 40 / 80 / 120 WR for the selected declaration; permanent projects use the existing treasury Honor Seal curve and L6+ material costs.
+- **Daily maintenance:** permanent levels keep §6.2; temporary instances use `ceil(2 × total tiers × (1 − 0.1 × Barracks tier))`. Expired or surrendered instances are removed before billing.
 - **Shared state:** stored on the village record (`shared:village-war:<slug>`), not on
   characters — so there is exactly one source of truth and the Kage manages it.
-- **Effects are additive and bounded**, applied at the same points the existing
-  per‑player bonuses are read, so they compose without double‑dipping. Keep individual
-  caps small (e.g. each ≤ +10–15% at L10) to protect war/defense balance.
+- **Effects are bounded:** purchased buildings never multiply human victory points, add scored objective slots or increase mission attempts. Supporting points retain the campaign's 20% effective-PvE ceiling and sector garrison caps. Copies keep their source player's exact build.
 
 **Maintenance shortfall behavior (save‑safe):** if the WR pool can't cover a day's
 upkeep, structures don't get destroyed and don't lose levels — they go **dormant**
@@ -950,8 +947,7 @@ the higher tally takes the sector:
 - **Points = role‑weighted kills**: `winner.win + loser.loss` from the rank
   ladder, **uncapped per fight** — a villager felling the enemy Kage scores the
   full 55; leadership kills are bounties and fielding leadership is a risk. The
-  attacker's **War Academy** multiplies attacker points, the defender's
-  **Watchtower** multiplies defender points (both +1.5%/level).
+  human victory awards remain fixed. **War Academy** improves only player-run garrison support within its existing cap.
 - **Attacker strictly ahead → the sector flips** (`captureSectorForVillage`).
   **Defender ahead OR TIED → the defence holds** — holding ground beats
   matching it. An abandoned war is a concession regardless of score.

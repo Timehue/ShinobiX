@@ -12,7 +12,7 @@
  * Daily consumption order (§3 of the design): spoilage first, then each
  * active sector war, then each live merc band, then each fed garrison. A
  * consumer the stock can't cover is UNFED for the day — the war loses half of
- * its Watchtower bonus, the merc band skips one auto-deploy tick, the garrison
+ * its Academy support bonus, the merc band skips one auto-deploy tick, the garrison
  * bonus simply doesn't apply. Material points convert into War Resources at a
  * Supply-Depot-scaled daily cap.
  *

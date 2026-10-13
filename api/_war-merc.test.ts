@@ -22,7 +22,7 @@ test('mercHireCost: Barracks levels reduce the cost', () => {
     const withBarracks = normalizeVillageWarRecord('Stormveil Village');
     withBarracks.structures.barracks = 10; // max Barracks
     const full = mercHireCost('merc-warlord', 8, base);
-    const discounted = mercHireCost('merc-warlord', 8, withBarracks);
+    const discounted = mercHireCost('merc-warlord', 8, withBarracks, 3);
     assert.ok(discounted < full, `Barracks should cut the cost: ${discounted} < ${full}`);
     assert.ok(discounted > 0, 'a max-Barracks discount is bounded, not free');
 });

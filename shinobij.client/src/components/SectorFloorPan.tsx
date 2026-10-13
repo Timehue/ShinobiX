@@ -24,7 +24,7 @@ export function SectorFloorPan({ image, direction }: { image?: string; direction
         // Animate their outer elements without wrapping the measured tile grid or
         // disturbing the inner transforms used for walking and marker anchors.
         const board = next.closest<HTMLElement>(".pixel-map");
-        const actors = board?.querySelectorAll<HTMLElement>(".sector-peers-overlay,.sector-wanderer-overlay,.sector-ground-landmark,.sector-ground-cairn,.sector-village-entrance,.sector-story-field-marker,.sector-trace-overlay,.sector-shrine-standee,.sector-rift-standee,.sector-stronghold-standee");
+        const actors = board?.querySelectorAll<HTMLElement>(".sector-peers-overlay,.sector-wanderer-overlay,.sector-ground-landmark,.sector-ground-cairn,.sector-village-entrance,.sector-story-field-marker,.sector-trace-overlay,.sector-shrine-standee,.sector-rift-standee,.sector-stronghold-standee,.sector-war-shrine-standee");
         const actorPans = Array.from(actors ?? [], actor => actor.animate([
             { translate: `${x / 100 * board!.clientWidth}px ${y / 100 * board!.clientHeight}px` },
             { translate: "0px 0px" },
