@@ -127,7 +127,17 @@ export async function mountContinuousWorld(host: Host) {
     function tick(now: number) {
         const dt = Math.min(.05, (now - (last || now)) / 1000); last = now;
         if (requestedSector !== sector && now >= retryAfter) void resync();
-        const blocked = stale || host.blocked() || document.hidden || requestedSector !== sector;
+        // Each update must cover less ground than WORLD_UPDATE_TILES, or walking
+        // waits between replies even on a fast connection (125 ms = 0.8 tile). The
+        // socket drops a world:move that lands within 80 ms of the last one, and
+        // phone uplink jitter bunched 100 ms sends under it; 150 ms keeps most clear.
+        const interval = isRealtimePresenceLive() ? 150 : 125;
+        // host.blocked() scans the whole document for an open modal. Standing idle
+        // with no key held and no send due, nothing below acts on `blocked`, so the
+        // scan runs only when it can matter (~7/s idle instead of every frame).
+        const due = now - lastSend > interval;
+        const blocked = stale || document.hidden || requestedSector !== sector
+            || ((held !== null || walker.moving || due) && host.blocked());
         if (blocked) { held = null; walker.stop(); }
         if (held && !walker.moving && !blocked) {
             let best = '', score = .35;
@@ -138,15 +148,10 @@ export async function mountContinuousWorld(host: Host) {
             }
             if (best) walker.go(best);
         }
-        // Each update must cover less ground than WORLD_UPDATE_TILES, or walking
-        // waits between replies even on a fast connection (125 ms = 0.8 tile). The
-        // socket drops a world:move that lands within 80 ms of the last one, and
-        // phone uplink jitter bunched 100 ms sends under it; 150 ms keeps most clear.
-        const interval = isRealtimePresenceLive() ? 150 : 125;
         walker.pause(blocked || resyncing);
         const before = walker.travelled; walker.tick(Math.min(dt * pace.rate(interval / 1000), pace.room));
         pace.advance((walker.travelled - before) / 6.5);
-        if (!blocked && now - lastSend > interval) { lastSend = now; void send(); }
+        if (!blocked && due) { lastSend = now; void send(); }
         const view = renderer.draw(walker.position, sector), size = view.tilePx * 12;
         host.onPosition?.(sector, walker.position.x - view.chunk.x - .5, walker.position.y - view.chunk.y - .5);
         host.chunk.style.width = host.chunk.style.height = `${size}px`;

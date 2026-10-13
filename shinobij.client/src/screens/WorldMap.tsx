@@ -84,7 +84,8 @@ import { requestAiFight } from "../lib/ai-fight-request";
 import { creatorEventPracticeOpponent } from "../lib/creator-event-practice";
 import { aiRaidLaunchFailureMessage, mintAiRaidToken } from "../lib/ai-raid-api";
 import { raidStartActionScope } from "../lib/action-deadline-store";
-import { useActionDeadline } from "../lib/use-action-deadline";
+import { useLiveActionDeadline } from "../lib/use-action-deadline";
+import { sameJsonValue } from "../lib/pvp-session-runtime";
 import type { WorldAiFightContext, WorldAiFightKind, WorldAiFightRequest } from "../../../shared/world-ai-fight";
 import { wandererAvatar, wandererRobberPortrait, questBossPortrait, WANDERER_BOSS_PORTRAIT, WANDERER_NEMESIS_PORTRAIT } from "../lib/wanderer-art";
 import { makeBuiltinAi } from "../lib/combat-ai";
@@ -436,7 +437,11 @@ function WorldMapContent({
     const [travelToast, setTravelToast] = useState<HuntToast | null>(null);
     const [huntEncounter, setHuntEncounter] = useState<HuntEncounterState | null>(null);
     const aiRaidLaunchInFlight = useRef(false);
-    const raidStartCooldownMs = useActionDeadline(raidStartActionScope(character.name));
+    // Ticks only while the raid cooldown runs; the map's other render-time clocks (weather, travel badges,
+    // breach minutes, contest end, trails) refresh on this 5s visible-only tick, not a 1s full re-render.
+    const raidStartCooldownMs = useLiveActionDeadline(raidStartActionScope(character.name));
+    const [, setMapClockTick] = useState(0);
+    useEffect(() => visiblePoll(() => setMapClockTick((tick) => tick + 1), 5_000, 0), []);
     const pendingBountyHunterRef = useRef<{ hunterId: string; sector: number } | null>(null);
     const bountyHunterStartInFlightRef = useRef(false);
     const [authoritativeHuntStates, setAuthoritativeHuntStates] = useState<Record<string, WorldHuntTrailView>>({});
@@ -795,7 +800,7 @@ function WorldMapContent({
         if (!globalViewOpen && selectedSector == null) return;
         let alive = true;
         const load = () => {
-            void fetchBountyBoard().then((board) => { if (alive) setBountyBoard(board); }).catch(() => { /* best-effort */ });
+            void fetchBountyBoard().then((board) => { if (alive) setBountyBoard((prev) => sameJsonValue(prev, board) ? prev : board); }).catch(() => { /* best-effort */ });
         };
         load();
         const stop = visiblePoll(load, 45000);
@@ -869,7 +874,7 @@ function WorldMapContent({
         const sec = selectedSector;
         if (!villageWarViewOpen || !isVillageWarMapEnabled() || sec == null || !village) return;
         let alive = true;
-        const load = () => { void fetchSectorRoster(character.name, village, sec).then(r => { if (alive) setMercRoster({ sector: sec, mercs: r.mercs, contest: r.contest }); }).catch(() => { /* roster is best-effort */ }); };
+        const load = () => { void fetchSectorRoster(character.name, village, sec).then(r => { const next = { sector: sec, mercs: r.mercs, contest: r.contest }; if (alive) setMercRoster(prev => sameJsonValue(prev, next) ? prev : next); }).catch(() => { /* roster is best-effort */ }); };
         load();
         const stop = visiblePoll(load, 20000);
         return () => { alive = false; stop(); };
@@ -917,7 +922,7 @@ function WorldMapContent({
         const load = () => {
             void fetch("/api/weekly-boss", { method: "GET" })
                 .then((r) => (r.ok ? r.json() : null))
-                .then((data) => { if (alive) setRoamingBoss(data?.boss?.aiId ? (data.boss as RoamingBoss) : null); })
+                .then((data) => { const next = data?.boss?.aiId ? (data.boss as RoamingBoss) : null; if (alive) setRoamingBoss((prev) => sameJsonValue(prev, next) ? prev : next); })
                 .catch(() => { /* best-effort — no marker if the fetch fails */ });
         };
         load();

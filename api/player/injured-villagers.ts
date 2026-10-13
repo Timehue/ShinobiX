@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
+import { readKvProjection } from '../_storage-projection.js';
 import { safeName, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { professionRankForXp } from '../missions/_progress.js';
@@ -17,6 +18,22 @@ const HP_INJURED_THRESHOLD = 0.99; // <99% HP counts as injured
 // from it avoids a full save:* keyspace scan (recursive disk-overlay walk) on
 // every Healer poll.
 const REGISTRY_KEY = 'player:registry';
+
+/**
+ * True only when stored vitals prove the player is above the injured threshold
+ * whatever settlement does. settleSaveRecord only regenerates HP
+ * (_elapsed-state.ts regenVital: min(floor(maxHp), floor(hp) + n) with n >= 1)
+ * and never changes maxHp, so for integer vitals the HP ratio can only rise or
+ * clamp to full. Anything unusual (missing, fractional, non-positive) returns
+ * false and takes the full read, exactly as before.
+ */
+export function certainlyHealthyVitals(row: Record<string, unknown> | null | undefined): boolean {
+    const hp = row?.hp;
+    const maxHp = row?.maxHp;
+    return typeof hp === 'number' && typeof maxHp === 'number'
+        && Number.isInteger(hp) && Number.isInteger(maxHp)
+        && hp >= 0 && maxHp > 0 && hp / maxHp > HP_INJURED_THRESHOLD;
+}
 
 type InjuredEntry = {
     name: string;
@@ -88,16 +105,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(200).json({ injured: [] });
         }
 
+        // Rank-10 healers poll this every 20s, and it read the whole save (~100 KB)
+        // of every same-village player on each poll. Read their two HP numbers
+        // first: anyone already certainly healthy cannot be injured after the
+        // settlement below, so only the rest need their full save.
+        const vitals = await readKvProjection(kv, playerKeys, { hp: ['character', 'hp'], maxHp: ['character', 'maxHp'] });
+        const candidateSlugs = playerSlugs.filter((_, index) => !certainlyHealthyVitals(vitals[index]));
+        if (candidateSlugs.length === 0) {
+            res.setHeader('Cache-Control', 'private, no-cache');
+            return res.status(200).json({ injured: [] });
+        }
         const [records, battleLocks] = await Promise.all([
-            kv.mget(...playerKeys),
-            battleLockFlagsForPlayers(playerSlugs),
+            kv.mget(...candidateSlugs.map(slug => `save:${slug}`)),
+            battleLockFlagsForPlayers(candidateSlugs),
         ]);
         const injured: InjuredEntry[] = [];
         for (let i = 0; i < records.length; i++) {
             const r = records[i];
             const rec = r as Record<string, unknown> | null;
             if (!rec) continue;
-            const settled = settleSaveRecord(rec, { battleLocked: battleLocks.get(playerSlugs[i]!) === true }).record;
+            const settled = settleSaveRecord(rec, { battleLocked: battleLocks.get(candidateSlugs[i]!) === true }).record;
             const c = settled.character as Record<string, unknown> | undefined;
             if (!c) continue;
             const name = String(c.name ?? '');

@@ -324,6 +324,15 @@ async function expectCommittedSave(page: Page, api: AuthenticatedApiFixture) {
     await expect(page.getByRole("complementary", { name: "Device and server saves diverged" })).toHaveCount(0);
 }
 
+// Read-only play need not create a write: idle regen never dirties the save, and
+// a server-committed action is adopted rather than re-posted. Any write that did
+// occur must still be the exact-version commit.
+async function expectSettledSave(page: Page, api: AuthenticatedApiFixture) {
+    if (api.lastCommit()) return expectCommittedSave(page, api);
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByRole("complementary", { name: "Device and server saves diverged" })).toHaveCount(0);
+}
+
 async function expectLoadedSave(page: Page, api: AuthenticatedApiFixture, name = "AdaptiveNinja", sector = 0) {
     await expect.poll(() => {
         const loaded = api.lastLoadedSave();
@@ -1197,7 +1206,7 @@ test("selected-sector projection keeps controls, receipts, traces, and responsiv
 
     await page.goto("/#/worldMap", { waitUntil: "networkidle" });
     await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "worldMap");
-    await expectCommittedSave(page, api);
+    await expectLoadedSave(page, api, "AdaptiveNinja", 44);
 
     const returnToSector = page.getByRole("button", { name: /Return to Sector 44/ });
     await expect(returnToSector).toBeVisible();
@@ -1306,7 +1315,7 @@ test("selected-sector projection keeps controls, receipts, traces, and responsiv
         redeemedSectorExplorations: [{ id: sharedRequestId, sector: 44, reward: { ryo: 35 } }],
     });
 
-    await expectCommittedSave(page, api);
+    await expectSettledSave(page, api);
 
     await expect.poll(() => traceRequests.length).toBe(1);
     expect(traceRequests).toEqual([{ method: "GET", sector: "44", player: "AdaptiveNinja" }]);
