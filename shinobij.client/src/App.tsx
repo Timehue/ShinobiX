@@ -3475,7 +3475,8 @@ export default function App() {
     // Extracted so applySnapshot can call it after the KV restore to avoid
     // the race condition where applySnapshot (empty images) lands after loadCategory.
     function hydrateImages(cat: string, images: Record<string, string>) {
-        setSharedImages(prev => ({ ...prev, ...images }));
+        // An unchanged refresh (the periodic avatar re-check) keeps the same map, so App and every image consumer skip a re-render.
+        setSharedImages(prev => Object.entries(images).every(([key, value]) => prev[key] === value) ? prev : { ...prev, ...images });
         if (cat === 'item')
             setCreatorItems(prev => {
                 // Patch images on; keep a fresh inline data: image rather than clobber it with the 5-min-stale /api/img ref (same guard as the pet branch).
@@ -3598,7 +3599,8 @@ export default function App() {
                 // pet/item/bloodline branches above). See lib/own-avatar.ts.
                 if (isPresetAvatar(prev.avatarImage)) return prev;
                 const img = images['avatar:' + prev.name.toLowerCase()];
-                return img ? { ...prev, avatarImage: img } : prev;
+                // Same image: keep the object, or the periodic avatar refresh dirties the save and POSTs it.
+                return img && img !== prev.avatarImage ? { ...prev, avatarImage: img } : prev;
             });
         else if (cat === 'ai')
             setCreatorAis(prev => {
