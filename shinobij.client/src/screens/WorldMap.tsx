@@ -83,7 +83,7 @@ import { requestAiFight } from "../lib/ai-fight-request";
 import { creatorEventPracticeOpponent } from "../lib/creator-event-practice";
 import { aiRaidLaunchFailureMessage, mintAiRaidToken } from "../lib/ai-raid-api";
 import { raidStartActionScope } from "../lib/action-deadline-store";
-import { useActionDeadline } from "../lib/use-action-deadline";
+import { useLiveActionDeadline } from "../lib/use-action-deadline";
 import type { WorldAiFightContext, WorldAiFightKind, WorldAiFightRequest } from "../../../shared/world-ai-fight";
 import { wandererAvatar, wandererRobberPortrait, questBossPortrait, WANDERER_BOSS_PORTRAIT, WANDERER_NEMESIS_PORTRAIT } from "../lib/wanderer-art";
 import { makeBuiltinAi } from "../lib/combat-ai";
@@ -439,7 +439,13 @@ function WorldMapContent({
     const [travelToast, setTravelToast] = useState<HuntToast | null>(null);
     const [huntEncounter, setHuntEncounter] = useState<HuntEncounterState | null>(null);
     const aiRaidLaunchInFlight = useRef(false);
-    const raidStartCooldownMs = useActionDeadline(raidStartActionScope(character.name));
+    // Ticks only while the raid cooldown runs (see useLiveActionDeadline). The
+    // map's other render-time clocks (sector weather, peer travel badges, breach
+    // and rebuild minutes, contest end, tracker trails) refresh on the coarse
+    // visible-only tick below instead of a full re-render every second.
+    const raidStartCooldownMs = useLiveActionDeadline(raidStartActionScope(character.name));
+    const [, setMapClockTick] = useState(0);
+    useEffect(() => visiblePoll(() => setMapClockTick((tick) => tick + 1), 5_000, 0), []);
     const pendingBountyHunterRef = useRef<{ hunterId: string; sector: number } | null>(null);
     const bountyHunterStartInFlightRef = useRef(false);
     const [authoritativeHuntStates, setAuthoritativeHuntStates] = useState<Record<string, WorldHuntTrailView>>({});
