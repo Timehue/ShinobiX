@@ -1,21 +1,25 @@
-import { economyIntentSettled, pendingEconomyIntent } from "./economy-request-intent";
 import type { ClanWarCampaignView } from "../../../shared/clan-war-campaign";
-import { getSocketAuth } from '../authFetch';
-import { createClanWarViewerCache } from './clan-war-viewer-cache';
+import {clanWarViewerCache as viewerCache} from './clan-war-cache-state';
 
-const viewerCache = createClanWarViewerCache<CwWar>(() => getSocketAuth().name);
 export const sharedClanWarCache: Record<string, CwWar> = viewerCache.cache;
 export type ClanShrineRoomView={serverNow:number;players:Array<{name:string;displayName:string;clan:string;tile:number;inBattle:boolean}>};
-export async function cwQueueAction(body: {warId:string;action:string;mode?:string;scope?:'normal'|'shrine';windowIndex?:number;partnerEntryId?:string;matchId?:string;tile?:number}): Promise<{ok:boolean;error?:string;war?:CwWar;serverNow?:number;shrinePlayers?:string[];room?:ClanShrineRoomView}> {
+export type ClanWarQueueActionInput={warId:string;action:string;mode?:string;scope?:'normal'|'shrine';windowIndex?:number;partnerEntryId?:string;matchId?:string;tile?:number};
+const changedViewerError='The signed-in player changed. Reopen the clan page.';
+
+// Listing remains on the startup graph; paid and battle actions load on use.
+// Capture the caller before loading so a delayed chunk cannot switch actors.
+async function loadClanWarActions() {
     const viewer = viewerCache.scope();
+    const actions=await import('./clan-war-actions');
+    if(!viewerCache.current(viewer))throw new Error(changedViewerError);
+    return {actions,viewer};
+}
+
+export async function cwQueueAction(body:ClanWarQueueActionInput): Promise<{ok:boolean;error?:string;war?:CwWar;serverNow?:number;shrinePlayers?:string[];room?:ClanShrineRoomView}> {
     try {
-        const response = await fetch('/api/clan/war/queue',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-        const data=await response.json().catch(()=>({}));
-        if (!response.ok) return {ok:false,error:data.error??'The queue could not update. Try again.'};
-        if (!viewerCache.current(viewer)) return {ok:false,error:'The signed-in player changed. Reopen the clan page.'};
-        if (data.war) data.war = viewerCache.accept(data.war,viewer);
-        return {ok:true,...data};
-    } catch { return {ok:false,error:'Connection lost. Your last confirmed war state is preserved. Try again.'}; }
+        const {actions,viewer}=await loadClanWarActions();
+        return actions.cwQueueAction(body,viewer);
+    } catch(error) { return {ok:false,error:error instanceof Error&&error.message===changedViewerError?changedViewerError:'Connection lost. Your last confirmed war state is preserved. Try again.'}; }
 }
 
 export type CwChallengeMode = "pvp1v1" | "pvp2v2" | "pet1v1" | "pet2v2" | "tilecards";
@@ -102,28 +106,14 @@ export async function cwListWars(): Promise<CwWar[]> {
 // declaring again after a lost answer finishes or replays the first
 // declaration instead of charging a second time.
 export async function cwDeclareWar(toClan: string, declarerName: string,funding:'personal'|'pool'='personal'): Promise<{ ok: boolean; error?: string; war?: CwWar }> {
-    const intent = pendingEconomyIntent("clan-war-declare", [declarerName.trim().toLowerCase(), toClan.trim().toLowerCase(),...(funding==='pool'?[funding]:[])]);
     try {
-        const res = await fetch("/api/clan/war/declare", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ toClan, requestId: intent.requestId,funding }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (economyIntentSettled(res.status, data)) intent.complete();
-        if (!res.ok) return { ok: false, error: data.error ?? `HTTP ${res.status}` };
-        return { ok: true, war: data.war };
+        const {actions}=await loadClanWarActions();
+        return actions.cwDeclareWar(toClan,declarerName,funding);
     } catch (e) { return { ok: false, error: String((e as Error).message) }; }
 }
 export async function cwChallengeAction(body: Record<string, unknown>): Promise<{ ok: boolean; error?: string; war?: CwWar; challenge?: CwChallenge }> {
     try {
-        const r = await fetch("/api/clan/war/challenge", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-        });
-        const data = await r.json().catch(() => ({}));
-        if (!r.ok) return { ok: false, error: data.error ?? `HTTP ${r.status}` };
-        return { ok: true, war: data.war, challenge: data.challenge };
+        const {actions}=await loadClanWarActions();
+        return actions.cwChallengeAction(body);
     } catch (e) { return { ok: false, error: String((e as Error).message) }; }
 }

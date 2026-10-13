@@ -1,10 +1,5 @@
 import {setSectorReopen} from './sector-return';
-import type {CwWar} from './clan-war-api';
-export function clanWarLaunchOrigin(war:CwWar|undefined,challengeId:string|undefined) {
-    const campaign=war?.campaignView,match=challengeId?campaign?.matches.find(entry=>entry.id===challengeId):undefined;
-    const shrine=match?.scope==='shrine'?campaign?.shrines.find(window=>window.index===match.windowIndex):undefined;
-    return {returnScreen:shrine?'worldMap' as const:'clan' as const,shrineSector:shrine?.sector,shrineWindowIndex:shrine?.index,campaignVersion:campaign?.version};
-}
+export {clanWarLaunchOrigin} from './clan-war-launch-origin';
 /** Browser navigation only: battle and reward authority never depends on it. */
 export function clanWarReturnTarget():'clan'|'worldMap' {
     try{return JSON.parse(sessionStorage.getItem('clanWarChallenge.v1')??'{}').returnScreen==='worldMap'?'worldMap':'clan';}catch{return 'clan';}
