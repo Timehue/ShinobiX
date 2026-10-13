@@ -25,7 +25,7 @@ const response = (name: string, options?: Partial<FakeResponse>): FakeResponse =
     return value;
 };
 
-function serviceWorkerHarness(fetchImage: (request: { url: string }) => Promise<FakeResponse>) {
+function serviceWorkerHarness(fetchImage: (request: { url: string }) => Promise<FakeResponse>, clock = { now: 1_000_000 }) {
     const listeners = new Map<string, (event: Record<string, unknown>) => void>();
     const stored = new Map<string, FakeResponse>();
     const deletedCaches = new Set<string>();
@@ -53,6 +53,7 @@ function serviceWorkerHarness(fetchImage: (request: { url: string }) => Promise<
         URL,
         Set,
         Promise,
+        Date: { now: () => clock.now },
     });
 
     async function request(url: string, destination = "image") {
@@ -104,6 +105,36 @@ describe("game image service worker", () => {
 
         assert.equal(await harness.request(key), old);
         assert.equal(harness.stored.get(key), fresh);
+    });
+
+    it("refreshes fixed-name art at most once per window instead of on every hit", async () => {
+        let fetches = 0;
+        const clock = { now: 1_000_000 };
+        const harness = serviceWorkerHarness(async () => { fetches += 1; return response(`fresh-${fetches}`); }, clock);
+        const key = "https://shinobijourney.com/items/shop-aura-sphere-v1.webp";
+        harness.stored.set(key, response("old"));
+
+        assert.equal((await harness.request(key))?.name, "old");
+        assert.equal(fetches, 1, "the first hit refreshes in the background");
+        for (let i = 0; i < 5; i += 1) assert.equal((await harness.request(key))?.name, "fresh-1");
+        assert.equal(fetches, 1, "repeat hits inside the window are served from cache alone");
+
+        clock.now += 5 * 60 * 1000;
+        assert.equal((await harness.request(key))?.name, "fresh-1");
+        assert.equal(fetches, 2, "the next hit after the window refreshes again");
+        assert.equal(harness.stored.get(key)?.name, "fresh-2");
+    });
+
+    it("still refreshes dynamic /api/img art on every hit", async () => {
+        let fetches = 0;
+        const harness = serviceWorkerHarness(async () => { fetches += 1; return response(`avatar-${fetches}`); });
+        const key = "https://shinobijourney.com/api/img?id=avatar%3Araiko";
+        harness.stored.set(key, response("old-avatar"));
+
+        assert.equal((await harness.request(key))?.name, "old-avatar");
+        assert.equal((await harness.request(key))?.name, "avatar-1");
+        assert.equal(fetches, 2);
+        assert.equal(harness.stored.get(key)?.name, "avatar-2");
     });
 
     it("stores the first successful image for later outage recovery", async () => {

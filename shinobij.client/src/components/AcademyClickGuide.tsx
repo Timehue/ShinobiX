@@ -55,35 +55,43 @@ export function AcademyClickGuide({ step }: { step: AcademyClickStep }) {
             bubble.style.setProperty("--academy-arrow-x", `${Math.max(14, Math.min(width - 14, rect.left + rect.width / 2 - left))}px`);
         };
         place();
+        // place() reads layout. Ancestor style/class churn during combat and
+        // every scroll anywhere used to run it synchronously; coalesce all of
+        // the triggers below to one placement per animation frame.
+        let frame = 0;
+        const schedule = () => {
+            if (frame) return;
+            frame = requestAnimationFrame(() => { frame = 0; place(); });
+        };
         // Board scale and tray sizing settle after mount; observe both and track scroll.
-        const observer = new ResizeObserver(place);
+        const observer = new ResizeObserver(schedule);
         observer.observe(target);
         observer.observe(bubble);
         if (tray) observer.observe(tray);
         const board = document.querySelector("#combat .hex-battlefield");
         if (board) observer.observe(board);
         // CSS transforms can move a tile without changing its layout dimensions.
-        const movement = new MutationObserver(place);
+        const movement = new MutationObserver(schedule);
         for (let parent: HTMLElement | null = target; parent && parent !== document.body; parent = parent.parentElement) {
             movement.observe(parent, { attributes: true, attributeFilter: ["style", "class"] });
         }
-        const frame = requestAnimationFrame(place);
-        window.addEventListener("resize", place);
-        document.addEventListener("scroll", place, true);
-        document.addEventListener("focusin", place);
-        document.addEventListener("focusout", place);
-        window.visualViewport?.addEventListener("resize", place);
-        window.visualViewport?.addEventListener("scroll", place);
+        schedule();
+        window.addEventListener("resize", schedule);
+        document.addEventListener("scroll", schedule, { capture: true, passive: true });
+        document.addEventListener("focusin", schedule);
+        document.addEventListener("focusout", schedule);
+        window.visualViewport?.addEventListener("resize", schedule);
+        window.visualViewport?.addEventListener("scroll", schedule);
         return () => {
             observer.disconnect();
             movement.disconnect();
             cancelAnimationFrame(frame);
-            window.removeEventListener("resize", place);
-            document.removeEventListener("scroll", place, true);
-            document.removeEventListener("focusin", place);
-            document.removeEventListener("focusout", place);
-            window.visualViewport?.removeEventListener("resize", place);
-            window.visualViewport?.removeEventListener("scroll", place);
+            window.removeEventListener("resize", schedule);
+            document.removeEventListener("scroll", schedule, true);
+            document.removeEventListener("focusin", schedule);
+            document.removeEventListener("focusout", schedule);
+            window.visualViewport?.removeEventListener("resize", schedule);
+            window.visualViewport?.removeEventListener("scroll", schedule);
             if (previousDescription === null) target.removeAttribute("aria-describedby");
             else target.setAttribute("aria-describedby", previousDescription);
         };

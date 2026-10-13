@@ -30,7 +30,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
         if (req.method === 'GET') {
-            if (!(await enforceRateLimitKv(req, res, 'world-crisis-80-read', 90, 60_000, requestPlayerKey(req), { ipBackstopMultiplier: PUBLIC_READ_IP_BACKSTOP }))) return;
+            // Read-only public poll: in-memory window (see api/world-crisis.ts).
+            if (!(await enforceRateLimitKv(req, res, 'world-crisis-80-read', 90, 60_000, requestPlayerKey(req), { local: true, ipBackstopMultiplier: PUBLIC_READ_IP_BACKSTOP }))) return;
             const crisis = await readWorldCrisis80ProjectionCached();
             // Same edge caching as api/world-crisis.ts: 5s on the success path
             // only; refusals, errors, admin POSTs and `?fresh=1` reads stay

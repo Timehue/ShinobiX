@@ -47,7 +47,8 @@ import { queueCombatMissionClaim } from "../lib/mission-combat-claim";
 import { postFieldTrail, type FieldTrailResult } from "../lib/field-trail-api";
 import { useFieldTrailRefreshVersion } from "../lib/use-field-trail-refresh";
 import missionHallArt from "../assets/facilities/mission-hall.webp";
-import { sectorArtKey, sectorName, sectorRegionLabel } from "../../../shared/sector-geo";
+import { sectorName, sectorRegionLabel } from "../../../shared/sector-geo";
+import { sectorFloorImage, sectorFloorThumb } from "../lib/sector-floor-layout";
 import { handleHorizontalTabKeyDown } from "../lib/tab-keyboard";
 import { useFirstContractMissionTab } from "../lib/use-first-contract-mission-tab";
 import { ScreenHint } from "../components/ScreenHint";
@@ -102,7 +103,8 @@ export function Missions({
     const onMissionBattleEndRef = useRef(onMissionBattleEnd);
     useEffect(() => { onMissionBattleEndRef.current = onMissionBattleEnd; }, [onMissionBattleEnd]);
     useEffect(() => () => { onMissionBattleEndRef.current?.(); }, []);
-    const [startingCombat, setStartingCombat] = useState(false);
+    // The mission whose fight is being opened, so its button can say so.
+    const [startingCombat, setStartingCombat] = useState<string | null>(null);
     const [fieldTrailPending, setFieldTrailPending] = useState<string | null>(null);
     // Keep every hook above the authoritative-fight early return so hook order is
     // stable while entering and leaving the inline server-resolved battle.
@@ -165,7 +167,7 @@ export function Missions({
         if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`);
         if (startingCombat) return;
         onMissionBattleStart?.();
-        setStartingCombat(true);
+        setStartingCombat(mission.key);
         let fightMounted = false;
         try {
             const response = await fetch("/api/missions/combat-start", {
@@ -180,8 +182,12 @@ export function Missions({
             }
             setAuthoritativeFight({ mission, runId: data.runId, session: data.session });
             fightMounted = true;
+        } catch {
+            // A dropped connection used to reject silently: the button reset and
+            // nothing told the player why no fight opened.
+            alert("The mission fight could not be started. Check your connection and try again.");
         } finally {
-            setStartingCombat(false);
+            setStartingCombat(null);
             if (!fightMounted) onMissionBattleEnd?.();
         }
     }
@@ -625,10 +631,10 @@ export function Missions({
                                     </button>
                                     : <button
                                         className="mh-combat-btn"
-                                        disabled={locked || todayMissions >= DAILY_MISSION_LIMIT}
+                                        disabled={locked || todayMissions >= DAILY_MISSION_LIMIT || startingCombat !== null}
                                         onClick={() => startMissionBattle(mission)}
                                     >
-                                        <span className="mh-combat-btn-label">{locked ? `Lv ${mission.min} Required` : "Begin Mission"}</span>
+                                        <span className="mh-combat-btn-label">{locked ? `Lv ${mission.min} Required` : startingCombat === mission.key ? "Starting…" : "Begin Mission"}</span>
                                         <span className="mh-combat-btn-arrow" aria-hidden="true">›</span>
                                     </button>}
                             </div>
@@ -666,7 +672,10 @@ export function Missions({
                             const locked = character.level < mission.levelReq;
                             const placeName = sectorName(mission.targetSector) ?? `Sector ${mission.targetSector}`;
                             const regionName = sectorRegionLabel(mission.targetSector) ?? "Outer territory";
-                            const art = `/sector-map/s${sectorArtKey(mission.targetSector)}.webp`;
+                            // The world map's own URL (shared browser cache), plus a
+                            // 256 px copy that phones pick for the 68 px card art.
+                            const art = sectorFloorImage(mission.targetSector);
+                            const artThumb = sectorFloorThumb(mission.targetSector);
                             const accent = rankColor[mission.rank] ?? "var(--slate-500)";
                             return (
                                 <article
@@ -675,7 +684,7 @@ export function Missions({
                                     style={{ "--mission-rank-color": accent } as CSSProperties}
                                 >
                                     <div className="mh-field-art">
-                                        <img src={art} alt="" loading="lazy" decoding="async" />
+                                        <img src={art} srcSet={artThumb ? `${artThumb} 256w, ${art} 1024w` : undefined} sizes="(max-width: 700px) 68px, (max-width: 1080px) 50vw, 33vw" alt="" loading="lazy" decoding="async" />
                                         <span className="mh-field-rank">{mission.rank}</span>
                                         <span className="mh-field-sector">
                                             <small>Sector {mission.targetSector} · {regionName}</small>
