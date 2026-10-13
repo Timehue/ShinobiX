@@ -7,8 +7,8 @@ import { WarMapRequestError, type MercContextView, type MercLeaseView, type WrMe
 
 /** The rules, in two sentences the panel shows above the hire buttons. */
 export const MERC_RULES_LINES: readonly string[] = [
-    "A band is hired for one war and fights only in it. In your village's all-out war the Kage can hire 3 bands and each Elder 1; when an enemy attacks one of your Combat sectors, your Kage and Elders can hire 3 bands in all to defend it.",
-    "A band hunts the enemy on its own for up to 2 days — a defending band patrols its sector, and your leaders can also send it at any attacker. A band win scores your defence in full; an attacker who beats one scores a quarter.",
+    "When an enemy attacks one of your Combat sectors, your Kage and Elders can hire 3 bands in all to defend it. Five-day village campaigns use queued player defenders and reusable ANBU copies instead of hired bands.",
+    "A band serves its defending sector for up to 2 days, ending when that war closes. It patrols on its own, and your leaders can also send it at an attacking-village player. A band win scores your defence in full; an attacker who beats one scores a quarter.",
 ];
 
 export function mercContextTitle(c: Pick<MercContextView, "kind" | "enemy" | "sector">): string {

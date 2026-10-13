@@ -19,7 +19,7 @@ before(async () => {
     ({ structureUpgradeErrorMessage } = await import('./war-structure.js'));
 });
 
-const CODES = ['insufficient-seals', 'insufficient-wr', 'materials-required', 'max-level', 'unknown-structure', 'not-per-war'];
+const CODES = ['insufficient-seals', 'insufficient-wr', 'materials-required', 'max-level', 'unknown-structure', 'not-per-war', 'retired-structure', 'purchase-reconcile-required'];
 
 describe('structureUpgradeErrorMessage', () => {
     it('humanises every refusal the handler can return', () => {

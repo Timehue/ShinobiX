@@ -16,6 +16,13 @@ const MIN = 60_000;
 const HOUR = 60 * MIN;
 const DAY = 24 * HOUR;
 
+test('a queued card defense is actionable and tells the defender how to enter their assigned battle', () => {
+    const digest = buildOfflineNoticeDigest([{ kind: 'village-war-card-defense', by: 'Enemy', sector: 21, at: NOW }], NOW);
+    assert.equal(digest.entries.length, 1);
+    assert.equal(digest.entries[0].actionable, true);
+    assert.match(digest.entries[0].text, /Sector 21.*War Hall.*assigned card battle now/);
+});
+
 test('parseOfflineNotices drops non-arrays and malformed entries', () => {
     assert.deepEqual(parseOfflineNotices(undefined), []);
     assert.deepEqual(parseOfflineNotices('nope'), []);

@@ -25,6 +25,7 @@ import {
     wrPerSector,
     taxRateMultiplier,
     effectiveLevel,
+    depotDailyIncome,
 } from './_war-structures.js';
 import { depotConversionCap, parseStoresLedger, STORES_LEDGER_VIEW_ROWS, type StoresLedgerEntry } from './_village-stores.js';
 import {
@@ -53,6 +54,7 @@ export interface VillageWarMapView {
     upkeepWr: number;
     dormant: boolean;
     wrPerSector: number;
+    depotDailyIncome: number;
     sectorsHeld: number;
     /** Effective daily tax rate (tier × Treasury-Vault softening), as a percentage.
      *  Forced to 0 while the village has no seated Kage — see `kageSeated`. */
@@ -129,6 +131,7 @@ export function villageWarMapView(args: {
         upkeepWr: totalUpkeepWr(record),
         dormant: record.dormant,
         wrPerSector: round2(wrPerSector(record)),
+        depotDailyIncome: depotDailyIncome(record),
         sectorsHeld,
         taxRatePct,
         kageSeated,

@@ -98,6 +98,7 @@ import sectorWarQaHandler from './api/_qa-sector-war.js';
 import villageWarMercHandler from './api/village/war-merc.js';
 import villageSectorCardHandler from './api/village/sector-card.js';
 import villageSectorPetHandler  from './api/village/sector-pet.js';
+import villageCampaignHandler from './api/village/war-campaign.js';
 import anbuInfiltrationHandler from './api/village/anbu-infiltration.js';
 import villageWarMapHandler from './api/village/war-map.js';
 import villageTaxHandler from './api/village/tax.js';
@@ -547,6 +548,7 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     // pet duel resolved server-side by the generated pet engine (api/pet-sim), scoring
     // the same contest's tallies. The client replays the same (pets, seed). Gated.
     route('/village/sector-pet',  villageSectorPetHandler);
+    route('/village/war-campaign', villageCampaignHandler);
     // Anbu Vault Infiltration — L100 sector-attrition raid (start/act/state/report/
     // turn-in action switch): fight a daily-sealed Anbu snapshot (Solo PvE engine)
     // to skim 1% of the enemy war economy into turn-in caches. NEVER flips

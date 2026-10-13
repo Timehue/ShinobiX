@@ -1,3 +1,4 @@
+import { alertSectorPreparation } from '../_war-preparations.js';
 import { seatedKageOf as seatedKage } from '../_sector-war-garrison-defender.js';
 import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
@@ -1103,6 +1104,7 @@ async function doGarrisonStart(req: VercelRequest, res: VercelResponse, identity
         };
         await writeSoloPveSession(session);
         await writeGarrisonRun(run);
+        await alertSectorPreparation(contest, runId, 'combat', now).catch(() => undefined);
         await kv.set(activeKey, runId, { ex: GARRISON_RUN_TTL });
         return { status: 200 as const, body: {
             ok: true, replayed: false, runId, sector, contestId: contest.id,

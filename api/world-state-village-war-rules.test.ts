@@ -95,6 +95,7 @@ before(async () => {
 });
 
 beforeEach(async () => {
+    (await import('./_proc-cache.js')).__clearProcCache();
     const keys = await kv.keys('*');
     if (keys.length) await kv.del(...keys);
     await kv.set('save:leafkage', { character: { name: 'Leaf Kage', village: LEAF } });
@@ -272,6 +273,72 @@ describe('the war clock', { concurrency: false }, () => {
 });
 
 describe('spoils settlement', { concurrency: false }, () => {
+    it('settles a funded campaign by capped points, records village W/L once and dedupes both reward routes', async (t) => {
+        const { HOME_SECTORS } = await import('./_war-map-sectors.js');
+        const { awardCampaignBattle } = await import('./_village-war-campaign.js');
+        const { invalidateProcCache } = await import('./_proc-cache.js');
+        type ClaimHandler = (req: never, res: never) => Promise<unknown>;
+        const claimReward = (await import('./war/claim-reward.js')).default as unknown as ClaimHandler;
+        const claimCrate = (await import('./village/claim-war-crate.js')).default as unknown as ClaimHandler;
+        const clock = Date.now();
+        t.mock.timers.enable({ apis: ['Date'], now: clock });
+        for (const sector of HOME_SECTORS[LEAF]) await kv.set(`world:territory:${sector}`, { sector, ownerVillage: LEAF });
+        await kv.set('shared:village-war:ashenleafvillage', { warResources: 1000 });
+        await kv.set('game:village-state:ashenleafvillage', { treasury: { ryo: 100000, honorSeals: 200, fateShards: 50, provisions: 300, materialPoints: 700 } });
+        await kv.set('game:village-state:moonshadowvillage', { treasury: { ryo: 0 } });
+        const declaration = await call('leafkage', { kind: 'war', war: { villages: [LEAF, MIST] } });
+        assert.equal(declaration.statusCode, 200, JSON.stringify(declaration.body));
+        assert.equal((await kv.get<Record<string, any>>('shared:village-war:ashenleafvillage'))?.warResources, 200);
+        let row = await kv.get<any>(WAR_KEY);
+        const battleTime = row.campaign.startsAt + 1000;
+        // Previously verified battle handlers feed this same award transform.
+        for (const [village, player, count] of [[LEAF, 'leafgenin', 2], [MIST, 'mistgenin', 3]] as const) {
+            for (let i = 0; i < count; i++) row = awardCampaignBattle(row, { receipt: `${player}:${i}`, village, player, createdAt: battleTime, at: battleTime + 1 }, player).row;
+        }
+        for (let i = 0; i < 20; i++) row = awardCampaignBattle(row, { receipt: `support:${i}`, village: LEAF, player: 'leafgenin', createdAt: battleTime, at: battleTime + 1, pve: true, operation: 'sabotage' }, 'leafgenin').row;
+        // Neither HP exhaustion nor 400 raw support points may override 60 PvP.
+        row.hp[MIST] = 0;
+        await kv.set(WAR_KEY, row);
+        t.mock.timers.setTime(row.campaign.endsAt + 1);
+        invalidateProcCache('world-state:frame');
+        const ended = await call(null, null, 'GET');
+        assert.equal(ended.statusCode, 200);
+        const projected = ended.body?.wars.find((w: any) => w.id === PAIR_ID);
+        assert.equal(projected.winnerVillage, MIST);
+        assert.deepEqual(projected.warPoints, { [LEAF]: 50, [MIST]: 60 });
+        for (let i = 0; i < 100 && !(await kv.get<any>(WAR_KEY))?.settled; i++) await new Promise(resolve => setTimeout(resolve, 5));
+        assert.equal((await kv.get<any>(WAR_KEY))?.settled, true);
+        for (let i = 0; i < 3; i++) { invalidateProcCache('world-state:frame'); await call(null, null, 'GET'); }
+        assert.equal((await kv.get<any>('village:war-standing:moonshadowvillage'))?.wins, 1);
+        assert.equal((await kv.get<any>('village:war-standing:ashenleafvillage'))?.losses, 1);
+        assert.deepEqual((await kv.get<any>('game:village-state:ashenleafvillage'))?.treasury, { ryo: 95000, honorSeals: 190, fateShards: 49, provisions: 300, materialPoints: 700 });
+        assert.deepEqual((await kv.get<any>('game:village-state:moonshadowvillage'))?.treasury, { ryo: 5000, honorSeals: 10, fateShards: 1 });
+        async function claim(endpoint: ClaimHandler, body: Record<string, unknown>) {
+            const { out, res } = response();
+            await endpoint({ method: 'POST', body: { playerName: 'mistgenin', ...body }, headers: { 'x-player-token': issuePlayerToken('mistgenin') }, socket: { remoteAddress: '127.0.0.8' } } as never, res);
+            assert.equal(out.statusCode, 200, JSON.stringify(out.body));
+            return out.body;
+        }
+        const crateId = (await kv.get<any>(WAR_KEY)).warCrateId;
+        const legacyFlag = process.env.ENABLE_LEGACY;
+        process.env.ENABLE_LEGACY = '1';
+        t.after(() => { if (legacyFlag === undefined) delete process.env.ENABLE_LEGACY; else process.env.ENABLE_LEGACY = legacyFlag; });
+        await kv.set('legacy:stats:mistgenin', { updatedAt: Date.now(), warsWon: 0, warMvps: 0 });
+        const reward = await claim(claimReward, { kind: 'village', warId: PAIR_ID });
+        assert.equal(reward?.mvp, true);
+        assert.equal(reward?.crates, 2);
+        assert.equal((await kv.get<any>('legacy:stats:mistgenin'))?.warsWon, 1, 'the combined reward claim must deliver the same win deed as the crate route');
+        assert.equal((await kv.get<any>('legacy:stats:mistgenin'))?.warMvps, 1);
+        assert.equal((await claim(claimReward, { kind: 'village', warId: PAIR_ID }))?.granted, false);
+        assert.equal((await claim(claimCrate, { warCrateId: crateId }))?.granted, false);
+        assert.equal((await kv.get<any>('legacy:stats:mistgenin'))?.warsWon, 1);
+        assert.equal((await kv.get<any>('legacy:stats:mistgenin'))?.warMvps, 1);
+        const character = (await kv.get<any>('save:mistgenin')).character;
+        assert.equal(character.warsWon, 1);
+        assert.equal(character.warMvpCount, 1);
+        assert.equal(character.lifetimeWarDamage, 60);
+        assert.equal(character.inventory.filter((item: string) => item === 'legendary-war-crate').length, 2, 'one victory crate and one MVP crate');
+    });
     it('finishes a settlement that failed partway, without debiting the loser twice', async (t) => {
         await kv.set('world:territory:1', { sector: 1, ownerVillage: 'Stormveil Village' });
         await kv.set('shared:village-war:ashenleafvillage', { warResources: 2_000 });

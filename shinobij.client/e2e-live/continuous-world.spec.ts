@@ -32,7 +32,7 @@ for (const transport of ['socket', 'http'] as const) test(`continuous camera cro
         localStorage.setItem('shinobix:storage-notice-ack', '1'); localStorage.setItem('patchNotes.lastSeenVersion.v1', patch);
         localStorage.setItem('dailyBriefing.seen.v1', new Date().toISOString().slice(0, 10));
         localStorage.setItem('legacyRumors.seen.v1:' + name, JSON.stringify([10, 20, 30, 40, 45])); localStorage.setItem('liteFx.v1', '0');
-    }, { name, token, canonical, patch: LATEST_PATCH_NOTE.version });
+    }, { name, token, canonical, patch: LATEST_PATCH_NOTE?.version ?? '' });
     const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
     async function openWorld() {
         await page.goto('/#/worldMap', { waitUntil: 'domcontentloaded' });

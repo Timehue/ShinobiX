@@ -1,3 +1,4 @@
+import { alertSectorPreparation, preparationLevels, sectorPreparationInstance } from '../_war-preparations.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
@@ -279,7 +280,7 @@ async function applyPetOutcomeToContest(session: SectorPetSession): Promise<Sect
                 by: session.garrison && !attackerWonBattle ? '' : winnerName,
                 // Half-weight + war cap on an attacker win; merc-repel weight when
                 // the garrison holds. Exactly Combat's split.
-                ...(session.garrison ? { garrisonBattle: attackerWonBattle, mercBattle: !attackerWonBattle } : {}),
+                ...(session.garrison ? { garrisonBattle: attackerWonBattle, supportMultiplier: 1 + preparationLevels(normalizeVillageWarRecord(session.attackerVillage, atkRaw ?? undefined), sectorPreparationInstance(contest), endedAt).warAcademy / 10, mercBattle: !attackerWonBattle } : {}),
             });
             if (!outcome) return { kind: 'skip', reason: 'draw' }; // draw — nothing scores
             // Sectors never flip mid-war — settlement compares the tallies at 72h.
@@ -516,6 +517,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 session.warResult = warResultFrom(await applyPetOutcomeToContest(session));
                 session.appliedToContest = true;
                 await kv.set(garrisonSessionKey(sectorWarId), session, { ex: SESSION_TTL_SEC });
+                await alertSectorPreparation(contest, `pet-garrison:${now}`, 'pet', now).catch(() => undefined);
                 return { status: 200 as const, body: {
                     session: projectPetSession(session, { side: 'p1', village: '', admin: identity.admin }),
                     garrisonDefendedByKage: defender.byKage,
@@ -559,6 +561,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     p1: { name: me, pet, team }, status: 'awaiting-defender', createdAt: now, updatedAt: now,
                 };
                 await kv.set(sessionKey(sectorWarId), session, { ex: SESSION_TTL_SEC });
+                await alertSectorPreparation(contest, `pet-table:${now}`, 'pet', now).catch(() => undefined);
                 return { status: 200 as const, body: { session: projectPetSession(session, viewer('p1')) } };
             }
             // Idempotent re-open by the same attacker (e.g. a retry before a defender answered).

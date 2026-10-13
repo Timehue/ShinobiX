@@ -6041,7 +6041,7 @@ export default function App() {
                         sharedImages={sharedImages} onRecordBattle={recordBattle} onBack={goBack}
                     />
                 )}
-                {!activeTriggeredEvent && screen === "villageWar" && character && <VillageWarScreen character={character} playerRoster={playerRoster} onBack={goBack} onVersionedCharacter={commitVersionedCharacter} />}
+                {!activeTriggeredEvent && screen === "villageWar" && character && <VillageWarScreen character={character} playerRoster={playerRoster} onBack={goBack} onVersionedCharacter={commitVersionedCharacter} sharedImages={sharedImages} />}
                 {!activeTriggeredEvent && screen === "villageWarMap" && villageWarScreenMountAllowed(screen, villageWarAvailability) && character && <VillageWarMap character={character} onBack={goBack} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "sectorCard" && villageWarScreenMountAllowed(screen, villageWarAvailability) && character && <SectorWarCardBattle character={character} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "sectorPet" && villageWarScreenMountAllowed(screen, villageWarAvailability) && character && <SectorWarPetBattle character={character} setScreen={setScreen} />}
