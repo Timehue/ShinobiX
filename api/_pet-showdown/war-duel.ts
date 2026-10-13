@@ -107,6 +107,9 @@ export function resolveWarDuel(input: WarDuelInput): WarDuelResolution {
         enemyPets: input.toPets.map(stripConsumable),
         enemyTeamName: input.toName,
         rewardEligible: false,
+        // Existing input-only territorial and retained ranked proofs have no
+        // numeric-version seal. Preserve their recorded outcome authority.
+        damageRules: 'legacy-v1',
     });
     // Home ground: the sector's climate stands over the arena from round one.
     // `until` outlasts the judge's cap so it holds all fight unless a weather

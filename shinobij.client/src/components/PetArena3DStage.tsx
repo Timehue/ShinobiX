@@ -28,6 +28,8 @@ import {
 import { petCombatModel, type PetCombatModelConfig } from "../lib/pet-3d-models";
 import { DEFAULT_PET_MODEL_FRAME, PetModel3D, type PetModelFrame } from "./PetModel3D";
 import { PetSummon3D } from "./PetSummon3D";
+import { usePetRecallController } from './PetSceneRecall';
+import type { PetCardPresence } from "../lib/pet-summon-presentation";
 import { petVisualQuality } from "../lib/pet-visual-quality";
 import { useBattleFrameloop } from "../lib/use-battle-frameloop";
 import { petModelVariantSurface } from "../lib/pet-visual-variant";
@@ -172,6 +174,8 @@ function Fighter3D({ result, clock, id, pet, config }: {
     const prevState = useRef("");
     const strikeAt = useRef(-10);
     const deadAt = useRef<number | null>(null);
+    const recallScene = usePetRecallController();
+    const cardPresence = useRef<PetCardPresence>({ present: true });
     const flash = useRef(0);
     const prevHp = useRef(Number.POSITIVE_INFINITY);
     const faceSm = useRef<[number, number]>([id.startsWith("blue") ? 1 : -1, 0]);
@@ -184,12 +188,14 @@ function Fighter3D({ result, clock, id, pet, config }: {
 
     useFrame((state) => {
         const g = root.current; if (!g) return;
+        if (recallScene?.snapshot()) return;
         const snaps = result.snapshots;
         const tf = Math.max(0, Math.min(snaps.length - 1, clock.current.t));
         const i0 = Math.floor(tf), i1 = Math.min(snaps.length - 1, i0 + 1), f = tf - i0;
         const a0 = snaps[i0].actors.find((a) => a.id === id); if (!a0) return;
         const a1 = snaps[i1].actors.find((a) => a.id === id) ?? a0;
         const down = a0.state === "dead" || a0.state === "respawning";
+        cardPresence.current.present = !down;
         // Snap (never lerp) across a respawn teleport — same rule as the classic
         // renderer: a >3-unit jump in one tick is never real movement.
         const tdx = a1.x - a0.x, tdz = a1.y - a0.y;
@@ -212,7 +218,7 @@ function Fighter3D({ result, clock, id, pet, config }: {
         const showingDeath = down && deadAt.current !== null && now - deadAt.current < 1.25;
         prevDown.current = down;
         g.position.set(smX.current, 0, smZ.current);
-        if (body.current) body.current.visible = !down || showingDeath;
+        if (body.current) body.current.visible = team === 'blue' || !down || showingDeath;
 
         // Strike pulse: the sim's "attack" state spans the whole swing cooldown,
         // so the skeletal strike fires from the state ENTRY edge and self-times.
@@ -234,7 +240,7 @@ function Fighter3D({ result, clock, id, pet, config }: {
         const frac = a0.hp / Math.max(1, a0.maxHp);
 
         const mf = modelFrame.current;
-        mf.motion = showingDeath ? "dead" : arenaModelMotion(a0.state, moving, striking);
+        mf.motion = down ? "dead" : arenaModelMotion(a0.state, moving, striking);
         mf.moving = moving;
         smSpd.current = lerp(smSpd.current, spd, 0.3);
         mf.speed = smSpd.current;
@@ -290,7 +296,7 @@ function Fighter3D({ result, clock, id, pet, config }: {
                         </mesh>
                     )}>
                         <group scale={s}>
-                            <PetSummon3D enabled={team === 'blue'}>
+                            <PetSummon3D enabled={team === 'blue'} presence={cardPresence} playing={clock.current.playing} recallDelay={1.25}>
                             <PetModel3D config={config} frame={modelFrame} element={pet.element} surfaceTreatment={petModelVariantSurface(pet)} />
                             </PetSummon3D>
                         </group>

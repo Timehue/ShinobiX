@@ -22,14 +22,16 @@ const source: PetCombatModelConfig = {
 
 test("Warfront maps a revisioned authored source to its certified battle LOD", () => {
     assert.equal(warfrontPetModelSourceUrl(source.url), "/pet-models/roster/mythic-3.glb");
+    const certified = JSON.parse(readFileSync(new URL('../../public/pet-models/warfront-lod/manifest.json', import.meta.url), 'utf8')).entries.find((entry: { sourceUrl: string }) => entry.sourceUrl === '/pet-models/roster/mythic-3.glb');
+    const expectedUrl = `/pet-models/warfront-lod/roster/mythic-3.glb?v=${WARFRONT_PET_LOD_REVISION}-${certified.sourceSha256.slice(0, 12)}-${certified.lodSha256.slice(0, 12)}`;
     assert.deepEqual(warfrontPetLodEntry(source.url), {
-        lodUrl: "/pet-models/warfront-lod/roster/mythic-3.glb?v=20260902-battle-lod-v1",
+        lodUrl: expectedUrl,
         sourceTriangles: 40_000,
         lodTriangles: 10_000,
     });
     const selected = warfrontPetModelConfig(source, true);
     assert.notEqual(selected, source);
-    assert.equal(selected?.url, "/pet-models/warfront-lod/roster/mythic-3.glb?v=20260902-battle-lod-v1");
+    assert.equal(selected?.url, expectedUrl);
     assert.equal(source.url, "/pet-models/roster/mythic-3.glb?v=source-revision");
 });
 

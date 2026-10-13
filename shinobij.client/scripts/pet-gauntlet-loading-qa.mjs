@@ -22,6 +22,7 @@ const open = async (query = '?petQuality=low', viewport = { width: 1280, height:
         const expected = missingModels && /^Could not load \/pet-models\/.* responded with 404: Not Found$/.test(error.message);
         (expected ? report.expectedMissingModels : report.errors).push(error.message);
     });
+    if (missingModels) await page.route(/\/pet-models\/.*\.glb/, route => route.fulfill({ status: 404, body: 'QA missing model' }));
     await page.goto(url + query);
     return page;
 };
@@ -52,26 +53,40 @@ try {
     });
     await page.getByRole('button', { name: 'Mount', exact: true }).click();
     await page.getByText('Summoning your formation…').waitFor();
+    const initialRound = await page.locator('.gauntlet-board-round strong').innerText();
     await page.waitForTimeout(5000);
-    assert.match(await page.locator('.gauntlet-board-round strong').innerText(), /^Round 0/);
+    assert.equal(await page.locator('.gauntlet-board-round strong').innerText(), initialRound, 'battle cannot advance while its model downloads are held');
     assert.ok(await page.locator('.gauntlet-unitplate').first().evaluate(node => {
         const rect = node.getBoundingClientRect();
         return !!document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)?.closest('.gauntlet-board-loading');
     }), 'loading overlay covers floating pet labels too');
     await page.screenshot({ path: fileURLToPath(new URL('cold-loading.png', out)) });
+    await page.evaluate(initialRound => {
+        window.__gauntletEntranceAudit = { blockedRoundChanges: [], summonSeen: false };
+        window.__gauntletEntranceObserver = new MutationObserver(() => {
+            const arena = document.querySelector('[data-testid="pet-gauntlet-3d-arena"]');
+            const round = document.querySelector('.gauntlet-board-round strong')?.textContent;
+            const summoning = arena?.getAttribute('data-summoning') === 'true';
+            if (summoning) window.__gauntletEntranceAudit.summonSeen = true;
+            if (round !== initialRound && (summoning || arena?.getAttribute('data-loading') === 'true')) window.__gauntletEntranceAudit.blockedRoundChanges.push(round);
+        });
+        window.__gauntletEntranceObserver.observe(document.body, { subtree: true, attributes: true, childList: true, characterData: true });
+    }, initialRound);
     release();
     await ready(page);
     assert.ok(report.requests.length >= 3);
     assert.ok(report.requests.every(request => request.includes('/warfront-lod/')));
     await page.locator('[data-summoning="false"]').waitFor();
-    assert.match(await page.locator('.gauntlet-board-round strong').innerText(), /^Round 0/);
+    const entrance = await page.evaluate(() => { window.__gauntletEntranceObserver.disconnect(); return window.__gauntletEntranceAudit; });
+    assert.equal(entrance.summonSeen, true, 'the loaded player formation performs its opening card summons');
+    assert.deepEqual(entrance.blockedRoundChanges, [], 'combat stays frozen throughout loading and card summons');
     await page.screenshot({ path: fileURLToPath(new URL('ready.png', out)) });
     await page.getByRole('button', { name: 'Continue the run' }).waitFor();
     await page.waitForTimeout(7000);
     const draws = await page.evaluate(() => window.gauntletProbe.snapshot().draws);
     await page.waitForTimeout(1200);
     assert.equal(await page.evaluate(() => window.gauntletProbe.snapshot().draws), draws, 'settled results stop drawing');
-    report.scenarios.push('five-second cold delay holds round zero; LOD renders; settled results idle');
+    report.scenarios.push('five-second cold delay holds the initial round; LOD renders; settled results idle');
     await clean(page);
     for (let i = 0; i < 4; i++) {
         await page.getByRole('button', { name: 'Mount', exact: true }).click();
@@ -106,12 +121,29 @@ try {
     await mobile.waitForTimeout(2000);
     await mobile.getByRole('button', { name: 'Mount', exact: true }).click();
     await ready(mobile);
-    assert.match(await mobile.locator('.gauntlet-board-build').innerText(), /low/i);
+    assert.equal(await mobile.getByTestId('pet-gauntlet-3d-arena').getAttribute('data-quality'), 'low');
     await mobile.locator('[data-summoning="false"]').waitFor();
     await mobile.screenshot({ path: fileURLToPath(new URL('mobile-5v5.png', out)) });
     await clean(mobile);
     report.scenarios.push('prewarmed ten-pet mobile formation renders at capped quality');
     await mobile.close();
+    for (const fallback of [false, true]) {
+        const departure = await open('?reported&petQuality=low', undefined, fallback);
+        await ready(departure);
+        await departure.locator('[data-summoning="false"]').waitFor();
+        assert.equal(await departure.getByTestId('pet-board-run-state').getAttribute('data-result'), 'win', 'departure fixture leaves living player pets');
+        await departure.getByRole('button', { name: 'Continue the run' }).waitFor();
+        await departure.getByRole('button', { name: 'Continue the run' }).click();
+        await departure.locator('[data-recalling="true"]').waitFor();
+        assert.equal(await departure.getByTestId('pet-board-continue-count').getAttribute('data-count'), '0', 'Continue waits for every mounted player pet');
+        await departure.waitForTimeout(350);
+        await departure.screenshot({ path: fileURLToPath(new URL(fallback ? 'fallback-card-recall.png' : 'model-card-recall.png', out)) });
+        await departure.waitForFunction(() => document.querySelector('[data-testid="pet-board-continue-count"]')?.getAttribute('data-count') === '1');
+        await departure.waitForFunction(() => window.gauntletProbe.snapshot().activeContexts === 0);
+        assert.equal(await departure.locator('canvas').count(), 0);
+        report.scenarios.push(`${fallback ? 'fallback standees' : '3D models'} recall from the idle result before Continue releases the arena`);
+        await departure.close();
+    }
     assert.deepEqual(report.errors, []);
     console.log(JSON.stringify(report, null, 2));
 } finally {

@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import type { Character } from "../types/character";
 import type { Pet } from "../types/pet";
 import { PetShowdownBattle } from "./PetShowdownBattle";
+import { withPetSceneRecall } from './PetSceneRecall';
 import {
     forfeitShowdown,
     startHollowGatePetDuel,
@@ -66,7 +67,8 @@ async function openDuel(playerName: string, fight: HollowGatePetFightRef): Promi
     return open();
 }
 
-export function HollowGatePetFight({ character, fight, sharedImages, onSettled, onUnavailable }: {
+export const HollowGatePetFight = withPetSceneRecall(HollowGatePetFightView, ['onSettled', 'onUnavailable']);
+function HollowGatePetFightView({ character, fight, sharedImages, onSettled, onUnavailable }: {
     character: Character;
     fight: HollowGatePetFightRef;
     sharedImages: Record<string, string>;
@@ -199,7 +201,7 @@ export function HollowGatePetFight({ character, fight, sharedImages, onSettled, 
                 // forfeited session as a LOSS and mints the same receipt the
                 // finishing turn would, so conceding lands here and settles like
                 // any other defeat.
-                onForfeit={() => { void concede(); }}
+                onForfeit={concede}
                 onFinished={() => { void settleSession(sessionId); }}
                 // Exit is the retry, and it concedes rather than settling
                 // blind: a duel the player leaves mid-fight has no receipt yet,
@@ -208,7 +210,7 @@ export function HollowGatePetFight({ character, fight, sharedImages, onSettled, 
                 // call in both cases.
                 onExit={() => {
                     if (settledResult.current) { onSettled(settledResult.current); return; }
-                    void concede();
+                    return concede();
                 }}
                 // A sealed encounter is fought once.
                 hideRematch

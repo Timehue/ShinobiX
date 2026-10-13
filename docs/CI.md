@@ -32,6 +32,7 @@ only with the branch-protection migration procedure in this guide.
 | --- | --- | ---: | --- |
 | `CI / server-contracts` | `server_contracts` | 29 min | Locked root/client installs; the complete root auto-discovered suite and deployment, rollback, mission, asset, pet-breeding, and tooling contracts. CI uses `npm run test:ci`, the same runner as `npm test` without repeating the already-completed client install hook. |
 | `CI / server-build-security` | `server_build_security` | 15 min | Locked root install; backup/restore contract, root audit, one server build, checksum/provenance generation, and server artifact production. |
+| `CI / pg-integration` | `pg_integration` | 10 min | Locked root install; runs `kv.compareSetMany` (the multi-key compare-and-set every currency-moving save write commits through) against a real `postgres:16` service container: jsonb equality, `ON CONFLICT ... WHERE`, `FOR SHARE` holds, rollback, opposite-order batches, and lock-lease fencing. The schema is read from `supabase-schema.sql`. `PG_INTEGRATION_REQUIRED=1` fails the job if the suite would skip. Required through `CI / test-build` (see below), not yet as its own context. |
 | `CI / client-quality` | `client_quality` | 20 min | Locked root/client installs; lint, story-content/TypeScript/production build, build-size and visual-baseline-size gates, client audit, and checksum-backed client artifact production. |
 | `CI / release-certification` | `release_certification` | 15 min | Downloads and verifies the exact compiled release artifacts, then runs the fresh-account/combat certification against them. |
 | `CI / concurrency-smoke` | `concurrency_smoke` | 15 min | Downloads and verifies the release artifacts, then runs the short real-server concurrent-player smoke. It is not a database capacity test. |
@@ -68,10 +69,55 @@ the former monolithic check. Keep it required while branch protection migrates
 to the split contexts. It performs no substitute testing: it succeeds only when
 all split jobs it depends on succeeded.
 
+`CI / pg-integration` was added after the ten contexts above were made required.
+It gates merges through `CI / test-build`, which lists it in `needs`. Adding it
+to the protection rule directly is optional, and it follows the rollout below:
+only after GitHub has observed the context on a real run.
+
 The separate path-filtered `Clan Boss operation certification / certify` and
 manual-only `Visual regression (manual) / visual` workflows remain useful
 evidence, but they must not be globally required on every pull request because
 they do not run for every change.
+
+## Real Postgres tests locally
+
+Use Postgres 16 binaries (`initdb` and `pg_ctl`) to match the hosted service.
+An existing installation or the [official Windows portable binaries](https://www.enterprisedb.com/download-postgresql-binaries)
+work; this command does not install software or register a system service.
+From the repository root, after installing the root and client dependencies:
+
+```powershell
+npm run test:ci:postgres -- --pg-bin=.tmp/pg-local/pgsql/bin
+```
+
+Replace `--pg-bin` with your binaries directory. The helper creates a fresh
+cluster beneath workspace `.tmp`, uses a random password with SCRAM authentication,
+binds only `127.0.0.1` on an automatically selected port, and runs the same full,
+unsharded runner as `test:ci` with `PG_INTEGRATION_REQUIRED=1`. It stops the server
+and removes its temporary cluster afterward. It never uses an existing database
+URL. Add `--integration-only` to run just the 14 storage integration tests.
+
+Two additional modes use the same isolated cluster and the canonical KV table
+and function definitions from `supabase-schema.sql`:
+
+```powershell
+npm run test:ci:postgres -- --pg-bin=.tmp/pg-local/pgsql/bin --stronghold-multiplayer
+npm run test:ci:postgres -- --pg-bin=.tmp/pg-local/pgsql/bin --underground-api
+```
+
+The multiplayer mode exercises separately authenticated mobile browsers, both
+strongholds, reward settlement/replay, and 24 concurrent players per stronghold.
+It requires the existing client Playwright dependencies and browsers.
+`--output=PATH` selects its evidence directory relative to `shinobij.client`.
+The API mode runs the eight Anbu async/queue cases and seven cave traveler/collision
+cases in separate fresh databases. Direct SQL checks prove persistence;
+queued telemetry drains before storage closes. Ordinary auto-discovered API
+tests retain their isolated memory mode unless this dedicated fixture is enabled.
+
+The ordinary `npm run test:ci` still skips these optional local tests unless
+`PG_INTEGRATION_DATABASE_URL` is supplied. The hosted `CI / pg-integration` job
+already supplies its disposable service and requires the tests; its workflow
+and assertions are unchanged.
 
 ## CodeQL checks
 
@@ -203,8 +249,9 @@ local concurrency smoke.
 4. Require the branch to be up to date, and observe at least one normal pull
    request and one `main` run through the new policy.
 5. Remove `CI / test-build` from the required list only after the split contexts
-   are proven stable. The compatibility job can be removed in a later reviewed
-   workflow change.
+   are proven stable, and only after adding `CI / pg-integration`, which is
+   required solely through it today. The compatibility job can be removed in a
+   later reviewed workflow change.
 6. Record the ruleset/protection identifier, operator, date, and resulting exact
    required contexts in [`required-branch-protection.md`](required-branch-protection.md).
 

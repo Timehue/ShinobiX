@@ -4,10 +4,9 @@ import { runElderElections } from '../village/_elder-council.js';
 /**
  * In-process daily scheduler for the save-snapshot backup.
  *
- * The nightly backup used to be a Vercel cron (`GET /api/cron/snapshot-saves`
- * at 03:00 UTC, see the now-deleted vercel.json). With Vercel retired, the
- * always-on server runs it itself — no external scheduler, no extra container.
- * The HTTP endpoint stays for manual admin triggers; this just calls the same
+ * The always-on Railway server runs the nightly backup itself — no external
+ * scheduler, no extra container. The HTTP endpoint (`/api/cron/snapshot-saves`)
+ * stays for manual admin triggers; this just calls the same
  * `runSnapshotSaves()` once a day at 03:00 UTC.
  *
  * Underscore-prefixed so it is NOT treated as a route — it's a server helper,
@@ -72,7 +71,7 @@ const SNAPSHOT_RECOVERY_RETRY_MS = 5 * 60_000;
 // The snapshot pass has a five-minute budget. Keep crash ownership only a little
 // longer; an interrupted deploy must not suppress recovery for nearly an hour.
 const SNAPSHOT_RECOVERY_LEASE_SEC = 7 * 60;
-const TARGET_UTC_HOUR = 3; // 03:00 UTC — matches the retired Vercel schedule "0 3 * * *".
+const TARGET_UTC_HOUR = 3; // 03:00 UTC daily.
 // No serverless timeout here, so give the nightly pass a generous budget to
 // snapshot every player in one run rather than leaning on next-day catch-up.
 const NIGHTLY_BUDGET_MS = 5 * 60_000;
@@ -452,7 +451,7 @@ async function runBootSnapshotCatchUpCore(): Promise<void> {
             return;
         }
         const result = recovery.value;
-        console.log(`[cron-scheduler] boot catch-up: ${result.snapshotted} saved, ${result.skipped} skipped, ${result.failed.length} failed (${result.processed}/${result.total}, ${result.elapsedMs}ms${result.truncated ? ', TRUNCATED' : ''}${result.emptyKeyspace ? ', EMPTY KEYSPACE' : ''}${result.writeOutage ? ', WRITE OUTAGE' : ''}${result.healthMarkerFailed ? ', MARKER WRITE FAILED' : ''}); ${result.ok ? 'healthy' : 'UNHEALTHY'}.`);
+        console.log(`[cron-scheduler] boot catch-up: ${result.snapshotted} saved, ${result.skipped} skipped (${result.unchanged} unchanged), ${result.failed.length} failed (${result.processed}/${result.total}, ${result.elapsedMs}ms${result.truncated ? ', TRUNCATED' : ''}${result.emptyKeyspace ? ', EMPTY KEYSPACE' : ''}${result.writeOutage ? ', WRITE OUTAGE' : ''}${result.healthMarkerFailed ? ', MARKER WRITE FAILED' : ''}); ${result.ok ? 'healthy' : 'UNHEALTHY'}.`);
         if (!result.ok) scheduleSnapshotRecoveryRetry();
     } catch (err) {
         console.error('[cron-scheduler] boot catch-up threw:', (err as Error).message);
@@ -473,7 +472,7 @@ async function fireCore(): Promise<void> {
             } else if (r.emptyKeyspace) {
                 console.error('[cron-scheduler] snapshot run found ZERO saves — check DATABASE_URL / SUPABASE_POSTGRES_URL.');
             } else {
-                console.log(`[cron-scheduler] snapshot run: ${r.snapshotted} saved, ${r.skipped} skipped, ${r.failed.length} failed (${r.processed}/${r.total}, ${r.elapsedMs}ms${r.truncated ? ', TRUNCATED' : ''}).`);
+                console.log(`[cron-scheduler] snapshot run: ${r.snapshotted} saved, ${r.skipped} skipped (${r.unchanged} unchanged), ${r.failed.length} failed (${r.processed}/${r.total}, ${r.elapsedMs}ms${r.truncated ? ', TRUNCATED' : ''}).`);
             }
         } catch (err) {
             console.error('[cron-scheduler] snapshot run threw:', (err as Error).message);

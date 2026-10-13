@@ -17,6 +17,7 @@ import { createHash } from 'node:crypto';
 import { join, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { findCollapsedPrefixes } from './lib/css-prefix-collapse.mjs';
+import { assertNoRetiredPetUi } from './lib/retired-pet-ui.mjs';
 import { compactGlbDelivery } from '../shinobij.client/scripts/compact-glb-delivery.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -72,7 +73,12 @@ const forbiddenClientExtensions = new Set([
 // client change would have. A local build of that tree measures 555,606,760 B
 // (529.9 MiB); the image build runs higher because it bakes in the production
 // VITE_* settings. Reserve 532 MiB, about 2 MiB of headroom again.
-const maxClientArtifactBytes = 532 * 1024 * 1024;
+// 2026-10-12: continuous four-influence bindings replace hard anatomical cuts
+// across 155 pet models, with refreshed LODs and matching animated atlases.
+// The final double-checked client measures 536.2 MiB. Retain full UNORM8 weights
+// and reserve 539 MiB (2.8 MiB headroom); the exact 480-file roster, hashes,
+// authoring exclusions, and independent JS/CSS budgets remain enforced.
+const maxClientArtifactBytes = 539 * 1024 * 1024;
 const maxRallyAtlasBytes = 4 * 1024 * 1024;
 
 function fail(msg) {
@@ -119,6 +125,12 @@ function walkFiles(dir) {
 }
 
 const clientFiles = walkFiles(clientDist);
+try {
+    assertNoRetiredPetUi(clientFiles);
+} catch (error) {
+    fail(error.message);
+}
+console.log('[verify:dist] Retired pet battle UI is absent from executable client assets.');
 const clientRelativeFiles = clientFiles.map((file) => relative(clientDist, file).replaceAll('\\', '/'));
 const clientRelativeFileSet = new Set(clientRelativeFiles);
 const rallyAtlasFiles = clientFiles.filter((file) =>

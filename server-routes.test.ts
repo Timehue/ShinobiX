@@ -151,7 +151,10 @@ describe('Express route parity (Railway + cPanel)', () => {
         assert.match(serverEntrySrc, /import \{ registerApiRoutes,[^\n]+from '\.\/server-api-routes\.js'/);
         assert.equal(serverEntrySrc.match(/registerApiRoutes\(route\);/g)?.length, 1);
         const registration = serverEntrySrc.indexOf('registerApiRoutes(route);');
-        assert.ok(serverEntrySrc.indexOf("gracefulShutdown(0, 'operator restart')") < registration);
+        // Must FIND the restart call (indexOf -1 would satisfy `<` vacuously).
+        const restart = serverEntrySrc.indexOf("gracefulShutdown(OPERATOR_RESTART_EXIT_CODE, 'operator restart')");
+        assert.ok(restart > -1, 'the operator restart route is present');
+        assert.ok(restart < registration);
         assert.ok(registration < serverEntrySrc.indexOf("app.get('/robots.txt'"));
         assert.match(serverEntrySrc, /import '\.\/api\/_force-ipv4\.js';[\s\S]*import \{ registerApiRoutes,/);
     });

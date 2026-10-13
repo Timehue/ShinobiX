@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { resolve, relative } from "node:path";
+import { createHash } from 'node:crypto';
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { MeshoptDecoder } from "meshoptimizer";
@@ -17,14 +18,17 @@ const CRITICAL_MOTION_CLIPS = new Set([
 const clientRoot = resolve(import.meta.dirname, "..");
 const modelFilter = process.argv.find(arg => arg.startsWith('--model='))?.slice('--model='.length);
 const assetOverride = process.argv.find(arg => arg.startsWith('--asset='))?.slice('--asset='.length);
+const assetRoot = process.argv.find(arg => arg.startsWith('--asset-root='))?.slice('--asset-root='.length);
 const reportLabel = process.argv.find(arg => arg.startsWith('--label='))?.slice('--label='.length);
+const fullGeometry = process.argv.includes('--full-geometry');
+const geometryCoverage = fullGeometry ? 'all vertices, triangle edges above numerical degeneracy tolerance, and connected UV seam copies' : 'sampled vertices and triangle edges';
 if (assetOverride && !modelFilter) throw new Error('--asset requires --model');
 const auditedPetModels = modelFilter
-    ? runtimePetModels.filter(({ pet, model }) => pet.id === modelFilter || model.visualId === modelFilter)
+    ? runtimePetModels.filter(({ pet, model }) => modelFilter.split(',').includes(pet.id) || modelFilter.split(',').includes(model.visualId))
     : runtimePetModels;
 if (!auditedPetModels.length) throw new Error(`No combat model matches ${modelFilter}`);
 const outputRoot = resolve(clientRoot, ".tmp/pet-animation-audit");
-const outputPath = resolve(outputRoot, modelFilter ? `${modelFilter}${reportLabel ? `-${reportLabel}` : ''}-motion-audit.json` : "all-pet-motion-audit.json");
+const outputPath = resolve(outputRoot, `${modelFilter?.includes(',') ? 'selected-pets' : modelFilter ?? 'all-pet'}${reportLabel ? `-${reportLabel}` : ''}-motion-audit.json`);
 function invariant(condition, message) {
     if (!condition) throw new Error(message);
 }
@@ -54,15 +58,53 @@ function prepareEdgeSamples(scene, meshes) {
         const index = mesh.geometry.index, candidates = new Map();
         for (let triangle = 0; triangle < (index?.count ?? 0); triangle += 3) for (const [from, to] of [[0,1],[1,2],[2,0]]) {
             const a = index.getX(triangle + from), b = index.getX(triangle + to), length = points[a].distanceTo(points[b]);
-            if (length > diagonal * 0.002) candidates.set(a < b ? a + ',' + b : b + ',' + a, { a, b, length });
+            if (length > diagonal * (fullGeometry ? 0.000001 : 0.002)) candidates.set(a < b ? a + ',' + b : b + ',' + a, { a, b, length });
         }
-        const selected = [...candidates.values()].filter((_, index) => index % Math.max(1, Math.ceil(candidates.size / 1000)) === 0);
+        if (fullGeometry) {
+            // A UV split duplicates a geometric edge without an indexed edge
+            // between its copies. Check those joins explicitly as well. Two
+            // coincident vertices must share a neighboring position to count
+            // as a surface seam; point contacts between separate parts do not.
+            const groups = new Map(), vertexGroups = new Uint32Array(count);
+            for (let v = 0; v < count; v++) {
+                const position = mesh.geometry.attributes.position;
+                const key = [position.getX(v), position.getY(v), position.getZ(v)].map(value => Math.round(value * 1e6)).join(',');
+                if (!groups.has(key)) groups.set(key, { id: groups.size, vertices: [] });
+                const group = groups.get(key); group.vertices.push(v); vertexGroups[v] = group.id;
+            }
+            const duplicateNeighbors = new Map();
+            for (const { vertices } of groups.values()) if (vertices.length > 1) for (const v of vertices) duplicateNeighbors.set(v, new Set());
+            for (let triangle = 0; triangle < (index?.count ?? 0); triangle += 3) {
+                const vertices = [index.getX(triangle), index.getX(triangle + 1), index.getX(triangle + 2)];
+                for (const v of vertices) if (duplicateNeighbors.has(v)) for (const n of vertices) if (v !== n && vertexGroups[v] !== vertexGroups[n]) duplicateNeighbors.get(v).add(vertexGroups[n]);
+            }
+            for (const { vertices } of groups.values()) if (vertices.length > 1) {
+                const sharedEdges = new Map();
+                for (const v of vertices) for (const neighbor of duplicateNeighbors.get(v)) {
+                    if (!sharedEdges.has(neighbor)) sharedEdges.set(neighbor, v);
+                    const other = sharedEdges.get(neighbor);
+                    if (other !== v) candidates.set(`uv:${Math.min(other, v)},${Math.max(other, v)}`, { a: other, b: v, length: diagonal * 0.000125, uvSeam: true });
+                }
+            }
+        }
+        const selected = [...candidates.values()].filter((_, index) => fullGeometry || index % Math.max(1, Math.ceil(candidates.size / 1000)) === 0);
         const ids = new Set();
-        for (let vertex = 0; vertex < count; vertex += Math.max(1, Math.ceil(count / 1250))) ids.add(vertex);
+        for (let vertex = 0; vertex < count; vertex += fullGeometry ? 1 : Math.max(1, Math.ceil(count / 1250))) ids.add(vertex);
         selected.forEach(edge => { ids.add(edge.a); ids.add(edge.b); });
         const vertices = [...ids], lookup = new Map(vertices.map((vertex, index) => [vertex, offset + index]));
-        edges.push(...selected.map(edge => ({ a: lookup.get(edge.a), b: lookup.get(edge.b), length: edge.length })));
-        plans.push({ mesh, vertices }); offset += vertices.length;
+        edges.push(...selected.map(edge => ({ a: lookup.get(edge.a), b: lookup.get(edge.b), length: edge.length, uvSeam: edge.uvSeam })));
+        const bindPositions = new Float64Array(vertices.length * 3);
+        const joints = new Uint32Array(vertices.length * 4), weights = new Float64Array(vertices.length * 4);
+        const bindPoint = new THREE.Vector3();
+        vertices.forEach((vertex, i) => {
+            bindPoint.fromBufferAttribute(mesh.geometry.attributes.position, vertex).applyMatrix4(mesh.bindMatrix).toArray(bindPositions, i * 3);
+            for (let slot = 0; slot < 4; slot++) {
+                joints[i * 4 + slot] = mesh.geometry.attributes.skinIndex.getComponent(vertex, slot);
+                weights[i * 4 + slot] = mesh.geometry.attributes.skinWeight.getComponent(vertex, slot);
+            }
+        });
+        const boneTransforms = mesh.skeleton.bones.map(() => new THREE.Matrix4());
+        plans.push({ mesh, vertices, bindPositions, joints, weights, boneTransforms }); offset += vertices.length;
     }
     return { plans, edges };
 }
@@ -91,14 +133,20 @@ function restorePose(scene, pose) {
 function sampleSkinnedPoints(scene, plans) {
     scene.updateMatrixWorld(true);
     const points = [];
-    for (const { mesh, vertices } of plans) {
+    for (const { mesh, vertices, bindPositions, joints, weights, boneTransforms } of plans) {
         mesh.skeleton.update();
-        const positions = mesh.geometry.getAttribute("position");
-        const point = new THREE.Vector3();
-        for (const index of vertices) {
-            point.fromBufferAttribute(positions, index);
-            mesh.applyBoneTransform(index, point);
-            point.applyMatrix4(mesh.matrixWorld);
+        // applyBoneTransform otherwise multiplies the same bone matrices again
+        // for every influence of every vertex. Cache those Float64 matrices
+        // once per pose while preserving Three's exact skinning operations.
+        mesh.skeleton.bones.forEach((bone, i) => boneTransforms[i].multiplyMatrices(bone.matrixWorld, mesh.skeleton.boneInverses[i]));
+        const point = new THREE.Vector3(), base = new THREE.Vector3(), influence = new THREE.Vector3();
+        for (let i = 0; i < vertices.length; i++) {
+            base.fromArray(bindPositions, i * 3); point.set(0, 0, 0);
+            for (let slot = 0; slot < 4; slot++) {
+                const weight = weights[i * 4 + slot];
+                if (weight !== 0) point.addScaledVector(influence.copy(base).applyMatrix4(boneTransforms[joints[i * 4 + slot]]), weight);
+            }
+            point.applyMatrix4(mesh.bindMatrixInverse).applyMatrix4(mesh.matrixWorld);
             invariant(Number.isFinite(point.x) && Number.isFinite(point.y) && Number.isFinite(point.z), "non-finite skinned vertex");
             points.push(point.clone());
         }
@@ -140,8 +188,10 @@ const deformationWarnings = [];
 
 for (const { pet, model, path: runtimePath, source } of auditedPetModels) {
     try {
-        const path = assetOverride ? resolve(assetOverride) : runtimePath;
-        const bytes = texturelessGlb(await readFile(path));
+        const path = assetOverride ? resolve(assetOverride) : assetRoot ? resolve(assetRoot, relative(resolve(clientRoot, 'public/pet-models'), runtimePath)) : runtimePath;
+        const assetBytes = await readFile(path);
+        const assetSha256 = createHash('sha256').update(assetBytes).digest('hex');
+        const bytes = texturelessGlb(assetBytes);
         const gltf = await loader.parseAsync(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), "");
         const meshes = [];
         gltf.scene.traverse((object) => {
@@ -199,22 +249,31 @@ for (const { pet, model, path: runtimePath, source } of auditedPetModels) {
                 const centerShift = posed.center.distanceTo(bind.center) / bind.diagonal;
                 invariant(sizeRatio > 0.28 && sizeRatio < 2.8, `${pet.id}/${clipName}@${sample.toFixed(2)}: implausible animated bounds (${sizeRatio.toFixed(3)}x)`);
                 invariant(centerShift < 1.6, `${pet.id}/${clipName}@${sample.toFixed(2)}: pose escaped the combat footprint (${centerShift.toFixed(3)}x)`);
-                const ratios = edges.map(edge => points[edge.a].distanceTo(points[edge.b]) / edge.length).sort((a, b) => a - b);
-                const severeEdges = edges.filter(edge => {
-                    const length = points[edge.a].distanceTo(points[edge.b]);
-                    return length / edge.length > 8 && length > bind.diagonal * 0.04;
-                }).length;
+                // Native numeric sorting avoids millions of comparator calls
+                // during the optional complete-geometry audit. Measure each
+                // edge once and retain only the three worst diagnostic edges.
+                const ratios = new Float64Array(edges.length), worst = [];
+                let severeEdges = 0;
+                for (let i = 0; i < edges.length; i++) {
+                    const edge = edges[i], length = points[edge.a].distanceTo(points[edge.b]);
+                    const ratio = ratios[i] = length / edge.length;
+                    if (edge.uvSeam ? length > bind.diagonal * 0.001 : ratio > 8 && length > bind.diagonal * 0.04) {
+                        severeEdges++;
+                        if (modelFilter || process.argv.includes('--details')) {
+                            worst.push({ edge, ratio });
+                            worst.sort((a, b) => b.ratio - a.ratio);
+                            if (worst.length > 3) worst.pop();
+                        }
+                    }
+                }
+                ratios.sort();
                 if (severeEdges) {
-                    const worstEdges = modelFilter ? edges.map(edge => ({
-                        edge,
-                        ratio: points[edge.a].distanceTo(points[edge.b]) / edge.length,
-                        length: points[edge.a].distanceTo(points[edge.b]),
-                    })).filter(item => item.ratio > 8 && item.length > bind.diagonal * 0.04)
-                        .sort((a, b) => b.ratio - a.ratio).slice(0, 3)
+                    const worstEdges = modelFilter || process.argv.includes('--details') ? worst
                         .map(({ edge, ratio }) => ({
                             vertices: [plans[0]?.vertices[edge.a], plans[0]?.vertices[edge.b]],
                             bindMidpoint: bindPoints[edge.a].clone().add(bindPoints[edge.b]).multiplyScalar(0.5).toArray().map(value => Number(value.toFixed(3))),
                             ratio: Number(ratio.toFixed(3)),
+                            ...(edge.uvSeam ? { kind: 'uv-seam' } : {}),
                         })) : undefined;
                     deformationWarnings.push({ id: pet.id, assetId: model.visualId, clip: clipName, progress: Number(sample.toFixed(4)), severeEdges, maximumEdgeStretch: Number(ratios.at(-1).toFixed(3)), ...(worstEdges ? { worstEdges } : {}) });
                 }
@@ -249,15 +308,18 @@ for (const { pet, model, path: runtimePath, source } of auditedPetModels) {
             family: gltf.parser.json.extras?.properAnimationFamily ?? "individual",
             sampledVertices: bindPoints.length,
             sampledEdges: edges.length,
+            geometryCoverage,
+            assetSha256,
             clips,
         });
         mixer.stopAllAction();
         gltf.scene.traverse(object => { if (object.isMesh) { object.geometry.dispose(); for (const material of [].concat(object.material)) material.dispose(); } });
     } catch (error) { failures.push({ id: pet.id, assetId: model.visualId, runtimeUrl: model.url, error: error.message }); }
-    if ((report.length + failures.length) % 20 === 0) console.log('Audited ' + (report.length + failures.length) + '/' + auditedPetModels.length + ' pet identities');
+    if ((report.length + failures.length) % 20 === 0) console.log('Audited ' + (report.length + failures.length) + '/' + auditedPetModels.length + ' pet identities; deformation warnings: ' + deformationWarnings.length);
 }
 
 const summary = {
+    geometryCoverage,
     attemptedModels: auditedPetModels.length,
     auditedModels: report.length,
     distinctRuntimeAssets: new Set(auditedPetModels.map(entry => entry.path)).size,

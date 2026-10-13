@@ -1,18 +1,20 @@
 /**
- * Dual-mode KV adapter — drop-in replacement for @vercel/kv.
- * Railway is the active runtime; cPanel/Passenger and Vercel references below
- * describe retained compatibility, migration, or rollback behavior only.
+ * The app's KV store, backed by the Supabase Postgres `kv_store` table.
+ * Railway (the Express server, `dist/server.js`) is the only runtime.
  *
  * ┌──────────────┬──────────────────────────────────────────────────────┐
- * │ Environment  │ Backend                                              │
+ * │ Selected by  │ Backend                                              │
  * ├──────────────┼──────────────────────────────────────────────────────┤
- * │ cPanel /     │ pg Pool → direct Postgres.  No REST timeout; handles │
- * │ Passenger    │ 10 MB+ image blobs.  DATABASE_URL env var required.  │
+ * │ DATABASE_URL │ pg Pool → direct Postgres.  No REST timeout; handles │
+ * │ (Railway)    │ 10 MB+ image blobs.  SUPABASE_POSTGRES_URL is also   │
+ * │              │ accepted.                                            │
  * ├──────────────┼──────────────────────────────────────────────────────┤
- * │ Vercel /     │ Supabase REST API (PostgREST).  HTTP-based; no TCP   │
- * │ serverless   │ cold-start penalty.  SUPABASE_URL +                  │
- * │              │ SUPABASE_SERVICE_ROLE_KEY env vars required.         │
+ * │ no Postgres  │ Supabase REST API (PostgREST) fallback.  Needs       │
+ * │ URL          │ SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY.            │
  * │              │ Statement timeout raised to 120s via ALTER ROLE.     │
+ * ├──────────────┼──────────────────────────────────────────────────────┤
+ * │ SHINOBIX_QA_ │ Isolated in-memory store.  Tests and local QA        │
+ * │ MEMORY_KV=1  │ harnesses only; refused unless NODE_ENV=test.        │
  * └──────────────┴──────────────────────────────────────────────────────┘
  *
  * Storage model (shared):
@@ -23,11 +25,9 @@
  */
 
 // ─── In-process read cache ────────────────────────────────────────────────────
-// On cPanel / Passenger the Node process is long-lived, so this Map survives
-// across requests and acts as a free first-level cache that absorbs repeated
-// reads (world-state, images, etc.) without touching Postgres at all.
-// On Vercel (stateless) instances are short-lived so this is a best-effort
-// bonus; CDN Cache-Control headers are the primary caching layer there.
+// The Railway Node process is long-lived, so this Map survives across requests
+// and acts as a free first-level cache that absorbs repeated reads
+// (world-state, images, etc.) without touching Postgres at all.
 
 import type { KvProjection } from './_storage-projection.js';
 import { signalKeyWritten } from './_kv-write-signal.js';
@@ -85,6 +85,11 @@ const _noCachePrefixes = [
     // Player deletion generations are durable cross-worker save authority. A
     // cached floor would let another worker resurrect an old save.
     'save-delete-version:',
+    // Nightly save snapshots are whole saves (~80 KB each), written once a night
+    // and read almost never (admin restore). The LRU caps entries, not bytes, so
+    // write-through caching parked up to 5,000 full saves in process memory per
+    // run; a restore must also read the stored row, not a renewed copy's cache.
+    'save-snapshot:',
     'presence:', 'challenges:', 'reset-signal:', 'admin-lock:', 'auth:', 'auth-session:', 'world:travel-lease:',
     // Natural-wanderer cooldown proofs are NX claims shared by all workers.
     // A process-local cached null can make an idempotent readback look absent.
@@ -140,7 +145,8 @@ const _noCachePrefixes = [
     // deleted row or lose a concurrently delivered message. Sector chat is the
     // same shape, and its socket hint makes every reader refetch at once: a
     // cached row would answer that hint with the line it was sent to announce.
-    'chat:village:', 'chat:sector:', 'dm:',
+    // The tavern and clan chat get the same hint (shared/chat-push.ts).
+    'chat:village:', 'chat:sector:', 'clan-chat:', 'dm:',
     // Solo-PvE move/state versions and their story bindings are likewise
     // distributed-lock authority. A cached pre-move session can accept an old
     // expectedVersion after another worker committed, overwriting that move and
@@ -249,6 +255,21 @@ let _pool: pg.Pool | null = null;
 let _storageClosed = false;
 let _poolClose: Promise<void> | null = null;
 
+/**
+ * Read-only pool occupancy for runtime metrics (api/_runtime-metrics.ts). Null
+ * until the pool exists (REST/memory backends never create one). `waiting` > 0
+ * means requests are queued for a connection — the pool is the bottleneck.
+ */
+export function storagePoolStats(): { max: number; total: number; idle: number; waiting: number } | null {
+    if (!_pool) return null;
+    return {
+        max: _pool.options.max ?? 0,
+        total: _pool.totalCount,
+        idle: _pool.idleCount,
+        waiting: _pool.waitingCount,
+    };
+}
+
 export async function closeStoragePool(): Promise<void> {
     _storageClosed = true;
     _readCache.clear();
@@ -260,8 +281,7 @@ function getPool(): pg.Pool {
     if (_storageClosed) throw new Error('Storage is closed for shutdown.');
     if (_pool) return _pool;
 
-    // DATABASE_URL wins; fall back to SUPABASE_POSTGRES_URL (set automatically
-    // by the Supabase Vercel integration on all environments).
+    // DATABASE_URL wins; fall back to SUPABASE_POSTGRES_URL.
     const url = (process.env.DATABASE_URL ?? process.env.SUPABASE_POSTGRES_URL)!;
 
     // Strip params that confuse pg: sslmode (pg v8 treats require as verify-full)
@@ -331,19 +351,30 @@ type PgQueryExecutor = {
 };
 
 /**
- * Prove, inside the caller's open transaction, that every lease this async
- * context holds is still live and still ours. FOR SHARE holds those owner rows
- * until COMMIT, so a lease cannot expire and be taken over between this check
- * and the protected statements that follow it.
+ * Open a transaction and prove, inside it, that every lease this async context
+ * holds is still live and still ours. FOR SHARE holds those owner rows until
+ * COMMIT, so a lease cannot expire and be taken over between this check and
+ * the protected statements that follow it.
+ *
+ * BEGIN and the check travel as ONE simple-protocol message, saving a database
+ * round trip on every locked statement (2026-10-12: ~870k fenced statements,
+ * each holding a pooled connection for four round trips). A parameterised
+ * statement cannot share a message, so the lease keys are inlined through pg's
+ * own literal escaping. A BEGIN that opens a multi-statement message leaves
+ * its transaction open when the message ends, so the check runs inside exactly
+ * the transaction a separate BEGIN would have opened.
  */
-async function assertLeasesHeld(client: pg.PoolClient, context: NonNullable<ReturnType<typeof currentKvLockContext>>): Promise<void> {
-    const { rows } = await client.query<{ key: string; value: unknown; live: boolean }>(
-        `WITH held AS MATERIALIZED (
+async function beginWithLeasesHeld(client: pg.PoolClient, context: NonNullable<ReturnType<typeof currentKvLockContext>>): Promise<void> {
+    const keys = context.leases.map(lease => pg.escapeLiteral(lease.key)).join(', ');
+    const results = await client.query(
+        `BEGIN; WITH held AS MATERIALIZED (
              SELECT key, value, expires_at FROM public.kv_store
-             WHERE key = ANY($1::text[]) ORDER BY key FOR SHARE
+             WHERE key = ANY(ARRAY[${keys}]::text[]) ORDER BY key FOR SHARE
          ) SELECT key, value, expires_at > clock_timestamp() AS live FROM held`,
-        [context.leases.map(lease => lease.key)],
-    );
+    ) as unknown as Array<pg.QueryResult<{ key: string; value: unknown; live: boolean }>>;
+    // Fail closed on any reply that is not the two expected results.
+    const rows = Array.isArray(results) && results.length === 2 ? results[1].rows : undefined;
+    if (!rows) throw new LockOwnershipLostError('The lease check returned an unexpected reply.');
     const owners = new Map(rows.map(row => [row.key, row]));
     if (context.leases.some(lease => {
         const row = owners.get(lease.key);
@@ -366,8 +397,7 @@ const fencedPg: PgQueryExecutor = {
         try {
             client = await getPool().connect();
             assertKvLockContext(context);
-            await client.query('BEGIN');
-            await assertLeasesHeld(client, context);
+            await beginWithLeasesHeld(client, context);
             assertKvLockContext(context);
             const result = await client.query<R>(sql, values);
             assertKvLockContext(context);
@@ -412,8 +442,8 @@ async function runPgTransaction<T>(body: (client: pg.PoolClient) => Promise<T | 
     try {
         client = await getPool().connect();
         assertKvLockContext(context);
-        await client.query('BEGIN');
-        if (context) await assertLeasesHeld(client, context);
+        if (context) await beginWithLeasesHeld(client, context);
+        else await client.query('BEGIN');
         assertKvLockContext(context);
         const result = await body(client);
         if (result === PG_ROLLBACK) {
@@ -727,14 +757,27 @@ const pgKv = {
             params.push(field, path);
             const fieldParam = `$${params.length - 1}::text`;
             const pathParam = `$${params.length}::text[]`;
-            return `CASE WHEN value #> ${pathParam} IS NULL THEN '{}'::jsonb ELSE jsonb_build_object(${fieldParam}, value #> ${pathParam}) END`;
+            return `CASE WHEN v #> ${pathParam} IS NULL THEN '{}'::jsonb ELSE jsonb_build_object(${fieldParam}, v #> ${pathParam}) END`;
         });
         const expression = fragments.length ? fragments.join(' || ') : "'{}'::jsonb";
         // Read the current row directly. A projection must never seed the cache
         // consumed by get/mget or become authority for a subsequent save write.
+        //
+        // Every reference to a TOASTed jsonb column decompresses the whole value
+        // again, so a save read through N paths was inflated N+1 times. The inner
+        // `value || '{}'` detoasts each row ONCE into an in-memory datum that every
+        // path then reads (OFFSET 0 keeps the planner from inlining it back). The
+        // result is identical: an object is returned unchanged by `|| '{}'`, and a
+        // non-object becomes an array, which the typeof guard still maps to NULL.
+        // Production 2026-10-11, the roster's 7-path read of 190 saves: 1,145 ms →
+        // 183 ms, 36,738 → 2,960 shared buffers.
         const { rows } = await getPgDb().query<{ key: string; value: Record<string, unknown> | null }>(
-            `SELECT key, CASE WHEN jsonb_typeof(value) = 'object' THEN ${expression} ELSE NULL END AS value
-             FROM public.kv_store WHERE key = ANY($1::text[]) AND (expires_at IS NULL OR expires_at > now())`,
+            `SELECT key, CASE WHEN jsonb_typeof(v) = 'object' THEN ${expression} ELSE NULL END AS value
+             FROM (
+                 SELECT key, value || '{}'::jsonb AS v
+                 FROM public.kv_store WHERE key = ANY($1::text[]) AND (expires_at IS NULL OR expires_at > now())
+                 OFFSET 0
+             ) AS detoasted`,
             params,
         );
         const byKey = new Map(rows.map(row => [row.key, row.value]));
@@ -750,15 +793,24 @@ const pgKv = {
         // tombstones never become broken image URLs. Ordinary hash callers keep
         // normal Redis-style hkeys semantics.
         if (options?.nonEmptyStrings) {
+            // jsonb_each materialized every (key, multi-MB value) pair into a
+            // tuplestore that spilled to disk on each call: production's
+            // pg_stat_statements put this query at 73 GB of temp writes over
+            // 26,299 calls (2026-10-12), on an 8 GB spend-capped disk. Detoast
+            // the object once (OFFSET 0 keeps it a single in-memory datum, as in
+            // mgetProjected), list only its KEYS, and test each value in memory.
+            // Same rows; shared:imgfields:jutsu (11 MB) went 1,455 temp blocks →
+            // 0 and 50 → 31 ms.
             const { rows } = await getPgDb().query<{ k: string }>(
-                `SELECT field.key AS k FROM public.kv_store
-                 CROSS JOIN LATERAL jsonb_each(
-                     CASE WHEN jsonb_typeof(kv_store.value) = 'object' THEN kv_store.value ELSE '{}'::jsonb END
-                 ) AS field(key, value)
-                 WHERE kv_store.key = $1 AND (expires_at IS NULL OR expires_at > now())
-                   AND jsonb_typeof(kv_store.value) = 'object'
-                   AND jsonb_typeof(field.value) = 'string'
-                   AND field.value <> '""'::jsonb`,
+                `SELECT k FROM (
+                     SELECT value || '{}'::jsonb AS v FROM public.kv_store
+                     WHERE key = $1 AND (expires_at IS NULL OR expires_at > now())
+                       AND jsonb_typeof(value) = 'object'
+                     OFFSET 0
+                 ) AS d
+                 CROSS JOIN LATERAL jsonb_object_keys(d.v) AS k
+                 WHERE jsonb_typeof(d.v -> k) = 'string'
+                   AND d.v -> k <> '""'::jsonb`,
                 [key],
             );
             return rows.map((r) => r.k);
@@ -794,7 +846,7 @@ const pgKv = {
  * simulate independent processes over one mocked Postgres row store. */
 export const _pgKvForTest = pgKv;
 
-// ─── Supabase REST backend (Vercel / serverless) ──────────────────────────────
+// ─── Supabase REST backend (fallback when no Postgres URL is set) ─────────────
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
@@ -971,8 +1023,8 @@ const supabaseKv = {
 
     async delIfEqual(key: string, expected: unknown): Promise<boolean> {
         const db = getSupabase();
-        // Retired Vercel/Supabase-REST backend — locks route to pgKv on
-        // Railway/cPanel, so this is never on the real lock path. Filtering the
+        // Supabase-REST fallback backend — locks route to pgKv on Railway,
+        // so this is never on the real lock path. Filtering the
         // JSONB `value` column with a scalar .eq can be finicky in PostgREST, so
         // this fails SAFE: on ANY error it deletes nothing and returns false, so
         // the lock simply lingers to its short TTL rather than risking deleting a
@@ -1110,6 +1162,11 @@ function _jsonValueEqual(a: unknown, b: unknown): boolean {
     };
     const left = canonical(a);
     return left !== null && left === canonical(b);
+}
+
+/** JSONB-style structural equality, the same comparison compareSet applies in Postgres. */
+export function jsonValueEqual(a: unknown, b: unknown): boolean {
+    return _jsonValueEqual(a, b);
 }
 
 export interface KvLike {
@@ -1360,10 +1417,6 @@ export function _makeMemoryKv(): KvLike {
 // used to hold those prefixes, were removed on 2026-10-02 after the 2026-07-17
 // cutover (docs/RETIRE_CPANEL_RUNBOOK.md).
 
-// On Vercel, always use the Supabase REST API regardless of which Postgres
-// env vars are present. The Supabase Vercel integration auto-sets a pile of
-// SUPABASE_POSTGRES_* vars that may not work from Vercel's network anyway.
-// Set FORCE_PG_KV=1 to override and force the pg pool path.
 /*
  * The backend is chosen on FIRST USE, not at module evaluation.
  *
@@ -1396,21 +1449,19 @@ export function _makeMemoryKv(): KvLike {
  * Cost is a resolved-instance check plus a cached bound method per call — nothing
  * against a database round trip.
  */
-const _onVercel = !!process.env.VERCEL;
 let _resolvedBaseKv: KvLike | null = null;
 const _boundBaseKvMembers = new Map<PropertyKey, unknown>();
 
 function _resolveBaseKv(): KvLike {
     if (_resolvedBaseKv) return _resolvedBaseKv;
-    const forcePg = process.env.FORCE_PG_KV === '1';
     const havePgUrl = !!(process.env.DATABASE_URL || process.env.SUPABASE_POSTGRES_URL);
     const qaMemoryKv = process.env.SHINOBIX_QA_MEMORY_KV === '1';
-    if (qaMemoryKv && (process.env.NODE_ENV !== 'test' || _onVercel)) {
-        throw new Error('[kv] SHINOBIX_QA_MEMORY_KV requires NODE_ENV=test and cannot run on Vercel.');
+    if (qaMemoryKv && process.env.NODE_ENV !== 'test') {
+        throw new Error('[kv] SHINOBIX_QA_MEMORY_KV requires NODE_ENV=test.');
     }
     _resolvedBaseKv = qaMemoryKv
         ? _makeMemoryKv()
-        : ((forcePg || (havePgUrl && !_onVercel)) ? pgKv : guardedSupabaseKv);
+        : (havePgUrl ? pgKv : guardedSupabaseKv);
     if (qaMemoryKv) console.log('[kv] isolated in-memory QA backend active');
     return _resolvedBaseKv;
 }

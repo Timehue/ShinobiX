@@ -5,12 +5,10 @@
 -- Access model:
 --   * The server uses SUPABASE_SERVICE_ROLE_KEY which BYPASSES RLS — it
 --     can read/write any key. Never expose this key to the client.
---   * The browser uses VITE_SUPABASE_ANON_KEY for Realtime ONLY. RLS
---     allows it to SELECT a strict allowlist of key prefixes that the
---     client subscribes to via Supabase Realtime (PvP sessions,
---     clan-war tile-card duels, incoming duel challenges). Everything
---     else (player saves, auth, IP/fingerprint maps, presence, etc.)
---     stays invisible to the anon role.
+--   * The browser does not talk to Supabase at all (since 2026-10-13: the
+--     Realtime client was removed; PvP uses the server's /api/pvp/stream).
+--     The anon role has NO policy and NO privilege on kv_store, so anyone
+--     holding the public anon key sees nothing. RLS stays enabled.
 -- ============================================================
 --
 -- Security posture — audit item #27 (verified-and-documented; no change needed)
@@ -58,10 +56,9 @@ create index if not exists kv_store_key_pattern_idx
 
 -- ── Row-level security ───────────────────────────────────────────────────────
 -- RLS MUST be ENABLED. Service-role bypasses it for server-side reads/writes;
--- the anon role is what the browser uses and we want a narrow allowlist.
+-- the anon role is what a browser holding the public key would use.
 --
--- Anon allowlist:
---   pvp:*            — PvP session state (intentionally shared between fighters and spectators)
+-- Anon allowlist: NONE (since 2026-10-12, see below).
 --
 -- `cw-tilecards:*` was REMOVED from the anon allowlist (2026-07-23 hardening,
 -- P0). The Chronicle duel record stores BOTH players' full decks, both hands,
@@ -82,69 +79,53 @@ create index if not exists kv_store_key_pattern_idx
 -- Delivery is unaffected by the removal. Do NOT re-add it — deliver any new
 -- per-player inbox over the authenticated channel instead.
 --
--- Adding a new client-subscribed key prefix? Add it to the USING clause of the
--- SELECT policy below, the publication filter, AND lib/realtime.ts. Keep all
--- three in sync.
+-- `pvp:*` was REMOVED too (2026-10-12): the anon allowlist is now EMPTY. It
+-- existed only so the browser's Supabase Realtime subscription could pass RLS,
+-- and since #358 the browser subscribes to nothing over Realtime
+-- (lib/realtime.ts was deleted; PvP uses /api/pvp/stream) and kv_store left the
+-- `supabase_realtime` publication (section below). Meanwhile the grant let
+-- anyone holding the public anon key list and read every PvP session row
+-- through the Data API. The server reads only with the service role, which
+-- bypasses RLS, so nothing the game does used it. Do NOT re-add an anon policy:
+-- serve browser reads through an authenticated API route.
 
 alter table public.kv_store enable row level security;
 
--- Drop any prior policies before re-creating so this script is idempotent.
+-- Drop the old anon policies. With RLS on and no policy, anon sees no rows.
 drop policy if exists "anon_read_pvp_realtime" on public.kv_store;
 drop policy if exists "kv_store_anon_select"   on public.kv_store;
 
--- Anon SELECT — strict prefix allowlist. Nothing else is readable.
-create policy "kv_store_anon_select"
-    on public.kv_store
-    for select
-    to anon
-    using (
-        key like 'pvp:%'
-    );
-
--- Belt-and-suspenders: also revoke broad table grants from anon so that
--- even if the policy is ever dropped, anon can't read/write anything.
--- The SELECT policy above re-grants the narrow allowlist.
+-- The browser roles get no table privileges at all. RLS would already deny
+-- every row; revoking the grants as well means even an accidental RLS disable
+-- exposes nothing.
 revoke all      on public.kv_store from anon;
-grant  select   on public.kv_store to   anon;
 -- audit #27 hardening (applied to prod 2026-06-01): the app never uses the
--- `authenticated` role (players are `anon` via Realtime; the server is
--- `service_role`), so grant it NOTHING. RLS already denied it every row by
+-- `authenticated` role (the server is `service_role`), so grant it NOTHING. RLS already denied it every row by
 -- deny-by-default; revoking the grant also closes the "if RLS is ever disabled,
 -- authenticated would see all rows" footgun. Do NOT re-add a grant here.
 revoke all      on public.kv_store from authenticated;
 
--- ── Realtime publication (audit #13) ─────────────────────────────────────────
--- The browser subscribes to kv_store row changes via Supabase Realtime (see
--- shinobij.client/src/lib/realtime.ts + the PvP battle screen). For those WS
--- pushes to arrive, kv_store must be a member of the `supabase_realtime`
--- publication AND publish full row images on UPDATE (so the new session JSON
--- rides along). Without this the channel still SUBSCRIBES fine but never
--- delivers a payload — the silent failure behind audit #11. The client now
--- falls back to SSE in that case, so this is a latency optimisation, not a
--- correctness requirement, but enabling it restores the ~30-80ms WS path.
---
--- Publication row filter (applied to prod 2026-07-16, migration
--- `scope_realtime_publication_to_subscribed_prefixes`). The browser only ever
--- subscribes to three key prefixes (pvp: / cw-tilecards: / challenges:, the same
--- RLS SELECT allowlist above), but the publication previously published EVERY
--- kv_store change — so the Realtime walsender decoded every save, rate-limit
--- counter, and presence beat only for RLS to drop it downstream. That decode was
--- the single largest DB cost. The WHERE filter drops non-subscribed rows at
--- WAL-decode time instead; client behavior is byte-identical (a client already
--- couldn't receive those rows). `key` is the primary key, so the filter is valid
--- under REPLICA IDENTITY DEFAULT — FULL is NOT required (the client reads the new
--- row on insert/update, which DEFAULT already carries). Keep this filter's prefix
--- list in sync with the anon SELECT policy above AND lib/realtime.ts.
---   To widen: add the prefix here, to the RLS policy, and to the client.
---   Rollback (publish everything): alter publication supabase_realtime set table public.kv_store;
--- Idempotent: SET TABLE is safe to re-run and re-asserts the exact table+filter.
--- `supabase_realtime` is created by Supabase on every project; guard in case a
--- bare Postgres lacks it.
+-- ── Realtime publication: kv_store is NOT published (2026-10-12) ─────────────
+-- Nothing in the browser subscribes to Supabase Realtime any more: the PvP
+-- battle screen's one live transport is the server's /api/pvp/stream, and
+-- lib/realtime.ts was deleted. Keeping kv_store in `supabase_realtime` cost
+-- ~9.4% of database time for nothing: Realtime's Postgres Changes reads the WAL
+-- through wal2json polling (realtime.list_changes) and decodes EVERY kv_store
+-- write, every save, rate-limit counter and presence beat, before discarding it.
+-- The `where (key like 'pvp:%')` row filter this section used to set (applied
+-- 2026-07-16) did not help: wal2json ignores publication row filters, so the
+-- decode cost was unchanged. Removing the table is the only fix.
+--   Rollback (re-publish PvP rows for a Realtime client):
+--     alter publication supabase_realtime add table public.kv_store where (key like 'pvp:%');
+-- Idempotent and guarded: Supabase creates `supabase_realtime` on every project,
+-- a bare Postgres may lack it, and the table may already be out.
 do $$
 begin
-    if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
-        alter publication supabase_realtime set table public.kv_store
-            where (key like 'pvp:%');
+    if exists (
+        select 1 from pg_publication_tables
+        where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'kv_store'
+    ) then
+        alter publication supabase_realtime drop table public.kv_store;
     end if;
 end $$;
 
@@ -253,6 +234,12 @@ $$;
 -- ── kv_hset — atomic hash-set (merge JSON fields) ────────────────────────────
 -- Equivalent to Redis HSET: inserts the hash or merges new fields into it.
 -- Uses Postgres || operator to merge JSONB objects in a single statement.
+--
+-- A merge that changes nothing writes nothing (2026-10-12). Every write of a
+-- jsonb row rewrites the WHOLE row (and its TOAST and WAL), and hash rows are
+-- the big shared ones: the player registry, sleeper camps, image manifests of
+-- 10-20 MB. jsonb equality is structural, so key order never forces a write;
+-- updated_at then keeps the time of the last real change.
 
 create or replace function public.kv_hset(
     p_key    text,
@@ -266,43 +253,32 @@ as $$
     values (p_key, p_fields, now())
     on conflict (key) do update
         set value      = kv_store.value || excluded.value,
-            updated_at = now();
+            updated_at = now()
+        where (kv_store.value || excluded.value) is distinct from kv_store.value;
 $$;
 
 -- ── kv_hdel — atomic hash-delete (remove specific JSON fields) ───────────────
 -- Equivalent to Redis HDEL: removes named fields from the stored JSON object.
+--
+-- One statement (2026-10-12). The old version read the row, removed the fields
+-- in PL/pgSQL, then wrote it back: an hset committing in between was silently
+-- undone, and a delete of fields the row lacked still rewrote the whole row
+-- (nearly every sleeper-camp beat). The UPDATE re-checks its WHERE against the
+-- latest row under the row lock, and touches nothing when no field is present.
 
 create or replace function public.kv_hdel(
     p_key    text,
     p_fields text[]
 )
 returns void
-language plpgsql
+language sql
 set search_path = ''
 as $$
-declare
-    v_current jsonb;
-    v_new     jsonb;
-    v_field   text;
-begin
-    select value into v_current
-    from public.kv_store
-    where key = p_key;
-
-    if not found then
-        return;  -- Nothing to delete from.
-    end if;
-
-    v_new := v_current;
-    foreach v_field in array p_fields loop
-        v_new := v_new - v_field;
-    end loop;
-
     update public.kv_store
-    set value      = v_new,
+    set value      = value - p_fields,
         updated_at = now()
-    where key = p_key;
-end;
+    where key = p_key
+      and value ?| p_fields;
 $$;
 
 -- ── kv_delete_expired — periodic cleanup ─────────────────────────────────────

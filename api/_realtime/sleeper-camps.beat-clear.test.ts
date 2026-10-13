@@ -51,6 +51,28 @@ describe('heartbeat sleeper-camp clear', () => {
         assert.equal((await camps.listSleeperCamps()).has('rill'), false, 'the recheck removes it');
     });
 
+    it('a beat from a player with no camp never rewrites the shared row', { concurrency: false }, async (t) => {
+        await camps.setSleeperCamp(camp('kiri'));
+        const hdel = t.mock.method(kv, 'hdel');
+        await camps.clearSleeperCampOnBeat('rill', NOW);
+        await camps.clearSleeperCampOnBeat('rill', NOW + camps.BEAT_CLEAR_RECHECK_MS);
+        assert.equal(hdel.mock.callCount(), 0, 'nothing to clear, nothing written');
+        assert.equal((await camps.listSleeperCamps()).get('kiri')?.sector, 12, 'other camps are untouched');
+        // A camp pitched later is still cleared by the very next beat.
+        await camps.setSleeperCamp(camp('rill'));
+        await camps.clearSleeperCampOnBeat('rill', NOW + camps.BEAT_CLEAR_RECHECK_MS + 1_000);
+        assert.equal(hdel.mock.callCount(), 1);
+        assert.equal((await camps.listSleeperCamps()).has('rill'), false);
+    });
+
+    it('a failed camp read falls back to the unconditional clear', { concurrency: false }, async (t) => {
+        await camps.setSleeperCamp(camp('rill'));
+        t.mock.method(kv, 'hkeys', async () => { throw new Error('database unavailable'); });
+        const hdel = t.mock.method(kv, 'hdel');
+        await camps.clearSleeperCampOnBeat('rill', NOW);
+        assert.equal(hdel.mock.callCount(), 1);
+    });
+
     it('keeps explicit clears unconditional and safe to pass to Array#map', { concurrency: false }, async () => {
         await camps.setSleeperCamp(camp('rill'));
         await camps.setSleeperCamp(camp('kiri'));

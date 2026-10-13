@@ -70,7 +70,10 @@ test('rejected uploads do not spend the budget', async () => {
     assert.equal(await upload(headers, ip), 200, 'malformed requests never charged the budget');
 });
 
-test('a player over budget cannot keep reserving image ids (the claim is a durable write too)', async () => {
+test('a player over budget cannot keep reserving image ids (the claim is a durable write too)', async (t) => {
+    // The burst window is aligned to the wall clock (floor(now / 10 min)), so
+    // uploads that straddle a boundary start a fresh window. Hold the clock.
+    mockClock(t, Date.now());
     const headers = { 'x-player-token': await account('squatter') };
     const ip = '10.60.4.1';
     for (let i = 0; i < images.IMAGE_UPLOAD_BURST_LIMIT; i++) assert.equal(await upload(headers, ip), 200);

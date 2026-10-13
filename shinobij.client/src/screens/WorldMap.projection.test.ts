@@ -391,6 +391,10 @@ test("WorldMap retains controller and portal ownership around the canvas slots",
     ], "WorldMap canvas projection");
     assert.doesNotMatch(projection, /<(?:RegionSplash|SectorGateMarker|SectorPeersLive|SectorWanderer|SectorTraceMarkers|SectorShrineStandee|SectorWeeklyBossActor)\b/u);
     assert.match(projection, /vaultRaid && createPortal\([\s\S]*<AnbuVaultRaid/u);
+    assert.match(projection, /<AnbuVaultRaid[\s\S]*onAttackPlayer=\{handleSelectedSectorPlayerAttack\}/u,
+        'interior attacks must share the outdoor Combat/Card/Pet war routing');
+    assert.match(projection, /<AnbuVaultRaid[\s\S]*sectorContest=\{sectorWarContest\}[\s\S]*onOpenSectorContest=[\s\S]*onFightSectorGarrison=/u,
+        'the parent sector contest and garrison remain accessible inside');
     assert.match(projection, /bossDialog && createPortal\([\s\S]*onClick=\{standBossFight\}/u);
     assert.match(projection, /<SageOfferModal/u);
     assert.doesNotMatch(overlaySource, /\b(?:AnbuVaultRaid|SageOfferModal|standBossFight|createPortal)\b/u);
@@ -509,6 +513,16 @@ test("the village Outskirts control uses authoritative travel", () => {
     const outskirts = sliceBetween(worldMapSource, "const outskirtsSector = villageOutskirtsSector", "Outskirts");
     assert.match(outskirts, /triggerTravelPoint\(outskirtsSector\)/u);
     assert.doesNotMatch(outskirts, /set(?:CurrentSector|SelectedSector|CurrentBiome|CurrentWeather)\(/u);
+});
+
+test("both stronghold landmarks share the entry-level and capability gates before projection", () => {
+    const start = worldMapSource.indexOf("const sectorOverlayVault = (() =>");
+    assert.ok(start >= 0);
+    const block = worldMapSource.slice(start, worldMapSource.indexOf("})();", start));
+    assertOrdered(block, ["!anbuViewOpen || !strongholdLevelEligible(character.level)", "isDeathsGateStronghold(selectedSector)", "territory.ownerVillage || homeVillageForSector(selectedSector)"], "shared stronghold entry policy");
+    assert.doesNotMatch(block, /level[^\n]*100/u);
+    assert.doesNotMatch(block, /owner === character\.village/u, 'the village defender can enter their own shared base');
+    assert.match(worldMapSource, /disabled=\{!anbuAdmissionOpen \|\| !strongholdLevelEligible\(character.level\)\}/u);
 });
 
 test("a completed road approach crosses only its current shared exit", () => {

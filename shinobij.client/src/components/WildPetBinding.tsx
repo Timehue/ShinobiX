@@ -4,6 +4,7 @@ import type { Character, VersionedCharacterCommit } from '../types/character';
 import type { Pet } from '../types/pet';
 import type { ShowdownStateView, ShowdownTurnResponse } from '../../../shared/pet-showdown-contract';
 import { PetShowdownBattle } from './PetShowdownBattle';
+import { withPetSceneRecall } from './PetSceneRecall';
 import type { WildBindingCinematic } from './WildBindingArenaFx';
 import { petCardImage } from '../lib/pet-battle-anim';
 import { warmShowdownModels } from '../lib/pet-model-preload';
@@ -17,11 +18,13 @@ import {
 } from '../lib/wild-binding-api';
 import './WildPetBinding.css';
 import './WildPetBindingCinematic.css';
+import '../styles/pet-battle-theme.css';
 
 type Outcome = 'captured' | 'ended' | 'left';
 const CAPTURE_ANIMATION_MS = 3600;
 
-export function WildPetBinding({
+export const WildPetBinding = withPetSceneRecall(WildPetBindingView, ['onResolved']);
+function WildPetBindingView({
     character, token, pet, sharedImages, onVersionedCharacter, onResolved,
 }: {
     character: Character;
@@ -173,7 +176,7 @@ export function WildPetBinding({
     }
 
     if (!battle || !wild) return (
-        <section className="wild-binding-intro card cinematic-card" aria-label="Wild companion encounter">
+        <section className="wild-binding-intro card cinematic-card pet-battle-theme pet-battle-lobby" aria-label="Wild companion encounter">
             <div className="wild-binding-intro-art">
                 <span className="wild-binding-intro-crest" aria-hidden="true">✦</span>
                 {cardArt && <img src={cardArt} alt={pet.name} />}
@@ -201,8 +204,13 @@ export function WildPetBinding({
         </section>
     );
 
-    const overlay = <aside className={`wild-binding-overlay${open ? ' is-open' : ''}${captureStage !== 'idle' ? ` is-${captureStage}` : ''}${arenaAvailable && bindingCinematic ? ' has-arena-cinematic' : ''}`}
+    const overlay = <aside className={`wild-binding-overlay pet-battle-theme${open ? ' is-open' : ''}${captureStage !== 'idle' ? ` is-${captureStage}` : ''}${arenaAvailable && bindingCinematic ? ' has-arena-cinematic' : ''}`}
         onKeyDown={(event) => {
+            if (captureStage === 'idle' && open && event.key === 'Escape') {
+                event.preventDefault(); event.stopPropagation();
+                event.currentTarget.querySelector<HTMLButtonElement>('.wild-binding-toggle')?.focus();
+                setOpen(false); return;
+            }
             if (captureStage === 'idle') return;
             if (event.key === 'Tab') {
                 event.preventDefault();
@@ -299,7 +307,7 @@ export function WildPetBinding({
             playerPets={battlePets}
             sharedImages={sharedImages}
             submitTurn={submitTurn}
-            onForfeit={() => void forfeit()}
+            onForfeit={forfeit}
             onFinished={() => { setBattleReady(false); setBattleEnded(true); }}
             onExit={() => finish('ended')}
             onRematch={() => finish('ended')}

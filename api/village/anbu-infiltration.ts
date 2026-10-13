@@ -50,18 +50,25 @@ async function deliverInfiltrationLegacy(
         { receiptId, characterForBootstrap: character ?? null },
     );
     if (!delivered) return false;
-    await bumpEraContributionOnce('warBattles', receiptId);
-    return true;
+    // bumpEraContributionOnce reports a failed era write as false instead of
+    // throwing. The raid reward is already saved, so keeping the report
+    // retryable costs the raider nothing, and the retry counts the war battle
+    // exactly once.
+    return bumpEraContributionOnce('warBattles', receiptId);
 }
 import { MAX_RAID_ATTEMPTS_PER_DAY, type WarPool } from '../_anbu-infiltration.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { loadAdminCombatContent } from '../_admin-content.js';
 import { hydrateCharacterFromSave, sealItemCharges } from '../pvp/session.js';
-import { readSoloPveSession, soloPveSessionKey, writeSoloPveSession } from '../solo-pve/_store.js';
+import { readSoloPveSession, repairSoloPveSessionPublication, soloPveSessionKey, writeSoloPveSession } from '../solo-pve/_store.js';
 import { withSoloPveSettlementReceipt } from '../solo-pve/_settlement.js';
 import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
 import { isIncapacitated } from '../_elapsed-state.js';
 import { settleHeldFights } from '../pve/_held-fights.js';
+import { ANBU_RAID_MIN_LEVEL } from '../../shared/sector-stronghold.js';
+import { battleAuthorityKeys, battleEvidenceFrom, resolveBattleAuthority } from '../_realtime/battle-authority.js';
+import { onlineStore } from '../_realtime/online-store.js';
+import { withWorldBossPvpLock } from '../world-boss-event/_pvp-protection.js';
 
 /*
  * /api/village/anbu-infiltration — POST only. The Anbu Vault Infiltration raid
@@ -88,13 +95,21 @@ import { settleHeldFights } from '../pve/_held-fights.js';
  * stays with /village/sector-war.
  */
 
-const LEVEL_REQUIREMENT = 100;
-
 type Identity = NonNullable<Awaited<ReturnType<typeof authedPlayerOrAdmin>>>;
 
-async function villageOf(playerName: string): Promise<string> {
-    const save = await kv.get<{ character?: { village?: string } }>(`save:${playerName}`);
-    return String(save?.character?.village ?? '').trim();
+async function resumePreparedCombat(playerName: string, session: Awaited<ReturnType<typeof readSoloPveSession>>): Promise<boolean> {
+    if (!session) return false;
+    const admission = await withWorldBossPvpLock([playerName], async () => {
+        const presence = onlineStore.get(playerName);
+        if (presence?.pendingAttacker || (presence?.travelingUntil ?? 0) > Date.now()) return false;
+        const evidence = battleEvidenceFrom(await kv.mget(...battleAuthorityKeys(playerName)));
+        const authority = await resolveBattleAuthority(playerName, evidence);
+        const projection = evidence.battleState as { kind?: string; sessionId?: string } | null;
+        if (authority.inBattle && !(authority.source === 'solo-pve' && projection?.sessionId === session.sessionId)) return false;
+        await repairSoloPveSessionPublication(session.sessionId);
+        return true;
+    });
+    return admission.ok && admission.value;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -127,6 +142,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             case 'start': return await doStart(req, res, identity, playerName, body);
             case 'act': return res.status(410).json({ error: 'ANBU combat actions moved to /api/solo-pve/action.', code: 'anbu-solo-pve-cutover' });
             case 'state': return await doState(res, identity, playerName, body);
+            case 'recover': return await doRecover(res, identity, playerName, body);
             case 'report': return await doReport(req, res, identity, playerName, body);
             case 'turn-in': return await doTurnIn(req, res, identity, playerName, body);
             default: return res.status(400).json({ error: 'Unknown action.' });
@@ -151,8 +167,8 @@ async function doStart(req: VercelRequest, res: VercelResponse, identity: Identi
     let char = rec?.character as Record<string, unknown> | undefined;
     if (!char) return res.status(404).json({ error: 'Your save was not found.' });
     const level = Math.floor(Number(char.level) || 0);
-    if (!identity.admin && level < LEVEL_REQUIREMENT) {
-        return res.status(403).json({ error: `Anbu infiltration requires level ${LEVEL_REQUIREMENT}.` });
+    if (!identity.admin && level < ANBU_RAID_MIN_LEVEL) {
+        return res.status(403).json({ error: `Anbu infiltration requires level ${ANBU_RAID_MIN_LEVEL}.` });
     }
     const raiderVillage = String(char.village ?? '').trim();
     if (await villageCampaignStronghold(raiderVillage, sector)) return res.status(409).json({ error: 'This is a village war objective. Use its nominated battle mode to attack the ANBU defense.' });
@@ -189,16 +205,21 @@ async function doStart(req: VercelRequest, res: VercelResponse, identity: Identi
         const activeRunId = await kv.get<string>(activeKey);
         if (activeRunId) {
             const activeRun = await readInfilRun(activeRunId);
-            const activeSession = await readSoloPveSession(activeRunId);
+            let activeSession = await readSoloPveSession(activeRunId);
             const resumable = Boolean(activeRun
                 && !activeRun.settlement
                 && activeRun.sector === sector
                 && activeRun.targetVillage === targetVillage
                 && infiltrationSessionMatches(activeRun, activeSession));
             if (resumable && activeRun && activeSession) {
-                const attempt = identity.admin
+                if (activeRun.startState === 'prepared' && !await resumePreparedCombat(playerName, activeSession)) {
+                    return { status: 409 as const, body: { error: 'Finish your current battle or leave its queue before recovering this infiltration.' } };
+                }
+                activeSession = await readSoloPveSession(activeRunId);
+                if (!infiltrationSessionMatches(activeRun, activeSession)) return { status: 409 as const, body: { error: 'The infiltration combat binding is invalid.' } };
+                const attempt = identity.admin || activeRun.startState === 'ready'
                     ? { allowed: true, replayed: true, count: 0 }
-                    : await reserveInfilStartAttempt(playerName, activeRun.runId, MAX_RAID_ATTEMPTS_PER_DAY);
+                    : await reserveInfilStartAttempt(playerName, activeRun.runId, MAX_RAID_ATTEMPTS_PER_DAY, { now: () => activeRun.createdAt });
                 if (!attempt.allowed) {
                     await kv.del(activeKey, infilRunKey(activeRunId), soloPveSessionKey(activeRunId));
                     return { status: 429 as const, body: { error: 'Daily infiltration limit reached.' } };
@@ -273,23 +294,66 @@ async function doStart(req: VercelRequest, res: VercelResponse, identity: Identi
         };
 
         // Persist a resumable prepared run before consuming the daily attempt.
-        await writeSoloPveSession(session);
-        await writeInfilRun(run);
-        await kv.set(activeKey, runId, { ex: INFIL_RUN_TTL });
-        const attempt = identity.admin
-            ? { allowed: true, replayed: false, count: 0 }
-            : await reserveInfilStartAttempt(playerName, runId, MAX_RAID_ATTEMPTS_PER_DAY);
-        if (!attempt.allowed) {
-            await kv.del(activeKey, infilRunKey(runId), soloPveSessionKey(runId));
-            return { status: 429 as const, body: { error: 'Daily infiltration limit reached.' } };
-        }
-        await writeInfilRun({ ...run, startState: 'ready' });
-        return { status: 200 as const, body: {
-            ok: true, replayed: attempt.replayed, runId, sector, targetVillage,
-            anbu: { name: maskedAnbuName }, session,
-        } };
+        const commit = async () => {
+            if (!identity.admin && !await strongholdVaultReady(playerName, sector)) {
+                return { status: 409 as const, body: { error: 'Reach the Anbu inside the stronghold and clear any patrol first.' } };
+            }
+            await writeInfilRun(run);
+            await kv.set(activeKey, runId, { ex: INFIL_RUN_TTL });
+            await writeSoloPveSession(session);
+            const attempt = identity.admin
+                ? { allowed: true, replayed: false, count: 0 }
+                : await reserveInfilStartAttempt(playerName, runId, MAX_RAID_ATTEMPTS_PER_DAY, { now: () => run.createdAt });
+            if (!attempt.allowed) {
+                await kv.del(activeKey, infilRunKey(runId), soloPveSessionKey(runId));
+                return { status: 429 as const, body: { error: 'Daily infiltration limit reached.' } };
+            }
+            await writeInfilRun({ ...run, startState: 'ready' });
+            return { status: 200 as const, body: {
+                ok: true, replayed: attempt.replayed, runId, sector, targetVillage,
+                anbu: { name: maskedAnbuName }, session,
+            } };
+        };
+        const admission = identity.admin ? { ok: true as const, value: await commit() } : await withWorldBossPvpLock([playerName], commit);
+        return admission.ok ? admission.value : { status: 409 as const, body: { error: 'Leave the world boss queue or finish its fight before challenging the Anbu.' } };
     }, { failClosed: true, ttlSec: 30 });
     return res.status(started.status).json(started.body);
+}
+
+/** Recover an admitted raid when the browser never received its run ID. */
+async function doRecover(res: VercelResponse, identity: Identity, playerName: string, body: Record<string, unknown>) {
+    const sector = Number(body.sector);
+    if (!Number.isInteger(sector) || !isWarSector(sector)) return res.status(400).json({ error: 'That sector has no Anbu raid.' });
+    const activeKey = infilActiveRunKey(playerName, sector);
+    const reply = await withKvLock(activeKey, async () => {
+        const runId = await kv.get<string>(activeKey);
+        const run = runId ? await readInfilRun(runId) : null;
+        if (!run) return { status: 404, body: { error: 'Run not found or expired.' } };
+        if (run.raiderSlug !== playerName || run.sector !== sector) return { status: 403, body: { error: 'Not your run.' } };
+        let session = await readSoloPveSession(run.runId);
+        if (!session && run.startState === 'prepared') {
+            // A context staged before combat publication spent no attempt.
+            await kv.del(activeKey, infilRunKey(run.runId));
+            return { status: 404, body: { error: 'Run not found or expired.' } };
+        }
+        if (!infiltrationSessionMatches(run, session)) return { status: 409, body: { error: 'The infiltration combat binding is invalid.' } };
+        if (run.startState === 'prepared') {
+            // Repair an interrupted first combat write before finishing admission.
+            if (!await resumePreparedCombat(playerName, session)) return { status: 409, body: { error: 'Finish your current battle or leave its queue before recovering this infiltration.' } };
+            session = await readSoloPveSession(run.runId);
+            if (!infiltrationSessionMatches(run, session)) return { status: 409, body: { error: 'The infiltration combat binding is invalid.' } };
+            const attempt = identity.admin ? { allowed: true } : await reserveInfilStartAttempt(playerName, run.runId,
+                MAX_RAID_ATTEMPTS_PER_DAY, { now: () => run.createdAt });
+            if (!attempt.allowed) {
+                await kv.del(activeKey, infilRunKey(run.runId), soloPveSessionKey(run.runId));
+                return { status: 429, body: { error: 'Daily infiltration limit reached.' } };
+            }
+            await writeInfilRun({ ...run, startState: 'ready' });
+        }
+        return { status: 200, body: { ok: true, runId: run.runId, sector: run.sector, targetVillage: run.targetVillage,
+            anbu: { name: run.anbuName }, session } };
+    }, { failClosed: true, ttlSec: 30 });
+    return res.status(reply.status).json(reply.body);
 }
 
 // ── state (read-only refresh-restore) ─────────────────────────────────────────
@@ -396,13 +460,15 @@ async function doReportLocked(res: VercelResponse, identity: Identity, playerNam
     await writeInfilRun({ ...run, settlement: { settledAt, response: economicResponse } });
 
     // ── Mission / legacy / clan hooks (docs plan §9) ──────────────────────────
-    // Best-effort AFTER the authoritative settle — a hook failure must never
-    // unwind the paid reward. An infiltration win is a server-proofed raid:
-    //   • Vanguards progress their 'vanguard-raids' daily missions.
-    //   • Legacy (the L100 system) credits raidsCompleted + warContribution and
-    //     the era's warBattles — identical to sector-war's resolve credit.
+    // All run AFTER the authoritative settle, and no hook failure may unwind the
+    // paid reward. An infiltration win is a server-proofed raid:
+    //   • Vanguards progress their 'vanguard-raids' daily missions (best-effort).
     //   • The raider's clan gets +1 eventContrib, which feeds the EXISTING clan
-    //     'raid' mission (progress = eventContrib/3) and 'training'.
+    //     'raid' mission (progress = eventContrib/3) and 'training' (best-effort).
+    //   • Legacy (the L100 system) credits raidsCompleted + warContribution and
+    //     the era's warBattles, as a sector-war battle does. These land last;
+    //     until they do, the report answers a retryable 503 and a retry replays
+    //     the saved settlement.
     let missionsCompleted: CompletedMissionInfo[] = [];
     let missionXp = 0;
     try {

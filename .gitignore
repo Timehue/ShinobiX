@@ -388,6 +388,8 @@ publish/
 
 # Migration backups (contain player data — never commit)
 upstash-backup-*.json
+# Vercel is retired, but old checkouts still hold a `vercel link` directory
+# (.vercel/project.json: org/project ids). Keep it out of commits.
 .vercel
 
 
@@ -517,3 +519,28 @@ store-art/
 # the event report rather than in the repository.
 war-event-plan*.json
 war-preflight-*.json
+
+# Repeated underground QA captures/profiles are reproducible local evidence.
+# Keep the reports, small result manifests and explicitly linked review plates.
+/docs/stronghold/underground-review/**/*.png
+/docs/stronghold/underground-review/**/*.heapsnapshot
+/docs/stronghold/underground-review/**/*.cpuprofile
+/docs/stronghold/underground-review/**/diagnostics.json
+!/docs/stronghold/underground-review/entry-level-50-ui/webkit-level-50-anbu-320.png
+!/docs/stronghold/underground-review/entry-level-50-ui/webkit-level-50-defender-320.png
+!/docs/stronghold/underground-review/sector-style-rooms-1.png
+!/docs/stronghold/underground-review/sector-style-rooms-2.png
+!/docs/stronghold/underground-review/sector-style-rooms-3.png
+!/docs/stronghold/underground-review/sector-style-anbu-vault.png
+!/docs/stronghold/underground-review/sector-style-stronghold-phone.png
+!/docs/stronghold/underground-review/sector-style-cavern-phone.png
+!/docs/stronghold/underground-review/sector-style-multiplayer-normal.png
+!/docs/stronghold/underground-review/sector-style-multiplayer-obsidian.png
+!/docs/stronghold/underground-review/rooms-1.png
+!/docs/stronghold/underground-review/rooms-2.png
+!/docs/stronghold/underground-review/rooms-3.png
+!/docs/stronghold/underground-review/anbu-treasury.png
+!/docs/stronghold/underground-review/hollow-gate-desktop.png
+!/docs/stronghold/underground-review/hollow-gate-phone.png
+!/docs/stronghold/underground-review/hollow-gate-travelers.png
+!/docs/stronghold/underground-review/stronghold-desktop.png

@@ -290,6 +290,17 @@ describe('settleInfiltrationWin', { concurrency: false }, () => {
 });
 
 describe('settleInfiltrationLoss', { concurrency: false }, () => {
+    it('a held Anbu defense protects both village and sector war reserves on settlement and replay', async () => {
+        await seedTerritory(); await seedWarRecord(); await seedSave('raider', { hp: 9000 });
+        const territory = await read(TERRITORY_KEY), war = await read(villageWarKey(VILLAGE));
+        const held = await settleInfiltrationLoss(makeRun(), terminalSession('loss'), deps);
+        assert.equal(held.ok, true);
+        await settleInfiltrationLoss(makeRun(), terminalSession('loss'), deps);
+        assert.deepEqual(await read(TERRITORY_KEY), territory);
+        assert.deepEqual(await read(villageWarKey(VILLAGE)), war);
+        assert.deepEqual(await stacksOf('raider'), []);
+        assert.equal((await charOf('raider')).ryo, 0);
+    });
     it('persists item usage and terminal outcome once, with replayable save receipt', async () => {
         await seedSave('raider', { inventory: ['potion'], hp: 9000 });
         const first = await settleInfiltrationLoss(makeRun(), terminalSession('loss'), deps);

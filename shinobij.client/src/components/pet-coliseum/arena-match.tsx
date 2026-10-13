@@ -5,6 +5,8 @@ import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { RendererRetirement } from "../RendererRetirement";
 import { PetSummon3D } from "../PetSummon3D";
+import { withPetSceneRecall, usePetRecallController } from '../PetSceneRecall';
+import type { PetCardPresence } from "../../lib/pet-summon-presentation";
 import { GameArtIcon } from "../GameArtIcon";
 import { Html, Sparkles } from "@react-three/drei";
 import type { Pet } from "../../types/pet";
@@ -104,6 +106,7 @@ function ArenaStandee({ result, clock, id, pet, sharedImages }: {
     const fast = useRef(0);   // speed gate 0..1 → dash-trail opacity (read by the ArenaGhost children)
     const tint = useMemo(() => elementTint(pet.element), [pet.element]);
     const bobPhase = useMemo(() => (id.charCodeAt(id.length - 1) % 7) * 0.9, [id]);
+    const cardPresence = useRef<PetCardPresence>({ present: true });
     const [poseCat, setPoseCat] = useState<PoseCat>("idle");
     const [lives, setLives] = useState(3);
     const team = id.startsWith("blue") ? "blue" : "red";
@@ -124,6 +127,7 @@ function ArenaStandee({ result, clock, id, pet, sharedImages }: {
         const a0 = findArenaActor(snaps[i0], id); if (!a0) return;
         const a1 = findArenaActor(snaps[i1], id) ?? a0;
         const down = a0.state === "respawning" || a0.state === "dead";
+        cardPresence.current.present = !down;
         // Snap (don't interpolate) across a respawn TELEPORT: a >3-field-unit jump in a
         // single tick is never real movement, and lerping it slides the sprite across the
         // whole board while the perspective scale sweeps — the "grows huge then small"
@@ -163,7 +167,7 @@ function ArenaStandee({ result, clock, id, pet, sharedImages }: {
         g.scale.setScalar(scaleSm.current);
         // Hide downed/respawning pets entirely — a faded corpse frozen at the death spot
         // read as a "spawn freeze". The scorch decal + kill FX already mark where it fell.
-        g.visible = !down;
+        g.visible = team === 'blue' || !down;
 
         if (Math.abs(a0.faceX) > 0.12) facing.current = a0.faceX < 0 ? -1 : 1;
         if (flip.current) { flip.current.scale.x = facing.current; flip.current.rotation.z = lerp(flip.current.rotation.z, moving ? -0.12 : 0, 0.2); }
@@ -202,7 +206,7 @@ function ArenaStandee({ result, clock, id, pet, sharedImages }: {
             <group ref={group}>
                 <mesh position={[0, shadowW * 0.5, -0.05]}><planeGeometry args={[shadowW * 2.6, shadowW * 2.6]} /><meshBasicMaterial ref={glowMat} map={shadowTexture()} color="#fde047" transparent opacity={0} depthWrite={false} depthTest={false} toneMapped={false} blending={THREE.AdditiveBlending} /></mesh>
                 <group ref={flip}>
-                    <PetSummon3D enabled={team === 'blue'}>
+                    <PetSummon3D enabled={team === 'blue'} presence={cardPresence} playing={clock.current.playing} recallDelay={.9}>
                     {/* A single dash-trail ghost BEHIND the sprite (local -x = behind facing), faded in only at dash speed. */}
                     <ArenaGhost index={0} offsetX={-0.55} fastRef={fast} tex={useTex} color={tint} L={L} />
                     <mesh position={[L.meshX, L.meshY, 0]}>
@@ -856,7 +860,9 @@ function ArenaV2Hud({ result, clock, momBlueRef, momRedRef, odBlueRef, odRedRef 
 }
 
 
-export function PetArenaMatch({ blue, red, seed, applyItems = false, sharedImages = {}, onExit, onResult, v2 }: PetArenaMatchProps) {
+export const PetArenaMatch = withPetSceneRecall(PetArenaMatchView, ['onExit']);
+function PetArenaMatchView({ blue, red, seed, applyItems = false, sharedImages = {}, onExit, onResult, v2 }: PetArenaMatchProps) {
+    const recallScene = usePetRecallController();
     const arenaV2 = useMemo(() => v2 ?? petArenaV2Enabled(), [v2]);   // explicit prop (shared replays) overrides the per-device flag; else read the local flag (default ON)
     const result = useMemo(() => runPetArenaMatch(blue, red, seed, applyItems, arenaV2), [blue, red, seed, applyItems, arenaV2]);
     const roster = useMemo(() => [
@@ -949,9 +955,9 @@ export function PetArenaMatch({ blue, red, seed, applyItems = false, sharedImage
         if (hitstop.current > 0) { hitstop.current -= delta * 1000; return; }   // brief hard freeze on the contact frame
         let factor = 1;
         if (slowmo.current.ms > 0) { slowmo.current.ms -= delta * 1000; factor = slowmo.current.factor; }   // then ease through the moment in slow-mo (speed CONTRAST sells impact)
-        if (clock.current.playing) clock.current.t = Math.min(maxT, clock.current.t + delta * ARENA_TPS * factor);
+        if (!recallScene?.snapshot() && clock.current.playing) clock.current.t = Math.min(maxT, clock.current.t + delta * ARENA_TPS * factor);
     };
-    const replay = () => { clock.current.t = 0; clock.current.playing = true; hitstop.current = 0; shake.current = 0; slowmo.current = { ms: 0, factor: 1 }; setEnded(false); setFlash(null); setBanner(null); setScoreState([0, 0]); setFxList([]); setShots([]); setFloaters([]); setFeed([]); setDecals([]); };
+    const replay = () => { void recallScene?.run(() => { clock.current.t = 0; clock.current.playing = true; hitstop.current = 0; shake.current = 0; slowmo.current = { ms: 0, factor: 1 }; setEnded(false); setFlash(null); setBanner(null); setScoreState([0, 0]); setFxList([]); setShots([]); setFloaters([]); setFeed([]); setDecals([]); }); };
     // Pay out / report once the match actually concludes (result is sealed from the
     // seed, so this is just the natural moment to surface it). Replaying re-fires with
     // the same seed → the server dedups by reportKey, so no double-claim.

@@ -96,10 +96,21 @@ for (const route of routes) test(`${route.path}: the authenticated account still
     resetLimits();
     const handler = (await import(route.path)).default as Handler;
     const token = issuePlayerToken('audit-victim')!;
-    for (let index = 0; index < route.limit; index += 1) {
-        const status = await call(handler, route.body, token, route.method);
-        assert.notEqual(status, 429, `request ${index + 1} remains inside the account allowance`);
-        assert.notEqual(status, 401, 'the account authenticates');
+    // Some of these limits (heartbeat) use windows aligned to the wall clock,
+    // where requests that straddle a boundary start a fresh window and the
+    // over-limit request is allowed. Hold the clock still while the allowance
+    // is spent.
+    const realNow = Date.now;
+    const heldAt = realNow();
+    Date.now = () => heldAt;
+    try {
+        for (let index = 0; index < route.limit; index += 1) {
+            const status = await call(handler, route.body, token, route.method);
+            assert.notEqual(status, 429, `request ${index + 1} remains inside the account allowance`);
+            assert.notEqual(status, 401, 'the account authenticates');
+        }
+        assert.equal(await call(handler, route.body, token, route.method), 429, 'the next request is rate limited');
+    } finally {
+        Date.now = realNow;
     }
-    assert.equal(await call(handler, route.body, token, route.method), 429, 'the next request is rate limited');
 });

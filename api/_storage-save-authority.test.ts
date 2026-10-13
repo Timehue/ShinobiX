@@ -6,8 +6,6 @@ import { matchesStoredSaveVersion } from './save/_save-version.js';
 import { buildRecoveryCodeRecord, recoveryCodeMatches, type RecoveryCodeRecord } from './_recovery-code.js';
 
 process.env.DATABASE_URL = 'postgresql://cache-test:cache-test@127.0.0.1/cache-test';
-process.env.FORCE_PG_KV = '1';
-delete process.env.VERCEL;
 
 type StorageModule = typeof import('./_storage.js');
 type SaveRecord = { _saveVersion: number; character: Record<string, unknown> };
@@ -143,6 +141,19 @@ test('player deletion generations are authoritative across workers', async () =>
         (selectCount.get(key) ?? 0) > readsBeforeRemoteDelete,
         'deletion-floor reads must bypass the process-local pgKv cache',
     );
+});
+
+test('save snapshots are never held in the process cache', async () => {
+    // Whole saves, written nightly, read only by an admin restore: caching them
+    // only costs memory (the LRU caps entries, not bytes).
+    const key = 'save-snapshot:cache-race:1700000000000';
+
+    await workerA._pgKvForTest.set(key, { character: { level: 3 } });
+    const readsBefore = selectCount.get(key) ?? 0;
+    settleInOtherProcess(key, { character: { level: 4 } });
+
+    assert.deepEqual(await workerA._pgKvForTest.get(key), { character: { level: 4 } });
+    assert.ok((selectCount.get(key) ?? 0) > readsBefore, 'snapshot reads must hit Postgres, not a write-through cache');
 });
 
 test('Chronicle settlement and all Legacy RMW keys bypass independent process caches', async () => {
@@ -341,8 +352,11 @@ test('player-ranked settlement authority is read back as stored, never from the 
     }
 });
 
-test('the no-cache scope stays narrow: safe game and snapshot keys retain pgKv caching', async () => {
-    for (const key of ['game:cache-probe', 'save-snapshot:cache-race:123', 'player:registry']) {
+test('the no-cache scope stays narrow: safe game and save-adjacent keys retain pgKv caching', async () => {
+    // `save-hint:` is a canary next to the uncached `save:`, `save-delete-version:`
+    // and `save-snapshot:` prefixes (the last excluded for memory, 2026-10-12):
+    // those exact prefixes must not grow into everything that starts with "save".
+    for (const key of ['game:cache-probe', 'save-hint:cache-race:123', 'player:registry']) {
         await workerA._pgKvForTest.set(key, { revision: 1 });
         assert.deepEqual(await workerA._pgKvForTest.get(key), { revision: 1 });
         settleInOtherProcess(key, { revision: 2 });

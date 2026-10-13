@@ -12,6 +12,7 @@ import { ReportControl } from "../components/ReportControl";
 import { useSocialLock } from "../lib/account-status";
 import { GiCrown, GiLaurelCrown, GiTalk } from "../components/icons/LightweightGameIcons";
 import { FacilityHero } from "../components/FacilityHero";
+import { useVillageChat } from "../lib/use-village-chat";
 
 // Server-added optional fields (api/village/chat.ts ChatMessage): paid title
 // cosmetics + legacy prestige derived from the author's save, and the
@@ -33,10 +34,11 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerR
     // answers 403 on both GET and POST, so there is nothing to show and nothing
     // to poll for. `loading` covers the gap before the server has answered.
     const { locked, loading: lockLoading } = useSocialLock(character.name);
-    const [messages, setMessages] = useState<TavernMsg[]>([]);
+    // Fetch, socket push and the reconcile poll all live in the hook; none of
+    // them run while locked or while the lock is still unanswered.
+    const { messages, setMessages, loading } = useVillageChat<TavernMsg>(character.village, !locked && !lockLoading);
     const [input, setInput] = useState("");
     const [sending, setSending] = useState(false);
-    const [loading, setLoading] = useState(true);
     // The message the player is replying to (null = a fresh, un-quoted message).
     const [replyingTo, setReplyingTo] = useState<TavernMsg | null>(null);
     // The village's currently seated Kage (fetched once on mount) — used to
@@ -53,12 +55,6 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerR
     }, [character.name, gossipDayBucket, legacyAvailable]);
     const logRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
-    // Track last known message count so we skip re-renders when nothing changed
-    const lastCountRef = useRef<number>(-1);
-    // …and the newest message ts: at the 30-message cap every append keeps the
-    // count constant, so count alone would hide new lines (e.g. World Herald
-    // broadcasts). Server sends X-Last-Ts alongside X-Message-Count.
-    const lastTsRef = useRef<number>(-1);
 
     // Live identity lookup: name → the roster's CURRENT character, so a message
     // shows the author's live level/rank/title instead of the values frozen in
@@ -85,57 +81,6 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerR
         inputRef.current?.focus();
     }
 
-    async function fetchMessages() {
-        try {
-            const res = await fetch(`/api/village/chat?village=${encodeURIComponent(character.village)}`);
-            if (!res.ok) return;
-            // Server sends X-Message-Count + X-Last-Ts so we can skip the JSON
-            // parse when nothing changed. Both must match: at the cap the count
-            // never moves, only the newest ts does. Older servers without
-            // X-Last-Ts fall back to the count-only check (lastTs stays -1).
-            const count = Number(res.headers.get("X-Message-Count") ?? -1);
-            const lastTs = Number(res.headers.get("X-Last-Ts") ?? -1);
-            if (count !== -1 && count === lastCountRef.current && (lastTs === -1 || lastTs === lastTsRef.current)) return;
-            const parsed = await res.json();
-            const data: TavernMsg[] = Array.isArray(parsed) ? parsed : [];
-            lastCountRef.current = data.length;
-            lastTsRef.current = data.length ? data[data.length - 1].ts : 0;
-            setMessages(data);
-        } catch { /* silently ignore network errors */ }
-        finally { setLoading(false); }
-    }
-
-    // Load on mount + poll every 30s; pause completely when tab is in the background
-    useEffect(() => {
-        // A locked guest gets 403 on every one of these, and an unanswered lock
-        // could still turn out to be locked — so poll neither case.
-        if (locked || lockLoading) return;
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- fetchMessages syncs to external system (server)
-        void fetchMessages();
-        let interval: ReturnType<typeof setInterval> | null = setInterval(() => {
-            if (!document.hidden) void fetchMessages();
-        }, 30_000);
-
-        function handleVisibility() {
-            if (document.hidden) {
-                // Tab hidden — stop polling to save KV reads
-                if (interval) { clearInterval(interval); interval = null; }
-            } else {
-                // Tab visible again — fetch immediately then resume polling
-                void fetchMessages();
-                if (!interval) interval = setInterval(() => {
-                    if (!document.hidden) void fetchMessages();
-                }, 30_000);
-            }
-        }
-        document.addEventListener("visibilitychange", handleVisibility);
-        return () => {
-            if (interval) clearInterval(interval);
-            document.removeEventListener("visibilitychange", handleVisibility);
-        };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [character.village, locked, lockLoading]);
-
     // Fetch the seated Kage once per village. Cheap (server caches the kage key
     // ~30s) and one request per visit, not per poll — Kage changes are rare.
     useEffect(() => {
@@ -153,7 +98,7 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerR
     }, [character.village, locked, lockLoading]);
 
     // Newest is on top, so jump the log to the top when a new message arrives
-    // (fetchMessages only calls setMessages when the count actually changed, so
+    // (useVillageChat only calls setMessages when the count actually changed, so
     // this never yanks a player who's merely re-polling with no new messages).
     useEffect(() => { logRef.current?.scrollTo({ top: 0, behavior: "smooth" }); }, [messages]);
 

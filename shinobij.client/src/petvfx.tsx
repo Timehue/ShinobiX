@@ -1,14 +1,24 @@
-// Keep the shipped Warfront QA surface physically separate from this page's
-// legacy all-modes VFX workbench. Static imports here used to make `?rite=1`
-// parse every Coliseum/Gauntlet/board renderer and hundreds of unrelated FX
-// asset modules before its first frame.
+// Current development previews only. The retired continuous-duel workbench
+// must never remount the old Fight Plan flow, even through a saved preview URL.
 const params = new URLSearchParams(window.location.search);
 
-if (params.get("modelresources") === "1") {
+if (params.get("cards") === "1") {
+    void import('./pet-card-preview').catch(error => {
+        console.error('Pet card preview could not load', error);
+        const notice = document.createElement('p');
+        notice.textContent = 'The pet card preview could not load. Reload this page to try again.';
+        document.getElementById('root')?.append(notice);
+    });
+} else if (params.get("modelresources") === "1") {
     void import("./pet-model-lifecycle-preview");
 } else if (params.get("rite") === "1" || params.get("warfront") === "1") {
     // Old shared Warfront preview links open the current game mode.
     void import("./petvfx-rite");
 } else {
-    void import("./petvfx-legacy");
+    const notice = document.createElement('p');
+    notice.textContent = 'This preview has been retired. Open Pet Arena in the game.';
+    const link = document.createElement('a');
+    link.href = '/';
+    link.textContent = 'Open game';
+    document.getElementById('root')?.replaceChildren(notice, link);
 }

@@ -123,4 +123,13 @@ test('the type guard accepts only what the replayer can actually handle', () => 
     assert.ok(isShowdownReplayDescriptor(showdownReplayDescriptor(inputs)));
     assert.ok(!isShowdownReplayDescriptor({ kind: 'coliseum', seed: 1 }));
     assert.ok(!isShowdownReplayDescriptor(undefined));
+    assert.ok(!isShowdownReplayDescriptor({ ...showdownReplayDescriptor(inputs), damageRules: 'future' }));
+});
+
+test('historical descriptors replay their sealed legacy curve rather than adopting the new rules', () => {
+    const legacy = showdownReplayDescriptor({ ...inputs, damageRules: 'legacy-v1' });
+    const historical = { ...legacy };
+    delete historical.damageRules;
+    assert.deepEqual(replayShowdownDescriptor(historical), replayShowdownDescriptor(legacy));
+    assert.equal(showdownReplayDescriptor(inputs).damageRules, 'response-v2');
 });

@@ -11,9 +11,7 @@ import pg from 'pg';
  */
 
 process.env.DATABASE_URL = 'postgresql://csm-test:csm-test@127.0.0.1/csm-test';
-process.env.FORCE_PG_KV = '1';
 delete process.env.SHINOBIX_QA_MEMORY_KV;
-delete process.env.VERCEL;
 
 type Row = { value: unknown; expiresAt: string | null };
 type Client = { id: number; pending: Map<string, Row | null>; released: boolean };
@@ -41,8 +39,15 @@ function canonical(value: unknown): string {
 const jsonbEqual = (a: unknown, b: unknown) => canonical(a) === canonical(b);
 const live = (row: Row | null | undefined): row is Row => !!row && (!row.expiresAt || new Date(row.expiresAt).getTime() > clock);
 
-async function query(sql: unknown, params: unknown[] = [], client?: Client) {
+async function query(sql: unknown, params: unknown[] = [], client?: Client): Promise<unknown> {
     const text = String(sql).replace(/\s+/g, ' ').trim();
+    // BEGIN + lease check arrive as one simple-protocol message; pg answers a
+    // multi-statement message with one result per statement.
+    if (text.startsWith('BEGIN; ')) {
+        const list = /ARRAY\[(.*)\]::text\[\]/.exec(text)?.[1] ?? '';
+        const keys = [...list.matchAll(/'((?:[^']|'')*)'/g)].map(([, body]) => body.replace(/''/g, "'"));
+        return [await query('BEGIN', [], client), await query(text.slice('BEGIN; '.length), [keys], client)];
+    }
     commands.push({ text, params, client: client?.id ?? null });
     if (failStatement?.test(text)) { failStatement = undefined; throw new Error('statement failed'); }
     const key = String(params[0] ?? '');

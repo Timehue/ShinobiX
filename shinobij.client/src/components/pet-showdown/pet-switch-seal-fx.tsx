@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef } from "react";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useLoader } from "@react-three/fiber";
 import * as THREE from "three";
 import type { SceneBeat } from "../PetShowdownBattle";
+import { petCardSealPose } from "../../lib/pet-summon-presentation";
 
 const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
 const smooth = (value: number) => {
@@ -12,10 +13,12 @@ const smooth = (value: number) => {
 /** Two physical Beast Seals make the switch legible: one draws the outgoing
  *  companion into its paper, then a second arrives and releases the reserve
  *  into that exact field mark. The server switch remains authoritative. */
-export function PetSwitchSealFx({ beatRef, entrance, reducedMotion, lightRef, dynamicLight = true }: {
+export function PetSwitchSealFx({ beatRef, entrance, recall, reducedMotion, lightRef, dynamicLight = true }: {
     beatRef?: React.MutableRefObject<SceneBeat>;
     /** Opening summon shares the reinforcement's incoming-card sequence. */
     entrance?: React.RefObject<number>;
+    /** Standalone field withdrawal shares the outgoing-card half of a switch. */
+    recall?: React.RefObject<number>;
     reducedMotion: boolean;
     lightRef?: React.RefObject<THREE.PointLight | null>;
     dynamicLight?: boolean;
@@ -50,11 +53,12 @@ export function PetSwitchSealFx({ beatRef, entrance, reducedMotion, lightRef, dy
     }, [lightRef]);
     const tether = useRef({ start: new THREE.Vector3(0, .32, 0), axis: new THREE.Vector3(), up: new THREE.Vector3(0, 1, 0) });
 
+    const sourceSealTexture = useLoader(THREE.TextureLoader, "/items/beast-seal-reinforced.webp");
     const sealTexture = useMemo(() => {
-        const texture = new THREE.TextureLoader().load("/items/beast-seal-reinforced.webp");
+        const texture = sourceSealTexture.clone();
         texture.colorSpace = THREE.SRGBColorSpace;
         return texture;
-    }, []);
+    }, [sourceSealTexture]);
     useEffect(() => () => sealTexture.dispose(), [sealTexture]);
 
     const trailGeometry = useMemo(() => {
@@ -85,32 +89,32 @@ export function PetSwitchSealFx({ beatRef, entrance, reducedMotion, lightRef, dy
         if (light.current) light.current.intensity = 0;
         const beat = beatRef?.current;
         const event = beat?.event;
-        if (!entrance && (!event || event.t !== "switch")) {
+        if (!entrance && !recall && (!event || event.t !== "switch")) {
             if (root.current) root.current.visible = false;
             return;
         }
         const cue = event?.t === 'switch' ? beat?.switches?.get(event.inId) ?? beat?.switches?.get(event.outId) : undefined;
-        if (!entrance && !cue) {
+        if (!entrance && !recall && !cue) {
             if (root.current) root.current.visible = false;
             return;
         }
 
-        const t = entrance ? clamp01(entrance.current) : clamp01((performance.now() - beat!.startedAt) / Math.max(1, beat!.durationMs));
-        const side = entrance || event?.t === 'switch' && event.side === "player" ? -1 : 1;
+        const t = entrance ? clamp01(entrance.current) : recall ? clamp01(recall.current) * .64 : clamp01((performance.now() - beat!.startedAt) / Math.max(1, beat!.durationMs));
+        const side = entrance || recall || event?.t === 'switch' && event.side === "player" ? -1 : 1;
         const reinforcement = !!entrance || event?.t === 'switch' && event.reinforcement;
         const handoff = reinforcement ? .17 : .56;
         const inboundFlight = smooth((t - handoff) / (reinforcement ? .28 : .2));
         const releaseAt = handoff + (reinforcement ? .3 : .22);
         const releaseFadeStart = reinforcement ? .69 : .91;
         const release = smooth((t - releaseAt) / .18);
-        const trailFade = smooth((t - handoff) / .08) * (1 - smooth((t - releaseAt - .09) / .12));
+        const trailFade = recall ? 0 : smooth((t - handoff) / .08) * (1 - smooth((t - releaseAt - .09) / .12));
         const captureGlow = reinforcement ? 0 : smooth(t / .11) * (1 - smooth((t - .42) / .1));
-        const releaseGlow = smooth((t - releaseAt) / .08) * (1 - smooth((t - releaseFadeStart) / .08));
+        const releaseGlow = recall ? 0 : smooth((t - releaseAt) / .08) * (1 - smooth((t - releaseFadeStart) / .08));
         const glow = Math.max(captureGlow, releaseGlow);
 
         if (root.current) {
             root.current.visible = t < 1;
-            if (cue && !entrance) root.current.position.set(...cue.position);
+            if (cue && !entrance && !recall) root.current.position.set(...cue.position);
         }
 
         if (outgoingScroll.current && outgoingMaterial.current) {
@@ -143,7 +147,7 @@ export function PetSwitchSealFx({ beatRef, entrance, reducedMotion, lightRef, dy
             const sourceX = -side * 3.05;
             const sourceZ = 1.15;
             const arc = reducedMotion ? 0 : Math.sin(inboundFlight * Math.PI) * .24;
-            incomingScroll.current.visible = t >= handoff && t < .98;
+            incomingScroll.current.visible = !recall && t >= handoff && t < .98;
             incomingScroll.current.position.set(
                 THREE.MathUtils.lerp(sourceX, 0, inboundFlight),
                 THREE.MathUtils.lerp(3.9, 4.1, inboundFlight) + arc,
@@ -159,6 +163,20 @@ export function PetSwitchSealFx({ beatRef, entrance, reducedMotion, lightRef, dy
             );
             incomingMaterial.current.rotation = reducedMotion ? 0 : -side * (.42 * (1 - inboundFlight) - release * .16);
             incomingMaterial.current.opacity = smooth((t - handoff) / .07) * (1 - smooth((t - releaseFadeStart) / .07));
+        }
+
+        // Standalone entry/recall and the Canvas2D atlas route share the paper pose.
+        if (!reducedMotion && (entrance || recall)) {
+            const pose = petCardSealPose(entrance?.current ?? recall!.current, entrance ? 'summon' : 'recall');
+            const scroll = entrance ? incomingScroll.current : outgoingScroll.current;
+            const material = entrance ? incomingMaterial.current : outgoingMaterial.current;
+            if (scroll && material) {
+                scroll.position.x = pose.x;
+                scroll.position.y = pose.y;
+                scroll.scale.set(pose.width, pose.height, 1);
+                material.rotation = pose.rotation;
+                material.opacity = pose.opacity;
+            }
         }
 
         if (ground.current && groundMaterial.current) {

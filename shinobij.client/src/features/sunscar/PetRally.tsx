@@ -9,6 +9,7 @@ import { rallyActive, rallyRank, rallyStandings } from '../../../../shared/sunsc
 import { rallyResult } from '../../../../shared/sunscar/rally-simulation';
 import type { RallyAction, RallyElement, RallyState, RallyTrack } from '../../../../shared/sunscar/rally-types';
 import { RallyRace } from './RallyRace';
+import { PetSceneRecall, usePetSceneRecall } from '../../components/PetSceneRecall';
 import { RallySession } from './RallySession';
 import { SunscarPrestige } from './SunscarPrestige';
 import { RALLY_SHOT_PROFILES } from '../../../../shared/sunscar/rally-combat';
@@ -51,6 +52,7 @@ function RaceResults({ state, response, official, onContinue, onDesk }: { state:
     </section>;
 }
 export default function PetRally({ character, onVersionedCharacter, onBack }: { character: Character; onVersionedCharacter: VersionedCharacterCommit; onBack: () => void }) {
+    const scene = usePetSceneRecall();
     const [response, setResponse] = useState<RallyResponse | null>(null);
     const [error, setError] = useState('');
     const [busy, setBusy] = useState(false);
@@ -138,13 +140,13 @@ export default function PetRally({ character, onVersionedCharacter, onBack }: { 
     const progress = response?.progress;
     const active = rallyActive(progress?.current, response?.daily.day);
     const dailyComplete = !!response && progress?.lastEntryDay === response.daily.day && !active;
-    if (race) return <RallySession>
+    if (race) return <PetSceneRecall controller={scene.controller}><RallySession>
         <RallyRace key={race.key} initial={race.state} difficulty={race.difficulty} official={race.official} title={race.official ? `Sunscar Grand Prix · Race ${race.index + 1} of 3` : 'Open practice'}
             onBegin={race.official ? async () => { adopt(await requestRally(character.name, { action: 'begin', runId: race.runId })); } : undefined}
             onCheckpoint={race.official ? checkpoint : undefined}
             reputation={progress?.reputation} onFinished={setFinished} onFinishPresented={() => setPresentedRace(race.key)} onExit={() => { setRace(null); setFinished(null); void refresh(); }} />
-        {finished && <RaceResults state={finished} response={response} official={race.official} onContinue={() => { if (responseRef.current) openOfficial(responseRef.current); }} onDesk={() => { setRace(null); setFinished(null); void refresh(); }} />}
-    </RallySession>;
+        {finished && <div inert={scene.recalling}><RaceResults state={finished} response={response} official={race.official} onContinue={() => { void scene.controller.run(() => { if (responseRef.current) openOfficial(responseRef.current); }); }} onDesk={() => { void scene.controller.run(() => { setRace(null); setFinished(null); void refresh(); }); }} /></div>}
+    </RallySession></PetSceneRecall>;
     return <div className="sunscar-mode sunscar-rally" ref={desk} tabIndex={-1} aria-label="Pet Rally race desk">
         <header className="sunscar-mode-heading"><button className="sunscar-back" onClick={onBack}>← Festival</button><p className="sunscar-eyebrow">The sport of Sunscar</p><h1>Pet Rally</h1><p>Your companion. Four courses. One clean line through the dust.</p><div className="sunscar-status-pills"><span>{rallyRank(progress?.reputation ?? 0).name} · {progress?.reputation ?? 0} reputation</span><span>{!response ? 'Checking Grand Prix entry' : dailyComplete ? 'Grand Prix complete today' : active ? `Grand Prix in progress · ${progress?.current?.results.length ?? 0}/3 races` : 'Daily Grand Prix available'}</span><span>Practice always open</span></div></header>
         {error && <div className="sunscar-error" role="alert"><p>{error}</p><button disabled={busy} onClick={() => void refresh()}>Retry connection</button></div>}

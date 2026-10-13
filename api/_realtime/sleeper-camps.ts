@@ -79,12 +79,16 @@ export async function setSleeperCamp(camp: SleeperCamp): Promise<void> {
     forgetBeatCleared([name]);
 }
 
-async function clearSleeperCampAt(key: string, now: number): Promise<void> {
-    await kv.hdel(SLEEPER_CAMPS_KEY, key);
+function recordBeatCleared(key: string, now: number): void {
     if (beatCleared.size >= BEAT_CLEARED_PRUNE_AT) {
         for (const [entry, at] of beatCleared) if (now - at >= BEAT_CLEAR_RECHECK_MS) beatCleared.delete(entry);
     }
     beatCleared.set(key, now);
+}
+
+async function clearSleeperCampAt(key: string, now: number): Promise<void> {
+    await kv.hdel(SLEEPER_CAMPS_KEY, key);
+    recordBeatCleared(key, now);
 }
 
 // Single-argument on purpose: callers pass it straight to Array#map.
@@ -93,12 +97,27 @@ export async function clearSleeperCamp(name: string): Promise<void> {
     if (key) await clearSleeperCampAt(key, Date.now());
 }
 
-/** Heartbeat path: skip the shared-row rewrite when this player was cleared recently. */
+/**
+ * Heartbeat path: skip the shared-row rewrite when this player was cleared
+ * recently, and when they have no camp at all. Almost every beat lands on an
+ * absent field, and reading the field names is far cheaper than a full-row
+ * rewrite. The read is uncached (hkeys), so it sees the latest committed camps.
+ * A failed read falls back to the unconditional clear.
+ */
 export async function clearSleeperCampOnBeat(name: string, now = Date.now()): Promise<void> {
     const key = safeName(name);
     if (!key) return;
     const clearedAt = beatCleared.get(key);
     if (clearedAt !== undefined && now - clearedAt < BEAT_CLEAR_RECHECK_MS) return;
+    // A FRESH read of just the field names: hkeys bypasses the process read
+    // cache, so a camp written a moment ago (by this process or another) is
+    // never missed the way a cached hgetall could miss it for up to 15 s.
+    const present = await kv.hkeys(SLEEPER_CAMPS_KEY)
+        .then(fields => fields.some(field => safeName(field) === key), () => true);
+    if (!present) {
+        recordBeatCleared(key, now);
+        return;
+    }
     await clearSleeperCampAt(key, now);
 }
 

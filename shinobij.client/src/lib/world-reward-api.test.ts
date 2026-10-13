@@ -76,6 +76,7 @@ describe("world-map reward settlement", () => {
             assert.equal(explored.replayed, true);
             assert.equal(explored.character?.name, "Rill");
             assert.deepEqual(chest.loot, { xp: 0, ryo: 80 });
+            assert.equal(chest.replayed, true, 'lost ACK recovery must retain the server replay status');
             assert.deepEqual(calls.get('/api/world/explore'), Array.from({ length: 3 }, () => ({
                 playerName: "Rill", sector: 41, credit: "tile", requestId: "lostexplore123",
                 externalOutcomeProof: { kind: "pet", token: "petproof123" },

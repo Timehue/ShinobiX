@@ -6,6 +6,7 @@ import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { RendererRetirement } from "../RendererRetirement";
 import { PetSummon3D } from "../PetSummon3D";
+import { withPetSceneRecall } from '../PetSceneRecall';
 import { useBattleFrameloop } from "../../lib/use-battle-frameloop";
 import { Billboard, Html } from "@react-three/drei";
 import type { Pet } from "../../types/pet";
@@ -221,7 +222,7 @@ function Standee({
     return (
         <group>
             <group ref={group} position={[base.x, 0, base.z]}>
-                <PetSummon3D enabled={side === "player" && !fainted}>
+                <PetSummon3D enabled={side === "player"} present={!fainted} recallDelay={.9}>
                 {/* Y-axis-locked billboard: yaws to face the camera but stays
                     vertical, so feet never lift off the floor at the angled cam. */}
                 <Billboard lockX lockZ>
@@ -598,7 +599,8 @@ export type PetColiseumProps = {
 };
 
 
-export function PetColiseum({
+export const PetColiseum = withPetSceneRecall(PetColiseumView, ['onExit', 'onFightAgain', 'onReplay']);
+function PetColiseumView({
     playerPet, enemyPet, enemyOwner, playerReservePet, enemyReservePet, frame, result,
     obstacles, tiles, onReplay, onFightAgain, onExit, settlementStatus, onRetrySettlement,
     resultSupplement, sharedImages = {}, playerRecord, enemyRecord,

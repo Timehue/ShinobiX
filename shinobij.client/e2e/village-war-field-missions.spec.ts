@@ -59,7 +59,7 @@ test('an espionage traveler enters the assigned stronghold, sees sentry and play
     const save = { ...uiAuditSave(), currentSector: 18, currentTile: nearestWalkableTile(18, 78) };
     const bucket = Math.floor(Date.now() / (6 * 3_600_000)), cooldowns: Record<string, number> = {};
     for (const offset of [-1, 0, 1]) for (const index of [0, 1, 2]) cooldowns[`w-18-${bucket + offset}-${index}`] = Date.now() + 30 * 86_400_000;
-    save.character = { ...save.character, wandererCooldowns: cooldowns };
+    save.character = { ...save.character, level: 15, wandererCooldowns: cooldowns };
     const runtime = await installUiAuditRuntime(page, save);
     await page.addInitScript(() => localStorage.setItem('legacyRumors.seen.v1:auditninja', JSON.stringify([10, 20, 30, 40, 45])));
     const village = 'Stormveil Village', enemy = 'Moonshadow Village', warId = 'moonshadowvillage-vs-stormveilvillage';

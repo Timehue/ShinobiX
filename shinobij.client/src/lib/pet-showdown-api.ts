@@ -202,12 +202,13 @@ export async function startAuthoredEncounter(
     playerName: string,
     petId: string,
     encounter: ShowdownEncounterRef,
-): Promise<{ state: ShowdownStateView } | { error: string }> {
+): Promise<{ state: ShowdownStateView; character?: unknown; _saveVersion?: number } | { completed: true; character: unknown; _saveVersion: number } | { error: string }> {
     const r = await post({ action: "encounter", playerName, petIds: [petId], encounter });
     if (!r) return { error: "Network error — the seal did not answer." };
-    const data = await r.json().catch(() => null) as { state?: ShowdownStateView; error?: string } | null;
+    const data = await r.json().catch(() => null) as { state?: ShowdownStateView; error?: string; completed?: boolean; character?: unknown; _saveVersion?: number } | null;
+    if (r.ok && encounter.kind === 'dungeon-seal' && data?.completed === true && data.character && Number.isSafeInteger(data._saveVersion)) return { completed: true, character: data.character, _saveVersion: data._saveVersion! };
     if (!r.ok || !data?.state) return { error: data?.error ?? "This encounter cannot be fought right now." };
-    return { state: data.state };
+    return { state: data.state, ...(data.character && Number.isSafeInteger(data._saveVersion) ? { character: data.character, _saveVersion: data._saveVersion } : {}) };
 }
 
 export type ShowdownTurnResult = ShowdownTurnResponse | { expired: true } | null;
@@ -241,9 +242,15 @@ export async function submitShowdownTurn(
 /** Concede the bout. The server DECIDES the session as a loss rather than
  *  dropping it, so anything bound to the fight (a Hollow Gate encounter) still
  *  gets an outcome to settle. Resolves true once the concession is recorded. */
-export async function forfeitShowdown(playerName: string, sessionId: string): Promise<boolean> {
+export async function forfeitShowdown(playerName: string, sessionId: string, onCommit?: (character: unknown, version: number) => boolean): Promise<boolean> {
     const r = await post({ action: "forfeit", playerName, sessionId });
-    return !!r?.ok;
+    if (!r?.ok) return false;
+    if (onCommit) {
+        const data = await r.json().catch(() => null) as { character?: unknown; _saveVersion?: number } | null;
+        if (!data?.character || !Number.isSafeInteger(data._saveVersion)) return false;
+        if (!onCommit(data.character, data._saveVersion!)) return false;
+    }
+    return true;
 }
 
 /** Keep the Court's reset progress attached to its recorded concession. */

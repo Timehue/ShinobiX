@@ -792,24 +792,26 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
     }),
     defineMode({
         id: 'pet-arena-pvp-1v1', label: 'Pet Arena live PvP 1v1', category: 'pet-legacy', authorityEngine: E.PET_CINEMATIC_DUEL,
-        clientEntries: ['screens/PetArena.tsx', 'components/PetDuelLiveHost.tsx', 'lib/pet-duel-transport.ts'],
+        clientEntries: ['lib/pet-duel-transport.ts'],
         routes: [],
         transports: [socketTransport('petduel:*', '_realtime/pet-duel-socket', 'lib/pet-duel-transport.ts', ['start', 'action', 'state', 'settlement'], 'memory-only')],
-        participantModel: 'two-player', rewardPolicy: 'none', replayKind: 'memory-only-server-replayed-lockstep-cinematic-log', status: 'match',
+        participantModel: 'two-player', rewardPolicy: 'none', replayKind: 'memory-only-server-replayed-lockstep-cinematic-log', status: 'match', migrationStatus: 'migrated', intendedAuthorityEngine: E.PET_TACTICS,
+        statusDetail: 'Retained in-memory recovery only. Socket challenge admission is permanently closed; Pet Arena opens the current equal-access command room. The old renderer is absent from active player entry points.',
     }),
     defineMode({
         id: 'pet-arena-pvp-2v2', label: 'Pet Arena live PvP 2v2', category: 'pet-legacy', authorityEngine: E.PET_CINEMATIC_DUEL,
-        clientEntries: ['screens/PetArena.tsx', 'components/PetDuelLiveHost.tsx', 'lib/pet-duel-transport.ts'],
+        clientEntries: ['lib/pet-duel-transport.ts'],
         routes: [],
         transports: [socketTransport('petduel:*', '_realtime/pet-duel-socket', 'lib/pet-duel-transport.ts', ['start', 'action', 'state', 'settlement'], 'memory-only')],
-        participantModel: 'two-player', rewardPolicy: 'none', replayKind: 'memory-only-server-replayed-lockstep-cinematic-log', status: 'match',
+        participantModel: 'two-player', rewardPolicy: 'none', replayKind: 'memory-only-server-replayed-lockstep-cinematic-log', status: 'match', migrationStatus: 'migrated', intendedAuthorityEngine: E.PET_TACTICS,
+        statusDetail: 'Retained in-memory recovery only. Socket challenge admission is permanently closed; Pet Arena opens the current equal-access command room. The old renderer is absent from active player entry points.',
     }),
     defineMode({
         id: 'pet-tactics-prototype', label: 'Pet Arena player-controlled sparring', category: 'pet-tactical', authorityEngine: E.PET_TACTICS,
         clientEntries: ['screens/PetArena.tsx', 'components/PetTacticsArena.tsx', 'lib/pet-tactics-api.ts'],
         routes: [mountedRoute('/pet/tactics', 'pet/tactics', ['start', 'action', 'state', 'recovery', 'record', 'lifecycle'])],
         participantModel: 'two-player', rewardPolicy: 'none', replayKind: 'sealed-human-round-transcript', status: 'match',
-        statusDetail: 'Equal-access 12-pet loan roster, normalized level-50 profiles and four-pet teams with two active. Both authenticated seats submit private immutable orders; persisted rounds resolve under a distributed lock. Results have no economy or rating effect. Existing modes retain their rules.',
+        statusDetail: 'Equal-access 12-pet loan roster, normalized level-50 profiles and four-pet teams with two active. Both authenticated seats submit private immutable orders; persisted rounds resolve under a distributed lock. Results have no economy or rating effect. Direct challenges also enter this room; the continuous-time owned-pet duel no longer admits new fights.',
     }),
     defineMode({
         id: 'pet-ranked-live', label: 'Ranked Pet Colosseum', category: 'pet-showdown', authorityEngine: E.PET_TACTICS,
@@ -851,15 +853,26 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
         statusDetail: 'Owner ruling: Send pet fights the road-beast Colosseum duel. The parent binding preselects one Showdown proof, and that proof is the session id. The hollow-gate Showdown entry opens or resumes it under the parent lock with the road draw: a random 1v1, 2v2 or 3v3 capped by the ready carried pets, led by the active pet, against one server-built Hollow Hound per fielded pet. The session is reward-ineligible. Its terminal turn or concession writes the exact versioned receipt, and combat-settle pays the encounter once from the run reward table, or records a pet defeat as withdrawn and unpaid. A duel that never began, or lapsed undecided, falls back to a shinobi fight on the same node. A binding sealed before the cutover keeps its cinematic proof, which the Showdown entry refuses, so that encounter is fought as a shinobi.',
     }),
     defineMode({
-        id: 'dungeon-pet-cinematic', label: 'Dungeon pet', category: 'pet-legacy', authorityEngine: E.PET_CINEMATIC_DUEL,
+        id: 'dungeon-pet-showdown', label: 'Dungeon Rare Beast Pet Arena', category: 'pet-showdown', authorityEngine: E.PET_SHOWDOWN,
         orchestrationOwner: O.DUNGEON,
-        clientEntries: ['screens/Dungeon.tsx', 'lib/dungeon-pet-authority.ts', 'lib/dungeon-api.ts'],
+        clientEntries: ['screens/Dungeon.tsx', 'lib/pet-showdown-api.ts', 'lib/dungeon-api.ts'],
         routes: [
-            mountedRoute('/pet/battle-start', 'pet/battle-start', ['start', 'state']),
-            mountedRoute('/pet/battle-result', 'pet/battle-result', ['settlement']),
+            mountedRoute('/pet/showdown', 'pet/showdown', ['start', 'action', 'state', 'recovery']),
             mountedRoute('/dungeon/run', 'dungeon/run', ['settlement']),
         ],
-        participantModel: 'solo', rewardPolicy: 'parent-mode-settlement', replayKind: 'server-replayed-cinematic-input-log-and-parent-run-receipt', status: 'match',
+        participantModel: 'solo', rewardPolicy: 'parent-mode-settlement', replayKind: 'showdown-turn-script-plus-parent-run-proof', status: 'match',
+        statusDetail: 'One immutable command session per exact Dungeon run after its authoritative Warden and Card wins. The server builds the fixed Rare Beast; commands and concessions record a parent proof before the client advances. Lost replies resume the same session. The battle awards no currency, progression or witnesses; Dungeon run settlement remains the sole payment owner.',
+    }),
+    defineMode({
+        id: 'dungeon-pet-cinematic', label: 'Dungeon pet historical receipt', category: 'pet-legacy', authorityEngine: E.PET_CINEMATIC_DUEL,
+        orchestrationOwner: O.DUNGEON,
+        clientEntries: ['lib/dungeon-pet-authority.ts', 'lib/dungeon-api.ts'],
+        routes: [
+                        mountedRoute('/pet/battle-result', 'pet/battle-result', ['settlement']),
+            mountedRoute('/dungeon/run', 'dungeon/run', ['settlement']),
+        ],
+        participantModel: 'solo', rewardPolicy: 'parent-mode-settlement', replayKind: 'server-replayed-cinematic-input-log-and-parent-run-receipt', status: 'match', migrationStatus: 'migrated', intendedAuthorityEngine: E.PET_SHOWDOWN,
+        statusDetail: 'Historical receipt settlement only. Fresh cinematic Dungeon admissions return 410. Existing sealed receipts retain exact replay, retries and parent-payment semantics.',
     }),
 
     defineMode({

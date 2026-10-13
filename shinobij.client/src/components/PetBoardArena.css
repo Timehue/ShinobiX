@@ -178,19 +178,6 @@
     color: rgba(96, 165, 250, 0.66);
 }
 
-.gauntlet-board-build {
-    position: absolute;
-    z-index: 4;
-    right: max(9px, env(safe-area-inset-right, 0px));
-    bottom: max(7px, env(safe-area-inset-bottom, 0px));
-    color: rgba(148, 163, 184, 0.46);
-    font-size: 9px;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    pointer-events: none;
-    text-transform: uppercase;
-}
-
 .gauntlet-board-loading {
     position: absolute;
     inset: 0;

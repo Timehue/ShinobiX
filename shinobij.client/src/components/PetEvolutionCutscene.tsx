@@ -28,8 +28,10 @@ import {
 } from "../lib/pet-evolution-cutscene";
 import { PetEvolutionStage3D } from "./PetEvolutionStage3D";
 import { Modal } from "./ui/Modal";
+import { withPetSceneRecall } from './PetSceneRecall';
 
-export function PetEvolutionCutscene({
+export const PetEvolutionCutscene = withPetSceneRecall(PetEvolutionCutsceneView, ['onClose']);
+function PetEvolutionCutsceneView({
     pet,
     oldName,
     oldVisualId,

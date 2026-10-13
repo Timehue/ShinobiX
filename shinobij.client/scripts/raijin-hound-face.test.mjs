@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import test from 'node:test';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -49,7 +50,7 @@ async function loadHound(showdown) {
         meshes.forEach(mesh => mesh.skeleton.update());
     };
     update();
-    return { ...gltf, meshes, update };
+    return { ...gltf, meshes, update, repair: json.extras?.skinSeamRepair, sha256: createHash('sha256').update(bytes).digest('hex') };
 }
 
 function headShare(mesh, vertex) {
@@ -67,18 +68,35 @@ function headShare(mesh, vertex) {
 const featureNames = mesh => mesh.geometry.userData.raijinFaceFeatures
     ?? (mesh.geometry.userData.raijinFaceFeature ? [mesh.geometry.userData.raijinFaceFeature] : []);
 
-test('Raijin source and showcase retain the same reviewed sculpt and skin', async () => {
+test('Raijin source and showcase retain the reviewed sculpt and certified seamless skin', async () => {
     const source = await loadHound(false), showdown = await loadHound(true);
     assert.equal(source.meshes.length, 1, 'reviewed sculpt should be one continuous textured mesh');
     assert.equal(showdown.meshes.length, 1);
     for (let index = 0; index < source.meshes.length; index++) {
         const before = source.meshes[index], after = showdown.meshes[index];
         assert.deepEqual(featureNames(before), featureNames(after));
-        for (const name of ['position', 'normal', 'uv', 'skinIndex', 'skinWeight']) {
-            assert.deepEqual(after.geometry.attributes[name]?.array, before.geometry.attributes[name]?.array, `${name} changed during showcase authoring`);
+        for (const name of ['position', 'normal', 'uv']) {
+            const a = before.geometry.attributes[name], b = after.geometry.attributes[name];
+            assert.equal(a.count, b.count); assert.equal(a.itemSize, b.itemSize);
+            for (let vertex = 0; vertex < a.count; vertex++) for (let slot = 0; slot < a.itemSize; slot++) assert.equal(b.getComponent(vertex, slot), a.getComponent(vertex, slot), `${name}/${vertex}/${slot} changed during showcase authoring`);
         }
-        assert.deepEqual(after.geometry.index?.array, before.geometry.index?.array);
+        assert.equal(after.geometry.index.count, before.geometry.index.count);
+        for (let corner = 0; corner < before.geometry.index.count; corner++) assert.equal(after.geometry.index.getX(corner), before.geometry.index.getX(corner), 'index compaction must preserve topology');
+        const joints = after.geometry.attributes.skinIndex, weights = after.geometry.attributes.skinWeight;
+        for (let vertex = 0; vertex < joints.count; vertex++) {
+            let sum = 0;
+            for (let slot = 0; slot < 4; slot++) {
+                const joint = joints.getComponent(vertex, slot), weight = weights.getComponent(vertex, slot);
+                assert.ok(Number.isInteger(joint) && joint >= 0 && joint < after.skeleton.bones.length);
+                assert.ok(Number.isFinite(weight) && weight >= 0 && weight <= 1);
+                sum += weight;
+            }
+            assert.ok(Math.abs(sum - 1) < 1e-6);
+        }
     }
+    assert.match(showdown.repair.revision, /^20261012-connected-weight-v[12]$/);
+    const certificates = JSON.parse(await readFile(new URL('../public/pet-models/warfront-lod/manifest.json', import.meta.url))).entries;
+    assert.equal(showdown.sha256, certificates.find(entry => entry.sourceUrl === '/pet-models/showdown-v2/starter-lightning-l.glb').sourceSha256, 'the skin must match the reviewed runtime fingerprint');
     assert.ok(showdown.meshes[0].geometry.attributes.position.count > 45_000, 'facial sculpt lost too much production detail');
 });
 

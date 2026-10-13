@@ -371,11 +371,12 @@ export function useHollowGateAppFlow(params: {
             ...run,
             activeCombat: undefined,
             tiles: markResolvedTile(run.tiles, resolved?.nodeId),
+            wanderers: run.wanderers?.map(n => n.nodeId === resolved?.nodeId ? { ...n, spent: true } : n),
             threat: 0,
         });
         pushLog(isAmbush
             ? "The ambush ends. Threat fades, but the Torch of Reiki keeps burning down. Find a chest or shrine to rekindle it."
-            : "Hollow Hound defeated. Threat fades, but the Torch of Reiki keeps burning down.");
+            : `${run.wanderers?.some(n => n.nodeId === resolved?.nodeId) ? 'Hunter' : 'Hollow Hound'} defeated. Threat fades, but the Torch of Reiki keeps burning down.`);
     }
 
     function onPetBattleEnd(result: HollowGateCombatSettleResult, gate: HollowGatePetFightRef) {

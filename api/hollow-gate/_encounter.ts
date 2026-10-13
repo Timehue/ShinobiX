@@ -6,6 +6,8 @@ import type { SoloPveSession } from '../solo-pve/_session.js';
 import { hollowGateHoundName } from '../../shared/hollow-gate-contract.js';
 import { AUGMENT_CATALOG, type HollowGateRunToken } from './_run-token.js';
 import type { HollowGateCombatBinding, HollowGateCombatKind } from './_combat-session.js';
+import { hollowGateWandererForNode } from './_wanderers.js';
+import { hollowGateWandererName, hollowGateWandererArt } from '../../shared/hollow-gate-wanderers.js';
 
 const LOADOUTS: Record<'burst' | 'bruiser' | 'hunter' | 'boss', string[]> = {
     burst: ['starter-tai-water-2', 'starter-nin-lightning-2', 'starter-buki-fire-2', 'starter-tai-fire-2', 'starter-tai-earth-1', 'starter-universal-flicker'],
@@ -39,6 +41,7 @@ export function buildHollowGateProfile(params: {
 }): SoloPveAiProfile {
     const { binding, run } = params;
     const kind: HollowGateCombatKind = binding.kind;
+    const wanderer = kind === 'battle' ? hollowGateWandererForNode(run, binding.nodeId) : undefined;
     const boss = kind === 'boss', elite = kind === 'elite', ambush = kind === 'ambush', beast = kind === 'beast';
     const scale = bossScaling(binding.floor, run.floorDepth);
     const level = Math.max(1, Math.min(100, Math.floor(params.playerLevel) + (boss ? scale.levelOffset : 0)));
@@ -51,11 +54,12 @@ export function buildHollowGateProfile(params: {
     const stats = Object.fromEntries(Object.entries(aiStatsForLevel(level)).map(([key, value]) => [key, Math.max(1, Math.round(value * statMult))]));
     const baseHp = aiHpForLevel(level, boss ? 0.18 : elite ? 0.1 : 0.04);
     const hp = Math.max(1, Math.floor(baseHp * (boss ? scale.hpMult : 1 + depth * 0.06) * kindHpMult * augment.enemyHpMult * gentle * (1 - augment.enemyHpShavePct)));
-    const loadoutId = boss ? 'boss' : elite ? 'bruiser' : ambush ? 'burst' : 'hunter';
+    const loadoutId = boss ? 'boss' : elite || wanderer?.role === 'bandit' ? 'bruiser' : ambush || wanderer?.role === 'night-ninja' ? 'burst' : 'hunter';
     return {
         id: binding.enemyProfileId,
-        name: boss ? (run.bossName || hollowGateHoundName(binding.floor, kind)) : hollowGateHoundName(binding.floor, kind),
-        visual: 'hollow-hound',
+        name: wanderer ? hollowGateWandererName(wanderer) : boss ? (run.bossName || hollowGateHoundName(binding.floor, kind)) : hollowGateHoundName(binding.floor, kind),
+        visual: wanderer ? 'shinobi' : 'hollow-hound',
+        ...(wanderer ? { avatarImage: hollowGateWandererArt(wanderer) } : {}),
         level,
         hp,
         chakra: maxChakraForLevel(level),
@@ -79,7 +83,7 @@ export function buildHollowGateSoloPveEncounter(params: {
 }): SoloPveSession {
     const character = params.save.character as Record<string, unknown>;
     const augment = augmentEffects(params.run);
-    return buildSoloPveAiEncounter({
+    const session = buildSoloPveAiEncounter({
         sessionId: params.binding.runId,
         playerName: params.binding.playerName,
         save: params.save,
@@ -102,4 +106,7 @@ export function buildHollowGateSoloPveEncounter(params: {
         },
         environment: { biome: 'shadow' },
     });
+    const wanderer = params.binding.kind === 'battle' ? hollowGateWandererForNode(params.run, params.binding.nodeId) : undefined;
+    if (wanderer) session.enemy.character.avatarImage = hollowGateWandererArt(wanderer);
+    return session;
 }

@@ -1,4 +1,5 @@
 import { playPetSfx, primePetSfx } from "../../lib/pet-sfx";
+import { HollowGateEventDialog } from './HollowGateEventDialog';
 
 type HollowGateBossCinematicProps = {
     mode: "entrance" | "victory";
@@ -30,13 +31,9 @@ export function HollowGateBossCinematic({
     };
 
     return (
-        <div className="hg-boss-cinematic-backdrop" data-mode={mode}>
+        <HollowGateEventDialog className="hg-boss-dialog" mode={mode} titleId={`hg-boss-${mode}-title`} descriptionId={`hg-boss-${mode}-body`} busy={exitPending}>
             <section
                 className="hg-boss-cinematic"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby={`hg-boss-${mode}-title`}
-                aria-describedby={`hg-boss-${mode}-body`}
             >
                 <img className="hg-boss-cinematic__art" src={image} alt="" />
                 <div className="hg-boss-cinematic__veil" aria-hidden="true" />
@@ -46,12 +43,13 @@ export function HollowGateBossCinematic({
                     <h2 id={`hg-boss-${mode}-title`}>{title}</h2>
                     <p id={`hg-boss-${mode}-body`}>{body}</p>
                     <div className="hg-boss-cinematic__actions">
-                        <button autoFocus className="hg-boss-cinematic__primary" onClick={continueWithSting}>
+                        <button autoFocus disabled={exitPending} className="hg-boss-cinematic__primary" onClick={continueWithSting}>
                             {actionLabel}
                         </button>
                         <button
                             className="danger-button"
                             type="button"
+                            disabled={exitPending}
                             onClick={onEmergencyForfeit}
                             title="Ends the run as a defeat if the encounter cannot continue."
                         >
@@ -60,6 +58,6 @@ export function HollowGateBossCinematic({
                     </div>
                 </div>
             </section>
-        </div>
+        </HollowGateEventDialog>
     );
 }

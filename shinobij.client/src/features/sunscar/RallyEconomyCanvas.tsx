@@ -64,6 +64,7 @@ export default memo(function RallyEconomyCanvas({ state, onReady, onPresentation
         const surface = canvas.current, context = surface?.getContext('2d', { alpha: false });
         if (!surface || !context) throw new Error('The battery saver course could not create its drawing surface.');
         let frame = 0, lastDraw = -Infinity, lastTime = 0, frameCount = 0, observedRevision = -1;
+        let publishedQa: unknown = null;
         let width = 0, height = 0;
         const labelMetrics = new Map<string, number>();
         const annotationMetrics = new Map<string, RallyLabelRect>();
@@ -196,9 +197,11 @@ export default memo(function RallyEconomyCanvas({ state, onReady, onPresentation
             context.restore();
             frameCount++;
             if (import.meta.env.MODE === 'sunscar-modes-qa') {
-                (window as Window & { sunscarRallyQa?: unknown }).sunscarRallyQa = { state: structuredClone(race), quality: 'economy', geometry: 0, textures: 0, calls: 0, triangles: 0,
+                const metrics = { state: structuredClone(race), quality: 'economy', geometry: 0, textures: 0, calls: 0, triangles: 0,
                     frameCount, pixelRatio: 1, fps: lastTime ? 1000 / (time - lastTime) : 0, spriteCount: sprites.current.size,
                     labels: nameplates, labelBlockers: blocked };
+                publishedQa = metrics;
+                (window as Window & { sunscarRallyQa?: unknown }).sunscarRallyQa = metrics;
             }
             onPresentationFrame(lastTime ? (time - lastTime) / 1000 : 0);
             lastTime = time;
@@ -216,7 +219,8 @@ export default memo(function RallyEconomyCanvas({ state, onReady, onPresentation
         frame = requestAnimationFrame(loop);
         return () => {
             cancelAnimationFrame(frame); observer.disconnect(); resizeObserver.disconnect(); invalidate.current = null;
-            if (import.meta.env.MODE === 'sunscar-modes-qa') delete (window as Window & { sunscarRallyQa?: unknown }).sunscarRallyQa;
+            const qaWindow = window as Window & { sunscarRallyQa?: unknown };
+            if (import.meta.env.MODE === 'sunscar-modes-qa' && qaWindow.sunscarRallyQa === publishedQa) delete qaWindow.sunscarRallyQa;
         };
     }, [state, onPresentationFrame, reducedMotion, frameloop]);
     return <div className="rally-economy-surface"><canvas ref={canvas} aria-label="Pet Rally course in battery saver graphics" style={{ display: 'block', width: '100%', height: '100%' }} /></div>;

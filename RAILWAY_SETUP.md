@@ -1,9 +1,9 @@
 # Deploying ShinobiX on Railway (and other Docker hosts)
 
-This runs the **same Express server** as cPanel (`server.ts` → `dist/server.js`),
-serving the API and the React SPA from **one service on one port**. The added
-files — `Dockerfile`, `.dockerignore`, `railway.json`, `.env.example` — are
-additive; `app.js` and the cPanel path are untouched.
+Railway is the only production host. It runs the Express server
+(`server.ts` → `dist/server.js`), serving the API and the React SPA from
+**one service on one port**, configured by `Dockerfile`, `.dockerignore`,
+`railway.json` and `.env.example`.
 
 Because the image is a plain `Dockerfile`, the exact same setup also deploys to
 **Render, Fly.io, or any VPS with Docker** — that's your portability insurance.
@@ -16,11 +16,12 @@ Because the image is a plain `Dockerfile`, the exact same setup also deploys to
   `/api/*` routes. The client calls relative `/api/...` paths
   (`shinobij.client/src/authFetch.ts`), so there are **no CORS issues** and no
   build-time API URL to configure.
-- **Database path.** When `DATABASE_URL` is set and the app is *not* on Vercel,
-  the server uses the direct Postgres pool (`api/_storage.ts:712`) — the same
-  code path cPanel uses. Point it at your existing Supabase Postgres.
+- **Database path.** When `DATABASE_URL` is set, the server uses the direct
+  Postgres pool (`pgKv` in `api/_storage.ts`). Point it at your existing
+  Supabase Postgres.
 - **No `app.js`.** The Dockerfile runs `node dist/server.js` directly. The
-  cPanel-only DNS/IPv4 bypass in `app.js` is skipped here.
+  DNS/IPv4 bypass in `app.js` (a leftover of the retired cPanel host) is
+  skipped here.
 - **Health check.** `railway.json` points Railway's health check at `/health`
   (defined in `server.ts:204`).
 
@@ -75,8 +76,8 @@ See `.env.example` for the annotated list. Minimum to boot:
 | `SESSION_SECRET` | ✅ | Long random string. Without it, every request pays ~100ms scrypt. |
 | `ADMIN_PASSWORD` | ✅ | Admin panel. |
 | `ADMIN_CONTENT_PASSWORD` | ✅ | Content moderation admin. |
-| `VITE_SUPABASE_URL` | ✅ (build) | `https://<ref>.supabase.co` — baked into the client at build for Realtime. |
-| `VITE_SUPABASE_ANON_KEY` | ✅ (build) | Supabase anon (public) key — build-time, for client Realtime. |
+| `VITE_SUPABASE_URL` | ✅ (build) | `https://<ref>.supabase.co`, build-time. Since 2026-10-13 the client no longer uses Supabase Realtime, so nothing in the browser reads it; the deploy check still expects it, so keep it set. |
+| `VITE_SUPABASE_ANON_KEY` | ✅ (build) | Supabase anon (public) key, build-time. Unused by the client since 2026-10-13, and the anon role now has no access to `kv_store`; the deploy check still expects it, so keep it set. |
 | `SUPABASE_URL` | ▲ | Server-side Supabase REST/Storage base (if used). |
 | `SUPABASE_SERVICE_ROLE_KEY` | ▲ | Server-side service role — NEVER exposed to the client. |
 | `PG_POOL_MAX` | ▲ | Pool size. Defaults to `15` on Railway (detected via `RAILWAY_ENVIRONMENT`), `5` elsewhere; set only to override. |
@@ -104,9 +105,8 @@ below.
 ## Daily save-snapshot cron
 
 This now runs **in-process** on the always-on server (`startSnapshotCron`,
-`api/cron/_scheduler.ts`) at 03:00 UTC — no external scheduler needed. It was a
-Vercel cron before the migration; the always-on Railway/cPanel process schedules
-it itself. Set `DISABLE_SNAPSHOT_CRON=1` on any *secondary* instance so only the
+`api/cron/_scheduler.ts`) at 03:00 UTC — no external scheduler needed. Set
+`DISABLE_SNAPSHOT_CRON=1` on any *secondary* instance so only the
 primary runs the nightly pass (a double run is a harmless no-op either way — the
 20h dedup window covers it).
 
@@ -133,7 +133,7 @@ add that origin to `ALLOWED_ORIGINS` in **both** `server.ts` **and**
 
 ---
 
-## Migration considerations (read before cutting over)
+## Operational notes
 
 - **Storage topology.** Every key, including `save:*` / `shared:images*` /
   `shared:imgfields*`, lives on the base Postgres store. The cPanel disk overlay
@@ -151,9 +151,6 @@ add that origin to `ALLOWED_ORIGINS` in **both** `server.ts` **and**
   egress on both sides, and the 1-second heartbeat write is the worst offender.
   The realtime layer (in-memory presence + WebSocket) removes it — that's the
   actual cost fix. Until then, same-region deployment keeps it tolerable.
-- **cPanel/Vercel untouched by these files.** Nothing here changes `app.js`, the
-  Passenger setup, or the handlers. Run Railway alongside the old stack during
-  cutover, flip DNS when ready, then retire Vercel.
 
 ---
 

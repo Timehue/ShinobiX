@@ -848,7 +848,14 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // Production run 38083112208 measured the combined candidate at 9,488,761 B.
 // Allow 9.513 MB, leaving 24,239 B of measured headroom. The independent
 // startup, per-chunk, CSS, gzip, asset, and lazy Sentry gates remain unchanged.
-const TOTAL_JS_CSS_FAIL_BYTES = 9_513_000;
+// 2026-10-11: the underground sector presentation, authored room furnishing,
+// sealed cave wanderers, physical furnishing/doorway geometry and mobile/recovery
+// UI measure 9,530,268 B with the
+// production-image workflow's public VITE_* fixtures. This adds about 41 KB
+// over the measured 9,488,761 B baseline above. Allow 9.55 MB, retaining about
+// 20 KB of aggregate headroom. Cave movement and gift handlers remain lazy;
+// startup raw/gzip, per-chunk, CSS and asset limits are unchanged.
+const TOTAL_JS_CSS_FAIL_BYTES = 9_550_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

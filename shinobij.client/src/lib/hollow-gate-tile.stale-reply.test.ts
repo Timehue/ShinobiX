@@ -73,7 +73,8 @@ test("the shrine relic bar, befriend, dungeon and rift-card settles finish on a 
     assert.doesNotMatch(tile, /if \(!adoptServerEvent\(/);
     const dungeon = read("../screens/Dungeon.tsx");
     assert.doesNotMatch(dungeon, /no-longer-active save session/);
-    assert.match(dungeon, /onVersionedCharacter\(settled\.character, settled\.saveVersion\);\s*setSettlementStatus\("settled"\);/);
+    assert.match(dungeon, /onVersionedCharacter\(result\.character as Character, result\._saveVersion\)\) return null;/);
+    assert.match(dungeon, /submitShowdownTurn\(character\.name, sessionId, commands, expectedRound\)/);
     const app = read("../App.tsx");
     assert.match(app, /const result = await mutateDungeonRunServer\(character\.name, "start", '', event\.id\);\s*commitVersionedCharacter\(result\.character, result\._saveVersion\);[^\n]*\n\s*setActiveDungeonRunToken\(result\.token\);/);
     assert.match(app, /if \(!settled\.ok \|\| !settled\.character\) throw new Error\([^\n]*\n\s*commitVersionedCharacter\(settled\.character, settled\._saveVersion\);/);

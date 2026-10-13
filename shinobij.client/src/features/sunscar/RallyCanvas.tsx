@@ -63,6 +63,7 @@ function RallyQaMetrics({ state, light }: { state: RefObject<RallyState>; light:
     const frameCount = useRef(0);
     const finishFrameCount = useRef(0);
     const elapsed = useRef(0);
+    const publishedQa = useRef<unknown>(null);
     useFrame(({ gl }, delta) => {
         if (import.meta.env.MODE !== 'sunscar-modes-qa') return;
         frameCount.current++;
@@ -73,7 +74,7 @@ function RallyQaMetrics({ state, light }: { state: RefObject<RallyState>; light:
         elapsed.current = 0;
         // Read-only instrumentation, removed from the normal production build.
         queueMicrotask(() => {
-            (window as Window & { sunscarRallyQa?: unknown }).sunscarRallyQa = {
+            const metrics = {
                 state: structuredClone(state.current), geometry: gl.info.memory.geometries, textures: gl.info.memory.textures,
                 calls: gl.info.render.calls, triangles: gl.info.render.triangles,
                 frameCount: frameCount.current,
@@ -81,9 +82,14 @@ function RallyQaMetrics({ state, light }: { state: RefObject<RallyState>; light:
                 quality: light ? 'light' : 'full', pixelRatio: gl.getPixelRatio(),
                 fps: frames.current.length / frames.current.reduce((sum, time) => sum + time, 0),
             };
+            publishedQa.current = metrics;
+            (window as Window & { sunscarRallyQa?: unknown }).sunscarRallyQa = metrics;
         });
     });
-    useEffect(() => () => { if (import.meta.env.MODE === 'sunscar-modes-qa') delete (window as Window & { sunscarRallyQa?: unknown }).sunscarRallyQa; }, []);
+    useEffect(() => () => {
+        const qaWindow = window as Window & { sunscarRallyQa?: unknown };
+        if (import.meta.env.MODE === 'sunscar-modes-qa' && qaWindow.sunscarRallyQa === publishedQa.current) delete qaWindow.sunscarRallyQa;
+    }, []);
     return null;
 }
 function RaceCamera({ state, reducedMotion }: { state: RefObject<RallyState>; reducedMotion: boolean }) {
@@ -139,8 +145,8 @@ function Dust({ state }: { state: RefObject<RallyState> }) {
  * the race from the ref each frame). That was about half of the race's
  * JavaScript. Devices on the shared lite gate (weak touch hardware, reduced
  * motion, or the liteFx.v1 override) draw at 1x without MSAA. */
-export default memo(function RallyCanvas({ state, onReady, onPresentationFrame, onFail, onEconomy, allowEconomy, reducedMotion, frameloop, moving }: {
-    state: RefObject<RallyState>; onReady: (id: string) => void; onPresentationFrame: (delta: number) => void; onFail: () => void; onEconomy: () => void; allowEconomy: boolean; reducedMotion: boolean; frameloop: 'always' | 'demand'; moving: RefObject<boolean>;
+export default memo(function RallyCanvas({ state, onReady, onPresentationFrame, onFail, onEconomy, allowEconomy, reducedMotion, frameloop, moving, present = true, summonOnMount = true, onRecallComplete }: {
+    state: RefObject<RallyState>; onReady: (id: string) => void; onPresentationFrame: (delta: number) => void; onFail: () => void; onEconomy: () => void; allowEconomy: boolean; reducedMotion: boolean; frameloop: 'always' | 'demand'; moving: RefObject<boolean>; present?: boolean; summonOnMount?: boolean; onRecallComplete?: () => void;
 }) {
     const track = rallyTrack(state.current.trackId);
     const [supported] = useState(rallyWebglAvailable);
@@ -182,7 +188,7 @@ export default memo(function RallyCanvas({ state, onReady, onPresentationFrame, 
         <RallyAimGuide state={state}/>
         {state.current.racers.map((racer, index) => <RallyPetEffects key={racer.id} state={state} index={index} light={light || reducedMotion} reducedMotion={reducedMotion} color={index === 0 ? '#ffe6a0' : '#fff0d5'}/>)}
         {state.current.racers.map((racer, index) => <PetModelBoundary key={racer.id} onFail={onFail}><Suspense fallback={null}>
-            <RallyPetModel state={state} index={index} onReady={onReady} reducedMotion={reducedMotion} moving={moving} />
+            <RallyPetModel state={state} index={index} onReady={onReady} reducedMotion={reducedMotion} moving={moving} present={present} summonOnMount={summonOnMount} onRecallComplete={onRecallComplete} />
         </Suspense></PetModelBoundary>)}
         <RallyShaderPreparation />
         <RallyPresentationClock onFrame={onPresentationFrame} />

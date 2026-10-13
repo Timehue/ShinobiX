@@ -1,7 +1,20 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { petCombatModel } from "./pet-3d-models";
-import { advanceCombatBodyYaw, attackClipWindow, motionOwnsLocomotion, petDeathChoreography, resolveCombatBodyFacing, resolveCombatBodyYaw, resolveOpponentFacing } from "./pet-combat-performance";
+import { advanceCombatBodyYaw, attackClipWindow, motionOwnsLocomotion, petDeathChoreography, petLocomotionUsesGallop, resolveCombatBodyFacing, resolveCombatBodyYaw, resolveOpponentFacing } from "./pet-combat-performance";
+
+test('velocity noise cannot repeatedly restart walk and gallop around the crossover', () => {
+    for (const [profile, threshold] of [['quadruped', 7.5], ['biped', 3.45]] as const) {
+        for (const initial of ['walk', 'gallop']) {
+            let selected = initial;
+            for (let sample = 0; sample < 80; sample++) selected = petLocomotionUsesGallop(profile, threshold + (sample % 2 ? .1 : -.1), selected) ? 'gallop' : 'walk';
+            assert.equal(selected, initial);
+        }
+        assert.equal(petLocomotionUsesGallop(profile, threshold + 1, 'walk'), true);
+        assert.equal(petLocomotionUsesGallop(profile, threshold - 1, 'gallop'), false);
+    }
+    assert.equal(petLocomotionUsesGallop('serpentine', 100), false);
+});
 
 test("a scheduled contact freezes the authored extension rather than the start of the swing", () => {
     const impact = attackClipWindow('strike', true)!;

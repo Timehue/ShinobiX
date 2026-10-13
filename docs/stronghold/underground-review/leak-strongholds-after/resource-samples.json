@@ -1,0 +1,1412 @@
+{
+  "samples": [
+    {
+      "sector": 12,
+      "label": "warm unmounted",
+      "pointerSettledOnReturnedScreen": true,
+      "timeouts": [
+        90001
+      ],
+      "timeoutDetails": [
+        {
+          "id": 2,
+          "delayMs": 90001,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at #publish (http://127.0.0.1:52663/preview.js:37996:29)\n    at #load (http://127.0.0.1:52663/preview.js:37971:22)"
+        }
+      ],
+      "intervals": 0,
+      "frames": 0,
+      "frameCallbacks": 0,
+      "observers": 0,
+      "mutationObservers": 1,
+      "audioContexts": 0,
+      "audioSources": 0,
+      "audioConnectedSources": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "webglRenderers": [],
+      "canvasDraws": 0,
+      "animations": 0,
+      "documents": 1,
+      "nodes": 14,
+      "jsEventListeners": 309,
+      "heapBytes": 6024964,
+      "taskSeconds": 2.56007,
+      "layers": 5
+    },
+    {
+      "sector": 12,
+      "label": "after 12 entry/exit cycles",
+      "pointerSettledOnReturnedScreen": true,
+      "timeouts": [
+        90001
+      ],
+      "timeoutDetails": [
+        {
+          "id": 2,
+          "delayMs": 90001,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at #publish (http://127.0.0.1:52663/preview.js:37996:29)\n    at #load (http://127.0.0.1:52663/preview.js:37971:22)"
+        }
+      ],
+      "intervals": 0,
+      "frames": 0,
+      "frameCallbacks": 0,
+      "observers": 0,
+      "mutationObservers": 1,
+      "audioContexts": 0,
+      "audioSources": 0,
+      "audioConnectedSources": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "webglRenderers": [],
+      "canvasDraws": 0,
+      "animations": 0,
+      "documents": 1,
+      "nodes": 14,
+      "jsEventListeners": 309,
+      "heapBytes": 6497728,
+      "taskSeconds": 19.315208,
+      "layers": 5
+    },
+    {
+      "sector": 12,
+      "label": "fully discovered idle start",
+      "pointerSettledOnReturnedScreen": false,
+      "timeouts": [
+        90001,
+        2000
+      ],
+      "timeoutDetails": [
+        {
+          "id": 2,
+          "delayMs": 90001,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at #publish (http://127.0.0.1:52663/preview.js:37996:29)\n    at #load (http://127.0.0.1:52663/preview.js:37971:22)"
+        },
+        {
+          "id": 19,
+          "delayMs": 2000,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at refresh2 (http://127.0.0.1:52663/preview.js:29442:59)"
+        }
+      ],
+      "intervals": 0,
+      "frames": 0,
+      "frameCallbacks": 0,
+      "observers": 1,
+      "mutationObservers": 1,
+      "audioContexts": 0,
+      "audioSources": 0,
+      "audioConnectedSources": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "webglRenderers": [],
+      "canvasDraws": 0,
+      "animations": 0,
+      "documents": 1,
+      "nodes": 1414,
+      "jsEventListeners": 1207,
+      "heapBytes": 9512328,
+      "taskSeconds": 19.776222,
+      "layers": 6
+    },
+    {
+      "sector": 12,
+      "label": "fully discovered idle end",
+      "pointerSettledOnReturnedScreen": false,
+      "timeouts": [
+        90001,
+        2000
+      ],
+      "timeoutDetails": [
+        {
+          "id": 2,
+          "delayMs": 90001,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at #publish (http://127.0.0.1:52663/preview.js:37996:29)\n    at #load (http://127.0.0.1:52663/preview.js:37971:22)"
+        },
+        {
+          "id": 22,
+          "delayMs": 2000,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at refresh2 (http://127.0.0.1:52663/preview.js:29442:59)"
+        }
+      ],
+      "intervals": 0,
+      "frames": 0,
+      "frameCallbacks": 0,
+      "observers": 1,
+      "mutationObservers": 1,
+      "audioContexts": 0,
+      "audioSources": 0,
+      "audioConnectedSources": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "webglRenderers": [],
+      "canvasDraws": 0,
+      "animations": 0,
+      "documents": 1,
+      "nodes": 1414,
+      "jsEventListeners": 1207,
+      "heapBytes": 11716912,
+      "taskSeconds": 20.096599,
+      "layers": 6
+    },
+    {
+      "sector": 12,
+      "label": "after successful patrol settlement",
+      "pointerSettledOnReturnedScreen": true,
+      "timeouts": [
+        90001
+      ],
+      "timeoutDetails": [
+        {
+          "id": 2,
+          "delayMs": 90001,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at #publish (http://127.0.0.1:52663/preview.js:37996:29)\n    at #load (http://127.0.0.1:52663/preview.js:37971:22)"
+        }
+      ],
+      "intervals": 0,
+      "frames": 0,
+      "frameCallbacks": 2,
+      "observers": 0,
+      "mutationObservers": 1,
+      "audioContexts": 0,
+      "audioSources": 0,
+      "audioConnectedSources": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "webglRenderers": [],
+      "canvasDraws": 0,
+      "animations": 0,
+      "documents": 1,
+      "nodes": 14,
+      "jsEventListeners": 309,
+      "heapBytes": 6990096,
+      "taskSeconds": 20.854637,
+      "layers": 5
+    },
+    {
+      "sector": 12,
+      "label": "after failed settlement unmount",
+      "pointerSettledOnReturnedScreen": true,
+      "timeouts": [
+        90001
+      ],
+      "timeoutDetails": [
+        {
+          "id": 2,
+          "delayMs": 90001,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at #publish (http://127.0.0.1:52663/preview.js:37996:29)\n    at #load (http://127.0.0.1:52663/preview.js:37971:22)"
+        }
+      ],
+      "intervals": 0,
+      "frames": 0,
+      "frameCallbacks": 3,
+      "observers": 0,
+      "mutationObservers": 1,
+      "audioContexts": 0,
+      "audioSources": 0,
+      "audioConnectedSources": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "webglRenderers": [],
+      "canvasDraws": 0,
+      "animations": 0,
+      "documents": 1,
+      "nodes": 701,
+      "jsEventListeners": 463,
+      "heapBytes": 7438548,
+      "taskSeconds": 21.110641,
+      "layers": 5
+    },
+    {
+      "sector": 12,
+      "label": "after 8 combat entry/exit cycles",
+      "pointerSettledOnReturnedScreen": true,
+      "timeouts": [
+        90001
+      ],
+      "timeoutDetails": [
+        {
+          "id": 2,
+          "delayMs": 90001,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at #publish (http://127.0.0.1:52663/preview.js:37996:29)\n    at #load (http://127.0.0.1:52663/preview.js:37971:22)"
+        }
+      ],
+      "intervals": 0,
+      "frames": 0,
+      "frameCallbacks": 3,
+      "observers": 0,
+      "mutationObservers": 1,
+      "audioContexts": 0,
+      "audioSources": 0,
+      "audioConnectedSources": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "webglRenderers": [],
+      "canvasDraws": 0,
+      "animations": 0,
+      "documents": 1,
+      "nodes": 701,
+      "jsEventListeners": 463,
+      "heapBytes": 7633708,
+      "taskSeconds": 24.34261,
+      "layers": 5
+    },
+    {
+      "sector": 99,
+      "label": "warm unmounted",
+      "pointerSettledOnReturnedScreen": true,
+      "timeouts": [
+        90001
+      ],
+      "timeoutDetails": [
+        {
+          "id": 2,
+          "delayMs": 90001,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at #publish (http://127.0.0.1:52663/preview.js:37996:29)\n    at #load (http://127.0.0.1:52663/preview.js:37971:22)"
+        }
+      ],
+      "intervals": 0,
+      "frames": 0,
+      "frameCallbacks": 0,
+      "observers": 0,
+      "mutationObservers": 1,
+      "audioContexts": 0,
+      "audioSources": 0,
+      "audioConnectedSources": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "webglRenderers": [],
+      "canvasDraws": 0,
+      "animations": 0,
+      "documents": 1,
+      "nodes": 14,
+      "jsEventListeners": 309,
+      "heapBytes": 5966528,
+      "taskSeconds": 1.016248,
+      "layers": 5
+    },
+    {
+      "sector": 99,
+      "label": "after 12 entry/exit cycles",
+      "pointerSettledOnReturnedScreen": true,
+      "timeouts": [
+        90001
+      ],
+      "timeoutDetails": [
+        {
+          "id": 2,
+          "delayMs": 90001,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at #publish (http://127.0.0.1:52663/preview.js:37996:29)\n    at #load (http://127.0.0.1:52663/preview.js:37971:22)"
+        }
+      ],
+      "intervals": 0,
+      "frames": 0,
+      "frameCallbacks": 0,
+      "observers": 0,
+      "mutationObservers": 1,
+      "audioContexts": 0,
+      "audioSources": 0,
+      "audioConnectedSources": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "webglRenderers": [],
+      "canvasDraws": 0,
+      "animations": 0,
+      "documents": 1,
+      "nodes": 14,
+      "jsEventListeners": 309,
+      "heapBytes": 6485380,
+      "taskSeconds": 16.091621,
+      "layers": 5
+    },
+    {
+      "sector": 99,
+      "label": "fully discovered idle start",
+      "pointerSettledOnReturnedScreen": false,
+      "timeouts": [
+        90001,
+        2000
+      ],
+      "timeoutDetails": [
+        {
+          "id": 2,
+          "delayMs": 90001,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at #publish (http://127.0.0.1:52663/preview.js:37996:29)\n    at #load (http://127.0.0.1:52663/preview.js:37971:22)"
+        },
+        {
+          "id": 18,
+          "delayMs": 2000,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at refresh2 (http://127.0.0.1:52663/preview.js:29442:59)"
+        }
+      ],
+      "intervals": 0,
+      "frames": 0,
+      "frameCallbacks": 0,
+      "observers": 1,
+      "mutationObservers": 1,
+      "audioContexts": 0,
+      "audioSources": 0,
+      "audioConnectedSources": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "webglRenderers": [],
+      "canvasDraws": 0,
+      "animations": 0,
+      "documents": 1,
+      "nodes": 1413,
+      "jsEventListeners": 1205,
+      "heapBytes": 9872428,
+      "taskSeconds": 16.632029,
+      "layers": 6
+    },
+    {
+      "sector": 99,
+      "label": "fully discovered idle end",
+      "pointerSettledOnReturnedScreen": false,
+      "timeouts": [
+        90001,
+        2000
+      ],
+      "timeoutDetails": [
+        {
+          "id": 2,
+          "delayMs": 90001,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at #publish (http://127.0.0.1:52663/preview.js:37996:29)\n    at #load (http://127.0.0.1:52663/preview.js:37971:22)"
+        },
+        {
+          "id": 21,
+          "delayMs": 2000,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at refresh2 (http://127.0.0.1:52663/preview.js:29442:59)"
+        }
+      ],
+      "intervals": 0,
+      "frames": 0,
+      "frameCallbacks": 0,
+      "observers": 1,
+      "mutationObservers": 1,
+      "audioContexts": 0,
+      "audioSources": 0,
+      "audioConnectedSources": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "webglRenderers": [],
+      "canvasDraws": 0,
+      "animations": 0,
+      "documents": 1,
+      "nodes": 1413,
+      "jsEventListeners": 1205,
+      "heapBytes": 11923196,
+      "taskSeconds": 16.959998,
+      "layers": 6
+    },
+    {
+      "sector": 99,
+      "label": "after successful patrol settlement",
+      "pointerSettledOnReturnedScreen": true,
+      "timeouts": [
+        90001
+      ],
+      "timeoutDetails": [
+        {
+          "id": 2,
+          "delayMs": 90001,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at #publish (http://127.0.0.1:52663/preview.js:37996:29)\n    at #load (http://127.0.0.1:52663/preview.js:37971:22)"
+        }
+      ],
+      "intervals": 0,
+      "frames": 0,
+      "frameCallbacks": 0,
+      "observers": 0,
+      "mutationObservers": 1,
+      "audioContexts": 0,
+      "audioSources": 0,
+      "audioConnectedSources": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "webglRenderers": [],
+      "canvasDraws": 0,
+      "animations": 0,
+      "documents": 1,
+      "nodes": 14,
+      "jsEventListeners": 309,
+      "heapBytes": 6941348,
+      "taskSeconds": 17.642792,
+      "layers": 5
+    },
+    {
+      "sector": 99,
+      "label": "after failed settlement unmount",
+      "pointerSettledOnReturnedScreen": true,
+      "timeouts": [
+        90001
+      ],
+      "timeoutDetails": [
+        {
+          "id": 2,
+          "delayMs": 90001,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at #publish (http://127.0.0.1:52663/preview.js:37996:29)\n    at #load (http://127.0.0.1:52663/preview.js:37971:22)"
+        }
+      ],
+      "intervals": 0,
+      "frames": 0,
+      "frameCallbacks": 0,
+      "observers": 0,
+      "mutationObservers": 1,
+      "audioContexts": 0,
+      "audioSources": 0,
+      "audioConnectedSources": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "webglRenderers": [],
+      "canvasDraws": 0,
+      "animations": 0,
+      "documents": 1,
+      "nodes": 701,
+      "jsEventListeners": 463,
+      "heapBytes": 7408732,
+      "taskSeconds": 17.941394,
+      "layers": 5
+    },
+    {
+      "sector": 99,
+      "label": "after 8 combat entry/exit cycles",
+      "pointerSettledOnReturnedScreen": true,
+      "timeouts": [
+        90001
+      ],
+      "timeoutDetails": [
+        {
+          "id": 2,
+          "delayMs": 90001,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at #publish (http://127.0.0.1:52663/preview.js:37996:29)\n    at #load (http://127.0.0.1:52663/preview.js:37971:22)"
+        }
+      ],
+      "intervals": 0,
+      "frames": 0,
+      "frameCallbacks": 0,
+      "observers": 0,
+      "mutationObservers": 1,
+      "audioContexts": 0,
+      "audioSources": 0,
+      "audioConnectedSources": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "webglRenderers": [],
+      "canvasDraws": 0,
+      "animations": 0,
+      "documents": 1,
+      "nodes": 701,
+      "jsEventListeners": 463,
+      "heapBytes": 7627208,
+      "taskSeconds": 20.410796,
+      "layers": 5
+    },
+    {
+      "label": "initial exterior",
+      "backdrop": "2d",
+      "inputProfile": "mouse",
+      "expectedWebglContexts": 0,
+      "timeouts": [
+        90001
+      ],
+      "timeoutDetails": [
+        {
+          "id": 2,
+          "delayMs": 90001,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at #publish (http://127.0.0.1:52663/preview.js:37996:29)\n    at #load (http://127.0.0.1:52663/preview.js:37971:22)"
+        }
+      ],
+      "intervals": 4,
+      "frames": 2,
+      "frameCallbacks": 18,
+      "observers": 3,
+      "mutationObservers": 2,
+      "audioContexts": 0,
+      "audioSources": 0,
+      "audioConnectedSources": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "webglRenderers": [],
+      "canvasDraws": 8,
+      "animations": 4,
+      "hardwareConcurrency": 2,
+      "deviceMemory": 2,
+      "pointerCoarse": false,
+      "reducedMotion": false,
+      "liteFxOverride": null
+    },
+    {
+      "label": "suspended exterior 0",
+      "backdrop": "2d",
+      "inputProfile": "mouse",
+      "expectedWebglContexts": 0,
+      "timeouts": [
+        90001,
+        2000
+      ],
+      "timeoutDetails": [
+        {
+          "id": 2,
+          "delayMs": 90001,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at #publish (http://127.0.0.1:52663/preview.js:37996:29)\n    at #load (http://127.0.0.1:52663/preview.js:37971:22)"
+        },
+        {
+          "id": 12,
+          "delayMs": 2000,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at refresh2 (http://127.0.0.1:52663/preview.js:29442:59)"
+        }
+      ],
+      "intervals": 0,
+      "frames": 0,
+      "frameCallbacks": 22,
+      "observers": 1,
+      "mutationObservers": 2,
+      "audioContexts": 0,
+      "audioSources": 0,
+      "audioConnectedSources": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "webglRenderers": [],
+      "canvasDraws": 10,
+      "animations": 0,
+      "hardwareConcurrency": 2,
+      "deviceMemory": 2,
+      "pointerCoarse": false,
+      "reducedMotion": false,
+      "liteFxOverride": null
+    },
+    {
+      "label": "resumed exterior 0",
+      "backdrop": "2d",
+      "inputProfile": "mouse",
+      "expectedWebglContexts": 0,
+      "timeouts": [
+        90001
+      ],
+      "timeoutDetails": [
+        {
+          "id": 2,
+          "delayMs": 90001,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at #publish (http://127.0.0.1:52663/preview.js:37996:29)\n    at #load (http://127.0.0.1:52663/preview.js:37971:22)"
+        }
+      ],
+      "intervals": 4,
+      "frames": 2,
+      "frameCallbacks": 29,
+      "observers": 3,
+      "mutationObservers": 2,
+      "audioContexts": 0,
+      "audioSources": 0,
+      "audioConnectedSources": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "webglRenderers": [],
+      "canvasDraws": 13,
+      "animations": 11,
+      "hardwareConcurrency": 2,
+      "deviceMemory": 2,
+      "pointerCoarse": false,
+      "reducedMotion": false,
+      "liteFxOverride": null
+    },
+    {
+      "label": "suspended exterior 1",
+      "backdrop": "2d",
+      "inputProfile": "mouse",
+      "expectedWebglContexts": 0,
+      "timeouts": [
+        90001,
+        2000
+      ],
+      "timeoutDetails": [
+        {
+          "id": 2,
+          "delayMs": 90001,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at #publish (http://127.0.0.1:52663/preview.js:37996:29)\n    at #load (http://127.0.0.1:52663/preview.js:37971:22)"
+        },
+        {
+          "id": 22,
+          "delayMs": 2000,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at refresh2 (http://127.0.0.1:52663/preview.js:29442:59)"
+        }
+      ],
+      "intervals": 0,
+      "frames": 0,
+      "frameCallbacks": 47,
+      "observers": 1,
+      "mutationObservers": 2,
+      "audioContexts": 0,
+      "audioSources": 0,
+      "audioConnectedSources": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "webglRenderers": [],
+      "canvasDraws": 22,
+      "animations": 0,
+      "hardwareConcurrency": 2,
+      "deviceMemory": 2,
+      "pointerCoarse": false,
+      "reducedMotion": false,
+      "liteFxOverride": null
+    },
+    {
+      "label": "resumed exterior 1",
+      "backdrop": "2d",
+      "inputProfile": "mouse",
+      "expectedWebglContexts": 0,
+      "timeouts": [
+        90001
+      ],
+      "timeoutDetails": [
+        {
+          "id": 2,
+          "delayMs": 90001,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at #publish (http://127.0.0.1:52663/preview.js:37996:29)\n    at #load (http://127.0.0.1:52663/preview.js:37971:22)"
+        }
+      ],
+      "intervals": 4,
+      "frames": 2,
+      "frameCallbacks": 56,
+      "observers": 3,
+      "mutationObservers": 2,
+      "audioContexts": 0,
+      "audioSources": 0,
+      "audioConnectedSources": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "webglRenderers": [],
+      "canvasDraws": 26,
+      "animations": 11,
+      "hardwareConcurrency": 2,
+      "deviceMemory": 2,
+      "pointerCoarse": false,
+      "reducedMotion": false,
+      "liteFxOverride": null
+    },
+    {
+      "label": "suspended exterior 2",
+      "backdrop": "2d",
+      "inputProfile": "mouse",
+      "expectedWebglContexts": 0,
+      "timeouts": [
+        90001,
+        2000
+      ],
+      "timeoutDetails": [
+        {
+          "id": 2,
+          "delayMs": 90001,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at #publish (http://127.0.0.1:52663/preview.js:37996:29)\n    at #load (http://127.0.0.1:52663/preview.js:37971:22)"
+        },
+        {
+          "id": 32,
+          "delayMs": 2000,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at refresh2 (http://127.0.0.1:52663/preview.js:29442:59)"
+        }
+      ],
+      "intervals": 0,
+      "frames": 0,
+      "frameCallbacks": 74,
+      "observers": 1,
+      "mutationObservers": 2,
+      "audioContexts": 0,
+      "audioSources": 0,
+      "audioConnectedSources": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "webglRenderers": [],
+      "canvasDraws": 35,
+      "animations": 0,
+      "hardwareConcurrency": 2,
+      "deviceMemory": 2,
+      "pointerCoarse": false,
+      "reducedMotion": false,
+      "liteFxOverride": null
+    },
+    {
+      "label": "resumed exterior 2",
+      "backdrop": "2d",
+      "inputProfile": "mouse",
+      "expectedWebglContexts": 0,
+      "timeouts": [
+        90001
+      ],
+      "timeoutDetails": [
+        {
+          "id": 2,
+          "delayMs": 90001,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at #publish (http://127.0.0.1:52663/preview.js:37996:29)\n    at #load (http://127.0.0.1:52663/preview.js:37971:22)"
+        }
+      ],
+      "intervals": 4,
+      "frames": 2,
+      "frameCallbacks": 81,
+      "observers": 3,
+      "mutationObservers": 2,
+      "audioContexts": 0,
+      "audioSources": 0,
+      "audioConnectedSources": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "webglRenderers": [],
+      "canvasDraws": 39,
+      "animations": 11,
+      "hardwareConcurrency": 2,
+      "deviceMemory": 2,
+      "pointerCoarse": false,
+      "reducedMotion": false,
+      "liteFxOverride": null
+    },
+    {
+      "label": "initial exterior",
+      "backdrop": "fallback",
+      "inputProfile": "mouse",
+      "expectedWebglContexts": 0,
+      "timeouts": [
+        90001
+      ],
+      "timeoutDetails": [
+        {
+          "id": 2,
+          "delayMs": 90001,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at #publish (http://127.0.0.1:52663/preview.js:37996:29)\n    at #load (http://127.0.0.1:52663/preview.js:37971:22)"
+        }
+      ],
+      "intervals": 4,
+      "frames": 2,
+      "frameCallbacks": 20,
+      "observers": 3,
+      "mutationObservers": 2,
+      "audioContexts": 0,
+      "audioSources": 0,
+      "audioConnectedSources": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "webglRenderers": [],
+      "canvasDraws": 10,
+      "animations": 5,
+      "hardwareConcurrency": 2,
+      "deviceMemory": 2,
+      "pointerCoarse": false,
+      "reducedMotion": false,
+      "liteFxOverride": null
+    },
+    {
+      "label": "suspended exterior 0",
+      "backdrop": "fallback",
+      "inputProfile": "mouse",
+      "expectedWebglContexts": 0,
+      "timeouts": [
+        90001,
+        2000
+      ],
+      "timeoutDetails": [
+        {
+          "id": 2,
+          "delayMs": 90001,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at #publish (http://127.0.0.1:52663/preview.js:37996:29)\n    at #load (http://127.0.0.1:52663/preview.js:37971:22)"
+        },
+        {
+          "id": 11,
+          "delayMs": 2000,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at refresh2 (http://127.0.0.1:52663/preview.js:29442:59)"
+        }
+      ],
+      "intervals": 0,
+      "frames": 0,
+      "frameCallbacks": 28,
+      "observers": 1,
+      "mutationObservers": 2,
+      "audioContexts": 0,
+      "audioSources": 0,
+      "audioConnectedSources": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "webglRenderers": [],
+      "canvasDraws": 14,
+      "animations": 0,
+      "hardwareConcurrency": 2,
+      "deviceMemory": 2,
+      "pointerCoarse": false,
+      "reducedMotion": false,
+      "liteFxOverride": null
+    },
+    {
+      "label": "resumed exterior 0",
+      "backdrop": "fallback",
+      "inputProfile": "mouse",
+      "expectedWebglContexts": 0,
+      "timeouts": [
+        90001
+      ],
+      "timeoutDetails": [
+        {
+          "id": 2,
+          "delayMs": 90001,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at #publish (http://127.0.0.1:52663/preview.js:37996:29)\n    at #load (http://127.0.0.1:52663/preview.js:37971:22)"
+        }
+      ],
+      "intervals": 4,
+      "frames": 2,
+      "frameCallbacks": 33,
+      "observers": 3,
+      "mutationObservers": 2,
+      "audioContexts": 0,
+      "audioSources": 0,
+      "audioConnectedSources": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "webglRenderers": [],
+      "canvasDraws": 17,
+      "animations": 12,
+      "hardwareConcurrency": 2,
+      "deviceMemory": 2,
+      "pointerCoarse": false,
+      "reducedMotion": false,
+      "liteFxOverride": null
+    },
+    {
+      "label": "suspended exterior 1",
+      "backdrop": "fallback",
+      "inputProfile": "mouse",
+      "expectedWebglContexts": 0,
+      "timeouts": [
+        90001,
+        2000
+      ],
+      "timeoutDetails": [
+        {
+          "id": 2,
+          "delayMs": 90001,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at #publish (http://127.0.0.1:52663/preview.js:37996:29)\n    at #load (http://127.0.0.1:52663/preview.js:37971:22)"
+        },
+        {
+          "id": 21,
+          "delayMs": 2000,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at refresh2 (http://127.0.0.1:52663/preview.js:29442:59)"
+        }
+      ],
+      "intervals": 0,
+      "frames": 0,
+      "frameCallbacks": 53,
+      "observers": 1,
+      "mutationObservers": 2,
+      "audioContexts": 0,
+      "audioSources": 0,
+      "audioConnectedSources": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "webglRenderers": [],
+      "canvasDraws": 27,
+      "animations": 0,
+      "hardwareConcurrency": 2,
+      "deviceMemory": 2,
+      "pointerCoarse": false,
+      "reducedMotion": false,
+      "liteFxOverride": null
+    },
+    {
+      "label": "resumed exterior 1",
+      "backdrop": "fallback",
+      "inputProfile": "mouse",
+      "expectedWebglContexts": 0,
+      "timeouts": [
+        90001
+      ],
+      "timeoutDetails": [
+        {
+          "id": 2,
+          "delayMs": 90001,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at #publish (http://127.0.0.1:52663/preview.js:37996:29)\n    at #load (http://127.0.0.1:52663/preview.js:37971:22)"
+        }
+      ],
+      "intervals": 4,
+      "frames": 2,
+      "frameCallbacks": 60,
+      "observers": 3,
+      "mutationObservers": 2,
+      "audioContexts": 0,
+      "audioSources": 0,
+      "audioConnectedSources": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "webglRenderers": [],
+      "canvasDraws": 31,
+      "animations": 12,
+      "hardwareConcurrency": 2,
+      "deviceMemory": 2,
+      "pointerCoarse": false,
+      "reducedMotion": false,
+      "liteFxOverride": null
+    },
+    {
+      "label": "suspended exterior 2",
+      "backdrop": "fallback",
+      "inputProfile": "mouse",
+      "expectedWebglContexts": 0,
+      "timeouts": [
+        90001,
+        2000
+      ],
+      "timeoutDetails": [
+        {
+          "id": 2,
+          "delayMs": 90001,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at #publish (http://127.0.0.1:52663/preview.js:37996:29)\n    at #load (http://127.0.0.1:52663/preview.js:37971:22)"
+        },
+        {
+          "id": 31,
+          "delayMs": 2000,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at refresh2 (http://127.0.0.1:52663/preview.js:29442:59)"
+        }
+      ],
+      "intervals": 0,
+      "frames": 0,
+      "frameCallbacks": 78,
+      "observers": 1,
+      "mutationObservers": 2,
+      "audioContexts": 0,
+      "audioSources": 0,
+      "audioConnectedSources": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "webglRenderers": [],
+      "canvasDraws": 40,
+      "animations": 0,
+      "hardwareConcurrency": 2,
+      "deviceMemory": 2,
+      "pointerCoarse": false,
+      "reducedMotion": false,
+      "liteFxOverride": null
+    },
+    {
+      "label": "resumed exterior 2",
+      "backdrop": "fallback",
+      "inputProfile": "mouse",
+      "expectedWebglContexts": 0,
+      "timeouts": [
+        90001
+      ],
+      "timeoutDetails": [
+        {
+          "id": 2,
+          "delayMs": 90001,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at #publish (http://127.0.0.1:52663/preview.js:37996:29)\n    at #load (http://127.0.0.1:52663/preview.js:37971:22)"
+        }
+      ],
+      "intervals": 4,
+      "frames": 2,
+      "frameCallbacks": 85,
+      "observers": 3,
+      "mutationObservers": 2,
+      "audioContexts": 0,
+      "audioSources": 0,
+      "audioConnectedSources": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "webglRenderers": [],
+      "canvasDraws": 44,
+      "animations": 12,
+      "hardwareConcurrency": 2,
+      "deviceMemory": 2,
+      "pointerCoarse": false,
+      "reducedMotion": false,
+      "liteFxOverride": null
+    },
+    {
+      "label": "initial exterior",
+      "backdrop": "fallback",
+      "inputProfile": "touch",
+      "expectedWebglContexts": 0,
+      "timeouts": [
+        90001
+      ],
+      "timeoutDetails": [
+        {
+          "id": 2,
+          "delayMs": 90001,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at #publish (http://127.0.0.1:52663/preview.js:37996:29)\n    at #load (http://127.0.0.1:52663/preview.js:37971:22)"
+        }
+      ],
+      "intervals": 4,
+      "frames": 2,
+      "frameCallbacks": 58,
+      "observers": 3,
+      "mutationObservers": 2,
+      "audioContexts": 0,
+      "audioSources": 0,
+      "audioConnectedSources": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "webglRenderers": [],
+      "canvasDraws": 29,
+      "animations": 5,
+      "hardwareConcurrency": 2,
+      "deviceMemory": 2,
+      "pointerCoarse": true,
+      "reducedMotion": false,
+      "liteFxOverride": null
+    },
+    {
+      "label": "suspended exterior 0",
+      "backdrop": "fallback",
+      "inputProfile": "touch",
+      "expectedWebglContexts": 0,
+      "timeouts": [
+        90001,
+        2000
+      ],
+      "timeoutDetails": [
+        {
+          "id": 2,
+          "delayMs": 90001,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at #publish (http://127.0.0.1:52663/preview.js:37996:29)\n    at #load (http://127.0.0.1:52663/preview.js:37971:22)"
+        },
+        {
+          "id": 11,
+          "delayMs": 2000,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at refresh2 (http://127.0.0.1:52663/preview.js:29442:59)"
+        }
+      ],
+      "intervals": 0,
+      "frames": 0,
+      "frameCallbacks": 64,
+      "observers": 1,
+      "mutationObservers": 2,
+      "audioContexts": 0,
+      "audioSources": 0,
+      "audioConnectedSources": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "webglRenderers": [],
+      "canvasDraws": 32,
+      "animations": 0,
+      "hardwareConcurrency": 2,
+      "deviceMemory": 2,
+      "pointerCoarse": true,
+      "reducedMotion": false,
+      "liteFxOverride": null
+    },
+    {
+      "label": "resumed exterior 0",
+      "backdrop": "fallback",
+      "inputProfile": "touch",
+      "expectedWebglContexts": 0,
+      "timeouts": [
+        90001
+      ],
+      "timeoutDetails": [
+        {
+          "id": 2,
+          "delayMs": 90001,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at #publish (http://127.0.0.1:52663/preview.js:37996:29)\n    at #load (http://127.0.0.1:52663/preview.js:37971:22)"
+        }
+      ],
+      "intervals": 4,
+      "frames": 2,
+      "frameCallbacks": 73,
+      "observers": 3,
+      "mutationObservers": 2,
+      "audioContexts": 0,
+      "audioSources": 0,
+      "audioConnectedSources": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "webglRenderers": [],
+      "canvasDraws": 36,
+      "animations": 5,
+      "hardwareConcurrency": 2,
+      "deviceMemory": 2,
+      "pointerCoarse": true,
+      "reducedMotion": false,
+      "liteFxOverride": null
+    },
+    {
+      "label": "suspended exterior 1",
+      "backdrop": "fallback",
+      "inputProfile": "touch",
+      "expectedWebglContexts": 0,
+      "timeouts": [
+        90001,
+        2000
+      ],
+      "timeoutDetails": [
+        {
+          "id": 2,
+          "delayMs": 90001,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at #publish (http://127.0.0.1:52663/preview.js:37996:29)\n    at #load (http://127.0.0.1:52663/preview.js:37971:22)"
+        },
+        {
+          "id": 20,
+          "delayMs": 2000,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at refresh2 (http://127.0.0.1:52663/preview.js:29442:59)"
+        }
+      ],
+      "intervals": 0,
+      "frames": 0,
+      "frameCallbacks": 83,
+      "observers": 1,
+      "mutationObservers": 2,
+      "audioContexts": 0,
+      "audioSources": 0,
+      "audioConnectedSources": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "webglRenderers": [],
+      "canvasDraws": 41,
+      "animations": 0,
+      "hardwareConcurrency": 2,
+      "deviceMemory": 2,
+      "pointerCoarse": true,
+      "reducedMotion": false,
+      "liteFxOverride": null
+    },
+    {
+      "label": "resumed exterior 1",
+      "backdrop": "fallback",
+      "inputProfile": "touch",
+      "expectedWebglContexts": 0,
+      "timeouts": [
+        90001
+      ],
+      "timeoutDetails": [
+        {
+          "id": 2,
+          "delayMs": 90001,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at #publish (http://127.0.0.1:52663/preview.js:37996:29)\n    at #load (http://127.0.0.1:52663/preview.js:37971:22)"
+        }
+      ],
+      "intervals": 4,
+      "frames": 2,
+      "frameCallbacks": 88,
+      "observers": 3,
+      "mutationObservers": 2,
+      "audioContexts": 0,
+      "audioSources": 0,
+      "audioConnectedSources": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "webglRenderers": [],
+      "canvasDraws": 44,
+      "animations": 5,
+      "hardwareConcurrency": 2,
+      "deviceMemory": 2,
+      "pointerCoarse": true,
+      "reducedMotion": false,
+      "liteFxOverride": null
+    },
+    {
+      "label": "suspended exterior 2",
+      "backdrop": "fallback",
+      "inputProfile": "touch",
+      "expectedWebglContexts": 0,
+      "timeouts": [
+        90001,
+        2000
+      ],
+      "timeoutDetails": [
+        {
+          "id": 2,
+          "delayMs": 90001,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at #publish (http://127.0.0.1:52663/preview.js:37996:29)\n    at #load (http://127.0.0.1:52663/preview.js:37971:22)"
+        },
+        {
+          "id": 29,
+          "delayMs": 2000,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at refresh2 (http://127.0.0.1:52663/preview.js:29442:59)"
+        }
+      ],
+      "intervals": 0,
+      "frames": 0,
+      "frameCallbacks": 96,
+      "observers": 1,
+      "mutationObservers": 2,
+      "audioContexts": 0,
+      "audioSources": 0,
+      "audioConnectedSources": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "webglRenderers": [],
+      "canvasDraws": 48,
+      "animations": 0,
+      "hardwareConcurrency": 2,
+      "deviceMemory": 2,
+      "pointerCoarse": true,
+      "reducedMotion": false,
+      "liteFxOverride": null
+    },
+    {
+      "label": "resumed exterior 2",
+      "backdrop": "fallback",
+      "inputProfile": "touch",
+      "expectedWebglContexts": 0,
+      "timeouts": [
+        90001
+      ],
+      "timeoutDetails": [
+        {
+          "id": 2,
+          "delayMs": 90001,
+          "stack": "Error: timer scheduled\n    at window.setTimeout (<anonymous>:9:56)\n    at #publish (http://127.0.0.1:52663/preview.js:37996:29)\n    at #load (http://127.0.0.1:52663/preview.js:37971:22)"
+        }
+      ],
+      "intervals": 4,
+      "frames": 2,
+      "frameCallbacks": 105,
+      "observers": 3,
+      "mutationObservers": 2,
+      "audioContexts": 0,
+      "audioSources": 0,
+      "audioConnectedSources": 0,
+      "webglCreated": 0,
+      "webglActive": 0,
+      "webglRenderers": [],
+      "canvasDraws": 52,
+      "animations": 5,
+      "hardwareConcurrency": 2,
+      "deviceMemory": 2,
+      "pointerCoarse": true,
+      "reducedMotion": false,
+      "liteFxOverride": null
+    }
+  ],
+  "checks": [
+    {
+      "sector": 12,
+      "cycles": 12,
+      "stoppedTimersAndPolling": true,
+      "stableListenersNodesHeapLayers": true
+    },
+    {
+      "sector": 12,
+      "idleTaskMs": 320.3770000000006,
+      "fogSamples": 0
+    },
+    {
+      "sector": 12,
+      "successDeadlineTimers": 0,
+      "reportsAfterUnmount": 0,
+      "remainingTimers": [
+        90001
+      ]
+    },
+    {
+      "sector": 12,
+      "combatCycles": 8,
+      "stableCombatResources": true
+    },
+    {
+      "sector": 99,
+      "cycles": 12,
+      "stoppedTimersAndPolling": true,
+      "stableListenersNodesHeapLayers": true
+    },
+    {
+      "sector": 99,
+      "idleTaskMs": 327.9689999999995,
+      "fogSamples": 0
+    },
+    {
+      "sector": 99,
+      "successDeadlineTimers": 0,
+      "reportsAfterUnmount": 0,
+      "remainingTimers": [
+        90001
+      ]
+    },
+    {
+      "sector": 99,
+      "combatCycles": 8,
+      "stableCombatResources": true
+    },
+    {
+      "backdrop": "2d",
+      "inputProfile": "mouse",
+      "cycle": 0,
+      "outsideFrames": 2,
+      "outsideWebgl": 0,
+      "webglRenderers": [],
+      "insideFrames": 0,
+      "insideWebgl": 0
+    },
+    {
+      "backdrop": "2d",
+      "inputProfile": "mouse",
+      "cycle": 1,
+      "outsideFrames": 2,
+      "outsideWebgl": 0,
+      "webglRenderers": [],
+      "insideFrames": 0,
+      "insideWebgl": 0
+    },
+    {
+      "backdrop": "2d",
+      "inputProfile": "mouse",
+      "cycle": 2,
+      "outsideFrames": 2,
+      "outsideWebgl": 0,
+      "webglRenderers": [],
+      "insideFrames": 0,
+      "insideWebgl": 0
+    },
+    {
+      "backdrop": "fallback",
+      "inputProfile": "mouse",
+      "cycle": 0,
+      "outsideFrames": 2,
+      "outsideWebgl": 0,
+      "webglRenderers": [],
+      "insideFrames": 0,
+      "insideWebgl": 0
+    },
+    {
+      "backdrop": "fallback",
+      "inputProfile": "mouse",
+      "cycle": 1,
+      "outsideFrames": 2,
+      "outsideWebgl": 0,
+      "webglRenderers": [],
+      "insideFrames": 0,
+      "insideWebgl": 0
+    },
+    {
+      "backdrop": "fallback",
+      "inputProfile": "mouse",
+      "cycle": 2,
+      "outsideFrames": 2,
+      "outsideWebgl": 0,
+      "webglRenderers": [],
+      "insideFrames": 0,
+      "insideWebgl": 0
+    },
+    {
+      "backdrop": "fallback",
+      "inputProfile": "touch",
+      "cycle": 0,
+      "outsideFrames": 2,
+      "outsideWebgl": 0,
+      "webglRenderers": [],
+      "insideFrames": 0,
+      "insideWebgl": 0
+    },
+    {
+      "backdrop": "fallback",
+      "inputProfile": "touch",
+      "cycle": 1,
+      "outsideFrames": 2,
+      "outsideWebgl": 0,
+      "webglRenderers": [],
+      "insideFrames": 0,
+      "insideWebgl": 0
+    },
+    {
+      "backdrop": "fallback",
+      "inputProfile": "touch",
+      "cycle": 2,
+      "outsideFrames": 2,
+      "outsideWebgl": 0,
+      "webglRenderers": [],
+      "insideFrames": 0,
+      "insideWebgl": 0
+    }
+  ]
+}

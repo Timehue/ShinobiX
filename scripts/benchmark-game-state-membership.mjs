@@ -9,7 +9,6 @@ import { writeFileSync } from 'node:fs';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
-delete process.env.VERCEL;
 globalThis.fetch = async () => { throw new Error('Network is forbidden in this synthetic benchmark.'); };
 const { kv } = await import('../api/_storage.ts');
 const { projectKvValue } = await import('../api/_storage-projection.ts');

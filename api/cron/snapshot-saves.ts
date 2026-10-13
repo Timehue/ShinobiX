@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
-import { kv } from '../_storage.js';
+import { jsonValueEqual, kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { isFullAdmin, safeEqual } from '../_auth.js';
 
@@ -39,6 +39,10 @@ const SNAPSHOT_TTL_SECONDS = 90 * 24 * 60 * 60;
 const SNAPSHOT_SUCCESS_TTL_SECONDS = 180 * 24 * 60 * 60;
 export const SNAPSHOT_FRESHNESS_MS = 26 * 60 * 60 * 1000;
 const SKIP_IF_RECENT_MS = 20 * 60 * 60 * 1000;       // 20h — covers cron retries
+/** When this process last renewed each player's newest snapshot (see the run loop). */
+const renewedAt = new Map<string, number>();
+/** Test-only. */
+export function __resetSnapshotRenewalsForTest(): void { renewedAt.clear(); }
 const MAX_PARALLEL = 8;                              // throttle KV writes
 const MAX_RUNTIME_MS = 25_000;                       // leave 5s headroom on a 30s fn
 
@@ -75,7 +79,10 @@ export function newestSnapshotByPlayer(snapshotKeys: string[]): Map<string, numb
 export type SnapshotSuccessMarker = {
     completedAt: number;
     snapshotted: number;
+    /** Saves not copied this run: already copied within 20h, or `unchanged`. */
     skipped: number;
+    /** Of `skipped`: saves equal to their newest snapshot, whose TTL was renewed. Absent on markers written before 2026-10-12. */
+    unchanged?: number;
     total: number;
     elapsedMs: number;
 };
@@ -96,9 +103,9 @@ export async function readSnapshotSuccessMarker(): Promise<SnapshotSuccessMarker
     return await kv.get<SnapshotSuccessMarker>(SNAPSHOT_SUCCESS_KEY);
 }
 
-// Cron auth: a Bearer CRON_SECRET only. (The old `x-vercel-cron` header
-// shortcut was removed — Vercel is retired, and a merely-present request header
-// is trivially spoofable, so it amounted to unauthenticated trust.)
+// Cron auth: a Bearer CRON_SECRET only. Never trust a scheduler-identifying
+// request header instead — a merely-present header is trivially spoofable, so
+// it would amount to unauthenticated trust.
 function isCronAuthorized(req: VercelRequest): boolean {
     const auth = req.headers.authorization;
     const secret = process.env.CRON_SECRET;
@@ -113,9 +120,11 @@ function isCronAuthorized(req: VercelRequest): boolean {
  * a list of player names that failed so the response surfaces partial
  * outages to whoever's looking.
  */
-async function runBatches<T>(items: T[], worker: (item: T) => Promise<{ ok: boolean; skip?: boolean; validPlayer?: boolean; err?: string }>, deadline: number) {
+async function runBatches<T>(items: T[], worker: (item: T) => Promise<{ ok: boolean; skip?: boolean; unchanged?: boolean; renewed?: boolean; validPlayer?: boolean; err?: string }>, deadline: number) {
     let snapshotted = 0;
     let skipped = 0;
+    let unchanged = 0;
+    let renewed = 0;
     let validPlayers = 0;
     const failed: string[] = [];
     let cursor = 0;
@@ -134,7 +143,11 @@ async function runBatches<T>(items: T[], worker: (item: T) => Promise<{ ok: bool
         results.forEach((r, i) => {
             if (r.validPlayer) validPlayers += 1;
             if (r.ok) snapshotted += 1;
-            else if (r.skip) skipped += 1;
+            else if (r.skip) {
+                skipped += 1;
+                if ('unchanged' in r && r.unchanged) unchanged += 1;
+                if ('renewed' in r && r.renewed) renewed += 1;
+            }
             else failed.push(String((slice[i] as unknown as string)));
         });
         // Yield to the event loop between batches so this nightly pass doesn't
@@ -144,7 +157,7 @@ async function runBatches<T>(items: T[], worker: (item: T) => Promise<{ ok: bool
         if (cursor < items.length) await new Promise<void>((resolve) => setImmediate(resolve));
     }
 
-    return { snapshotted, skipped, validPlayers, failed, processed: cursor, total: items.length };
+    return { snapshotted, skipped, unchanged, renewed, validPlayers, failed, processed: cursor, total: items.length };
 }
 
 export type SnapshotRunResult = {
@@ -154,7 +167,10 @@ export type SnapshotRunResult = {
     /** True when every write failed and none succeeded (snapshot store down). */
     writeOutage: boolean;
     snapshotted: number;
+    /** Includes `unchanged`. */
     skipped: number;
+    /** Saves identical to their newest snapshot, whose TTL was renewed instead of copied. */
+    unchanged: number;
     validPlayers: number;
     failed: string[];
     processed: number;
@@ -201,12 +217,12 @@ export async function runSnapshotSaves(maxRuntimeMs: number = MAX_RUNTIME_MS): P
     // happen before this point, so the early return is side-effect free.
     if (saveKeys.length === 0) {
         console.error('[cron/snapshot-saves] ALARM: zero save:* rows found — storage misconfigured (check DATABASE_URL / SUPABASE_POSTGRES_URL point at the production database). Snapshotted 0 players.');
-        return { ok: false, emptyKeyspace: true, writeOutage: false, snapshotted: 0, skipped: 0, validPlayers: 0, failed: [], processed: 0, total: 0, elapsedMs: Date.now() - startedAt, truncated: false };
+        return { ok: false, emptyKeyspace: true, writeOutage: false, snapshotted: 0, skipped: 0, unchanged: 0, validPlayers: 0, failed: [], processed: 0, total: 0, elapsedMs: Date.now() - startedAt, truncated: false };
     }
     const playerSaveKeys = saveKeys.filter(isPlayerSnapshotSaveKey);
     if (playerSaveKeys.length === 0) {
         console.error('[cron/snapshot-saves] ALARM: save:* rows exist but none are player saves — refusing to refresh backup health from admin/clan data only.');
-        return { ok: false, emptyKeyspace: true, writeOutage: false, snapshotted: 0, skipped: 0, validPlayers: 0, failed: [], processed: 0, total: 0, elapsedMs: Date.now() - startedAt, truncated: false };
+        return { ok: false, emptyKeyspace: true, writeOutage: false, snapshotted: 0, skipped: 0, unchanged: 0, validPlayers: 0, failed: [], processed: 0, total: 0, elapsedMs: Date.now() - startedAt, truncated: false };
     }
 
     // Dedup source: ONE scan of all snapshot keys, bucketed to the newest ts per
@@ -240,6 +256,31 @@ export async function runSnapshotSaves(maxRuntimeMs: number = MAX_RUNTIME_MS): P
             return { ok: false, skip: true, validPlayer: true };
         }
 
+        // Renewed by this process within the window and still identical: a
+        // re-run (the recovery retry loop, a manual trigger) must not rewrite
+        // every unchanged snapshot again. The 20 h skip above keys on capture
+        // time, which renewal never moves, so it never fires for them. A READ
+        // costs no WAL; a changed save still falls through and is captured.
+        if (newest > 0 && Date.now() - (renewedAt.get(playerName) ?? 0) < SKIP_IF_RECENT_MS) {
+            const snapshot = await kv.get<Record<string, unknown>>(snapshotKey(playerName, newest));
+            if (snapshot && jsonValueEqual(snapshot, live)) {
+                return { ok: false, skip: true, unchanged: true, validPlayer: true };
+            }
+        }
+
+        // Unchanged since the newest snapshot: renew that copy's TTL instead of
+        // writing an identical one. A nightly copy of every save regardless of
+        // change measured 96% duplicates in production (11,709 rows, 461
+        // distinct, 1.17 GB of an 8 GB disk) and grew with ACCOUNTS, not play.
+        // The compareSet is one atomic statement that matches the complete JSON
+        // (key order insensitive) and rewrites it with a fresh 90-day expiry, so
+        // an idle player's last backup never ages out while their save exists.
+        // Lossless: any point in time restores to the same state as before.
+        if (newest > 0 && await kv.compareSet(snapshotKey(playerName, newest), live, live, { ex: SNAPSHOT_TTL_SECONDS })) {
+            renewedAt.set(playerName, Date.now());
+            return { ok: false, skip: true, unchanged: true, renewed: true, validPlayer: true };
+        }
+
         const ts = Date.now();
         await kv.set(snapshotKey(playerName, ts), live, { ex: SNAPSHOT_TTL_SECONDS });
         return { ok: true, validPlayer: true };
@@ -250,8 +291,11 @@ export async function runSnapshotSaves(maxRuntimeMs: number = MAX_RUNTIME_MS): P
     // Backup-health alarm: we had players to snapshot but wrote none and at
     // least one failed — i.e. the snapshot store is rejecting writes. (All-
     // skipped is normal: every player already has a recent snapshot, so we
-    // don't alarm on that.)
-    const writeOutage = result.snapshotted === 0 && result.failed.length > 0;
+    // don't alarm on that.) A renewal of an unchanged save IS a successful
+    // write, so a quiet night with one transient failure is not an outage. A
+    // read-only skip (renewed earlier this window, still identical) wrote
+    // nothing, so it proves nothing about the store and does not count.
+    const writeOutage = result.snapshotted + result.renewed === 0 && result.failed.length > 0;
     if (writeOutage) {
         console.error(`[cron/snapshot-saves] ALARM: ${result.failed.length} snapshot writes failed and 0 succeeded — snapshot store may be down. Sample: ${result.failed.slice(0, 5).join(', ')}`);
     }
@@ -264,6 +308,7 @@ export async function runSnapshotSaves(maxRuntimeMs: number = MAX_RUNTIME_MS): P
             completedAt,
             snapshotted: result.snapshotted,
             skipped: result.skipped,
+            unchanged: result.unchanged,
             total: result.validPlayers,
             elapsedMs: elapsed,
         };
@@ -313,6 +358,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ok: r.ok,
             snapshotted: r.snapshotted,
             skipped: r.skipped,
+            unchanged: r.unchanged,
             failed: r.failed,
             processed: r.processed,
             total: r.total,

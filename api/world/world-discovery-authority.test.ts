@@ -155,7 +155,12 @@ describe('durable World discovery handoff', () => {
         assert.deepEqual(await kv.keys(`pet-encounter-request:${player}:*`), [requestKey], 'recovery writes one original receipt');
     });
 
-    it('reports the daily pet limit without sealing another search and still recovers sealed results', async () => {
+    it('reports the daily pet limit without sealing another search and still recovers sealed results', async (t) => {
+        // The limit counts receipts stamped with the UTC day, and the handler
+        // reads its day from `new Date()`: receipts seeded just before midnight
+        // UTC would land on a day the handler no longer counts. Freeze Date
+        // (Date.now and new Date alike) for the whole check.
+        t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
         const player = 'discoverypetdailylimit';
         const mintedAt = Date.now();
         const day = new Date(mintedAt).toISOString().slice(0, 10);

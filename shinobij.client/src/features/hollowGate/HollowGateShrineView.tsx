@@ -22,6 +22,11 @@ import "../../styles/index/33-hollow-gate-cinematic.css";
 import "../../styles/index/29-clan-exchange-storefront.css";
 import type { CSSProperties } from "react";
 import { HollowGateAvatar } from "./HollowGateAvatar";
+import { HollowGateEventDialog } from './HollowGateEventDialog';
+import { hollowGateWandererArt, hollowGateWandererFriendly, hollowGateWandererName, hollowGateWandererOrigin } from '../../../../shared/hollow-gate-wanderers';
+import { UndergroundSectorTerrain } from '../../components/UndergroundSectorTerrain';
+import { undergroundFeatureBlocks } from '../../../../shared/underground-floor-collision';
+import { undergroundCamera, undergroundRenderWindow, undergroundRooms, undergroundTileSize } from '../../lib/underground-sector-camera';
 import { HollowGateBossCinematic } from "./HollowGateBossCinematic";
 import { HollowGateShardBar } from "../../components/HollowGateShardBar";
 import { GameArtIcon, type GameArtIconKind } from "../../components/GameArtIcon";
@@ -36,8 +41,8 @@ import {
     hollowGateFloorProfile,
 } from "../../lib/hollow-gate-presentation";
 import type { HollowGateEventModal } from "../../lib/hollow-gate-tile";
-import { WING_TINT, wingThemeAt } from "../../lib/hollow-gate-wings";
 import { isPetOnExpedition } from "../../lib/pet";
+import { formatCompact, formatExact } from '../../lib/format-number';
 import {
     playGameSfx,
     primeGameAudio,
@@ -51,6 +56,10 @@ const HOLLOW_GATE_TILE_ART: Partial<Record<HollowGateTileKind, GameArtIconKind>>
     pet_event: "petTamer", pet_battle: "petTamer", tile_game: "dice", shard_vein: "fateShard",
     shrine: "gate", story: "scroll", boss: "attack", exit: "worldMap", locked: "key",
     npc: "healer", descend: "worldMap",
+};
+const HOLLOW_GATE_WORLD_PROP: Partial<Record<HollowGateTileKind, string>> = {
+    chest: 'fortress-supplies', shard_vein: 'cavern-crystals', shrine: 'cavern-offering',
+    locked: 'cavern-arch', descend: 'cavern-arch', exit: 'cavern-arch', story: 'cavern-broken-pillar',
 };
 
 type HiddenChamberState = { searched: boolean; relicTaken: boolean } | null;
@@ -129,6 +138,7 @@ export function HollowGateShrineView({
     onCloseHiddenChamber,
 }: HollowGateShrineViewProps) {
     const run = hollowGateRun;
+    const chamberBounds = useMemo(() => undergroundRooms(run.tiles, run.width), [run.tiles, run.width]);
     const visibleSet = useMemo(() => run.diviner
         ? new Set(run.tiles.map((_, i) => i))
         : computeHollowGateVisible(run),
@@ -156,6 +166,8 @@ export function HollowGateShrineView({
     const maxFloor = hollowGateRunMaxFloor(run);
     const introPages = hollowGateIntroPagesFor(run.variant);
     const floorProfile = hollowGateFloorProfile(run.floor);
+    const lootAtRisk = hollowGateClawBackPreview(character, run);
+    const ryoAtRisk = lootAtRisk.ryo ?? 0, shardsAtRisk = lootAtRisk.hollowShards ?? 0;
     const bossName = hollowGateBossDisplayName(run);
     const isFinalFloor = run.floor >= maxFloor;
     const isHoundBoss = bossName.toLowerCase().includes("hound");
@@ -201,15 +213,15 @@ export function HollowGateShrineView({
 
     // Derived from the measured viewport rather than window.innerWidth at module
     // load, so rotation, split-screen, and browser zoom update the camera.
-    const tilePx = vp.w > 0 && vp.w <= 480 ? 40 : 48;
+    const tilePx = undergroundTileSize({ width: vp.w, height: vp.h }, chamberBounds);
     const boardW = run.width * tilePx;
     const boardH = run.height * tilePx;
-    const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
-    const camX = vp.w >= boardW ? (vp.w - boardW) / 2 : clamp(vp.w / 2 - (run.playerX + 0.5) * tilePx, vp.w - boardW, 0);
-    const camY = vp.h >= boardH ? (vp.h - boardH) / 2 : clamp(vp.h / 2 - (run.playerY + 0.5) * tilePx, vp.h - boardH, 0);
+    const playerRoom = run.tiles[run.playerY * run.width + run.playerX]?.roomId;
+    const camera = undergroundCamera({ view: { width: vp.w, height: vp.h }, width: run.width, height: run.height,
+        tileSize: tilePx, playerX: run.playerX, playerY: run.playerY, room: playerRoom == null ? undefined : chamberBounds.get(playerRoom) });
 
     return (
-                        <div className="card hollow-gate-shrine" data-hg-floor={floorProfile.floor} style={floorStyle}>
+                        <div className="card hollow-gate-shrine underground-world underground-world--cave" data-hg-floor={floorProfile.floor} data-hg-loot-at-risk={Boolean(ryoAtRisk || shardsAtRisk)} style={floorStyle}>
                             {showBossIntro && (
                                 <HollowGateBossCinematic
                                     mode="entrance"
@@ -229,8 +241,7 @@ export function HollowGateShrineView({
                                 const introImage = sharedImages[page.imageKey];
                                 const isLast = hollowGateIntroPage >= introPages.length - 1;
                                 return (
-                                    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.86)", overflowY: "auto", display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 1100, padding: "16px 12px max(16px, env(safe-area-inset-bottom, 16px))" }}>
-                                        <div role="dialog" aria-modal="true" aria-labelledby="hg-intro-title" style={{ background: "linear-gradient(180deg, rgba(15,9,28,0.97), rgba(8,4,18,0.99))", border: "2px solid rgba(168,85,247,0.6)", borderRadius: 12, padding: 24, maxWidth: 640, width: "92%", color: "#e9d5ff", boxShadow: "0 0 70px rgba(168,85,247,0.4)" }}>
+                                    <HollowGateEventDialog titleId="hg-intro-title" busy={exitPending} style={{ width: "min(640px, calc(100vw - 24px))" }}>
                                             <p className="act-label" style={{ color: "#a855f7", letterSpacing: 2 }}>HOLLOW GATE — INTRODUCTION</p>
                                             <h2 id="hg-intro-title" style={{ margin: "0 0 12px", color: "#faf5ff" }}>{page.title}</h2>
                                             {introImage && (
@@ -259,20 +270,19 @@ export function HollowGateShrineView({
                                                     </button>
                                                 </div>
                                             </div>
-                                        </div>
-                                    </div>
+                                    </HollowGateEventDialog>
                                 );
                             })()}
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
+                            <div className="hg-cave-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
                                 <div>
                                     <p className="act-label" style={{ color: "#a855f7", letterSpacing: 2 }}>
-                                        ⛩ {run.variant?.label ? run.variant.label.toUpperCase() : "HOLLOW GATE SHRINE"}
+                                        {run.variant?.label ? run.variant.label.toUpperCase() : "HOLLOW GATE · ANCIENT CAVERN"}
                                         {run.variant && <span style={{ marginLeft: 8, fontSize: 10, color: "#fbbf24", border: "1px solid #b45309", borderRadius: 999, padding: "1px 8px", letterSpacing: 1 }}>EVENT</span>}
                                     </p>
                                     <h2 style={{ margin: 0, color: "#faf5ff" }}>Floor {run.floor} / {maxFloor} · {run.completed ? `${bossName} Defeated` : floorProfile.name}</h2>
                                 </div>
-                                <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-                                    <div style={{ minWidth: 200 }}>
+                                <div className="hg-cave-vitals" style={{ display: "flex", gap: 16, alignItems: "center" }}>
+                                    <div className="hg-cave-threat" style={{ minWidth: 200 }}>
                                         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, alignItems: "center" }}>
                                             <span>Threat{run.threat >= 80 && (
                                                 <span style={{
@@ -303,15 +313,26 @@ export function HollowGateShrineView({
                                         </div>
                                         <style>{`@keyframes hgPulse { 0%,100%{opacity:1} 50%{opacity:0.35} }`}</style>
                                     </div>
-                                    <div style={{ fontSize: 13 }}>
-                                        <span title="Shrine Keys"><GameArtIcon kind="key" size={15} /> {run.keys}</span>
-                                        <span style={{ marginLeft: 12 }} title="Torch of Reiki"><GameArtIcon kind="elementFire" size={15} /> {run.torch}/10</span>
-                                        <span style={{ marginLeft: 12 }} title="Banked Hollow Shards"><GameArtIcon kind="fateShard" size={15} /> {character.hollowShards ?? 0}</span>
-                                        {(() => { const ar = hollowGateClawBackPreview(character, run); const rr = ar.ryo ?? 0; const rs = ar.hollowShards ?? 0; return (rr || rs) ? <span style={{ marginLeft: 12, color: "#fda4af" }} title="Lost if you die now — Sanctify Loot to protect it"><GameArtIcon kind="warning" size={15} /> {[rr ? `${rr} ryo` : "", rs ? `${rs} Hollow Shards` : ""].filter(Boolean).join(" · ")} at risk</span> : null; })()}
+                                    <div className="hg-resource-belt" style={{ fontSize: 13 }}>
+                                        <span className="hg-resource" role="group" aria-label={`Shrine Keys: ${formatExact(run.keys)}`} title={`Shrine Keys: ${formatExact(run.keys)}`}><GameArtIcon kind="key" size={22} /><b>{formatCompact(run.keys)}</b><small>Keys</small></span>
+                                        <span className="hg-resource" title="Torch of Reiki"><GameArtIcon kind="elementFire" size={22} /><b>{run.torch}/10</b><small>Torch</small></span>
+                                        <span className="hg-resource" role="group" aria-label={`Banked Hollow Shards: ${formatExact(character.hollowShards)}`} title={`Banked Hollow Shards: ${formatExact(character.hollowShards)}`}><GameArtIcon kind="fateShard" size={22} /><b>{formatCompact(character.hollowShards)}</b><small>Shards</small></span>
+                                        {(ryoAtRisk > 0 || shardsAtRisk > 0) && <span className="hg-resource-risk"
+                                            title={`Lost if you die now: ${[ryoAtRisk ? `${formatExact(ryoAtRisk)} ryo` : '', shardsAtRisk ? `${formatExact(shardsAtRisk)} Hollow Shards` : ''].filter(Boolean).join(' · ')}. Sanctify Loot to protect it.`}>
+                                            <GameArtIcon kind="warning" size={15} /> {[ryoAtRisk ? `${formatCompact(ryoAtRisk)} ryo` : '', shardsAtRisk ? `${formatCompact(shardsAtRisk)} Hollow Shards` : ''].filter(Boolean).join(' · ')} at risk
+                                        </span>}
                                     </div>
                                 </div>
                             </div>
 
+                            <ol className="underground-depths" aria-label="Hollow Gate depths">
+                                {Array.from({ length: maxFloor }, (_, i) => <li key={i} aria-current={run.floor === i + 1 ? 'step' : undefined}
+                                    data-depth-state={i + 1 < run.floor ? 'traversed' : i + 1 === run.floor ? 'current' : 'ahead'}>
+                                    <span className="underground-depths__number" aria-hidden="true">{i + 1}</span>
+                                    <span className="underground-depths__name"><small>{i + 1 < run.floor ? 'Traversed' : i + 1 === run.floor ? 'Current depth' : `Depth ${i + 1}`}</small>{hollowGateFloorProfile(i + 1).name}</span>
+                                </li>)}
+                            </ol>
+                            <details className="hg-floor-notes"><summary><span className="hg-floor-notes__epithet">{floorProfile.epithet} · </span>Cave lore &amp; hound intel</summary>
                             <section className="hg-floor-identity" aria-label={`Floor ${run.floor}: ${floorProfile.name}`}>
                                 <div className="hg-floor-identity__seal" aria-hidden="true">{run.floor}</div>
                                 <div className="hg-floor-identity__story">
@@ -324,7 +345,7 @@ export function HollowGateShrineView({
                                     <strong>{floorProfile.signature}</strong>
                                     <small>{floorProfile.houndEpithet}</small>
                                 </div>
-                            </section>
+                            </section></details>
 
                             <div className="hg-layout">
                                 {/* Dungeon board: seamless tiles inside the camera viewport.
@@ -340,7 +361,6 @@ export function HollowGateShrineView({
                                     run.tiles.forEach((t, i) => { if (t.revealed || t.seen) knownSet.add(i); });
                                     // Pull all admin-generated terrain textures once per render. Each is
                                     // optional — the renderer falls through to the CSS dungeon look if missing.
-                                    const doorTexture = sharedImages["shrine:tile-door"];
                                     // Variant texture banks: per-terrain arrays. The atlas slicer fills
                                     // `shrine:tile-X-0..N` entries; this fallback gathers them. If only
                                     // the base (no -0 suffix) exists, we use that single tile everywhere.
@@ -364,53 +384,6 @@ export function HollowGateShrineView({
                                     const wallFaceVariants = gatherVariants("shrine:tile-wall-face", 4);
                                     const roomFloorVariants = gatherVariants("shrine:tile-room-floor", 4);
                                     const corridorFloorVariants = gatherVariants("shrine:tile-corridor-floor", 4);
-                                    // Decoration sprites — sprinkled on top of room floors by the generator.
-                                    // Legacy 4 atlas decos (shrine:deco-0..3) — kept for back-compat with old
-                                    // saved runs that stored a 0-3 decoration index on tiles. New runs use
-                                    // the combined pool below.
-                                    const legacyDecorations = [
-                                        sharedImages["shrine:deco-0"],
-                                        sharedImages["shrine:deco-1"],
-                                        sharedImages["shrine:deco-2"],
-                                        sharedImages["shrine:deco-3"],
-                                    ];
-                                    // User-picker decorations (shrine:icon-deco-1..8) — always available.
-                                    const userDecorations: string[] = [];
-                                    for (let i = 1; i <= 8; i += 1) {
-                                        const v = sharedImages[HOLLOW_GATE_ICON_KEY(`deco-${i}`)];
-                                        if (v) userDecorations.push(v);
-                                    }
-                                    // Per-theme decorations — preferred when the tile sits in a themed room.
-                                    function themedDecorations(theme: string | undefined): string[] {
-                                        if (!theme) return [];
-                                        const out: string[] = [];
-                                        for (const role of ["deco-1", "deco-2"]) {
-                                            const v = sharedImages[`shrine:icon-theme-${theme}-${role}`];
-                                            if (v) out.push(v);
-                                        }
-                                        return out;
-                                    }
-                                    // Build one decoration pool per room theme: themed first (so themed
-                                    // rooms feel cohesive), then user picks, then atlas defaults. Returns
-                                    // the chosen image url or undefined if no decoration art exists at all.
-                                    const decorationPools = new Map<string, string[]>();
-                                    function pickDecorationFor(idx: number, theme: string | undefined, hintIndex: number): string | undefined {
-                                        const poolKey = theme ?? "";
-                                        let pool = decorationPools.get(poolKey);
-                                        if (!pool) {
-                                            pool = [
-                                                ...themedDecorations(theme),
-                                                ...userDecorations,
-                                                ...legacyDecorations.filter((x): x is string => Boolean(x)),
-                                            ];
-                                            decorationPools.set(poolKey, pool);
-                                        }
-                                        if (pool.length === 0) return undefined;
-                                        // Mix the tile index with the legacy hint so old runs (which stamped
-                                        // a 0-3 decoration index per tile) still get stable picks; new runs just pass 0.
-                                        const seed = ((idx * 2654435761) ^ (hintIndex * 16777619)) >>> 0;
-                                        return pool[seed % pool.length];
-                                    }
                                     // Deterministic cell-index hash so a given cell always picks the same
                                     // variant (no flicker between renders). Standard 32-bit mixing constant.
                                     function variantPick(idx: number, count: number): number {
@@ -440,7 +413,6 @@ export function HollowGateShrineView({
                                             return themedTileFor("wall", theme) ?? wallVariants[variantPick(idx, wallVariants.length)];
                                         }
                                         if (terrainKind === "corridor_floor") return themedTileFor("corridor", theme) ?? corridorFloorVariants[variantPick(idx, corridorFloorVariants.length)];
-                                        if (terrainKind === "door") return themedTileFor("door", theme) ?? doorTexture;
                                         return themedTileFor("floor", theme) ?? roomFloorVariants[variantPick(idx, roomFloorVariants.length)];
                                     }
                                     // True when a dedicated face texture exists for this theme —
@@ -503,8 +475,11 @@ export function HollowGateShrineView({
                                     };
                                     return (
                                  <div className="hg-viewport" ref={viewportRef} style={{ ["--hg-bh" as string]: `${boardH}px` }} aria-label={`Hollow Gate floor ${run.floor} map`}>
+                                     <div className="hg-cave-location"><b>{floorProfile.name}</b><span>{run.variant ? run.variant.label || 'Event Rift' : 'Hollow Gate'} · Depth {run.floor} / {maxFloor}</span></div>
                                      <div
+                                         key={`${run.runToken ?? 'local'}:${run.floor}`}
                                          className="hg-board"
+                                         data-tile-size={tilePx}
                                          role="grid"
                                          aria-label={`Floor ${run.floor} dungeon grid`}
                                          aria-rowcount={h}
@@ -514,19 +489,23 @@ export function HollowGateShrineView({
                                              height: boardH,
                                              gridTemplateColumns: `repeat(${w}, ${tilePx}px)`,
                                              gridAutoRows: `${tilePx}px`,
-                                             transform: `translate3d(${Math.round(camX)}px, ${Math.round(camY)}px, 0)`,
+                                             transform: `translate3d(${Math.round(camera.x)}px, ${Math.round(camera.y)}px, 0)`,
                                              ["--hg-tile" as string]: `${tilePx}px`,
                                         }}
                                     >
+                                    <UndergroundSectorTerrain tiles={run.tiles} width={w} height={h} known={knownSet} visible={visibleSet} mode="cave" features={run.floorFeatures}
+                                        renderWindow={undergroundRenderWindow({ view: { width: vp.w, height: vp.h }, width: w, height: h, tileSize: tilePx, camera })} />
                                     {run.tiles.map((tile, i) => {
                                         const x = i % w;
                                         const y = Math.floor(i / w);
                                         const isPlayer = x === run.playerX && y === run.playerY;
                                         const isDetourChest = run.detourTileIndex === i;
                                         const isRiftSignal = run.riftSignalTileIndex === i;
+                                        const roamerOrigin = hollowGateWandererOrigin(run.wanderers, i);
                                         const revealed = tile.revealed;
                                         const visible = visibleSet.has(i);
                                         const known = knownSet.has(i);
+                                        if (!visible && !known) return null;
                                         const wall = isWallAt(x, y);
                                         const terrainKind: HollowGateTerrain =
                                             tile.terrain ?? (tile.kind === "wall" ? "wall" : "room_floor");
@@ -558,31 +537,6 @@ export function HollowGateShrineView({
                                             || tile.kind === "elite"
                                             || tile.kind === "pet_event"
                                             || tile.kind === "pet_battle";
-                                        const hideContent = isSurpriseKind && !revealed;
-                                        if (visible && !hideContent) {
-                                            const contentTint =
-                                                tile.kind === "boss" ? "rgba(185,28,28,0.42)"
-                                                : tile.kind === "trap" ? "rgba(239,68,68,0.20)"
-                                                : tile.kind === "chest" ? "rgba(234,179,8,0.16)"
-                                                : tile.kind === "shrine" ? "rgba(168,85,247,0.22)"
-                                                : tile.kind === "exit" ? "rgba(34,197,94,0.20)"
-                                                : tile.kind === "locked" ? "rgba(148,163,184,0.20)"
-                                                : tile.kind === "npc" ? "rgba(56,189,248,0.16)"
-                                                : tile.kind === "descend" ? "rgba(192,132,252,0.24)"
-                                                : tile.kind === "elite" ? "rgba(220,38,38,0.20)"
-                                                : tile.kind === "shard_vein" ? "rgba(167,139,250,0.20)"
-                                                : null;
-                                            if (contentTint) layers.push(`linear-gradient(${contentTint}, ${contentTint})`);
-                                        }
-                                        if (visible && !wall) {
-                                            // Wing color-coding: tint floors/doors by their wing.
-                                            const wTheme = wingThemeAt(run, i);
-                                            if (wTheme && WING_TINT[wTheme]) layers.push(`linear-gradient(${WING_TINT[wTheme]}, ${WING_TINT[wTheme]})`);
-                                        }
-                                        if ((visible || known) && tile.decoration != null && !wall) {
-                                            const decoImg = pickDecorationFor(i, cellTheme, tile.decoration);
-                                            if (decoImg) layers.push(`url(${decoImg}) center/72% no-repeat`);
-                                        }
                                         if (texture) {
                                             // Supertile sampling: floors/corridors draw the texture
                                             // across a 2×2 block of cells (world-anchored quadrant per
@@ -609,12 +563,13 @@ export function HollowGateShrineView({
                                             if (k === "empty" || k === "wall") return null;
                                             return k;
                                         }
-                                        const showIcon = !wall && (visible || known) && !(isSurpriseKind && !revealed) && tile.kind !== "empty";
+                                        const showIcon = tile.kind !== 'npc' && !roamerOrigin && !wall && (visible || known) && !(isSurpriseKind && !revealed) && tile.kind !== "empty";
                                         const iconSlotId = showIcon ? iconSlotIdFor(tile.kind) : null;
                                         const iconImage = iconSlotId ? pickRoleIconImage(iconSlotId, i) : undefined;
+                                        const worldProp = showIcon ? HOLLOW_GATE_WORLD_PROP[tile.kind] : undefined;
                                         const iconArtKind = tile.terrain === "door" ? "gate" : HOLLOW_GATE_TILE_ART[tile.kind] ?? "warning";
 
-                                        const clickable = known && !wall && !isPlayer;
+                                        const clickable = known && !wall && !isPlayer && !undergroundFeatureBlocks(run.floorFeatures, i);
                                         const isDest = walkTarget === i;
                                         const tileLabel = isPlayer
                                             ? `${character.name}, current location, row ${y + 1}, column ${x + 1}`
@@ -642,7 +597,7 @@ export function HollowGateShrineView({
                                                  aria-current={isPlayer ? "location" : undefined}
                                                  tabIndex={clickable ? 0 : -1}
                                                  className={`hg-cell ${shapeCls} ${fogCls}${texture ? "" : checkCls}${texturedFace ? " hg-tex" : ""}${clickable ? " hg-clickable" : ""}${isDest ? " hg-dest" : ""}${isDetourChest ? " hg-detour-cache" : ""}${isRiftSignal ? " hg-rift-signal" : ""}`}
-                                                 style={styleBg ? { background: styleBg } : undefined}
+                                                 style={{ gridColumn: x + 1, gridRow: y + 1, ...(styleBg ? { background: styleBg } : {}) }}
                                                  onClick={clickable ? () => onTileClick(i) : undefined}
                                                  onKeyDown={clickable ? (event) => {
                                                      if (event.key !== "Enter" && event.key !== " ") return;
@@ -653,6 +608,7 @@ export function HollowGateShrineView({
                                                  {sconce && <span className="hg-flame" aria-hidden="true" />}
                                                  {isDetourChest && <span className="hg-detour-mark" aria-hidden="true">✦</span>}
                                                  {isRiftSignal && <span className="hg-rift-mark" aria-hidden="true">◈</span>}
+                                                 {known && (tile.kind === 'descend' || tile.kind === 'exit' || tile.kind === 'boss') && <span className="hg-cave-waypoint" aria-hidden="true">{tile.kind === 'descend' ? '↓ Deeper' : tile.kind === 'exit' ? '↑ Exit' : tile.resolved ? 'Cleared' : 'Boss'}</span>}
                                                  {iconImage ? (
                                                      <img
                                                          src={iconImage}
@@ -660,9 +616,20 @@ export function HollowGateShrineView({
                                                          aria-hidden="true"
                                                          className="hg-icon-img"
                                                      />
-                                                 ) : showIcon ? <span className="hg-icon" aria-hidden="true"><GameArtIcon kind={iconArtKind} size={22} /></span> : null}
+                                                 ) : worldProp ? <img className="hg-world-prop" src={`/underground/${worldProp}-v1.webp`} alt="" aria-hidden="true" />
+                                                 : showIcon ? <span className="hg-icon" aria-hidden="true"><GameArtIcon kind={iconArtKind} size={22} /></span> : null}
                                             </div>
                                         );
+                                    })}
+                                    {run.tiles.map((tile, index) => tile.kind === 'npc' && !tile.resolved && visibleSet.has(index)
+                                        ? <HollowGateAvatar key={`keeper-${index}`} tileX={index % w} tileY={Math.floor(index / w)} tilePx={tilePx}
+                                            avatarImage="/underground/wanderer-medic-v1.webp" name="Shrine Keeper" disposition="friendly"
+                                            label="Friendly · One blessing" onSelect={() => onTileClick(index)} /> : null)}
+                                    {run.wanderers?.filter(npc => !npc.spent && visibleSet.has(npc.tile)).map(npc => {
+                                        const friendly = hollowGateWandererFriendly(npc), name = hollowGateWandererName(npc);
+                                        return <HollowGateAvatar key={npc.nodeId} tileX={npc.tile % w} tileY={Math.floor(npc.tile / w)} tilePx={tilePx}
+                                            avatarImage={hollowGateWandererArt(npc)} name={name} disposition={friendly ? 'friendly' : 'hostile'}
+                                            label={friendly ? 'Friendly · Talk' : npc.hunting ? 'Hostile · Hunting you' : 'Hostile patrol'} onSelect={() => onTileClick(npc.tile)} />;
                                     })}
                                     <HollowGateAvatar
                                         tileX={run.playerX}
@@ -677,7 +644,7 @@ export function HollowGateShrineView({
                                 })()}
 
                                 {/* Side panel */}
-                                <div className="hg-sidepanel" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                                <details className="hg-sidepanel"><summary>Floor map &amp; expedition journal</summary><div className="hg-expedition-journal">
                                     {/* Minimap — the explored floor at a glance (the camera stays
                                         close, the minimap keeps the run orientable). */}
                                     {(() => {
@@ -807,7 +774,7 @@ export function HollowGateShrineView({
                                             </>
                                         ) : <div className="hint">No active pet selected.</div>}
                                     </div>
-                                </div>
+                                </div></details>
                             </div>
 
                             {/* Movement and always-available recovery controls. */}
@@ -836,6 +803,7 @@ export function HollowGateShrineView({
                                 </button>
                             </div>
 
+                            <details className="hg-run-tools"><summary>Hollow Shard relics &amp; event log</summary>
                             <HollowGateShardBar run={run} character={character} setRun={setHollowGateRun} onVersionedCharacter={onVersionedCharacter} pushLog={pushHollowGateLog} />
 
                             {/* Event log */}
@@ -846,6 +814,7 @@ export function HollowGateShrineView({
                                 ))}
                             </div>
 
+                            </details>
                             {/* Event modal overlay — shows a generated tile image header
                                 when the relevant 'shrine:tile-*' key has art. */}
                             {hollowGateEvent && (() => {
@@ -860,7 +829,7 @@ export function HollowGateShrineView({
                                     : hollowGateEvent.kind === "story" ? "shrine:tile-story"
                                     : hollowGateEvent.kind === "battle" || hollowGateEvent.kind === "elite" || hollowGateEvent.kind === "boss" ? "shrine:tile-hollow-beast"
                                     : null;
-                                const tileImage = tileImageKey ? sharedImages[tileImageKey] : null;
+                                const tileImage = hollowGateEvent.image || (tileImageKey ? sharedImages[tileImageKey] : null);
                                 if (hollowGateEvent.presentation === "boss-victory") {
                                     return (
                                         <HollowGateBossCinematic
@@ -877,30 +846,31 @@ export function HollowGateShrineView({
                                     );
                                 }
                                 return (
-                                    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", overflowY: "auto", display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 1000, padding: "16px 12px max(16px, env(safe-area-inset-bottom, 16px))" }} onClick={() => {}}>
-                                        <div role="dialog" aria-modal="true" aria-labelledby="hg-event-title" style={{ background: "linear-gradient(180deg, rgba(15,9,28,0.97), rgba(8,4,18,0.99))", border: "2px solid rgba(168,85,247,0.5)", borderRadius: 12, padding: 24, maxWidth: 520, width: "90%", color: "#e9d5ff" }}>
+                                    <HollowGateEventDialog titleId="hg-event-title" busy={hollowGateEvent.pending || exitPending} onDismiss={hollowGateEvent.onDismiss}>
                                             {tileImage && (
-                                                <img src={tileImage} alt={hollowGateEvent.title} style={{ width: "100%", height: 180, objectFit: "cover", borderRadius: 8, marginBottom: 12 }} />
+                                                <img src={tileImage} alt={hollowGateEvent.title} style={{ width: "100%", height: 180, objectFit: hollowGateEvent.image ? "contain" : "cover", borderRadius: 8, marginBottom: 12 }} />
                                             )}
                                             <h3 id="hg-event-title" style={{ margin: "0 0 12px", color: "#faf5ff" }}>{hollowGateEvent.title}</h3>
                                             <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{hollowGateEvent.body}</p>
+                                            {hollowGateEvent.error && <p role="alert" className="hg-event-error">{hollowGateEvent.error}</p>}
+                                            {hollowGateEvent.pending && <p role="status" className="hg-event-pending">Receiving gift…</p>}
                                             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 16 }}>
                                                 {hollowGateEvent.choices.map((c, i) => (
-                                                    <button key={i} autoFocus={i === 0} className={c.tone === "danger" ? "danger-button" : ""} onClick={c.onSelect}>{c.label}</button>
+                                                    <button key={i} autoFocus={i === 0} disabled={hollowGateEvent.pending || exitPending} className={c.tone === "danger" ? "danger-button" : ""} onClick={c.onSelect}>{c.label}</button>
                                                 ))}
                                             </div>
                                             <div style={{ marginTop: 18, paddingTop: 12, borderTop: "1px solid rgba(248,113,113,0.25)" }}>
                                                 <button
                                                     className="danger-button"
                                                     type="button"
+                                                    disabled={exitPending}
                                                     onClick={onEmergencyForfeit}
                                                     title="Ends the run as a defeat if this encounter cannot continue."
                                                 >
                                                     {exitPending ? "Settling Run..." : "Emergency Forfeit Run"}
                                                 </button>
                                             </div>
-                                        </div>
-                                    </div>
+                                    </HollowGateEventDialog>
                                 );
                             })()}
 
@@ -911,8 +881,7 @@ export function HollowGateShrineView({
                                     ? `linear-gradient(180deg, rgba(30,15,50,0.82), rgba(15,5,30,0.92)), url(${chamberBg}) center/cover no-repeat`
                                     : "linear-gradient(180deg, rgba(30,15,50,0.97), rgba(15,5,30,0.99))";
                                 return (
-                                <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.78)", overflowY: "auto", display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 1001, padding: "16px 12px max(16px, env(safe-area-inset-bottom, 16px))" }}>
-                                    <div role="dialog" aria-modal="true" aria-labelledby="hg-hidden-title" style={{ background: chamberStyle, border: "2px solid rgba(168,85,247,0.6)", borderRadius: 12, padding: 28, maxWidth: 620, width: "92%", color: "#e9d5ff", boxShadow: "0 0 50px rgba(168,85,247,0.35)" }}>
+                                <HollowGateEventDialog titleId="hg-hidden-title" busy={exitPending} onDismiss={onCloseHiddenChamber} style={{ background: chamberStyle, width: "min(620px, calc(100vw - 24px))" }}>
                                         <p className="act-label" style={{ color: "#a855f7", letterSpacing: 2 }}>HIDDEN CHAMBER</p>
                                         <h2 id="hg-hidden-title" style={{ margin: "0 0 12px", color: "#faf5ff" }}>Secret Area Discovered</h2>
                                         <p style={{ lineHeight: 1.6 }}>A ritual circle pulses violet at the chamber's center. Spirit lanterns hover above a cracked altar. An ancient tablet hums with sealed chakra, and a shrine relic floats untouched within the seal.</p>
@@ -929,8 +898,7 @@ export function HollowGateShrineView({
                                                 {exitPending ? "Settling Run..." : "Emergency Forfeit Run"}
                                             </button>
                                         </div>
-                                    </div>
-                                </div>
+                                </HollowGateEventDialog>
                                 );
                             })()}
                         </div>

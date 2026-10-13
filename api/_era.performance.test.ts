@@ -10,7 +10,10 @@ test('era contribution reads use one live batch with identical raw, receipted, a
     await kv.set('era:contrib:missions', 10);
     await kv.set('era:contrib:discoveries', -2);
     await kv.set('era:contrib:legaciesAwakened', 4);
+    // The retired one-row receipt hash still counts, alongside the counter shards.
     await kv.set('era:contrib-receipts:legaciesAwakened', { a: 2, b: 3, invalid: -1 });
+    await kv.set('era:contrib-sum:legaciesAwakened:3', 6);
+    await kv.set('era:contrib-sum:warBattles:15', 4);
     await kv.set('era:contrib-idempotent:missions', {
         version: 1, compactedTotal: 7,
         pending: [{ version: 1, receiptId: 'mission-one', amount: 5, appliedAt: 100 }],
@@ -21,11 +24,14 @@ test('era contribution reads use one live batch with identical raw, receipted, a
     const batch = t.mock.method(kv, 'mget', (...keys: string[]) => original(...keys));
     const result = await readEraContributions();
     assert.equal(result.missions, 22);
-    assert.equal(result.legaciesAwakened, 9);
+    assert.equal(result.legaciesAwakened, 15);
+    assert.equal(result.warBattles, 4);
     assert.equal(result.discoveries, 0);
     assert.equal(result.pvpWins, 0);
     assert.equal(batch.mock.callCount(), 1);
-    assert.equal(batch.mock.calls[0].arguments.length, 17);
+    // 7 metrics × (counter + idempotent ledger) + 3 receipt-backed metrics ×
+    // (retired receipt hash + 16 counter shards).
+    assert.equal(batch.mock.calls[0].arguments.length, 65);
     assert.equal(get.mock.callCount(), 0);
     await kv.set('era:contrib:missions', 20);
     assert.equal((await readEraContributions()).missions, 32, 'a new authoritative contribution is visible immediately');

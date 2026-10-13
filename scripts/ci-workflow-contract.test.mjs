@@ -170,6 +170,34 @@ test('artifact consumers verify immutable provenance and failure evidence stays 
     assert.ok(!workflow.includes('shinobij.client/.playwright-mcp/aaa-adaptive/'));
 });
 
+test('the storage adapter meets a real Postgres, fails closed, and gates the compatibility aggregate', () => {
+    // kv.compareSetMany carries every currency-moving save write, and its unit
+    // tests drive only a JS shim of pg.Pool. This job is the one place the
+    // adapter meets real jsonb equality, ON CONFLICT, FOR SHARE and rollback.
+    assert.equal(occurrences('name: CI / pg-integration\n'), 1, 'CI / pg-integration must remain a unique stable check context');
+    const job = workflow.split('\n  pg_integration:\n')[1]?.split(/\n  [a-z_]+:\n/)[0];
+    assert.ok(job, 'the pg_integration job must exist');
+    assert.match(job, /services:\n\s+postgres:\n\s+image: postgres:16\n/);
+    assert.match(job, /--health-cmd "pg_isready /, 'no step may start before Postgres accepts connections');
+    assert.match(job, /node-version-file: \.nvmrc/);
+    const step = job.split('      - name: ').find((value) => value.includes('run: node --import tsx --test api/_storage-compare-set-many.pg-integration.test.ts'));
+    assert.ok(step, 'the job must run the Postgres integration suite');
+    assert.match(step, /PG_INTEGRATION_DATABASE_URL: postgresql:\/\/\S+@127\.0\.0\.1:5432\//);
+    assert.match(step, /PG_INTEGRATION_REQUIRED: '1'/, 'a missing URL must fail the job instead of skipping every test');
+    assert.match(step, /2>&1 \| tee \.ci-evidence\/pg-integration\//);
+    assert.doesNotMatch(step, /continue-on-error/);
+    assert.match(job, /name: Retain pg integration evidence\n\s+if: always\(\)/);
+    const suite = readFileSync(new URL('../api/_storage-compare-set-many.pg-integration.test.ts', import.meta.url), 'utf8');
+    for (const name of ['PG_INTEGRATION_DATABASE_URL', 'PG_INTEGRATION_REQUIRED']) {
+        assert.ok(suite.includes(`process.env.${name}`), `the suite must read ${name}, the variable this job sets`);
+    }
+    // Required through the aggregate branch protection already lists, so it
+    // gates merges without a protection change that could strand PRs at "Expected".
+    const aggregate = workflow.split('\n  test_build:\n')[1];
+    assert.match(aggregate, /needs:\n(?:\s+- \w+\n)*?\s+- pg_integration\n/, 'CI / test-build must wait for it');
+    assert.ok(aggregate.includes('test "$PG_INTEGRATION" = success'), 'and must fail unless it succeeded');
+});
+
 test('live Express CI includes persistence and route integration regressions', () => {
     const command = workflow.match(/run: (npm run test:e2e:live[^\n]+)/)?.[1];
     assert.ok(command, 'live Express CI command must exist');
@@ -201,6 +229,9 @@ test('required live Express CI runs the two-client sector presence journey on a 
     assert.ok(step, 'the required live Express job must execute the two-client presence journey');
     const command = step.split('\n').find(line => line.trim().startsWith('run:'));
     assert.ok(command?.includes('connected-sector-presence.spec.ts'), 'the spec must be in the step command, not a comment');
+    // The tavern push journey skips itself without realtime, so it is only a
+    // gate while it rides this step's LIVE_E2E_REALTIME server.
+    assert.ok(command.includes('tavern-chat-push.spec.ts'), 'the two-client tavern push journey must run on the realtime server');
     assert.match(step, /LIVE_E2E_REALTIME: '1'/, 'both clients need the real Socket.IO transport');
     assert.ok(command.includes('--project=chromium-desktop-live'), 'the desktop project runs a desktop mover and the spec\'s own phone observer');
     assert.ok(!command.includes('first-defeat-recovery-express.spec.ts'), 'it must not share a server with the recovery matrix');

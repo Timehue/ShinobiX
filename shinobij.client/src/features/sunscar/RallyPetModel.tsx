@@ -13,11 +13,15 @@ import { bindPetAtlasTexture, copyPetAtlasSampling } from '../../lib/pet-atlas-m
 import { preloadPetGlbAtlas, readPetGlbAtlas } from '../../lib/pet-glb-atlas';
 import { disposePetModelResources } from '../../lib/pet-model-resources';
 import { INDIVIDUAL_PET_ANIMATION_MODEL_IDS } from '../../lib/pet-proper-animation-assets';
+import { advancePetAnimationMixer, retirePetAnimationMixer, transitionPetAnimation } from '../../lib/pet-animation-lifecycle';
 import { prepareRallyClips, RALLY_CLIP_MAP, rallyClipSpeed, rallyBodyPose, rallyAnimationDelta, rallyJumpPhase, rallyWaitingMotion } from './rally-animation';
 import { rallyPetPosition } from './rally-presentation';
 import { createRallyRigPose } from './rally-rig-pose';
+import { PetSummon3D } from '../../components/PetSummon3D';
+import { usePetRecallController } from '../../components/PetSceneRecall';
 
-export function RallyPetModel({ state, index, onReady, reducedMotion, moving }: { state: RefObject<RallyState>; index: number; onReady: (id: string) => void; reducedMotion: boolean; moving: RefObject<boolean> }) {
+export function RallyPetModel({ state, index, onReady, reducedMotion, moving, present = true, summonOnMount = true, onRecallComplete }: { state: RefObject<RallyState>; index: number; onReady: (id: string) => void; reducedMotion: boolean; moving: RefObject<boolean>; present?: boolean; summonOnMount?: boolean; onRecallComplete?: () => void }) {
+    const recallScene = usePetRecallController();
     const pet = state.current.racers[index].pet;
     const config = useMemo(() => {
         const selected = warfrontPetModelConfig(petCombatModel(pet as unknown as Pet));
@@ -73,13 +77,14 @@ export function RallyPetModel({ state, index, onReady, reducedMotion, moving }: 
     useEffect(() => {
         animation.current = { name: '', action: null };
         return () => {
-            prepared.mixer.stopAllAction();
-            prepared.mixer.uncacheRoot(prepared.scene);
+            retirePetAnimationMixer(prepared.mixer);
             disposePetModelResources({ surface: prepared.scene, outline: null, materials: prepared.materials });
         };
     }, [prepared]);
     const ready = useRef(false);
+    const cardReady = useRef(false);
     useFrame((_, delta) => {
+        if (recallScene?.snapshot()) return;
         const race = state.current;
         const racer = race.racers[index];
         const motion = rallyWaitingMotion(racer.motion, racer.finishTick, race.finished);
@@ -96,7 +101,8 @@ export function RallyPetModel({ state, index, onReady, reducedMotion, moving }: 
         else actor.current.position.copy(finishTarget);
         const ahead = rallyPath(rallyTrack(race.trackId), racer.distance + .5);
         const facing = race.finished ? config.yawOffset : Math.PI + config.yawOffset - Math.atan2(ahead.x - path.x, .5);
-        actor.current.rotation.y = race.finished ? THREE.MathUtils.lerp(actor.current.rotation.y, facing, settle) : facing;
+        const headingError = Math.atan2(Math.sin(facing - actor.current.rotation.y), Math.cos(facing - actor.current.rotation.y));
+        actor.current.rotation.y = race.finished ? actor.current.rotation.y + headingError * settle : facing;
         if (body.current) {
             const pose = rallyBodyPose(motion, racer.targetLane - racer.lane, racer.verticalSpeed, racer.recoilTicks, reducedMotion);
             const blend = 1 - Math.exp(-Math.min(delta, .1) * 18);
@@ -109,15 +115,16 @@ export function RallyPetModel({ state, index, onReady, reducedMotion, moving }: 
         prepared.pose.restoreStride();
         if (current.name !== name) {
             const next = prepared.mixer.clipAction(prepared.bank.get(name)!);
-            next.reset().setEffectiveWeight(1).setEffectiveTimeScale(1).play();
-            next.setLoop(['victory', 'idle_hitreact1', 'gallop_jump'].includes(name) ? THREE.LoopOnce : THREE.LoopRepeat, Infinity);
+            next.reset().setEffectiveTimeScale(1);
+            const oneShot = ['guard', 'victory', 'idle_hitreact1', 'gallop_jump'].includes(name);
+            next.setLoop(oneShot ? THREE.LoopOnce : THREE.LoopRepeat, oneShot ? 1 : Infinity);
             next.clampWhenFinished = true;
-            if (current.action && current.action !== next) current.action.crossFadeTo(next, .14, false);
+            transitionPetAnimation(next, current.action, .14, false);
             current.name = name;
             current.action = next;
         }
         if (current.action) {
-            current.action.paused = false;
+            current.action.paused = current.action.loop === THREE.LoopOnce && current.action.time >= current.action.getClip().duration;
             current.action.setEffectiveTimeScale(rallyClipSpeed(motion, racer.speed));
             const jumpPhase = rallyJumpPhase(motion, racer.verticalSpeed, racer.landing);
             if (jumpPhase !== null) {
@@ -125,18 +132,20 @@ export function RallyPetModel({ state, index, onReady, reducedMotion, moving }: 
                 current.action.paused = true;
             }
         }
-        prepared.mixer.update(rallyAnimationDelta(delta, moving.current, motion === 'ready', race.finished));
+        advancePetAnimationMixer(prepared.mixer, rallyAnimationDelta(delta, moving.current, motion === 'ready', race.finished));
         if (stride.current) {
             stride.current.rotation.z = !reducedMotion && name === 'gallop' && current.action
                 ? prepared.pose.applyStride(current.action.time / current.action.getClip().duration) : 0;
         }
         if (body.current) {
             if (race.finished) body.current.position.y = 0;
-            else prepared.pose.ground(body.current, actor.current);
+            else prepared.pose.ground(body.current, body.current.parent ?? actor.current);
         }
-        if (!ready.current) { ready.current = true; onReady(racer.id); }
+        if (!ready.current) { ready.current = true; if (index !== 0 || cardReady.current) onReady(racer.id); }
     });
     return <group ref={actor}>
+        <PetSummon3D enabled={index === 0} present={present} summonOnMount={summonOnMount} effectScale={.65} reducedMotion={reducedMotion} onComplete={index === 0 ? () => { cardReady.current = true; if (ready.current) onReady(state.current.racers[index].id); } : undefined} onRecallComplete={index === 0 ? onRecallComplete : undefined}>
         <group ref={body}><group ref={stride} scale={prepared.scale}><primitive object={prepared.scene} position={prepared.offset} dispose={null} /></group></group>
+        </PetSummon3D>
     </group>;
 }

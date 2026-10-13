@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
-import { kv, type KvLike } from '../_storage.js';
+import { jsonValueEqual, kv, type KvLike } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { isFullAdmin } from '../_auth.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
@@ -42,9 +42,10 @@ import { commitPlayerSaveRecord } from '../save/_commit-player-save.js';
  * TTL. The server-reset endpoint deliberately doesn't touch this prefix
  * so admin recovery survives a reset.
  *
- * No automated daily snapshots (yet) — those would bloat KV without a
- * deduplication strategy. This endpoint is the manual safety valve for
- * support cases.
+ * The nightly job (api/cron/snapshot-saves.ts) adds one per CHANGED save and
+ * renews the newest copy of an unchanged one, so a key's ts is when its state
+ * was first captured, not when it was last true. `list` reports `validUntil`
+ * (when that state stopped being current) and `restore` measures age from it.
  */
 
 const SNAPSHOT_PREFIX = 'save-snapshot:';
@@ -58,6 +59,25 @@ function snapshotKeyFor(playerName: string, ts: number): string {
 
 function snapshotPrefixFor(playerName: string): string {
     return `${SNAPSHOT_PREFIX}${playerName}:`;
+}
+
+function snapshotTs(playerName: string, key: string): number {
+    const ts = Number(key.slice(snapshotPrefixFor(playerName).length));
+    return Number.isFinite(ts) ? ts : 0;
+}
+
+/**
+ * When a snapshot's state stopped being current: the capture time of the next
+ * newer snapshot, or `now` for the newest one while it still equals the live
+ * save. Restoring a snapshot only erases progress made AFTER this time, which is
+ * what the restore age check is about. `newestMatchesLive` is ignored for any
+ * snapshot that has a newer one.
+ */
+export function snapshotValidUntil(ts: number, allTs: readonly number[], newestMatchesLive: boolean, now: number): number {
+    let next = Infinity;
+    for (const other of allTs) if (other > ts && other < next) next = other;
+    if (next !== Infinity) return next;
+    return newestMatchesLive ? Math.max(ts, now) : ts;
 }
 
 export function buildRestoredSave(
@@ -168,16 +188,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // mget all snapshots in one round-trip; surface only metadata
             // (ts + character.level + character.name) so the response stays
             // small even for players with many snapshots.
-            const values = await kv.mget<Record<string, unknown>[]>(...keys);
+            const [values, live] = await Promise.all([
+                kv.mget<Record<string, unknown>[]>(...keys),
+                kv.get<Record<string, unknown>>(saveKey),
+            ]);
+            const allTs = keys.map((k) => snapshotTs(playerName, k));
+            const newestTs = Math.max(...allTs);
+            const now = Date.now();
             const snapshots = keys.map((k, i) => {
                 const v = values[i];
                 const char = (v && typeof v === 'object' && 'character' in v)
                     ? (v.character as Record<string, unknown> | undefined)
                     : undefined;
-                const tsRaw = k.slice(snapshotPrefixFor(playerName).length);
+                const ts = allTs[i];
+                const matchesLive = ts === newestTs && !!live && jsonValueEqual(v, live);
                 return {
                     key: k,
-                    ts: Number(tsRaw),
+                    ts,
+                    // When this state stopped being current (now, if it still is).
+                    validUntil: snapshotValidUntil(ts, allTs, matchesLive, now),
+                    ...(ts === newestTs ? { matchesLive } : {}),
                     level: char?.level,
                     displayName: char?.name,
                 };
@@ -198,9 +228,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // confirmation in the request body when the snapshot is older than
             // 7 days. The admin sees the snapshot age on the list and can pass
             // `confirmOldSnapshot: true` if they really mean it.
+            //
+            // Age runs from when the state stopped being current (validUntil),
+            // not from its capture: an unchanged save keeps its first nightly
+            // copy, so a key's ts can be weeks old for a state that was still
+            // true last night.
             const tsMatch = snapshotKey.match(/:(\d+)$/);
             const snapTs = tsMatch ? Number(tsMatch[1]) : 0;
-            const ageMs = snapTs ? (Date.now() - snapTs) : 0;
+            let ageMs = 0;
+            if (snapTs) {
+                const [keys, live] = await Promise.all([
+                    kv.keys(`${snapshotPrefixFor(playerName)}*`),
+                    kv.get<Record<string, unknown>>(saveKey),
+                ]);
+                const allTs = keys.map((k) => snapshotTs(playerName, k));
+                const isNewest = !allTs.some((ts) => ts > snapTs);
+                const matchesLive = isNewest && !!live && jsonValueEqual(snap, live);
+                const now = Date.now();
+                ageMs = Math.max(0, now - snapshotValidUntil(snapTs, allTs, matchesLive, now));
+            }
             const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
             if (ageMs > SEVEN_DAYS_MS && body.confirmOldSnapshot !== true) {
                 return res.status(400).json({

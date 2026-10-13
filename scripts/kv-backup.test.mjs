@@ -300,14 +300,17 @@ describe('hybrid KV backup evidence helpers', () => {
             ],
             indexes: ['kv_store_pkey', 'kv_store_expires_at_idx', 'kv_store_key_pattern_idx'],
             rlsEnabled: true,
-            anonReadPolicy: true,
-            anonCanSelect: true,
+            anonReadPolicy: false,
+            anonCanSelect: false,
             anonCanInsert: false,
             anonCanUpdate: false,
             anonCanDelete: false,
         };
         assert.equal(validateTargetSchemaEvidence(good), good);
         assert.throws(() => validateTargetSchemaEvidence({ ...good, rlsEnabled: false }), /RLS|privileges/i);
+        // The retired Realtime read access must not come back (2026-10-12).
+        assert.throws(() => validateTargetSchemaEvidence({ ...good, anonReadPolicy: true }), /RLS|privileges/i);
+        assert.throws(() => validateTargetSchemaEvidence({ ...good, anonCanSelect: true }), /RLS|privileges/i);
         assert.throws(() => validateTargetSchemaEvidence({ ...good, anonCanInsert: true }), /RLS|privileges/i);
         assert.throws(() => validateTargetSchemaEvidence({ ...good, indexes: ['kv_store_pkey'] }), /missing index/i);
     });

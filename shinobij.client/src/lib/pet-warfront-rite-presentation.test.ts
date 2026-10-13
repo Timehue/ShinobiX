@@ -197,9 +197,9 @@ test("both hero Fire renderers submit the same target-anchored authored sprite a
         "the actual impostor target sprite must remain at the order used by the foreground gate");
     assert.match(threeStage, /const residueSpanPx = contactWidthPx \* \(0\.84 \+ residueAge \* 0\.1\);[\s\S]*?heroResidue\.current\.scale\.set\(residueWorldSpan, residueWorldSpan \* 0\.72, 1\);[\s\S]*?smokeMaterial\.opacity = phase\.result \* 0\.68;/,
         "Three residue must remain materially scaled and visible through the shared nine-tick result");
-    assert.match(canvasStage, /Promise\.all\(\[Promise\.all\(load\), loadImpostorImage\(WARFRONT_HERO_FIRE_IMPACT_SPRITE_URL\), optionalImpactAtlas\]\)[\s\S]*?setHeroImpactSprite\(impactSprite\)[\s\S]*?setElementImpactAtlas\(impactAtlas\)/,
-        "Canvas must decode the authored impact asset alongside actor art before reveal");
-    assert.match(canvasStage, /const impactSpriteImage = heroImpactSprite;[\s\S]*?if \(!canvas \|\| !images \|\| !impactSpriteImage\) return;[\s\S]*?targetScreen\?\.baseSize \?\? 64\) \* CANVAS_ACTOR_PAINTED_WIDTH_RATIO[\s\S]*?warfrontHeroContactWidthPx\(targetWidthPx\)[\s\S]*?drawWarfrontHeroFireImpact\([\s\S]*?impactSpriteImage,[\s\S]*?incomingAngle/,
+    assert.match(canvasStage, /Promise\.all\(\[Promise\.all\(load\), loadImpostorImage\(WARFRONT_HERO_FIRE_IMPACT_SPRITE_URL\), optionalImpactAtlas, loadImpostorImage\('\/items\/beast-seal-reinforced\.webp'\)\]\)[\s\S]*?setHeroImpactSprite\(impactSprite\)[\s\S]*?setElementImpactAtlas\(impactAtlas\)[\s\S]*?setSealImage\(seal\)/,
+        "Canvas must decode impact and card assets alongside actor art before reveal");
+    assert.match(canvasStage, /const impactSpriteImage = heroImpactSprite;[\s\S]*?if \(!canvas \|\| !images \|\| !impactSpriteImage \|\| !sealImage\) return;[\s\S]*?targetScreen\?\.baseSize \?\? 64\) \* CANVAS_ACTOR_PAINTED_WIDTH_RATIO[\s\S]*?warfrontHeroContactWidthPx\(targetWidthPx\)[\s\S]*?drawWarfrontHeroFireImpact\([\s\S]*?impactSpriteImage,[\s\S]*?incomingAngle/,
         "Canvas must gate reveal on the decoded asset and pass it into the target-relative contact draw");
     assert.match(canvasPainter, /globalCompositeOperation = "source-over";[\s\S]*?context\.drawImage\([\s\S]*?WARFRONT_HERO_FIRE_IMPACT_SPRITE_ANCHOR_X[\s\S]*?WARFRONT_HERO_FIRE_IMPACT_SPRITE_ANCHOR_Y[\s\S]*?contactWidthPx,[\s\S]*?contactWidthPx/,
         "Canvas must preserve the authored RGBA material and pin the hotspot inside the shared footprint");

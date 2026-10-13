@@ -9,6 +9,7 @@ import { withKvLock } from '../../_lock.js';
 import { clanChatKey, appendChatMessage, cleanChatText, CLAN_CHAT_TTL_SEC, type ClanChatMessage } from './_storage.js';
 import { rejectUnclaimedGuest } from '../../_guest-gate.js';
 import { getActiveSilence } from '../../admin/moderation.js';
+import { kickClanChat } from '../../_realtime/notify.js';
 
 /*
  * /api/clan/chat/send — POST only. Appends one text message to the clan's capped
@@ -71,6 +72,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             await kv.set(key, next, { ex: CLAN_CHAT_TTL_SEC });
             return next;
         });
+        // Clanmates with the chat open refetch now; only after the write landed.
+        kickClanChat(slug, msg.ts);
 
         return res.status(200).json({ ok: true, message: msg, messages });
     } catch (err) {

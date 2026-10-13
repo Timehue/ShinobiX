@@ -11,6 +11,8 @@ const seeds = Number(option('--seeds', 3));
 const ultimatesOnly = args.includes('--ultimates-only');
 const guarded = args.includes('--guarded');
 const charged = args.includes('--charged') || ultimatesOnly;
+const setup = option('--setup', 'none');
+if (!['none', 'buff', 'mark', 'weather'].includes(setup)) throw new Error('Use --setup none|buff|mark|weather');
 if (!Number.isInteger(seeds) || seeds < 1 || levels.some(n => !Number.isInteger(n) || n < 1 || n > 100)) throw new Error('Invalid levels/seeds');
 const templates = Object.values(PET_CATALOG).filter(t => Array.isArray(t.jutsus));
 const fixture = (tpl, id, level) => {
@@ -31,6 +33,9 @@ for (const level of levels) {
             if ((!charged && move.hold > 0) || move.cls === 'status') continue;
             const session = create();
             if (charged) { session.player[0].readiness = 99; session.player[0].meter = 100; }
+            if (setup === 'buff') session.player[0].statuses.push({ kind: 'buff', magnitude: 1.25, rounds: 2, bornRound: 0 });
+            if (setup === 'mark') session.enemy[0].statuses.push({ kind: 'mark', magnitude: 1.25, rounds: 2, bornRound: 0 });
+            if (setup === 'weather') session.weather = { element: session.player[0].element, until: 3 };
             const command = move.signature ? { kind: 'super', petId: 'attacker', targetId: 'defender' } : { kind: 'move', petId: 'attacker', targetId: 'defender', moveIndex };
             const events = resolveShowdownRound(session, [command], [{ kind: guarded ? 'guard' : 'rest', petId: 'defender' }]);
             const hit = events.find(e => e.t === 'action' && e.actorId === 'attacker')?.targets[0];
@@ -45,7 +50,7 @@ for (const level of levels) {
     rows.push(row);
 }
 worst.sort((a, b) => b.ratio - a.ratio);
-const report = { seeds, charged, ultimatesOnly, guarded, templates: templates.length, assumptions: `Same level and rarity; balanced growth; no gear or traits; ${ultimatesOnly ? 'every signature with full readiness and meter' : charged ? 'every damaging technique, with full readiness and signature meter' : 'every uncharged non-signature damaging opener'} against a full-health target ${guarded ? 'ordered to Guard (actual turn priority is preserved, so a faster attack may land before Guard)' : 'ordered to Rest without guarding'}. Separate fresh session per probe. Both counter and neutral/resisted matchups included.`, rows, worst: worst.slice(0, 40) };
+const report = { seeds, charged, ultimatesOnly, guarded, setup, templates: templates.length, assumptions: `Same level and rarity; balanced growth; no gear or traits; ${ultimatesOnly ? 'every signature with full readiness and meter' : charged ? 'every damaging technique, with full readiness and signature meter' : 'every uncharged non-signature damaging opener'} against a full-health target ${guarded ? 'ordered to Guard using the current defensive initiative phase' : 'ordered to Rest without guarding'}. Separate fresh session per probe. Both counter and neutral/resisted matchups included.`, rows, worst: worst.slice(0, 40) };
 const path = option('--report');
 if (path) writeFileSync(path, `${JSON.stringify(report, null, 2)}\n`);
 console.log(JSON.stringify(report, null, 2));

@@ -60,7 +60,7 @@ test('all live Hollow Gate reward sources feed the exact server ledger', () => {
         assert.ok(event.includes(`'${action}'`), `missing server event ${action}`);
     }
     assert.match(event, /creditHollowGateLedger\(run, sourceId/);
-    assert.match(event, /action === 'keeper-heal' && run\.chosenAugmentId === 'treasure-sense'/);
+    assert.match(event, /\(action === 'keeper-heal' \|\| action === 'traveler-heal'\) && run\.chosenAugmentId === 'treasure-sense'/);
     assert.match(combat, /creditHollowGateLedger\(run, `combat:/);
     for (const itemId of ['dungeon-legendary-fragment', 'veil-of-the-hollow', 'elemental-shard']) {
         assert.ok(source('api', 'hollow-gate', '_ledger.ts').includes(`'${itemId}'`));
@@ -74,7 +74,8 @@ test('event and movement routes are live and have browser callers; legacy locked
     assert.match(server, /route\('\/hollow-gate\/event'/);
     assert.match(server, /route\('\/hollow-gate\/step'/);
     assert.match(tile, /resolveHollowGateServerEvent/);
-    assert.match(app, /sealHollowGateStep/);
+    assert.match(app, /drainHollowGateMovement/);
+    assert.match(source('shinobij.client', 'src', 'lib', 'hollow-gate-movement-drain.ts'), /sealHollowGateStep/);
     assert.match(source('api', 'hollow-gate', 'locked-door.ts'), /status\(410\)/);
 });
 

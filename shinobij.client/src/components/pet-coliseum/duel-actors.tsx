@@ -13,6 +13,8 @@ import { petCombatModel } from "../../lib/pet-3d-models";
 import { DEFAULT_PET_MODEL_FRAME, PetModel3D, type PetModelFrame } from "../PetModel3D";
 import { PetModelBoundary } from "../PetModelBoundary";
 import { PetSummon3D } from "../PetSummon3D";
+import { usePetRecallController } from '../PetSceneRecall';
+import type { PetCardPresence } from "../../lib/pet-summon-presentation";
 import { boundedBurstStep, petDuelAttackRhythm, petDuelImpactStrength } from "../../lib/pet-duel-presentation";
 import { petHeroMoveAt, petHeroMoveStyle, petHeroMoveWindows, type PetHeroMoveStyle } from "../../lib/pet-hero-moves";
 import { petDuelModelCalibration } from "../../lib/pet-duel-model-presentation";
@@ -178,6 +180,7 @@ export function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRo
     const strikeContactShare = useRef(0.18);
     const recoilPow = useRef(0.55);   // set on stagger-entry from the incoming hit's weight
     const bobPhase = useMemo(() => (id.charCodeAt(id.length - 1) % 7) * 0.9, [id]);
+    const cardPresence = useRef<PetCardPresence>({ present: true });
     // Damage-aware choreography lookup (render-only): this pet's OUTGOING
     // resolutions (a melee `hit` with how hard it landed, vs a ranged `cast`) and
     // the INCOMING hits that stagger it. Lets a light poke read as a quick jab and
@@ -221,8 +224,10 @@ export function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRo
         ? Math.max(0.9, combatModel.targetHeight * 0.72 * modelCalibration.shadowWidth)
         : Math.max(0.9, L.contentWorldW * 0.95);
     const side = mirror ? "enemy" : "player";
+    const recallScene = usePetRecallController();
 
     useFrame((state, delta) => {
+        if (recallScene?.snapshot()) return;
         const g = group.current, pg = poseG.current, m = matRef.current;
         if (!g || !pg || (!m && !combatModel)) return;
         const snaps = duel.snapshots;
@@ -786,6 +791,8 @@ export function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRo
             terminalTimeline.current = null;
             mf.timeline = battleTimeline;
         }
+        cardPresence.current.present = a0.state !== 'dead';
+        cardPresence.current.timeline = mf.timeline;
         if (m) {
             m.color.setRGB(Math.min(2, tr + fl), Math.min(2, Math.max(0, tg) + fl), Math.min(2, Math.max(0, tb) + fl));
             m.opacity = a0.state === "dead" ? lerp(m.opacity, 0.25, 0.1) : 1;
@@ -828,7 +835,7 @@ export function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRo
     return (
         <group>
             <group ref={group}>
-                <PetSummon3D enabled={side === "player" && clock.current.t === 0}>
+                <PetSummon3D enabled={side === "player"} summonOnMount={clock.current.t === 0} presence={cardPresence} recallDelay={.9}>
                 {combatModel ? (
                     <group ref={poseG}>
                         <PetModelBoundary onFail={() => setFailedModelUrl(combatModel.url)}>

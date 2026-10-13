@@ -66,6 +66,7 @@ import bloodlineReviewHandler from './api/admin/bloodline-review.js';
 import itemReviewHandler   from './api/admin/item-review.js';
 import bloodlinesListHandler from './api/bloodlines/list.js';
 import migrateImagesToR2Handler from './api/admin/migrate-images-to-r2.js';
+import imageStoreHandler from './api/admin/image-store.js';
 import raidStartHandler   from './api/missions/raid-start.js';
 import towersFloorsHandler from './api/towers/floors.js';
 import towersStartHandler  from './api/towers/start.js';
@@ -167,8 +168,7 @@ import worldOpenChestHandler from './api/world/open-chest.js';
 import saveSnapshotHandler from './api/admin/save-snapshot.js';
 // Cron — daily save-snapshot HTTP trigger. The nightly run is in-process via
 // startSnapshotCron (api/cron/_scheduler.ts); this endpoint stays for manual
-// ops/admin triggers. On Vercel the api/ folder convention exposed it; off
-// Vercel it must be registered explicitly or it 404s.
+// ops/admin triggers. Like every handler, it must be registered here or it 404s.
 import snapshotSavesHandler from './api/cron/snapshot-saves.js';
 
 // Clan — wars
@@ -474,6 +474,9 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     // (/admin/migrate-kv, /admin/migrate-to-base) were removed with the overlay
     // on 2026-10-02; docs/RETIRE_CPANEL_RUNBOOK.md records the cutover they ran.
     route('/admin/migrate-images-to-r2', migrateImagesToR2Handler);
+    // Image-store tools: the read-only audit, and the rollback write-back
+    // (docs/SHARED_HASH_ROW_SPLIT_PLAN.md).
+    route('/admin/image-store', imageStoreHandler);
 
     // Missions — AI raid token mint (PvP raids cross-validate via PvpSession;
     // AI raids use this short-lived single-use token instead).
