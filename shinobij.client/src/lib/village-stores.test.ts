@@ -231,7 +231,7 @@ test('the Town Hall Treasury tab shows the cap line and gates the donate button'
     assert.match(townHall, /const villageDonateCapLine = storesDonationCapLine\(character\)/);
     assert.match(townHall, /storesDonationGate\(character, villageDonateItemId\)/);
     assert.match(townHall, /\{villageDonateCapLine\}/, 'the running total must be rendered');
-    assert.match(townHall, /disabled=\{!villageDonateItemId \|\| !villageDonateGate\.ok\}/, 'and the button disabled before the 429');
+    assert.match(townHall, /disabled=\{!villageDonateItemId \|\| !villageDonateGate\.ok \|\| donateBusy\}/, 'and the button disabled before the 429, and while a donation is in flight');
     // ...except when re-sending an unconfirmed identical donation, which the
     // server finishes without charging the cap again (lib/economy-request-intent).
     assert.match(townHall, /if \(!retrying && villageDonateGate\.ok !== true\) return alert/, 'and the handler must refuse locally too');

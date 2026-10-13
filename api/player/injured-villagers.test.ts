@@ -65,7 +65,9 @@ test('lists injured villagers of the healer\'s own village, worst first', async 
 test('reads only saves whose indexed village can match (plus village-less rows)', async (t) => {
     const mget = t.mock.method(kv, 'mget');
     await poll();
-    const saveReads = mget.mock.calls.flatMap((call) => call.arguments as string[]).filter((key) => key.startsWith('save:'));
+    // On this in-memory store the vitals projection also reads through mget, so
+    // compare the set of saves touched, not the call list.
+    const saveReads = [...new Set(mget.mock.calls.flatMap((call) => call.arguments as string[]).filter((key) => key.startsWith('save:')))];
     assert.deepEqual(saveReads.sort(), ['save:fineally', 'save:hurtally', 'save:hurtlegacy', `save:${HEALER}`].sort());
     assert.equal(saveReads.includes('save:hurtrival'), false, 'another village\'s save is never read');
 });
