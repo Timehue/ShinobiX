@@ -259,7 +259,11 @@ test('a legitimate Caravan trail uses normal wild chance, seals retries, and clo
     assert.equal((await call(wildStart, { ...payload, requestId: 'different_caravan_trail' })).status, 409);
 });
 
-test('wild daily cap cannot strand an expedition, and skipping cannot mint a later pet', async () => {
+test('wild daily cap cannot strand an expedition, and skipping cannot mint a later pet', async (t) => {
+    // This file holds Date.now, but the wild cap's UTC day comes from
+    // `new Date()`, in the handler and in the seed below. Freeze Date at the
+    // file's clock so both read the same day, even across midnight UTC.
+    t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
     const run = await prepareTrail();
     await kv.set(`pet-encounter-attempt:${player}:${new Date().toISOString().slice(0, 10)}`, 150);
     const payload = { sector: 54, requestId: run.petEncounter.requestId, caravanRunId: run.id };

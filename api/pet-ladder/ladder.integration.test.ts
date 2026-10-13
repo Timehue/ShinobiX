@@ -281,6 +281,9 @@ test('rank eligibility lost while acquiring the commit lock returns a conflict w
 });
 
 test('latest rematch and daily-cap guards are rechecked inside the commit lock without burning another charge', async (t) => {
+    // The handler and dailyKey() each read the UTC day from `new Date()`.
+    // Freeze Date so midnight UTC cannot fall between the two.
+    t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
     const f = await fixture();
     const get = kv.get.bind(kv);
     let reads = 0;
