@@ -82,9 +82,10 @@ create index if not exists kv_store_key_pattern_idx
 -- Delivery is unaffected by the removal. Do NOT re-add it — deliver any new
 -- per-player inbox over the authenticated channel instead.
 --
--- Adding a new client-subscribed key prefix? Add it to the USING clause of the
--- SELECT policy below, the publication filter, AND lib/realtime.ts. Keep all
--- three in sync.
+-- Since 2026-10-12 the browser subscribes to nothing over Supabase Realtime
+-- (lib/realtime.ts was deleted; PvP uses /api/pvp/stream), and kv_store is no
+-- longer in the `supabase_realtime` publication (section below). The anon
+-- SELECT policy is kept as-is for now; dropping it is a separate RLS change.
 
 alter table public.kv_store enable row level security;
 
@@ -113,38 +114,27 @@ grant  select   on public.kv_store to   anon;
 -- authenticated would see all rows" footgun. Do NOT re-add a grant here.
 revoke all      on public.kv_store from authenticated;
 
--- ── Realtime publication (audit #13) ─────────────────────────────────────────
--- The browser subscribes to kv_store row changes via Supabase Realtime (see
--- shinobij.client/src/lib/realtime.ts + the PvP battle screen). For those WS
--- pushes to arrive, kv_store must be a member of the `supabase_realtime`
--- publication AND publish full row images on UPDATE (so the new session JSON
--- rides along). Without this the channel still SUBSCRIBES fine but never
--- delivers a payload — the silent failure behind audit #11. The client now
--- falls back to SSE in that case, so this is a latency optimisation, not a
--- correctness requirement, but enabling it restores the ~30-80ms WS path.
---
--- Publication row filter (applied to prod 2026-07-16, migration
--- `scope_realtime_publication_to_subscribed_prefixes`). The browser only ever
--- subscribes to three key prefixes (pvp: / cw-tilecards: / challenges:, the same
--- RLS SELECT allowlist above), but the publication previously published EVERY
--- kv_store change — so the Realtime walsender decoded every save, rate-limit
--- counter, and presence beat only for RLS to drop it downstream. That decode was
--- the single largest DB cost. The WHERE filter drops non-subscribed rows at
--- WAL-decode time instead; client behavior is byte-identical (a client already
--- couldn't receive those rows). `key` is the primary key, so the filter is valid
--- under REPLICA IDENTITY DEFAULT — FULL is NOT required (the client reads the new
--- row on insert/update, which DEFAULT already carries). Keep this filter's prefix
--- list in sync with the anon SELECT policy above AND lib/realtime.ts.
---   To widen: add the prefix here, to the RLS policy, and to the client.
---   Rollback (publish everything): alter publication supabase_realtime set table public.kv_store;
--- Idempotent: SET TABLE is safe to re-run and re-asserts the exact table+filter.
--- `supabase_realtime` is created by Supabase on every project; guard in case a
--- bare Postgres lacks it.
+-- ── Realtime publication: kv_store is NOT published (2026-10-12) ─────────────
+-- Nothing in the browser subscribes to Supabase Realtime any more: the PvP
+-- battle screen's one live transport is the server's /api/pvp/stream, and
+-- lib/realtime.ts was deleted. Keeping kv_store in `supabase_realtime` cost
+-- ~9.4% of database time for nothing: Realtime's Postgres Changes reads the WAL
+-- through wal2json polling (realtime.list_changes) and decodes EVERY kv_store
+-- write, every save, rate-limit counter and presence beat, before discarding it.
+-- The `where (key like 'pvp:%')` row filter this section used to set (applied
+-- 2026-07-16) did not help: wal2json ignores publication row filters, so the
+-- decode cost was unchanged. Removing the table is the only fix.
+--   Rollback (re-publish PvP rows for a Realtime client):
+--     alter publication supabase_realtime add table public.kv_store where (key like 'pvp:%');
+-- Idempotent and guarded: Supabase creates `supabase_realtime` on every project,
+-- a bare Postgres may lack it, and the table may already be out.
 do $$
 begin
-    if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
-        alter publication supabase_realtime set table public.kv_store
-            where (key like 'pvp:%');
+    if exists (
+        select 1 from pg_publication_tables
+        where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'kv_store'
+    ) then
+        alter publication supabase_realtime drop table public.kv_store;
     end if;
 end $$;
 
