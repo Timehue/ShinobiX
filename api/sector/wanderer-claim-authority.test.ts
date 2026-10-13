@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { before, beforeEach, after, describe, it, mock } from 'node:test';
+import type { KvCasOp } from '../_storage.js';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -150,10 +151,12 @@ describe('sector wanderer reward endpoints verify the claimed NPC, not just the 
             assert.ok(paid.character.ryo > 5000);
             assert.equal((await readEraContributions()).discoveries, 0);
             statsFailure.mock.restore();
-            const originalHset = kv.hset.bind(kv);
-            const eraFailure = t.mock.method(kv, 'hset', async (key: string, fields: Record<string, unknown>) => {
-                if (key === 'era:contrib-receipts:discoveries') throw new Error('injected-wanderer-era-write-failure');
-                return originalHset(key, fields);
+            // The era receipt and its counter commit together through compareSetMany.
+            type Many = (ops: readonly KvCasOp[]) => Promise<boolean>;
+            const originalMany = kv.compareSetMany!.bind(kv) as Many;
+            const eraFailure = t.mock.method(kv as unknown as { compareSetMany: Many }, 'compareSetMany', async (ops: readonly KvCasOp[]) => {
+                if (ops.some((op) => op.key.startsWith('era:receipt:discoveries:'))) throw new Error('injected-wanderer-era-write-failure');
+                return originalMany(ops);
             });
             assert.equal((await post(gift, first, body)).statusCode, 503);
             assert.equal((await readEraContributions()).discoveries, 0);

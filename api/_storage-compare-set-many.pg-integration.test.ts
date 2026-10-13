@@ -36,7 +36,9 @@ import type { KvCasOp } from './_storage.js';
  * and the kv_set_nx / kv_incr functions, nothing else (no pg_cron, RLS or
  * Supabase roles) — so these tests never drift from the definitions that file
  * records. Every key the tests write starts with `pgit:` (locks: `lock:pgit:`),
- * and the suite refuses to touch a kv_store that holds any other row.
+ * except the Era receipt test, which must use the real Era keys: receipts
+ * `era:receipt:warBattles:pgit-*` and the `era:contrib-sum:warBattles:*`
+ * counter rows. The suite refuses to touch a kv_store that holds any other row.
  */
 
 const DATABASE_URL = process.env.PG_INTEGRATION_DATABASE_URL?.trim() ?? '';
@@ -52,6 +54,10 @@ if (DATABASE_URL) {
 }
 
 const pgTest = (name: string, fn: () => Promise<void>) => test(name, { skip: SKIP, timeout: 60_000 }, fn);
+
+/** Every row this suite may write. Anything else marks a database that is not a throwaway. */
+const SUITE_ROWS = `(key LIKE 'pgit:%' OR key LIKE 'lock:pgit:%'
+    OR key LIKE 'era:receipt:warBattles:pgit-%' OR key LIKE 'era:contrib-sum:warBattles:%')`;
 
 let storage: typeof import('./_storage.js');
 let locks: typeof import('./_lock.js');
@@ -160,7 +166,7 @@ describe('kv.compareSetMany on a real Postgres', () => {
         const { rows: [table] } = await admin.query<{ present: boolean }>("SELECT to_regclass('public.kv_store') IS NOT NULL AS present");
         if (table.present) {
             const { rows: [foreign] } = await admin.query<{ n: number }>(
-                "SELECT count(*)::int AS n FROM public.kv_store WHERE key NOT LIKE 'pgit:%' AND key NOT LIKE 'lock:pgit:%'",
+                `SELECT count(*)::int AS n FROM public.kv_store WHERE NOT ${SUITE_ROWS}`,
             );
             if (foreign.n > 0) {
                 throw new Error(`PG_INTEGRATION_DATABASE_URL points at a kv_store holding ${foreign.n} real row(s). Refusing to run: use a throwaway database.`);
@@ -196,14 +202,14 @@ describe('kv.compareSetMany on a real Postgres', () => {
 
     beforeEach(async () => {
         if (SKIP) return;
-        await admin.query("DELETE FROM public.kv_store WHERE key LIKE 'pgit:%' OR key LIKE 'lock:pgit:%'");
+        await admin.query(`DELETE FROM public.kv_store WHERE ${SUITE_ROWS}`);
     });
 
     after(async () => {
         if (SKIP) return;
         await storage?.closeStoragePool();
         if (!admin) return;
-        await admin.query("DELETE FROM public.kv_store WHERE key LIKE 'pgit:%' OR key LIKE 'lock:pgit:%'").catch(() => undefined);
+        await admin.query(`DELETE FROM public.kv_store WHERE ${SUITE_ROWS}`).catch(() => undefined);
         await admin.query('DROP TRIGGER IF EXISTS pgit_count_data_write ON public.kv_store').catch(() => undefined);
         await admin.query('DROP FUNCTION IF EXISTS public.pgit_count_data_write()').catch(() => undefined);
         await admin.query('DROP SEQUENCE IF EXISTS public.pgit_data_writes').catch(() => undefined);
@@ -809,5 +815,84 @@ describe('kv.compareSetMany on a real Postgres', () => {
         assert.deepEqual(await storage.kv.hkeys('pgit:hk:array', { nonEmptyStrings: true }), []);
         assert.deepEqual(await storage.kv.hkeys('pgit:hk:expired', { nonEmptyStrings: true }), []);
         assert.deepEqual(await storage.kv.hkeys('pgit:hk:missing', { nonEmptyStrings: true }), []);
+    });
+
+    // Era receipt-backed contributions (api/_era.ts) commit a receipt row and a
+    // counter-row update in one compareSetMany. The memory store runs them one
+    // at a time; only Postgres shows settlements racing for one counter row,
+    // where a refused write must retry and nothing may be lost or counted twice.
+    pgTest('Era receipts racing for one counter row each count exactly once, with a 30-day receipt', async () => {
+        const previousFlag = process.env.ENABLE_LEGACY;
+        process.env.ENABLE_LEGACY = '1';
+        const era = await import('./_era.js');
+        // As many receipts as the retry budget covers, all on ONE counter row.
+        const shard = era.eraReceiptShard('pgit-war-0');
+        const ids: string[] = [];
+        for (let n = 0; ids.length < era.ERA_RECEIPT_WRITE_ATTEMPTS; n++) {
+            if (era.eraReceiptShard(`pgit-war-${n}`) === shard) ids.push(`pgit-war-${n}`);
+        }
+        const counterKey = `era:contrib-sum:warBattles:${shard}`;
+
+        // Hold every writer after its first read of the counter row, so all of
+        // them build their first write on the same total: the worst race.
+        const getDescriptor = Object.getOwnPropertyDescriptor(storage.kv, 'get')!;
+        const manyDescriptor = Object.getOwnPropertyDescriptor(storage.kv, 'compareSetMany')!;
+        const realGet = storage.kv.get.bind(storage.kv);
+        const realMany = storage.kv.compareSetMany!.bind(storage.kv);
+        let held = 0;
+        let releaseAll!: () => void;
+        const barrier = new Promise<void>((resolve) => { releaseAll = resolve; });
+        let refused = 0;
+        Object.defineProperty(storage.kv, 'get', {
+            configurable: true, writable: true,
+            value: async (key: string) => {
+                const value = await realGet(key);
+                if (key === counterKey && held < ids.length) {
+                    held += 1;
+                    if (held === ids.length) releaseAll();
+                    await barrier;
+                }
+                return value;
+            },
+        });
+        Object.defineProperty(storage.kv, 'compareSetMany', {
+            configurable: true, writable: true,
+            value: async (ops: readonly KvCasOp[]) => {
+                const committed = await realMany(ops);
+                if (!committed) refused += 1;
+                return committed;
+            },
+        });
+        try {
+            const results = await Promise.all(ids.map((id) => era.bumpEraContributionOnce('warBattles', id)));
+            assert.deepEqual(results, ids.map(() => true), 'every racing settlement is confirmed');
+            // Control: the race really happened. Seven of the eight first writes
+            // were built on a total that another settlement had already moved.
+            assert.ok(refused >= ids.length - 1, `expected at least ${ids.length - 1} refused writes, saw ${refused}`);
+
+            const refusedBeforeReplay = refused;
+            const replays = await Promise.all(ids.map((id) => era.bumpEraContributionOnce('warBattles', id)));
+            assert.deepEqual(replays, ids.map(() => true));
+            assert.equal(refused, refusedBeforeReplay, 'a replay finds its receipt and writes nothing');
+
+            assert.equal((await era.readEraContributions()).warBattles, ids.length);
+            const counter = await row(counterKey);
+            assert.equal(counter?.value, ids.length);
+            assert.equal(counter?.expires_at, null, 'the counter row never expires');
+            const { rows: [receipts] } = await admin.query<{ n: number; min_days: number; max_days: number }>(
+                `SELECT count(*)::int AS n,
+                        min(extract(epoch FROM expires_at - now()) / 86400)::float8 AS min_days,
+                        max(extract(epoch FROM expires_at - now()) / 86400)::float8 AS max_days
+                   FROM public.kv_store WHERE key LIKE 'era:receipt:warBattles:pgit-war-%'`,
+            );
+            assert.equal(receipts.n, ids.length);
+            assert.ok(receipts.min_days > 29.9 && receipts.max_days <= 30.001,
+                `receipts expire in 30 days, saw ${receipts.min_days}..${receipts.max_days}`);
+        } finally {
+            Object.defineProperty(storage.kv, 'get', getDescriptor);
+            Object.defineProperty(storage.kv, 'compareSetMany', manyDescriptor);
+            if (previousFlag === undefined) delete process.env.ENABLE_LEGACY;
+            else process.env.ENABLE_LEGACY = previousFlag;
+        }
     });
 });
