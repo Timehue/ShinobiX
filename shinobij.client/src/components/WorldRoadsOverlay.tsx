@@ -9,6 +9,7 @@
  * Styles live in world-map-charting.css, imported by the WorldMap SCREEN
  * (components must not import CSS — it breaks the node test runner).
  */
+import { memo } from "react";
 import { SECTOR_ROAD_PAIRS } from "../../../shared/sector-links";
 import { SECTOR_REGION_LABELS, type SectorRegionKey } from "../../../shared/sector-geo";
 import { ATLAS_SECTOR_POINTS } from "../data/sector-points";
@@ -105,7 +106,9 @@ const POI_PLATES: ReadonlyArray<{ key: string; name: string; tag: string; x: num
     { key: "sunscar", name: "Sunscar Festival", tag: "A caravan fair that never packed up", x: 47, y: 89, tone: "sand" },
 ];
 
-export function WorldPoiPlates() {
+// Memoised: no props and only fixed tables, so a WorldMap re-render cannot change it.
+// (WorldRoadsOverlay below is not: it reads its localStorage kill switch while rendering.)
+export const WorldPoiPlates = memo(function WorldPoiPlates() {
     return (
         <>
             {POI_PLATES.map((plate) => (
@@ -124,7 +127,7 @@ export function WorldPoiPlates() {
             ))}
         </>
     );
-}
+});
 
 export function WorldRoadsOverlay() {
     if (!isWorldRoadsEnabled()) return null;
