@@ -1,4 +1,5 @@
 import { kv } from '../../_storage.js';
+import { readKvProjection } from '../../_storage-projection.js';
 import { clanBareSlug } from '../../_utils.js';
 
 /*
@@ -8,7 +9,8 @@ import { clanBareSlug } from '../../_utils.js';
  * transcript would refuse. Admin exemption stays with the HTTP caller.
  */
 export async function isClanChatMember(playerName: string, slug: string): Promise<boolean> {
-    const save = await kv.get<Record<string, unknown>>(`save:${playerName}`);
-    const char = (save?.character ?? null) as Record<string, unknown> | null;
-    return !!char && clanBareSlug(String(char.clan ?? '')) === slug;
+    // Runs for every subscribed member after each new line: read the one
+    // field it needs, not the whole save row.
+    const [row] = await readKvProjection(kv, [`save:${playerName}`], { clan: ['character', 'clan'] });
+    return !!row && Object.keys(row).length > 0 && clanBareSlug(String(row.clan ?? '')) === slug;
 }
