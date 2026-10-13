@@ -66,6 +66,7 @@ import bloodlineReviewHandler from './api/admin/bloodline-review.js';
 import itemReviewHandler   from './api/admin/item-review.js';
 import bloodlinesListHandler from './api/bloodlines/list.js';
 import migrateImagesToR2Handler from './api/admin/migrate-images-to-r2.js';
+import imageStoreHandler from './api/admin/image-store.js';
 import raidStartHandler   from './api/missions/raid-start.js';
 import towersFloorsHandler from './api/towers/floors.js';
 import towersStartHandler  from './api/towers/start.js';
@@ -472,6 +473,8 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     // (/admin/migrate-kv, /admin/migrate-to-base) were removed with the overlay
     // on 2026-10-02; docs/RETIRE_CPANEL_RUNBOOK.md records the cutover they ran.
     route('/admin/migrate-images-to-r2', migrateImagesToR2Handler);
+    // Read-only image-store audit (docs/SHARED_HASH_ROW_SPLIT_PLAN.md).
+    route('/admin/image-store', imageStoreHandler);
 
     // Missions — AI raid token mint (PvP raids cross-validate via PvpSession;
     // AI raids use this short-lived single-use token instead).
