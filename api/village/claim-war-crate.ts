@@ -69,7 +69,8 @@ export function foughtForWinner(
     const entry = fighters.contributions?.[claimant.slug];
     if (entry && Number(entry.damage) > 0 && (!entry.side || String(entry.side) === winner)) return true;
     const mvp = String(fighters.mvpName ?? '').trim().toLowerCase();
-    return !!mvp && mvp === String(claimant.name ?? '').trim().toLowerCase();
+    return !!mvp && (mvp === String(claimant.name ?? '').trim().toLowerCase()
+        || safeName(mvp) === claimant.slug);
 }
 
 /** Parse a crate id into its war kind + warId, or null if malformed. Pure. */

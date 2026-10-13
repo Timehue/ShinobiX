@@ -35,6 +35,9 @@ import { villageLeadership } from "../data/village-leadership";
 import { villageUpgradeDefinitions, VILLAGE_UPGRADE_MAX_LEVEL } from "./village-upgrades";
 
 export type VillageWarRecord = {
+    campaignVersion?: 2;
+    campaignEndsAt?: number;
+    warPoints?: Record<string, number>;
     id: string;
     declarationGeneration?: number;
     villages: [string, string];
@@ -441,6 +444,9 @@ type VillageWarContribution = {
     name: string;       // display name (for rendering leaderboard)
 };
 export type VillageWar = {
+    campaignVersion?: 2;
+    campaignEndsAt?: number;
+    warPoints?: Record<string, number>;
     id: string;
     /** Server-owned rematch generation. Pair ids remain stable, so durable
      * reward/dedupe identities must include this when present. */
@@ -508,6 +514,7 @@ function normalizeVillageWar(data: Partial<VillageWar> & { villages: [string, st
             ? { declarationGeneration: Math.floor(Number(data.declarationGeneration)) }
             : {}),
         villages: [first, second],
+        ...(data.campaignVersion === 2 ? { campaignVersion: 2 as const, campaignEndsAt: data.campaignEndsAt, warPoints: data.warPoints } : {}),
         hp: { [first]: hpOf(first), [second]: hpOf(second) },
         ...(hpMax ? { hpMax } : {}),
         ...(peaceProposals ? { peaceProposals } : {}),
@@ -700,7 +707,8 @@ export function villageWarCrateEarnedBy(
     const winner = String(war.winnerVillage ?? "").trim();
     if (!war.endedAt || !war.warCrateId || !winner || winner !== String(character.village ?? "").trim()) return false;
     const name = String(character.name ?? "").trim().toLowerCase();
-    if (name && String(war.mvpByVillage?.[winner] ?? "").trim().toLowerCase() === name) return true;
+    const mvp = String(war.mvpByVillage?.[winner] ?? "").trim().toLowerCase();
+    if (name && mvp && (mvp === name || playerSlug(mvp) === playerSlug(name))) return true;
     const entry = war.contributions?.[playerSlug(String(character.name ?? ""))];
     return Number(entry?.damage) > 0 && (!entry?.side || entry.side === winner);
 }
@@ -854,7 +862,10 @@ export async function claimServerWarRewards(character: Character): Promise<Serve
     const candidates = new Map<string, { kind: "village" | "clan"; warId: string }>();
     for (const war of Object.values(sharedVillageWarCache)) {
         if (!war.endedAt || now - war.endedAt > WAR_CRATE_EXPIRY_MS) continue;
-        if (war.villages.includes(character.village)) candidates.set(`village:${war.id}`, { kind: "village", warId: war.id });
+        // Pair ids repeat on rematches. A settled predecessor cannot suppress
+        // the next generation's MVP, consolation or contribution rewards.
+        const instance = war.declarationGeneration ?? war.endedAt;
+        if (war.villages.includes(character.village)) candidates.set(`village:${war.id}:${instance}`, { kind: "village", warId: war.id });
     }
     if (character.clan) {
         for (const war of Object.values(sharedClanWarCache)) {
@@ -871,8 +882,8 @@ export async function claimServerWarRewards(character: Character): Promise<Serve
     let mvp = false;
     let consolation = false;
     let lifetimeDamage = 0;
-    for (const candidate of candidates.values()) {
-        const settledKey = warClaimKey(character, `${candidate.kind}:${candidate.warId}`);
+    for (const [claimId, candidate] of candidates) {
+        const settledKey = warClaimKey(character, claimId);
         if (warClaimSettled(settledKey)) continue;
         try {
             const response = await fetch("/api/war/claim-reward", {

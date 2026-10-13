@@ -43,7 +43,7 @@ after(async () => {
     delete process.env.SESSION_SECRET;
 });
 
-async function buy(structure: string): Promise<ResponseOut> {
+async function buy(structure: string, warInstance: string): Promise<ResponseOut> {
     const out: ResponseOut = { statusCode: 200 };
     const res = {
         setHeader: () => res,
@@ -53,7 +53,7 @@ async function buy(structure: string): Promise<ResponseOut> {
     };
     await warStructure({
         method: 'POST',
-        body: { playerName: 'frostkage', village: FROST, structure },
+        body: { playerName: 'frostkage', village: FROST, structure, toLevel: 1, warInstance },
         headers: { 'x-player-name': 'frostkage', 'x-player-token': issuePlayerToken('frostkage') ?? '' },
         socket: { remoteAddress: '127.0.0.9' },
     } as never, res as never);
@@ -67,19 +67,23 @@ test('a per-war structure bought again in a later war is logged again, not dropp
         await kv.set('save:frostkage', { _saveVersion: 1, character: { name: 'frostkage', village: FROST, level: 50, ryo: 0 } });
         await kv.set(FROST_WAR, { warResources: 1_000, structures: { ramparts: 0, watchtower: 0, barracks: 0, warAcademy: 0, supplyDepot: 0, treasuryVault: 0 }, sectors: {}, mercLeases: [], dormant: false, lastWarPassDate: '', terrainSetBy: {} });
 
-        const first = await buy('ramparts');
+        const { newSectorWarSession, sectorWarKey } = await import('../_sector-war.js');
+        const { sectorPreparationInstance } = await import('../_war-preparations.js');
+        const war = newSectorWarSession({ sector: 26, attackerVillage: 'Moonshadow Village', defenderVillage: FROST, winCondition: 'combat', now: T0 });
+        war.declarationGeneration = 1;
+        await kv.set(sectorWarKey(war.id), war);
+        const first = await buy('watchtower', sectorPreparationInstance(war));
         assert.equal(first.statusCode, 200, JSON.stringify(first.body));
         assert.equal(first.body?.newLevel, 1);
 
-        // The war ends: the daily pass resets the per-war structures at peace.
-        const rec = await kv.get<{ structures: Record<string, number> }>(FROST_WAR);
-        await kv.set(FROST_WAR, { ...rec, structures: { ...rec!.structures, ramparts: 0 } });
-
-        // A later war: the Kage fortifies again, from level 0 to 1.
+        // The rematch uses the same pair/sector row and a new generation.
         mock.timers.setTime(T0 + 3 * 86_400_000);
-        const second = await buy('ramparts');
+        const nextWar = { ...war, declarationGeneration: 2, startedAt: Date.now(), endsAt: Date.now() + 3 * 86400000 };
+        await kv.set(sectorWarKey(war.id), nextWar);
+        const second = await buy('watchtower', sectorPreparationInstance(nextWar));
         assert.equal(second.statusCode, 200, JSON.stringify(second.body));
         assert.equal(second.body?.newLevel, 1);
+        await buy('watchtower', sectorPreparationInstance(nextWar)); // Safe replay logs no second sink.
         await background.drainBackgroundWork();
 
         const events = ((await kv.get<Array<{ eventId: string; kind: string; amount: number }>>(telemetry.WAR_ECO_TXN_LIST_KEY)) ?? [])

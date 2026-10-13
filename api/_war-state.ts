@@ -11,6 +11,7 @@
  */
 
 import { leadershipNameKey } from '../shared/village-anbu.js';
+import { normalizeWarPreparations, preparationUpkeep, type WarPreparation } from '../shared/war-preparations.js';
 import {
     VILLAGE_STRUCTURE_MAX_LEVEL,
     WR_POOL_CAP,
@@ -113,6 +114,7 @@ function normalizeMercLeaseContext(raw: unknown): MercLeaseContext | null {
 }
 
 export interface VillageWarRecord {
+    warPreparations?: WarPreparation[];
     warResources: number;                       // village WR pool (0..WR_POOL_CAP)
     structures: Record<StructureKey, number>;   // level 0..MAX each
     sectors: Record<string, SectorWarState>;    // key = String(worldSectorNumber)
@@ -249,6 +251,7 @@ export function normalizeVillageWarRecord(village: string, raw?: Partial<Village
             base.structures[k] = clampInt((raw.structures as Record<string, unknown>)[k], 0, VILLAGE_STRUCTURE_MAX_LEVEL);
         }
     }
+    if (raw.warPreparations !== undefined) base.warPreparations = normalizeWarPreparations(raw.warPreparations);
 
     // Home sectors are always present (defaults filled). A war sector the
     // village CAPTURED keeps its entry too: the current holder configures a
@@ -436,9 +439,10 @@ export function activeMercLeases(record: VillageWarRecord, now: number): MercLea
 }
 
 /** Total daily WR upkeep across the village's structures (raw, by level). */
-export function totalUpkeepWr(record: VillageWarRecord): number {
+export function totalUpkeepWr(record: VillageWarRecord, now = Date.now()): number {
     let sum = 0;
-    for (const k of STRUCTURE_KEYS) sum += structureMaintenanceWr(record.structures[k]);
+    for (const k of ['supplyDepot', 'treasuryVault'] as const) sum += structureMaintenanceWr(record.structures[k]);
+    for (const p of record.warPreparations ?? []) if (p.endsAt > now) sum += preparationUpkeep(p.levels);
     return sum;
 }
 
@@ -470,11 +474,11 @@ export interface DailyPassSummary {
  *  includes captures/occupation). */
 export function stepVillageWarDay(
     record: VillageWarRecord,
-    opts: { sectorsControlled: number; today: string; now: number; wrPerSector?: number },
+    opts: { sectorsControlled: number; today: string; now: number; wrPerSector?: number; depotIncome?: number },
 ): { record: VillageWarRecord; summary: DailyPassSummary } {
     const sectors = Math.max(0, Math.floor(Number(opts.sectorsControlled) || 0));
     const idle: DailyPassSummary = {
-        ran: false, wrAccrued: 0, maintenanceOwed: totalUpkeepWr(record), maintenancePaid: 0,
+        ran: false, wrAccrued: 0, maintenanceOwed: totalUpkeepWr(record, opts.now), maintenancePaid: 0,
         dormant: record.dormant, mercsExpired: 0, sectorsControlled: sectors,
     };
     if (record.lastWarPassDate === opts.today) return { record, summary: idle };
@@ -489,12 +493,12 @@ export function stepVillageWarDay(
     // WR income: caller may pass a Supply-Depot-boosted per-sector rate
     // (api/_war-structures.ts wrPerSector); default is the flat §6.1 rate.
     const perSector = Number(opts.wrPerSector);
-    const wrAccrued = Number.isFinite(perSector)
+    const wrAccrued = (Number.isFinite(perSector)
         ? Math.floor(Math.max(0, perSector) * sectors)
-        : sectorBenefitWr(sectors);
+        : sectorBenefitWr(sectors)) + Math.max(0, Math.floor(opts.depotIncome ?? 0));
     let pool = Math.min(WR_POOL_CAP, next.warResources + wrAccrued);
 
-    const owed = totalUpkeepWr(next);
+    const owed = totalUpkeepWr(next, opts.now);
     let paid = 0;
     let dormant = false;
     if (owed > 0) {

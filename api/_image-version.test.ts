@@ -5,6 +5,7 @@ import { describe, it } from 'node:test';
 import {
     bumpImageVersion,
     imageVersionKey,
+    isPublishedImageVersion,
     isValidImageVersion,
     readImageVersion,
 } from './_image-version.js';
@@ -42,6 +43,45 @@ describe('image version token', () => {
     it('namespaces the counter per category', () => {
         assert.equal(imageVersionKey('pet'), 'shared:imgver:pet');
         assert.notEqual(imageVersionKey('pet'), imageVersionKey('jutsu'));
+    });
+});
+
+describe('which versions the category has reached', () => {
+    it('counts the current version and every older one', () => {
+        assert.equal(isPublishedImageVersion('44', '44'), true);
+        assert.equal(isPublishedImageVersion('43', '44'), true, 'newer bytes under a retired URL are never stale');
+        assert.equal(isPublishedImageVersion('0', '0'), true, 'a category that was never bumped is at version 0');
+        assert.equal(isPublishedImageVersion('044', '44'), true, 'the comparison is numeric, so a padded version is still 44');
+    });
+
+    it('refuses a version the category has not reached yet', () => {
+        // That URL is the one the next replace hands out. An immutable answer
+        // to it would pin today's bytes there for a year.
+        assert.equal(isPublishedImageVersion('45', '44'), false);
+        assert.equal(isPublishedImageVersion('1', '0'), false);
+        assert.equal(isPublishedImageVersion('1'.repeat(20), '44'), false);
+    });
+
+    it('compares exactly where a Number cannot', () => {
+        // 2^53 + 1 rounds to 2^53 as a Number, which would call it current.
+        assert.equal(Number('9007199254740993'), Number('9007199254740992'), 'the premise: Number cannot tell them apart');
+        assert.equal(isPublishedImageVersion('9007199254740993', '9007199254740992'), false);
+        assert.equal(isPublishedImageVersion('9007199254740992', '9007199254740993'), true);
+    });
+
+    it('counts nothing when the current version is unknown or malformed', () => {
+        // readImageVersion returns null when storage throws. Unknown is not 0.
+        assert.equal(isPublishedImageVersion('0', null), false);
+        assert.equal(isPublishedImageVersion('44', null), false);
+        // String(n) of a counter at or past 1e21 is exponent notation, not digits.
+        assert.equal(isPublishedImageVersion('1', '1e+21'), false);
+        assert.equal(isPublishedImageVersion('1', ''), false);
+    });
+
+    it('refuses a requested version the server would not accept', () => {
+        for (const bad of ['', '-1', '1.0', 'qa', ' 1', '1'.repeat(21)]) {
+            assert.equal(isPublishedImageVersion(bad, '44'), false, `expected ${JSON.stringify(bad)} to be refused`);
+        }
     });
 });
 
@@ -96,11 +136,17 @@ describe('image cache contracts', () => {
     const img = readFileSync(join(process.cwd(), 'api', 'img.ts'), 'utf8');
     const images = readFileSync(join(process.cwd(), 'api', 'images.ts'), 'utf8');
 
-    it('serves immutable ONLY behind a validated version', () => {
-        assert.match(img, /const versioned = isValidImageVersion\(req\.query\.v\)/u,
+    it('serves immutable ONLY behind a validated version the category has reached', () => {
+        assert.match(img, /const requestedVersion = isValidImageVersion\(req\.query\.v\) \? req\.query\.v : undefined;/u,
             'the version must be validated, never trusted raw from the query string');
+        assert.match(img, /const currentVersion = requestedVersion === undefined \? null : await readCurrentVersion\(cat\);/u,
+            'the category version is read only for a request that carries one');
+        assert.match(img, /const versioned = requestedVersion !== undefined && isPublishedImageVersion\(requestedVersion, currentVersion\);/u,
+            'a well-formed version above the counter must not count: it is the URL the next replace hands out');
         assert.match(img, /const artCache = versioned \? IMMUTABLE_CACHE : REVALIDATED_CACHE/u,
-            'immutable must be gated on a valid version');
+            'immutable must be gated on a published version');
+        assert.match(img, /const imageVersion = versioned \? requestedVersion : undefined;/u,
+            'the R2 redirect carries ?v= only for a published version');
         assert.match(img, /IMMUTABLE_CACHE = 'public, max-age=31536000, immutable'/u);
         // The unversioned path must keep its original TTL: old cached clients and
         // hand-typed URLs still arrive without a version and must not be pinned.
