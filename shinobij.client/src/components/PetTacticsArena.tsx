@@ -55,7 +55,10 @@ export function PetTacticsArena({ playerName, sharedImages = {}, onExit, onActiv
             setInitial(null); setTerminalPresented(false);
             setSettlement('pending');
         }
-        live.current = next; setOffset(next.serverNow - Date.now());
+        // The clock only advances when the shown second changes (below), so a
+        // new deadline/offset must arrive with a fresh clock in the same render.
+        const receivedAt = Date.now();
+        live.current = next; setOffset(next.serverNow - receivedAt); setClock(receivedAt);
         for (const turn of next.transcript) rounds.current.set(turn.round, turn);
         if (!initialRef.current && next.opponent && ['planning', 'playback', 'finished'].includes(next.phase)) {
             initialRef.current = next.battle; presentedRef.current = next.round; setInitial(next.battle); setPresented(next.round);
@@ -95,10 +98,20 @@ export function PetTacticsArena({ playerName, sharedImages = {}, onExit, onActiv
         timer = window.setTimeout(poll, 2500);
         return () => { cancelled = true; window.clearTimeout(timer); };
     }, [ranked, queued, view, request]);
+    // Display clock for the room/preview/planning countdown. It ticks only while
+    // a room is live and not finished, and it commits a new value only when the
+    // whole second on screen changes, so the 3D battle re-renders at most 1 Hz.
+    const clockDeadline = view?.deadline;
+    const clockLive = !!view && view.phase !== 'finished';
     useEffect(() => {
-        const timer = window.setInterval(() => setClock(Date.now()), 500);
+        if (!clockLive || clockDeadline == null) return;
+        const shownSeconds = (at: number) => Math.max(0, Math.ceil((clockDeadline - at - offset) / 1000));
+        const timer = window.setInterval(() => {
+            const at = Date.now();
+            setClock(prev => shownSeconds(prev) === shownSeconds(at) ? prev : at);
+        }, 500);
         return () => window.clearInterval(timer);
-    }, []);
+    }, [clockLive, clockDeadline, offset]);
     useEffect(() => {
         if (view?.opponent) void warmShowdownModels(view.battle, []);
         // Warm both sealed squads during preview, before the first attack.

@@ -102,7 +102,11 @@ test('rations require herbs atomically and retain the 40/day cooking cap',()=>{
         assert.equal(applyCookRecipe({...base,itemStacks:[]},recipe).ok,false);assert.deepEqual(base,before);
     }
 });
-test('containers cost exact inputs, are disabled safely, and donate actual provisions under one cap',()=>{
+test('containers cost exact inputs, are disabled safely, and donate actual provisions under one cap',(t)=>{
+    // The donation day below comes from a no-argument `new Date()`, and the cap
+    // check reads its own Date.now(). Freeze Date so a run that straddles UTC
+    // midnight cannot seed a day the cap no longer counts.
+    t.mock.timers.enable({apis:['Date'],now:Date.now()});
     const prior=process.env.DISABLE_VILLAGE_STORES;delete process.env.DISABLE_VILLAGE_STORES;
     try{
         for(const [id,provisions,ryo]of [['village-supply-bundle',10,30],['village-supply-crate',40,100]] as const){

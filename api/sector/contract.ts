@@ -62,7 +62,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         if (req.method === 'GET') {
-            if (!identity.admin && !(await enforceRateLimitKv(req, res, 'sector-contract-read', 60, 60_000, identity.name))) return;
+            // Read-only: in-memory window. The claim below keeps its database window.
+            if (!identity.admin && !(await enforceRateLimitKv(req, res, 'sector-contract-read', 60, 60_000, identity.name, { local: true }))) return;
             return res.status(200).json({ ok: true, ...(await readSectorContractStatus(playerName, sector)) });
         }
 

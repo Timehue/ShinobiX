@@ -5521,7 +5521,8 @@ export function FirstPact({
     useEffect(() => {
         if (!entered) return;
         const timer = window.setInterval(() => {
-            if (movementLockedRef.current) return;
+            // Cosmetic only: nobody watches a hidden tab wander.
+            if (movementLockedRef.current || document.hidden) return;
             setNpcs((current) => {
                 const nextState = { ...current };
                 const occupied = new Set(Object.values(current).map((entry) => firstPactPointKey(entry.position)));

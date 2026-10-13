@@ -1,5 +1,5 @@
 import { gainXp } from "../lib/character-level-projection";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import "../styles/hub-screens-skin.css";
 import type React from "react";
@@ -113,6 +113,21 @@ export function Logbook({
         complete: todayWarCompleted > index,
     }));
     const missingMissionIds = acceptedMissionIds.filter((id) => !availableLogbookMissions.some((mission) => mission.id === id));
+    // Count only slots that resolve to a real jutsu: a deleted custom jutsu
+    // leaves a dead id behind that combat skips, so the raw array length
+    // would credit a loadout slot the player cannot actually field. Idle regen
+    // replaces `character` every second while a vital is below max, so this is
+    // keyed on the only fields it reads: getAllJutsus reads bloodline +
+    // equippedBloodlineId, and the count reads equippedJutsuIds.
+    const { bloodline: characterBloodline, equippedBloodlineId, equippedJutsuIds } = character;
+    const equippedJutsuCount = useMemo(
+        () => liveEquippedJutsuIds(
+            getAllJutsus(savedBloodlines, creatorJutsus, character),
+            equippedJutsuIds,
+        ).length,
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the fields read (see above)
+        [savedBloodlines, creatorJutsus, characterBloodline, equippedBloodlineId, equippedJutsuIds],
+    );
     // Structured progression objectives (Academy checklist + rank exams) are
     // built by the shared lib so the Daily Briefing surfaces the same data and
     // the requirement definitions live in one place. Only the env facts the pure
@@ -121,13 +136,7 @@ export function Logbook({
         examProctorExists: creatorAis.some((ai) => ai.id === "builtin-ai-exam-proctor"),
         rogueNinjaExists: creatorAis.some((ai) => ai.id === "builtin-ai-rogue-ninja"),
         isKage: character.level >= 80 && loadVillageState(character.village).seatedKage?.toLowerCase() === character.name.toLowerCase(),
-        // Count only slots that resolve to a real jutsu: a deleted custom jutsu
-        // leaves a dead id behind that combat skips, so the raw array length
-        // would credit a loadout slot the player cannot actually field.
-        equippedJutsuCount: liveEquippedJutsuIds(
-            getAllJutsus(savedBloodlines, creatorJutsus, character),
-            character.equippedJutsuIds,
-        ).length,
+        equippedJutsuCount,
     };
     const objectives = buildLogbookObjectives(character, { ...objectiveContext, previewAdvancement: true });
     const currentObjective = currentLogbookObjective(character, objectiveContext);

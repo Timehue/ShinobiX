@@ -9,7 +9,7 @@ import { getAllJutsus } from "../lib/jutsu-loadout";
  */
 import type React from "react";
 import { serverNow } from "../lib/server-clock";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import "../styles/training-skin.css";
 import "../styles/hub-screens-skin.css";
 import "../styles/jutsu-training-skin.css";
@@ -64,12 +64,19 @@ export function Training({ character, savedBloodlines = [], onVersionedCharacter
     const [trainingNotice, setTrainingNotice] = useState<string | null>(null);
     const trainingBusyRef = useRef(false);
     // Live 1s tick so the Active Training box shows a real countdown (not a static
-    // end-time) and the Collect button unlocks the moment training is ready.
+    // end-time) and the Collect button unlocks the moment training is ready. It
+    // only runs while a session exists; nothing else on this screen reads `now`.
     const [now, setNow] = useState(() => serverNow());
+    const hasActiveTraining = !!activeTraining;
     useEffect(() => {
-        const id = setInterval(() => setNow(serverNow()), 1000);
-        return () => clearInterval(id);
-    }, []);
+        if (!hasActiveTraining) return;
+        const tick = () => setNow(serverNow());
+        // Refresh right away so a session started after a long idle stretch does
+        // not count down from the stale mount-time clock until the first tick.
+        const first = setTimeout(tick, 0);
+        const id = setInterval(tick, 1000);
+        return () => { clearTimeout(first); clearInterval(id); };
+    }, [hasActiveTraining]);
     const STAT_LABELS: Record<string, { label: string; icon: React.ReactNode }> = {
         strength:         { label: "Strength",      icon: <GameArtIcon kind="attack" size={18} /> },
         speed:            { label: "Speed",          icon: <GameArtIcon kind="speed" size={18} /> },
@@ -582,12 +589,29 @@ export function JutsuTrainingHall({
     onBack: () => void;
 }) {
     const ownedElements = getCharacterElements(character);
-    const allJutsus = getAllJutsus(savedBloodlines, creatorJutsus, character);
-    const availableJutsus = allJutsus.filter((jutsu) => canEquipElementJutsu(character, jutsu, savedBloodlines));
+    // Idle regen replaces `character` every second while a vital is below max, so
+    // these catalog lists are keyed on the only character fields they read:
+    // getAllJutsus and getCharacterBloodlines read bloodline + equippedBloodlineId,
+    // and canEquipElementJutsu adds element + elements (hasCharacterElement).
+    const { bloodline: characterBloodline, equippedBloodlineId, element: characterElement, elements: characterElements } = character;
+    const allJutsus = useMemo(
+        () => getAllJutsus(savedBloodlines, creatorJutsus, character),
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the fields read (see above)
+        [savedBloodlines, creatorJutsus, characterBloodline, equippedBloodlineId],
+    );
+    const availableJutsus = useMemo(
+        () => allJutsus.filter((jutsu) => canEquipElementJutsu(character, jutsu, savedBloodlines)),
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the fields read (see above)
+        [allJutsus, savedBloodlines, characterBloodline, equippedBloodlineId, characterElement, characterElements],
+    );
     const lockedElementCount = allJutsus.length - availableJutsus.length;
     // Jutsu id -> granting bloodline name, for the violet bloodline marker. The
     // same rule as the Profile Jutsu tab (lib/bloodline-marker).
-    const bloodlineJutsuNames = bloodlineNamesByJutsuId(getCharacterBloodlines(character, savedBloodlines));
+    const bloodlineJutsuNames = useMemo(
+        () => bloodlineNamesByJutsuId(getCharacterBloodlines(character, savedBloodlines)),
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the fields read (see above)
+        [savedBloodlines, characterBloodline, equippedBloodlineId],
+    );
     const bloodlineLabel = (jutsu: Jutsu) => {
         if (!hasBloodlineMarker(jutsu, bloodlineJutsuNames)) return "";
         const name = bloodlineJutsuNames.get(jutsu.id);
@@ -620,10 +644,18 @@ export function JutsuTrainingHall({
     // jutsu cap — Academy 10 / Genin 20 / Chunin+ 30 (= the Hall cap).
     const ryoTrainCap = jutsuRyoTrainCap(character.level);
 
+    // The 1s tick only drives the active lesson's countdown (and the Seal panel's
+    // finish price), so it runs only while a lesson exists.
+    const hasActiveJutsuTraining = !!activeJutsuTraining;
     useEffect(() => {
-        const interval = setInterval(() => setNow(serverNow()), 1000);
-        return () => clearInterval(interval);
-    }, []);
+        if (!hasActiveJutsuTraining) return;
+        const tick = () => setNow(serverNow());
+        // Refresh right away so a lesson started after a long idle stretch does
+        // not count down from the stale mount-time clock until the first tick.
+        const first = setTimeout(tick, 0);
+        const interval = setInterval(tick, 1000);
+        return () => { clearTimeout(first); clearInterval(interval); };
+    }, [hasActiveJutsuTraining]);
 
     // A running jutsu-speed boost event (shared/boost-event.ts) divides lesson
     // time on the server (api/training/jutsu-ryo.ts), so the preview does too.

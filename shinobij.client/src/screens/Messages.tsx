@@ -8,6 +8,7 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { visiblePoll } from "../lib/poll";
 import { EmptyState } from "../components/ui/EmptyState";
+import { LoadingState } from "../components/ui/LoadingState";
 import { GiChatBubble, GiTrashCan } from "../components/icons/LightweightGameIcons";
 import courierHero from "../assets/facilities/messages-courier-hero.webp";
 import { ReportControl } from "../components/ReportControl";
@@ -19,7 +20,18 @@ import { gameConfirm } from "../components/GameAlert";
 
 type DmMessage = { from: string; text: string; ts: number };
 type InboxEntry = { with: string; lastTs: number; lastText: string; unread: number };
-const EMPTY_THREAD: readonly DmMessage[] = [];
+
+/** A read cut off by its own 12 s timeout failed; one retired by the screen did not. */
+function timedOut(signal: AbortSignal): boolean {
+    return signal.reason instanceof DOMException && signal.reason.name === "TimeoutError";
+}
+
+/** Same length and same last line: a poll that brought nothing new. */
+function sameThread(a: readonly DmMessage[], b: readonly DmMessage[]): boolean {
+    if (a.length !== b.length) return false;
+    const x = a[a.length - 1], y = b[b.length - 1];
+    return !x || !y || (x.ts === y.ts && x.from === y.from && x.text === y.text);
+}
 
 function timeAgo(ts: number): string {
     const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
@@ -29,16 +41,23 @@ function timeAgo(ts: number): string {
     return `${Math.floor(s / 86400)}d ago`;
 }
 
-export const Messages = memo(function Messages({ character, onBack, initialWith }: {
+export const Messages = memo(function Messages({ character, onBack, initialWith, onConsumeInitialWith }: {
     character: Character;
     onBack: () => void;
     initialWith?: string | null;
+    /** Called with null once the opening conversation is taken, so a later visit opens the inbox. */
+    onConsumeInitialWith?: (cleared: null) => void;
 }) {
     const me = character.name.toLowerCase();
     const [inbox, setInbox] = useState<InboxEntry[]>([]);
+    // The inbox reads as empty only after the server has answered; before that
+    // it is loading, and a first read that fails says so instead of "no mail".
+    const [inboxState, setInboxState] = useState<"loading" | "ready" | "failed">("loading");
     const [active, setActive] = useState<string | null>(initialWith ? initialWith.toLowerCase() : null);
+    const activeKey = active ? active.toLowerCase() : null;
     const [loadedThread, setLoadedThread] = useState<{ withName: string; messages: DmMessage[] } | null>(null);
-    const thread = loadedThread && loadedThread.withName === active?.toLowerCase() ? loadedThread.messages : EMPTY_THREAD;
+    const [threadFailed, setThreadFailed] = useState<string | null>(null);
+    const thread = loadedThread && loadedThread.withName === activeKey ? loadedThread.messages : null;
     const [draft, setDraft] = useState("");
     const [composeTo, setComposeTo] = useState(initialWith ?? "");
     const [busy, setBusy] = useState(false);
@@ -50,14 +69,28 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
     const { locked: sendLocked, loading: lockLoading } = useSocialLock(character.name);
     const composeDisabled = sendLocked || lockLoading;
     const threadRef = useRef<HTMLDivElement>(null);
+    // `seenRef` remembers the open conversation's length so the shared unread
+    // badge is re-read only when a conversation opens or grows, not on every
+    // 8 s poll (each re-read is another GET /api/messages). `scrolledForRef`
+    // and `nearBottomRef` keep a reader who scrolled up from being pulled back.
+    const seenRef = useRef<{ key: string; count: number } | null>(null);
+    const scrolledForRef = useRef<string | null>(null);
+    const nearBottomRef = useRef(true);
+
+    useEffect(() => { if (initialWith) onConsumeInitialWith?.(null); }, [initialWith, onConsumeInitialWith]);
 
     const loadInbox = useCallback(async (signal: AbortSignal) => {
         try {
             const r = await fetch("/api/messages", { signal });
-            if (!r.ok) return;
+            if (!r.ok) throw new Error(`Inbox read answered ${r.status}`);
             const j = await r.json();
-            if (!signal.aborted) setInbox(Array.isArray(j) ? j : []);
-        } catch { /* offline */ }
+            if (signal.aborted) return;
+            setInbox(Array.isArray(j) ? j : []);
+            setInboxState("ready");
+        } catch {
+            // Keep an inbox already on screen; the next poll retries either way.
+            if (!signal.aborted || timedOut(signal)) setInboxState((state) => state === "ready" ? state : "failed");
+        }
     }, []);
     const loadBlocks = useCallback(async (signal: AbortSignal) => {
         try {
@@ -68,18 +101,26 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
         } catch { /* offline */ }
     }, []);
     const loadThread = useCallback(async (withName: string, signal: AbortSignal) => {
+        const key = withName.toLowerCase();
         try {
             const r = await fetch(`/api/messages?with=${encodeURIComponent(withName)}`, { signal });
-            if (r.ok) {
-                const j = await r.json();
-                if (signal.aborted) return;
-                setLoadedThread({ withName: withName.toLowerCase(), messages: Array.isArray(j) ? j : [] });
-                // Opening a conversation marks it read server-side — nudge the
-                // shared unread store so the nav badge clears without waiting a
-                // full poll interval.
-                refreshUnreadMail();
-            }
-        } catch { /* offline */ }
+            if (!r.ok) throw new Error(`Conversation read answered ${r.status}`);
+            const j = await r.json();
+            if (signal.aborted) return;
+            const messages: DmMessage[] = Array.isArray(j) ? j : [];
+            // A poll that brought nothing new keeps the same array, so the list
+            // neither re-renders nor scrolls under the reader.
+            setLoadedThread((current) => current?.withName === key && sameThread(current.messages, messages) ? current : { withName: key, messages });
+            setThreadFailed(null);
+            // Reading a conversation marks it read server-side — nudge the
+            // shared unread store so the nav badge clears without waiting a
+            // full poll interval, but only when it opened or something arrived.
+            const seen = seenRef.current;
+            seenRef.current = { key, count: messages.length };
+            if (!seen || seen.key !== key || messages.length > seen.count) refreshUnreadMail();
+        } catch {
+            if (!signal.aborted || timedOut(signal)) setThreadFailed(key);
+        }
     }, []);
 
     useEffect(() => {
@@ -87,6 +128,13 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
         void loadBlocks(controller.signal);
         return () => controller.abort();
     }, [loadBlocks, me]);
+    // Back at the inbox: the next conversation opened is a fresh open.
+    useEffect(() => {
+        if (activeKey) return;
+        seenRef.current = null;
+        scrolledForRef.current = null;
+        nearBottomRef.current = true;
+    }, [activeKey]);
     // Own the initial read and subsequent polls together. Switching conversations
     // or starting a mutation retires both reads before they can replace newer UI.
     useEffect(() => {
@@ -99,7 +147,15 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
         const stop = visiblePoll(refresh, 8000, 0.1, { immediate: true });
         return () => { controller.abort(); stop(); };
     }, [active, busy, deleting, loadInbox, loadThread, me]);
-    useEffect(() => { if (threadRef.current) threadRef.current.scrollTop = threadRef.current.scrollHeight; }, [thread]);
+    // Jump to the newest line when a conversation opens, when the reader is
+    // already at the bottom, or when the newest line is their own reply.
+    useEffect(() => {
+        const el = threadRef.current;
+        if (!el || !thread || !activeKey) return;
+        const ownLast = thread[thread.length - 1]?.from.toLowerCase() === me;
+        if (scrolledForRef.current !== activeKey || nearBottomRef.current || ownLast) el.scrollTop = el.scrollHeight;
+        scrolledForRef.current = activeKey;
+    }, [thread, activeKey, me]);
 
     const send = useCallback(async (to: string, text: string) => {
         const target = to.trim();
@@ -202,10 +258,14 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
                                 {blocked.has(active) ? "Unblock" : "Block"}
                             </button>
                         </span>
-                        <button onClick={() => { setActive(null); setError(""); }}>← Inbox</button>
+                        <button onClick={() => { setActive(null); setError(""); setThreadFailed(null); }}>← Inbox</button>
                     </div>
-                    <div ref={threadRef} style={{ maxHeight: "50vh", overflowY: "auto", display: "flex", flexDirection: "column", gap: 6, padding: "4px 0" }}>
-                        {thread.length === 0 ? (
+                    <div ref={threadRef} onScroll={(e) => { const el = e.currentTarget; nearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 64; }} style={{ maxHeight: "50vh", overflowY: "auto", display: "flex", flexDirection: "column", gap: 6, padding: "4px 0" }}>
+                        {thread === null ? (
+                            threadFailed === activeKey
+                                ? <p className="hint" role="status">This conversation could not be loaded. It will try again in a moment.</p>
+                                : <LoadingState>Opening the conversation…</LoadingState>
+                        ) : thread.length === 0 ? (
                             <EmptyState icon={<GiChatBubble size={28} style={{ color: "var(--sj-text-muted)" }} />}>No messages yet — say hello.</EmptyState>
                         ) : thread.map((m, i) => {
                             const mine = m.from.toLowerCase() === me;
@@ -221,7 +281,7 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
                         <GuestSocialLock compact what="Guest characters can read the mail they are sent, but cannot reply." />
                     ) : (
                         <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-                            <input disabled={blocked.has(active) || composeDisabled} value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void send(active, draft); }} placeholder={blocked.has(active) ? `${active} is blocked` : `Message ${active}…`} maxLength={500} style={{ flex: 1 }} />
+                            <input aria-label={`Reply to ${active}`} enterKeyHint="send" disabled={blocked.has(active) || composeDisabled} value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void send(active, draft); }} placeholder={blocked.has(active) ? `${active} is blocked` : `Message ${active}…`} maxLength={500} style={{ flex: 1 }} />
                             <button disabled={busy || blocked.has(active) || composeDisabled || !draft.trim()} onClick={() => void send(active, draft)}>Send</button>
                         </div>
                     )}
@@ -235,8 +295,8 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
                             <GuestSocialLock compact what="Guest characters cannot start a conversation." />
                         ) : (
                             <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
-                                <input value={composeTo} onChange={(e) => setComposeTo(e.target.value)} placeholder="Recipient name" style={{ width: 160 }} />
-                                <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void send(composeTo, draft); }} placeholder="Message…" maxLength={500} style={{ flex: "1 1 200px", minWidth: 0 }} />
+                                <input aria-label="Recipient name" value={composeTo} onChange={(e) => setComposeTo(e.target.value)} placeholder="Recipient name" style={{ width: 160 }} />
+                                <input aria-label="Message text" enterKeyHint="send" value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void send(composeTo, draft); }} placeholder="Message…" maxLength={500} style={{ flex: "1 1 200px", minWidth: 0 }} />
                                 <button disabled={busy || composeDisabled || !composeTo.trim() || !draft.trim()} onClick={() => void send(composeTo, draft)}>Send</button>
                             </div>
                         )}
@@ -244,7 +304,11 @@ export const Messages = memo(function Messages({ character, onBack, initialWith 
                     </div>
                     <div className="summary-box">
                         <strong>Inbox</strong>
-                        {inbox.length === 0 ? (
+                        {inbox.length === 0 && inboxState === "loading" ? (
+                            <LoadingState>Checking the courier desk for your letters…</LoadingState>
+                        ) : inbox.length === 0 && inboxState === "failed" ? (
+                            <p className="hint" role="status">Your inbox could not be loaded. It will try again in a moment.</p>
+                        ) : inbox.length === 0 ? (
                             <EmptyState icon={<GiChatBubble size={30} style={{ color: "var(--sj-text-muted)" }} />}>No conversations yet.</EmptyState>
                         ) : (
                             <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6 }}>

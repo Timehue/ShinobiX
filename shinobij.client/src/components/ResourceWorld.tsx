@@ -6,7 +6,8 @@ import { resourceRequest, type ResourceResponse } from '../lib/resource-api';
 import { Modal } from './ui/Modal';
 import { ResourceMinigame } from './ResourceMinigames';
 import { GatheringResult } from './GatheringResult';
-import { serverNow } from '../lib/server-clock';
+import { serverClockOffsetMs } from '../lib/server-clock';
+import { useSharedNow } from '../lib/use-shared-now';
 import { gatheringTool, gatheringToolRemaining } from '../../../shared/gathering-tools';
 import './resource-gathering.css';
 
@@ -18,7 +19,9 @@ export function ResourceWorld({ character, sector, tile, commit, walk, worldBoss
     const [busy, setBusy] = useState(false), [error, setError] = useState(''), [receipt, setReceipt] = useState<ResourceReceipt | null>(null);
     const [worldBossHollowShard, setWorldBossHollowShard] = useState<ResourceResponse['worldBossHollowShard']>();
     const [locallyMinedCrystals, setLocallyMinedCrystals] = useState<Record<string, string[]>>({});
-    const [now, setNow] = useState(() => serverNow());
+    // Server time on the shared 1s display clock, which pauses while the tab is
+    // hidden and catches up when it returns.
+    const now = useSharedNow() + serverClockOffsetMs();
     const [recovery, setRecovery] = useState({ name: '', status: 'checking' as 'checking' | 'ready' | 'failed' });
     const [recoveryRetry, setRecoveryRetry] = useState(0);
     const ready = recovery.name === character.name && recovery.status === 'ready';
@@ -44,7 +47,6 @@ export function ResourceWorld({ character, sector, tile, commit, walk, worldBoss
         });
         return () => { alive = false; };
     }, [character.name, recoveryRetry]);
-    useEffect(() => { const interval = window.setInterval(() => setNow(serverNow()), 1000); return () => clearInterval(interval); }, []);
     const state = readResourceGathering(character.resourceGathering), active = state.active;
     const node = active ? resourceNode(active.nodeId) : selected;
     const level = node ? resourceSkillLevel(state[`${node.activity}Xp`]) : 1;

@@ -1,12 +1,23 @@
 import type { VercelRequest, VercelResponse } from '../../_vercel.js';
 import { cors } from '../../_utils.js';
 import { authedPlayerOrAdmin } from '../../_auth.js';
+import { kv } from '../../_storage.js';
+import { readKvProjection } from '../../_storage-projection.js';
 import {
     applyLazyClanWarExpiry,
     loadAllClanWars,
-    loadClanContext,
     redactClanWarForViewer,
 } from './_storage.js';
+
+/** The viewer's clan as their save records it; '' when unknown or unreadable. */
+async function viewerClanOf(playerName: string): Promise<string> {
+    try {
+        const [row] = await readKvProjection(kv, [`save:${playerName}`], { clan: ['character', 'clan'] });
+        return String(row?.clan ?? '');
+    } catch {
+        return '';
+    }
+}
 
 // GET /api/clan/war/list
 // Returns all clan wars (active + recently ended) so the client can
@@ -33,16 +44,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // their own clan's challenger names unredacted. Admins see
         // everything.
         const identity = await authedPlayerOrAdmin(req).catch(() => null);
-        let viewerClan = '';
-        let isAdmin = false;
-        if (identity && identity.admin) {
-            isAdmin = true;
-        } else if (identity && !identity.admin) {
-            const ctx = await loadClanContext(identity.name).catch(() => null);
-            viewerClan = ctx?.clan ?? '';
-        }
-
-        const wars = await loadAllClanWars();
+        const isAdmin = Boolean(identity?.admin);
+        // Every clan member polls this every 30s. Redaction needs only the
+        // viewer's clan name, so read that one field of their save (not the
+        // whole save plus the clan record), alongside the war rows.
+        const [viewerClan, wars] = await Promise.all([
+            identity && !identity.admin ? viewerClanOf(identity.name) : Promise.resolve(''),
+            loadAllClanWars(),
+        ]);
         const now = Date.now();
         const projected = wars.map(w => applyLazyClanWarExpiry(w, now).war);
         const shaped = isAdmin

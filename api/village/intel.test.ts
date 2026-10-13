@@ -111,7 +111,14 @@ describe('GET /api/village/intel', { concurrency: false }, () => {
         assert.equal(out.body?.villageIntel, null);
     });
 
-    it('reveals ONLY sectors at >= 100 points, with the garrison / pool / structure block', async () => {
+    it('reveals ONLY sectors at >= 100 points, with the garrison / pool / structure block', async (t) => {
+        // The seeded pool row is keyed to the UTC day of a no-argument
+        // `new Date()` below, and intel reads the pool rows of the UTC day of
+        // its own Date.now(). A run that straddles UTC midnight between the two
+        // would make intel look under the next day's key, so sector 12's pool
+        // usage would read as zero. Freeze Date (Date.now and new Date alike)
+        // for the whole check.
+        t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
         await seedPlayer('moonrunner', VIEWER);
         await seedIntel(VIEWER, { 12: 140, 5: 99, 20: 600 });
         await kv.set('world:territory:12', { sector: 12, ownerVillage: RIVAL });

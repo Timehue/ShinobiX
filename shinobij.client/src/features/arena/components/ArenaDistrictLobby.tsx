@@ -47,6 +47,8 @@ type ArenaDistrictLobbyProps = {
     onBack: () => void;
     onTabChange: (tab: ArenaDistrictTab) => void;
     onChallengePlayer: (player: PlayerRecord, mode?: DuelChallenge["mode"], clanWarPoints?: number) => void;
+    /** A challenge is being sent; the challenge buttons wait for it. */
+    challengeBusy?: boolean;
     onAcceptDistrictChallenge: (challenge: DuelChallenge) => void;
     onDeclineChallenge: (challenge: DuelChallenge) => void;
     onAdvanceTournamentPlayer: (name: string) => void;
@@ -81,6 +83,7 @@ export function ArenaDistrictLobby({
     onBack,
     onTabChange,
     onChallengePlayer,
+    challengeBusy = false,
     onAcceptDistrictChallenge,
     onDeclineChallenge,
     onJoinRankedQueue,
@@ -133,9 +136,9 @@ export function ArenaDistrictLobby({
                                             <strong>{player.name}</strong>
                                             <p>Level {player.level} | {player.specialty}</p>
                                             <div className="menu">
-                                                <button onClick={() => onChallengePlayer(player, "clanWar1v1", 50)}>1v1 +50</button>
-                                                <button onClick={() => onChallengePlayer(player, "clanWar2v2", 100)}>2v2 +100</button>
-                                                <button onClick={() => onChallengePlayer(player, "clanWarPet", 25)}>Pet Battle +25</button>
+                                                <button disabled={challengeBusy} onClick={() => onChallengePlayer(player, "clanWar1v1", 50)}>1v1 +50</button>
+                                                <button disabled={challengeBusy} onClick={() => onChallengePlayer(player, "clanWar2v2", 100)}>2v2 +100</button>
+                                                <button disabled={challengeBusy} onClick={() => onChallengePlayer(player, "clanWarPet", 25)}>Pet Battle +25</button>
                                             </div>
                                         </div>
                                     ))}
