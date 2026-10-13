@@ -137,6 +137,15 @@ describe('uploads (POST /api/images)', () => {
         assert.equal(await kv.get('shared:img:avatar:first'), png('2'));
     });
 
+    it('list a brand-new image on the very next manifest read, with no version bump', async () => {
+        await kv.set('shared:img:pet:old', png('o'));
+        assert.deepEqual((await call(imagesHandler, 'GET', { cat: 'pet', ids: '1' })).body, ['pet:old']);
+        assert.equal((await upload('pet:new', png('n'))).statusCode, 200);
+        assert.equal(await readImageVersion('pet'), '0');
+        assert.deepEqual(((await call(imagesHandler, 'GET', { cat: 'pet', ids: '1' })).body as string[]).sort(), ['pet:new', 'pet:old'],
+            'the upload dropped the memoised list instead of waiting out its minute');
+    });
+
     it('bump for an id the frozen legacy rows still serve without a row of its own', async () => {
         await kv.set('shared:imgfields:pet', { 'pet:legacy-only': png('old') });
         assert.equal((await upload('pet:legacy-only', png('new'))).statusCode, 200);
@@ -181,9 +190,33 @@ describe('deletes (DELETE /api/images)', () => {
         assert.deepEqual(await kv.get('shared:imgfields:card'), { 'card:keep': png('k') });
         assert.deepEqual(await kv.get('shared:images:card'), { 'card:old': png('o') });
         assert.equal(await readImageVersion('card'), '1');
-        const rowDelete = writes.indexOf('del shared:img:card:gone');
+        const removals = ['hdel shared:imgfields:card', 'set shared:images:card', 'del shared:img:card:gone'].map((w) => writes.indexOf(w));
         const bump = writes.indexOf('incr shared:imgver:card');
-        assert.ok(rowDelete >= 0 && bump > rowDelete, `the row goes before the bump: ${writes.join(', ')}`);
+        assert.ok(removals.every((at) => at >= 0), `every removal ran: ${writes.join(', ')}`);
+        assert.ok(bump > Math.max(...removals), `the hash, the blob and the row all go before the bump: ${writes.join(', ')}`);
+    });
+
+    it('a delete whose version bump fails still stops listing the image', async (t) => {
+        await kv.set('shared:img:card:gone', png('g'));
+        await kv.set('shared:img:card:keep', png('k'));
+        await kv.set('shared:imgfields:card', { 'card:gone': png('g'), 'card:keep': png('k') });
+        const before = await call(imagesHandler, 'GET', { cat: 'card', ids: '1' });
+        assert.deepEqual((before.body as string[]).sort(), ['card:gone', 'card:keep']);
+        t.mock.method(kv, 'incr', async () => { throw new Error('injected bump failure'); });
+        assert.equal((await call(imagesHandler, 'DELETE', { id: 'card:gone' })).statusCode, 200);
+        assert.equal(await readImageVersion('card'), '0', 'the bump did not land');
+        assert.deepEqual((await call(imagesHandler, 'GET', { cat: 'card', ids: '1' })).body, ['card:keep'],
+            'the memoised lists were dropped anyway, so the deleted image is not listed for up to an hour');
+    });
+
+    it('a leader portrait\'s old copy in the misc hash goes with it', async () => {
+        await kv.set('shared:img:leader:Stormveil Village:kage', png('new'));
+        await kv.set('shared:imgfields:misc', { 'leader:Stormveil Village:kage': png('old'), 'shrine:x': png('s') });
+        assert.equal((await call(imagesHandler, 'DELETE', { id: 'leader:Stormveil Village:kage' })).statusCode, 200);
+        assert.deepEqual(await kv.get('shared:imgfields:misc'), { 'shrine:x': png('s') });
+        assert.equal((await call(imgHandler, 'GET', { id: 'leader:Stormveil Village:kage' })).statusCode, 404,
+            'no older copy is served in its place');
+        assert.deepEqual((await call(imagesHandler, 'GET', { cat: 'leader', ids: '1' })).body, []);
     });
 
     it('fail without bumping when the image row cannot be removed, and finish on a retry', async (t) => {
@@ -271,6 +304,77 @@ describe('reads', () => {
         assert.equal(out.headers['cache-control'], 'no-store');
     });
 
+    it('the all-categories answer is never cached when one category could not be read fully', async (t) => {
+        await kv.set('shared:img:card:a', png('a'));
+        await kv.set('shared:img:item:stalled', png('i'));
+        let stalledRead = false;
+        const realMget = kv.mget.bind(kv);
+        t.mock.method(kv, 'mget', (...keys: string[]) => {
+            if (!keys.includes('shared:img:item:stalled')) return realMget(...keys);
+            stalledRead = true;
+            return new Promise(() => undefined);
+        });
+        t.mock.timers.enable({ apis: ['setTimeout'] });
+        const pending = call(imagesHandler, 'GET');
+        for (let turn = 0; turn < 1000 && !stalledRead; turn++) await new Promise((resolve) => setImmediate(resolve));
+        assert.ok(stalledRead, 'the handler reached the image read');
+        t.mock.timers.tick(18_000);
+        const out = await pending;
+        assert.equal(out.statusCode, 200);
+        assert.deepEqual(out.body, { 'card:a': png('a') });
+        assert.equal(out.headers['cache-control'], 'no-store');
+    });
+
+    it('full-content reads reuse the memoised lists, so a burst never re-lists the 9-16 MB rows', async (t) => {
+        await kv.set('shared:imgfields:card', { 'card:a': png('old-a') });
+        await kv.set('shared:img:card:a', png('a'));
+        await kv.set('shared:img:card:b', png('b'));
+        const hkeys = t.mock.method(kv, 'hkeys');
+        const keys = t.mock.method(kv, 'keys');
+        const first = await call(imagesHandler, 'GET', { cat: 'card' });
+        assert.deepEqual(first.body, { 'card:a': png('a'), 'card:b': png('b') });
+        assert.match(first.headers['cache-control'] ?? '', /^public/, 'a complete answer stays cacheable');
+        const listed = { hkeys: hkeys.mock.callCount(), keys: keys.mock.callCount() };
+        for (const cb of ['1', '2', '3']) {
+            assert.deepEqual((await call(imagesHandler, 'GET', { cat: 'card', cb })).body, first.body);
+        }
+        assert.deepEqual({ hkeys: hkeys.mock.callCount(), keys: keys.mock.callCount() }, listed,
+            'cache-busted repeats list no keys at all');
+    });
+
+    it('leave out a rowless id whose legacy read timed out, instead of an older legacy copy', async (t) => {
+        await kv.set('shared:imgfields:event', { 'event:x': png('hash-newest') });
+        await kv.set('shared:images:event', { 'event:x': png('blob-older') });
+        const realHgetall = kv.hgetall.bind(kv);
+        t.mock.method(kv, 'hgetall', (key: string) =>
+            (key === 'shared:imgfields:event' ? new Promise(() => undefined) : realHgetall(key)));
+        const shortTimeout = <T>(read: Promise<T | null>): Promise<T | null> =>
+            Promise.race([read, new Promise<null>((resolve) => setTimeout(() => resolve(null), 20))]);
+        const { values, unread } = await readImageValuesReport('event', ['event:x'], shortTimeout);
+        assert.deepEqual(values, {}, 'the older blob copy does not stand in for the hash');
+        assert.deepEqual(unread, ['event:x']);
+    });
+
+    it('GET /api/img asks for a retry when a legacy read times out, instead of serving an older copy', async (t) => {
+        await kv.set('shared:imgfields:event', { 'event:x': png('hash-newest') });
+        await kv.set('shared:images:event', { 'event:x': png('blob-older') });
+        let stalled = false;
+        const realHgetall = kv.hgetall.bind(kv);
+        t.mock.method(kv, 'hgetall', (key: string) => {
+            if (key !== 'shared:imgfields:event') return realHgetall(key);
+            stalled = true;
+            return new Promise(() => undefined);
+        });
+        t.mock.timers.enable({ apis: ['setTimeout'] });
+        const pending = call(imgHandler, 'GET', { id: 'event:x', v: '3' });
+        for (let turn = 0; turn < 1000 && !stalled; turn++) await new Promise((resolve) => setImmediate(resolve));
+        assert.ok(stalled, 'the handler reached the legacy read');
+        t.mock.timers.tick(8_000);
+        const out = await pending;
+        assert.equal(out.statusCode, 503, 'not the older blob bytes, under a URL served immutable');
+        assert.equal(out.headers['cache-control'], 'no-store');
+    });
+
     it('GET /api/img serves an id only the legacy rows hold, and writes nothing', async (t) => {
         await kv.set('shared:imgfields:event', { 'event:legacy': png('legacy') });
         const attempted = forbidWrites(t);
@@ -287,6 +391,8 @@ describe('reads', () => {
             savedBloodlines: [
                 { id: 'b1', name: 'Storm', rank: 'A Rank', jutsus: [] },
                 { id: 'b2', name: 'Ash', rank: 'B Rank', image: png('inline'), jutsus: [] },
+                // No art anywhere: no inline image, no row, nothing in the hash.
+                { id: 'b3', name: 'Bare', rank: 'C Rank', jutsus: [] },
             ],
         });
         await kv.set('shared:img:bloodline:b1', png('b1'));
@@ -295,9 +401,9 @@ describe('reads', () => {
         const out = await call(bloodlinesHandler, 'GET');
         assert.equal(out.statusCode, 200);
         const list = (out.body as { bloodlines: Array<{ name: string; image?: string }> }).bloodlines;
-        assert.deepEqual(list.map((b) => [b.name, b.image]), [['Ash', png('inline')], ['Storm', png('b1')]]);
+        assert.deepEqual(list.map((b) => [b.name, b.image]), [['Ash', png('inline')], ['Bare', undefined], ['Storm', png('b1')]]);
         assert.ok(!hgetall.mock.calls.some((c) => c.arguments[0] === 'shared:imgfields:bloodline'),
-            'the 11.6 MB bloodline hash is not read when every listed image has its row');
+            'the 11.6 MB bloodline hash is read only for an id it lists, never for a bloodline with no art');
     });
 });
 

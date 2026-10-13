@@ -75,7 +75,7 @@ test('a repeat manifest read is served from memory with an identical body', asyn
     assert.deepEqual(bare.body, ['pet:a', 'pet:b'], 'the unversioned shape is unchanged');
 });
 
-test('a version bump (upload/delete) is visible on the very next read', async () => {
+test('a version bump (replace/delete) is visible on the very next read', async () => {
     stub.rows.set('shared:imgfields:jutsu', { 'jutsu:a': 'data:x' });
     stub.versions.set('jutsu', 1);
     assert.deepEqual((await get({ cat: 'jutsu', ids: '1', ver: '1' })).body, { version: '1', ids: ['jutsu:a'] });

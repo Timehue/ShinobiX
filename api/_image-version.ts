@@ -20,8 +20,8 @@
  * (`GET /api/images?cat=X&ids=1&ver=1`) hands the client a version alongside the
  * id list; the client emits `/api/img?id=X&v=<version>`; and `/api/img` serves
  * anything carrying a `v` as `immutable` for a year. A version only moves when
- * something in that category is actually written or deleted, so unchanged art is
- * never re-requested at all.
+ * the bytes behind an existing id in that category change or go (see
+ * bumpImageVersion), so unchanged art is never re-requested at all.
  *
  * ── Why per-CATEGORY and not per-image ──────────────────────────────────────
  *
@@ -33,9 +33,11 @@
  * The cost of the coarser key is that replacing one pet sprite re-downloads the
  * other pet art as players encounter it. That is still strictly better than what
  * it replaces: today EVERY image is revalidated every five minutes forever;
- * afterwards nothing is re-requested until an admin actually uploads. Uploads are
- * rare admin actions, and the bump is scoped to the touched category, so a pet
- * upload leaves jutsu / item / card art alone.
+ * afterwards nothing is re-requested until art is actually replaced or removed.
+ * That is rare, and the bump is scoped to the touched category, so a pet replace
+ * leaves jutsu / item / card art alone. A brand-new image does not bump at all
+ * (since the 2026-10 shared-row split), so a new player's avatar leaves every
+ * other avatar's URL alone.
  *
  * ── Failure behaviour ───────────────────────────────────────────────────────
  *
@@ -104,7 +106,9 @@ export async function readImageVersion(
  *
  * Best-effort by contract — an image write is authoritative whether or not the
  * counter moves. A missed bump costs at most one stale-until-next-bump window,
- * which is the behaviour that shipped for the whole life of the endpoint.
+ * which is the behaviour that shipped for the whole life of the endpoint. Since
+ * new ids stopped bumping, that window lasts until the next replace or delete
+ * in the category, so a miss is logged.
  */
 export async function bumpImageVersion(
     cat: string,
@@ -113,7 +117,9 @@ export async function bumpImageVersion(
     const store = opts.kv ?? kv;
     try {
         await store.incr(imageVersionKey(cat));
-    } catch {
+    } catch (error) {
         // best-effort — never fail an upload or delete over a cache hint
+        console.warn(`[image-version] bump failed for ${cat}; cached URLs keep the old art until the next bump:`,
+            error instanceof Error ? error.message : error);
     }
 }

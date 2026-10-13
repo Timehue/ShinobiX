@@ -832,6 +832,8 @@ describe('kv.compareSetMany on a real Postgres', () => {
         await seed('pgit:img:avatar:b_c', 'data:b');
         await seed('pgit:img:avatar_x:z', 'data:other-prefix');
         await seed('pgit:img:avatarx:no', 'data:other-prefix');
+        // Only an unescaped `_` (LIKE's any-one-character) would match this one.
+        await seed('pgit:img:avatar-x:no', 'data:other-prefix');
         await seed('pgit:img:avatar%:no', 'data:other-prefix');
         await seed('pgit:imgfields:avatar', { 'avatar:a': 'data:legacy' });
         await seed('pgit:img:avatar:gone', 'data:expired', 'past');
