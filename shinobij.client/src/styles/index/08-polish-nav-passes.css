@@ -421,7 +421,7 @@ body {
 }
 
 .vn-stage {
-    background: linear-gradient(180deg, rgba(9, 14, 28, .06), rgba(7, 9, 18, .78)), url("/Shinobi-Journeys.png") center / cover;
+    background: linear-gradient(180deg, rgba(9, 14, 28, .06), rgba(7, 9, 18, .78)), url("/Shinobi-Journeys.webp") center / cover;
 }
 
     .vn-stage::after {
