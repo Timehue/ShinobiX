@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from './_vercel.js';
-import { kv } from './_storage.js';
+import { kv, type KvLike } from './_storage.js';
 import { cors, parseJsonBody, safeName } from './_utils.js';
 import { authedPlayerOrAdmin, isFullAdmin } from './_auth.js';
 import { writeAssetMeta, deleteAssetMeta, imageFormat, assetMetaKey } from './_asset-registry.js';
@@ -10,9 +10,9 @@ import { enforceRateLimitKv } from './_ratelimit.js';
 import { cachedFor, invalidateProcCache } from './_proc-cache.js';
 
 /*
- * Player upload budget. Every POST rewrites a whole shared category row (kv_hset)
- * and a fresh id adds up to 3 MB to it for good, so an unlimited loop over fresh
- * `pet:<id>` ids is a disk-fill and DB-load vector (the 2026-09-19 outage class).
+ * Player upload budget. Every POST writes an image row of up to 3 MB, and a
+ * fresh id keeps that row for good, so an unlimited loop over fresh `pet:<id>`
+ * ids is a disk-fill and DB-load vector (the 2026-09-19 outage class).
  * Sized for real creation flows: a Bloodline Maker save republishes the bloodline
  * plus every jutsu icon at once, so the burst allows several full edits. The IP
  * backstop is tightened so new (guest) accounts on one address do not each mint a
@@ -160,17 +160,46 @@ const catKey = (cat: string) => `shared:images:${cat}`;
 // in api/_storage.ts. Without it, parallel publishes dropped each other's ids
 // from this manifest while staying servable via their shared:img:<id> keys.
 const catHashKey = (cat: string) => `shared:imgfields:${cat}`;
+export { catHashKey as legacyHashKey, catKey as legacyBlobKey };
 
-// Backcompat (audit #16): leader:* portraits uploaded before 'leader' was a
-// known category were stored in the 'misc' hash. Pull those fields back out so
-// they still resolve; new uploads now route to the 'leader' hash and win.
-async function leaderImagesFromMisc(
-    withTimeout: <T>(p: Promise<T | null>) => Promise<T | null>,
-): Promise<Record<string, string>> {
-    const misc = await withTimeout(kv.hgetall<Record<string, string>>(catHashKey('misc')));
-    const out: Record<string, string> = {};
-    if (misc) for (const [k, v] of Object.entries(misc)) if (k.startsWith('leader:')) out[k] = v;
-    return out;
+/*
+ * The shared-row split (docs/SHARED_HASH_ROW_SPLIT_PLAN.md).
+ *
+ * One image is one row, `shared:img:<id>` (the id is already "<cat>:<key>").
+ * Since the split, that row is the ONLY place an upload writes image bytes, and
+ * its key is what lists the image: a manifest is the per-image keys of the
+ * category's prefixes, plus the ids the frozen legacy rows still hold. The legacy
+ * rows (the hash `shared:imgfields:<cat>` and the blob `shared:images:<cat>`) are
+ * no longer written by uploads. Postgres rewrites a jsonb row whole on every
+ * write, and those rows are 9-16 MB: every new character's avatar used to rewrite
+ * the whole avatar hash. Deletes still remove ids from them, and readers fall
+ * back to them for an id that has no row of its own.
+ */
+export const PER_IMAGE_PREFIX = 'shared:img:';
+export const perImageKey = (id: string) => `${PER_IMAGE_PREFIX}${id}`;
+
+/**
+ * Rollback lever (plan §3.8): IMAGE_LEGACY_HASH_WRITE=1 restores the pre-split
+ * upload path, which also rewrites the category hash. Off by default, and never
+ * a rollout step.
+ */
+export function legacyHashWriteEnabled(): boolean {
+    return process.env.IMAGE_LEGACY_HASH_WRITE === '1';
+}
+
+/**
+ * The bytes the frozen legacy rows hold for an id: the hash first, then the
+ * blob, then (for leader portraits uploaded before 'leader' was a category) the
+ * misc hash. Empty values are tombstones, never images.
+ */
+export function legacyImageValue(
+    id: string,
+    hash: Record<string, string> | null,
+    blob: Record<string, string> | null,
+    legacyMisc: Record<string, string> | null = null,
+): string | null {
+    const candidates = [hash?.[id], blob?.[id], id.startsWith('leader:') ? legacyMisc?.[id] : undefined];
+    return candidates.find((value): value is string => typeof value === 'string' && value.length > 0) ?? null;
 }
 
 export const KNOWN_PREFIXES: Readonly<Record<string, string>> = {
@@ -226,19 +255,31 @@ export function isManifestCategory(cat: string): boolean {
 // A version read that failed (null) is a blip, not a newer version: its key
 // lives in a separate slot, so it never evicts the real list (which would force
 // a full rebuild the moment the read recovers).
-const manifestKeyByCategory = new Map<string, string>();
-const degradedManifestKeyByCategory = new Map<string, string>();
-
-export function manifestCacheKey(cat: string, version: string | number | null, miscVersion: string | number | null): string {
-    const key = `images:manifest:${cat}:${version ?? '-'}:${miscVersion ?? '-'}`;
-    // Only `leader` reads a misc version; elsewhere its null is normal.
-    const degraded = version === null || (cat === 'leader' && miscVersion === null);
-    const slots = degraded ? degradedManifestKeyByCategory : manifestKeyByCategory;
-    const previous = slots.get(cat);
-    if (previous && previous !== key) invalidateProcCache(previous);
-    slots.set(cat, key);
-    return key;
+function versionedCacheKeys(namespace: string) {
+    const live = new Map<string, string>();
+    const degradedSlots = new Map<string, string>();
+    return (cat: string, version: string | number | null, miscVersion: string | number | null): string => {
+        const key = `${namespace}:${cat}:${version ?? '-'}:${miscVersion ?? '-'}`;
+        // Only `leader` reads a misc version; elsewhere its null is normal.
+        const degraded = version === null || (cat === 'leader' && miscVersion === null);
+        const slots = degraded ? degradedSlots : live;
+        const previous = slots.get(cat);
+        if (previous && previous !== key) invalidateProcCache(previous);
+        slots.set(cat, key);
+        return key;
+    };
 }
+
+export const manifestCacheKey = versionedCacheKeys('images:manifest');
+const legacyIdsCacheKey = versionedCacheKeys('images:legacy-ids');
+
+/**
+ * How long the frozen legacy rows' id list is reused. Uploads no longer write
+ * those rows; only a delete (or the rollback lever) does, and both bump the
+ * category version, which is part of the memo key. So the 9-16 MB rows are read
+ * at most about once an hour per category instead of after every upload.
+ */
+export const LEGACY_IDS_CACHE_TTL_MS = 60 * 60_000;
 
 class ManifestUnavailableError extends Error {
     constructor() {
@@ -249,13 +290,142 @@ class ManifestUnavailableError extends Error {
 
 type ReadTimeout = <T>(p: Promise<T | null>, ms?: number) => Promise<T | null>;
 
+const readNow: ReadTimeout = (read) => read;
+
+/** The id prefixes stored under a category, or null for `misc` (every unknown prefix). */
+export function categoryPrefixes(cat: string): string[] | null {
+    if (cat === 'misc') return null;
+    return Object.entries(KNOWN_PREFIXES)
+        .filter(([, category]) => category === cat)
+        .map(([prefix]) => prefix)
+        .sort();
+}
+
 /**
- * The id list behind `GET /api/images?cat=<cat>&ids=1`: keys of the category's
- * hash row and legacy blob (plus `leader:` entries filed under 'misc'), keys
- * only — never the multi-MB image payloads. Null when any read failed (NOT
- * empty), so a caller never serves or caches a silently incomplete manifest.
+ * The ids in this category that have a per-image row, listed by key prefix
+ * (`shared:img:<prefix>:*`): a range scan of the key index that never reads a
+ * value.
  */
-export async function buildManifestIds(cat: string, withTimeout: ReadTimeout): Promise<string[] | null> {
+export async function scanCategoryIds(cat: string, store: Pick<KvLike, 'keys'> = kv): Promise<string[]> {
+    const prefixes = categoryPrefixes(cat);
+    const patterns = prefixes === null
+        ? [`${PER_IMAGE_PREFIX}*`]
+        : prefixes.map((prefix) => `${PER_IMAGE_PREFIX}${prefix}:*`);
+    const ids = new Set<string>();
+    for (const pattern of patterns) {
+        for (const key of await store.keys(pattern)) {
+            if (!key.startsWith(PER_IMAGE_PREFIX)) continue;
+            const id = key.slice(PER_IMAGE_PREFIX.length);
+            // `misc` scans every per-image row and keeps the ones it owns. For a
+            // named prefix this check changes nothing.
+            if (id && categoryFromId(id) === cat) ids.add(id);
+        }
+    }
+    return [...ids].sort();
+}
+
+/**
+ * The id list behind `GET /api/images?cat=<cat>&ids=1`: every per-image row of
+ * the category (a key scan), plus every id the frozen legacy rows still hold.
+ * Keys only, never the multi-MB image payloads. Null when any read failed (NOT
+ * empty), so a caller never serves or caches a silently incomplete manifest.
+ *
+ * With `versions`, the legacy part is memoised per category version for an hour
+ * (LEGACY_IDS_CACHE_TTL_MS), since those rows now change only on a version bump.
+ */
+export async function buildManifestIds(
+    cat: string,
+    withTimeout: ReadTimeout,
+    versions?: { version: string | null; miscVersion: string | null },
+): Promise<string[] | null> {
+    const [legacyIds, scannedIds] = await Promise.all([
+        legacyManifestIds(cat, withTimeout, versions),
+        withTimeout(scanCategoryIds(cat).catch(() => null)),
+    ]);
+    if (legacyIds === null || scannedIds === null) return null;
+    return Array.from(new Set([...legacyIds, ...scannedIds]));
+}
+
+/** The frozen legacy rows' id list, memoised when the category version is known. */
+async function legacyManifestIds(
+    cat: string,
+    withTimeout: ReadTimeout,
+    versions?: { version: string | null; miscVersion: string | null },
+): Promise<string[] | null> {
+    const version = versions?.version ?? null;
+    const miscVersion = versions?.miscVersion ?? null;
+    if (!isManifestCategory(cat) || version === null || (cat === 'leader' && miscVersion === null)) {
+        return buildLegacyManifestIds(cat, withTimeout);
+    }
+    try {
+        return await cachedFor(legacyIdsCacheKey(cat, version, miscVersion), LEGACY_IDS_CACHE_TTL_MS, async () => {
+            const ids = await buildLegacyManifestIds(cat, withTimeout);
+            if (ids === null) throw new ManifestUnavailableError();
+            return ids;
+        });
+    } catch (error) {
+        if (error instanceof ManifestUnavailableError) return null;
+        throw error;
+    }
+}
+
+/**
+ * Whether the frozen legacy rows still serve this id, so cached
+ * /api/img?id=…&v=<version> URLs may hold their bytes. Unknown counts as yes:
+ * a needless version bump only costs cache hits, a missed one serves old art.
+ */
+async function servedByLegacyRows(cat: string, id: string): Promise<boolean> {
+    const [version, miscVersion] = await Promise.all([
+        readImageVersion(cat),
+        cat === 'leader' ? readImageVersion('misc') : Promise.resolve(null),
+    ]);
+    const ids = await legacyManifestIds(cat, readNow, { version, miscVersion }).catch(() => null);
+    return ids === null || ids.includes(id);
+}
+
+/** Keys per batched image read, so no single read carries more than ~25 images. */
+const IMAGE_READ_CHUNK = 25;
+
+/**
+ * Image bytes for these ids of one category: each image's own row first, and
+ * the frozen legacy rows only for ids that have no row (read once, only then).
+ * Empty legacy fields are tombstones and are left out.
+ */
+export async function readImageValues(
+    cat: string,
+    ids: readonly string[],
+    withTimeout: ReadTimeout = readNow,
+): Promise<Record<string, string>> {
+    const out: Record<string, string> = {};
+    const missing: string[] = [];
+    for (let i = 0; i < ids.length; i += IMAGE_READ_CHUNK) {
+        const chunk = ids.slice(i, i + IMAGE_READ_CHUNK);
+        const values = await withTimeout(kv.mget<unknown[]>(...chunk.map(perImageKey)));
+        chunk.forEach((id, index) => {
+            const value = values?.[index];
+            missing.push(id);
+        });
+    }
+    if (missing.length) {
+        const [hash, blob, misc] = await Promise.all([
+            withTimeout(kv.hgetall<Record<string, string>>(catHashKey(cat))),
+            withTimeout(kv.get<Record<string, string>>(catKey(cat))),
+            cat === 'leader' ? withTimeout(kv.hgetall<Record<string, string>>(catHashKey('misc'))) : Promise.resolve(null),
+        ]);
+        for (const id of missing) {
+            const value = legacyImageValue(id, hash, blob, misc);
+            if (value) out[id] = value;
+        }
+    }
+    return out;
+}
+
+/**
+ * The ids the frozen legacy rows hold: keys of the category's hash row and
+ * legacy blob (plus `leader:` entries filed under 'misc'). This was the whole
+ * manifest before the split. Null when any read failed (NOT empty).
+ */
+export async function buildLegacyManifestIds(cat: string, withTimeout: ReadTimeout): Promise<string[] | null> {
     // hkeys with a one-deploy-skew fallback: if the remote proxy doesn't know the
     // op yet (rolling deploy), fall back to the old full read. null = both
     // attempts failed (NOT empty).
@@ -479,8 +649,10 @@ export async function removeImagesBatch(ids: readonly string[], deps: {
             else await deps.store.del(catKey(cat));
         }
     }
-    // Per-image keys last, so a legacy lookup racing this call finds nothing to copy back.
-    if (removable.length) await deps.store.del(...removable.flatMap((id) => [`shared:img:${id}`, imgOwnerKey(id), assetMetaKey(id)]));
+    // Per-image rows after the legacy rows and before the version bump, so a
+    // manifest built under the new version cannot still list a removed image.
+    // A failure fails the whole request; a retry repeats every step harmlessly.
+    if (removable.length) await deps.store.del(...removable.flatMap((id) => [perImageKey(id), imgOwnerKey(id), assetMetaKey(id)]));
     for (const [cat, catIds] of byCategory) {
         await deps.bumpVersion(cat);
         await deps.audit({ domain: 'content', actor: deps.actor, action: 'image.delete.batch', entityType: 'image', entityId: `${cat}:*`, meta: { category: cat, count: catIds.length, ids: catIds } });
@@ -536,7 +708,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 manifestCacheKey(cat, version, miscVersion),
                                 MANIFEST_CACHE_TTL_MS,
                                 async () => {
-                                    const built = await buildManifestIds(cat, withTimeout);
+                                    const built = await buildManifestIds(cat, withTimeout, { version, miscVersion });
                                     if (built === null) throw new ManifestUnavailableError();
                                     return built;
                                 },
@@ -569,41 +741,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return res.status(200).json(ids);
                 }
 
-                // Full-content mode (admin/bulk use) — fetch hash (primary) and
-                // old blob (backward-compat) in parallel.
-                const [hashImages, catImages, legacyLeader] = await Promise.all([
-                    withTimeout(kv.hgetall<Record<string, string>>(catHashKey(cat))),
-                    withTimeout(kv.get<Record<string, string>>(catKey(cat))),
-                    // audit #16: leader:* portraits uploaded before 'leader' was a
-                    // known category landed in the 'misc' hash. Pull them back out
-                    // so old portraits still resolve (new uploads go to 'leader').
-                    cat === 'leader' ? leaderImagesFromMisc(withTimeout) : Promise.resolve({}),
-                ]);
-
-                // Merge: legacy misc < old blob < new hash (newest always wins)
-                const merged = {
-                    ...(legacyLeader ?? {}),
-                    ...(catImages ?? {}),
-                    ...(hashImages ?? {}),
-                };
-
-                return res.status(200).json(merged);
+                // Full-content mode (admin tools and scripts; players load ids
+                // only): every listed id with its bytes. Each image's own row
+                // wins, as on /api/img; the legacy rows fill only ids with no row
+                // (leader portraits filed under 'misc' included, audit #16).
+                const ids = await buildManifestIds(cat, withTimeout);
+                if (ids === null) {
+                    res.setHeader('Cache-Control', 'no-store');
+                    return res.status(200).json({});
+                }
+                return res.status(200).json(await readImageValues(cat, ids, withTimeout));
             }
 
-            // No category param — return everything (admin / bulk use).
-            // Run per-category fetches in parallel with individual timeouts.
-            const [categoryEntries, legacyLeader] = await Promise.all([
-                Promise.all(
-                    KNOWN_CATEGORIES.flatMap((category) => [
-                        withTimeout(kv.get<Record<string, string>>(catKey(category))),
-                        withTimeout(kv.hgetall<Record<string, string>>(catHashKey(category))),
-                    ]),
-                ),
-                // audit #16 backcompat — legacy leader portraits parked in 'misc'.
-                leaderImagesFromMisc(withTimeout),
-            ]);
-            // legacyLeader first so the real 'leader' hash (in categoryEntries) wins.
-            return res.status(200).json(Object.assign({}, legacyLeader, ...categoryEntries.map((entry) => entry ?? {})));
+            // No category param — return everything (admin / bulk use), one
+            // category at a time in parallel. 'leader' includes the portraits
+            // still filed under 'misc'.
+            const categoryEntries = await Promise.all(KNOWN_CATEGORIES.map(async (category) => {
+                const ids = await buildManifestIds(category, withTimeout);
+                return ids === null ? {} : readImageValues(category, ids, withTimeout);
+            }));
+            return res.status(200).json(Object.assign({}, ...categoryEntries));
         } catch (err) {
             console.error('[images GET error]', err);
             // Override the success Cache-Control set above — an empty result
@@ -674,23 +831,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 await kv.set(counterKey, current + 1).catch(() => undefined);
             }
 
-            // Atomic HSET — sets exactly this one field without touching any other
-            // image in the same category. Eliminates the race condition.
-            await kv.hset(catHashKey(cat), { [id]: image });
-
-            // Phase 2 (image-as-files): also write the per-image key so
-            // GET /api/img can serve it directly and the client can lazy-load it
-            // instead of the bulk base64 blob. Dual-write keeps the legacy bulk
-            // GET /api/images working throughout the migration. Best-effort — a
-            // failure here must not fail the upload (the hash write above is
-            // authoritative; /api/img falls back to it and self-heals on read).
-            await kv.set(`shared:img:${id}`, image).catch(() => undefined);
-
-            // This id now resolves to different bytes, so every cached
-            // /api/img?id=…&v=<old> URL must stop being reused. Bumping the
-            // category retires them all at once (api/_image-version.ts). Best-
-            // effort by contract — the writes above are authoritative.
-            await bumpImageVersion(cat);
+            if (legacyHashWriteEnabled()) {
+                // Rollback lever (plan §3.8): the pre-split path. It rewrites the
+                // whole category hash, then the image's own row, and always
+                // retires the category's cached URLs.
+                await kv.hset(catHashKey(cat), { [id]: image });
+                await kv.set(perImageKey(id), image).catch(() => undefined);
+                await bumpImageVersion(cat);
+            } else {
+                // The image's own row is the only write, and its key is what
+                // lists the image. A failure fails the upload, as a failed hash
+                // write did before the split.
+                const created = (await kv.set(perImageKey(id), image, { nx: true })) === 'OK';
+                if (!created) await kv.set(perImageKey(id), image);
+                // Retire cached /api/img?id=…&v=<old> URLs only when they could
+                // hold other bytes for THIS id: a replace, or an id the frozen
+                // legacy rows still serve. A brand-new id has no cached URL
+                // anywhere, so every other image keeps its cache. Before the
+                // split, each new character's avatar re-keyed every avatar URL
+                // for every player. Best-effort by contract
+                // (api/_image-version.ts).
+                if (!created || await servedByLegacyRows(cat, id)) await bumpImageVersion(cat);
+            }
 
             // Stage 3 (R2): also dual-write the decoded bytes to R2 so GET /api/img
             // can redirect there instead of reading Postgres (see api/_r2.ts +
@@ -781,9 +943,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(503).json({ error: 'Image storage removal failed. Nothing was removed from the image library; retry.' });
             }
             const cat = categoryFromId(id);
+            // The frozen legacy rows first (free when the id is absent: kv_hdel
+            // skips a row that holds none of the fields).
             await kv.hdel(catHashKey(cat), id);
-            // Phase 2: also drop the per-image key so /api/img stops serving it.
-            await kv.del(`shared:img:${id}`).catch(() => undefined);
             // Also clear the legacy per-cat blob field in case the image
             // lived there (pre-hash-migration uploads). Done BEFORE the version
             // bump: a manifest built under the new version must never still find
@@ -794,6 +956,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 delete next[id];
                 await kv.set(catKey(cat), next);
             }
+            // The image's own row is what lists and serves it, so this removal
+            // must land: a failure fails the request, and a retry repeats every
+            // step above harmlessly. Also before the bump, for the same reason
+            // as the blob.
+            await kv.del(perImageKey(id));
             // Retire the immutable URLs that still point at the deleted bytes,
             // for the same reason as the upload path above.
             await bumpImageVersion(cat);

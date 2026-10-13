@@ -108,12 +108,19 @@ describe('image cache contracts', () => {
     });
 
     it('bumps the version on every write that changes what an id resolves to', () => {
-        // Upload and delete both retire cached immutable URLs. The lazy legacy
-        // copies in img.ts must NOT bump — identical bytes, different key.
-        assert.equal((images.match(/await bumpImageVersion\(cat\)/g) ?? []).length, 2,
-            'both the upload and delete paths must bump the category');
+        // Upload and delete retire cached immutable URLs. Since the shared-row
+        // split, an upload of a brand-new id does not: no URL anywhere can hold
+        // other bytes for an id that never existed, and bumping re-keyed every
+        // other image in the category (each new avatar re-keyed every avatar).
+        // A replace, or an id the frozen legacy rows still serve, does bump.
+        assert.equal((images.match(/await bumpImageVersion\(cat\)/g) ?? []).length, 3,
+            'the upload (split path + rollback-lever path) and delete paths must bump the category');
+        assert.match(images, /if \(!created \|\| await servedByLegacyRows\(cat, id\)\) await bumpImageVersion\(cat\);/u,
+            'the split upload path bumps on a replace or a legacy-served id');
+        assert.match(images, /await kv\.hset\(catHashKey\(cat\), \{ \[id\]: image \}\);\s+await kv\.set\(perImageKey\(id\), image\)\.catch\(\(\) => undefined\);\s+await bumpImageVersion\(cat\);/u,
+            'the rollback-lever upload path is the pre-split path, which always bumps');
         assert.doesNotMatch(img, /bumpImageVersion/u,
-            'the lazy per-image migration moves identical bytes and must not invalidate caches');
+            '/api/img only reads and must not invalidate caches');
     });
 
     it('keeps the bare-array manifest contract for callers that did not opt in', () => {

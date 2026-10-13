@@ -1,9 +1,12 @@
 import type { VercelRequest, VercelResponse } from './_vercel.js';
 import { kv } from './_storage.js';
 import { cors } from './_utils.js';
-import { categoryFromId } from './images.js';
+import { categoryFromId, legacyBlobKey, legacyHashKey, legacyImageValue, perImageKey } from './images.js';
 import { r2ReadEnabled, r2ObjectExists, r2PublicUrl } from './_r2.js';
 import { isValidImageVersion } from './_image-version.js';
+
+// Kept here for existing importers; images.ts owns them since the shared-row split.
+export { legacyImageValue, perImageKey };
 
 // Phase 2 — per-image binary serving (see
 // docs/load-and-refresh-perf-audit-2026-06-08.md).
@@ -13,43 +16,17 @@ import { isValidImageVersion } from './_image-version.js';
 // from `GET /api/img?id=<cat>:<id>` — each independently CDN- and browser-cached,
 // loaded only when a screen actually shows it.
 //
-// Storage: images live as individual KV keys `shared:img:<cat>:<id>` (the cPanel
-// disk KV stores each `shared:*` key as its own file — "files on cPanel disk").
-// During migration we fall back to the legacy per-category blob/hash and lazily
-// copy the value into a per-image key, so this works before, during, and after
-// the migration with no flag day. Public + unauthenticated, same as the bulk
-// `GET /api/images` (shared art is not secret).
-
-// One image == one key. `id` is already "<cat>:<key>", so the full key is
-// e.g. shared:img:jutsu:fireball.
-export const perImageKey = (id: string) => `shared:img:${id}`;
+// Storage: images live as individual KV keys `shared:img:<cat>:<id>`, e.g.
+// shared:img:jutsu:fireball (perImageKey). For an id with no row of its own we
+// fall back, READ-ONLY, to the frozen legacy per-category hash/blob. Public +
+// unauthenticated, same as the bulk `GET /api/images` (shared art is not secret).
 const IMAGE_READ_TIMEOUT = Symbol('image-read-timeout');
-
-export function legacyImageValue(
-    id: string,
-    hash: Record<string, string> | null,
-    blob: Record<string, string> | null,
-    legacyMisc: Record<string, string> | null = null,
-): string | null {
-    const candidates = [hash?.[id], blob?.[id], id.startsWith('leader:') ? legacyMisc?.[id] : undefined];
-    return candidates.find((value): value is string => typeof value === 'string' && value.length > 0) ?? null;
-}
 
 function temporaryImageFailure(res: VercelResponse) {
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('Retry-After', '1');
     return res.status(503).end();
 }
-
-// Per-process guard: bulk-migrate each category's legacy blob into per-image
-// keys at most once per instance, so a burst of first-views can't re-fire the
-// whole write set. Convergence is still guaranteed because each served image
-// also populates its own key (see the fallback below), so even if the bulk pass
-// is skipped or partially fails, every served image self-heals individually.
-const _bulkMigratedCats = new Set<string>();
-// Legacy stores (read-only fallback during migration).
-const legacyHashKey = (cat: string) => `shared:imgfields:${cat}`;
-const legacyBlobKey = (cat: string) => `shared:images:${cat}`;
 
 // Parse a `data:image/<type>;base64,<payload>` URL into a mime + decoded buffer.
 // Returns null for anything that isn't a base64 image data URL.
@@ -115,9 +92,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (direct === IMAGE_READ_TIMEOUT) return temporaryImageFailure(res);
         let raw = direct;
 
-        // 2. Fallback: the legacy per-category hash/blob (pre-migration). On a
-        //    hit, lazily copy into per-image keys so subsequent reads are cheap.
-        //    Best-effort + async — never block the response on a migration write.
+        // 2. Fallback, READ-ONLY: the frozen legacy per-category hash/blob, for
+        //    an id with no row of its own. Nothing is copied back. Since the
+        //    shared-row split, an image's own row is what LISTS it, so a copy
+        //    racing an admin delete would bring the deleted image back.
+        //    (docs/SHARED_HASH_ROW_SPLIT_PLAN.md §2: every listed id already
+        //    has its row; this serves the few the legacy rows alone hold.)
         if (!raw) {
             const [hashResult, blobResult, miscResult] = await Promise.all([
                 withTimeout(kv.hgetall<Record<string, string>>(legacyHashKey(cat))),
@@ -134,26 +114,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const misc = miscResult === IMAGE_READ_TIMEOUT ? null : miscResult;
             raw = legacyImageValue(id, hash, blob, misc);
             if (!raw && legacyTimedOut) return temporaryImageFailure(res);
-            if (raw) {
-                // Always migrate the served image (guarantees it converges).
-                void kv.set(perImageKey(id), raw).catch(() => undefined);
-                // Once per process per category, migrate the WHOLE blob so the
-                // next request for ANY other image in this category hits the cheap
-                // per-image path — turning ~one full-blob read per image into ~one
-                // per category. Fire-and-forget; failures self-heal per-image.
-                if (!_bulkMigratedCats.has(cat)) {
-                    _bulkMigratedCats.add(cat);
-                    const legacyLeaders = cat === 'leader'
-                        ? Object.fromEntries(Object.entries(misc ?? {}).filter(([key]) => key.startsWith('leader:')))
-                        : {};
-                    const merged: Record<string, string> = { ...legacyLeaders, ...(blob ?? {}), ...(hash ?? {}) };
-                    void Promise.allSettled(
-                        Object.entries(merged)
-                            .filter(([k, v]) => k !== id && typeof v === 'string' && v.length > 0)
-                            .map(([k, v]) => kv.set(perImageKey(k), v)),
-                    );
-                }
-            }
         }
 
         if (!raw) {
