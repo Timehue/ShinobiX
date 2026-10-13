@@ -243,9 +243,32 @@
     .sector-scatter-glow { animation: none; opacity: .55; }
 }
 
-/* ═══ World-map settlement life ══════════════════════════════════════════════
-   A soft hearth glow + rising smoke over each town. All pointer-events:none,
-   below the z-10 atlas markers. */
+/* ═══ World-map biome atmosphere + settlement life ═══════════════════════════
+   Per-nation elemental glows so the four homelands read at a glance, plus a soft
+   hearth glow + rising smoke over each town. All pointer-events:none, below the
+   z-10 atlas markers. */
+.world-biome-glow {
+    position: absolute;
+    width: 26%;
+    height: 30%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 1;
+    border-radius: 50%;
+    mix-blend-mode: screen;
+    filter: blur(8px);
+    animation: biomeGlowPulse 9s ease-in-out infinite;
+}
+/* The region colours. WorldMap builds these as "world-biome-glow wbg-" + biome,
+   which hid them from e464d1955's dead-rule sweep, so they were deleted and the
+   glows painted nothing from 2026-07-28 until they were restored here. */
+.wbg-volcano { background: radial-gradient(circle, rgba(255,120,50,.50), transparent 65%); }
+.wbg-snow    { background: radial-gradient(circle, rgba(150,210,255,.45), transparent 65%); }
+.wbg-forest  { background: radial-gradient(circle, rgba(120,220,140,.42), transparent 65%); }
+.wbg-shadow  { background: radial-gradient(circle, rgba(180,130,255,.46), transparent 65%); }
+.wbg-central { background: radial-gradient(circle, rgba(255,225,150,.40), transparent 65%); }
+@keyframes biomeGlowPulse { 0%, 100% { opacity: .38; } 50% { opacity: .62; } }
+
 .world-poi-life {
     position: absolute;
     width: 0;
@@ -284,7 +307,7 @@
     100% { opacity: 0; transform: translate(-50%, -26px) scaleY(1.3); }
 }
 @media (prefers-reduced-motion: reduce) {
-    .world-poi-glow, .world-poi-smoke { animation: none; }
+    .world-biome-glow, .world-poi-glow, .world-poi-smoke { animation: none; }
     .world-poi-smoke { opacity: 0; }
 }
 
@@ -300,6 +323,7 @@
 .lite-fx .sector-foreground,
 .lite-fx .sector-scatter-sway { animation: none; }
 .lite-fx .sector-scatter-glow { animation: none; opacity: .5; }
+.lite-fx .world-biome-glow { animation: none; filter: none; }
 .lite-fx .world-poi-glow { animation: none; }
 .lite-fx .world-poi-smoke { animation: none; opacity: 0; }
 /* Idle bob only — the walking animation lives on a more specific selector and

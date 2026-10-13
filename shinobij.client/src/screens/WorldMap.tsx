@@ -5086,6 +5086,17 @@ function WorldMapContent({
                     over the atlas. Both sit below the z-10 markers. */}
                 <DayNightSky className="amb-under" intensity={0.8} />
                 {!wmZoom.active && <SceneCritters biome="central" mode="world" className="amb-under" />}
+                {/* Per-nation biome atmosphere — a soft elemental glow over each
+                    homeland so the four regions read at a glance. */}
+                {[
+                    { c: "volcano", x: 16, y: 20 },
+                    { c: "snow", x: 76, y: 20 },
+                    { c: "forest", x: 16, y: 74 },
+                    { c: "shadow", x: 86, y: 64 },
+                    { c: "central", x: 48, y: 40 },
+                ].map((g) => (
+                    <div key={g.c} className={"world-biome-glow wbg-" + g.c} style={{ left: g.x + "%", top: g.y + "%" }} aria-hidden="true" />
+                ))}
                 {/* The road graph + region name plates — the connective tissue
                     that makes the scattered sector markers read as one world. */}
                 <WorldRoadsOverlay />
