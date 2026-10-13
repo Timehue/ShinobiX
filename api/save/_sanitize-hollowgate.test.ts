@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { after, before, mock, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { sanitizeCharacterSave } from './[name].js';
 import { WEAPON_EP_CEILING } from '../combat-core/formulas.js';
@@ -15,6 +15,14 @@ type Char = Record<string, unknown>;
 const wrap = (character: Char) => ({ character });
 const sanitize = (incoming: Char, existing: Char | null) =>
     sanitizeCharacterSave(wrap(incoming), existing ? wrap(existing) : null).character as Record<string, any>;
+
+// Fixed clock, so the sanitizer's own `new Date()` and TODAY below can never
+// straddle UTC midnight and fail the daily-counter floors for the calendar.
+// The hospital tests at the end read the same held clock, and every window
+// they check still holds.
+const FIXED_NOW = Date.UTC(2026, 8, 14, 12, 0, 0);
+before(() => mock.timers.enable({ apis: ['Date'], now: FIXED_NOW }));
+after(() => mock.timers.reset());
 
 test('attunement: forged upgrades cannot replace the authoritative purchased ranks', () => {
     const out = sanitize(
@@ -211,7 +219,7 @@ test('legit HollowGate save passes through unchanged', () => {
     assert.equal(keys?.count, 1, 'key gains require the authoritative forge endpoint');
 });
 
-const TODAY = new Date().toISOString().slice(0, 10); // matches the sanitizer's SERVER_UTC_DATE
+const TODAY = new Date(FIXED_NOW).toISOString().slice(0, 10); // matches the sanitizer's SERVER_UTC_DATE
 
 test('dailyHollowGateRuns: a forged reset to 0 within the same UTC day is floored to the server count', () => {
     const out = sanitize(

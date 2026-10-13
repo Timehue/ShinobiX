@@ -78,7 +78,12 @@ for (const activity of ['mining', 'fishing'] as const) {
         });
     }
 }
-test('authenticated mixed action #100 admits once, shares one pool slot and refuses #101', async () => {
+test('authenticated mixed action #100 admits once, shares one pool slot and refuses #101', async (t) => {
+    // The seeded serverExploreDate comes from a no-argument `new Date()`, and the
+    // handler counts today's actions from its own Date.now(). A run that straddles
+    // UTC midnight would reset that count, so #101 would be admitted. Freeze Date
+    // (Date.now and new Date alike) for the whole check.
+    t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
     const name = 'resourcehundred'; await seed(name, { serverExploreDate: new Date().toISOString().slice(0, 10), serverExploresToday: 99 });
     const body = { action: 'start', nodeId: 'resource-17', mode: 'relaxed', requestId: 'resource-shared-hundred-001' };
     assert.equal((await post(name, body, false)).status, 401);

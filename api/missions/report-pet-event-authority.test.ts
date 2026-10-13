@@ -100,7 +100,12 @@ test('return settlement uses the sealed setup, records world story, charges bold
     assert.equal(replayCharacter.ryo, firstCharacter.ryo, 'replay cannot pay twice');
 });
 
-test('claim cap leaves the completed lease ready and rejects invalid choices', async () => {
+test('claim cap leaves the completed lease ready and rejects invalid choices', async (t) => {
+    // The seeded claim date and the handler's own day both come from
+    // Date.now(), read at different moments. A run that straddles UTC
+    // midnight would seed a day the handler no longer counts, so the claim
+    // would pay out instead of hitting the cap. Freeze Date for the check.
+    t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
     const player = 'expeditionclaimcap';
     const token = 'claimcap001';
     const now = Date.now();

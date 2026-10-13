@@ -123,7 +123,12 @@ test('sector mismatch is distinct from transient presence startup', async () => 
     assert.equal((await storedCharacter()).serverFreeDungeonProbesToday, undefined);
 });
 
-test('daily cap explains its reset and still permits recovery of an existing receipt', async () => {
+// This test and the next seed today's probe and explore counters, and the
+// handler reads its own day from Date.now(). A run that straddles UTC midnight
+// would seed a day the handler no longer counts, so neither refusal would
+// fire. Each freezes Date (Date.now and new Date alike) for the whole check.
+test('daily cap explains its reset and still permits recovery of an existing receipt', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
     const at = Date.now();
     const day = new Date(at).toISOString().slice(0, 10);
     const capped = { serverFreeDungeonProbeDate: day, serverFreeDungeonProbesToday: 100,
@@ -145,7 +150,8 @@ test('daily cap explains its reset and still permits recovery of an existing rec
     assert.equal((await storedCharacter()).serverFreeDungeonProbesToday, 100);
 });
 
-test('an unearned probe explains prior exploration without claiming a daily cap', async () => {
+test('an unearned probe explains prior exploration without claiming a daily cap', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
     const day = new Date().toISOString().slice(0, 10);
     await seed({ serverFreeDungeonProbeDate: day, serverFreeDungeonProbesToday: 1,
         serverExploreDate: day, serverExploresToday: 0 });
