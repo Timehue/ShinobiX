@@ -36,9 +36,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const boss = resolveClanBossDef(week);
         if (!boss) return res.status(500).json({ error: 'Clan boss data missing.' });
 
-        // Three independent chains of plain reads, run together: the sector
-        // state, the live standings, and the caller's own clan.
-        const [sectorState, progressList, own] = await Promise.all([
+        // Independent plain reads, run together: the sector state, the live
+        // standings, and the caller's save (for their clan name).
+        const [sectorState, progressList, save] = await Promise.all([
             loadSectorState(weekId, boss),
             // Live standings: scan every clan's progress for the week, rank by composite score.
             (async () => {
@@ -46,27 +46,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return (progressKeys.length ? await kv.mget<ClanBossProgress[]>(...progressKeys) : [])
                     .filter(Boolean) as ClanBossProgress[];
             })(),
-            (async () => {
-                const save = await kv.get<Record<string, unknown>>(`save:${playerName}`);
-                const char = save?.character as Record<string, unknown> | undefined;
-                const clanName = char && typeof char.clan === 'string' ? char.clan : '';
-                if (!clanName) return { clanName, progress: null, archive: null };
-                const [progress, archive] = await Promise.all([
-                    (async () => {
-                        const stored = await loadClanBossProgress(weekId, clanName);
-                        if (stored) return stored;
-                        const clanRec = await kv.get<{ members?: Array<unknown> }>(`save:clan-${clanSlug(clanName)}`);
-                        const memberCount = Array.isArray(clanRec?.members) ? clanRec!.members!.length : 1;
-                        return newClanBossProgress(clanName, week, memberCount);
-                    })(),
-                    // Last week's result for this clan (from the archive) — a "how'd we do" line.
-                    kv.get<{ standings?: Array<{ clanName: string; score: number; killed: boolean; rank: number }> }>(clanBossArchiveKey(clanBossWeekId(now - CB_WEEK_MS))),
-                ]);
-                return { clanName, progress, archive };
-            })(),
+            kv.get<Record<string, unknown>>(`save:${playerName}`),
         ]);
         const standings = rankClanBoss(progressList).slice(0, 12);
-        const { clanName, progress, archive } = own;
+        const char = save?.character as Record<string, unknown> | undefined;
+        const clanName = char && typeof char.clan === 'string' ? char.clan : '';
+
+        // The caller's own progress is read only after the standings mget, as it
+        // always was: that read lands on the same read-cache snapshot, so the
+        // clan's pool and attempts never show older than its rank and score.
+        let progress: ClanBossProgress | null = null;
+        let archive: { standings?: Array<{ clanName: string; score: number; killed: boolean; rank: number }> } | null = null;
+        if (clanName) {
+            [progress, archive] = await Promise.all([
+                (async () => {
+                    const stored = await loadClanBossProgress(weekId, clanName);
+                    if (stored) return stored;
+                    const clanRec = await kv.get<{ members?: Array<unknown> }>(`save:clan-${clanSlug(clanName)}`);
+                    const memberCount = Array.isArray(clanRec?.members) ? clanRec!.members!.length : 1;
+                    return newClanBossProgress(clanName, week, memberCount);
+                })(),
+                // Last week's result for this clan (from the archive) — a "how'd we do" line.
+                kv.get<{ standings?: Array<{ clanName: string; score: number; killed: boolean; rank: number }> }>(clanBossArchiveKey(clanBossWeekId(now - CB_WEEK_MS))),
+            ]);
+        }
 
         let myClan: unknown = null;
         if (progress) {
