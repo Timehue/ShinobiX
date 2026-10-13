@@ -1,9 +1,16 @@
 import { useEffect, useSyncExternalStore, type Dispatch, type SetStateAction } from "react";
 import { isWalkableTile, nearestWalkableTile } from "../../../shared/sector-walk-mask";
+import { visiblePoll } from "./poll";
+
+// The server answer is an environment flag (api/_release-flags.ts), so it can
+// only change on a redeploy. Every open world view used to ask every 30s, hidden
+// tabs included: 120 no-op requests an hour per player. Ask on first subscribe,
+// every five minutes while visible, and again whenever the tab comes back.
+const OBSTACLE_FLAG_POLL_MS = 5 * 60_000;
 
 let enabled = true;
 const listeners = new Set<() => void>();
-let timer: ReturnType<typeof setInterval> | undefined;
+let stopPoll: (() => void) | undefined;
 let pending: Promise<void> | undefined;
 async function refresh() {
     if (pending) return pending;
@@ -16,8 +23,8 @@ async function refresh() {
 }
 const subscribe = (listener: () => void) => {
     listeners.add(listener);
-    if (!timer) { void refresh(); timer = setInterval(() => { void refresh(); }, 30_000); }
-    return () => { listeners.delete(listener); if (!listeners.size && timer) { clearInterval(timer); timer = undefined; } };
+    if (!stopPoll) stopPoll = visiblePoll(refresh, OBSTACLE_FLAG_POLL_MS, 0.1, { immediate: true });
+    return () => { listeners.delete(listener); if (!listeners.size && stopPoll) { stopPoll(); stopPoll = undefined; } };
 };
 export const sectorObstaclesOn = () => enabled;
 export const useSectorObstacles = () => useSyncExternalStore(subscribe, sectorObstaclesOn, () => true);

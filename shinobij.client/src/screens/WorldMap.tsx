@@ -1021,10 +1021,13 @@ function WorldMapContent({
     useEffect(() => {
         if (!legacyActionsAvailable || character.level < 50 || characterLegacyId) return;
         let alive = true;
-        const refreshOffer = () => void fetchSageState(character.name).then(r => {
+        const refreshOffer = () => fetchSageState(character.name).then(r => {
             if (!alive) return;
             if (r?.offer) {
-                setSageOffer(r.offer);
+                // Keep the same object when nothing changed, so a quiet poll
+                // does not re-render the whole map every 30s.
+                const offer = r.offer;
+                setSageOffer(prev => prev && JSON.stringify(prev) === JSON.stringify(offer) ? prev : offer);
                 try { window.localStorage?.setItem("legacy.sage.lastOffer", String(r.offer.expiresAt ?? 0)); } catch { /* best-effort */ }
                 let lastAnnounced = 0;
                 try { lastAnnounced = Number(window.localStorage?.getItem("legacy.sage.lastAnnounced") ?? 0); } catch { /* best-effort */ }
@@ -1044,9 +1047,10 @@ function WorldMapContent({
                 } catch { /* best-effort */ }
             }
         });
-        refreshOffer();
-        const poll = window.setInterval(refreshOffer, 30_000);
-        return () => { alive = false; window.clearInterval(poll); };
+        // Each read costs the server a rate-limit write and a full save read, so
+        // a hidden tab stops asking and catches up when it is shown again.
+        const stop = visiblePoll(refreshOffer, 30_000, 0.1, { immediate: true });
+        return () => { alive = false; stop(); };
     }, [legacyActionsAvailable, character.name, character.level, characterLegacyId]);
     // Pre-50 Legacy rumors: at level milestones, one vague hint about the
     // strongest path the player is carving (never formulas — the mystery rule).
