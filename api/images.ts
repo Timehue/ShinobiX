@@ -152,13 +152,14 @@ const LEGACY_KEY = 'shared:images';
 // Old per-category JSON blob keys (kept for backward-compat reads)
 const catKey = (cat: string) => `shared:images:${cat}`;
 
-// New per-category Redis hash keys — HSET is atomic per-field, eliminating
-// the GET→modify→SET race condition that caused concurrent uploads to overwrite
-// each other and permanently lose images. On the disk overlay (where these
-// shared:imgfields:* keys live) hset is a JSON-file RMW, so the per-field
-// guarantee is enforced by per-key serialization there — see _withDiskKeyLock
-// in api/_storage.ts. Without it, parallel publishes dropped each other's ids
-// from this manifest while staying servable via their shared:img:<id> keys.
+// Per-category hash keys: before the shared-row split (below) every upload
+// wrote its field here. HSET is atomic per field, which ended the
+// GET→modify→SET race that let concurrent uploads overwrite each other. On the
+// retired cPanel disk overlay, hset was a JSON-file RMW. There, parallel
+// publishes still dropped each other's ids from this manifest while staying
+// servable via their shared:img:<id> keys. That is the likely source of the
+// "orphans" the 2026-10-13 audit found. Since the split, uploads no longer
+// write these rows.
 const catHashKey = (cat: string) => `shared:imgfields:${cat}`;
 export { catHashKey as legacyHashKey, catKey as legacyBlobKey };
 
@@ -275,9 +276,11 @@ const legacyIdsCacheKey = versionedCacheKeys('images:legacy-ids');
 
 /**
  * How long the frozen legacy rows' id list is reused. Uploads no longer write
- * those rows; only a delete (or the rollback lever) does, and both bump the
- * category version, which is part of the memo key. So the 9-16 MB rows are read
- * at most about once an hour per category instead of after every upload.
+ * those rows. A delete or the rollback lever does, and both bump the category
+ * version, which is part of the memo key. The rollback write-back also does,
+ * without a bump, but it only adds ids the key scan already lists. So the
+ * 9-16 MB rows are read at most about once an hour per category instead of
+ * after every upload.
  */
 export const LEGACY_IDS_CACHE_TTL_MS = 60 * 60_000;
 
