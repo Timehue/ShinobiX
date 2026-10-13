@@ -13,8 +13,12 @@ steps" at the bottom.
 Implemented files:
 - `api/_r2.ts` — R2 helpers (gating, `objectKeyForId`, `r2PublicUrl`, `putImage`
   with dependency-free AWS SigV4, `r2ObjectExists` w/ process-local hit cache).
-- `api/images.ts` — POST dual-writes decoded bytes to R2 (best-effort, gated on
-  write creds) + exported `decodeBase64Image`.
+- `api/images.ts` — POST copies decoded bytes to R2 (`copyImageToR2`, gated on
+  write creds) and awaits the copy BEFORE any category-version bump, so a new
+  `?v=` never redirects to an older object. Best-effort: when the copy fails, or
+  the image is an external URL, the object is deleted and `/api/img` falls back
+  to Postgres. Also exports `decodeBase64Image`. The server-reset portrait
+  reseed copies the same way before its bumps.
 - `api/img.ts` — GET redirects to R2 when `r2ReadEnabled()` AND `r2ObjectExists`,
   else falls through to the existing Postgres path (nothing regresses).
 - `api/admin/migrate-images-to-r2.ts` — admin backfill endpoint (registered in
