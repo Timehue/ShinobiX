@@ -252,7 +252,10 @@ describe('village treasury donation under lock contention', () => {
 });
 
 describe('gathered village supply containers', () => {
-    it('bundles and packs share the 40-provision cap, preserve per-item merit, and replay without double debit', async () => {
+    it('bundles and packs share the 40-provision cap, preserve per-item merit, and replay without double debit', async (t) => {
+        // The cap is per UTC day of Date.now(): freeze the clock so the donations
+        // cannot straddle midnight UTC and start a fresh day's allowance.
+        t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
         await seedDonor({itemStacks:[{itemId:'village-supply-bundle',count:4},{itemId:'ration-pack',count:20},{itemId:'village-supply-crate',count:1}]});
         const body={itemId:'village-supply-bundle',count:3,requestId:'gather-bundles-donate-1'};
         const first=await post(body);assert.equal(first.statusCode,200,JSON.stringify(first.body));
