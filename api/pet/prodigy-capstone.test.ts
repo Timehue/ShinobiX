@@ -44,7 +44,12 @@ async function call(method: 'GET' | 'POST', body: Record<string, unknown> = {}) 
 
 const startProdigy = () => call('POST', { petId: 'prodigy-pet', action: 'start-training', focus: 'bond', durationMs: 14_400_000, prodigy: true });
 
-test('Prodigy: once per UTC day, a session finishes instantly with doubled XP — only with the capstone', async () => {
+test('Prodigy: once per UTC day, a session finishes instantly with doubled XP — only with the capstone', async (t) => {
+    // The handler keys each day's Prodigy claim from Date.now(). A run that
+    // straddles UTC midnight between the first claim and the repeat would key
+    // the repeat to a fresh day, so "once per day" would not refuse it.
+    // Freeze Date for the whole check.
+    t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
     await kv.del(prodigyKey(PLAYER, Date.now()));
 
     await seed({ 'train-time': 2, 'train-xp': 0 });

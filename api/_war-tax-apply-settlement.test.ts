@@ -281,9 +281,15 @@ describe('village tax: a switched-off day is stamped untaxed, never billed later
         });
     }
 
-    test('the endpoint answers enabled:false while switched off, charges nothing, and stamps the day', async () => {
+    test('the endpoint answers enabled:false while switched off, charges nothing, and stamps the day', async (t) => {
         const { issuePlayerToken } = await import('./_auth.js');
         const endpoint = (await import('./village/tax.js')).default as unknown as Handler;
+        // The endpoint stamps the day from Date.now() (assessVillageTax's default
+        // `now`), and the check below reads Date.now() again after the handler
+        // returns. A run that straddles UTC midnight would stamp one day and
+        // expect the next. Freeze Date (Date.now and new Date alike) once the
+        // modules have loaded.
+        t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
         process.env.DISABLE_VILLAGE_TAX = '1';
         const out: { statusCode: number; body?: Record<string, unknown> } = { statusCode: 200 };
         const res = {
