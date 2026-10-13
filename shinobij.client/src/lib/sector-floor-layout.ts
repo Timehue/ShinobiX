@@ -12,3 +12,9 @@ export function sectorFloorImage(sector: number) {
     const key = sectorArtKey(sector), hash = FLOOR_ART_SHA256[key];
     return `/sector-map/s${key}.webp${hash ? `?v=${hash.slice(0, 12)}` : ""}`;
 }
+/** A 256 px copy of the floor painting for small cards, or undefined for
+ *  unreviewed art. Regenerate with scripts/gen-sector-map-thumbs.mjs. */
+export function sectorFloorThumb(sector: number) {
+    const key = sectorArtKey(sector), hash = FLOOR_ART_SHA256[key];
+    return hash ? `/sector-map/thumbs/s${key}-${hash.slice(0, 12)}.webp` : undefined;
+}
