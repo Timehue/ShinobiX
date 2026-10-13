@@ -1175,7 +1175,7 @@
 
 .inventory-character-layout {
     position: relative;
-    min-height: 570px;
+    min-height: 678px;
 }
 
 .inventory-silhouette {
@@ -1286,7 +1286,8 @@
 .slot-left-hand,
 .slot-left-item-2,
 .slot-relic,
-.slot-left-item-3 {
+.slot-left-item-3,
+.slot-fishing-pole {
     left: 18px;
 }
 
@@ -1294,7 +1295,8 @@
 .slot-right-item-1,
 .slot-right-hand,
 .slot-right-item-2,
-.slot-right-item-3 {
+.slot-right-item-3,
+.slot-pickaxe {
     right: 18px;
 }
 
@@ -1336,6 +1338,12 @@
 .slot-feet,
 .slot-right-item-3 {
     top: 426px;
+}
+
+/* Gathering tools sit on their own row under the feet. */
+.slot-fishing-pole,
+.slot-pickaxe {
+    top: 534px;
 }
 
 .inventory-panel-header {
