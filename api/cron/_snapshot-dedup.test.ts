@@ -287,6 +287,61 @@ describe('snapshot run health', () => {
         }
     });
 
+    it('a re-run whose only real write fails IS an outage; read-only skips prove nothing', async () => {
+        __resetSnapshotRenewalsForTest();
+        const originalKeys = kv.keys;
+        const originalGet = kv.get;
+        const originalSet = kv.set;
+        const originalCompareSet = kv.compareSet;
+        const originalNow = Date.now;
+        let now = 1_800_000_000_000;
+        const dayAgo = now - 25 * 60 * 60 * 1000;
+        const records = new Map<string, unknown>([
+            ['save:idle', { character: { name: 'Idle', level: 3 } }],
+            [`save-snapshot:idle:${dayAgo}`, { character: { name: 'Idle', level: 3 } }],
+            ['save:later', { character: { name: 'Later', level: 5 } }],
+            [`save-snapshot:later:${dayAgo}`, { character: { name: 'Later', level: 5 } }],
+        ]);
+        let storeDown = false;
+        Date.now = () => now;
+        kv.keys = async (pattern: string) => {
+            const prefix = pattern.replace(/\*$/, '');
+            return [...records.keys()].filter((key) => key.startsWith(prefix));
+        };
+        kv.get = async <T = unknown>(key: string) => (records.get(key) ?? null) as T | null;
+        kv.set = async (key: string, value: unknown) => {
+            if (storeDown) throw new Error('snapshot store down');
+            records.set(key, value);
+            return 'OK' as const;
+        };
+        kv.compareSet = async (key: string, expected: unknown, value: unknown) => {
+            if (storeDown) throw new Error('snapshot store down');
+            if (JSON.stringify(records.get(key)) !== JSON.stringify(expected)) return false;
+            records.set(key, value);
+            return true;
+        };
+        const error = console.error;
+        console.error = () => undefined;
+        try {
+            await runSnapshotSaves(5_000);
+            now += 60 * 60 * 1000;
+            storeDown = true;
+            records.set('save:later', { character: { name: 'Later', level: 6 } });
+            const rerun = await runSnapshotSaves(5_000);
+            assert.equal(rerun.unchanged, 1, 'idle was skipped by a read');
+            assert.equal(rerun.failed.length, 1);
+            assert.equal(rerun.writeOutage, true, 'the one write attempted failed');
+        } finally {
+            console.error = error;
+            Date.now = originalNow;
+            kv.keys = originalKeys;
+            kv.get = originalGet;
+            kv.set = originalSet;
+            kv.compareSet = originalCompareSet;
+            __resetSnapshotRenewalsForTest();
+        }
+    });
+
     it('recovers an interrupted run without duplicating completed snapshots', async () => {
         const originalKeys = kv.keys;
         const originalGet = kv.get;

@@ -786,6 +786,9 @@ export function PvpBattleScreen({
                 // `viewer` keys the server's stream budget per player; EventSource
                 // cannot carry the x-player-name header that fetch requests do.
                 es = new EventSource(`/api/pvp/stream?id=${encodeURIComponent(battleId)}&viewer=${encodeURIComponent(character.name)}`);
+                // Arm the silence watch now, not on `open`: a stream stuck
+                // connecting (no open, no error) would otherwise wait forever.
+                lastStreamEventAt = Date.now();
                 es.addEventListener("session", (e) => {
                     if (!active || !isCurrentScope()) return;
                     lastStreamEventAt = Date.now();

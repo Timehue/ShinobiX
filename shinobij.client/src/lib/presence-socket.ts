@@ -73,6 +73,10 @@ let pingTimer: ReturnType<typeof setInterval> | null = null;
 let handshakeRetryTimer: ReturnType<typeof setTimeout> | null = null;
 let handshakeRefusals = 0;
 const HANDSHAKE_RETRY_MAX_MS = 30_000;
+// A blip clears within a few tries; a credential that is really wrong never
+// will, and with the password fallback each try spends the player's login
+// budget. Stop after this many; the next connectRealtime() starts afresh.
+const HANDSHAKE_RETRY_LIMIT = 8;
 let latestFrame: PresenceFrame | null = null;
 
 const sectorHandlers = new Set<SectorHandler>();
@@ -169,6 +173,7 @@ export function connectRealtime(initialFrame: PresenceFrame): void {
         const refused = socket;
         if (!refused || refused.active) return;
         handshakeRefusals += 1;
+        if (handshakeRefusals > HANDSHAKE_RETRY_LIMIT) return;
         const delay = Math.min(HANDSHAKE_RETRY_MAX_MS,
             reconnectBaseDelayMs(false) * 2 ** Math.min(4, handshakeRefusals - 1));
         if (handshakeRetryTimer) clearTimeout(handshakeRetryTimer);

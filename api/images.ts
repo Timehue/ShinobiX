@@ -223,13 +223,20 @@ export function isManifestCategory(cat: string): boolean {
 // no eviction, so each one would keep a full id list until restart (players can
 // bump versions with avatar uploads). Holding at most ONE live key per category
 // drops the old list the moment the version moves; categories are a fixed set.
+// A version read that failed (null) is a blip, not a newer version: its key
+// lives in a separate slot, so it never evicts the real list (which would force
+// a full rebuild the moment the read recovers).
 const manifestKeyByCategory = new Map<string, string>();
+const degradedManifestKeyByCategory = new Map<string, string>();
 
 export function manifestCacheKey(cat: string, version: string | number | null, miscVersion: string | number | null): string {
     const key = `images:manifest:${cat}:${version ?? '-'}:${miscVersion ?? '-'}`;
-    const previous = manifestKeyByCategory.get(cat);
+    // Only `leader` reads a misc version; elsewhere its null is normal.
+    const degraded = version === null || (cat === 'leader' && miscVersion === null);
+    const slots = degraded ? degradedManifestKeyByCategory : manifestKeyByCategory;
+    const previous = slots.get(cat);
     if (previous && previous !== key) invalidateProcCache(previous);
-    manifestKeyByCategory.set(cat, key);
+    slots.set(cat, key);
     return key;
 }
 

@@ -260,7 +260,12 @@ async function streamSession(req: VercelRequest, res: VercelResponse, battleId: 
             return;
         }
         while (!signals.isAborted() && (Date.now() - startedAt) < STREAM_DURATION_MS) {
-            await sleep(streamWakeDelayMs(current));
+            // After a failed read, wait the full safety poll (spread, so a
+            // battle's viewers don't retry in step) rather than the 100 ms turn
+            // cadence: a struggling database gets breathing room.
+            await sleep(readFailures > 0
+                ? SAFETY_POLL_MS + Math.floor(Math.random() * 250)
+                : streamWakeDelayMs(current));
             signals.clearDirty();
             if (signals.isAborted()) break;
             // A failed read is a missed tick, not the end of the stream: one
@@ -276,6 +281,8 @@ async function streamSession(req: VercelRequest, res: VercelResponse, battleId: 
                 readFailures += 1;
                 if (readFailures >= MAX_CONSECUTIVE_READ_FAILURES) throw error;
                 console.warn('[pvp/stream] session read failed; retrying on the next tick', (error as Error)?.message ?? error);
+                // The connection itself is fine; keep the client's watch fed.
+                if (Date.now() - lastSentAt > HEARTBEAT_INTERVAL_MS) sendEvent('ping', { at: Date.now() });
                 continue;
             }
             if (!rawSession || pvpSessionPublicationTombstoneFor(rawSession, battleId)) {
