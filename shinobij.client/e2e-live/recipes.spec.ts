@@ -38,7 +38,7 @@ test('workshop ingredient batches, armor lining and edible campaign rations pers
         localStorage.setItem('dailyBriefing.seen.v1', new Date().toISOString().slice(0, 10));
         localStorage.setItem('legacyRumors.seen.v1:' + name, JSON.stringify([10, 20, 30, 40, 45]));
         localStorage.setItem('recipe-journey-installed', name);
-    }, { name, token, canonical, patch: LATEST_PATCH_NOTE.version });
+    }, { name, token, canonical, patch: LATEST_PATCH_NOTE?.version ?? '' });
     const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
     let craftPosts = 0;
     page.on('request', req => { if (req.method() === 'POST' && req.url().endsWith('/api/craft/forge')) craftPosts++; });

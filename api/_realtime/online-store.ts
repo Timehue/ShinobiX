@@ -51,6 +51,35 @@ function canon(name: string): string {
     return safeName(name);
 }
 
+const beforeMutationListeners = new Set<() => void>();
+const afterMutationListeners = new Set<() => void>();
+let checkingMutationBoundary = false;
+/** Freeze due objective deadlines before a later presence change can alter them. */
+export function checkpointOnlinePresence(): void {
+    if (checkingMutationBoundary) return;
+    checkingMutationBoundary = true;
+    try { for (const listener of beforeMutationListeners) {
+        try { listener(); } catch (error) { console.error('[online-store] deadline checkpoint failed:', (error as Error)?.message ?? error); }
+    } }
+    finally { checkingMutationBoundary = false; }
+}
+export function subscribeBeforeOnlinePresenceMutation(listener: () => void): () => void {
+    beforeMutationListeners.add(listener);
+    return () => { beforeMutationListeners.delete(listener); };
+}
+/** Start the next objective interval after a synchronous presence change. */
+export function refreshOnlinePresence(): void {
+    if (checkingMutationBoundary) return;
+    checkingMutationBoundary = true;
+    try { for (const listener of afterMutationListeners) {
+        try { listener(); } catch (error) { console.error('[online-store] objective refresh failed:', (error as Error)?.message ?? error); }
+    } } finally { checkingMutationBoundary = false; }
+}
+export function subscribeAfterOnlinePresenceMutation(listener: () => void): () => void {
+    afterMutationListeners.add(listener);
+    return () => { afterMutationListeners.delete(listener); };
+}
+
 export class MemoryOnlineStateStore implements OnlineStateStore {
     private players = new Map<string, OnlinePlayer>();
     private sectors = new Map<number, Set<string>>();
@@ -99,6 +128,7 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
 
     private settleMaturedTravel(key: string, player: OnlinePlayer, now: number, notify = true): void {
         if (player.travelDestinationSector === undefined || player.travelingUntil === undefined || now < player.travelingUntil) return;
+        if (this === onlineStore) checkpointOnlinePresence();
         const previousSector = player.sector;
         player.sector = player.travelDestinationSector;
         player.tile = serverWalkTile(player.sector, player.travelDestinationTile ?? player.tile);
@@ -115,6 +145,7 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
             this.addToSector(key, player.sector);
             if (notify) this.emit({ type: 'moved', name: key, from: previousSector, to: player.sector });
         }
+        if (this === onlineStore) refreshOnlinePresence();
     }
 
     private applyTravel(
@@ -126,6 +157,7 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
         arrivalTile?: number,
         worldPosition?: WorldPosition,
     ): OnlinePlayer {
+        if (this === onlineStore) checkpointOnlinePresence();
         player.resourceEpoch = (player.resourceEpoch ?? 0) + 1;
         if (originSector !== undefined && originSector !== player.sector) {
             const previousSector = player.sector;
@@ -143,10 +175,12 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
         player.lastSeenAt = this.now();
         this.settledTravelKeys.delete(key);
         this.settleMaturedTravel(key, player, this.now());
+        if (this === onlineStore) refreshOnlinePresence();
         return player;
     }
 
     upsert(entry: PresenceUpsert): OnlinePlayer {
+        if (this === onlineStore) checkpointOnlinePresence();
         const key = canon(entry.name);
         const now = this.now();
         const prev = this.players.get(key);
@@ -249,13 +283,14 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
         // Covers what the caller cannot see: get() hides a restored boot row,
         // so its owner coming back elsewhere is a move from the snapshot sector.
         if (movedFrom !== undefined) this.emit({ type: 'moved', name: key, from: movedFrom, to: next.sector });
+        if (this === onlineStore) refreshOnlinePresence();
         return next;
     }
 
-    get(name: string): OnlinePlayer | null {
+    get(name: string, at?: number): OnlinePlayer | null {
         const key = canon(name);
         const p = this.players.get(key);
-        const now = this.now();
+        const now = at ?? this.now();
         if (!this.isFresh(p, now) || p.locationUnverified) return null;
         this.settleMaturedTravel(key, p, now);
         return p;
@@ -298,6 +333,7 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
      * already landed on the new process is fresher than any snapshot.
      */
     restore(rows: readonly PresenceSnapshotRow[]): number {
+        if (this === onlineStore) checkpointOnlinePresence();
         const now = this.now();
         let restored = 0;
         for (const row of rows) {
@@ -320,11 +356,12 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
             this.addToSector(key, sector);
             restored++;
         }
+        if (this === onlineStore) refreshOnlinePresence();
         return restored;
     }
 
-    listSector(sector: number): OnlinePlayer[] {
-        const now = this.now();
+    listSector(sector: number, at?: number): OnlinePlayer[] {
+        const now = at ?? this.now();
         const names = this.sectors.get(sector);
         if (!names) return [];
         const out: OnlinePlayer[] = [];
@@ -336,12 +373,14 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
     }
 
     remove(name: string): void {
+        if (this === onlineStore) checkpointOnlinePresence();
         const key = canon(name);
         const player = this.players.get(key);
         if (player) this.removeFromSector(key, player.sector);
         this.players.delete(key);
         this.settledTravelKeys.delete(key);
         if (player) this.emit({ type: 'removed', name: key, sector: player.sector });
+        if (this === onlineStore) refreshOnlinePresence();
     }
 
     setPendingAttacker(name: string, attacker: unknown): boolean {
@@ -357,6 +396,7 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
     }
 
     setInBattle(name: string, inBattle: boolean): void {
+        if (this === onlineStore) checkpointOnlinePresence();
         const key = canon(name);
         const p = this.players.get(key);
         if (!p) return;
@@ -366,6 +406,7 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
         // Fight hosts flip this between beats, and the next beat compares
         // against the already-flipped record, so only here is the change seen.
         if (changed) this.emit({ type: 'changed', name: key, sector: p.sector });
+        if (this === onlineStore) refreshOnlinePresence();
     }
 
     startTravel(name: string, destinationSector: number, arrivalAt: number, originSector?: number, arrivalTile?: number, worldPosition?: WorldPosition): OnlinePlayer | null {
@@ -383,6 +424,7 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
     }
 
     cancelTravel(name: string, arrivalAt: number): void {
+        if (this === onlineStore) checkpointOnlinePresence();
         const key = canon(name);
         const p = this.players.get(key);
         if (!p || p.travelingUntil !== arrivalAt) return;
@@ -391,6 +433,7 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
         p.travelDestinationTile = undefined;
         p.travelDestinationWorldPosition = undefined;
         this.settledTravelKeys.delete(key);
+        if (this === onlineStore) refreshOnlinePresence();
     }
 
     consumeSettledTravel(name: string): boolean {
@@ -409,6 +452,7 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
     }
 
     moveToTile(name: string, tile: number): OnlinePlayer | null {
+        if (this === onlineStore) checkpointOnlinePresence();
         const p = this.get(name);
         if (!p || p.inBattle || (p.travelingUntil !== undefined && p.travelingUntil > this.now())) return null;
         // Once the continuous client owns a cursor, an old queued tile delta
@@ -420,10 +464,12 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
         p.tile = tile;
         p.movementSeq = (p.movementSeq ?? 0) + 1;
         p.lastSeenAt = this.now();
+        if (this === onlineStore) refreshOnlinePresence();
         return p;
     }
 
     commitWorldPosition(name: string, rawPosition: WorldPosition, expectedSequence: number): OnlinePlayer | null {
+        if (this === onlineStore) checkpointOnlinePresence();
         const p = this.get(name), model = worldPositionModel(), position = model.read(rawPosition);
         if (!p || !position || p.inBattle || (p.movementSeq ?? 0) !== expectedSequence
             || (p.travelingUntil !== undefined && p.travelingUntil > this.now())) return null;
@@ -442,10 +488,12 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
         p.tile = stationary ? model.location(previous!).tile : location.tile;
         if (!stationary) p.movementSeq = (p.movementSeq ?? 0) + 1;
         p.lastSeenAt = this.now();
+        if (this === onlineStore) refreshOnlinePresence();
         return p;
     }
 
     sweepStale(): OnlinePlayer[] {
+        if (this === onlineStore) checkpointOnlinePresence();
         const now = this.now();
         const removed: OnlinePlayer[] = [];
         for (const [k, p] of this.players) {
@@ -461,6 +509,7 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
                 removed.push(departureSector === p.sector ? p : { ...p, departureSector });
             }
         }
+        if (this === onlineStore) refreshOnlinePresence();
         return removed;
     }
 

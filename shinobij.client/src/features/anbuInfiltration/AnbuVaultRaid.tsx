@@ -3,6 +3,12 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { StrongholdExplore } from "./StrongholdExplore";
 import { strongholdRequest } from "./stronghold-api";
 import { StrongholdDialog } from "./StrongholdDialog";
+import { useVillageCampaign } from '../../lib/use-village-campaign';
+import { useSharedNow } from '../../lib/use-shared-now';
+import { campaignRequest } from '../../lib/village-war-campaign';
+import { VillageCampaignPanel } from '../villageWar/VillageCampaignPanel';
+import { EspionageStronghold } from '../villageWar/EspionageStronghold';
+import { WarGuardStronghold } from '../villageWar/WarGuardStronghold';
 import { ANBU_RAID_MIN_LEVEL, isDeathsGateStronghold } from '../../../../shared/sector-stronghold';
 import type { SectorWarContestView } from '../../lib/sector-war-engagement';
 import {
@@ -29,7 +35,38 @@ const INFIL_RUN_KEY = "anbuInfiltration.activeRun";
 const accountKey = (name: string) => name.toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 32);
 type Phase = "traverse" | "fight" | "result" | "patrol-result";
 
-export function AnbuVaultRaid({
+export function AnbuVaultRaid(props: Parameters<typeof AnbuVaultRaidLegacy>[0]) {
+    const { state, loaded } = useVillageCampaign(props.character.name, props.character.village);
+    const now = useSharedNow();
+    const campaignActive = !!state && now >= state.campaign.startsAt && now < state.campaign.endsAt;
+    const objective = campaignActive ? state.campaign.strongholds.find(o => o.sector === props.sector) : undefined;
+    const objectiveId = objective?.id;
+    const campaignWarId = state?.warId;
+    const [entered, setEntered] = useState(false);
+    const [entryError, setEntryError] = useState('');
+    useEffect(() => {
+        if (!campaignWarId || !objectiveId) return;
+        let active = true;
+        campaignRequest(props.character.name, campaignWarId, 'enter', { objectiveId })
+            .then(() => { if (active) setEntered(true); else void campaignRequest(props.character.name, campaignWarId, 'leave', { objectiveId }).catch(() => undefined); })
+            .catch(reason => { if (active) setEntryError(reason instanceof Error ? reason.message : 'Could not enter the stronghold.'); });
+        return () => { active = false; };
+    }, [props.character.name, campaignWarId, objectiveId]);
+    if (!loaded) return <p>Checking stronghold orders…</p>;
+    if (campaignActive && state?.mission?.kind === 'espionage' && state.mission.status === 'active' && state.mission.sectors[0] === props.sector)
+        return <EspionageStronghold {...props} warId={state.warId} mission={state.mission} />;
+    const leave = () => {
+        if (campaignWarId && objectiveId) void campaignRequest(props.character.name, campaignWarId, 'leave', { objectiveId }).catch(() => undefined);
+        props.onExit();
+    };
+    if (objective && state) return entered ? <VillageCampaignPanel character={props.character} warId={state.warId}
+        sector={props.sector} sharedImages={props.sharedImages} onVersionedCharacter={props.onVersionedCharacter} onExit={leave} />
+        : <div className='summary-box'><p>{entryError || 'Entering the war stronghold…'}</p><button onClick={leave}>Leave</button></div>;
+    if (campaignActive && state && props.targetVillage === props.character.village && !isDeathsGateStronghold(props.sector))
+        return <WarGuardStronghold {...props} warId={state.warId} />;
+    return <AnbuVaultRaidLegacy {...props} />;
+}
+function AnbuVaultRaidLegacy({
     character,
     sharedImages,
     sector,
@@ -343,6 +380,7 @@ export function AnbuVaultRaid({
                 admissionPending={starting || startUncertain} admissionError={error}
                 onRetryAdmission={startUncertain && !starting ? () => void enterVault() : undefined}
                 onChallenge={() => { if (!isDeathsGateStronghold(sector)) setChallenge(true); }}
+                defending={targetVillage === character.village}
                 onPatrol={session => {
                     if (startingRef.current || startUncertain) return;
                     setFight({ runId: session.sessionId, session, anbuName: session.enemy.name, patrol: true });

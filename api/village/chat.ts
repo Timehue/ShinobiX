@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
+import { readKvProjection } from '../_storage-projection.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
@@ -54,10 +55,12 @@ export function sameVillage(storedVillage: unknown, requestedVillage: unknown): 
         && storedVillage.trim().toLowerCase() === requestedVillage.trim().toLowerCase();
 }
 
-async function memberCharacter(player: string, village: string): Promise<Record<string, unknown> | null> {
-    const save = await kv.get<Record<string, unknown>>(`save:${player}`);
-    const char = (save?.character ?? null) as Record<string, unknown> | null;
-    return char && sameVillage(char.village, village) ? char : null;
+// Every subscribed member re-reads the transcript after each new line, so this
+// gate runs once per member per message. It needs one string of the save, so it
+// reads that projection, not the whole row (avatar, inventory, jutsu, pets).
+async function memberCharacter(player: string, village: string): Promise<boolean> {
+    const [row] = await readKvProjection(kv, [`save:${player}`], { village: ['character', 'village'] });
+    return sameVillage(row?.village, village);
 }
 
 /**
@@ -102,14 +105,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // through the service-role key, not this endpoint.
         const identity = await authedPlayerOrAdmin(req);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
+        // Start the two plain reads now so they overlap the access checks
+        // below. Nothing is answered from them until those checks pass, and a
+        // refused reader's results (or failures) are simply dropped.
+        const transcriptRead = kv.get<ChatMessage[]>(key);
+        const filterRead = transcriptFilterFor(identity);
+        transcriptRead.catch(() => undefined);
+        filterRead.catch(() => undefined);
         if (!identity.admin && !await memberCharacter(identity.name, village)) {
             return res.status(403).json({ error: 'You can only read your own village chat.' });
         }
         // The tavern is shut to unclaimed guests, reading included — it is a
         // village room, not a feed, and a locked room shows no transcript.
         if (await rejectUnclaimedGuest(res, identity)) return;
-        const allMessages = await kv.get<ChatMessage[]>(key) ?? [];
-        const messages = (await transcriptFilterFor(identity))(allMessages);
+        const allMessages = await transcriptRead ?? [];
+        const messages = (await filterRead)(allMessages);
         res.setHeader('X-Message-Count', String(messages.length));
         // X-Last-Ts too: once the log sits at MAX_MESSAGES, every append keeps
         // the count at 30, so a count-only skip check would never show new

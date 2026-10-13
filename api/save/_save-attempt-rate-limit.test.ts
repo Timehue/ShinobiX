@@ -151,46 +151,56 @@ test('ordinary save-attempt ingress is capped before lock and rejection telemetr
     store.set(`save:${blockedName}`, { _saveVersion: 7, character: character(blockedName) });
     store.set(`reset-signal:${blockedName}`, 1);
 
-    // Expected reset-pending retries still enter the lock while budget remains.
-    for (let attempt = 0; attempt < limit; attempt++) {
-        const response = await post(blockedName, blockedToken, {
+    // Rate-limit windows are aligned to the wall clock (floor(now / 60 s)), so
+    // attempts that straddle a minute boundary start a fresh window and the
+    // over-limit attempt is allowed. Hold the clock still while the bucket fills.
+    const realNow = Date.now;
+    const heldAt = realNow();
+    Date.now = () => heldAt;
+    try {
+        // Expected reset-pending retries still enter the lock while budget remains.
+        for (let attempt = 0; attempt < limit; attempt++) {
+            const response = await post(blockedName, blockedToken, {
+                _baseSaveVersion: 7,
+                character: character(blockedName),
+            });
+            assert.equal(response.statusCode, 200);
+            assert.deepEqual(response.body, { ok: false, persisted: false, reason: 'reset-pending' });
+        }
+
+        const lockKey = `lock:save:${blockedName}`;
+        assert.equal(lockAttempts.get(lockKey), limit);
+        assert.equal(counter('save-attempt', blockedName), limit);
+
+        // The next attempt is rejected by the common ingress bucket before it can
+        // acquire the character lock.
+        const overLimit = await post(blockedName, blockedToken, {
             _baseSaveVersion: 7,
             character: character(blockedName),
         });
-        assert.equal(response.statusCode, 200);
-        assert.deepEqual(response.body, { ok: false, persisted: false, reason: 'reset-pending' });
+        assert.equal(overLimit.statusCode, 429);
+        assert.equal(lockAttempts.get(lockKey), limit, 'over-limit request must not touch the save lock');
+
+        // Once the same ingress bucket is exhausted, changing the payload to the
+        // versionless or stale path cannot hammer their telemetry/budget either.
+        store.delete(`reset-signal:${blockedName}`);
+        const versionless = await post(blockedName, blockedToken, { character: character(blockedName) });
+        assert.equal(versionless.statusCode, 429);
+        assert.equal(
+            [...store.keys()].some((key) => key.startsWith('telemetry:save-noversion:')),
+            false,
+            'blocked versionless attempts must not increment missing-version telemetry',
+        );
+        const stale = await post(blockedName, blockedToken, {
+            _baseSaveVersion: 6,
+            character: character(blockedName),
+        });
+        assert.equal(stale.statusCode, 429);
+        assert.equal(counter('save-conflict', blockedName), 0, 'blocked stale attempts must not consume conflict budget');
+        assert.equal(lockAttempts.get(lockKey), limit);
+    } finally {
+        Date.now = realNow;
     }
-
-    const lockKey = `lock:save:${blockedName}`;
-    assert.equal(lockAttempts.get(lockKey), limit);
-    assert.equal(counter('save-attempt', blockedName), limit);
-
-    // The next attempt is rejected by the common ingress bucket before it can
-    // acquire the character lock.
-    const overLimit = await post(blockedName, blockedToken, {
-        _baseSaveVersion: 7,
-        character: character(blockedName),
-    });
-    assert.equal(overLimit.statusCode, 429);
-    assert.equal(lockAttempts.get(lockKey), limit, 'over-limit request must not touch the save lock');
-
-    // Once the same ingress bucket is exhausted, changing the payload to the
-    // versionless or stale path cannot hammer their telemetry/budget either.
-    store.delete(`reset-signal:${blockedName}`);
-    const versionless = await post(blockedName, blockedToken, { character: character(blockedName) });
-    assert.equal(versionless.statusCode, 429);
-    assert.equal(
-        [...store.keys()].some((key) => key.startsWith('telemetry:save-noversion:')),
-        false,
-        'blocked versionless attempts must not increment missing-version telemetry',
-    );
-    const stale = await post(blockedName, blockedToken, {
-        _baseSaveVersion: 6,
-        character: character(blockedName),
-    });
-    assert.equal(stale.statusCode, 429);
-    assert.equal(counter('save-conflict', blockedName), 0, 'blocked stale attempts must not consume conflict budget');
-    assert.equal(lockAttempts.get(lockKey), limit);
 
     // A normal stale response and its immediately corrected retry use distinct
     // post-guard budgets: the 409 charges conflict, while the accepted write

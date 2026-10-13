@@ -6,7 +6,8 @@ import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import type { ClanWar } from '../clan/war/_storage.js';
-import { settleClanWarRewards, settleVillageWarRewards, type VillageWarRewardRecord } from './_reward.js';
+import { settleClanWarRewards, settleVillageWarRewards, villageWarRewardToken, type VillageWarRewardRecord } from './_reward.js';
+import { bumpLegacyStats, legacyBootstrapBeforeCounterIncrement } from '../_legacy-track.js';
 
 const WAR_ID_RE = /^[a-z0-9]+-vs-[a-z0-9]+$/;
 
@@ -43,6 +44,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return { ok: true as const, character: reward.character, value: reward, write: reward.granted };
         });
         if (!outcome.ok) return res.status(outcome.status).json({ error: outcome.error });
+        if (kind === 'village' && war.endedAt) {
+            const villageWar = war as VillageWarRewardRecord;
+            const claims = new Set(Array.isArray(outcome.character.claimedWarCrateIds) ? outcome.character.claimedWarCrateIds.map(String) : []);
+            const token = villageWarRewardToken(villageWar);
+            const won = !!villageWar.warCrateId && claims.has(villageWar.warCrateId);
+            const mvp = claims.has(`mvp-crate-${token}`);
+            // Both deeds may have committed in one save. Remove both increments
+            // from a first-touch baseline before either receipt seeds the tracker.
+            let baseline: Record<string, unknown> | null = outcome.character;
+            if (won) baseline = legacyBootstrapBeforeCounterIncrement(baseline, 'warsWon');
+            if (mvp) baseline = legacyBootstrapBeforeCounterIncrement(baseline, 'warMvpCount');
+            const deeds = [
+                ...(won ? [{ receiptId: `war-won:${villageWar.warCrateId}`, deltas: { warsWon: 1 } }] : []),
+                ...(mvp ? [{ receiptId: `war-mvp:${token}`, deltas: { warMvps: 1 } }] : []),
+            ];
+            for (const deed of deeds) {
+                const delivered = await bumpLegacyStats(playerName, deed.deltas, {
+                    receiptId: deed.receiptId, durableReceipt: true, characterForBootstrap: baseline,
+                });
+                if (!delivered) return res.status(503).json({
+                    error: 'Your war rewards are safe, but their Legacy progress is still being sealed. Retry this reward claim.',
+                    code: 'legacy-delivery-pending', retryable: true, _saveVersion: outcome._saveVersion,
+                });
+            }
+        }
         return res.status(200).json({
             ok: true,
             ...outcome.value,

@@ -66,7 +66,7 @@ test('real World Map discovery binds a wild companion and survives refresh', asy
         localStorage.setItem('patchNotes.lastSeenVersion.v1', patchVersion);
         localStorage.setItem('dailyBriefing.seen.v1', new Date().toISOString().slice(0, 10));
         localStorage.setItem('live-wild-installed', name);
-    }, { ...account, patchVersion: LATEST_PATCH_NOTE.version });
+    }, { ...account, patchVersion: LATEST_PATCH_NOTE?.version ?? '' });
     // Only the in-memory test server accepts this secret header. Every
     // discovery, battle, seal spend, roster write and reload is real Express.
     await page.route('**/api/pet/encounter-start', route => route.continue({

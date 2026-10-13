@@ -52,7 +52,13 @@ async function seed(player: string, level = 50) {
 }
 
 for (const level of [1, 50]) {
-    test(`a fresh level-${level} discovery keeps its id after terminal-pointer cleanup`, async () => {
+    test(`a fresh level-${level} discovery keeps its id after terminal-pointer cleanup`, async (t) => {
+        // seed() dates serverExploreDate from Date.now(), and explore.ts reads
+        // its own day from a no-argument `new Date()`. A run that straddles UTC
+        // midnight between the two would restart the daily count, so the fresh
+        // action would count as 1 instead of 34. Freeze Date (Date.now and new
+        // Date alike) for the whole check.
+        t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
         const player = `terminaladmit${level}`, id = 'brandnewexplore001';
         await seed(player, level);
         onlineStore.upsert({ name: player, sector: 1, character: { level }, tile: 5 });
@@ -111,7 +117,13 @@ test('exact terminal pet retries replay without presence and admit no new search
     assert.equal((await kv.keys(`pet-encounter-request:${player}:*`)).length, 1);
 });
 
-test('a terminal pet retry preserves a newer dungeon miss whose ACK was lost', async () => {
+test('a terminal pet retry preserves a newer dungeon miss whose ACK was lost', async (t) => {
+    // seed() dates serverExploreDate from Date.now(), and explore.ts reads its
+    // own day from a no-argument `new Date()`. A run that straddles UTC
+    // midnight between the two would restart the daily count, so the settled
+    // exploration would count as 1 instead of 34. Freeze Date (Date.now and
+    // new Date alike) for the whole check.
+    t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
     const player = 'terminaladmitinterleave', id = 'freshlostdungeon001';
     await seed(player);
     onlineStore.upsert({ name: player, sector: 1, character: { level: 50 }, tile: 5 });

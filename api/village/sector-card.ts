@@ -1,3 +1,4 @@
+import { alertSectorPreparation, preparationLevels, sectorPreparationInstance } from '../_war-preparations.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
@@ -178,6 +179,7 @@ async function applyGarrisonOutcome(session: GarrisonSession): Promise<void> {
                 // Half-weight + war cap on an attacker win; merc-repel weight when
                 // the garrison holds. Exactly Combat's split.
                 garrisonBattle: attackerWon,
+                supportMultiplier: 1 + preparationLevels(normalizeVillageWarRecord(session.attackerVillage, atkRaw ?? undefined), sectorPreparationInstance(contest), endedAt).warAcademy / 10,
                 mercBattle: !attackerWon,
             });
             if (!outcome) return { kind: 'skip', reason: 'draw' }; // draw -- nothing scores
@@ -307,6 +309,7 @@ async function runGarrison(me: string, admin: boolean, sectorWarId: string, acti
     };
     if (aiMatchIsDone(fresh.match)) await applyGarrisonOutcome(fresh);
     await saveGarrison(fresh);
+    await alertSectorPreparation(contest, `card-garrison:${now}`, 'card', now).catch(() => undefined);
     return { status: 200, body: { ...versionEcho(attackerDeck), session: projectAiMatch(fresh.match), garrisonDefendedByKage: defender.byKage, ...warResultOf(fresh) } };
 }
 
@@ -409,6 +412,7 @@ async function runTable(me: string, admin: boolean, sectorWarId: string, action:
                 p1Name: me, p1Deck: resolution.deck, status: 'awaiting-defender', createdAt: now, updatedAt: now,
             };
             await saveSession(session);
+            await alertSectorPreparation(contest, `card-table:${now}`, 'card', now).catch(() => undefined);
             return { status: 200, body: { ...versionEcho(resolution), session: waitingTable('awaiting-defender', 'p1') } };
         }
         if (session.status !== 'awaiting-defender') return { status: 409, body: { error: 'The defender seat is unavailable.' } };

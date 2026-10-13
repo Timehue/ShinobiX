@@ -30,12 +30,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const slug = clanBareSlug(clan);
         if (!slug) return res.status(400).json({ error: 'Invalid clan name.' });
 
+        // A plain read, started now so it overlaps the membership check. Its
+        // result is used only once that check passes; a refusal drops it.
+        const bufRead = kv.get<ClanChatMessage[]>(clanChatKey(slug));
+        bufRead.catch(() => undefined);
+
         // Membership: caller's character must belong to this clan (admin exempt).
         if (!identity.admin && !(await isClanChatMember(playerName, slug))) {
             return res.status(403).json({ error: 'You are not a member of this clan.' });
         }
 
-        const buf = (await kv.get<ClanChatMessage[]>(clanChatKey(slug))) ?? [];
+        const buf = (await bufRead) ?? [];
         res.setHeader('Cache-Control', 'no-store');
         return res.status(200).json({ messages: messagesSince(buf, since) });
     } catch (err) {

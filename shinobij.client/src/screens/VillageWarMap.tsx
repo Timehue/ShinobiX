@@ -1,3 +1,4 @@
+import { WarPreparationPanel } from '../features/villageWar/WarPreparationPanel';
 import { isSeatedVillageElder } from '../lib/village-elder-focus';
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
@@ -299,7 +300,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                             <div><b><GameArtIcon kind="biomeForest" size={17} /> Terrain edge</b><span>A sector's rules belong to the village that holds it: its Kage picks the win-condition, and its Kage (3 sectors) and Elders (1 each) pick the terrain. On that ground, the terrain's own school hits 10% harder for both sides (Combat &amp; Pet), so the holder picks one that suits its fighters. Both are locked in when a war is declared. Central is neutral.</span></div>
                             <div><b><GameArtIcon kind="vanguard" size={17} /> Mercenaries</b><span>Hired with War Resources for one war at a time: in an all-out village war the Kage hires 3 bands and each Elder 1, and a village defending a Combat sector hires 3. A band hunts the enemy on its own; in a sector war only the defender fields one.</span></div>
                             <div><b><GameArtIcon kind="clanHall" size={17} /> Structures</b><span>Ramparts &amp; Watchtower fortify <i>this</i> war (WR, reset at peace); Barracks / War Academy / Supply Depot / Treasury Vault are permanent (Honor Seals).</span></div>
-                            <div><b><GiBowlOfRice aria-hidden="true" /> Fed or Unfed</b><span>Every war eats <b>{WAR_RATIONS_PER_DAY} rations a day</b> from the Town Hall Provisions. A war marked <b>Unfed</b> is one a side could not cover — an unfed defender loses half its Watchtower bonus. Paying <b>{GARRISON_RATIONS_PER_DAY} more rations a day</b> feeds that sector's garrison fight as well. The attacker's feed raises what its garrison assaults can bank from {GARRISON_POINTS_CAP} points to {GARRISON_POINTS_CAP_FED}; the defender's lowers it to {GARRISON_POINTS_CAP_DEFENDED}. When both sides feed, they cancel out.</span></div>
+                            <div><b><GiBowlOfRice aria-hidden="true" /> Fed or Unfed</b><span>Every war eats <b>{WAR_RATIONS_PER_DAY} rations a day</b> from the Town Hall Provisions. A war marked <b>Unfed</b> is one a side could not cover — its Academy bonus on garrison support is halved. Paying <b>{GARRISON_RATIONS_PER_DAY} more rations a day</b> feeds that sector's garrison fight as well. The attacker's feed raises what its garrison assaults can bank from {GARRISON_POINTS_CAP} points to {GARRISON_POINTS_CAP_FED}; the defender's lowers it to {GARRISON_POINTS_CAP_DEFENDED}. When both sides feed, they cancel out.</span></div>
                             <div><b><GameArtIcon kind="crown" size={17} /> Kage only</b><span>Only your village's seated Kage can declare wars, set rules, and spend the war chest — Elders may also hire mercenaries. Anyone can fight in a sector that's already contested.</span></div>
                         </div>
                     </div>
@@ -339,7 +340,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                 <span>Sectors held <b>{myView.sectorsHeld}</b></span>
                                 <span title={myView.kageSeated === false ? "No Kage is seated, so your village collects no tax." : "Only territory held beyond your village's eight home sectors creates an occupation tax."}>Tax <b>{myView.taxRatePct}%</b>{myView.kageSeated === false && <> (no Kage)</>}</span>
                                 <span>Upkeep <b>{myView.upkeepWr}</b> WR/day</span>
-                                <span>+{myView.wrPerSector} WR/sector</span>
+                                <span>+{myView.wrPerSector} WR/sector · +{myView.depotDailyIncome ?? 0} WR/day from Depot</span>
                                 <span><GameIcon name="bag" size={14} style={{ verticalAlign: "-2px", marginRight: 4, opacity: 0.85 }} />Provisions <b>{(myView.provisions ?? 0).toLocaleString()}</b> rations</span>
                                 <span><GameIcon name="crystal" size={14} style={{ verticalAlign: "-2px", marginRight: 4, opacity: 0.85 }} />Materials <b>{(myView.materialPoints ?? 0).toLocaleString()}</b>{depotConversionNote(myView.depotConversionCap, DEPOT_CONVERSION_POINTS_PER_WR) && <> ({depotConversionNote(myView.depotConversionCap, DEPOT_CONVERSION_POINTS_PER_WR)})</>}</span>
                             </div>
@@ -350,7 +351,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                             {isKage && (
                                 <>
                                     <div className="vwm-structures">
-                                        {WAR_STRUCTURES.map((s) => {
+                                        {WAR_STRUCTURES.filter(s => s.key === "supplyDepot" || s.key === "treasuryVault").map((s) => {
                                             const perWar = s.key === "ramparts" || s.key === "watchtower";
                                             const level = myView.structures?.[s.key] ?? 0;
                                             // Village Stores: raising a PERMANENT structure to L6+ also
@@ -378,9 +379,10 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                             );
                                         })}
                                     </div>
-                                    <p className="hint"><GameArtIcon kind="attack" size={16} /> <b>Ramparts</b> &amp; <b>Watchtower</b> are per-war: bought with <b>War Resources</b> and reset to 0 once you're at peace. The other four are permanent (treasury Honor Seals) and can also be raised in Town Hall → Upgrades.</p>
+                                    <p className="hint">Supply Depot and Treasury Vault are permanent village infrastructure. Choose an individual war below to fund temporary preparations.</p>
                                 </>
                             )}
+                            <WarPreparationPanel playerName={character.name} village={myVillage} isKage={isKage} />
                             {!isKage && <p className="hint">Only the seated Kage can declare sector wars, set sector rules, and upgrade structures.</p>}
                         </div>
                     )}

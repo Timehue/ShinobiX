@@ -31,11 +31,11 @@ export const MERC_HIRE_RECEIPT_GRACE_MS = 24 * 60 * 60 * 1000;
  *  base cost × the comeback discount (0 sectors → free / 1 → 75% off / ≥2 → full)
  *  × the Barracks discount. Rounded, floored at 0. Returns 0 for an unknown tier
  *  (the caller rejects the hire before that matters). */
-export function mercHireCost(tierId: string, sectorsHeld: number, record: VillageWarRecord): number {
+export function mercHireCost(tierId: string, sectorsHeld: number, record: VillageWarRecord, barracksTier = 0): number {
     const tier = wrMercTierById(tierId);
     if (!tier) return 0;
     const afterComeback = tier.costWr * comebackCostMultiplier(sectorsHeld);
-    const afterBarracks = afterComeback * mercCostMultiplier(record);
+    const afterBarracks = afterComeback * mercCostMultiplier(record) * (1 - Math.max(0, Math.min(3, Math.floor(barracksTier))) * 0.05);
     return Math.max(0, Math.round(afterBarracks));
 }
 

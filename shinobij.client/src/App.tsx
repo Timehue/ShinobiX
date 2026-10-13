@@ -774,7 +774,7 @@ export default function App() {
     usePlayerAccountNameMirror(character);
     const [currentAccountName, setCurrentAccountName] = useState("");
     const [viewingUserName, setViewingUserName] = useState<string | null>(null);
-
+    const [messageTarget, setMessageTarget] = useState<string | null>(null); // set only by a profile's Message button; Messages consumes it once
     // State restoration, hashes, and leaf components can all write `screen`
     // directly. Keep the render boundary fail-closed as well as the normal
     // navigate() path so a paused Sector campaign never mounts its polling
@@ -3015,12 +3015,16 @@ export default function App() {
                 if (didOptimisticPaint) { unwindToLoginForm(); setOptimisticRestore(false); }
             };
 
+            // Shared admin content no longer waits for the restore round trip: it is read alongside it and still
+            // applied on completion. A guest resume swaps credentials mid-restore, so that path pulls afresh.
+            const adminPrefetch = pullSharedAdminSnapshots(pullSaveFromServer); adminPrefetch.catch(() => undefined); let resumedGuest = false;
             void restoreAccountFromServer({
                 accountName: localAccountName,
                 scope: restoreLoad,
                 pullSave: pullSaveFromServer,
                 fetchBattleLock: fetchBattleLockStatus,
                 resumeGuest: async () => {
+                    resumedGuest = true;
                     // Credentials stay bound to this restore generation.
                     const guest = await resumeGuestFor(localAccountName, (a, b) => accountKey(a) === accountKey(b));
                     if (!restoreLoad.isCurrent() || !guest) return null;
@@ -3032,7 +3036,7 @@ export default function App() {
                 onFailure: revertRestoreToLogin,
                 onTimeout: () => setRestoringSession(false),
                 onSettled: () => { restoreCompleted = true; },
-                onComplete: () => { setRestoringSession(false); void pullSharedAdminContent(restoreLoad); },
+                onComplete: () => { setRestoringSession(false); void pullSharedAdminContent(restoreLoad, resumedGuest ? undefined : adminPrefetch); },
             });
         } else {
             // No stored account → brand-new / anonymous visitor: show the login
@@ -3291,9 +3295,9 @@ export default function App() {
         return snap.editablePets ? registerPublishedPetTemplates(snap.editablePets as Pet[]) : false;
     }
 
-    async function pullSharedAdminContent(scope: ReturnType<typeof beginSessionLoad>) {
+    async function pullSharedAdminContent(scope: ReturnType<typeof beginSessionLoad>, prefetched?: Promise<Array<ReturnType<typeof buildPlayerSavePayload>>>) {
         const isCurrent = () => sessionLoadMatchesAccount(scope, currentAccountNameRef.current);
-        const available = await pullSharedAdminSnapshots(pullSaveFromServer);
+        const available = await (prefetched ?? pullSharedAdminSnapshots(pullSaveFromServer));
         if (!isCurrent()) return;
         if (!available.length) return;
         const petTemplatesChanged = available.map((snap) => applySharedAdminContentSnapshot(snap, scope.accountKey, isCurrent)).some(Boolean);
@@ -3468,7 +3472,8 @@ export default function App() {
     // Extracted so applySnapshot can call it after the KV restore to avoid
     // the race condition where applySnapshot (empty images) lands after loadCategory.
     function hydrateImages(cat: string, images: Record<string, string>) {
-        setSharedImages(prev => ({ ...prev, ...images }));
+        // An unchanged refresh (the periodic avatar re-check) keeps the same map, so App and every image consumer skip a re-render.
+        setSharedImages(prev => Object.entries(images).every(([key, value]) => prev[key] === value) ? prev : { ...prev, ...images });
         if (cat === 'item')
             setCreatorItems(prev => {
                 // Patch images on; keep a fresh inline data: image rather than clobber it with the 5-min-stale /api/img ref (same guard as the pet branch).
@@ -3591,7 +3596,8 @@ export default function App() {
                 // pet/item/bloodline branches above). See lib/own-avatar.ts.
                 if (isPresetAvatar(prev.avatarImage)) return prev;
                 const img = images['avatar:' + prev.name.toLowerCase()];
-                return img ? { ...prev, avatarImage: img } : prev;
+                // Same image: keep the object, or the periodic avatar refresh dirties the save and POSTs it.
+                return img && img !== prev.avatarImage ? { ...prev, avatarImage: img } : prev;
             });
         else if (cat === 'ai')
             setCreatorAis(prev => {
@@ -5963,7 +5969,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "professions" && character && <Professions sharedImages={sharedImages} character={character} updateCharacter={setCharacter} setScreen={navigate} onBack={goBack} playerRoster={playerRoster} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} />}
                 {!activeTriggeredEvent && screen === "cafeteria" && character && <Cafeteria character={character} onVersionedCharacter={commitVersionedCharacter} onBack={goBack} />}
                 {!activeTriggeredEvent && screen === "tavern" && character && <VillageTavern character={character} onBack={() => navigate("village")} sharedImages={sharedImages} onViewProfile={(name) => { setViewingUserName(name); navigate("userView"); }} playerRoster={playerRoster} />}
-                {!activeTriggeredEvent && screen === "messages" && character && <Messages character={character} onBack={goBack} initialWith={viewingUserName} />}
+                {!activeTriggeredEvent && screen === "messages" && character && <Messages character={character} onBack={goBack} initialWith={messageTarget} onConsumeInitialWith={setMessageTarget} />}
                 {!activeTriggeredEvent && screen === "hallOfLegends" && character && <HallOfLegends character={character} setScreen={navigate} playerRoster={playerRoster} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} />}
                 {!activeTriggeredEvent && screen === "worldCrisis" && character && <WorldCrisis character={character} creatorItems={creatorItems} savedBloodlines={savedBloodlines} setScreen={navigate} sharedImages={sharedImages} onVersionedCharacter={commitVersionedCharacter} onRecordBattle={recordBattle} />}
                 {!activeTriggeredEvent && screen === "echoesOfWar" && character && <EchoesOfWar character={character} creatorCards={creatorCards} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onBack={goBack} onOpenCardPacks={() => { try { sessionStorage.setItem("cardHall.initialTab", "packs"); } catch { /* Card Hall still opens at Collection */ } setScreen("shinobiTiles"); }} sharedImages={sharedImages} />}
@@ -6034,7 +6040,7 @@ export default function App() {
                         sharedImages={sharedImages} onRecordBattle={recordBattle} onBack={goBack}
                     />
                 )}
-                {!activeTriggeredEvent && screen === "villageWar" && character && <VillageWarScreen character={character} playerRoster={playerRoster} onBack={goBack} onVersionedCharacter={commitVersionedCharacter} />}
+                {!activeTriggeredEvent && screen === "villageWar" && character && <VillageWarScreen character={character} playerRoster={playerRoster} onBack={goBack} onVersionedCharacter={commitVersionedCharacter} sharedImages={sharedImages} />}
                 {!activeTriggeredEvent && screen === "villageWarMap" && villageWarScreenMountAllowed(screen, villageWarAvailability) && character && <VillageWarMap character={character} onBack={goBack} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "sectorCard" && villageWarScreenMountAllowed(screen, villageWarAvailability) && character && <SectorWarCardBattle character={character} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "sectorPet" && villageWarScreenMountAllowed(screen, villageWarAvailability) && character && <SectorWarPetBattle character={character} setScreen={setScreen} />}
@@ -6063,7 +6069,7 @@ export default function App() {
                         savedBloodlines={savedBloodlines}
                         creatorJutsus={creatorJutsus}
                         sharedImages={sharedImages}
-                        onMessage={() => setScreen("messages")}
+                        onMessage={() => { setMessageTarget(viewingUserName); setScreen("messages"); }}
                         onBack={goBack}
                     />
                 )}

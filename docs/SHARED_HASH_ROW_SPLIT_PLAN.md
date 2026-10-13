@@ -5,19 +5,42 @@
 | # | Decision | Owner's answer | What happens |
 |---|---|---|---|
 | 1 | Avatar rule | "Do what is best, but players will always be able to choose one if they purchase the subscription." | Deploy 2 changes only where avatar bytes are written; who may choose what is unchanged. Deploy 3 (below) stores the two starter presets as references and enforces the subscriber perk on the server. |
-| 2 | Freeze the old rows, list ids by key scan | Asked about the impact (§4.1). | Built in Deploy 2, after the dry-run review. |
+| 2 | Freeze the old rows, list ids by key scan | Asked about the impact (§4.1), then "do what is best". | Built in Deploy 2, after the dry-run review. |
+| 7 | The 7 orphans the audit found | "Do what is best." | Keep all 7. Two are in-use jutsu icons whose art comes back; the rest are invisible unless referenced. |
+| 8 | `petbody:deploy-probe` (misc junk) | "Do what is best." | Left for Phase 3. The single delete files it under 'pet' by its prefix, so it cannot reach the misc hash where it sits, and dropping the frozen misc row removes it with no ad-hoc production write. |
 | 3 | Two deploys | Yes. | Deploy 1 = read-only audit + era receipts. Deploy 2 = the image switch. |
 | 4 | Kill switch | Yes. | Ships with Deploy 2. |
 | 5 | Era receipts | "Do what is best"; `ENABLE_LEGACY=1` is set. | Option B, built in Deploy 1. |
 | 6 | Phase 3 (drop the frozen rows) | "Do what is best for the game and players." | Do it after 7 clean days of Deploy 2, with a backup first, one row per call (§3.5). |
 
-**Deploy 1 (built, branch `claude/image-store-dry-run`).** It contains:
+**Deploy 1: live.** PR #366 merged as `ee03c6f13` on 2026-10-13 and was live at 05:53Z. It contains:
 - `POST /api/admin/image-store?cat=<category>`, the read-only audit (`api/_image-store.ts`, `api/admin/image-store.ts`);
 - era receipt rows plus counter shards (`api/_era.ts`).
 
-**Deploy 2 waits for two things:** the dry-run review, and PR #364, which another session has open on `api/images.ts`.
+**Production audit: done, 2026-10-13 06:30–06:40Z.** The owner ran it smallest first. The database temp counter was checked before, mid-way and after: **0 new temp files**.
 
-**Running the dry run.** Run one category per call, smallest first: `landmark`, `ai`, `misc`, `event`, `item`, `shrine`, `leader`, `card`, `avatar`, `bloodline`, `jutsu`, `pet`. Send the header `x-admin-password`. After each call, check `temp_blks_written` for that call in pg_stat_statements before starting the next one.
+| Category | Listed | Own rows | Orphans | Missing rows | Differing bytes |
+|---|---:|---:|---:|---:|---:|
+| landmark | 1 | 1 | 0 | 0 | 0 |
+| ai | 67 | 67 | 0 | 0 | 0 |
+| misc | 23 | 0 | 0 | 1 (`petbody:deploy-probe`, junk) | 6 (old copies of 5 shrine images and the landmark) |
+| event | 15 | 15 | 0 | 0 | 0 (2 tombstones) |
+| item | 150 | 150 | 0 | 0 | 0 |
+| shrine | 107 | 107 | 0 | 0 | 19 (Hollow Gate tiles; the row holds the newer art) |
+| leader | 16 | 16 | 0 | 0 | 0 |
+| card | 150 | 150 | 0 | 0 | 0 |
+| avatar | 138 | 138 | 0 | 0 | 0 |
+| bloodline | 41 | 45 | 4 | 0 | 0 |
+| jutsu | 183 | 186 | 3 | 0 | 0 |
+| pet | 296 | 296 | 0 | 0 | 0 |
+
+- **Every listed image has its own row,** except one junk probe. In every differing case, players already see the row (the newer art); only the admin previews show the old copy.
+- **Orphans:**
+  - two of the jutsu icons (`dc863c9b…`, `0c40596f…`) belong to a player's current bloodline and were missing from the icon list; Deploy 2 restores them;
+  - the other five are older admin test art and one player's old bloodline.
+- **Avatars:** 138 avatars hold only 61 distinct images. The biggest groups (19, 11, 10, 9, 7, 7, 7 copies) are the two starter avatars as different browsers re-encode them, which is the data for Deploy 3.
+
+**Deploy 2: built,** on branch `claude/image-store-switch` (see §3). Its tests are `api/images-split.test.ts` (25) and the pg-integration key-scan test. All 7 mutants of a mutation check, run in a scratch worktree, were caught. Two final reviews added the "as built" items in §3.2 and §3.3; every test for them fails on the code before it, in a scratch copy.
 
 The rest of this document is plan v2, unchanged except where marked.
 
@@ -176,9 +199,9 @@ The receipt-backed metrics simply have no receipts in the one-row hash yet.)*
 
 | Action | Today | After |
 |---|---|---|
-| Upload | `hset` the whole category row; `set` `shared:img:<id>` best-effort; always bump | `set` `shared:img:<id>` with `nx`. If that succeeds, the id is new and no bump happens. If the key exists, a plain `set` plus a bump. **A failure fails the upload** (same message as today). |
-| Delete (single or batch) | `hdel` the row; rewrite the blob if present; `del` the per-image key best-effort; bump | storage object first; `hdel` the legacy row (guarded); blob only if present; then `del` the per-image key, **awaited, and the request fails if it fails** (it is now what makes the image disappear); bump |
-| Server-reset leader reseed | `hset shared:imgfields:misc` only (so `/api/img`, which reads the per-image key first, never saw a changed portrait) | `set` `shared:img:leader:*`; bump `leader` |
+| Upload | `hset` the whole category row; `set` `shared:img:<id>` best-effort; always bump | `set` `shared:img:<id>` with `nx`. If that succeeds and the frozen legacy rows do not serve the id, it is new and no bump happens. If the key exists (a replace), or the legacy rows still serve the id, a plain `set` plus a bump. **A failure fails the upload** (same message as today). |
+| Delete (single or batch) | `hdel` the row; rewrite the blob if present; `del` the per-image key best-effort; bump | storage object first; `hdel` the legacy row (guarded); blob only if present; then `del` the per-image key, **awaited, and the request fails if it fails** (it is now what makes the image disappear); bump. As built: a `leader:` id also leaves the `misc` hash, which the leader manifest and `/api/img` read too. |
+| Server-reset leader reseed | `hset shared:imgfields:misc` only (so `/api/img`, which reads the per-image key first, never saw a changed portrait) | `set` `shared:img:leader:*`; bump `leader` and `misc` (as built: the leader manifest still reads the `misc` hash's old copies) |
 | `GET /api/img` | per-image key first; on a miss it reads the legacy rows **and writes** copies, including a once-per-process bulk copy | per-image key first; on a miss it reads the legacy rows **read-only**. Coverage is already complete, so the copy is unnecessary, and dropping it removes the race in which a copy could resurrect a just-deleted image. |
 
 ### 3.3 Who reads what
@@ -190,13 +213,34 @@ The receipt-backed metrics simply have no receipts in the one-row hash yet.)*
     version.
   - The 9–16 MB rows are therefore read about once an hour per category instead of after
     every upload. The key scan itself is memoised for 60 s, as today.
+  - As built: every image write also drops this process's memoised lists for its category
+    (`forgetImageLists`; Railway runs one process). So a brand-new image, which does not
+    bump, is listed on the next read, and a delete whose best-effort bump fails is not
+    listed for the legacy memo's hour. An upload keeps the legacy-id memo, since it never
+    touches those rows.
 - **Full-content mode** (admin and scripts only): the manifest ids, then `mget` of the
   per-image keys in chunks of 25. A miss falls back to the legacy value. The response shape
   is unchanged.
-- **`/api/img`:** as in the table above.
+  - As built: it reuses the memoised manifest and legacy-id list. The endpoint is public,
+    so without this a cache-busting loop could make Postgres re-list the 9–16 MB rows on
+    every request; before the switch, its `hgetall` was served from the 60 s read cache.
+  - As built: a chunk whose read **times out** is left out, with every later chunk, and
+    is never filled from the legacy value. For an image replaced since the switch, that
+    value is the OLDER art, and the Admin Panel's "recompress" buttons republish what this
+    mode returns. A timed-out legacy read leaves its ids out too, since an older copy in
+    another legacy row must not stand in for the newest. Such an incomplete answer is sent
+    `no-store`, so it is never cached.
+  - Since Deploy 2 (2026-10-13 follow-up): full-content mode answers admins only
+    (`isAdmin`, either role) and every answer is `private, no-store`. Anyone else gets a
+    403. The `?cat=<cat>&ids=1` manifest stays public and edge-cached. The
+    `gen-pet-battle-sprites` script now reads the manifest plus `/api/img`.
+- **`/api/img`:** as in the table above. As built: a legacy read that times out answers 503
+  (retry), not an older copy from another legacy row under an immutable URL.
 - **`bloodlines/list.ts` and `admin/players.ts`:** `mget` of `shared:img:bloodline:<id>` for
   the bloodlines they list, with the legacy row read only if one is missing. Today they read
   the whole 11.6 MB row on every 60 s cache miss.
+  - As built: the legacy rows are read only for a missing id that their memoised id list
+    holds, so a bloodline with no art anywhere never costs that read.
 
 ### 3.4 Files
 
@@ -234,20 +278,24 @@ The receipt-backed metrics simply have no receipts in the one-row hash yet.)*
 
 ### 3.6 Dry-run procedure
 
-1. **Local rehearsal:** `node dist/server.js` with `NODE_ENV=test SHINOBIX_QA_MEMORY_KV=1`.
-   The fixtures cover tombstones, blob-only ids, `leader:*` in `misc`, an orphan, a legacy
-   id replaced after the switch, and a missing per-image key. Run the dry run, Deploy-2
-   behaviour and the write-back. Every manifest, `/api/img` body and full-content body must
-   match the expectations written down in the tests.
-2. **pg-integration on postgres:16.** Judge writes by `ctid`/`xmin`, never by
-   `dataWrites()`. The tests prove that:
-   - an upload leaves the big row's `ctid` unchanged;
-   - the dry run writes nothing;
-   - a delete of a legacy id removes it from every place;
-   - the key-scan query CAN be an index range scan, with no Sort, Agg or Hash above a jsonb
-     value. Assert this from `EXPLAIN` under `SET LOCAL enable_seqscan = off`: on CI's tiny
-     table the planner would rightly prefer a sequential scan, so a bare plan assertion
-     would be wrong there. Production's plan was checked separately (§2).
+1. **Local rehearsal (as built):** the real handlers run on the isolated in-memory store
+   (`SHINOBIX_QA_MEMORY_KV=1`). This is how `api/_image-store.test.ts` and
+   `api/images-split.test.ts` work; route wiring is covered by `server-routes.test.ts`.
+   - The fixtures cover tombstones, blob-only ids, `leader:*` in `misc`, an orphan, a
+     legacy id replaced after the switch, and a missing per-image row.
+   - "Writes nothing" and "never writes the big rows" are proven at the storage-call
+     level: every write method is replaced with one that throws or records. On Postgres
+     the same calls are the same statements, so a `ctid` test would add nothing.
+   - A mutation check, run in a scratch worktree, broke each of 7 behaviours in turn,
+     and each was caught by its own test.
+2. **pg-integration on postgres:16 (as built):** the one thing the memory store cannot
+   show is Postgres's LIKE semantics and plan for the key scan. The test proves:
+   - the scan returns exactly the keys under the prefix, with `_` and `%` literal, and
+     leaves out expired rows;
+   - the app's own parameterized statement CAN use the key index as a key range, with no
+     Sort, Aggregate or Hash. This is asserted from `EXPLAIN` under
+     `SET LOCAL enable_seqscan = off`, because CI's tiny table rightly prefers a
+     sequential scan. Production's plan was checked separately (§2).
 3. **Production dry run** through the admin endpoint:
    - **Reads:** per category, one `hgetall` of the legacy hash and one `get` of the blob
      (today's full-content GET does the same), the key scan, and `mget` of the per-image
@@ -407,10 +455,15 @@ receipts a day, with 64 buckets, each bucket is about 660 KB by day 30, which me
     documented;
   - a deleted id disappears from every reader;
   - `img.ts` never writes;
-  - the bloodline list and admin players read per-image keys;
-  - the leader reseed writes per-image keys that survive the reset;
-  - avatar validation and messages are byte-identical.
-- **A ratchet:** only the kill switch and `write-back` may write `shared:imgfields:`.
+  - the bloodline gallery reads per-image keys through its real handler. Admin players
+    calls the same `readImageValues`, which is tested directly; it has no handler test
+    of its own;
+  - the leader reseed writes per-image keys (the reset's preserve list already keeps
+    `shared:img*`, and `server-reset.test.ts` pins that);
+  - avatar validation and messages are untouched (`images.test.ts` covers them).
+- **A ratchet:** only the rollback paths may write `shared:imgfields:`: the upload and the
+  reset reseed behind `IMAGE_LEGACY_HASH_WRITE`, and `write-back`. It is
+  mutation-checked against a synthetic offender.
 - **pg-integration:** as in §3.6.
 - **Full checks:** root `npm test`, plus `npm run build` for the size gates. There are no
   client changes, so the e2e gate does not apply.

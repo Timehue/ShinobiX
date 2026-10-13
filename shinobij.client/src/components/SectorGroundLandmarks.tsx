@@ -13,7 +13,7 @@ export function SectorGroundLandmarks({ sector, rift, vault, shrine, onOpenShrin
     const shrineDef = shrine?.definition ?? shrineForSector(sector);
     const entries = [
         { kind: "stronghold" as const, name: vault?.obsidian ? "Obsidian Stronghold" : "Stronghold",
-            title: vault ? `${vault.village} Sector Stronghold — infiltrate` : "Sector Stronghold",
+            title: vault ? `${vault.village} Sector Stronghold — ${vault.defending ? 'defend' : 'infiltrate'}` : "Sector Stronghold",
             onOpen: vault?.onOpen },
         ...(rift ? [{ kind: "rift" as const, name: "Quest Rift",
             title: rift.title, onOpen: rift.onOpen }] : []),

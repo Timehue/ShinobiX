@@ -403,9 +403,12 @@ export function PvpBattleScreen({
     const [inspectedJutsuId, setInspectedJutsuId] = useState("");
     const [moveFeedback, setMoveFeedback] = useState("");
     // Mobile Actions|Battle Log tabs (+ unread badge on the log). Desktop shows both.
-    const battleLogLines = session && moveFeedback
-        ? [...session.log, `Warning: ${moveFeedback}`]
-        : (session?.log ?? []);
+    // Memoized: a fresh array on every render while a warning shows made the
+    // memoized battle log regroup the whole log on each re-render.
+    const sessionLog = session?.log;
+    const battleLogLines = useMemo(() => (sessionLog && moveFeedback
+        ? [...sessionLog, `Warning: ${moveFeedback}`]
+        : (sessionLog ?? [])), [sessionLog, moveFeedback]);
     const battleTabs = useBattleTabs(battleLogLines.length);
     const [inspectedWeaponId, setInspectedWeaponId] = useState("");
     const [hoveredPvpTile, setHoveredPvpTile] = useState<number | null>(null);
@@ -950,10 +953,11 @@ export function PvpBattleScreen({
         previousPvpPositionsRef.current = current;
         if (!nextFx.length) return;
         setPvpMotionFx((existing) => [...existing, ...nextFx].slice(-6));
-        const timeout = window.setTimeout(() => {
+        // Removal is a presentation timer, not this effect's cleanup: the next
+        // move re-runs the effect, and a cleared removal stranded the trail.
+        armPresentationTimer(() => {
             setPvpMotionFx((existing) => existing.filter((fx) => !nextFx.some((added) => added.id === fx.id)));
         }, 620);
-        return () => window.clearTimeout(timeout);
     }, [session?.p1.pos, session?.p2.pos]);
 
     // Float a damage (red) / heal (green) number over a fighter for each resolved
@@ -973,7 +977,9 @@ export function PvpBattleScreen({
             return { ...fx, lane: combatHitFloatLane(lane) };
         });
         setPvpHitFx((existing) => [...existing, ...laned].slice(-8));
-        const timeout = window.setTimeout(() => {
+        // A presentation timer, so a following move or hit (which re-runs the
+        // calling effect) can no longer cancel the removal and strand the number.
+        armPresentationTimer(() => {
             setPvpHitFx((existing) => existing.filter((fx) => !laned.some((added) => added.id === fx.id)));
         }, 1000);
         // Body reaction: the struck fighter flinches (reels on a heavy hit, sags
@@ -997,7 +1003,7 @@ export function PvpBattleScreen({
                 }
             }, ARENA_IMPACT_LAG_MS);
         }
-        return () => window.clearTimeout(timeout);
+        return undefined;
     };
     useEffect(() => {
         if (!session) return;
@@ -1039,10 +1045,13 @@ export function PvpBattleScreen({
         if (!nextFx.length) return undefined;
         setPvpCombatVfx((existing) => [...existing, ...nextFx].slice(liteFx ? -6 : -14));
         const lifetime = Math.max(...nextFx.map((fx) => fx.spec.durationMs), 900);
-        const timeout = window.setTimeout(() => {
+        // A presentation timer (cleared on unmount), not the effect cleanup: a
+        // step or the next batch re-runs the effect, and a cleared removal left
+        // the plates stranded in the DOM holding their GPU layers.
+        armPresentationTimer(() => {
             setPvpCombatVfx((existing) => existing.filter((fx) => !nextFx.some((added) => added.id === fx.id)));
         }, lifetime + 80);
-        return () => window.clearTimeout(timeout);
+        return undefined;
     };
     useEffect(() => {
         if (!session) return;

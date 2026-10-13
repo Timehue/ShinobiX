@@ -21,7 +21,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Can only view your own sanctuary.' });
-        if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pet-sanctuary-list', 90, 60_000, identity.name))) return;
+        // Read-only listing: in-memory window, no database increment per page.
+        if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pet-sanctuary-list', 90, 60_000, identity.name, { local: true }))) return;
         const record = await kv.get<Record<string, unknown>>(`save:${playerName}`);
         const character = record?.character as Record<string, unknown> | undefined;
         if (!character) return res.status(404).json({ error: 'Player save not found.' });

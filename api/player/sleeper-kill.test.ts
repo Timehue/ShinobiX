@@ -133,10 +133,16 @@ async function stage(attacker: string, victim: string, sector: number, victimExt
 const charOf = async (name: string) =>
     (await kv.get<{ character: Record<string, unknown> }>(`save:${name}`))?.character ?? {};
 
-test('sleeper-kill handler: pays the base ryo + a PvP kill credit, and tells the victim who did it', async () => {
+test('sleeper-kill handler: pays the base ryo + a PvP kill credit, and tells the victim who did it', async (t) => {
     const { takeOfflineNotices } = await import('./_offline-notices.js');
     const { recentAnnouncements } = await import('../_announce.js');
 
+    // The credit stamps the attacker's elderWinDays row with the UTC day of
+    // the save writer's Date.now(), and the check below rebuilds that day from
+    // a no-argument `new Date()`. A run that straddles UTC midnight between
+    // the credit and the check would expect the next day's row. Freeze Date
+    // (Date.now and new Date alike) after the imports above.
+    t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
     await seedSave('raiden', 0, { ryo: 1_000, totalPvpKills: 4 });
     await stage('raiden', 'sleepy', 11);
 

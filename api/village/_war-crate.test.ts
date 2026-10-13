@@ -83,6 +83,9 @@ test('warCrateClaimDecision gives a village crate only to members who fought for
     const decide = (slug: string, name: string) => warCrateClaimDecision(war, VILLAGE_CRATE, 'Stormveil', [], NOW, { slug, name });
     assert.equal(decide('kirauchiha', 'Kira Uchiha').reason, 'granted', 'damage is found under the safeName slug');
     assert.equal(decide('rin', 'Rin').reason, 'granted', 'the MVP fought by definition');
+    const slugMvp = wonWar(VILLAGE_CRATE, { fighters: { contributions: {}, mvpName: 'rinuchiha' } });
+    assert.equal(warCrateClaimDecision(slugMvp, VILLAGE_CRATE, 'Stormveil', [], NOW, { slug: 'rinuchiha', name: 'Rin Uchiha' }).reason, 'granted');
+    assert.equal(warCrateClaimDecision(slugMvp, VILLAGE_CRATE, 'Stormveil', [], NOW, { slug: 'anotherplayer', name: 'Another Player' }).reason, 'did-not-fight');
     assert.equal(decide('bystander', 'Bystander').reason, 'did-not-fight', 'a member who never fought gets nothing');
     assert.equal(decide('idler', 'Idler').reason, 'did-not-fight', 'zero damage is not fighting');
     assert.equal(decide('turncoat', 'Turncoat').reason, 'did-not-fight', 'damage dealt for the other side does not count');

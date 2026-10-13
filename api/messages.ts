@@ -87,15 +87,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         res.setHeader('Cache-Control', 'no-store');
 
         if (!withName) {
-            const inbox = (await kv.get<InboxEntry[]>(inboxKey(me))) ?? [];
-            const blocked = new Set(await blockedPlayersFor(me));
+            // Every player polls this for the mail badge; the two reads are independent.
+            const [storedInbox, blockedNames] = await Promise.all([
+                kv.get<InboxEntry[]>(inboxKey(me)),
+                blockedPlayersFor(me),
+            ]);
+            const inbox = storedInbox ?? [];
+            const blocked = new Set(blockedNames);
             return res.status(200).json(inbox.filter((entry) => !blocked.has(norm(entry.with))));
         }
 
-        // Reading a thread clears its unread badge in MY inbox.
-        const messages = (await kv.get<DmMessage[]>(threadKey(me, withName))) ?? [];
-        const deletedAt = (await kv.get<number>(deletedAtKey(me, withName))) ?? 0;
-        try {
+        // Reading a thread clears its unread badge in MY inbox. An open thread
+        // is polled every few seconds, so take the inbox lock (two lock writes)
+        // only when this partner actually has unread messages to clear.
+        const [storedMessages, storedDeletedAt, inboxBefore] = await Promise.all([
+            kv.get<DmMessage[]>(threadKey(me, withName)),
+            kv.get<number>(deletedAtKey(me, withName)),
+            kv.get<InboxEntry[]>(inboxKey(me)),
+        ]);
+        const messages = storedMessages ?? [];
+        const deletedAt = storedDeletedAt ?? 0;
+        const hasUnread = (inboxBefore ?? []).some((e) => norm(e.with) === withName && e.unread > 0);
+        if (hasUnread) try {
             await withKvLock(inboxKey(me), async () => {
                 const inbox = (await kv.get<InboxEntry[]>(inboxKey(me))) ?? [];
                 let changed = false;

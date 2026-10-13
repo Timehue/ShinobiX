@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
+import { readKvProjection } from '../_storage-projection.js';
 import { cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { normalizeVillageWarRecord, villageWarKey, villageWarSlug } from '../_war-state.js';
@@ -11,6 +12,7 @@ import { listActiveSectorWars } from '../_sector-war-store.js';
 import { projectSectorWarForClient } from '../_sector-war.js';
 import { villageWarMapEnabled } from '../_release-flags.js';
 import { viewerVillageOf } from '../_viewer-village.js';
+import { listWarPreparationContexts, preparationView } from '../_war-preparations.js';
 
 /*
  * /api/village/war-map — GET only. The read-only War-Map aggregator (Phase 6).
@@ -57,7 +59,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // 2026-10-08).
         const [warRaws, stateRaws, contests, { counts: heldCount, lists: heldLists }, kageSeats, resolvedViewerVillage] = await Promise.all([
             Promise.all(WAR_VILLAGES.map((v) => kv.get<Record<string, unknown>>(villageWarKey(v)))),
-            Promise.all(WAR_VILLAGES.map((v) => kv.get<Record<string, unknown>>(`${VILLAGE_STATE_PREFIX}${villageWarSlug(v)}`))),
+            // Only each village's treasury is read below, so fetch that projection
+            // rather than the whole village-state rows (logs, orders, upgrades).
+            readKvProjection(kv, WAR_VILLAGES.map((v) => `${VILLAGE_STATE_PREFIX}${villageWarSlug(v)}`), { treasury: ['treasury'] }),
             listActiveSectorWars(),
             loadHeldSectors(),
             // The seat drives the tax rate (no Kage → 0%), so it has to be read here
@@ -75,8 +79,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // A village's war chest, structures, stores and tax are for its own
         // members (owner ruling 2026-10-08). Everyone else gets the public view:
         // who holds what, and the rules of each held sector. Admins see all.
-        const villages: Array<VillageWarMapView | VillageWarMapPublicView> = WAR_VILLAGES.map((v, i) => {
+        const villages = await Promise.all(WAR_VILLAGES.map(async (v, i) => {
             const record = normalizeVillageWarRecord(v, warRaws[i] ?? undefined);
+            const own = identity.admin || v === viewerVillage;
+            const contexts = own ? await listWarPreparationContexts(v) : [];
+            record.warPreparations = (record.warPreparations ?? []).filter(p => contexts.some(c => c.instance === p.instance));
             const treasury = (stateRaws[i]?.treasury ?? {}) as Record<string, unknown>;
             const treasurySeals = Number(treasury.honorSeals) || 0;
             const view = villageWarMapView({
@@ -84,8 +91,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 provisions: Number(treasury.provisions) || 0, materialPoints: Number(treasury.materialPoints) || 0,
                 heldSectors: heldLists[v] ?? [],
             });
-            return identity.admin || v === viewerVillage ? view : publicVillageWarMapView(view);
-        });
+            return own ? { ...view, preparations: contexts.map(c => preparationView(c, record)) } : publicVillageWarMapView(view);
+        }));
 
         return res.status(200).json({
             ok: true, enabled: true, villages,

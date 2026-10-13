@@ -1,0 +1,57 @@
+{
+  "generator": "built-in image_gen",
+  "createdAt": "2026-10-11",
+  "usage": "Decorative village war objective illustrations",
+  "assets": [
+    {
+      "kind": "combat",
+      "path": "/ui/village-war/stronghold-combat-v1.webp",
+      "prompt": "Use case: stylized-concept. Production background illustration for Shinobi Journey, a dark fantasy shinobi browser RPG. Painterly cinematic game illustration, Japanese timber and weathered stone architecture, atmospheric mountains, charcoal shadows with warm lantern light, strong readable silhouette at small size. Landscape 16:9 composition, important architecture in the central 60%, no text, no logos, no user interface, no borders or collages, no identifiable existing franchise characters. Subject: a fortified shinobi-combat sector stronghold courtyard, stone battlements and Japanese tiled gatehouse, two small masked shinobi sentries on opposite sides, sparring arena of weathered stone with crossed practice weapons mounted at the gate. Ember lanterns and crimson banner accents, disciplined military defense atmosphere, the gatehouse is centered and visually distinct from a shrine.",
+      "width": 640,
+      "height": 360,
+      "bytes": 46948
+    },
+    {
+      "kind": "pet",
+      "path": "/ui/village-war/stronghold-pet-v1.webp",
+      "prompt": "Use case: stylized-concept. Production background illustration for Shinobi Journey, a dark fantasy shinobi browser RPG. Painterly cinematic game illustration, Japanese timber and weathered stone architecture, atmospheric mountains, charcoal shadows with warm lantern light, strong readable silhouette at small size. Landscape 16:9 composition, important architecture in the central 60%, no text, no logos, no user interface, no borders or collages, no identifiable existing franchise characters. Subject: a pet-battle sector stronghold courtyard inside a Japanese fortress, a circular duel ground, low stone walls and illuminated animal guardian carvings. Two small original fantastical companion beasts, a crimson fox with ember markings and a blue feline with moonlit markings, face each other across the arena. Teal and amber lantern accents, lush moss at the edges, protective fortress gatehouse in the background, readable arena centerpiece.",
+      "width": 640,
+      "height": 360,
+      "bytes": 57870
+    },
+    {
+      "kind": "card",
+      "path": "/ui/village-war/stronghold-card-v1.webp",
+      "prompt": "Use case: stylized-concept. Production background illustration for Shinobi Journey, a dark fantasy shinobi browser RPG. Painterly cinematic game illustration, Japanese timber and weathered stone architecture, atmospheric mountains, charcoal shadows with warm lantern light, strong readable silhouette at small size. Landscape 16:9 composition, important architecture in the central 60%, no text, no logos, no user interface, no borders or collages, no identifiable existing franchise characters. Subject: a Chronicle card-battle stronghold chamber inside a Japanese fortress. A central lacquered strategy table with a few ornate face-down illustrated cards and two opposing seats, glowing restrained amber and indigo energy on the table, hanging lanterns and scroll shelves, tiled-roof courtyard visible through open timber doors, mysterious tactical confrontation atmosphere. No readable writing or card labels, no people.",
+      "width": 640,
+      "height": 360,
+      "bytes": 43878
+    },
+    {
+      "kind": "shrine-floor-gold",
+      "path": "/ui/village-war/war-shrine-floor-gold-v1.webp",
+      "prompt": "Use case: stylized-concept. Asset type: square playable sector floor for a shinobi RPG, a GOLDEN WAR SHRINE INTERIOR. Input image is a reference for the exact orthographic overhead painted sector-floor style, camera, scale, texture detail and subdued grounded fantasy palette; not an edit target. Create a 1024x1024 square overhead Japanese shrine courtyard room, no horizon, no tilt: a broad uncluttered traversable stone arena occupies the center 75%, patterned weathered dark stone with subtle antique gold inlay and a central golden circular protective seal. Golden temple walls, gilded roof corners, warm lanterns and weathered carved stone along outer edges only. Warm gold and bronze lighting, restrained glow, dark slate shadows. Symmetric entrance opening at bottom center and exit path. This must look like the existing top-down sector artwork with a distinct golden shrine theme. No characters, no text, no UI, no grid lines, no logos. Keep center floor open for 12x12 movement tiles and player avatars, not an illustration viewed from front.",
+      "reference": "/sector-map/s14.webp",
+      "provider": "built-in image_gen",
+      "generatedAt": "2026-10-11",
+      "width": 1024,
+      "height": 1024,
+      "bytes": 436408,
+      "transparent": false,
+      "sourceImageFile": "exec-7501e4af-b3ac-4bf4-9c32-a106b6582352.png"
+    },
+    {
+      "kind": "shrine-landmark-gold",
+      "path": "/ui/village-war/war-shrine-landmark-gold-v1.webp",
+      "prompt": "Use case: stylized-concept. Asset type: transparent sector-map landmark cutout for the same shinobi RPG. Input image is a style and scale reference for a painted world-map shrine standee. Create a GOLD WAR SHRINE in this exact grounded painterly RPG style, showing an ornate small gilded Japanese shrine temple with a gold torii gate, weathered bronze-and-gold curved roof, warm amber lanterns, an accessible stone doorway and short broad steps with a subtle circular golden seal at its foot. Three-quarter elevated map-building view, isolated and centered, complete building and tiny base only. Antique gold architectural accents rather than flat yellow, dark wood and charcoal stone shaded with warm gold. No background, transparent alpha, no characters, no words, no numbers, no text or UI, no logo, no floating magical effects beyond restrained glow. Maintain the existing landmark artwork's hand-painted material detail and readability at small size.",
+      "reference": "/landmarks/shrine-ancients.webp",
+      "provider": "built-in image_gen",
+      "generatedAt": "2026-10-11",
+      "width": 512,
+      "height": 392,
+      "bytes": 45494,
+      "transparent": true,
+      "sourceImageFile": "exec-7457422e-372c-4145-8eaf-53038b5eec3e.png"
+    }
+  ]
+}

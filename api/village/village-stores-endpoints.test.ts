@@ -31,15 +31,18 @@ let cafeteria: Handler;
 type KvLike = import('../_storage.js').KvLike;
 let kv: typeof import('../_storage.js').kv;
 let issuePlayerToken: (name: string) => string | null;
+let resetRateLimits: typeof import('../_ratelimit.js').__resetRateLimitsForTest;
 
 before(async () => {
     ({ kv } = await import('../_storage.js'));
     ({ issuePlayerToken } = await import('../_auth.js'));
+    ({ __resetRateLimitsForTest: resetRateLimits } = await import('../_ratelimit.js'));
     sectorWar = (await import('./sector-war.js')).default as unknown as Handler;
     warStructure = (await import('./war-structure.js')).default as unknown as Handler;
     cafeteria = (await import('../player/cafeteria.js')).default as unknown as Handler;
 });
 beforeEach(async () => {
+    resetRateLimits();
     const keys = await kv.keys('*');
     if (keys.length) await kv.del(...keys);
     delete process.env.DISABLE_VILLAGE_STORES;
@@ -133,7 +136,14 @@ describe('sector-war garrison-feed (Village Stores)', { concurrency: false }, ()
         assert.deepEqual([stored?.garrisonFeed?.[DEFENDER].on, stored?.garrisonFeed?.[ATTACKER].on], [false, true]);
         assert.equal(stored?.garrisonFeed?.[DEFENDER].covered, false, 'a feed the daily pass never paid for stays uncovered');
     });
-    it('keeps the day\'s PAID coverage across a same-day re-toggle, and never resurrects an older day\'s', async () => {
+    it('keeps the day\'s PAID coverage across a same-day re-toggle, and never resurrects an older day\'s', async (t) => {
+        // The seeded storesDate is the UTC day of this test's Date.now(), and
+        // sector-war compares it with the UTC day of its own Date.now(), read
+        // once per toggle. A run that straddles UTC midnight between the seed
+        // and the first or second toggle would make the stored verdict a day
+        // old, so that toggle would drop the coverage the village already paid
+        // for. Freeze Date (Date.now and new Date alike) for the whole check.
+        t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
         const now = Date.now();
         const today = new Date(now).toISOString().slice(0, 10);
         const yesterday = new Date(now - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -173,7 +183,13 @@ describe('sector-war garrison-feed (Village Stores)', { concurrency: false }, ()
         stored = await kv.get<{ garrisonFeed?: Feed }>(CONTEST_KEY);
         assert.equal(stored?.garrisonFeed?.[DEFENDER].covered, false, 'yesterday\'s coverage cannot raise today\'s cap for free');
     });
-    it('heralds the feed ONCE per war per day — a retried (or double-clicked) toggle does not double-post', async () => {
+    it('heralds the feed ONCE per war per day — a retried (or double-clicked) toggle does not double-post', async (t) => {
+        // sector-war keys the herald receipt to the UTC day of its own
+        // Date.now(), read once per toggle. A run that straddles UTC midnight
+        // between toggles would key a second receipt and post twice. Freeze
+        // Date (Date.now and new Date alike); the polling below keeps real
+        // timers.
+        t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
         const now = Date.now();
         await kv.set(FROST_KAGE_KEY, { seatedKage: 'frostkage' });
         await seedPlayer('frostkage', DEFENDER);
@@ -318,6 +334,62 @@ describe('war-structure materials gate (Village Stores)', { concurrency: false }
         const row = (await readEconomyTxSnapshot(50)).recent.find((tx) => tx.kind === 'village-war-structure');
         assert.notEqual(row?.state, 'needs-reconcile', 'no "NOT granted" reconcile row for a level that was granted');
     });
+    it('resumes a paid permanent upgrade without taking seals or materials again', async () => {
+        await seed(5, 800);
+        const realSet = kv.set.bind(kv);
+        let failures = 1;
+        (kv as { set: KvLike['set'] }).set = (async (key, value, options) => {
+            if (key === FROST_WAR && failures-- > 0) throw new Error('interrupted upgrade grant');
+            return realSet(key, value, options);
+        }) as KvLike['set'];
+        try {
+            const first = await call(warStructure, { playerName: 'frostkage', village: DEFENDER, structure: 'supplyDepot', toLevel: 6 });
+            assert.equal(first.statusCode, 500);
+        } finally { (kv as { set: KvLike['set'] }).set = realSet; }
+        const paid = (await kv.get<any>(FROST_STATE)).treasury;
+        const resumed = await call(warStructure, { playerName: 'frostkage', village: DEFENDER, structure: 'supplyDepot', toLevel: 6 });
+        assert.equal(resumed.statusCode, 200, JSON.stringify(resumed.body));
+        assert.deepEqual((await kv.get<any>(FROST_STATE)).treasury, paid, 'the earlier payment covers this grant');
+        assert.equal((await kv.get<any>(FROST_WAR)).structures.supplyDepot, 6);
+        assert.equal((await kv.get<any>(FROST_WAR)).storesLedger.length, 1);
+        const { readEconomyTxSnapshot } = await import('../_economy-tx.js');
+        assert.equal((await readEconomyTxSnapshot(50)).stuck.filter(tx => tx.kind === 'village-war-structure').length, 0);
+    });
+    for (const lostWrite of ['treasury', 'journal', 'grant'] as const) it(`recovers a permanent purchase after a lost ${lostWrite} write answer with an empty treasury`, async () => {
+        const { structureUpgradeCost } = await import('../_war-structures.js');
+        const cost = structureUpgradeCost('supplyDepot', 5);
+        await seed(5, 400, cost);
+        const realSet = kv.set.bind(kv);
+        let interrupted = false;
+        (kv as { set: KvLike['set'] }).set = (async (key, value, options) => {
+            const match = lostWrite === 'treasury' ? key === FROST_STATE
+                : lostWrite === 'grant' ? key === FROST_WAR
+                : key.startsWith('economy-tx:village-war-structure:') && (value as { state?: string })?.state === 'debit-applied';
+            if (match && !interrupted) {
+                interrupted = true;
+                if (lostWrite !== 'journal') await realSet(key, value, options);
+                throw new Error(`lost ${lostWrite} write answer`);
+            }
+            return realSet(key, value, options);
+        }) as KvLike['set'];
+        try {
+            assert.equal((await call(warStructure, { playerName: 'frostkage', village: DEFENDER, structure: 'supplyDepot', toLevel: 6 })).statusCode, 500);
+        } finally { (kv as { set: KvLike['set'] }).set = realSet; }
+        const paid = await kv.get<any>(FROST_STATE);
+        assert.equal(paid.treasury.honorSeals, 0);
+        assert.equal(paid.treasury.materialPoints, 0);
+        const resumed = await call(warStructure, { playerName: 'frostkage', village: DEFENDER, structure: 'supplyDepot', toLevel: 6 });
+        assert.equal(resumed.statusCode, 200, JSON.stringify(resumed.body));
+        assert.equal(resumed.body?.replayed, true);
+        assert.deepEqual(await kv.get(FROST_STATE), paid);
+        const record = await kv.get<any>(FROST_WAR);
+        assert.equal(record.structures.supplyDepot, 6);
+        assert.equal(record.storesLedger.length, 1);
+        assert.equal((await call(warStructure, { playerName: 'frostkage', village: DEFENDER, structure: 'supplyDepot', toLevel: 6 })).statusCode, 409);
+        assert.deepEqual(await kv.get(FROST_STATE), paid);
+        const { readEconomyTxSnapshot } = await import('../_economy-tx.js');
+        assert.equal((await readEconomyTxSnapshot(50)).stuck.filter(tx => tx.kind === 'village-war-structure').length, 0);
+    });
     it('pressing again for the level already bought is refused and spends nothing', async () => {
         // Without the intended level, a retry after a lost answer bought (and
         // charged for) the NEXT level.
@@ -332,12 +404,26 @@ describe('war-structure materials gate (Village Stores)', { concurrency: false }
         assert.match(String(retry.body?.message), /already at level 3, so nothing was spent/);
         assert.equal((await kv.get<{ structures: Record<string, number> }>(FROST_WAR))?.structures.supplyDepot, 3);
         assert.equal((await kv.get<{ treasury: Record<string, number> }>(FROST_STATE))?.treasury.honorSeals, seals);
-        // Per-war structures (War Resources) take the same guard.
-        await kv.set(FROST_WAR, { ...(await kv.get<Record<string, unknown>>(FROST_WAR)), warResources: 10_000 });
-        assert.equal((await call(warStructure, { playerName: 'frostkage', village: DEFENDER, structure: 'ramparts', toLevel: 1 })).statusCode, 200);
-        const wrLeft = (await kv.get<{ warResources: number }>(FROST_WAR))?.warResources;
-        assert.equal((await call(warStructure, { playerName: 'frostkage', village: DEFENDER, structure: 'ramparts', toLevel: 1 })).statusCode, 409);
-        assert.equal((await kv.get<{ warResources: number }>(FROST_WAR))?.warResources, wrLeft);
+        // Temporary purchases require a live, explicitly selected war.
+        await kv.set(FROST_WAR, { ...(await kv.get<Record<string, unknown>>(FROST_WAR)), warResources: 1000 });
+        const before = await kv.get(FROST_WAR);
+        const missing = await call(warStructure, { playerName: 'frostkage', village: DEFENDER, structure: 'watchtower', toLevel: 1 });
+        assert.equal(missing.statusCode, 400);
+        assert.equal(missing.body?.error, 'war-required');
+        assert.deepEqual(await kv.get(FROST_WAR), before);
+
+    });
+    it('a stale Ramparts purchase cannot spend WR, treasury seals or materials', async () => {
+        await seed(2, 700);
+        await kv.set(FROST_WAR, { ...(await kv.get<Record<string, unknown>>(FROST_WAR)), warResources: 1000 });
+        const beforeWar = await kv.get(FROST_WAR);
+        const beforeTreasury = await kv.get(FROST_STATE);
+        const out = await call(warStructure, { playerName: 'frostkage', village: DEFENDER, structure: 'ramparts', toLevel: 1 });
+        assert.equal(out.statusCode, 409);
+        assert.equal(out.body?.error, 'retired-structure');
+        assert.match(String(out.body?.message), /decided by War Points.*No resources were spent/);
+        assert.deepEqual(await kv.get(FROST_WAR), beforeWar);
+        assert.deepEqual(await kv.get(FROST_STATE), beforeTreasury);
     });
     it('concurrent presses for one level buy it once, and a non-Kage buys nothing', async () => {
         await seed(2, 0);
@@ -367,7 +453,12 @@ describe('war-structure materials gate (Village Stores)', { concurrency: false }
 });
 
 describe('cafeteria cook (Village Stores)', { concurrency: false }, () => {
-    it('cooks edible field and campaign rations, preserves pelts and scales, and enforces the 40/day cap', async () => {
+    it('cooks edible field and campaign rations, preserves pelts and scales, and enforces the 40/day cap', async (t) => {
+        // The cook counter is keyed to the UTC day of the handler's Date.now(),
+        // read once per batch. A run that straddles UTC midnight between
+        // batches would reset the counter, so the over-cap batch would not be
+        // refused for the daily limit. Freeze Date for the whole check.
+        t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
         await seedPlayer('cook', DEFENDER, { ryo: 500, itemStacks: [{ itemId: 'hunt-beast-meat', count: 6 }, { itemId: 'gather-field-herb', count: 8 }, { itemId: 'gather-heartwood-bark', count: 4 }], inventory: ['hunt-ash-scale', 'hunt-frost-pelt', 'hunt-ash-scale'] });
         const a = await call(cafeteria, { playerName: 'cook', recipeId: 'field-rations' });
         assert.equal(a.statusCode, 200, JSON.stringify(a.body));

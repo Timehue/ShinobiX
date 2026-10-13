@@ -91,7 +91,14 @@ after(async () => {
     delete process.env.SESSION_SECRET;
 });
 
-test('a definitive save CAS failure consumes neither the save-native allowance nor token', async () => {
+test('a definitive save CAS failure consumes neither the save-native allowance nor token', async (t) => {
+    // The seeded legacy counter key and its read-back both take their UTC day
+    // from a no-argument `new Date()` (legacyDailyKey), and expedition-start
+    // reads its own day the same way. A run that straddles UTC midnight would
+    // seed a key the handler no longer reads: the read-back would find
+    // nothing, and the retry would count 1 start instead of 4. Freeze Date
+    // (Date.now and new Date alike) for the whole check.
+    t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
     await clearPlayerState();
     const seed = seedSave();
     await kv.set(SAVE_KEY, seed);

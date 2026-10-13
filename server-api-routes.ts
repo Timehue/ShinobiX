@@ -99,6 +99,7 @@ import clanCampaignQaHandler,{clanCampaignQaEnabled} from './api/_qa-clan-campai
 import villageWarMercHandler from './api/village/war-merc.js';
 import villageSectorCardHandler from './api/village/sector-card.js';
 import villageSectorPetHandler  from './api/village/sector-pet.js';
+import villageCampaignHandler from './api/village/war-campaign.js';
 import anbuInfiltrationHandler from './api/village/anbu-infiltration.js';
 import villageWarMapHandler from './api/village/war-map.js';
 import villageTaxHandler from './api/village/tax.js';
@@ -476,7 +477,8 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     // (/admin/migrate-kv, /admin/migrate-to-base) were removed with the overlay
     // on 2026-10-02; docs/RETIRE_CPANEL_RUNBOOK.md records the cutover they ran.
     route('/admin/migrate-images-to-r2', migrateImagesToR2Handler);
-    // Read-only image-store audit (docs/SHARED_HASH_ROW_SPLIT_PLAN.md).
+    // Image-store tools: the read-only audit, and the rollback write-back
+    // (docs/SHARED_HASH_ROW_SPLIT_PLAN.md).
     route('/admin/image-store', imageStoreHandler);
 
     // Missions — AI raid token mint (PvP raids cross-validate via PvpSession;
@@ -550,6 +552,7 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     // pet duel resolved server-side by the generated pet engine (api/pet-sim), scoring
     // the same contest's tallies. The client replays the same (pets, seed). Gated.
     route('/village/sector-pet',  villageSectorPetHandler);
+    route('/village/war-campaign', villageCampaignHandler);
     // Anbu Vault Infiltration — L100 sector-attrition raid (start/act/state/report/
     // turn-in action switch): fight a daily-sealed Anbu snapshot (Solo PvE engine)
     // to skim 1% of the enemy war economy into turn-in caches. NEVER flips

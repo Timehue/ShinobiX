@@ -74,6 +74,11 @@ export function WorldBossEvent({
     const [now, setNow] = useState(() => Date.now());
     const [serverOffset, setServerOffset] = useState(0);
     const appliedCacheSaveVersion = useRef(0);
+    // App passes a fresh onVersionedCharacter every render. Read it through a
+    // ref so `refresh` stays stable; otherwise the initial fetch and the poll
+    // below restarted on every App render.
+    const commitRef = useRef(onVersionedCharacter);
+    useEffect(() => { commitRef.current = onVersionedCharacter; }, [onVersionedCharacter]);
 
     const refresh = useCallback(async () => {
         const next = await fetchWorldBossEvent(character.name);
@@ -82,6 +87,7 @@ export function WorldBossEvent({
             if (next.character && Number.isSafeInteger(next._saveVersion)
                 && Number(next._saveVersion) > appliedCacheSaveVersion.current) {
                 const version = Number(next._saveVersion);
+                const onVersionedCharacter = commitRef.current;
                 if (onVersionedCharacter(next.character as unknown as Character, version)) appliedCacheSaveVersion.current = version;
             }
             setView(next);
@@ -92,14 +98,20 @@ export function WorldBossEvent({
                 setFight({ runId: match.runId, session: match.session });
             }
         }
-    }, [character.name, dismissedRunId, fight, onVersionedCharacter]);
+    }, [character.name, dismissedRunId, fight]);
 
     useEffect(() => { void refresh(); }, [refresh]);
     useEffect(() => visiblePoll(() => refresh(), fight ? 6_000 : 2_000, 0.08), [fight, refresh]);
+    // The countdown clock only feeds the lobby. While <BattleTowerFight/> is up
+    // nothing here reads it, so stop the 400ms re-render for the whole fight
+    // and pick up the current time the moment the lobby comes back.
+    const inFight = !!fight;
     useEffect(() => {
+        if (inFight) return;
+        setNow(Date.now());
         const timer = window.setInterval(() => setNow(Date.now()), 400);
         return () => window.clearInterval(timer);
-    }, []);
+    }, [inFight]);
 
     const event = view?.event ?? null;
     const boss = worldBossDefinition(event?.bossId);

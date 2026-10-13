@@ -15,7 +15,9 @@ import type { KvCasOp } from './_storage.js';
  * replaces an expired row and nothing else, that FOR SHARE really holds a row,
  * that a refused batch really rolls back statements that already ran, or that
  * two overlapping batches cannot deadlock. This file runs the same adapter
- * against Postgres to prove exactly those.
+ * against Postgres to prove exactly those. It also proves that a read made
+ * while a write waits on its row does not wait, which the process read cache
+ * must allow for.
  *
  * It is auto-discovered by scripts/run-tests.mjs, so it skips unless
  * PG_INTEGRATION_DATABASE_URL names a THROWAWAY database. CI provides one in
@@ -175,6 +177,8 @@ describe('kv.compareSetMany on a real Postgres', () => {
 
         const schema = readFileSync('supabase-schema.sql', 'utf8').replace(/\r\n/g, '\n');
         await admin.query(schemaStatement(schema, 'create table if not exists public.kv_store (', '\n);'));
+        // The key index image manifests list ids by (the shared-row split).
+        await admin.query(schemaStatement(schema, 'create index if not exists kv_store_key_pattern_idx', ';'));
         await admin.query(schemaStatement(schema, 'create or replace function public.kv_set_nx(', '\n$$;'));
         await admin.query(schemaStatement(schema, 'create or replace function public.kv_incr(', '\n$$;'));
         await admin.query(schemaStatement(schema, 'create or replace function public.kv_hset(', '\n$$;'));
@@ -763,6 +767,42 @@ describe('kv.compareSetMany on a real Postgres', () => {
             'the concurrent write survives and only the named field is removed');
     });
 
+    // The process read cache (api/_storage.ts, "Fill generations"). While a
+    // write waits on its row, a plain read on another connection does not wait:
+    // it returns the predecessor, and the old code cached that row for the TTL
+    // after the write landed. The pg.Pool shim can only assume the read does not
+    // block; here Postgres decides.
+    async function readWhileWriteWaits(key: string, write: () => Promise<unknown>): Promise<unknown> {
+        const holder = await openClient();
+        try {
+            await holder.query('BEGIN');
+            await holder.query('SELECT 1 FROM public.kv_store WHERE key = $1 FOR UPDATE', [key]);
+            const pending = settleLater(write());
+            await waitForLockWaiters(1);
+            const seen = await storage.kv.get(key);
+            await holder.query('COMMIT');
+            await pending;
+            return seen;
+        } finally {
+            await holder.end();
+        }
+    }
+
+    pgTest('a read made while hset waits on its row is not served once the hset lands', async () => {
+        await seed('pgit:cache:hset', { a: 'old', b: 'kept' });
+        assert.deepEqual(await readWhileWriteWaits('pgit:cache:hset', () => storage.kv.hset('pgit:cache:hset', { a: 'new' })),
+            { a: 'old', b: 'kept' }, 'the read did not wait for the row lock: it saw the predecessor');
+        assert.deepEqual(await storage.kv.get('pgit:cache:hset'), { a: 'new', b: 'kept' });
+    });
+
+    pgTest('a read made while incr waits on its row is not served once the incr lands', async () => {
+        // The image version counter: a stale cached version would keep handing
+        // out the URLs the bump just retired.
+        await seed('pgit:cache:incr', 4);
+        assert.equal(await readWhileWriteWaits('pgit:cache:incr', () => storage.kv.incr('pgit:cache:incr')), 4);
+        assert.equal(await storage.kv.get('pgit:cache:incr'), 5);
+    });
+
     // kv.mgetProjected detoasts each row once and reads every path from that
     // copy (the roster's 7-path read went 1,145 ms → 183 ms in production). The
     // pg.Pool shim cannot evaluate SQL, so the identical-result claim is proven
@@ -815,6 +855,49 @@ describe('kv.compareSetMany on a real Postgres', () => {
         assert.deepEqual(await storage.kv.hkeys('pgit:hk:array', { nonEmptyStrings: true }), []);
         assert.deepEqual(await storage.kv.hkeys('pgit:hk:expired', { nonEmptyStrings: true }), []);
         assert.deepEqual(await storage.kv.hkeys('pgit:hk:missing', { nonEmptyStrings: true }), []);
+    });
+
+    // Since the shared-row split (docs/SHARED_HASH_ROW_SPLIT_PLAN.md), image
+    // manifests list ids by key prefix: kv.keys('shared:img:<prefix>:*'), a LIKE
+    // over the key. On Postgres that must match exactly the keys under the
+    // prefix, with `_` and `%` in a key taken literally, and it must be able to
+    // use the key index, so listing ids never reads an image value. On CI's tiny
+    // table the planner rightly prefers a sequential scan, so the plan is checked
+    // with enable_seqscan off: the index must be USABLE (production's plan was
+    // checked with EXPLAIN on 2026-10-13).
+    pgTest('kv.keys lists exactly a key prefix, literally, and can use the key index', async () => {
+        await seed('pgit:img:avatar:a', 'data:a');
+        await seed('pgit:img:avatar:b_c', 'data:b');
+        await seed('pgit:img:avatar_x:z', 'data:other-prefix');
+        await seed('pgit:img:avatarx:no', 'data:other-prefix');
+        // Only an unescaped `_` (LIKE's any-one-character) would match this one.
+        await seed('pgit:img:avatar-x:no', 'data:other-prefix');
+        await seed('pgit:img:avatar%:no', 'data:other-prefix');
+        await seed('pgit:imgfields:avatar', { 'avatar:a': 'data:legacy' });
+        await seed('pgit:img:avatar:gone', 'data:expired', 'past');
+        assert.deepEqual((await storage.kv.keys('pgit:img:avatar:*')).sort(), ['pgit:img:avatar:a', 'pgit:img:avatar:b_c']);
+        assert.deepEqual(await storage.kv.keys('pgit:img:avatar_x:*'), ['pgit:img:avatar_x:z'], '`_` in a pattern is literal');
+        assert.deepEqual(await storage.kv.keys('pgit:img:avatar%:*'), ['pgit:img:avatar%:no'], '`%` in a pattern is literal');
+
+        await admin.query('BEGIN');
+        try {
+            await admin.query('SET LOCAL enable_seqscan = off');
+            // The statement kv.keys runs, with its parameter, as the app sends it.
+            const { rows } = await admin.query<{ 'QUERY PLAN': string }>(
+                'EXPLAIN SELECT key FROM public.kv_store WHERE key LIKE $1 AND (expires_at IS NULL OR expires_at > now())',
+                ['pgit:img:avatar:%'],
+            );
+            const plan = rows.map((r) => r['QUERY PLAN']).join('\n');
+            // A plain or bitmap index scan: either way only matching keys are visited.
+            assert.match(plan, /(?:Index (?:Only )?Scan using|Bitmap Index Scan on) kv_store_key_pattern_idx/, plan);
+            // The prefix becomes a key range: >= the prefix and < the prefix with
+            // its last character incremented (':' + 1 = ';').
+            assert.match(plan, /key ~>=~ 'pgit:img:avatar:'/, plan);
+            assert.match(plan, /key ~<~ 'pgit:img:avatar;'/, plan);
+            assert.doesNotMatch(plan, /Sort|Aggregate|Hash/, plan);
+        } finally {
+            await admin.query('ROLLBACK');
+        }
     });
 
     // Era receipt-backed contributions (api/_era.ts) commit a receipt row and a

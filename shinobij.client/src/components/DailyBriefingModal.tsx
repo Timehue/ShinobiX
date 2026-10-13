@@ -24,7 +24,7 @@ import { currentDateKey } from "../lib/utils";
 import { normalizeOnboardingStep } from "../lib/onboarding-step";
 import { getCharacterElements } from "../lib/elements";
 import { useSharedNow } from "../lib/use-shared-now";
-import { claimDailyLogin, type DailyLoginResult, type DailyLoginCommitFactory } from "../lib/daily-login-api";
+import { claimDailyLoginOutcome, type DailyLoginResult, type DailyLoginCommitFactory } from "../lib/daily-login-api";
 import { fetchAnnouncements, fetchEras, fetchLegacyStatus, useLegacyAvailability, type AnnouncementView, type EraView } from "../lib/legacy";
 import { nextUnseenRumorMilestone, markLevelRumorSeen, recordRumorHeard, rememberedRumorCategory, rumorForCategory } from "../lib/legacy-rumors";
 import { briefingWarPriorities, worldReport } from "../lib/daily-briefing";
@@ -86,6 +86,8 @@ export function DailyBriefingModal({
     // lastLoginRewardDate tells us if it was already collected earlier today.
     const [claim, setClaim] = useState<DailyLoginResult | null>(null);
     const [claiming, setClaiming] = useState(false);
+    // A failed claim says so beside the button instead of silently re-arming it.
+    const [claimFailed, setClaimFailed] = useState(false);
     const claimingRef = useRef(false);
     const aliveRef = useRef(false);
     useEffect(() => {
@@ -144,11 +146,16 @@ export function DailyBriefingModal({
         if (claimingRef.current || claim || alreadyClaimedToday) return;
         claimingRef.current = true;
         setClaiming(true);
-        void claimDailyLogin(character.name, beginDailyLogin, () => aliveRef.current).then((res) => {
+        setClaimFailed(false);
+        void claimDailyLoginOutcome(character.name, beginDailyLogin, () => aliveRef.current).then((outcome) => {
             if (!aliveRef.current) return;
             setClaiming(false);
-            if (!res) { claimingRef.current = false; return; } // let the player retry on error
-            setClaim(res);
+            if (outcome.status !== "claimed") {
+                claimingRef.current = false; // let the player retry
+                setClaimFailed(outcome.status === "failed");
+                return;
+            }
+            setClaim(outcome.result);
         });
     };
 
@@ -205,9 +212,16 @@ export function DailyBriefingModal({
                                     ) : claim || alreadyClaimedToday ? (
                                         <span className="db-reward-sub">✓ Today's login reward already collected</span>
                                     ) : (
-                                        <button type="button" className="db-claim-btn" onClick={claimReward} disabled={claiming}>
-                                            {claiming ? "Claiming…" : <><GameArtIcon kind="ryo" size={17} /> Claim +{previewRyo.toLocaleString()} ryo</>}
-                                        </button>
+                                        <>
+                                            <button type="button" className="db-claim-btn" onClick={claimReward} disabled={claiming}>
+                                                {claiming ? "Claiming…" : <><GameArtIcon kind="ryo" size={17} /> Claim +{previewRyo.toLocaleString()} ryo</>}
+                                            </button>
+                                            {claimFailed && !claiming && (
+                                                <span className="db-reward-sub" role="status" style={{ flexBasis: "100%", color: "#fca5a5" }}>
+                                                    The reward could not be collected just now. Nothing was lost, and you can try again in a moment.
+                                                </span>
+                                            )}
+                                        </>
                                     )}
                                 </div>
                                 <div className="db-streak">

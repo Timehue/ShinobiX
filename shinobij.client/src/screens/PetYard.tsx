@@ -1,6 +1,6 @@
 import { petTamerExpeditionMult, petTamerTrainingSpeedPct } from "../lib/profession-bonuses";
 import { PetBattleReadiness } from "../components/PetBattleReadiness";
-import { useState, useEffect, useLayoutEffect, useRef, Suspense, useTransition } from "react";
+import { useState, useEffect, useLayoutEffect, useMemo, useRef, Suspense, useTransition } from "react";
 import { cacheDynamicImport, lazyWithRetry, retryDynamicImport } from "../lib/lazyWithRetry";
 import { masteryHasCapstone } from "../lib/profession-mastery";
 import { visiblePoll } from "../lib/poll";
@@ -28,7 +28,7 @@ import { petPoseImage } from "../lib/pet-battle-anim";
 import { versionPetArtUrl } from "../lib/pet-art-revision";
 import { PET_PVE_DURABILITY, petCollarById, petCollarVisual, petCollars, petConsumableById, petConsumables, petExpeditionOptions, petFeedItems, petPveGear, petPveGearById, petPvpGear, petPvpGearById, petTrainingDurations, petTrainingOptions, petTraitDescriptions, ultraPetTraits } from "../data/pet-config";
 
-import { countItem, ownsItem } from "../lib/inventory";
+import { itemCountsById, ownsItem } from "../lib/inventory";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { gameToast } from "../components/GameToast";
 import { PetHomeTabs } from "../components/PetHomeTabs";
@@ -111,7 +111,16 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
     // Pet escort offer state (Pet Tamer in clan only).
     const [escortOffered, setEscortOffered] = useState<boolean | null>(null);
     const [escortBusy, setEscortBusy] = useState(false);
+    const [escortMsg, setEscortMsg] = useState("");
     const selectedPet = character.pets.find((p) => p.id === selectedPetId) ?? character.pets[0] ?? null;
+    // Owned counts for the feed grid and loadout pickers, rebuilt only when
+    // the two item stores change rather than on every one-second tick.
+    // bagCounts.get(id) ?? 0 equals countItem(character, id).
+    const { inventory: bagInventory, itemStacks: bagItemStacks } = character;
+    const bagCounts = useMemo(
+        () => itemCountsById({ inventory: bagInventory, itemStacks: bagItemStacks }),
+        [bagInventory, bagItemStacks],
+    );
     const now = serverNow();
     const selectedPetIsOverflow = Boolean(selectedPet && !combatEligiblePetIds.has(selectedPet.id));
     const trainingEligiblePetIds = new Set(activeTrainingPetIds(character));
@@ -222,6 +231,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
     async function toggleEscort() {
         if (!canOfferEscort || escortBusy) return;
         setEscortBusy(true);
+        setEscortMsg("");
         try {
             const endpoint = escortOffered ? '/api/clan/pet-escort/cancel' : '/api/clan/pet-escort/offer';
             const res = await fetch(endpoint, {
@@ -229,15 +239,28 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ playerName: character.name }),
             });
+            // Same reporting as the Clan Seal Pool's escort button: say why the
+            // server refused instead of leaving the button looking like it did nothing.
+            const data = await res.json().catch(() => ({}));
             if (res.ok) setEscortOffered(!escortOffered);
-        } catch { /* ignore */ }
+            else setEscortMsg(String(data?.error ?? 'The escort offer could not be updated.'));
+        } catch { setEscortMsg('The escort offer could not reach the server. Try again.'); }
         setEscortBusy(false);
     }
 
     useEffect(() => {
-        const hasActivePetTimer = character.pets.some((p) => (p.training && serverNow() < p.training.endsAt) || Boolean(p.expedition));
-        if (!hasActivePetTimer) return;
-        const id = setInterval(() => setTick((t) => t + 1), 1000);
+        // Only a RUNNING timer needs the 1s re-render. A finished expedition that
+        // is waiting to be collected shows no countdown, so it no longer keeps the
+        // whole yard re-rendering every second.
+        const hasRunningPetTimer = () => character.pets.some((p) =>
+            (p.training && serverNow() < p.training.endsAt) || (p.expedition && serverNow() < p.expedition.endsAt));
+        if (!hasRunningPetTimer()) return;
+        const id = setInterval(() => {
+            if (document.hidden) return;
+            setTick((t) => t + 1);
+            // That render showed the last countdown reaching zero; stop ticking.
+            if (!hasRunningPetTimer()) clearInterval(id);
+        }, 1000);
         return () => clearInterval(id);
         // The render-forcing counter this interval bumps is intentionally NOT a dep —
         // including it tore down + rebuilt the timer every single second.
@@ -674,7 +697,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
     }
 
     function inventoryCount(itemId: string) {
-        return countItem(character, itemId);
+        return bagCounts.get(itemId) ?? 0;
     }
 
     // Equip a glow collar (or clear it with id = undefined) on the selected
@@ -1226,6 +1249,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                             >
                                                 {escortBusy ? "…" : escortOffered ? "Cancel escort offer" : "Offer escort (1h)"}
                                             </button>
+                                            {escortMsg && <p className="hint" role="alert" style={{ margin: "6px 0 0", fontSize: "0.72rem", color: "#f87171" }}>{escortMsg}</p>}
                                             {character.petEscortBonusReady && (
                                                 <p className="hint" style={{ margin: "6px 0 0", color: "#84cc16", fontSize: "0.78rem" }}>
                                                     +20% Tamer XP ready for your next expedition!
@@ -1375,7 +1399,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                     })}
                                 </div>
                                 {(() => {
-                                    const owned = petCollars.filter((c) => c.id === selectedPet.loadout?.collar || ownsItem(character, c.id));
+                                    const owned = petCollars.filter((c) => c.id === selectedPet.loadout?.collar || inventoryCount(c.id) > 0);
                                     if (owned.length === 0) {
                                         return <p className="hint" style={{ margin: "8px 0 0" }}>Find collars in the Grand Marketplace under Aura / Accessory.</p>;
                                     }
@@ -1403,7 +1427,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                     );
                                 })()}
                                 {(() => {
-                                    const ownedGear = petPvpGear.filter((g) => g.id === selectedPet.loadout?.pvp || ownsItem(character, g.id));
+                                    const ownedGear = petPvpGear.filter((g) => g.id === selectedPet.loadout?.pvp || inventoryCount(g.id) > 0);
                                     return (
                                         <div className="pet-gear-picker">
                                             {ownedGear.length === 0 ? (
@@ -1428,7 +1452,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                 {(() => {
                                     const equippedPveId = selectedPet.loadout?.pve;
                                     const pveDur = selectedPet.loadout?.pveDurability ?? 0;
-                                    const ownedIds = petPveGear.filter((g) => ownsItem(character, g.id)).map((g) => g.id);
+                                    const ownedIds = petPveGear.filter((g) => inventoryCount(g.id) > 0).map((g) => g.id);
                                     const optionIds = [...new Set([...(equippedPveId ? [equippedPveId] : []), ...ownedIds])];
                                     if (optionIds.length === 0) {
                                         return (
@@ -1447,7 +1471,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                                     const g = petPveGearById(id);
                                                     if (!g) return null;
                                                     const isEquipped = id === equippedPveId;
-                                                    const ownCount = countItem(character, id);
+                                                    const ownCount = inventoryCount(id);
                                                     const label = isEquipped
                                                         ? `${g.name} — equipped (${pveDur}/${PET_PVE_DURABILITY})`
                                                         : `${g.name} — ${g.desc}${ownCount > 1 ? ` ×${ownCount}` : ""}`;
@@ -1459,7 +1483,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                 })()}
                                 {(() => {
                                     const equippedConsId = selectedPet.loadout?.consumable;
-                                    const ownedIds = petConsumables.filter((c) => ownsItem(character, c.id)).map((c) => c.id);
+                                    const ownedIds = petConsumables.filter((c) => inventoryCount(c.id) > 0).map((c) => c.id);
                                     const optionIds = [...new Set([...(equippedConsId ? [equippedConsId] : []), ...ownedIds])];
                                     if (optionIds.length === 0) {
                                         return (
@@ -1478,7 +1502,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                                     const c = petConsumableById(id);
                                                     if (!c) return null;
                                                     const isEquipped = id === equippedConsId;
-                                                    const ownCount = countItem(character, id);
+                                                    const ownCount = inventoryCount(id);
                                                     const label = isEquipped
                                                         ? `${c.name} — equipped`
                                                         : `${c.name} — ${c.desc}${ownCount > 1 ? ` ×${ownCount}` : ""}`;

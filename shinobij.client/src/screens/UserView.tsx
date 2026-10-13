@@ -115,7 +115,7 @@ export function UserView({
             <div className="card profile-page-card">
                 <div className="profile-page-header"><div>
                     <h2>{viewingName}</h2>
-                    <p>Profile not yet loaded. The player's full data has not been fetched yet.</p>
+                    <p role="status">This shinobi's profile is not on the village roster yet. The roster refreshes every minute, and this page will fill in on its own when it arrives.</p>
                 </div></div>
                 <button className="back-btn" onClick={onBack}>Back</button>
             </div>

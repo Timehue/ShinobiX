@@ -1,4 +1,4 @@
-import { useId, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useId, useLayoutEffect, useRef, useState } from 'react';
 import { sectorGatherLineFor } from '../lib/sector-pool';
 import { sectorContestLabel } from '../lib/sector-war-engagement';
 import type { SectorPlayerActionState, SectorPlayerIntent } from '../lib/use-sector-player-action';
@@ -28,7 +28,8 @@ export function SectorHud(props: WorldSectorCommandPanelProps & {
     const [sheet, setSheet] = useState<'info' | 'chat' | null>(null);
     const open = sheet === 'info';
     const setOpen = (next: boolean) => setSheet(next ? 'info' : null);
-    const setChatSheet = (next: boolean) => setSheet(current => next ? 'chat' : current === 'chat' ? null : current);
+    // Stable, so the memoised chat skips the HUD's re-renders (it only calls setSheet).
+    const setChatSheet = useCallback((next: boolean) => setSheet(current => next ? 'chat' : current === 'chat' ? null : current), []);
     const rootRef = useRef<HTMLDivElement>(null);
     useSectorHudLayout(rootRef);
     const triggerRef = useRef<HTMLButtonElement | null>(null);

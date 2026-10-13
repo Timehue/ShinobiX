@@ -1,6 +1,7 @@
 import { advanceKageChallengeClock } from './_kage-clock.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
+import { readKvProjection } from '../_storage-projection.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
@@ -86,7 +87,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // just omits both fields.
             let activity: { kageLastActiveAt: number; kageInactiveAt: number } | null = null;
             if (state.kageSystemUnlocked && state.seatedKage) {
-                const lastActiveAt = saveAtFromRecord(await kv.get<unknown>(`save:${safeName(state.seatedKage)}`).catch(() => null));
+                // Only `_saveAt` is needed. This GET is polled by every Town Hall
+                // and war-map viewer, so read that one field, not the whole save.
+                const [kageSave] = await readKvProjection(kv, [`save:${safeName(state.seatedKage)}`], { _saveAt: ['_saveAt'] }).catch(() => [null]);
+                const lastActiveAt = saveAtFromRecord(kageSave);
                 if (lastActiveAt != null) activity = { kageLastActiveAt: lastActiveAt, kageInactiveAt: kageInactiveAt(lastActiveAt) };
             }
             res.setHeader('Cache-Control', 'private, no-store');

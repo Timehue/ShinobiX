@@ -72,6 +72,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // The Hospital and Healer screens poll this every ~10 s while visible.
         if (!identity.admin && !enforceRateLimit(req, res, 'hospital-ward', 30, 60_000, identity.name)) return;
 
+        // The registry read does not depend on the viewer's village, so it runs
+        // alongside it. Awaited only after the 404 check, so a missing village
+        // still answers 404 exactly as before (its rejection is never unhandled).
+        const registryRead = kv.hgetall<Record<string, unknown>>(REGISTRY_KEY);
+        registryRead.catch(() => undefined);
         const [viewer] = await readKvProjection(kv, [`save:${playerName}`], { village: ['character', 'village'] });
         const village = typeof viewer?.village === 'string' ? viewer.village : '';
         if (!village) return res.status(404).json({ error: 'Your village could not be found.' });
@@ -79,7 +84,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Same derivation as injured-villagers: the registry names every saved
         // player and already carries their village, so only saves that can
         // match are read. The save-side village check below stays authoritative.
-        const registry = await kv.hgetall<Record<string, unknown>>(REGISTRY_KEY);
+        const registry = await registryRead;
         const slugs = Object.entries(registry ?? {})
             .filter(([slug]) => !slug.startsWith('clan-') && !slug.toLowerCase().startsWith('admin') && slug !== playerName)
             .filter(([slug, entry]) => {
