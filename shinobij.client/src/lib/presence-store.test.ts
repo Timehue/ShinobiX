@@ -127,6 +127,45 @@ test("socket deltas add and move a player without replacing the roster", () => {
     assert.notEqual(getLiveSectorRoster(), roster, 'battle state must invalidate the display roster');
 });
 
+test("socket moves leave the live signature for the next comparison to build", (t) => {
+    setLiveSectorContext(9);
+    const crowd = Array.from({ length: 20 }, (_, i) => player(`Peer ${i}`, 9, { tile: i, movementSequence: 1 }));
+    pushLiveSectorPlayers(crowd, 9);
+    const stringify = t.mock.method(JSON, "stringify");
+    for (let step = 0; step < 30; step++) {
+        moveLiveSectorPlayer(`Peer ${step % 20}`, 40 + step, 9);
+        moveLiveWorldPlayer(`Peer ${step % 20}`, 9, { layoutVersion: "test", from: "a", to: "b", progress: step / 30 }, 2 + step);
+    }
+    assert.equal(stringify.mock.callCount(), 0, "no signature work per move message");
+    stringify.mock.restore();
+    assert.equal(getLiveSectorPlayers()[0]?.tile, 60, "the moves themselves still land");
+});
+
+test("a comparison after socket moves sees exactly the moved state", () => {
+    const position = { layoutVersion: "test", from: "road:9-15:1", to: "road:9-15:2", progress: .4 };
+    setLiveSectorContext(9);
+    pushLiveSectorPlayers([player("Aya", 9, { tile: 10, movementSequence: 1 }), player("Ren", 9, { tile: 20 })], 9);
+    moveLiveSectorPlayer("Aya", 11, 9);
+    moveLiveWorldPlayer("Aya", 9, position, 2);
+    const moved = getLiveSectorPlayers();
+    const roster = getLiveSectorRoster();
+    // A roster that repeats the moved state changes nothing: same references.
+    pushLiveSectorPlayers([player("Aya", 9, { tile: 11, worldPosition: position, movementSequence: 2 }), player("Ren", 9, { tile: 20 })], 9);
+    assert.equal(getLiveSectorPlayers(), moved);
+    assert.equal(getLiveSectorRoster(), roster);
+    upsertLiveSectorPlayer(player("Ren", 9, { tile: 20 }), 9);
+    assert.equal(getLiveSectorPlayers(), moved, "an upsert repeating the state is a no-op too");
+    // A walk back to the starting tile is compared against the moved tile, not the old one.
+    moveLiveSectorPlayer("Aya", 10, 9);
+    const back = getLiveSectorPlayers();
+    pushLiveSectorPlayers([player("Aya", 9, { tile: 10, worldPosition: position, movementSequence: 2 }), player("Ren", 9, { tile: 20 })], 9);
+    assert.equal(getLiveSectorPlayers(), back);
+    // Any real difference still replaces the snapshot.
+    upsertLiveSectorPlayer(player("Ren", 9, { tile: 21 }), 9);
+    assert.notEqual(getLiveSectorPlayers(), back);
+    assert.deepEqual(getLiveSectorPlayers().map((p) => [p.name, p.tile]), [["Aya", 10], ["Ren", 21]]);
+});
+
 const names = () => getLiveSectorPlayers().map((p) => p.name).sort();
 
 test("a leave names the account slug; a player with a spaced display name still goes", () => {

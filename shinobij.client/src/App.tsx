@@ -3022,12 +3022,16 @@ export default function App() {
                 if (didOptimisticPaint) { unwindToLoginForm(); setOptimisticRestore(false); }
             };
 
+            // Shared admin content no longer waits for the restore round trip: it is read alongside it and still
+            // applied on completion. A guest resume swaps credentials mid-restore, so that path pulls afresh.
+            const adminPrefetch = pullSharedAdminSnapshots(pullSaveFromServer); adminPrefetch.catch(() => undefined); let resumedGuest = false;
             void restoreAccountFromServer({
                 accountName: localAccountName,
                 scope: restoreLoad,
                 pullSave: pullSaveFromServer,
                 fetchBattleLock: fetchBattleLockStatus,
                 resumeGuest: async () => {
+                    resumedGuest = true;
                     // Credentials stay bound to this restore generation.
                     const guest = await resumeGuestFor(localAccountName, (a, b) => accountKey(a) === accountKey(b));
                     if (!restoreLoad.isCurrent() || !guest) return null;
@@ -3039,7 +3043,7 @@ export default function App() {
                 onFailure: revertRestoreToLogin,
                 onTimeout: () => setRestoringSession(false),
                 onSettled: () => { restoreCompleted = true; },
-                onComplete: () => { setRestoringSession(false); void pullSharedAdminContent(restoreLoad); },
+                onComplete: () => { setRestoringSession(false); void pullSharedAdminContent(restoreLoad, resumedGuest ? undefined : adminPrefetch); },
             });
         } else {
             // No stored account → brand-new / anonymous visitor: show the login
@@ -3298,9 +3302,9 @@ export default function App() {
         return snap.editablePets ? registerPublishedPetTemplates(snap.editablePets as Pet[]) : false;
     }
 
-    async function pullSharedAdminContent(scope: ReturnType<typeof beginSessionLoad>) {
+    async function pullSharedAdminContent(scope: ReturnType<typeof beginSessionLoad>, prefetched?: Promise<Array<ReturnType<typeof buildPlayerSavePayload>>>) {
         const isCurrent = () => sessionLoadMatchesAccount(scope, currentAccountNameRef.current);
-        const available = await pullSharedAdminSnapshots(pullSaveFromServer);
+        const available = await (prefetched ?? pullSharedAdminSnapshots(pullSaveFromServer));
         if (!isCurrent()) return;
         if (!available.length) return;
         const petTemplatesChanged = available.map((snap) => applySharedAdminContentSnapshot(snap, scope.accountKey, isCurrent)).some(Boolean);
