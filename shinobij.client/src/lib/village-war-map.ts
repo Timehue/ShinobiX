@@ -4,6 +4,7 @@
 // plain fetch already carries the player token / name / fingerprint headers.)
 
 import type { IntelTier, StoresLedgerEntry } from "./village-stores";
+import type { WarPreparation } from '../../../shared/war-preparations';
 import type { OpenSectorBattle } from "./sector-war-engagement";
 
 export type WinCondition = "combat" | "card" | "pet";
@@ -29,6 +30,8 @@ export interface VillageWarMapView {
     warResourcesCap?: number;
     treasurySeals?: number;
     structures?: Record<string, number>;
+    preparations?: WarPreparation[];
+    depotDailyIncome?: number;
     upkeepWr?: number;
     dormant?: boolean;
     wrPerSector?: number;
@@ -160,10 +163,9 @@ export interface WarMapResponse {
     contests: SectorWarContest[];
 }
 
-// The 6 shared structures (mirror of api/_war-state.ts STRUCTURE_KEYS), with
-// display names for the upgrade panel.
+// Purchasable shared structures. Historical Ramparts HP levels remain readable
+// in stored records, but score campaigns have retired that purchase.
 export const WAR_STRUCTURES: readonly { key: string; name: string }[] = [
-    { key: "ramparts", name: "Ramparts" },
     { key: "watchtower", name: "Watchtower" },
     { key: "barracks", name: "Barracks" },
     { key: "warAcademy", name: "War Academy" },
@@ -379,8 +381,8 @@ export function setSectorTerrain(playerName: string, village: string, sector: nu
 /** `toLevel` is the level being bought: pressing again after a lost answer is
  *  then refused ("already at level N, nothing was spent") instead of buying
  *  the next level. */
-export function upgradeWarStructure(playerName: string, village: string, structure: string, toLevel?: number) {
-    return postJson("/api/village/war-structure", { playerName, village, structure, ...(toLevel ? { toLevel } : {}) });
+export function upgradeWarStructure(playerName: string, village: string, structure: string, toLevel?: number, warInstance?: string) {
+    return postJson("/api/village/war-structure", { playerName, village, structure, ...(toLevel ? { toLevel } : {}), ...(warInstance ? { warInstance } : {}) });
 }
 
 // ── Mercenaries (Phase 5; owner redesign 2026-10-08) ──
@@ -415,6 +417,7 @@ export interface MercLeaseView {
     deployable?: boolean;
 }
 export interface MercContextView {
+    tiers?: WrMercTierView[];
     kind: "village" | "sector";
     key: string;
     enemy: string;

@@ -1,0 +1,39 @@
+.village-campaign { padding: 1rem; border: 1px solid #475569; border-radius: 12px; background: #0b1424; color: #e2e8f0; }
+.village-campaign p { line-height: 1.5; color: #cbd5e1; }
+.village-campaign-grid, .village-campaign-scores { display: grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap: .75rem; }
+.village-campaign-objective, .village-campaign-scores article { padding: .8rem; border: 1px solid #475569; border-radius: 8px; background: #172033; }
+.village-campaign-objective h4 { margin: .5rem 0; }
+.village-campaign-art { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 5px; margin-bottom: .65rem; }
+.village-campaign-shrine-layout { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: center; gap: 1rem; }
+.village-campaign-shrine-art { height: 160px; aspect-ratio: auto; object-fit: contain; margin-bottom: 0; }
+.village-campaign-shrine-stats h5 { margin: .8rem 0 .4rem; font-size: .9rem; color: #fde68a; }
+.village-campaign-shrine-stats p { margin-top: 0; }
+.village-campaign-shrine-layout small { color: #94a3b8; line-height: 1.4; }
+@media (max-width: 600px) {
+    .village-campaign-shrine-layout { grid-template-columns: minmax(0, 1fr) 96px; gap: .6rem; }
+    .village-campaign-shrine-art { height: 110px; }
+    .village-campaign-shrine-stats { grid-column: 1 / -1; }
+}
+.village-campaign-objective button { margin: .3rem .4rem .3rem 0; }
+.village-campaign small, .village-campaign-scores b { display: block; margin-top: .5rem; }
+.village-campaign-mode { color: #fbbf24; font-size: .85rem; }
+.village-campaign-scores b { font-size: 1.2rem; color: #fde68a; }
+.village-campaign-operations, .village-campaign-resume { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; margin: .8rem 0; }
+.village-campaign-error { color: #fca5a5 !important; }
+.war-field-orders { --war-intel-gold: #fbbf24; margin-top: 1rem; }
+.war-field-orders progress, .war-field-mission progress { display: block; width: 100%; height: .65rem; accent-color: #fbbf24; }
+.war-intel-heading, .war-intel-milestones { display: flex; justify-content: space-between; gap: .6rem; flex-wrap: wrap; margin: .5rem 0; }
+.war-intel-milestones span { flex: 1; font-size: .8rem; padding: .45rem; border-bottom: 2px solid #475569; }
+.war-intel-milestones span[data-revealed='true'] { color: var(--war-intel-gold); border-color: var(--war-intel-gold); }
+.war-operation-card { border: 1px solid #475569; border-radius: 8px; padding: .85rem; background: #172033; }
+.war-operation-card h5 { margin: 0; font-size: 1rem; color: #fde68a; }
+.war-operation-card button { margin-top: .7rem; width: 100%; min-height: 44px; }
+.war-field-mission { padding: .7rem 0; overflow-wrap: anywhere; }
+.war-field-mission p { margin: .4rem 0; }
+.war-field-mission small { display: block; color: #cbd5e1; font-size: .8rem; line-height: 1.4; }
+.war-field-hud { position: absolute; z-index: 22; pointer-events: auto; top: .6rem; left: .6rem; max-width: min(calc(100% - 1.2rem), 340px); color: #e2e8f0; background: #0b1424ee; border: 1px solid #9a7b37; border-radius: 8px; padding: .5rem .7rem; margin: 0; font-size: .85rem; }
+.war-field-hud summary { cursor: pointer; min-height: 28px; display: list-item; }
+.war-field-hud button { min-height: 44px; }
+.war-espionage-room-art { width: 100%; height: auto; max-height: 220px; object-fit: cover; border-radius: 8px; }
+.war-espionage-peer { display: flex; justify-content: space-between; gap: .5rem; align-items: center; margin: .5rem 0; }
+@media (max-width: 420px) { .village-campaign { padding: .7rem; } .village-campaign-grid, .village-campaign-scores { grid-template-columns: minmax(0, 1fr); } }

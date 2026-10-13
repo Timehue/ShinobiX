@@ -53,7 +53,10 @@ test("controlled destinations stay out of the global menu and remain wired to th
     assert.doesNotMatch(menuGroups, /"bloodlineMaker"/);
 
     assert.match(townHall, /setScreen\("villageWarMap"\)/);
-    assert.match(townHall, /> Sector Map<\/button>/);
+    assert.match(townHall, /TownHallWarDisplay/);
+    const warDisplay = readFileSync('shinobij.client/src/features/villageWar/TownHallWarDisplay.tsx', 'utf8');
+    assert.match(warDisplay, /setScreen\(['"]villageWarMap['"]\)/);
+    assert.match(warDisplay, /> Sector Map<\/button>/);
 
     assert.match(centralHub, /purchaseBloodlineForge\(character\.name, rank, resumeOnly\)/);
     assert.match(centralHub, /setBloodlineCinematic\(\{ rank, element: getCharacterElements\(result\.character\)\[0\] \?\? "", resumed: Boolean\(result\.resumed\) \}\)/);

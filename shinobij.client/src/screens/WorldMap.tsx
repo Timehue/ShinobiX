@@ -4,8 +4,10 @@ import { interiorTileFromKey } from '../lib/world-interior-tile';
 import { getPvpJutsuLoadout } from "../lib/jutsu-loadout";
 import { useSectorOrder } from "../lib/use-sector-order";
 import { normalizeNarrativeCharacter as normalizeCharacter } from "../lib/normalize-narrative-character";
-import { StrongholdDialog } from '../features/anbuInfiltration/StrongholdDialog';
-import { ANBU_RAID_MIN_LEVEL, STRONGHOLD_MIN_LEVEL, isDeathsGateStronghold, strongholdLevelEligible, strongholdTitle } from '../../../shared/sector-stronghold';
+import { WarStrongholdEntrance } from '../features/villageWar/WarStrongholdEntrance';
+import { useVillageCampaign } from '../lib/use-village-campaign';
+import { useWarShrine } from '../features/villageWar/use-war-shrine';
+import { sectorVaultMarker } from '../features/villageWar/sector-vault-marker';
 import { HollowGateEntryMenu } from './world-map/HollowGateEntryMenu';
 import { sectorBackgroundImage, sectorDepthImage, sectorMapUrl, ambienceBiomeForSector } from './world-map/sector-art';
 import { fetchVillageGuards } from "../lib/village-guard-api";
@@ -23,7 +25,6 @@ import "../styles/world-map-mobile.css";
 import { useWorldMapLayout } from "../lib/use-world-map-layout";
 import { getWorldMapRegionForPoint, WORLD_MAP_REGIONS } from "../lib/world-map-regions";
 import { visiblePoll } from "../lib/poll";
-// The Chronicle Scribe's codex hand-off ends on the pack-opening cinematic.
 import "../styles/chronicle-duel.css";
 import "../styles/card-pack-opening.css";
 import {
@@ -120,8 +121,6 @@ import { travelMaskMs } from "../lib/travel-mask";
 import { serverNow } from "../lib/server-clock";
 import { storyReckoningActionFailure } from "../lib/story-reckoning-feedback";
 
-// Anbu Vault Infiltration (anbuInfiltration.v1) — lazy so the raid (which pulls
-// in the whole BattleTowerFight screen) never weighs down the WorldMap chunk.
 const AnbuVaultRaid = lazy(() => import("../features/anbuInfiltration/AnbuVaultRaid").then(m => ({ default: m.AnbuVaultRaid }))); const WorldBossMapCalloutOverlay = lazy(() => import("../components/WorldBossMapCalloutOverlay").then(m => ({ default: m.WorldBossMapCalloutOverlay })));
 import { SectorMap } from "../components/SectorMap";
 import { SceneCritters } from "../components/SceneCritters";
@@ -257,9 +256,6 @@ import { useSectorTraces } from "../lib/use-sector-traces";
 // map jump that has no direction to preserve, and the initial standing tile.
 const SECTOR_CENTRE_TILE = 78;
 
-// "Return to the sector you were in" after an explore ambush is a one-shot latch
-// in ../lib/sector-return (shared so the Hospital can clear it on a KO). See that
-// module for the full lifecycle.
 
 // Contract Hunter derivation lives in shared/contract-hunter.ts (the server
 // settles the fight from the SAME function). Thin alias kept for the existing
@@ -409,6 +405,7 @@ function WorldMapContent({
     const villageWarAdmissionOpen = capabilityAdmissionAllowed(villageWarMutationAvailability);
     const anbuViewOpen = anbuInfiltrationAdmissionEnabled(anbuViewAvailability);
     const anbuAdmissionOpen = anbuInfiltrationAdmissionEnabled(anbuMutationAvailability);
+    const villageCampaign = useVillageCampaign(character.name, character.village);
     const globalViewOpen = capabilityAdmissionAllowed(globalViewAvailability);
     const globalMutationsOpen = capabilityAdmissionAllowed(globalMutationAvailability);
     // Live players in the current sector come from the presence store. WorldMap reads
@@ -2619,8 +2616,10 @@ function WorldMapContent({
     const [selectedCreatorEvent, setSelectedCreatorEvent] = useState<CreatorEvent | null>(null);
     // Anbu Vault Infiltration (anbuInfiltration.v1): the walk-up prompt on the
     // sector's vault structure, and the live raid screen (portaled full-screen).
-    const [vaultPrompt, setVaultPrompt] = useState<{ sector: number; village: string } | null>(null);
+    const [vaultPrompt, setVaultPrompt] = useState<{ sector: number; village: string; warEntry?: boolean } | null>(null);
     const [vaultRaid, setVaultRaid] = useState<{ sector: number; village: string } | null>(null);
+    const warShrine = useWarShrine({ character, state: villageCampaign.state, sharedImages, onVersionedCharacter,
+        sector: selectedSector, currentSector, blocked: isTraveling || !villageWarAdmissionOpen, onEnterStronghold: target => { setSelectedSector(target.sector); setVaultRaid(target); } });
     useEffect(() => {
         if (!anbuViewOpen) setVaultPrompt(null);
     }, [anbuViewOpen]);
@@ -4339,6 +4338,7 @@ function WorldMapContent({
                     enemyVillageHp: villageWarEnemy ? villageWar.hp[villageWarEnemy] : 0,
                     enemyVillageHpMax: villageWarEnemy ? villageWarHpMax(villageWar, villageWarEnemy) : VILLAGE_WAR_HP_MAX,
                     ended: Boolean(villageWar.endedAt),
+                    ...(villageWar.campaignVersion === 2 ? { campaign: { ourPoints: villageWar.warPoints?.[character.village] ?? 0, enemyPoints: villageWar.warPoints?.[villageWarEnemy ?? ''] ?? 0 } } : {}),
                 },
             } : {}),
         } : null;
@@ -4400,21 +4400,8 @@ function WorldMapContent({
                 },
             };
         })();
-        const sectorOverlayVault = (() => {
-            if (!anbuViewOpen || !strongholdLevelEligible(character.level)) return null;
-            if (isDeathsGateStronghold(selectedSector)) return {
-                village: 'Death’s Gate', obsidian: true,
-                onOpen: () => setVaultPrompt({ sector: selectedSector, village: 'Death’s Gate' }),
-            };
-            // Prefer the captured owner; fall back to the sector's home village
-            // before any sector-war capture, matching the server's ownership fallback.
-            const owner = territory.ownerVillage || homeVillageForSector(selectedSector);
-            if (!owner) return null;
-            return {
-                village: owner,
-                onOpen: () => setVaultPrompt({ sector: selectedSector, village: owner }),
-            };
-        })();
+        const sectorOverlayVault = sectorVaultMarker({ campaign: villageCampaign.state?.campaign, mission: villageCampaign.state?.mission, sector: selectedSector,
+            village: character.village, level: character.level ?? 0, anbuViewOpen, ownerVillage: territory.ownerVillage, onOpen: setVaultPrompt });
         const sectorOverlayShrine = (() => {
             if (!isSectorTracesEnabled()) return null;
             const definition = shrineForSector(selectedSector);
@@ -4477,9 +4464,9 @@ function WorldMapContent({
                         onCrossExit={roadWalk.requestExit}
                         onWalkArrive={roadWalk.arriveAtTile}
                         onWorldAuthority={worldAuthority}
-                        worldMovementBlocked={() => isTraveling || travelRequestInFlight.current}
+                        worldMovementBlocked={() => isTraveling || travelRequestInFlight.current || warShrine.open}
                         hudLayer={
-                    <SectorHud key={selectedSector}
+                    <>{!vaultRaid && warShrine.tracker}<SectorHud key={selectedSector}
                         sector={selectedSector}
                         present={sectorIsCurrent}
                         biome={biome}
@@ -4502,7 +4489,7 @@ function WorldMapContent({
                         onExplore={handleExploreSelectedSector} dailyExplores={resourceActionsToday(character)} exploreBusy={explorePresentationInFlight}
                         onFindRicherGround={handleFindRicherGround}
                         onHunt={handleHuntSelectedSector}
-                    />
+                    /></>
                         }
                         overlayLayer={
                             <>
@@ -4526,6 +4513,7 @@ function WorldMapContent({
                                 onOpenTrace={(signId) => openSectorTraces({ view: "signs", focusSignId: signId })}
                                 onOpenShrine={handleOpenSectorShrine}
                             />}
+                            {!vaultRaid && warShrine.entrance}
                             </>
                         }
                         mapHudLayer={
@@ -4550,31 +4538,14 @@ function WorldMapContent({
                             )}
 
                             {/* Anbu Vault — Infiltrate / Retreat prompt (portaled above nav). */}
+                            {warShrine.overlay}
                             {vaultPrompt && anbuViewOpen && createPortal(
-                                <StrongholdDialog title={strongholdTitle(vaultPrompt.sector)} onClose={() => setVaultPrompt(null)}>
-                                        <img src="/landmarks/anbu-vault.webp" alt="" className={`stronghold-boss-portrait${isDeathsGateStronghold(vaultPrompt.sector) ? ' stronghold-obsidian-portrait' : ''}`} />
-                                        <p style={{ fontSize: 13, opacity: 0.82, margin: "0.3rem 0 0.8rem" }}>
-                                            {isDeathsGateStronghold(vaultPrompt.sector)
-                                                ? 'Enter twelve obsidian chambers shared with other players. Every step raises threat; a patrol attacks after 25 steps. Your current health and supplies carry into every fight.'
-                                                : vaultPrompt.village === character.village
-                                                    ? 'Explore your village’s twelve-chamber stronghold, fight patrols, and watch for rival players. Your Anbu protects the war reserves in the vault at the far end.'
-                                                    : 'Explore 12 chambers, fight patrols, and watch for rival players. An Anbu guards the war vault at the far end. Each step raises threat. Break through to raid this sector’s war supplies.'}
-                                        </p>
-                                        <p className="stronghold-reward-detail">Stronghold entry unlocks at level {STRONGHOLD_MIN_LEVEL}.{!isDeathsGateStronghold(vaultPrompt.sector) && vaultPrompt.village !== character.village && ` Anbu treasury raids require level ${ANBU_RAID_MIN_LEVEL}.`}</p>
-                                        {isDeathsGateStronghold(vaultPrompt.sector) && <p className="stronghold-reward-detail"><b>4× normal Ryo, stat growth and Jutsu XP on PvP wins.</b> That’s double Death’s Gate’s usual rewards. Both fighters must start inside. Patrols do not earn this bonus. Normal reward limits apply.</p>}
-                                        <div className="stronghold-dialog-actions">
-                                            <button
-                                                disabled={!anbuAdmissionOpen || !strongholdLevelEligible(character.level)}
-                                                style={{ padding: "0.55rem 1.15rem", opacity: anbuAdmissionOpen && strongholdLevelEligible(character.level) ? 1 : 0.55 }}
-                                                onClick={() => {
-                                                    if (!strongholdLevelEligible(character.level) || !anbuInfiltrationAdmissionEnabled(mutationAvailability("anbuInfiltration"))) return;
-                                                    setVaultRaid(vaultPrompt);
-                                                    setVaultPrompt(null);
-                                                }}
-                                            >{!anbuAdmissionOpen ? "Operation paused" : !strongholdLevelEligible(character.level) ? `Requires level ${STRONGHOLD_MIN_LEVEL}` : "Enter stronghold"}</button>
-                                            <button style={{ padding: "0.55rem 1.15rem", opacity: 0.8 }} onClick={() => setVaultPrompt(null)}>Retreat</button>
-                                        </div>
-                                </StrongholdDialog>,
+                                <WarStrongholdEntrance character={character} target={vaultPrompt} campaign={villageCampaign.state?.campaign}
+                                    mission={villageCampaign.state?.mission} admissionOpen={anbuAdmissionOpen}
+                                    onClose={() => setVaultPrompt(null)} onEnter={() => {
+                                        if (!anbuInfiltrationAdmissionEnabled(mutationAvailability("anbuInfiltration"))) return;
+                                        setVaultRaid(vaultPrompt); setVaultPrompt(null);
+                                    }} />,
                                 document.body,
                             )}
 

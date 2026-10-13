@@ -687,6 +687,7 @@ export function applySectorWarBattle(
         defenderMult?: number;
         by?: string;
         garrisonBattle?: boolean;
+        supportMultiplier?: number;
         mercBattle?: boolean;
         /** Which side the merc/AI fought FOR (default 'attacker'). */
         mercSide?: 'attacker' | 'defender';
@@ -715,7 +716,9 @@ export function applySectorWarBattle(
         : (sectorWarVillageUnfed(session, session.defenderVillage, today) ? unfedStructureMultiplier(rawDefMult) : rawDefMult);
     let points = Math.round(nonNeg(opts.roleSwing) * sideMult);
     if (opts.garrisonBattle && attackerWon) {
-        points = Math.floor(points * GARRISON_POINTS_FRACTION);
+        const bonus = Math.max(0, Math.min(0.3, (Number(opts.supportMultiplier) || 1) - 1));
+        const fedBonus = sectorWarVillageUnfed(session, session.attackerVillage, today) ? bonus / 2 : bonus;
+        points = Math.round(Math.floor(points * GARRISON_POINTS_FRACTION) * (1 + fedBonus));
         points = Math.min(points, Math.max(0, garrisonPointsCapFor(session, session.attackerVillage, today) - garrisonPointsInWar(session)));
     }
     if (opts.mercBattle) {
@@ -738,7 +741,7 @@ export function applyContestBattleByWinner(
     session: SectorWarSession,
     winner: 'p1' | 'p2' | 'draw',
     opts: {
-        now: number; roleSwing: number; attackerMult?: number; defenderMult?: number; by?: string;
+        now: number; roleSwing: number; attackerMult?: number; defenderMult?: number; supportMultiplier?: number; by?: string;
         /** A Card/Pet GARRISON battle the ATTACKER won: same half-weight +
          *  war-wide cap Combat's garrison uses, and leaves `lastLiveBattleAt`
          *  alone so a real defender turning up still re-locks the garrison. */

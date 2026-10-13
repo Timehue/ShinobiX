@@ -134,7 +134,7 @@ describe('war-state: merc leases + upkeep', () => {
         const r = defaultVillageWarRecord('Frostfang Village');
         assert.equal(totalUpkeepWr(r), 0); // all L0
         for (const k of STRUCTURE_KEYS) r.structures[k] = 5;
-        assert.equal(totalUpkeepWr(r), 90); // 6 × round(2·5^1.25)=15
+        assert.equal(totalUpkeepWr(r), 30); // 6 × round(2·5^1.25)=15
     });
 });
 

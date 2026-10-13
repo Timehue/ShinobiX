@@ -101,6 +101,19 @@ function apSpent(session: SoloPveSession, events = enemyEvents(session)): number
 const sum = (values: number[]) => values.reduce((a, b) => a + b, 0);
 
 describe('standard-PvE turn planner — scope', () => {
+    it('lets a sealed village-war ANBU plan with its copied kit without changing stats or granting a difficulty guard', () => {
+        const kit = [jutsu('hit-a', 40), jutsu('hit-b', 40), FLICKER];
+        const copied = scenario({ level: 20, kit, distance: 3, kind: 'village-war-garrison' });
+        copied.enemy.character.masterAi = true;
+        const legacy = structuredClone(copied); delete legacy.enemy.character.aiTurnPolicy;
+        const planned = enemyTurn(copied), original = enemyTurn(legacy);
+        assert.ok(sum(apSpent(planned)) > sum(apSpent(original)), 'the tactical copy uses legal follow-ups the old runner left unused');
+        assert.deepEqual(planned.enemy.character, copied.enemy.character, 'the planner leaves the copied build intact');
+        assert.equal(planned.enemy.maxHp, copied.enemy.maxHp);
+        assert.equal(planned.difficultyGuard, undefined);
+        assert.equal(planned.weeklyBossGuard, undefined);
+        assert.ok(enemyEvents(planned).filter(event => event.action === 'jutsu').every(event => kit.some(move => move.id === event.actionId)), 'only copied moves can be cast');
+    });
     it('applies only to sealed standard-PvE sessions, and never to a weekly boss or an authored mission kit', () => {
         for (const kind of STANDARD_PVE_AI_KINDS) {
             assert.equal(standardPvePlannerApplies({ policy: STANDARD_PVE_AI_POLICY, kind, missionTactics: false, weeklyBoss: false, env: {} }), true, kind);

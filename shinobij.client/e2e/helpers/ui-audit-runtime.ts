@@ -109,7 +109,7 @@ export function uiAuditSave(): UiAuditSave {
     };
 }
 
-export async function installUiAuditRuntime(page: Page, initialSave: UiAuditSave = uiAuditSave(), showBriefing = false) {
+export async function installUiAuditRuntime(page: Page, initialSave: UiAuditSave = uiAuditSave(), showBriefing = false, accountName = 'AuditNinja') {
     let save = structuredClone(initialSave);
     const worldModel = worldPositionModel();
     let worldCursor = worldModel.fallback(Number(save.currentSector ?? 0), Number(save.currentTile ?? 78)), worldSequence = 0;
@@ -118,16 +118,16 @@ export async function installUiAuditRuntime(page: Page, initialSave: UiAuditSave
     let saveConflictCount = 0;
     let lastCommit: SaveCommit | null = null;
 
-    await page.addInitScript((showBriefing) => {
-        localStorage.setItem("ninjav-admin-build-v1", JSON.stringify({ currentAccountName: "AuditNinja" }));
-        localStorage.setItem("ninjav-player-accounts-v1", JSON.stringify({ auditninja: { token: "ui-audit-token" } }));
-        localStorage.setItem("shinobix:activePlayerPersist", "AuditNinja");
+    await page.addInitScript(({ showBriefing, accountName }) => {
+        localStorage.setItem("ninjav-admin-build-v1", JSON.stringify({ currentAccountName: accountName }));
+        localStorage.setItem("ninjav-player-accounts-v1", JSON.stringify(Object.fromEntries([[accountName.toLowerCase(), { token: "ui-audit-token" }]])));
+        localStorage.setItem("shinobix:activePlayerPersist", accountName);
         localStorage.setItem("shinobix:activeTokenPersist", "ui-audit-token");
         localStorage.setItem("shinobix:storage-notice-ack", "1");
         localStorage.setItem("patchNotes.lastSeenVersion.v1", "2026.07.28-stat-leveling");
         if (showBriefing) localStorage.removeItem("dailyBriefing.seen.v1");
         else localStorage.setItem("dailyBriefing.seen.v1", new Date().toISOString().slice(0, 10));
-    }, showBriefing);
+    }, { showBriefing, accountName });
 
     await page.route("**/api/**", async (route) => {
         const request = route.request();
@@ -154,7 +154,7 @@ export async function installUiAuditRuntime(page: Page, initialSave: UiAuditSave
             if (!worldCursor || worldModel.location(worldCursor).sector !== Number(save.currentSector)) worldCursor = worldModel.fallback(Number(save.currentSector), Number(save.currentTile ?? 78));
             return json(route, { ok: true, sector: Number(save.currentSector), tile: Number(save.currentTile ?? 78), sequence: worldSequence, worldPosition: worldCursor, players: [] });
         }
-        if (normalizedPath === "/api/save/auditninja") {
+        if (normalizedPath === `/api/save/${accountName.toLowerCase()}`) {
             if (request.method() === "GET") return json(route, { ...save, _saveVersion: saveVersion });
 
             const incoming = request.postDataJSON() as UiAuditSave;

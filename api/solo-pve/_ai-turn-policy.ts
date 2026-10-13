@@ -18,17 +18,20 @@ import type { SoloPveAction } from './_session.js';
  * character when the session is built (./_ai-encounter.ts), exactly like
  * `missionTactics`, so a session keeps the runner it started with and every
  * other Solo host (Hollow Gate, endless waves, caravan, stronghold patrols,
- * weekly boss, ANBU, garrisons) keeps the original runner byte-for-byte.
+ * weekly boss, vault ANBU, sector garrisons) keeps the original runner byte-for-byte.
+ * Village-war ANBU copies explicitly seal the same planner for tactical play.
  */
 export const STANDARD_PVE_AI_POLICY = 'standard-pve-v1' as const;
 
-/** The standard-PvE encounter kinds (shared/runtime-mode-registry.ts). */
+/** Hosts allowed to opt into the explicitly sealed tactical planner. */
 export const STANDARD_PVE_AI_KINDS: ReadonlySet<string> = new Set([
     'mission',
     'story-boss',
     'academy-spar',
     'generic-ai',
     'world-ai',
+    // Explicitly sealed village-war ANBU copies use the same legal planner.
+    'village-war-garrison',
 ]);
 
 /** Emergency rollback: every session falls back to the original runner. */
