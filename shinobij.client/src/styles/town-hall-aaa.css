@@ -689,31 +689,6 @@
     .app-shell.screen-townHall .town-elder-selected { grid-column: 1 / -1; }
 }
 
-/* Keep actionable Town Hall content above fixed mobile navigation and notices. */
-@media (max-width: 979px) {
-    .app-shell[data-shell="adaptive"][data-ui-mode="noncombat"].screen-townHall {
-        --town-mobile-notice-clearance: 0px;
-    }
-    .app-shell[data-shell="adaptive"][data-ui-mode="noncombat"].screen-townHall:has(.mobile-notif-bar) {
-        --town-mobile-notice-clearance: 56px;
-    }
-    .app-shell[data-shell="adaptive"][data-ui-mode="noncombat"].screen-townHall > .center-game {
-        position: fixed;
-        inset-block-start: calc(var(--mobile-aaa-hud-height, 56px) + env(safe-area-inset-top, 0px) + 8px);
-        inset-block-end: calc(var(--mobile-aaa-nav-height, 72px) + env(safe-area-inset-bottom, 0px) + var(--town-mobile-notice-clearance) + 12px);
-        inset-inline: 0;
-        block-size: auto;
-        min-block-size: 0;
-        max-block-size: none;
-        padding-block: 8px;
-        scroll-padding-block: 12px;
-        overflow-x: hidden !important;
-        overflow-y: auto !important;
-        overscroll-behavior-y: contain;
-        -webkit-overflow-scrolling: touch;
-    }
-}
-
 @media (max-width: 640px) {
     .app-shell.screen-townHall .town-hall-screen {
         gap: 11px;

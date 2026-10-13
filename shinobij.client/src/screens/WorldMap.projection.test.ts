@@ -515,14 +515,17 @@ test("the village Outskirts control uses authoritative travel", () => {
     assert.doesNotMatch(outskirts, /set(?:CurrentSector|SelectedSector|CurrentBiome|CurrentWeather)\(/u);
 });
 
-test("both stronghold landmarks share the entry-level and capability gates before projection", () => {
-    const start = worldMapSource.indexOf("const sectorOverlayVault = (() =>");
+test("stronghold projection delegates ordinary and war admission to the shared entry policy", () => {
+    const policy = readFileSync(new URL('../features/villageWar/sector-vault-marker.ts', import.meta.url), 'utf8');
+    const entrance = readFileSync(new URL('../features/villageWar/WarStrongholdEntrance.tsx', import.meta.url), 'utf8');
+    const start = worldMapSource.indexOf("const sectorOverlayVault = sectorVaultMarker(");
     assert.ok(start >= 0);
-    const block = worldMapSource.slice(start, worldMapSource.indexOf("})();", start));
-    assertOrdered(block, ["!anbuViewOpen || !strongholdLevelEligible(character.level)", "isDeathsGateStronghold(selectedSector)", "territory.ownerVillage || homeVillageForSector(selectedSector)"], "shared stronghold entry policy");
-    assert.doesNotMatch(block, /level[^\n]*100/u);
-    assert.doesNotMatch(block, /owner === character\.village/u, 'the village defender can enter their own shared base');
-    assert.match(worldMapSource, /disabled=\{!anbuAdmissionOpen \|\| !strongholdLevelEligible\(character.level\)\}/u);
+    const block = worldMapSource.slice(start, worldMapSource.indexOf("const sectorOverlayShrine", start));
+    assert.match(block, /level: character\.level \?\? 0, anbuViewOpen, ownerVillage: territory\.ownerVillage/u);
+    assertOrdered(policy, ['if (!anbuViewOpen)', 'isDeathsGateStronghold(sector)', 'ownerVillage || homeVillageForSector(sector)'], 'shared stronghold capability policy');
+    assert.match(policy, /if \(!strongholdLevelEligible\(level\)\) return null/u);
+    assert.match(entrance, /disabled=\{!admissionOpen \|\| !entryEligible\}/u);
+    assert.doesNotMatch(policy, /level[^\n]*100/u);
 });
 
 test("a completed road approach crosses only its current shared exit", () => {

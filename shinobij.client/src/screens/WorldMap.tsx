@@ -4,11 +4,10 @@ import { interiorTileFromKey } from '../lib/world-interior-tile';
 import { getPvpJutsuLoadout } from "../lib/jutsu-loadout";
 import { useSectorOrder } from "../lib/use-sector-order";
 import { normalizeNarrativeCharacter as normalizeCharacter } from "../lib/normalize-narrative-character";
-import { StrongholdDialog } from '../features/anbuInfiltration/StrongholdDialog';
+import { WarStrongholdEntrance } from '../features/villageWar/WarStrongholdEntrance';
 import { useVillageCampaign } from '../lib/use-village-campaign';
 import { useWarShrine } from '../features/villageWar/use-war-shrine';
-import { sectorVaultMarker, warStrongholdEntryText } from '../features/villageWar/sector-vault-marker';
-import { ANBU_RAID_MIN_LEVEL, STRONGHOLD_MIN_LEVEL, isDeathsGateStronghold, strongholdLevelEligible, strongholdTitle } from '../../../shared/sector-stronghold';
+import { sectorVaultMarker } from '../features/villageWar/sector-vault-marker';
 import { HollowGateEntryMenu } from './world-map/HollowGateEntryMenu';
 import { sectorBackgroundImage, sectorDepthImage, sectorMapUrl, ambienceBiomeForSector } from './world-map/sector-art';
 import { fetchVillageGuards } from "../lib/village-guard-api";
@@ -2616,11 +2615,6 @@ function WorldMapContent({
     // sector's vault structure, and the live raid screen (portaled full-screen).
     const [vaultPrompt, setVaultPrompt] = useState<{ sector: number; village: string; warEntry?: boolean } | null>(null);
     const [vaultRaid, setVaultRaid] = useState<{ sector: number; village: string } | null>(null);
-    const vaultMinimumLevel = vaultPrompt?.warEntry ? 15 : STRONGHOLD_MIN_LEVEL;
-    const vaultEntryEligible = vaultPrompt?.warEntry ? (character.level ?? 0) >= 15 : strongholdLevelEligible(character.level);
-    const vaultSpecialtyEntry = !!vaultPrompt?.warEntry
-        && !!villageCampaign.state?.campaign.strongholds.some(o => o.sector === vaultPrompt.sector && o.village !== character.village)
-        && !(villageCampaign.state?.mission?.kind === 'espionage' && villageCampaign.state.mission.status === 'active' && villageCampaign.state.mission.sectors[0] === vaultPrompt.sector);
     const warShrine = useWarShrine({ character, state: villageCampaign.state, sharedImages, onVersionedCharacter,
         sector: selectedSector, currentSector, blocked: isTraveling || !villageWarAdmissionOpen, onEnterStronghold: target => { setSelectedSector(target.sector); setVaultRaid(target); } });
     useEffect(() => {
@@ -4543,30 +4537,12 @@ function WorldMapContent({
                             {/* Anbu Vault — Infiltrate / Retreat prompt (portaled above nav). */}
                             {warShrine.overlay}
                             {vaultPrompt && anbuViewOpen && createPortal(
-                                <StrongholdDialog title={strongholdTitle(vaultPrompt.sector)} onClose={() => setVaultPrompt(null)}>
-                                        <img src="/landmarks/anbu-vault.webp" alt="" className={`stronghold-boss-portrait${isDeathsGateStronghold(vaultPrompt.sector) ? ' stronghold-obsidian-portrait' : ''}`} />
-                                        <p style={{ fontSize: 13, opacity: 0.82, margin: "0.3rem 0 0.8rem" }}>
-                                            {warStrongholdEntryText(villageCampaign.state?.campaign, vaultPrompt.sector, character.village, villageCampaign.state?.mission) ?? (isDeathsGateStronghold(vaultPrompt.sector)
-                                                ? 'Enter twelve obsidian chambers shared with other players. Every step raises threat; a patrol attacks after 25 steps. Your current health and supplies carry into every fight.'
-                                                : vaultPrompt.village === character.village
-                                                    ? vaultPrompt.warEntry ? 'Take guard duty from level 15 to confront enemy espionage visitors. Your allied Anbu stays on guard.' : 'Explore your village’s twelve-chamber stronghold, fight patrols, and watch for rival players. Your Anbu protects the war reserves in the vault at the far end.'
-                                                    : vaultPrompt.warEntry ? 'Enter the assigned enemy stronghold and defeat its sentry or an enemy player to complete Espionage.' : 'Explore 12 chambers, fight patrols, and watch for rival players. An Anbu guards the war vault at the far end. Each step raises threat. Break through to raid this sector’s war supplies.')}
-                                        </p>
-                                        <p className="stronghold-reward-detail">Stronghold entry unlocks at level {vaultMinimumLevel}.{!vaultPrompt.warEntry && !isDeathsGateStronghold(vaultPrompt.sector) && vaultPrompt.village !== character.village && ` Anbu treasury raids require level ${ANBU_RAID_MIN_LEVEL}.`}</p>
-                                        {isDeathsGateStronghold(vaultPrompt.sector) && <p className="stronghold-reward-detail"><b>4× normal Ryo, stat growth and Jutsu XP on PvP wins.</b> That’s double Death’s Gate’s usual rewards. Both fighters must start inside. Patrols do not earn this bonus. Normal reward limits apply.</p>}
-                                        <div className="stronghold-dialog-actions">
-                                            <button
-                                                disabled={!anbuAdmissionOpen || !vaultEntryEligible}
-                                                style={{ padding: "0.55rem 1.15rem", opacity: anbuAdmissionOpen && vaultEntryEligible ? 1 : 0.55 }}
-                                                onClick={() => {
-                                                    if (!vaultEntryEligible || !anbuInfiltrationAdmissionEnabled(mutationAvailability("anbuInfiltration"))) return;
-                                                    setVaultRaid(vaultPrompt);
-                                                    setVaultPrompt(null);
-                                                }}
-                                            >{!anbuAdmissionOpen ? "Operation paused" : vaultSpecialtyEntry ? "Enter war stronghold" : !vaultEntryEligible ? `Requires level ${vaultMinimumLevel}` : "Enter stronghold"}</button>
-                                            <button style={{ padding: "0.55rem 1.15rem", opacity: 0.8 }} onClick={() => setVaultPrompt(null)}>Retreat</button>
-                                        </div>
-                                </StrongholdDialog>,
+                                <WarStrongholdEntrance character={character} target={vaultPrompt} campaign={villageCampaign.state?.campaign}
+                                    mission={villageCampaign.state?.mission} admissionOpen={anbuAdmissionOpen}
+                                    onClose={() => setVaultPrompt(null)} onEnter={() => {
+                                        if (!anbuInfiltrationAdmissionEnabled(mutationAvailability("anbuInfiltration"))) return;
+                                        setVaultRaid(vaultPrompt); setVaultPrompt(null);
+                                    }} />,
                                 document.body,
                             )}
 
