@@ -20,6 +20,23 @@ const MODEL_ASSET_RE = /\.(?:glb|gltf|bin|ktx2|basis)$/i;
 const MAX_ASSET_ENTRIES = 220;
 const MAX_IMAGE_ENTRIES = 400;
 const MAX_MODEL_ENTRIES = 24;
+// Fixed-name art (/items, /ui, /landing, ...) only changes on a deploy, but every
+// cache hit used to start a background refresh: a re-download through the HTTP
+// cache, a CacheStorage write and a 400-entry keys() scan for EACH image, every
+// time an inventory or shop grid painted. Refresh each such URL at most once per
+// window while this worker lives. /api/img (avatars, uploaded art) still refreshes
+// on every hit, because its content can change under the same address.
+const STATIC_IMAGE_REFRESH_MS = 5 * 60 * 1000;
+const staticImageRefreshedAt = new Map();
+
+function shouldRefreshCachedImage(url, cacheKey) {
+    if (url.pathname.startsWith('/api/')) return true;
+    const now = Date.now();
+    const last = staticImageRefreshedAt.get(cacheKey);
+    if (last !== undefined && now - last < STATIC_IMAGE_REFRESH_MS) return false;
+    staticImageRefreshedAt.set(cacheKey, now);
+    return true;
+}
 
 self.addEventListener('install', (event) => {
     // Precache the offline page. `cache: 'reload'` so a stale HTTP-cache copy is
@@ -165,7 +182,9 @@ self.addEventListener('fetch', (event) => {
         const cacheKey = withoutRetryParam(url.href);
         const cached = await matchCache(cache, cacheKey);
         if (cached) {
-            event.waitUntil(cacheSuccessfulImage(cache, cacheKey, request).catch(() => undefined));
+            if (shouldRefreshCachedImage(url, cacheKey)) {
+                event.waitUntil(cacheSuccessfulImage(cache, cacheKey, request).catch(() => undefined));
+            }
             return cached;
         }
         const response = await fetch(request);
