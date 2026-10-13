@@ -151,12 +151,22 @@ describe('authoritative field mission lifecycle', () => {
             updatedAt: Date.now(),
         });
 
-        for (let index = 0; index < 30; index += 1) {
-            const state = await post(trailHandler, player, { missionId: MISSION_ID, action: 'state' });
-            assert.equal(state.statusCode, 200);
+        // Rate-limit windows are aligned to the wall clock (floor(now / 60 s)),
+        // so reads that straddle a minute boundary start a fresh window and the
+        // 31st is allowed. Hold the clock still while the bucket fills.
+        const realNow = Date.now;
+        const heldAt = realNow();
+        Date.now = () => heldAt;
+        try {
+            for (let index = 0; index < 30; index += 1) {
+                const state = await post(trailHandler, player, { missionId: MISSION_ID, action: 'state' });
+                assert.equal(state.statusCode, 200);
+            }
+            const throttledRead = await post(trailHandler, player, { missionId: MISSION_ID, action: 'state' });
+            assert.equal(throttledRead.statusCode, 429);
+        } finally {
+            Date.now = realNow;
         }
-        const throttledRead = await post(trailHandler, player, { missionId: MISSION_ID, action: 'state' });
-        assert.equal(throttledRead.statusCode, 429);
 
         const abandoned = await post(trailHandler, player, { missionId: MISSION_ID, action: 'abandon' });
         assert.equal(abandoned.statusCode, 200, 'the state-read bucket must not consume the mutation allowance');
