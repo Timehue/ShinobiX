@@ -30,8 +30,16 @@ export function SectorHudPanel({ id, title, children, rootRef, onClose }: {
         size();
         const resize = new ResizeObserver(size);
         if (rootRef.current) resize.observe(rootRef.current);
+        // A scroll anywhere can move the map, but size() reads layout, so run it
+        // at most once per frame. Scrolling the panel's own list cannot change
+        // its budget, so those scrolls are ignored outright.
+        let frame = 0;
+        const scrolled = (event: Event) => {
+            if (event.target instanceof Node && panel.contains(event.target)) return;
+            if (!frame) frame = requestAnimationFrame(() => { frame = 0; size(); });
+        };
         window.addEventListener('resize', size);
-        window.addEventListener('scroll', size, true);
+        window.addEventListener('scroll', scrolled, { capture: true, passive: true });
         window.visualViewport?.addEventListener('resize', size);
         let outsidePointer = false;
         const blocked = () => Boolean(document.querySelector('[aria-modal="true"], dialog[open]'));
@@ -75,9 +83,9 @@ export function SectorHudPanel({ id, title, children, rootRef, onClose }: {
         document.addEventListener('keydown', key, true);
         document.addEventListener('focusin', focus);
         return () => {
-            resize.disconnect(); dialogs.disconnect();
+            resize.disconnect(); dialogs.disconnect(); cancelAnimationFrame(frame);
             window.removeEventListener('resize', size);
-            window.removeEventListener('scroll', size, true);
+            window.removeEventListener('scroll', scrolled, true);
             window.visualViewport?.removeEventListener('resize', size);
             document.removeEventListener('pointerdown', down, true);
             document.removeEventListener('pointerup', up, true);

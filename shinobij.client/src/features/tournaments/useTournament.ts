@@ -2,7 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { TournamentResponse } from '../../../../shared/tournaments';
 import { visiblePoll } from '../../lib/poll';
 import { tournamentRequest } from './client';
-export function useTournament(credential?: string) {
+// `active` = the board is on screen. Pass false while a tournament battle or
+// replay covers it: the 5s board poll and the 1s countdown clock both stop, and
+// the board refreshes immediately when it comes back.
+export function useTournament(credential?: string, active = true) {
     const [data, setData] = useState<TournamentResponse | null>(null);
     const [error, setError] = useState('');
     const [busy, setBusy] = useState(false);
@@ -19,10 +22,15 @@ export function useTournament(credential?: string) {
     }, [credential, apply]);
     useEffect(() => {
         alive.current = true;
+        return () => { alive.current = false; };
+    }, []);
+    useEffect(() => {
+        if (!active) return;
         const stop = visiblePoll(refresh, 5000, .1, { immediate: true });
-        const clock = window.setInterval(() => setNow(Date.now() + offset.current), 1000);
-        return () => { alive.current = false; stop(); window.clearInterval(clock); };
-    }, [refresh]);
+        // Display clock: paused while hidden, caught up at once on return.
+        const stopClock = visiblePoll(() => setNow(Date.now() + offset.current), 1000, 0, { immediate: true });
+        return () => { stop(); stopClock(); };
+    }, [refresh, active]);
     const act = useCallback(async (action: Record<string, unknown>) => {
         if (mutating.current) return;
         const request = ++generation.current; mutating.current = true; setBusy(true); setError('');

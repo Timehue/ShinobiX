@@ -935,8 +935,8 @@ function WorldMapContent({
     const [roamBossTick, setRoamBossTick] = useState(0);
     useEffect(() => {
         if (!isWeeklyBossRoamEnabled()) return;
-        const id = setInterval(() => setRoamBossTick((t) => t + 1), 15000);
-        return () => clearInterval(id);
+        // Paused while the tab is hidden; one catch-up tick when it returns.
+        return visiblePoll(() => setRoamBossTick((t) => t + 1), 15000, 0);
     }, []);
     // The sector the boss is rampaging in right now — the world map highlights this
     // node (a pulsing ring + 👹 flag) instead of a floating portrait marker, per
@@ -2584,14 +2584,8 @@ function WorldMapContent({
             setStoryReckoningAbandonBusy(false);
         }
     }
-    // Tick once a second while a TIMED epic's journal is open so the countdown is live.
-    const [, setEpicTick] = useState(0);
-    useEffect(() => {
-        const epic = character.activeQuestbook;
-        if (!wandererDialog || !epic?.deadline) return;
-        const t = setInterval(() => setEpicTick(n => (n + 1) % 1_000_000), 1000);
-        return () => clearInterval(t);
-    }, [wandererDialog, character.activeQuestbook?.deadline]);
+    // A TIMED epic's countdown ticks inside its own leaf (EpicBellCountdown), so
+    // the whole map no longer re-renders once a second while the journal is open.
     const [activePetEncounter, setActivePetEncounter] = useState<Pet | null>(null);
     useWarmWildPetBinding(activePetEncounter);
     // The single-use token /api/pet/encounter-start minted for the pet on screen.

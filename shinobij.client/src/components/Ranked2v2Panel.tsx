@@ -14,6 +14,7 @@ import {
 } from "../lib/ranked-2v2-api";
 import { setTowerPvpMatchId } from "../lib/screen-guards";
 import { useMatchFoundSfx } from "../lib/match-alert-sfx";
+import { visiblePoll } from "../lib/poll";
 import { gameConfirm } from "./GameAlert";
 import { rankedLevelEligible, RANKED_LEVEL_WARNING } from "../../../shared/ranked-eligibility";
 
@@ -70,11 +71,22 @@ export function Ranked2v2Panel({ character, sharedImages, onVersionedCharacter }
     // An unpaired player must keep polling to discover an invitation from
     // another account. The live board polls through the fight screen instead.
     const phase = state.match ? "match" : state.queue.state === "queued" ? "queued" : state.duo?.status ?? "idle";
+    // A match can start without this tab acting once we are queued, or once we
+    // are an accepted duo member (either member may queue the pair). Those
+    // phases keep a raw interval so a match found while the tab is hidden still
+    // plays the match-found sound. The rest (no duo, an invitation awaiting OUR
+    // accept, a closed duo) need this player to act anyway, so they pause while
+    // hidden and catch up once on return.
+    const acceptedMember = Boolean(state.duo?.members.some(member => member.slug.toLowerCase() === me.toLowerCase() && member.accepted));
+    const matchCanStartUnattended = phase === "queued" || (acceptedMember && phase !== "closed");
     useEffect(() => {
         if (phase === "match") return;
-        const id = window.setInterval(() => { void refresh(); }, phase === "queued" ? 2_000 : 4_000);
-        return () => window.clearInterval(id);
-    }, [phase, refresh]);
+        if (matchCanStartUnattended) {
+            const id = window.setInterval(() => { void refresh(); }, phase === "queued" ? 2_000 : 4_000);
+            return () => window.clearInterval(id);
+        }
+        return visiblePoll(refresh, 4_000);
+    }, [phase, matchCanStartUnattended, refresh]);
 
     useMatchFoundSfx(Boolean(state.match), state.queue.state === "queued" || busy === "queue");
 

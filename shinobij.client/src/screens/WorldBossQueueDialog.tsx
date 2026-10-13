@@ -59,10 +59,16 @@ export function WorldBossQueueDialog({
 
     useEffect(() => { void refresh(); }, [refresh]);
     useEffect(() => visiblePoll(() => refresh(), fight ? 6_000 : 2_000, 0.08), [fight, refresh]);
+    // The queue clock only feeds the dialog. While <BattleTowerFight/> is up
+    // nothing here reads it, so stop the 300ms re-render for the whole fight
+    // and pick up the current time the moment the dialog comes back.
+    const inFight = !!fight?.session;
     useEffect(() => {
+        if (inFight) return;
+        setNow(Date.now());
         const timer = window.setInterval(() => setNow(Date.now()), 300);
         return () => window.clearInterval(timer);
-    }, []);
+    }, [inFight]);
     useEffect(() => {
         if (fight) return;
         const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
