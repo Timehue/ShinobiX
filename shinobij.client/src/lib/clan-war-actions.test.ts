@@ -1,6 +1,6 @@
 import {test,type TestContext} from 'node:test';
 import assert from 'node:assert/strict';
-import {cwQueueAction,cwDeclareWar,cwChallengeAction} from './clan-war-api.js';
+import {cwQueueAction,cwDeclareWar,cwChallengeAction,cwListWars,sharedClanWarCache} from './clan-war-api.js';
 import {readPendingEconomyIntent} from './economy-request-intent.js';
 
 function installStorage(t:TestContext) {
@@ -50,4 +50,33 @@ test('a lazily loaded pool declaration retains its paid request id until a final
     assert.equal(bodies[0].requestId,bodies[1].requestId);
     assert.equal(bodies[0].funding,'pool');
     assert.equal(readPendingEconomyIntent('clan-war-declare',['alice','ember','pool']),null);
+});
+
+test('war-list polls coalesce per viewer and a late former-account reply cannot replace the current cache',{timeout:5000},async t=>{
+    const storage=installStorage(t);
+    storage.setItem('shinobix:activePlayer','alice');
+    let finishFirst!:(value:Response)=>void,finishSecond!:(value:Response)=>void;
+    let startFirst!:()=>void,startSecond!:()=>void;
+    const firstAnswer=new Promise<Response>(resolve=>finishFirst=resolve),secondAnswer=new Promise<Response>(resolve=>finishSecond=resolve);
+    const firstStarted=new Promise<void>(resolve=>startFirst=resolve),secondStarted=new Promise<void>(resolve=>startSecond=resolve);
+    let requests=0;
+    t.mock.method(globalThis,'fetch',async()=>{
+        requests++;
+        if(requests===1){startFirst();return firstAnswer;}
+        startSecond();return secondAnswer;
+    });
+    const first=cwListWars(),duplicate=cwListWars();
+    await firstStarted;
+    await new Promise<void>(resolve=>setImmediate(resolve));
+    assert.equal(requests,1);
+    storage.setItem('shinobix:activePlayer','bob');
+    const next=cwListWars();
+    await secondStarted;
+    finishSecond(new Response(JSON.stringify({wars:[{id:'bob-war',updatedAt:10}]})));
+    assert.deepEqual((await next).map(war=>war.id),['bob-war']);
+    finishFirst(new Response(JSON.stringify({wars:[{id:'alice-war',updatedAt:20}]})));
+    assert.deepEqual(await first,[]);
+    assert.deepEqual(await duplicate,[]);
+    assert.deepEqual(Object.keys(sharedClanWarCache),['bob-war']);
+    assert.equal(requests,2);
 });

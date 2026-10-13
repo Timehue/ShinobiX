@@ -85,25 +85,12 @@ export type CwWar = {
 // request is in flight, additional callers share it and receive identical data —
 // behavior-identical to firing simultaneously, with no added staleness (the
 // in-flight handle is cleared the moment it settles, so the next call is fresh).
-let _cwListInFlight: {viewer:number;promise:Promise<CwWar[]>} | null = null;
 export async function cwListWars(): Promise<CwWar[]> {
     const viewer = viewerCache.scope();
-    if (_cwListInFlight?.viewer === viewer) return _cwListInFlight.promise;
-    const promise = (async () => {
-        try {
-            const r = await fetch("/api/clan/war/list");
-            if (!r.ok) return [];
-            const data = await r.json() as { wars?: CwWar[] };
-            const wars = data.wars ?? [];
-            // Populate the shared cache so the war-reward sweep can scan
-            // ended clan wars for unclaimed rewards on next render.
-            if (!viewerCache.current(viewer)) return [];
-            return wars.map(w=>viewerCache.accept(w,viewer)!);
-        } catch { return []; }
-    })();
-    _cwListInFlight = {viewer,promise};
-    try { return await promise; }
-    finally { if (_cwListInFlight?.promise === promise) _cwListInFlight = null; }
+    try {
+        const list=await retryDynamicImport(()=>import('./clan-war-list'));
+        return viewerCache.current(viewer)?list.listClanWars(viewer):[];
+    }catch{return [];}
 }
 // The Honor Seal cost carries a retained requestId (lib/economy-request-intent):
 // declaring again after a lost answer finishes or replays the first
