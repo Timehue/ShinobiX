@@ -4,6 +4,7 @@ import { StrongholdExplore } from "./StrongholdExplore";
 import { strongholdRequest } from "./stronghold-api";
 import { StrongholdDialog } from "./StrongholdDialog";
 import { useVillageCampaign } from '../../lib/use-village-campaign';
+import { useSharedNow } from '../../lib/use-shared-now';
 import { campaignRequest } from '../../lib/village-war-campaign';
 import { VillageCampaignPanel } from '../villageWar/VillageCampaignPanel';
 import { EspionageStronghold } from '../villageWar/EspionageStronghold';
@@ -36,7 +37,8 @@ type Phase = "traverse" | "fight" | "result" | "patrol-result";
 
 export function AnbuVaultRaid(props: Parameters<typeof AnbuVaultRaidLegacy>[0]) {
     const { state, loaded } = useVillageCampaign(props.character.name, props.character.village);
-    const campaignActive = !!state && Date.now() >= state.campaign.startsAt && Date.now() < state.campaign.endsAt;
+    const now = useSharedNow();
+    const campaignActive = !!state && now >= state.campaign.startsAt && now < state.campaign.endsAt;
     const objective = campaignActive ? state.campaign.strongholds.find(o => o.sector === props.sector) : undefined;
     const objectiveId = objective?.id;
     const campaignWarId = state?.warId;

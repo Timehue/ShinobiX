@@ -4,14 +4,6 @@
   "usage": "Decorative village war objective illustrations",
   "assets": [
     {
-      "kind": "shrine",
-      "path": "/ui/village-war/war-shrine-v1.webp",
-      "prompt": "Use case: stylized-concept. Production background illustration for Shinobi Journey, a dark fantasy shinobi browser RPG. Painterly cinematic game illustration, Japanese timber and weathered stone architecture, atmospheric mountains, charcoal shadows with warm lantern light, strong readable silhouette at small size. Landscape 16:9 composition, important architecture in the central 60%, no text, no logos, no user interface, no borders or collages, no identifiable existing franchise characters. Subject: one monumental central War Shrine on a mountain plateau, broad stone steps and a single massive torii entrance with protective ropes and a sealed bronze altar. Opposing plain crimson and indigo banners flank the symmetrical approach. Subtle blue protective seal light around the altar, grand impending PvP war atmosphere, sunset behind distant mountains. Empty contested arena, no characters. The shrine is the dominant centerpiece.",
-      "width": 960,
-      "height": 540,
-      "bytes": 119096
-    },
-    {
       "kind": "combat",
       "path": "/ui/village-war/stronghold-combat-v1.webp",
       "prompt": "Use case: stylized-concept. Production background illustration for Shinobi Journey, a dark fantasy shinobi browser RPG. Painterly cinematic game illustration, Japanese timber and weathered stone architecture, atmospheric mountains, charcoal shadows with warm lantern light, strong readable silhouette at small size. Landscape 16:9 composition, important architecture in the central 60%, no text, no logos, no user interface, no borders or collages, no identifiable existing franchise characters. Subject: a fortified shinobi-combat sector stronghold courtyard, stone battlements and Japanese tiled gatehouse, two small masked shinobi sentries on opposite sides, sparring arena of weathered stone with crossed practice weapons mounted at the gate. Ember lanterns and crimson banner accents, disciplined military defense atmosphere, the gatehouse is centered and visually distinct from a shrine.",
