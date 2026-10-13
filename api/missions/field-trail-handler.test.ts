@@ -264,7 +264,14 @@ describe('authoritative field mission lifecycle', () => {
         assert.equal((replay.body?.progress as Record<string, unknown>).exploreCount, 3);
     });
 
-    it('credits rival-village raids, allows distinct runs up to the shared daily cap, and rejects stale proofs', async () => {
+    it('credits rival-village raids, allows distinct runs up to the shared daily cap, and rejects stale proofs', async (t) => {
+        // Each field claim takes its UTC day from a no-argument `new Date()`,
+        // and the daily count only grows while that day matches the one the
+        // previous claim stamped. A run that straddles UTC midnight between
+        // the first and second claims would restart the count, so the second
+        // claim would report 1 instead of 2. Freeze Date (Date.now and new
+        // Date alike) for the whole check.
+        t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
         const player = 'fieldtrailclaim';
         await seedPlayer(player, { level: 1, village: 'Stormveil Village' });
         const accepted = await post(trailHandler, player, { missionId: MISSION_ID, action: 'accept' });
@@ -367,6 +374,11 @@ describe('authoritative field mission lifecycle', () => {
             ...claimedSave,
             character: { ...claimedCharacter, claimedServerMissions: [] },
         });
+        // The held clock never moves on its own, so every run so far was
+        // accepted at the same instant. Step it 1 ms forward, so this run's
+        // acceptedAt is later than the first run's: the old exploration proof
+        // below is then stamped before this run began, and must be refused.
+        t.mock.timers.tick(1);
         const nextDayAccept = await post(trailHandler, player, { missionId: MISSION_ID, action: 'accept' });
         const thirdRun = stateFrom(nextDayAccept);
         assert.notEqual(thirdRun.runId, secondRun.runId);

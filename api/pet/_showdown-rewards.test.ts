@@ -260,7 +260,7 @@ describe('showdown.ts wires practice as unpaid', () => {
             'retained HG recovery validates its exact parent only after paid settlement has been suppressed');
     });
 
-    it('transfers paid win witness and Legacy semantics exactly once, with receipt-aware recovery', async () => {
+    it('transfers paid win witness and Legacy semantics exactly once, with receipt-aware recovery', async (t) => {
         const playerName = 'showdownparityprobe';
         const session = createShowdownSession({
             sessionId: 'ShowdownParityReceipt01', playerName, format: '1v1', tier: 'scrapper', seed: 17,
@@ -271,6 +271,12 @@ describe('showdown.ts wires practice as unpaid', () => {
             import('./showdown.js'),
             import('../_legacy-track.js'),
         ]);
+        // The seeded lastDailyReset and showdown.ts's own day both come from a
+        // no-argument `new Date()`. A run that straddles UTC midnight would
+        // seed a day the paid win no longer counts, so dailyPetWins would
+        // restart at 1 instead of reaching 3. Freeze Date (Date.now and new
+        // Date alike) from the seed to the end.
+        t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
         await kv.set(`save:${playerName}`, {
             _saveVersion: 1,
             character: {

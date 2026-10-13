@@ -3,7 +3,7 @@ process.env.SHINOBIX_QA_MEMORY_KV = '1';
 process.env.ADMIN_PASSWORD = 'explore-pool-commit-admin';
 delete process.env.DISABLE_VILLAGE_STORES;
 
-import { after, before, describe, it } from 'node:test';
+import { after, before, describe, it, mock } from 'node:test';
 import assert from 'node:assert/strict';
 
 /*
@@ -61,6 +61,13 @@ before(async () => {
     ({ sectorPoolKey, cleanSectorPoolRow } = await import('./_sector-pool.js'));
     ({ PET_BREEDING_MIGRATION_VERSION } = await import('../pet/_owned-pet.js'));
     handler = (await import('./explore.js')).default as unknown as Handler;
+    // explore.ts debits the pool row for the UTC day of its own Date.now(), and
+    // poolExplores() reads the row for the day of the test's Date.now(). Both
+    // tests count in that one row. A run that straddles UTC midnight would
+    // debit or read the next day's row, so the counts would fall short. Freeze
+    // Date (Date.now and new Date alike) for the whole file, once the modules
+    // above are loaded.
+    mock.timers.enable({ apis: ['Date'], now: Date.now() });
     await kv.set(`save:${PLAYER}`, {
         _saveVersion: 1,
         _saveAt: Date.now(),
@@ -73,6 +80,7 @@ before(async () => {
 });
 
 after(async () => {
+    mock.timers.reset();
     for (const key of await kv.keys('*')) await kv.del(key);
     delete process.env.SHINOBIX_QA_MEMORY_KV;
     delete process.env.ADMIN_PASSWORD;

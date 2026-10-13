@@ -4,7 +4,13 @@ import { versionedPlayerRecord, writeVersionedPlayerSaveWithStore } from './_mut
 import { _makeMemoryKv } from '../_storage.js';
 
 describe('_mutate-player-save', () => {
-    it('commits council wins atomically with counter gains and rejects stale replays', async () => {
+    it('commits council wins atomically with counter gains and rejects stale replays', async (t) => {
+        // The write dates the council win from Date.now() (creditElderWinDeltas'
+        // default `at`), and the check below takes the expected day from a
+        // no-argument `new Date()` after the writes. A run that straddles UTC
+        // midnight would date the win one day and expect the next. Freeze Date
+        // (Date.now and new Date alike) for the whole check.
+        t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
         const store = _makeMemoryKv();
         const before = { _saveVersion: 1, character: { name: 'Rin', village: 'Frostfang Village', totalAiKills: 1234, totalPvpKills: 900 } };
         await store.set('save:rin', before);

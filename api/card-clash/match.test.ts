@@ -464,7 +464,13 @@ test("a sub-threshold natural finish remains progression-neutral", async () => {
   assert.equal(store.get("legacy:stats:alpha"), undefined);
 });
 
-test("qualifying sealed play grants one exact-once Legacy Card Clash win", async () => {
+test("qualifying sealed play grants one exact-once Legacy Card Clash win", async (t) => {
+  // Legacy keys the repeat win to the UTC day of Date.now(), and the check
+  // below rebuilds that day from a no-argument `new Date()`. A run that
+  // straddles UTC midnight between the two would look the win up under the
+  // next day's key and find nothing. Freeze Date (Date.now and new Date alike)
+  // for the whole check.
+  t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
   store.clear();
   installTerminalMatch({ matchId: MATCH_ID, winner: "p1" });
 
