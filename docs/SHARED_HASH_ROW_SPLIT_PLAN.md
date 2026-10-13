@@ -143,8 +143,10 @@ These are most likely images lost to the old parallel-publish race that the `ima
 comment describes, but some could be deleted images whose per-image key survived. The dry
 run lists them by id.
 
-**Era receipts.** `era:contrib-receipts:*` has **zero rows**. The `era:contrib:*` counters
-have not been written since 08-30, which suggests `ENABLE_LEGACY` has been off since then.
+**Era receipts.** `era:contrib-receipts:*` has **zero rows**. *(Corrected in v3: v2 read
+the stale `era:contrib:*` counters as a sign that Legacy was off. It is on: the owner
+confirmed `ENABLE_LEGACY=1`, and `era:contrib-idempotent:missions` was written on 10-12.
+The receipt-backed metrics simply have no receipts in the one-row hash yet.)*
 
 ## 3. Part 1 — image hashes
 
@@ -206,15 +208,18 @@ have not been written since 08-30, which suggests `ENABLE_LEGACY` has been off s
 - **`api/admin/server-reset.ts`:** leader reseed.
 - **`api/admin/image-store.ts`** (new; full admin only; registered in
   `server-api-routes.ts`). It works on one category per call, with two modes:
-  - `dry-run`, the default, which writes nothing;
-  - `write-back`, the rollback (§3.8).
+  - `dry-run`, the default, which writes nothing (shipped in Deploy 1);
+  - `write-back`, the rollback (§3.8), added in Deploy 2. Deploy 1 refuses any mode
+    except `dry-run`.
 - **Kill switch `IMAGE_LEGACY_HASH_WRITE=1`:** off by default. Setting it restores today's
   `hset` into the legacy row. It is a rollback lever only, never a rollout step.
 - **No client changes.**
 
 ### 3.5 Phases
 
-1. **Deploy 1: the read-only dry-run tool only.** It cannot change behaviour.
+1. **Deploy 1: the read-only dry-run tool, plus the era receipt change (§5).** The image
+   tool cannot change behaviour. The era change alters only how receipt-backed era
+   contributions are stored; players see the same totals.
 2. **Run the dry run on production**, one category per call, off-peak (§3.6). Review the
    report with the owner, especially the orphans. For each orphan the owner chooses to keep
    it (a lost image comes back) or to delete it. Deletion uses the existing batch
@@ -239,8 +244,10 @@ have not been written since 08-30, which suggests `ENABLE_LEGACY` has been off s
    - an upload leaves the big row's `ctid` unchanged;
    - the dry run writes nothing;
    - a delete of a legacy id removes it from every place;
-   - the key-scan query is an index range scan with no Sort, Agg or Hash above a jsonb
-     value (asserted from `EXPLAIN` in the test).
+   - the key-scan query CAN be an index range scan, with no Sort, Agg or Hash above a jsonb
+     value. Assert this from `EXPLAIN` under `SET LOCAL enable_seqscan = off`: on CI's tiny
+     table the planner would rightly prefer a sequential scan, so a bare plan assertion
+     would be wrong there. Production's plan was checked separately (§2).
 3. **Production dry run** through the admin endpoint:
    - **Reads:** per category, one `hgetall` of the legacy hash and one `get` of the blob
      (today's full-content GET does the same), the key scan, and `mget` of the per-image
@@ -286,7 +293,19 @@ VACUUM FULL**: it copies the 2 GB table.
     plus legacy ids whose per-image bytes now differ.
   - It `hset`s them into the legacy row in **one** batched write per category.
   - A full code revert is safe only after the write-back.
-- **Deploy 1:** read-only, so a plain revert.
+- **Deploy 1:** the image tool is read-only, so it needs nothing. The era part needs one
+  step before a revert:
+  - Old code sums only the one-row receipt hash, so after a plain revert, receipts recorded
+    since the deploy would vanish from the era totals.
+  - Before reverting, MOVE each receipt-backed metric's shard total into its old hash: in
+    one transaction, write it as one field (for example `{"rollback:2026-10-13": <sum>}`)
+    and delete that metric's 16 shard rows. That is three small transactions.
+  - Move, not copy: if Deploy 1 is applied again later, the new code reads both the old hash
+    and the shards, so a copied total would count twice. The receipt rows stay, so retries
+    still find them after a re-apply.
+  - A settlement retried after the revert could then count once more, because old code
+    cannot see the receipt rows. Retries are rare and the error is one count, so this is
+    accepted.
 - **Phase 3:** irreversible. It needs a separate sign-off and a backup first.
 
 ## 4. The avatar issue, specifically
@@ -365,8 +384,9 @@ receipts a day, with 64 buckets, each bucket is about 660 KB by day 30, which me
 
   A retry finds the receipt and reports success, which keeps today's exactly-once guarantee
   with no crash window. Each write is a few KB of WAL at most, and it does not grow. Reading
-  is `mget` of the old key plus 16 shards per metric. It needs no SQL schema change. During
-  the build I must verify that the expired-row purge covers these receipt rows.
+  is `mget` of the old key plus 16 shards per metric. It needs no SQL schema change. The
+  expired-row purge covers the receipt rows: production's pg_cron job `kv-cleanup` runs
+  `kv_delete_expired()` every 2 minutes (checked 2026-10-13).
 - **Option A:** 32–64 bucket hash keys. This is simpler, but it grows as shown above.
 - **Option C:** defer until Legacy is switched on.
 
@@ -399,6 +419,8 @@ receipts a day, with 64 buckets, each bucket is about 660 KB by day 30, which me
   request; switching to URLs is a client change.
 
 ## 8. Decisions for the owner
+
+*Answered on 2026-10-13; see the table at the top. Kept for the record.*
 
 1. **Avatar rule.** Lift the 2026-06-04 "don't touch avatars" rule for the storage write
    only? Avatar bytes would go only to `shared:img:avatar:<name>`. Validation, size limits
