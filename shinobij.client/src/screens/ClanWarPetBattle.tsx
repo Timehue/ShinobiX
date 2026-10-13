@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
+import {prepareClanWarReturn} from '../lib/clan-war-navigation';
 import { PetDuelReplayScreen } from "../components/PetDuelReplayScreen";
 import { activeCarriedPets } from "../lib/entitlements";
 import {
@@ -30,6 +31,7 @@ type Stash = {
     fromPlayer2?: string | null;
     acceptedPlayer?: string | null;
     acceptedPlayer2?: string | null;
+    campaignVersion?:number;
 };
 
 export function ClanWarPetBattle({ character, setScreen }: { character: Character; setScreen: (s: Screen) => void }) {
@@ -39,7 +41,7 @@ export function ClanWarPetBattle({ character, setScreen }: { character: Characte
     const warId = String(stash.warId ?? "");
     const challengeId = String(stash.challengeId ?? "");
     const mySide = clanWarPetSideOf(character.name, stash);
-    const back = useCallback(() => setScreen("clan"), [setScreen]);
+    const back = useCallback(() => setScreen(prepareClanWarReturn()), [setScreen]);
 
     return (
         <PetDuelReplayScreen<ClanWarPetSession>
@@ -48,7 +50,7 @@ export function ClanWarPetBattle({ character, setScreen }: { character: Characte
                 title: "Clan War Pet Battle",
                 intro: "Send a pet to fight for your clan. The battle is resolved by the server and replays here — no result is reported from your client.",
                 missingText: "No clan-war pet battle selected.",
-                backLabel: "← Back to Clan Hall",
+                backLabel: "Return to Clan War",
                 onBack: back,
                 ready: !!warId && !!challengeId,
                 submitLabel: "Send into battle",
@@ -59,9 +61,9 @@ export function ClanWarPetBattle({ character, setScreen }: { character: Characte
                 resolved: (s) => s.status === "done" && !!s.from.length && !!s.to.length,
                 watch: () => clanWarPetWatch(warId, challengeId),
                 banner: (s) => s.winner === "draw"
-                    ? "The pet battle ended in a draw — no clan-war damage."
+                    ? stash.campaignVersion===2?"The pet battle ended in a draw — no War Points awarded.":"The pet battle ended in a draw — no clan-war damage."
                     : mySide && s.winner === `${mySide}-wins`
-                        ? "Your pets took the battle — the enemy clan takes damage!"
+                        ? stash.campaignVersion===2?"Your pets won — War Points were recorded for your clan!":"Your pets took the battle — the enemy clan takes damage!"
                         : mySide
                             ? "Your pets were defeated."
                             : `${s.winner === "from-wins" ? "The challenging clan" : "The defending clan"} took the battle.`,

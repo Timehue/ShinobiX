@@ -4,6 +4,7 @@ import { withKvLock } from '../_lock.js';
 import { safeName } from '../_utils.js';
 import { CLAN_WAR_KEY_PREFIX, type ClanChallenge, type ClanWar } from '../clan/war/_storage.js';
 import { pvpSessionPublicationTombstoneFor } from './_session-publication-tombstone.js';
+import { campaignBattleAdmissionError } from '../clan/war/_campaign-queue.js';
 
 const SAFE_ID = /^[A-Za-z0-9_-]{3,100}$/;
 const RESERVATION_LEASE_MS = 30_000;
@@ -74,6 +75,9 @@ export async function reserveClanWarPvpSession(args: {
             const war = await kv.get<ClanWar>(warKey);
             const challenge = validateChallenge(war, args);
             if (!war || !challenge) return null;
+            // PvP owns its fighter/battle lease preflight; admission still
+            // verifies current membership and the physical shrine visit.
+            if (!challenge.battleId && await campaignBattleAdmissionError(war, challenge,Date.now(),false)) return null;
             const p1 = safeName(challenge.fromPlayer);
             const p2 = safeName(challenge.acceptedPlayer ?? '');
             if (challenge.battleId) {

@@ -13,7 +13,7 @@ import type { ChallengeMode } from './_storage.js';
 export const CLAN_WAR_PVP_2V2_UNAVAILABLE_REASON =
     'Clan War shinobi 2v2 is temporarily unavailable.';
 
-const PVP_2V2_PROGRESS_ACTIONS = new Set(['send', 'join-send', 'accept', 'join-accept']);
+const PVP_2V2_PROGRESS_ACTIONS = new Set(['send', 'join-send', 'accept', 'join-accept','join','heartbeat','ready','campaign-start']);
 
 /**
  * Emergency rollback switch. Cancel/decline/leave stay available even when set,

@@ -95,6 +95,7 @@ import villageWarWinConditionHandler from './api/village/war-win-condition.js';
 import villageWarTerrainHandler from './api/village/war-terrain.js';
 import villageSectorWarHandler from './api/village/sector-war.js';
 import sectorWarQaHandler from './api/_qa-sector-war.js';
+import clanCampaignQaHandler,{clanCampaignQaEnabled} from './api/_qa-clan-campaign.js';
 import villageWarMercHandler from './api/village/war-merc.js';
 import villageSectorCardHandler from './api/village/sector-card.js';
 import villageSectorPetHandler  from './api/village/sector-pet.js';
@@ -178,6 +179,8 @@ import clanWarPvp2v2Handler from './api/clan/war/pvp-2v2.js';
 import clanWarReportHandler    from './api/clan/war/report.js';
 import clanWarTilecardsHandler from './api/clan/war/tilecards.js';
 import clanWarPetHandler from './api/clan/war/pet.js';
+import clanWarQueueHandler from './api/clan/war/queue.js';
+import clanProgramHandler from './api/clan/program.js';
 // Card Clash — free-play PvP (open matchmaking + server-authoritative match)
 import cardClashQueueHandler   from './api/card-clash/queue.js';
 import cardClashChallengeHandler from './api/card-clash/challenge.js';
@@ -537,6 +540,7 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     route('/village/sector-war', villageSectorWarHandler);
     if (process.env.NODE_ENV === 'test' && process.env.SHINOBIX_QA_MEMORY_KV === '1') {
         route('/_qa/sector-war', sectorWarQaHandler);
+        if(clanCampaignQaEnabled())route('/_qa/clan-campaign',clanCampaignQaHandler);
     }
     // Village War Map — sector-war "Card" win-condition (Phase 4c-2): an interactive
     // 6-turn Card Clash between an attacker- and defender-village member, scoring
@@ -622,6 +626,8 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     // the deterministic duel and finalizes the challenge. /clan/war/report refuses
     // client-reported pet results.
     route('/clan/war/pet', clanWarPetHandler);
+    route('/clan/war/queue', clanWarQueueHandler);
+    route('/clan/program',clanProgramHandler);
 
     // ─── Card Clash: free-play PvP ─────────────────────────────────────────────────
     route('/card-clash/queue', cardClashQueueHandler);

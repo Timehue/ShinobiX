@@ -14,6 +14,7 @@ import { withKvLock } from '../../_lock.js';
 import { clanRecordKey, clanBareSlug } from '../../_utils.js';
 import { addClanXpServer, scaledClanXp } from '../_mission-catalog.js';
 import type { ClanWar } from './_storage.js';
+import { clanWarRoomXpBonus } from '../../../shared/clan-war-campaign.js';
 
 const WAR_WIN_CLAN_XP = 1_200;
 const WAR_LOSS_CLAN_XP = 400; // also the draw payout for both sides.
@@ -46,6 +47,7 @@ async function creditWarClanXp(clanName: string, warId: string, amount: number):
 // response on a rejection here (the war settle is already persisted).
 export async function awardWarEndClanXp(war: ClanWar | null | undefined): Promise<void> {
     if (!war || !war.endedAt || !Array.isArray(war.clans)) return;
+    if(war.campaign){const {reconcileClanWarCampaign}=await import('./_campaign-reconcile.js');await reconcileClanWarCampaign(war.id);return;}
     const winner = war.winnerClan;
     for (const clanName of war.clans) {
         if (!clanName || !String(clanName).trim()) continue;
@@ -87,6 +89,7 @@ export async function awardPvpWarEndClanXp(
         throw new Error('pvp-clan-war-xp-input-invalid');
     }
     const receiptId = createHash('sha256').update(battleId).digest('hex');
+    if(war.campaign&&['service','withdrawal'].includes(war.campaign.closeReason??''))return;
     for (const clanName of war.clans) {
         const slug = clanBareSlug(clanName);
         if (!slug) throw new Error('pvp-clan-war-xp-clan-invalid');
@@ -96,7 +99,10 @@ export async function awardPvpWarEndClanXp(
         await withKvLock(clanKey, async () => {
             for (let attempt = 0; attempt < 12; attempt += 1) {
                 const current = await kv.get<Record<string, unknown>>(clanKey);
-                if (!current) throw new Error(`pvp-clan-war-xp-row-missing:${slug}`);
+                if (!current) {
+                    if (war.campaign) return; // A dissolved clan has no remaining growth record.
+                    throw new Error(`pvp-clan-war-xp-row-missing:${slug}`);
+                }
                 const receipts = pvpWarXpReceipts(current);
                 const prior = receipts[receiptId];
                 if (prior) {
@@ -110,10 +116,11 @@ export async function awardPvpWarEndClanXp(
                     throw new Error('pvp-clan-war-xp-ledger-full');
                 }
                 const memberCount = Array.isArray(current.members) ? current.members.length : 0;
+                const warRoom = war.campaign ? clanWarRoomXpBonus((current.upgrades as Record<string,unknown> | undefined)?.warRoom) : 0;
                 const leveled = addClanXpServer(
                     Number(current.xp ?? 0) || 0,
                     Number(current.level ?? 1) || 1,
-                    scaledClanXp(amount, memberCount),
+                    scaledClanXp(Math.floor(amount*(1+warRoom)), memberCount),
                 );
                 const candidate = {
                     ...current,

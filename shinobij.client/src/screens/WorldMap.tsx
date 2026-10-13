@@ -1,4 +1,6 @@
 import { gainXp } from "../lib/character-level-projection";
+import {ClanShrineGateway} from '../features/clanWar/ClanShrineGateway';
+import type {CwChallenge} from '../lib/clan-war-api';
 import { resourceActionsToday } from '../../../shared/resource-gathering';
 import { interiorTileFromKey } from '../lib/world-interior-tile';
 import { getPvpJutsuLoadout } from "../lib/jutsu-loadout";
@@ -333,6 +335,7 @@ function WorldMapContent({
     capturePvpCreateScope,
     onLaunchWeeklyBoss,
     onExplorePresentationActiveChange,
+    onLaunchClanWarBattle,
 }: {
     setCurrentBiome: (biome: Biome) => void;
     setScreen: (screen: Screen) => void;
@@ -394,6 +397,7 @@ function WorldMapContent({
     // fight (shared leaderboard, 3-attempt cap), then returns the player here.
     onLaunchWeeklyBoss?: (bossAiId: string, bossDisplayName?: string, returnScreen?: Screen) => void;
     onExplorePresentationActiveChange?: (active: boolean) => void;
+    onLaunchClanWarBattle?:(challenge:CwChallenge,warId:string)=>void;
 }) {
     const legacyAvailable = useLegacyAvailability();
     const legacyActionsAvailable = useLegacyMutationAvailability();
@@ -4505,6 +4509,7 @@ function WorldMapContent({
                             <>
                             {!vaultRaid && <SectorVillageEntrance sector={selectedSector} village={character.village} present={sectorIsCurrent}
                                 onEnter={name => { const village = locations.find(l => l.type === "village" && l.name === name); if (village) enterLandmark(village); }} />}
+                            {!vaultRaid&&<ClanShrineGateway character={character} sector={selectedSector} present={sectorIsCurrent} blocked={combatActive||isTraveling} sharedImages={sharedImages} onLaunchBattle={onLaunchClanWarBattle}/>}
                             {!vaultRaid && <WorldSectorOverlayLayer
                                 sector={selectedSector}
                                 biome={ambienceBiomeForSector(selectedSector)}

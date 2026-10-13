@@ -7,13 +7,13 @@
  * Magnitudes are intentionally conservative + centralised here so balance is
  * reviewable in one spot. Effects are ADDITIVE on top of the existing village +
  * clan-upgrade bonuses. The Warmonger war-HP value is mirrored server-side in
- * api/clan/war/_storage.ts (clan-war HP seeding) — KEEP THE TWO IN SYNC.
+ * the legacy HP-war declaration adapter; new campaigns use a fee discount.
  */
 
 export type ClanDoctrine = "none" | "warmonger" | "merchant" | "scholars" | "medics";
 
 export const CLAN_DOCTRINES: Array<{ id: Exclude<ClanDoctrine, "none">; name: string; icon: string; blurb: string; effect: string }> = [
-    { id: "warmonger", name: "Warmonger", icon: "⚔️", blurb: "Forged for war.", effect: `+${100} clan-war HP when your clan declares war` },
+    { id: "warmonger", name: "Warmonger", icon: "⚔️", blurb: "Forged for war.", effect: "10% lower clan-war declaration cost" },
     { id: "merchant", name: "Merchant", icon: "💰", blurb: "Coin over conflict.", effect: `+5% village shop discount for members` },
     { id: "scholars", name: "Scholars", icon: "📖", blurb: "Knowledge is power.", effect: `+5% stat points from training & missions for members` },
     { id: "medics", name: "Medics", icon: "⛑️", blurb: "None left behind.", effect: `-5% hospital cost for members` },
