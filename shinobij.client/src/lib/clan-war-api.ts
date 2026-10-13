@@ -1,5 +1,6 @@
 import type { ClanWarCampaignView } from "../../../shared/clan-war-campaign";
 import {clanWarViewerCache as viewerCache} from './clan-war-cache-state';
+import {retryDynamicImport} from './lazyWithRetry';
 
 export const sharedClanWarCache: Record<string, CwWar> = viewerCache.cache;
 export type ClanShrineRoomView={serverNow:number;players:Array<{name:string;displayName:string;clan:string;tile:number;inBattle:boolean}>};
@@ -10,7 +11,9 @@ const changedViewerError='The signed-in player changed. Reopen the clan page.';
 // Capture the caller before loading so a delayed chunk cannot switch actors.
 async function loadClanWarActions() {
     const viewer = viewerCache.scope();
-    const actions=await import('./clan-war-actions');
+    const actions=await retryDynamicImport(()=>import('./clan-war-actions')).catch(()=>{
+        throw new Error('Clan war actions could not load. Reload the page and try again.');
+    });
     if(!viewerCache.current(viewer))throw new Error(changedViewerError);
     return {actions,viewer};
 }
@@ -19,7 +22,7 @@ export async function cwQueueAction(body:ClanWarQueueActionInput): Promise<{ok:b
     try {
         const {actions,viewer}=await loadClanWarActions();
         return actions.cwQueueAction(body,viewer);
-    } catch(error) { return {ok:false,error:error instanceof Error&&error.message===changedViewerError?changedViewerError:'Connection lost. Your last confirmed war state is preserved. Try again.'}; }
+    } catch(error) { return {ok:false,error:String((error as Error).message)}; }
 }
 
 export type CwChallengeMode = "pvp1v1" | "pvp2v2" | "pet1v1" | "pet2v2" | "tilecards";

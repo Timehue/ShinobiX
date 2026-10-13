@@ -6,9 +6,9 @@ import {readPendingEconomyIntent} from './economy-request-intent.js';
 function installStorage(t:TestContext) {
     const rows=new Map<string,string>();
     const storage={getItem:(key:string)=>rows.get(key)??null,setItem:(key:string,value:string)=>rows.set(key,value),removeItem:(key:string)=>rows.delete(key)};
-    for(const key of ['sessionStorage','localStorage']) {
+    for(const key of ['sessionStorage','localStorage','window']) {
         const original=Object.getOwnPropertyDescriptor(globalThis,key);
-        Object.defineProperty(globalThis,key,{value:storage,configurable:true});
+        Object.defineProperty(globalThis,key,{value:key==='window'?{setTimeout,clearTimeout}:storage,configurable:true});
         t.after(()=>{if(original)Object.defineProperty(globalThis,key,original);else Reflect.deleteProperty(globalThis,key);});
     }
     return storage;
