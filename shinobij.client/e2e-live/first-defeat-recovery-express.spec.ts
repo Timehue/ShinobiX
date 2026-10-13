@@ -86,7 +86,7 @@ test(`persistent world defeat and recovery: ${recovery}`, async ({ page, request
    localStorage.setItem('shinobix:storage-notice-ack', '1'); localStorage.setItem('patchNotes.lastSeenVersion.v1', patch);
    localStorage.setItem('dailyBriefing.seen.v1', new Date().toISOString().slice(0, 10)); localStorage.setItem('defeat-qa-installed', '1');
   }
- }, { name, token, before, patch: LATEST_PATCH_NOTE.version, mobile: info.project.name.includes('mobile') });
+ }, { name, token, before, patch: LATEST_PATCH_NOTE?.version ?? '', mobile: info.project.name.includes('mobile') });
  const directory = process.env.DEFEAT_PHASE
   ? resolve('..', 'docs/audits/first-defeat-recovery', process.env.DEFEAT_PHASE, info.project.name + '-' + recovery)
   : info.outputPath('journey');

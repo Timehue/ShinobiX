@@ -72,7 +72,7 @@ async function installSession(context: BrowserContext, account: Awaited<ReturnTy
         localStorage.setItem('patchNotes.lastSeenVersion.v1', patch);
         localStorage.setItem('dailyBriefing.seen.v1', new Date().toISOString().slice(0, 10));
         localStorage.setItem('exchange-journey-installed', name);
-    }, { ...account, patch: LATEST_PATCH_NOTE.version });
+    }, { ...account, patch: LATEST_PATCH_NOTE?.version ?? '' });
 }
 
 async function openExchange(page: Page) {

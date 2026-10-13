@@ -49,6 +49,10 @@ const ROSTER_RACE_MS = 5000;
 
 let liveArr: PlayerRecord[] = [];
 let liveSig = "";
+// Socket moves only mark liveSig stale; currentLiveSig() rebuilds it when the
+// next roster/upsert compares against it. Every other liveArr/rosterSig write
+// also writes liveSig, so the rebuilt value equals the one a move used to build.
+let liveSigStale = false;
 let liveSector: number | null = null;
 export type SectorRosterState = "loading" | "current" | "reconnecting";
 let rosterState: SectorRosterState = "loading";
@@ -153,9 +157,9 @@ function normalizePlayerRecord(p: PlayerRecord): PlayerRecord {
 }
 
 function clearLiveSectorPlayers(notifySubscribers: boolean): void {
-    const hadState = liveArr.length > 0 || rosterArr.length > 0 || lingerUntil.size > 0 || liveSig !== "" || rosterSig !== "";
+    const hadState = liveArr.length > 0 || rosterArr.length > 0 || lingerUntil.size > 0 || currentLiveSig() !== "" || rosterSig !== "";
     liveArr = [];
-    liveSig = "";
+    setLiveSig("");
     rosterArr = [];
     rosterSig = "";
     lingerUntil.clear();
@@ -241,6 +245,20 @@ function liveSignature(list: PlayerRecord[], memberSig: string): string {
     return memberSig + "||" + list.map((p) => `${p.name.toLowerCase()}:${p.tile ?? ""}:${p.stronghold?.tile ?? ""}:${JSON.stringify(p.worldPosition ?? '')}`).sort().join(",");
 }
 
+/** The live signature, rebuilt here (not per socket move) when a move left it stale. */
+function currentLiveSig(): string {
+    if (liveSigStale) {
+        liveSig = liveSignature(liveArr, rosterSig);
+        liveSigStale = false;
+    }
+    return liveSig;
+}
+
+function setLiveSig(sig: string): void {
+    liveSig = sig;
+    liveSigStale = false;
+}
+
 function notify(): void {
     subscribers.forEach((fn) => fn());
 }
@@ -292,10 +310,11 @@ export function pushLiveSectorPlayers(next: PlayerRecord[], sector?: number): vo
     const sig = liveSignature(merged, memberSig);
     const stateChanged = rosterState !== "current";
     rosterState = "current";
-    if (sig === liveSig && stateChanged) notify();
-    if (sig === liveSig) return; // unchanged — keep ref, notify nobody
+    const unchanged = sig === currentLiveSig();
+    if (unchanged && stateChanged) notify();
+    if (unchanged) return; // unchanged — keep ref, notify nobody
     liveArr = merged;
-    liveSig = sig;
+    setLiveSig(sig);
     // Refresh the membership snapshot only when WHO/display changed (not on a
     // tile-only move), so panel subscribers don't re-render when a peer walks.
     if (memberSig !== rosterSig) {
@@ -323,9 +342,9 @@ export function upsertLiveSectorPlayer(player: PlayerRecord, sector: number): vo
         : [...liveArr, normalized];
     const memberSig = presenceSignature(next);
     const sig = liveSignature(next, memberSig);
-    if (sig === liveSig) return;
+    if (sig === currentLiveSig()) return;
     liveArr = next;
-    liveSig = sig;
+    setLiveSig(sig);
     if (memberSig !== rosterSig) {
         rosterArr = next;
         rosterSig = memberSig;
@@ -342,7 +361,7 @@ export function moveLiveSectorPlayer(name: string, tile: number, sector: number)
     const index = liveArr.findIndex((p) => playerKey(p.name) === key);
     if (index < 0 || liveArr[index].tile === tile) return;
     liveArr = liveArr.map((p, i) => i === index ? { ...p, tile } : p);
-    liveSig = liveSignature(liveArr, rosterSig);
+    liveSigStale = true;
     // rosterArr intentionally remains unchanged: tile movement should only
     // re-render the peer overlay, not WorldMap's membership/status panels.
     notify();
@@ -355,7 +374,7 @@ export function moveLiveWorldPlayer(name: string, sector: number, position: Play
     if (index < 0 || sequence <= (liveArr[index].movementSequence ?? -1)) return;
     liveArr = liveArr.map((p, i) => i === index ? { ...p, worldPosition: position, movementSequence: sequence } : p);
     recentWorldMoves.set(playerKey(name), Date.now());
-    liveSig = liveSignature(liveArr, rosterSig);
+    liveSigStale = true;
     notify();
 }
 
@@ -386,7 +405,7 @@ function dropPlayers(keys: Set<string>): void {
     if (filtered.length === liveArr.length) return; // nobody removed
     const memberSig = presenceSignature(filtered);
     liveArr = filtered;
-    liveSig = liveSignature(filtered, memberSig);
+    setLiveSig(liveSignature(filtered, memberSig));
     rosterArr = filtered;
     rosterSig = memberSig;
     notify();

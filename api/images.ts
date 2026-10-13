@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from './_vercel.js';
 import { kv, type KvLike } from './_storage.js';
 import { cors, parseJsonBody, safeName } from './_utils.js';
-import { authedPlayerOrAdmin, isFullAdmin } from './_auth.js';
+import { authedPlayerOrAdmin, isAdmin, isFullAdmin } from './_auth.js';
 import { writeAssetMeta, deleteAssetMeta, imageFormat, assetMetaKey } from './_asset-registry.js';
 import { recordAudit } from './_audit.js';
 import { r2ReadEnabled, r2WriteEnabled, putImage, deleteImage } from './_r2.js';
@@ -569,19 +569,16 @@ export async function readImageValuesReport(
  * Full-content mode for one category: every listed id with its bytes. A known
  * category reuses the memoised manifest and legacy-id list, so a burst of
  * cache-busting requests cannot make Postgres re-list the 9-16 MB legacy rows
- * each time; the bytes come through the storage read cache. `complete` is
- * false when a read failed or timed out, and such an answer must not be cached.
+ * each time; the bytes come through the storage read cache. Ids a read could
+ * not reach (a failure or a timeout) are left out. That is safe only because
+ * the handler sends every full-content answer `private, no-store`.
  */
-async function fullContent(
-    cat: string,
-    withTimeout: ReadTimeout,
-): Promise<{ values: Record<string, string>; complete: boolean }> {
+async function fullContent(cat: string, withTimeout: ReadTimeout): Promise<Record<string, string>> {
     const { ids, versions } = isManifestCategory(cat)
         ? await memoisedManifest(cat, withTimeout)
         : { ids: await buildManifestIds(cat, withTimeout), versions: undefined };
-    if (ids === null) return { values: {}, complete: false };
-    const { values, unread } = await readImageValuesReport(cat, ids, withTimeout, versions);
-    return { values, complete: unread.length === 0 };
+    if (ids === null) return {};
+    return (await readImageValuesReport(cat, ids, withTimeout, versions)).values;
 }
 
 /**
@@ -617,7 +614,11 @@ export async function buildLegacyManifestIds(cat: string, withTimeout: ReadTimeo
 
 export function categoryFromId(id: string): string {
     const prefix = id.split(':')[0];
-    return KNOWN_PREFIXES[prefix] ?? 'misc';
+    // Own keys only. A plain lookup resolved `constructor:x`, `toString:x` or
+    // `__proto__:x` to an inherited Object.prototype member, not 'misc'. Such an
+    // upload skipped the misc cap, sat in no manifest, and bumped a version key
+    // named after the function's source text.
+    return Object.hasOwn(KNOWN_PREFIXES, prefix) ? KNOWN_PREFIXES[prefix] : 'misc';
 }
 
 // Admin-only image prefixes. The admin tooling owns these (jutsus, items,
@@ -809,7 +810,7 @@ export async function removeImagesBatch(ids: readonly string[], deps: {
         // the misc hash, which the leader manifest and /api/img read too.
         if (cat === 'leader') await deps.store.hdel(catHashKey('misc'), ...catIds);
         const blob = await deps.store.get<Record<string, string>>(catKey(cat));
-        if (blob && catIds.some((id) => id in blob)) {
+        if (blob && catIds.some((id) => Object.hasOwn(blob, id))) {
             const rest = { ...blob };
             for (const id of catIds) delete rest[id];
             if (Object.keys(rest).length) await deps.store.set(catKey(cat), rest);
@@ -837,7 +838,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         try {
             const cat = typeof req.query.cat === 'string' ? req.query.cat.trim() : '';
 
-            res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=120');
+            // `?cat=<cat>&ids=1` is the id manifest every client loads. It is
+            // public and cached at the edge. Any other GET is full-content mode,
+            // which sends every image's bytes: up to ~18 MB for one category, and
+            // every category when there is no `cat`. Only admin tools and scripts
+            // use it, so it needs an admin credential. Its answer is `private,
+            // no-store`, because Cloudflare caches /api/images*, and a public
+            // answer would replay an admin's bytes to anyone. The refusal is a 403,
+            // never a 401: the client counts 401s on player requests toward its
+            // session-expired prompt (shinobij.client/src/authFetch.ts).
+            if (cat && req.query.ids) {
+                res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=120');
+            } else {
+                res.setHeader('Cache-Control', 'private, no-store');
+                if (!isAdmin(req)) {
+                    return res.status(403).json({ error: 'Full image content is admin-only. Load ?cat=<category>&ids=1 and /api/img instead.' });
+                }
+            }
 
             // Helper: read a kv value with a per-call timeout so one slow read
             // never hangs the whole request. 18s per KV call — under both the pg
@@ -898,28 +915,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return res.status(200).json(ids);
                 }
 
-                // Full-content mode (admin tools and scripts; players load ids
-                // only): every listed id with its bytes. Each image's own row
-                // wins, as on /api/img; the legacy rows fill only ids with no row
-                // (leader portraits filed under 'misc' included, audit #16).
-                const { values, complete } = await fullContent(cat, withTimeout);
-                // Images a read could not reach are missing: never let an edge
-                // or a browser keep this answer.
-                if (!complete) res.setHeader('Cache-Control', 'no-store');
-                return res.status(200).json(values);
+                // Full-content mode (admins only, see above): every listed id
+                // with its bytes. Each image's own row wins, as on /api/img; the
+                // legacy rows fill only ids with no row (leader portraits filed
+                // under 'misc' included, audit #16).
+                return res.status(200).json(await fullContent(cat, withTimeout));
             }
 
-            // No category param — return everything (admin / bulk use), one
-            // category at a time in parallel. 'leader' includes the portraits
-            // still filed under 'misc'. A category that could not be read
-            // fully makes the whole answer uncacheable.
-            let incomplete = false;
-            const categoryEntries = await Promise.all(KNOWN_CATEGORIES.map(async (category) => {
-                const { values, complete } = await fullContent(category, withTimeout);
-                if (!complete) incomplete = true;
-                return values;
-            }));
-            if (incomplete) res.setHeader('Cache-Control', 'no-store');
+            // No category param: every category's full content (admins only,
+            // see above), one category at a time in parallel. 'leader' includes
+            // the portraits still filed under 'misc'.
+            const categoryEntries = await Promise.all(KNOWN_CATEGORIES.map((category) => fullContent(category, withTimeout)));
             return res.status(200).json(Object.assign({}, ...categoryEntries));
         } catch (err) {
             console.error('[images GET error]', err);
@@ -1111,8 +1117,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // lived there (pre-hash-migration uploads). Done BEFORE the version
             // bump: a manifest built under the new version must never still find
             // the id in the blob and cache it (the batch path bumps last too).
+            // Own keys only: `in` also sees inherited names, so an admin delete
+            // of a colon-less id such as `constructor` would rewrite the whole
+            // multi-MB blob for nothing.
             const blob = await kv.get<Record<string, string>>(catKey(cat));
-            if (blob && id in blob) {
+            if (blob && Object.hasOwn(blob, id)) {
                 const next = { ...blob };
                 delete next[id];
                 await kv.set(catKey(cat), next);
