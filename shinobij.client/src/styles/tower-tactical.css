@@ -2049,7 +2049,9 @@
     #combat.tower-tactical-combat .tower-fight-main { justify-content: center; }
     #combat.tower-tactical-combat .tower-rail-battle-log:not(.is-expanded) { flex: 1 1 160px; min-height: 120px; }
     #combat.tower-tactical-combat .tower-combatant-inspect { min-height: 0; }
-    #combat.tower-tactical-combat .tower-combatant-inspect:hover { background: rgba(88, 169, 245, .06); }
+    @media (hover: hover) {
+        #combat.tower-tactical-combat .tower-combatant-inspect:hover { background: rgba(88, 169, 245, .06); }
+    }
     #combat.tower-tactical-combat .tower-combatant-inspect:focus-visible { outline: 2px solid #e3c77e; outline-offset: 3px; }
 }
 
