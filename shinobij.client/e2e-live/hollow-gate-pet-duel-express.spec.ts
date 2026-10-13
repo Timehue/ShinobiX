@@ -221,7 +221,7 @@ async function installSession(page: Page, diver: Diver) {
         localStorage.setItem('patchNotes.lastSeenVersion.v1', patchVersion);
         localStorage.setItem('dailyBriefing.seen.v1', new Date().toISOString().slice(0, 10));
         localStorage.setItem('live-hg-pet-installed', name);
-    }, { name: diver.name, token: diver.token, canonical: diver.canonical, patchVersion: LATEST_PATCH_NOTE.version });
+    }, { name: diver.name, token: diver.token, canonical: diver.canonical, patchVersion: LATEST_PATCH_NOTE?.version ?? '' });
 }
 
 /** The next POST to `path` whose JSON body satisfies `match`. */

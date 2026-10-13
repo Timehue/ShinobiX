@@ -35,7 +35,7 @@ test('real map approaches, both minigames, Outpost tabs and fish cooking persist
         localStorage.setItem('shinobix:storage-notice-ack', '1'); localStorage.setItem('patchNotes.lastSeenVersion.v1', patch);
         localStorage.setItem('dailyBriefing.seen.v1', new Date().toISOString().slice(0, 10));
         localStorage.setItem('legacyRumors.seen.v1:' + name, JSON.stringify([10, 20, 30, 40, 45])); localStorage.setItem('liteFx.v1', '0');
-    }, { name, token, canonical, patch: LATEST_PATCH_NOTE.version });
+    }, { name, token, canonical, patch: LATEST_PATCH_NOTE?.version ?? '' });
     const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
     await page.goto('/#/worldMap', { waitUntil: 'domcontentloaded' });
     const enter = page.getByRole('button', { name: 'Enter World Map', exact: true });
@@ -154,7 +154,7 @@ test('shop tools equip, survive reload, spend durability, and connect to refinin
         localStorage.setItem('dailyBriefing.seen.v1', new Date().toISOString().slice(0, 10));
         localStorage.setItem('legacyRumors.seen.v1:' + name, JSON.stringify([10, 20, 30, 40, 45]));
         localStorage.setItem('liteFx.v1', '0'); localStorage.setItem('fieldkit-installed', name);
-    }, { name, token, canonical, patch: LATEST_PATCH_NOTE.version });
+    }, { name, token, canonical, patch: LATEST_PATCH_NOTE?.version ?? '' });
     const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
     page.on('dialog', dialog => void dialog.accept());
     const readSave = async () => (await (await request.get(`/api/save/${name}`, { headers })).json()).character;
@@ -316,7 +316,7 @@ test('a tool purchase overtaken by a later save keeps the tool and closes its po
         localStorage.setItem('shinobix:storage-notice-ack', '1'); localStorage.setItem('patchNotes.lastSeenVersion.v1', patch);
         localStorage.setItem('dailyBriefing.seen.v1', new Date().toISOString().slice(0, 10));
         localStorage.setItem('legacyRumors.seen.v1:' + name, JSON.stringify([10, 20, 30, 40, 45])); localStorage.setItem('liteFx.v1', '0');
-    }, { name, token, canonical, patch: LATEST_PATCH_NOTE.version });
+    }, { name, token, canonical, patch: LATEST_PATCH_NOTE?.version ?? '' });
     const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
     const readSave = async () => (await (await request.get(`/api/save/${name}`, { headers })).json()).character;
     // Hold the boot sync until the purchase is stored, then deliver its newer

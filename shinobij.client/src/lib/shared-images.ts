@@ -117,7 +117,8 @@ const CLIENT_KNOWN_PREFIXES: Record<string, string> = {
 };
 function categoryFromImageKey(id: string): string {
     const prefix = id.split(':')[0];
-    return CLIENT_KNOWN_PREFIXES[prefix] ?? 'misc';
+    // Own keys only, as on the server: `constructor:x` is misc, not an inherited member.
+    return Object.hasOwn(CLIENT_KNOWN_PREFIXES, prefix) ? CLIENT_KNOWN_PREFIXES[prefix] : 'misc';
 }
 
 export async function publishSharedImage(id: string, img: string): Promise<boolean> {

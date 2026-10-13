@@ -22,6 +22,7 @@ import {
 } from "../lib/stats";
 import { levelProgress } from "../lib/character-progress";
 import { nextRankBand, cappedStatCount } from "../lib/rank-progression";
+import { LATEST_PATCH_NOTE } from "../data/patch-notes";
 import "./ProgressionPanel.css";
 
 export function ProgressionPanel({ character }: { character: Character }) {
@@ -114,7 +115,8 @@ export function ProgressionPanel({ character }: { character: Character }) {
                 </div>
             </div>
 
-            <button type="button" className="prog-whatsnew" onClick={openPatchNotes}>What's New →</button>
+            {/* Only when there is a note to open: PatchNotesModal renders nothing without one. */}
+            {LATEST_PATCH_NOTE && <button type="button" className="prog-whatsnew" onClick={openPatchNotes}>What's New →</button>}
         </section>
     );
 }

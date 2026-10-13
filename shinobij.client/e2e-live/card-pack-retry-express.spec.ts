@@ -86,7 +86,7 @@ async function installSession(page: Page, account: Awaited<ReturnType<typeof see
         localStorage.setItem('patchNotes.lastSeenVersion.v1', patch);
         localStorage.setItem('dailyBriefing.seen.v1', new Date().toISOString().slice(0, 10));
         localStorage.setItem('pack-retry-qa-installed', name);
-    }, { name: account.name, token: account.token, canonical: account.canonical, patch: LATEST_PATCH_NOTE.version });
+    }, { name: account.name, token: account.token, canonical: account.canonical, patch: LATEST_PATCH_NOTE?.version ?? '' });
 }
 
 const randomPackButton = (page: Page) => page.getByRole('button', { name: /Random Pack/ });
