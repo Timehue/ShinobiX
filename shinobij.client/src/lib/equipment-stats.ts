@@ -5,6 +5,7 @@
  * number / loadout out.
  */
 import { armorReductionForItem } from "./equipment";
+import { combatEquipment } from "../../../shared/gathering-tools";
 import type { Character } from "../types/character";
 import type { PetTrait } from "../types/pet";
 import type { GameItem, EquipmentSlot } from "../types/combat";
@@ -48,7 +49,7 @@ export function getEquippedItemBonus<K extends keyof NonNullable<GameItem["bonus
     allItems: GameItem[],
     field: K
 ): number {
-    const allSlots = Object.values(character.equipment ?? {}) as string[];
+    const allSlots = Object.values(combatEquipment(character.equipment ?? {})) as string[];
     let total = 0;
     for (const id of allSlots) {
         const item = allItems.find((i) => i.id === id);
@@ -57,7 +58,9 @@ export function getEquippedItemBonus<K extends keyof NonNullable<GameItem["bonus
     return total;
 }
 
+// Gathering tools are equipped for fishing and mining only, so neither combat
+// helper here reads them (shared/gathering-tools.ts combatEquipment).
 export function getPvpItemLoadout(character: Character, allItems: GameItem[]): GameItem[] {
-    const equippedIds = new Set(Object.values(character.equipment ?? {}).filter((id): id is string => Boolean(id)));
+    const equippedIds = new Set(Object.values(combatEquipment(character.equipment ?? {})).filter((id): id is string => Boolean(id)));
     return allItems.filter((item) => equippedIds.has(item.id));
 }
