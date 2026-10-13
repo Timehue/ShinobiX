@@ -135,6 +135,43 @@ export function decodeBase64Image(s: string): { mime: string; buf: Buffer } | nu
     }
 }
 
+// copyImageToR2 makes the request wait for R2, so these are tighter than the
+// 15 s defaults in api/_r2.ts, which are sized for the backfill. The largest
+// image is about 2.2 MB, so 8 s leaves room for a slow link. A PUT cut off by
+// its timeout may still land after the DELETE that follows it, which is safe:
+// R2 then holds the new bytes.
+const R2_COPY_TIMEOUT_MS = 8_000;
+const R2_REMOVE_TIMEOUT_MS = 4_000;
+
+/**
+ * Stage 3 (R2, api/_r2.ts + docs/R2_IMAGE_MIGRATION_PLAN.md): copy an image's
+ * bytes to R2, so /api/img can redirect there instead of reading Postgres.
+ *
+ * Callers await this BEFORE bumpImageVersion, so R2 holds the new bytes, or no
+ * copy, by the time the version moves. /api/img redirects to R2 whenever the
+ * object exists there, and serves a versioned request immutable. If the version
+ * moved first, a request under the new version could find the OLD object,
+ * because the copy was still in flight or had failed, and Cloudflare would
+ * cache those bytes under the new URL for a year.
+ *
+ * Best-effort: Postgres stays authoritative, and an R2 failure never fails the
+ * write. When the copy fails, or the image has no bytes to copy (an external
+ * http(s) URL), the object is deleted instead, so /api/img falls back to
+ * Postgres rather than redirecting to an older copy. A no-op unless the R2
+ * write creds are set.
+ */
+export async function copyImageToR2(id: string, image: string): Promise<void> {
+    if (!r2WriteEnabled()) return;
+    try {
+        const decoded = decodeBase64Image(image);
+        if (decoded && await putImage(id, decoded, { timeoutMs: R2_COPY_TIMEOUT_MS })) return;
+        if (await deleteImage(id, { timeoutMs: R2_REMOVE_TIMEOUT_MS })) return;
+    } catch {
+        // putImage and deleteImage report failure as false; this is a backstop.
+    }
+    console.error(`[images] R2 may still serve an older copy of ${id}: it could be neither replaced nor deleted. Upload the image again once R2 is healthy.`);
+}
+
 // Returns an error string if the avatar image is unacceptable, else null.
 export function avatarImageReject(image: string): string | null {
     if (!/^data:image\/(png|jpe?g|webp|gif);base64,/i.test(image)) {
@@ -961,6 +998,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 await kv.hset(catHashKey(cat), { [id]: image });
                 await kv.set(perImageKey(id), image).catch(() => undefined);
                 forgetImageLists(cat, { legacyRows: true });
+                await copyImageToR2(id, image);
                 await bumpImageVersion(cat);
             } else {
                 // The image's own row is the only write, and its key is what
@@ -969,6 +1007,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const created = (await kv.set(perImageKey(id), image, { nx: true })) === 'OK';
                 if (!created) await kv.set(perImageKey(id), image);
                 forgetImageLists(cat);
+                // R2 gets the new bytes (or loses its old copy) before any
+                // bump below can send a client to the new version. Awaited
+                // even when nothing is bumped: a copy still in flight could
+                // land after a later replace's copy and leave R2 holding the
+                // older bytes.
+                await copyImageToR2(id, image);
                 // Retire cached /api/img?id=…&v=<old> URLs only when they could
                 // hold other bytes for THIS id: a replace, or an id the frozen
                 // legacy rows still serve. A brand-new id has no cached URL
@@ -977,18 +1021,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // for every player. Best-effort by contract
                 // (api/_image-version.ts).
                 if (!created || await servedByLegacyRows(cat, id)) await bumpImageVersion(cat);
-            }
-
-            // Stage 3 (R2): also dual-write the decoded bytes to R2 so GET /api/img
-            // can redirect there instead of reading Postgres (see api/_r2.ts +
-            // docs/R2_IMAGE_MIGRATION_PLAN.md). Best-effort + gated: no-op unless
-            // the R2 write creds are set, and a failure NEVER fails the upload
-            // (Postgres above stays authoritative; the read path falls back to it).
-            // Only inline data-URL images have bytes to store — external http(s)
-            // URLs are left to the Postgres redirect path.
-            if (r2WriteEnabled()) {
-                const decoded = decodeBase64Image(image);
-                if (decoded) void putImage(id, decoded).catch(() => undefined);
             }
 
             // Asset registry (Priority 6) + content audit (Priority 8). Both are
