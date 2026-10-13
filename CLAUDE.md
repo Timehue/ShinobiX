@@ -93,9 +93,13 @@ unreachable. `server-routes.test.ts` enforces this both ways
   tests under a scan root, or they silently never run.
 - **`*.pg-integration.test.ts` files run against a real Postgres** and skip
   unless `PG_INTEGRATION_DATABASE_URL` names a throwaway database, so `npm test`
-  reports them as skipped. CI runs them in `CI / pg-integration` (a `postgres:16`
-  service container, with `PG_INTEGRATION_REQUIRED=1` so a skip fails the job).
-  Use one for any storage behaviour the `pg.Pool` shim tests cannot prove.
+  reports them as skipped. `CI / pg-integration` (a `postgres:16` service
+  container, with `PG_INTEGRATION_REQUIRED=1` so a skip fails the job) runs
+  **exactly one file**: `api/_storage-compare-set-many.pg-integration.test.ts`,
+  named in `.github/workflows/ci.yml` and `scripts/test-with-postgres.mjs`. Put
+  new real-Postgres tests in that file, or add a new file to both places;
+  otherwise CI never runs it. Use it for any storage behaviour the `pg.Pool`
+  shim tests cannot prove.
 - **The Node version lives in exactly one file: `.nvmrc`** (currently `24.21.0`).
   Every workflow reads it through `node-version-file`, `scripts/run-tests.mjs`
   reads it to warn when your local major differs, and the Dockerfile repeats it

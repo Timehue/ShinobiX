@@ -49,8 +49,11 @@ async function deliverInfiltrationLegacy(
         { receiptId, characterForBootstrap: character ?? null },
     );
     if (!delivered) return false;
-    await bumpEraContributionOnce('warBattles', receiptId);
-    return true;
+    // bumpEraContributionOnce reports a failed era write as false instead of
+    // throwing. The raid reward is already saved, so keeping the report
+    // retryable costs the raider nothing, and the retry counts the war battle
+    // exactly once.
+    return bumpEraContributionOnce('warBattles', receiptId);
 }
 import { MAX_RAID_ATTEMPTS_PER_DAY, type WarPool } from '../_anbu-infiltration.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
@@ -455,13 +458,15 @@ async function doReportLocked(res: VercelResponse, identity: Identity, playerNam
     await writeInfilRun({ ...run, settlement: { settledAt, response: economicResponse } });
 
     // ── Mission / legacy / clan hooks (docs plan §9) ──────────────────────────
-    // Best-effort AFTER the authoritative settle — a hook failure must never
-    // unwind the paid reward. An infiltration win is a server-proofed raid:
-    //   • Vanguards progress their 'vanguard-raids' daily missions.
-    //   • Legacy (the L100 system) credits raidsCompleted + warContribution and
-    //     the era's warBattles — identical to sector-war's resolve credit.
+    // All run AFTER the authoritative settle, and no hook failure may unwind the
+    // paid reward. An infiltration win is a server-proofed raid:
+    //   • Vanguards progress their 'vanguard-raids' daily missions (best-effort).
     //   • The raider's clan gets +1 eventContrib, which feeds the EXISTING clan
-    //     'raid' mission (progress = eventContrib/3) and 'training'.
+    //     'raid' mission (progress = eventContrib/3) and 'training' (best-effort).
+    //   • Legacy (the L100 system) credits raidsCompleted + warContribution and
+    //     the era's warBattles, as a sector-war battle does. These land last;
+    //     until they do, the report answers a retryable 503 and a retry replays
+    //     the saved settlement.
     let missionsCompleted: CompletedMissionInfo[] = [];
     let missionXp = 0;
     try {
