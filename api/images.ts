@@ -248,10 +248,12 @@ export function isManifestCategory(cat: string): boolean {
     return cat === 'misc' || KNOWN_CATEGORIES.includes(cat);
 }
 
-// The memo key embeds the category's image version, which every upload or
-// delete bumps. A superseded key is never read again, and the process cache has
-// no eviction, so each one would keep a full id list until restart (players can
-// bump versions with avatar uploads). Holding at most ONE live key per category
+// The memo key embeds the category's image version, which a replace or a
+// delete bumps. (A brand-new id does not bump, so it is listed when the 60 s
+// memo expires, as the edge's max-age=60 already allowed.) A superseded key is
+// never read again, and the process cache has no eviction, so each one would
+// keep a full id list until restart (players can bump versions by replacing
+// their avatar). Holding at most ONE live key per category
 // drops the old list the moment the version moves; categories are a fixed set.
 // A version read that failed (null) is a blip, not a newer version: its key
 // lives in a separate slot, so it never evicts the real list (which would force
@@ -399,14 +401,37 @@ export async function readImageValues(
     ids: readonly string[],
     withTimeout: ReadTimeout = readNow,
 ): Promise<Record<string, string>> {
-    const out: Record<string, string> = {};
+    return (await readImageValuesReport(cat, ids, withTimeout)).values;
+}
+
+/**
+ * {@link readImageValues}, plus the ids it could not read. When a row read
+ * times out, that chunk and every later one are left out, never filled from
+ * the legacy rows. For an image replaced since the split, those rows hold the
+ * OLDER bytes, and the Admin Panel's "recompress" buttons republish whatever
+ * full-content mode returns. Reading stops there too, so a struggling
+ * database is not asked for the rest. A caller with `unread` ids must not let
+ * the answer be cached.
+ */
+export async function readImageValuesReport(
+    cat: string,
+    ids: readonly string[],
+    withTimeout: ReadTimeout = readNow,
+): Promise<{ values: Record<string, string>; unread: string[] }> {
+    const values: Record<string, string> = {};
     const missing: string[] = [];
+    const unread: string[] = [];
     for (let i = 0; i < ids.length; i += IMAGE_READ_CHUNK) {
         const chunk = ids.slice(i, i + IMAGE_READ_CHUNK);
-        const values = await withTimeout(kv.mget<unknown[]>(...chunk.map(perImageKey)));
+        const rows = await withTimeout(kv.mget<unknown[]>(...chunk.map(perImageKey)));
+        // mget always resolves to an array, so null means the read timed out.
+        if (rows === null) {
+            unread.push(...ids.slice(i));
+            break;
+        }
         chunk.forEach((id, index) => {
-            const value = values?.[index];
-            if (typeof value === 'string' && value.length > 0) out[id] = value;
+            const value = rows[index];
+            if (typeof value === 'string' && value.length > 0) values[id] = value;
             else missing.push(id);
         });
     }
@@ -418,10 +443,10 @@ export async function readImageValues(
         ]);
         for (const id of missing) {
             const value = legacyImageValue(id, hash, blob, misc);
-            if (value) out[id] = value;
+            if (value) values[id] = value;
         }
     }
-    return out;
+    return { values, unread };
 }
 
 /**
@@ -692,15 +717,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // keys-only reads, and a hard 503 (no-store) when the primary
                 // read fails so a degraded list is never served or cached.
                 if (req.query.ids) {
-                    // Every client load asks for ~8 of these manifests, and each
-                    // build lists the keys of a multi-MB image row. The 2026-10-12
-                    // load test showed them among the slowest DB reads under load.
-                    // The id list only changes when a write bumps the category
-                    // version (upload, delete, batch delete, server reset), so it
-                    // is memoised per (category, version) for the same 60 s the
-                    // edge already allows (Cache-Control max-age=60). Only known
-                    // categories are cached, so a request cannot mint unbounded
-                    // cache entries; a failed read throws and is never cached.
+                    // Every client load asks for ~8 of these manifests, and the
+                    // 2026-10-12 load test showed them among the slowest DB reads
+                    // under load. The id list changes when a write bumps the
+                    // category version (a replace, a delete, a batch delete, a
+                    // server reset), and also when a brand-new image gets its own
+                    // row, which does not bump. So it is memoised per (category,
+                    // version) for the same 60 s the edge already allows
+                    // (Cache-Control max-age=60), and a new image is listed within
+                    // that minute. Only known categories are cached, so a request
+                    // cannot mint unbounded cache entries; a failed read throws and
+                    // is never cached.
                     if (isManifestCategory(cat)) {
                         const [version, miscVersion] = await Promise.all([
                             readImageVersion(cat),
@@ -754,16 +781,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     res.setHeader('Cache-Control', 'no-store');
                     return res.status(200).json({});
                 }
-                return res.status(200).json(await readImageValues(cat, ids, withTimeout));
+                const { values, unread } = await readImageValuesReport(cat, ids, withTimeout);
+                // Images left out by a timed-out read: never let an edge or a
+                // browser keep this answer.
+                if (unread.length) res.setHeader('Cache-Control', 'no-store');
+                return res.status(200).json(values);
             }
 
             // No category param — return everything (admin / bulk use), one
             // category at a time in parallel. 'leader' includes the portraits
-            // still filed under 'misc'.
+            // still filed under 'misc'. A category that could not be read
+            // fully makes the whole answer uncacheable.
+            let incomplete = false;
             const categoryEntries = await Promise.all(KNOWN_CATEGORIES.map(async (category) => {
                 const ids = await buildManifestIds(category, withTimeout);
-                return ids === null ? {} : readImageValues(category, ids, withTimeout);
+                if (ids === null) {
+                    incomplete = true;
+                    return {};
+                }
+                const { values, unread } = await readImageValuesReport(category, ids, withTimeout);
+                if (unread.length) incomplete = true;
+                return values;
             }));
+            if (incomplete) res.setHeader('Cache-Control', 'no-store');
             return res.status(200).json(Object.assign({}, ...categoryEntries));
         } catch (err) {
             console.error('[images GET error]', err);

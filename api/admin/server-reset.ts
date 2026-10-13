@@ -228,10 +228,11 @@ export function summarizeByNamespace(keys: readonly string[]): Record<string, nu
 
 // Villages with NPC Kage + 3 Elders configured on the Village Leaders admin tab.
 // Images live in game:village-leadership-images (preserved through resets).
-// After wiping, we copy them into the shared:imgfields:misc hash under the
-// leader:{village}:kage and leader:{village}:elder:{0|1|2} keys so portraits
-// load instantly for every client without each one having to re-fetch the
-// leadership blob.
+// After wiping, we copy each one into its own image row under the ids
+// leader:{village}:kage and leader:{village}:elder:{0|1|2}, so portraits load
+// instantly for every client without each one having to re-fetch the
+// leadership blob. (Before the shared-row split they went into the
+// shared:imgfields:misc hash; the rollback lever still writes that too.)
 const KAGE_VILLAGES = [
     'Stormveil Village',
     'Ashen Leaf Village',
