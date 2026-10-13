@@ -5,12 +5,14 @@ import { battleAuthorityKeys, battleEvidenceFrom, resolveBattleAuthority } from 
 import { battleStateKey, invalidateBattleAuthority, isBattleStateProjection, noteBattleEnded } from '../_realtime/battle-projection.js';
 import { parsePvpPendingSessionPointer } from './_pending-session.js';
 import type { PvpSession } from './session.js';
+import { releaseDefeatedShrinePlayer } from '../_village-war-shrine-presence.js';
 
 type PresenceStore = Pick<KvLike, 'get' | 'compareSet'> & Partial<Pick<KvLike, 'mget'>>;
 
 /** A terminal retry may arrive after either participant starts another fight. */
 export async function releasePvpTerminalPresence(store: PresenceStore, session: PvpSession): Promise<void> {
     if (session.status !== 'done') return;
+    releaseDefeatedShrinePlayer(session);
     for (const role of ['p1', 'p2'] as const) {
         if (session.realFighters?.[role] === false) continue;
         const name = session[role].name;

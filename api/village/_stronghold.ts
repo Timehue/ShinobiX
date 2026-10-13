@@ -6,6 +6,7 @@ import { battleAuthorityKeys, battleEvidenceFrom, resolveBattleAuthority } from 
 import { toPlayerRecord } from '../_realtime/presence-input.js';
 import { leaveStrongholdPresence, strongholdLocation, touchStrongholdPresence } from '../_stronghold-presence.js';
 import { sectorPresenceBlock } from '../_sector-presence-gate.js';
+import { villageCampaignStronghold } from '../_village-war-campaign.js';
 import { isIncapacitated } from '../_elapsed-state.js';
 import { isWarSector } from '../_war-map-sectors.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
@@ -29,7 +30,7 @@ const fail = (error: string, status = 409): Result => ({ status, body: { error }
 function snapshot(playerName: string, visit: StrongholdVisit, extra: Record<string, unknown> = {}): Result {
     if (visit.presenceId) touchStrongholdPresence(playerName, visit.sector, visit.tile);
     const peers = onlineStore.listSector(visit.sector)
-        .filter(p => p.name !== playerName && strongholdLocation(p.name, p.sector))
+        .filter(p => p.name !== playerName && strongholdLocation(p.name, p.sector) && !strongholdLocation(p.name, p.sector)?.room)
         .map(toPlayerRecord);
     return { status: 200, body: { ok: true, visit, peers, ...extra } };
 }
@@ -40,7 +41,7 @@ export async function strongholdVaultReady(playerName: string, sector: number): 
     const visit = await kv.get<StrongholdVisit>(strongholdVisitKey(playerName, sector));
     if (!visit?.presenceId || visit.layoutVersion !== STRONGHOLD_LAYOUT_VERSION || visit.patrolId || visit.threat >= 100) return false;
     const w = STRONGHOLD_DIMS.width;
-    return !!strongholdLocation(playerName, sector)
+    return !!strongholdLocation(playerName, sector) && !strongholdLocation(playerName, sector)?.room
         && Math.abs(visit.tile % w - STRONGHOLD_VAULT % w) + Math.abs(Math.floor(visit.tile / w) - Math.floor(STRONGHOLD_VAULT / w)) === 1;
 }
 
@@ -64,6 +65,10 @@ export async function handleStrongholdAction(playerName: string, action: string,
     }
     const presenceBlock = sectorPresenceBlock(playerName, sector);
     if (presenceBlock) return fail(presenceBlock.error, presenceBlock.status);
+    if (action === 'stronghold-enter' || action === 'stronghold-step') {
+        const save = await kv.get<{ character?: { village?: string } }>(`save:${playerName}`);
+        if (await villageCampaignStronghold(String(save?.character?.village ?? ''), sector)) return fail('This village war stronghold uses its nominated battle mode. Open the war objective to enter.');
+    }
     return withKvLock(key, async () => {
         let visit = await kv.get<StrongholdVisit>(key);
         const presenceId = typeof body.presenceId === 'string' && /^[a-zA-Z0-9_-]{8,80}$/.test(body.presenceId) ? body.presenceId : undefined;

@@ -1,3 +1,4 @@
+import { preparationLevels, sectorPreparationInstance } from './_war-preparations.js';
 /*
  * Settling a finished Combat garrison assault: the one place it happens.
  *
@@ -157,6 +158,7 @@ export async function settleGarrisonRunLocked(runId: string, actor: GarrisonSett
                 // capture credit). Garrison win: the AI scored.
                 by: attackerWon ? run.attackerName : '',
                 garrisonBattle: attackerWon,
+                supportMultiplier: 1 + preparationLevels(normalizeVillageWarRecord(fresh.attackerVillage, atkRaw ?? undefined), sectorPreparationInstance(fresh), endedAt).warAcademy / 10,
                 mercBattle: !attackerWon,
             });
             return {

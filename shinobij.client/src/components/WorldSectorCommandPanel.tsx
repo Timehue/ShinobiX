@@ -1,3 +1,4 @@
+import { WorldSectorVillageWarCard } from "../features/villageWar/WorldSectorVillageWarCard";
 import {
     GiCrossedSwords,
     GiPawPrint,
@@ -104,32 +105,7 @@ export function WorldSectorCommandPanel({
                     ) : (
                         <p className="sector-territory-idle-note">Unclaimed — no clan holds this sector, so nothing here is contested.</p>
                     )}
-                    {territory.war && (
-                        <div className="summary-box sector-panel-card sector-war-card">
-                            <div className="sector-panel-card-head">
-                                <h4><GiCrossedSwords aria-hidden="true" />War Ground</h4>
-                            </div>
-                            <p>{territory.war.playerVillage} vs {territory.war.enemyVillage}</p>
-                            <div className="sector-meter-block">
-                                <div className="sector-meter-row">
-                                    <span>Ground HP</span>
-                                    <strong>{territory.war.warGroundHp.toLocaleString()} / {territory.war.warGroundHpMax.toLocaleString()}</strong>
-                                </div>
-                                <div className="sector-meter sector-meter-hp"><span style={{ width: `${(territory.war.warGroundHp / territory.war.warGroundHpMax) * 100}%` }} /></div>
-                            </div>
-                            <div className="sector-meter-block">
-                                <div className="sector-meter-row">
-                                    <span>{territory.war.enemyVillage ?? "Enemy"} HP</span>
-                                    <strong>{territory.war.enemyVillageHp.toLocaleString()} / {territory.war.enemyVillageHpMax.toLocaleString()}</strong>
-                                </div>
-                                <div className="sector-meter sector-meter-hp"><span style={{ width: `${(territory.war.enemyVillageHp / territory.war.enemyVillageHpMax) * 100}%` }} /></div>
-                            </div>
-                            <button type="button" className="danger-button sector-action-btn is-danger" disabled={!present || !villageWarAdmissionOpen || territory.war.warGroundHp <= 0 || territory.war.ended} onClick={onRaidEnemyVillage}>
-                                <span className="sector-action-icon" aria-hidden="true"><GiCrossedSwords /></span>
-                                <span>Raid Enemy Village</span>
-                            </button>
-                        </div>
-                    )}
+                    {territory.war && <WorldSectorVillageWarCard war={territory.war} present={present} admissionOpen={villageWarAdmissionOpen} onRaid={onRaidEnemyVillage} />}
                     {territory.enemyControlled && (
                         <button type="button" className="danger-button sector-action-btn is-danger" disabled={!present || !villageWarAdmissionOpen} onClick={onRaidControlledSector}>
                             <span className="sector-action-icon" aria-hidden="true"><GiCrossedSwords /></span>

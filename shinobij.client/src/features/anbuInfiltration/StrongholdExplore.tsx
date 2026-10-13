@@ -26,12 +26,13 @@ function visibilityForStrongholdTile(base: ReturnType<typeof buildVaultInterior>
 
 export function StrongholdExplore({ character, sector, targetVillage, sharedImages, anbuAvatar, anbuName, blocked,
     admissionPending = false, admissionError, onRetryAdmission,
-    onChallenge, onPatrol, onAttackPlayer, onExit }: {
+    onChallenge, onPatrol, onAttackPlayer, onExit, defending = false }: {
     character: Character; sector: number; targetVillage: string; sharedImages: Record<string, string>;
     anbuAvatar: string | null; anbuName: string; blocked: boolean;
     admissionPending?: boolean; admissionError?: string | null; onRetryAdmission?: () => void;
     onChallenge: () => void; onPatrol: (session: SoloPveSession) => void;
     onAttackPlayer: (player: PlayerRecord) => void | Promise<void>; onExit: () => void;
+    defending?: boolean;
 }) {
     const [state, setState] = useState<(StrongholdResponse & { receivedAt: number }) | null>(null);
     const [error, setError] = useState('');
@@ -148,7 +149,7 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
         if (!target || target.kind === 'wall') return false;
         const distance = Math.abs(tile % base.width - visit.tile % base.width) + Math.abs(Math.floor(tile / base.width) - Math.floor(visit.tile / base.width));
         if (distance !== 1) return false;
-        if (target.kind === 'boss') { stopWalk(); onChallenge(); return false; }
+        if (target.kind === 'boss') { stopWalk(); if (!defending) onChallenge(); return false; }
         busy.current = true;
         const context = lifetime.current;
         try {
@@ -240,7 +241,7 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
 
     return <section className={`stronghold-shell${obsidian ? ' stronghold-obsidian' : ''}`} aria-label={title} data-gamepad-mode="sector">
         <header className="stronghold-header">
-            <div><span className="stronghold-eyebrow">{obsidian ? 'Death’s Gate · Open PvP' : `${targetVillage} territory`}</span><h2>{title}</h2><p>{obsidian ? 'Twelve chambers. Rival shinobi. No sanctuary.' : 'Reach the Anbu vault. Watch for patrols and rival shinobi.'}</p></div>
+            <div><span className="stronghold-eyebrow">{obsidian ? 'Death’s Gate · Open PvP' : `${targetVillage} territory`}</span><h2>{title}</h2><p>{obsidian ? 'Twelve chambers. Rival shinobi. No sanctuary.' : defending ? 'Guard duty · Use Players to confront enemy spies inside. Your Anbu stays on defense.' : 'Reach the Anbu vault. Watch for patrols and rival shinobi.'}</p></div>
             <div className={`stronghold-threat ${threat >= 80 ? 'is-danger' : ''}`}>
                 <div><b>Threat</b><strong>{threat}%</strong></div>
                 <div role="progressbar" aria-label="Stronghold threat" aria-valuemin={0} aria-valuemax={100} aria-valuenow={threat}><i style={{ width: `${threat}%` }} /></div>

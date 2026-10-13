@@ -28,7 +28,8 @@ describe('war-map-view: villageWarMapView', () => {
 
     it('reflects Watchtower (Control HP cap) and Supply Depot (WR/sector)', () => {
         const v = villageWarMapView({ village: 'Moonshadow Village', record: recordWith({ watchtower: 10, supplyDepot: 10 }), treasurySeals: 50, sectorsHeld: 8 });
-        assert.equal(v.wrPerSector, 30);               // 25 + 0.5×10
+        assert.equal(v.wrPerSector, 25);
+        assert.equal(v.depotDailyIncome, 50);               // 25 + 0.5×10
         assert.equal(v.treasurySeals, 50);
         assert.equal(v.structures.watchtower, 10);
     });

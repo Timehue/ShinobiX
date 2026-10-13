@@ -48,7 +48,10 @@ import {
     villageWarSlug,
     type VillageWarRecord,
 } from './_war-state.js';
-import { resetPerWarStructures, wrPerSector } from './_war-structures.js';
+import { resetPerWarStructures, wrPerSector, depotDailyIncome } from './_war-structures.js';
+import { campaignPreparationContext, sectorPreparationContext } from './_war-preparations.js';
+import type { CampaignWarRow } from './_village-war-campaign.js';
+import type { SectorWarSession } from './_sector-war.js';
 import { activeVillageWarEnemiesOf } from './world-state.js';
 import { listActiveSectorWars } from './_sector-war-store.js';
 import { settleDueSectorWars } from './_sector-war-settle.js';
@@ -293,6 +296,16 @@ export async function runVillageWarDailyPass(
                 const raw = await store.get<Partial<VillageWarRecord>>(key);
                 const record = normalizeVillageWarRecord(village, raw ?? undefined);
                 if (record.lastWarPassDate === today) return; // an earlier run stepped today
+                if (record.warPreparations?.length) {
+                    const live = await Promise.all(record.warPreparations.map(async p => {
+                        const row = await store.get(p.rowKey);
+                        const context = !row ? null : p.kind === 'village'
+                            ? campaignPreparationContext(row as CampaignWarRow, village, now)
+                            : sectorPreparationContext(row as SectorWarSession, village, now);
+                        return context?.instance === p.instance ? p : null;
+                    }));
+                    record.warPreparations = live.filter((p): p is NonNullable<typeof p> => p !== null);
+                }
                 // Per-war fortifications (Ramparts/Watchtower) reset to 0 once the
                 // village is at peace — they never carry into the next war (§7 split).
                 // They reset BEFORE the day's upkeep is computed: charging their
@@ -306,6 +319,7 @@ export async function runVillageWarDailyPass(
                     today,
                     now,
                     wrPerSector: wrPerSector(base), // Supply-Depot-boosted income
+                    depotIncome: depotDailyIncome(base),
                 });
                 // Seal the day's seal accrual BEFORE the stamp lands: once it has,
                 // this run or any later one credits exactly this amount, once.

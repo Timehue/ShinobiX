@@ -47,8 +47,9 @@ describe("War Hall: no fightless raids or client captures", () => {
         assert.doesNotMatch(screen, /"Captured"/);
     });
 
-    it("reads every war HP against the village's own max", () => {
-        assert.match(screen, /villageWarHpMax\(war, village\)/);
+    it("shows campaign War Points instead of the removed war HP readout", () => {
+        assert.match(screen, /war\.warPoints\?\.\[village\]/);
+        assert.match(screen, /VillageCampaignPanel/);
         assert.doesNotMatch(screen, /VILLAGE_WAR_HP_MAX/);
     });
 
@@ -61,7 +62,8 @@ describe("War Hall: no fightless raids or client captures", () => {
         assert.doesNotMatch(council, /VILLAGE_WAR_HP_MAX/);
         const townHall = readFileSync(new URL("./TownHall.tsx", import.meta.url), "utf8");
         assert.doesNotMatch(townHall, /\/ VILLAGE_WAR_HP_MAX \* 100/, "no bar divides by the fixed base");
-        assert.match(townHall, /villageWarHpMax\(primaryVillageWar, character\.village\)/);
+        const warDisplay = readFileSync(new URL("../features/villageWar/TownHallWarDisplay.tsx", import.meta.url), "utf8");
+        assert.match(warDisplay, /villageWarHpMax\(primaryVillageWar, village\)/);
         const worldMap = readFileSync(new URL("./WorldMap.tsx", import.meta.url), "utf8");
         assert.match(worldMap, /enemyVillageHpMax: villageWarEnemy \? villageWarHpMax\(villageWar, villageWarEnemy\)/);
     });

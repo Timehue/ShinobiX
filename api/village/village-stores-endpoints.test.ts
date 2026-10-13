@@ -31,15 +31,18 @@ let cafeteria: Handler;
 type KvLike = import('../_storage.js').KvLike;
 let kv: typeof import('../_storage.js').kv;
 let issuePlayerToken: (name: string) => string | null;
+let resetRateLimits: typeof import('../_ratelimit.js').__resetRateLimitsForTest;
 
 before(async () => {
     ({ kv } = await import('../_storage.js'));
     ({ issuePlayerToken } = await import('../_auth.js'));
+    ({ __resetRateLimitsForTest: resetRateLimits } = await import('../_ratelimit.js'));
     sectorWar = (await import('./sector-war.js')).default as unknown as Handler;
     warStructure = (await import('./war-structure.js')).default as unknown as Handler;
     cafeteria = (await import('../player/cafeteria.js')).default as unknown as Handler;
 });
 beforeEach(async () => {
+    resetRateLimits();
     const keys = await kv.keys('*');
     if (keys.length) await kv.del(...keys);
     delete process.env.DISABLE_VILLAGE_STORES;
@@ -318,6 +321,62 @@ describe('war-structure materials gate (Village Stores)', { concurrency: false }
         const row = (await readEconomyTxSnapshot(50)).recent.find((tx) => tx.kind === 'village-war-structure');
         assert.notEqual(row?.state, 'needs-reconcile', 'no "NOT granted" reconcile row for a level that was granted');
     });
+    it('resumes a paid permanent upgrade without taking seals or materials again', async () => {
+        await seed(5, 800);
+        const realSet = kv.set.bind(kv);
+        let failures = 1;
+        (kv as { set: KvLike['set'] }).set = (async (key, value, options) => {
+            if (key === FROST_WAR && failures-- > 0) throw new Error('interrupted upgrade grant');
+            return realSet(key, value, options);
+        }) as KvLike['set'];
+        try {
+            const first = await call(warStructure, { playerName: 'frostkage', village: DEFENDER, structure: 'supplyDepot', toLevel: 6 });
+            assert.equal(first.statusCode, 500);
+        } finally { (kv as { set: KvLike['set'] }).set = realSet; }
+        const paid = (await kv.get<any>(FROST_STATE)).treasury;
+        const resumed = await call(warStructure, { playerName: 'frostkage', village: DEFENDER, structure: 'supplyDepot', toLevel: 6 });
+        assert.equal(resumed.statusCode, 200, JSON.stringify(resumed.body));
+        assert.deepEqual((await kv.get<any>(FROST_STATE)).treasury, paid, 'the earlier payment covers this grant');
+        assert.equal((await kv.get<any>(FROST_WAR)).structures.supplyDepot, 6);
+        assert.equal((await kv.get<any>(FROST_WAR)).storesLedger.length, 1);
+        const { readEconomyTxSnapshot } = await import('../_economy-tx.js');
+        assert.equal((await readEconomyTxSnapshot(50)).stuck.filter(tx => tx.kind === 'village-war-structure').length, 0);
+    });
+    for (const lostWrite of ['treasury', 'journal', 'grant'] as const) it(`recovers a permanent purchase after a lost ${lostWrite} write answer with an empty treasury`, async () => {
+        const { structureUpgradeCost } = await import('../_war-structures.js');
+        const cost = structureUpgradeCost('supplyDepot', 5);
+        await seed(5, 400, cost);
+        const realSet = kv.set.bind(kv);
+        let interrupted = false;
+        (kv as { set: KvLike['set'] }).set = (async (key, value, options) => {
+            const match = lostWrite === 'treasury' ? key === FROST_STATE
+                : lostWrite === 'grant' ? key === FROST_WAR
+                : key.startsWith('economy-tx:village-war-structure:') && (value as { state?: string })?.state === 'debit-applied';
+            if (match && !interrupted) {
+                interrupted = true;
+                if (lostWrite !== 'journal') await realSet(key, value, options);
+                throw new Error(`lost ${lostWrite} write answer`);
+            }
+            return realSet(key, value, options);
+        }) as KvLike['set'];
+        try {
+            assert.equal((await call(warStructure, { playerName: 'frostkage', village: DEFENDER, structure: 'supplyDepot', toLevel: 6 })).statusCode, 500);
+        } finally { (kv as { set: KvLike['set'] }).set = realSet; }
+        const paid = await kv.get<any>(FROST_STATE);
+        assert.equal(paid.treasury.honorSeals, 0);
+        assert.equal(paid.treasury.materialPoints, 0);
+        const resumed = await call(warStructure, { playerName: 'frostkage', village: DEFENDER, structure: 'supplyDepot', toLevel: 6 });
+        assert.equal(resumed.statusCode, 200, JSON.stringify(resumed.body));
+        assert.equal(resumed.body?.replayed, true);
+        assert.deepEqual(await kv.get(FROST_STATE), paid);
+        const record = await kv.get<any>(FROST_WAR);
+        assert.equal(record.structures.supplyDepot, 6);
+        assert.equal(record.storesLedger.length, 1);
+        assert.equal((await call(warStructure, { playerName: 'frostkage', village: DEFENDER, structure: 'supplyDepot', toLevel: 6 })).statusCode, 409);
+        assert.deepEqual(await kv.get(FROST_STATE), paid);
+        const { readEconomyTxSnapshot } = await import('../_economy-tx.js');
+        assert.equal((await readEconomyTxSnapshot(50)).stuck.filter(tx => tx.kind === 'village-war-structure').length, 0);
+    });
     it('pressing again for the level already bought is refused and spends nothing', async () => {
         // Without the intended level, a retry after a lost answer bought (and
         // charged for) the NEXT level.
@@ -332,12 +391,26 @@ describe('war-structure materials gate (Village Stores)', { concurrency: false }
         assert.match(String(retry.body?.message), /already at level 3, so nothing was spent/);
         assert.equal((await kv.get<{ structures: Record<string, number> }>(FROST_WAR))?.structures.supplyDepot, 3);
         assert.equal((await kv.get<{ treasury: Record<string, number> }>(FROST_STATE))?.treasury.honorSeals, seals);
-        // Per-war structures (War Resources) take the same guard.
-        await kv.set(FROST_WAR, { ...(await kv.get<Record<string, unknown>>(FROST_WAR)), warResources: 10_000 });
-        assert.equal((await call(warStructure, { playerName: 'frostkage', village: DEFENDER, structure: 'ramparts', toLevel: 1 })).statusCode, 200);
-        const wrLeft = (await kv.get<{ warResources: number }>(FROST_WAR))?.warResources;
-        assert.equal((await call(warStructure, { playerName: 'frostkage', village: DEFENDER, structure: 'ramparts', toLevel: 1 })).statusCode, 409);
-        assert.equal((await kv.get<{ warResources: number }>(FROST_WAR))?.warResources, wrLeft);
+        // Temporary purchases require a live, explicitly selected war.
+        await kv.set(FROST_WAR, { ...(await kv.get<Record<string, unknown>>(FROST_WAR)), warResources: 1000 });
+        const before = await kv.get(FROST_WAR);
+        const missing = await call(warStructure, { playerName: 'frostkage', village: DEFENDER, structure: 'watchtower', toLevel: 1 });
+        assert.equal(missing.statusCode, 400);
+        assert.equal(missing.body?.error, 'war-required');
+        assert.deepEqual(await kv.get(FROST_WAR), before);
+
+    });
+    it('a stale Ramparts purchase cannot spend WR, treasury seals or materials', async () => {
+        await seed(2, 700);
+        await kv.set(FROST_WAR, { ...(await kv.get<Record<string, unknown>>(FROST_WAR)), warResources: 1000 });
+        const beforeWar = await kv.get(FROST_WAR);
+        const beforeTreasury = await kv.get(FROST_STATE);
+        const out = await call(warStructure, { playerName: 'frostkage', village: DEFENDER, structure: 'ramparts', toLevel: 1 });
+        assert.equal(out.statusCode, 409);
+        assert.equal(out.body?.error, 'retired-structure');
+        assert.match(String(out.body?.message), /decided by War Points.*No resources were spent/);
+        assert.deepEqual(await kv.get(FROST_WAR), beforeWar);
+        assert.deepEqual(await kv.get(FROST_STATE), beforeTreasury);
     });
     it('concurrent presses for one level buy it once, and a non-Kage buys nothing', async () => {
         await seed(2, 0);

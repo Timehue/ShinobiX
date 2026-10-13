@@ -7,6 +7,8 @@ import { attackBlock, worldInteractionBlock } from '../_realtime/presence-gating
 import { kickPlayer } from '../_realtime/notify.js';
 import { kv } from '../_storage.js';
 import { isIncapacitated } from '../_elapsed-state.js';
+import { activeContestOnSector } from '../_sector-war-store.js';
+import { alertSectorPreparation } from '../_war-preparations.js';
 import { endOwnFieldRecoveryShield } from '../_field-recovery-shield.js';
 import { worldBossPvpProtectionBlock, withWorldBossPvpLock } from '../world-boss-event/_pvp-protection.js';
 
@@ -110,6 +112,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // is the authoritative path that reads + clears pendingAttacker). No-op if
         // the target has no socket / realtime is off — the poll still delivers it.
         kickPlayer(targetName, 'attack');
+        if (!identity.admin && attacker && targetPresence) {
+            // Only an admitted world attack between this contest's two sides.
+            await (async () => {
+                const contest = await activeContestOnSector(targetPresence.sector);
+                if (!contest || contest.winCondition !== 'combat') return;
+                const [from, to] = await Promise.all([
+                    kv.get<{ character?: { village?: string } }>(`save:${identity.name}`),
+                    kv.get<{ character?: { village?: string } }>(`save:${safeName(targetName)}`),
+                ]);
+                const a = from?.character?.village, b = to?.character?.village;
+                if (a && b && a !== b && [contest.attackerVillage, contest.defenderVillage].includes(a)
+                    && [contest.attackerVillage, contest.defenderVillage].includes(b)) {
+                    const now = Date.now();
+                    await alertSectorPreparation(contest, `combat:${identity.name}:${safeName(targetName)}:${now}`, 'combat', now, b);
+                }
+            })().catch(() => undefined);
+        }
         return res.status(200).json({ ok: true });
     } catch (err) {
         console.error('[attack]', err);

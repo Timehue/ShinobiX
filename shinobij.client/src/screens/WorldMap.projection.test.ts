@@ -127,8 +127,10 @@ test("WorldMap and its selected-sector leaves keep the projection line-budget ra
         // this file (shared/road-flee.ts, lib/road-flee-api.ts). Behavior wiring on
         // the existing encounter flow, not a retired map layer coming back. Exact
         // achieved count, no buffer.
-        lineCount(worldMapSource) <= 5352,
-        `WorldMap.tsx grew past 5,352 lines; retired overview layers must stay retired.`,
+        // Shrine room state/presentation and vault marker selection remain in
+        // feature leaves. Tighten the achieved count instead of growing this screen.
+        lineCount(worldMapSource) <= 5341,
+        `WorldMap.tsx grew past 5,341 lines; retired overview layers must stay retired.`,
     );
     assert.ok(
         lineCount(canvasSource) <= 220,

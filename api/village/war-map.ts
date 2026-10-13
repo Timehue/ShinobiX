@@ -11,6 +11,7 @@ import { listActiveSectorWars } from '../_sector-war-store.js';
 import { projectSectorWarForClient } from '../_sector-war.js';
 import { villageWarMapEnabled } from '../_release-flags.js';
 import { viewerVillageOf } from '../_viewer-village.js';
+import { listWarPreparationContexts, preparationView } from '../_war-preparations.js';
 
 /*
  * /api/village/war-map — GET only. The read-only War-Map aggregator (Phase 6).
@@ -75,8 +76,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // A village's war chest, structures, stores and tax are for its own
         // members (owner ruling 2026-10-08). Everyone else gets the public view:
         // who holds what, and the rules of each held sector. Admins see all.
-        const villages: Array<VillageWarMapView | VillageWarMapPublicView> = WAR_VILLAGES.map((v, i) => {
+        const villages = await Promise.all(WAR_VILLAGES.map(async (v, i) => {
             const record = normalizeVillageWarRecord(v, warRaws[i] ?? undefined);
+            const own = identity.admin || v === viewerVillage;
+            const contexts = own ? await listWarPreparationContexts(v) : [];
+            record.warPreparations = (record.warPreparations ?? []).filter(p => contexts.some(c => c.instance === p.instance));
             const treasury = (stateRaws[i]?.treasury ?? {}) as Record<string, unknown>;
             const treasurySeals = Number(treasury.honorSeals) || 0;
             const view = villageWarMapView({
@@ -84,8 +88,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 provisions: Number(treasury.provisions) || 0, materialPoints: Number(treasury.materialPoints) || 0,
                 heldSectors: heldLists[v] ?? [],
             });
-            return identity.admin || v === viewerVillage ? view : publicVillageWarMapView(view);
-        });
+            return own ? { ...view, preparations: contexts.map(c => preparationView(c, record)) } : publicVillageWarMapView(view);
+        }));
 
         return res.status(200).json({
             ok: true, enabled: true, villages,
