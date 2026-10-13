@@ -234,18 +234,31 @@ describe('batch image removal (2026-09-19 disk incident)', () => {
     it('rewrites each shared record ONCE however many images it removes, and keeps unrelated art', async () => {
         const { data, writes, store } = fakeStore(initial);
         const audits: unknown[] = []; const bumps: string[] = [];
-        const result = await removeImagesBatch([...ids, ids[0]], { store, bumpVersion: async (c) => { bumps.push(c); }, audit: async (e) => { audits.push(e); }, actor: 'admin' });
+        const result = await removeImagesBatch([...ids, ids[0]], { store, bumpVersion: async (c) => { bumps.push(c); writes.push(`bump ${c}`); }, audit: async (e) => { audits.push(e); }, actor: 'admin' });
         assert.equal(result.removed.length, 150);
         assert.deepEqual(result.failed, []);
         assert.equal(writes.filter((w) => w === 'hdel shared:imgfields:event').length, 1, 'one hash rewrite');
         assert.equal(writes.filter((w) => w.includes('shared:images:event')).length, 0, 'bundle emptied: deleted, not rewritten');
-        assert.equal(writes.length, 3, `writes: ${writes.join(', ')}`);
+        assert.equal(writes.length, 4, `writes: ${writes.join(', ')}`);
+        assert.equal(writes.at(-1), 'bump event', `every legacy and per-image removal lands before the version bump: ${writes.join(', ')}`);
         assert.deepEqual(Object.keys(data.get('shared:imgfields:event') as object), ['event:keep:warden']);
         assert.equal(data.has('shared:images:event'), false);
         assert.ok(ids.every((id) => !data.has(`shared:img:${id}`)));
         assert.equal(data.get('shared:img:event:keep:warden'), 'data:w');
         assert.deepEqual(bumps, ['event']);
         assert.equal(audits.length, 1);
+    });
+
+    it('also clears the old misc-hash copy of a leader portrait, in one write', async () => {
+        const { data, writes, store } = fakeStore({
+            'shared:imgfields:misc': { 'leader:Stormveil Village:kage': 'data:old', 'shrine:x': 'data:s' },
+            'shared:img:leader:Stormveil Village:kage': 'data:new',
+        });
+        const result = await removeImagesBatch(['leader:Stormveil Village:kage'], { store, bumpVersion: async () => {}, audit: async () => {}, actor: 'admin' });
+        assert.deepEqual(result.removed, ['leader:Stormveil Village:kage']);
+        assert.deepEqual(data.get('shared:imgfields:misc'), { 'shrine:x': 'data:s' });
+        assert.equal(data.has('shared:img:leader:Stormveil Village:kage'), false);
+        assert.equal(writes.filter((w) => w === 'hdel shared:imgfields:misc').length, 1);
     });
 
     it('a bundle that keeps other images is rewritten once without the removed ones', async () => {

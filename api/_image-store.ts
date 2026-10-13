@@ -1,6 +1,6 @@
 import type { KvLike } from './_storage.js';
 import {
-    PER_IMAGE_PREFIX, categoryPrefixes, legacyBlobKey, legacyHashKey, legacyImageValue, perImageKey, scanCategoryIds,
+    PER_IMAGE_PREFIX, categoryPrefixes, forgetImageLists, legacyBlobKey, legacyHashKey, legacyImageValue, perImageKey, scanCategoryIds,
 } from './images.js';
 import { assetMetaKey, contentHashOf, type AssetMeta } from './_asset-registry.js';
 
@@ -35,7 +35,7 @@ export { PER_IMAGE_PREFIX, categoryPrefixes, legacyBlobKey, legacyHashKey, scanC
  * index range scan). Bytes are compared in Node. Postgres is never asked to
  * sort, group or aggregate image values: on 2026-10-13, five ad-hoc queries of
  * that shape wrote 10.9 GB of temp files on the 8 GB-capped production disk.
- * It never calls GET /api/img, which writes on a miss.
+ * It never calls GET /api/img, which wrote on a miss before the split.
  */
 
 const imgOwnerKey = (id: string) => `img-owner:${id}`;
@@ -251,6 +251,9 @@ export async function writeBackImageCategory(cat: string, deps: { store: WriteBa
         if (legacy !== value) fields[id] = value;
     });
     const written = Object.keys(fields).sort();
-    if (written.length) await store.hset(legacyHashKey(cat), fields);
+    if (written.length) {
+        await store.hset(legacyHashKey(cat), fields);
+        forgetImageLists(cat, { legacyRows: true });
+    }
     return { category: cat, written: written.slice(0, REPORT_LIST_CAP), writtenCount: written.length };
 }

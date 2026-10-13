@@ -106,14 +106,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ? withTimeout(kv.hgetall<Record<string, string>>(legacyHashKey('misc')))
                     : Promise.resolve(null),
             ]);
-            const legacyTimedOut = hashResult === IMAGE_READ_TIMEOUT
-                || blobResult === IMAGE_READ_TIMEOUT
-                || miscResult === IMAGE_READ_TIMEOUT;
-            const hash = hashResult === IMAGE_READ_TIMEOUT ? null : hashResult;
-            const blob = blobResult === IMAGE_READ_TIMEOUT ? null : blobResult;
-            const misc = miscResult === IMAGE_READ_TIMEOUT ? null : miscResult;
-            raw = legacyImageValue(id, hash, blob, misc);
-            if (!raw && legacyTimedOut) return temporaryImageFailure(res);
+            // A read that timed out may hold the newest legacy copy, so an older
+            // one found in another row must not stand in for it, least of all
+            // under an immutable URL. The client retries instead.
+            if (hashResult === IMAGE_READ_TIMEOUT || blobResult === IMAGE_READ_TIMEOUT || miscResult === IMAGE_READ_TIMEOUT) {
+                return temporaryImageFailure(res);
+            }
+            raw = legacyImageValue(id, hashResult, blobResult, miscResult);
         }
 
         if (!raw) {

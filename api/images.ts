@@ -249,19 +249,19 @@ export function isManifestCategory(cat: string): boolean {
 }
 
 // The memo key embeds the category's image version, which a replace or a
-// delete bumps. (A brand-new id does not bump, so it is listed when the 60 s
-// memo expires, as the edge's max-age=60 already allowed.) A superseded key is
-// never read again, and the process cache has no eviction, so each one would
-// keep a full id list until restart (players can bump versions by replacing
-// their avatar). Holding at most ONE live key per category
-// drops the old list the moment the version moves; categories are a fixed set.
+// delete bumps. (A brand-new id does not bump; its upload drops this process's
+// memo instead, see forgetImageLists.) A superseded key is never read again,
+// and the process cache has no eviction, so each one would keep a full id list
+// until restart (players can bump versions by replacing their avatar). Holding
+// at most ONE live key per category drops the old list the moment the version
+// moves; categories are a fixed set.
 // A version read that failed (null) is a blip, not a newer version: its key
 // lives in a separate slot, so it never evicts the real list (which would force
 // a full rebuild the moment the read recovers).
 function versionedCacheKeys(namespace: string) {
     const live = new Map<string, string>();
     const degradedSlots = new Map<string, string>();
-    return (cat: string, version: string | number | null, miscVersion: string | number | null): string => {
+    const keyFor = (cat: string, version: string | number | null, miscVersion: string | number | null): string => {
         const key = `${namespace}:${cat}:${version ?? '-'}:${miscVersion ?? '-'}`;
         // Only `leader` reads a misc version; elsewhere its null is normal.
         const degraded = version === null || (cat === 'leader' && miscVersion === null);
@@ -271,10 +271,32 @@ function versionedCacheKeys(namespace: string) {
         slots.set(cat, key);
         return key;
     };
+    /** Drop whatever this namespace has memoised for the category. */
+    const forget = (cat: string): void => {
+        for (const slots of [live, degradedSlots]) {
+            const key = slots.get(cat);
+            if (key !== undefined) invalidateProcCache(key);
+        }
+    };
+    return Object.assign(keyFor, { forget });
 }
 
 export const manifestCacheKey = versionedCacheKeys('images:manifest');
 const legacyIdsCacheKey = versionedCacheKeys('images:legacy-ids');
+
+/**
+ * Drop this process's memoised id lists for a category right after an image
+ * write here (Railway runs one process). A replace or a delete also bumps the
+ * version, which re-keys them. This covers the two cases the version cannot:
+ * a brand-new id, which does not bump, and a bump that did not land (bumps are
+ * best-effort), which would otherwise keep a deleted image listed for up to
+ * the legacy memo's hour. The legacy-row list goes too only when the write
+ * touched those rows, so an upload keeps it.
+ */
+export function forgetImageLists(cat: string, opts: { legacyRows?: boolean } = {}): void {
+    manifestCacheKey.forget(cat);
+    if (opts.legacyRows) legacyIdsCacheKey.forget(cat);
+}
 
 /**
  * How long the frozen legacy rows' id list is reused. Uploads no longer write
@@ -296,6 +318,17 @@ class ManifestUnavailableError extends Error {
 type ReadTimeout = <T>(p: Promise<T | null>, ms?: number) => Promise<T | null>;
 
 const readNow: ReadTimeout = (read) => read;
+
+type CategoryVersions = { version: string | null; miscVersion: string | null };
+
+/** A category's image version, plus misc's for `leader`, whose lists also read the misc hash. */
+async function readCategoryVersions(cat: string): Promise<CategoryVersions> {
+    const [version, miscVersion] = await Promise.all([
+        readImageVersion(cat),
+        cat === 'leader' ? readImageVersion('misc') : Promise.resolve(null),
+    ]);
+    return { version, miscVersion };
+}
 
 /** The id prefixes stored under a category, or null for `misc` (every unknown prefix). */
 export function categoryPrefixes(cat: string): string[] | null {
@@ -341,7 +374,7 @@ export async function scanCategoryIds(cat: string, store: Pick<KvLike, 'keys'> =
 export async function buildManifestIds(
     cat: string,
     withTimeout: ReadTimeout,
-    versions?: { version: string | null; miscVersion: string | null },
+    versions?: CategoryVersions,
 ): Promise<string[] | null> {
     const [legacyIds, scannedIds] = await Promise.all([
         legacyManifestIds(cat, withTimeout, versions),
@@ -351,11 +384,38 @@ export async function buildManifestIds(
     return Array.from(new Set([...legacyIds, ...scannedIds]));
 }
 
+/**
+ * A known category's manifest, memoised per (category, version) for
+ * MANIFEST_CACHE_TTL_MS, with the versions it was built under. `ids` is null
+ * when a read failed, and that is never cached.
+ */
+async function memoisedManifest(
+    cat: string,
+    withTimeout: ReadTimeout,
+): Promise<{ ids: string[] | null; versions: CategoryVersions }> {
+    const versions = await readCategoryVersions(cat);
+    try {
+        const ids = await cachedFor(
+            manifestCacheKey(cat, versions.version, versions.miscVersion),
+            MANIFEST_CACHE_TTL_MS,
+            async () => {
+                const built = await buildManifestIds(cat, withTimeout, versions);
+                if (built === null) throw new ManifestUnavailableError();
+                return built;
+            },
+        );
+        return { ids, versions };
+    } catch (error) {
+        if (error instanceof ManifestUnavailableError) return { ids: null, versions };
+        throw error;
+    }
+}
+
 /** The frozen legacy rows' id list, memoised when the category version is known. */
 async function legacyManifestIds(
     cat: string,
     withTimeout: ReadTimeout,
-    versions?: { version: string | null; miscVersion: string | null },
+    versions?: CategoryVersions,
 ): Promise<string[] | null> {
     const version = versions?.version ?? null;
     const miscVersion = versions?.miscVersion ?? null;
@@ -380,11 +440,7 @@ async function legacyManifestIds(
  * a needless version bump only costs cache hits, a missed one serves old art.
  */
 async function servedByLegacyRows(cat: string, id: string): Promise<boolean> {
-    const [version, miscVersion] = await Promise.all([
-        readImageVersion(cat),
-        cat === 'leader' ? readImageVersion('misc') : Promise.resolve(null),
-    ]);
-    const ids = await legacyManifestIds(cat, readNow, { version, miscVersion }).catch(() => null);
+    const ids = await legacyManifestIds(cat, readNow, await readCategoryVersions(cat)).catch(() => null);
     return ids === null || ids.includes(id);
 }
 
@@ -393,8 +449,9 @@ const IMAGE_READ_CHUNK = 25;
 
 /**
  * Image bytes for these ids of one category: each image's own row first, and
- * the frozen legacy rows only for ids that have no row (read once, only then).
- * Empty legacy fields are tombstones and are left out.
+ * the frozen legacy rows only for ids that have no row and that those rows
+ * list (read once, only then). Empty legacy fields are tombstones and are left
+ * out.
  */
 export async function readImageValues(
     cat: string,
@@ -405,18 +462,25 @@ export async function readImageValues(
 }
 
 /**
- * {@link readImageValues}, plus the ids it could not read. When a row read
- * times out, that chunk and every later one are left out, never filled from
- * the legacy rows. For an image replaced since the split, those rows hold the
- * OLDER bytes, and the Admin Panel's "recompress" buttons republish whatever
- * full-content mode returns. Reading stops there too, so a struggling
- * database is not asked for the rest. A caller with `unread` ids must not let
- * the answer be cached.
+ * {@link readImageValues}, plus the ids it could not read. A caller with
+ * `unread` ids must not let the answer be cached.
+ *
+ * When a row read times out, that chunk and every later one are left out,
+ * never filled from the legacy rows. For an image replaced since the split,
+ * those rows hold the OLDER bytes, and the Admin Panel's "recompress" buttons
+ * republish whatever full-content mode returns. Reading stops there too, so a
+ * struggling database is not asked for the rest. A legacy read that times out
+ * leaves its ids out for the same reason: an older copy in another legacy row
+ * must not stand in for the newest one.
+ *
+ * Only ids the legacy rows list (a memoised, keys-only list) send this to
+ * those 9-16 MB rows, so an id with no image anywhere never costs that read.
  */
 export async function readImageValuesReport(
     cat: string,
     ids: readonly string[],
     withTimeout: ReadTimeout = readNow,
+    versions?: CategoryVersions,
 ): Promise<{ values: Record<string, string>; unread: string[] }> {
     const values: Record<string, string> = {};
     const missing: string[] = [];
@@ -435,18 +499,52 @@ export async function readImageValuesReport(
             else missing.push(id);
         });
     }
-    if (missing.length) {
-        const [hash, blob, misc] = await Promise.all([
-            withTimeout(kv.hgetall<Record<string, string>>(catHashKey(cat))),
-            withTimeout(kv.get<Record<string, string>>(catKey(cat))),
-            cat === 'leader' ? withTimeout(kv.hgetall<Record<string, string>>(catHashKey('misc'))) : Promise.resolve(null),
-        ]);
-        for (const id of missing) {
-            const value = legacyImageValue(id, hash, blob, misc);
-            if (value) values[id] = value;
-        }
+    if (!missing.length) return { values, unread };
+    const legacyIds = await legacyManifestIds(cat, withTimeout, versions ?? await readCategoryVersions(cat));
+    if (legacyIds === null) {
+        unread.push(...missing);
+        return { values, unread };
+    }
+    const listed = new Set(legacyIds);
+    const fallback = missing.filter((id) => listed.has(id));
+    if (!fallback.length) return { values, unread };
+    // An absent row reads as {}, so a null below can only be a timeout.
+    const orEmpty = <T extends object>(read: Promise<T | null>): Promise<T> => read.then((value) => value ?? ({} as T));
+    const [hash, blob, misc] = await Promise.all([
+        withTimeout(orEmpty(kv.hgetall<Record<string, string>>(catHashKey(cat)))),
+        withTimeout(orEmpty(kv.get<Record<string, string>>(catKey(cat)))),
+        cat === 'leader'
+            ? withTimeout(orEmpty(kv.hgetall<Record<string, string>>(catHashKey('misc'))))
+            : Promise.resolve({} as Record<string, string>),
+    ]);
+    if (hash === null || blob === null || misc === null) {
+        unread.push(...fallback);
+        return { values, unread };
+    }
+    for (const id of fallback) {
+        const value = legacyImageValue(id, hash, blob, misc);
+        if (value) values[id] = value;
     }
     return { values, unread };
+}
+
+/**
+ * Full-content mode for one category: every listed id with its bytes. A known
+ * category reuses the memoised manifest and legacy-id list, so a burst of
+ * cache-busting requests cannot make Postgres re-list the 9-16 MB legacy rows
+ * each time; the bytes come through the storage read cache. `complete` is
+ * false when a read failed or timed out, and such an answer must not be cached.
+ */
+async function fullContent(
+    cat: string,
+    withTimeout: ReadTimeout,
+): Promise<{ values: Record<string, string>; complete: boolean }> {
+    const { ids, versions } = isManifestCategory(cat)
+        ? await memoisedManifest(cat, withTimeout)
+        : { ids: await buildManifestIds(cat, withTimeout), versions: undefined };
+    if (ids === null) return { values: {}, complete: false };
+    const { values, unread } = await readImageValuesReport(cat, ids, withTimeout, versions);
+    return { values, complete: unread.length === 0 };
 }
 
 /**
@@ -670,6 +768,9 @@ export async function removeImagesBatch(ids: readonly string[], deps: {
     for (const id of removable) byCategory.set(categoryFromId(id), [...(byCategory.get(categoryFromId(id)) ?? []), id]);
     for (const [cat, catIds] of byCategory) {
         await deps.store.hdel(catHashKey(cat), ...catIds);
+        // Leader portraits from before 'leader' was a category may also sit in
+        // the misc hash, which the leader manifest and /api/img read too.
+        if (cat === 'leader') await deps.store.hdel(catHashKey('misc'), ...catIds);
         const blob = await deps.store.get<Record<string, string>>(catKey(cat));
         if (blob && catIds.some((id) => id in blob)) {
             const rest = { ...blob };
@@ -683,6 +784,8 @@ export async function removeImagesBatch(ids: readonly string[], deps: {
     // A failure fails the whole request; a retry repeats every step harmlessly.
     if (removable.length) await deps.store.del(...removable.flatMap((id) => [perImageKey(id), imgOwnerKey(id), assetMetaKey(id)]));
     for (const [cat, catIds] of byCategory) {
+        forgetImageLists(cat, { legacyRows: true });
+        if (cat === 'leader') forgetImageLists('misc', { legacyRows: true });
         await deps.bumpVersion(cat);
         await deps.audit({ domain: 'content', actor: deps.actor, action: 'image.delete.batch', entityType: 'image', entityId: `${cat}:*`, meta: { category: cat, count: catIds.length, ids: catIds } });
     }
@@ -722,33 +825,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // under load. The id list changes when a write bumps the
                     // category version (a replace, a delete, a batch delete, a
                     // server reset), and also when a brand-new image gets its own
-                    // row, which does not bump. So it is memoised per (category,
+                    // row, which does not bump but drops this process's memo
+                    // (forgetImageLists). So it is memoised per (category,
                     // version) for the same 60 s the edge already allows
-                    // (Cache-Control max-age=60), and a new image is listed within
-                    // that minute. Only known categories are cached, so a request
-                    // cannot mint unbounded cache entries; a failed read throws and
-                    // is never cached.
+                    // (Cache-Control max-age=60). Only known categories are
+                    // cached, so a request cannot mint unbounded cache entries; a
+                    // failed read is never cached.
                     if (isManifestCategory(cat)) {
-                        const [version, miscVersion] = await Promise.all([
-                            readImageVersion(cat),
-                            cat === 'leader' ? readImageVersion('misc') : Promise.resolve(null),
-                        ]);
-                        let ids: string[];
-                        try {
-                            ids = await cachedFor(
-                                manifestCacheKey(cat, version, miscVersion),
-                                MANIFEST_CACHE_TTL_MS,
-                                async () => {
-                                    const built = await buildManifestIds(cat, withTimeout, { version, miscVersion });
-                                    if (built === null) throw new ManifestUnavailableError();
-                                    return built;
-                                },
-                            );
-                        } catch (error) {
-                            if (!(error instanceof ManifestUnavailableError)) throw error;
+                        const { ids, versions } = await memoisedManifest(cat, withTimeout);
+                        if (ids === null) {
                             res.setHeader('Cache-Control', 'no-store');
                             return res.status(503).json({ error: 'image index temporarily unavailable' });
                         }
+                        const { version } = versions;
                         if (req.query.ver) return res.status(200).json(version === null ? { ids } : { version, ids });
                         return res.status(200).json(ids);
                     }
@@ -776,15 +865,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // only): every listed id with its bytes. Each image's own row
                 // wins, as on /api/img; the legacy rows fill only ids with no row
                 // (leader portraits filed under 'misc' included, audit #16).
-                const ids = await buildManifestIds(cat, withTimeout);
-                if (ids === null) {
-                    res.setHeader('Cache-Control', 'no-store');
-                    return res.status(200).json({});
-                }
-                const { values, unread } = await readImageValuesReport(cat, ids, withTimeout);
-                // Images left out by a timed-out read: never let an edge or a
-                // browser keep this answer.
-                if (unread.length) res.setHeader('Cache-Control', 'no-store');
+                const { values, complete } = await fullContent(cat, withTimeout);
+                // Images a read could not reach are missing: never let an edge
+                // or a browser keep this answer.
+                if (!complete) res.setHeader('Cache-Control', 'no-store');
                 return res.status(200).json(values);
             }
 
@@ -794,13 +878,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // fully makes the whole answer uncacheable.
             let incomplete = false;
             const categoryEntries = await Promise.all(KNOWN_CATEGORIES.map(async (category) => {
-                const ids = await buildManifestIds(category, withTimeout);
-                if (ids === null) {
-                    incomplete = true;
-                    return {};
-                }
-                const { values, unread } = await readImageValuesReport(category, ids, withTimeout);
-                if (unread.length) incomplete = true;
+                const { values, complete } = await fullContent(category, withTimeout);
+                if (!complete) incomplete = true;
                 return values;
             }));
             if (incomplete) res.setHeader('Cache-Control', 'no-store');
@@ -881,6 +960,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // retires the category's cached URLs.
                 await kv.hset(catHashKey(cat), { [id]: image });
                 await kv.set(perImageKey(id), image).catch(() => undefined);
+                forgetImageLists(cat, { legacyRows: true });
                 await bumpImageVersion(cat);
             } else {
                 // The image's own row is the only write, and its key is what
@@ -888,6 +968,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // write did before the split.
                 const created = (await kv.set(perImageKey(id), image, { nx: true })) === 'OK';
                 if (!created) await kv.set(perImageKey(id), image);
+                forgetImageLists(cat);
                 // Retire cached /api/img?id=…&v=<old> URLs only when they could
                 // hold other bytes for THIS id: a replace, or an id the frozen
                 // legacy rows still serve. A brand-new id has no cached URL
@@ -932,9 +1013,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Used by the admin tooling (atlas picker "clear slot", per-asset
         // "clear image" buttons). POST with empty string used to be the way
         // to nominally delete, but isValidImageString rejected empty strings,
-        // so server-side state never actually cleared. This branch does a
-        // real HDEL on the category's hash field so reloads no longer
-        // resurrect cleared slots.
+        // so server-side state never actually cleared. This branch removes the
+        // image's own row (what lists and serves it since the shared-row
+        // split) and its fields in the frozen legacy rows, so reloads no
+        // longer resurrect cleared slots.
         const identity = await authedPlayerOrAdmin(req);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         try {
@@ -988,8 +1070,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             const cat = categoryFromId(id);
             // The frozen legacy rows first (free when the id is absent: kv_hdel
-            // skips a row that holds none of the fields).
+            // skips a row that holds none of the fields). A leader portrait from
+            // before 'leader' was a category may also sit in the misc hash,
+            // which the leader manifest and /api/img read too.
             await kv.hdel(catHashKey(cat), id);
+            if (cat === 'leader') await kv.hdel(catHashKey('misc'), id);
             // Also clear the legacy per-cat blob field in case the image
             // lived there (pre-hash-migration uploads). Done BEFORE the version
             // bump: a manifest built under the new version must never still find
@@ -1005,6 +1090,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // step above harmlessly. Also before the bump, for the same reason
             // as the blob.
             await kv.del(perImageKey(id));
+            forgetImageLists(cat, { legacyRows: true });
+            if (cat === 'leader') forgetImageLists('misc', { legacyRows: true });
             // Retire the immutable URLs that still point at the deleted bytes,
             // for the same reason as the upload path above.
             await bumpImageVersion(cat);

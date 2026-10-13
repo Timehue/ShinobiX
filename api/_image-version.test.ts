@@ -117,7 +117,7 @@ describe('image cache contracts', () => {
             'the upload (split path + rollback-lever path) and delete paths must bump the category');
         assert.match(images, /if \(!created \|\| await servedByLegacyRows\(cat, id\)\) await bumpImageVersion\(cat\);/u,
             'the split upload path bumps on a replace or a legacy-served id');
-        assert.match(images, /await kv\.hset\(catHashKey\(cat\), \{ \[id\]: image \}\);\s+await kv\.set\(perImageKey\(id\), image\)\.catch\(\(\) => undefined\);\s+await bumpImageVersion\(cat\);/u,
+        assert.match(images, /await kv\.hset\(catHashKey\(cat\), \{ \[id\]: image \}\);\s+await kv\.set\(perImageKey\(id\), image\)\.catch\(\(\) => undefined\);\s+forgetImageLists\(cat, \{ legacyRows: true \}\);\s+await bumpImageVersion\(cat\);/u,
             'the rollback-lever upload path is the pre-split path, which always bumps');
         assert.doesNotMatch(img, /bumpImageVersion/u,
             '/api/img only reads and must not invalidate caches');
