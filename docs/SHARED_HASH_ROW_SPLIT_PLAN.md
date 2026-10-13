@@ -230,6 +230,10 @@ The receipt-backed metrics simply have no receipts in the one-row hash yet.)*
     mode returns. A timed-out legacy read leaves its ids out too, since an older copy in
     another legacy row must not stand in for the newest. Such an incomplete answer is sent
     `no-store`, so it is never cached.
+  - Since Deploy 2 (2026-10-13 follow-up): full-content mode answers admins only
+    (`isAdmin`, either role) and every answer is `private, no-store`. Anyone else gets a
+    403. The `?cat=<cat>&ids=1` manifest stays public and edge-cached. The
+    `gen-pet-battle-sprites` script now reads the manifest plus `/api/img`.
 - **`/api/img`:** as in the table above. As built: a legacy read that times out answers 503
   (retry), not an older copy from another legacy row under an immutable URL.
 - **`bloodlines/list.ts` and `admin/players.ts`:** `mget` of `shared:img:bloodline:<id>` for
