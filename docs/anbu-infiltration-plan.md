@@ -358,6 +358,11 @@ the paid reward):
   the EXISTING clan 'raid' mission (progress = eventContrib / 3) and 'training'
   — no new clan-mission catalog entries needed.
 
+> **Current behaviour (2026-10-12):** the Legacy and era `warBattles` credits
+> are no longer best-effort. They land last; until they do, the report answers
+> a retryable 503 (`legacy-delivery-pending`) and a retry replays the saved
+> settlement. A hook failure still never unwinds the paid reward.
+
 The client↔server cache-id KEEP-IN-SYNC guard is a STATIC text parity test
 (api/_anbu-infiltration.test.ts) — importing the client module from a server
 test crosses module systems (nodenext vs bundler) and breaks the cpanel tsc.
