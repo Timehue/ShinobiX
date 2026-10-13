@@ -132,7 +132,9 @@ describe('GET /api/village/war-map', { concurrency: false }, () => {
         }
         assert.equal(out.statusCode, 200);
         assert.equal(fullSaveReads, 0, 'one short string must not cost the whole save blob');
-        assert.deepEqual(projected, [['save:frostrunner']]);
+        // The village-state rows are also read as a projection (their treasury
+        // only); this pin is about the viewer's save.
+        assert.deepEqual(projected.filter((keys) => keys.some((key) => key.startsWith('save:'))), [['save:frostrunner']]);
         assert.ok(Array.isArray(out.body?.villages));
     });
 

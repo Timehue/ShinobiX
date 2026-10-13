@@ -150,7 +150,12 @@ test('real story settle handler rejects another account before touching the seal
 });
 
 test('real story settle handler grants one authoritative Chronicle record and replays exactly once', async (t) => {
-    t.mock.method(Date, 'now', () => NOW);
+    // The settle credits elderWinDays to the UTC day of Date.now(), which is
+    // pinned to NOW, and the check below rebuilds that day from a no-argument
+    // `new Date()`, which a Date.now mock does not reach. A run that straddles
+    // UTC midnight after NOW was captured would credit one day and expect the
+    // next. Hold Date (Date.now and new Date alike) at NOW instead.
+    t.mock.timers.enable({ apis: ['Date'], now: NOW });
     const first = response();
     await handler(request(RUN_ID, token), first.res);
     assert.equal(first.out.statusCode, 200);

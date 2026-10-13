@@ -175,6 +175,20 @@ async function withSaveWritesIntercepted<T>(
 }
 
 describe('a pet expedition pays its Tamer XP exactly once', { concurrency: false }, () => {
+    beforeEach((context) => {
+        // seedReturnedExpedition dates the empty board from a no-argument
+        // `new Date()`, and the collect's mission report reads its day the same
+        // way. A replay compares the settle's Date.now() stamp with its own
+        // `new Date()`, and it reports on that day when the two match. If a run
+        // straddles UTC midnight between the seed and the report, the report
+        // would find the stored board a day old and issue a fresh board for the
+        // new day. A mission on that board would then pay its profession XP on
+        // top of the expedition's. Freeze Date (Date.now and new Date alike)
+        // for each test.
+        if (!('mock' in context)) throw new Error('needs a per-test clock');
+        context.mock.timers.enable({ apis: ['Date'], now: Date.now() });
+    });
+
     it('pays it when an autosave takes the save lock right after the expedition settles', async () => {
         const name = `${PREFIX}contended`;
         await seedReturnedExpedition(name);

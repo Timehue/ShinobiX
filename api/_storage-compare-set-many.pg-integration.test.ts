@@ -15,7 +15,9 @@ import type { KvCasOp } from './_storage.js';
  * replaces an expired row and nothing else, that FOR SHARE really holds a row,
  * that a refused batch really rolls back statements that already ran, or that
  * two overlapping batches cannot deadlock. This file runs the same adapter
- * against Postgres to prove exactly those.
+ * against Postgres to prove exactly those. It also proves that a read made
+ * while a write waits on its row does not wait, which the process read cache
+ * must allow for.
  *
  * It is auto-discovered by scripts/run-tests.mjs, so it skips unless
  * PG_INTEGRATION_DATABASE_URL names a THROWAWAY database. CI provides one in
@@ -763,6 +765,42 @@ describe('kv.compareSetMany on a real Postgres', () => {
         }
         assert.deepEqual((await row('pgit:hash:race'))?.value, { keep: 1, fresh: 1 },
             'the concurrent write survives and only the named field is removed');
+    });
+
+    // The process read cache (api/_storage.ts, "Fill generations"). While a
+    // write waits on its row, a plain read on another connection does not wait:
+    // it returns the predecessor, and the old code cached that row for the TTL
+    // after the write landed. The pg.Pool shim can only assume the read does not
+    // block; here Postgres decides.
+    async function readWhileWriteWaits(key: string, write: () => Promise<unknown>): Promise<unknown> {
+        const holder = await openClient();
+        try {
+            await holder.query('BEGIN');
+            await holder.query('SELECT 1 FROM public.kv_store WHERE key = $1 FOR UPDATE', [key]);
+            const pending = settleLater(write());
+            await waitForLockWaiters(1);
+            const seen = await storage.kv.get(key);
+            await holder.query('COMMIT');
+            await pending;
+            return seen;
+        } finally {
+            await holder.end();
+        }
+    }
+
+    pgTest('a read made while hset waits on its row is not served once the hset lands', async () => {
+        await seed('pgit:cache:hset', { a: 'old', b: 'kept' });
+        assert.deepEqual(await readWhileWriteWaits('pgit:cache:hset', () => storage.kv.hset('pgit:cache:hset', { a: 'new' })),
+            { a: 'old', b: 'kept' }, 'the read did not wait for the row lock: it saw the predecessor');
+        assert.deepEqual(await storage.kv.get('pgit:cache:hset'), { a: 'new', b: 'kept' });
+    });
+
+    pgTest('a read made while incr waits on its row is not served once the incr lands', async () => {
+        // The image version counter: a stale cached version would keep handing
+        // out the URLs the bump just retired.
+        await seed('pgit:cache:incr', 4);
+        assert.equal(await readWhileWriteWaits('pgit:cache:incr', () => storage.kv.incr('pgit:cache:incr')), 4);
+        assert.equal(await storage.kv.get('pgit:cache:incr'), 5);
     });
 
     // kv.mgetProjected detoasts each row once and reads every path from that

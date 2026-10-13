@@ -80,9 +80,19 @@ const ART: Record<GameArtIconKind, string> = {
     event: "/ui/clan-missions/clan-mission-raid.webp",
 };
 
-// Not loading="lazy": these are ~20 KB glyphs shared by URL, and a lazy icon
+// The sources above are full illustrations (256 px emblems, 1024 px profession
+// art, a 512 px VFX sheet), but nearly every icon is drawn at 14-34 px. Up to 48
+// px the icon uses its 96 px delivery copy instead, which is enough for 2x screens
+// at 48 px. Regenerate the copies with scripts/gen-game-art-icon-variants.mjs.
+const SMALL_ICON_MAX_PX = 48;
+
+function gameArtIconSrc(kind: GameArtIconKind, size: number | string = 20): string {
+    return typeof size === "number" && size <= SMALL_ICON_MAX_PX ? `/ui/icon-96/${kind}.webp` : ART[kind];
+}
+
+// Not loading="lazy": these are small glyphs shared by URL, and a lazy icon
 // inside an off-screen scroller (a tab strip, a card rail) is never fetched at
 // all, which leaves a blank hole where an emoji used to always render.
 export function GameArtIcon({ kind, size = 20, className, title, style }: { kind: GameArtIconKind; size?: number | string; className?: string; title?: string; style?: CSSProperties }) {
-    return <img className={className} src={ART[kind]} alt={title ?? ""} aria-hidden={title ? undefined : "true"} title={title} role={title ? "img" : undefined} width={size} height={size} decoding="async" style={{ width: size, height: size, objectFit: "contain", verticalAlign: "middle", flex: "0 0 auto", ...style }} />;
+    return <img className={className} src={gameArtIconSrc(kind, size)} alt={title ?? ""} aria-hidden={title ? undefined : "true"} title={title} role={title ? "img" : undefined} width={size} height={size} decoding="async" style={{ width: size, height: size, objectFit: "contain", verticalAlign: "middle", flex: "0 0 auto", ...style }} />;
 }

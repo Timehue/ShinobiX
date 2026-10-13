@@ -241,8 +241,100 @@ function _cacheWrite(key: string, value: unknown, rowExpiresAt?: string | null):
     }
 }
 
+// ─── Fill generations ────────────────────────────────────────────────────────
+// A read caches the row it SELECTed only once its query returns. If a write to
+// the same key lands while that read is in flight, the row can be the write's
+// predecessor, and caching it would serve the OLD value for the whole TTL. For
+// shared art that is visible to players: api/images.ts replaces
+// `shared:img:<id>` and then bumps `shared:imgver:<cat>`, and api/img.ts serves
+// `?v=<new version>` as immutable, so old bytes left here are pinned in
+// browsers and at the Cloudflare edge for a year.
+//
+// So every write and invalidation stamps its keys with a fresh generation from
+// one process-wide counter. A read takes a ticket (the counter) just before it
+// sends its SELECT, and caches its row only if no stamp on its key is newer
+// than that ticket (_cacheFill).
+//
+// A write stamps its keys twice: before its statement is sent and again once
+// it settles, success or failure. The second stamp covers a read that started
+// between the two. That read's SELECT can still run before the write commits,
+// and only a stamp taken after the commit makes its fill refuse. A write then
+// caches its own value only if no other write stamped the key while its
+// statement was in flight (_cacheWriteThrough). With two writers in flight
+// either one may have committed last, so the next read decides.
+//
+// Stamps are kept for the _CACHE_MAX_ENTRIES most recently written cacheable
+// keys. A ticket older than the newest forgotten stamp cannot prove its key was
+// left alone, so that read does not cache. Keys that are never cached are
+// never stamped.
+let _cacheGeneration = 0;
+const _cacheKeyStamps = new Map<string, number>();
+let _cacheForgottenStamp = 0;
+
+function _cacheStamp(key: string): void {
+    if (!_shouldCache(key)) return;
+    // Delete-then-set keeps the map in stamp order, oldest first.
+    _cacheKeyStamps.delete(key);
+    _cacheKeyStamps.set(key, ++_cacheGeneration);
+    while (_cacheKeyStamps.size > _CACHE_MAX_ENTRIES) {
+        const oldest = _cacheKeyStamps.entries().next().value;
+        if (oldest === undefined) break;
+        _cacheKeyStamps.delete(oldest[0]);
+        _cacheForgottenStamp = oldest[1];
+    }
+}
+
+/** True if a write or invalidation may have stamped `key` after `ticket` was taken. */
+function _cacheStampedSince(key: string, ticket: number): boolean {
+    return _cacheForgottenStamp > ticket || (_cacheKeyStamps.get(key) ?? 0) > ticket;
+}
+
+/** Take just before a read sends its SELECT, and pass to _cacheFill afterwards. */
+function _cacheTicket(): number {
+    return _cacheGeneration;
+}
+
+/** Cache a row a read SELECTed, unless a write or invalidation of its key overlapped the read. */
+function _cacheFill(key: string, ticket: number, value: unknown, rowExpiresAt?: string | null): void {
+    if (_cacheStampedSince(key, ticket)) return;
+    _cacheWrite(key, value, rowExpiresAt);
+}
+
+/**
+ * Drop the keys' entries and stamp them. Every write calls this before its
+ * statement is sent and again once it settles, unless it caches its own value
+ * then (_cacheWriteThrough).
+ */
 function _cacheInvalidate(...keys: string[]): void {
-    for (const k of keys) _readCache.delete(k);
+    for (const k of keys) {
+        _readCache.delete(k);
+        _cacheStamp(k);
+    }
+}
+
+/**
+ * After a write committed `value` to `key`: stamp the key, and cache the value
+ * unless another write stamped the key after `ticket`, which this write took
+ * right after its first _cacheInvalidate.
+ */
+function _cacheWriteThrough(key: string, ticket: number, value: unknown, rowExpiresAt: string | null): void {
+    const contested = _cacheStampedSince(key, ticket);
+    _cacheInvalidate(key);
+    if (!contested) _cacheWrite(key, value, rowExpiresAt);
+}
+
+/** Await the statement of a write that does not cache its own value, then stamp its keys again, however it settled. */
+async function _awaitWrite<T>(statement: Promise<T>, ...keys: string[]): Promise<T> {
+    try {
+        return await statement;
+    } finally {
+        _cacheInvalidate(...keys);
+    }
+}
+
+/** Test-only: how many entries the read cache and the stamp map hold. */
+export function _readCacheSizesForTest(): { entries: number; stamps: number } {
+    return { entries: _readCache.size, stamps: _cacheKeyStamps.size };
 }
 
 // ─── pg Pool backend (cPanel / Passenger) ────────────────────────────────────
@@ -273,6 +365,9 @@ export function storagePoolStats(): { max: number; total: number; idle: number; 
 export async function closeStoragePool(): Promise<void> {
     _storageClosed = true;
     _readCache.clear();
+    // Forget every stamp, so no read still in flight can refill the cache.
+    _cacheKeyStamps.clear();
+    _cacheForgottenStamp = ++_cacheGeneration;
     _poolClose ??= _pool ? _pool.end() : Promise.resolve();
     await _poolClose;
 }
@@ -545,11 +640,12 @@ const pgKv = {
         const hit = _cacheRead<T>(key);
         if (hit !== undefined) return hit;
         const db = getPgDb();
+        const ticket = _cacheTicket();
         const { rows } = await db.query<{ value: unknown; expires_at: string | null }>(
             `SELECT value, expires_at FROM public.kv_store WHERE key = $1`,
             [key]
         );
-        if (!rows.length) { _cacheWrite(key, null); return null; }
+        if (!rows.length) { _cacheFill(key, ticket, null); return null; }
         const row = rows[0];
         if (row.expires_at && new Date(row.expires_at) <= new Date()) {
             // Another writer may replace this expired row after the SELECT.
@@ -563,73 +659,88 @@ const pgKv = {
             ).catch(() => undefined);
             return null;
         }
-        _cacheWrite(key, row.value, row.expires_at);
+        _cacheFill(key, ticket, row.value, row.expires_at);
         return row.value as T;
     },
 
     async set(key: string, value: unknown, options?: { ex?: number; nx?: boolean }): Promise<'OK' | null> {
         _cacheInvalidate(key);
+        const ticket = _cacheTicket();
         observePlayerSaveWrite(key, 'set');
         const db = getPgDb();
         const exp = options?.ex ? expiresAt(options.ex) : null;
-        if (options?.nx) {
-            const { rows } = await db.query<{ kv_set_nx: boolean }>(
-                `SELECT public.kv_set_nx($1, $2::jsonb, $3::timestamptz) AS kv_set_nx`,
-                [key, JSON.stringify(value), exp]
-            );
-            if (rows[0].kv_set_nx) { _cacheWrite(key, value, exp); signalKeyWritten(key); }
-            return rows[0].kv_set_nx ? 'OK' : null;
+        let stored = false;
+        try {
+            if (options?.nx) {
+                const { rows } = await db.query<{ kv_set_nx: boolean }>(
+                    `SELECT public.kv_set_nx($1, $2::jsonb, $3::timestamptz) AS kv_set_nx`,
+                    [key, JSON.stringify(value), exp]
+                );
+                stored = !!rows[0].kv_set_nx;
+            } else {
+                await db.query(
+                    `INSERT INTO public.kv_store (key, value, expires_at, updated_at)
+                     VALUES ($1, $2::jsonb, $3::timestamptz, now())
+                     ON CONFLICT (key) DO UPDATE
+                         SET value = EXCLUDED.value, expires_at = EXCLUDED.expires_at, updated_at = now()`,
+                    [key, JSON.stringify(value), exp]
+                );
+                stored = true;
+            }
+        } finally {
+            if (stored) _cacheWriteThrough(key, ticket, value, exp);
+            else _cacheInvalidate(key);
         }
-        await db.query(
-            `INSERT INTO public.kv_store (key, value, expires_at, updated_at)
-             VALUES ($1, $2::jsonb, $3::timestamptz, now())
-             ON CONFLICT (key) DO UPDATE
-                 SET value = EXCLUDED.value, expires_at = EXCLUDED.expires_at, updated_at = now()`,
-            [key, JSON.stringify(value), exp]
-        );
-        _cacheWrite(key, value, exp);
+        if (!stored) return null;
         signalKeyWritten(key);
         return 'OK';
     },
 
     async compareSet(key: string, expected: unknown | null, value: unknown, options?: { ex?: number }): Promise<boolean> {
         _cacheInvalidate(key);
+        const ticket = _cacheTicket();
         observePlayerSaveWrite(key, 'compareSet');
         const exp = options?.ex ? expiresAt(options.ex) : null;
         const db = getPgDb();
-        let swapped: boolean;
-        if (expected === null) {
-            // One statement handles both allowed absence cases. A conflicting
-            // LIVE row makes the ON CONFLICT WHERE false and changes nothing;
-            // an expired row is atomically replaced while PostgreSQL holds the
-            // conflicting row lock. This avoids requiring a separately-applied
-            // schema RPC on Railway without weakening CAS into get-then-set.
-            const { rows } = await db.query<{ swapped: boolean }>(
-                PG_CAS_INSERT_IF_ABSENT_SQL,
-                [key, JSON.stringify(value), exp],
-            );
-            swapped = rows[0]?.swapped === true;
-        } else {
-            // Exact full-JSON predecessor match and liveness check happen in the
-            // UPDATE itself. A mismatch/expired row returns no row and preserves
-            // both its value and TTL. On success, even a null expiry is written,
-            // so the replacement TTL is authoritative just like set().
-            const { rows } = await db.query<{ swapped: boolean }>(
-                PG_CAS_UPDATE_IF_EQUAL_SQL,
-                [key, JSON.stringify(expected), JSON.stringify(value), exp],
-            );
-            swapped = rows[0]?.swapped === true;
+        let swapped = false;
+        try {
+            if (expected === null) {
+                // One statement handles both allowed absence cases. A conflicting
+                // LIVE row makes the ON CONFLICT WHERE false and changes nothing;
+                // an expired row is atomically replaced while PostgreSQL holds the
+                // conflicting row lock. This avoids requiring a separately-applied
+                // schema RPC on Railway without weakening CAS into get-then-set.
+                const { rows } = await db.query<{ swapped: boolean }>(
+                    PG_CAS_INSERT_IF_ABSENT_SQL,
+                    [key, JSON.stringify(value), exp],
+                );
+                swapped = rows[0]?.swapped === true;
+            } else {
+                // Exact full-JSON predecessor match and liveness check happen in the
+                // UPDATE itself. A mismatch/expired row returns no row and preserves
+                // both its value and TTL. On success, even a null expiry is written,
+                // so the replacement TTL is authoritative just like set().
+                const { rows } = await db.query<{ swapped: boolean }>(
+                    PG_CAS_UPDATE_IF_EQUAL_SQL,
+                    [key, JSON.stringify(expected), JSON.stringify(value), exp],
+                );
+                swapped = rows[0]?.swapped === true;
+            }
+        } finally {
+            if (swapped) _cacheWriteThrough(key, ticket, value, exp);
+            else _cacheInvalidate(key);
         }
-        if (swapped) { _cacheWrite(key, value, exp); signalKeyWritten(key); }
+        if (swapped) signalKeyWritten(key);
         return swapped;
     },
 
     async compareSetMany(ops: readonly KvCasOp[]): Promise<boolean> {
         const ordered = prepareCasOps(ops);
         _cacheInvalidate(...ordered.map(op => op.key));
+        const ticket = _cacheTicket();
         for (const op of ordered) if (op.op !== 'assert') observePlayerSaveWrite(op.key, 'compareSetMany');
         const expiries = new Map<string, string | null>();
-        const outcome = await runPgTransaction(async (client) => {
+        const transaction = runPgTransaction(async (client) => {
             for (const op of ordered) {
                 let matched: boolean;
                 if (op.op === 'cas') {
@@ -670,10 +781,19 @@ const pgKv = {
             }
             return true as const;
         });
-        if (outcome === PG_ROLLBACK) return false;
+        let committed = false;
+        try {
+            committed = (await transaction) !== PG_ROLLBACK;
+        } finally {
+            for (const op of ordered) {
+                if (op.op === 'assert') continue;
+                if (committed && op.op === 'cas') _cacheWriteThrough(op.key, ticket, op.value, expiries.get(op.key) ?? null);
+                else _cacheInvalidate(op.key);
+            }
+        }
+        if (!committed) return false;
         for (const op of ordered) {
             if (op.op === 'assert') continue;
-            if (op.op === 'cas') _cacheWrite(op.key, op.value, expiries.get(op.key) ?? null);
             signalKeyWritten(op.key);
         }
         return true;
@@ -682,9 +802,9 @@ const pgKv = {
     async del(...keys: string[]): Promise<number> {
         if (!keys.length) return 0;
         _cacheInvalidate(...keys);
-        const { rowCount } = await getPgDb().query(
+        const { rowCount } = await _awaitWrite(getPgDb().query(
             `DELETE FROM public.kv_store WHERE key = ANY($1::text[])`, [keys]
-        );
+        ), ...keys);
         if (rowCount) signalKeyWritten(...keys);
         return rowCount ?? 0;
     },
@@ -695,10 +815,10 @@ const pgKv = {
         // one row-locked operation, so no other writer can slip a new lock in
         // between. The lock value is stored as a JSONB string, so compare against
         // the JSON-encoded token.
-        const { rowCount } = await getPgDb().query(
+        const { rowCount } = await _awaitWrite(getPgDb().query(
             `DELETE FROM public.kv_store WHERE key = $1 AND value = $2::jsonb`,
             [key, JSON.stringify(expected)]
-        );
+        ), key);
         const deleted = (rowCount ?? 0) > 0;
         if (deleted) signalKeyWritten(key);
         return deleted;
@@ -707,10 +827,10 @@ const pgKv = {
     async incr(key: string, options?: { ex?: number }): Promise<number> {
         _cacheInvalidate(key);
         const exp = options?.ex ? expiresAt(options.ex) : null;
-        const { rows } = await getPgDb().query<{ kv_incr: string }>(
+        const { rows } = await _awaitWrite(getPgDb().query<{ kv_incr: string }>(
             `SELECT public.kv_incr($1, $2::timestamptz) AS kv_incr`,
             [key, exp]
-        );
+        ), key);
         signalKeyWritten(key);
         return Number(rows[0].kv_incr);
     },
@@ -735,6 +855,7 @@ const pgKv = {
             else { missIndices.push(i); missKeys.push(keys[i]); }
         }
         if (missKeys.length) {
+            const ticket = _cacheTicket();
             const { rows } = await getPgDb().query<{ key: string; value: unknown; expires_at: string | null }>(
                 `SELECT key, value, expires_at FROM public.kv_store WHERE key = ANY($1::text[]) AND (expires_at IS NULL OR expires_at > now())`,
                 [missKeys]
@@ -744,7 +865,7 @@ const pgKv = {
                 const row = map.get(missKeys[j]);
                 const val = row ? (row.value as T[number]) : null;
                 result[missIndices[j]] = val;
-                _cacheWrite(missKeys[j], val, row?.expires_at);
+                _cacheFill(missKeys[j], ticket, val, row?.expires_at);
             }
         }
         return result;
@@ -828,7 +949,7 @@ const pgKv = {
 
     async hset(key: string, fields: Record<string, unknown>): Promise<number> {
         _cacheInvalidate(key);
-        await getPgDb().query(`SELECT public.kv_hset($1, $2::jsonb)`, [key, JSON.stringify(fields)]);
+        await _awaitWrite(getPgDb().query(`SELECT public.kv_hset($1, $2::jsonb)`, [key, JSON.stringify(fields)]), key);
         signalKeyWritten(key);
         return Object.keys(fields).length;
     },
@@ -836,7 +957,7 @@ const pgKv = {
     async hdel(key: string, ...fields: string[]): Promise<number> {
         if (!fields.length) return 0;
         _cacheInvalidate(key);
-        await getPgDb().query(`SELECT public.kv_hdel($1, $2::text[])`, [key, fields]);
+        await _awaitWrite(getPgDb().query(`SELECT public.kv_hdel($1, $2::text[])`, [key, fields]), key);
         signalKeyWritten(key);
         return fields.length;
     },

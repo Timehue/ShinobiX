@@ -22,7 +22,12 @@ let contracts: typeof import('./_sector-contracts.js');
 
 const SECTOR = 12;
 const PLAYER = 'scarred';
-const DAY = utcDayOf(Date.now());
+// The whole file reads the clock once, here: DAY and `midday` below both
+// derive from this one instant. Two separate reads could straddle UTC
+// midnight, building the board for one day while NOON and MIDNIGHT land on
+// the next, so the credit path would look up a different day's postings.
+const NOW = Date.now();
+const DAY = utcDayOf(NOW);
 const BOARD = contractSectorsForDay(DAY);
 // Pick by CONDITION, never by position. Taking BOARD[0] blindly lands on a
 // night-only posting on some days, and then the plain progress assertions fail
@@ -39,7 +44,7 @@ const UNPOSTED = WILD_SECTOR_IDS.find((sector) => !BOARD.includes(sector))!;
 // (shared/world-clock), so an in-world hour is five real minutes. Both instants
 // therefore land inside the first two real hours of the UTC day, which keeps
 // them on today's board while still sitting either side of nightfall.
-const midday = new Date(Date.now());
+const midday = new Date(NOW);
 const UTC_DAY_START = Date.UTC(midday.getUTCFullYear(), midday.getUTCMonth(), midday.getUTCDate());
 const NOON = UTC_DAY_START + 12 * WORLD_HOUR_MS;
 const MIDNIGHT = UTC_DAY_START + 23 * WORLD_HOUR_MS;

@@ -96,10 +96,16 @@ export function WorldBossEvent({
 
     useEffect(() => { void refresh(); }, [refresh]);
     useEffect(() => visiblePoll(() => refresh(), fight ? 6_000 : 2_000, 0.08), [fight, refresh]);
+    // The countdown clock only feeds the lobby. While <BattleTowerFight/> is up
+    // nothing here reads it, so stop the 400ms re-render for the whole fight
+    // and pick up the current time the moment the lobby comes back.
+    const inFight = !!fight;
     useEffect(() => {
+        if (inFight) return;
+        setNow(Date.now());
         const timer = window.setInterval(() => setNow(Date.now()), 400);
         return () => window.clearInterval(timer);
-    }, []);
+    }, [inFight]);
 
     const event = view?.event ?? null;
     const boss = worldBossDefinition(event?.bossId);

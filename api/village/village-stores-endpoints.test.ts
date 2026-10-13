@@ -136,7 +136,14 @@ describe('sector-war garrison-feed (Village Stores)', { concurrency: false }, ()
         assert.deepEqual([stored?.garrisonFeed?.[DEFENDER].on, stored?.garrisonFeed?.[ATTACKER].on], [false, true]);
         assert.equal(stored?.garrisonFeed?.[DEFENDER].covered, false, 'a feed the daily pass never paid for stays uncovered');
     });
-    it('keeps the day\'s PAID coverage across a same-day re-toggle, and never resurrects an older day\'s', async () => {
+    it('keeps the day\'s PAID coverage across a same-day re-toggle, and never resurrects an older day\'s', async (t) => {
+        // The seeded storesDate is the UTC day of this test's Date.now(), and
+        // sector-war compares it with the UTC day of its own Date.now(), read
+        // once per toggle. A run that straddles UTC midnight between the seed
+        // and the first or second toggle would make the stored verdict a day
+        // old, so that toggle would drop the coverage the village already paid
+        // for. Freeze Date (Date.now and new Date alike) for the whole check.
+        t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
         const now = Date.now();
         const today = new Date(now).toISOString().slice(0, 10);
         const yesterday = new Date(now - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -176,7 +183,13 @@ describe('sector-war garrison-feed (Village Stores)', { concurrency: false }, ()
         stored = await kv.get<{ garrisonFeed?: Feed }>(CONTEST_KEY);
         assert.equal(stored?.garrisonFeed?.[DEFENDER].covered, false, 'yesterday\'s coverage cannot raise today\'s cap for free');
     });
-    it('heralds the feed ONCE per war per day — a retried (or double-clicked) toggle does not double-post', async () => {
+    it('heralds the feed ONCE per war per day — a retried (or double-clicked) toggle does not double-post', async (t) => {
+        // sector-war keys the herald receipt to the UTC day of its own
+        // Date.now(), read once per toggle. A run that straddles UTC midnight
+        // between toggles would key a second receipt and post twice. Freeze
+        // Date (Date.now and new Date alike); the polling below keeps real
+        // timers.
+        t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
         const now = Date.now();
         await kv.set(FROST_KAGE_KEY, { seatedKage: 'frostkage' });
         await seedPlayer('frostkage', DEFENDER);
@@ -440,7 +453,12 @@ describe('war-structure materials gate (Village Stores)', { concurrency: false }
 });
 
 describe('cafeteria cook (Village Stores)', { concurrency: false }, () => {
-    it('cooks edible field and campaign rations, preserves pelts and scales, and enforces the 40/day cap', async () => {
+    it('cooks edible field and campaign rations, preserves pelts and scales, and enforces the 40/day cap', async (t) => {
+        // The cook counter is keyed to the UTC day of the handler's Date.now(),
+        // read once per batch. A run that straddles UTC midnight between
+        // batches would reset the counter, so the over-cap batch would not be
+        // refused for the daily limit. Freeze Date for the whole check.
+        t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
         await seedPlayer('cook', DEFENDER, { ryo: 500, itemStacks: [{ itemId: 'hunt-beast-meat', count: 6 }, { itemId: 'gather-field-herb', count: 8 }, { itemId: 'gather-heartwood-bark', count: 4 }], inventory: ['hunt-ash-scale', 'hunt-frost-pelt', 'hunt-ash-scale'] });
         const a = await call(cafeteria, { playerName: 'cook', recipeId: 'field-rations' });
         assert.equal(a.statusCode, 200, JSON.stringify(a.body));
