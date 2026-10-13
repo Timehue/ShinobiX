@@ -772,6 +772,11 @@ function FreePlayQueue({
   const [incomingChallenges, setIncomingChallenges] = useState<CardSparChallenge[]>([]);
   const [outgoingChallenge, setOutgoingChallenge] = useState<{ id: string; toName: string } | null>(null);
   const challengePollBusy = useRef(false);
+  // App passes a fresh inline onStart every render. Read it through a ref so
+  // the queue poll and the challenge inbox (via enterSparMatch) are not torn
+  // down and re-requested on every App render.
+  const onStartRef = useRef(onStart);
+  useEffect(() => { onStartRef.current = onStart; }, [onStart]);
 
   const leaseIsCurrent = useCallback((lease: FreePlayQueueLease): boolean => mountedRef.current
     && leaseRef.current === lease
@@ -840,6 +845,7 @@ function FreePlayQueue({
         if (lease.matched) return;
         const outcome = freePlayPollOutcome(body);
         if (outcome.kind === "matched") {
+          const onStart = onStartRef.current;
           if (!onStart) {
             lease.owned = false;
             setSearching(false);
@@ -879,7 +885,7 @@ function FreePlayQueue({
       lease.controllers.delete(controller);
       window.clearInterval(timer);
     };
-  }, [searching, activeAuthority, onStart, leaseIsCurrent]);
+  }, [searching, activeAuthority, leaseIsCurrent]);
 
   const enterSparMatch = useCallback((matchId: string) => {
     const lease = leaseRef.current;
@@ -892,9 +898,10 @@ function FreePlayQueue({
     setOutgoingChallenge(null);
     setIncomingChallenges([]);
     setChallengeError("");
+    const onStart = onStartRef.current;
     if (onStart) onStart(matchId);
     else setChallengeError("The spar was accepted, but this screen cannot open a card match.");
-  }, [onStart]);
+  }, []);
 
   useEffect(() => {
     if (!pageVisible) return;

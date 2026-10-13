@@ -795,6 +795,10 @@ textarea {
     }
 }
 
+@media (prefers-reduced-motion: reduce) {
+    .incoming-attack-banner { animation: none; }
+}
+
 /* Sector player cards */
 
 /* Live badge */

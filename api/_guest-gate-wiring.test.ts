@@ -36,9 +36,16 @@ describe('guest social gate wiring', () => {
 
         const readGate = indexOf(chat, GATE, 'GET gate');
         const readIdentity = indexOf(chat, "You can only read your own village chat.", 'GET membership check');
-        const readMessages = indexOf(chat, 'const allMessages = await kv.get<ChatMessage[]>(key)', 'GET transcript read');
+        // The read itself starts early and overlaps the checks; what must wait
+        // for the gate is the point where its result is used.
+        const readMessages = indexOf(chat, 'const allMessages = await transcriptRead', 'GET transcript use');
         assert.ok(readIdentity < readGate, 'the GET gate must run after the identity is established');
         assert.ok(readGate < readMessages, 'a locked guest must not receive the transcript');
+        // The early reads may overlap the membership and guest checks, but they
+        // must never start before the caller is authenticated.
+        const readAuth = indexOf(chat, "if (!identity) return res.status(401).json({ error: 'Authentication required.' });", 'GET 401 check');
+        const earlyRead = indexOf(chat, 'const transcriptRead = kv.get', 'GET early transcript read');
+        assert.ok(readAuth < earlyRead && earlyRead < readIdentity, 'the transcript read starts after the 401 check and before it is used');
 
         const postGate = chat.indexOf(GATE, readGate + GATE.length);
         const postIdentity = indexOf(chat, 'You can only post in your own village chat.', 'POST membership check');

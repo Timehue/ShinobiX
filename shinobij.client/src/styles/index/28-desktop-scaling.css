@@ -259,6 +259,14 @@
     filter: blur(8px);
     animation: biomeGlowPulse 9s ease-in-out infinite;
 }
+/* The region colours. WorldMap builds these as "world-biome-glow wbg-" + biome,
+   which hid them from e464d1955's dead-rule sweep, so they were deleted and the
+   glows painted nothing from 2026-07-28 until they were restored here. */
+.wbg-volcano { background: radial-gradient(circle, rgba(255,120,50,.50), transparent 65%); }
+.wbg-snow    { background: radial-gradient(circle, rgba(150,210,255,.45), transparent 65%); }
+.wbg-forest  { background: radial-gradient(circle, rgba(120,220,140,.42), transparent 65%); }
+.wbg-shadow  { background: radial-gradient(circle, rgba(180,130,255,.46), transparent 65%); }
+.wbg-central { background: radial-gradient(circle, rgba(255,225,150,.40), transparent 65%); }
 @keyframes biomeGlowPulse { 0%, 100% { opacity: .38; } 50% { opacity: .62; } }
 
 .world-poi-life {

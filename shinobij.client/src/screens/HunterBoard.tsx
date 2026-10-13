@@ -14,7 +14,8 @@ import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";
 import { dailyHuntsCompleted, hasDailyHuntSlot, dailyHuntCap } from "../lib/character-progress";
 import { postClaimMission, applyServerMissionReward, claimReasonMessage, claimHttpFailureMessage } from "../lib/claim-mission";
 import { missionClaimActionScope } from "../lib/action-deadline-store";
-import { useActionDeadline } from "../lib/use-action-deadline";
+import { useLiveActionDeadline } from "../lib/use-action-deadline";
+import { SharedClockLeaf } from "../components/SharedClockLeaf";
 import { commitAuthoritativeMissionClaim } from "../lib/versioned-mission-claim";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { starterItems } from "../data/starter-items";
@@ -71,7 +72,10 @@ export function HunterBoard({
     const [authoritativeHuntStates, setAuthoritativeHuntStates] = useState<Record<string, WorldHuntTrailView>>({});
     const huntClaimInFlight = useRef(false);
     const [claimingHuntId, setClaimingHuntId] = useState<string | null>(null);
-    const claimCooldownMs = useActionDeadline(missionClaimActionScope(character.name));
+    // Live only while a claim cooldown runs. The board's other render-time clock
+    // reads (the UTC day behind the hunt counter, the Apex ISO week) sit in
+    // SharedClockLeaf, so they still update on every one-second tick.
+    const claimCooldownMs = useLiveActionDeadline(missionClaimActionScope(character.name));
     const [lastClaim, setLastClaim] = useState<{ title: string; reward: string } | null>(null);
     // One Guild request at a time (rank up, accept, give up, purse). The button
     // that started it says what it is doing and the others wait, so a double
@@ -335,10 +339,11 @@ export function HunterBoard({
     }
 
     // ── Apex Contract ───────────────────────────────────────────────────────
-    const apexWeek = isoWeekKey(new Date());
+    // The ISO week is read in the Apex card's SharedClockLeaf, which hands the
+    // week it rendered to this handler.
 
     /** Straight to the fight: the Apex is already found, there is no trail. */
-    function faceApex() {
+    function faceApex(apexWeek: string) {
         if (!requireServerSettlement("fieldHuntMissions")) return;
         if (!canTakeApex(character)) return;
         // apex-ai-* profiles are real builtins (lib/combat-ai.ts), so both the
@@ -388,18 +393,20 @@ export function HunterBoard({
             backgroundPosition: "center top",
             backgroundAttachment: "fixed",
         }}>
-            <CentralDestinationHeader
-                backLabel="Central"
-                eyebrow="The Thousand Gates · Tracker Command"
-                icon={<GiDragonHead />}
-                onBack={() => setScreen("centralHub")}
-                statusLabel="Daily hunt rewards"
-                statusValue={`${dailyHuntsCompleted(character)} / ${huntCap}`}
-                subtitle="Read the trail, prepare the right loadout, and turn dangerous quarry into guild standing."
-                title="Hunting"
-                tone="azure"
-            />
-            {!hasDailyHuntSlot(character) && <p role="status">Rewards reset at midnight UTC. You can still accept and track eligible contracts.</p>}
+            <SharedClockLeaf>{() => (
+                <CentralDestinationHeader
+                    backLabel="Central"
+                    eyebrow="The Thousand Gates · Tracker Command"
+                    icon={<GiDragonHead />}
+                    onBack={() => setScreen("centralHub")}
+                    statusLabel="Daily hunt rewards"
+                    statusValue={`${dailyHuntsCompleted(character)} / ${huntCap}`}
+                    subtitle="Read the trail, prepare the right loadout, and turn dangerous quarry into guild standing."
+                    title="Hunting"
+                    tone="azure"
+                />
+            )}</SharedClockLeaf>
+            <SharedClockLeaf>{() => !hasDailyHuntSlot(character) && <p role="status">Rewards reset at midnight UTC. You can still accept and track eligible contracts.</p>}</SharedClockLeaf>
             {lastClaim && <ClaimImpactNotice {...lastClaim} onClose={() => setLastClaim(null)} />}
 
             <div className="hunter-rank-banner">
@@ -431,7 +438,8 @@ export function HunterBoard({
 
             {/* Apex Contract — the Rank 5 capstone. Hidden entirely below max
                 rank so it reads as something to climb toward, not a locked row. */}
-            {canTakeApex(character) && (() => {
+            {canTakeApex(character) && <SharedClockLeaf>{() => {
+                const apexWeek = isoWeekKey(new Date());
                 const beast = apexBeastForWeek(apexWeek);
                 const claimed = apexClaimedThisWeek(character, apexWeek);
                 const portrait = beastPortrait(beast.apexAiId);
@@ -456,7 +464,7 @@ export function HunterBoard({
                             {claimed
                                 ? <span className="apex-done">Claimed this week</span>
                                 : <>
-                                    <button type="button" className="apex-fight" onClick={faceApex}>
+                                    <button type="button" className="apex-fight" onClick={() => faceApex(apexWeek)}>
                                         Face the Apex
                                     </button>
                                     <button type="button" className="apex-claim" disabled={claimCooldownMs > 0 || guildBusy} aria-busy={guildAction === "apex"} onClick={claimApex}>
@@ -466,7 +474,7 @@ export function HunterBoard({
                         </div>
                     </div>
                 );
-            })()}
+            }}</SharedClockLeaf>}
 
             {missionRanks.map((rank) => {
                 const minRank = HUNT_MIN_RANK[rank] ?? 0;
