@@ -12,7 +12,7 @@ type ShinobiCombatShellProps = {
  * Shared application and responsive-composition boundary for authoritative
  * shinobi combat. The transports supply state; this shell owns viewport
  * containment and the shared battle-skin boundary. PvP and Solo use its
- * dossier composition, while Tactical keeps its N-actor zoomable board grid.
+ * dossier composition, while Tactical fits its multi-actor board to the stage.
  */
 export function ShinobiCombatShell({ children, mode, className = "", style }: ShinobiCombatShellProps) {
     return (
