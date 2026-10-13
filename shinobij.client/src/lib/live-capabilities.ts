@@ -255,10 +255,23 @@ export class LiveCapabilitiesStore {
             }));
         } catch (error) {
             const message = error instanceof Error ? error.message : "Capability refresh failed";
+            // A failed refresh (network, timeout, 5xx, malformed body) keeps a
+            // lease that is still inside its CAPABILITY_MAX_AGE_MS window: the
+            // last answer the server actually gave stays in force until it
+            // ages out (the expiry timer is re-armed from its lastUpdatedAt).
+            // One blip during a deploy used to revoke every gameplay control
+            // and tear down the socket at once. Still fail-closed where it
+            // matters: an explicit "unavailable" answer applies immediately
+            // (it is a successful response), and an aged or cold lease does not
+            // survive a failure. Nothing malformed is ever adopted.
+            const previous = this.#snapshot;
+            const leaseLive = previous.freshness === "fresh"
+                && previous.lastUpdatedAt !== null
+                && this.#now() - previous.lastUpdatedAt <= CAPABILITY_MAX_AGE_MS;
             this.#publish(Object.freeze({
-                capabilities: this.#snapshot.capabilities,
-                freshness: this.#snapshot.capabilities ? "stale" : "unknown",
-                lastUpdatedAt: this.#snapshot.lastUpdatedAt,
+                capabilities: previous.capabilities,
+                freshness: leaseLive ? "fresh" : (previous.capabilities ? "stale" : "unknown"),
+                lastUpdatedAt: previous.lastUpdatedAt,
                 error: message,
             }));
         } finally {
@@ -323,7 +336,9 @@ export function startLiveCapabilitiesPolling(
         clearSchedule();
         const next = await store.refresh();
         if (disposed) return;
-        consecutiveFailures = next.freshness === "fresh"
+        // A failed refresh counts even while its lease is still in force, so
+        // the next attempt comes on the fast failure schedule, not in 30 s.
+        consecutiveFailures = next.freshness === "fresh" && next.error === null
             ? 0
             : Math.min(8, consecutiveFailures + 1);
         schedule();
