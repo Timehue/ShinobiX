@@ -56,14 +56,25 @@ export function useSectorHudLayout(ref: RefObject<HTMLDivElement | null>) {
         const schedule = () => { if (!frame) frame = requestAnimationFrame(measure); };
         const resize = new ResizeObserver(schedule);
         for (const element of [hud, center, nav]) if (element) resize.observe(element);
+        // Only a scroll that can move the stage or the help slot changes this
+        // layout. Scrolling the chat log or the nearby roster re-ran measure()
+        // (matchMedia, getComputedStyle and ~8 rect reads) every frame for nothing.
+        const scrolled = (event: Event) => {
+            const target = event.target;
+            if (target instanceof Element && !target.contains(stage)) {
+                const help = hud.querySelector('.sector-hud-help-slot');
+                if (!help || !target.contains(help)) return;
+            }
+            schedule();
+        };
         window.addEventListener('resize', schedule);
-        window.addEventListener('scroll', schedule, true);
+        window.addEventListener('scroll', scrolled, { capture: true, passive: true });
         window.visualViewport?.addEventListener('resize', schedule);
         measure();
         return () => {
             resize.disconnect(); cancelAnimationFrame(frame);
             window.removeEventListener('resize', schedule);
-            window.removeEventListener('scroll', schedule, true);
+            window.removeEventListener('scroll', scrolled, true);
             window.visualViewport?.removeEventListener('resize', schedule);
             stage.style.removeProperty('--sector-board-size');
             stage.style.removeProperty('--sector-nearby-height');
