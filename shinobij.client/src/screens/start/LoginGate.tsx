@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { rememberedShinobi } from "../../lib/player-accounts";
 import { loadPublicCapabilities } from "../../lib/live-capabilities";
+import { useLiveCapabilities } from "../../lib/live-capabilities-context";
 import { startGoogleSignIn } from "../../lib/google-signin";
 import { useBfcacheRestore } from "../../lib/use-bfcache-restore";
 import { AccountRecoveryForm } from "../../components/AccountRecoveryForm";
@@ -89,9 +90,14 @@ export function LoginGate({
     // A pre-filled name means a session restore failed, so open straight on the
     // form that can fix it rather than hiding it behind a disclosure.
     const [showPasswordForm, setShowPasswordForm] = useState(Boolean(initialName));
-    const [googleReady, setGoogleReady] = useState(false);
-    const [guestReady, setGuestReady] = useState(false);
     const [recovering, setRecovering] = useState(false);
+    // Which doors are actually open, from the live capability store: the
+    // buttons follow every refresh, so a first check that failed (a deploy
+    // blip) no longer hides Google and guest play until a reload. The last
+    // known answer stays in force while a refresh is failing, as before.
+    const { snapshot: capabilitySnapshot } = useLiveCapabilities();
+    const googleReady = capabilitySnapshot.capabilities?.googleSignIn?.state === "available";
+    const guestReady = capabilitySnapshot.capabilities?.guestPlay?.state === "available";
 
     // Shinobi this browser can return to in one click, plus a guest character if
     // one lives here. The guest is flagged rather than hidden: it is a character
@@ -101,15 +107,10 @@ export function LoginGate({
     const [remembered] = useState(rememberedShinobi);
 
     // Ask the server which doors are actually open rather than rendering a
-    // button whose only possible answer is a 503.
+    // button whose only possible answer is a 503. This only warms a cold store
+    // (a fresh lease is reused); the answer arrives through the store above.
     useEffect(() => {
-        let cancelled = false;
-        void loadPublicCapabilities().then((capabilities) => {
-            if (cancelled || !capabilities) return;
-            setGoogleReady(capabilities.googleSignIn?.state === "available");
-            setGuestReady(capabilities.guestPlay?.state === "available");
-        });
-        return () => { cancelled = true; };
+        void loadPublicCapabilities();
     }, []);
 
     // beginGoogle deliberately leaves status="Opening Google…" while the

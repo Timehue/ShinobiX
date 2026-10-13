@@ -69,6 +69,10 @@ type ChatPushHandler = (push: ChatPush) => void;
 
 let socket: Socket | null = null;
 let pingTimer: ReturnType<typeof setInterval> | null = null;
+// Retrying a handshake the server refused (see the connect_error handler).
+let handshakeRetryTimer: ReturnType<typeof setTimeout> | null = null;
+let handshakeRefusals = 0;
+const HANDSHAKE_RETRY_MAX_MS = 30_000;
 let latestFrame: PresenceFrame | null = null;
 
 const sectorHandlers = new Set<SectorHandler>();
@@ -139,6 +143,7 @@ export function connectRealtime(initialFrame: PresenceFrame): void {
         // pull the current sector roster so a reconnecting client repopulates its
         // sector-mates at once instead of waiting up to 20s for the next HTTP
         // reconcile. Without this, peers briefly vanish after any socket blip.
+        handshakeRefusals = 0;
         if (latestFrame) {
             socket?.emit('presence', latestFrame);
             socket?.emit('presence:request', { sector: latestFrame.sector });
@@ -153,8 +158,25 @@ export function connectRealtime(initialFrame: PresenceFrame): void {
         socket?.io.reconnectionDelay(reconnectBaseDelayMs(!!latestFrame?.inBattle));
         statusHandlers.forEach((h) => h(false));
     });
-    // (No connect_error handler: the function-form `auth` above rebuilds the
-    // handshake credentials on every attempt, including a re-minted token.)
+    // A handshake the SERVER refused (the auth middleware's `next(error)`)
+    // destroys the socket and socket.io never retries it. Storage hiccups
+    // surface there as "unauthorized" (a timed-out session read during a
+    // reconnect rush), so without this the player stayed off the live socket
+    // until a reload. Retry with a spread, capped backoff; the function-form
+    // `auth` above sends fresh credentials each time. Transport errors leave
+    // the socket `active` and socket.io's own reconnect handles them.
+    socket.on('connect_error', () => {
+        const refused = socket;
+        if (!refused || refused.active) return;
+        handshakeRefusals += 1;
+        const delay = Math.min(HANDSHAKE_RETRY_MAX_MS,
+            reconnectBaseDelayMs(false) * 2 ** Math.min(4, handshakeRefusals - 1));
+        if (handshakeRetryTimer) clearTimeout(handshakeRetryTimer);
+        handshakeRetryTimer = setTimeout(() => {
+            handshakeRetryTimer = null;
+            if (socket === refused && !refused.connected && !refused.active) refused.connect();
+        }, delay);
+    });
 
     socket.on('presence:sector', (data: { sector: number; players: PlayerRecord[] } | null) => {
         if (!data) return;
@@ -250,6 +272,11 @@ export function disconnectRealtime(): void {
         clearInterval(pingTimer);
         pingTimer = null;
     }
+    if (handshakeRetryTimer) {
+        clearTimeout(handshakeRetryTimer);
+        handshakeRetryTimer = null;
+    }
+    handshakeRefusals = 0;
     if (socket) {
         socket.removeAllListeners();
         socket.disconnect();
