@@ -58,10 +58,9 @@ create index if not exists kv_store_key_pattern_idx
 
 -- ── Row-level security ───────────────────────────────────────────────────────
 -- RLS MUST be ENABLED. Service-role bypasses it for server-side reads/writes;
--- the anon role is what the browser uses and we want a narrow allowlist.
+-- the anon role is what a browser holding the public key would use.
 --
--- Anon allowlist:
---   pvp:*            — PvP session state (intentionally shared between fighters and spectators)
+-- Anon allowlist: NONE (since 2026-10-12, see below).
 --
 -- `cw-tilecards:*` was REMOVED from the anon allowlist (2026-07-23 hardening,
 -- P0). The Chronicle duel record stores BOTH players' full decks, both hands,
@@ -82,34 +81,28 @@ create index if not exists kv_store_key_pattern_idx
 -- Delivery is unaffected by the removal. Do NOT re-add it — deliver any new
 -- per-player inbox over the authenticated channel instead.
 --
--- Since 2026-10-12 the browser subscribes to nothing over Supabase Realtime
--- (lib/realtime.ts was deleted; PvP uses /api/pvp/stream), and kv_store is no
--- longer in the `supabase_realtime` publication (section below). The anon
--- SELECT policy is kept as-is for now; dropping it is a separate RLS change.
+-- `pvp:*` was REMOVED too (2026-10-12): the anon allowlist is now EMPTY. It
+-- existed only so the browser's Supabase Realtime subscription could pass RLS,
+-- and since #358 the browser subscribes to nothing over Realtime
+-- (lib/realtime.ts was deleted; PvP uses /api/pvp/stream) and kv_store left the
+-- `supabase_realtime` publication (section below). Meanwhile the grant let
+-- anyone holding the public anon key list and read every PvP session row
+-- through the Data API. The server reads only with the service role, which
+-- bypasses RLS, so nothing the game does used it. Do NOT re-add an anon policy:
+-- serve browser reads through an authenticated API route.
 
 alter table public.kv_store enable row level security;
 
--- Drop any prior policies before re-creating so this script is idempotent.
+-- Drop the old anon policies. With RLS on and no policy, anon sees no rows.
 drop policy if exists "anon_read_pvp_realtime" on public.kv_store;
 drop policy if exists "kv_store_anon_select"   on public.kv_store;
 
--- Anon SELECT — strict prefix allowlist. Nothing else is readable.
-create policy "kv_store_anon_select"
-    on public.kv_store
-    for select
-    to anon
-    using (
-        key like 'pvp:%'
-    );
-
--- Belt-and-suspenders: also revoke broad table grants from anon so that
--- even if the policy is ever dropped, anon can't read/write anything.
--- The SELECT policy above re-grants the narrow allowlist.
+-- The browser roles get no table privileges at all. RLS would already deny
+-- every row; revoking the grants as well means even an accidental RLS disable
+-- exposes nothing.
 revoke all      on public.kv_store from anon;
-grant  select   on public.kv_store to   anon;
 -- audit #27 hardening (applied to prod 2026-06-01): the app never uses the
--- `authenticated` role (players are `anon` via Realtime; the server is
--- `service_role`), so grant it NOTHING. RLS already denied it every row by
+-- `authenticated` role (the server is `service_role`), so grant it NOTHING. RLS already denied it every row by
 -- deny-by-default; revoking the grant also closes the "if RLS is ever disabled,
 -- authenticated would see all rows" footgun. Do NOT re-add a grant here.
 revoke all      on public.kv_store from authenticated;
