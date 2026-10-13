@@ -76,8 +76,8 @@ See `.env.example` for the annotated list. Minimum to boot:
 | `SESSION_SECRET` | ✅ | Long random string. Without it, every request pays ~100ms scrypt. |
 | `ADMIN_PASSWORD` | ✅ | Admin panel. |
 | `ADMIN_CONTENT_PASSWORD` | ✅ | Content moderation admin. |
-| `VITE_SUPABASE_URL` | ✅ (build) | `https://<ref>.supabase.co` — baked into the client at build for Realtime. |
-| `VITE_SUPABASE_ANON_KEY` | ✅ (build) | Supabase anon (public) key — build-time, for client Realtime. |
+| `VITE_SUPABASE_URL` | ✅ (build) | `https://<ref>.supabase.co`, build-time. Since 2026-10-13 the client no longer uses Supabase Realtime, so nothing in the browser reads it; the deploy check still expects it, so keep it set. |
+| `VITE_SUPABASE_ANON_KEY` | ✅ (build) | Supabase anon (public) key, build-time. Unused by the client since 2026-10-13, and the anon role now has no access to `kv_store`; the deploy check still expects it, so keep it set. |
 | `SUPABASE_URL` | ▲ | Server-side Supabase REST/Storage base (if used). |
 | `SUPABASE_SERVICE_ROLE_KEY` | ▲ | Server-side service role — NEVER exposed to the client. |
 | `PG_POOL_MAX` | ▲ | Pool size. Defaults to `15` on Railway (detected via `RAILWAY_ENVIRONMENT`), `5` elsewhere; set only to override. |

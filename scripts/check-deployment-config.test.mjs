@@ -18,6 +18,20 @@ test('repository Railway deployment remains single-instance and starts built ser
   assert.equal(result.passed, true);
 });
 
+test('an operator restart exits non-zero whenever Railway only restarts on failure', async () => {
+  // restartPolicyType ON_FAILURE restarts a container only after a non-zero
+  // exit; /restart used to exit 0 and leave the game down (2026-10-13 audit).
+  const railway = JSON.parse(await readFile(new URL('../railway.json', import.meta.url), 'utf8'));
+  const server = await readFile(new URL('../server.ts', import.meta.url), 'utf8');
+  if (railway.deploy?.restartPolicyType === 'ON_FAILURE') {
+    const code = Number(/const OPERATOR_RESTART_EXIT_CODE = (\d+);/.exec(server)?.[1]);
+    assert.ok(code > 0, 'operator restart must exit non-zero');
+    assert.match(server, /gracefulShutdown\(OPERATOR_RESTART_EXIT_CODE, 'operator restart'\)/);
+  }
+  // A deploy's SIGTERM is the platform's own replacement: it stays a clean 0.
+  assert.match(server, /process\.once\('SIGTERM', \(\) => gracefulShutdown\(0, 'SIGTERM'\)\)/);
+});
+
 test('deployment config rejects replica drift and source-server start commands', () => {
   assert.deepEqual(deploymentConfigErrors(valid), []);
   assert.match(
