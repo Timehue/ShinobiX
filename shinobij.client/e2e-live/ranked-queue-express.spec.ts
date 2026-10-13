@@ -52,7 +52,7 @@ async function openRanked(context: BrowserContext, account: Awaited<ReturnType<t
         localStorage.setItem('patchNotes.lastSeenVersion.v1', patchVersion);
         localStorage.setItem('dailyBriefing.seen.v1', new Date().toISOString().slice(0, 10));
         localStorage.setItem('ranked-journey-installed', name);
-    }, { ...account, patchVersion: LATEST_PATCH_NOTE.version });
+    }, { ...account, patchVersion: LATEST_PATCH_NOTE?.version ?? '' });
     const page = await context.newPage();
     await page.goto('/#/centralHub', { waitUntil: 'domcontentloaded' });
     const arenaEntry = page.getByRole('button', { name: /Arena District/ });
