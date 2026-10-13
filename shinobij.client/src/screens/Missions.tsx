@@ -47,7 +47,8 @@ import { queueCombatMissionClaim } from "../lib/mission-combat-claim";
 import { postFieldTrail, type FieldTrailResult } from "../lib/field-trail-api";
 import { useFieldTrailRefreshVersion } from "../lib/use-field-trail-refresh";
 import missionHallArt from "../assets/facilities/mission-hall.webp";
-import { sectorArtKey, sectorName, sectorRegionLabel } from "../../../shared/sector-geo";
+import { sectorName, sectorRegionLabel } from "../../../shared/sector-geo";
+import { sectorFloorImage, sectorFloorThumb } from "../lib/sector-floor-layout";
 import { handleHorizontalTabKeyDown } from "../lib/tab-keyboard";
 import { useFirstContractMissionTab } from "../lib/use-first-contract-mission-tab";
 import { ScreenHint } from "../components/ScreenHint";
@@ -667,7 +668,10 @@ export function Missions({
                             const locked = character.level < mission.levelReq;
                             const placeName = sectorName(mission.targetSector) ?? `Sector ${mission.targetSector}`;
                             const regionName = sectorRegionLabel(mission.targetSector) ?? "Outer territory";
-                            const art = `/sector-map/s${sectorArtKey(mission.targetSector)}.webp`;
+                            // The world map's own URL (shared browser cache), plus a
+                            // 256 px copy that phones pick for the 68 px card art.
+                            const art = sectorFloorImage(mission.targetSector);
+                            const artThumb = sectorFloorThumb(mission.targetSector);
                             const accent = rankColor[mission.rank] ?? "var(--slate-500)";
                             return (
                                 <article
@@ -676,7 +680,7 @@ export function Missions({
                                     style={{ "--mission-rank-color": accent } as CSSProperties}
                                 >
                                     <div className="mh-field-art">
-                                        <img src={art} alt="" loading="lazy" decoding="async" />
+                                        <img src={art} srcSet={artThumb ? `${artThumb} 256w, ${art} 1024w` : undefined} sizes="(max-width: 700px) 68px, (max-width: 1080px) 50vw, 33vw" alt="" loading="lazy" decoding="async" />
                                         <span className="mh-field-rank">{mission.rank}</span>
                                         <span className="mh-field-sector">
                                             <small>Sector {mission.targetSector} · {regionName}</small>
