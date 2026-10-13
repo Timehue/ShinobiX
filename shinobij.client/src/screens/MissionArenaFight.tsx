@@ -5,6 +5,7 @@ import { cardArtBackdrop } from "../lib/card-art-backdrop";
 import { combatItemTooltip } from "../lib/combat-item-tooltip";
 import { getAllJutsus } from "../lib/jutsu-loadout";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
+import { sameJsonValue } from "../lib/pvp-session-runtime";
 import "../styles/battle-skin.css";
 import { visiblePoll } from "../lib/poll";
 import { retryArenaSettlement } from "../lib/arena-settlement-retry";
@@ -714,6 +715,9 @@ export function MissionArenaFight({
             const currentVersion = current.runtimeVersion;
             const incomingVersion = incoming.runtimeVersion;
             if (currentVersion !== undefined && incomingVersion !== undefined && incomingVersion < currentVersion) return current;
+            // An unchanged re-read (the 2.5s poll while waiting) keeps the same
+            // object, so the board, log and VFX do not all re-render for nothing.
+            if (incomingVersion === currentVersion && sameJsonValue(incoming, current)) return current;
             return incoming;
         });
     }, []);
@@ -1214,23 +1218,26 @@ export function MissionArenaFight({
     // The sealed session strips jutsu art (combat fields only), so card thumbnails
     // come from the player's OWN catalog by id — the same source the Arena's cards
     // use. Inline/shared art stays as a fallback.
-    const jutsuCatalogById = (() => {
+    // Memoized: each hit, VFX plate and enemy step re-renders this screen
+    // (20-40 renders per exchange), and rebuilding both catalogs every time
+    // merged 100+ jutsu and ~400 items for a thumbnail lookup.
+    const jutsuCatalogById = useMemo(() => {
         const map: Record<string, Jutsu> = {};
         for (const j of getAllJutsus(savedBloodlines ?? [], creatorJutsus ?? [], character)) {
             if (j?.id) map[j.id] = j;
         }
         return map;
-    })();
+    }, [savedBloodlines, creatorJutsus, character]);
     const jutsuArt = (j: JutsuLike) => jutsuCatalogById[String(j.id ?? "")]?.image || (typeof j.image === "string" && j.image) || sharedImages?.[`jutsu:${j.id}`] || "";
     // Same story as jutsu: the sealed pvpItems carry combat fields, not art, so
     // weapon/consumable thumbnails resolve from the player's own item catalog by id.
-    const itemArtById = (() => {
+    const itemArtById = useMemo(() => {
         const map: Record<string, string> = {};
         for (const it of getAllItems(creatorItems ?? [])) {
             if (it?.id && typeof it.image === "string" && it.image) map[it.id] = it.image;
         }
         return map;
-    })();
+    }, [creatorItems]);
     const itemArt = (it: ItemLike) => itemArtById[String(it.id ?? "")] || (typeof it.image === "string" && it.image) || sharedImages?.[`item:${it.id}`] || "";
 
     const done = session.status === "done";
