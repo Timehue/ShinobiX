@@ -1,4 +1,6 @@
 import { gainXp } from "../lib/character-level-projection";
+import {ClanShrineGateway} from '../features/clanWar/ClanShrineGateway';
+import type {CwChallenge} from '../lib/clan-war-api';
 import { resourceActionsToday } from '../../../shared/resource-gathering';
 import { interiorTileFromKey } from '../lib/world-interior-tile';
 import { getPvpJutsuLoadout } from "../lib/jutsu-loadout";
@@ -86,7 +88,8 @@ import { aiRaidLaunchFailureMessage, mintAiRaidToken } from "../lib/ai-raid-api"
 import { raidStartActionScope } from "../lib/action-deadline-store";
 import { useLiveActionDeadline } from "../lib/use-action-deadline";
 import { sameJsonValue } from "../lib/pvp-session-runtime";
-import type { WorldAiFightContext, WorldAiFightKind, WorldAiFightRequest } from "../../../shared/world-ai-fight";
+import type { WorldAiFightContext, WorldAiFightRequest } from "../../../shared/world-ai-fight";
+import { WORLD_FIGHT_KIND_BY_MODE } from "../lib/world-ai-presentation-modes";
 import { wandererAvatar, wandererRobberPortrait, questBossPortrait, WANDERER_BOSS_PORTRAIT, WANDERER_NEMESIS_PORTRAIT } from "../lib/wanderer-art";
 import { makeBuiltinAi } from "../lib/combat-ai";
 import { genericPetArenaOpponents, type PetArenaOpponent } from "../data/pet-arena-opponents";
@@ -269,17 +272,6 @@ type HuntToast = { id: number; kicker: string; text: string };
 /** The open hunt encounter card: which trail, which beast, and what it's showing. */
 type HuntEncounterState = { trail: ActiveHuntTrail; ai: CreatorAi; sector: number; view: HuntEncounterView };
 
-const WORLD_FIGHT_KIND_BY_MODE: Readonly<Record<string, WorldAiFightKind>> = {
-    single: "wanderer",
-    ambush: "wanderer-ambush",
-    patrol: "patrol",
-    bountyHunter: "bounty-hunter",
-    huntPack: "hunt-pack",
-    huntTarget: "hunt-target",
-    questboss: "questbook-boss",
-    storyReckoning: "story-reckoning",
-};
-
 function WorldMapContent({
     setCurrentBiome,
     setScreen,
@@ -330,6 +322,7 @@ function WorldMapContent({
     capturePvpCreateScope,
     onLaunchWeeklyBoss,
     onExplorePresentationActiveChange,
+    onLaunchClanWarBattle,
 }: {
     setCurrentBiome: (biome: Biome) => void;
     setScreen: (screen: Screen) => void;
@@ -391,6 +384,7 @@ function WorldMapContent({
     // fight (shared leaderboard, 3-attempt cap), then returns the player here.
     onLaunchWeeklyBoss?: (bossAiId: string, bossDisplayName?: string, returnScreen?: Screen) => void;
     onExplorePresentationActiveChange?: (active: boolean) => void;
+    onLaunchClanWarBattle?:(challenge:CwChallenge,warId:string)=>void;
 }) {
     const legacyAvailable = useLegacyAvailability();
     const legacyActionsAvailable = useLegacyMutationAvailability();
@@ -4515,6 +4509,7 @@ function WorldMapContent({
                             <>
                             {!vaultRaid && <SectorVillageEntrance sector={selectedSector} village={character.village} present={sectorIsCurrent}
                                 onEnter={name => { const village = locations.find(l => l.type === "village" && l.name === name); if (village) enterLandmark(village); }} />}
+                            {!vaultRaid&&<ClanShrineGateway character={character} sector={selectedSector} present={sectorIsCurrent} blocked={combatActive||isTraveling} sharedImages={sharedImages} onLaunchBattle={onLaunchClanWarBattle}/>}
                             {!vaultRaid && <WorldSectorOverlayLayer
                                 sector={selectedSector}
                                 biome={ambienceBiomeForSector(selectedSector)}

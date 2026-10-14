@@ -17,9 +17,9 @@
  * Both the client item list and the server catalog derive from this file, so the
  * two cannot drift.
  */
-import { effectiveItemLevelReq } from "./item-level-gate.js";
-import { GEAR_STEP_ART_READY } from "./gear-step-art-ready.js";
-import { GEAR_STEP_NAMES } from "./gear-step-names.js";
+import { effectiveItemLevelReq } from "./item-level-gate";
+import { GEAR_STEP_ART_READY } from "./gear-step-art-ready";
+import { GEAR_STEP_NAMES } from "./gear-step-names";
 
 export type GearKind = "weapon" | "armor";
 

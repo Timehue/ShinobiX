@@ -76,20 +76,27 @@ async function field(saveKey: string, name: string): Promise<number> {
 function failRowWriteOnce(key: string, landed: boolean): () => void {
     const originalSet = kv.set.bind(kv);
     const originalGet = kv.get.bind(kv);
+    const originalBatch = kv.compareSetMany?.bind(kv);
     let armed = true;
-    let blind = false;
+    let blind = 0;
     kv.set = (async (k: string, value: unknown, options?: unknown) => {
         if (!armed || k !== key) return originalSet(k, value, options as never);
         armed = false;
         if (landed) {
             await originalSet(k, value, options as never);
-            blind = true;
+            blind = 1;
         }
         throw new Error(`injected: ${key} write ${landed ? 'committed but reported an error' : 'failed'}`);
     }) as typeof kv.set;
+    if (originalBatch) kv.compareSetMany = async ops => {
+        if (!armed || !ops.some(op=>op.op==='cas' && op.key===key)) return originalBatch(ops);
+        armed=false;
+        if (landed) { await originalBatch(ops); blind=2; }
+        throw new Error(`injected: ${key} atomic publication ${landed ? 'landed' : 'failed'}`);
+    };
     kv.get = (async (k: string) => {
         if (blind && k === key) {
-            blind = false;
+            blind--;
             throw new Error('injected: readback failed');
         }
         return originalGet(k);
@@ -97,6 +104,7 @@ function failRowWriteOnce(key: string, landed: boolean): () => void {
     return () => {
         kv.set = originalSet;
         kv.get = originalGet;
+        if (originalBatch) kv.compareSetMany = originalBatch;
     };
 }
 
@@ -173,9 +181,19 @@ const OFFICER_SAVE = `save:${OFFICER}`;
 const PAIR = 'clan-war:ashwind-vs-emberfall';
 
 async function twoClans(seals = 500) {
-    await kv.set('save:clan-ashwind', { name: 'Ashwind', village: 'Frostfang Village', founderName: OFFICER, members: [{ name: OFFICER, isFounder: true }] });
-    await kv.set('save:clan-emberfall', { name: 'Emberfall', village: 'Moonshadow Village', founderName: 'otherfounder', members: [{ name: 'otherfounder', isFounder: true }] });
-    await kv.set(OFFICER_SAVE, { _saveVersion: 1, character: { name: OFFICER, clan: 'Ashwind', clanFounder: true, village: 'Frostfang Village', honorSeals: seals } });
+    const now=Date.now(),createdAt=now-10*86_400_000;
+    const registry:Record<string,{lastSeen:number}>={};
+    for (const [name,village,founder] of [['Ashwind','Frostfang Village',OFFICER],['Emberfall','Moonshadow Village','otherfounder']]) {
+        const members=[founder,...[1,2,3].map(i=>`${founder}-${i}`)].map(member=>({name:member,isFounder:member===founder}));
+        await kv.set(`save:clan-${name.toLowerCase()}`,{name,village,founderName:founder,members,createdAt,serverCreatedAt:createdAt,
+            memberJoinedAt:Object.fromEntries(members.map(member=>[member.name,createdAt]))});
+        for (const member of members) {
+            await kv.set(`save:${member.name}`,{_saveVersion:1,character:{name:member.name,clan:name,level:100,
+                clanFounder:member.isFounder,village,honorSeals:seals}});
+            registry[member.name]={lastSeen:now};
+        }
+    }
+    await kv.set('player:registry',registry);
 }
 
 const declare = (requestId: string, tokenOwner = OFFICER) => callAs(declareWar, tokenOwner, { toClan: 'Emberfall', requestId });

@@ -243,7 +243,10 @@ for (const viewport of [{ width: 842, height: 641 }, { width: 844, height: 390 }
         // Touching normal-flow edges can differ by less than 0.001 CSS px in Firefox DOMRects.
         expect(flow.actionTop + 0.001, 'submit follows the readable consent text').toBeGreaterThanOrEqual(flow.consentBottom);
 
-        await enterWorld.scrollIntoViewIfNeeded();
+        // A fixed notice can cover a button that is already fully inside the
+        // viewport. Conditional scrolling then does nothing (notably in Firefox).
+        // Exercise the intended scroll-to-submit interaction before checking it.
+        await enterWorld.evaluate((button) => button.scrollIntoView({ block: 'center', behavior: 'instant' }));
         await expect(enterWorld).toBeInViewport();
         const placement = await enterWorld.evaluate((button) => {
             const rect = button.getBoundingClientRect();
