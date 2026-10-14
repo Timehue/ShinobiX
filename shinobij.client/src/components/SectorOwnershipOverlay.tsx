@@ -98,7 +98,9 @@ export function SectorOwnershipOverlay({ sectorPoints }: { sectorPoints: readonl
                 if (!p || sector >= 56 || sector === 99) return null;
                 const banner = BANNER_BY_VILLAGE[village];
                 if (!banner) return null;
-                const isContested = contested.has(sector) && !lite;
+                // A siege is information, so `lite` (weak phones and Reduce Motion)
+                // keeps the contested class and gets a static ring instead of the pulse.
+                const isContested = contested.has(sector);
                 return (
                     <div
                         key={sector}

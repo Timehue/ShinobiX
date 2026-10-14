@@ -1219,8 +1219,17 @@ test.describe("Awakening Stone cinematic", () => {
         await expect(page.getByRole("dialog", { name: "Awakening Stone" })).toBeVisible();
         await expect(page.locator(".ca-cinematic")).toHaveCount(0);
 
+        // A paid reroll asks first: it spends Fate Shards and the result is random.
+        const confirmReroll = async () => {
+            const confirm = page.getByRole("alertdialog", { name: "Reroll element", exact: true });
+            await expect(confirm).toContainText("10 Fate Shards");
+            await confirm.getByRole("button", { name: "Reroll", exact: true }).click();
+        };
         await page.getByRole("button", { name: /^Reroll Element 1 element/ }).click();
-        await expect(page.getByText("Error: The stone rejected this reroll.")).toBeVisible();
+        expect(requestCount, "the first tap only asks to confirm").toBe(0);
+        await confirmReroll();
+        // The "Error:" prefix only colours the message; the player reads the sentence.
+        await expect(page.locator(".aw-msg-error")).toHaveText("The stone rejected this reroll.");
         await expect(page.locator(".ca-cinematic")).toHaveCount(0);
         expect(
             runtimeErrors.filter((message) => !/status of 400/i.test(message)),
@@ -1229,6 +1238,7 @@ test.describe("Awakening Stone cinematic", () => {
         runtimeErrors.length = 0;
 
         await page.getByRole("button", { name: /^Reroll Element 1 element/ }).click();
+        await confirmReroll();
         const cinematic = page.getByRole("dialog", { name: "Fire Release" });
         await expect(cinematic).toBeVisible();
         await expect(cinematic).toHaveAttribute("data-element", "fire");
@@ -1294,6 +1304,9 @@ test.describe("Awakening Stone cinematic", () => {
         await expectUiAuditBoot(page, runtime, "centralHub");
         await page.locator(".central-card").filter({ hasText: "Awakening Stone" }).click();
         await page.getByRole("button", { name: /Reroll Elements/ }).click();
+        const confirm = page.getByRole("alertdialog", { name: "Reroll both elements", exact: true });
+        await expect(confirm).toContainText("Water and Wind");
+        await confirm.getByRole("button", { name: "Reroll both", exact: true }).click();
 
         const cinematic = page.getByRole("dialog", { name: "Elemental Convergence" });
         await expect(cinematic).toBeVisible();

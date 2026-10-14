@@ -7,17 +7,22 @@
 // The copy must NOT suggest refreshing: while this banner is up the unsaved
 // state lives only in this tab, so a refresh is precisely what destroys it.
 // Saving retries on its own, so the right advice is "keep the tab open".
+//
+// The glyph is GameArtIcon's "warning" art, referenced by its public small copy
+// rather than by importing GameArtIcon: this banner is on the boot graph, and
+// that module would bring its whole art table with it.
 export function SaveErrorBanner({ visible }: { visible: boolean }) {
     if (!visible) return null;
     return (
         <div
+            role="alert"
             style={{
                 position: "fixed", top: 0, left: 0, right: 0, zIndex: 100001,
-                background: "#7f1d1d", color: "#fff", padding: "8px 14px",
+                background: "var(--sj-seal, #a83e45)", color: "#fff", padding: "8px 14px",
                 textAlign: "center", fontSize: 13, fontWeight: 600,
             }}
         >
-            ⚠️ Couldn't save your progress — recent changes are only in this tab. Check your connection and keep playing; saving retries automatically. Do <strong>not</strong> refresh or close the tab until this clears, or those changes are lost.
+            <img src="/ui/icon-96/warning.webp" alt="" aria-hidden="true" width={16} height={16} decoding="async" style={{ width: 16, height: 16, objectFit: "contain", verticalAlign: "middle", marginRight: 6 }} />Couldn't save your progress — recent changes are only in this tab. Check your connection and keep playing; saving retries automatically. Do <strong>not</strong> refresh or close the tab until this clears, or those changes are lost.
         </div>
     );
 }

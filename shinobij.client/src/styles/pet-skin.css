@@ -137,10 +137,12 @@
         inset 0 0 12px rgba(0,0,0,0.4) !important;
     transition: border-color 120ms, transform 120ms;
 }
-.pet-yard-screen .pet-slot-avatar:hover {
-    border-color: rgba(78,168,255,0.85) !important;
-    transform: translateY(-2px);
-    box-shadow: 0 0 16px rgba(78,168,255,0.35);
+@media (hover: hover) {
+    .pet-yard-screen .pet-slot-avatar:hover {
+        border-color: rgba(78,168,255,0.85) !important;
+        transform: translateY(-2px);
+        box-shadow: 0 0 16px rgba(78,168,255,0.35);
+    }
 }
 .pet-yard-screen .pet-slot-avatar.is-active,
 .pet-yard-screen .pet-slot-avatar[aria-current="true"] {
@@ -647,9 +649,11 @@
     box-shadow: 0 2px 0 rgba(0,0,0,0.6), inset 0 0 16px rgba(0,0,0,0.4);
     transition: border-color 120ms, transform 120ms;
 }
-.pet-arena-screen .pet-arena-card:hover {
-    border-color: rgba(78,168,255,0.85) !important;
-    transform: translateY(-2px);
+@media (hover: hover) {
+    .pet-arena-screen .pet-arena-card:hover {
+        border-color: rgba(78,168,255,0.85) !important;
+        transform: translateY(-2px);
+    }
 }
 .pet-arena-screen .pet-arena-card strong {
     color: var(--bsv2-gold-bright) !important;

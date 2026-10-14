@@ -1807,3 +1807,13 @@
         0 0 0 6px rgba(250, 204, 21, 0.18);
 }
 
+/* The global reduced-motion reset has zero specificity, so these infinite
+   pulses outran it. Each keeps its static state: the red low-HP border and
+   fill, the amber reconnect dot, the countdown digit and the coin-flip plate. */
+@media (prefers-reduced-motion: reduce) {
+    .pet-arena-hpbar-low,
+    .pvp-reconnecting-dot,
+    .pvp-countdown-number,
+    .pvp-coinflip-result { animation: none; }
+}
+

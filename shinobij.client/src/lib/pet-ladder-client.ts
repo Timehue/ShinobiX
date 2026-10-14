@@ -69,10 +69,12 @@ export function toClientWarfrontSlot(slot: { pet: LadderPet; role: ArenaRoleLite
     return { pet: { ...toClientPet(slot.pet), role }, role };
 }
 
+const LADDER_REQUEST_REFUSED = "The Pet Ladder did not answer. Try again in a moment.";
+
 async function post<T>(name: string, payload: Record<string, unknown>): Promise<T> {
     const res = await fetch("/api/pet-ladder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, ...payload, ...(payload.mode === "tactical" ? { warfrontRules: WARFRONT_LADDER_RULES } : {}) }) });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error((data as { error?: string }).error ?? `Request failed (${res.status})`);
+    if (!res.ok) throw new Error((data as { error?: string }).error ?? LADDER_REQUEST_REFUSED);
     return data as T;
 }
 
@@ -80,7 +82,7 @@ export async function fetchLadder(name: string, mode: Mode, top?: number): Promi
     const q = new URLSearchParams({ mode, name, ...(top ? { top: String(top) } : {}) });
     const res = await fetch(`/api/pet-ladder?${q.toString()}`, { method: "GET" });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error((data as { error?: string }).error ?? `Request failed (${res.status})`);
+    if (!res.ok) throw new Error((data as { error?: string }).error ?? LADDER_REQUEST_REFUSED);
     return data as LadderView;
 }
 /** The historical tactical storage key now seals a Beastbound Warfront formation. */
