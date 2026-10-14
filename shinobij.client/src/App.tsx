@@ -47,7 +47,7 @@ import type { FieldExploreProgress } from "./lib/world-reward-api";
 import { useEndlessTowerActions } from "./lib/use-endless-tower-actions";
 import { clearSavePreview, readSavePreview, writeSavePreview } from "./lib/save-preview";
 import { setBootKind as perfSetBootKind, notifyScreen as perfNotifyScreen, notifyRestoreComplete as perfNotifyRestoreComplete } from "./lib/perfTelemetry";
-import { cacheDynamicImport, lazyWithRetry, retryDynamicImport } from "./lib/lazyWithRetry";
+import { lazyWithRetry, retryDynamicImport } from "./lib/lazyWithRetry";
 import { pullSharedAdminSnapshots, rememberSharedAdminItems } from "./lib/shared-admin-items";
 import { runSingleFlight } from "./lib/single-flight";
 import { adoptSaveVersion } from "./lib/save-version";
@@ -146,7 +146,8 @@ export { endlessScaleFactor, endlessWaveReward, endlessTowerMilestoneReward };
 
 import { dailyMissionsCompleted, dailyHuntsCompleted } from "./lib/character-progress";
 import { nextNarrativeDelivery, prepareStorySettlement } from "./lib/story-history";
-import { isIdleVitalsOnlyChange, regenerateIdleVitals } from "./lib/loaded-vitals";
+import { regenerateIdleVitals } from "./lib/loaded-vitals";
+import { useSelfRosterRow } from "./lib/use-self-roster-row";
 import { acceptVersionedSnapshot } from "./lib/versioned-snapshot";
 export { dailyMissionsCompleted, dailyHuntsCompleted };
 // Install the global fetch interceptor once at module load. From here on,
@@ -169,7 +170,6 @@ const IntroCinematic = lazyWithRetry(loadIntroCinematic);
 const Bank = lazyWithRetry(() => import("./screens/Bank").then(m => ({ default: m.Bank })));
 const EndlessTowerLobby = lazyWithRetry(() => import("./screens/EndlessTowerLobby").then(m => ({ default: m.EndlessTowerLobby })));
 const EndlessTowerFight = lazyWithRetry(() => import("./screens/EndlessTowerFight").then(m => ({ default: m.EndlessTowerFight })));
-const loadHollowGateFight = cacheDynamicImport(() => import("./screens/HollowGateFight"));
 const HollowGateFight = lazyWithRetry(() => loadHollowGateFight().then(m => ({ default: m.HollowGateFight })));
 // The sealed PET duel, on the Showdown engine and bound to the run.
 const HollowGatePetFight = lazyWithRetry(() => import("./components/HollowGatePetFight").then(m => ({ default: m.HollowGatePetFight })));
@@ -402,7 +402,6 @@ const UserHub = lazyWithRetry(() => import("./screens/UserHub").then(m => ({ def
 const Messages = lazyWithRetry(() => import("./screens/Messages").then(m => ({ default: m.Messages })));
 const UserView = lazyWithRetry(() => import("./screens/UserView").then(m => ({ default: m.UserView })));
 const ScreenTopChrome = lazyWithRetry(() => import("./components/ScreenTopChrome").then(m => ({ default: m.ScreenTopChrome })));
-const loadHollowGateShrineView = cacheDynamicImport(() => import("./features/hollowGate/HollowGateShrineView"));
 const HollowGateShrineView = lazyWithRetry(() => loadHollowGateShrineView().then(m => ({ default: m.HollowGateShrineView })));
 const LeftProfileCard = lazyWithRetry(() => import("./components/LeftProfileCard").then(m => ({ default: m.LeftProfileCard })));
 const SectorBanner = lazyWithRetry(() => import("./components/SectorBanner").then(m => ({ default: m.SectorBanner })));
@@ -508,7 +507,7 @@ import {
     formatHollowGateCombatReward,
     type HollowGatePveFightRef,
 } from "./lib/hollow-gate-pve";
-import { hollowGateRunAfterUnresolvedFight, useHollowGateAppFlow, useHollowGateRunMirror } from "./lib/hollow-gate-app-flow";
+import { hollowGateRunAfterUnresolvedFight, loadHollowGateFight, loadHollowGateShrineView, useHollowGateAppFlow, useHollowGateRunMirror, useHollowGateShrineWarmup } from "./lib/hollow-gate-app-flow";
 import { enterHollowGateShrineFlow, recoverHollowGateRunLazily, reportHollowGateEntryFailure } from "./lib/hollow-gate-entry";
 import type { StoryBossSettleResult } from "./lib/story-combat-api";
 import { requestStoryBossFight } from "./lib/story-fight-theme";
@@ -1293,14 +1292,7 @@ export default function App() {
     // all three boot-restore paths that hydrate a saved run and jump straight
     // here. Scattered call sites at the entry points kept missing the restores,
     // which is exactly the path back into a long run.
-    useEffect(() => {
-        if (screen !== "hollowGateShrine") return;
-        warmHollowGateGenerator();
-        // Warm the fight screen too, so the first encounter opens without a download (not on Save-Data).
-        if ((navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData) return;
-        const timer = window.setTimeout(() => { void loadHollowGateFight().catch(() => undefined); }, 1500);
-        return () => window.clearTimeout(timer);
-    }, [screen]);
+    useHollowGateShrineWarmup(screen === "hollowGateShrine");
 
     // A pending threat ambush lives on the server token, not in the saved board.
     // Read it on every route into the shrine, including boot restores that never
@@ -3317,29 +3309,7 @@ export default function App() {
         loadScreenImageCategories(screenRef.current);
     }
 
-    const rosterSelfRef = useRef<{ seen: Character | null; sector: number; at: number }>({ seen: null, sector: 0, at: 0 });
-    useEffect(() => {
-        if (!character) return;
-        // An idle-regen tick only raises vitals, which screens read from
-        // `character`, not this row; refreshing the row every tick re-rendered
-        // the whole App twice a second, so ticks refresh it at most every 15 s.
-        const self = rosterSelfRef.current, seen = self.seen;
-        self.seen = character;
-        if (seen && self.sector === currentSector && Date.now() - self.at < 15_000 && isIdleVitalsOnlyChange(seen, character)) return;
-        Object.assign(self, { sector: currentSector, at: Date.now() });
-        setPlayerRoster((current) => {
-            const record: PlayerRecord = {
-                name: character.name,
-                level: character.level,
-                village: character.village,
-                specialty: character.specialty,
-                character,
-                currentSector,
-                lastSeenAt: Date.now(),
-            };
-            return [record, ...current.filter((player) => player.name !== character.name)].slice(0, 30);
-        });
-    }, [character, currentSector]);
+    useSelfRosterRow(character, currentSector, setPlayerRoster);
 
     useEffect(() => {
         // Your sector is WHERE YOU ARE; menus don't move you. Only entering a town resets it (lib/screen-guards).
