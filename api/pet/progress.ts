@@ -21,6 +21,8 @@ import { moraleForCharacter, applyMoraleToGain } from '../_war-morale.js';
 import { activeCarriedPetIds, activeTrainingPetIds, PET_TRAINING_CAP } from '../_entitlements.js';
 import { applyGrowthAllocation, resetGrowthAllocation } from './_growth.js';
 import { randomUUID } from 'node:crypto';
+import { sameTacticsBuild, validateTacticsBuild } from '../../shared/pet-tactics-build.js';
+import { ownedTacticsSpeciesId } from '../../shared/pet-tactics-roster.js';
 
 function defensePetIds(defense: unknown): string[] {
     if (!defense || typeof defense !== 'object') return [];
@@ -226,6 +228,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (itemId) loadout[slot] = itemId; else delete loadout[slot];
                 if (slot === 'pve') { if (itemId) loadout.pveDurability = 20; else delete loadout.pveDurability; }
                 nextPet = { ...pet, loadout };
+            } else if (action === 'ranked-build') {
+                let build;
+                try { build = validateTacticsBuild(body.build); }
+                catch (error) { return { ok: false as const, status: 400, error: error instanceof Error ? error.message : 'Invalid ranked loadout.' }; }
+                if (build.speciesId !== ownedTacticsSpeciesId(pet) || (build.ownedPetId && build.ownedPetId !== petId)) {
+                    return { ok: false as const, status: 400, error: 'Choose techniques for this pet’s current species.' };
+                }
+                // This is a preference for future matches. Queued and live teams
+                // retain their sealed moves, even when the owner saves a new kit.
+                const rankedBuild = { ...build, ownedPetId: petId };
+                if (sameTacticsBuild(pet.rankedBuild, rankedBuild)) {
+                    return { ok: true as const, character, value: { action, pet, settledTraining: null }, write: false as const };
+                }
+                nextPet = { ...pet, rankedBuild };
             } else if (action === 'summon-spend') {
                 // Cost of summoning the pet into a CLIENT-RUN PvE fight (Arena /
                 // story boss): one point of PVE-gear durability, the gear itself

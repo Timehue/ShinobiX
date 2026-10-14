@@ -1,10 +1,11 @@
 import { PET_SKIN_REPAIR_REVISIONS } from '../generated/pet-skin-repair-revisions';
+import { PET_TACTICS_IDENTITIES } from '../../../shared/pet-tactics-catalog';
 
 /** Asset revision for the roster-wide identity-performance skeletal pass. */
 export const PROPER_PET_ANIMATION_ASSET_REVISION = "20260825-identity-v5";
 
 /** Individual rig repairs invalidate only the model whose mesh/binding changed. */
-export const PET_RIG_REPAIR_REVISIONS: Readonly<Record<string, string>> = Object.freeze({
+const REPAIRED_RIG_REVISIONS: Readonly<Record<string, string>> = {
     'legendary-9': '20260909-bear-arm-repair-v1',
     'starter-lightning-l': '20260923-multiview-sculpt-animation-v4',
     'standard-7': '20260916-bird-face-binding-v2',
@@ -38,7 +39,16 @@ export const PET_RIG_REPAIR_REVISIONS: Readonly<Record<string, string>> = Object
     'starter-wind-r': '20260916-bird-face-binding-v2',
     'starter-wind-l': '20260916-bird-face-binding-v2',
     ...PET_SKIN_REPAIR_REVISIONS,
-});
+};
+
+/** Invalidate every polished closeup, showcase and roster asset together. */
+export const PET_STUDIO_ASSET_REVISION = '20261013-studio-v1';
+/** Distal articulation and measured binding repairs for full-body combat poses. */
+export const PET_PERFORMANCE_ASSET_REVISION = '20261013-articulation-v1';
+export const PET_CHARACTER_MOTION_ASSET_REVISION = '20261014-contact-performance-v1';
+export const PET_RIG_REPAIR_REVISIONS: Readonly<Record<string, string>> = Object.freeze(Object.fromEntries(
+    PET_TACTICS_IDENTITIES.map(([id]) => [id, `${REPAIRED_RIG_REVISIONS[id] ?? PROPER_PET_ANIMATION_ASSET_REVISION}-${PET_STUDIO_ASSET_REVISION}-${PET_PERFORMANCE_ASSET_REVISION}-${PET_CHARACTER_MOTION_ASSET_REVISION}`]),
+));
 
 /** These four showcase pets keep the detailed individual banks authored before
  * the roster-wide identity pass. Every other production GLB now carries its own

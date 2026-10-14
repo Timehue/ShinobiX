@@ -14,6 +14,7 @@ const WorldBossQueueDialog = lazy(() =>
  * trap the fixed-position dialog inside the board.
  */
 export function WorldBossQueueHost({
+    boss,
     currentSector,
     onClose,
     character,
@@ -23,6 +24,9 @@ export function WorldBossQueueHost({
     onVersionedCharacter,
     onRecordBattle,
 }: {
+    /** The boss the player clicked, from the map's own poll: the dialog shows
+     *  it while its first per-player read is still in flight. */
+    boss: Readonly<{ bossId: string; bossName: string }> | null;
     currentSector: number;
     onClose: () => void;
     character: Character;
@@ -35,6 +39,7 @@ export function WorldBossQueueHost({
     const hostLoadout = useMemo(() => buildHostLoadout(character, savedBloodlines, creatorItems), [character, savedBloodlines, creatorItems]);
     return <Suspense fallback={null}>
         <WorldBossQueueDialog
+            knownBoss={boss}
             character={character}
             currentSector={currentSector}
             hostLoadout={hostLoadout}
