@@ -403,6 +403,8 @@ test("WorldMap retains controller and portal ownership around the canvas slots",
         'interior attacks must share the outdoor Combat/Card/Pet war routing');
     assert.match(projection, /<AnbuVaultRaid[\s\S]*sectorContest=\{sectorWarContest\}[\s\S]*onOpenSectorContest=[\s\S]*onFightSectorGarrison=/u,
         'the parent sector contest and garrison remain accessible inside');
+    assert.match(projection, /<AnbuVaultRaid[^>]*initialCampaign=\{villageCampaign\}/u,
+        'entry starts from the World Map campaign reading instead of waiting on a second request');
     assert.match(projection, /bossDialog && createPortal\([\s\S]*onClick=\{standBossFight\}/u);
     assert.match(projection, /<SageOfferModal/u);
     assert.doesNotMatch(overlaySource, /\b(?:AnbuVaultRaid|SageOfferModal|standBossFight|createPortal)\b/u);
