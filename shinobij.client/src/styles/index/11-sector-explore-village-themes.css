@@ -321,7 +321,8 @@
     }
 
     .generated-world-map .atlas-landmark {
-        z-index: 11;
+        /* Keep transparent crest hit targets below sector destinations. */
+        z-index: 7;
     }
 
 /* MAIN CASTLE */
