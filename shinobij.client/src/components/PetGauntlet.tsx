@@ -54,17 +54,12 @@ const gauntletShop = SHOP_ART["../assets/coliseum/gauntlet-shop.webp"]?.default 
 const NPC_LINES = [
     "Welcome, challenger! Spend your Valor wisely — the Gauntlet spares no one.",
     "Fresh recruits and rare relics, straight off the caravan.",
-    "A wise shinobi builds a squad, not just a hero.",
+    "One hero won't carry this run. Build a squad.",
     "Relics rotate each round — give the shelf a reroll if nothing catches your eye.",
     "Low on hearts? A Field Medic never goes to waste.",
     "Stack your synergies and the board all but wins itself.",
     "Survive deep enough and the Ryo flows. Now — what'll it be?",
 ];
-
-// Visible client-build tag — lets us confirm in one glance whether the live site
-// is actually serving the latest gauntlet code (vs a stale cached bundle). Bump
-// it with each gauntlet render change.
-const GAUNTLET_BUILD = "g23";
 
 const ELEMENT_COLOR: Record<string, string> = {
     Fire: "#fb923c", Water: "#38bdf8", Wind: "#5eead4", Lightning: "#facc15", Earth: "#a3a380",
@@ -377,7 +372,6 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                 </span>
                 <span title="Valor — the Gauntlet's run-only shop currency (not your Ryo)" style={{ color: "#fcd34d" }}>✦ {run.valor} Valor</span>
                 <span style={{ color: "#93c5fd" }}>Round {Math.min(run.round, run.maxRounds)} / {run.maxRounds}</span>
-                <span title="Gauntlet client build — confirms which version the live site is serving" style={{ color: "#475569", fontSize: "0.62rem", fontWeight: 700 }}>build {GAUNTLET_BUILD}</span>
                 <span style={{ marginLeft: "auto", display: "inline-flex", gap: 8 }}>
                     {!over && <button type="button" style={btn("#a855f7")} onClick={() => setShopOpen(true)}><GameArtIcon kind="shop" size={18} /> Shop</button>}
                     <button type="button" style={btn("#475569")} onClick={newRun}>↻ New Run ({GAUNTLET_NEW_RUN_FEE.toLocaleString()} ryo)</button>

@@ -10,6 +10,8 @@ import type { CreatorMission, CreatorRaid } from "../types/missions";
 import type { Jutsu, SavedBloodline } from "../types/combat";
 import { CardVisual } from "../components/Marks";
 import { GameArtIcon } from "../components/GameArtIcon";
+import { gameConfirm } from "../components/GameAlert";
+import { gameToast } from "../components/GameToast";
 import { LogbookCareerRecord } from "../components/LogbookCareerRecord";
 import { DAILY_MISSION_LIMIT, FIELD_MISSION_STAT_POINTS } from "../constants/game";
 import { builtinFetchMissions, fieldMissionNextAction, mergeBuiltinMissions, missionRaidProgressKey, missionRaidRequirement } from "../data/missions";
@@ -235,7 +237,9 @@ export function Logbook({
         try {
             const result = await postFieldTrail({ playerName: character.name, missionId: mission.id, action: "accept" });
             const adopted = adoptFieldTrail(result);
-            if (!result.ok) return alert(result.error ?? "The Mission Hall could not accept this contract.");
+            if (!result.ok) return alert(result.error === "mission_not_eligible"
+                ? claimReasonMessage(result.reason ?? "not-yet-unlocked", result as Parameters<typeof claimReasonMessage>[1])
+                : result.error ?? "The Mission Hall could not accept this contract.");
             if (!adopted) return alert("The Mission Hall accepted this contract, but its ledger is still syncing. Reopen the board to recover it.");
             if (result.reason === "already-claimed-today") {
                 return alert("That contract was already claimed today. The Mission Hall refreshed your ledger instead of accepting it again.");
@@ -304,6 +308,9 @@ export function Logbook({
         if (!builtinFetchMissions.some((entry) => entry.id === missionId)) {
             return alert("This unpublished mission cannot alter the server contract ledger.");
         }
+        // Same danger confirm as the Hunter Board: the server zeroes this run's explore and raid progress.
+        const missionName = availableLogbookMissions.find((mission) => mission.id === missionId)?.name;
+        if (!await gameConfirm(`Abandon ${missionName ? `"${missionName}"` : "this contract"}? You'll lose your progress on this contract.`, { title: "Abandon contract", confirmLabel: "Abandon", danger: true })) return;
         setFieldTrailPending(missionId);
         try {
             const result = await postFieldTrail({ playerName: character.name, missionId, action: "abandon" });
@@ -335,7 +342,7 @@ export function Logbook({
                 catch { if (controller.signal.aborted) return; else continue; }
                 if (cancelled || fieldTrailScopeRef.current !== requestScope) return;
                 if (!adoptFieldTrailRef.current(result)) continue;
-                if (result.migrated) window.setTimeout(() => alert("The Mission Hall recalibrated an older field contract onto its verified ledger."), 40);
+                if (result.migrated) gameToast("An older field contract was updated to the current rules.", { kind: "info" });
             }
         })();
         return () => { cancelled = true; controller.abort(); };
@@ -532,7 +539,7 @@ export function Logbook({
                                 <div className="mission-progress"><span style={{ width: `${progressPercent}%` }}></span></div>
                                 {accepted && !complete && <p><strong>Next:</strong> {nextAction.instruction}</p>}
                                 <div className="menu">
-                                    {!accepted ? <button disabled={fieldTrailPending !== null || claimingFieldMissionId !== null || !hasDailyMissionSlot(character)} onClick={() => { void acceptMission(mission); }}>{hasDailyMissionSlot(character) ? "Accept" : "Daily Limit Reached"}</button> : complete ? <button disabled={claimingFieldMissionId !== null || claimCooldownMs > 0} onClick={() => { void claimMission(mission); }}>{claimingFieldMissionId === mission.id ? "Claimingâ€¦" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Reward"}</button> : null}
+                                    {!accepted ? <button disabled={fieldTrailPending !== null || claimingFieldMissionId !== null || !hasDailyMissionSlot(character)} onClick={() => { void acceptMission(mission); }}>{hasDailyMissionSlot(character) ? "Accept" : "Daily Limit Reached"}</button> : complete ? <button disabled={claimingFieldMissionId !== null || claimCooldownMs > 0} onClick={() => { void claimMission(mission); }}>{claimingFieldMissionId === mission.id ? "Claiming…" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Reward"}</button> : null}
                                 </div>
                             </div>
                         );
@@ -599,7 +606,7 @@ export function Logbook({
                                 <p><strong>Next:</strong> {nextAction.instruction}</p>
                                 <div className="mission-progress"><span style={{ width: `${progressPercent}%` }}></span></div>
                                 <div className="menu">
-                                    {complete ? <button disabled={claimingFieldMissionId !== null || claimCooldownMs > 0} onClick={() => { void claimMission(mission); }}>{claimingFieldMissionId === mission.id ? "Claimingâ€¦" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Reward"}</button> : nextAction.objective === "explore" ? null : <button onClick={() => {
+                                    {complete ? <button disabled={claimingFieldMissionId !== null || claimCooldownMs > 0} onClick={() => { void claimMission(mission); }}>{claimingFieldMissionId === mission.id ? "Claiming…" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Reward"}</button> : nextAction.objective === "explore" ? null : <button onClick={() => {
                                         setScreen("worldMap");
                                     }}>{nextAction.label}</button>}
                                     <button className="danger-button" disabled={fieldTrailPending !== null || claimingFieldMissionId !== null} onClick={() => { void abandonMission(mission.id); }}>Abandon</button>

@@ -1,15 +1,16 @@
 import type { TowerActor } from "../lib/towers-api";
 
 /** A focused fighter dossier, with the same resource hierarchy as duel combat. */
-export function TowerCombatantHud({ actor, avatar, label, active, onInspect }: {
+export function TowerCombatantHud({ actor, avatar, label, active, onInspect, healthLabel = "Health" }: {
     actor: TowerActor;
     avatar: string;
     label: string;
     active: boolean;
     onInspect: () => void;
+    healthLabel?: string;
 }) {
     const resources = [
-        { key: "hp", label: "Health", value: actor.hp, max: actor.maxHp },
+        { key: "hp", label: healthLabel, value: actor.hp, max: actor.maxHp },
         { key: "chakra", label: "Chakra", value: actor.chakra, max: actor.maxChakra },
         { key: "stamina", label: "Stamina", value: actor.stamina, max: actor.maxStamina },
     ];

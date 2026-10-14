@@ -99,7 +99,9 @@ export function SectorOwnershipOverlay({ sectorPoints, counterScalePins = false 
                 if (!p || sector >= 56 || sector === 99) return null;
                 const banner = BANNER_BY_VILLAGE[village];
                 if (!banner) return null;
-                const isContested = contested.has(sector) && !lite;
+                // A siege is information, so `lite` (weak phones and Reduce Motion)
+                // keeps the contested class and gets a static ring instead of the pulse.
+                const isContested = contested.has(sector);
                 return (
                     <WorldMapPin key={sector} active={counterScalePins} x={p.x} y={p.y} layer={0}>
                     <div

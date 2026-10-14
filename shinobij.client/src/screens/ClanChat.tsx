@@ -7,7 +7,7 @@
  * are a server-capped ring buffer (last 50); the server stamps name + timestamp.
  */
 import { useEffect, useRef, useState } from "react";
-import { sendClanChat } from "../lib/clan-chat-api";
+import { CLAN_CHAT_SEND_FAILED, sendClanChat } from "../lib/clan-chat-api";
 import { CLAN_CHAT_KEEP, useClanChatFeed } from "../lib/use-clan-chat-feed";
 import { ReportControl } from "../components/ReportControl";
 import { GuestSocialLock } from "../components/GuestSocialLock";
@@ -31,7 +31,7 @@ export function ClanChat({ playerName, clan }: { playerName: string; clan: strin
         setBusy(true); setError("");
         const res = await sendClanChat(playerName, clan, t);
         setBusy(false);
-        if (!res.ok) { setError(res.error ?? "Could not send your message."); return; }
+        if (!res.ok) { setError(res.error ?? CLAN_CHAT_SEND_FAILED); return; }
         setText("");
         if (res.messages) merge(res.messages);
     }
@@ -67,7 +67,7 @@ export function ClanChat({ playerName, clan }: { playerName: string; clan: strin
                         onChange={e => setText(e.target.value)}
                         onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); void send(); } }}
                     />
-                    <button onClick={() => void send()} disabled={busy || lockLoading || !text.trim()}>{busy ? "…" : "Send"}</button>
+                    <button onClick={() => void send()} disabled={busy || lockLoading || !text.trim()}>{busy ? "Sending…" : "Send"}</button>
                 </div>
             )}
         </div>

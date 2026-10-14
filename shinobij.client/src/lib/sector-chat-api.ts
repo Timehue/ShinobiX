@@ -41,7 +41,7 @@ async function refusal(response: Response): Promise<SectorChatRefusal> {
     return {
         ok: false,
         status: response.status,
-        error: typeof body.error === 'string' && body.error ? body.error : `HTTP ${response.status}`,
+        error: typeof body.error === 'string' && body.error ? body.error : 'The sector did not answer.',
         ...(typeof body.reason === 'string' ? { reason: body.reason } : {}),
         ...(typeof body.retryAfterMs === 'number' ? { retryAfterMs: body.retryAfterMs } : {}),
         ...(body.guestLocked === true ? { guestLocked: true } : {}),

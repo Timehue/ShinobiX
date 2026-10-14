@@ -7,7 +7,7 @@ const css = readFileSync(new URL("../styles/index/14-menu-panels-bloodline-vn.cs
 
 describe("Clan Hall mobile roster contract", () => {
     it("keeps Leave Clan on Roster instead of every clan submenu", () => {
-        assert.match(screen, /\{view === "roster" && <div className="clan-roster">[^]*className="menu clan-membership-actions"[^]*>Leave Clan<\/button>[^]*<\/div>\}/);
+        assert.match(screen, /\{view === "roster" && <div className="clan-roster">[^]*className="menu clan-membership-actions"[^]*"Leave Clan"\}<\/button>[^]*<\/div>\}/);
         assert.doesNotMatch(screen, /view !== "exchange"[^]*Clan Exchange balance/);
     });
 

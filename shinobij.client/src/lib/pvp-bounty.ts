@@ -99,7 +99,7 @@ export async function claimBountyOnWin(
     // optional payout. It must not wedge battle completion. Auth and throttle
     // failures remain retryable.
     if (res.status === 404 || res.status === 409) return null;
-    if (!res.ok) throw new Error(data.error || `Bounty settlement failed (HTTP ${res.status}).`);
+    if (!res.ok) throw new Error(data.error || "The bounty payout could not be settled yet. Retry in a moment.");
     return (data.amount ?? 0) > 0 && data.balances ? { amount: data.amount!, target: data.target ?? "your opponent", balances: data.balances } : null;
 }
 

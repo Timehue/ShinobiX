@@ -1065,8 +1065,9 @@ test("refined integration companion actions and recovery", async ({ page }, test
     await page.locator('.game-alert-ok').click();
     await expect(page.getByRole('button', { name: 'Collect Results', exact: true })).toBeEnabled();
     await page.getByRole('button', { name: 'Collect Results', exact: true }).click();
-    await expect(page.getByRole('alertdialog')).toContainText('completed bond training');
-    await page.locator('.game-alert-ok').click();
+    // A routine collection confirms with a toast, not a modal to click through.
+    await expect(page.locator('.game-toast-stack')).toContainText('completed bond training');
+    await expect(page.getByRole('alertdialog')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Start Training', exact: true })).toBeVisible();
     await expect(page.locator('.pet-xp-line')).toContainText('35/');
     await page.getByRole('button', { name: 'Add Vitality point', exact: true }).click();

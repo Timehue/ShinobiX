@@ -177,7 +177,7 @@ export function Bank({ character, updateCharacter, onVersionedCharacter, onBack 
         // Preserve the existing adoption of the returned bank balance and claim time.
         bankBusyRef.current = true;
         setBankBusy(true);
-        let data: { ok?: boolean; eligible?: boolean; claimed?: number; bankRyo?: number; error?: string; lastBankInterestAt?: number; reason?: string };
+        let data: { ok?: boolean; eligible?: boolean; claimed?: number; bankRyo?: number; error?: string; lastBankInterestAt?: number; reason?: string; nextClaimAt?: number };
         try {
             const res = await fetch("/api/bank/claim-interest", {
                 method: "POST",
@@ -195,7 +195,18 @@ export function Bank({ character, updateCharacter, onVersionedCharacter, onBack 
             setBankBusy(false);
         }
         if (!data.eligible || !data.claimed || data.claimed <= 0) {
-            return alert("Bank interest isn't available yet — try again later.");
+            // The server says which gate refused the claim (api/_bank-interest.ts
+            // computeBankInterest); name it rather than a blanket "try later".
+            const serverNextClaimAt = Number(data.nextClaimAt);
+            return alert(data.reason === "no-upgrade"
+                ? "Your village has no Bank upgrade yet, so the vault pays no interest."
+                : data.reason === "empty"
+                    ? "Deposit ryo in the vault first. Interest is paid on what the vault holds."
+                    : data.reason === "cooldown" && Number.isFinite(serverNextClaimAt) && serverNextClaimAt > 0
+                        ? `Interest is ready again at ${new Date(serverNextClaimAt).toLocaleString()}.`
+                        : data.reason === "too-small"
+                            ? "Your vault balance is too small to earn interest yet."
+                            : "Bank interest isn't available yet — try again later.");
         }
         const claimedAt = data.lastBankInterestAt ?? Date.now();
         updateCharacter((prev) => prev ? ({ ...prev, bankRyo: data.bankRyo ?? prev.bankRyo, lastBankInterestAt: claimedAt }) : prev);

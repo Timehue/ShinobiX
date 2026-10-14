@@ -99,7 +99,7 @@ export async function applyVillageWarMissionDamage(character: Character, warMiss
                 note: `Village war mission complete. ${enemyVillage} HP -${VILLAGE_WAR_MISSION_DAMAGE}.${wonWar ? " Your village won the war — your Legendary War Crate is on its way." : ""}`,
             };
         }
-        failure = String(reply.data?.error ?? `HTTP ${reply.status}`);
+        failure = String(reply.data?.error ?? "the war server did not answer");
         if (reply.status < 500) break;
     }
     return { ok: false, note: `Mission reward claimed, but its war damage was not applied: ${failure}` };

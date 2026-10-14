@@ -2,17 +2,18 @@ import { kv } from '../_storage.js';
 import { loadAdminCombatContent } from '../_admin-content.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { isIncapacitated } from '../_elapsed-state.js';
+import { applyAiMasteryToActor } from '../_pve-ai-mastery.js';
 import { sealTowerFighter, sealTowerItemCharges } from '../towers/_seal.js';
 import { buildTowerEncounter, type SquadMemberInput } from '../towers/_encounter.js';
 import { runAiUntilHuman, startRound } from '../towers/_engine.js';
 import { CLAN_BOSS_FLOORS, type TowerFloor } from '../towers/_floor-catalog.js';
-import { requireEnemyTemplate } from '../towers/_enemy-templates.js';
+import { requireEnemyTemplate, type EnemyTemplate } from '../towers/_enemy-templates.js';
 import { makeRng } from '../towers/_sim.js';
 import { setTowerInvite, writeSession } from '../towers/_tower-store.js';
 import { stampTurnClock } from '../towers/_tower-mp.js';
 import { claimTowerBattleLeases, releaseTowerBattleLeases } from '../towers/_battle-lease.js';
 import { findTowerBattleStartConflict } from '../_tower-battle-guard.js';
-import { worldBossBattleVisual, worldBossCrystalEffects, worldBossDefinition, type WorldBossId } from '../../shared/world-boss-event.js';
+import { worldBossBattleVisual, worldBossGuardVisual, worldBossCrystalEffects, worldBossDefinition, type WorldBossId } from '../../shared/world-boss-event.js';
 import { WORLD_BOSS_MATCH_HP_PER_PLAYER, type WorldBossEventRecord, type WorldBossMatchRecord } from './_event.js';
 
 const WORLD_BOSS_FLOOR_ID = 9_800;
@@ -34,18 +35,18 @@ export function worldBossFloor(bossId: WorldBossId, bossName: string): TowerFloo
             ? { mechanic: 'bulwark' as const }
             : { aegis: { shieldPct: 10 } };
     const signatureStrike = definition.combatTrait === 'regen'
-        ? { kind: 'nova' as const, pct: 12, radius: 2, everyRounds: 4 }
+        ? { kind: 'nova' as const, pct: 14, radius: 2, everyRounds: 2 }
         : definition.combatTrait === 'bulwark'
-            ? { kind: 'slam' as const, pct: 14, radius: 1, everyRounds: 3 }
-            : { kind: 'volley' as const, pct: 12, radius: 1, everyRounds: 3 };
+            ? { kind: 'slam' as const, pct: 14, radius: 1, everyRounds: 2 }
+            : { kind: 'volley' as const, pct: 14, radius: 1, everyRounds: 2 };
     return {
         ...structuredClone(source),
         id: WORLD_BOSS_FLOOR_ID,
-        name: `${bossName}: The Muster`,
+        name: `${bossName}: Raid`,
         biome: 'forest',
         objective: 'defeat-boss',
         roundBudget: 18,
-        enemies: [{ aiId: 'grunt-brute', count: 2 }],
+        enemies: [{ aiId: 'world-boss-guard', count: 2 }],
         boss: {
             aiId: 'clan-boss-golem',
             phases: [75, 50, 25],
@@ -56,15 +57,72 @@ export function worldBossFloor(bossId: WorldBossId, bossName: string): TowerFloo
         features: [],
         balanceFor: 3,
         firstClearReward: {},
-        chapterTitle: 'The Four-Village Muster',
+        chapterTitle: 'World Boss Event',
         chapterSubtitle: 'World Threat · Cooperative Raid',
         chapterSummary: `${bossName} has crossed the highland roads. Hold the line together.`,
         briefing: {
-            situation: `${bossName} is cutting a path through the borderlands. The fight ends when the squad falls or the boss is driven back.`,
+            situation: `${bossName} is cutting a path through the borderlands. Reach your team's raid damage target to drive it back. It is defeated only when its shared world health reaches zero.`,
             tactics: [definition.traitDescription, 'Keep allies standing; verified healing and shielding count toward event contribution.', 'The boss marks the ground before its heavy strike. Reposition before the next round.'],
             warnings: ['The roaming event tracks damage in a separate shared-health pool.', 'The party will contain one, two, or three players depending on the queue.'],
         },
     };
+}
+
+/** Sealed event-specific roster. HP scales with the team; attacks retain their threat. */
+export function buildWorldBossTeamEncounter(input: {
+    event: Pick<WorldBossEventRecord, 'eventId' | 'bossId' | 'bossName' | 'hp' | 'hollowShardsDeposited'>;
+    matchId: string;
+    squad: SquadMemberInput[];
+    runId: string;
+    seed: number;
+    now: number;
+}) {
+    const floor = worldBossFloor(input.event.bossId, input.event.bossName);
+    const bossTemplate: EnemyTemplate = {
+        ...structuredClone(requireEnemyTemplate('clan-boss-golem')),
+        name: input.event.bossName,
+        visual: worldBossBattleVisual(input.event.bossId),
+        armorRawDR: 0.22,
+        stats: { taijutsuOffense: 3000, taijutsuDefense: 1550, strength: 1000, speed: 450 },
+        jutsu: [{ id: 'world-boss-quake', name: 'Hollow Quake', type: 'Taijutsu', element: 'Earth', ap: 60, range: 4, effectPower: 90, method: 'AOE_BURST' }],
+    };
+    const guard: EnemyTemplate = {
+        ...structuredClone(requireEnemyTemplate('grunt-brute')),
+        name: `${input.event.bossName} Broodguard`,
+        visual: worldBossGuardVisual(input.event.bossId),
+        level: 80,
+        hp: 4500,
+        stats: { taijutsuOffense: 1800, taijutsuDefense: 1000, strength: 650, speed: 350 },
+        jutsu: [{ id: 'world-boss-guard-rush', name: 'Hollow Rush', type: 'Taijutsu', element: 'Earth', ap: 60, range: 2, effectPower: 38, cooldown: 2, tags: [{ name: 'Push', amount: 2 }], aiPriority: 45 }],
+    };
+    const session = buildTowerEncounter({
+        floor, squad: input.squad, runId: input.runId, seed: input.seed,
+        partySize: input.squad.length, bossTemplate,
+        enemyTemplates: { 'world-boss-guard': guard },
+        embedFloor: true, towerId: 'world-boss-event', now: input.now,
+    });
+    // The world-event entry point bypasses Tower start's mastery seal. Without
+    // it these level-80 enemies cast every signature at untrained damage.
+    for (const actor of session.actors) if (actor.side === 'enemy') applyAiMasteryToActor(actor);
+    const boss = session.actors.find(actor => actor.id === session.phaseState.bossId);
+    if (!boss) throw new Error('World boss encounter did not create its boss actor.');
+    const crystalEffects = worldBossCrystalEffects(input.event.hollowShardsDeposited ?? 0);
+    // The shared HP budget already scales for smaller teams. Tower's additional
+    // outgoing-damage discount made solo world bosses harmless.
+    boss.character.towerDmgScale = crystalEffects.bossDamageDealtMultiplier;
+    const matchHp = worldBossMatchHpForParty(input.event.hp, input.squad.length);
+    boss.hp = matchHp;
+    boss.maxHp = matchHp;
+    if (worldBossDefinition(input.event.bossId).combatTrait === 'regen') session.regenFlatCap = Math.max(1, Math.floor(matchHp * 0.01));
+    boss.character.name = input.event.bossName;
+    session.roundCap = 20;
+    session.worldBossEvent = {
+        eventId: input.event.eventId, matchId: input.matchId, matchHpAtStart: matchHp,
+        bossDamageDealtMultiplier: crystalEffects.bossDamageDealtMultiplier,
+        bossDamageReceivedMultiplier: crystalEffects.bossDamageReceivedMultiplier,
+    };
+    session.worldBossContributions = {};
+    return session;
 }
 
 /** Build one sealed 1–3 player team encounter from authoritative saves. */
@@ -110,48 +168,12 @@ export async function createWorldBossEncounter(input: {
             });
         }
 
-        const floor = worldBossFloor(input.event.bossId, input.event.bossName);
-        const bossTemplate = {
-            ...structuredClone(requireEnemyTemplate('clan-boss-golem')),
-            name: input.event.bossName,
-            // Display key only: the client draws this boss's own battle art from it.
-            visual: worldBossBattleVisual(input.event.bossId),
-            level: 80,
-            armorRawDR: 0.22,
-        };
-        const session = buildTowerEncounter({
-            floor,
-            squad,
-            runId: proposedRunId,
+        const session = buildWorldBossTeamEncounter({
+            event: input.event, matchId: input.match.matchId, squad, runId: proposedRunId,
             seed: Number.parseInt(input.match.matchId.slice(0, 8), 16) || input.now,
-            partySize: squad.length,
-            bossTemplate,
-            embedFloor: true,
-            towerId: 'world-boss-event',
             now: input.now,
         });
-        const boss = session.phaseState.bossId
-            ? session.actors.find(actor => actor.id === session.phaseState.bossId)
-            : undefined;
-        if (!boss) throw new Error('World boss encounter did not create its boss actor.');
-        const crystalEffects = worldBossCrystalEffects(input.event.hollowShardsDeposited ?? 0);
-        boss.character.towerDmgScale = Math.max(0, Number(boss.character.towerDmgScale ?? 1))
-            * crystalEffects.bossDamageDealtMultiplier;
-        const matchHp = worldBossMatchHpForParty(input.event.hp, squad.length);
-        boss.hp = matchHp;
-        boss.maxHp = matchHp;
-        if (worldBossDefinition(input.event.bossId).combatTrait === 'regen') session.regenFlatCap = Math.max(1, Math.floor(matchHp * 0.01));
-        boss.name = input.event.bossName;
-        boss.character.name = input.event.bossName;
-        session.roundCap = 20;
-        session.worldBossEvent = {
-            eventId: input.event.eventId,
-            matchId: input.match.matchId,
-            matchHpAtStart: matchHp,
-            bossDamageDealtMultiplier: crystalEffects.bossDamageDealtMultiplier,
-            bossDamageReceivedMultiplier: crystalEffects.bossDamageReceivedMultiplier,
-        };
-        session.worldBossContributions = {};
+        const floor = session.encounterFloor!;
         startRound(session);
         runAiUntilHuman(session, floor, makeRng(session.seed));
         stampTurnClock(session, input.now);
