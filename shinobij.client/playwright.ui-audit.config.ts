@@ -24,7 +24,7 @@ export default defineConfig({
     testDir: "./e2e",
     // Without this the config inherits the whole smoke suite, which is not what
     // a UI audit run is for and is how these specs ended up doubling the gate.
-    testMatch: ["**/non-combat-ui-audit.spec.ts", "**/item-artwork-coverage.spec.ts"],
+    testMatch: ["**/non-combat-ui-audit.spec.ts", "**/item-artwork-coverage.spec.ts", "**/presentation-polish.spec.ts"],
     timeout: 60_000,
     expect: { timeout: 12_000 },
     fullyParallel: false,
@@ -75,6 +75,9 @@ export default defineConfig({
             name: "chromium-mobile",
             use: { viewport: { width: 432, height: 1008 }, isMobile: true, hasTouch: true },
         },
+        { name: "chromium-compact-phone", use: { viewport: { width: 360, height: 640 }, isMobile: true, hasTouch: true } },
+        { name: "chromium-small-phone", use: { viewport: { width: 320, height: 568 }, isMobile: true, hasTouch: true } },
+        { name: "chromium-phone-landscape", use: { viewport: { width: 844, height: 390 }, isMobile: true, hasTouch: true } },
         { name: "chromium-anchor-landscape-4-3", use: { viewport: { width: 1024, height: 768 }, isMobile: true, hasTouch: true } },
         { name: "chromium-anchor-landscape-21-9", use: { viewport: { width: 1680, height: 720 }, isMobile: true, hasTouch: true } },
         { name: "chromium-anchor-portrait-3-4", use: { viewport: { width: 768, height: 1024 }, isMobile: true, hasTouch: true } },
@@ -86,5 +89,7 @@ export default defineConfig({
         { name: "chromium-pc-landscape-16-10", use: { viewport: { width: 1920, height: 1200 }, isMobile: false, hasTouch: false } },
         { name: "chromium-pc-landscape-21-9", use: { viewport: { width: 2520, height: 1080 }, isMobile: false, hasTouch: false } },
         { name: "chromium-pc-landscape-3-2", use: { viewport: { width: 1440, height: 960 }, isMobile: false, hasTouch: false } },
+        { name: "firefox-presentation-desktop", use: { browserName: "firefox", viewport: { width: 1366, height: 768 }, isMobile: false, hasTouch: false } },
+        { name: "webkit-presentation-phone", use: { browserName: "webkit", viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } },
     ],
 });

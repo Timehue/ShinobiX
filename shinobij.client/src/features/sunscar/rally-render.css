@@ -2,6 +2,38 @@
 .rally-graphics-control { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; margin: 12px 0; color: #efddbd; font-size: 12px; }
 .rally-graphics-control select { min-height: 44px; max-width: 100%; padding: 6px 10px; border: 1px solid #b39166; border-radius: 6px; background: #30281e; color: #fff0d4; font: inherit; }
 .rally-graphics-control select:focus-visible { outline: 3px solid #a7dfdf; outline-offset: 3px; }
+.ui-modal-backdrop.rally-pause-backdrop {
+    /* The race takeover is 999900; its pause dialog must sit above that stage. */
+    z-index: 999910;
+    background: rgba(13, 10, 7, .74);
+}
+.ui-modal-card.rally-pause-modal {
+    max-width: 420px;
+    background: #211c19;
+    border-color: #dfb87977;
+}
+.rally-pause-modal .rally-pause-overlay {
+    position: static;
+    inset: auto;
+    max-height: none;
+    padding: 20px;
+    overflow: visible;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    color: #f1e5d2;
+}
+.rally-pause-modal .rally-pause-overlay h2 { margin: 0 0 12px; font-size: 26px; line-height: 1.2; }
+.rally-pause-modal .rally-pause-overlay p { font-size: 15px; line-height: 1.5; }
+.rally-pause-modal .sunscar-button-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.rally-pause-modal :is(button, select) { min-width: 0; min-height: 48px; max-width: 100%; padding: 8px 10px; font-size: 14px; white-space: normal; }
+.rally-pause-modal select { font-size: 16px; }
+@media (orientation: landscape) and (max-height: 420px) {
+    .rally-pause-modal .rally-pause-overlay { padding: 14px; }
+    .rally-pause-modal .rally-pause-overlay h2 { font-size: 22px; margin-bottom: 8px; }
+    .rally-pause-modal .rally-pause-overlay p { margin-block: 8px; }
+    .rally-pause-modal .rally-graphics-control { margin-block: 8px; }
+}
 .rally-graphics-control small { color: #c1d8b5; }
 .rally-race-hints > .rally-incoming-hint { color: #fff0cd; background: #773c2fed; border-left: 3px solid #ffa380; font-weight: 600; }
 

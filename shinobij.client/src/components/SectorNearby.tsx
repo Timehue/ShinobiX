@@ -23,7 +23,7 @@ export function SectorNearby({ sector, biome, players, present, rosterState, act
                     : rosterState === 'reconnecting' ? 'Reconnecting. Last known players are read only.' : 'No other players are here.'}
             </p>}
             {action.error && !hasRowError && <p className="sector-row-feedback" role="status">{action.error.message}</p>}
-            {showPlayers ? <SectorPlayerList players={players} action={action} sector={sector} onAction={onAction} /> : <div className="sector-nearby-conditions">
+            {showPlayers ? <SectorPlayerList key={sector} players={players} action={action} sector={sector} onAction={onAction} /> : <div className="sector-nearby-conditions">
                 <SectorSkyForecast sector={sector} biome={biome} variant="effect" />
                 <SectorRoutes sector={sector} />
             </div>}
