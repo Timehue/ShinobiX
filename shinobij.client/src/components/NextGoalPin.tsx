@@ -115,7 +115,7 @@ export function NextGoalPin({
                 className="next-goal-pin-compact academy-handoff-compact"
                 style={{
                     margin: "8px 0 0", padding: "8px 9px", borderRadius: 8,
-                    background: "linear-gradient(90deg, rgba(56,189,248,.12), rgba(250,204,21,.05))",
+                    background: "linear-gradient(90deg, rgba(56,189,248,.12), rgba(230, 196, 119, .05))",
                     border: "1px solid rgba(125,211,252,.34)",
                     boxSizing: "border-box", minWidth: 0, width: "auto", maxWidth: "none",
                     alignSelf: "stretch", overflow: "hidden", position: "relative",
@@ -138,11 +138,11 @@ export function NextGoalPin({
                             title={action.detail}
                             style={{
                                 cursor: "pointer",
-                                border: index === 0 ? "1px solid rgba(250,204,21,.42)" : "1px solid rgba(125,211,252,.28)",
+                                border: index === 0 ? "1px solid rgba(230, 196, 119, .42)" : "1px solid rgba(125,211,252,.28)",
                                 borderRadius: 6,
                                 padding: "5px 7px",
-                                background: index === 0 ? "rgba(250,204,21,.12)" : "rgba(56,189,248,.08)",
-                                color: index === 0 ? "#facc15" : "#bae6fd",
+                                background: index === 0 ? "rgba(230, 196, 119, .12)" : "rgba(56,189,248,.08)",
+                                color: index === 0 ? "#e6c477" : "#bae6fd",
                                 fontSize: 10.5,
                                 fontWeight: 700,
                                 textAlign: "left",
@@ -164,7 +164,7 @@ export function NextGoalPin({
                 style={{
                     display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 12,
                     margin: "0 0 12px", padding: "12px 14px", borderRadius: 10,
-                    background: "linear-gradient(100deg, rgba(56,189,248,.12), rgba(250,204,21,.07))",
+                    background: "linear-gradient(100deg, rgba(56,189,248,.12), rgba(230, 196, 119, .07))",
                     border: "1px solid rgba(125,211,252,.36)",
                 }}
             >
@@ -185,10 +185,10 @@ export function NextGoalPin({
                                 title={action.detail}
                                 style={{
                                     cursor: "pointer",
-                                    border: index === 0 ? "1px solid #eab308" : "1px solid rgba(125,211,252,.42)",
+                                    border: index === 0 ? "1px solid #d1a758" : "1px solid rgba(125,211,252,.42)",
                                     borderRadius: 8,
                                     padding: "8px 12px",
-                                    background: index === 0 ? "linear-gradient(180deg, #facc15, #eab308)" : "rgba(56,189,248,.10)",
+                                    background: index === 0 ? "linear-gradient(180deg, #e6c477, #d1a758)" : "rgba(56,189,248,.10)",
                                     color: index === 0 ? "#1a1306" : "#e0f2fe",
                                     fontWeight: 700,
                                     fontSize: 12.5,
@@ -213,14 +213,14 @@ export function NextGoalPin({
                 className="next-goal-pin-compact"
                 style={{
                     margin: "8px 0 0", padding: "7px 9px", borderRadius: 8,
-                    background: "linear-gradient(90deg, rgba(250,204,21,.10), rgba(250,204,21,.03))",
-                    border: "1px solid rgba(250,204,21,.28)",
+                    background: "linear-gradient(90deg, rgba(230, 196, 119, .10), rgba(230, 196, 119, .03))",
+                    border: "1px solid rgba(230, 196, 119, .28)",
                     boxSizing: "border-box", minWidth: 0, width: "auto", maxWidth: "none",
                     alignSelf: "stretch",
                     overflow: "hidden", position: "relative",
                 }}
             >
-                <div className="next-goal-pin-compact__heading" style={{ display: "grid", gridTemplateColumns: "auto minmax(0, 1fr)", alignItems: "center", gap: 5, paddingRight: 24, minWidth: 0, width: "100%", maxWidth: "100%", boxSizing: "border-box", overflow: "hidden", fontSize: 9.5, fontWeight: 700, letterSpacing: 0.3, color: "#facc15", textTransform: "uppercase" }}>
+                <div className="next-goal-pin-compact__heading" style={{ display: "grid", gridTemplateColumns: "auto minmax(0, 1fr)", alignItems: "center", gap: 5, paddingRight: 24, minWidth: 0, width: "100%", maxWidth: "100%", boxSizing: "border-box", overflow: "hidden", fontSize: 9.5, fontWeight: 700, letterSpacing: 0.3, color: "#e6c477", textTransform: "uppercase" }}>
                     <GameIcon name="target" size={11} />
                     <span style={{ display: "block", minWidth: 0, maxWidth: "100%", lineHeight: 1.25, overflowWrap: "anywhere", wordBreak: "break-word" }}>
                         Next goal · {objective.title}
@@ -236,7 +236,7 @@ export function NextGoalPin({
                         <button
                             type="button"
                             onClick={() => navigate(req.goScreen as Screen)}
-                            style={{ justifySelf: "start", maxWidth: "100%", cursor: "pointer", background: "none", color: "#facc15", fontWeight: 700, fontSize: 11, border: "none", padding: 0, whiteSpace: "normal", textAlign: "left", overflowWrap: "anywhere" }}
+                            style={{ justifySelf: "start", maxWidth: "100%", cursor: "pointer", background: "none", color: "#e6c477", fontWeight: 700, fontSize: 11, border: "none", padding: 0, whiteSpace: "normal", textAlign: "left", overflowWrap: "anywhere" }}
                         >
                             {req.goLabel ?? "Go"} →
                         </button>
@@ -244,7 +244,7 @@ export function NextGoalPin({
                 </div>
                 {req.target > 1 && (
                     <div style={{ height: 3, borderRadius: 3, background: "rgba(148,163,184,.25)", marginTop: 5, overflow: "hidden" }}>
-                        <div style={{ height: "100%", width: `${pct}%`, background: "#facc15" }} />
+                        <div style={{ height: "100%", width: `${pct}%`, background: "#e6c477" }} />
                     </div>
                 )}
             </div>
@@ -257,12 +257,12 @@ export function NextGoalPin({
             style={{
                 display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
                 margin: "0 0 12px", padding: "10px 14px", borderRadius: 10,
-                background: "linear-gradient(90deg, rgba(250,204,21,.10), rgba(250,204,21,.03))",
-                border: "1px solid rgba(250,204,21,.32)",
+                background: "linear-gradient(90deg, rgba(230, 196, 119, .10), rgba(230, 196, 119, .03))",
+                border: "1px solid rgba(230, 196, 119, .32)",
             }}
         >
             <div style={{ flex: 1, minWidth: 200 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11.5, fontWeight: 700, letterSpacing: 0.3, color: "#facc15", textTransform: "uppercase" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11.5, fontWeight: 700, letterSpacing: 0.3, color: "#e6c477", textTransform: "uppercase" }}>
                     <GameIcon name="target" size={13} /> Next goal · {objective.title}
                 </div>
                 <div style={{ fontWeight: 600, color: "#f8fafc", marginTop: 2 }}>
@@ -272,7 +272,7 @@ export function NextGoalPin({
                 {req.detail && <div style={{ fontSize: 12.5, color: "#94a3b8", marginTop: 1 }}>{req.detail}</div>}
                 {req.target > 1 && (
                     <div style={{ height: 4, borderRadius: 4, background: "rgba(148,163,184,.25)", marginTop: 6, overflow: "hidden" }}>
-                        <div style={{ height: "100%", width: `${pct}%`, background: "#facc15" }} />
+                        <div style={{ height: "100%", width: `${pct}%`, background: "#e6c477" }} />
                     </div>
                 )}
             </div>
@@ -280,7 +280,7 @@ export function NextGoalPin({
                 <button
                     type="button"
                     onClick={() => navigate(req.goScreen as Screen)}
-                    style={{ cursor: "pointer", background: "linear-gradient(180deg, #facc15, #eab308)", color: "#1a1306", fontWeight: 700, fontSize: 13, border: "none", borderRadius: 8, padding: "8px 16px", whiteSpace: "nowrap" }}
+                    style={{ cursor: "pointer", background: "linear-gradient(180deg, #e6c477, #d1a758)", color: "#1a1306", fontWeight: 700, fontSize: 13, border: "none", borderRadius: 8, padding: "8px 16px", whiteSpace: "nowrap" }}
                 >
                     {req.goLabel ?? "Go"} →
                 </button>

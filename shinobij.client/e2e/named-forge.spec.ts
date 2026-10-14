@@ -89,7 +89,7 @@ test('weapon pop-out shows the sealed roll, stays open, and restores the Crafter
     await expect(reveal).toBeHidden();
     await expect(opener).toBeFocused();
     await expect(page.locator('.nw-result')).toContainText('26');
-    await expect(page.getByRole('button', { name: 'Forge Weapon', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Forge weapon', exact: true })).toBeVisible();
 });
 
 test('armor reveals the selected slot and omits damage reduction for gloves', async ({ page }, testInfo) => {

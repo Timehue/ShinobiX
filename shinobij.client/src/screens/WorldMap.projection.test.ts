@@ -460,7 +460,7 @@ test("sector details retain all secondary content while the HUD owns primary act
     assert.match(hudSource, /Sector Info/u);
     assert.match(hudSource, /<SectorNearby/u);
     assert.match(hudSource, /<WorldSectorCommandPanel/u);
-    assert.match(rowSource, /'Strike Down'[\s\S]*sectorContestLabel[\s\S]*'Attack'/u);
+    assert.match(rowSource, /'Strike down'[\s\S]*sectorContestLabel[\s\S]*'Attack'/u);
     assert.match(canvasSource, /!suspended && hudLayer/u);
     assert.ok(lineCount(hudSource) <= 120, 'HUD presentation stays bounded');
     for (const source of [hudSource, rowSource]) {

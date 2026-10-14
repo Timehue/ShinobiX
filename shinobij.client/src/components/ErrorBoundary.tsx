@@ -93,7 +93,7 @@ export class ErrorBoundary extends Component<Props, State> {
                         width: "100%",
                         textAlign: "center",
                         background: "#0b1120",
-                        border: "1px solid rgba(250,204,21,0.35)",
+                        border: "1px solid rgba(230, 196, 119, 0.35)",
                         borderRadius: 14,
                         padding: "28px 24px",
                         boxShadow: "0 18px 60px rgba(0,0,0,0.6)",

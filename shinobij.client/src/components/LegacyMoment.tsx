@@ -120,7 +120,7 @@ export function LegacyMoment({
                             <p style={{ fontSize: ".74rem", color: "#c4b5fd", margin: "10px 0 0" }}>{moment.hint}</p>
                         )}
                         <ChronicleRecordNotice receipt={moment.chronicleRecord} />
-                        <button type="button" className="rankup-continue" onClick={onClose}>Face It</button>
+                        <button type="button" className="rankup-continue" onClick={onClose}>Face it</button>
                     </>
                 ) : (
                     <>

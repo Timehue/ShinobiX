@@ -183,14 +183,14 @@ test('landing lifecycle releases resources through repeated navigation and suspe
     let loginBaseline: ResourceSnapshot | undefined;
     const memorySamples: Record<string, number>[] = [];
     for (let cycle = 0; cycle < 15; cycle++) {
-        const label = cycle % 2 === 0 ? 'Card Battles' : 'Story';
+        const label = cycle % 2 === 0 ? 'Card battles' : 'Story';
         await page.getByRole('tab', { name: label, exact: true }).click();
         await page.getByRole('button', { name: `Enlarge ${label} screenshot`, exact: true }).click();
         await expect(page.locator('.landing-lightbox')).toBeVisible();
         await page.getByRole('button', { name: 'Close screenshot', exact: true }).click();
         await expect(page.locator('.landing-lightbox img')).toHaveCount(0);
         await expect(page.locator('html')).not.toHaveCSS('overflow-y', 'hidden');
-        await page.getByRole('button', { name: 'Account', exact: true }).click();
+        await page.getByRole('button', { name: 'Log in', exact: true }).click();
         await expect(page.getByRole('heading', { name: 'Enter the Village', exact: true })).toBeVisible();
         await expect(atmosphere).toHaveCount(0);
         await expect.poll(async () => (await snapshot()).observers).toBe(0);

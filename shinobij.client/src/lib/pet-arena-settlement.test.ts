@@ -115,7 +115,7 @@ test("every authoritative Pet Arena result exposes an idempotent retry receipt",
     // the two sides agreed to. Both come from ONE settlement now, because both
     // are the same thing: a server-sealed duel this screen only watched.
     assert.match(arenaSource, /kind: isParty \? "party" : "casual"/);
-    assert.match(arenaSource, /Retry Settlement/);
+    assert.match(arenaSource, /Retry settlement/);
     // No duel this screen starts freezes an input log any more, because none of
     // them is fought here: a challenge is resolved when it is accepted, a
     // wanderer at mint, ranked at its token. An input log proves which buttons

@@ -149,7 +149,7 @@ export function PetDuelClashPrompt({
                 <div
                     style={{
                         width: `${pctLeft}%`, height: "100%", borderRadius: 99,
-                        background: pctLeft > 45 ? glow : pctLeft > 20 ? "#fbbf24" : "#f87171",
+                        background: pctLeft > 45 ? glow : pctLeft > 20 ? "#e6c477" : "#f87171",
                         transition: "width 90ms linear",
                     }}
                 />
@@ -223,7 +223,7 @@ export function PetDuelClashPrompt({
                 break is coming; not enough to turn a simultaneous read into a
                 reaction test. */}
             {versusPlayer && !locked && foeCommitted && (
-                <div style={{ fontSize: compact ? 9 : 10, color: "#fbbf24", letterSpacing: "0.08em", marginTop: -6 }}>
+                <div style={{ fontSize: compact ? 9 : 10, color: "#e6c477", letterSpacing: "0.08em", marginTop: -6 }}>
                     {foeName} has committed
                 </div>
             )}

@@ -304,13 +304,13 @@ export function LoginGate({
                             onClick={() => void submitLogin()}
                             disabled={Boolean(status)}
                         >
-                            {status || "Enter Village"}
+                            {status || "Enter village"}
                         </button>
                     </div>
                 )}
 
                 <button type="button" className="landing-auth-secondary" onClick={onCreateAccount}>
-                    Create a New Shinobi
+                    Create a new shinobi
                 </button>
 
                 {/* Recovery is self-serve for anyone holding a recovery code, and

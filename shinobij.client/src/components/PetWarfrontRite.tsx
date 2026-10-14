@@ -1329,7 +1329,7 @@ function WarfrontRiteMatch({
                     {settlementPending ? (
                         <div className="wfr-settling" role={onRetrySettlement ? "alert" : "status"}>
                             <p>{settlementDetail || "Recording the result…"}</p>
-                            {onRetrySettlement ? <button type="button" className="wfr-btn-ghost" onClick={onRetrySettlement}>Retry Settlement</button> : null}
+                            {onRetrySettlement ? <button type="button" className="wfr-btn-ghost" onClick={onRetrySettlement}>Retry settlement</button> : null}
                         </div>
                     ) : null}
                     <div className="wfr-deploy-actions">

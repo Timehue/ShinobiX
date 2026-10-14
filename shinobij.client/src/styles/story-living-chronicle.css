@@ -178,7 +178,7 @@
 
 .chronicle-history-list article > span.is-win { background: #4ade80; }
 .chronicle-history-list article > span.is-loss { background: #f87171; }
-.chronicle-history-list article > span.is-draw { background: #facc15; }
+.chronicle-history-list article > span.is-draw { background: var(--sj-gold-bright); }
 
 .chronicle-empty-record {
     margin: 14px 0 0;

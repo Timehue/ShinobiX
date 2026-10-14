@@ -1765,7 +1765,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                             : activeSettlementPresentation.detail}
                     </p>
                     {activeSettlementPresentation.status === "error" ? (
-                        <button type="button" onClick={retryPetSettlement}>Retry Settlement</button>
+                        <button type="button" onClick={retryPetSettlement}>Retry settlement</button>
                     ) : activeSettlementPresentation.status === "settled" ? (
                         <button type="button" onClick={() => setSettlementPresentation(null)}>Dismiss</button>
                     ) : null}
@@ -1785,7 +1785,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                             if (retry) retry();
                         }}
                     >
-                        Retry Battle Setup
+                        Retry battle setup
                     </button>
                 </aside>,
                 document.body,
@@ -2116,7 +2116,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                                     <div className="menu">
                                         <button disabled={!isExactAvailableSelection(respondPicks, size)} style={{ background: "#16a34a" }}
                                             onClick={() => void respondToArenaChallenge(pendingArenaResponse, respondPicks)}>
-                                            Accept &amp; Start ({respondPicks.length}/{size})
+                                            Accept &amp; start ({respondPicks.length}/{size})
                                         </button>
                                         <button className="danger-button" onClick={() => { setRespondPicks([]); onArenaResponseHandled?.(); }}>Decline</button>
                                     </div>
@@ -2220,14 +2220,14 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                                         />
                                         <button disabled={!canStart || !arenaChallengeName.trim()} style={{ background: "#b45309" }}
                                             onClick={() => void sendArenaChallenge(arenaChallengeName, tacticalSize, tacticalPicks)}>
-                                            Send Challenge
+                                            Send challenge
                                         </button>
                                         {arenaChallengeMsg && <p className="hint" style={{ margin: 0, color: arenaChallengeMsg.startsWith("Success:") ? "var(--green-400)" : "var(--red-400)" }}>{arenaChallengeMsg.replace(/^(Success|Error):\s*/, "")}</p>}
                                     </div>
 
                                     <div className="summary-box" style={{ display: "grid", gap: "0.5rem", alignContent: "start" }}>
                                         <strong><GameArtIcon kind="petTamer" size={18} /> Co-op with Friends</strong>
-                                        <button style={{ background: "#6d28d9" }} onClick={() => setShowCoop(true)}>Open Co-op Lobby</button>
+                                        <button style={{ background: "#6d28d9" }} onClick={() => setShowCoop(true)}>Open co-op lobby</button>
                                     </div>
                                 </div>
                             </div>
@@ -2284,7 +2284,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                 <div role="status" aria-live="polite" aria-atomic="true" style={{ position: "fixed", inset: 0, zIndex: 1000000, background: "rgba(5,6,10,0.94)", display: "grid", placeItems: "center" }}>
                     <div style={{ textAlign: "center" }}>
                         <div style={{ color: "var(--text-dim)", letterSpacing: "0.25em", fontSize: "0.85rem", marginBottom: 10 }}>BATTLE STARTS IN</div>
-                        <div style={{ fontSize: "6rem", fontWeight: 800, color: "var(--gold-300)", textShadow: "0 0 30px rgba(250,204,21,0.45)", lineHeight: 1 }}>{arenaCountdown.secs}</div>
+                        <div style={{ fontSize: "6rem", fontWeight: 800, color: "var(--gold-300)", textShadow: "0 0 30px rgba(230, 196, 119, 0.45)", lineHeight: 1 }}>{arenaCountdown.secs}</div>
                     </div>
                 </div>,
                 document.body,

@@ -4610,7 +4610,7 @@ function WorldMapContent({
                                         <p style={{ fontSize: ".74rem", color: "#9aa3b2", margin: "0 0 12px" }}>{roadFleePriceLine(character)}</p>
                                         {bossDialog.error && <p role="alert" style={{ fontSize: ".76rem", color: "var(--red-300)", margin: "-6px 0 12px" }}>{bossDialog.error}</p>}
                                         <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                                            <button disabled={!globalMutationsOpen || bossDialog.busy} onClick={standBossFight} style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "var(--red-400)", fontWeight: 700, opacity: globalMutationsOpen ? 1 : 0.55 }}>{globalMutationsOpen ? "Stand & Fight" : "Fight paused"}</button>
+                                            <button disabled={!globalMutationsOpen || bossDialog.busy} onClick={standBossFight} style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "var(--red-400)", fontWeight: 700, opacity: globalMutationsOpen ? 1 : 0.55 }}>{globalMutationsOpen ? "Stand & fight" : "Fight paused"}</button>
                                             <button disabled={bossDialog.busy} onClick={() => void fleeBoss()}>Flee</button>
                                         </div>
                                     </div>
@@ -4861,7 +4861,7 @@ function WorldMapContent({
                         <h3>{loc.name}</h3>
                         <p className="territory-hostile-tag"><GameArtIcon kind="warning" size={17} /> Hostile Territory</p>
                         <p>{weatherEffects[weather].effect}</p>
-                        <button disabled={resourceActionsToday(character) >= 100 || explorePresentationInFlight} onClick={() => runWhenSectorConfirmed(virtualSector, () => { void exploreSector(virtualSector); })}>{resourceActionsToday(character) >= 100 ? 'Shared daily actions used (100/100)' : 'Explore Territory'}</button>
+                        <button disabled={resourceActionsToday(character) >= 100 || explorePresentationInFlight} onClick={() => runWhenSectorConfirmed(virtualSector, () => { void exploreSector(virtualSector); })}>{resourceActionsToday(character) >= 100 ? 'Shared daily actions used (100/100)' : 'Explore territory'}</button>
                         <button onClick={() => runWhenSectorConfirmed(virtualSector, () => restInSector(virtualSector))}>Recover</button>
 
                         <div className="territory-guard-section">
@@ -4984,7 +4984,7 @@ function WorldMapContent({
                                             setCurrentWeather(weather);
                                         });
                                     })}>
-                                        Raid Village Garrison
+                                        Raid village garrison
                                     </button>
                                 </>
                             )}

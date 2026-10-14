@@ -86,7 +86,7 @@ describe("mixed-feature public capability wiring", () => {
         assert.match(hall, /LEGACY_HALL_TABS = new Set<LbTab>\(\["legends", "eras"\]\)/);
         assert.match(hall, /!legacyAvailable && LEGACY_HALL_TABS\.has\(selectedTab\) \? "ranked" : selectedTab/);
         assert.match(hall, /if \(tab !== "news" && \(!legacyAvailable \|\| \(tab !== "legends"/);
-        assert.match(hall, /\{ id: "news",\s+label: "World News"/);
+        assert.match(hall, /\{ id: "news",\s+label: "World news"/);
         for (const tab of ["ranked", "kills", "weeklyBoss", "professions"]) {
             assert.match(hall, new RegExp(`\\{ id: "${tab}"`));
         }

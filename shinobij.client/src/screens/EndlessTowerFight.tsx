@@ -90,10 +90,10 @@ export function EndlessTowerFight({
                                             <p className="story-fight-complete-rewards">+{result.reward?.ryo ?? 0} banked ryo</p>
                                             <div className="menu">
                                                 <button disabled={transitioning} onClick={() => { setTransitioning(true); void onNext().finally(() => setTransitioning(false)); }}>
-                                                    {transitioning ? "Opening…" : "Next Wave"}
+                                                    {transitioning ? "Opening…" : "Next wave"}
                                                 </button>
                                                 <button disabled={transitioning} onClick={() => { setTransitioning(true); void onBank().finally(() => setTransitioning(false)); }}>
-                                                    Bank & Leave
+                                                    Bank & leave
                                                 </button>
                                             </div>
                                         </>

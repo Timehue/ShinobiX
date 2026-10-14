@@ -155,17 +155,17 @@ export function JutsuDropdownList({
                     <input value={nameFilter} onChange={(e) => setNameFilter(e.target.value)} placeholder="Name" />
                     <label>Offense</label>
                     <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as "All" | JutsuType)}>
-                        <option value="All">All Offenses</option>
+                        <option value="All">All offenses</option>
                         {specialties.map((type) => <option key={type} value={type}>{type}</option>)}
                     </select>
                     <label>Element</label>
                     <select value={elementFilter} onChange={(e) => setElementFilter(e.target.value as "All" | JutsuElement)}>
-                        <option value="All">All Elements</option>
+                        <option value="All">All elements</option>
                         {jutsuElements.map((element) => <option key={element} value={element}>{element}</option>)}
                     </select>
                     <label>Effects</label>
                     <select value={effectFilter} onChange={(e) => setEffectFilter(e.target.value)}>
-                        <option value="All">All Effects</option>
+                        <option value="All">All effects</option>
                         {allTags.map((tagName) => <option key={tagName} value={tagName}>{tagName}</option>)}
                     </select>
                     {!reorderable && (
@@ -178,7 +178,7 @@ export function JutsuDropdownList({
                                 <option value="effect">Effects</option>
                                 <option value="ap">AP</option>
                                 <option value="range">Range</option>
-                                <option value="effectPower">Effect Power</option>
+                                <option value="effectPower">Effect power</option>
                             </select>
                         </>
                     )}

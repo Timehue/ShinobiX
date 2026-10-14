@@ -62,7 +62,7 @@ for (const [key,title,opponent,level,moveName] of cases) test(`${title} renders 
     await page.getByRole('tab',{name:'Combat',exact:true}).click();
     const card=page.locator('.mh-combat-card').filter({hasText:title});
     const start=page.waitForResponse(r=>r.url().includes('/api/missions/combat-start')&&r.request().method()==='POST');
-    await card.getByRole('button',{name:/Begin Mission/}).click();
+    await card.getByRole('button',{name:/Begin mission/}).click();
     const response=await start;expect(response.status()).toBe(200);
     const {session}=await response.json();
     expect(session.encounter.id).toBe(key);expect(session.enemy.character.missionTactics).toBe(true);
@@ -79,7 +79,7 @@ for (const [key,title,opponent,level,moveName] of cases) test(`${title} renders 
         demonstrated=state.session.log.some((line:string)=>line.includes(`${opponent} uses ${moveName}`));
     }
     expect(demonstrated).toBe(true);
-    const logTab=arena.getByRole('tab',{name:/Battle Log/});
+    const logTab=arena.getByRole('tab',{name:/Battle log/});
     if(await logTab.isVisible()) await logTab.click();
     for(const round of await arena.getByRole('button',{name:/^Round \d/}).all()) {
         if(await round.getAttribute('aria-expanded')==='false') await round.click();

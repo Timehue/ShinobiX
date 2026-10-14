@@ -181,7 +181,7 @@ test("offers the bloodline source filter and labels bloodline jutsu when the cha
     const html = bloodlineMarkup(plainAndBloodline, new Map([["bloodline-jutsu", "Ashen Eyes"]]));
 
     assert.match(html, /aria-label="Filter by source"/);
-    assert.match(html, /Bloodline Only/);
+    assert.match(html, /Bloodline only/);
     assert.match(html, /Sort: Bloodline/);
     // Exactly one card is marked, and the narrow card carries the generic label
     // with the granting bloodline in its tooltip.

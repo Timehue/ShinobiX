@@ -6,7 +6,7 @@ import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
 /*
  * Real Express + disposable memory store (playwright.live.config.ts).
  *
- * "Set as Active" and "Set as 2v2 Partner" decide which five companions may
+ * "Set as active" and "Set as 2v2 partner" decide which five companions may
  * train. They used to be local edits carried by the debounced autosave, which
  * idle vitals regen can hold back for up to 15 s. Reproduced on 2026-09-18
  * against this server: Start Training pressed right after Set as Active was
@@ -123,8 +123,8 @@ test('a Supporter can train their sixth carried pet straight after Set as Active
     // The gate's label is copy (PR #195 rewords it); what matters is that it is shut.
     await expect(page.getByRole('button', { name: /^Move into (?:carried roster|active five)$/ })).toBeDisabled();
 
-    await page.getByRole('button', { name: 'Set as Active', exact: true }).click();
-    const start = page.getByRole('button', { name: 'Start Training', exact: true });
+    await page.getByRole('button', { name: 'Set as active', exact: true }).click();
+    const start = page.getByRole('button', { name: 'Start training', exact: true });
     await expect(start).toBeEnabled();
     const started = page.waitForResponse((r) => r.url().includes('/api/pet/progress') && r.request().postDataJSON()?.action === 'start-training');
     await start.click();
@@ -142,11 +142,11 @@ test('training another pet right after Set as Active keeps the Active pick', asy
     await installSession(page, account);
     await openGrowth(page, SIXTH);
 
-    await page.getByRole('button', { name: 'Set as Active', exact: true }).click();
+    await page.getByRole('button', { name: 'Set as active', exact: true }).click();
     await expect(activeTag(page, SIXTH)).toBeVisible();
     await selectGrowth(page, 'Ember Ocelot');
     const started = page.waitForResponse((r) => r.url().includes('/api/pet/progress') && r.request().postDataJSON()?.action === 'start-training');
-    await page.getByRole('button', { name: 'Start Training', exact: true }).click();
+    await page.getByRole('button', { name: 'Start training', exact: true }).click();
     expect((await started).status()).toBe(200);
 
     await expect(activeTag(page, SIXTH), 'the reply to the other pet must not undo the Active pick').toBeVisible();

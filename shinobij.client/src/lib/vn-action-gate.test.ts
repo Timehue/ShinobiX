@@ -40,7 +40,7 @@ describe("VN action gate", () => {
         const source = readFileSync(new URL("../components/TriggeredVisualNovel.tsx", import.meta.url), "utf8");
         assert.match(source, /function cancelScene\(\) \{ onCancel\(\); \}/,
             "cancelScene must call onCancel unconditionally, not behind beginAction()");
-        assert.match(source, /onClick=\{cancelScene\}>Leave - No Reward<\/button>[\s\S]{0,160}onClick=\{\(\) => startBattle\(\)\}>Enter Battle<\/button>/,
+        assert.match(source, /onClick=\{cancelScene\}>Leave - no reward<\/button>[\s\S]{0,160}onClick=\{\(\) => startBattle\(\)\}>Enter battle<\/button>/,
             "the no-reward exit comes before battle entry so the positive action stays on the right");
     });
 });

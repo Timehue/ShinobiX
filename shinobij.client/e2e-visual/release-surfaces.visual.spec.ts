@@ -180,7 +180,7 @@ test('landing hero keeps both entry actions and signup note in narrow landscape'
     ]) {
         await page.setViewportSize(viewport);
         await expect(page.getByTestId('start-create')).toBeInViewport();
-        await expect(page.getByRole('button', { name: /Explore Gameplay/ })).toBeInViewport();
+        await expect(page.getByRole('button', { name: /See gameplay/ })).toBeInViewport();
         await expect(page.locator('.landing-hero .landing-cta-note')).toBeInViewport();
         await expect(page.locator('.landing-logo--hero')).toBeInViewport();
         await expect(page.locator('.landing-menu-toggle')).toBeVisible();
@@ -269,7 +269,7 @@ test('landing wide monitors preserve the shinobi and fox artwork', async ({ page
 test('landing discovery and Discord links stay still on hover', async ({ page }) => {
     await page.goto('/', { waitUntil: 'networkidle' });
     await settleVisualState(page);
-    for (const control of [page.getByRole('button', { name: 'Discover your journey' }), page.getByRole('link', { name: /Join the Discord/ })]) {
+    for (const control of [page.getByRole('button', { name: 'See the world' }), page.getByRole('link', { name: /Join the Discord/ })]) {
         await control.scrollIntoViewIfNeeded();
         await page.mouse.move(0, 0);
         const before = await control.boundingBox();
@@ -282,7 +282,7 @@ test('landing mobile gallery shows four playable modes and enlarges each capture
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/', { waitUntil: 'networkidle' });
     await settleVisualState(page);
-    await page.getByRole('tab', { name: 'On Mobile', exact: true }).click();
+    await page.getByRole('tab', { name: 'On mobile', exact: true }).click();
     const gallery = page.locator('.landing-mobile-gallery');
     await expect(gallery.getByRole('button')).toHaveCount(4);
     await gallery.locator('img').evaluateAll(async (images) => {
@@ -291,7 +291,7 @@ test('landing mobile gallery shows four playable modes and enlarges each capture
     await expectNoHorizontalOverflow(page);
     await page.addStyleTag({ content: '.landing-topbar { visibility: hidden !important; }' });
     await sectionScreenshot(page, page.locator('.landing-gallery-panel'), 'landing-mobile-gallery.png');
-    const modes = [['Jutsu Combat', 'mobile-combat'], ['Card Battles', 'mobile-cards'], ['Pet Arena', 'mobile-pet-arena'], ['Story', 'mobile-story']];
+    const modes = [['Jutsu combat', 'mobile-combat'], ['Card battles', 'mobile-cards'], ['Pet Arena', 'mobile-pet-arena'], ['Story', 'mobile-story']];
     for (const [label, file] of modes) {
         const trigger = gallery.getByRole('button', { name: `Enlarge mobile ${label} screenshot` });
         await trigger.click();
@@ -363,10 +363,10 @@ test('landing story sections - mobile', async ({ page }) => {
 test('landing entry points open the connected creator, account, guides, and leaderboard', async ({ page }) => {
     await page.goto('/', { waitUntil: 'networkidle' });
     const entries = [
-        ['.landing-nav-play', 'Begin as a Shinobi', 'Back to Landing'],
-        ['[data-testid="start-create"]', 'Begin as a Shinobi', 'Back to Landing'],
-        ['.landing-begin button', 'Begin as a Shinobi', 'Back to Landing'],
-        ['.landing-footer-links button:nth-child(1)', 'Begin as a Shinobi', 'Back to Landing'],
+        ['.landing-nav-play', 'Begin as a Shinobi', 'Back to landing'],
+        ['[data-testid="start-create"]', 'Begin as a Shinobi', 'Back to landing'],
+        ['.landing-begin button', 'Begin as a Shinobi', 'Back to landing'],
+        ['.landing-footer-links button:nth-child(1)', 'Begin as a Shinobi', 'Back to landing'],
         ['.landing-utility button', 'Enter the Village', 'Back'],
         ['.landing-desktop-login', 'Enter the Village', 'Back'],
         ['.landing-footer-links button:nth-child(4)', 'Enter the Village', 'Back'],
@@ -385,7 +385,7 @@ test('landing entry points open the connected creator, account, guides, and lead
             await expect(page.getByTestId('start-create')).toBeVisible();
         });
     }
-    await page.getByRole('button', { name: 'Account', exact: true }).click();
+    await page.getByRole('button', { name: 'Log in', exact: true }).click();
     await page.getByRole('button', { name: 'Use a name and password', exact: true }).click();
     await expect(page.getByRole('textbox', { name: 'Name', exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Show password', exact: true }).click();
@@ -435,20 +435,20 @@ test('landing navigation, gallery keyboard controls, and reduced motion work tog
         })).toBe(true);
     }
     await expect(page.locator('.landing-lightbox img')).toHaveCount(0);
-    await page.getByRole('tab', { name: 'Jutsu Combat', exact: true }).press('ArrowRight');
-    const cards = page.getByRole('tab', { name: 'Card Battles', exact: true });
+    await page.getByRole('tab', { name: 'Jutsu combat', exact: true }).press('ArrowRight');
+    const cards = page.getByRole('tab', { name: 'Card battles', exact: true });
     await expect(cards).toBeFocused();
     await expect(cards).toHaveAttribute('aria-selected', 'true');
-    await page.getByRole('button', { name: 'Enlarge Card Battles screenshot', exact: true }).click();
+    await page.getByRole('button', { name: 'Enlarge Card battles screenshot', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Close screenshot', exact: true })).toBeFocused();
     await expect(page.locator('html')).toHaveCSS('overflow-y', 'hidden');
     await page.keyboard.press('Escape');
     await expect(page.locator('.landing-lightbox img')).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Enlarge Card Battles screenshot', exact: true })).toBeFocused();
+    await expect(page.getByRole('button', { name: 'Enlarge Card battles screenshot', exact: true })).toBeFocused();
     await cards.press('End');
-    await expect(page.getByRole('tab', { name: 'On Mobile', exact: true })).toBeFocused();
-    await page.getByRole('tab', { name: 'On Mobile', exact: true }).press('Home');
-    await expect(page.getByRole('tab', { name: 'Jutsu Combat', exact: true })).toBeFocused();
+    await expect(page.getByRole('tab', { name: 'On mobile', exact: true })).toBeFocused();
+    await page.getByRole('tab', { name: 'On mobile', exact: true }).press('Home');
+    await expect(page.getByRole('tab', { name: 'Jutsu combat', exact: true })).toBeFocused();
     for (const selector of ['.landing-brand', '.landing-utility button', '.landing-gallery-tabs button:first-child', '.landing-gallery-image', '.landing-footer-links button:first-child']) {
         const control = page.locator(selector);
         await control.scrollIntoViewIfNeeded();
@@ -464,7 +464,7 @@ test('landing navigation, gallery keyboard controls, and reduced motion work tog
     await expect(page.getByTestId('start-create')).toHaveCSS('transform', 'none');
     await page.setViewportSize({ width: 390, height: 844 });
     await page.getByRole('button', { name: 'Open navigation', exact: true }).press('Enter');
-    await expect(page.getByRole('button', { name: 'The World', exact: true })).toBeFocused();
+    await expect(page.getByRole('button', { name: 'The world', exact: true })).toBeFocused();
     await page.keyboard.press('Escape');
     await expect(page.getByRole('button', { name: 'Open navigation', exact: true })).toBeFocused();
     await page.keyboard.press('Enter');
@@ -479,7 +479,7 @@ test('landing assets and social previews load without page errors', async ({ pag
     page.on('pageerror', (error) => errors.push(error.message));
     await page.goto('/', { waitUntil: 'networkidle' });
     const assets = new Set(await page.locator('#landing-home img').evaluateAll(images => images.map(image => (image as HTMLImageElement).src)));
-    for (const label of ['Card Battles', 'Pet Arena', 'Story', 'On Mobile']) {
+    for (const label of ['Card battles', 'Pet Arena', 'Story', 'On mobile']) {
         await page.getByRole('tab', { name: label, exact: true }).click();
         for (const src of await page.locator('.landing-gallery-panel img').evaluateAll(images => images.map(image => (image as HTMLImageElement).src))) assets.add(src);
     }
@@ -504,7 +504,7 @@ test('landing play buttons respect an explicit registration pause', async ({ pag
         await expect(page.locator(selector)).toBeDisabled();
     }
     await expect(page.locator('.landing-hero [role="status"]')).toContainText(/registration|creation|paused/i);
-    await page.getByRole('button', { name: 'Account', exact: true }).click();
+    await page.getByRole('button', { name: 'Log in', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Enter the Village', exact: true })).toBeVisible();
 });
 

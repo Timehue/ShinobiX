@@ -2,9 +2,9 @@ import type { ClanBossPartyView, ClanBossPingKind } from "../../../shared/clan-b
 import type { ClanBossPartyAction } from "./ClanBossPartyLobby";
 
 const PINGS: Array<{ kind: ClanBossPingKind; label: string }> = [
-    { kind: "focus-boss", label: "Focus Boss" },
-    { kind: "clear-adds", label: "Clear Adds" },
-    { kind: "need-heal", label: "Need Healing" },
+    { kind: "focus-boss", label: "Focus boss" },
+    { kind: "clear-adds", label: "Clear adds" },
+    { kind: "need-heal", label: "Need healing" },
     { kind: "hold", label: "Hold" },
     { kind: "ready", label: "Ready" },
 ];

@@ -10,7 +10,7 @@
     border-radius: 14px;
     padding: 14px;
     background:
-        radial-gradient(circle at 12% 20%, rgba(251, 191, 36, .18), transparent 32%),
+        radial-gradient(circle at 12% 20%, rgba(230, 196, 119, .18), transparent 32%),
         linear-gradient(135deg, rgba(28, 18, 10, .98), rgba(9, 17, 32, .97));
     box-shadow: inset 0 1px rgba(255, 255, 255, .08), 0 16px 42px rgba(0, 0, 0, .36);
     text-align: left;

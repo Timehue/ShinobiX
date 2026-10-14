@@ -243,7 +243,7 @@
     align-content: center;
     gap: 5px;
     padding: 11px;
-    border: 1px solid rgba(250, 204, 21, 0.55);
+    border: 1px solid rgba(230, 196, 119, 0.55);
     border-radius: 10px;
     background: rgba(113, 63, 18, 0.28);
 }
@@ -362,9 +362,9 @@
 .tower-pvp-cancelled span { font-size: 0.69rem; line-height: 1.4; }
 .tower-pvp-idle button,
 .tower-pvp-ready-button {
-    border-color: #8b5cf6;
-    background: linear-gradient(180deg, #6d28d9, #4c1d95);
-    color: #f5f3ff;
+    border-color: var(--sj-gold-bright);
+    background: linear-gradient(180deg, var(--sj-gold-bright), var(--sj-gold));
+    color: var(--sj-void);
 }
 
 .tower-pvp-search-orb {
@@ -392,8 +392,8 @@
     border-radius: 10px;
     background: rgba(15, 23, 42, 0.74);
 }
-.tower-pvp-team--amber { border-left: 3px solid #f59e0b; }
-.tower-pvp-team--violet { border-left: 3px solid #8b5cf6; }
+.tower-pvp-team--amber { border-left: 3px solid var(--sj-gold); }
+.tower-pvp-team--violet { border-left: 3px solid var(--sj-spirit); }
 .tower-pvp-team.is-mine { box-shadow: inset 0 0 0 1px rgba(103, 232, 249, 0.38); }
 .tower-pvp-team > span { color: #94a3b8; font-size: 0.62rem; font-weight: 900; letter-spacing: 0.1em; text-transform: uppercase; }
 .tower-pvp-team > div {
@@ -497,12 +497,12 @@
 .tower-ready-room-status-stack small.is-live { color: #5eead4; }
 .tower-ready-room-status-stack small.is-fallback { color: #fde68a; }
 
-.tower-ready-room-status--launching { border-color: #facc15; color: #fde68a; }
+.tower-ready-room-status--launching { border-color: var(--sj-gold-bright); color: #fde68a; }
 .tower-ready-room-status--active { border-color: #38bdf8; color: #bae6fd; }
 .tower-ready-room-status--closed { border-color: #94a3b8; color: #cbd5e1; }
 .tower-ready-room-status--checking,
 .tower-ready-room-status--reconnecting,
-.tower-ready-room-status--updating { border-color: #facc15; color: #fde68a; }
+.tower-ready-room-status--updating { border-color: var(--sj-gold-bright); color: #fde68a; }
 
 .tower-ready-room-intro,
 .tower-ready-room-size {
@@ -543,7 +543,7 @@
     justify-content: space-between;
     gap: 12px;
     padding: 10px 11px;
-    border: 1px solid rgba(250, 204, 21, 0.5);
+    border: 1px solid rgba(230, 196, 119, 0.5);
     border-radius: 10px;
     background: rgba(66, 32, 6, 0.5);
     color: #fef3c7;
@@ -557,7 +557,7 @@
 .tower-level-gate {
     margin: -2px 0 14px;
     padding: 9px 11px;
-    border: 1px solid rgba(250, 204, 21, 0.52);
+    border: 1px solid rgba(230, 196, 119, 0.52);
     border-radius: 9px;
     background: rgba(66, 32, 6, 0.44);
     color: #fef3c7;
@@ -1119,7 +1119,7 @@
 }
 
 .tower-ready-room-roster li.is-ready { border-color: rgba(74, 222, 128, 0.58); box-shadow: inset 3px 0 rgba(74, 222, 128, 0.72); }
-.tower-ready-room-roster li.is-waiting { border-color: rgba(250, 204, 21, 0.42); box-shadow: inset 3px 0 rgba(250, 204, 21, 0.62); }
+.tower-ready-room-roster li.is-waiting { border-color: rgba(230, 196, 119, 0.42); box-shadow: inset 3px 0 rgba(230, 196, 119, 0.62); }
 .tower-ready-room-roster li.is-ai {
     border-color: rgba(56, 189, 248, 0.55);
     background: linear-gradient(135deg, rgba(8, 47, 73, 0.76), rgba(15, 23, 42, 0.82));
@@ -1131,12 +1131,12 @@
     background: rgba(2, 6, 18, 0.34);
     color: #94a3b8;
 }
-.tower-ready-room-roster li.is-open.is-required { border-color: rgba(251, 191, 36, 0.42); }
+.tower-ready-room-roster li.is-open.is-required { border-color: rgba(230, 196, 119, 0.42); }
 .tower-ready-room-member-mark { color: #86efac; font-size: 0.9rem; font-weight: 900; }
-.tower-ready-room-roster li.is-waiting .tower-ready-room-member-mark { color: #facc15; }
+.tower-ready-room-roster li.is-waiting .tower-ready-room-member-mark { color: var(--sj-gold-bright); }
 .tower-ready-room-roster li.is-ai .tower-ready-room-member-mark { color: #67e8f9; }
 .tower-ready-room-roster li.is-open .tower-ready-room-member-mark { color: #64748b; }
-.tower-ready-room-roster li.is-open.is-required .tower-ready-room-member-mark { color: #fbbf24; }
+.tower-ready-room-roster li.is-open.is-required .tower-ready-room-member-mark { color: var(--sj-gold-bright); }
 
 .tower-ready-room-roster li > span:nth-child(2) {
     display: flex;
@@ -1151,7 +1151,7 @@
 .tower-ready-room-roster li b { color: #cbd5e1; font-size: 0.68rem; }
 .tower-ready-room-roster li.is-ready b { color: #86efac; }
 .tower-ready-room-roster li.is-open b { color: #64748b; }
-.tower-ready-room-roster li.is-open.is-required b { color: #fbbf24; }
+.tower-ready-room-roster li.is-open.is-required b { color: var(--sj-gold-bright); }
 .tower-ready-room .tower-ready-room-remove {
     min-height: 44px;
     padding: 7px;
@@ -1165,7 +1165,7 @@
     display: grid;
     gap: 7px;
     padding: 11px 12px;
-    border: 1px solid rgba(250, 204, 21, 0.38);
+    border: 1px solid rgba(230, 196, 119, 0.38);
     border-radius: 11px;
     background: linear-gradient(135deg, rgba(66, 32, 6, 0.42), rgba(15, 23, 42, 0.62));
 }
@@ -1286,7 +1286,7 @@
 }
 .tower-ready-room-footer > span { max-width: 320px; color: #fde68a; font-size: 0.7rem; font-weight: 700; line-height: 1.35; }
 .tower-ready-room-footer > span.is-ready { color: #86efac; }
-.tower-ready-room .tower-ready-toggle[aria-pressed="true"] { border-color: #facc15; background: linear-gradient(180deg, #854d0e, #713f12); color: #fef3c7; }
+.tower-ready-room .tower-ready-toggle[aria-pressed="true"] { border-color: var(--sj-gold-bright); background: linear-gradient(180deg, #854d0e, #713f12); color: #fef3c7; }
 .tower-ready-room .tower-ready-launch { border-color: #4ade80; background: linear-gradient(180deg, #16803a, #0c5226); }
 .tower-ready-room .tower-ready-leave { border-color: #64748b; background: rgba(15, 23, 42, 0.82); color: #cbd5e1; }
 

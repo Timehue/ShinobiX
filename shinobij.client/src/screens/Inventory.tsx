@@ -1377,7 +1377,7 @@ export function Inventory({
                                             disabled={openingWarCrate}
                                             onClick={() => void consumeItem(selected.entry)}
                                         >
-                                            {openingWarCrate ? "Opening…" : "Open Crate"}
+                                            {openingWarCrate ? "Opening…" : "Open crate"}
                                         </button>
                                     )}
 
@@ -1388,7 +1388,7 @@ export function Inventory({
                                             disabled={openingHollowBeastCache}
                                             onClick={() => void consumeItem(selected.entry)}
                                         >
-                                            {openingHollowBeastCache ? "Opening…" : "Open Cache"}
+                                            {openingHollowBeastCache ? "Opening…" : "Open cache"}
                                         </button>
                                     )}
 
@@ -1523,7 +1523,7 @@ export function Inventory({
                                         >
                                             {namedSaleArmed === sellAllArmKey
                                                 ? `Confirm: sell all ${selected.count} for ${selectedSellValue * selected.count} ryo`
-                                                : `Sell All x${selected.count} for ${selectedSellValue * selected.count} ryo`}
+                                                : `Sell all x${selected.count} for ${selectedSellValue * selected.count} ryo`}
                                         </button>
                                     )}
 

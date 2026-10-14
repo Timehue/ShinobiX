@@ -11,7 +11,7 @@ import { GameArtIcon } from "./GameArtIcon";
 
 export function ClanWarManual({ onClose,legacy=false }: { onClose: () => void;legacy?:boolean }) {
   if(!legacy)return <section className="summary-box" aria-label="Clan war guide">
-    <div className="menu"><h4><GameArtIcon kind="scroll" size={18}/> Clan War Guide</h4><button onClick={onClose}>Close Guide</button></div>
+    <div className="menu"><h4><GameArtIcon kind="scroll" size={18}/> Clan War Guide</h4><button onClick={onClose}>Close guide</button></div>
     <p>Leadership can declare on any eligible rival for 100 Honor Seals. Both clans need four level-15 members who joined at least 48 hours ago and played within seven days. Clans must be seven days old.</p>
     <p>Prepare for 24 hours, then fight for 72 hours. Join a shinobi 1v1, shinobi 2v2, pet or Chronicle queue. A battle starts when all matched players confirm.</p>
     <p>Each clan has 20 normal player slots per war day; each member has five across all modes. A 1v1 victory earns 100 War Points. A 2v2 victory earns 200, using two clan slots.</p>
@@ -204,7 +204,7 @@ export function ClanWarManual({ onClose,legacy=false }: { onClose: () => void;le
         once.
       </p>
       <p
-        style={{ margin: "0 0 0.6rem", fontSize: "0.85rem", color: "#fbbf24" }}
+        style={{ margin: "0 0 0.6rem", fontSize: "0.85rem", color: "#e6c477" }}
       >
         <GameArtIcon kind="mission" size={16} /> <strong>Don't ghost.</strong> Pending challenges expire after{" "}
         <strong>1 hour</strong> if the defender does nothing — each expired

@@ -348,14 +348,14 @@ async function installArenaApi(page: Page, options: {
 async function createAccount(page: Page) {
     await page.goto("/", { waitUntil: "networkidle" });
     await page.getByTestId("start-create").click();
-    await page.getByRole("button", { name: "Choose Village" }).click();
+    await page.getByRole("button", { name: "Choose village" }).click();
     await page.locator(".cc-village-card").first().click();
-    await page.getByRole("button", { name: "Choose Bloodline" }).click();
+    await page.getByRole("button", { name: "Choose bloodline" }).click();
     await page.locator(".cc-bloodline-card").first().click();
-    await page.getByRole("button", { name: "Choose Avatar" }).click();
+    await page.getByRole("button", { name: "Choose avatar" }).click();
     await page.locator(".cc-avatar-card").first().click();
     await page.getByRole("button", { name: "Preview Shinobi" }).click();
-    await page.getByRole("button", { name: "Name and Password" }).click();
+    await page.getByRole("button", { name: "Name and password" }).click();
     await page.getByLabel("Name").fill(PLAYER_NAME);
     await page.locator("#cc-password").fill("Audit!Pass1234");
     await page.locator("#cc-confirm-password").fill("Audit!Pass1234");
@@ -402,7 +402,7 @@ async function chooseLevelAndStart(page: Page) {
         has: page.getByRole("heading", { name: /Combat Spar — Fight AI/ }),
     });
     await spar.locator('input[type="number"]').fill("8");
-    await spar.getByRole("button", { name: "Start AI Battle" }).click();
+    await spar.getByRole("button", { name: "Start AI battle" }).click();
 }
 
 async function assertAuthoritativeCombatSurface(page: Page, compact: boolean) {
@@ -417,7 +417,7 @@ async function assertAuthoritativeCombatSurface(page: Page, compact: boolean) {
     const log = combat.getByRole("log", { name: "Battle log" });
     if (compact) {
         const actionsTab = combat.getByRole("tab", { name: "Actions" });
-        const battleLogTab = combat.getByRole("tab", { name: /^Battle Log/ });
+        const battleLogTab = combat.getByRole("tab", { name: /^Battle log/ });
         await expect(actionsTab).toHaveAttribute("tabindex", "0");
         await expect(battleLogTab).toHaveAttribute("tabindex", "-1");
         await actionsTab.focus();
@@ -456,7 +456,7 @@ test("desktop Battle Arena seals practice combat, surfaces retry, acts, and resu
     await page.keyboard.press("Enter");
     await expect(page.getByRole("heading", { name: /Bounty Board/ })).toBeVisible();
     await expect(page.getByText("No active bounties are posted.")).toBeVisible();
-    await page.getByRole("button", { name: "Spar & Challenges" }).click();
+    await page.getByRole("button", { name: "Spar & challenges" }).click();
     await expect(page.getByRole("heading", { name: /Combat Spar — Fight AI/ })).toBeVisible();
 
     await chooseLevelAndStart(page);
@@ -560,7 +560,7 @@ test("Arena District serializes ranked join, poll, and leave on desktop and mobi
     await expect.poll(api.rankedWeaponChoices).toEqual(["tempest-fang-blade"]);
     await expect(reflectWeapon).toHaveAttribute("aria-pressed", "true");
 
-    const queueUp = page.getByRole("button", { name: "Queue Up for Ranked" });
+    const queueUp = page.getByRole("button", { name: "Queue up for ranked" });
     await expect(queueUp).toBeEnabled();
     await expect(page.getByText("Players matchmaking:")).toContainText("0");
     if (isDesktop) {
@@ -572,7 +572,7 @@ test("Arena District serializes ranked join, poll, and leave on desktop and mobi
 
     await expect.poll(() => api.rankedQueueActions()).toEqual(["join"]);
     await expect(page.getByText("Searching for opponent...")).toBeVisible();
-    const leave = page.getByRole("button", { name: "Leave Queue" });
+    const leave = page.getByRole("button", { name: "Leave queue" });
     await expect(leave).toBeEnabled();
 
     // Joining is optimistic in the UI, but polling must not begin until the
@@ -630,7 +630,7 @@ test("mobile Battle Arena exposes the same sealed board, commands, and battle lo
     const actionsTab = combat.getByRole("tab", { name: "Actions" });
     await attack.click();
     await expect.poll(() => api.actionPayloads().length).toBe(1);
-    const battleLogTab = combat.getByRole("tab", { name: /^Battle Log/ });
+    const battleLogTab = combat.getByRole("tab", { name: /^Battle log/ });
     await battleLogTab.click();
     await expect(log).toContainText("the sealed server advances the round");
 

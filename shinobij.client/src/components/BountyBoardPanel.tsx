@@ -89,7 +89,7 @@ export function BountyBoardPanel({
                 value={bountyAmount}
                 onChange={(e) => setBountyAmount(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
             />
-            <div className="menu"><button onClick={() => void submitBounty()} disabled={!canPlaceBounty} title={!canPlaceBounty ? "Jonin rank is required to place a bounty." : undefined}>Place Bounty</button></div>
+            <div className="menu"><button onClick={() => void submitBounty()} disabled={!canPlaceBounty} title={!canPlaceBounty ? "Jonin rank is required to place a bounty." : undefined}>Place bounty</button></div>
 
             <p className="hint" style={{ marginTop: 10 }}>
                 Active bounties — defeat the target in a duel to claim the pool.

@@ -67,7 +67,7 @@ export function fieldMissionNextAction(
     _currentSector: number,
 ): { objective: FieldMissionObjective; instruction: string; label: string } {
     const objective = nextFieldMissionObjective(mission, exploreProgress, raidProgress);
-    if (objective === "claim") return { objective, instruction: "All objectives complete. Claim your reward.", label: "Claim Reward" };
+    if (objective === "claim") return { objective, instruction: "All objectives complete. Claim your reward.", label: "Claim reward" };
     if (objective === "explore") return {
         objective,
         instruction: `World Map → Sector ${mission.targetSector} → Explore.`,
@@ -76,7 +76,7 @@ export function fieldMissionNextAction(
     return {
         objective,
         instruction: "Travel to one of the other three villages and raid its village guard from the outskirts.",
-        label: "Go to an Enemy Village",
+        label: "Go to an enemy village",
     };
 }
 

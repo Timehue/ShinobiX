@@ -146,7 +146,7 @@ export function buildRecommendations(i: RecoInput): Recommendation[] {
         const detail = missionProgressDetail(i.missionsDone, i.missionCap);
         out.push(m
             ? { id: "mission", icon: "mission", title: `Recommended: ${m}`, detail, cta: "Go to the Hunter Board", screen: "hunting" }
-            : { id: "mission", icon: "mission", title: "Run a mission", detail, cta: "Go to Missions", screen: "missions" });
+            : { id: "mission", icon: "mission", title: "Run a mission", detail, cta: "Go to missions", screen: "missions" });
     }
 
     if (i.jutsuTrainingIdle && i.hasJutsu) {

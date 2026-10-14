@@ -336,10 +336,10 @@
     gap: 16px;
     margin: 0 0 16px;
     padding: 14px 16px;
-    border: 1px solid rgba(251, 191, 36, 0.52);
+    border: 1px solid rgba(230, 196, 119, 0.52);
     border-radius: 11px;
     background: linear-gradient(100deg, rgba(54, 35, 8, 0.94), rgba(9, 16, 31, 0.94));
-    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.3), inset 3px 0 0 #fbbf24;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.3), inset 3px 0 0 var(--sj-gold-bright);
 }
 
 .central-war-alert.is-active {

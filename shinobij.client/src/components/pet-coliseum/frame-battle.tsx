@@ -1020,7 +1020,7 @@ function PetColiseumView({
 
             {/* Announcer hype line — top-centre pop, only on dramatic beats. */}
             {commentary && (
-                <div key={`ann-${frame?.message}`} className="col-announcer" style={{ position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)", padding: "7px 18px", background: "rgba(15,23,42,0.88)", border: "1px solid rgba(250,204,21,0.55)", borderRadius: 999, color: "#fde68a", font: "900 15px Inter, system-ui, sans-serif", letterSpacing: "0.06em", textShadow: "0 0 12px rgba(250,204,21,0.45)", whiteSpace: "nowrap", animation: "colAnnouncerPop 1.6s ease-out both", pointerEvents: "none", zIndex: 5 }}>
+                <div key={`ann-${frame?.message}`} className="col-announcer" style={{ position: "absolute", top: 12, left: "50%", transform: "translateX(-50%)", padding: "7px 18px", background: "rgba(15,23,42,0.88)", border: "1px solid rgba(230, 196, 119, 0.55)", borderRadius: 999, color: "#fde68a", font: "900 15px Inter, system-ui, sans-serif", letterSpacing: "0.06em", textShadow: "0 0 12px rgba(230, 196, 119, 0.45)", whiteSpace: "nowrap", animation: "colAnnouncerPop 1.6s ease-out both", pointerEvents: "none", zIndex: 5 }}>
                     {commentary}
                 </div>
             )}
@@ -1075,13 +1075,13 @@ function PetColiseumView({
             {result && (
                 <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: "rgba(5,7,13,0.55)" }}>
                     <div style={{ textAlign: "center" }}>
-                        <div style={{ font: "900 38px Inter, system-ui, sans-serif", color: result === "Victory" ? "#4ade80" : result === "Defeat" ? "#f87171" : "#facc15", textShadow: "0 2px 12px #000" }}>{result}</div>
+                        <div style={{ font: "900 38px Inter, system-ui, sans-serif", color: result === "Victory" ? "#4ade80" : result === "Defeat" ? "#f87171" : "#e6c477", textShadow: "0 2px 12px #000" }}>{result}</div>
                         {resultSupplement}
                         {settlementStatus === "pending" && <p style={{ color: "#fde68a", fontWeight: 800 }}>Sealing the Hollow Hound result…</p>}
                         {settlementStatus === "error" && (
                             <div style={{ marginTop: 10 }}>
                                 <p style={{ color: "#fecaca", fontWeight: 800 }}>Gate verification paused. Your completed duel is safe to retry.</p>
-                                <button onClick={onRetrySettlement} style={resultBtn}>Retry Gate Settlement</button>
+                                <button onClick={onRetrySettlement} style={resultBtn}>Retry Gate settlement</button>
                             </div>
                         )}
                         <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 14 }}>

@@ -256,7 +256,8 @@ export function ClanExchange({
     const futureGroups = EXCHANGE_TIERS
         .map((entry) => ({ ...entry, items: EXCHANGE_ITEMS.filter((item) => item.reward.kind !== "locked" && item.hall === entry.hall && clanData.level < entry.level) }))
         .filter((entry) => entry.items.length > 0);
-    const comingSoonItems = EXCHANGE_ITEMS.filter((item) => item.reward.kind === "locked");
+    // Locked ("coming soon") catalog entries are never shown to players: the live
+    // list and the future shelves above both filter reward.kind "locked" out.
     /*
       * Not gated on purchaseBusyRef: closing this dialog is an escape hatch, and
       * an escape hatch a busy flag can disable is no hatch at all. All four exits
@@ -329,7 +330,7 @@ export function ClanExchange({
                 </div>
             </section>
 
-            {(futureGroups.length > 0 || comingSoonItems.length > 0) && <section className="clan-exchange-progression">
+            {futureGroups.length > 0 && <section className="clan-exchange-progression">
                 <div className="clan-exchange-section-head clan-exchange-progress-head">
                     <div>
                         <span>Clan progression</span>
@@ -350,15 +351,6 @@ export function ClanExchange({
                             </div>
                         </details>
                     ))}
-                    {comingSoonItems.length > 0 && <details className="clan-exchange-future-group clan-exchange-coming-soon">
-                        <summary>
-                            <span><GameIcon name="sparkle" size={20} /> In development</span>
-                            <strong>{comingSoonItems.length} future reward{comingSoonItems.length === 1 ? "" : "s"}</strong>
-                        </summary>
-                        <div className="clan-exchange-locked-grid">
-                            {comingSoonItems.map((item) => <LockedExchangeCard key={item.id} item={item} allItems={allItems} comingSoon />)}
-                        </div>
-                    </details>}
                 </div>
             </section>}
 
@@ -388,7 +380,7 @@ export function ClanExchange({
                             <strong>{rewardSummary(confirming, allItems)}</strong>
                         </div>
                         <div className="menu">
-                            <button onClick={() => void purchase(confirming)} disabled={busyItem === confirming.id}>{busyItem === confirming.id ? "Purchasing..." : "Confirm Purchase"}</button>
+                            <button onClick={() => void purchase(confirming)} disabled={busyItem === confirming.id}>{busyItem === confirming.id ? "Purchasing…" : "Confirm purchase"}</button>
                             <button className="ghost-button" onClick={closeConfirmation}>Cancel</button>
                         </div>
                     </>
@@ -455,20 +447,20 @@ function ExchangeCard({
             {status.state === "need-points" && <small className="clan-exchange-status">{status.reason}</small>}
             {status.state !== "need-points" && <small className={`clan-exchange-status is-${status.state}`}>{status.reason}</small>}
             <button disabled={status.disabled || busy} onClick={() => onConfirm(item)}>
-                {busy ? "Requisitioning..." : status.state === "ready" ? `${status.label} · ${item.cost.toLocaleString()} CP` : status.label}
+                {busy ? "Requisitioning…" : status.state === "ready" ? `${status.label} · ${item.cost.toLocaleString()} CP` : status.label}
             </button>
         </article>
     );
 }
 
-function LockedExchangeCard({ item, allItems, comingSoon = false }: { item: ExchangeItem; allItems: GameItem[]; comingSoon?: boolean }) {
+function LockedExchangeCard({ item, allItems }: { item: ExchangeItem; allItems: GameItem[] }) {
     return (
         <article className={`clan-exchange-locked-card ${item.rarity}`}>
             <div className="clan-exchange-locked-copy">
                 <div><span className={`clan-exchange-rarity ${item.rarity}`}>{item.rarity}</span><strong>{item.cost.toLocaleString()} CP</strong></div>
                 <h5>{item.name}</h5>
                 <p>{rewardSummary(item, allItems)}</p>
-                <span className="clan-exchange-lock-label"><GameIcon name={comingSoon ? "sparkle" : "shield"} size={15} /> {comingSoon ? "Coming soon" : `Clan Level ${item.requiredClanLevel}`}</span>
+                <span className="clan-exchange-lock-label"><GameIcon name="shield" size={15} /> Clan Level {item.requiredClanLevel}</span>
             </div>
         </article>
     );

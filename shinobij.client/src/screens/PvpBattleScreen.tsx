@@ -2545,7 +2545,7 @@ export function PvpBattleScreen({
                     {done && resultRevealed && !showResultPanel ? (
                         <div className="card menu">
                             <span>Reviewing the final battle log</span>
-                            <button type="button" onClick={() => setShowResultPanel(true)}>View Battle Result</button>
+                            <button type="button" onClick={() => setShowResultPanel(true)}>View battle result</button>
                         </div>
                     ) : null}
 
@@ -2561,7 +2561,7 @@ export function PvpBattleScreen({
                         {!done && !amSpectator && (
                             <CombatCommandBar style={!bothJoined || isMyTurn ? undefined : { opacity: 0.55 }}>
                                 {canCancelUnstartedPvpDuel(session) && <button type="button" onClick={() => void submitAction("cancel-unjoined", undefined, undefined, undefined, { allowWhenNotMyTurn: true })} disabled={submitting}>
-                                    <i className="cmd-icon" aria-hidden="true"><GiRun /></i><span>{submitting ? "Cancelling…" : "Cancel Duel"}</span><small>No penalty</small>
+                                    <i className="cmd-icon" aria-hidden="true"><GiRun /></i><span>{submitting ? "Cancelling…" : "Cancel duel"}</span><small>No penalty</small>
                                 </button>}
                                 <button className={pendingBasicAttack ? "selected-action" : ""}
                                     onClick={() => { clearPendingPvpJutsu(); setPendingWeaponId(""); setSelectedActionId(undefined); setPendingBasicAttack(v => !v); }}

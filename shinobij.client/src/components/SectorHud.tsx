@@ -68,9 +68,9 @@ export function SectorHud(props: WorldSectorCommandPanelProps & {
                     <span>{gatherDepleted ? 'Find richer ground' : dailyActions !== undefined ? `Explore · Shared ${dailyActions}/100` : 'Explore'}</span>
                     <small aria-hidden="true">{gatherDepleted ? 'Follow a richer trail' : dailyCapped ? 'Daily limit reached' : props.exploreBusy ? 'Exploring…' : 'Search this sector'}</small></button>
                 <button type="button" ref={triggerRef} className={`sector-hud-info${open ? ' is-open' : ''}`}
-                    aria-label={`Sector Info${props.contract?.claimable ? ' · Claim ready' : ''}`}
+                    aria-label={`Sector info${props.contract?.claimable ? ' · Claim ready' : ''}`}
                     aria-expanded={open} aria-controls={`${id}-info`} aria-haspopup={compact ? undefined : 'dialog'} onClick={() => setOpen(!open)}>
-                    <span>Sector Info{props.contract?.claimable && <small>Claim ready</small>}</span>
+                    <span>Sector info{props.contract?.claimable && <small>Claim ready</small>}</span>
                     <span className="sector-hud-chevron" aria-hidden="true">{open ? '−' : '+'}</span>
                 </button>
             </div>

@@ -2380,7 +2380,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/index/03-rails-daily-briefing.css",
-            "line": 358
+            "line": 356
           },
           {
             "source": "shinobij.client/src/styles/pet-chronicle-ceremony.css",
@@ -2448,7 +2448,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/03-rails-daily-briefing.css",
-            "line": 351
+            "line": 349
           },
           {
             "source": "shinobij.client/src/styles/index/39-civic-facilities.css",
@@ -2982,7 +2982,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/03-rails-daily-briefing.css",
-            "line": 415
+            "line": 413
           },
           {
             "source": "shinobij.client/src/styles/index/36-clan-boss-operation.css",
@@ -3064,7 +3064,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/03-rails-daily-briefing.css",
-            "line": 312
+            "line": 310
           },
           {
             "source": "shinobij.client/src/styles/index/06-combat-core.css",
@@ -3330,7 +3330,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/index/03-rails-daily-briefing.css",
-            "line": 372
+            "line": 370
           },
           {
             "source": "shinobij.client/src/styles/ui.css",
@@ -3940,7 +3940,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/33-hollow-gate-cinematic.css",
-            "line": 221
+            "line": 222
           },
           {
             "source": "shinobij.client/src/styles/index/34-hollow-gate-combat-director.css",

@@ -74,7 +74,7 @@ async function openVest(page: Page, keyboard = false) {
 // Sell All takes two taps: the first only arms it, the second sells.
 const SELL_ALL_CONFIRM = 'Confirm: sell all 3 for 270 ryo';
 async function sellAllVests(vest: Locator) {
-    await vest.getByRole('button', { name: /Sell All x3/ }).click();
+    await vest.getByRole('button', { name: /Sell all x3/ }).click();
     await vest.getByRole('button', { name: SELL_ALL_CONFIRM, exact: true }).click();
 }
 
@@ -110,7 +110,7 @@ test('Inventory guards a pending Sell All and keeps a newly opened selection aft
     });
     await boot();
     const vest = await openVest(page, true);
-    const all = vest.getByRole('button', { name: /Sell All x3/ });
+    const all = vest.getByRole('button', { name: /Sell all x3/ });
     await all.evaluate((node: HTMLButtonElement) => node.click());
     const armed = vest.getByRole('button', { name: SELL_ALL_CONFIRM, exact: true });
     await expect(armed).toBeEnabled();
@@ -170,7 +170,7 @@ test('Inventory preserves an interrupted sale with inline recovery and distingui
         await expect(warning).toContainText(response === 'rejected' ? 'Item is not available in your backpack.' : 'Action unconfirmed. Refresh before retrying.');
         await expect(warning).toHaveAttribute('role', 'alert');
         await expect(vest).toContainText('Inventory Count: 3');
-        await expect(vest.getByRole('button', { name: /Sell All x3/ })).toBeEnabled();
+        await expect(vest.getByRole('button', { name: /Sell all x3/ })).toBeEnabled();
         await expect(page.locator('.game-toast-stack')).toHaveCount(0);
         await expect(page.getByRole('alertdialog', { name: 'Notice', exact: true })).toHaveCount(0);
         await capture(page, `inventory-sale-${response}`);

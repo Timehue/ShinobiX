@@ -7,7 +7,7 @@ const duelCss = readFileSync(new URL("../styles/chronicle-duel.css", import.meta
 
 test("Free-Play queue exposes cancellation and releases its lease on navigation", () => {
   assert.match(source, /useEffect\(\(\) => \{\s*mountedRef\.current = true;\s*return \(\) => \{ mountedRef\.current = false; \};\s*\}, \[\]\);/);
-  assert.match(source, /<button onClick=\{\(\) => void cancel\(\)\}[\s\S]*?Cancel Search[\s\S]*?<\/button>/);
+  assert.match(source, /<button onClick=\{\(\) => void cancel\(\)\}[\s\S]*?Cancel search[\s\S]*?<\/button>/);
   assert.match(source, /window\.addEventListener\("pagehide", leaveOwnedQueue\)/);
   assert.match(source, /return \(\) => \{[\s\S]*?void leaveLease\(lease\);[\s\S]*?\};/);
   assert.match(source, /requestFreePlayQueue\(lease\.authority\.accountKey, "leave", \{ keepalive: true \}\)/);
@@ -19,7 +19,7 @@ test("ambiguous queue failures stay visible and retryable", () => {
   assert.match(source, /outcome\.kind === "expired"[\s\S]*?setSearching\(false\)/);
   assert.match(source, /Your search is still active; retrying automatically\./);
   assert.match(source, /The join could not be canceled, so the search remains active/);
-  assert.match(source, /Your search remains active; retry Cancel Search\./);
+  assert.match(source, /Your search is still active\. Press “Cancel search” again\./);
   assert.match(source, /role="alert"/);
   assert.match(source, /role="status" aria-live="polite"/);
 });

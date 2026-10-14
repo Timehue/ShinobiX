@@ -97,8 +97,8 @@ export function DeckBuilder({
       <header className="chronicle-deck-status">
         <strong>DECK {deck.length} / {MAIN_DECK_SIZE}</strong>
         <span>{counts.monster} Monsters · {counts.magic} Jutsu · {counts.trap} Snares</span>
-        <button onClick={onSave} disabled={!validation.valid || !dirty}>Save Deck</button>
-        <nav aria-label="Deck browser"><button aria-pressed={deckView === "collection"} onClick={() => setDeckView("collection")}>Collection</button><button aria-pressed={deckView === "deck"} onClick={() => setDeckView("deck")}>My Deck</button></nav>
+        <button onClick={onSave} disabled={!validation.valid || !dirty}>Save deck</button>
+        <nav aria-label="Deck browser"><button aria-pressed={deckView === "collection"} onClick={() => setDeckView("collection")}>Collection</button><button aria-pressed={deckView === "deck"} onClick={() => setDeckView("deck")}>My deck</button></nav>
       </header>
       <div className="chronicle-deck-catalog">
         <div className="chronicle-toolbar">
@@ -171,9 +171,9 @@ export function DeckBuilder({
           <div className="chronicle-error">{validation.errors.join(" ")}</div>
         ) : null}
         <button onClick={onSave} disabled={!validation.valid || !dirty}>
-          Save Deck
+          Save deck
         </button>
-        <button onClick={onMigrate}>Restore Migrated Deck</button>
+        <button onClick={onMigrate}>Restore migrated deck</button>
         <button onClick={() => setDeck([])}>Clear</button>
       </aside>
       <ChronicleCardInspector
@@ -195,7 +195,7 @@ export function DeckBuilder({
               }
               onClick={() => addCard(inspected.id)}
             >
-              Add to Deck
+              Add to deck
             </button>
           ) : null
         }
