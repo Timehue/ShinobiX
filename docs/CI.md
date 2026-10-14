@@ -13,9 +13,12 @@ files are the executable source of truth:
 
 ## Triggers and cancellation
 
-`CI` runs for pull requests, pushes to `main`, and manual dispatches. It pins
-Node `22.23.1` on GitHub-hosted runners. One concurrency group is maintained per
-workflow and ref, and a newer run cancels an older run for that same ref.
+`CI` runs on GitHub-hosted runners for pull requests, pushes to `main`, and
+manual dispatches. Every job that sets up Node reads the version from `.nvmrc`,
+the repository's single Node pin, and `scripts/ci-workflow-contract.test.mjs`
+fails on any workflow that hardcodes one instead. One concurrency group is
+maintained per workflow and ref, and a newer run cancels an older run for that
+same ref.
 
 A superseded run may be expected operationally, but a cancelled job is never a
 pass. Branch protection must use the completed replacement run. A missing final
@@ -28,34 +31,71 @@ The job display names below are the workflow-declared GitHub check contexts.
 Their first hosted emission is still an external verification item. Rename one
 only with the branch-protection migration procedure in this guide.
 
+`scripts/ci-doc-contract.test.mjs` fails when this section stops matching
+ci.yml: a row's check name or timeout, a job it leaves out, a matrix's check
+names or shard counts, or the number of live Express steps. Change the doc in the
+same commit as the workflow.
+
 | Required check context | Job ID | Timeout | Responsibility |
 | --- | --- | ---: | --- |
-| `CI / server-contracts` | `server_contracts` | 29 min | Locked root/client installs; the complete root auto-discovered suite and deployment, rollback, mission, asset, pet-breeding, and tooling contracts. CI uses `npm run test:ci`, the same runner as `npm test` without repeating the already-completed client install hook. |
-| `CI / server-build-security` | `server_build_security` | 15 min | Locked root install; backup/restore contract, root audit, one server build, checksum/provenance generation, and server artifact production. |
+| `CI / server-contracts` | `server_contracts` | 15 min | Fail-closed aggregate over the three root test shards (see below). Locked root install; deployment, rollback, mission, asset, pet-breeding, and tooling contracts; then requires every shard to have succeeded. |
+| `CI / server-build-security` | `server_build_security` | 30 min | Locked root install; backup/restore contract, root audit, one server build, checksum/provenance generation, and server artifact production. A high-severity advisory fails the audit at once; only an audit endpoint that returns no verdict is retried, for up to three attempts. |
 | `CI / pg-integration` | `pg_integration` | 10 min | Locked root install; runs `kv.compareSetMany` (the multi-key compare-and-set every currency-moving save write commits through) against a real `postgres:16` service container: jsonb equality, `ON CONFLICT ... WHERE`, `FOR SHARE` holds, rollback, opposite-order batches, and lock-lease fencing. The schema is read from `supabase-schema.sql`. `PG_INTEGRATION_REQUIRED=1` fails the job if the suite would skip. Required through `CI / test-build` (see below), not yet as its own context. |
-| `CI / client-quality` | `client_quality` | 20 min | Locked root/client installs; lint, story-content/TypeScript/production build, build-size and visual-baseline-size gates, client audit, and checksum-backed client artifact production. |
+| `CI / client-quality` | `client_quality` | 35 min | Locked root/client installs; shipped pet rig/animation, Warfront/Rally LOD, and Warfront impostor certification ahead of the build; lint, story-content/TypeScript/production build, build-size and visual-baseline-size gates, client audit (with the same retry rule as the root audit), and checksum-backed client artifact production. |
 | `CI / release-certification` | `release_certification` | 15 min | Downloads and verifies the exact compiled release artifacts, then runs the fresh-account/combat certification against them. |
 | `CI / concurrency-smoke` | `concurrency_smoke` | 15 min | Downloads and verifies the release artifacts, then runs the short real-server concurrent-player smoke. It is not a database capacity test. |
-| `CI / e2e-responsive` | `e2e_responsive` | 5 min | Fail-closed aggregate requiring all three responsive browser shards, including CSP and Stronghold checks, to succeed. |
+| `CI / e2e-responsive` | `e2e_responsive` | 5 min | Fail-closed aggregate requiring all five responsive browser shards, including their CSP, Stronghold, and dedicated suites, to succeed. |
 | `CI / e2e-combat` | `e2e_combat` | 5 min | Fail-closed stable aggregate requiring all three combat browser shards to succeed. |
-| `CI / e2e-warfront` | `e2e_warfront` | 20 min | Warfront positional-mode browser coverage and adaptive-layout evidence. |
-| `CI / e2e-village-stores` | `e2e_village_stores` | 15 min | Village Stores economy loop in a real browser against a live server: cook rations, donate them, and assert the treasury moved server-side. |
+| `CI / e2e-warfront` | `e2e_warfront` | 29 min | Warfront positional-mode browser coverage on seven Chromium viewport projects, including renders of eight real skinned rigs, and adaptive-layout evidence. |
+| `CI / e2e-village-stores` | `e2e_village_stores` | 35 min | Nine live Express player-journey steps in Chromium, each against its own real server started from the release artifact (see below). |
 
-`CI / release-artifact` (`release_artifact`, 10 minutes) is an internal join that
+`CI / release-artifact` (`release_artifact`, 20 minutes) is an internal join that
 assembles and verifies the server and client outputs and distribution contract
-for downstream jobs. The build-size contract remains in `CI / client-quality`.
-The join is
-not a separately required context because every required artifact consumer fails
-closed if that join or its inputs fail.
+for downstream jobs. Its ceiling was raised from 10 minutes because downloading,
+verifying, packaging, and uploading the joined outputs sometimes took longer on
+hosted runners. The build-size contract remains in `CI / client-quality`. The
+join is not a separately required context because every required artifact
+consumer fails closed if that join or its inputs fail.
 
-Responsive coverage runs as three `e2e_responsive_matrix` shards, named
-`CI / e2e-responsive / 1-of-3` through `3-of-3`, each with the existing 29-minute
-ceiling. The complete Playwright suite is partitioned with `--shard=N/3`.
-CSP runs once on shard 1; all three Stronghold modes run sequentially on shard 2.
-Run `35326317976` exhausted the former two-shard budget at test entry 824 of 875
-on shard 2, after its Stronghold checks passed. The third shard creates headroom
-without removing tests or changing their timeouts. Require the stable
-`CI / e2e-responsive` aggregate rather than individual matrix children.
+The root suite runs as the `server_contracts_matrix` job, with the emitted names
+`CI / server-contracts / 1` through `CI / server-contracts / 3`, each with a
+29-minute ceiling. Each shard runs `npm run test:ci`, the same runner as
+`npm test` without repeating the already-completed client install hook. With
+`TEST_SHARD_INDEX` and `TEST_SHARD_TOTAL` set, the runner deals the sorted,
+auto-discovered test files round-robin, so every file runs in exactly one shard
+and a shard that matches no files fails. A local `npm test` sets neither and runs
+everything. The split replaced a single job whose suite took 17 minutes on a fast
+runner and was cancelled at 29 minutes on a slow one, before its trailing
+contracts ran. On run `32454050576` the slowest shard took 15.9 minutes,
+9.6 of them in one Warfront parity test. Runner speed varies by about 1.7x, so
+the shards keep the 29-minute ceiling rather than a tighter one. The contracts
+run once, in the aggregate: each takes under a minute, and running them in every
+shard would only triple them. Require the stable `CI / server-contracts`
+aggregate rather than individual shards.
+
+Responsive coverage runs as five `e2e_responsive_matrix` shards, named
+`CI / e2e-responsive / 1-of-5` through `CI / e2e-responsive / 5-of-5`. Each has a
+35-minute ceiling, because hosted Playwright browser downloads alone can take
+more than 15 minutes on a slow runner. The complete Playwright suite is
+partitioned with `--shard=N/5`. Before its slice, shard 1 checks the built CSP in
+Chromium and WebKit, and shard 2 runs all three Stronghold modes sequentially.
+After their slices, shards 1, 3, 4, and 5 run dedicated suites:
+
+- Shard 1: Pet Gauntlet playback and renderer recovery.
+- Shard 3: sector controls and spectator integration; era campaigns and
+  admission refresh; the profession scroll purchase and change flow.
+- Shard 4: village transfer purchase and recovery; named forge purchase and
+  recovery; Rally renderer recovery.
+- Shard 5: the Dojo Circuit gamepad flow; fishing and the Fracture Chain;
+  Chronicle pack purchase and recovery.
+
+A failed step skips every later check on its shard, so a red shard says nothing
+about the suites after the failure. The suite moved from two shards to three
+when run `35326317976` exhausted shard 2's budget at test entry 824 of 875, after
+its Stronghold checks had passed. It moved to five when three-shard run
+`36622735387` exhausted shards 1 and 2 before every browser case ran. Each split
+kept the whole suite. Require the stable `CI / e2e-responsive` aggregate rather
+than individual matrix children.
 
 The actual combat work runs as the `e2e_combat_matrix` job with the emitted names
 `CI / e2e-combat / chromium`, `CI / e2e-combat / firefox`, and
@@ -63,6 +103,28 @@ The actual combat work runs as the `e2e_combat_matrix` job with the emitted name
 Playwright and layout evidence. Require the stable `CI / e2e-combat` aggregate,
 not each matrix child, so future safe sharding changes do not silently rename the
 branch-protection contract.
+
+`CI / e2e-village-stores` keeps the name of its first journey, the Village Stores
+economy loop, but it now runs nine live Express steps in Chromium. Each step
+starts its own real server from the release artifact with a fresh in-memory
+store, so each step gets its own budget under the real registration limit of 25
+accounts per IP per 15 minutes. The steps are:
+
+- Village Stores economy, Academy persistence, and server route wiring (desktop).
+- Defeat, landing, and daily-login recovery: one step on desktop, one on mobile.
+- The hospital ward and the roaming Weekly Boss (desktop and mobile).
+- Authored missions (desktop and mobile).
+- PvP cancellation and settlement, the ranked queue, and Kage challenges
+  (desktop and mobile, realtime).
+- Gathering, recipes, crafting settlement, and wild pet binding (desktop and
+  mobile, realtime).
+- Exchange and sector-war player journeys (desktop).
+- Two-client sector presence and tavern push (realtime). The desktop project
+  drives a desktop client, and each spec opens its own phone client.
+
+Realtime steps turn on the server's Socket.IO transport, which the other steps
+leave off. The ceiling went from 30 to 35 minutes on 2026-10-10, after fifteen
+green runs took 21.8 to 25.9 minutes, to make room for the presence step.
 
 `CI / test-build` (`test_build`, 5 minutes) is the compatibility aggregate for
 the former monolithic check. Keep it required while branch protection migrates
@@ -186,9 +248,9 @@ player data.
    primary failure, even when earlier steps were green.
 3. Download that job's evidence bundle. For artifact-consuming jobs, also verify
    that the expected server/client archive and SHA-256 sidecar exist.
-4. Reproduce with the command printed by the failed step, using Node 22 and the
-   locked install for that package. Do not weaken, skip, or silently move the
-   failing gate.
+4. Reproduce with the command printed by the failed step, using the Node
+   version pinned in `.nvmrc` and the locked install for that package. Do not
+   weaken, skip, or silently move the failing gate.
 5. For browser failures, inspect the Playwright report, trace, screenshots, video
    when present, and the job-specific layout evidence before changing a baseline.
    Snapshot regeneration requires a diagnosed, intentional UI change.
@@ -219,10 +281,11 @@ gh run download <run-id> --dir <empty-evidence-directory>
 
 ## Time-budget policy
 
-Every ordinary job has a hard timeout below 30 minutes. The 29-minute budgets on
-root contracts and combat E2E are ceilings, not targets. If a required job nears
-its ceiling, split or shard the work and preserve coverage; do not restore the old
-45-minute serial job or raise a timeout without a measured, documented reason.
+Every ordinary job has a hard timeout below 36 minutes, and
+`scripts/ci-workflow-contract.test.mjs` fails on any that is not. Each timeout is
+a ceiling, not a target. If a required job nears its ceiling, split or shard the
+work and preserve coverage; do not restore the old 45-minute serial job or raise
+a timeout without a measured, documented reason.
 
 `e2e-warfront` moved from 20 to 29 minutes on 2026-09-09 under that rule. Its
 measurement: green runs took 14m09s and 16m50s, and the run that carried the
@@ -233,16 +296,27 @@ rendered frames of eight skinned rigs, so its budget is 360s rather than 180s.
 Both numbers are ceilings over a rising measurement, not targets; if the spec
 passes ~250s again, shard or reduce its cycles rather than raise them further.
 
-The internal artifact join and compatibility aggregate are intentionally short.
-Staging/database capacity, restore, and multi-human exercises remain operator
-gates outside this credential-free workflow and must not be inferred from the
-local concurrency smoke.
+The bound itself was 30 minutes until 2026-09-04, when both npm audit steps
+gained a three-attempt retry. One failing attempt can spend about 5 minutes in
+npm's own retrying, so `server-build-security` went from 15 to 30 minutes and
+`client-quality` from 20 to 35, and the bound moved to 36 to fit them. The
+responsive shards and `e2e-village-stores` have since reached 35 for the measured
+reasons recorded under [Stable CI checks](#stable-ci-checks). The root test
+shards, the combat shards, and `e2e-warfront` remain at 29.
+
+The compatibility aggregate and the responsive and combat aggregates are
+intentionally short, at 5 minutes, because they only read upstream results. The
+internal artifact join has 20 minutes because it downloads, verifies,
+repackages, and uploads both build outputs. Staging/database capacity, restore,
+and multi-human exercises remain operator gates outside this credential-free
+workflow and must not be inferred from the local concurrency smoke.
 
 ## Required-check rollout
 
 1. Land the split workflow while retaining `CI / test-build`.
-2. On a pull request, verify that all eight split contexts and both CodeQL
-   contexts appear and complete with their exact documented names.
+2. On a pull request, verify that every split context in
+   [Stable CI checks](#stable-ci-checks) and both CodeQL contexts appear and
+   complete with their exact documented names.
 3. Add the new contexts to the `main` protection rule while retaining
    `CI / test-build`. Do not add a context before GitHub has observed it, or pull
    requests can remain stuck at “Expected”.
