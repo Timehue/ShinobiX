@@ -795,6 +795,10 @@ textarea {
     }
 }
 
+@media (prefers-reduced-motion: reduce) {
+    .incoming-attack-banner { animation: none; }
+}
+
 /* Sector player cards */
 
 /* Live badge */
@@ -1909,7 +1913,7 @@ textarea {
 }
 
     .bulk-card-prompt-input::placeholder {
-        color: var(--slate-600);
+        color: var(--sj-text-secondary);
     }
 
 .bulk-progress-wrap {

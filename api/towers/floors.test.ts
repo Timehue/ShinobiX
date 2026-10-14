@@ -27,15 +27,15 @@ test('public Tower floor metadata carries the exact adaptive arena ladder', () =
     assert.deepEqual(
         FLOOR_CATALOG.map(floor => publicTowerFloorMeta(floor).map),
         [
-            { width: 16, height: 10 }, { width: 16, height: 10 },
-            { width: 16, height: 10 }, { width: 16, height: 10 },
-            { width: 20, height: 14 },
-            { width: 18, height: 12 }, { width: 18, height: 12 },
-            { width: 18, height: 12 }, { width: 18, height: 12 },
-            { width: 20, height: 14 },
-            { width: 18, height: 12 }, { width: 18, height: 12 },
-            { width: 18, height: 12 }, { width: 18, height: 12 },
-            { width: 20, height: 14 },
+            { width: 12, height: 8 }, { width: 12, height: 8 },
+            { width: 12, height: 8 }, { width: 12, height: 8 },
+            { width: 14, height: 10 },
+            { width: 12, height: 10 }, { width: 12, height: 10 },
+            { width: 12, height: 10 }, { width: 12, height: 10 },
+            { width: 14, height: 10 },
+            { width: 12, height: 10 }, { width: 12, height: 10 },
+            { width: 12, height: 10 }, { width: 12, height: 10 },
+            { width: 14, height: 10 },
         ],
     );
 });

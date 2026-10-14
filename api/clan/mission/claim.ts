@@ -113,11 +113,15 @@ function pointEligibleMembers(
 }
 
 async function readClaimed(slug: string, weekKey: string): Promise<ClanMissionKey[]> {
-    const raw = await kv.get<unknown>(claimedSetKey(slug, weekKey)).catch(() => null);
+    // Two plain reads with no dependency between them, so run them together.
+    // A failed listing read still counts as empty; a failed clan read throws.
+    const [raw, clan] = await Promise.all([
+        kv.get<unknown>(claimedSetKey(slug, weekKey)).catch(() => null),
+        kv.get<Record<string, unknown>>(clanRecordKey(slug)),
+    ]);
     const claimed = Array.isArray(raw) ? raw.filter(isClanMissionKey) : [];
     // The listing is a projection. Repair a missed listing write from positive
     // shared credit plus the final receipt, never from a pending intent alone.
-    const clan = await kv.get<Record<string, unknown>>(clanRecordKey(slug));
     for (const proof of clan ? missionProofs(clan) : []) {
         if (proof.weekKey !== weekKey || !isClanMissionKey(proof.missionKey) || claimed.includes(proof.missionKey)) continue;
         const receipt = await kv.get<{state?: string; fingerprint?: string; ownerId?: string; metadata?: {protocol?: number}}>(proof.key);

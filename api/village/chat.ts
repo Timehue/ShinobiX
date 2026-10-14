@@ -105,14 +105,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // through the service-role key, not this endpoint.
         const identity = await authedPlayerOrAdmin(req);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
+        // Start the two plain reads now so they overlap the access checks
+        // below. Nothing is answered from them until those checks pass, and a
+        // refused reader's results (or failures) are simply dropped.
+        const transcriptRead = kv.get<ChatMessage[]>(key);
+        const filterRead = transcriptFilterFor(identity);
+        transcriptRead.catch(() => undefined);
+        filterRead.catch(() => undefined);
         if (!identity.admin && !await memberCharacter(identity.name, village)) {
             return res.status(403).json({ error: 'You can only read your own village chat.' });
         }
         // The tavern is shut to unclaimed guests, reading included — it is a
         // village room, not a feed, and a locked room shows no transcript.
         if (await rejectUnclaimedGuest(res, identity)) return;
-        const allMessages = await kv.get<ChatMessage[]>(key) ?? [];
-        const messages = (await transcriptFilterFor(identity))(allMessages);
+        const allMessages = await transcriptRead ?? [];
+        const messages = (await filterRead)(allMessages);
         res.setHeader('X-Message-Count', String(messages.length));
         // X-Last-Ts too: once the log sits at MAX_MESSAGES, every append keeps
         // the count at 30, so a count-only skip check would never show new

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { GameIcon, type GameIconName } from "./icons/GameIcon";
 import { CacheRewardReveal } from "./CacheRewardReveal";
 import { ClanImageMark } from "./Marks";
@@ -169,13 +169,15 @@ function ExchangeProductArt({ item }: { item: ExchangeItem }) {
     );
 }
 
-function itemStatus(character: Character, clanData: EnhancedClanData, item: ExchangeItem, allItems: GameItem[]) {
+// `eligibleCaches` is eligibleCacheCount(allItems, cache) for both caches,
+// counted once per catalog by the caller.
+function itemStatus(character: Character, clanData: EnhancedClanData, item: ExchangeItem, eligibleCaches: Record<"weapon" | "armor", number>) {
     const count = purchaseCount(character, item);
     const limit = limitCount(item);
     if (item.reward.kind === "locked") return { state: "coming-soon", disabled: true, label: "Coming soon", reason: item.reward.reason, count, limit } as const;
     if (clanData.level < item.requiredClanLevel) return { state: "level-locked", disabled: true, label: `Clan Level ${item.requiredClanLevel}`, reason: `Unlocks at Clan Level ${item.requiredClanLevel}.`, count, limit } as const;
     if (count >= limit) return { state: "limit-reached", disabled: true, label: "Limit reached", reason: item.limit.kind === "oneTime" ? "Already requisitioned." : "Requisition limit reached for this period.", count, limit } as const;
-    if (item.reward.kind === "cache" && eligibleCacheCount(allItems, item.reward.cache) === 0) return { state: "unavailable", disabled: true, label: "Unavailable", reason: "No eligible live catalog items are configured.", count, limit } as const;
+    if (item.reward.kind === "cache" && eligibleCaches[item.reward.cache] === 0) return { state: "unavailable", disabled: true, label: "Unavailable", reason: "No eligible live catalog items are configured.", count, limit } as const;
     const pointGap = Math.max(0, item.cost - num(character.clanPoints));
     if (pointGap > 0) return { state: "need-points", disabled: true, label: `${pointGap.toLocaleString()} CP short`, reason: `${num(character.clanPoints).toLocaleString()} / ${item.cost.toLocaleString()} Clan Points`, count, limit } as const;
     return { state: "ready", disabled: false, label: "Requisition", reason: "Ready to claim", count, limit } as const;
@@ -247,13 +249,25 @@ export function ClanExchange({
     }, [character.name, clanData.name, paidRequests]);
     const clanPoints = num(character.clanPoints);
     const statusPriority = { ready: 0, "need-points": 1, "limit-reached": 2, unavailable: 3, "level-locked": 4, "coming-soon": 5 } as const;
-    const unlockedItems = EXCHANGE_ITEMS
-        .filter((item) => item.reward.kind !== "locked" && clanData.level >= item.requiredClanLevel)
+    // ClanHall memoizes the live catalog on creatorItems and nothing edits it
+    // in place, so the cache-eligible counts only change with that array.
+    const eligibleCaches = useMemo(() => ({
+        weapon: eligibleCacheCount(allItems, "weapon"),
+        armor: eligibleCacheCount(allItems, "armor"),
+    }), [allItems]);
+    const liveItems = EXCHANGE_ITEMS
+        .filter((item) => item.reward.kind !== "locked" && clanData.level >= item.requiredClanLevel);
+    // Each live card's status, worked out once per render instead of twice per
+    // sort comparison, again for readyCount and again inside every card. Plain
+    // render work rather than a memo: itemStatus reads the clock (the purchase
+    // limits are keyed on the current week / month).
+    const statusByItem = new Map(liveItems.map((item) => [item, itemStatus(character, clanData, item, eligibleCaches)]));
+    const unlockedItems = liveItems
         .sort((a, b) => {
-            const stateDifference = statusPriority[itemStatus(character, clanData, a, allItems).state] - statusPriority[itemStatus(character, clanData, b, allItems).state];
+            const stateDifference = statusPriority[statusByItem.get(a)!.state] - statusPriority[statusByItem.get(b)!.state];
             return stateDifference || a.cost - b.cost;
         });
-    const readyCount = unlockedItems.filter((item) => itemStatus(character, clanData, item, allItems).state === "ready").length;
+    const readyCount = unlockedItems.filter((item) => statusByItem.get(item)!.state === "ready").length;
     const nextTier = EXCHANGE_TIERS.find((entry) => entry.level > clanData.level);
     const futureGroups = EXCHANGE_TIERS
         .map((entry) => ({ ...entry, items: EXCHANGE_ITEMS.filter((item) => item.reward.kind !== "locked" && item.hall === entry.hall && clanData.level < entry.level) }))
@@ -327,7 +341,7 @@ export function ClanExchange({
                     </div>
                 </div>
                 <div className="clan-exchange-grid clan-exchange-current-grid">
-                    {unlockedItems.map((item) => <ExchangeCard key={item.id} item={item} character={character} clanData={clanData} allItems={allItems} busy={busyItem === item.id} onConfirm={setConfirming} />)}
+                    {unlockedItems.map((item) => <ExchangeCard key={item.id} item={item} status={statusByItem.get(item)!} allItems={allItems} busy={busyItem === item.id} onConfirm={setConfirming} />)}
                 </div>
             </section>
 
@@ -422,20 +436,18 @@ export function ClanExchange({
 
 function ExchangeCard({
     item,
-    character,
-    clanData,
+    status,
     allItems,
     busy,
     onConfirm,
 }: {
     item: ExchangeItem;
-    character: Character;
-    clanData: EnhancedClanData;
+    /** itemStatus for this item, from the parent's once-per-render pass. */
+    status: ReturnType<typeof itemStatus>;
     allItems: GameItem[];
     busy: boolean;
     onConfirm: (item: ExchangeItem) => void;
 }) {
-    const status = itemStatus(character, clanData, item, allItems);
     const remaining = Math.max(0, status.limit - status.count);
     return (
         <article className={`clan-exchange-card ${item.rarity} is-${status.state}${status.disabled ? " locked" : ""}`}>

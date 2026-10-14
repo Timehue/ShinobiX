@@ -82,6 +82,20 @@ function chronicleInventorySummary(id: string): string {
             : "Snare";
 }
 
+// Reads only the item and module tables, so the backpack precomputes it once
+// per stack (see backpackStacks) instead of on every render of every row.
+function describeBonuses(item: GameItem) {
+    const petXp = petFeedXpForItem(item.id);
+    if (petXp) return `Pet XP +${petXp}`;
+    // Use the shared consolidation helper so the inline card summary
+    // matches what the popup shows — "All Offense +30" instead of
+    // four near-identical ninjutsu/taijutsu/buki/genjutsu lines.
+    const bonuses = consolidateItemBonuses(item.bonuses);
+    return bonuses.length
+        ? bonuses.map((b) => `${b.stat} +${b.value}`).join(", ")
+        : "No bonuses";
+}
+
 export function Inventory({
     character,
     updateCharacter,
@@ -272,7 +286,21 @@ export function Inventory({
         }
         return unifiedItemStacks(character).map(({ itemId, count }) => {
             const item = itemsById.get(itemId) ?? itemsByName.get(itemId);
-            return { entry: itemId, item, count, stackKey: item?.id ?? itemId, category: itemCategory(itemId, item) };
+            const category = itemCategory(itemId, item);
+            // The row's type and summary lines are pure functions of the item
+            // and module tables, so they are worked out here once per stack
+            // rather than on every render of every visible row.
+            const itemType = item
+                ? presentItem(item, petFeedXpForItem(item.id)).category
+                : ITEM_CATEGORY_META[category].label;
+            const itemSummary = item
+                ? describeBonuses(item)
+                : itemId === "Soldier Pill"
+                    ? "Restores 25 stamina."
+                    : itemId === "Chakra Pill"
+                        ? "Restores 25 chakra."
+                        : "General inventory item.";
+            return { entry: itemId, item, count, stackKey: item?.id ?? itemId, category, itemType, itemSummary };
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the two fields unifiedItemStacks reads
     }, [backpackInventory, backpackItemStacks, allItems]);
@@ -650,18 +678,6 @@ export function Inventory({
         }
     }
 
-    function describeBonuses(item: GameItem) {
-        const petXp = petFeedXpForItem(item.id);
-        if (petXp) return `Pet XP +${petXp}`;
-        // Use the shared consolidation helper so the inline card summary
-        // matches what the popup shows — "All Offense +30" instead of
-        // four near-identical ninjutsu/taijutsu/buki/genjutsu lines.
-        const bonuses = consolidateItemBonuses(item.bonuses);
-        return bonuses.length
-            ? bonuses.map((b) => `${b.stat} +${b.value}`).join(", ")
-            : "No bonuses";
-    }
-
     function itemBonusLines(item: GameItem) {
         // Armor hides maxChakra/maxStamina in the popup to avoid
         // double-reporting against the armor reduction effect.
@@ -987,19 +1003,9 @@ export function Inventory({
                                 <p className="inventory-empty">{backpackEmptyMessage}</p>
                             ) : (
                                 <div className="backpack-grid">
-                                    {visibleBackpackStacks.map(({ entry, item, count, stackKey, category }) => {
+                                    {visibleBackpackStacks.map(({ entry, item, count, stackKey, itemType, itemSummary }) => {
                                         const itemName = item?.name ?? entry;
                                         const rarity = item?.rarity ?? "common";
-                                        const itemType = item
-                                            ? presentItem(item, petFeedXpForItem(item.id)).category
-                                            : ITEM_CATEGORY_META[category].label;
-                                        const itemSummary = item
-                                            ? describeBonuses(item)
-                                            : entry === "Soldier Pill"
-                                                ? "Restores 25 stamina."
-                                                : entry === "Chakra Pill"
-                                                    ? "Restores 25 chakra."
-                                                    : "General inventory item.";
                                         const academyStarterTarget = academyInventoryStep
                                             && Boolean(item)
                                             && ACADEMY_STARTER_GEAR_IDS.some((id) => id === item?.id);
