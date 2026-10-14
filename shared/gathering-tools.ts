@@ -1,20 +1,8 @@
 import { GATHERING_TOOLS, type GatheringTool, type GatheringToolSlot } from './gathering-tool-items';
 export { GATHERING_TOOLS } from './gathering-tool-items';
 export type { GatheringTool, GatheringToolSlot } from './gathering-tool-items';
+export { combatEquipment, isGatheringToolSlot } from './gathering-tool-items';
 export function gatheringTool(id: unknown): GatheringTool | undefined { return GATHERING_TOOLS.find(tool => tool.id === id); }
-export function isGatheringToolSlot(slot: unknown): slot is GatheringToolSlot { return slot === 'fishingPole' || slot === 'pickaxe'; }
-/**
- * The equipment every combat read uses. Gathering tools sit in the active
- * loadout, but they only drive fishing and mining, so PvP, towers, bosses and
- * PvE never see them. A tool id stored under any other key is dropped as well.
- * Returns the same object when there is nothing to drop.
- */
-export function combatEquipment<T>(equipment: T): T {
-    if (!equipment || typeof equipment !== 'object' || Array.isArray(equipment)) return equipment;
-    const entries = Object.entries(equipment as Record<string, unknown>);
-    const kept = entries.filter(([slot, id]) => !isGatheringToolSlot(slot) && !gatheringTool(id));
-    return (kept.length === entries.length ? equipment : Object.fromEntries(kept)) as T;
-}
 export function gatheringToolOwned(character: object, id: string): boolean {
     const c = character as { inventory?: string[]; equipment?: Record<string, string> };
     return Boolean(c.inventory?.includes(id) || Object.values(c.equipment ?? {}).includes(id));
