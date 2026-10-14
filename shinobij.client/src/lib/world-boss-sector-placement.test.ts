@@ -11,7 +11,7 @@ import { isWalkableTile } from "../../../shared/sector-walk-mask";
 import { RESOURCE_NODES, WORLD_BOSS_CRYSTAL_NODES } from "../../../shared/resource-nodes";
 import { STORY_FIELD_JOURNEYS } from "../../../shared/story-field-work";
 import { sectorFloorLayout } from "./sector-floor-layout";
-import { worldBossSectorTile } from "./world-boss-sector-placement";
+import { worldBossGround, worldBossSectorTile } from "./world-boss-sector-placement";
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
 const worldMap = read("../screens/WorldMap.tsx");
@@ -68,7 +68,8 @@ test("the boss never covers a gathering spot or story marker, nor takes their ta
             const covered = Math.abs(marked % 12 - col) <= 2 && Math.floor(marked / 12) - row >= -2 && Math.floor(marked / 12) - row <= 1;
             assert.ok(!covered, `sector ${sector}: the boss at ${tile} covers the marker on ${marked}`);
         }
-        const footprint = [tile, tile - 12, tile - 24];
+        const footprint = worldBossGround(sector, candidate => isWalkableTile(sector, candidate)).footprint(tile);
+        assert.deepEqual(footprint, [tile, tile - 12, tile - 24], `sector ${sector}: the resting boss lost part of its footprint`);
         for (const node of [...RESOURCE_NODES, ...WORLD_BOSS_CRYSTAL_NODES].filter(n => n.sector === sector)) {
             assert.ok(!footprint.includes(node.approach), `sector ${sector}: the boss takes the taps for ${node.id}'s approach`);
         }
@@ -92,13 +93,16 @@ test("the atlas no longer draws the boss or opens its queue", () => {
 test("the boss stands in its sector and clicking it opens the queue there", () => {
     // Only a player standing in the boss's sector sees it there.
     assert.match(worldMap, /worldBoss=\{sectorIsCurrent \? worldBossStandeeIn\(selectedSector\) : null\}/u);
-    assert.match(hook, /event && sector != null && sector === selectedSector\s*\? \{ bossId: event\.bossId, name: event\.bossName, paused: event\.movementPaused, onOpen: openQueue \}/u);
+    assert.match(hook, /view && event && sector != null && sector === selectedSector\s*\? \{\s*bossId: event\.bossId, name: event\.bossName, paused: event\.movementPaused, onOpen: openQueue,/u);
     assert.match(overlay, /\{worldBoss && <SectorWorldBossStandee sector=\{sector\} \{\.\.\.worldBoss\} \/>\}/u);
     // The sector board is transformed, so the fixed dialog must leave it.
     assert.match(worldMap, /worldBossQueueOpen && !vaultRaid && createPortal\(<Suspense fallback=\{null\}><WorldBossQueueHost/u);
     // The hook only opens the queue for a player standing with the boss.
     assert.match(hook, /if \(sector === currentSector && !isTraveling\) setQueueOpen\(true\);/u);
-    // Continuous-world canvas taps reach the boss through its footprint.
-    assert.match(standee, /data-footprint=\{footprint\}/u);
+    // Continuous-world canvas taps reach the boss through its footprint, which
+    // follows it along its patrol.
+    assert.match(standee, /data-footprint=\{patrol\.footprint\(patrol\.restTile\)\.join\(" "\)\}/u);
+    assert.match(standee, /const footprint = patrol\.footprint\(tileOf\(pose\)\)\.join\(" "\);/u);
+    assert.match(standee, /button\.current\.dataset\.footprint = footprint;/u);
     assert.match(standee, /onClick=\{onOpen\}/u);
 });

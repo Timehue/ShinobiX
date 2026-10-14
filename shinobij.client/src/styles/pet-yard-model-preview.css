@@ -1,0 +1,47 @@
+.pet-yard-model-preview { grid-column: 1 / -1; }
+.ui-modal-backdrop.pet-yard-inspector-backdrop { backdrop-filter: none !important; background: #050b12e8; }
+.ui-modal-card.pet-yard-inspector-dialog { --inspector-gold: #dec48c; --inspector-text: #e8e4db; --inspector-muted: #a3b0b7; --inspector-line: #c4a25a30; backdrop-filter: none !important; border-color: #ad936c60; color: var(--inspector-text); }
+.pet-yard-inspector-dialog .ui-modal-header { padding: 16px 20px; }
+.pet-yard-inspector-title { display: grid; gap: 5px; font-size: 22px; line-height: 1.2; }
+.pet-yard-inspector-title small { font: 600 10px var(--font-body, sans-serif); letter-spacing: .16em; text-transform: uppercase; color: var(--inspector-gold); }
+.pet-yard-inspector-identity { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-bottom: 12px; color: var(--inspector-muted); font-size: 11px; text-transform: capitalize; }
+.pet-yard-inspector-identity span + span { padding-left: 12px; border-left: 1px solid var(--inspector-line); }
+.pet-yard-inspector-stage { height: clamp(180px, 30vh, 260px); position: sticky; top: 0; z-index: 2; border: 1px solid #43516366; border-radius: 6px; overflow: hidden; background: #111b26; }
+.pet-yard-inspector-stage-labels { position: absolute; inset: 12px 12px auto; z-index: 1; display: flex; justify-content: space-between; gap: 8px; pointer-events: none; }
+.pet-yard-inspector-stage-labels span { color: #b2c1cc; background: #0a121ad9; border: 1px solid #56677955; border-radius: 3px; padding: 5px 7px; font-size: 9px; letter-spacing: .07em; text-transform: uppercase; }
+.pet-yard-inspector-stage-labels span + span { color: var(--inspector-gold); }
+.pet-yard-inspector-stage > img { width: 100%; height: 100%; object-fit: contain; }
+.pet-yard-inspector-stage > p, .pet-yard-inspector-loading { position: absolute; z-index: 1; bottom: 8px; left: 0; width: 100%; text-align: center; }
+.pet-yard-inspector-controls { display: flex; align-items: end; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.pet-yard-inspector-controls label { flex: 1; min-width: 0; display: grid; gap: 7px; font-size: 11px; font-weight: 500; color: var(--inspector-muted); }
+.pet-yard-inspector-controls select { width: 100%; min-width: 0; min-height: 44px; padding: 10px; border: 1px solid #506071; border-radius: 4px; color: var(--inspector-text); background: #0c151e; font: 500 12px var(--font-body, sans-serif); }
+.pet-yard-inspector-dialog .pet-yard-inspector button { min-height: 44px; border: 1px solid #526171; border-radius: 4px; color: var(--inspector-text); background: linear-gradient(#26333e, #19232c); padding: 9px 12px; font: 600 12px var(--font-body, sans-serif); text-transform: none; letter-spacing: 0; box-shadow: none; }
+.pet-yard-inspector-dialog .pet-yard-inspector button:disabled { opacity: .5; cursor: default; }
+.pet-yard-inspector-dialog .pet-yard-inspector :focus-visible { outline: 2px solid var(--inspector-gold); outline-offset: 3px; }
+.pet-yard-inspector-dialog .pet-yard-inspector button[aria-pressed=true] { color: var(--inspector-gold); border-color: #ab9365; }
+.pet-yard-inspector .hint { margin: 8px 0 0; font-size: 11px; line-height: 1.55; color: var(--inspector-muted); }
+.pet-yard-inspector-toolbar { display: grid; grid-template-columns: 1fr 1fr 1.35fr; gap: 6px; }
+.pet-yard-inspector-field-action { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+.pet-yard-inspector-disclosure { margin-top: 12px; border-top: 1px solid var(--inspector-line); padding: 6px 0 10px; }
+.pet-yard-inspector-disclosure > summary { padding: 8px 0; cursor: pointer; font-size: 12px; font-weight: 600; color: #ddd5c3; }
+.pet-yard-inspector-disclosure[open] > summary { color: var(--inspector-gold); }
+.pet-yard-inspector-message, .pet-yard-inspector-error, .pet-yard-inspector-notice { padding: 10px 12px; margin: 12px 0 0; border-left: 2px solid currentColor; background: #ffffff04; font-size: 12px; line-height: 1.5; }
+.pet-yard-inspector-message { color: #a7dbc3; }
+.pet-yard-inspector-error { color: #fda4af; }
+.pet-yard-inspector-notice { color: var(--inspector-gold); }
+.pet-yard-inspector-move { display: grid; gap: 6px; color: var(--inspector-muted); font-size: 11px; line-height: 1.55; }
+.pet-yard-inspector-move strong { color: var(--inspector-gold); font-weight: 500; }
+.pet-yard-inspector-dialog .pet-yard-inspector button.pet-yard-inspector-link { color: var(--inspector-gold); background: none; border-color: var(--inspector-line); }
+@media (hover: hover) { .pet-yard-inspector-dialog .pet-yard-inspector button:hover:not(:disabled) { border-color: var(--inspector-gold); background: #35414c; } }
+@media (max-width: 440px) {
+    .pet-yard-inspector-dialog .ui-modal-body { padding: 16px; }
+    .pet-yard-inspector-field-action { grid-template-columns: minmax(0, 1fr); }
+    .pet-yard-inspector-field-action > button { justify-self: stretch; }
+    .pet-yard-inspector-dialog .pet-yard-inspector-toolbar button { padding-inline: 5px; font-size: 11px; }
+    .pet-yard-inspector-stage { height: clamp(160px, 27vh, 220px); }
+}
+@media (max-height: 520px) { .pet-yard-inspector-stage { position: relative; height: 180px; } }
+.pet-yard-inspector-reaction { position: absolute; left: 50%; top: 22%; z-index: 2; pointer-events: none; font-size: 30px; color: #fda4af; animation: pet-yard-care-pop 1.3s ease-out forwards; }
+.pet-yard-inspector-reaction--training { color: #fde68a; }
+@keyframes pet-yard-care-pop { 0% { opacity: 0; transform: translate(-50%, 12px) scale(.8); } 20% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -24px) scale(1.1); } }
+@media (prefers-reduced-motion: reduce) { .pet-yard-inspector-reaction { display: none; animation: none; } }

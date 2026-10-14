@@ -2,13 +2,13 @@ import { randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { kv } from '../_storage.js';
 import { withKvLock } from '../_lock.js';
 import { rankedLevelEligible, RANKED_LEVEL_WARNING } from '../../shared/ranked-eligibility.js';
-import { tacticsPreset } from '../../shared/pet-tactics-roster.js';
 import type { TacticsBuild } from '../../shared/pet-tactics-contract.js';
 import { PET_ARENA_RANKED_CONTROL, PET_RANKED_ACTIVE_REGISTRY_KEY, PET_RANKED_AUTHORITY, PET_RANKED_QUEUE_KEY,
     petRankedResultKey, pruneRankedPetActiveRegistry, type RankedPetMatchToken } from '../pet/_ranked-authority.js';
 import { petRatingOf } from '../pet/_ranked-eligibility.js';
 import { resolveRankedPetDuel } from '../pet/_ranked-duel.js';
-import { TacticsError, validateBuilds } from './engine.js';
+import { TacticsError } from './engine.js';
+import { validateOwnedRankedBuilds } from './owned-builds.js';
 import { advanceTacticsSession, createTacticsSession, joinTacticsSession, tacticsPlayerKey, tacticsRoomKey, TACTICS_SESSION_TTL_SECONDS, type TacticsSession } from './session.js';
 
 const WAITING = 'pet:tactics:ranked:waiting';
@@ -44,7 +44,6 @@ export async function repairRankedArenaAdmission(store: RankedArenaStore): Promi
     await store.del(PENDING);
 }
 
-const defaults = () => ['starter-fire', 'starter-water', 'starter-lightning', 'starter-earth'].map(id => tacticsPreset(id));
 export function rankedArenaPairable(a: Waiting, b: Waiting, now: number): boolean {
     const gap = Math.abs(a.rating - b.rating);
     return a.name !== b.name && gap <= 150 + Math.max(0, now - a.joinedAt) / 1000 * 25
@@ -90,18 +89,25 @@ export async function rankedArenaQueue(name: string, action: string, body: Recor
         const registry = pruneRankedPetActiveRegistry(await store.get(PET_RANKED_ACTIVE_REGISTRY_KEY), now);
         if (registry[name]) throw new TacticsError('Finish your retained ranked result before joining a new match.', 409);
         const old = waiting.find(p => p.name === name);
-        const own: Waiting = { name, rating: Math.max(0, Math.round(petRatingOf(save))), joinedAt: old?.joinedAt ?? now, builds: validateBuilds(body.builds ?? defaults()) };
+        const own: Waiting = { name, rating: Math.max(0, Math.round(petRatingOf(save))), joinedAt: old?.joinedAt ?? now, builds: validateOwnedRankedBuilds(character, body.builds) };
         waiting = waiting.filter(p => p.name !== name).sort((a, b) => a.joinedAt - b.joinedAt);
         let opponent: Waiting | undefined;
+        let matchedCharacter: Record<string, unknown> | undefined;
         for (const candidate of waiting) {
             if (registry[candidate.name] || !rankedArenaPairable(own, candidate, now)) continue;
             const opponentSave = await store.get<Record<string, unknown>>(`save:${candidate.name}`);
             if (!rankedLevelEligible((opponentSave?.character as Record<string, unknown> | undefined)?.level)) continue;
+            try { candidate.builds = validateOwnedRankedBuilds(opponentSave!.character as Record<string, unknown>, candidate.builds); }
+            catch (error) {
+                if (!(error instanceof TacticsError)) throw error;
+                waiting = waiting.filter(p => p.name !== candidate.name);
+                continue;
+            }
             const pointer = await store.get<string>(tacticsPlayerKey(candidate.name));
             const candidateRoom = pointer ? await store.get<TacticsSession>(tacticsRoomKey(pointer)) : null;
             if (candidateRoom && (candidateRoom.phase !== 'finished' || candidateRoom.ranked && !await store.get(petRankedResultKey(candidateRoom.ranked.matchToken)))) continue;
             candidate.rating = Math.max(0, Math.round(petRatingOf(opponentSave)));
-            if (rankedArenaPairable(own, candidate, now)) { opponent = candidate; break; }
+            if (rankedArenaPairable(own, candidate, now)) { opponent = candidate; matchedCharacter = opponentSave!.character as Record<string, unknown>; break; }
         }
         if (!opponent) {
             await store.set(WAITING, [...waiting, own], { ex: 60 * 60 });
@@ -111,8 +117,22 @@ export async function rankedArenaQueue(name: string, action: string, body: Recor
         if (await store.get(tacticsRoomKey(id))) throw new TacticsError('Arena room is busy. Retry matchmaking.', 503);
         const session = createTacticsSession(id, name, own.builds, deps.seed(), now);
         joinTacticsSession(session, opponent.name, opponent.builds, now);
+        for (const [seat, owner] of [['a', character], ['b', matchedCharacter!]] as const) {
+            const pets = Array.isArray(owner.pets) ? owner.pets as Record<string, unknown>[] : [];
+            for (const fighter of session.battle!.teams[seat]) {
+                const pet = pets.find(p => p.id === fighter.ownedPetId);
+                if (typeof pet?.nickname === 'string' && pet.nickname.trim()) fighter.name = pet.nickname.trim();
+                else if (typeof pet?.name === 'string' && pet.name.trim()) fighter.name = pet.name.trim();
+                const collar = (pet?.loadout as { collar?: unknown } | undefined)?.collar;
+                const palette = pet?.paletteVariantId;
+                fighter.appearance = {
+                    ...(typeof collar === 'string' && collar.length <= 64 ? { collarId: collar } : {}),
+                    ...(typeof palette === 'string' && palette.length <= 64 ? { paletteVariantId: palette } : {}),
+                };
+            }
+        }
         session.ranked = { matchToken, pairId: matchToken, aRating: own.rating, bRating: opponent.rating, settled: false };
-        const snapshots = (seat: 'a' | 'b') => session.battle!.teams[seat].map(p => ({ id: p.id, templateId: p.speciesId, name: p.name, level: 50, rarity: p.rarity, element: p.element }));
+        const snapshots = (seat: 'a' | 'b') => session.battle!.teams[seat].map(p => ({ id: p.ownedPetId ?? p.id, templateId: p.speciesId, name: p.name, level: 50, rarity: p.rarity, element: p.element }));
         const aTeam = snapshots('a'), bTeam = snapshots('b');
         const token: RankedPetMatchToken = { authority: PET_RANKED_AUTHORITY, control: PET_ARENA_RANKED_CONTROL, roomId: id,
             pairId: matchToken, a: name, b: opponent.name, aRating: own.rating, bRating: opponent.rating,

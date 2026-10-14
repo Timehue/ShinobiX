@@ -282,6 +282,8 @@ const FROZEN = {
         // itself is — a client save could otherwise rewind the daily decay.
         'happinessDay', 'happinessPets',
         'training', 'expedition', 'nickname', 'loadout',
+        // Ranked loadouts commit through pet/progress; stale autosaves preserve them.
+        'rankedBuild',
         'templateId', 'origin', 'breedingUsesMax', 'breedingUsesRemaining',
         'paletteVariantId', 'generation', 'parentInstanceIds', 'parentTemplateIds',
         'hatchedAt', 'breedable', 'chronicleArenaWins', 'breedingSessionId',

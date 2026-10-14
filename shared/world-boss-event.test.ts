@@ -60,15 +60,21 @@ test('selected event itinerary roams the road network and reaches the chosen vil
 
     const start = worldBossEventPosition(event, startedAt)!;
     assert.equal(start.currentSector, 42);
+    assert.equal(start.previousSector, null, 'the spawn hop has no road it came in by');
     assert.equal(start.nextSector, route[1] ?? 42);
     assert.equal(start.targetSector, VILLAGE_OUTSKIRTS[targetVillage]);
 
     const hop = worldBossEventPosition(event, startedAt + WORLD_BOSS_EVENT_HOP_MS)!;
     assert.equal(hop.currentSector, route[1] ?? 42);
+    // The in-sector patrol walks between the road it came in by and the one it leaves by.
+    assert.equal(hop.previousSector, 42);
+    assert.equal(hop.nextSector, route[2]);
 
     const arrivalAt = startedAt + WORLD_BOSS_EVENT_HOP_MS * (route.length - 1);
     const arrival = worldBossEventPosition(event, arrivalAt)!;
     assert.equal(arrival.currentSector, VILLAGE_OUTSKIRTS[targetVillage]);
+    assert.equal(arrival.previousSector, route.at(-2));
+    assert.equal(arrival.nextSector, arrival.currentSector, 'at the gate it has nowhere further to go');
     assert.equal(arrival.destinationReached, true);
     assert.equal(arrival.nextHopInMs, 0);
 

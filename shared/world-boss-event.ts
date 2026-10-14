@@ -26,6 +26,7 @@ export const WORLD_BOSS_DEFINITIONS = [
         keyArt: '/world-boss/hollow-beast-key-art-v1.webp',
         mapSprite: '/world-boss/hollow-beast-walk-v1.webp',
         mapSpriteKind: 'walk-sheet',
+        mapSpriteFacing: 'left',
         battleSprite: '/world-boss/hollow-beast-battle-v1.webp',
         battlePortrait: '/world-boss/hollow-beast-portrait-v1.webp',
         mapGlow: 'teal',
@@ -40,6 +41,7 @@ export const WORLD_BOSS_DEFINITIONS = [
         keyArt: '/world-boss/hollow-gate-bull-key-art-v1.webp',
         mapSprite: '/world-boss/hollow-gate-bull-walk-v1.webp',
         mapSpriteKind: 'walk-sheet',
+        mapSpriteFacing: 'right',
         battleSprite: '/world-boss/hollow-gate-bull-battle-v1.webp',
         battlePortrait: '/world-boss/hollow-gate-bull-portrait-v1.webp',
         mapGlow: 'teal',
@@ -54,6 +56,7 @@ export const WORLD_BOSS_DEFINITIONS = [
         keyArt: '/world-boss/donkaku-key-art-v1.webp',
         mapSprite: '/world-boss/donkaku-walk-v1.webp',
         mapSpriteKind: 'walk-sheet',
+        mapSpriteFacing: 'left',
         battleSprite: '/world-boss/donkaku-battle-v1.webp',
         battlePortrait: '/world-boss/donkaku-portrait-v1.webp',
         mapGlow: 'white-red',
@@ -96,6 +99,8 @@ export type WorldBossContribution = {
 export type WorldBossEventPosition = {
     active: boolean;
     currentSector: number;
+    /** The sector it walked in from; null on its spawn hop. */
+    previousSector: number | null;
     nextSector: number;
     hopIndex: number;
     nextHopInMs: number;
@@ -366,6 +371,7 @@ export function worldBossEventPosition(
     return {
         active: started && now < event.endsAt,
         currentSector,
+        previousSector: hopIndex > 0 ? path[hopIndex - 1] ?? null : null,
         nextSector,
         hopIndex,
         nextHopInMs: moving ? WORLD_BOSS_EVENT_HOP_MS - (elapsed % WORLD_BOSS_EVENT_HOP_MS) : 0,

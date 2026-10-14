@@ -20,24 +20,27 @@ async function rig(id: string, folder = 'roster') {
 }
 const frame = {motion:'idle' as const,timeline:1,delta:1/60,phase:.75,galloping:false,locomotion:false,wingPhase:null as number|null,breath:1,lookYaw:0,contact:false};
 
-test('actual Pine Owl unkeyed middle wings do not accumulate or leak after 10 dodge cycles', async () => {
+test('actual Pine Owl baked middle wings are preserved through 10 dodge cycles and defeat', async () => {
     const gltf=await rig('standard-10'), mixer=new THREE.AnimationMixer(gltf.scene);
     const mid=gltf.scene.getObjectByName('wing_midL')!;
     assert.ok(mid instanceof THREE.Bone);
-    assert.ok(gltf.animations.every(c => !c.tracks.some(t => t.name===`${mid.name}.quaternion`)), 'regression uses the real unkeyed joint');
-    const base=mid.quaternion.clone(), layer=createPetCombatRigMotion([gltf.scene]);
+    assert.ok(THREE.AnimationClip.findByName(gltf.animations,'gallop_jump')!.tracks.some(t => t.name===`${mid.name}.quaternion`), 'production flight now authors the middle wing');
+    const layer=createPetCombatRigMotion([gltf.scene]);
     const action=mixer.clipAction(THREE.AnimationClip.findByName(gltf.animations,'gallop_jump')!).play();
     for(let cycle=0;cycle<10;cycle++) for(let f=0;f<60;f++) {
         layer.restore(); mixer.update(f===30 ? 0 : 1/144);
+        const authored=mid.quaternion.clone();
         layer.apply({...frame,motion:'dodge',timeline:cycle+f/60,wingPhase:f/60},action.getClip());
-        assert.ok(mid.quaternion.angleTo(base) < .62,'middle wing must remain within one bounded pose');
+        assert.ok(mid.quaternion.equals(authored),'a second wing drive cannot overwrite the baked pose');
     }
-    layer.restore(); assert.ok(mid.quaternion.equals(base), 'restore retains the exact imported quaternion, including float rounding');
-    layer.apply({...frame,motion:'dead'},THREE.AnimationClip.findByName(gltf.animations,'death')!);
-    assert.ok(mid.quaternion.equals(base),'KO cannot inherit a wing fold');
+    layer.restore(); mixer.stopAllAction();
+    const death=THREE.AnimationClip.findByName(gltf.animations,'death')!;
+    mixer.clipAction(death).play(); mixer.update(0);
+    const defeated=mid.quaternion.clone(); layer.apply({...frame,motion:'dead'},death);
+    assert.ok(mid.quaternion.equals(defeated),'KO cannot inherit a host wing fold');
 });
 
-test('real fox and rabbit distal recovery supplements unkeyed joints and restores the authored pose', async () => {
+test('real fox and rabbit baked distal joints win while partial legacy clips retain reversible recovery', async () => {
     for(const id of ['standard-0','standard-1']) {
         const gltf=await rig(id), layer=createPetCombatRigMotion([gltf.scene]), mixer=new THREE.AnimationMixer(gltf.scene);
         const clip=THREE.AnimationClip.findByName(gltf.animations,'walk')!;
@@ -45,7 +48,11 @@ test('real fox and rabbit distal recovery supplements unkeyed joints and restore
         const action=mixer.clipAction(clip).play(); action.time=clip.duration*phase; mixer.update(0);
         const lower=gltf.scene.getObjectByName(id==='standard-0'?'front_lowerL':'shinL')!;
         const pose=lower.quaternion.clone();
+        assert.ok(clip.tracks.some(track=>track.name===`${lower.name}.quaternion`));
         layer.apply({...frame,phase,motion:'run',locomotion:true,delta:1},clip);
+        assert.ok(lower.quaternion.equals(pose),'the production knee curve owns its contact');
+        const partial=clip.clone(); partial.tracks=partial.tracks.filter(track=>track.name!==`${lower.name}.quaternion`);
+        layer.apply({...frame,phase,motion:'run',locomotion:true,delta:1},partial);
         assert.ok(lower.quaternion.angleTo(pose) > .2);
         layer.restore(); assert.ok(lower.quaternion.angleTo(pose)<1e-7);
         layer.apply({...frame,motion:'strike',contact:true,locomotion:true},clip);
@@ -54,6 +61,20 @@ test('real fox and rabbit distal recovery supplements unkeyed joints and restore
         detailed.apply({...frame,motion:'run',locomotion:true,delta:1},clip);
         assert.ok(lower.quaternion.angleTo(pose)<1e-7,'showcase leg motion is preserved');
     }
+});
+
+test('legacy unkeyed middle wings still restore exactly through repeated frozen flight frames', async () => {
+    const gltf=await rig('standard-10'), mixer=new THREE.AnimationMixer(gltf.scene);
+    const mid=gltf.scene.getObjectByName('wing_midL')!, base=mid.quaternion.clone();
+    const partial=THREE.AnimationClip.findByName(gltf.animations,'gallop_jump')!.clone();
+    partial.tracks=partial.tracks.filter(track=>track.name!==`${mid.name}.quaternion`);
+    const layer=createPetCombatRigMotion([gltf.scene]), action=mixer.clipAction(partial).play();
+    for(let cycle=0;cycle<10;cycle++) for(let step=0;step<60;step++) {
+        layer.restore(); mixer.update(step===30 ? 0 : 1/144);
+        layer.apply({...frame,motion:'dodge',timeline:cycle+step/60,wingPhase:step/60},action.getClip());
+        assert.ok(mid.quaternion.angleTo(base)<.62,'fallback wing folding stays bounded without accumulation');
+    }
+    layer.restore(); assert.ok(mid.quaternion.equals(base),'fallback restores the exact imported quaternion');
 });
 
 test('rigid meshes and unfamiliar arthropod limbs receive no generic leg deformation', () => {
@@ -91,19 +112,19 @@ test('committed contact and defeat suppress residual avian wing phases', async (
     }
 });
 
-test('bipeds alternate gallop recovery while quadrupeds pair their forefeet', async () => {
+test('fallback bipeds alternate gallop recovery while fallback quadrupeds pair their forefeet', async () => {
     for(const id of ['standard-0','standard-1']) {
         const gltf=await rig(id), layer=createPetCombatRigMotion([gltf.scene]);
         const left=gltf.scene.getObjectByName(id==='standard-0'?'front_lowerL':'shinL')!, right=gltf.scene.getObjectByName(id==='standard-0'?'front_lowerR':'shinR')!;
         const leftBase=left.quaternion.clone(), rightBase=right.quaternion.clone();
-        layer.apply({...frame,phase:id==='standard-0'?.75:.25,motion:'run',locomotion:true,galloping:true,delta:1},THREE.AnimationClip.findByName(gltf.animations,'gallop')!);
+        layer.apply({...frame,phase:id==='standard-0'?.75:.25,motion:'run',locomotion:true,galloping:true,delta:1},null);
         assert.ok(left.quaternion.angleTo(leftBase) > .35);
         if(id==='standard-0') assert.ok(right.quaternion.angleTo(rightBase) > .35);
         else assert.ok(right.quaternion.equals(rightBase),'the opposite biped foot stays in stance');
     }
 });
 
-test('rabbit and owl recovery follows the forward swing of their actual authored foot trajectory', async () => {
+test('rabbit and owl authored contact moves backward in stance and forward in swing without a second recovery', async () => {
     for (const id of ['standard-1', 'standard-10']) {
         const gltf = await rig(id), mixer = new THREE.AnimationMixer(gltf.scene), layer = createPetCombatRigMotion([gltf.scene]);
         const clip = THREE.AnimationClip.findByName(gltf.animations, 'walk')!, action = mixer.clipAction(clip).play();
@@ -115,12 +136,11 @@ test('rabbit and owl recovery follows the forward swing of their actual authored
             const startZ = foot.getWorldPosition(position).z;
             action.time = (phase + .05) * clip.duration; mixer.update(0); gltf.scene.updateMatrixWorld(true);
             const forward = foot.getWorldPosition(position).z > startZ;
-            assert.equal(forward, phase === .25, 'actual hip bank owns which half-cycle swings forward');
+            assert.equal(forward, phase === .75, 'contact travels backward with ground speed; swing returns the foot forward');
             action.time = phase * clip.duration; mixer.update(0);
             const authored = shin.quaternion.clone();
             layer.apply({...frame, phase, motion:'run', locomotion:true, delta:1}, clip);
-            if (forward) assert.ok(shin.quaternion.angleTo(authored) > .2, 'recover the swinging shin');
-            else assert.ok(shin.quaternion.equals(authored), 'leave the stance shin authored');
+            assert.ok(shin.quaternion.equals(authored), 'both stance and swing retain their authored knee');
         }
     }
 });
