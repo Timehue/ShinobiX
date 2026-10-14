@@ -4597,7 +4597,7 @@ function WorldMapContent({
                                 document.body,
                             )}
 
-                            {worldBossQueueOpen && !vaultRaid && createPortal(<Suspense fallback={null}><WorldBossQueueHost currentSector={currentSector} onClose={closeWorldBossQueue} character={character} creatorItems={wmCreatorItems} savedBloodlines={savedBloodlines} sharedImages={sharedImages} onVersionedCharacter={onVersionedCharacter} onRecordBattle={onRecordBattle} /></Suspense>, document.body)}
+                            {worldBossQueueOpen && !vaultRaid && createPortal(<Suspense fallback={null}><WorldBossQueueHost boss={worldBossEvent} currentSector={currentSector} onClose={closeWorldBossQueue} character={character} creatorItems={wmCreatorItems} savedBloodlines={savedBloodlines} sharedImages={sharedImages} onVersionedCharacter={onVersionedCharacter} onRecordBattle={onRecordBattle} /></Suspense>, document.body)}
                             {bossDialog && createPortal(
                                 <ModalDialogScrim label={`${bossDialog.name} — encounter`} onBackdrop={() => undefined} onEscape={() => undefined}>
                                     <div className="card" style={{ maxWidth: 380, width: "88%", maxHeight: "88dvh", overflowY: "auto", textAlign: "center", padding: 18, border: "1px solid rgba(236,91,56,.6)" }} onClick={(e) => e.stopPropagation()}>

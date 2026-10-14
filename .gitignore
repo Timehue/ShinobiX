@@ -459,6 +459,7 @@ scripts/vfx-sources/
 .playwright-mcp/
 shinobij.client/playwright-report/
 shinobij.client/test-results/
+shinobij.client/test-results-pet-character-*/
 shinobij.client/.playwright-dist-*/
 shinobij.client/dist-perf/
 # The UX-journey audit's temporary client build (docs/audits/player-journey-ux-2026-09-13.md).
