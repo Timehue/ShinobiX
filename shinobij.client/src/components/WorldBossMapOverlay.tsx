@@ -3,15 +3,18 @@ import { useEffect, useState } from "react";
 import { fetchWorldBossEvent, type WorldBossEventClientState } from "../lib/world-boss-event-api";
 import { visiblePoll } from "../lib/poll";
 import { sameJsonValue } from "../lib/pvp-session-runtime";
-import { worldBossDefinition } from "../../../shared/world-boss-event";
+// The atlas glow on the boss's sector node lives here, so it loads with the map.
+import "../styles/world-boss-map.css";
 
-type WorldBossMapEvent = NonNullable<WorldBossEventClientState["event"]>;
-
+/**
+ * Live roaming world boss state for the World Map. The atlas only highlights
+ * the boss's sector; the boss itself stands inside that sector, and clicking it
+ * there is the one way to open the team queue.
+ */
 export function useWorldBossMap(
     enabled: boolean,
     currentSector: number,
     isTraveling: boolean,
-    travelToSector: (sector: number) => void,
 ) {
     const [view, setView] = useState<WorldBossEventClientState | null>(null);
     const [queueOpen, setQueueOpen] = useState(false);
@@ -36,26 +39,10 @@ export function useWorldBossMap(
     }, [enabled]);
 
     const event = view?.event?.active ? view.event : null;
-    const boss = worldBossDefinition(event?.bossId);
     const sector = event?.currentSector ?? null;
-    const activate = (target: number) => {
-        if (target === currentSector && !isTraveling) {
-            setQueueOpen(true);
-            return;
-        }
-        travelToSector(target);
+    const openQueue = () => {
+        if (sector === currentSector && !isTraveling) setQueueOpen(true);
     };
     const closeQueue = () => setQueueOpen(false);
-    return { view, event, boss, sector, queueOpen, activate, closeQueue };
-}
-
-export function WorldBossSectorFlag({ event, sector }: { event: WorldBossMapEvent | null; sector: number }) {
-    if (!event || event.currentSector !== sector) return null;
-    const boss = worldBossDefinition(event.bossId);
-    return <span className={"atlas-world-boss-flag" + (event.movementPaused ? " is-paused" : "")} aria-hidden="true" title={(event.bossName || boss.name) + " is at Sector " + sector + ". Travel in to join the team queue"}>
-        <span
-            className={"atlas-world-boss-sprite" + (boss.mapGlow === "white-red" ? " is-white-red-glow" : "")}
-            style={{ backgroundImage: 'url("' + boss.mapSprite + '")' }}
-        />
-    </span>;
+    return { view, event, sector, queueOpen, openQueue, closeQueue };
 }
