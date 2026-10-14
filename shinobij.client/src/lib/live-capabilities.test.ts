@@ -93,8 +93,8 @@ describe("live capability messaging", () => {
             ...available,
             gameplayMutations: { state: "actions-paused", reason: "operations-paused" },
         });
-        assert.match(requestPause?.title ?? "", /web requests/);
-        assert.match(requestPause?.body ?? "", /background settlement/);
+        assert.match(requestPause?.title ?? "", /saving is paused/);
+        assert.match(requestPause?.body ?? "", /battles already under way/);
         assert.doesNotMatch(requestPause?.body ?? "", /progress and economy actions are paused/);
     });
 

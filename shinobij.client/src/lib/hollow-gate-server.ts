@@ -117,11 +117,11 @@ export async function settleHollowGateRun(
         });
         const data = await r.json().catch(() => ({})) as HollowGateSettleResult;
         if (!r.ok || !data.ok) {
-            return { ...data, ok: false, error: data.error || data.reason || `Hollow Gate settlement failed (${r.status}).` };
+            return { ...data, ok: false, error: data.error || data.reason || "The Hollow Gate could not record this run. Try again." };
         }
         return data;
     } catch {
-        return { ok: false, error: "The Hollow Gate settlement service is unreachable." };
+        return { ok: false, error: "The Hollow Gate is unreachable. Try again in a moment." };
     }
 }
 
@@ -255,7 +255,7 @@ export async function settleHollowGateRunOnly(
     const res = await settleHollowGateRun(character.name, token, outcome);
     if (!res) return null;
     if (!res.ok) return { ...res, adopted: false };
-    if (!res.character) return { ...res, ok: false, adopted: false, error: "Settlement returned no committed character." };
+    if (!res.character) return { ...res, ok: false, adopted: false, error: "The Hollow Gate did not return your save. Try again." };
     const adopted = adoption.isCurrent() && adoption.currentRunToken() === token
         && adoption.commitCharacter(res.character, res._saveVersion);
     return { ...res, adopted };

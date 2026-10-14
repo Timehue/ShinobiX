@@ -205,7 +205,7 @@ export function WeeklyBossArena({
 
     async function settleAuthoritativeFight(runId: string): Promise<unknown> {
         if (!capabilityAdmissionAllowed(mutationAvailability())) {
-            throw new Error("Weekly Boss settlement is paused. Keep this fight open and retry when live actions return.");
+            throw new Error("Saving Weekly Boss results is paused. Keep this fight open and try again when live actions return.");
         }
         const response = await fetch("/api/weekly-boss", {
             method: "POST",
@@ -213,7 +213,7 @@ export function WeeklyBossArena({
             body: JSON.stringify({ kind: "logFight", runId }),
         });
         const data = await response.json().catch(() => ({})) as { boss?: WeeklyBossState; character?: Character; _saveVersion?: number; error?: string };
-        if (!response.ok) throw new Error(data?.error ?? "Weekly Boss settlement failed.");
+        if (!response.ok) throw new Error(data?.error ?? "Your Weekly Boss result could not be saved. Try again.");
         if (data?.boss) setBossState(data.boss);
         // Logged even if refused as stale; throwing reported a paid fight as failed.
         if (data.character) onVersionedCharacter(data.character, data._saveVersion);
@@ -344,7 +344,7 @@ export function WeeklyBossArena({
     const acceptedFightRecoveryNeeded = lockedOut || staminaBlocked || !weeklyBossActionsAvailable;
     const contributionDisabled = !fightEnabled;
     const contributionDisabledCopy = fightDisabledReason === "weekly_boss_server_authority_required"
-        ? "Weekly Boss contribution is paused for public beta until server-authoritative settlement is live."
+        ? "Weekly Boss fights are paused for now. You can still check the leaderboard here, or switch to the Roaming Boss tab above."
         : "Weekly Boss contribution is currently disabled.";
 
     // hh:mm:ss countdown to despawn. Re-renders every interval via the

@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { GameArtIcon } from "./GameArtIcon";
 import type { HuntChoice, HuntOpening, HuntSign } from "../lib/hunt-encounter";
@@ -48,10 +49,37 @@ export function HuntEncounterCard({
 }) {
     const confronting = view.kind === "confront";
     const tierClass = confronting ? ` he-card--${view.opening.tier}` : "";
+    const cardRef = useRef<HTMLDivElement>(null);
+    // The host map re-renders every frame, so Escape reads onClose through a
+    // ref and binds once.
+    const closeRef = useRef(onClose);
+    useEffect(() => { closeRef.current = onClose; }, [onClose]);
+
+    // Focus moves to the card itself, not to a button, so a stray Enter can
+    // neither start the fight nor spend a trail choice. Escape is the same as
+    // backing off, and focus returns to whatever opened the card.
+    useEffect(() => {
+        const restoreTo = document.activeElement as HTMLElement | null;
+        cardRef.current?.focus({ preventScroll: true });
+        function onKeyDown(event: KeyboardEvent) {
+            if (event.key !== "Escape" || event.defaultPrevented) return;
+            // A confirm or notice stacked above this card keeps its own Escape.
+            if (document.querySelector(".game-alert-backdrop")) return;
+            event.stopPropagation();
+            closeRef.current();
+        }
+        window.addEventListener("keydown", onKeyDown);
+        return () => {
+            window.removeEventListener("keydown", onKeyDown);
+            if (restoreTo && document.contains(restoreTo)) restoreTo.focus();
+        };
+    }, []);
 
     return createPortal(
         <div className="he-backdrop" role="presentation">
             <div
+                ref={cardRef}
+                tabIndex={-1}
                 className={`he-card${tierClass}`}
                 role="dialog"
                 aria-modal="true"

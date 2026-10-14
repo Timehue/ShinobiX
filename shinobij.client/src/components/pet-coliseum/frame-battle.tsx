@@ -1081,7 +1081,7 @@ function PetColiseumView({
                         {settlementStatus === "error" && (
                             <div style={{ marginTop: 10 }}>
                                 <p style={{ color: "#fecaca", fontWeight: 800 }}>Gate verification paused. Your completed duel is safe to retry.</p>
-                                <button onClick={onRetrySettlement} style={resultBtn}>Retry Gate settlement</button>
+                                <button onClick={onRetrySettlement} style={resultBtn}>Try again</button>
                             </div>
                         )}
                         <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 14 }}>
@@ -1104,7 +1104,7 @@ function PetColiseumView({
             <button
                 onClick={onExit}
                 disabled={settlementStatus === "pending" || settlementStatus === "error"}
-                title={settlementStatus === "pending" || settlementStatus === "error" ? "Waiting for Gate settlement" : "Exit battle"}
+                title={settlementStatus === "pending" || settlementStatus === "error" ? "Waiting for the Gate to record your result" : "Exit battle"}
                 style={{ position: "absolute", top: 14, right: 56, width: 34, height: 34, display: "grid", placeItems: "center", background: "rgba(15,23,42,0.85)", border: "1px solid #334155", borderRadius: 8, color: "#e2e8f0", cursor: "pointer", fontSize: 16, fontWeight: 700 }}
             >
                 ✕

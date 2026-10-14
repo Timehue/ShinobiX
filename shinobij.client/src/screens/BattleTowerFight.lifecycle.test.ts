@@ -59,7 +59,7 @@ describe("Tower combat ownership and lifecycle", () => {
         assert.match(fightSource, /aria-modal="true" aria-labelledby="tower-story-result-title"/);
         assert.match(fightSource, /escapeAllowed: resultCanExit/);
         assert.match(fightSource, /aria-disabled=\{!resultCanExit\} disabled=\{!resultCanExit\}/);
-        assert.match(fightSource, /Retry settlement/);
+        assert.match(fightSource, /onClick=\{onRetry\}>Try again</);
         assert.match(css, /\.tower-settlement-status--error/);
         assert.match(css, /\.screen-battleTowerFight \[role="dialog"\]:focus-visible/);
     });

@@ -76,7 +76,7 @@ const CLAN_WAR_DUEL_CONFIG: CardClashDuelConfig = {
   emptyBackLabel: "Back to Council Hall",
   awaitingNote: "Waiting for the opposing clan's challenger to join.",
   forfeitConfirm:
-    "Forfeit the showdown? Your clan takes the authoritative loss.",
+    "Forfeit the showdown? Your clan takes the loss.",
   doneNote: (_won, draw) =>
     draw
       ? "No war damage on a technical draw."

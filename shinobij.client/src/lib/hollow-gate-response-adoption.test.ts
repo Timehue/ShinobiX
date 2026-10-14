@@ -153,7 +153,7 @@ test("interrupted-battle settlement uses the same authority once without requiri
 test("malformed committed replies and failures do not adopt a character", async () => {
     const f = fixture(), pending = f.finish();
     f.requests[0].reply({ ok: true, _saveVersion: 6 });
-    await assert.rejects(pending, /no committed character/);
+    await assert.rejects(pending, /did not return your save/);
     assert.equal(f.characterRef.current, f.initial);
     assert.equal(f.adoptionCalls(), 0);
 });

@@ -70,7 +70,7 @@ export function EndlessTowerFight({
                                 <h2>Wave {fight.wave}</h2>
                                 <p className="story-fight-complete-boss">Your unbanked haul is lost. Recover before beginning another run.</p>
                                 <button disabled={transitioning} onClick={() => { void finishLoss(); }}>
-                                    {transitioning ? "Settling…" : "Leave Tower"}
+                                    {transitioning ? "Leaving…" : "Leave Tower"}
                                 </button>
                             </div>
                         </div>
@@ -82,7 +82,7 @@ export function EndlessTowerFight({
                             <p className="story-fight-complete-kicker">Wave Clear</p>
                             <h2>Wave {fight.wave}</h2>
                             {settleState === "failed"
-                                ? <button onClick={retry}>Retry settlement</button>
+                                ? <button onClick={retry}>Try again</button>
                                 : settleState !== "settled" || !result
                                     ? <p>Verifying the wave…</p>
                                     : (

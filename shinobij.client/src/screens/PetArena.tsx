@@ -352,11 +352,11 @@ async function countDownWarfrontPace(
 
 function settlementErrorMessage(error: unknown): string {
     if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
-        return "The arena took too long to respond. Retry Settlement to recover this same battle receipt.";
+        return "The arena took too long to respond. Your result will be recorded once; it is safe to try again.";
     }
     return error instanceof Error && error.message.trim()
         ? error.message.trim()
-        : "The arena could not record this result. Your battle seal is safe to retry.";
+        : "The arena could not record this result yet. Your result will be recorded once; it is safe to try again.";
 }
 
 // Warfront loadout parsers — the save field is loose strings; anything unknown
@@ -533,7 +533,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
         scope: PetArenaPlayerScope,
         petIds: readonly string[],
     ): boolean => {
-        if (!data.character) throw new Error("The arena did not return the recorded pet roster. Retry this receipt.");
+        if (!data.character) throw new Error("The arena did not return your pet roster. Press Try again.");
         const authoritativeCharacter = {
             ...data.character,
             pets: clearPetBattleConsumables(data.character.pets, petIds),
@@ -586,7 +586,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
             const completed = await attempt.run();
             if (settlementAttemptRef.current !== attempt
                 || !playerScopeIsActive(attempt.scope)) return;
-            if (!completed) throw new Error("The arena receipt could not be applied. Retry Settlement to recover this result.");
+            if (!completed) throw new Error("The arena could not apply this result yet. Press Try again to recover it.");
             attempt.status = "settled";
             setSettlementPresentation({
                 id: attempt.id,
@@ -607,7 +607,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                     label: attempt.label,
                     scope: attempt.scope,
                     status: "pending",
-                    detail: `Battle replay complete. Sealing the authoritative result in ${Math.max(1, Math.ceil(delayMs / 1_000))}s…`,
+                    detail: `Battle replay complete. Recording your result in ${Math.max(1, Math.ceil(delayMs / 1_000))}s…`,
                 });
                 if (settlementRetryTimerRef.current !== null) window.clearTimeout(settlementRetryTimerRef.current);
                 settlementRetryTimerRef.current = window.setTimeout(() => {
@@ -864,7 +864,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                     const payload = await r.json().catch(() => null) as { error?: unknown } | null;
                     const serverMessage = typeof payload?.error === "string"
                         ? payload.error.trim().slice(0, 280)
-                        : "The Warfront authority service refused this setup.";
+                        : "The Warfront could not start this battle.";
                     const retryAfter = Number(r.headers.get("Retry-After"));
                     if (playerScopeIsActive(scope)) {
                         warfrontSetupErrorRef.current = Number.isFinite(retryAfter) && retryAfter > 1
@@ -966,7 +966,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
             run: async () => {
                 const seal = await (sealRequest ?? Promise.resolve(null));
                 if (!playerScopeIsActive(m.scope)) return false;
-                if (!seal) throw new Error("The Warfront battle seal is unavailable. Retry this receipt before leaving.");
+                if (!seal) throw new Error("The Warfront battle seal is unavailable. Press Try again before leaving.");
                 if (seal.seed !== m.seed
                     || seal.theme !== m.theme
                     || seal.reportKey !== reportKey
@@ -1439,11 +1439,11 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
             if (myResult === "win") {
                 const gain = rankedDelta(myRating, oppRating);
                 reportRankedPet("win");
-                setBattleLog([`Ranked pet victory! Arena settlement requested (projected +${gain} Elo).`]);
+                setBattleLog([`Ranked pet victory! Recording your result (projected +${gain} Elo).`]);
             } else {
                 const drop = rankedDelta(oppRating, myRating);
                 reportRankedPet("loss");
-                setBattleLog([`Ranked pet defeat. Arena settlement requested (projected -${drop} Elo).`]);
+                setBattleLog([`Ranked pet defeat. Recording your result (projected -${drop} Elo).`]);
             }
             if (pendingClanPetBattle) savePendingClanPetBattle(null);
             return;
@@ -1621,8 +1621,8 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
     const canLeaveCurrentPetBattle = (blocksExit = petSettlementBlocksExit) => {
         if (blocksExit) {
             alert(activeSettlementAttempt?.status === "error"
-                ? "This result is not recorded yet. Use Retry Settlement before leaving; the same battle receipt will be replayed safely."
-                : "The arena is still recording this result. You can leave as soon as the receipt is confirmed.");
+                ? "This result is not recorded yet. Press Try again before leaving. Your result will be recorded once; it is safe to try again."
+                : "The arena is still recording this result. You can leave as soon as it is confirmed.");
             return false;
         }
         return true;
@@ -1765,7 +1765,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                             : activeSettlementPresentation.detail}
                     </p>
                     {activeSettlementPresentation.status === "error" ? (
-                        <button type="button" onClick={retryPetSettlement}>Retry settlement</button>
+                        <button type="button" onClick={retryPetSettlement}>Try again</button>
                     ) : activeSettlementPresentation.status === "settled" ? (
                         <button type="button" onClick={() => setSettlementPresentation(null)}>Dismiss</button>
                     ) : null}
@@ -1774,7 +1774,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
             )}
             {activeBattleSetupIssue && typeof document !== "undefined" && createPortal(
                 <aside className="pet-settlement-notice" data-status="error" role="alert" aria-live="assertive" aria-atomic="true">
-                    <span className="pet-settlement-notice__eyebrow">Battle authority</span>
+                    <span className="pet-settlement-notice__eyebrow">Battle setup</span>
                     <strong>Warfront needs attention</strong>
                     <p>{activeBattleSetupIssue.message}</p>
                     <button
