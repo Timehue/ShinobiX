@@ -33,7 +33,7 @@ import { ScreenLoadingFallback } from "./components/ScreenLoadingFallback";
 import { ScreenReadyProbe } from "./components/ScreenReadyProbe";
 import { ToastStacks, type MissionToast } from "./components/ToastStacks"; import { GearDropHost } from "./components/GearDropHost";
 import { claimBountyOnWin, type BountyReceipt } from "./lib/pvp-bounty";
-import { reportPvpWin } from "./lib/pvp-win-report";
+import { pvpOwnerSaveRefreshRequired, pvpWinReportRequired, reportPvpWin } from "./lib/pvp-win-report";
 import { useClaimOutboxDrain } from "./lib/claim-outbox";
 import {
     enqueueRaidReport,
@@ -6228,12 +6228,14 @@ export default function App() {
                             pvpContinuationResultRef.current.set(pvpSettlementScopeKey, projection);
                         }
 
+                        let saveChangedSinceClaim = false;
                         if (projection.bounty === undefined) {
                             const bounty = isFriendlyDuel
                                 ? null
                                 : await claimBountyOnWin(pvpOriginatingPlayerName, settledBattleId, activeContinuation.signal);
                             requirePvpContinuation(activeContinuation);
                             projection.bounty = bounty;
+                            if (bounty) saveChangedSinceClaim = true;
                         }
 
                         // PvP raid completion — pass pvpBattleId so the server
@@ -6244,6 +6246,7 @@ export default function App() {
                             && !serverClaim?.raidProgression) {
                             await recordMissionRaid(rewardSector, settledBattleId, undefined, pvpOriginatingPlayerName, activeContinuation);
                             requirePvpContinuation(activeContinuation);
+                            saveChangedSinceClaim = true;
                         }
 
                         // Clan-war PvP is help-forwarded by claim-rewards from
@@ -6251,17 +6254,20 @@ export default function App() {
                         // longer part of that settlement authority.
                         // Win report — server validates against the real
                         // PvpSession + its own anti-abuse rules. Feeds Vanguard
-                        // mission progress AND server-side Legacy tracking, so
-                        // it fires for every real (non-spar) win, any profession.
+                        // mission progress; the Legacy record it can also repair
+                        // was already settled before the claim could succeed, so
+                        // a non-Vanguard winner skips it (pvpWinReportRequired).
                         if (!isFriendlyDuel && opponent && !serverClaim?.raidProgression) {
                             if (projection.missionCompletions === undefined) {
-                                const missionsCompleted = await reportPvpWin({
+                                const reportRequired = pvpWinReportRequired(serverClaim?.character);
+                                const missionsCompleted = reportRequired ? await reportPvpWin({
                                     playerName: pvpOriginatingPlayerName,
                                     battleId: settledBattleId,
                                     opponentName: opponent.name,
-                                }, activeContinuation.signal);
+                                }, activeContinuation.signal) : [];
                                 requirePvpContinuation(activeContinuation);
                                 projection.missionCompletions = missionsCompleted;
+                                if (reportRequired) saveChangedSinceClaim = true;
                             }
                         } else if (projection.missionCompletions === undefined) {
                             projection.missionCompletions = [];
@@ -6270,14 +6276,18 @@ export default function App() {
                         // Read the owner save only after every remote mutation. It
                         // includes bounty/mission/version changes and gives replay a
                         // stable base instead of incrementing the render closure.
-                        const ownerSave = await readPvpOwnerSaveForContinuation(pvpOriginatingPlayerName, activeContinuation);
+                        // When nothing in this pass wrote the save, the adopted claim
+                        // snapshot already is that base and the GET is skipped.
+                        const ownerSave = pvpOwnerSaveRefreshRequired({ claimSnapshotAdopted: hasVersionedPvpClaimSnapshot(serverClaim), saveChangedSinceClaim })
+                            ? await readPvpOwnerSaveForContinuation(pvpOriginatingPlayerName, activeContinuation)
+                            : null;
                         requirePvpContinuation(activeContinuation);
 
                         if (!pvpCompletionUiRef.current.has(pvpSettlementScopeKey)) {
-                            const versionDecision = acceptVersionedSnapshot(latestSaveVersionRef.current, ownerSave.version);
+                            const versionDecision = ownerSave ? acceptVersionedSnapshot(latestSaveVersionRef.current, ownerSave.version) : null;
                             requirePvpContinuation(activeContinuation);
                             pvpCompletionUiRef.current.add(pvpSettlementScopeKey);
-                            if (versionDecision.accepted) {
+                            if (ownerSave && versionDecision?.accepted) {
                                 if (!commitVersionedCharacter(ownerSave.character, ownerSave.version)) {
                                     pvpCompletionUiRef.current.delete(pvpSettlementScopeKey);
                                     throw new Error("PvP owner save became stale before projection.");
