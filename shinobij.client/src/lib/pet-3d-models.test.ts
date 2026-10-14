@@ -133,7 +133,7 @@ test("legacy owned-instance ids recover the roster template from their safe pref
         rarity: "mythic",
     });
     assert.equal(model?.visualId, "mythic-13");
-    assert.equal(model?.url, `/pet-models/roster/mythic-13.glb?v=${ROSTER_MODEL_ASSET_REVISION}`);
+    assert.equal(model?.url, `/pet-models/roster/mythic-13.glb?v=${PET_RIG_REPAIR_REVISIONS['mythic-13'] ?? ROSTER_MODEL_ASSET_REVISION}`);
 });
 
 test("timestamped encounter clones retain their canonical combat model", () => {

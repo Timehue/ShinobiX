@@ -1,0 +1,53 @@
+.pet-techniques-editor { --tactics-gold: var(--yard-gold, #e9bd75); --tactics-muted: #b5b7bc; color: #f5ebd6; min-width: 0; padding: 16px; background: #1a222e; border: 1px solid #41434c; border-radius: 8px; font: 400 13px/1.55 var(--font-body, Inter, sans-serif); }
+.pet-techniques-editor * { box-sizing: border-box; }
+.pet-tactics .pta-builds { grid-template-columns: minmax(0, 1fr); align-items: start; }
+.pet-techniques-editor > summary { position: relative; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 8px; min-height: 44px; padding-inline-end: 20px; cursor: pointer; }
+.pet-techniques-editor > summary::after { content: ''; position: absolute; right: 3px; top: 17px; width: 7px; height: 7px; border-right: 2px solid var(--tactics-gold); border-bottom: 2px solid var(--tactics-gold); transform: rotate(45deg); }
+.pet-techniques-editor[open] > summary::after { transform: rotate(225deg); top: 20px; }
+.pet-techniques-editor > summary > strong { min-width: 0; max-width: 100%; overflow-wrap: anywhere; font-size: 14px; font-weight: 600; }
+.pet-techniques-editor.has-issue { border-color: #cf956c; }
+.pet-techniques-editor.has-issue > summary > span { color: #ffce9d; }
+.pet-techniques-editor > summary span { color: var(--tactics-gold); font-size: 11px; }
+.pet-techniques-editor > fieldset { min-width: 0; padding: 0; margin: 0; border: 0; }
+.pet-techniques-editor p { color: var(--tactics-muted); line-height: 1.55; font-size: 12px; }
+.pet-techniques-editor h4 { margin: 18px 0 6px; font: 500 17px/1.35 var(--font-display, Georgia, serif); }
+.pet-techniques-editor button { min-height: 44px; cursor: pointer; border: 1px solid #515867; border-radius: 5px; background: #242c38; color: #f5ebd6; padding: 8px 12px; font: inherit; font-size: 12px; }
+.pet-techniques-editor button:disabled { opacity: .5; cursor: default; }
+.pet-techniques-editor :focus-visible { outline: 2px solid var(--tactics-gold); outline-offset: 3px; }
+.pet-techniques-editor .pta-preset { display: flex; gap: 8px; }
+.pet-techniques-editor .pta-preset button { flex: 1; }
+.pet-techniques-editor .pta-move-pool { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.pet-techniques-editor .pta-move-pool label { display: flex; align-items: start; gap: 8px; padding: 11px; min-height: 44px; font-size: 12px; font-weight: 400; line-height: 1.55; border: 1px solid #394557; border-radius: 6px; cursor: pointer; }
+.pet-techniques-editor .pta-move-pool label.is-equipped { border-color: #8f7956; background: #36312855; }
+.pet-techniques-editor .pta-move-pool input { flex-shrink: 0; min-height: 16px; width: 16px; height: 16px; padding: 0; margin: 2px 0 0; accent-color: var(--tactics-gold); }
+.pet-yard-screen.pet-yard-refined .pet-techniques-editor input[type=checkbox] { width: 16px !important; min-inline-size: 16px !important; height: 16px !important; min-height: 16px !important; min-block-size: 16px !important; padding: 0 !important; flex: 0 0 16px; }
+.pet-techniques-editor .pta-move-pool label > span { min-width: 0; flex: 1; }
+.pet-techniques-editor small { display: block; font-size: 11px; font-weight: 400; color: var(--tactics-muted); line-height: 1.5; margin-top: 4px; }
+.pet-techniques-editor .pet-technique-title { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; line-height: 1.4; }
+.pet-technique-title > span { min-width: 0; overflow-wrap: anywhere; }
+.pet-technique-title > svg { flex: 0 0 18px; color: var(--technique-crest, var(--tactics-muted)); }
+.pet-technique-title[data-element=Fire] { --technique-crest: #ffad83; }
+.pet-technique-title[data-element=Water] { --technique-crest: #87c9f0; }
+.pet-technique-title[data-element=Wind] { --technique-crest: #9cdfba; }
+.pet-technique-title[data-element=Lightning] { --technique-crest: #e7d389; }
+.pet-technique-title[data-element=Earth] { --technique-crest: #c4af8c; }
+.pet-technique-effect { display: block; font-size: 12px; font-weight: 400; line-height: 1.55; color: #d2d4d7; margin-top: 7px; }
+.pet-technique-state { display: block; font-size: 11px; font-weight: 600; color: var(--tactics-gold); margin-top: 8px; }
+.pet-technique-signature { border-left: 2px solid var(--tactics-gold); padding: 0 12px; margin: 20px 0; }
+.pet-techniques-advanced { border-top: 1px solid #41434c; padding-top: 14px; margin-top: 18px; }
+.pet-techniques-advanced summary { cursor: pointer; font-size: 12px; }
+.pet-techniques-editor .pta-allocation { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 14px 0; }
+.pet-techniques-editor .pta-allocation label { font-size: 11px; text-transform: capitalize; }
+.pet-techniques-editor .pta-allocation input, .pet-techniques-editor select { background: #0e131c; color: #f5ebd6; border: 1px solid #515867; border-radius: 5px; padding: 9px; min-height: 44px; max-width: 100%; }
+.pet-techniques-editor .pta-allocation input { width: 100%; margin-top: 5px; }
+.pet-techniques-editor .pta-item { display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 8px; font-size: 12px; }
+.pet-techniques-editor .pet-techniques-validity { color: #a3dcb5; }
+.pet-techniques-editor .pet-techniques-validity.has-issue { color: #ffce9d; }
+.pet-techniques-editor .pet-techniques-save { width: 100%; color: #17130c; background: #e9bd75; border-color: #e9bd75; font-weight: 750; }
+.pet-ranked-techniques { margin-bottom: 28px; }
+.pet-ranked-techniques > p { font-size: 13px; line-height: 1.6; }
+.pet-ranked-techniques-navigation { margin-top: 14px; }
+.pet-ranked-techniques-navigation > button { min-height: 44px; max-width: 100%; padding: 10px 16px; border: 1px solid #d6b77b66; border-radius: 4px; background: #18232b; color: var(--yard-gold, #e9bd75); font: 600 12px var(--font-body, Inter, sans-serif); cursor: pointer; }
+.pet-ranked-techniques-navigation > button:disabled { opacity: .5; cursor: default; }
+.pet-ranked-techniques-navigation > button:focus-visible { outline: 2px solid var(--yard-gold, #e9bd75); outline-offset: 3px; }
+@media (max-width: 440px) { .pet-techniques-editor .pta-move-pool { grid-template-columns: 1fr; } }

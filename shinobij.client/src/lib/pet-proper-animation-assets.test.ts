@@ -8,6 +8,7 @@ import { STARTER_EVOLUTIONS } from "../data/pet-evolutions.ts";
 import {
     INDIVIDUAL_PET_ANIMATION_MODEL_IDS,
     PET_RIG_REPAIR_REVISIONS,
+    PET_CHARACTER_MOTION_ASSET_REVISION,
     PROPER_PET_ANIMATION_ASSET_REVISION,
 } from "./pet-proper-animation-assets.ts";
 import { PET_SHOWDOWN_ANIMATION_ASSET_REVISION } from "./pet-showdown-animation-assets.ts";
@@ -87,9 +88,22 @@ test("all 161 production pets have complete proper skeletal animation banks", ()
             rigs.add(json.extras.properAnimationRig);
         }
 
-        for (const animation of json.animations) {
+        for (const [index, animation] of json.animations.entries()) {
             assert.ok(animation.channels.length >= 4, `${pet.id}/${animation.name}: take is too sparse`);
-            assert.ok(animation.channels.length <= (pet.id === "starter-lightning-l" ? 16 : pet.id === "mythic-15" ? 13 : 9), `${pet.id}/${animation.name}: excessive whole-rig animation channels`);
+            const originalCount = json.extras.performanceRefinement?.sourceBoundary.channels[index] ?? animation.channels.length;
+            assert.ok(originalCount <= (pet.id === "starter-lightning-l" ? 16 : pet.id === "mythic-15" ? 13 : 9), `${pet.id}/${animation.name}: original body take became generic`);
+            for (const channel of animation.channels.slice(originalCount)) {
+                const name = json.nodes[channel.target.node].name;
+                const contactBank = json.extras.characterMotion?.revision === PET_CHARACTER_MOTION_ASSET_REVISION;
+                if (contactBank && name === 'root' && channel.target.path === 'translation') continue;
+                assert.equal(channel.target.path, 'rotation', 'articulation only adds joint rotations or a verified support root');
+                const inspected = contactBank
+                    ? /^(?:(?:front_upper|front_lower|front_paw|hind_upper|hind_lower|hind_paw|thigh|forearm|hand|shin|foot|wing_mid|wing_tip|bat_wing_lower|claw_pincer|leg_(?:front|mid|rear)_(?:upper|lower|foot))\.[LR]|tail_[23]|neck|scarf_2)$/
+                    : /^(?:(?:front_lower|front_paw|hind_lower|hind_paw|forearm|hand|shin|foot|wing_mid|wing_tip|bat_wing_lower|claw_pincer|leg_(?:front|mid|rear)_(?:lower|foot))\.[LR]|tail_[23]|neck|scarf_2)$/;
+                assert.match(name, inspected, 'extra curves must belong to inspected anatomy');
+            }
+            assert.ok(animation.channels.length <= json.skins[0].joints.length + 1, 'the bank stays within one rotation per joint plus its root translation');
+            assert.equal(new Set(animation.channels.map((channel: { target: { node: number; path: string } }) => `${channel.target.node}:${channel.target.path}`)).size, animation.channels.length, 'joint tracks cannot compete');
             assert.equal(animation.channels.length, animation.samplers.length);
             for (const sampler of animation.samplers) {
                 const input = json.accessors[sampler.input];

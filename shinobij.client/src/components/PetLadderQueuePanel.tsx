@@ -40,7 +40,7 @@ export function PetLadderQueuePanel(props: {
     }, [props.character.name, retry]);
     if (legacy === null) return <div role="status">{error || 'Checking ranked Pet Arena matches…'}{error && <button type="button" onClick={() => setRetry(n => n + 1)}>Reconnect</button>}</div>;
     if (legacy) return <LegacyPetLadderQueuePanel {...props} onLegacyComplete={finishLegacy} />;
-    return <Suspense fallback={<div role="status">Preparing Pet Arena…</div>}><PetArenaCommands playerName={props.character.name}
+    return <Suspense fallback={<div role="status">Preparing Pet Arena…</div>}><PetArenaCommands playerName={props.character.name} character={props.character}
         sharedImages={props.sharedImages} ranked rankedEligible={rankedLevelEligible(props.character.level)}
         onVersionedCharacter={props.onVersionedCharacter} onActiveChange={props.onBattleActiveChange}
         onFullscreenChange={props.onFullscreenActiveChange} onExit={() => {}} /></Suspense>;

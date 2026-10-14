@@ -12,6 +12,7 @@
 export type JutsuElement = "Earth" | "Wind" | "Lightning" | "Fire" | "Water" | "None";
 export type PetRole = "defender" | "tracker" | "assassin" | "sage";
 export type PetSubRole = "tank" | "bruiser" | "striker" | "assassin" | "kite" | "control" | "support";
+import type { TacticsBuild } from "../../shared/pet-tactics-contract.js";
 import type {
     PetExpeditionProvision as SharedPetExpeditionProvision,
     PetExpeditionReturnChoice as SharedPetExpeditionReturnChoice,
@@ -196,6 +197,8 @@ export type Pet = {
     // Equip-slot loadout (Collar / PVP / PVE / Consumable). See PetLoadout.
     // Undefined until the player equips something.
     loadout?: PetLoadout;
+    /** Saved ranked techniques and competitive build, committed by pet/progress. */
+    rankedBuild?: TacticsBuild;
     // DEFENSE DOCTRINE — the standing orders this pet follows when its owner is
     // not commanding it: a sector-war garrison, or a live duel whose player
     // dropped. Shape is { stance, priority[], breakAt } — see

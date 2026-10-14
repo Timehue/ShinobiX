@@ -14,6 +14,7 @@ type Handler = (req: never, res: never) => Promise<unknown>;
 let kv: typeof import('../_storage.js').kv;
 let issuePlayerToken: typeof import('../_auth.js').issuePlayerToken;
 let queue: Handler, start: Handler, watch: Handler, settle: Handler;
+const ownedTemplates = ['starter-fire-r', 'starter-water-r', 'starter-lightning-r', 'starter-earth-r'];
 
 before(async () => {
     ({ kv } = await import('../_storage.js'));
@@ -41,6 +42,7 @@ async function pair(prefix: string) {
     for (const [name, multiplier] of [[a, 1], [b, 2]] as const) {
         const pets = Array.from({ length: 4 }, (_, index) => ({
             id: `${name}-pet-${index}`, name: index === 0 ? `${name} pet` : `${name} reserve ${index}`,
+            templateId: ownedTemplates[index],
             rarity: 'rare', element: 'Fire', role: 'assassin', level: 40,
             hp: 900 * multiplier, attack: 120 * multiplier, defense: 70, speed: 80, jutsus: [],
             loadout: { consumable: `sealed-${name}-${index}` },
@@ -61,9 +63,9 @@ async function pair(prefix: string) {
 
 test('queue rejects duplicate and unknown competitive species before entering matchmaking', async () => {
     const name = 'rankedinvalidlineup';
-    const pets = Array.from({ length: 4 }, (_, index) => ({ id: `${name}-${index}`, name: `Pet ${index}` }));
+    const pets = Array.from({ length: 4 }, (_, index) => ({ id: `${name}-${index}`, templateId: ownedTemplates[index], name: `Pet ${index}` }));
     await kv.set(`save:${name}`, { _saveVersion: 1, character: { name, level: 40, pets, activePetId: pets[0].id } });
-    const valid = ['starter-fire', 'starter-water', 'starter-lightning', 'starter-earth'].map(id => tacticsPreset(id));
+    const valid = ownedTemplates.map((id, index) => ({ ...tacticsPreset(id), ownedPetId: pets[index].id }));
     assert.equal((await call(queue, name, { name, action: 'join', builds: [valid[0], valid[0], valid[2], valid[3]] })).status, 400);
     assert.equal((await call(queue, name, { name, action: 'join', builds: [valid[0], valid[1], valid[2], { ...valid[3], speciesId: 'unknown-species' }] })).status, 400);
     assert.equal((await call(queue, name, { name, action: 'poll' })).body.state, 'idle');
@@ -184,7 +186,9 @@ test('peer settlement preserves discovery and viewer-relative replays, without r
     assert.deepEqual(await Promise.all([kv.get(`save:${a}`), kv.get(`save:${b}`)]), savesBefore);
     assert.equal((await call(queue, b, { name: b, action: 'acknowledge', matchToken })).body.state, 'idle');
     assert.equal((await call(queue, a, { name: a, action: 'poll' })).body.state, 'completed');
-    assert.equal((await call(queue, b, { name: b, action: 'join', petIds: Array.from({ length: 4 }, (_, index) => `${b}-pet-${index}`) })).body.state, 'queued');
+    const rejoined = await call(queue, b, { name: b, action: 'join', builds: ownedTemplates.map((id, index) => ({ ...tacticsPreset(id), ownedPetId: `${b}-pet-${index}` })) });
+    assert.equal(rejoined.status, 200, JSON.stringify(rejoined.body));
+    assert.equal(rejoined.body.state, 'queued');
     await call(queue, b, { name: b, action: 'leave' });
     // A stale exit from another tab must not discard a newer replay.
     const newerToken = randomUUID();
