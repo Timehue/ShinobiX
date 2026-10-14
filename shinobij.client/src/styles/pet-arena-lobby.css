@@ -239,7 +239,7 @@
 .pet-player-search-field { display: grid; grid-template-columns: auto minmax(0,1fr); align-items: center; gap: .65rem; min-height: 50px; border: 1px solid rgba(102,224,223,.26); border-radius: 12px; color: var(--arena-cyan); background: rgba(2,8,16,.68); padding: 0 .8rem; transition: border-color .16s ease,box-shadow .16s ease; }
 .pet-player-search-field:focus-within { border-color: rgba(102,224,223,.75); box-shadow: 0 0 0 3px rgba(102,224,223,.08); }
 .pet-arena-lobby .pet-player-search-field input { width: 100%; min-height: 48px; border: 0 !important; outline: 0; color: #edf7f7; background: transparent !important; padding: 0 !important; box-shadow: none !important; font-size: .8rem; }
-.pet-player-search-field input::placeholder { color: #526a77; }
+.pet-player-search-field input::placeholder { color: var(--sj-text-secondary); }
 .pet-arena-lobby .pet-challenge-row { min-height: 55px; border-color: rgba(173,207,224,.14); border-radius: 11px; background: rgba(2,8,16,.52); }
 .pet-challenge-row > span:nth-child(2) { display: grid; gap: .15rem; }
 .pet-challenge-row > span:nth-child(2) small { color: #78909c; font-size: .6rem; }

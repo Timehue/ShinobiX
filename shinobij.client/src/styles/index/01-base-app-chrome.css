@@ -223,6 +223,31 @@ textarea {
     color: #f8fafc;
 }
 
+/* Native placeholder defaults are too faint against the game's dark fields. */
+input::placeholder,
+textarea::placeholder {
+    color: var(--sj-text-secondary);
+    opacity: 1;
+}
+
+/* Native dropdown popups can otherwise pair inherited light text with an OS
+   light background. Apply the shared dark palette to every menu, including
+   pet gear pickers and selects rendered in modal portals. */
+select {
+    color-scheme: dark;
+}
+
+select option,
+select optgroup {
+    color: var(--sj-text-primary);
+    background-color: var(--sj-background);
+}
+
+select option:disabled,
+select optgroup:disabled {
+    color: var(--sj-text-muted);
+}
+
 /* Default button = Veiled Steel "steel" material (see ui-btn--secondary in
    veiled-steel.css). Screens that skin their own buttons override this the
    same way they always overrode the old navy default — only the paint

@@ -3,6 +3,7 @@
 .town-war-display-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .town-war-display-card { display: flex; flex-direction: column; min-width: 0; overflow: hidden; border: 1px solid var(--war-room-line); border-radius: 12px; background: linear-gradient(155deg, #121d27, #080e15 75%); box-shadow: inset 0 1px 0 #ffffff08, 0 8px 24px #00000022; }
 .town-war-display-shrine-banner, .town-war-display-sector-banner { display: flex; align-items: center; justify-content: center; gap: 18px; height: 136px; flex-shrink: 0; border-bottom: 1px solid var(--war-room-line); color: var(--war-room-gold); background: radial-gradient(ellipse at center, #393127, #101923 72%); font-family: var(--font-display, serif); font-size: 1.3rem; }
+.town-war-display-shrine-banner > span, .town-war-display-sector-banner > span { flex-shrink: 0; white-space: nowrap; }
 .town-war-display-shrine-banner img { display: block; width: 190px; height: 130px; object-fit: contain; filter: drop-shadow(0 6px 12px #00000066); }
 .town-war-display-sector-banner { background: radial-gradient(ellipse at center, #263a42, #101923 72%); }
 .town-war-display-sector-banner img { width: 80px; height: 80px; object-fit: contain; }
