@@ -42,3 +42,24 @@ test("system-event finale actions preserve their domain handoffs", () => {
     assert.match(reader, /isPetEncounterEvent[\s\S]*?"Meet Companion"/);
     assert.match(reader, /isAncientChestEvent[\s\S]*?"Open Chest"/);
 });
+
+test("accepting Senna's rift travels to the sealed destination instead of opening a remote board", () => {
+    const accept = branch("if (c.trait === RIFT_ACCEPT_MARKER)", "if (c.trait === SCRIBE_ACCEPT_MARKER)");
+    assert.match(accept, /if \(resp\.ok && resp\.activeRiftQuest\)/);
+    assert.match(accept, /if \(!presentation\.isCurrent\(\)\) return/);
+    assert.match(accept, /if \(onServerVersion\?\.\(resp\._saveVersion\) === false\) return/);
+    assert.match(accept, /const sealedSector = resp\.activeRiftQuest\.targetSector/);
+    assert.match(accept, /triggerTravelPoint\(playableFieldObjectiveSector\(sealedSector\)\)/);
+    assert.doesNotMatch(accept, /setSelectedSector\(/);
+
+    // The shared map action requests real travel and installs the sealed tile
+    // alongside the destination sector; merely changing the board hides the
+    // avatar and leaves walking disabled by sectorIsCurrent.
+    const point = branch("function triggerTravelPoint(sector: number)", "// Consume navigation after");
+    assert.match(point, /travelToSector\(sector\)/);
+    const travel = branch("function travelToSector(", "function triggerTravelPoint(");
+    assert.match(travel, /beginSectorTravel\(sector, \(arrivalTile\) =>/);
+    assert.match(travel, /setCurrentSector\(sector\)/);
+    assert.match(travel, /setSelectedSector\(sector\)/);
+    assert.match(travel, /setSectorPlayerPos\(arrival \?\? SECTOR_CENTRE_TILE\)/);
+});
