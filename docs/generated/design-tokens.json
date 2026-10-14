@@ -2565,7 +2565,7 @@
           },
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
-            "line": 7053
+            "line": 7059
           }
         ]
       },
@@ -2588,7 +2588,7 @@
           },
           {
             "source": "shinobij.client/src/styles/world-map-mobile.css",
-            "line": 68
+            "line": 74
           }
         ]
       },
@@ -3722,7 +3722,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
-            "line": 6303
+            "line": 6309
           },
           {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",
@@ -4434,7 +4434,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/02-world-map.css",
-            "line": 698
+            "line": 697
           },
           {
             "source": "shinobij.client/src/styles/index/10-layout-lock-herald.css",
@@ -4562,7 +4562,7 @@
           },
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
-            "line": 7156
+            "line": 7162
           },
           {
             "source": "shinobij.client/src/styles/combat-grid-appearance.css",
@@ -5220,7 +5220,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
-            "line": 6303
+            "line": 6309
           },
           {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",
