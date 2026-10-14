@@ -88,16 +88,23 @@ test("Team PvP presentation keeps live-player art and hides disabled consumable 
     assert.match(fight, /const teamPvpGearLocked = isTeamPvp && !teamPvpConsumables/);
     assert.match(fight, /const actionWeapons = teamPvpGearLocked \? myWeapons\.filter\(\(\{ thrown \}\) => !thrown\) : myWeapons/);
     assert.match(fight, /const actionConsumables = teamPvpGearLocked \? \[\] : myConsumables/);
-    assert.match(fight, /Team Arena disables consumables and thrown ammunition/);
+    assert.match(fight, /\{pvpContextLabel\} disables consumables and thrown ammunition/);
     const ranked2v2 = readFileSync(new URL("../components/Ranked2v2Panel.tsx", import.meta.url), "utf8");
     const clanWar2v2 = readFileSync(new URL("./ClanWar2v2Battle.tsx", import.meta.url), "utf8");
     assert.match(ranked2v2, /teamPvpConsumables=\{\(state\.match as TowerPvpMatch\)\.rules\?\.consumables === "enabled"\}/);
     assert.match(clanWar2v2, /teamPvpConsumables=\{match\.rules\?\.consumables === "enabled"\}/);
+    assert.match(ranked2v2, /pvpContextLabel="Ranked 2v2"/);
+    assert.match(clanWar2v2, /pvpContextLabel="Clan War 2v2"/);
+    assert.match(clanWar2v2, /sharedImages=\{sharedImages\}/);
+    assert.match(clanWar2v2, /onVersionedCharacter=\{onVersionedCharacter\}/);
+    const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
+    assert.match(app, /<ClanWar2v2Battle[^>]*sharedImages=\{sharedImages\}[^>]*onVersionedCharacter=\{commitVersionedCharacter\}/);
+    assert.match(fight, /isTeamPvp && pvpContextLabel === 'Team Arena' && <p className="hint">Competitive exhibition/);
     assert.match(fight, /aria-label=\{isTeamPvp \|\| isWorldBoss \? "Your Team" : "Squad"\}/);
     assert.match(fight, /aria-label=\{isTeamPvp \? "Rival Team and battle log" : "Enemies and battle log"\}/);
 });
 
-test("mobile Tower combat wraps critical controls and permits page scroll at fit zoom", () => {
+test("mobile Tower combat wraps critical controls and permits vertical scrolling on the fitted board", () => {
     assert.match(fight, /className="tower-fight-header tower-fight-statusbar"/,
         "the header must retain both its compact-layout hook and semantic status-bar hook");
     assert.match(fight, /className="tower-fight-turn-pill"/);
@@ -107,12 +114,11 @@ test("mobile Tower combat wraps critical controls and permits page scroll at fit
     assert.match(tacticalCss, /\.tower-fight-header\s*\{[^}]*flex-wrap: wrap;/);
     assert.match(tacticalCss, /\.tower-mechanic-chip\s*\{[\s\S]{0,140}?overflow-wrap:\s*anywhere[\s\S]{0,80}?white-space:\s*normal/);
     assert.match(tacticalCss, /\.tower-board-area\s*\{[\s\S]*?touch-action:\s*pan-y/);
-    assert.match(tacticalCss, /\.tower-board-area\.is-pannable\s*\{[^}]*touch-action:\s*none/);
     assert.match(tacticalCss, /\.tower-fight-statusbar > button\s*\{\s*min-height:\s*44px/);
-    assert.match(tacticalCss, /\.tower-board-controls button\s*\{[\s\S]{0,100}?min-width:\s*44px;[\s\S]{0,80}?min-height:\s*44px/);
-    assert.match(tacticalCss, /\.tower-board-controls input\[type="range"\]\s*\{[\s\S]{0,80}?min-height:\s*44px/);
+    assert.doesNotMatch(fight, /tower-board-controls|is-pannable/);
+    assert.match(tacticalCss, /\.combat-action-tray\.tower-action-dock \{[^}]*overflow:\s*hidden auto !important;[^}]*touch-action:\s*pan-y/);
     assert.match(tacticalCss, /\.tower-settlement-status button\s*\{[\s\S]{0,100}?min-height:\s*44px/);
-    assert.match(tacticalCss, /@media \(max-width: 1023px\)[\s\S]*?\.screen-battleTowerFight \.tower-action-dock \.basic-action-bar button\s*\{\s*min-height:\s*44px !important/);
+    assert.match(tacticalCss, /@media \(max-width: 979px\)[\s\S]*?\.screen-battleTowerFight \.tower-action-dock \.basic-action-bar button\s*\{\s*min-height:\s*44px !important/);
 });
 
 test("Team Arena announces only the newest battle-log line", () => {

@@ -177,7 +177,7 @@
 }
 
 .start-card .start-input::placeholder {
-    color: rgba(214, 192, 129, 0.35);
+    color: var(--sj-text-secondary);
 }
 
 .start-card select.start-input {

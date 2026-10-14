@@ -1,4 +1,4 @@
-import { useState, type DragEvent } from "react";
+import { useState, type DragEvent, type ReactNode } from "react";
 import type { Character } from "../types/character";
 import type { Jutsu } from "../types/combat";
 import type { JutsuType } from "../types/core";
@@ -39,14 +39,15 @@ function jutsuGlyph(jutsu: Jutsu) {
     return ELEMENT_GLYPHS[jutsu.element] ?? jutsu.name.slice(0, 1).toUpperCase();
 }
 
-function JutsuArtwork({ jutsu, className = "" }: { jutsu: Jutsu; className?: string }) {
+function JutsuArtwork({ jutsu, className = "", children }: { jutsu: Jutsu; className?: string; children?: ReactNode }) {
     const [failedImage, setFailedImage] = useState("");
     const hasArtwork = Boolean(jutsu.image) && failedImage !== jutsu.image;
     return (
-        <span className={`jutsu-workbench-art ${hasArtwork ? "has-artwork" : "is-fallback"} ${className}`} data-element={jutsu.element} aria-hidden="true">
+        <span className={`jutsu-workbench-art ${hasArtwork ? "has-artwork" : "is-fallback"} ${className}`} data-element={jutsu.element}>
             {hasArtwork
                 ? <img src={jutsu.image} alt="" loading="lazy" decoding="async" onError={() => setFailedImage(jutsu.image ?? "")} />
-                : <strong>{jutsuGlyph(jutsu)}</strong>}
+                : <strong aria-hidden="true">{jutsuGlyph(jutsu)}</strong>}
+            {children}
         </span>
     );
 }
@@ -90,9 +91,10 @@ function JutsuCard({
                     if (!equipped) onEquip();
                 }}
             >
-                <JutsuArtwork jutsu={jutsu} />
-                <span className="jutsu-workbench-level">{mastery.level}</span>
-                {equipped && <span className="jutsu-equipped-badge">Equipped</span>}
+                <JutsuArtwork jutsu={jutsu}>
+                    <span className="jutsu-workbench-level">{mastery.level}</span>
+                    {equipped && <span className="jutsu-equipped-badge">Equipped</span>}
+                </JutsuArtwork>
                 <span className="jutsu-collection-copy">
                     <strong>{jutsu.name}</strong>
                     <small>{jutsu.type} · {jutsu.element}</small>
@@ -161,8 +163,9 @@ function SelectedJutsuDetails({
     return (
         <div className="jutsu-detail-content">
             <div className="jutsu-detail-hero">
-                <JutsuArtwork jutsu={jutsu} className="jutsu-detail-art" />
-                <span className="jutsu-workbench-level">{mastery.level}</span>
+                <JutsuArtwork jutsu={jutsu} className="jutsu-detail-art">
+                    <span className="jutsu-workbench-level">{mastery.level}</span>
+                </JutsuArtwork>
             </div>
             <div className="jutsu-detail-title">
                 <div>
@@ -430,8 +433,9 @@ export function JutsuLoadoutPanel({
                                     {jutsu ? (
                                         <>
                                             <button type="button" className="jutsu-slot-select" onClick={() => setSelectedId(jutsu.id)} aria-label={`View ${jutsu.name}`}>
-                                                <JutsuArtwork jutsu={jutsu} />
-                                                <span className="jutsu-workbench-level">{getJutsuMastery(character, jutsu.id).level}</span>
+                                                <JutsuArtwork jutsu={jutsu}>
+                                                    <span className="jutsu-workbench-level">{getJutsuMastery(character, jutsu.id).level}</span>
+                                                </JutsuArtwork>
                                                 <strong>{jutsu.name}</strong>
                                             </button>
                                             <button type="button" className="jutsu-slot-remove" aria-label={`Unequip ${jutsu.name}`} onClick={() => onUnequip(jutsu.id)}>×</button>

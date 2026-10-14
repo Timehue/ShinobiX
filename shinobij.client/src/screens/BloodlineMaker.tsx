@@ -438,7 +438,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                     <label>Battle Description</label><textarea rows={2} value={jutsu.battleDescription} onChange={(e) => updateJutsu(jutsuIndex, { battleDescription: e.target.value, description: e.target.value })} />
                     <label>Jutsu Image</label><input className="bloodline-image-file" type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) readImageFile(file, (image) => updateJutsu(jutsuIndex, { image }), 100); }} />
                     <AiImagePrompt label="Jutsu Image" suggestedPrompt={`${jutsu.name}, ${specialElement || jutsu.element} ${jutsu.ap === 40 ? "Any" : bloodlineOffense} bloodline technique`} onImage={async (image) => updateJutsu(jutsuIndex, { image: await compressDataUrl(image, 512, 0.82) })} />
-                    {jutsu.image && <div className="admin-jutsu-preview"><img src={jutsu.image} alt={jutsu.name} /></div>}
+                    {jutsu.image && <div className="admin-jutsu-preview jutsu-art-frame"><img src={jutsu.image} alt={jutsu.name} /></div>}
                     <div className="bloodline-technique-foundation" aria-label="Technique foundation">
                         <span><small>Offense</small><strong>{jutsu.ap === 40 ? "Any · Utility" : bloodlineOffense}</strong></span>
                         <span><small>Element</small><strong>{specialElement.trim() || "Unbound"}</strong></span>
