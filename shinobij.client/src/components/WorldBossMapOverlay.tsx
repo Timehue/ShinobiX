@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { fetchWorldBossEvent, type WorldBossEventClientState } from "../lib/world-boss-event-api";
 import { visiblePoll } from "../lib/poll";
 import { sameJsonValue } from "../lib/pvp-session-runtime";
+import type { WorldSectorWorldBossMarker } from "./SectorWorldBossStandee";
 // The atlas glow on the boss's sector node lives here, so it loads with the map.
 import "../styles/world-boss-map.css";
 
@@ -44,5 +45,9 @@ export function useWorldBossMap(
         if (sector === currentSector && !isTraveling) setQueueOpen(true);
     };
     const closeQueue = () => setQueueOpen(false);
-    return { view, event, sector, queueOpen, openQueue, closeQueue };
+    /** The boss standing in `selectedSector`, clickable to open the queue, or null. */
+    const standeeIn = (selectedSector: number | null): WorldSectorWorldBossMarker | null => event && sector != null && sector === selectedSector
+        ? { bossId: event.bossId, name: event.bossName, paused: event.movementPaused, onOpen: openQueue }
+        : null;
+    return { view, event, sector, queueOpen, openQueue, closeQueue, standeeIn };
 }

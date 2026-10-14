@@ -90,9 +90,9 @@ test("the atlas no longer draws the boss or opens its queue", () => {
 });
 
 test("the boss stands in its sector and clicking it opens the queue there", () => {
-    assert.match(worldMap, /const sectorOverlayWorldBoss = sectorIsCurrent && worldBossEvent && worldBossSector === selectedSector/u);
-    assert.match(worldMap, /onOpen: openWorldBossQueue/u);
-    assert.match(worldMap, /worldBoss=\{sectorOverlayWorldBoss\}/u);
+    // Only a player standing in the boss's sector sees it there.
+    assert.match(worldMap, /worldBoss=\{sectorIsCurrent \? worldBossStandeeIn\(selectedSector\) : null\}/u);
+    assert.match(hook, /event && sector != null && sector === selectedSector\s*\? \{ bossId: event\.bossId, name: event\.bossName, paused: event\.movementPaused, onOpen: openQueue \}/u);
     assert.match(overlay, /\{worldBoss && <SectorWorldBossStandee sector=\{sector\} \{\.\.\.worldBoss\} \/>\}/u);
     // The sector board is transformed, so the fixed dialog must leave it.
     assert.match(worldMap, /worldBossQueueOpen && !vaultRaid && createPortal\(<Suspense fallback=\{null\}><WorldBossQueueHost/u);

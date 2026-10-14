@@ -982,7 +982,7 @@ function WorldMapContent({
         adoptFleeTotals(fled);
     }
 
-    const { view: worldBossView, event: worldBossEvent, sector: worldBossSector, queueOpen: worldBossQueueOpen, openQueue: openWorldBossQueue, closeQueue: closeWorldBossQueue } = useWorldBossMap(globalViewOpen, currentSector, isTraveling);
+    const { view: worldBossView, event: worldBossEvent, sector: worldBossSector, queueOpen: worldBossQueueOpen, closeQueue: closeWorldBossQueue, standeeIn: worldBossStandeeIn } = useWorldBossMap(globalViewOpen, currentSector, isTraveling);
     const mercWanderers = useMemo(() => {
         if (!villageWarViewOpen || !isVillageWarMapEnabled() || mercRoster.sector !== selectedSector) return [];
         const cd = character.wandererCooldowns; const now = Date.now();
@@ -4381,10 +4381,6 @@ function WorldMapContent({
                 onEngage: handleBossEngage,
             };
         })();
-        // The roaming world boss stands in its sector; clicking it opens the team queue.
-        const sectorOverlayWorldBoss = sectorIsCurrent && worldBossEvent && worldBossSector === selectedSector
-            ? { bossId: worldBossEvent.bossId, name: worldBossEvent.bossName, paused: worldBossEvent.movementPaused, onOpen: openWorldBossQueue }
-            : null;
         const targetedHunters = bountyHunterWanderers.filter((wanderer) => wanderer.verb === "bountyHunter");
         const bystanderHunters = bountyHunterWanderers.filter((wanderer) => wanderer.verb === "watch");
         const hostileNaturals = sectorWanderers.filter((wanderer) => wanderer.verb === "attack"); // bandits + night ninjas
@@ -4528,8 +4524,7 @@ function WorldMapContent({
                                 vault={sectorIsCurrent ? sectorOverlayVault : null}
                                 traceSigns={sectorTraces?.signs ?? []}
                                 shrine={sectorOverlayShrine}
-                                boss={sectorOverlayBoss}
-                                worldBoss={sectorOverlayWorldBoss}
+                                boss={sectorOverlayBoss} worldBoss={sectorIsCurrent ? worldBossStandeeIn(selectedSector) : null}
                                 fieldStory={sectorIsCurrent && fieldObjective?.pointId && fieldObjective.sector === selectedSector ? {
                                     pointId: fieldObjective.pointId, title: fieldObjective.name, tile: fieldObjective.tile,
                                     onOpen: () => setFieldScene({ questId: fieldObjective.questId, pointId: fieldObjective.pointId! }),
@@ -4607,9 +4602,7 @@ function WorldMapContent({
                                 document.body,
                             )}
 
-                            {worldBossQueueOpen && !vaultRaid && createPortal(<Suspense fallback={null}><WorldBossQueueHost currentSector={currentSector} onClose={closeWorldBossQueue}
-                                character={character} creatorItems={wmCreatorItems} savedBloodlines={savedBloodlines} sharedImages={sharedImages}
-                                onVersionedCharacter={onVersionedCharacter} onRecordBattle={onRecordBattle} /></Suspense>, document.body)}
+                            {worldBossQueueOpen && !vaultRaid && createPortal(<Suspense fallback={null}><WorldBossQueueHost currentSector={currentSector} onClose={closeWorldBossQueue} character={character} creatorItems={wmCreatorItems} savedBloodlines={savedBloodlines} sharedImages={sharedImages} onVersionedCharacter={onVersionedCharacter} onRecordBattle={onRecordBattle} /></Suspense>, document.body)}
                             {bossDialog && createPortal(
                                 <ModalDialogScrim label={`${bossDialog.name} — encounter`} onBackdrop={() => undefined} onEscape={() => undefined}>
                                     <div className="card" style={{ maxWidth: 380, width: "88%", maxHeight: "88dvh", overflowY: "auto", textAlign: "center", padding: 18, border: "1px solid rgba(236,91,56,.6)" }} onClick={(e) => e.stopPropagation()}>
