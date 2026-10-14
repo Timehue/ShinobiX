@@ -791,30 +791,24 @@
     margin-block-end: 8px;
   }
 
-  .app-shell[data-ui-mode="noncombat"].screen-training .training-guide-panel > ul {
-    display: flex !important;
+  .app-shell[data-ui-mode="noncombat"].screen-training .training-guidance > ul {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr);
     gap: 8px !important;
     margin: 0 !important;
-    padding: 0 18px 3px 0 !important;
-    overflow-x: auto;
-    scroll-snap-type: inline mandatory;
-    overscroll-behavior-inline: contain;
-    scrollbar-width: none;
+    padding: 0 0 8px !important;
     list-style: none;
   }
 
-  .app-shell[data-ui-mode="noncombat"].screen-training .training-guide-panel > ul::-webkit-scrollbar,
-  .app-shell[data-ui-mode="noncombat"].screen-training .stat-group-list::-webkit-scrollbar,
   .app-shell[data-ui-mode="noncombat"].screen-professions .profession-rank-ladder::-webkit-scrollbar {
     display: none;
   }
 
   .app-shell[data-ui-mode="noncombat"].screen-training .training-guide-panel li {
     position: relative;
-    flex: 0 0 min(82%, 270px);
-    min-block-size: 78px;
+    min-inline-size: 0;
+    min-block-size: 0;
     padding: 12px 12px 10px 38px;
-    scroll-snap-align: start;
     border: 1px solid rgba(78, 168, 255, 0.2);
     border-radius: 9px;
     background: rgba(3, 9, 20, 0.62);
@@ -833,19 +827,15 @@
   }
 
   .app-shell[data-ui-mode="noncombat"].screen-training .stat-group-list {
-    display: flex !important;
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)) !important;
     gap: 10px !important;
     margin-inline: 0 !important;
-    padding: 0 26px 4px 0;
-    overflow-x: auto;
-    scroll-snap-type: inline mandatory;
-    overscroll-behavior-inline: contain;
-    scrollbar-width: none;
+    padding: 0;
   }
 
   .app-shell[data-ui-mode="noncombat"].screen-training .stat-group-list > .stat-group {
-    flex: 0 0 min(88%, 310px);
-    scroll-snap-align: start;
+    min-inline-size: 0;
     border-radius: 10px !important;
   }
 
