@@ -12,6 +12,7 @@ import {
 import { WORLD_BOSS_QUEUE_REJOIN_COOLDOWN_MS, worldBossDefinition } from '../../../shared/world-boss-event';
 import { sectorName } from '../../../shared/sector-geo';
 import { visiblePoll } from '../lib/poll';
+import { useBodyScrollLock } from '../lib/useBodyScrollLock';
 import '../styles/world-boss-queue-dialog.css';
 
 function formatQueueClock(ms: number): string {
@@ -75,6 +76,9 @@ export function WorldBossQueueDialog({
         window.addEventListener('keydown', onKeyDown);
         return () => window.removeEventListener('keydown', onKeyDown);
     }, [fight, onClose]);
+    // The sheet owns the screen: lock the page behind it, which also stands the
+    // floating "? Tip" pill down (it sat on this sheet's close button on phones).
+    useBodyScrollLock(!inFight);
 
     const event = view?.event ?? null;
     const queue = view?.queue;
