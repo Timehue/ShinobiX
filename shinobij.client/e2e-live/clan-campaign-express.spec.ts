@@ -150,6 +150,9 @@ test('two clans declare, use every battle host, enter a physical bonus shrine, s
         await page.getByRole('button',{name:'Clan Golden Shrine · Open now'}).click();await rival.getByRole('button',{name:'Clan Golden Shrine · Open now'}).click();
         const room=page.getByRole('dialog',{name:'Clan golden shrine interior'}),enemyRoom=rival.getByRole('dialog',{name:'Clan golden shrine interior'});
         await expect(room).toBeVisible();await expect(enemyRoom).toBeVisible();await expect(room.getByRole('heading',{name:'Pet Showdown',exact:true})).toBeVisible();
+        // The dialog opens before the server admits either player to its room.
+        await expect(room.locator('.clan-shrine-player small').getByText('You',{exact:true})).toBeVisible();
+        await expect(enemyRoom.locator('.clan-shrine-player small').getByText('You',{exact:true})).toBeVisible();
         await expect(room.getByRole('heading',{name:'Shinobi Duel',exact:true})).toHaveCount(0);await capture(page,info,'shrine-room');
         const bonus=await pair('pet1v1',[a[0]],[b[0]],{scope:'shrine',windowIndex:0});
         for(const [client,interior] of [[page,room],[rival,enemyRoom]] as const){
