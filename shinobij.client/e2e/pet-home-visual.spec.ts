@@ -1263,18 +1263,18 @@ test("Warfront failed settlement allows Leave and recovers the exact report afte
         await expect(report).toBeHidden();
     }
     await expect(page.locator(".wfr-result")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Retry settlement", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Try again", exact: true })).toBeVisible();
     const leave = page.getByRole("button", { name: "Leave the Warfront", exact: true });
     await expect(leave).toBeEnabled();
     await page.screenshot({ path: testInfo.outputPath("failed-report-leave-enabled.png") });
     await leave.click();
     await expect(page.locator(".wfr-result")).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Retry settlement", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Try again", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Pet Yard", exact: true }).click();
     recovered = true;
     await page.getByRole("button", { name: "Pet Arena", exact: true }).click();
     await expect.poll(() => bodies.length).toBe(2);
-    await expect(page.getByRole("button", { name: "Retry settlement", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Try again", exact: true })).toHaveCount(0);
     expect(bodies[1]).toEqual(bodies[0]);
     expect(bodies[0].battleToken).toBe("qa-warfront-exact-seal");
     expect(bodies[0].warfrontPlan).toBeTruthy();

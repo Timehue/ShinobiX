@@ -584,7 +584,7 @@ export function PvpBattleScreen({
             }
             if (pending.battleId !== battleId || pending.role !== role) {
                 setSessionExitCheck("unchecked");
-                setSessionLoadFailure("Another PvP settlement is still pending for this account. Reopen it before leaving.");
+                setSessionLoadFailure("Another PvP battle on this account is still being recorded. Reopen that battle before leaving.");
                 return;
             }
             setSession(current => acceptRevision(current, pending.session));
@@ -1339,11 +1339,16 @@ export function PvpBattleScreen({
             pvpRewardRef.current = false;
             setPvpRewardClaimState("failed");
             const detail = error instanceof Error ? error.message.trim() : "";
+            // Only a whole sentence is worth showing a player. A bare server
+            // code (no spaces, snake/kebab-case), a browser fragment or an
+            // internal abort reason is dropped.
+            const readableDetail = error instanceof Error && error.name !== "AbortError"
+                && /\s/.test(detail) && /[.!?]$/.test(detail) ? detail : "";
             setPvpRewardClaimError(detail === "settlement-timeout"
-                ? "Battle settlement is taking longer than expected. Please retry."
-                : detail
-                    ? `Battle settlement is pending: ${detail}`
-                    : "Battle settlement callbacks did not finish. Please retry.");
+                ? "Your result is still being recorded. Press Retry in a moment."
+                : readableDetail
+                    ? `Your result is not recorded yet. ${readableDetail}${/retry|try again/i.test(readableDetail) ? "" : " Press Retry."}`
+                    : "Your result is not recorded yet. Press Retry.");
         } finally {
             window.clearTimeout(completionTimeout);
             if (rewardClaimAbortRef.current === completionAbort) rewardClaimAbortRef.current = null;

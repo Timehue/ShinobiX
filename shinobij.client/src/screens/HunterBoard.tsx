@@ -281,7 +281,7 @@ export function HunterBoard({
                 // desynced client stops showing a dead Claim button on a done contract.
                 const trail = await postWorldHunt({ playerName: character.name, action: "state", missionId: mission.id });
                 if (!trail.ok) {
-                    return alert("The reward is paid, but the Guild is still syncing its receipt. Try Claim again to reconcile it.");
+                    return alert("The reward is paid, but the Guild is still updating your board. Press Claim again to finish.");
                 }
                 if (trail.character) {
                     if (!onVersionedCharacter(trail.character, trail._saveVersion)) return;

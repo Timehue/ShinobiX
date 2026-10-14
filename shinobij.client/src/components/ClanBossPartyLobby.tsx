@@ -120,7 +120,7 @@ export function ClanBossPartyLobby({
             ) : null}
 
             {party.status === "queued" && party.members.length === 1 && !party.fallbackAvailable ? <p className="operation-wait-note">Waiting for a real clanmate. Solo fallback unlocks after a bounded two-minute wait; no population is fabricated.</p> : null}
-            {party.status === "starting" ? <p className="operation-state-message" role="status">Sealing the authoritative encounter…</p> : null}
+            {party.status === "starting" ? <p className="operation-state-message" role="status">Sealing the encounter…</p> : null}
             {party.status === "active" ? <p className="operation-state-message" role="status">Operation active. Rejoin through the combat banner if your browser refreshed.</p> : null}
             {party.status === "completed" ? <p className="operation-state-message is-complete" role="status">Operation complete. Contribution and sector results are sealed.</p> : null}
             {party.status === "completed" && isLeader ? <button type="button" className="operation-new-party" onClick={() => onAction("disband")}>Close summary & form again</button> : null}

@@ -1670,7 +1670,7 @@ function PetColiseumDuelView({ playerPet, enemyPet, playerReservePet, enemyReser
                         {settlementStatus === "error" && (
                             <div role="alert" style={{ marginTop: 12 }}>
                                 <div style={{ color: "#fecaca", font: "800 13px Inter, system-ui, sans-serif" }}>{settlementCopy?.error ?? "Gate verification paused. Your completed duel is safe to retry."}</div>
-                                <button onClick={onRetrySettlement} style={{ ...resultBtn, marginTop: 9 }}>{settlementCopy?.retry ?? "Retry Gate settlement"}</button>
+                                <button onClick={onRetrySettlement} style={{ ...resultBtn, marginTop: 9 }}>{settlementCopy?.retry ?? "Try again"}</button>
                             </div>
                         )}
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginTop: 18 }}>

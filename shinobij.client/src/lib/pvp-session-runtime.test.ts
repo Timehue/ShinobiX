@@ -297,7 +297,7 @@ describe("PvP live-session projection authority", () => {
         assert.equal(calls, 3);
         assert.equal(settling.kind, "unavailable");
         if (settling.kind === "unavailable") {
-            assert.match(settling.message, /settlement is still finalizing/i);
+            assert.match(settling.message, /result is still being recorded/i);
             assert.equal(settling.seedMayRemainVisible, true);
         }
     });
