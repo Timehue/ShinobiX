@@ -47,7 +47,7 @@ same commit as the workflow.
 | `CI / e2e-responsive` | `e2e_responsive` | 5 min | Fail-closed aggregate requiring all five responsive browser shards, including their CSP, Stronghold, and dedicated suites, to succeed. |
 | `CI / e2e-combat` | `e2e_combat` | 5 min | Fail-closed stable aggregate requiring all three combat browser shards to succeed. |
 | `CI / e2e-warfront` | `e2e_warfront` | 29 min | Warfront positional-mode browser coverage on seven Chromium viewport projects, including renders of eight real skinned rigs, and adaptive-layout evidence. |
-| `CI / e2e-village-stores` | `e2e_village_stores` | 35 min | Nine live Express player-journey steps in Chromium, each against its own real server started from the release artifact (see below). |
+| `CI / e2e-village-stores` | `e2e_village_stores` | 35 min | Ten live Express player-journey steps in Chromium, each against its own real server started from the release artifact (see below). |
 
 `CI / release-artifact` (`release_artifact`, 20 minutes) is an internal join that
 assembles and verifies the server and client outputs and distribution contract
@@ -105,7 +105,7 @@ not each matrix child, so future safe sharding changes do not silently rename th
 branch-protection contract.
 
 `CI / e2e-village-stores` keeps the name of its first journey, the Village Stores
-economy loop, but it now runs nine live Express steps in Chromium. Each step
+economy loop, but it now runs ten live Express steps in Chromium. Each step
 starts its own real server from the release artifact with a fresh in-memory
 store, so each step gets its own budget under the real registration limit of 25
 accounts per IP per 15 minutes. The steps are:
@@ -121,10 +121,13 @@ accounts per IP per 15 minutes. The steps are:
 - Exchange and sector-war player journeys (desktop).
 - Two-client sector presence and tavern push (realtime). The desktop project
   drives a desktop client, and each spec opens its own phone client.
+- The Hollow Gate "Send pet" duel (desktop and mobile).
 
 Realtime steps turn on the server's Socket.IO transport, which the other steps
 leave off. The ceiling went from 30 to 35 minutes on 2026-10-10, after fifteen
-green runs took 21.8 to 25.9 minutes, to make room for the presence step.
+green runs took 21.8 to 25.9 minutes, to make room for the presence step. On
+2026-10-13 and 14, before the Hollow Gate step joined, 24 green runs took 23.3
+to 28.5 minutes; that step's four cases took 1.6 minutes locally.
 
 `CI / test-build` (`test_build`, 5 minutes) is the compatibility aggregate for
 the former monolithic check. Keep it required while branch protection migrates
