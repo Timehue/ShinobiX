@@ -301,6 +301,23 @@ test('required live Express CI binds a real wild companion on desktop and mobile
     assert.doesNotMatch(command, /--grep/);
 });
 
+test('required live Express CI runs the Hollow Gate pet duel on desktop and mobile', () => {
+    // The journey sat outside CI, so when PR #347 put hunting wanderers on the
+    // first floor it failed 2 runs of 4 and nothing noticed for two days. A
+    // retry would hide the next flake the same way.
+    const job = workflow.slice(workflow.indexOf('\n  e2e_village_stores:'), workflow.indexOf('\n  test_build:'));
+    const command = job.split('\n').find(line => line.trim().startsWith('run:') && line.includes('hollow-gate-pet-duel-express.spec.ts'));
+    assert.ok(command, 'the required live Express job must execute the Hollow Gate pet duel');
+    assert.ok(command.includes('--project=chromium-desktop-live') && command.includes('--project=chromium-mobile-live'));
+    for (const flag of ['--workers=1', '--retries=0', '--forbid-only']) {
+        assert.ok(command.includes(flag), `the Hollow Gate pet duel must run with ${flag}`);
+    }
+    assert.ok(!command.includes('first-defeat-recovery-express.spec.ts'), 'it must not share a server with the recovery matrix');
+    assert.ok(command.includes('--output=test-results/hollow-gate-pet-duel-ci'), 'it must not overwrite earlier journey evidence');
+    assert.ok(command.includes('.ci-evidence/e2e-village-stores/hollow-gate-pet-duel.log'));
+    assert.doesNotMatch(command, /--grep/);
+});
+
 /*
  * The Node pin lives in exactly ONE place: .nvmrc.
  *
