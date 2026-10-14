@@ -29,7 +29,7 @@ import { resolveSectorWeather } from "../../../shared/sector-weather";
 import { clampNumber, playerSlug } from "./utils";
 import { cleanVillageTreasury, defaultVillageTreasury, makeVillageDailyAgenda, normalizeAnbuAppointees, normalizeVillageDailyAgenda } from "./village-state";
 import { normalizeNoticePosts } from "./clan-notices";
-import { sharedClanWarCache } from "./clan-war-api";
+import { sharedClanWarCache } from "./clan-war-read-api";
 import { countItem, removeItem } from "./inventory";
 import { villageLeadership } from "../data/village-leadership";
 import { villageUpgradeDefinitions, VILLAGE_UPGRADE_MAX_LEVEL } from "./village-upgrades";

@@ -228,7 +228,7 @@ const EchoesOfWar = lazyWithRetry(() => import("./screens/EchoesOfWar").then(m =
 const GuidesLibrary = lazyWithRetry(() => import("./components/GuidesLibrary").then(m => ({ default: m.GuidesLibrary })));
 const DungeonEncounter = lazyWithRetry(() => import("./screens/Dungeon").then(m => ({ default: m.DungeonEncounter })));
 const DungeonPetBattle = lazyWithRetry(() => import("./screens/Dungeon").then(m => ({ default: m.DungeonPetBattle })));
-import { sharedClanWarCache, cwListWars, type CwChallenge, type CwChallengeResult } from "./lib/clan-war-api";
+import { sharedClanWarCache, cwListWars, type CwChallenge, type CwChallengeResult } from "./lib/clan-war-read-api";
 const loadPvpBattleScreen = () => import("./screens/PvpBattleScreen").then(m => ({ default: m.PvpBattleScreen }));
 const PvpBattleScreen = lazyWithRetry(loadPvpBattleScreen);
 const Arena = lazyWithRetry(() => import("./screens/Arena").then(m => ({ default: m.Arena })));

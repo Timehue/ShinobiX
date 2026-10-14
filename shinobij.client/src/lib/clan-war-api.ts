@@ -2,7 +2,7 @@ import type { ClanWarCampaignView } from "../../../shared/clan-war-campaign";
 import {clanWarViewerCache as viewerCache} from './clan-war-cache-state';
 import {retryDynamicImport} from './lazyWithRetry';
 
-export const sharedClanWarCache: Record<string, CwWar> = viewerCache.cache;
+export {sharedClanWarCache,cwListWars} from './clan-war-read-api';
 export type ClanShrineRoomView={serverNow:number;players:Array<{name:string;displayName:string;clan:string;tile:number;inBattle:boolean}>};
 export type ClanWarQueueActionInput={warId:string;action:string;mode?:string;scope?:'normal'|'shrine';windowIndex?:number;partnerEntryId?:string;matchId?:string;tile?:number};
 const changedViewerError='The signed-in player changed. Reopen the clan page.';
@@ -79,19 +79,6 @@ export type CwWar = {
 };
 // CW_HP_MAX / CW_DAMAGE / CW_MODE_LABEL / CW_MODE_ICON moved to ./constants/clan.
 
-// Coalesce concurrent callers. Three pollers (App-level 30s + ClanWarsPanel 20s
-// + ClanBattlesTab 15s, the latter two on separate screens) can overlap; without
-// this each fires its own uncached origin fetch of the full war list. While a
-// request is in flight, additional callers share it and receive identical data —
-// behavior-identical to firing simultaneously, with no added staleness (the
-// in-flight handle is cleared the moment it settles, so the next call is fresh).
-export async function cwListWars(): Promise<CwWar[]> {
-    const viewer = viewerCache.scope();
-    try {
-        const list=await retryDynamicImport(()=>import('./clan-war-list'));
-        return viewerCache.current(viewer)?list.listClanWars(viewer):[];
-    }catch{return [];}
-}
 // The Honor Seal cost carries a retained requestId (lib/economy-request-intent):
 // declaring again after a lost answer finishes or replays the first
 // declaration instead of charging a second time.
