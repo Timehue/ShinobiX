@@ -133,7 +133,7 @@ export function WorldBossEvent({
     const receiptText = receipt?.rewardSummary || rewardLine(ownReward);
     const phaseCopy = useMemo(() => {
         if (event?.status === 'final-stand') return 'The creature has stopped moving. Every team can still challenge it until the event clock ends.';
-        if (event?.status === 'roaming') return 'Follow its signal across the wild sectors. The next hop is shown on the map.';
+        if (event?.status === 'roaming') return 'Follow its signal across the wild sectors. The world map highlights the sector it stands in now.';
         if (event?.status === 'victory') return 'Teams drove the creature back. Your shared contribution is recorded below.';
         if (event?.status === 'retreated') return 'The threat withdrew when the event clock expired. Your contribution remains on the record.';
         if (event?.status === 'stopped') return 'The event is closed. Contributions earned before closure remain recorded.';

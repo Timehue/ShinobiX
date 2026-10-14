@@ -959,7 +959,7 @@ function WorldMapContent({
         if (roamingBoss?.weekKey) coolWanderer(weeklyBossRoamCooldownId(roamingBoss.weekKey), ms);
     }
     function handleBossEngage() {
-        if (!roamingBoss?.aiId || requiresWandererChoice(wandererDialog)) return false; // waits its turn
+        if (!roamingBoss?.aiId || requiresWandererChoice(wandererDialog) || worldBossQueueOpen) return false; // waits its turn
         setBossDialog({
             name: roamingBoss.bossName ?? "Weekly Boss",
             portrait: sharedImages["ai:" + roamingBoss.aiId] || "",
@@ -1972,7 +1972,7 @@ function WorldMapContent({
     }
     function handleWandererEngage(w: Wanderer) {
         if (selectedSector == null || !sameSector(currentSector, selectedSector)) return;
-        if (requiresWandererChoice(wandererDialog) || bossDialog) return false; // one hostile at a time: it engages after this choice
+        if (requiresWandererChoice(wandererDialog) || bossDialog || worldBossQueueOpen) return false; // one hostile at a time; a world boss queue or raid is busy too
         if (combatActive || isCombatActive()) {
             if (w.verb === "bountyHunter") pendingBountyHunterRef.current = { hunterId: w.id, sector: selectedSector };
             return;
@@ -4468,7 +4468,7 @@ function WorldMapContent({
                         onCrossExit={roadWalk.requestExit}
                         onWalkArrive={roadWalk.arriveAtTile}
                         onWorldAuthority={worldAuthority}
-                        worldMovementBlocked={() => isTraveling || travelRequestInFlight.current || warShrine.open}
+                        worldMovementBlocked={() => isTraveling || travelRequestInFlight.current || warShrine.open || worldBossQueueOpen}
                         hudLayer={
                     <>{!vaultRaid && warShrine.tracker}<SectorHud key={selectedSector}
                         sector={selectedSector}

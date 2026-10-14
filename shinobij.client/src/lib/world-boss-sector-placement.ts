@@ -1,4 +1,6 @@
 import { sectorFloorLayout } from "./sector-floor-layout";
+import { RESOURCE_NODES, WORLD_BOSS_CRYSTAL_NODES } from "../../../shared/resource-nodes";
+import { STORY_FIELD_JOURNEYS } from "../../../shared/story-field-work";
 
 const GRID = 12;
 // The board's middle: the camera follows a player who usually stands near the
@@ -35,7 +37,23 @@ function claimedTiles(sector: number): Set<number> {
         claimed.add(layout.village.approach);
     }
     for (const exit of layout.exits ?? []) claimed.add(exit.tile);
+    // A gathering spot's approach is where players tap to walk; the boss's
+    // footprint would take that tap and open the queue instead.
+    for (const node of resourceNodesIn(sector)) claimed.add(node.approach);
     return claimed;
+}
+
+function resourceNodesIn(sector: number) {
+    return [...RESOURCE_NODES, ...WORLD_BOSS_CRYSTAL_NODES].filter(node => node.sector === sector);
+}
+
+/** Markers drawn over the board that the boss's body must not cover. */
+function markedTiles(sector: number): Set<number> {
+    const marked = new Set<number>(resourceNodesIn(sector).map(node => node.target));
+    for (const journey of Object.values(STORY_FIELD_JOURNEYS)) {
+        for (const point of Object.values(journey.points)) if (point.sector === sector) marked.add(point.tile);
+    }
+    return marked;
 }
 
 /** The figure is ~3 tiles tall: keep its head on the board. */
@@ -47,17 +65,37 @@ const MIN_ROW = 3;
  * tiles tall and two and a half wide, with its name under its feet, so the
  * first choice is open ground for all of it: a walkable tile whose neighbours
  * left, right and below and the two tiles its body rises into are walkable too,
- * clear of structures, village gates and road exits. Nearest the board's
- * centre wins. A cramped sector relaxes to its feet alone, then to any
- * walkable tile.
+ * clear of structures, village gates, road exits and gathering approaches, and
+ * whose body (three tiles wide, three tall) and name row cover no gathering
+ * spot or story field marker. Nearest the board's centre wins. A cramped sector relaxes to
+ * its feet alone, then to any walkable tile.
  */
 export function worldBossSectorTile(sector: number, isWalkable: (tile: number) => boolean): number {
     const claimed = claimedTiles(sector);
+    const marked = markedTiles(sector);
     const open = (tile: number) => tile >= 0 && tile < GRID * GRID && isWalkable(tile) && !claimed.has(tile);
     const row = (tile: number) => Math.floor(tile / GRID);
+    // Two columns each side: on a phone a gathering icon gets the 48px touch
+    // floor, nearly two tiles wide, so one a column away still meets the boss.
+    const bodyClear = (tile: number) => {
+        for (let dr = -2; dr <= 1; dr += 1) for (let dc = -2; dc <= 2; dc += 1) {
+            const r = row(tile) + dr, c = tile % GRID + dc;
+            if (r >= 0 && c >= 0 && c < GRID && marked.has(r * GRID + c)) return false;
+        }
+        return true;
+    };
+    // The whole body box (three wide, three tall) on open ground, so on a phone,
+    // where the figure is drawn wider than three tiles, it still clears walls.
+    const bodyOpen = (tile: number) => {
+        const col = tile % GRID;
+        if (col === 0 || col === GRID - 1) return false;
+        for (let dr = -2; dr <= 0; dr += 1) for (let dc = -1; dc <= 1; dc += 1) {
+            if (!open(tile + dr * GRID + dc)) return false;
+        }
+        return true;
+    };
     const roomy = (tile: number) => row(tile) >= MIN_ROW && row(tile) < GRID - 1
-        && open(tile) && open(tile - GRID) && open(tile - 2 * GRID) && open(tile + GRID)
-        && tile % GRID > 0 && open(tile - 1) && tile % GRID < GRID - 1 && open(tile + 1);
+        && bodyOpen(tile) && open(tile + GRID) && bodyClear(tile);
     return ORDER.find(roomy)
         ?? ORDER.find(tile => row(tile) >= MIN_ROW && open(tile))
         ?? ORDER.find(tile => isWalkable(tile))
