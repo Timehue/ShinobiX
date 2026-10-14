@@ -1,5 +1,15 @@
 /* Shared jutsu material for menus, loadouts and creator previews. Layered
-   important declarations keep the treatment consistent across menu skins. */
+   important declarations keep the treatment consistent across menu skins.
+
+   Route-owned, NOT in index.css: the screens that render these classes
+   (Profile, Training, AdminPanel, CentralHub, BloodlineMaker) import it, so
+   it loads as a lazy chunk instead of costing startup ~2 KB of gzip. The
+   components themselves must not, because node tests import them and CSS
+   is not stubbed there. Where the <link> lands cannot change a winner: a
+   layered !important beats every unlayered rule and a layered normal one
+   loses to all of them, in any order. That holds while this is the only
+   @layer and only this file defines the :root tokens below;
+   styles/css-manifest.test.ts checks both. */
 :root {
     --jutsu-frame-gold: #b49a63;
     --jutsu-frame-highlight: #e1ce9e;
