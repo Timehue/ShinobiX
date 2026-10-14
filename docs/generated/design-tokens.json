@@ -2542,7 +2542,7 @@
           },
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
-            "line": 7039
+            "line": 7053
           }
         ]
       },
@@ -2714,15 +2714,19 @@
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 105
+            "line": 98
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 132
+            "line": 179
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 173
+            "line": 206
+          },
+          {
+            "source": "shinobij.client/src/components/underground-sector.css",
+            "line": 247
           },
           {
             "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
@@ -3277,7 +3281,7 @@
           },
           {
             "source": "shinobij.client/src/styles/world-boss-queue-dialog.css",
-            "line": 116
+            "line": 121
           }
         ]
       },
@@ -3333,15 +3337,19 @@
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 115
+            "line": 88
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 132
+            "line": 189
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 152
+            "line": 206
+          },
+          {
+            "source": "shinobij.client/src/components/underground-sector.css",
+            "line": 226
           },
           {
             "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
@@ -3531,6 +3539,10 @@
             "line": 111
           },
           {
+            "source": "shinobij.client/src/styles/clan-war-campaign.css",
+            "line": 8
+          },
+          {
             "source": "shinobij.client/src/styles/pet-arena-presentation.css",
             "line": 176
           },
@@ -3656,7 +3668,7 @@
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 152
+            "line": 226
           },
           {
             "source": "shinobij.client/src/features/character-creator/character-creator.css",
@@ -3683,7 +3695,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
-            "line": 6289
+            "line": 6303
           },
           {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",
@@ -3711,6 +3723,10 @@
           {
             "source": "shinobij.client/src/screens/EchoesOfWar.css",
             "line": 874
+          },
+          {
+            "source": "shinobij.client/src/styles/clan-overview.css",
+            "line": 7
           },
           {
             "source": "shinobij.client/src/styles/hub-screens-skin.css",
@@ -3853,6 +3869,10 @@
           {
             "source": "shinobij.client/src/components/first-contract.css",
             "line": 263
+          },
+          {
+            "source": "shinobij.client/src/features/clanWar/clan-shrine.css",
+            "line": 3
           },
           {
             "source": "shinobij.client/src/features/villageWar/town-hall-war-display.css",
@@ -4351,7 +4371,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 96
+            "line": 170
           },
           {
             "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
@@ -4515,7 +4535,7 @@
           },
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
-            "line": 7142
+            "line": 7156
           },
           {
             "source": "shinobij.client/src/styles/combat-grid-appearance.css",
@@ -5173,7 +5193,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
-            "line": 6289
+            "line": 6303
           },
           {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",

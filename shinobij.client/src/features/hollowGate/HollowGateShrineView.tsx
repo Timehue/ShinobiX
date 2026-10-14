@@ -13,9 +13,9 @@
  * in App; WASD/arrows still step one tile. A minimap in the side panel keeps
  * the whole floor legible while the camera stays close.
  *
- * Admin-generated atlas art still wins everywhere it is assigned: terrain
- * textures (shrine:tile-*), per-theme tiles (shrine:icon-theme-*), content
- * icon variants (shrine:icon-*) and decorations all overlay the CSS look.
+ * Quest rifts use the shared underground terrain; legacy atlas floor stamps
+ * must not cover its continuous rock, passage art and lighting. Assigned
+ * content icons remain available in every run.
  */
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import "../../styles/index/33-hollow-gate-cinematic.css";
@@ -27,6 +27,8 @@ import { hollowGateWandererArt, hollowGateWandererFriendly, hollowGateWandererNa
 import { UndergroundSectorTerrain } from '../../components/UndergroundSectorTerrain';
 import { undergroundFeatureBlocks } from '../../../../shared/underground-floor-collision';
 import { undergroundCamera, undergroundRenderWindow, undergroundRooms, undergroundTileSize } from '../../lib/underground-sector-camera';
+import { riftBreachSites } from '../../lib/rift-breach-layout';
+import { RiftEnergyOverlay } from '../../components/RiftBreach';
 import { HollowGateBossCinematic } from "./HollowGateBossCinematic";
 import { HollowGateShardBar } from "../../components/HollowGateShardBar";
 import { GameArtIcon, type GameArtIconKind } from "../../components/GameArtIcon";
@@ -39,6 +41,7 @@ import {
     HOLLOW_GATE_ALPHA_CINEMATIC,
     hollowGateAlphaCinematicImage,
     hollowGateFloorProfile,
+    hollowGateRiftFloorProfile,
 } from "../../lib/hollow-gate-presentation";
 import type { HollowGateEventModal } from "../../lib/hollow-gate-tile";
 import { isPetOnExpedition } from "../../lib/pet";
@@ -200,6 +203,8 @@ function iconSlotIdFor(k: HollowGateTileKind): string | null {
 
 type HollowGateCellProps = {
     i: number; x: number; y: number; tilePx: number; tile: HollowGateTile;
+    /** A quest rift: its sector-style terrain takes no atlas floor or wall stamps. */
+    rift: boolean;
     wall: boolean; wallFace: boolean; besideOpening: boolean; theme: string | undefined;
     visible: boolean; known: boolean; isPlayer: boolean; isDest: boolean; clickable: boolean;
     isDetourChest: boolean; isRiftSignal: boolean; roamerOrigin: boolean;
@@ -213,7 +218,7 @@ type HollowGateCellProps = {
  * whose light, occupancy or contents changed rather than every cell of the
  * floor, and a reply that only moves torch or threat re-renders none.
  */
-const HollowGateCell = memo(function HollowGateCell({ i, x, y, tilePx, tile, wall, wallFace, besideOpening, theme,
+const HollowGateCell = memo(function HollowGateCell({ i, x, y, tilePx, tile, rift, wall, wallFace, besideOpening, theme,
     visible, known, isPlayer, isDest, clickable, isDetourChest, isRiftSignal, roamerOrigin, playerName, detourExtraSteps, riftLabel, art, onPick }: HollowGateCellProps) {
     const revealed = tile.revealed;
     const terrainKind: HollowGateTerrain =
@@ -235,7 +240,9 @@ const HollowGateCell = memo(function HollowGateCell({ i, x, y, tilePx, tile, wal
     // The player's cell renders like any other floor — the
     // avatar is an overlay, not a tile style.
     const cellTheme = (visible || known) ? theme : undefined;
-    const texture = (visible || known) ? art.textureFor(terrainKind, i, cellTheme, wallFace) : undefined;
+    // Saved/admin atlas tiles otherwise obscure the sector-style
+    // terrain with the old square floor and masonry stamps.
+    const texture = !rift && (visible || known) ? art.textureFor(terrainKind, i, cellTheme, wallFace) : undefined;
     const texturedFace = wallFace && Boolean(texture) && art.hasFaceArt(cellTheme);
     const layers: string[] = [];
     // Surprise tiles (trap/battle/elite/pet) stay disguised as
@@ -364,7 +371,9 @@ export function HollowGateShrineView({
     onCloseHiddenChamber,
 }: HollowGateShrineViewProps) {
     const run = hollowGateRun;
+    const isQuestRift = run.variant?.id.startsWith('rift-') === true;
     const chamberBounds = useMemo(() => undergroundRooms(run.tiles, run.width), [run.tiles, run.width]);
+    const breachSites = useMemo(() => isQuestRift ? riftBreachSites(run.tiles, run.width) : [], [isQuestRift, run.tiles, run.width]);
     // computeHollowGateVisible reads only the board, its size and the position,
     // so a server reply that moves torch, threat or wanderers reuses the set.
     const { tiles: runTiles, width: runWidth, height: runHeight, playerX: runPlayerX, playerY: runPlayerY, diviner: runDiviner } = run;
@@ -414,10 +423,10 @@ export function HollowGateShrineView({
         : "linear-gradient(180deg, rgba(15,9,28,0.92), rgba(8,4,18,0.95))";
     const maxFloor = hollowGateRunMaxFloor(run);
     const introPages = hollowGateIntroPagesFor(run.variant);
-    const floorProfile = hollowGateFloorProfile(run.floor);
+    const bossName = hollowGateBossDisplayName(run);
+    const floorProfile = isQuestRift ? hollowGateRiftFloorProfile(run.floor, maxFloor, bossName) : hollowGateFloorProfile(run.floor);
     const lootAtRisk = hollowGateClawBackPreview(character, run);
     const ryoAtRisk = lootAtRisk.ryo ?? 0, shardsAtRisk = lootAtRisk.hollowShards ?? 0;
-    const bossName = hollowGateBossDisplayName(run);
     const isFinalFloor = run.floor >= maxFloor;
     const isHoundBoss = bossName.toLowerCase().includes("hound");
     const bossIntroKey = `${run.runToken || run.serverSeed || character.name || "local"}:${run.floor}`;
@@ -431,9 +440,11 @@ export function HollowGateShrineView({
         && dismissedBossIntroKey !== bossIntroKey
         && !bossIntroWasSeen(bossIntroKey);
     const floorStyle = {
-        "--hg-floor-accent": floorProfile.accent,
-        "--hg-floor-accent-soft": floorProfile.accentSoft,
-        "--hg-floor-fog": floorProfile.fog,
+        ...(!isQuestRift ? {
+            "--hg-floor-accent": floorProfile.accent,
+            "--hg-floor-accent-soft": floorProfile.accentSoft,
+            "--hg-floor-fog": floorProfile.fog,
+        } : {}),
         background: cardBackground,
         color: "#e9d5ff",
         padding: 16,
@@ -462,19 +473,27 @@ export function HollowGateShrineView({
 
     // Derived from the measured viewport rather than window.innerWidth at module
     // load, so rotation, split-screen, and browser zoom update the camera.
-    const tilePx = undergroundTileSize({ width: vp.w, height: vp.h }, chamberBounds);
+    const tilePx = undergroundTileSize({ width: vp.w, height: vp.h }, chamberBounds, isQuestRift ? 'rift' : false);
     const boardW = run.width * tilePx;
     const boardH = run.height * tilePx;
     const playerRoom = run.tiles[run.playerY * run.width + run.playerX]?.roomId;
+    const roomBreach = breachSites.find(site => site.roomId === playerRoom && site.cells.every(i => visibleSet.has(i)));
+    // Keep the player and the discovered power source together, particularly
+    // in short landscape fields. Large chamber axes still follow the player.
+    const sourceWeight = roomBreach ? (vp.h < 300 ? .5 : .2) : 0;
+    const focusAxis = (player: number, source: number, extent: number) => player
+        + Math.max(-extent / tilePx * .22, Math.min(extent / tilePx * .22, (source - .5 - player) * sourceWeight));
     const camera = undergroundCamera({ view: { width: vp.w, height: vp.h }, width: run.width, height: run.height,
-        tileSize: tilePx, playerX: run.playerX, playerY: run.playerY, room: playerRoom == null ? undefined : chamberBounds.get(playerRoom) });
+        tileSize: tilePx, playerX: focusAxis(run.playerX, roomBreach?.x ?? run.playerX + .5, vp.w),
+        playerY: focusAxis(run.playerY, roomBreach?.y ?? run.playerY + .5, vp.h),
+        room: playerRoom == null ? undefined : chamberBounds.get(playerRoom), margin: isQuestRift ? 1.3 : 1 });
     // The terrain is memoized: keep its raster window's identity until the camera moves.
-    const renderWindow = useMemo(() => undergroundRenderWindow({ view: { width: vp.w, height: vp.h },
+    const terrainWindow = useMemo(() => undergroundRenderWindow({ view: { width: vp.w, height: vp.h },
         width: runWidth, height: runHeight, tileSize: tilePx, camera: { x: camera.x, y: camera.y } }),
     [vp.w, vp.h, runWidth, runHeight, tilePx, camera.x, camera.y]);
 
     return (
-                        <div className="card hollow-gate-shrine underground-world underground-world--cave" data-hg-floor={floorProfile.floor} data-hg-loot-at-risk={Boolean(ryoAtRisk || shardsAtRisk)} style={floorStyle}>
+                        <div className={`card hollow-gate-shrine underground-world underground-world--cave${isQuestRift ? ' underground-world--rift' : ''}`} data-hg-rift={isQuestRift ? run.variant?.id : undefined} data-hg-depths={maxFloor} data-hg-floor={floorProfile.floor} data-hg-loot-at-risk={Boolean(ryoAtRisk || shardsAtRisk)} style={floorStyle}>
                             {showBossIntro && (
                                 <HollowGateBossCinematic
                                     mode="entrance"
@@ -530,9 +549,9 @@ export function HollowGateShrineView({
                                 <div>
                                     <p className="act-label" style={{ color: "#a855f7", letterSpacing: 2 }}>
                                         {run.variant?.label ? run.variant.label.toUpperCase() : "HOLLOW GATE · ANCIENT CAVERN"}
-                                        {run.variant && <span style={{ marginLeft: 8, fontSize: 10, color: "#fbbf24", border: "1px solid #b45309", borderRadius: 999, padding: "1px 8px", letterSpacing: 1 }}>EVENT</span>}
+                                        {run.variant && <span className={isQuestRift ? 'hg-rift-badge' : undefined} style={isQuestRift ? undefined : { marginLeft: 8, fontSize: 10, color: "#fbbf24", border: "1px solid #b45309", borderRadius: 999, padding: "1px 8px", letterSpacing: 1 }}>{isQuestRift ? 'RIFT' : 'EVENT'}</span>}
                                     </p>
-                                    <h2 style={{ margin: 0, color: "#faf5ff" }}>Floor {run.floor} / {maxFloor} · {run.completed ? `${bossName} Defeated` : floorProfile.name}</h2>
+                                    <h2 style={{ margin: 0, color: "#faf5ff" }}>{isQuestRift ? <><span className="hg-rift-depth">Depth {String(run.floor).padStart(2, '0')} / {String(maxFloor).padStart(2, '0')}</span>{run.completed ? 'The Rift Falls Silent' : floorProfile.name}</> : <>Floor {run.floor} / {maxFloor} · {run.completed ? `${bossName} Defeated` : floorProfile.name}</>}</h2>
                                 </div>
                                 <div className="hg-cave-vitals" style={{ display: "flex", gap: 16, alignItems: "center" }}>
                                     <div className="hg-cave-threat" style={{ minWidth: 200 }}>
@@ -582,10 +601,10 @@ export function HollowGateShrineView({
                                 {Array.from({ length: maxFloor }, (_, i) => <li key={i} aria-current={run.floor === i + 1 ? 'step' : undefined}
                                     data-depth-state={i + 1 < run.floor ? 'traversed' : i + 1 === run.floor ? 'current' : 'ahead'}>
                                     <span className="underground-depths__number" aria-hidden="true">{i + 1}</span>
-                                    <span className="underground-depths__name"><small>{i + 1 < run.floor ? 'Traversed' : i + 1 === run.floor ? 'Current depth' : `Depth ${i + 1}`}</small>{hollowGateFloorProfile(i + 1).name}</span>
+                                    <span className="underground-depths__name"><small>{i + 1 < run.floor ? 'Traversed' : i + 1 === run.floor ? 'Current depth' : `Depth ${i + 1}`}</small>{(isQuestRift ? hollowGateRiftFloorProfile(i + 1, maxFloor, bossName) : hollowGateFloorProfile(i + 1)).name}</span>
                                 </li>)}
                             </ol>
-                            <details className="hg-floor-notes"><summary><span className="hg-floor-notes__epithet">{floorProfile.epithet} · </span>Cave lore &amp; hound intel</summary>
+                            <details className="hg-floor-notes"><summary><span className="hg-floor-notes__epithet">{floorProfile.epithet} · </span>{isQuestRift ? 'Rift lore & guardian intel' : 'Cave lore & hound intel'}</summary>
                             <section className="hg-floor-identity" aria-label={`Floor ${run.floor}: ${floorProfile.name}`}>
                                 <div className="hg-floor-identity__seal" aria-hidden="true">{run.floor}</div>
                                 <div className="hg-floor-identity__story">
@@ -594,7 +613,7 @@ export function HollowGateShrineView({
                                     <small>{floorProfile.lore}</small>
                                 </div>
                                 <div className="hg-floor-identity__hound">
-                                    <span>HOUND SIGNATURE</span>
+                                    <span>{isQuestRift ? 'RIFT GUARDIAN' : 'HOUND SIGNATURE'}</span>
                                     <strong>{floorProfile.signature}</strong>
                                     <small>{floorProfile.houndEpithet}</small>
                                 </div>
@@ -656,8 +675,12 @@ export function HollowGateShrineView({
                                              ["--hg-tile" as string]: `${tilePx}px`,
                                         }}
                                     >
-                                    <UndergroundSectorTerrain tiles={run.tiles} width={w} height={h} known={knownSet} visible={visibleSet} mode="cave" features={run.floorFeatures}
-                                        renderWindow={renderWindow} />
+                                    <UndergroundSectorTerrain tiles={run.tiles} width={w} height={h} known={knownSet} visible={visibleSet} mode="cave" rift={isQuestRift} features={run.floorFeatures}
+                                        renderWindow={terrainWindow} />
+                                    {breachSites.filter(site => site.x >= terrainWindow.left && site.x < terrainWindow.left + terrainWindow.width
+                                        && site.y >= terrainWindow.top && site.y < terrainWindow.top + terrainWindow.height
+                                        && site.cells.every(index => visibleSet.has(index)))
+                                        .map(site => <RiftEnergyOverlay key={site.roomId} site={site} tilePx={tilePx} />)}
                                     {run.tiles.map((tile, i) => {
                                         const x = i % w;
                                         const y = Math.floor(i / w);
@@ -669,7 +692,7 @@ export function HollowGateShrineView({
                                         const isRiftSignal = run.riftSignalTileIndex === i;
                                         const wall = isWallAt(x, y);
                                         const wallFace = wall && !isWallAt(x, y + 1);
-                                        return <HollowGateCell key={i} i={i} x={x} y={y} tilePx={tilePx} tile={tile}
+                                        return <HollowGateCell key={i} i={i} x={x} y={y} tilePx={tilePx} tile={tile} rift={isQuestRift}
                                             wall={wall} wallFace={wallFace} besideOpening={wallFace && (!isWallAt(x - 1, y) || !isWallAt(x + 1, y))}
                                             theme={tileTheme(i)} visible={visible} known={known} isPlayer={isPlayer} isDest={walkTarget === i}
                                             clickable={known && !wall && !isPlayer && !blockedCells.has(i)}
@@ -776,7 +799,7 @@ export function HollowGateShrineView({
                                                 tilegame: "dice", npc: "healer", descend: "worldMap", exit: "worldMap", locked: "key", wall: "biomeCentral",
                                             };
                                             // Walls use the atlas wall tile (terrain), not an icon slot.
-                                            const wallTileImg = sharedImages["shrine:tile-wall"] ?? sharedImages["shrine:tile-wall-0"];
+                                            const wallTileImg = isQuestRift ? undefined : sharedImages["shrine:tile-wall"] ?? sharedImages["shrine:tile-wall-0"];
                                             // Legend picks any-variant: shrine:icon-<role>-1 first, then
                                             // shrine:icon-<role>-2..N, then the legacy un-suffixed key.
                                             // This way the legend reflects "an assignment exists" without
@@ -806,8 +829,8 @@ export function HollowGateShrineView({
                                             };
                                             return (
                                                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
-                                                    {legendCell("you",     "You")}      {legendCell("battle",  "Hollow Hound")}
-                                                    {legendCell("elite",   "Elite Hound")}{legendCell("boss",  "Alpha Hound")}
+                                                    {legendCell("you",     "You")}      {legendCell("battle",  isQuestRift ? "Encounter" : "Hollow Hound")}
+                                                    {legendCell("elite",   isQuestRift ? "Elite" : "Elite Hound")}{legendCell("boss",  isQuestRift ? bossName : "Alpha Hound")}
                                                     {legendCell("trap",    "Trap")}     {legendCell("chest",   "Chest")}
                                                     {legendCell("shrine",  "Shrine")}   {legendCell("story",   "Story")}
                                                     {legendCell("npc",     "Keeper")}   {legendCell("descend", "Descend")}

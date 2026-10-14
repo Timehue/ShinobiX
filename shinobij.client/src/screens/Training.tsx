@@ -13,6 +13,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import "../styles/training-skin.css";
 import "../styles/hub-screens-skin.css";
 import "../styles/jutsu-training-skin.css";
+import "../styles/jutsu-frames.css";
 import { gameConfirm } from "../components/GameAlert";
 import { JutsuDropdownList } from "../components/JutsuDropdownList";
 import { JutsuEffectCards } from "../components/JutsuEffectCards";
