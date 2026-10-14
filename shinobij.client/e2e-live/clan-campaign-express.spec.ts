@@ -39,7 +39,7 @@ async function install(context:BrowserContext,request:APIRequestContext,player:P
         localStorage.setItem('ninjav-player-accounts-v1',JSON.stringify({[name]:{token}}));localStorage.setItem('shinobix:activePlayerPersist',name);localStorage.setItem('shinobix:activeTokenPersist',token);
         localStorage.setItem(`ninjav-save-preview-v1:${name}`,JSON.stringify(canonical));localStorage.setItem('shinobix:storage-notice-ack','1');
         localStorage.setItem('patchNotes.lastSeenVersion.v1',patch);localStorage.setItem('dailyBriefing.seen.v1',new Date().toISOString().slice(0,10));
-    },{...player,canonical,patch:LATEST_PATCH_NOTE.version});
+    },{...player,canonical,patch:LATEST_PATCH_NOTE?.version??''});
 }
 async function hall(page:Page){
     await page.goto('/#/clan',{waitUntil:'domcontentloaded'});await expect(page.locator('.clan-overview')).toBeVisible();
