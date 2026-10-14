@@ -3,7 +3,7 @@
 
    Route-owned, NOT in index.css: the screens that render these classes
    (Profile, Training, AdminPanel, CentralHub, BloodlineMaker) import it, so
-   it loads as a lazy chunk instead of costing startup ~2.8 KB gzip. The
+   it loads as a lazy chunk instead of costing startup ~2 KB of gzip. The
    components themselves must not, because node tests import them and CSS
    is not stubbed there. Where the <link> lands cannot change a winner: a
    layered !important beats every unlayered rule and a layered normal one
