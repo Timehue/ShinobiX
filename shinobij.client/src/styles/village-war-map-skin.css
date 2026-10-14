@@ -238,3 +238,9 @@
     filter: none;
     animation: none;
 }
+/* A siege is information, not decoration: without the pulse a contested sector
+   still needs a mark, so lite gets a solid danger ring that never moves. */
+.vw-sector-claim.lite.contested .vw-claim-ring {
+    opacity: 0.85;
+    box-shadow: 0 0 0 2px var(--sj-danger);
+}

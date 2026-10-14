@@ -415,10 +415,12 @@
     color: #e8edf5 !important;
     transition: border-color 120ms, box-shadow 120ms, transform 120ms;
 }
-.profile-page-card .jutsu-card:hover {
-    border-color: rgba(78,168,255,0.85) !important;
-    box-shadow: 0 0 16px rgba(78,168,255,0.35), inset 0 0 18px rgba(0,0,0,0.45) !important;
-    transform: translateY(-2px);
+@media (hover: hover) {
+    .profile-page-card .jutsu-card:hover {
+        border-color: rgba(78,168,255,0.85) !important;
+        box-shadow: 0 0 16px rgba(78,168,255,0.35), inset 0 0 18px rgba(0,0,0,0.45) !important;
+        transform: translateY(-2px);
+    }
 }
 .profile-page-card .jutsu-card.selected,
 .profile-page-card .jutsu-card.equipped,
@@ -2757,7 +2759,6 @@
     transition: transform 130ms, border-color 130ms, box-shadow 130ms;
 }
 
-.profile-page-card .jutsu-collection-card:hover,
 .profile-page-card .jutsu-collection-card:has(.jutsu-collection-select:focus-visible),
 .profile-page-card .jutsu-collection-card.is-selected {
     z-index: 1;
@@ -2765,6 +2766,15 @@
     border-color: var(--jutsu-frame-highlight);
     box-shadow: 0 0 14px rgba(233, 173, 63, 0.28), inset 0 1px rgba(255,255,255,0.12);
     transform: translateY(-2px);
+}
+@media (hover: hover) {
+    .profile-page-card .jutsu-collection-card:hover {
+        z-index: 1;
+        outline: none;
+        border-color: var(--jutsu-frame-highlight);
+        box-shadow: 0 0 14px rgba(233, 173, 63, 0.28), inset 0 1px rgba(255,255,255,0.12);
+        transform: translateY(-2px);
+    }
 }
 
 .profile-page-card .jutsu-collection-card.is-equipped {

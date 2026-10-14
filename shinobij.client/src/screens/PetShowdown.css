@@ -1834,6 +1834,8 @@
     .showdown-flash { animation: none; opacity: 0; }
     .showdown-ko-impact { animation: none; opacity: 0; backdrop-filter: none; }
     .showdown-finisher { animation: none; transform: translate(-50%, 0); }
+    /* The last-ten-seconds clock keeps its red text and border; only the blink stops. */
+    .showdown-turn-timer.urgent { animation: none; }
 
     .showdown-plate.targetable,
     .showdown-plate-meter.full > span,
