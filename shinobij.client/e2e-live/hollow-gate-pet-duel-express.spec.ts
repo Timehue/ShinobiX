@@ -484,6 +484,9 @@ test('Send pet opens the server-drawn duel on the shrine, and a forfeit settles 
 
     const before = await diver.readCharacter();
     expect(before.hollowGateRun?.runToken).toBe(dive.started.token);
+    // Retain the actual fight presentation as well as the post-fight shrine.
+    await page.evaluate(() => document.fonts.ready);
+    await page.screenshot({ path: info.outputPath('hollow-gate-pet-duel.png'), animations: 'disabled' });
     await forfeitTheDuel(page, dive);
 
     // The shrine shows the defeat, and the run goes on. The settle reply's

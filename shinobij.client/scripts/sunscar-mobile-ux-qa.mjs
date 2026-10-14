@@ -1,4 +1,4 @@
-import { chromium, webkit } from '@playwright/test';
+import { chromium, webkit, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -11,12 +11,14 @@ async function measure(page, label, selector = '.sunscar-mode') {
   const result = await page.locator(selector).evaluate(root => {
     const rect = e => { const r = e.getBoundingClientRect(); return { x:r.x,y:r.y,width:r.width,height:r.height,bottom:r.bottom,right:r.right }; };
     const visible = e => { const r=e.getBoundingClientRect(); return r.width>0 && r.height>0 && getComputedStyle(e).visibility !== 'hidden'; };
-    const controls = [...root.querySelectorAll('button, select, summary')].filter(visible);
+    const pause = document.querySelector('.rally-pause-modal');
+    const controls = [...root.querySelectorAll('button, select, summary'), ...(pause?.querySelectorAll('button, select, summary') || [])].filter(visible);
     return {
       viewport:[innerWidth,innerHeight], scrollY, overflow:document.documentElement.scrollWidth > innerWidth + 1,
       smallTargets:controls.filter(e => { const r=e.getBoundingClientRect(); return r.width<44 || r.height<44; }).map(e=>({text:e.getAttribute('aria-label') || e.textContent.trim().slice(0,80), ...rect(e)})),
       race:root.querySelector('.rally-stage') ? {stage:rect(root.querySelector('.rally-stage')),controls:rect(root.querySelector('.rally-controls')),hud:rect(root.querySelector('.rally-hud'))} : null,
       inspected:root.querySelector('.caravan-next-stop') ? rect(root.querySelector('.caravan-next-stop')) : null,
+      pause:pause ? { rect:rect(pause), overflow:pause.querySelector('.ui-modal-body').scrollHeight - pause.querySelector('.ui-modal-body').clientHeight } : null,
       brokenImages:[...root.querySelectorAll('img')].filter(e=>e.complete&&!e.naturalWidth).map(e=>e.src),
     };
   });
@@ -30,6 +32,10 @@ async function measure(page, label, selector = '.sunscar-mode') {
     assert.ok(r.y >= -1 && r.bottom <= result.viewport[1] + 1, label + ': ' + name + ' must remain in view');
   }
   if (result.inspected) assert.ok(result.inspected.y >= 0 && result.inspected.bottom <= result.viewport[1] + 1, label + ': selected road and travel action must be visible');
+  if (result.pause) {
+    assert.ok(result.pause.rect.y >= 0 && result.pause.rect.bottom <= result.viewport[1] + 1, label + ': pause dialog must fit the viewport');
+    assert.ok(result.pause.overflow <= 1, label + ': normal pause settings and actions must fit without clipping or scrolling');
+  }
 }
 for (const [browserName, type] of [['chromium', chromium], ['webkit', webkit]]) {
   const browser = await type.launch({headless:true,...browserName==='chromium'?{args:['--use-angle=swiftshader','--enable-unsafe-swiftshader']}: {}});
@@ -39,7 +45,8 @@ for (const [browserName, type] of [['chromium', chromium], ['webkit', webkit]]) 
       const page=await context.newPage(); page.setDefaultTimeout(45000);
       const label=browserName+'-'+width+'x'+height;
       page.on('pageerror',e=>report.errors.push({label,message:e.message}));
-      await page.request.post(base+'/__qa/reset');
+      const reset = await page.request.post(base+'/__qa/reset');
+      assert.equal(reset.ok(), true, label + ': isolated save must reset successfully');
       await page.goto(base+'/sunscar-modes-qa.html');
       await page.getByRole('button',{name:'Visit the race grounds'}).waitFor();
       await measure(page,label+'-hub');
@@ -57,6 +64,17 @@ for (const [browserName, type] of [['chromium', chromium], ['webkit', webkit]]) 
         await page.getByRole('button',{name:'Steer left, left stick, A or Left Arrow'}).tap();
         await page.getByRole('button',{name:'Jump, right trigger or Space'}).tap();
         await page.getByRole('button',{name:'Pause race'}).tap();
+        const pauseDialog = page.getByRole('dialog', { name: 'Taking a breather' });
+        const graphics = pauseDialog.getByRole('combobox', { name: 'Race graphics' });
+        await expect(graphics).toBeFocused();
+        await page.keyboard.press('Shift+Tab');
+        await expect(pauseDialog.getByRole('button', { name: 'Save & return' })).toBeFocused();
+        await page.keyboard.press('Tab');
+        await expect(graphics).toBeFocused();
+        await page.keyboard.press('Escape');
+        await expect(pauseDialog).toHaveCount(0);
+        await expect(page.getByRole('button', { name: 'Pause race' })).toBeFocused();
+        await page.getByRole('button', { name: 'Pause race' }).tap();
         await measure(page,label+'-race-paused');
         await page.getByRole('button',{name:'Continue race'}).focus();
         await page.keyboard.press('Space');
@@ -64,7 +82,9 @@ for (const [browserName, type] of [['chromium', chromium], ['webkit', webkit]]) 
         await page.keyboard.press('Escape');
         await page.locator('.rally-pause-overlay').waitFor();
         await page.getByRole('button',{name:'Save & return'}).click();
-        assert.equal(await page.evaluate(()=>document.body.classList.contains('ui-scroll-locked')),false,'race exit releases the existing body scroll lock');
+        await page.getByRole('button',{name:'Practice selected course'}).waitFor();
+        await expect.poll(()=>page.evaluate(()=>document.body.classList.contains('ui-scroll-locked')),
+          { message:'race exit releases the existing body scroll lock' }).toBe(false);
       }
       await page.getByRole('button',{name:/Festival$/}).click();
       await page.getByRole('button',{name:'Read today’s contracts'}).click();
