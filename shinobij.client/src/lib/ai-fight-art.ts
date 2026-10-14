@@ -4,6 +4,7 @@ import { resolveStorywideActorImage } from "./vn-storywide-direction";
 import { vnActorImageKey } from './vn-shared-artwork';
 import { isRetiredVnArt } from './vn-retired-artwork';
 import { resolveCinematicActorImage } from './vn-presentation';
+import { worldBossDefinitionForVisual } from '../../../shared/world-boss-event';
 
 export type TowerEnemySpriteKey =
     | "bandit"
@@ -60,8 +61,8 @@ const RIFT_BOSS_PORTRAITS: Record<string, string> = {
 /**
  * Resolve the opaque `character.visual` emitted by authoritative tower fights.
  * Existing tower sprite keys retain their original bundled-first behavior. Named
- * AI profiles can use published art, while Rift bosses and generated Hollow Gate
- * encounters have deterministic bundled fallbacks.
+ * AI profiles can use published art, while Rift bosses, roaming world bosses and
+ * generated Hollow Gate encounters have deterministic bundled fallbacks.
  */
 export function resolveTowerEnemyPortrait(
     visual: string,
@@ -78,6 +79,9 @@ export function resolveTowerEnemyPortrait(
 
     const riftPortrait = RIFT_BOSS_PORTRAITS[visual];
     if (riftPortrait) return riftPortrait;
+
+    const worldBossPortrait = worldBossDefinitionForVisual(visual)?.battlePortrait;
+    if (worldBossPortrait) return worldBossPortrait;
 
     const hollowKind = /^hollow-gate-(battle|elite|ambush|beast)-f\d+$/.exec(visual)?.[1];
     const fallbackKey = hollowKind ? HOLLOW_GATE_FALLBACK_SPRITES[hollowKind] : undefined;

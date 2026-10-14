@@ -124,7 +124,7 @@ import { travelMaskMs } from "../lib/travel-mask";
 import { serverNow } from "../lib/server-clock";
 import { storyReckoningActionFailure } from "../lib/story-reckoning-feedback";
 
-const AnbuVaultRaid = lazy(() => import("../features/anbuInfiltration/AnbuVaultRaid").then(m => ({ default: m.AnbuVaultRaid }))); const WorldBossMapCalloutOverlay = lazy(() => import("../components/WorldBossMapCalloutOverlay").then(m => ({ default: m.WorldBossMapCalloutOverlay })));
+const AnbuVaultRaid = lazy(() => import("../features/anbuInfiltration/AnbuVaultRaid").then(m => ({ default: m.AnbuVaultRaid }))); const WorldBossQueueHost = lazy(() => import("../components/WorldBossQueueHost").then(m => ({ default: m.WorldBossQueueHost })));
 import { SectorMap } from "../components/SectorMap";
 import { SceneCritters } from "../components/SceneCritters";
 import { DayNightSky } from "../components/DayNightSky";
@@ -178,7 +178,7 @@ import { isSectorLivePeersEnabled } from "../components/sector-peers-flag";
 import type { SectorPeer } from "../components/SectorPeers";
 import { isWeeklyBossRoamEnabled, weeklyBossRoamState, weeklyBossRoamCooldownId, WEEKLY_BOSS_ROAM_REENGAGE_COOLDOWN_MS, type RoamingBoss } from "../lib/weekly-boss-roam";
 import { stageWeeklyBossFight } from "../lib/weekly-boss-launch";
-import { useWorldBossMap, WorldBossSectorFlag } from "../components/WorldBossMapOverlay";
+import { useWorldBossMap } from "../components/WorldBossMapOverlay";
 import { playerNameTile } from "../lib/sector-tile";
 import { fetchPlayerCombatSave, pvpSessionEnvironment, stringifyPvpSessionPayload } from "../lib/pvp-session";
 import { createPvpSessionWithRecovery, pvpStableBattleIdFromRequestBody } from "../lib/pvp-session-create";
@@ -934,7 +934,7 @@ function WorldMapContent({
         if (roamingBoss?.weekKey) coolWanderer(weeklyBossRoamCooldownId(roamingBoss.weekKey), ms);
     }
     function handleBossEngage() {
-        if (!roamingBoss?.aiId || requiresWandererChoice(wandererDialog)) return false; // waits its turn
+        if (!roamingBoss?.aiId || requiresWandererChoice(wandererDialog) || worldBossQueueOpen) return false; // waits its turn
         setBossDialog({
             name: roamingBoss.bossName ?? "Weekly Boss",
             portrait: sharedImages["ai:" + roamingBoss.aiId] || "",
@@ -976,7 +976,7 @@ function WorldMapContent({
         adoptFleeTotals(fled);
     }
 
-    const { view: worldBossView, event: worldBossEvent, sector: worldBossSector, queueOpen: worldBossQueueOpen, activate: handleWorldBossMarker, closeQueue: closeWorldBossQueue } = useWorldBossMap(globalViewOpen, currentSector, isTraveling, triggerTravelPoint);
+    const { view: worldBossView, event: worldBossEvent, sector: worldBossSector, queueOpen: worldBossQueueOpen, closeQueue: closeWorldBossQueue, standeeIn: worldBossStandeeIn } = useWorldBossMap(globalViewOpen, currentSector, isTraveling);
     const mercWanderers = useMemo(() => {
         if (!villageWarViewOpen || !isVillageWarMapEnabled() || mercRoster.sector !== selectedSector) return [];
         const cd = character.wandererCooldowns; const now = Date.now();
@@ -1953,7 +1953,7 @@ function WorldMapContent({
     }
     function handleWandererEngage(w: Wanderer) {
         if (selectedSector == null || !sameSector(currentSector, selectedSector)) return;
-        if (requiresWandererChoice(wandererDialog) || bossDialog) return false; // one hostile at a time: it engages after this choice
+        if (requiresWandererChoice(wandererDialog) || bossDialog || worldBossQueueOpen) return false; // one hostile at a time; a world boss queue or raid is busy too
         if (combatActive || isCombatActive()) {
             if (w.verb === "bountyHunter") pendingBountyHunterRef.current = { hunterId: w.id, sector: selectedSector };
             return;
@@ -4478,7 +4478,7 @@ function WorldMapContent({
                         onCrossExit={roadWalk.requestExit}
                         onWalkArrive={roadWalk.arriveAtTile}
                         onWorldAuthority={worldAuthority}
-                        worldMovementBlocked={() => isTraveling || travelRequestInFlight.current || warShrine.open}
+                        worldMovementBlocked={() => isTraveling || travelRequestInFlight.current || warShrine.open || worldBossQueueOpen}
                         hudLayer={
                     <>{!vaultRaid && warShrine.tracker}<SectorHud key={selectedSector}
                         sector={selectedSector}
@@ -4519,7 +4519,7 @@ function WorldMapContent({
                                 vault={sectorIsCurrent ? sectorOverlayVault : null}
                                 traceSigns={sectorTraces?.signs ?? []}
                                 shrine={sectorOverlayShrine}
-                                boss={sectorOverlayBoss}
+                                boss={sectorOverlayBoss} worldBoss={sectorIsCurrent ? worldBossStandeeIn(selectedSector) : null}
                                 fieldStory={sectorIsCurrent && fieldObjective?.pointId && fieldObjective.sector === selectedSector ? {
                                     pointId: fieldObjective.pointId, title: fieldObjective.name, tile: fieldObjective.tile,
                                     onOpen: () => setFieldScene({ questId: fieldObjective.questId, pointId: fieldObjective.pointId! }),
@@ -4597,6 +4597,7 @@ function WorldMapContent({
                                 document.body,
                             )}
 
+                            {worldBossQueueOpen && !vaultRaid && createPortal(<Suspense fallback={null}><WorldBossQueueHost currentSector={currentSector} onClose={closeWorldBossQueue} character={character} creatorItems={wmCreatorItems} savedBloodlines={savedBloodlines} sharedImages={sharedImages} onVersionedCharacter={onVersionedCharacter} onRecordBattle={onRecordBattle} /></Suspense>, document.body)}
                             {bossDialog && createPortal(
                                 <ModalDialogScrim label={`${bossDialog.name} — encounter`} onBackdrop={() => undefined} onEscape={() => undefined}>
                                     <div className="card" style={{ maxWidth: 380, width: "88%", maxHeight: "88dvh", overflowY: "auto", textAlign: "center", padding: 18, border: "1px solid rgba(236,91,56,.6)" }} onClick={(e) => e.stopPropagation()}>
@@ -5054,7 +5055,6 @@ function WorldMapContent({
                     label={currentSector === FESTIVAL_SECTOR ? "\u2190 Sunscar Festival" : isWildSector(currentSector) ? `\u2190 Return to Sector ${currentSector}` : "\u2190 Village"}
                 />
             )}
-            <Suspense fallback={null}><WorldBossMapCalloutOverlay showCallout={!wmZoom.active} event={worldBossEvent} sector={worldBossSector} currentSector={currentSector} isTraveling={isTraveling} activate={handleWorldBossMarker} open={worldBossQueueOpen} onClose={closeWorldBossQueue} character={character} creatorItems={wmCreatorItems} savedBloodlines={savedBloodlines} sharedImages={sharedImages} onVersionedCharacter={onVersionedCharacter} onRecordBattle={onRecordBattle} /></Suspense>
             {hollowGateMenu && (
                 <HollowGateEntryMenu
                     hollowGateEventConfig={hollowGateEventConfig}
@@ -5167,12 +5167,12 @@ function WorldMapContent({
                         }
                         style={{ left: sector.x + "%", top: sector.y + "%", ...sectorMarkerStyle(sector.id) }}
                         data-academy-hint={academySectorTargetId === sector.id ? "Next · travel here" : undefined} data-academy-autoscroll={academySectorTargetId === sector.id ? "true" : undefined}
-                        onClick={() => sector.id === worldBossSector ? handleWorldBossMarker(sector.id) : triggerTravelPoint(sector.id)} onMouseEnter={() => setRouteHoverSector(sector.id)} onMouseLeave={() => setRouteHoverSector((current) => (current === sector.id ? null : current))}
-                        title={(currentSector === sector.id ? `You are here | ${sectorTitle}` : sectorTitle) + (sector.id === worldBossSector ? ` | ${worldBossEvent?.bossName ?? "World boss"} is here; travel in or open its team queue` : "") + (richnessLabel ? ` | ${richnessLabel}` : "") + (contract ? (contract.nightOnly ? " | Night contract posted today" : " | Contract posted today") : "")}
+                        onClick={() => triggerTravelPoint(sector.id)} onMouseEnter={() => setRouteHoverSector(sector.id)} onMouseLeave={() => setRouteHoverSector((current) => (current === sector.id ? null : current))}
+                        title={(currentSector === sector.id ? `You are here | ${sectorTitle}` : sectorTitle) + (sector.id === worldBossSector ? ` | ${worldBossEvent?.bossName ?? "World boss"} is here; enter the sector and click it to join the raid` : "") + (richnessLabel ? ` | ${richnessLabel}` : "") + (contract ? (contract.nightOnly ? " | Night contract posted today" : " | Contract posted today") : "")}
                         aria-label={currentSector === sector.id ? "You are here, " + (sectorName(sector.id) ?? ("Sector " + sector.id)) + (sector.id === worldBossSector ? ", world boss muster" : "") : "Travel to " + (sectorName(sector.id) ?? ("Sector " + sector.id)) + " (Sector " + sector.id + ")" + (sector.id === worldBossSector ? ", world boss location" : "")}
                     >
                         {currentSector === sector.id && <span className="atlas-you-label" aria-hidden="true">YOU</span>}
-                        {sector.id === 99 ? <GameArtIcon kind="warning" size={20} /> : sector.id}<WorldBossSectorFlag event={worldBossEvent} sector={sector.id} />
+                        {sector.id === 99 ? <GameArtIcon kind="warning" size={20} /> : sector.id}
                         {scoutedSectors.has(sector.id) && (
                             <span
                                 style={{ position: "absolute", top: -5, right: -5, fontSize: 11, lineHeight: 1, filter: "drop-shadow(0 0 2px #000)", pointerEvents: "none" }}

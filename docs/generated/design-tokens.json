@@ -2305,7 +2305,7 @@
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 158
+            "line": 161
           }
         ]
       },
@@ -2429,7 +2429,7 @@
           },
           {
             "source": "shinobij.client/src/styles/inventory-aaa.css",
-            "line": 594
+            "line": 626
           },
           {
             "source": "shinobij.client/src/styles/pet-battle-readiness.css",
@@ -2490,11 +2490,11 @@
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 122
+            "line": 125
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 177
+            "line": 190
           }
         ]
       },
@@ -2516,7 +2516,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 166
+            "line": 178
           }
         ]
       },
@@ -2994,7 +2994,7 @@
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 166
+            "line": 178
           }
         ]
       },
@@ -3135,11 +3135,11 @@
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 122
+            "line": 125
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 177
+            "line": 190
           }
         ]
       },
@@ -3769,7 +3769,7 @@
           },
           {
             "source": "shinobij.client/src/styles/inventory-aaa.css",
-            "line": 533
+            "line": 565
           },
           {
             "source": "shinobij.client/src/styles/pet-skin.css",
@@ -3786,10 +3786,6 @@
           {
             "source": "shinobij.client/src/styles/pet-warfront-rite.css",
             "line": 1002
-          },
-          {
-            "source": "shinobij.client/src/styles/world-boss-map.css",
-            "line": 50
           }
         ]
       },
@@ -4623,11 +4619,15 @@
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 166
+            "line": 169
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 177
+            "line": 178
+          },
+          {
+            "source": "shinobij.client/src/styles/sector-hud.css",
+            "line": 190
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
@@ -4753,11 +4753,11 @@
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 122
+            "line": 125
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 130
+            "line": 133
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
@@ -5136,7 +5136,7 @@
           },
           {
             "source": "shinobij.client/src/styles/inventory-aaa.css",
-            "line": 518
+            "line": 550
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",

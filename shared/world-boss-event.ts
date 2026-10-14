@@ -26,6 +26,8 @@ export const WORLD_BOSS_DEFINITIONS = [
         keyArt: '/world-boss/hollow-beast-key-art-v1.webp',
         mapSprite: '/world-boss/hollow-beast-walk-v1.webp',
         mapSpriteKind: 'walk-sheet',
+        battleSprite: '/world-boss/hollow-beast-battle-v1.webp',
+        battlePortrait: '/world-boss/hollow-beast-portrait-v1.webp',
         mapGlow: 'teal',
         traitName: 'Hollow Regrowth',
         traitDescription: 'Regains health at the end of each round. Keep steady pressure on it.',
@@ -38,6 +40,8 @@ export const WORLD_BOSS_DEFINITIONS = [
         keyArt: '/world-boss/hollow-gate-bull-key-art-v1.webp',
         mapSprite: '/world-boss/hollow-gate-bull-walk-v1.webp',
         mapSpriteKind: 'walk-sheet',
+        battleSprite: '/world-boss/hollow-gate-bull-battle-v1.webp',
+        battlePortrait: '/world-boss/hollow-gate-bull-portrait-v1.webp',
         mapGlow: 'teal',
         traitName: 'Gatekeeper’s Bulwark',
         traitDescription: 'Takes half damage while any of its guards remain. Clear the guards to expose it.',
@@ -50,6 +54,8 @@ export const WORLD_BOSS_DEFINITIONS = [
         keyArt: '/world-boss/donkaku-key-art-v1.webp',
         mapSprite: '/world-boss/donkaku-walk-v1.webp',
         mapSpriteKind: 'walk-sheet',
+        battleSprite: '/world-boss/donkaku-battle-v1.webp',
+        battlePortrait: '/world-boss/donkaku-portrait-v1.webp',
         mapGlow: 'white-red',
         traitName: 'Hollow Gate Aegis',
         traitDescription: 'Raises a fresh shield at each health phase, up to a quarter of its health.',
@@ -62,6 +68,20 @@ export type WorldBossDefinition = typeof WORLD_BOSS_DEFINITIONS[number];
 
 export function worldBossDefinition(bossId: string | null | undefined): WorldBossDefinition {
     return WORLD_BOSS_DEFINITIONS.find(boss => boss.id === bossId) ?? WORLD_BOSS_DEFINITIONS[0];
+}
+
+const WORLD_BOSS_VISUAL_PREFIX = 'world-boss-';
+
+/** The team fight's boss-actor `character.visual`; the client resolves its art from it. */
+export function worldBossBattleVisual(bossId: WorldBossId): string {
+    return WORLD_BOSS_VISUAL_PREFIX + bossId;
+}
+
+/** Exact reverse of `worldBossBattleVisual`. Unlike `worldBossDefinition`, an unknown id is null. */
+export function worldBossDefinitionForVisual(visual: string | null | undefined): WorldBossDefinition | null {
+    if (!visual?.startsWith(WORLD_BOSS_VISUAL_PREFIX)) return null;
+    const bossId = visual.slice(WORLD_BOSS_VISUAL_PREFIX.length);
+    return WORLD_BOSS_DEFINITIONS.find(boss => boss.id === bossId) ?? null;
 }
 
 export type WorldBossContribution = {
