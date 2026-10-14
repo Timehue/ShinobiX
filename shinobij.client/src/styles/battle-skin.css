@@ -6280,6 +6280,12 @@ body:has(> .combat-instance.shinobi-combat-shell--tactical) > .screen-hint-banne
     display: none !important;
 }
 
+/* The expanded log owns the screen and its upper-right restore control.
+   Hide the ambient tip until the reader closes so it cannot cover that control. */
+body:has(.plain-combat-battle-log.is-expanded) > .screen-hint-banner {
+    display: none !important;
+}
+
 /* Modal's ordinary depth is intentionally below an active fight. This
    user-opened help dialog is part of the combat HUD and must sit above both the
    fight and its compact trigger while Modal inerts the underlying controls. */
