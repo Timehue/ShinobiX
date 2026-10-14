@@ -228,7 +228,7 @@ test("world overview keeps live charting before sector markers without retired d
     assert.ok(overviewStart >= 0, "missing final world overview");
     const finalOverview = worldMapSource.slice(overviewStart);
 
-    assertOrdered(finalOverview, ["<WorldRoadsOverlay />", "<WorldPoiPlates />", "{sectorPoints.map"], "world overview charting order");
+    assertOrdered(finalOverview, ["<WorldRoadsOverlay ", "<WorldPoiPlates ", "{sectorPoints.map"], "world overview charting order");
     assert.doesNotMatch(finalOverview, /\b(?:sea-label|atlas-landmass|atlas-region-label)\b/u);
 });
 

@@ -81,7 +81,7 @@ button.atlas-landmark[data-landmark-art="true"][title*="Moonshadow"] .atlas-land
 
 /* Its name remains on the region button when the whole-world ring is too
    tight for a caption. Bring the caption back as soon as detail has room. */
-.generated-world-map[data-wm-compact-overview] .wpk-moonshadow {
+.wm-camera[data-wm-compact-overview] .wpk-moonshadow {
     display: none;
 }
 
