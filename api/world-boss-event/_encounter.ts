@@ -12,7 +12,7 @@ import { setTowerInvite, writeSession } from '../towers/_tower-store.js';
 import { stampTurnClock } from '../towers/_tower-mp.js';
 import { claimTowerBattleLeases, releaseTowerBattleLeases } from '../towers/_battle-lease.js';
 import { findTowerBattleStartConflict } from '../_tower-battle-guard.js';
-import { worldBossCrystalEffects, worldBossDefinition, type WorldBossId } from '../../shared/world-boss-event.js';
+import { worldBossBattleVisual, worldBossCrystalEffects, worldBossDefinition, type WorldBossId } from '../../shared/world-boss-event.js';
 import { WORLD_BOSS_MATCH_HP_PER_PLAYER, type WorldBossEventRecord, type WorldBossMatchRecord } from './_event.js';
 
 const WORLD_BOSS_FLOOR_ID = 9_800;
@@ -114,7 +114,8 @@ export async function createWorldBossEncounter(input: {
         const bossTemplate = {
             ...structuredClone(requireEnemyTemplate('clan-boss-golem')),
             name: input.event.bossName,
-            visual: 'world-boss-hollow-beast',
+            // Display key only: the client draws this boss's own battle art from it.
+            visual: worldBossBattleVisual(input.event.bossId),
             level: 80,
             armorRawDR: 0.22,
         };
