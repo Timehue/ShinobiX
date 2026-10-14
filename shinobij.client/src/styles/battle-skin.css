@@ -6266,6 +6266,20 @@ body:has(> .combat-instance) > .screen-hint-banner > .screen-hint-battle-trigger
     }
 }
 
+/* The corner above is free only in the PvP/Solo dossier layout. The tactical
+   board (BattleTowerFight: towers, team PvP, hunts, caravan ambushes and the
+   roaming world boss) keeps its status bar there, and that bar ends in the
+   Leave / Retreat / Forfeit control. Those fights can open over a screen that
+   owns a tip (the World Map raid, a Battle Arena team match), so on a phone
+   the pill painted over the exit, or over the turn order just below it when
+   World Map's own !important placement (world-map-mobile.css) had parked it
+   at the atlas top bar. It belongs to the screen underneath, so it stands
+   down for the whole fight and returns when the fight closes. That World Map
+   rule moves the pill but never shows it, so it cannot undo this. */
+body:has(> .combat-instance.shinobi-combat-shell--tactical) > .screen-hint-banner {
+    display: none !important;
+}
+
 /* Modal's ordinary depth is intentionally below an active fight. This
    user-opened help dialog is part of the combat HUD and must sit above both the
    fight and its compact trigger while Modal inerts the underlying controls. */
