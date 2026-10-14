@@ -490,7 +490,9 @@ textarea {
     transition: background 140ms ease, transform 140ms ease;
 }
 
-.left-currency-row:hover { background: rgba(161, 192, 226, 0.055); transform: translateX(1px); }
+@media (hover: hover) {
+    .left-currency-row:hover { background: rgba(161, 192, 226, 0.055); transform: translateX(1px); }
+}
 
 .left-currency-icon {
     display: grid;
@@ -1065,13 +1067,6 @@ textarea {
     min-width: 180px;
 }
 
-.aw-free-btn {
-    background: linear-gradient(135deg, #7c3aed, #9333ea);
-    color: #fff;
-    box-shadow: 0 0 18px rgba(139,92,246,0.45);
-    animation: awakening-pulse 2s ease-in-out infinite;
-}
-
 .aw-paid-btn {
     background: rgba(51, 65, 85, 0.6);
     color: var(--slate-300);
@@ -1089,16 +1084,6 @@ textarea {
         font-weight: 400;
         opacity: 0.75;
     }
-
-@keyframes awakening-pulse {
-    0%, 100% {
-        box-shadow: 0 0 18px rgba(139,92,246,0.45);
-    }
-
-    50% {
-        box-shadow: 0 0 30px rgba(167,139,250,0.75);
-    }
-}
 
 .aw-materials {
     display: flex;

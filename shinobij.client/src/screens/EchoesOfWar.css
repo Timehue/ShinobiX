@@ -377,11 +377,13 @@
 .echoes-node--band-high { --band: var(--echoes-high); }
 .echoes-node--band-court { --band: var(--echoes-court); }
 
-.echoes-node--available:hover,
-.echoes-node--cleared:hover {
-    transform: translateX(4px);
-    border-color: color-mix(in srgb, var(--band) 55%, rgba(150, 135, 105, 0.26));
-    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45), 0 0 14px color-mix(in srgb, var(--band) 22%, transparent);
+@media (hover: hover) {
+    .echoes-node--available:hover,
+    .echoes-node--cleared:hover {
+        transform: translateX(4px);
+        border-color: color-mix(in srgb, var(--band) 55%, rgba(150, 135, 105, 0.26));
+        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45), 0 0 14px color-mix(in srgb, var(--band) 22%, transparent);
+    }
 }
 @media (prefers-reduced-motion: reduce) {
     .echoes-node--available:hover,

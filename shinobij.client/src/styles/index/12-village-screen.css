@@ -111,7 +111,9 @@
     overflow: hidden;
     transition: border-color .18s, transform .12s;
 }
-.mh-combat-card:hover { border-color: #7dd3fc; transform: translateY(-2px); }
+@media (hover: hover) {
+    .mh-combat-card:hover { border-color: #7dd3fc; transform: translateY(-2px); }
+}
 .mh-combat-card.mh-locked { opacity: .55; filter: grayscale(.4); }
 .mh-recommended-card {
     border-color: rgba(232, 212, 150, 0.78) !important;
