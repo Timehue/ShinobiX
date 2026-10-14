@@ -55,8 +55,8 @@ export function inferSpriteNativeFacing(src: string): BattlefieldSpriteFacing {
     const filename = src.split(/[?#]/, 1)[0].split("/").pop() ?? "";
     // The Queen's head/claws point right. Accept the source and Vite-hashed name.
     if (/^sunscar-queen-body-v1(?:-[\w-]+)?\.webp$/i.test(filename)) return "right";
-    // Murogane's walk-sheet frame walks to the right, head leading.
-    if (/^hollow-gate-bull-battle-v1\.webp$/i.test(filename)) return "right";
+    // Murogane and Donkaku are drawn with their heads leading to the right.
+    if (/^(hollow-gate-bull|donkaku)-battle-v1\.webp$/i.test(filename)) return "right";
     return "left";
 }
 

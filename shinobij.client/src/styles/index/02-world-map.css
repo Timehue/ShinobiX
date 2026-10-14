@@ -381,22 +381,21 @@ html.wm-zoom .world-map-scroll .atlas-hollowGate::after {
    The pinned markers ride the map's scale(zoom) transform, so on their own they
    grow at the SAME rate as the spacing and tightly-clustered sectors stay
    overlapping at every zoom (the "it's just a magnified picture" problem).
-   Counter-scale them by --wm-marker-scale (≈ zoom^-0.7, driven by useWorldMapZoom)
-   so each pin holds a near-constant, tappable on-screen size while the gaps
-   between them open up — zooming SPREADS the sectors apart. transform-origin:center
-   keeps every marker centred on its % anchor while it scales. */
+   WorldMapPin wrappers counter-scale through native scale. Marker transforms
+   only anchor their artwork and compose mouse hover/press feedback; they never
+   read an inherited camera property. */
 html.wm-zoom .world-map-scroll .atlas-sector {
-    transform: translate(-50%, -50%) scale(var(--wm-marker-scale, 1)) !important;
+    transform: translate(-50%, -50%) !important;
     transform-origin: center !important;
 }
 @media (hover: hover) {
     html.wm-zoom .world-map-scroll .atlas-sector:hover {
-        transform: translate(-50%, -50%) scale(calc(var(--wm-marker-scale, 1) * 1.18)) !important;
+        transform: translate(-50%, -50%) scale(1.18) !important;
         z-index: 20 !important;
     }
 }
 html.wm-zoom .world-map-scroll .atlas-landmark {
-    transform: translate(-50%, -50%) scale(var(--wm-marker-scale, 1)) !important;
+    transform: translate(-50%, -50%) !important;
     transform-origin: center !important;
 }
 /* Zoom mode follows the window width alone, so a narrow desktop window has a
@@ -404,18 +403,18 @@ html.wm-zoom .world-map-scroll .atlas-landmark {
    bare `scale() !important`. That selector ties with the counter-scale above,
    and atlas-skin.css loads later with the lazy WorldMap chunk, so it replaced
    the counter-scale and the hovered crest jumped to about 3x its size. These
-   rules keep the same lift, multiplied into the counter-scale, and the higher
-   specificity means load order no longer decides it. The hover is for a mouse
+   rules keep the same lift inside the native counter-scale wrapper; their higher
+   specificity means load order cannot replace the anchor. Hover is for a mouse
    only, because a touch browser keeps :hover on whatever a tap last hit.
    :active stays ungated, so a pressed landmark keeps its counter-scale under
    touch too. */
 @media (hover: hover) {
     html.wm-zoom .world-map-scroll button.atlas-landmark[data-landmark-art="true"]:hover {
-        transform: translate(-50%, -50%) scale(calc(var(--wm-marker-scale, 1) * 1.12)) !important;
+        transform: translate(-50%, -50%) scale(1.12) !important;
     }
 }
 html.wm-zoom .world-map-scroll button.atlas-landmark[data-landmark-art="true"]:active {
-    transform: translate(-50%, -50%) scale(calc(var(--wm-marker-scale, 1) * 1.04)) !important;
+    transform: translate(-50%, -50%) scale(1.04) !important;
 }
 /* The sector hover's z-index 20 would sink the player's own sector below its
    resting 24 (.atlas-sector-current). Gated like that hover rule, so it covers
@@ -429,7 +428,7 @@ html.wm-zoom .world-map-scroll button.atlas-landmark[data-landmark-art="true"]:a
 /* Village-war ownership banners/rings ride the same %-anchors — scale them in
    step so they stay pinned to their (now constant-size) sector markers. */
 html.wm-zoom .world-map-scroll .vw-sector-claim {
-    transform: scale(var(--wm-marker-scale, 1));
+    transform: none;
     transform-origin: center;
 }
 

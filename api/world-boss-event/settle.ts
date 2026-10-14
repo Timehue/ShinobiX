@@ -126,7 +126,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 hpRemaining = applied.event.hp;
             } else {
                 const event = await readWorldBossEvent(eventId);
-                hpRemaining = Math.max(0, Number(event?.hp) || 0);
+                if (!event) throw new Error('World boss event record is missing.');
+                hpRemaining = Math.max(0, Number(event.hp) || 0);
                 bankedDamage = Math.max(0, Number(match.bankedDamage) || 0);
             }
 
