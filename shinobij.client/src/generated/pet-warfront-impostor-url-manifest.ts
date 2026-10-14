@@ -71,7 +71,7 @@ declare const _revisionRows: readonly [
     readonly ["roster/rare-29.glb","74542401add4"],
     readonly ["roster/rare-3.glb","274f49508f44"],
     readonly ["roster/rare-30.glb","407b0bbb45c5"],
-    readonly ["roster/rare-31.glb","bc49f9405ed7"],
+    readonly ["roster/rare-31.glb","88c807be4faf"],
     readonly ["roster/rare-32.glb","ffd076b233da"],
     readonly ["roster/rare-33.glb","418a1b07b13a"],
     readonly ["roster/rare-34.glb","0b70f78dcbf8"],
@@ -81,14 +81,14 @@ declare const _revisionRows: readonly [
     readonly ["roster/rare-38.glb","c08cfae84707"],
     readonly ["roster/rare-39.glb","de579ddcb6f9"],
     readonly ["roster/rare-4.glb","d28e537ac41a"],
-    readonly ["roster/rare-40.glb","e9929f50324b"],
+    readonly ["roster/rare-40.glb","26ff20ec35a5"],
     readonly ["roster/rare-41.glb","da4c9b574a11"],
     readonly ["roster/rare-42.glb","a8675232e287"],
     readonly ["roster/rare-43.glb","7a89cc9feadf"],
     readonly ["roster/rare-44.glb","e8ffcba6c8d2"],
     readonly ["roster/rare-45.glb","4f5e7101c4c6"],
     readonly ["roster/rare-46.glb","9f85484451a2"],
-    readonly ["roster/rare-47.glb","34794073a7c6"],
+    readonly ["roster/rare-47.glb","d34aab0a9e4b"],
     readonly ["roster/rare-48.glb","0907e754bca3"],
     readonly ["roster/rare-49.glb","e3cb3f975953"],
     readonly ["roster/rare-5.glb","8c311ec93840"],
@@ -144,7 +144,7 @@ declare const _revisionRows: readonly [
     readonly ["roster/standard-5.glb","a6c355020234"],
     readonly ["roster/standard-6.glb","072cfc70795c"],
     readonly ["roster/standard-8.glb","ebf965855174"],
-    readonly ["roster/standard-9.glb","45ea3d7badae"],
+    readonly ["roster/standard-9.glb","212d62f1997d"],
     readonly ["showdown-v2/rare-1.glb","20ab27b5a763"],
     readonly ["showdown-v2/standard-7.glb","d7eb1e6265c8"],
     readonly ["showdown-v2/starter-fire-l.glb","86c4cef1a274"],
@@ -164,7 +164,7 @@ declare const _revisionRows: readonly [
 ];
 const sources = ([["legendary",30],["mythic",16],["rare",50],["standard",50]] as const).flatMap(([rarity, count]) => Array.from({ length: count }, (_, index) => `roster/${rarity}-${index}.glb`).sort().filter(source => source !== "roster/rare-1.glb" && source !== "roster/standard-7.glb"));
 const extras = ["showdown-v2/rare-1.glb","showdown-v2/standard-7.glb","showdown-v2/starter-fire-l.glb","showdown-v2/starter-lightning-l.glb","starter-earth-l.glb","starter-earth-r.glb","starter-fire-r.glb","starter-fire.glb","starter-lightning-r.glb","starter-lightning.glb","starter-water-l.glb","starter-water-r.glb","starter-water.glb","starter-wind-l.glb","starter-wind-r.glb","starter-wind.glb"];
-const revisions = "4f471b7c31ac8c34b46a2be59e958e48254924eb0fc9670cc147ba1a07a786e4f855284d4e69124590b5b9b56e6a56ba3c3fd03e6a8e3e5ce71f685718b8d783c66a1ef7fa76522ee9fea67720c5e23c77b6cdc33248336ada75c590ddf6766b4d0403f205a331d2ffabb8734f9b8f236ccd65a16f2b335205ddddb0cdc32b948ac791c6bc90fbaf614cda8bcc375e38c71da0b86174861409d685083c745ef2602b8d9897cafcf3487e7dcc38f1e8241125ece0411c6ef887dd96d9ce3939ddde456e5a4081c14cc93067b6896af4366473628d2b00403276f21ececa2cbb0fe73308167a7b76aef2915a07016687733cda15f6800b41b3c21ade1739c343e2326b26dbff9c40061ac11bf63443a7244e1f1031f9ea1657282335059f70eb6257138f2eff364ef27a6901b2f99caa3321c81ed2aa1a745f54e748bae7b535352ba45f0f982fb4540efa8b286101308c8768c07f9e6eafb4bc0d1e05ea9692f9caaa750749cf561d03e5771a95525095ca0fab3b5c0b692ffdef9be902ceeea6bc83647c4219b0ebd712e4d405a2e66ffdc374542401add4274f49508f44407b0bbb45c5bc49f9405ed7ffd076b233da418a1b07b13a0b70f78dcbf8ef3e000e33f646d53194efc95dcce085c4e9c08cfae84707de579ddcb6f9d28e537ac41ae9929f50324bda4c9b574a11a8675232e2877a89cc9feadfe8ffcba6c8d24f5e7101c4c69f85484451a234794073a7c60907e754bca3e3cb3f9759538c311ec938405785a26039215ea5ae9171980e9e8cdb0395ec33e61c26795821bb01c9e537c85dbdf6b5742a12eea80d543a10bc24d3f730ebf091d1a72cd10a6037128d9fb0db0c017da22ae5fbeb654bb6d5bf670b6733b43a52170dc4984b1c1c78a61800be111f87aca56c41b8d03dcaad9def3242d8d95d41f412ac31f396b3b2969fdcc6625755ed96709fb065000dd7deeaadc1ff866cebb6b398f525aa8972fb4a9ec6236c997b8d6259624c662a27aa1cc8f64a995ed0e263c3f2b7005bd6e0a6adf561b20e409f3bee42a4eddd6b43d8ee08efc1778079e7354208f706833fdc4ec4a3ed1511c63eda84d2b498a7e5691c3c32317ac12bc2352be698417f8689e457484c261c4c134d50859764ffd4f9c7abb3ff4ff04230c9f56b0114f59ea0c260a0ea26190aa6c355020234072cfc70795cebf96585517445ea3d7badae20ab27b5a763d7eb1e6265c886c4cef1a2741309fcd0ef3593ba68a11a150f2d924368c6f730d52bbfe464a7eed72915ce04a50f66fc038766bd014a022301bc09782fe3d28b9235f6168b65d9e32b9fa452a5389c345ce395c5565170fa355b".match(/.{12}/g)!;
+const revisions = "4f471b7c31ac8c34b46a2be59e958e48254924eb0fc9670cc147ba1a07a786e4f855284d4e69124590b5b9b56e6a56ba3c3fd03e6a8e3e5ce71f685718b8d783c66a1ef7fa76522ee9fea67720c5e23c77b6cdc33248336ada75c590ddf6766b4d0403f205a331d2ffabb8734f9b8f236ccd65a16f2b335205ddddb0cdc32b948ac791c6bc90fbaf614cda8bcc375e38c71da0b86174861409d685083c745ef2602b8d9897cafcf3487e7dcc38f1e8241125ece0411c6ef887dd96d9ce3939ddde456e5a4081c14cc93067b6896af4366473628d2b00403276f21ececa2cbb0fe73308167a7b76aef2915a07016687733cda15f6800b41b3c21ade1739c343e2326b26dbff9c40061ac11bf63443a7244e1f1031f9ea1657282335059f70eb6257138f2eff364ef27a6901b2f99caa3321c81ed2aa1a745f54e748bae7b535352ba45f0f982fb4540efa8b286101308c8768c07f9e6eafb4bc0d1e05ea9692f9caaa750749cf561d03e5771a95525095ca0fab3b5c0b692ffdef9be902ceeea6bc83647c4219b0ebd712e4d405a2e66ffdc374542401add4274f49508f44407b0bbb45c588c807be4fafffd076b233da418a1b07b13a0b70f78dcbf8ef3e000e33f646d53194efc95dcce085c4e9c08cfae84707de579ddcb6f9d28e537ac41a26ff20ec35a5da4c9b574a11a8675232e2877a89cc9feadfe8ffcba6c8d24f5e7101c4c69f85484451a2d34aab0a9e4b0907e754bca3e3cb3f9759538c311ec938405785a26039215ea5ae9171980e9e8cdb0395ec33e61c26795821bb01c9e537c85dbdf6b5742a12eea80d543a10bc24d3f730ebf091d1a72cd10a6037128d9fb0db0c017da22ae5fbeb654bb6d5bf670b6733b43a52170dc4984b1c1c78a61800be111f87aca56c41b8d03dcaad9def3242d8d95d41f412ac31f396b3b2969fdcc6625755ed96709fb065000dd7deeaadc1ff866cebb6b398f525aa8972fb4a9ec6236c997b8d6259624c662a27aa1cc8f64a995ed0e263c3f2b7005bd6e0a6adf561b20e409f3bee42a4eddd6b43d8ee08efc1778079e7354208f706833fdc4ec4a3ed1511c63eda84d2b498a7e5691c3c32317ac12bc2352be698417f8689e457484c261c4c134d50859764ffd4f9c7abb3ff4ff04230c9f56b0114f59ea0c260a0ea26190aa6c355020234072cfc70795cebf965855174212d62f1997d20ab27b5a763d7eb1e6265c886c4cef1a2741309fcd0ef3593ba68a11a150f2d924368c6f730d52bbfe464a7eed72915ce04a50f66fc038766bd014a022301bc09782fe3d28b9235f6168b65d9e32b9fa452a5389c345ce395c5565170fa355b".match(/.{12}/g)!;
 export const WARFRONT_IMPOSTOR_ATLAS_REVISIONS = Object.fromEntries([...sources, ...extras].map((source, index) => [
     `/pet-models/${source}`, revisions[index],
 ])) as { readonly [Row in typeof _revisionRows[number] as `/pet-models/${Row[0]}`]: Row[1] };
