@@ -8,14 +8,14 @@ const tacticalCss = readFileSync(new URL("../styles/tower-tactical.css", import.
 const combatCoreCss = readFileSync(new URL("../styles/index/06-combat-core.css", import.meta.url), "utf8");
 
 describe("Tower narrow combat composition", () => {
-    it("keeps phone basic actions and both team rosters independently scrollable", () => {
+    it("keeps the phone action tray and both team rosters independently scrollable", () => {
         assert.match(
             tacticalCss,
             /@media \(max-width: 640px\) \{[\s\S]*?#combat\.tower-tactical-combat \.tower-fight-grid \{[\s\S]*?grid-template-columns: minmax\(0, 1fr\) !important/,
             "phone grid must override the older important two-column layout",
         );
         assert.match(tacticalCss, /#combat\.tower-tactical-combat \.tower-roster-list \{[\s\S]*?overflow-y: auto;[\s\S]*?touch-action: pan-y/);
-        assert.match(tacticalCss, /#combat\.tower-tactical-combat \.tower-action-dock > \.shinobi-command-bar \{[\s\S]*?touch-action: pan-x/);
+        assert.match(tacticalCss, /\.combat-action-tray\.tower-action-dock \{[\s\S]*?overflow: hidden auto !important;[\s\S]*?touch-action: pan-y/);
         assert.match(source, /className="tower-roster-rail tower-squad-rail"/);
         assert.match(source, /className="tower-roster-rail tower-enemy-rail"/);
     });
@@ -28,12 +28,12 @@ describe("Tower narrow combat composition", () => {
         assert.match(source, /className="tower-action-dock"/);
         assert.match(source, /<BattleTabBar tab=\{battleTabs\.tab\}/,
             "compact Tower combat must expose the same Actions/Battle Log switch as the PvP HUD");
-        assert.match(tacticalCss, /\.tower-action-dock > \.shinobi-command-bar \{[\s\S]*?flex-wrap: nowrap !important;[\s\S]*?overflow: auto hidden/);
-        assert.match(tacticalCss, /\.tower-action-dock > \.combat-jutsu-bar \{[\s\S]*?height: 96px !important;/);
+        assert.match(tacticalCss, /\.combat-action-tray\.tower-action-dock > \.shinobi-command-bar \{[\s\S]*?display: grid !important;[\s\S]*?grid-template-columns: repeat\(7, minmax\(0, 1fr\)\) !important;/);
+        assert.match(source, /<CombatActionTray className="tower-action-dock">/);
         assert.match(
             tacticalCss,
-            /@media \(max-width: 979px\) \{[\s\S]*?\.tower-action-dock \.combat-equipped-jutsu-grid \{[\s\S]*?grid-template-columns: none !important;[\s\S]*?grid-auto-flow: column !important;[\s\S]*?grid-auto-columns: clamp\(100px, 18vw, 132px\) !important;[\s\S]*?overflow-x: auto !important;[\s\S]*?overflow-y: hidden !important;/,
-            "compact Tower loadouts must keep all jutsu and items in one horizontally reachable row",
+            /@media \(max-width: 979px\) \{[\s\S]*?\.tower-action-dock \.combat-equipped-jutsu-grid \{[\s\S]*?grid-template-columns: repeat\(auto-fill, minmax\(100px, 1fr\)\) !important;[\s\S]*?grid-auto-flow: row !important;[\s\S]*?overflow: visible !important;/,
+            "compact Tower loadouts must wrap into rows in the shared vertical tray",
         );
         assert.match(
             css,
@@ -48,7 +48,8 @@ describe("Tower narrow combat composition", () => {
         assert.doesNotMatch(source, /tower-threat-summary|buildTowerThreatSummary/);
         assert.doesNotMatch(source, /tower-mechanics-details|Mission briefing &amp; battle rules/);
         assert.doesNotMatch(tacticalCss, /tower-mechanics-details/);
-        assert.match(tacticalCss, /\.tower-board-help \{\s*display: none;/);
+        assert.doesNotMatch(source, /tower-field-tools|tower-board-toolbar|tower-board-controls|tower-header-stat/,
+            "the fitted battlefield must not mount view controls or duplicate fighter vitals in its header");
         assert.match(
             tacticalCss,
             /#combat\.tower-tactical-combat \.tower-action-dock > \.shinobi-command-bar \{[\s\S]*?grid-template-columns: repeat\(auto-fit, minmax\(64px, 1fr\)\) !important;[\s\S]*?overflow: hidden !important;/,
@@ -74,8 +75,8 @@ describe("Tower narrow combat composition", () => {
     it("spends the compact action dock on commands and the shared loadout scale", () => {
         assert.match(
             tacticalCss,
-            /@media \(max-width: 979px\) \{[\s\S]*?\.tower-action-dock > \.shinobi-command-bar \{[\s\S]*?height: 48px;[\s\S]*?\.tower-action-dock > \.combat-jutsu-bar \{[\s\S]*?height: 96px !important/,
-            "reduced-height layouts through 979px must style the production action dock's horizontal bands",
+            /@media \(max-width: 979px\) \{[\s\S]*?\.tower-action-dock > \.shinobi-command-bar \{[\s\S]*?height: 48px;[\s\S]*?\.tower-action-dock > \.combat-jutsu-bar \{[\s\S]*?height: auto !important/,
+            "compact layouts must leave the card grid at its natural height inside the tray",
         );
         assert.match(css, /@media \(max-width: 979px\) and \(max-height: 500px\) \{/);
         assert.match(css, /\.tower-fight-grid > aside \{\s*display: none !important/);
@@ -110,13 +111,13 @@ describe("Tower narrow combat composition", () => {
     it("keeps a full tap target visible in short three-rail desktop layouts", () => {
         assert.match(
             tacticalCss,
-            /\.tower-action-dock \{[\s\S]*?flex: 0 0 164px;[\s\S]*?min-height: 164px;[\s\S]*?max-height: 164px;/,
+            /\.tower-action-dock \{[\s\S]*?flex: 0 0 244px;[\s\S]*?min-height: 244px;[\s\S]*?max-height: 244px;/,
             "the desktop action dock must reclaim the removed guidance row",
         );
         assert.match(
             tacticalCss,
-            /@media \(min-width: 980px\) \{[\s\S]*?\.tower-action-dock > \.combat-jutsu-bar \{[\s\S]*?display: block !important;[\s\S]*?height: 112px !important;[\s\S]*?\.tower-action-dock > \.combat-jutsu-bar::before \{[\s\S]*?content: none !important;[\s\S]*?\.tower-action-dock \.combat-equipped-jutsu-grid \{[\s\S]*?grid-auto-flow: column !important;[\s\S]*?grid-auto-columns: clamp\(124px, 10cqw, 132px\) !important;[\s\S]*?height: 100% !important;[\s\S]*?overflow-x: auto !important;[\s\S]*?\.tower-action-dock \.combat-jutsu-card-wrap \{[\s\S]*?height: min\(92px, 100%\) !important;[\s\S]*?max-height: 92px !important;[\s\S]*?\.tower-action-dock \.combat-jutsu-thumb \{[\s\S]*?position: absolute !important;[\s\S]*?height: 100% !important;[\s\S]*?\.tower-action-dock \.combat-jutsu-name \{[\s\S]*?position: absolute !important;[\s\S]*?inset: auto 0 17px !important;/,
-            "desktop Tower cards must use the current PvP/PvE compact tray geometry and scroll for a full loadout",
+            /@media \(min-width: 980px\) \{[\s\S]*?\.tower-action-dock > \.combat-jutsu-bar \{[\s\S]*?display: block !important;[\s\S]*?height: 192px !important;[\s\S]*?\.tower-action-dock > \.combat-jutsu-bar::before \{[\s\S]*?content: none !important;[\s\S]*?\.tower-action-dock \.combat-equipped-jutsu-grid \{[\s\S]*?grid-auto-flow: row !important;[\s\S]*?grid-auto-columns: auto !important;[\s\S]*?grid-auto-rows: 86px !important;[\s\S]*?height: 100% !important;[\s\S]*?overflow-y: auto !important;[\s\S]*?\.tower-action-dock \.combat-jutsu-card-wrap \{[\s\S]*?height: 86px !important;[\s\S]*?max-height: 86px !important;[\s\S]*?\.tower-action-dock \.combat-jutsu-thumb \{[\s\S]*?position: absolute !important;[\s\S]*?height: 100% !important;[\s\S]*?\.tower-action-dock \.combat-jutsu-name \{[\s\S]*?position: absolute !important;[\s\S]*?inset: auto 0 17px !important;/,
+            "desktop Tower cards must use PvP/PvE card rows with vertical loadout scrolling",
         );
         assert.match(
             tacticalCss,
@@ -211,7 +212,7 @@ describe("Tower narrow combat composition", () => {
         assert.match(tacticalCss, /\.tower-sr-only \{[\s\S]*?position: absolute;[\s\S]*?clip: rect\(0, 0, 0, 0\)/);
         assert.match(source, /className="tower-fight-header tower-fight-statusbar"[\s\S]*?session\.status === "active"[\s\S]*?<button[\s\S]*?type="button"[\s\S]*?className="tower-fight-leave"[\s\S]*?Forfeit[\s\S]*?Leave view/);
         assert.ok(source.indexOf('className="tower-resource-rail tower-header-resource-rail"') < source.indexOf('className="tower-action-dock"'),
-            "combat resources belong in the header, above the command deck");
+            "AP belongs in the header, above the command deck");
         assert.doesNotMatch(source, /className="tower-action-topline"/);
         assert.match(tacticalCss, /\.tower-fight-statusbar > button \{ min-height: 44px; \}/);
         assert.match(
@@ -222,13 +223,14 @@ describe("Tower narrow combat composition", () => {
     });
 });
 
-it("reserves the compact cancel target across two fixed live-state rows", () => {
-    assert.match(tacticalCss, /grid-template-rows: auto auto 20px 24px;/);
-    assert.match(tacticalCss, /\.tower-header-cancel \{ position: static; grid-column: 3; grid-row: 3 \/ 5;[^}]*height: 44px;/);
+it("reserves a full cancel target beside the compact phone header", () => {
+    assert.match(tacticalCss, /grid-template-rows: 22px 22px 20px;/);
+    assert.match(tacticalCss, /\.tower-fight-header > button \{ width: 44px; min-width: 44px; height: 44px; min-height: 44px;/);
+    assert.match(tacticalCss, /\.tower-header-cancel \{ grid-column: 3; grid-row: 1 \/ 3;/);
 });
 
 it("keeps desktop cancellation in the existing header rows", () => {
-    assert.match(tacticalCss, /grid-template-columns: minmax\(0, 1fr\) auto 44px auto;/);
-    assert.match(tacticalCss, /grid-template-columns: minmax\(150px, 1fr\) auto auto auto 44px auto;/);
+    assert.match(tacticalCss, /grid-template-columns: minmax\(0, 1fr\) auto auto auto 32px auto;/);
+    assert.match(tacticalCss, /grid-template-rows: 16px 16px;/);
     assert.doesNotMatch(tacticalCss, /\.tower-fight-statusbar \.tower-header-cancel \{[^}]*grid-row: [34];/);
 });

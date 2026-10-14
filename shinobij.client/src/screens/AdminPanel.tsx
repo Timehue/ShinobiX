@@ -2811,7 +2811,7 @@ export function AdminPanel({
                             <AiImagePrompt label="Jutsu Image" suggestedPrompt={`${jutsuElement} ${jutsuAp === 40 ? "Any" : jutsuType} technique, ${jutsuName}`} onImage={applyJutsuImage} />
 
                             {jutsuImage && (
-                                <div className="admin-jutsu-preview">
+                                <div className="admin-jutsu-preview jutsu-art-frame">
                                     <img src={jutsuImage} alt="Jutsu preview" />
                                 </div>
                             )}

@@ -910,7 +910,7 @@
     border-color: var(--bsv2-player, #4ea8ff) !important;
     box-shadow: 0 0 8px rgba(78,168,255,0.3);
 }
-.arena-fullscreen .battle-chat-input-row input::placeholder { color: rgba(196,162,90,0.4); }
+.arena-fullscreen .battle-chat-input-row input::placeholder { color: var(--sj-text-secondary); }
 .arena-fullscreen .battle-chat-input-row button {
     background: linear-gradient(180deg, #1a2238 0%, #0a1020 100%) !important;
     border: 1px solid var(--bsv2-gold-soft, rgba(196,162,90,0.45)) !important;

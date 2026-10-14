@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { consumeReloadIntoSector, peekReloadIntoSector, worldMapReopenTarget } from "./sector-return";
+import { clearSectorReopen, consumeReloadIntoSector, peekReloadIntoSector, setSectorReopen, setSectorTravelIntent, takeSectorReopen, takeSectorTravelIntent, worldMapReopenTarget } from "./sector-return";
 
 test("the reload signal can be peeked without consuming it, and is gone once consumed", () => {
     // Under node there is no navigation timing entry, so both reads false —
@@ -35,4 +35,27 @@ test("every AI fight close asks for the field it was fought on", async () => {
     const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
     assert.match(hook, /navigateRef\.current\(pending\.returnScreen as Screen, undefined, \{ returningFromFight: true \}\)/u);
     assert.match(app, /worldMapReopenTarget\(screen, currentSectorRef\.current, options\?\.worldMapOverview, options\?\.returningFromFight\)/u);
+});
+
+test("an explicit raid destination survives App reopening the player's current sector", () => {
+    clearSectorReopen();
+    setSectorTravelIntent("Rill", 57);
+    setSectorReopen(worldMapReopenTarget("logbook", 12));
+    assert.equal(takeSectorReopen(), 12);
+    assert.equal(takeSectorTravelIntent("rill"), 57);
+    assert.equal(takeSectorTravelIntent("rill"), null, "travel is consumed once");
+});
+
+test("sector travel intentions cannot cross accounts or survive a hospital reset", () => {
+    clearSectorReopen();
+    setSectorTravelIntent("Rill", 57);
+    assert.equal(takeSectorTravelIntent("Other"), null);
+    assert.equal(takeSectorTravelIntent("Rill"), null);
+    setSectorTravelIntent("Rill", 57);
+    clearSectorReopen();
+    assert.equal(takeSectorTravelIntent("Rill"), null);
+    for (const sector of [0, -1, 54, 1000, NaN, 2.5]) {
+        setSectorTravelIntent("Rill", sector);
+        assert.equal(takeSectorTravelIntent("Rill"), null, `reject invalid board ${sector}`);
+    }
 });

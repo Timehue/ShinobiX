@@ -29,7 +29,7 @@ test("Story and Spire phase gates announce one actionable mechanic summary", () 
 });
 
 test("combat hierarchy remains legible and reachable on narrow touch screens", () => {
-    assert.match(fight, /<h1 className="tower-fight-title">/);
+    assert.match(fight, /<h1 className="tower-fight-title"[^>]*>/);
     assert.match(fight, /resolveTowerStoryArt\(sealedStoryFloor\.artKey\)/);
     assert.match(fight, /data-has-encounter-art=\{encounterArt \? "true" : undefined\}/);
     assert.match(fight, /className="tower-turn-queue"[\s\S]{0,120}?tabIndex=\{0\}/);
@@ -70,7 +70,7 @@ test("fighter inspection retains combat details without the removed briefing row
     assert.doesNotMatch(tacticalCss, /tower-combat-intel/);
     assert.match(fight, /<TowerActorDetails actor=\{inspectedActor\}/);
     assert.doesNotMatch(fight, /Mission briefing &amp; battle rules/);
-    assert.match(fight, /objectiveDirective\} · \{objectiveProgress/);
+    assert.match(fight, /title=\{objectiveDirective\} aria-label=\{`\$\{objectiveDirective\}\. Objective progress: \$\{objectiveProgress\}`\}>\{objectiveProgress\}/);
     assert.doesNotMatch(fight, /tower-board-legend|boardLegend|Field recognition/);
 });
 
