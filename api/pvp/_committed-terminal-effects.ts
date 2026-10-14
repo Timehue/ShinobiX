@@ -156,13 +156,43 @@ export function replayCommittedPvpTerminalEffects(
             ? { ...replay, playerRankedJournal: structuredClone(replay.playerRankedJournal) }
             : { ...replay }));
     }
-    const run = runCommittedPvpTerminalEffects(session, options);
+    const timings = terminalStepTimings();
+    const run = runCommittedPvpTerminalEffects(session, options, timings.mark);
     inFlightTerminalReplays.set(key, run);
     const release = () => {
         if (inFlightTerminalReplays.get(key) === run) inFlightTerminalReplays.delete(key);
     };
     run.then(release, release);
+    run.then(() => timings.report(session.battleId, 'settled'), () => timings.report(session.battleId, 'failed'));
     return run;
+}
+
+/*
+ * Both claims wait on this saga, so its length is the floor on how fast a PvP
+ * result card can say "secured". On 2026-10-13 it took 2.5-2.9s in production
+ * for two ordinary duels while every database statement it issues averaged
+ * well under 10ms. A slow run names its slow step instead of being guessed at.
+ */
+const SLOW_TERMINAL_SAGA_MS = 1_500;
+
+type TerminalStepMark = (step: string) => void;
+
+function terminalStepTimings() {
+    const startedAt = Date.now();
+    let lastAt = startedAt;
+    const steps: string[] = [];
+    return {
+        mark: (step: string) => {
+            const now = Date.now();
+            steps.push(`${step}=${now - lastAt}`);
+            lastAt = now;
+        },
+        report: (battleId: string, outcome: 'settled' | 'failed') => {
+            const total = Date.now() - startedAt;
+            if (total < SLOW_TERMINAL_SAGA_MS) return;
+            console.warn(`[pvp/terminal] slow terminal saga ${battleId} ${outcome} in ${total}ms: ${steps.join(' ') || 'no step finished'}`);
+        },
+    };
 }
 
 /** Test seam: how many terminal replays are currently shared in flight. */
@@ -173,6 +203,7 @@ export function _inFlightPvpTerminalReplayCount(): number {
 async function runCommittedPvpTerminalEffects(
     session: PvpSession,
     options: CommittedPvpTerminalReplayOptions,
+    mark: TerminalStepMark,
 ): Promise<CommittedPvpTerminalReplay> {
     // Refresh both real-player recovery pointers from the exact committed row
     // and seal the terminal snapshot before shorter-lived presentation work.
@@ -181,17 +212,22 @@ async function runCommittedPvpTerminalEffects(
     await ensurePvpTerminalRecoveryPublication(kv, session.battleId, session, {
         snapshotSealed: options.recoverySnapshotSealed === true,
     });
+    mark('recovery');
     // The defender's sector-attack notice outlives the duel in their inbox and
     // would route them back into it, however it ended (cancel, flee, knockout).
     await releaseBattleChallengeNotices(session);
+    mark('notices');
     if (isCancelledUnstartedPvpDuel(session)) return {};
 
     // A terminal retry is also the final action's durable replay path. The
     // capsule lives in the exact committed session, so no uncommitted move can
     // publish history and a crash after combat CAS remains repairable.
     await replayCommittedPvpActionReceipt(kv, session);
+    mark('action-receipt');
     await settlePvpLegacyProgress(session);
+    mark('legacy');
     await settleRankedRelicReward(session);
+    mark('relic');
 
     // What the fight cost the two bodies. Settled HERE rather than in
     // claim-rewards so a continuous engagement still charges its damage when
@@ -200,6 +236,7 @@ async function runCommittedPvpTerminalEffects(
     // its own durable receipt, so this replays safely; a transient storage
     // failure propagates and the next terminal reader retries it.
     await settlePvpTerminalVitals(kv, session, {});
+    mark('vitals');
 
     // Receipt and history writers are battle-id idempotent. Indexing is retried
     // even when the receipt writer reports "already exists", which repairs a
@@ -214,6 +251,7 @@ async function runCommittedPvpTerminalEffects(
     } catch (error) {
         console.error('[pvp/terminal] battle history index failed', error);
     }
+    mark('receipt-history');
 
     // Persist the Kage outcome before attempting the immediate seat transfer.
     // A missing pointer is a legitimate non-Kage battle. Once a pointer exists,
@@ -237,6 +275,7 @@ async function runCommittedPvpTerminalEffects(
             }
         }
     }
+    mark('kage');
 
     // World Combat contests are server settlement, never a browser callback.
     // This runs for either participant's retry (and terminal move replay) before
@@ -245,6 +284,7 @@ async function runCommittedPvpTerminalEffects(
     const sectorWarSettlement = session.rewardAuthority === 'world' && pvpSessionMayGrantProgress(session)
         ? await settlePvpSectorWarContinuation(session)
         : undefined;
+    mark('sector-war');
 
     // The terminal PvP row is the exact opposite-side Clan War proof. Settle
     // wins, losses, and draws here so every terminal replay (including either
@@ -253,6 +293,7 @@ async function runCommittedPvpTerminalEffects(
     const clanWarSettlement = session.rewardAuthority === 'clan-war'
         ? await settlePvpClanWarContinuation(session) ?? undefined
         : undefined;
+    mark('clan-war');
 
     // World-raid progression and the village-war row, the last two settlements
     // that still required a browser to claim. Settled together and in that
@@ -261,12 +302,14 @@ async function runCommittedPvpTerminalEffects(
     // authority and retries, and both settlers are proof-idempotent, so its
     // call simply replays whatever landed here.
     const worldSettlement = await settleTerminalWorldRaid(session);
+    mark('world-raid');
 
     if (isPlayerRankedV2Session(session)) {
         const playerRankedJournal = await confirmPlayerRankedTerminalEffects(kv, session, {
             eligible: async (a, b) => !(await hasRecentIpOrFpOverlapStrict(a, b, kv)),
             lock: (saveKey, action) => withKvLock(saveKey, action, { failClosed: true }),
         });
+        mark('ranked');
         return { playerRankedJournal, clanWarSettlement, sectorWarSettlement, worldSettlement };
     }
 
@@ -280,6 +323,7 @@ async function runCommittedPvpTerminalEffects(
         // forward; normal ineligible `{ granted:false }` results remain success.
         await grantVanguardRewardsForSession(session);
     }
+    mark('vanguard');
 
     return { clanWarSettlement, sectorWarSettlement, worldSettlement };
 }
