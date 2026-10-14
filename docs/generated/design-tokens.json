@@ -2305,7 +2305,7 @@
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 158
+            "line": 161
           }
         ]
       },
@@ -2490,11 +2490,11 @@
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 122
+            "line": 125
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 177
+            "line": 190
           }
         ]
       },
@@ -2516,7 +2516,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 166
+            "line": 178
           }
         ]
       },
@@ -2994,7 +2994,7 @@
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 166
+            "line": 178
           }
         ]
       },
@@ -3135,11 +3135,11 @@
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 122
+            "line": 125
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 177
+            "line": 190
           }
         ]
       },
@@ -4607,11 +4607,15 @@
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 166
+            "line": 169
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 177
+            "line": 178
+          },
+          {
+            "source": "shinobij.client/src/styles/sector-hud.css",
+            "line": 190
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
@@ -4737,11 +4741,11 @@
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 122
+            "line": 125
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 130
+            "line": 133
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",

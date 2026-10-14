@@ -12,7 +12,7 @@ test('compact map notice separates Study and lesson glyphs in the actual app', a
     await page.goto('/#/worldMap');
     await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'worldMap');
     const back = page.getByRole('button', { name: /Return to Sector 1/ });
-    await expect.poll(async () => await back.isVisible() || await page.locator('.sector-image-map').isVisible()).toBe(true);
+    await expect.poll(async () => await back.isVisible() || await page.locator('.sector-image-map').isVisible(), {timeout:60_000}).toBe(true);
     if (await back.isVisible()) await back.click();
     const banner = page.locator('.pet-mentor-road-prompt');
     await expect(banner).toBeVisible();

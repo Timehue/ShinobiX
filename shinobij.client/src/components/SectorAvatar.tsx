@@ -59,8 +59,7 @@ const AURA: Record<Biome, string> = {
 
 function prefersReducedMotion(): boolean {
     return typeof window !== "undefined"
-        && (document.documentElement.classList.contains("lite-fx")
-            || !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
+        && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 }
 
 // Centre (px) of grid cell `n` along an axis of length `size` with `count`
@@ -231,7 +230,7 @@ export function SectorAvatar({
 
             // Footstep dust each time we cross into a new tile.
             const tileNow = Math.round(posRef.current.row) * GRID_W + Math.round(posRef.current.col);
-            if (tileNow !== lastStepTileRef.current && sizeRef.current.w) {
+            if (tileNow !== lastStepTileRef.current && sizeRef.current.w && !document.documentElement.classList.contains('lite-fx')) {
                 lastStepTileRef.current = tileNow;
                 const { w, h } = sizeRef.current;
                 const { padX, padY, gapX, gapY } = metricsRef.current;
