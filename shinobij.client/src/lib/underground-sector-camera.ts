@@ -18,14 +18,16 @@ export function undergroundRooms(tiles: readonly RoomTile[], width: number): Map
 
 /** Scale the world around its smaller chambers, rather than showing a miniature
  * floor plan. The scale stays stable while crossing a floor's rooms. */
-export function undergroundTileSize(view: { width: number; height: number }, rooms: ReadonlyMap<number, UndergroundRoom>, frameArchitecture = false): number {
+export function undergroundTileSize(view: { width: number; height: number }, rooms: ReadonlyMap<number, UndergroundRoom>, frameArchitecture: boolean | 'rift' = false): number {
     const sorted = (axis: 'width' | 'height') => [...rooms.values()].map(r => r[axis]).sort((a, b) => a - b);
     const widths = sorted('width'), heights = sorted('height');
     const compact = (sizes: number[], fallback: number) => sizes[0] ?? fallback;
     const worldScale = Math.max(view.width / (compact(widths, 7) + .9), view.height / (compact(heights, 5) + .9));
     // Desktop strongholds need their north/south stations visible together.
     // Phones retain the established world scale and player-following camera.
-    const desired = frameArchitecture && view.width > 620 && view.height > 420
+    const desired = frameArchitecture === 'rift'
+        ? Math.min(view.width / (compact(widths, 7) + 1), view.height / (compact(heights, 5) + 2.6))
+        : frameArchitecture && view.width > 620 && view.height > 420
         ? Math.min(worldScale, view.height / (compact(heights, 5) + .6)) : worldScale;
     return Math.round(Math.max(48, Math.min(view.width <= 480 ? 112 : 192, desired)));
 }
@@ -34,12 +36,12 @@ export function undergroundTileSize(view: { width: number; height: number }, roo
  * through an axis that does not, clamped to the chamber's own perimeter. */
 export function undergroundCamera(args: {
     view: { width: number; height: number }; width: number; height: number;
-    tileSize: number; playerX: number; playerY: number; room?: UndergroundRoom;
+    tileSize: number; playerX: number; playerY: number; room?: UndergroundRoom; margin?: number;
 }): { x: number; y: number } {
-    const { view, width, height, tileSize, playerX, playerY, room } = args;
+    const { view, width, height, tileSize, playerX, playerY, room, margin = 1 } = args;
     const axis = (viewSize: number, mapTiles: number, player: number, start?: number, span?: number) => {
-        const lo = start == null ? 0 : Math.max(0, start - 1) * tileSize;
-        const hi = start == null || span == null ? mapTiles * tileSize : Math.min(mapTiles, start + span + 1) * tileSize;
+        const lo = start == null ? 0 : Math.max(0, start - margin) * tileSize;
+        const hi = start == null || span == null ? mapTiles * tileSize : Math.min(mapTiles, start + span + margin) * tileSize;
         const extent = hi - lo;
         if (extent <= viewSize) return (viewSize - extent) / 2 - lo;
         return -Math.max(lo, Math.min(hi - viewSize, (player + .5) * tileSize - viewSize / 2));

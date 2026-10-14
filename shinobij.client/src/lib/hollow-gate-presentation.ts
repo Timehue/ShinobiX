@@ -122,6 +122,22 @@ export function hollowGateFloorProfile(floorRaw: unknown): HollowGateFloorProfil
     return FLOOR_PROFILES[floor - 1] ?? FLOOR_PROFILES[HOLLOW_GATE_DEPTH - 1];
 }
 
+/** Short quest rifts descend around a breached seal, rather than borrowing
+ * the main shrine's five-floor Hound story for every unrelated guardian. */
+export function hollowGateRiftFloorProfile(floor: number, maxFloor: number, bossName: string): HollowGateFloorProfile {
+    const base = hollowGateFloorProfile(floor);
+    const source = maxFloor <= 1 || floor >= maxFloor;
+    return {
+        ...base,
+        name: maxFloor <= 1 ? 'The Ancient Breach' : source ? 'The Source Chamber' : floor === 1 ? 'The Fractured Seal' : 'The Buried Wards',
+        epithet: source ? 'Something below still answers the broken seal' : 'The earth remembers what was buried here',
+        atmosphere: 'Pale power rises from a black shaft. Worn inscriptions catch its light, then fade back into the stone.',
+        lore: 'The chamber was built around the opening. Its broken wards still turn inward, holding back a power older than their makers.',
+        houndEpithet: `Guardian of the final depth · ${maxFloor}`,
+        signature: bossName,
+    };
+}
+
 export function hollowGateEncounterPresentation(floor: unknown, kind: HollowGateHoundKind) {
     const profile = hollowGateFloorProfile(floor);
     return {
