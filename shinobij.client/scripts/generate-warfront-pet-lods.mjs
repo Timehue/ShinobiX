@@ -14,7 +14,7 @@
  *   node scripts/generate-warfront-pet-lods.mjs --manifest-only [--check]
  */
 import { createHash } from "node:crypto";
-import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, stat, writeFile, rename } from "node:fs/promises";
 import { dirname, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Logger, NodeIO, getBounds } from "@gltf-transform/core";
@@ -80,7 +80,10 @@ if (argv.has("--manifest-only")) {
     if (checkOnly) {
         invariant((await readFile(tsManifestPath, "utf8")).replace(/\r\n/g, "\n") === generated, "TypeScript LOD manifest is stale");
     } else {
-        await writeFile(tsManifestPath, generated);
+        if (!resolve(tsManifestPath).startsWith(clientRoot + sep)) throw new Error('Generated manifest escaped the workspace');
+        const temporary = `${tsManifestPath}.codegen-tmp`;
+        await writeFile(temporary, generated);
+        await rename(temporary, tsManifestPath);
     }
     console.log(`[lod-manifest] ${checkOnly ? "checked" : "generated"} ${recorded.entries.length} certified entries without modifying assets`);
     process.exit(0);
@@ -571,8 +574,10 @@ async function processAsset(sourcePath) {
     const detailedHound = sourcePath.endsWith('starter-lightning-l.glb');
     const breedingMythic = BREEDING_MYTHIC_TEXTURE_IDS.has(sourcePath.split(sep).at(-1).slice(0, -4))
         && slash(relative(modelRoot, sourcePath)).startsWith("roster/");
+    // Battle models never need the close-up 2048 atlas. Keep one consistent
+    // 1024 cap for every species; full models retain their original textures.
     const textureSize = detailedHound ? RAIJIN_LOD_TEXTURE_SIZE
-        : breedingMythic ? BREEDING_MYTHIC_LOD_TEXTURE_SIZE : null;
+        : breedingMythic ? BREEDING_MYTHIC_LOD_TEXTURE_SIZE : 1024;
     const reducedTextures = textureSize ? await reducedLodTextures(source, textureSize) : null;
     const expectedTextures = reducedTextures ? textureStats(reducedTextures) : sourceStats.textures;
     if (!checkOnly && !argv.has('--certify-existing')) {

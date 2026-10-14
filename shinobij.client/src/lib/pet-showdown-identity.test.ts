@@ -65,6 +65,20 @@ describe('showdownFighterIdentity', () => {
         const identity = showdownFighterIdentity(AI_VIEW, []);
         assert.equal(identity.id, 'rare-24');
     });
+
+    it('uses sealed cosmetics for both sides and preserves empty match snapshots', () => {
+        const owned = { id: AI_VIEW.id, loadout: { collar: 'collar-azure' }, paletteVariantId: 'later-change' } as Pet;
+        const view = { ...AI_VIEW, appearance: { collarId: 'collar-prismatic', paletteVariantId: 'chromatic' } };
+        for (const roster of [undefined, [owned]]) {
+            const identity = showdownFighterIdentity(view, roster);
+            assert.equal(identity.loadout?.collar, 'collar-prismatic');
+            assert.equal(identity.paletteVariantId, 'chromatic');
+        }
+        const empty = showdownFighterIdentity({ ...AI_VIEW, appearance: {} }, [owned]);
+        assert.equal(empty.loadout?.collar, undefined);
+        assert.equal(empty.paletteVariantId, undefined);
+        assert.equal(owned.loadout?.collar, 'collar-azure', 'presentation leaves the saved pet intact');
+    });
 });
 
 describe('the AI can only field opponents that have a body', () => {

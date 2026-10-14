@@ -2476,6 +2476,14 @@
           {
             "source": "shinobij.client/src/styles/hub-screens-skin.css",
             "line": 1544
+          },
+          {
+            "source": "shinobij.client/src/styles/pet-techniques.css",
+            "line": 53
+          },
+          {
+            "source": "shinobij.client/src/styles/pet-yard-model-preview.css",
+            "line": 36
           }
         ]
       },
@@ -2841,6 +2849,10 @@
           {
             "source": "shinobij.client/src/styles/landing-home.css",
             "line": 436
+          },
+          {
+            "source": "shinobij.client/src/styles/pet-yard-model-preview.css",
+            "line": 43
           },
           {
             "source": "shinobij.client/src/styles/training-skin.css",

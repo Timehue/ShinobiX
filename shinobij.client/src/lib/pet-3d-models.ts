@@ -165,6 +165,7 @@ export type ShowdownFighterView = {
     rarity: string;
     element: string;
     templateId?: string;
+    appearance?: { collarId?: string; paletteVariantId?: string };
 };
 
 /**
@@ -191,14 +192,15 @@ export function showdownFighterIdentity(
     ownPets?: readonly Pet[],
 ): Pet {
     const owned = ownPets?.find((p) => p.id === view.id);
-    if (owned) return owned;
-    return {
+    const identity = owned ?? {
         id: view.templateId ?? view.id,
         templateId: view.templateId,
         name: view.name,
         rarity: view.rarity,
         element: view.element,
     } as unknown as Pet;
+    return view.appearance ? { ...identity, paletteVariantId: view.appearance.paletteVariantId,
+        loadout: { ...identity.loadout, collar: view.appearance.collarId } } : identity;
 }
 
 /** Returns a model only when it is approved for a large cinematic portrait.

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { TACTICS_ITEMS, TACTICS_MOVES, TACTICS_ROSTER, tacticsPreset, tacticsSpecies } from '../../../shared/pet-tactics-roster';
+import { TACTICS_ITEMS, TACTICS_ROSTER, tacticsPreset, tacticsSpecies } from '../../../shared/pet-tactics-roster';
 import type { TacticsBuild, TacticsMoveOption, TacticsOrder, TacticsPetSheet, TacticsRound, TacticsView } from '../../../shared/pet-tactics-contract';
 import type { ShowdownStateView } from '../../../shared/pet-showdown-contract';
 import type { Pet } from '../types/pet';
@@ -10,9 +10,13 @@ import { PetShowdownBattle } from './PetShowdownBattle';
 import { warmShowdownModels } from '../lib/pet-model-preload';
 import { petRankedQueue, settleRankedPetMatch } from '../lib/pet-ranked-queue-api';
 import type { Character } from '../types/character';
+import { rankedBattlePresentationPets, rankedCarriedRoster } from '../lib/pet-ranked-roster';
 import { ShowdownIcon, type ShowdownIconName } from './icons/ShowdownIcon';
 import { elementCrest } from './pet-showdown/presentation-tokens';
 import { ELEMENT_ICON } from '../lib/element-icons';
+import { PetTacticsBuildEditor } from './PetTacticsBuildEditor';
+import { savePetRankedBuild } from '../lib/pet-ranked-build-api';
+import { tacticsBuildIssue } from '../../../shared/pet-tactics-build';
 import '../styles/pet-tactics.css';
 import '../styles/pet-arena-presentation.css';
 
@@ -22,12 +26,15 @@ function portrait(speciesId: string, images: Record<string, string>): string {
 }
 const errorMessage = (error: unknown) => error instanceof Error ? error.message : 'The arena could not answer.';
 
-export function PetTacticsArena({ playerName, sharedImages = {}, onExit, onActiveChange, onFullscreenChange, ranked = false, rankedEligible = true, onVersionedCharacter }: {
+export function PetTacticsArena({ playerName, character, sharedImages = {}, onExit, onActiveChange, onFullscreenChange, ranked = false, rankedEligible = true, onVersionedCharacter }: {
     playerName: string; sharedImages?: Record<string, string>; onExit: () => void;
     onActiveChange?: (active: boolean) => void; onFullscreenChange?: (active: boolean) => void;
-    ranked?: boolean; rankedEligible?: boolean; onVersionedCharacter?: (character: Character, version: number) => boolean;
+    character?: Character; ranked?: boolean; rankedEligible?: boolean; onVersionedCharacter?: (character: Character, version: number) => boolean;
 }) {
-    const [builds, setBuilds] = useState<TacticsBuild[]>(() => ['starter-fire', 'starter-water', 'starter-lightning', 'starter-earth'].map(id => tacticsPreset(id)));
+    const roster = ranked ? rankedCarriedRoster(character) : TACTICS_ROSTER.map(p => ({ ...p, key: p.id, unavailable: null, build: tacticsPreset(p.id) }));
+    const [builds, setBuilds] = useState<TacticsBuild[]>(() => ranked ? [] : ['starter-fire', 'starter-water', 'starter-lightning', 'starter-earth'].map(id => tacticsPreset(id)));
+    const usableBuilds = ranked ? builds.filter(b => roster.some(p => p.key === b.ownedPetId && p.id === b.speciesId && !p.unavailable)) : builds;
+    const buildIssue = usableBuilds.map(build => tacticsBuildIssue(build)).find(Boolean);
     const [view, setView] = useState<TacticsView | null>(null);
     const [initial, setInitial] = useState<ShowdownStateView | null>(null);
     const [presented, setPresented] = useState(0);
@@ -194,7 +201,8 @@ export function PetTacticsArena({ playerName, sharedImages = {}, onExit, onActiv
 
     if (initial && view) {
         const commandReady = view.phase === 'planning' && presented === view.round;
-        return <PetShowdownBattle key={view.roomId} spectator initialState={initial} playerPets={[]} sharedImages={sharedImages}
+        const ownPresentationPets = rankedBattlePresentationPets(character, view.own);
+        return <PetShowdownBattle key={view.roomId} spectator initialState={initial} playerPets={ownPresentationPets} sharedImages={sharedImages}
             submitTurn={playback} inputLocked={view.round <= presented && view.phase !== 'finished'}
             onRoundPresented={acknowledge} onForfeit={async () => { await run('concede'); }} onExit={leaveResult}
             onFinished={() => setTerminalPresented(true)} onRematch={leaveResult} hideRematch
@@ -218,46 +226,37 @@ export function PetTacticsArena({ playerName, sharedImages = {}, onExit, onActiv
             <button type="button" disabled={busy} onClick={() => void run('concede')}>Close room</button>
         </div> : view?.phase === 'preview' ? <Preview view={view} seconds={seconds} images={sharedImages} busy={busy} onLock={leads => void run('leads', { leads })} onConcede={() => void run('concede')} />
             : <>
-                <div className="pta-rules"><span>Level 50 · equal access</span><span>2 active + 2 reserves</span><span>4 equipped moves + signature</span><span>45s simultaneous orders</span></div>
+                <div className="pta-rules"><span>Level 50 · balanced stats</span><span>2 active + 2 reserves</span><span>4 equipped moves + signature</span><span>45s simultaneous orders</span></div>
                 <div className="pta-builder-layout"><div>
-                    <h2>Build your squad <small>{builds.length}/4 selected</small></h2>
-                    <div className="pta-roster">{TACTICS_ROSTER.map(pet => {
-                        const index = builds.findIndex(b => b.speciesId === pet.id);
-                        return <button type="button" key={pet.id} aria-pressed={index >= 0} disabled={index < 0 && builds.length >= 4}
-                            className={`pta-roster-pet element-${pet.element}`} onClick={() => setBuilds(old => index >= 0 ? old.filter(b => b.speciesId !== pet.id) : [...old, tacticsPreset(pet.id)])}>
-                            <img src={portrait(pet.id, sharedImages)} alt="" loading="lazy" /><span><strong>{pet.name}</strong><small>{pet.element} · {pet.role}</small></span>{index >= 0 && <b>{index + 1}</b>}
+                    <h2>{ranked ? 'Choose your carried companions' : 'Build your squad'} <small>{usableBuilds.length}/4 selected</small></h2>
+                    {ranked && roster.filter(p => !p.unavailable).length < 4 && <p role="status">Carry four available pets to enter ranked. Manage your companions in the Pet Yard.</p>}
+                    <div className="pta-roster">{roster.map(pet => {
+                        const index = usableBuilds.findIndex(b => ranked ? b.ownedPetId === pet.key : b.speciesId === pet.id);
+                        return <button type="button" key={pet.key} aria-pressed={index >= 0} disabled={!!pet.unavailable || (index < 0 && usableBuilds.length >= 4)}
+                            className={`pta-roster-pet element-${pet.element}`} onClick={() => setBuilds(index >= 0 ? usableBuilds.filter((_, i) => i !== index) : [...usableBuilds, pet.build])}>
+                            <img src={portrait(pet.id, sharedImages)} alt="" loading="lazy" /><span><strong>{pet.name}</strong><small>{pet.unavailable ?? `${pet.element} · ${pet.role}`}</small></span>{index >= 0 && <b>{index + 1}</b>}
                         </button>;
                     })}</div>
-                    <div className="pta-builds">{builds.map((build, index) => <BuildEditor key={build.speciesId} build={build}
-                        onChange={next => setBuilds(old => old.map((b, i) => i === index ? next : b))} />)}</div>
+                    <div className="pta-builds">{usableBuilds.map((build, index) => <PetTacticsBuildEditor key={build.ownedPetId ?? build.speciesId} build={build}
+                        defaultExpanded={index === 0}
+                        name={roster.find(p => p.key === (build.ownedPetId ?? build.speciesId))?.name}
+                        onChange={next => setBuilds(usableBuilds.map((b, i) => i === index ? next : b))}
+                        savedBuild={character?.pets.find(p => p.id === build.ownedPetId)?.rankedBuild}
+                        onSave={ranked && onVersionedCharacter ? async next => {
+                            const result = await savePetRankedBuild(playerName, next);
+                            onVersionedCharacter(result.character, result._saveVersion);
+                        } : undefined} />)}</div>
                 </div><aside className="pta-admission"><span className="pta-kicker">{ranked ? 'Pet Colosseum ranked queue' : 'Challenge room'}</span><h2>Meet on equal ground</h2>
-                    <p>Everyone can use all 12 companions. Rarity changes identity, never your damage multiplier.</p>
-                    {ranked ? <><p>Player-controlled 2v2 with two reserves. Pet Elo changes only after the committed battle ends.</p>{!rankedEligible && <p role="alert">Reach the ranked level requirement before joining.</p>}<button className="pta-primary" type="button" disabled={busy || builds.length !== 4 || !rankedEligible} onClick={() => void run('queue', { builds })}>Find ranked match</button></> : <><button className="pta-primary" type="button" disabled={busy || builds.length !== 4} onClick={() => void run('create', { builds })}>Create arena room</button>
+                    <p>{ranked ? 'Bring the companions you carry. Their species and evolved forms stay their own; competitive stats are balanced at level 50.' : 'Choose from the sparring roster. Rarity changes identity, never your damage multiplier.'}</p>
+                    {buildIssue && <p role="status">Complete each pet’s move loadout before entering.</p>}
+                    {ranked ? <><p>Player-controlled 2v2 with two reserves. Pet Elo changes only after the committed battle ends.</p>{!rankedEligible && <p role="alert">Reach the ranked level requirement before joining.</p>}<button className="pta-primary" type="button" disabled={busy || usableBuilds.length !== 4 || !!buildIssue || !rankedEligible} onClick={() => void run('queue', { builds: usableBuilds })}>Find ranked match</button></> : <><button className="pta-primary" type="button" disabled={busy || builds.length !== 4 || !!buildIssue} onClick={() => void run('create', { builds })}>Create arena room</button>
                     <div className="pta-divider">or join a challenger</div><label htmlFor="pta-room">Arena code</label>
                     <input id="pta-room" value={code} maxLength={8} autoComplete="off" spellCheck={false} placeholder="8-character code" onChange={e => setCode(e.target.value)} />
-                    <button type="button" disabled={busy || builds.length !== 4 || !/^[0-9a-f]{8}$/i.test(code.trim())} onClick={() => void run('join', { roomId: code, builds })}>Join arena</button></>}
-                    <details><summary>How to create an advantage</summary><p>Expose a target, then focus fire. Intercept covers your partner. Switch before attacks to change an elemental matchup. Rest or rotate to recover stamina. Save a signature for the right opening; it costs stamina and takes at least three field rounds to prepare.</p><p>Guard resolves before attacks, but repeated Guard costs more and blocks less. Purify answers marks, wounds and control. Read the other team’s four moves before choosing your leads.</p><p>{ranked ? 'Ranked changes Pet Elo for both participants. Loan pets do not change your owned pets. No ryo or battle items are spent.' : 'Sparring is unrated. No ryo or battle items are spent.'}</p></details>
+                    <button type="button" disabled={busy || builds.length !== 4 || !!buildIssue || !/^[0-9a-f]{8}$/i.test(code.trim())} onClick={() => void run('join', { roomId: code, builds })}>Join arena</button></>}
+                    <details><summary>How to create an advantage</summary><p>Expose a target, then focus fire. Intercept covers your partner. Switch before attacks to change an elemental matchup. Rest or rotate to recover stamina. Save a signature for the right opening; it costs stamina and takes at least three field rounds to prepare.</p><p>Guard resolves before attacks, but repeated Guard costs more and blocks less. Purify answers marks, wounds and control. Read the other team’s four moves before choosing your leads.</p><p>{ranked ? 'Ranked changes Pet Elo for both participants. Your companions keep their training. No ryo or battle items are spent.' : 'Sparring is unrated. No ryo or battle items are spent.'}</p></details>
                 </aside></div>
             </>}
     </section>;
-}
-
-function BuildEditor({ build, onChange }: { build: TacticsBuild; onChange: (build: TacticsBuild) => void }) {
-    const pet = tacticsSpecies(build.speciesId)!;
-    const points = Object.values(build.allocation).reduce((a, b) => a + b, 0);
-    return <details className="pta-build" open><summary><strong>{pet.name}</strong><span>{build.moveIds.length}/4 moves · {points}/49 points</span></summary>
-        <p className="pta-trait">{pet.traitText}</p><div className="pta-preset">{pet.builds.map((preset, i) => <button type="button" key={preset.name} onClick={() => onChange(tacticsPreset(pet.id, i))}>{preset.name} build</button>)}</div>
-        <div className="pta-move-pool">{pet.pool.map(id => { const move = TACTICS_MOVES[id]; const checked = build.moveIds.includes(id);
-            return <label key={id} title={move.effect}><input type="checkbox" checked={checked} disabled={!checked && build.moveIds.length >= 4}
-                onChange={() => onChange({ ...build, moveIds: checked ? build.moveIds.filter(m => m !== id) : [...build.moveIds, id] })} /><span>{move.name}<small>{move.cls} · {move.cost} STA · {move.target}</small></span></label>;
-        })}</div>
-        <div className="pta-allocation">{(['vitality', 'power', 'guard', 'agility'] as const).map(key => <label key={key}>{key}<input type="number" min={0} max={25} step={1} value={build.allocation[key]}
-            onChange={e => onChange({ ...build, allocation: { ...build.allocation, [key]: Number(e.target.value) } })} /></label>)}</div>
-        <p className="pta-item-effect">Vitality: HP · Power: damage · Guard: defenses and +1 passive STA per 10 points · Agility: speed. Maximum 25 per attribute.</p>
-        {points !== 49 && <p role="status">Allocate exactly 49 points before entering.</p>}
-        <label className="pta-item">Competitive item<select value={build.item} onChange={e => onChange({ ...build, item: e.target.value as TacticsBuild['item'] })}>{TACTICS_ITEMS.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-        <p className="pta-item-effect">{TACTICS_ITEMS.find(i => i.id === build.item)?.effect}</p>
-    </details>;
 }
 
 function TeamSheet({ pets, label, images = {} }: { pets: TacticsPetSheet[]; label: string; images?: Record<string, string> }) {

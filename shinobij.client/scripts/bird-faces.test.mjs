@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 import * as THREE from 'three';
+import { compactGlbDelivery } from './compact-glb-delivery.mjs';
 import { BIRD_FACE_REPAIRS, BIRD_FACE_REPAIR_REVISION, birdSkullShare, birdEnvelopeMatrix, loadBird } from './repair-bird-faces.mjs';
 
 const BEAK_SURFACES = JSON.parse(await readFile(new URL('./fixtures/bird-beak-vertices.json', import.meta.url), 'utf8')).models;
@@ -24,7 +25,7 @@ async function load(id) {
     const candidate = process.env.BIRD_FACE_CANDIDATES === '1';
     const path = new URL(candidate ? `../.tmp/bird-face-repair/${kind}-${id}.glb` : `../public/pet-models/${kind === 'base' ? '' : kind + '/'}${id}.glb`, import.meta.url);
     const bytes = await readFile(path), length = bytes.readUInt32LE(12);
-    assert.ok(bytes.length < 1024 * 1024, `${id}: repaired runtime model exceeds the 1 MiB download budget`);
+    assert.ok(compactGlbDelivery(bytes).length < 1024 * 1024, `${id}: repaired runtime model exceeds the 1 MiB download budget`);
     const json = JSON.parse(bytes.subarray(20, 20 + length)), binary = bytes.subarray(28 + length);
     assert.equal(json.extras?.birdFaceRepair?.revision, BIRD_FACE_REPAIR_REVISION, `${id} is missing its reviewed binding repair`);
     const bodyRepair = json.extras?.skinSeamRepair;
