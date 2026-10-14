@@ -21,6 +21,7 @@ function formatQueueClock(ms: number): string {
 }
 
 export function WorldBossQueueDialog({
+    knownBoss,
     character,
     currentSector,
     hostLoadout,
@@ -29,6 +30,8 @@ export function WorldBossQueueDialog({
     onRecordBattle,
     onClose,
 }: {
+    /** The boss the player clicked, shown until the first queue read lands. */
+    knownBoss?: Readonly<{ bossId: string; bossName: string }> | null;
     character: Character;
     currentSector: number;
     hostLoadout?: TowerHostLoadout;
@@ -83,7 +86,10 @@ export function WorldBossQueueDialog({
     const event = view?.event ?? null;
     const queue = view?.queue;
     const match = queue?.match ?? null;
-    const boss = worldBossDefinition(event?.bossId);
+    // Never the default boss's art while the first read is in flight: the
+    // player clicked a particular boss, and the map already knows which one.
+    const bossId = event?.bossId ?? knownBoss?.bossId;
+    const boss = worldBossDefinition(bossId);
     const serverNow = now + serverOffset;
     const atBoss = !!event && event.currentSector === currentSector;
     const queueRemaining = queue?.queueClosesAt == null ? 0 : Math.max(0, queue.queueClosesAt - serverNow);
@@ -125,11 +131,11 @@ export function WorldBossQueueDialog({
 
     return <div className="world-boss-queue-overlay" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
         <section className="world-boss-queue-dialog" role="dialog" aria-modal="true" aria-labelledby="world-boss-queue-title">
-            <header className="world-boss-queue-hero" style={{ backgroundImage: `linear-gradient(90deg, rgba(5, 12, 22, .97), rgba(5, 12, 22, .69) 62%, rgba(5, 12, 22, .22)), url("${boss.keyArt}")` }}>
+            <header className="world-boss-queue-hero" style={{ backgroundImage: `linear-gradient(90deg, rgba(5, 12, 22, .97), rgba(5, 12, 22, .69) 62%, rgba(5, 12, 22, .22))${bossId ? `, url("${boss.keyArt}")` : ""}` }}>
                 <button type="button" className="world-boss-queue-close" aria-label="Close team queue" onClick={onClose}>×</button>
                 <span className="world-boss-queue-kicker">WORLD BOSS · FIELD PARTY</span>
-                <h2 id="world-boss-queue-title">{event?.bossName ?? boss.name}</h2>
-                <p>{boss.traitName} · {boss.traitDescription}</p>
+                <h2 id="world-boss-queue-title">{event?.bossName ?? knownBoss?.bossName ?? (bossId ? boss.name : "World boss")}</h2>
+                {bossId && <p>{boss.traitName} · {boss.traitDescription}</p>}
             </header>
 
             <div className="world-boss-queue-body">

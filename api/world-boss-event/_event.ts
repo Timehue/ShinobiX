@@ -184,7 +184,7 @@ export function worldBossEventIsOpen(event: WorldBossEventRecord, now: number): 
         && now < event.endsAt;
 }
 
-export function publicWorldBossEvent(event: WorldBossEventRecord, status: WorldBossEventStatus, position: { active: boolean; currentSector: number; nextSector: number; hopIndex: number; nextHopInMs: number; hopIntervalMs: number; movementPaused: boolean; targetSector: number | null; destinationReached: boolean } | null) {
+export function publicWorldBossEvent(event: WorldBossEventRecord, status: WorldBossEventStatus, position: { active: boolean; currentSector: number; previousSector?: number | null; nextSector: number; hopIndex: number; nextHopInMs: number; hopIntervalMs: number; movementPaused: boolean; targetSector: number | null; destinationReached: boolean } | null) {
     const minedCrystalNodeIds = event.minedCrystalNodeIds ?? [];
     const boss = worldBossDefinition(event.bossId);
     return {
@@ -203,6 +203,7 @@ export function publicWorldBossEvent(event: WorldBossEventRecord, status: WorldB
         hp: Math.max(0, Math.min(event.hpMax, event.hp)),
         hpMax: event.hpMax,
         currentSector: position?.currentSector ?? null,
+        previousSector: position?.previousSector ?? null,
         nextSector: position?.nextSector ?? null,
         nextHopInMs: position?.nextHopInMs ?? 0,
         movementPaused: position?.movementPaused === true,

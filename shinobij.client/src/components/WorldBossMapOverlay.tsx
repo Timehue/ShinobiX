@@ -46,8 +46,11 @@ export function useWorldBossMap(
     };
     const closeQueue = () => setQueueOpen(false);
     /** The boss standing in `selectedSector`, clickable to open the queue, or null. */
-    const standeeIn = (selectedSector: number | null): WorldSectorWorldBossMarker | null => event && sector != null && sector === selectedSector
-        ? { bossId: event.bossId, name: event.bossName, paused: event.movementPaused, onOpen: openQueue }
+    const standeeIn = (selectedSector: number | null): WorldSectorWorldBossMarker | null => view && event && sector != null && sector === selectedSector
+        ? {
+            bossId: event.bossId, name: event.bossName, paused: event.movementPaused, onOpen: openQueue,
+            fromSector: event.previousSector ?? null, toSector: event.nextSector, readAt: view.serverNow, nextHopInMs: event.nextHopInMs,
+        }
         : null;
     return { view, event, sector, queueOpen, openQueue, closeQueue, standeeIn };
 }
