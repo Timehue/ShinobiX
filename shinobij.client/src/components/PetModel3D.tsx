@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, type MutableRefObject } from "react";
 import { useFrame } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
+import { petBakedSupportOwnsBody, petHasBakedRigMotion, type PetCharacterMotionBank } from '../lib/pet-baked-support';
 import * as THREE from "three";
 import { clone as cloneSkeleton } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { petVictoryArcHeight, type PetCombatModelConfig } from "../lib/pet-3d-models";
@@ -18,6 +19,8 @@ import { advancePetAnimationMixer, createPetAnimationEpoch, petAnimationBlend, p
 import { createPetCombatRigMotion } from "../lib/pet-combat-rig-motion";
 import { INDIVIDUAL_PET_ANIMATION_MODEL_IDS } from "../lib/pet-proper-animation-assets";
 import { disposePetModelResources } from "../lib/pet-model-resources";
+import { petModelGroundY } from '../lib/pet-model-ground-contact';
+import { petTechniquePose, petTechniqueStyle, type PetTechniqueStyle } from '../lib/pet-technique-pose';
 
 export type PetModelMotion =
     | "idle"
@@ -145,6 +148,7 @@ type PreparedModel = {
     clips: readonly THREE.AnimationClip[];
     clipsByName: ReadonlyMap<string, THREE.AnimationClip>;
     authoredCombatRig: boolean;
+    quadrupedRig: boolean;
 };
 
 const ELEMENT_LIGHT: Record<string, string> = {
@@ -242,7 +246,7 @@ function smoothAngle(from: number, to: number, amount: number): number {
     return from + delta * amount;
 }
 
-function patchDeformation(material: THREE.Material, minY: number, height: number, uniforms: DeformUniforms[], clipLow = 0, floorCut = 0, floorOutline = false, silhouetteInk = 1) {
+function patchDeformation(material: THREE.Material, minY: number, height: number, uniforms: DeformUniforms[], clipLow = 0, floorCut = 0, floorOutline = false, silhouetteInk = 1, preserveAtlasContrast = false) {
     const pbrSurface = (material as THREE.MeshStandardMaterial).isMeshStandardMaterial === true;
     const toonSurface = (material as THREE.MeshToonMaterial).isMeshToonMaterial === true;
     const basicSurface = (material as THREE.MeshBasicMaterial).isMeshBasicMaterial === true;
@@ -309,6 +313,12 @@ function patchDeformation(material: THREE.Material, minY: number, height: number
             shader.fragmentShader = shader.fragmentShader.replace(
                 "#include <opaque_fragment>",
                 [
+                    ...(preserveAtlasContrast ? [
+                        "// Keep dark atlas markings dark; let chromatic emission favor the contour.",
+                        "float petEmissionRim=pow(1.0-saturate(dot(geometryNormal,geometryViewDir)),2.0);",
+                        "float petEmissionMask=smoothstep(0.03,0.55,petBaseLuma)*(0.12+0.88*petEmissionRim);",
+                        "outgoingLight-=totalEmissiveRadiance*(1.0-petEmissionMask);",
+                    ] : []),
                     "// Three restrained light bands + a thin colour rim give the imported",
                     "// PBR asset an anime finish without painting over its texture detail.",
                     "float petLuma=max(0.001,dot(outgoingLight,vec3(0.2126,0.7152,0.0722)));",
@@ -329,6 +339,11 @@ function patchDeformation(material: THREE.Material, minY: number, height: number
             shader.fragmentShader = shader.fragmentShader.replace(
                 "#include <opaque_fragment>",
                 [
+                    ...(preserveAtlasContrast ? [
+                        "float petEmissionRim=pow(1.0-saturate(dot(geometryNormal,geometryViewDir)),2.0);",
+                        "float petEmissionMask=smoothstep(0.03,0.55,petBaseLuma)*(0.12+0.88*petEmissionRim);",
+                        "outgoingLight-=totalEmissiveRadiance*(1.0-petEmissionMask);",
+                    ] : []),
                     "// The light steps come from MeshToonMaterial's nearest-filtered gradient.",
                     "// Saturation, a restrained ink terminator and colour rim finish the cel pass.",
                     "float petGrey=dot(outgoingLight,vec3(0.3333));",
@@ -359,7 +374,7 @@ function patchDeformation(material: THREE.Material, minY: number, height: number
             );
         }
     };
-    material.customProgramCacheKey = () => basicSurface ? "pet-warfront-basic-v1" : toonSurface ? "pet-combat-toon-v3" : animeSurface ? "pet-combat-anime-v7" : "pet-combat-deform-v5";
+    material.customProgramCacheKey = () => `${basicSurface ? "pet-warfront-basic-v1" : toonSurface ? "pet-combat-toon-v3" : animeSurface ? "pet-combat-anime-v7" : "pet-combat-deform-v5"}${preserveAtlasContrast ? '-atlas-contrast-v1' : ''}`;
     material.needsUpdate = true;
 }
 
@@ -449,7 +464,9 @@ function prepareModel(
     const tint = new THREE.Color(ELEMENT_LIGHT[String(element ?? "")] ?? "#c4b5fd");
     const tintAmount = element === "Water" ? 0.18 : element === "Fire" ? 0.1 : element === "Earth" ? 0.14 : 0.16;
     const surfaceTint = ELEMENT_SURFACE[String(element ?? "")];
+    let quadrupedRig = false;
     surface.traverse((node) => {
+        if (node instanceof THREE.Bone && /^front_upper[._]?L$/.test(node.name)) quadrupedRig = true;
         if (!(node instanceof THREE.Mesh)) return;
         // Keep the DCC-authored split normals. Recomputing after glTF has split
         // vertices along UV seams turns those seams into visible triangular
@@ -477,12 +494,12 @@ function prepareModel(
             // those gradients; a hard four-step ramp overstates UV seam facets.
             const material = silhouette === "surface-ink"
                 ? cloneAsWarfrontSurface(sourceMaterial)
-                : ROSTER_VISUAL_ID.test(config.visualId)
+                : ROSTER_VISUAL_ID.test(config.visualId) || RIGGED_STARTER_VISUAL_ID.test(config.visualId)
                 ? sourceMaterial.clone()
                 : cloneAsCombatToon(sourceMaterial);
             const pbr = material as THREE.MeshStandardMaterial & { isMeshToonMaterial?: boolean };
             const textured = material as THREE.MeshStandardMaterial;
-            if (persistentAtlas && ROSTER_VISUAL_ID.test(config.visualId)) {
+            if (persistentAtlas) {
                 // Live selection parses GLBs before a renderer exists. Decode the
                 // baked PNG independently so a stale GLTF ImageBitmap can never
                 // turn an otherwise valid fighter into a white clay model.
@@ -490,7 +507,7 @@ function prepareModel(
             } else if (textured.map) {
                 textured.map = bindPetAtlasTexture(textured.map, quality.textureAnisotropy);
             }
-            if (ROSTER_VISUAL_ID.test(config.visualId) && (pbr.isMeshStandardMaterial || pbr.isMeshToonMaterial)) {
+            if ((ROSTER_VISUAL_ID.test(config.visualId) || RIGGED_STARTER_VISUAL_ID.test(config.visualId)) && (pbr.isMeshStandardMaterial || pbr.isMeshToonMaterial)) {
                 // The colour atlas is the pet's identity. Generated production
                 // rigs intentionally have no emissive map; a full-body emissive
                 // colour flattens their blue/red/green planes into beige under the
@@ -536,12 +553,12 @@ function prepareModel(
             // The eight-rig Warfront uses the same animated surface for its ink
             // silhouette.  A stronger Fresnel terminator preserves the readable
             // action contour without cloning the full skeleton and mixer.
-            patchDeformation(material, box.min.y, size.y, uniforms, 0, 0, false, silhouette === "surface-ink" ? 1.85 : 1);
+            patchDeformation(material, box.min.y, size.y, uniforms, 0, 0, false, silhouette === "surface-ink" ? 1.85 : 1, surfaceTreatment?.preserveAtlasContrast);
             const uniform = uniforms[uniforms.length - 1];
             uniform.lowTint.value.set(surfaceTreatment?.lowTint ?? surfaceTint?.low ?? "#ffffff");
             uniform.highTint.value.set(surfaceTreatment?.highTint ?? surfaceTint?.high ?? "#ffffff");
             uniform.tintStrength.value = preserveFaceColor ? 0 : surfaceTreatment?.tintStrength
-                ?? (clips.length ? Math.min(0.14, surfaceTint?.strength ?? 0) : surfaceTint?.strength ?? 0);
+                ?? (clips.length ? 0 : surfaceTint?.strength ?? 0);
             uniform.tintBlend.value = surfaceTreatment?.tintBlend ?? 0;
             materials.push(material);
             return material;
@@ -577,6 +594,7 @@ function prepareModel(
     return {
         surface, outline, offset, scale, materials, uniforms, clips, clipsByName,
         authoredCombatRig: isAuthoredCombatRig(config.visualId, clipsByName),
+        quadrupedRig,
     };
 }
 
@@ -828,8 +846,8 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
     silhouette?: PetModelSilhouette;
 }) {
     const recallScene = usePetRecallController();
-    const gltf = useGLTF(config.url) as { scene: THREE.Group; animations: THREE.AnimationClip[] };
-    const persistentAtlas = ROSTER_VISUAL_ID.test(config.visualId) ? readPetGlbAtlas(config.url) : null;
+    const gltf = useGLTF(config.url) as { scene: THREE.Group; animations: THREE.AnimationClip[]; userData?: { characterMotion?: PetCharacterMotionBank } };
+    const persistentAtlas = (ROSTER_VISUAL_ID.test(config.visualId) || RIGGED_STARTER_VISUAL_ID.test(config.visualId)) ? readPetGlbAtlas(config.url) : null;
     const fallbackQuality = useMemo(() => petVisualQuality(), []);
     const quality = qualityOverride ?? fallbackQuality;
     const prepared = useMemo(
@@ -844,15 +862,17 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
     const body = useRef<THREE.Group>(null);
     const aura = useRef<THREE.PointLight>(null);
     const lastMotion = useRef<PetModelFrame["motion"]>("idle");
+    const technique = useRef<{ name?: string; casting: boolean; style: PetTechniqueStyle }>({ casting: false, style: 'neutral' });
     const motionStart = useRef(0);
     const lastVictorious = useRef(false);
     const victoryStart = useRef(0);
     const lastTimeline = useRef<number | null>(null);
     const facingInitialized = useRef(false);
     const lightColor = surfaceTreatment?.emissive ?? ELEMENT_LIGHT[String(element ?? "")] ?? "#c4b5fd";
+    const bakedRigMotion = petHasBakedRigMotion(gltf.userData?.characterMotion);
     const rigMotion = useMemo(() => createPetCombatRigMotion(
-        [prepared.surface, prepared.outline], INDIVIDUAL_PET_ANIMATION_MODEL_IDS.has(config.visualId),
-    ), [prepared.surface, prepared.outline, config.visualId]);
+        [prepared.surface, prepared.outline], bakedRigMotion || INDIVIDUAL_PET_ANIMATION_MODEL_IDS.has(config.visualId),
+    ), [prepared.surface, prepared.outline, config.visualId, bakedRigMotion]);
 
     useEffect(() => {
         const lifetime = resourceLifetime.current;
@@ -954,6 +974,7 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
             : 0;
         const victoryLift = f.victorious ? 1 - Math.pow(1 - Math.min(1, victoryAge / 0.48), 3) : 0;
         const avianDive = config.profile === "avian" && f.motion === "dash";
+        const bakedSupport = petBakedSupportOwnsBody(f, config.profile, gltf.userData?.characterMotion, aquaticSeal);
         const avianDiveP = avianDive ? Math.min(1, motionAge / 0.58) : 0;
         const avianDiveArc = avianDive ? Math.sin(Math.PI * avianDiveP) * config.targetHeight * 0.19 : 0;
         // A dodge is one readable launch-and-land phrase. The presentation track
@@ -1159,7 +1180,7 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
         // deliberately much smaller than the legacy procedural bob.
         const authoredRunWave = running && authoredCombatRig ? Math.abs(Math.sin(gaitPhase)) : 0;
         const bob = runWave * profileBounce
-            + (groundedAuthoredQuadruped ? authoredRunWave * profileBounce * 0.16 : authoredRunWave * profileBounce * 0.34)
+            + (authoredCombatRig ? 0 : authoredRunWave * profileBounce * 0.34)
             + (f.casting && !authoredCombatRig ? Math.sin(timeline * 6) * 0.045 : 0);
         const attackPulse = strike ? Math.sin(Math.PI * Math.min(1, motionAge / 0.38)) : 0;
         // The authored locomotion moves the limbs, but a dash also needs a clear
@@ -1244,6 +1265,11 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
             attackPulse,
             casting: f.casting,
         });
+        if (technique.current.name !== f.moveName || technique.current.casting !== f.casting) {
+            technique.current = { name: f.moveName, casting: f.casting, style: petTechniqueStyle(f.moveName, f.casting) };
+        }
+        const techniquePose = petTechniquePose(technique.current.style, f.motion,
+            f.attackPhaseProgress ?? motionAge / (f.motion === 'windup' ? .38 : f.motion === 'strike' ? .26 : .51));
         const deathPose = petDeathChoreography(motionAge, config.targetHeight, config.profile);
 
         // Four-legged pets cannot convincingly strafe while their planted-foot
@@ -1290,12 +1316,12 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
                 r.rotation.y = smoothAngle(r.rotation.y, wantedYaw, petAnimationBlend(presentationDelta, turnRate));
             }
         }
-        const utilityLift = restBreath * config.targetHeight * (config.profile === "heavy" ? 0.018 : 0.032);
+        const utilityLift = bakedSupport ? 0 : restBreath * config.targetHeight * (config.profile === "heavy" ? 0.018 : 0.032);
         // Idle personality may breathe, listen, coil, or sway inside the body
         // group, but its world root stays planted. In particular the hopper
         // package used to lift the whole actor every loop, which read as constant
         // hopping and made the contact shadow slide despite a stationary sim.
-        const actionLift = idle ? 0 : heroPose.lift;
+        const actionLift = idle || bakedSupport ? 0 : heroPose.lift;
         const rootHeight = bob + dodgeHeight + avianDiveArc + victoryArc + actionLift + utilityLift + entryLift + (dead ? deathPose.lift - deathPose.sink : 0);
         r.position.y = THREE.MathUtils.lerp(r.position.y, dead ? rootHeight : Math.max(0, rootHeight), petAnimationBlend(presentationDelta, avianDive || dodge || dead ? 18 : 12));
         // The generated roster takes provide leg/head motion but their attack clip
@@ -1342,9 +1368,17 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
             + entryRoll
             + (guard ? Math.sin(Math.min(1, motionAge / 0.34) * Math.PI) * 0.035 : 0)
             + (resting ? Math.sin(timeline * 2.2) * 0.018 : 0);
-        b.rotation.x = THREE.MathUtils.lerp(b.rotation.x, authoredPitch, petAnimationBlend(presentationDelta, dead ? 4 : 15));
-        b.rotation.y = THREE.MathUtils.lerp(b.rotation.y, heroPose.yaw + personalityYaw + entryYaw + victoryYaw, petAnimationBlend(presentationDelta, 13));
-        b.rotation.z = THREE.MathUtils.lerp(b.rotation.z, authoredRoll, petAnimationBlend(presentationDelta, 11));
+        // Skeletal poses own the silhouette. Host steering adds only restrained
+        // weight transfer; stacking full torso rotations made every species rock.
+        const bodyAccent = authoredCombatRig ? 0.3 : 1;
+        b.rotation.x = THREE.MathUtils.lerp(b.rotation.x, bakedSupport ? 0 : authoredPitch * bodyAccent + techniquePose.pitch, petAnimationBlend(presentationDelta, dead ? 4 : 15));
+        b.rotation.y = THREE.MathUtils.lerp(b.rotation.y, bakedSupport ? 0 : (heroPose.yaw + personalityYaw + entryYaw + victoryYaw) * bodyAccent + techniquePose.yaw, petAnimationBlend(presentationDelta, 13));
+        // Generic quadruped banks fold the limbs but leave the shoulder mass
+        // upright. Roll the complete body onto its flank for a readable KO;
+        // bespoke showcase deaths already contain their own complete collapse.
+        const flankCollapse = dead && (prepared.quadrupedRig || config.profile === 'serpentine') && !INDIVIDUAL_PET_ANIMATION_MODEL_IDS.has(config.visualId)
+            ? deathPose.fall * 1.05 : 0;
+        b.rotation.z = THREE.MathUtils.lerp(b.rotation.z, bakedSupport ? 0 : authoredRoll * bodyAccent + techniquePose.roll + flankCollapse, petAnimationBlend(presentationDelta, 11));
         const sx = authoredCombatRig
             ? dead ? 1 + 0.06 * deathPose.fall + 0.045 * deathPose.impact : f.victorious ? 1.025 + victoryLift * 0.012 : strike ? 1 - 0.04 * attackPulse : stagger ? 1.035 : running ? (groundedAuthoredQuadruped ? 1 : 1 + authoredRunWave * 0.012) : 1 + breath * 0.12
             : f.victorious ? (aquaticSeal ? 1.055 : 1.035) : dead ? 1 + 0.08 * deathPose.fall + 0.055 * deathPose.impact : stagger ? 1.07 : strike ? (aquaticSeal ? 0.965 : 0.94) : aquaticSeal && running ? 1 + breath * 0.45 + sealCompression * 0.025 : 1 + breath;
@@ -1363,9 +1397,11 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
         const landingWeight = signatureDirection?.landingWeight ?? signatureWeight;
         const entranceScaleXz = 1 + entryLand * (config.profile === "heavy" ? 0.12 : 0.07) * landingWeight;
         const entranceScaleY = 1 - entryLand * (config.profile === "heavy" ? 0.16 : 0.1) * landingWeight;
-        b.scale.x = THREE.MathUtils.lerp(b.scale.x, sx * heroPose.scaleX * dashScaleX * utilityScaleX * entranceScaleXz, petAnimationBlend(presentationDelta, 15));
-        b.scale.y = THREE.MathUtils.lerp(b.scale.y, sy * heroPose.scaleY * dashScaleY * utilityScaleY * entranceScaleY, petAnimationBlend(presentationDelta, 15));
-        b.scale.z = THREE.MathUtils.lerp(b.scale.z, sz * heroPose.scaleZ * dashScaleZ * utilityScaleZ * entranceScaleXz, petAnimationBlend(presentationDelta, 15));
+        // Keep skinned anatomy rigid in world scale. Joints already provide the
+        // crouch, impact compression and landing; extra mesh stretch looked elastic.
+        b.scale.x = THREE.MathUtils.lerp(b.scale.x, authoredCombatRig ? 1 : sx * heroPose.scaleX * dashScaleX * utilityScaleX * entranceScaleXz, petAnimationBlend(presentationDelta, 15));
+        b.scale.y = THREE.MathUtils.lerp(b.scale.y, authoredCombatRig ? 1 : sy * heroPose.scaleY * dashScaleY * utilityScaleY * entranceScaleY, petAnimationBlend(presentationDelta, 15));
+        b.scale.z = THREE.MathUtils.lerp(b.scale.z, authoredCombatRig ? 1 : sz * heroPose.scaleZ * dashScaleZ * utilityScaleZ * entranceScaleXz, petAnimationBlend(presentationDelta, 15));
         // A small side-to-side load and forward drive make the torso participate
         // in locomotion/attacks. Values stay below a paw width and are filtered,
         // so this adds weight without bringing back the earlier mesh jitter.
@@ -1390,9 +1426,22 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
             + contactPunch * (config.profile === "heavy" ? 0.12 : 0.17) * signatureStrike
             - recoilWeight * (config.profile === "heavy" ? 0.12 : 0.18) * signatureRecoil;
         const weightBlend = petAnimationBlend(presentationDelta, f.motion === "dash" || strike || stagger ? 16 : 10);
-        b.position.x = THREE.MathUtils.lerp(b.position.x, weightX, weightBlend);
-        b.position.y = THREE.MathUtils.lerp(b.position.y, weightY, weightBlend);
-        b.position.z = THREE.MathUtils.lerp(b.position.z, driveZ, weightBlend);
+        b.position.x = THREE.MathUtils.lerp(b.position.x, bakedSupport ? 0 : weightX, weightBlend);
+        b.position.y = THREE.MathUtils.lerp(b.position.y, bakedSupport ? 0 : weightY, weightBlend);
+        b.position.z = THREE.MathUtils.lerp(b.position.z, bakedSupport ? 0 : driveZ, weightBlend);
+        if (dead && authoredCombatRig && deathPose.fall > 0.3) {
+            // The death take already folds its legs and lowers the pelvis.
+            // Imported root motion plus the host fall used to bury the torso.
+            // Measure the posed surface once per KO frame and land it on the
+            // actor's floor; do not deform or crop the creature to hide sinking.
+            const groundY = petModelGroundY(prepared.surface);
+            if (groundY !== null) {
+                const parent = r.parent;
+                const floorY = parent ? parent.getWorldPosition(new THREE.Vector3()).y : 0;
+                const parentScale = parent ? parent.getWorldScale(new THREE.Vector3()).y : 1;
+                r.position.y += Math.max(0, floorY - groundY) / Math.max(.001, Math.abs(parentScale));
+            }
+        }
 
         const skeletal = prepared.clips.length > 0;
         // The rebuilt Selkie has a horizontal torso with a dedicated tail wave.

@@ -106,6 +106,51 @@ test("route-owned styles have no selector/property ties with later parts", () =>
     }
 });
 
+// styles/jutsu-frames.css is route-owned as well, but it needs no tie audit:
+// everything except its :root tokens sits in `@layer jutsu-frames`, so its
+// winners do not depend on where its <link> lands. That stays true only while
+// it is the app's one layer and the only file defining those tokens.
+const JUTSU_FRAMES_OWNERS = ["Profile", "Training", "AdminPanel", "CentralHub", "BloodlineMaker"];
+const JUTSU_FRAMES_RENDERERS = ["JutsuLoadoutPanel", "JutsuDropdownList", "LegacyPanel"];
+
+test("jutsu-frames.css stays off startup and order-independent", () => {
+    const srcDir = join(HERE, "..");
+    for (const eager of ["index.css", "main.tsx"]) {
+        assert.doesNotMatch(readFileSync(join(srcDir, eager), "utf8"), /jutsu-frames\.css/, `${eager} must not load jutsu-frames.css at startup`);
+    }
+    const sources = (readdirSync(srcDir, { recursive: true }) as string[])
+        .map((file) => file.replaceAll("\\", "/"))
+        .filter((file) => /\.tsx?$/.test(file) && !/\.test\.tsx?$/.test(file));
+    const renderer = new RegExp(`["'][^"']*/(?:${JUTSU_FRAMES_RENDERERS.join("|")})["']`);
+    const hosts = sources.filter((file) => renderer.test(readFileSync(join(srcDir, file), "utf8")));
+    assert.deepEqual(hosts.map((file) => /([^/]+)\.tsx?$/.exec(file)![1]).filter((name) => !JUTSU_FRAMES_OWNERS.includes(name)), [],
+        "a module that renders a jutsu-frames component must be listed here and import the stylesheet");
+    for (const owner of JUTSU_FRAMES_OWNERS) {
+        assert.match(readFileSync(join(srcDir, "screens", `${owner}.tsx`), "utf8"), /^import "\.\.\/styles\/jutsu-frames\.css";$/m, `${owner}.tsx must import jutsu-frames.css`);
+    }
+
+    const tokens = new Set<string>();
+    postcss.parse(readFileSync(join(HERE, "jutsu-frames.css"), "utf8")).each((node) => {
+        if (node.type === "comment" || (node.type === "atrule" && node.name === "layer" && node.params === "jutsu-frames")) return;
+        assert.ok(node.type === "rule" && node.selector === ":root", `jutsu-frames.css has an unlayered ${node.type} outside its :root tokens`);
+        node.each((decl) => {
+            assert.ok(decl.type === "decl" && decl.prop.startsWith("--"), "jutsu-frames.css :root may only define custom properties");
+            tokens.add(decl.prop);
+        });
+    });
+    const conflicts: string[] = [];
+    for (const file of (readdirSync(srcDir, { recursive: true }) as string[]).filter((name) => name.endsWith(".css"))) {
+        const name = file.replaceAll("\\", "/");
+        if (name === "styles/jutsu-frames.css") continue;
+        const css = postcss.parse(readFileSync(join(srcDir, file), "utf8"), { from: name });
+        css.walkAtRules((rule) => {
+            if (rule.name === "layer" || (rule.name === "import" && /\blayer\b/.test(rule.params))) conflicts.push(`${name}: @${rule.name} ${rule.params}`);
+        });
+        css.walkDecls((decl) => { if (tokens.has(decl.prop)) conflicts.push(`${name}: defines ${decl.prop}`); });
+    }
+    assert.deepEqual(conflicts, [], "another layer or token definition would make jutsu-frames.css load-order dependent");
+});
+
 test("index.css imports the parts in ascending numeric order", () => {
     const imported = manifestOrder();
     const numbers = imported.map((name) => {

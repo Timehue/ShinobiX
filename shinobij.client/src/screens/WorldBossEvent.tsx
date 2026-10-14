@@ -115,6 +115,10 @@ export function WorldBossEvent({
 
     const event = view?.event ?? null;
     const boss = worldBossDefinition(event?.bossId);
+    // Until the first read lands no boss is known, so paint none: the default
+    // boss's art would flash before Murogane's or Donkaku's. With no muster
+    // the default art stays as the backdrop, but no boss's trait is named.
+    const bossKnown = view !== null;
     const bossName = event?.bossName ?? 'Roaming World Boss';
     const queue = view?.queue;
     const match = queue?.match ?? null;
@@ -213,12 +217,12 @@ export function WorldBossEvent({
         </header>
         {worldBossTabs && <div className="world-boss-event-tabs">{worldBossTabs}</div>}
 
-        <section className="world-boss-hero" aria-labelledby="world-boss-title" style={{ backgroundImage: `linear-gradient(90deg, rgba(4, 8, 17, .96) 0%, rgba(4, 8, 17, .72) 44%, rgba(4, 8, 17, .22) 100%), url("${boss.keyArt}")` }}>
+        <section className="world-boss-hero" aria-labelledby="world-boss-title" style={{ backgroundImage: `linear-gradient(90deg, rgba(4, 8, 17, .96) 0%, rgba(4, 8, 17, .72) 44%, rgba(4, 8, 17, .22) 100%)${bossKnown ? `, url("${boss.keyArt}")` : ""}` }}>
             <div className="world-boss-hero-copy">
                 <p className="world-boss-kicker">THE FOUR-VILLAGE MUSTER</p>
                 <h1 id="world-boss-title">{bossName}</h1>
                 <p className="world-boss-subtitle">One threat on the road. Three shinobi in the field. A world that answers together.</p>
-                <p className="world-boss-trait"><strong>{boss.traitName}:</strong> {boss.traitDescription}</p>
+                {event && <p className="world-boss-trait"><strong>{boss.traitName}:</strong> {boss.traitDescription}</p>}
                 <div className="world-boss-status-line"><span className={`world-boss-status-dot status-${event?.status ?? 'idle'}`} />{eventStatusLabel(event?.status ?? '', bossName)}</div>
             </div>
             <div className="world-boss-hero-fade" />

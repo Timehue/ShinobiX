@@ -1,5 +1,8 @@
 import { petTamerExpeditionMult, petTamerTrainingSpeedPct } from "../lib/profession-bonuses";
 import { PetBattleReadiness } from "../components/PetBattleReadiness";
+import { PetRankedTechniques } from "../components/PetRankedTechniques";
+import { PetYardModelPreview } from "../components/PetYardModelPreview";
+import { petCareReactionKind, type PetCareAction, type PetCareCue } from '../lib/pet-yard-interactions';
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, Suspense, useTransition } from "react";
 import { cacheDynamicImport, lazyWithRetry, retryDynamicImport } from "../lib/lazyWithRetry";
 import { masteryHasCapstone } from "../lib/profession-mastery";
@@ -80,6 +83,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
     // The value is never read — only the setter is used.
     const [, setTick] = useState(0);
     const [petHeartBurst, setPetHeartBurst] = useState(0);
+    const [petCareCue, setPetCareCue] = useState<PetCareCue | undefined>();
     const [nicknameInput, setNicknameInput] = useState("");
     const [nicknameMsg, setNicknameMsg] = useState("");
     const [evolveBusy, setEvolveBusy] = useState(false);
@@ -297,11 +301,28 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
             // Throwing here reported a paid action as failed: a renamed pet showed
             // an error, and renaming again charged another 10 Fate Shards.
             onVersionedCharacter(data.character as Character, data._saveVersion);
+            const careKind = petCareReactionKind(action, data.settledTraining);
+            if (careKind) setPetCareCue(current => ({ serial: (current?.serial ?? 0) + 1, petId: selectedPet.id, kind: careKind }));
+            if (action === 'pet') setPetHeartBurst(burst => burst + 1);
+            for (const mission of data.missionsCompleted ?? []) {
+                window.dispatchEvent(new CustomEvent('profession-mission-complete', {
+                    detail: { name: mission.name, xp: mission.xpReward, profession: 'petTamer' },
+                }));
+            }
             return data as { character: Character; pet?: Pet; settledTraining?: string | null; missionsCompleted?: Array<{ id: string; name: string; xpReward: number }>; _saveVersion?: number };
         } finally {
             progressBusyRef.current = false;
             setProgressBusy(false);
         }
+    }
+
+    async function inspectCompanionCare(action: PetCareAction, itemId?: string): Promise<string> {
+        if (action === 'complete-training' && !requireServerSettlement('petTraining')) throw new Error('Training collection is unavailable.');
+        if (!selectedPet) throw new Error('Pet not found.');
+        if (action === 'feed' && selectedPet.level >= selectedPet.maxLevel) throw new Error('This companion is fully trained.');
+        const data = await runPetProgress(action, action === 'feed' ? { itemId } : {});
+        const name = petDisplayName(data.pet ?? selectedPet);
+        return action === 'pet' ? `${name} enjoyed your company.` : action === 'feed' ? `${name} enjoyed the treat.` : `${name} finished training.`;
     }
 
     function setGrowthDraft(update: PetGrowthAllocation | ((current: PetGrowthAllocation) => PetGrowthAllocation)) {
@@ -316,13 +337,13 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
         });
     }
 
-    function openYardSection(section: keyof typeof YARD_SECTION_LABELS) {
+    function openYardSection(section: keyof typeof YARD_SECTION_LABELS, focusPanel = false) {
         if (section === "growth") warmEvolutionCutscene();
         setYardSection(section);
         requestAnimationFrame(() => {
             const panel = document.getElementById('pet-yard-section');
             const yard = panel?.closest('.pet-yard-refined');
-            if (!panel || !yard || yard.clientWidth > 640) return;
+            if (!panel || !yard || (yard.clientWidth > 640 && !focusPanel)) return;
             panel.focus({ preventScroll: true });
             panel.scrollIntoView({ block: 'start', behavior: 'instant' });
         });
@@ -689,12 +710,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
             petTrainingBusyRef.current = false;
             setPetTrainingBusy(false);
         }
-        // Pet Tamer mission progress for "pet-train" — rate-limited server-side.
-        for (const mission of data.missionsCompleted ?? []) {
-            window.dispatchEvent(new CustomEvent('profession-mission-complete', {
-                detail: { name: mission.name, xp: mission.xpReward, profession: 'petTamer' },
-            }));
-        }
+        // Mission notifications are dispatched when runPetProgress commits.
     }
 
     function inventoryCount(itemId: string) {
@@ -764,7 +780,6 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
 
     async function petSelectedPet() {
         if (!selectedPet) return;
-        setPetHeartBurst(burst => burst + 1);
         setPetMsg("");
         // A spent daily budget comes back as a 409 — surface it rather than
         // swallowing it, or the button looks broken.
@@ -1122,6 +1137,12 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                 })()}
                                 {petHeartBurst > 0 && <span key={petHeartBurst} className="pet-heart-pop">♥</span>}
                             </div>
+                            <PetYardModelPreview key={selectedPet.id} pet={selectedPet} sharedImages={sharedImages}
+                                character={character} busy={progressBusy || petTrainingBusy}
+                                lockedReason={selectedPetBreedingLocked ? 'This companion is reserved for breeding.' : undefined}
+                                careCue={petCareCue?.petId === selectedPet.id ? petCareCue : undefined} onCare={inspectCompanionCare}
+                                onEditTechniques={() => openYardSection('techniques', true)}
+                                onEquipCollar={async collarId => { await runPetProgress('equip', { slot: 'collar', itemId: collarId }); }} />
                             <h3>{petDisplayName(selectedPet)}</h3>
                             {selectedPet.nickname && <p className="hint" style={{ fontSize: "0.72rem", marginTop: -4 }}>({selectedPet.name})</p>}
                             <p>Level {selectedPet.level} | {selectedPet.rarity}</p>
@@ -1552,8 +1573,14 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                     setScreen={navigateFromYard}
                                 />
 
+                                <PetRankedTechniques key={selectedPet.id} pet={selectedPet}
+                                    onSave={async build => { await runPetProgress('ranked-build', { build }); }}
+                                    onOpenRanked={() => { sessionStorage.setItem('petLadder.mode', 'coliseum'); navigateFromYard('petLadder'); }}
+                                    disabled={selectedPetBreedingLocked}
+                                    lockedReason={selectedPetBreedingLocked ? "This pet is in the hatchery. Change its techniques when it returns." : undefined} />
+
                                 <section className="pet-jutsu-panel">
-                                    <h4>Pet Jutsus</h4>
+                                    <h4>Adventure jutsus</h4>
                                     {selectedPet.jutsus.length === 0 ? (
                                         <p className="hint">This pet has no jutsu yet.</p>
                                     ) : selectedPet.jutsus.map((jutsu, i) => {

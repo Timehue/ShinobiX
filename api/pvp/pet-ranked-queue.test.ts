@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { after, before, beforeEach, describe, it } from 'node:test';
+import { tacticsPreset } from '../../shared/pet-tactics-roster.js';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -94,7 +95,8 @@ describe('live ranked pet matchmaking', { concurrency: false }, () => {
                 json: (body: Record<string, unknown>) => { out.body = body; return res; },
                 end: () => res,
             };
-            await queueHandler({ method: 'POST', body: { action: 'join', name, petIds: [] }, headers: {
+            await queueHandler({ method: 'POST', body: { action: 'join', name,
+                builds: ['starter-fire', 'starter-water', 'starter-lightning', 'starter-earth'].map(id => ({ ...tacticsPreset(id), ownedPetId: id })) }, headers: {
                 'content-type': 'application/json', 'x-player-token': issuePlayerToken(name) ?? '',
             }, socket: { remoteAddress: '127.0.0.88' } } as never, res as never);
             return out;
@@ -104,9 +106,10 @@ describe('live ranked pet matchmaking', { concurrency: false }, () => {
         assert.equal(blocked.status, 403);
         assert.equal(blocked.body?.errorCode, 'ranked-level-locked');
         assert.match(String(blocked.body?.error), /level 11/);
-        await kv.set(`save:${name}`, { character: { name, level: 11 } });
+        await kv.set(`save:${name}`, { character: { name, level: 11,
+            pets: ['starter-fire', 'starter-water', 'starter-lightning', 'starter-earth'].map(id => ({ id, templateId: id, rarity: 'standard' })) } });
         const eligible = await post();
         assert.equal(eligible.status, 200);
-        assert.equal(eligible.body?.state, 'queued'); // Equal-access roster does not require four owned pets.
+        assert.equal(eligible.body?.state, 'queued');
     });
 });
