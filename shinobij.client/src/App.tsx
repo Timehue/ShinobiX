@@ -244,7 +244,7 @@ import { clearImgCache, imgCacheKey, IMG_CACHE_TTL, scheduleImageCategoryRetry, 
 import { overlayVnImages } from './lib/vn-shared-artwork';
 import { imageEntries, parseImageManifest } from "./lib/shared-image-manifest";
 import { visiblePoll } from "./lib/poll";
-import { useBattleNavigationGuard } from "./lib/use-battle-navigation-guard";
+import { BATTLE_LEAVE_NOTICE, useBattleNavigationGuard } from "./lib/use-battle-navigation-guard";
 import { isBattleFlowScreen as resolveBattleFlowScreen } from "./lib/battle-flow-screen";
 import { isBattleViewScreen, shouldHideBattleChrome } from "./lib/notifications-core";
 import { usePetHomeReturn, petHomeReturnLabel } from "./lib/pet-home-navigation";
@@ -4444,7 +4444,7 @@ export default function App() {
         }
         // Lock: cannot leave during an active battle (any type — isUnresolvedBattle).
         if (inBattleRef.current || storyFightOpen || sealedFightEngagedRef.current) {
-            alert("⚔️ You cannot leave during a battle. Finish the fight first!");
+            alert(BATTLE_LEAVE_NOTICE);
             return false;
         }
         // Lock: cannot leave hospital while still admitted

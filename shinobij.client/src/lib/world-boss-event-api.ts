@@ -116,7 +116,7 @@ export async function mutateWorldBossQueue(input: {
             body: JSON.stringify(input),
         });
         const body = await response.json().catch(() => ({})) as WorldBossQueueMutation;
-        if (!response.ok) return { ...body, ok: false, error: body.error ?? `Queue request failed (${response.status}).` };
+        if (!response.ok) return { ...body, ok: false, error: body.error ?? 'The world boss queue did not answer. Try again in a moment.' };
         return { ...body, ok: true };
     } catch {
         return { ok: false, error: 'The world boss queue is offline. Try again shortly.' };

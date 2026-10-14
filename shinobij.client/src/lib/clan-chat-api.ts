@@ -14,6 +14,9 @@ export async function fetchClanChat(player: string, clan: string, since = 0): Pr
     } catch { return []; }
 }
 
+/** A failed send with no refusal of the server's own to show. */
+export const CLAN_CHAT_SEND_FAILED = "Your message did not reach the clan. Try again.";
+
 export async function sendClanChat(player: string, clan: string, text: string): Promise<{ ok: boolean; error?: string; messages?: ClanChatMessage[] }> {
     try {
         const r = await fetch("/api/clan/chat/send", {
@@ -21,7 +24,7 @@ export async function sendClanChat(player: string, clan: string, text: string): 
             body: JSON.stringify({ playerName: player, clan, text }),
         });
         const data = await r.json().catch(() => ({})) as Record<string, unknown>;
-        if (!r.ok) return { ok: false, error: (data.error as string) ?? `HTTP ${r.status}` };
+        if (!r.ok) return { ok: false, error: r.status >= 500 ? CLAN_CHAT_SEND_FAILED : (data.error as string) ?? CLAN_CHAT_SEND_FAILED };
         return { ok: true, messages: data.messages as ClanChatMessage[] };
-    } catch (e) { return { ok: false, error: String((e as Error).message) }; }
+    } catch { return { ok: false, error: CLAN_CHAT_SEND_FAILED }; }
 }
