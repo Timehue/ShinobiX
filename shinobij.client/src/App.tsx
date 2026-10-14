@@ -8,7 +8,7 @@ import { usePlayerSaveCoordinator } from "./lib/use-player-save-coordinator";
 import { decideBootBattleRecovery } from "./lib/boot-battle-recovery";
 import { usePlayerSaveState, isContentAdminName as snapshotContentAdminName, savedJutsuPool as restoredJutsuPool } from './lib/use-player-save-state';
 import { retireStalePetDuel } from "./lib/pet-duel-legacy-challenge";
-import { Suspense, startTransition, useCallback, useEffect, useLayoutEffect, useRef, useState, useMemo } from "react";
+import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState, useMemo } from "react";
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import type * as React from "react";
 import { installAuthFetch, setActivePlayer, setActiveToken, setAdminSession, SESSION_EXPIRED_EVENT } from "./authFetch";
@@ -3337,9 +3337,7 @@ export default function App() {
     useEffect(() => {
         // Anonymous landing/account views have no vitals to regenerate.
         if (!character?.name) return;
-        // A transition: the per-second bar update may yield to input and frames
-        // (walking the world map) instead of blocking them for a whole App render.
-        const interval = setInterval(() => startTransition(() => {
+        const interval = setInterval(() => {
             setCharacter((prev) => {
                 if (!prev) return prev;
                 if (isPresenceBattleActive(screen)) return prev;
@@ -3347,7 +3345,7 @@ export default function App() {
                 const auraBonuses = getActiveAuraSphereBonuses(prev);
                 return regenerateIdleVitals(prev, 1 + auraBonuses.regen);
             });
-        }), 1000);
+        }, 1000);
 
         return () => clearInterval(interval);
     }, [character?.name, screen, raidBattleKind, pvpBattleId, pvpCompletionConfirmed, endlessBattleActive, pendingArenaStoryBattle, pendingEventEncounter, activeDungeonEvent, hollowGateTileGameActive, pendingPetBattleOpponent, petBattleActive, missionBattleActive]);
