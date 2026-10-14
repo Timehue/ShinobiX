@@ -599,6 +599,13 @@ export function CentralHub({
     // Idle regen replaces `character` every second while a vital is below max,
     // so the catalog and the owned counts are keyed on what they actually read.
     const allHubItems = useMemo(() => getAllItems(creatorItems), [creatorItems]);
+    // Id lookup over the same catalog, built once instead of a linear scan per
+    // recipe card. The first entry with an id wins, exactly as `.find` did.
+    const hubItemsById = useMemo(() => {
+        const byId = new Map<string, GameItem>();
+        for (const item of allHubItems) if (!byId.has(item.id)) byId.set(item.id, item);
+        return byId;
+    }, [allHubItems]);
     // Owned count per item id across BOTH stores, built once per inventory
     // change. unifiedItemStacks sums inventory[] entries plus the cleaned
     // itemStacks, which is exactly what countItem adds up for a single id.
@@ -625,7 +632,7 @@ export function CentralHub({
     function recipeIngredients(id: string) {
         const supply = SUPPLY_CRAFT_RECIPES[id];
         if (supply) return supply.ingredients;
-        const item = allHubItems.find(item => item.id === id);
+        const item = hubItemsById.get(id);
         return item ? gearCraftIngredients(item) : [];
     }
 
@@ -641,10 +648,10 @@ export function CentralHub({
         return craftIngredientProgress(recipeIngredients(id), ownedCount, quantity);
     }
     function selectCraftMaterials(kind: CraftPickerRecipe['kind'], id: string, name: string, quantity: number, opener: HTMLElement) {
-        const item = allHubItems.find(entry => entry.id === id);
+        const item = hubItemsById.get(id);
         const craft = { kind, recipeId: id, name, quantity, opener, ingredients: recipeIngredients(id), image: sharedImages['item:' + id] || item?.image,
             materialImages: Object.fromEntries(recipeIngredients(id).flatMap(group => group.ids).map(material =>
-                [material, sharedImages['item:' + material] || allHubItems.find(entry => entry.id === material)?.image || ''])),
+                [material, sharedImages['item:' + material] || hubItemsById.get(material)?.image || ''])),
             output: (SUPPLY_CRAFT_RECIPES[id]?.count ?? SUPPLY_CRAFT_RECIPES[id]?.amount ?? 1) * quantity,
             ryo: (kind === 'supply' ? supplyFeeFor(id) : craftRyoForRarity(item?.rarity ?? 'rare')) * quantity };
         setPendingCraft(craft);
@@ -1417,7 +1424,7 @@ export function CentralHub({
                 // then the item's own image). Empty string = no art → caller draws
                 // a themed fallback glyph instead.
                 const itemImage = (id?: string): string =>
-                    id ? (sharedImages["item:" + id] || allHubItems.find((i) => i.id === id)?.image || "") : "";
+                    id ? (sharedImages["item:" + id] || hubItemsById.get(id)?.image || "") : "";
 
                 // Themed fallback glyph for a supply recipe with no artwork, picked
                 // from the recipe name so each card still reads at a glance.
@@ -1442,7 +1449,7 @@ export function CentralHub({
                         <div className="cf-mat-grid">
                             {Object.entries(CRAFT_MATERIAL_NAMES).map(([id, label]) => {
                                 const count = ownedCount(id);
-                                const rarity = allHubItems.find(item => item.id === id)?.rarity ?? 'common';
+                                const rarity = hubItemsById.get(id)?.rarity ?? 'common';
                                 const Icon = MATERIAL_ICON[id] ?? GiStoneStack;
                                 return (
                                     <div key={id} className="cf-mat" data-tier={rarity} data-empty={count === 0 ? "1" : undefined}>
@@ -1643,7 +1650,7 @@ export function CentralHub({
                                     const fillPct = recipeProgress(recipe.itemId, craftQty);
                                     // Capped consumables (thrown / combat item / potion) can't be
                                     // crafted past the shared carry cap — show the count and gate.
-                                    const capItem = recipe.itemId ? allHubItems.find((i) => i.id === recipe.itemId) : undefined;
+                                    const capItem = recipe.itemId ? hubItemsById.get(recipe.itemId) : undefined;
                                     const cap = capItem ? consumableHoldCap(capItem) : null;
                                     const owned = recipe.itemId ? ownedCount(recipe.itemId) : 0;
                                     const atCap = cap != null && owned + (recipe.per ?? 1) * craftQty > cap;
