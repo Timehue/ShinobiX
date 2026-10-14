@@ -122,7 +122,11 @@ function pendingTravelFrom(value: unknown): PendingTravel | null {
     return { destinationSector, arrivalAt };
 }
 
-function hasActiveHollowGateRun(character: Record<string, unknown>): boolean {
+/** True while a dive is open: an unfinished run, live or lapsed. It earns no
+ *  idle recovery (canRegenVitals below). Exported so the save sanitizer's
+ *  vitals-gain cap (api/save/_sanitize-progression.ts) grants no allowance on
+ *  exactly the same records — the two must never drift apart. */
+export function hasActiveHollowGateRun(character: Record<string, unknown>): boolean {
     const run = character.hollowGateRun;
     return Boolean(run && typeof run === 'object' && !(run as Record<string, unknown>).completed);
 }

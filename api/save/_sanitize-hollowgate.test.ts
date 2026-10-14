@@ -170,6 +170,24 @@ test('hollowGateRun: matching-token autosave may update presentation but not ser
     assert.deepEqual((out.hollowGateRun as any).entryCurrencies, { ryo: 5000 });
 });
 
+test('hollowGateRun: a matching-token save cannot mark its own live dive completed', () => {
+    // A dive that reads as completed earns idle recovery again and escapes the
+    // vitals-gain cap, and no server path ever sets the flag (extraction and
+    // death null the run), so for a token-bound dive the stored value wins.
+    const storedRun = { floor: 2, runToken: 'server-token', serverSeed: 'server-seed', keys: 1, torch: 4, threat: 40, entryCurrencies: {} };
+    const forged = sanitize({ hollowGateRun: { ...storedRun, completed: true } }, { hollowGateRun: storedRun });
+    assert.equal('completed' in (forged.hollowGateRun as any), false, 'the forged flag is dropped');
+
+    const finished = sanitize(
+        { hollowGateRun: { ...storedRun, completed: false } },
+        { hollowGateRun: { ...storedRun, completed: true } },
+    );
+    assert.equal((finished.hollowGateRun as any).completed, true, 'a stored flag is not cleared either');
+
+    const legacy = sanitize({ hollowGateRun: { floor: 4, keys: 0, completed: true } }, { hollowGateRun: { floor: 4, keys: 0 } });
+    assert.equal((legacy.hollowGateRun as any).completed, true, 'a legacy token-less run is still the client\'s to finish');
+});
+
 test('hollowGateRun: active server combat resume pointer is shape-bounded', () => {
     const out = sanitize({
         hollowGateRun: {
