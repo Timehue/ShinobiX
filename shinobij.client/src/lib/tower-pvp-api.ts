@@ -70,7 +70,7 @@ async function pvpJson<T>(url: string, init?: RequestInit): Promise<T> {
         const body = await response.json().catch(() => ({})) as T & TowerPvpErrorBody;
         if (!response.ok) {
             throw new TowerPvpApiError(
-                body.error || body.reason || `Request failed (${response.status})`,
+                body.error || body.reason || "The Team Arena did not answer. Try again in a moment.",
                 response.status,
                 body.errorCode,
                 body.match,

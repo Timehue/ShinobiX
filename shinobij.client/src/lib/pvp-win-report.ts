@@ -72,7 +72,7 @@ export async function reportPvpWin(
     };
     if (!response.ok) {
         if (DECIDED_REFUSAL_STATUSES.has(response.status)) return [];
-        throw new Error(String(data?.error ?? `Mission settlement failed (HTTP ${response.status}).`));
+        throw new Error(String(data?.error ?? 'Mission credit for this battle could not be settled yet. Retry in a moment.'));
     }
     return Array.isArray(data?.missionsCompleted) ? data.missionsCompleted : [];
 }
