@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { reportPvpWin } from "./pvp-win-report";
+import { readFileSync } from "node:fs";
+import { pvpOwnerSaveRefreshRequired, pvpWinReportRequired, reportPvpWin } from "./pvp-win-report";
 
 /*
  * Same rule as the bounty claim, one call further down App.handlePvpWin: a
@@ -73,5 +74,40 @@ describe("Vanguard PvP win report", () => {
                 `HTTP ${status} must stay retryable rather than silently forfeit mission credit`,
             );
         }
+    });
+});
+
+/*
+ * The winner's result card waits for every completion call in series. On
+ * 2026-10-13 a non-Vanguard winner spent ~1.9s of a 6.5s settle on a win
+ * report that could do nothing (the server answers `vanguard: false`) and on
+ * re-reading a save the claim had just returned.
+ */
+describe("trimming the winner's completion chain", () => {
+    it("reports only for a Vanguard, or when the claim carried no save", () => {
+        assert.equal(pvpWinReportRequired({ profession: "vanguard" }), true);
+        assert.equal(pvpWinReportRequired(undefined), true, "no authoritative snapshot keeps the old behavior");
+        assert.equal(pvpWinReportRequired({ profession: "medic" }), false);
+        assert.equal(pvpWinReportRequired({}), false, "a save with no profession is not a Vanguard");
+    });
+
+    it("re-reads the owner save only when something after the claim wrote it", () => {
+        assert.equal(pvpOwnerSaveRefreshRequired({ claimSnapshotAdopted: true, saveChangedSinceClaim: false }), false);
+        assert.equal(pvpOwnerSaveRefreshRequired({ claimSnapshotAdopted: true, saveChangedSinceClaim: true }), true);
+        assert.equal(pvpOwnerSaveRefreshRequired({ claimSnapshotAdopted: false, saveChangedSinceClaim: false }), true);
+    });
+
+    it("the skipped report is the one the claim's terminal barrier already covers", () => {
+        // The claim must await the terminal saga, and the saga must settle
+        // Legacy, before a claim can confirm. If either link breaks, a
+        // non-Vanguard winner would silently lose the Legacy repair.
+        const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
+        const claim = read("../../../api/pvp/claim-rewards.ts");
+        const saga = read("../../../api/pvp/_committed-terminal-effects.ts");
+        const report = read("../../../api/missions/report-pvp-win.ts");
+        assert.match(claim, /committedTerminalReplay = await replayCommittedPvpTerminalEffects\(session, SEALED_TERMINAL_REPLAY\);\s*\}\s*\} catch \(error\) \{[\s\S]{0,400}?status\(503\)/);
+        assert.match(saga, /await settlePvpLegacyProgress\(session\);/);
+        assert.match(report, /await settlePvpLegacyProgress\(session\);[\s\S]*if \(char\?\.profession !== 'vanguard'\) \{[\s\S]{0,200}?vanguard: false/,
+            "a non-Vanguard report does nothing beyond the Legacy replay");
     });
 });
