@@ -5,6 +5,9 @@ import { MAX_LEVEL, STARTING_STAT_POINTS } from "../constants/game";
 import { villages } from "../data/sectors";
 import { rankFromLevel } from "./stats";
 import { normalizeCharacter } from "./normalize-character";
+import { tacticsPreset } from "../../../shared/pet-tactics-roster";
+import { rankedCarriedRoster } from "./pet-ranked-roster";
+import { petPool } from "./pet-roster";
 
 /*
  * Characterization tests for save hydration.
@@ -135,5 +138,17 @@ describe("the caller's object is not mutated", () => {
         const out = normalizeCharacter(input);
         assert.notEqual(out, input);
         assert.deepEqual(input, before, "hydration must not edit the caller's save in place");
+    });
+});
+
+describe("ranked pet loadout hydration", () => {
+    it("keeps saved techniques, attributes and item through login and the ranked picker", () => {
+        const template = petPool.find(pet => pet.id === 'standard-0')!;
+        const rankedBuild = { ...tacticsPreset(template.id, 1), ownedPetId: 'owned-fox', item: 'focus-lens' as const };
+        const input = save({ level: 40, pets: [{ ...template, id: 'owned-fox', templateId: template.id, rankedBuild }] });
+        const loaded = normalizeCharacter(JSON.parse(JSON.stringify(input)));
+        assert.deepEqual(loaded.pets[0].rankedBuild, rankedBuild);
+        assert.deepEqual(rankedCarriedRoster(loaded)[0].build, rankedBuild);
+        assert.deepEqual(normalizeCharacter(loaded).pets[0].rankedBuild, rankedBuild);
     });
 });

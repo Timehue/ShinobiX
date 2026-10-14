@@ -33,6 +33,9 @@ test("a settled companion action finishes when its reply is refused as stale", (
     assert.doesNotMatch(petYard, /A newer companion update is already active/);
     // The shared helper hands its reply back, so every caller (rename, feed,
     // train, equip, release) finishes its own step.
-    assert.match(handler(petYard, "runPetProgress"), /onVersionedCharacter\(data\.character as Character, data\._saveVersion\);\s*return data as/);
+    const progressBody = handler(petYard, "runPetProgress");
+    assert.match(progressBody, /onVersionedCharacter\(data\.character as Character, data\._saveVersion\);/);
+    assert.match(progressBody, /return data as/);
+    assert.ok(progressBody.indexOf('onVersionedCharacter(data.character as Character, data._saveVersion)') < progressBody.indexOf('return data as'), 'the settled reply is adopted before returning, with care presentation allowed between them');
     assert.match(handler(barn, "hatch"), /commitServerCharacter\(result\.character, result\._saveVersion\);\s*setSessionOverride\(null\); setHatchedDestination\(/);
 });
