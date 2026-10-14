@@ -1000,6 +1000,14 @@ const INITIAL_GRAPH_FAIL_BYTES = 1_500_000;
 // owner's approval, to 399,000 B (~1 KB of variance). The bytes already ship in
 // main; this only lets deploys through. Moving that stylesheet out of startup,
 // with its cascade verified, is the trim the next startup addition owes.
+// 2026-10-14 TRIM LANDED: the five screens that render those classes now import
+// the stylesheet (see its header). The ties above never depended on position:
+// every rule in it sits in `@layer jutsu-frames` and is !important, so it beats
+// each unlayered rule wherever its <link> lands. Computed styles were diffed
+// before/after on real screens at 1366 px and 390 px. With the image's VITE_*
+// env, 9f96bc698 read 398,035 B and 396,069 B with the trim; merged onto main
+// 62351e741 (image: 398,260 B) it reads 396,235 B. The gate stays at 399,000 B
+// for ~2.7 KB of variance; reverting aa8d2840c would leave only ~265 B.
 const INITIAL_GRAPH_GZIP_FAIL_BYTES = 399_000;
 const SENTRY_VENDOR_FAIL_BYTES = 100_000;
 const SENTRY_VENDOR_RE = /^assets\/sentry-vendor-[^/]+\.js$/;
