@@ -15,7 +15,16 @@ export function buildHostLoadout(
     savedBloodlines: SavedBloodline[],
     creatorItems: GameItem[],
 ): TowerHostLoadout {
-    const items = getAllItems(creatorItems);
+    return buildHostLoadoutFromItems(character, savedBloodlines, getAllItems(creatorItems));
+}
+
+/** Same as buildHostLoadout, but takes the already-merged catalog
+ *  (`getAllItems(creatorItems)`) so callers can memoize it across renders. */
+export function buildHostLoadoutFromItems(
+    character: Character,
+    savedBloodlines: SavedBloodline[],
+    items: GameItem[],
+): TowerHostLoadout {
     return {
         pvpItems: getPvpItemLoadout(character, items),
         bloodlineMult: getBloodlineMultiplier(character, savedBloodlines),

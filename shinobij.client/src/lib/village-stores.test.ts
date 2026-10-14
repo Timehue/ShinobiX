@@ -314,8 +314,9 @@ test('the Town Hall stores rows, supply log and vacant-seat path hold their shap
     assert.match(townHall, /\{storesLedgerEmptyLine\(storesView\)\}/);
     assert.match(townHall, /\{storesLedgerScopeLine\(character\.village\)\}/);
     assert.doesNotMatch(townHall, /Nothing drawn from the stores yet\./, 'the empty state must distinguish "nothing SPENT" from "nothing happened"');
-    // 2d: relative stamps are computed in render against a ticking clock.
-    assert.match(townHall, /const storesLedgerView = storesLedgerRows\(storesLedgerRaw, storesLedgerNow\);/);
+    // 2d: relative stamps are computed in render against a ticking clock
+    // (memoized, but keyed on that clock so each tick still re-formats them).
+    assert.match(townHall, /const storesLedgerView = useMemo\(\(\) => storesLedgerRows\(storesLedgerRaw, storesLedgerNow\), \[storesLedgerRaw, storesLedgerNow\]\);/);
     assert.match(townHall, /setStoresLedgerNow\(Date\.now\(\)\), 60_000/);
     // 2b: the button keeps its label; the refusal is a hint.
     assert.match(townHall, /\{villageDonateLabel\}<\/button>/);

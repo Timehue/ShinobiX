@@ -93,8 +93,13 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
 
     // Eligible clans to declare war on: any clan that exists in the
     // roster, isn't mine, and isn't currently in a clan war.
-    const clansInWar = new Set<string>();
-    for (const w of wars) if (!w.endedAt) for (const c of w.clans) clansInWar.add(c);
+    // Memoized on `wars` (its only input) so eligibleTargets below stops
+    // recomputing on every render because of a fresh Set identity.
+    const clansInWar = useMemo(() => {
+        const set = new Set<string>();
+        for (const w of wars) if (!w.endedAt) for (const c of w.clans) set.add(c);
+        return set;
+    }, [wars]);
     const eligibleTargets: string[] = useMemo(() => {
         const set = new Set<string>();
         for (const p of playerRoster) {

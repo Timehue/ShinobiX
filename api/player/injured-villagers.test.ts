@@ -42,12 +42,12 @@ before(async () => {
 
 after(() => { delete process.env.SHINOBIX_QA_MEMORY_KV; });
 
-async function poll() {
+async function poll(healer = HEALER, healerToken = token) {
     const out: { status: number; body?: Json; headers: Record<string, string> } = { status: 200, headers: {} };
     const res = { setHeader(key: string, value: string) { out.headers[key.toLowerCase()] = value; return res; }, status(code: number) { out.status = code; return res; },
         json(value: Json) { out.body = value; return res; }, end() { return res; } };
-    await handler({ method: 'GET', query: { healerName: HEALER },
-        headers: { 'x-player-name': HEALER, 'x-player-token': token, 'x-forwarded-for': '10.92.0.1' },
+    await handler({ method: 'GET', query: { healerName: healer },
+        headers: { 'x-player-name': healer, 'x-player-token': healerToken, 'x-forwarded-for': '10.92.0.1' },
         socket: { remoteAddress: '10.92.0.1' } } as never, res as never);
     return out;
 }
@@ -70,4 +70,28 @@ test('reads only saves whose indexed village can match (plus village-less rows)'
     const saveReads = [...new Set(mget.mock.calls.flatMap((call) => call.arguments as string[]).filter((key) => key.startsWith('save:')))];
     assert.deepEqual(saveReads.sort(), ['save:fineally', 'save:hurtally', 'save:hurtlegacy', `save:${HEALER}`].sort());
     assert.equal(saveReads.includes('save:hurtrival'), false, 'another village\'s save is never read');
+});
+
+test('the registry read overlaps the healer read but never changes the healer checks', async (t) => {
+    // The registry is fetched alongside the healer's save. A failing registry
+    // read must still let a missing healer answer 404 (not 500), and must not
+    // surface as an unhandled rejection.
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown) => { unhandled.push(reason); };
+    process.on('unhandledRejection', onUnhandled);
+    try {
+        const hgetall = t.mock.method(kv, 'hgetall', async () => { throw new Error('registry down'); });
+        const ghostToken = (await import('../_auth.js')).issuePlayerToken('ghosthealer')!;
+        const missing = await poll('ghosthealer', ghostToken);
+        assert.equal(missing.status, 404, JSON.stringify(missing.body));
+        assert.deepEqual(missing.body, { error: 'Healer character not found.' });
+        assert.equal(hgetall.mock.callCount(), 1, 'the registry read starts with the healer read');
+        // With the healer present, the same registry failure is a 500, as before.
+        const failed = await poll();
+        assert.equal(failed.status, 500);
+        await new Promise((resolve) => setImmediate(resolve));
+        assert.deepEqual(unhandled, []);
+    } finally {
+        process.off('unhandledRejection', onUnhandled);
+    }
 });
