@@ -190,7 +190,7 @@ test('a settled sale reports its receipt even when a newer save was adopted firs
     expect(await page.evaluate(next => window.adoptNewerSave!(next, 3), { ...sold, unlockedAchievements: [] })).toBe(true);
     reply.release();
     await expect(details).toHaveCount(0);
-    await expect(page.getByText('Action unconfirmed. Refresh before retrying.')).toHaveCount(0);
+    await expect(page.getByText('That action may not have gone through. Wait until the game has saved, then refresh to check before you try again.')).toHaveCount(0);
     expect(reply.requests()).toBe(1);
 });
 

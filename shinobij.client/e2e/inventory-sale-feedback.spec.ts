@@ -167,7 +167,7 @@ test('Inventory preserves an interrupted sale with inline recovery and distingui
         mode = response;
         await sellAllVests(vest);
         const warning = vest.locator('#inventory-sale-error');
-        await expect(warning).toContainText(response === 'rejected' ? 'Item is not available in your backpack.' : 'Action unconfirmed. Refresh before retrying.');
+        await expect(warning).toContainText(response === 'rejected' ? 'Item is not available in your backpack.' : 'That action may not have gone through. Wait until the game has saved, then refresh to check before you try again.');
         await expect(warning).toHaveAttribute('role', 'alert');
         await expect(vest).toContainText('Inventory Count: 3');
         await expect(vest.getByRole('button', { name: /Sell all x3/ })).toBeEnabled();
@@ -230,7 +230,7 @@ test('Inventory keeps late sale failures visible after closing details or openin
         // The modal entrance can briefly produce a subpixel transform on its 44px target.
         if (page.viewportSize()!.width <= 390) await expect.poll(async () => Math.round((await dismiss.boundingBox())!.height)).toBeGreaterThanOrEqual(44);
         await expect(warning).toContainText('Shinobi Vest sale:');
-        await expect(warning).toContainText(otherSelection ? 'Item is not available in your backpack.' : 'Action unconfirmed. Refresh before retrying.');
+        await expect(warning).toContainText(otherSelection ? 'Item is not available in your backpack.' : 'That action may not have gone through. Wait until the game has saved, then refresh to check before you try again.');
         await expect(page.getByRole('alertdialog', { name: 'Notice', exact: true })).toHaveCount(0);
         await expect(page.locator('.game-toast-stack')).toHaveCount(0);
         await capture(page, otherSelection ? 'inventory-late-error-other-selection' : 'inventory-late-error-closed');

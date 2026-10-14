@@ -69,7 +69,7 @@ async function postClanRecord(name: string, body: object): Promise<void> {
             body: JSON.stringify(body),
         });
     } catch {
-        throw new ClanSaveError(0, "Clan save unconfirmed. Refresh before retrying.");
+        throw new ClanSaveError(0, "Your clan change may not have gone through. Wait until the game has saved, then refresh to check before you try again.");
     }
     if (!res.ok) {
         let detail = "";
@@ -90,7 +90,7 @@ export async function postGuardQueue(action: "queue" | "dequeue", payload: objec
             body: JSON.stringify(payload),
         });
     } catch {
-        throw new ClanSaveError(0, "Guard status unconfirmed. Refresh before retrying.");
+        throw new ClanSaveError(0, "Your guard status change may not have gone through. Wait until the game has saved, then refresh to check before you try again.");
     }
     if (!res.ok) {
         const data = await res.json().catch(() => ({})) as { error?: string };

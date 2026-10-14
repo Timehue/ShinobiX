@@ -114,7 +114,6 @@ export function Logbook({
         progress: clampNumber(todayWarProgress - index * VILLAGE_WAR_RAIDS_PER_MISSION, 0, VILLAGE_WAR_RAIDS_PER_MISSION),
         complete: todayWarCompleted > index,
     }));
-    const missingMissionIds = acceptedMissionIds.filter((id) => !availableLogbookMissions.some((mission) => mission.id === id));
     // Count only slots that resolve to a real jutsu: a deleted custom jutsu
     // leaves a dead id behind that combat skips, so the raw array length
     // would credit a loadout slot the player cannot actually field. Idle regen
@@ -306,7 +305,7 @@ export function Logbook({
     async function abandonMission(missionId: string) {
         if (fieldTrailPending) return;
         if (!builtinFetchMissions.some((entry) => entry.id === missionId)) {
-            return alert("This unpublished mission cannot alter the server contract ledger.");
+            return alert("This assignment is not on the mission board any more, so it can't be abandoned.");
         }
         // Same danger confirm as the Hunter Board: the server zeroes this run's explore and raid progress.
         const missionName = availableLogbookMissions.find((mission) => mission.id === missionId)?.name;
@@ -579,7 +578,7 @@ export function Logbook({
                 </>
             )}
             <h3>Assigned Missions</h3>
-            {assignedMissions.length === 0 && missingMissionIds.length === 0 ? (
+            {assignedMissions.length === 0 ? (
                 <div className="summary-box">
                     <h3>No Active Assignments</h3>
                     <p className="hint">Accept a fetch mission from the Mission Hall to track it here.</p>
@@ -614,14 +613,11 @@ export function Logbook({
                             </div>
                         );
                     })}
-                    {missingMissionIds.map((missionId) => (
-                        <div key={missionId} className="location-button mission-card">
-                            <span className="tile-icon">OLD</span>
-                            <span>Archived Assignment</span>
-                            <small>This mission no longer exists on the mission board.</small>
-                            <div className="menu"><button className="danger-button" disabled={fieldTrailPending !== null || claimingFieldMissionId !== null} onClick={() => { void abandonMission(missionId); }}>Remove</button></div>
-                        </div>
-                    ))}
+                    {/* An accepted id that matches no mission used to render an
+                        "Archived Assignment" card whose Remove could never work:
+                        field-trail refuses ids outside its catalog, and creator
+                        missions can simply be still loading. Not rendering it
+                        loses nothing, and a still-loading mission reappears. */}
                 </div>
             )}
             {defeatedAiIds.length > 0 && (
