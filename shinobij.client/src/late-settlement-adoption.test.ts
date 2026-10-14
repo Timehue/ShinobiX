@@ -23,7 +23,9 @@ function between(source: string, start: string, end: string): string {
 
 describe("late settlement replies are still adopted", () => {
     const tower = read("./screens/BattleTowerFight.tsx");
-    const block = between(tower, "const performSettlement = useCallback(", "}, [runId, me, meSlug, settleFn, onVersionedCharacter]);");
+    // The next declaration bounds the callback without coupling the adoption
+    // guard to unrelated additions to its React dependency list.
+    const block = between(tower, "const performSettlement = useCallback(", "\n    const shouldSettle =");
 
     it("clan boss and mission settlements adopt the character before checking the screen is mounted", () => {
         const awaited = block.indexOf("await withTowerRequestDeadline(() => settleFn(runId, me))");
