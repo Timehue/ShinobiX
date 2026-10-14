@@ -5,6 +5,7 @@ import { applyOffering, parseShrineState, type ShrineState } from './sector/_tra
 import { BOUNTY_KEY, creditBountyPlacement, normalizeBoard, type BountyBoard, type BountyPlacementPlan } from './pvp/_bounty.js';
 import { applyTreasuryCredit, type TreasuryCreditPlan } from './_treasury-donate.js';
 import { addClanXpServer } from './clan/_mission-catalog.js';
+import {applyClanProjectFunding,type ClanProjectPlan} from './clan/_program-rules.js';
 
 /*
  * The credit side of every retry-safe "player save -> shared record" debit
@@ -67,6 +68,17 @@ export const CLAN_DONATION_SAGA: SaveDebitDefinition<Record<string, unknown>, Cl
 };
 
 export type VillageDonationPlan = { treasury: TreasuryCreditPlan };
+
+/** Materials are consumed by the Hall project. Its progress/XP and receipt share the clan write. */
+export const CLAN_PROJECT_SAGA:SaveDebitDefinition<Record<string,unknown>,ClanProjectPlan>={
+    kind: 'clan-project-fund',
+    load:key=>kv.get<Record<string,unknown>>(key),
+    save:async(key,next)=>{
+        const current=await kv.get<Record<string,unknown>>(key);
+        if(!current||!(await kv.compareSet(key,current,next)))throw new Error('The Hall project changed before credit.');
+    },applyCredit:applyClanProjectFunding,
+    refund:(character,plan)=>({...character,itemStacks:[...(Array.isArray(character.itemStacks)?character.itemStacks:[]),{itemId:plan.itemId,count:plan.count}]}),
+};
 
 /** /api/village/treasury/donate. No refund, for the same reason as the clan twin. */
 export const VILLAGE_DONATION_SAGA: SaveDebitDefinition<Record<string, unknown>, VillageDonationPlan> = {
@@ -145,7 +157,12 @@ export type ClanWarDeclarePlan = { war: Record<string, unknown>; cost: number };
 export const CLAN_WAR_DECLARE_SAGA: SaveDebitDefinition<Record<string, unknown>, ClanWarDeclarePlan> = {
     kind: 'clan-war-declare',
     load: async (key) => (await kv.get<Record<string, unknown>>(key)) ?? {},
-    save: async (key, next) => { await kv.set(key, next); },
+    save: async (key, next) => {
+        if (next.campaign) {
+            const { publishClanWarDeclaration } = await import('./clan/war/_declaration-reservations.js');
+            await publishClanWarDeclaration(key, next);
+        } else await kv.set(key, next);
+    },
     applyCredit: (current, plan, now) => {
         if (current.startedAt && !current.endedAt) {
             throw new SaveDebitNeedsReconcile('A war already stands between these clans, so this declaration cannot open another.');
@@ -179,6 +196,7 @@ export const SAVE_DEBIT_SAGAS: Readonly<Record<string, SaveDebitDefinition<Recor
     [SHRINE_OFFER_SAGA.kind]: SHRINE_OFFER_SAGA as unknown as SaveDebitDefinition<Record<string, unknown>, unknown>,
     [BOUNTY_PLACE_SAGA.kind]: BOUNTY_PLACE_SAGA as unknown as SaveDebitDefinition<Record<string, unknown>, unknown>,
     [CLAN_DONATION_SAGA.kind]: CLAN_DONATION_SAGA as unknown as SaveDebitDefinition<Record<string, unknown>, unknown>,
+    [CLAN_PROJECT_SAGA.kind]: CLAN_PROJECT_SAGA as unknown as SaveDebitDefinition<Record<string,unknown>,unknown>,
     [VILLAGE_DONATION_SAGA.kind]: VILLAGE_DONATION_SAGA as unknown as SaveDebitDefinition<Record<string, unknown>, unknown>,
     [VILLAGE_TAX_SAGA.kind]: VILLAGE_TAX_SAGA as unknown as SaveDebitDefinition<Record<string, unknown>, unknown>,
     [HOLLOW_GATE_UNLOCK_SAGA.kind]: HOLLOW_GATE_UNLOCK_SAGA as unknown as SaveDebitDefinition<Record<string, unknown>, unknown>,

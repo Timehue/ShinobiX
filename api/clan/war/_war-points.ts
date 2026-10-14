@@ -108,20 +108,35 @@ function finalizedWarPointEvents(body: Record<string, unknown>): Map<string, War
     if (body.tentative) return events;
     const war = body.war as ClanWar | undefined;
     const challenge = body.challenge as ClanChallenge | undefined;
-    if (!war || !challenge || challenge.status !== 'completed' || !challenge.result || challenge.result === 'draw') return events;
+    if (!war || !challenge || challenge.status !== 'completed' || !challenge.result) return events;
+    if (war.campaign) {
+        const match = challenge.campaignMatchId ? war.campaign.matches[challenge.campaignMatchId] : undefined;
+        if (!match?.scoreEligible) return events;
+    } else if (challenge.result === 'draw') return events;
+    const rewardWarId = war.campaign?.instanceId ?? war.id;
     for (const participant of challengeParticipants(challenge)) {
         addWarPointEvent(events, participant, {
             source: 'clanWarParticipation',
             amount: CLAN_WAR_PARTICIPATION_POINTS,
-            metadata: { eventId: `war:${war.id}:${challenge.id}:participation:${participant}`, warId: war.id, challengeId: challenge.id },
+            metadata: { eventId: `war:${rewardWarId}:${challenge.id}:participation:${participant}`, warId: war.id, challengeId: challenge.id },
         });
     }
     for (const winner of challengeWinners(challenge)) {
         addWarPointEvent(events, winner, {
             source: 'clanWarWin',
             amount: CLAN_WAR_CHALLENGE_WIN_POINTS,
-            metadata: { eventId: `war:${war.id}:${challenge.id}:challenge-win:${winner}`, warId: war.id, challengeId: challenge.id },
+            metadata: { eventId: `war:${rewardWarId}:${challenge.id}:challenge-win:${winner}`, warId: war.id, challengeId: challenge.id },
         });
+    }
+    if(war.campaign){
+        const match=war.campaign.matches[challenge.campaignMatchId!];
+        for(const [clan,side,won] of [[match.fromClan,match.fromPlayers,match.result==='from-wins'],[match.toClan,match.toPlayers,match.result==='to-wins']] as const){
+            if(!match.provisionedClans?.includes(clan))continue;
+            const bonus=Math.floor((CLAN_WAR_PARTICIPATION_POINTS+(won?CLAN_WAR_CHALLENGE_WIN_POINTS:0))*0.1);
+            for(const player of side)addWarPointEvent(events,player,{source:'clanWarParticipation',amount:bonus,
+                metadata:{eventId:`war:${rewardWarId}:${challenge.id}:provisions:${player}`,warId:war.id,challengeId:challenge.id}});
+        }
+        return events;
     }
     if (body.warEnded && war.winnerClan) {
         const warWinnerParticipants = new Set<string>();
@@ -135,7 +150,7 @@ function finalizedWarPointEvents(body: Record<string, unknown>): Map<string, War
             addWarPointEvent(events, winner, {
                 source: 'clanWarWin',
                 amount: CLAN_WAR_VICTORY_POINTS,
-                metadata: { eventId: `war:${war.id}:victory:${winner}`, warId: war.id, winnerClan: war.winnerClan },
+                metadata: { eventId: `war:${rewardWarId}:victory:${winner}`, warId: war.id, winnerClan: war.winnerClan },
             });
         }
     }
@@ -171,6 +186,13 @@ async function applyWarPointEvents(player: string, events: WarPointEvent[]): Pro
  * written too, but their clients pick the change up on their next load).
  */
 export async function awardFinalizedWarPoints(body: Record<string, unknown>, actorName: string): Promise<WarPointSaveEcho | undefined> {
+    const war = body.war as ClanWar | undefined, challenge = body.challenge as ClanChallenge | undefined;
+    if (war?.campaign) {
+        const match = challenge?.campaignMatchId ? war.campaign.matches[challenge.campaignMatchId] : undefined;
+        if (!match) return undefined;
+        const { awardCampaignMatch } = await import('./_campaign-rewards.js');
+        return (await awardCampaignMatch(war, match))[actorName];
+    }
     const events = finalizedWarPointEvents(body);
 
     const actorEvents = actorName ? events.get(actorName) : undefined;
@@ -191,6 +213,13 @@ export async function awardPvpFinalizedWarPoints(
     eventAt: number,
 ): Promise<void> {
     if (!Number.isSafeInteger(eventAt) || eventAt <= 0) throw new Error('clan-war-pvp-event-time-invalid');
+    const war = body.war as ClanWar | undefined;
+    const campaignChallenge = body.challenge as ClanChallenge | undefined;
+    if (war?.campaign) {
+        const match = campaignChallenge?.campaignMatchId ? war.campaign.matches[campaignChallenge.campaignMatchId] : undefined;
+        if (match) { const { awardCampaignMatch } = await import('./_campaign-rewards.js'); await awardCampaignMatch(war, match); }
+        return;
+    }
     const events = finalizedWarPointEvents(body);
     const challenge = body.challenge as ClanChallenge | undefined;
     const scrollWinners = new Set(

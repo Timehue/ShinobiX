@@ -9,7 +9,16 @@ import { GameArtIcon } from "./GameArtIcon";
  * Pure static markup; the only prop is the dismiss callback.
  */
 
-export function ClanWarManual({ onClose }: { onClose: () => void }) {
+export function ClanWarManual({ onClose,legacy=false }: { onClose: () => void;legacy?:boolean }) {
+  if(!legacy)return <section className="summary-box" aria-label="Clan war guide">
+    <div className="menu"><h4><GameArtIcon kind="scroll" size={18}/> Clan War Guide</h4><button onClick={onClose}>Close Guide</button></div>
+    <p>Leadership can declare on any eligible rival for 100 Honor Seals. Both clans need four level-15 members who joined at least 48 hours ago and played within seven days. Clans must be seven days old.</p>
+    <p>Prepare for 24 hours, then fight for 72 hours. Join a shinobi 1v1, shinobi 2v2, pet or Chronicle queue. A battle starts when all matched players confirm.</p>
+    <p>Each clan has 20 normal player slots per war day; each member has five across all modes. A 1v1 victory earns 100 War Points. A 2v2 victory earns 200, using two clan slots.</p>
+    <p>Six golden shrines appear during the campaign. Travel to each announced sector to enter. Its random pet, card or combat mode offers five shared bonus matches worth 100 points per victory, with two attempts per member.</p>
+    <p>The higher final score wins. Genuine participants earn 25 Clan Points per played battle, plus 25 for a win. Winning participants earn another 75 and one Legendary War Crate. Clan Points share the weekly cap.</p>
+    <p>Afterward, clans recover for three days. The same rivals cannot declare again for seven days. Existing HP wars finish under their original rules.</p>
+  </section>;
   return (
     <div
       style={{

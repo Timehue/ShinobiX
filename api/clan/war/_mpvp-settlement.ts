@@ -116,6 +116,14 @@ export async function settleClanWar2v2Match(
 ): Promise<ClanWar2v2Settlement | null> {
     const binding = towerPvpBindingOf(match);
     if (binding.kind !== 'clan-war') return null;
+    if (match.status === 'cancelled') {
+        const current = await kv.get<ClanWar>(`${CLAN_WAR_KEY_PREFIX}${binding.warId}`);
+        if (current?.campaign) {
+            const { abandonCampaignBattle } = await import('./_campaign-reconcile.js');
+            await abandonCampaignBattle(binding.warId,binding.challengeId,'battle-not-started');
+            return {outcome:'superseded',replayed:false,warId:binding.warId,challengeId:binding.challengeId,result:'draw'};
+        }
+    }
     const result = clanWar2v2Result(match);
     if (!result) throw new Error('clan-war-2v2-match-not-terminal');
 
@@ -179,7 +187,7 @@ export async function settleClanWar2v2Match(
 
         const projected = applyFinalResult(
             current,
-            { ...challenge, pvpSettlementVersion: 1 } as ClanChallenge,
+            { ...challenge, battleId: match.matchId, pvpSettlementVersion: 1 } as ClanChallenge,
             result,
             terminalAt,
         );

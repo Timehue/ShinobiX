@@ -1,4 +1,5 @@
 /* eslint-disable react-hooks/set-state-in-effect */
+import "../styles/jutsu-frames.css";
 import { useState, useEffect, useLayoutEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import bloodlineForgeHero from "../assets/facilities/bloodline-forge-hero.webp";
 import { GameArtIcon } from "../components/GameArtIcon";

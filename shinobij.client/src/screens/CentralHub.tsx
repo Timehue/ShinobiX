@@ -1,4 +1,5 @@
 import { useActivitySection, useActivitySectionRequests } from "../lib/use-activity-section";
+import "../styles/jutsu-frames.css";
 import { HOLLOW_GATE_KEY_DUNGEON_KEY_COST, HOLLOW_GATE_KEY_FATE_SHARD_COST } from "../lib/hollow-gate-prices";
 /* eslint-disable react-hooks/purity */
 import { useState, useEffect, useMemo, useRef } from "react";

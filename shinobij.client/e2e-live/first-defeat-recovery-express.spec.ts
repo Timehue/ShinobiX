@@ -218,9 +218,11 @@ test(`persistent world defeat and recovery: ${recovery}`, async ({ page, request
    const healedSave = await save();
    await request.post(`/api/save/${name}?signal=1`, { headers: { 'x-admin-password': 'live-express-e2e-admin' }, data: { ...healedSave, character: { ...healedSave.character, hp: 0, hospitalized: true, hospitalizedAt: Date.now() + 1, hospitalizedUntil: Date.now() + 60001 } } });
    await request.post(`/api/save/${name}?ack=1`, { headers });
-   await page.unroute('**/api/player/heartbeat');
    await page.reload();
    await expect(page.locator('.hospital-screen--admitted')).toBeVisible();
+   // Restore the new admission before delivering the old healer signal. Opening
+   // heartbeats before reload can navigate the still-healed client mid-reload.
+   await page.unroute('**/api/player/heartbeat');
    // Observe several real heartbeats, including delivery of the old signal.
    await page.waitForTimeout(3500);
    await expect(page.locator('.hospital-screen--admitted')).toBeVisible();

@@ -4,6 +4,7 @@ import { getAllJutsus, liveEquippedJutsuIds } from "../lib/jutsu-loadout";
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, type ChangeEvent, type ReactNode } from "react";
 import "../styles/index/25-mobile-profile-tabs.css";
 import "../styles/profile-skin.css";
+import "../styles/jutsu-frames.css";
 import "../styles/training-skin.css";
 import type { Character, VersionedCharacterCommit } from "../types/character";
 // Currency lines reuse the game's own emblem set so they match the HUD.

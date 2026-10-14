@@ -10,6 +10,8 @@
 
 import type { TreasuryItemStack } from "../lib/items";
 import type { ClanDoctrine } from "../lib/clan-doctrines";
+import type {ClanCampaignRecord,ClanCampaignPrestige} from '../../../shared/clan-campaign-history';
+import type {ClanProgram} from '../../../shared/clan-program';
 
 export type ClanMemberEntry = {
     name: string; village: string; level: number; specialty: string;
@@ -22,6 +24,9 @@ export type ClanData = {
     doctrine?: ClanDoctrine;
     recruitment?: string; // leader-written pitch shown to clan-seekers in the browse
     createdAt: number; members: ClanMemberEntry[];
+    campaignHistory?:ClanCampaignRecord[];
+    campaignPrestige?:ClanCampaignPrestige;
+    program?:ClanProgram;
 };
 export type ClanJoinRequest = ClanMemberEntry & { requestedAt: number };
 export type NoticePostType = "order" | "clan" | "raid" | "guard" | "medic" | "trade" | "general";
