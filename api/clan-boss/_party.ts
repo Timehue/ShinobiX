@@ -15,6 +15,7 @@ import { combatEquipment } from '../../shared/gathering-tools.js';
 import { kv } from '../_storage.js';
 import { makeKvLockPrimitives, withKvLock, withLockCore } from '../_lock.js';
 import { clanBareSlug, safeName } from '../_utils.js';
+import { readKvProjection } from '../_storage-projection.js';
 import type { KvLike } from '../_storage.js';
 
 export const CLAN_BOSS_PARTY_TTL = 2 * 60 * 60;
@@ -136,6 +137,29 @@ export async function loadPartyPlayerContext(rawName: string): Promise<PartyPlay
         saveVersion: Math.max(0, Math.floor(Number(record._saveVersion) || 0)),
         character,
     };
+}
+
+/** The two fields the party GET (partyEnvelope) reads from the viewer. */
+export type PartyViewerContext = Pick<PartyPlayerContext, 'slug' | 'clanName'>;
+
+const PARTY_VIEWER_PROJECTION = { clan: ['character', 'clan'] } as const;
+
+/**
+ * loadPartyPlayerContext narrowed to the GET's needs: reads only
+ * `character.clan` instead of the whole save, with the same null rules (no
+ * slug, no save, no character, or a blank/non-string clan → null). Mutations
+ * still use the full context, since they seal loadout snapshots.
+ */
+export async function loadPartyViewerContext(
+    rawName: string,
+    store: Pick<KvLike, 'mget' | 'mgetProjected'> = kv,
+): Promise<PartyViewerContext | null> {
+    const slug = safeName(rawName);
+    if (!slug) return null;
+    const [row] = await readKvProjection(store, [`save:${slug}`], PARTY_VIEWER_PROJECTION);
+    const clanName = typeof row?.clan === 'string' ? row.clan.trim() : '';
+    if (!row || !clanName) return null;
+    return { slug, clanName };
 }
 
 export function snapshotForPlayer(ctx: PartyPlayerContext, now: number): ClanBossLoadoutSnapshot {
@@ -404,7 +428,7 @@ async function loadPartyList(ids: string[]): Promise<StoredParty[]> {
     return parties.filter((party): party is StoredParty => !!party);
 }
 
-export async function partyEnvelope(player: PartyPlayerContext, now = Date.now()): Promise<ClanBossPartyEnvelope> {
+export async function partyEnvelope(player: PartyViewerContext, now = Date.now()): Promise<ClanBossPartyEnvelope> {
     const own = await activePartyForPlayer(player.slug);
     const inviteIds = (await kv.get<string[]>(partyInviteKey(player.slug))) ?? [];
     const invitations = (await loadPartyList(inviteIds)).filter((party) => isOpenStatus(party.status) && party.clanName === player.clanName && party.invitedSlugs.includes(player.slug));

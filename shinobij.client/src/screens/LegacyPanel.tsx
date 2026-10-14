@@ -4,7 +4,7 @@
  * and a deliberately VAGUE "strongest paths" reading (bucketed tiers from
  * the server — never raw counters or thresholds; the mystery rule).
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Character } from "../types/character";
 import {
     buildChronicleRecordReceipt, fetchLegacyStatus, fetchLegacyDefinitions, trialStart, trialComplete, trialReroll,
@@ -146,6 +146,24 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
             if (mountedRef.current && d) setDefs(new Map(d.legacies.map((l) => [l.id, l])));
         });
     }, [enabled, reload]);
+
+    // Codex browse lists, memoized so the idle-regen re-render (a fresh
+    // `character` each second) does not re-sort all 100 paths. Inputs: defs,
+    // codexCategory, codexQuery — nothing else is read.
+    const codexCategories = useMemo(
+        () => defs ? [...new Set([...defs.values()].map((d) => d.category))].sort() : [],
+        [defs],
+    );
+    const codexEntries = useMemo(() => {
+        if (!defs) return [];
+        // Sorted by name, filtered by the optional category facet and
+        // the search box across name / category / village / flavor.
+        const q = codexQuery.trim().toLowerCase();
+        return [...defs.values()]
+            .filter((d) => !codexCategory || d.category === codexCategory)
+            .filter((d) => !q || `${d.name} ${d.category} ${d.villageAffinity ?? ""} ${d.flavor}`.toLowerCase().includes(q))
+            .sort((a, b) => a.name.localeCompare(b.name));
+    }, [defs, codexCategory, codexQuery]);
 
     if (!enabled) return null;
     if (!loaded) return <p style={{ color: "#9aa3b2", fontSize: ".8rem" }}>Reading the threads of your path…</p>;
@@ -583,7 +601,7 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
                         // Category facets — a browse convenience along the gameplay
                         // identity axis; legacies are NEVER faceted or coloured by
                         // rarity for players (rank is owner-only).
-                        const cats = [...new Set([...defs.values()].map((d) => d.category))].sort();
+                        const cats = codexCategories;
                         return (
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
                                 <button type="button" onClick={() => setCodexCategory(null)} style={codexChipStyle(codexCategory === null)}>All</button>
@@ -594,13 +612,8 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
                         );
                     })()}
                     {(() => {
-                        // Sorted by name, filtered by the optional category facet and
-                        // the search box across name / category / village / flavor.
-                        const q = codexQuery.trim().toLowerCase();
-                        const all = [...defs.values()]
-                            .filter((d) => !codexCategory || d.category === codexCategory)
-                            .filter((d) => !q || `${d.name} ${d.category} ${d.villageAffinity ?? ""} ${d.flavor}`.toLowerCase().includes(q))
-                            .sort((a, b) => a.name.localeCompare(b.name));
+                        // Memoized above (codexEntries): name-sorted, category- and search-filtered.
+                        const all = codexEntries;
                         if (all.length === 0) return <p style={{ fontSize: ".76rem", color: "#6b7280" }}>No legacies match{codexQuery ? ` "${codexQuery}"` : ""}{codexCategory ? ` in ${codexCategory}` : ""}.</p>;
                         return (
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8 }}>

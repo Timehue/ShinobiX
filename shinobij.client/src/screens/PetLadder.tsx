@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Character } from "../types/character";
 import type { Pet } from "../types/pet";
 import type { Screen } from "../types/core";
@@ -425,7 +425,10 @@ function recordOf(view: LadderView | null, key: "wins" | "losses" | "defended" |
 
 type PetRatingRow = { rank: number; name: string; value: number; village?: string };
 
-function ColosseumRatingBoard({ rating }: { rating: number }) {
+// Memoized: its only prop is a number, so the parent's every-second regen
+// re-render no longer rebuilds up to 100 leaderboard rows. Fetch is keyed on
+// `rating` exactly as before.
+const ColosseumRatingBoard = memo(function ColosseumRatingBoard({ rating }: { rating: number }) {
     const [rows, setRows] = useState<PetRatingRow[] | null>(null);
     const [error, setError] = useState<string | null>(null);
     useEffect(() => {
@@ -450,4 +453,4 @@ function ColosseumRatingBoard({ rating }: { rating: number }) {
                         <div className="pl-row-rec">{row.value} Elo</div>
                     </div>)}</div>}
     </div>;
-}
+});

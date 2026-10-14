@@ -1,7 +1,7 @@
 import { COMBAT_MAX_ROUNDS } from "../../../shared/combat-limits";
 import { TOWER_SIGNATURES, towerSignatureForMechanic } from '../../../shared/tower-progression';
 import { TowerRecordsPanel } from "../components/TowerRecordsPanel";
-import { useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { visiblePoll } from "../lib/poll";
 import { GameArtIcon, type GameArtIconKind } from "../components/GameArtIcon";
 import type { Character } from "../types/character";
@@ -138,7 +138,9 @@ function towerDynamicHazardLabel(hazard: TowerFloorMeta["dynamicHazards"][number
     return `${hazard.count} ${hazardName}${hazard.count === 1 ? "" : "s"} · starts round ${hazard.firstRound}, every ${hazard.everyRounds} rounds`;
 }
 
-function StoryFloorCard({
+// Memoized: every prop is a primitive, a floor object held in state, or the
+// stable `setSelected` setter, so a card re-renders only when its own row changes.
+const StoryFloorCard = memo(function StoryFloorCard({
     floor,
     selected,
     cleared,
@@ -197,6 +199,16 @@ function StoryFloorCard({
             </button>
         </div>
     );
+});
+
+// Module scope: it reads only the DOM, and a per-render function would defeat
+// SpireLadder's memo.
+function focusReadyRoom() {
+    const openSpire = document.getElementById("tower-ready-room-open-spire") as HTMLButtonElement | null;
+    const room = document.getElementById("tower-ready-room");
+    const target = openSpire && !openSpire.disabled ? openSpire : room;
+    target?.scrollIntoView({ behavior: "smooth", block: "center" });
+    window.requestAnimationFrame(() => target?.focus({ preventScroll: true }));
 }
 
 export function BattleTowersLobby({
@@ -366,14 +378,6 @@ export function BattleTowersLobby({
             ? `Locked · Battle Towers unlock at level ${TOWER_MIN_LEVEL}.`
             : `Locked · clear through Floor ${Math.max(1, selFloor.id - 1)} to reach this encounter.`)
         : null;
-
-    function focusReadyRoom() {
-        const openSpire = document.getElementById("tower-ready-room-open-spire") as HTMLButtonElement | null;
-        const room = document.getElementById("tower-ready-room");
-        const target = openSpire && !openSpire.disabled ? openSpire : room;
-        target?.scrollIntoView({ behavior: "smooth", block: "center" });
-        window.requestAnimationFrame(() => target?.focus({ preventScroll: true }));
-    }
 
     return (
         <div style={{ maxWidth: 880, margin: "1rem auto", padding: "0 0.8rem 1.5rem", color: "var(--slate-200)" }}>
@@ -637,7 +641,10 @@ export function BattleTowersLobby({
 // A cinematic hero card for the SELECTED floor (boss portrait, mechanic, keystones,
 // reward) atop a 20-rung ladder that makes the whole climb legible at a glance, plus a
 // weekly leaderboard. All display data comes from lib/spire-catalog (server mirror).
-function SpireLadder({
+// Memoized: props are primitives, state values, the `setSpireTier` setter and the
+// module-level `focusReadyRoom`, so the 20-rung ladder skips the parent's
+// every-second regen re-render.
+const SpireLadder = memo(function SpireLadder({
     me, spireUnlocked, spireMaxSelectable, spireTier, setSpireTier, weeklyBest, board, affix, isAdmin, towerUnlocked, roomActive, onPrepareRoom,
 }: {
     me: string;
@@ -810,7 +817,7 @@ function SpireLadder({
             )}
         </div>
     );
-}
+});
 
 function Stat({ label, value, color }: { label: string; value: string; color: string }) {
     return (

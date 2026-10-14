@@ -1,5 +1,8 @@
+import { memo } from 'react';
 import { TOWER_HONORS, type TowerRecords } from '../../../shared/tower-progression';
-export function TowerRecordsPanel({ records }: { records?: TowerRecords }) {
+// Memoized: it renders only from `records`, which keeps its reference across the
+// lobby's every-second idle-regen re-render.
+export const TowerRecordsPanel = memo(function TowerRecordsPanel({ records }: { records?: TowerRecords }) {
     const bests = Object.entries(records?.bests ?? {}).sort(([,a],[,b]) => a.mode.localeCompare(b.mode) || b.floor-a.floor || a.partySize-b.partySize);
     const earned = TOWER_HONORS.filter(honor => records?.honors[honor.id]);
     return <section className="tower-records" aria-labelledby="tower-records-title">
@@ -11,4 +14,4 @@ export function TowerRecordsPanel({ records }: { records?: TowerRecords }) {
             {bests.length > 0 && <div className="tower-best-table"><table><thead><tr><th>Floor / squad</th><th>Route</th><th>Best score</th><th>Fastest</th><th>No KO</th></tr></thead><tbody>{bests.map(([key,best])=><tr key={key}><th>{best.mode === 'spire' ? 'Spire' : 'Story'} {best.floor} · {best.partySize === 1 ? 'Solo' : `${best.partySize} players`}</th><td>{key.split(':')[3]?.replaceAll('-', ' ') ?? 'standard'}</td><td>{best.bestScore.toLocaleString()}</td><td>{best.fastestRounds} rounds</td><td>{best.noKnockout ? 'Yes' : '—'}</td></tr>)}</tbody></table></div>}
         </details>
     </section>;
-}
+});

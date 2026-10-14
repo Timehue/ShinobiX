@@ -969,15 +969,24 @@ export function BattleTowerFight({
     // Refresh the server-sealed actor/session when entering a run. The join route is
     // deliberately read-only and ignores this compatibility loadout; it never re-gears
     // the actor from client state. Best-effort and once per mount.
+    // The loadout is read through a ref so a parent rebuilding it (idle regen
+    // replaces `character` every second) does not re-send the join each render;
+    // the effect re-runs only when a loadout appears/disappears or the run changes.
+    // (Declared before the join effect: effects run in order, so the join always
+    // reads this commit's loadout.)
+    const hostLoadoutRef = useRef(hostLoadout);
+    useEffect(() => { hostLoadoutRef.current = hostLoadout; }, [hostLoadout]);
+    const hasHostLoadout = Boolean(hostLoadout);
     useEffect(() => {
-        if (!hostLoadout) return;
+        const loadout = hostLoadoutRef.current;
+        if (!hasHostLoadout || !loadout) return;
         let alive = true;
-        joinTowerRun(runId, me, hostLoadout).then(next => {
+        joinTowerRun(runId, me, loadout).then(next => {
             if (!alive || !next) return;
             setSession(current => adoptTowerSession(current, next));
         });
         return () => { alive = false; };
-    }, [runId, me, hostLoadout]);
+    }, [runId, me, hasHostLoadout]);
 
     // Reconcile on every authenticated socket revision hint, including during our turn:
     // another member's request can authoritatively auto-pass an idle local turn. HTTP

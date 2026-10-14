@@ -1,5 +1,5 @@
 import "../styles/pet-battle-theme.css";
-import { useState, useCallback, useRef, useEffect, lazy, Suspense } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo, lazy, Suspense } from "react";
 import type { Character } from "../types/character";
 import type { Pet } from "../types/pet";
 import { CardClashDuel } from "./CardClashDuel";
@@ -68,10 +68,16 @@ export function DungeonEncounter({
     onLeave: () => void | Promise<void>;
     sharedImages?: Record<string, string>;
 }) {
-    const event = useVnArtwork(overlayVnImages(sourceEvent, sourceEvent.id, sharedImages));
+    // Both derivations below scan every shared image key. They are pure in their
+    // inputs, so keep them across the parent's once-a-second regen re-renders.
+    const overlaidEvent = useMemo(() => overlayVnImages(sourceEvent, sourceEvent.id, sharedImages), [sourceEvent, sharedImages]);
+    const event = useVnArtwork(overlaidEvent);
     // Page portraits have already been hydrated and verified above. Feeding raw
     // positional slots back to the resolver would resurrect a retired image.
-    const dedicatedImages = Object.fromEntries(Object.entries(sharedImages).filter(([id]) => !id.startsWith(`vn:${event.id}:page:`)));
+    const dedicatedImages = useMemo(
+        () => Object.fromEntries(Object.entries(sharedImages).filter(([id]) => !id.startsWith(`vn:${event.id}:page:`))),
+        [event.id, sharedImages],
+    );
     const stage = resolveDungeonStage(character.activeDungeonRun);
     const pages = event.vnPages && event.vnPages.length > 0 ? event.vnPages : hiddenDungeonVnEvent.vnPages!;
     const stagePage = stage === "pet" ? 2 : stage === "tile" ? 1 : 0;
