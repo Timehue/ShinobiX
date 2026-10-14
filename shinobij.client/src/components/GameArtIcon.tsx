@@ -44,7 +44,8 @@ export type GameArtIconKind = "vitality" | "attack" | "guard" | "speed" | "missi
     | "dice" | "crown" | "warning" | "shop" | "key" | "scroll" | "clanHall" | "rations"
     | "townHall" | "bank" | "training" | "upgrades" | "hospital" | "worldMap" | "storyHall"
     | "petHome" | "community" | "blacksmith" | "logbook" | "premiumShop"
-    | "auraStone" | "reward" | "potion" | "gate" | "map" | "supply" | "event";
+    | "auraStone" | "reward" | "potion" | "gate" | "map" | "supply" | "event"
+    | "clanMentor" | "clanRoster" | "clanBoss" | "clanBoost" | "clanExchange" | "clanNotices" | "clanChat";
 
 const ART: Record<GameArtIconKind, string> = {
     vitality: "/ui/game-icons/vitality.webp",
@@ -78,6 +79,13 @@ const ART: Record<GameArtIconKind, string> = {
     map: "/landmarks/trail-sign.webp",
     supply: "/items/village-supply-bundle-v1.webp",
     event: "/ui/clan-missions/clan-mission-raid.webp",
+    clanMentor: "/ui/clan-icons/clan-mentor-v1.webp",
+    clanRoster: "/ui/clan-icons/clan-roster-v1.webp",
+    clanBoss: "/ui/clan-icons/clan-boss-v1.webp",
+    clanBoost: "/ui/clan-icons/clan-boosts-v1.webp",
+    clanExchange: "/ui/clan-icons/clan-exchange-v1.webp",
+    clanNotices: "/ui/clan-icons/clan-notices-v1.webp",
+    clanChat: "/ui/clan-icons/clan-chat-v1.webp",
 };
 
 // The sources above are full illustrations (256 px emblems, 1024 px profession

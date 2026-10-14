@@ -2,7 +2,8 @@
    20s interval refresh; verbatim move from App.tsx, which carries the same
    file-level disable for this idiomatic data-fetch effect. */
 import { useCallback, useEffect, useState } from "react";
-import { cwListWars, type CwWar } from "../lib/clan-war-api";
+import { cwListWars, type CwWar, type CwChallenge } from "../lib/clan-war-api";
+import {ClanWarCampaignPanel} from './ClanWarCampaignPanel';
 import { visiblePoll } from "../lib/poll";
 import { ClanWarManual } from "./ClanWarManual";
 import { GameArtIcon } from "./GameArtIcon";
@@ -28,7 +29,7 @@ const RATION_TONE_COLOR: Record<ClanStoresTone, string | undefined> = {
 // /api/clan/war/list (10s CDN cache) so HP stays in sync.
 // Drained verbatim from App.tsx (2026-06-18) — behaviour unchanged; ClanHall is
 // the sole consumer.
-export function ClanWarsPanel({ character, clanName, provisions, storesOpen = true, onOpenTreasury, setScreen }: { character: Character; clanName: string; provisions?: number | null; storesOpen?: boolean; onOpenTreasury?: () => void; setScreen: (s: Screen) => void }) {
+export function ClanWarsPanel({ character, clanName, provisions, storesOpen = true, onOpenTreasury, setScreen, onLaunchBattle,canProvision=false }: { character: Character; clanName: string; provisions?: number | null; storesOpen?: boolean; onOpenTreasury?: () => void; setScreen: (s: Screen) => void;onLaunchBattle?:(challenge:CwChallenge,warId:string)=>void;canProvision?:boolean }) {
     const [wars, setWars] = useState<CwWar[]>([]);
     const [loading, setLoading] = useState(true);
     const [showClanWarManual, setShowClanWarManual] = useState(false);
@@ -66,6 +67,10 @@ export function ClanWarsPanel({ character, clanName, provisions, storesOpen = tr
         .sort((a, b) => (b.endedAt ?? 0) - (a.endedAt ?? 0))
         .slice(0, 3);
 
+    if (activeWar?.campaignView) return <ClanWarCampaignPanel war={activeWar} name={character.name} clanName={clanName} onRefresh={refresh} onLaunchBattle={onLaunchBattle} onOpenMap={()=>setScreen('worldMap')} canProvision={canProvision}/>;
+    if(!activeWar&&recentEnded[0]?.campaignView)return <ClanWarCampaignPanel war={recentEnded[0]} name={character.name} clanName={clanName} onRefresh={refresh}/>;
+    if (!activeWar&&recentEnded[0]?.campaignView) return <><ClanWarCampaignPanel war={recentEnded[0]} name={character.name} clanName={clanName} onRefresh={refresh} onLaunchBattle={onLaunchBattle}/><div className="menu"><button onClick={()=>setScreen('shinobiCouncil')}>Plan the Next Campaign</button></div></>;
+
     return (
         <div className="summary-box">
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -84,7 +89,7 @@ export function ClanWarsPanel({ character, clanName, provisions, storesOpen = tr
                 Send anonymous challenges in the <strong>Shinobi Council Hall → Clan Battles</strong> tab.
             </p>
 
-            {showClanWarManual && <ClanWarManual onClose={() => setShowClanWarManual(false)} />}
+            {showClanWarManual && <ClanWarManual legacy={!!activeWar&&!activeWar.campaignView} onClose={() => setShowClanWarManual(false)} />}
 
             {loading && <p className="hint">Loading clan war state…</p>}
 
@@ -125,7 +130,7 @@ export function ClanWarsPanel({ character, clanName, provisions, storesOpen = tr
                     <p style={{ margin: 0 }}>{clanName} is not currently in a clan war.</p>
                     <p className="hint" style={{ marginTop: 6 }}>
                         Clan Founder, Leader, or Officer can declare war from the Shinobi Council Hall → Clan Battles tab.
-                        Wars run until one clan's 1,000 HP hits 0. 7-day rematch cooldown.
+                        New campaigns have 24 hours of preparation, followed by 72 hours of scored battles. Four battle queues and golden-shrine bonus fights decide the winner.
                     </p>
                     <div className="menu" style={{ marginTop: 8 }}>
                         <button onClick={() => setScreen("shinobiCouncil")}><GameArtIcon kind="clanHall" size={17} /> Open Clan Battles</button>

@@ -177,6 +177,11 @@ export async function dissolveClanUnderLock(
     const finalizedWars: ClanWar[] = [];
     const warKeys = (await kv.keys(`${CLAN_WAR_KEY_PREFIX}*`)).filter(isClanWarRowKey);
     for (const warKey of warKeys) {
+        const before=await kv.get<ClanWar>(warKey);
+        if(before?.campaign&&!before.endedAt&&before.clans.some(name=>clanBareSlug(name)===receipt.clanSlug)){
+            const {reconcileClanWarBattleResults}=await import('./war/_campaign-reconcile.js');
+            await reconcileClanWarBattleResults(before);
+        }
         await withKvLock(warKey, async () => {
             const war = await kv.get<ClanWar>(warKey);
             if (!war || war.endedAt || !war.clans.some((name) => clanBareSlug(name) === receipt.clanSlug)) return;
