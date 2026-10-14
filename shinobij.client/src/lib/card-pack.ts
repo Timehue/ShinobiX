@@ -75,6 +75,6 @@ export async function openCardPack(playerName: string, packType: CardPackType): 
         clearPendingRequest(pendingKey, requestId);
         return data;
     } catch {
-        return { ok: false, error: 'Pack opening unconfirmed. Refresh before retrying to recover the same purchase.' };
+        return { ok: false, error: 'That pack opening may not have gone through. Wait until the game has saved, then refresh to recover the same purchase.' };
     }
 }

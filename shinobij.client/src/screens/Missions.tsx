@@ -382,7 +382,7 @@ export function Missions({
     async function abandonFetchMission(mission: CreatorMission) {
         if (fieldTrailPending) return;
         if (!builtinFetchMissions.some((entry) => entry.id === mission.id)) {
-            return alert("This unpublished mission cannot alter the server contract ledger.");
+            return alert("This assignment is not on the mission board any more, so it can't be abandoned.");
         }
         // Same danger confirm as the Hunter Board: the server zeroes this run's explore and raid progress.
         if (!await gameConfirm(`Abandon "${mission.name}"? You'll lose your progress on this contract.`, { title: "Abandon contract", confirmLabel: "Abandon", danger: true })) return;

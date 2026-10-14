@@ -79,11 +79,11 @@ for (const scenario of [
     { name: 'confirmed refusal', status: 400, body: { error: 'Recipient not found.' }, message: 'Recipient not found.', retained: false },
     // A timeout and a reply without a confirmation are both unconfirmed: the
     // transfer may have run, so the retry must carry the same nonce.
-    { name: 'request timeout', status: 408, body: { error: 'Please retry.' }, message: 'Action unconfirmed. Refresh before retrying.', retained: true },
-    { name: 'server interruption', status: 503, body: { error: 'Please retry.' }, message: 'Action unconfirmed. Refresh before retrying.', retained: true },
-    { name: 'pending settlement', status: 409, body: { error: 'Still settling.', pending: true }, message: 'Action unconfirmed. Refresh before retrying.', retained: true },
-    { name: 'missing confirmation', status: 200, body: {}, message: 'Action unconfirmed. Refresh before retrying.', retained: true },
-    { name: 'disconnected response', status: 0, body: {}, message: 'Transfer unconfirmed. Refresh before retrying.', retained: true },
+    { name: 'request timeout', status: 408, body: { error: 'Please retry.' }, message: 'That action may not have gone through. Wait until the game has saved, then refresh to check before you try again.', retained: true },
+    { name: 'server interruption', status: 503, body: { error: 'Please retry.' }, message: 'That action may not have gone through. Wait until the game has saved, then refresh to check before you try again.', retained: true },
+    { name: 'pending settlement', status: 409, body: { error: 'Still settling.', pending: true }, message: 'That action may not have gone through. Wait until the game has saved, then refresh to check before you try again.', retained: true },
+    { name: 'missing confirmation', status: 200, body: {}, message: 'That action may not have gone through. Wait until the game has saved, then refresh to check before you try again.', retained: true },
+    { name: 'disconnected response', status: 0, body: {}, message: 'That transfer may not have gone through. Wait until the game has saved, then refresh to check before you try again.', retained: true },
 ]) {
     test(`sendCurrency describes ${scenario.name} and ${scenario.retained ? 'keeps' : 'releases'} its nonce`, async (t) => {
         const key = tradeIntentKey('Rill', 'Dopey', 'ryo', 5_000);
