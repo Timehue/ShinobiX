@@ -1339,7 +1339,12 @@ test("selected-sector projection keeps controls, receipts, traces, and responsiv
     await signsDialog.getByRole("button", { name: "Close", exact: true }).click();
     await expect(signsDialog).toHaveCount(0);
 
-    // Opening a modal retires Sector Info; reopen it for the next interaction.
+    // Desktop's floating sheet retires when a portal dialog opens. Mobile's
+    // inline disclosure stays expanded, so verify and close it before reopening.
+    if (testInfo.project.name === "chromium-mobile") {
+        await expect(commandPanel).toBeVisible();
+        await hud.getByRole("button", { name: "Close Sector Info", exact: true }).click();
+    }
     await expect(commandPanel).toHaveCount(0);
     await hud.getByRole("button", { name: "Sector Info", exact: true }).click();
     await shrineButton.click();
@@ -1354,6 +1359,10 @@ test("selected-sector projection keeps controls, receipts, traces, and responsiv
     await shrineDialog.getByRole("button", { name: "Close", exact: true }).click();
     await expect(shrineDialog).toHaveCount(0);
 
+    if (testInfo.project.name === "chromium-mobile") {
+        await expect(commandPanel).toBeVisible();
+        await hud.getByRole("button", { name: "Close Sector Info", exact: true }).click();
+    }
     await expect(commandPanel).toHaveCount(0);
     await expectNoLargeOverlap(stage.locator(".sector-image-map"), hud);
     await expectViewportSafe(page, { logicalStages: [".walkable-sector-map"] });
