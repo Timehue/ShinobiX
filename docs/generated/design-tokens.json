@@ -2588,7 +2588,7 @@
           },
           {
             "source": "shinobij.client/src/styles/world-map-mobile.css",
-            "line": 68
+            "line": 74
           }
         ]
       },
@@ -4434,7 +4434,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/02-world-map.css",
-            "line": 698
+            "line": 697
           },
           {
             "source": "shinobij.client/src/styles/index/10-layout-lock-herald.css",

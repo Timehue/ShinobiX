@@ -24,6 +24,7 @@ import { loadSectorTerritory } from "../lib/world-state";
 import { visiblePoll } from "../lib/poll";
 import { HOME_SECTORS } from "../data/war-map-sectors";
 import { isLowEndMobile } from "../lib/device-tier";
+import { WorldMapPin } from "./WorldMapPin";
 import ashenBanner from "../assets/village-war/owned-sector-ashenleaf.webp";
 import frostBanner from "../assets/village-war/owned-sector-frostfang.webp";
 import moonBanner from "../assets/village-war/owned-sector-moonshadow.webp";
@@ -66,7 +67,7 @@ const OWNER_REFRESH_MS = 30_000;
  *  rarely. A siege runs 72 hours; a pulse that lags two minutes is fine. */
 const SIEGE_REFRESH_MS = 120_000;
 
-export function SectorOwnershipOverlay({ sectorPoints }: { sectorPoints: readonly SectorPoint[] }) {
+export function SectorOwnershipOverlay({ sectorPoints, counterScalePins = false }: { sectorPoints: readonly SectorPoint[]; counterScalePins?: boolean }) {
     const [ownerBySector, setOwnerBySector] = useState(readOwners);
     // Active sieges drive the pulse — best-effort from the server; simply absent when
     // the war feature is off server-side (the ownership banners still show).
@@ -102,6 +103,7 @@ export function SectorOwnershipOverlay({ sectorPoints }: { sectorPoints: readonl
                 // keeps the contested class and gets a static ring instead of the pulse.
                 const isContested = contested.has(sector);
                 return (
+                    <WorldMapPin key={sector} active={counterScalePins} x={p.x} y={p.y} layer={0}>
                     <div
                         key={sector}
                         className={"vw-sector-claim" + (isContested ? " contested" : "") + (lite ? " lite" : "")}
@@ -111,6 +113,7 @@ export function SectorOwnershipOverlay({ sectorPoints }: { sectorPoints: readonl
                         <span className="vw-claim-ring" />
                         <img className="vw-banner" src={banner} alt="" draggable={false} />
                     </div>
+                    </WorldMapPin>
                 );
             })}
         </div>
