@@ -25,7 +25,7 @@ const landmarks: Point[] = [
     { id: "Stormveil Village", x: 16, y: 74 },
     { id: "Ashen Leaf Village", x: 16, y: 20 },
     { id: "Frostfang Village", x: 76, y: 20 },
-    { id: "Moonshadow Village", x: 86, y: 64 },
+    { id: "Moonshadow Village", x: 91, y: 84 },
     { id: "Central", x: 48, y: 40 },
     { id: "Hollow Gate", x: 63, y: 65 },
 ];

@@ -489,7 +489,7 @@ test("WorldMap keeps live Village War admission checks around command-panel asyn
 
 test("selected-sector scouting is read-only and never impersonates travel", () => {
     const launch = sliceBetween(worldMapSource, "function launchWorldMapFight", "async function launchAiGuardRaid");
-    assertOrdered(launch, ["sameSector(currentSector, sector)", "capabilityAdmissionAllowed", "requestAiFight"], "World fight location guard");
+    assertOrdered(launch, ["captureSectorAction(sector)()", "capabilityAdmissionAllowed", "requestAiFight"], "World fight location guard");
     assert.doesNotMatch(launch, /setCurrentSector\(/u);
 
     const projection = sliceBetween(worldMapSource, "<WorldSectorCanvas", "if (selectedVillageTerritory) {");
