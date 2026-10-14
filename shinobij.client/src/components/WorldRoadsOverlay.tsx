@@ -100,8 +100,8 @@ const POI_PLATES: ReadonlyArray<{ key: string; name: string; tag: string; x: num
     // Threads a 3.9% band: the obelisk is the tallest crest (74px) and pin 64 is
     // just below, so this y has under 1% of slack at either end.
     { key: "hollowgate", name: "Hollow Gate", tag: "A Sunken Court intake still running below Central", x: 63, y: 71.3, tone: "violet" },
-    // icon (91, 84) — open ground below the sector cluster, clear of pin 24.
-    { key: "moonshadow", name: "Moonshadow Village", tag: "The Held Secret: every truth has a keeper", x: 91, y: 95, tone: "violet" },
+    // icon (84, 71) — the central court inside Moonshadow's sector ring.
+    { key: "moonshadow", name: "Moonshadow Village", tag: "The Held Secret: every truth has a keeper", x: 84, y: 78, tone: "violet" },
     // icon (47, 84.5) — sector 54's marker, which was nudged up off this plate
     { key: "sunscar", name: "Sunscar Festival", tag: "A caravan fair that never packed up", x: 47, y: 89, tone: "sand" },
 ];

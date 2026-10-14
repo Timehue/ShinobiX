@@ -61,6 +61,45 @@ button.atlas-landmark[data-landmark-art="true"][title*="Moonshadow"] {
     --landmark-glow: rgba(173, 112, 255, 0.72);
 }
 
+/* The full-world camera packs the ring into a much smaller painting. Keep
+   the 48px button, but fit its visible crest inside the central court. The
+   nearest pins leave 9% of the painted width in each direction; reserve
+   their 16px radius plus a 2px gap. Region/detail views retain the full art. */
+.generated-world-map {
+    container-type: inline-size;
+    container-name: world-atlas;
+}
+button.atlas-landmark[data-landmark-art="true"][title*="Moonshadow"] .atlas-landmark-art {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: clamp(0px, calc(18cqw / var(--wm-marker-scale, 1) - 36px), 100%);
+    height: auto;
+    aspect-ratio: 1;
+    transform: translate(-50%, -50%);
+}
+
+/* Its name remains on the region button when the whole-world ring is too
+   tight for a caption. Bring the caption back as soon as detail has room. */
+.generated-world-map[data-wm-compact-overview] .wpk-moonshadow {
+    display: none;
+}
+
+/* The optional fallback also fits the whole painting to the screen. Override
+   generic mobile button minimums on this ring so its pins stay compact. */
+html:not(.wm-zoom) .app-shell.screen-worldMap .generated-world-map .atlas-sector-shadow {
+    width: 28px !important;
+    height: 28px !important;
+    min-width: 28px !important;
+    min-height: 28px !important;
+    min-inline-size: 28px !important;
+    min-block-size: 28px !important;
+    font-size: 12px !important;
+}
+@container world-atlas (max-width: 600px) {
+    html:not(.wm-zoom) .wpk-moonshadow { display: none; }
+}
+
 button.atlas-landmark.atlas-central[data-landmark-art="true"] {
     --landmark-size: clamp(50px, 5vw, 66px);
     --landmark-glow: rgba(255, 211, 105, 0.76);

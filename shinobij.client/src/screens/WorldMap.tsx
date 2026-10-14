@@ -2622,7 +2622,7 @@ function WorldMapContent({
         { name: "Stormveil Village", type: "village", biome: villageBiomeMap["Stormveil Village"], x: 16, y: 74, art: stormveilLandmarkArt },
         { name: "Ashen Leaf Village", type: "village", biome: villageBiomeMap["Ashen Leaf Village"], x: 16, y: 20, art: ashenLeafLandmarkArt },
         { name: "Frostfang Village", type: "village", biome: villageBiomeMap["Frostfang Village"], x: 76, y: 20, art: frostfangLandmarkArt },
-        { name: "Moonshadow Village", type: "village", biome: villageBiomeMap["Moonshadow Village"], x: 91, y: 84, art: moonshadowLandmarkArt },
+        { name: "Moonshadow Village", type: "village", biome: villageBiomeMap["Moonshadow Village"], x: 84, y: 71, art: moonshadowLandmarkArt },
         { name: "Central", type: "central", biome: "central" as Biome, x: 48, y: 40, art: centralLandmarkArt, staminaReward: 20, xpReward: 20 },
         // Hollow Gate — the violet obelisk shrine east of the keep. Sector 57
         // (Hollow Temple) sits just beside it and is map-travel-only, so this
@@ -5107,7 +5107,7 @@ function WorldMapContent({
                     { c: "volcano", x: 16, y: 20 },
                     { c: "snow", x: 76, y: 20 },
                     { c: "forest", x: 16, y: 74 },
-                    { c: "shadow", x: 91, y: 84 },
+                    { c: "shadow", x: 84, y: 71 },
                     { c: "central", x: 48, y: 40 },
                 ].map((g) => (
                     <div key={g.c} className={"world-biome-glow wbg-" + g.c} style={{ left: g.x + "%", top: g.y + "%" }} aria-hidden="true" />

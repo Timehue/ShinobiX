@@ -16,9 +16,14 @@ test("atlas clearance nudges do not mutate gameplay geography", () => {
     assert.deepEqual(gameplayFiftyFive, { id: 55, x: 59, y: 60 });
     assert.deepEqual(atlasFiftyFive, { id: 55, x: 54, y: 57 });
 
+    assert.deepEqual(SECTOR_POINTS.filter((point) => [17, 23, 24, 25].includes(point.id)), [
+        { id: 17, x: 85, y: 77 }, { id: 23, x: 78, y: 70 },
+        { id: 24, x: 88.5, y: 66 }, { id: 25, x: 76, y: 82 },
+    ], 'opening the village court must preserve the authoritative road geography');
+
     for (const gameplayPoint of SECTOR_POINTS) {
         const atlasPoint = ATLAS_SECTOR_POINTS.find((point) => point.id === gameplayPoint.id);
         assert.ok(atlasPoint, `atlas is missing sector ${gameplayPoint.id}`);
-        if (gameplayPoint.id !== 8 && gameplayPoint.id !== 55) assert.deepEqual(atlasPoint, gameplayPoint);
+        if (![8, 17, 23, 24, 25, 55].includes(gameplayPoint.id)) assert.deepEqual(atlasPoint, gameplayPoint);
     }
 });

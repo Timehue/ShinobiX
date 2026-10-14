@@ -49,9 +49,55 @@ async function settleCamera(page: Page) {
     });
 }
 
+for (const mode of ['camera', 'fallback'] as const) {
+    test(`Moonshadow Village clears every sector in each atlas view (${mode})`, async ({ page }, testInfo) => {
+        await bootWorldMap(page, undefined, mode === 'fallback' ? async () => {
+            await page.addInitScript(() => localStorage.setItem('worldMapZoom.v1', '0'));
+        } : undefined);
+        const check = async (view: string) => {
+            const { collisions, artWidth } = await page.locator('.atlas-landmark[title="Moonshadow Village"]').evaluate((village) => {
+                // The transparent 48px target stays tappable in the full-world
+                // overview; its visible artwork fits inside the sector ring.
+                const art = village.querySelector('.atlas-landmark-art')!;
+                const plate = document.querySelector('.wpk-moonshadow')!;
+                const collisions = [art, plate].filter((element) => getComputedStyle(element).display !== 'none').flatMap((element) => {
+                    const crest = element.getBoundingClientRect();
+                    return [...document.querySelectorAll('.atlas-sector')].filter((sector) => {
+                        const pin = sector.getBoundingClientRect();
+                        return crest.left < pin.right && crest.right > pin.left && crest.top < pin.bottom && crest.bottom > pin.top;
+                    }).map((sector) => `${element.className}: ${sector.getAttribute('title')}`);
+                });
+                return { collisions, artWidth: art.getBoundingClientRect().width };
+            });
+            expect(artWidth, `${view}: the crest stays visible`).toBeGreaterThan(0);
+            expect(collisions, `${view}: Moonshadow crest must clear sector markers`).toEqual([]);
+        };
+        await check('opening');
+        if (await page.locator('html').evaluate((html) => html.classList.contains('wm-zoom'))) {
+            for (const region of regions) {
+                await chooseRegion(page, region);
+                await check(region);
+            }
+            await chooseRegion(page, 'moon');
+            await page.screenshot({ path: testInfo.outputPath('moonshadow-placement.png') });
+            const background = await clearMapPoint(page, false);
+            expect(background).not.toBeNull();
+            await page.touchscreen.tap(background!.x, background!.y);
+            await page.touchscreen.tap(background!.x, background!.y);
+            await settleCamera(page);
+            const camera = (await mapCamera(page))!;
+            expect(camera.zoom).toBeCloseTo(camera.wholeWorld, 2);
+            await page.screenshot({ path: testInfo.outputPath('moonshadow-whole-world.png') });
+            await check('whole world');
+        }
+        await page.screenshot({ path: testInfo.outputPath('moonshadow-atlas.png') });
+    });
+}
+
 for (const destination of [
     { name: "Stormveil Village", region: "storm", sector: 0, heading: "Stormveil Village" },
     { name: "Frostfang Village", region: "frost", sector: 30, heading: "Frostfang Village — Outer Territory" },
+    { name: "Moonshadow Village", region: "moon", sector: 21, heading: "Moonshadow Village — Outer Territory" },
 ] as const) {
     test(`village travel waits for arrival: ${destination.name}`, async ({ page }, testInfo) => {
         test.setTimeout(120_000);
@@ -66,7 +112,7 @@ for (const destination of [
                 }) });
             });
         });
-        if (testInfo.project.use.isMobile) await chooseRegion(page, destination.region);
+        if (await page.locator('html').evaluate((html) => html.classList.contains('wm-zoom'))) await chooseRegion(page, destination.region);
         await page.getByRole("button", { name: `Enter ${destination.name}`, exact: true }).click();
         await expect(page.getByRole("heading", { name: "Traveling", exact: true })).toBeVisible();
         await expect(page.getByText(destination.heading, { exact: true })).toHaveCount(0);
@@ -79,20 +125,23 @@ for (const destination of [
     });
 }
 
-test("village travel opens the current home without another trip", async ({ page }, testInfo) => {
-    test.setTimeout(120_000);
-    const requests: number[] = [];
-    await bootWorldMap(page, { ...uiAuditSave(), currentSector: 0 }, async () => {
-        page.on("request", (request) => {
-            if (new URL(request.url()).pathname === "/api/player/travel") requests.push(request.postDataJSON().destinationSector);
+for (const home of [{ name: "Stormveil Village", region: "storm" }, { name: "Moonshadow Village", region: "moon" }] as const) {
+    test(`village travel opens the current home without another trip: ${home.name}`, async ({ page }) => {
+        test.setTimeout(120_000);
+        const requests: number[] = [];
+        const save = uiAuditSave();
+        await bootWorldMap(page, { ...save, character: { ...save.character, village: home.name }, currentSector: 0 }, async () => {
+            page.on("request", (request) => {
+                if (new URL(request.url()).pathname === "/api/player/travel") requests.push(request.postDataJSON().destinationSector);
+            });
         });
+        if (await page.locator('html').evaluate((html) => html.classList.contains('wm-zoom'))) await chooseRegion(page, home.region);
+        await page.getByRole("button", { name: `You are here, ${home.name}`, exact: true }).click();
+        await expect(page.getByRole("heading", { name: home.name, exact: true })).toBeVisible();
+        await expect(page.getByRole("heading", { name: "Traveling", exact: true })).toHaveCount(0);
+        expect(requests).toEqual([]);
     });
-    if (testInfo.project.use.isMobile) await chooseRegion(page, "storm");
-    await page.getByRole("button", { name: "You are here, Stormveil Village", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Stormveil Village", exact: true })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Traveling", exact: true })).toHaveCount(0);
-    expect(requests).toEqual([]);
-});
+}
 
 test("village travel shortcut waits and navigation cannot bypass its countdown", async ({ page }, testInfo) => {
     test.skip(!testInfo.project.use.isMobile, "The global Village shortcut is in the mobile navigation.");

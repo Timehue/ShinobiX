@@ -303,12 +303,17 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
             el.style.transform = "";
             el.style.transition = "";
             el.style.removeProperty("--wm-marker-scale");
+            el.removeAttribute("data-wm-compact-overview");
             appliedMarkerScaleRef.current = Number.NaN;
             return;
         }
         const v = viewRef.current;
         const writeMarkerScale = (zoom: number) => {
             const markerScale = worldMapMarkerScaleForZoom(zoom);
+            const compact = sizeRef.current.w * zoom < 600;
+            if (el.hasAttribute("data-wm-compact-overview") !== compact) {
+                el.toggleAttribute("data-wm-compact-overview", compact);
+            }
             if (markerScale !== appliedMarkerScaleRef.current) {
                 appliedMarkerScaleRef.current = markerScale;
                 el.style.setProperty("--wm-marker-scale", String(markerScale));
