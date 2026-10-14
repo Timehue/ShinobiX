@@ -8,6 +8,7 @@ import type { RallyResponse } from '../../lib/sunscar-rally';
 import { RallyControls } from './RallyControls';
 import RallyEconomyCanvas from './RallyEconomyCanvas';
 import { PetModelBoundary } from '../../components/PetModelBoundary';
+import { Modal } from '../../components/ui/Modal';
 import { withPetSceneRecall, usePetSceneIsRecalling } from '../../components/PetSceneRecall';
 import { festivalPrestige } from '../../../../shared/sunscar/prestige';
 import { startGameAmbience, stopGameAmbience } from '../../lib/game-audio';
@@ -53,6 +54,7 @@ function RallyRaceView({ initial, difficulty, official, title, onBegin, onCheckp
     const [countdown, setCountdown] = useState<number | null>(null);
     const [started, setStarted] = useState(false);
     const [paused, setPaused] = useState(false);
+    const pauseOpenerRef = useRef<HTMLButtonElement | null>(null);
     const [error, setError] = useState('');
     const [modelError, setModelError] = useState(false);
     const [renderGeneration, setRenderGeneration] = useState(0);
@@ -255,7 +257,7 @@ function RallyRaceView({ initial, difficulty, official, title, onBegin, onCheckp
             {prestige && <span className="rally-prestige-pennant" title={prestige.cosmetic} style={{ color: prestige.color }}>✥</span>}
             <div className="rally-position"><strong>{hud.position}<small>/4</small></strong><span>{hud.section || title}</span></div>
             <div className={`rally-progress${hud.finalStretch ? ' is-final-stretch' : ''}`}><span>{hud.finalStretch ? 'Final stretch' : track.name} · {hud.remaining} m</span><progress aria-label="Race progress" value={hud.progress} max={1} /><small>{(hud.raceTime / RALLY_HZ).toFixed(1)}s {saving ? '· Saving' : official ? '· Official' : '· Practice'}{hud.terrain === 'deep-sand' && !hud.finished ? ' · Deep sand slows' : ''}</small></div>
-            <button className="rally-pause" aria-label={paused ? 'Resume race' : 'Pause race'} onClick={() => { running.current = false; queued.current = ['burst-off']; setPaused(p => !p); }} disabled={!started || hud.finished || leaving}>{paused ? 'Resume' : 'Pause'}</button>
+            <button ref={pauseOpenerRef} className="rally-pause" aria-label={paused ? 'Resume race' : 'Pause race'} onClick={() => { running.current = false; queued.current = ['burst-off']; setPaused(p => !p); }} disabled={!started || hud.finished || leaving}>{paused ? 'Resume' : 'Pause'}</button>
         </div>
         <div className={`rally-stage${!started && countdown === null ? ' has-rally-intro' : ''}`} aria-label="Race course">
             <PetModelBoundary key={`${economy ? 'economy' : '3d'}:${renderGeneration}`} onFail={onFail}><Suspense fallback={<div className="sunscar-loading" role="status">Preparing the course…</div>}>
@@ -271,9 +273,16 @@ function RallyRaceView({ initial, difficulty, official, title, onBegin, onCheckp
                 <div className="sunscar-button-row"><button onClick={() => void begin()} disabled={ready.length < 4 || modelError || saving || leaving}>{saving ? 'Starting…' : initial.tick > 0 ? 'Resume from checkpoint' : 'Ready to race'}</button><button className="sunscar-secondary" disabled={leaving} onClick={() => void leave()}>Race desk</button></div>
             </div>}
             {countdown !== null && <div className="rally-countdown" role="status" aria-live="assertive">{countdown || 'GO'}</div>}
-            {(paused || error || started && modelError) && <div className="rally-pause-overlay"><h2>{error ? 'Race held safely' : modelError ? 'Rendering interrupted' : 'Taking a breather'}</h2><p role={error ? 'alert' : undefined}>{error || 'Your race clock is paused. Continue when you are ready.'}</p>{graphicsControl}{graphicsNotice && <p role="status">{graphicsNotice}</p>}<div className="sunscar-button-row">
+            <Modal open={Boolean(paused || error || started && modelError)} bare size="md"
+                ariaLabel={error ? 'Race held safely' : modelError ? 'Rendering interrupted' : 'Taking a breather'}
+                className="rally-pause-modal" backdropClassName="rally-pause-backdrop"
+                returnFocusRef={pauseOpenerRef} disableBackdropClose
+                disableEscapeClose={Boolean(error || modelError || saving || leaving)}
+                onClose={() => setPaused(false)}>
+            <div className="rally-pause-overlay"><h2>{error ? 'Race held safely' : modelError ? 'Rendering interrupted' : 'Taking a breather'}</h2><p role={error ? 'alert' : undefined}>{error || 'Your race clock is paused. Continue when you are ready.'}</p>{graphicsControl}{graphicsNotice && <p role="status">{graphicsNotice}</p>}<div className="sunscar-button-row">
                 <button onClick={() => { if (error && started) void checkpoint(true); else if (error) { setError(''); void begin(); } else setPaused(false); }} disabled={saving || modelError || ready.length < 4 || leaving}>{saving ? 'Saving…' : error ? 'Retry connection' : 'Continue race'}</button>
-                <button className="sunscar-secondary" disabled={saving || leaving} onClick={() => void leave()}>Save & return</button>{error && <button className="sunscar-secondary" onClick={onExit}>Return to last saved checkpoint</button>}</div>{error && <small>Returning to the saved checkpoint discards only inputs the race desk has not confirmed.</small>}</div>}
+                <button className="sunscar-secondary" disabled={saving || leaving} onClick={() => void leave()}>Save & return</button>{error && <button className="sunscar-secondary" onClick={onExit}>Return to last saved checkpoint</button>}</div>{error && <small>Returning to the saved checkpoint discards only inputs the race desk has not confirmed.</small>}</div>
+            </Modal>
         </div>
         <div className="rally-dashboard">
             <span className="rally-warning-announcement" role="status" aria-atomic="true">{started && !hud.playerFinished ? hud.incomingLabel.split(' · ').slice(0, 2).join(' · ') : ''}</span>

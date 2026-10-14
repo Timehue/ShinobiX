@@ -13,6 +13,7 @@ const commandPanelBody = readFileSync(new URL("../components/WorldSectorCommandP
 const commandPanelTypes = readFileSync(new URL("../components/WorldSectorCommandPanel.types.ts", import.meta.url), "utf8");
 const commandPanelSource = commandPanelBody + "\n" + commandPanelTypes;
 const hudSource = readFileSync(new URL("../components/SectorHud.tsx", import.meta.url), "utf8");
+const nearbySource = readFileSync(new URL("../components/SectorNearby.tsx", import.meta.url), "utf8");
 const rowSource = readFileSync(new URL("../components/SectorPlayerRow.tsx", import.meta.url), "utf8");
 const rosterSource = readFileSync(new URL("../lib/sector-player-roster.ts", import.meta.url), "utf8");
 const overlaySource = readFileSync(new URL("../components/WorldSectorOverlayLayer.tsx", import.meta.url), "utf8");
@@ -402,6 +403,8 @@ test("WorldMap retains controller and portal ownership around the canvas slots",
         'interior attacks must share the outdoor Combat/Card/Pet war routing');
     assert.match(projection, /<AnbuVaultRaid[\s\S]*sectorContest=\{sectorWarContest\}[\s\S]*onOpenSectorContest=[\s\S]*onFightSectorGarrison=/u,
         'the parent sector contest and garrison remain accessible inside');
+    assert.match(projection, /<AnbuVaultRaid[^>]*initialCampaign=\{villageCampaign\}/u,
+        'entry starts from the World Map campaign reading instead of waiting on a second request');
     assert.match(projection, /bossDialog && createPortal\([\s\S]*onClick=\{standBossFight\}/u);
     assert.match(projection, /<SageOfferModal/u);
     assert.doesNotMatch(overlaySource, /\b(?:AnbuVaultRaid|SageOfferModal|standBossFight|createPortal)\b/u);
@@ -466,6 +469,21 @@ test("sector details retain all secondary content while the HUD owns primary act
     for (const source of [hudSource, rowSource]) {
         assert.doesNotMatch(source, /\bfetch\s*\(|\b(?:localStorage|sessionStorage|mutationAvailability)\b/u);
     }
+});
+
+test("the sector HUD stays mounted across sectors and resets what a remount reset", () => {
+    // A HUD keyed by sector remounted at every crossing: its layout hook dropped
+    // the board-size variables, forced a layout at the default size and measured
+    // again, in the crossing's longest task. Each piece of state the remount
+    // reset is now reset per sector instead.
+    const projection = sliceBetween(worldMapSource, "<WorldSectorCanvas", "if (selectedVillageTerritory) {");
+    assert.match(projection, /<SectorHud\s/u);
+    assert.doesNotMatch(projection, /<SectorHud key=/u, "a key remounts the whole HUD at every crossing");
+    assert.match(hudSource, /if \(sheetSector !== sector\) \{ setSheetSector\(sector\); setSheet\(null\); \}/u, "an open sheet closes on crossing");
+    assert.match(hudSource, /useLayoutEffect\(\(\) => \(\) => \{ originVersion\.current \+= 1; \}, \[sector\]\)/u,
+        "leaving a sector retires its read-only navigation");
+    assert.match(hudSource, /<SectorChat key=\{sector\}/u, "chat draft, notice and read position stay per sector");
+    assert.match(nearbySource, /<SectorPlayerList key=\{sector\}/u, "each sector's roster batches in from the top");
 });
 
 test("WorldMap keeps live Village War admission checks around command-panel async work", () => {

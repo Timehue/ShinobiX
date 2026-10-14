@@ -2193,6 +2193,11 @@ button.chronicle-card {
   position: sticky;
   top: 8px;
   align-self: start;
+  box-sizing: border-box;
+  max-height: calc(100dvh - 16px - var(--shell-page-padding-block, 12px) * 2);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   border: 1px solid #34414f;
   border-radius: 9px;
   padding: 12px;
@@ -2613,6 +2618,9 @@ button.chronicle-card {
   }
   .chronicle-deck__list {
     position: static;
+    max-height: none;
+    overflow-y: visible;
+    scrollbar-gutter: auto;
   }
   .chronicle-card.compact {
     width: 74px;

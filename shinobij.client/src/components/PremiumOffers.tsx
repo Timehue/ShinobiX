@@ -27,6 +27,7 @@ import {
     type ShardTier,
 } from "../lib/shard-store";
 import { SUBSCRIPTION_ID } from "../../../shared/shard-packages";
+import '../styles/premium-offers.css';
 
 /*
  * Tile art. The shard COUNT is painted into each image, but the PRICE
@@ -162,16 +163,18 @@ export function PremiumOffers({ character, onVersionedCharacter }: {
     }
 
     return (
-        <div className="card" style={{ marginTop: "1rem" }}>
-            <h2><GameIcon name="crystal" size={18} style={{ display: "inline-block", verticalAlign: "-3px" }} /> Fate Shards</h2>
-            <p style={{ color: "#aaa", marginBottom: "0.4rem" }}>
+        <div className="card premium-offers">
+            <header className="premium-offers-header">
+                <h2><GameIcon name="crystal" size={22} /> Fate Shards</h2>
+                <p className="premium-offers-balance"><span>Your balance</span><strong>{(character.fateShards ?? 0).toLocaleString()}</strong><span>Fate Shards</span></p>
+            </header>
+            <p className="premium-offers-intro">
                 Fate Shards buy premium card packs in the Card Hall, plus legendary gear and forge rolls at the Grand Marketplace.
             </p>
-            <p style={{ marginBottom: "0.8rem" }}>Balance: <strong>{character.fateShards}</strong> Fate Shards</p>
 
             {/* Auto-fit rather than fixed columns: four tiles on a desktop rail,
                 two on a phone, without a media query or a new stylesheet. */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
+            <div className="premium-offers-grid">
                 {tiers.map((tier) => (
                     <button
                         key={tier.pack.id}

@@ -5,6 +5,15 @@
     align-content: start !important;
 }
 
+/* Locked stock must fit the same narrow cards as purchasable stock. The
+   inline-flex requirement label otherwise expands the phone viewport. */
+.shop-item-button > small {
+    display: block !important;
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+}
+
 .shop-item-visual {
     position: relative;
     isolation: isolate;

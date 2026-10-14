@@ -266,9 +266,9 @@ Full details in `docs/auth-and-anti-cheat-patterns.md`. The load-bearing invaria
   re-run. Read the failing assertion before believing the failure is yours.
   CI also runs `test:e2e:warfront` and every live Express journey named in the
   `e2e-village-stores` job of `.github/workflows/ci.yml` (economy, Academy,
-  routes, recovery, PvP, fieldwork, Exchange/war and two-client sector
-  presence, among others). Any other `test:e2e:live` case and `:visual` are local
-  checks; run them when touching what they cover.
+  routes, recovery, PvP, fieldwork, Exchange/war, two-client sector presence
+  and the Hollow Gate pet duel, among others). Any other `test:e2e:live` case
+  and `:visual` are local checks; run them when touching what they cover.
 
 ## Refactoring Rules
 

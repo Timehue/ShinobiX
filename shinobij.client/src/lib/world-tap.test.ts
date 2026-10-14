@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { CONTINUOUS_WORLD_SPACE } from '../../../shared/continuous-world-layout';
 import { buildWorldNavigation } from '../../../shared/continuous-world-navigation';
 import { worldRoadCrossings } from '../../../shared/world-road-crossings';
-import { tapCandidates } from './world-tap';
+import { createTapIndex, tapCandidates } from './world-tap';
 
 const nodes = buildWorldNavigation(CONTINUOUS_WORLD_SPACE).nodes;
 const crossings = worldRoadCrossings(CONTINUOUS_WORLD_SPACE.roads);
@@ -22,4 +22,23 @@ test('a tap on any bridge deck chooses the upper road, never the road beneath', 
 test('away from a deck the nearest ground still wins', () => {
     const tile = nodes.find(n => n.id === '14:66')!;
     assert.equal(tapCandidates(nodes, { x: tile.x + .1, y: tile.y }, crossings)[0]!.node.id, '14:66');
+});
+
+test('the tap index answers exactly as the full scan, in the same order, everywhere on the map', () => {
+    const index = createTapIndex(nodes);
+    const xs = nodes.map(n => n.x), ys = nodes.map(n => n.y);
+    const [minX, maxX, minY, maxY] = [Math.min(...xs) - 3, Math.max(...xs) + 3, Math.min(...ys) - 3, Math.max(...ys) + 3];
+    let seed = 7, compared = 0, nonEmpty = 0;
+    const random = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
+    const points = [
+        ...crossings.flatMap(c => [{ x: c.x, y: c.y }, { x: c.x + .4, y: c.y - .3 }]),
+        ...nodes.filter((_, i) => i % 97 === 0).map(n => ({ x: n.x + .5, y: n.y })),
+        ...Array.from({ length: 400 }, () => ({ x: minX + random() * (maxX - minX), y: minY + random() * (maxY - minY) })),
+    ];
+    for (const point of points) {
+        const expected = tapCandidates(nodes, point, crossings).map(c => [c.node.id, c.distance]);
+        assert.deepEqual(index(point, crossings).map(c => [c.node.id, c.distance]), expected, `tap at ${point.x},${point.y}`);
+        compared++; if (expected.length) nonEmpty++;
+    }
+    assert(compared > 700 && nonEmpty > 200, `${compared} taps compared, ${nonEmpty} near ground`);
 });

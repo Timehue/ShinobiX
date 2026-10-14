@@ -1,10 +1,11 @@
 /* Sector stronghold: shared exploration, movement patrols, and the final Anbu raid. */
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { StrongholdExplore } from "./StrongholdExplore";
 import { strongholdRequest } from "./stronghold-api";
 import { StrongholdDialog } from "./StrongholdDialog";
-import { useVillageCampaign } from '../../lib/use-village-campaign';
-import { useSharedNow } from '../../lib/use-shared-now';
+import { useVillageCampaign, type VillageCampaignState } from '../../lib/use-village-campaign';
+import { useWithinWindow } from '../../lib/use-within-window';
+import { cacheDynamicImport, lazyWithRetry } from '../../lib/lazyWithRetry';
 import { campaignRequest } from '../../lib/village-war-campaign';
 import { VillageCampaignPanel } from '../villageWar/VillageCampaignPanel';
 import { EspionageStronghold } from '../villageWar/EspionageStronghold';
@@ -22,7 +23,6 @@ import {
     InfiltrationRequestError,
     type InfilReportResponse,
 } from "../../lib/anbu-infiltration-api";
-import { MissionArenaFight } from "../../screens/MissionArenaFight";
 import { soloPveArenaTransport, soloPveSessionForArena } from "../../lib/solo-pve-arena-adapter";
 import type { SoloPveSession } from "../../lib/solo-pve-api";
 import type { BattleHistoryEntry, Character, PlayerRecord, VersionedCharacterCommit } from "../../types/character";
@@ -35,10 +35,19 @@ const INFIL_RUN_KEY = "anbuInfiltration.activeRun";
 const accountKey = (name: string) => name.toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 32);
 type Phase = "traverse" | "fight" | "result" | "patrol-result";
 
-export function AnbuVaultRaid(props: Parameters<typeof AnbuVaultRaidLegacy>[0]) {
-    const { state, loaded } = useVillageCampaign(props.character.name, props.character.village);
-    const now = useSharedNow();
-    const campaignActive = !!state && now >= state.campaign.startsAt && now < state.campaign.endsAt;
+// The Arena shell (and its battle stylesheet) is a fight's, not exploration's:
+// a quarter of a megabyte the stronghold no longer waits for before it opens.
+// It is warmed once the interior is up, so the first patrol still opens at once.
+const loadMissionArenaFight = cacheDynamicImport(() => import("../../screens/MissionArenaFight"));
+const MissionArenaFight = lazyWithRetry(() => loadMissionArenaFight().then(m => ({ default: m.MissionArenaFight })));
+const ARENA_WARMUP_MS = 800;
+
+export function AnbuVaultRaid({ initialCampaign, ...props }: Parameters<typeof AnbuVaultRaidLegacy>[0] & {
+    /** The World Map's own campaign reading, so entry need not wait on a second one. */
+    initialCampaign?: { state: VillageCampaignState; loaded: boolean };
+}) {
+    const { state, loaded } = useVillageCampaign(props.character.name, props.character.village, initialCampaign);
+    const campaignActive = useWithinWindow(state?.campaign.startsAt, state?.campaign.endsAt) && !!state;
     const objective = campaignActive ? state.campaign.strongholds.find(o => o.sector === props.sector) : undefined;
     const objectiveId = objective?.id;
     const campaignWarId = state?.warId;
@@ -108,6 +117,14 @@ function AnbuVaultRaidLegacy({
     const runKey = `${INFIL_RUN_KEY}:${accountKey(character.name)}`;
     const mounted = useRef(false);
     const lifetime = useRef<object | null>(null);
+    // Warm the fight while the player explores (not on Save-Data), so a patrol
+    // or the Anbu opens without a download. A failed warm-up is the real load's
+    // failure too, and that path already recovers through the error boundary.
+    useEffect(() => {
+        if ((navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData) return;
+        const timer = window.setTimeout(() => { void loadMissionArenaFight().catch(() => undefined); }, ARENA_WARMUP_MS);
+        return () => window.clearTimeout(timer);
+    }, []);
     useLayoutEffect(() => {
         const owner = {};
         lifetime.current = owner;
@@ -281,6 +298,7 @@ function AnbuVaultRaidLegacy({
         // this screen to its own `phase === "result"` spoils panel, so the in-fight result
         // card only shows transiently (while the report is in flight) or on report failure.
         return (
+            <Suspense fallback={<div className="stronghold-recovery" role="status"><p>Preparing the fight…</p></div>}>
             <MissionArenaFight
                 character={character}
                 sharedImages={sharedImages}
@@ -321,6 +339,7 @@ function AnbuVaultRaidLegacy({
                     </div>
                 )}
             />
+            </Suspense>
         );
     }
 
