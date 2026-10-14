@@ -82,8 +82,18 @@ for (const mode of ['camera', 'fallback'] as const) {
             await page.screenshot({ path: testInfo.outputPath('moonshadow-placement.png') });
             const background = await clearMapPoint(page, false);
             expect(background).not.toBeNull();
-            await page.touchscreen.tap(background!.x, background!.y);
-            await page.touchscreen.tap(background!.x, background!.y);
+            // This case measures overview geometry. Wheel input reaches the
+            // same minimum zoom without relying on two WebKit automation round
+            // trips fitting inside the double-tap window; gesture timing has
+            // its own timestamped-input integration coverage below.
+            await page.locator('.world-map-scroll').evaluate((viewport, point) => {
+                for (let step = 0; step < 32; step += 1) {
+                    viewport.dispatchEvent(new WheelEvent('wheel', {
+                        deltaY: 100, bubbles: true, cancelable: true,
+                        clientX: point.x, clientY: point.y,
+                    }));
+                }
+            }, background!);
             await settleCamera(page);
             const camera = (await mapCamera(page))!;
             expect(camera.zoom).toBeCloseTo(camera.wholeWorld, 2);
