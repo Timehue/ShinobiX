@@ -1,5 +1,5 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { ANBU_RAID_MIN_LEVEL, strongholdRooms, strongholdTitle, isDeathsGateStronghold, STRONGHOLD_INTEL_ROOM_ID, STRONGHOLD_INTEL_TILE, STRONGHOLD_VAULT, STRONGHOLD_THREAT_PER_STEP, type StrongholdVisit } from '../../../../shared/sector-stronghold';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from 'react';
+import { advanceStronghold, ANBU_RAID_MIN_LEVEL, strongholdRooms, strongholdTitle, isDeathsGateStronghold, STRONGHOLD_INTEL_ROOM_ID, STRONGHOLD_INTEL_TILE, STRONGHOLD_VAULT, STRONGHOLD_THREAT_PER_STEP, type StrongholdVisit } from '../../../../shared/sector-stronghold';
 import type { Character, PlayerRecord } from '../../types/character';
 import type { SoloPveSession } from '../../lib/solo-pve-api';
 import { computeHollowGateVisible } from '../../lib/hollow-gate-visibility';
@@ -27,6 +27,43 @@ function visibilityForStrongholdTile(base: ReturnType<typeof buildVaultInterior>
     return visible;
 }
 
+/**
+ * One tile pace: the avatar and the camera glide over .16s (stronghold.css),
+ * so a step leaves no sooner than the previous glide ends, or when the server
+ * answers if that is later. It also keeps a held key well inside the
+ * stronghold-walk request limit.
+ */
+const STEP_MS = 160;
+/** Taps that can wait behind the step in flight: under a second of walking. */
+const MAX_QUEUED_INPUTS = 4;
+const sameTiles = (a: readonly number[], b: readonly number[]) => a.length === b.length && a.every((tile, i) => tile === b[i]);
+
+type TileCellProps = {
+    idx: number; width: number; tileSize: number; avatarSize: number; overview: boolean;
+    known: boolean; lit: boolean; walkable: boolean; movementBlocked: boolean;
+    wall: boolean; boss: boolean; door: boolean; bloodAltar: boolean; intelCache: boolean; intelMarker: boolean;
+    anbuAvatar: string | null; anbuName: string; anbuCaption: string;
+    onClick: (event: ReactMouseEvent<HTMLDivElement>) => void;
+    onKeyDown: (event: ReactKeyboardEvent<HTMLDivElement>) => void;
+};
+/**
+ * One floor tile. Memoized on primitives, so a step re-renders the few dozen
+ * tiles whose light or occupancy changed instead of all 851, and a presence
+ * poll or a parent clock re-renders none. The handlers are shared: they read
+ * the tile from data-tile, and walkability from the role it sets.
+ */
+const StrongholdTileCell = memo(function StrongholdTileCell({ idx, width, tileSize, avatarSize, overview, known, lit, walkable, movementBlocked,
+    wall, boss, door, bloodAltar, intelCache, intelMarker, anbuAvatar, anbuName, anbuCaption, onClick, onKeyDown }: TileCellProps) {
+    return <div data-tile={idx} role={walkable ? 'button' : undefined} aria-disabled={walkable && movementBlocked ? true : undefined} tabIndex={walkable && !movementBlocked ? 0 : -1} aria-label={walkable ? `${boss ? 'Anbu vault' : bloodAltar ? 'Blood Altar' : door ? 'Passage' : 'Dungeon floor'}, row ${Math.floor(idx / width) + 1}, column ${idx % width + 1}` : undefined}
+        className={`stronghold-tile ${wall ? 'is-wall' : 'is-floor'}${bloodAltar ? ' is-blood-altar' : ''}${intelCache ? ' is-intel-cache' : ''}`} onClick={onClick}
+        onKeyDown={onKeyDown}
+        style={{ gridColumn: idx % width + 1, gridRow: Math.floor(idx / width) + 1, width: tileSize, height: tileSize, opacity: lit ? 1 : .42 }}>
+        {known && bloodAltar && <span className="underground-marker" aria-hidden="true">⚔</span>}
+        {known && intelMarker && <span className="underground-marker" aria-hidden="true">▤</span>}
+        {known && boss && <span className="stronghold-anbu-station" style={{ width: avatarSize, height: avatarSize * 1.28 }}><i aria-hidden="true" />{anbuAvatar ? <img className="stronghold-anbu" src={anbuAvatar} alt={anbuName} /> : <span className="stronghold-anbu-fallback" aria-hidden="true">◆</span>}{!overview && <b>{anbuName}<small>{anbuCaption}</small></b>}</span>}
+    </div>;
+});
+
 export function StrongholdExplore({ character, sector, targetVillage, sharedImages, anbuAvatar, anbuName, blocked,
     admissionPending = false, admissionError, onRetryAdmission,
     onChallenge, onPatrol, onAttackPlayer, onExit, defending = false, sectorContest, onOpenSectorContest, onFightSectorGarrison }: {
@@ -41,6 +78,11 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
     onFightSectorGarrison?: () => void;
 }) {
     const [state, setState] = useState<(StrongholdResponse & { receivedAt: number }) | null>(null);
+    // The step in flight, shown before the server confirms it. advanceStronghold
+    // is the rule the server applies, so its answer replaces this unchanged; a
+    // refusal clears it and the avatar returns to the confirmed tile.
+    const [predicted, setPredicted] = useState<StrongholdVisit | null>(null);
+    const predictedRef = useRef<StrongholdVisit | null>(null);
     const [error, setError] = useState('');
     const [actionError, setActionError] = useState('');
     const [overview, setOverview] = useState(false);
@@ -61,6 +103,13 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
     const actionPending = useRef(false);
     const path = useRef<number[]>([]);
     const walkTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    // Deliberate inputs that arrived while a step was in flight or gliding (a
+    // fresh key press, a D-pad tap, a tile click). They run in order, one glide
+    // apart. Held-key repeats are never queued, so letting go cannot add a step;
+    // a tile click replaces the queue, since it names a destination.
+    const queued = useRef<Array<{ dx: number; dy: number } | { tile: number }>>([]);
+    const lastStepAt = useRef(Number.NEGATIVE_INFINITY);
+    const lastStepReplyAt = useRef(Number.NEGATIVE_INFINITY);
     const movementBlocked = blocked || !!state?.combatBlocked || overview || !!pending || playersOpen || intelOpen || !!selectedPeer || !!error || !!actionError;
     const callbacks = useRef({ onPatrol, blocked: movementBlocked });
     useLayoutEffect(() => { callbacks.current = { onPatrol, blocked: movementBlocked }; });
@@ -70,7 +119,8 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
     const ownAvatar = resolveOwnAvatar(character, sharedImages);
     const base = useMemo(() => buildVaultInterior(sector), [sector]);
     const chamberBounds = useMemo(() => undergroundRooms(base.tiles, base.width), [base]);
-    const playerTile = state?.visit.tile ?? base.playerY * base.width + base.playerX;
+    const shownVisit = predicted ?? state?.visit;
+    const playerTile = shownVisit?.tile ?? base.playerY * base.width + base.playerX;
     const run = useMemo(() => ({ ...base, playerX: playerTile % base.width,
         playerY: Math.floor(playerTile / base.width) }), [base, playerTile]);
     // Stronghold polls every two seconds, and its visit history can contain a
@@ -79,17 +129,17 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
     const visible = useMemo(() => visibilityForStrongholdTile(base, playerTile), [base, playerTile]);
     const seen = useMemo(() => {
         const known = new Set<number>();
-        for (const tile of state?.visit.visited ?? []) {
+        for (const tile of shownVisit?.visited ?? []) {
             visibilityForStrongholdTile(base, tile).forEach(i => known.add(i));
         }
         return known;
-    }, [base, state?.visit.visited]);
+    }, [base, shownVisit?.visited]);
     const discovered = useMemo(() => new Set([...seen].map(i => base.tiles[i].roomId).filter(id => id != null)), [base, seen]);
     const intelKnown = discovered.has(STRONGHOLD_INTEL_ROOM_ID);
     const roomId = run.tiles[run.playerY * run.width + run.playerX].roomId;
     const roomName = roomId == null ? 'Connecting passage' : rooms[roomId].name;
     const atIntelCache = !obsidian && playerTile === STRONGHOLD_INTEL_TILE;
-    const threat = state?.visit.threat ?? 0;
+    const threat = shownVisit?.threat ?? 0;
     const remaining = Math.ceil((100 - threat) / STRONGHOLD_THREAT_PER_STEP);
     const presenceTime = state?.receivedAt ?? 0;
     const contest = viewerSectorContest(sectorContest, sector, character.village, presenceTime);
@@ -97,18 +147,22 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
 
     function stopWalk() {
         path.current = [];
+        queued.current = [];
         if (walkTimer.current) clearTimeout(walkTimer.current);
         walkTimer.current = null;
+    }
+    function showStep(visit: StrongholdVisit | null) {
+        predictedRef.current = visit;
+        setPredicted(visit);
     }
     function adopt(next: StrongholdResponse, context = lifetime.current) {
         if (!alive.current || stopped.current || context !== lifetime.current || context?.controller.signal.aborted) return;
         if (current.current && next.visit.id === current.current.id && next.visit.version < current.current.version) return;
         // Polls refresh presence, but unchanged exploration must retain its
         // identity so the full fog-of-war history is not recomputed every 2s.
-        const previous = current.current?.visited;
-        if (previous && previous.length === next.visit.visited.length && previous.every((tile, i) => tile === next.visit.visited[i])) {
-            next = { ...next, visit: { ...next.visit, visited: previous } };
-        }
+        // A step's answer keeps the identity its shown prediction already used.
+        const previous = [predictedRef.current?.visited, current.current?.visited].find(tiles => tiles && sameTiles(tiles, next.visit.visited));
+        if (previous) next = { ...next, visit: { ...next.visit, visited: previous } };
         current.current = next.visit;
         setState({ ...next, receivedAt: Date.now() });
         setError('');
@@ -128,7 +182,11 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
             if (context.controller.signal.aborted) return;
             let ownsRequest = false;
             try {
-                if (!busy.current && !polling.current && !stopped.current) {
+                // Each step's answer carries the roster and renews the interior
+                // lease, so a poll while steps are landing only adds a request
+                // that the next step would wait on. It resumes once walking stops.
+                const walking = !enter && performance.now() - lastStepReplyAt.current < 1500;
+                if (!busy.current && !polling.current && !stopped.current && !walking) {
                     ownsRequest = true;
                     polling.current = true;
                     adopt(await strongholdRequest(character.name, sector, enter ? 'enter' : 'state', { presenceId: context.presenceId }, context.controller.signal), context);
@@ -162,34 +220,83 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
         if (distance !== 1) return false;
         if (target.kind === 'boss') { stopWalk(); if (!defending) onChallenge(); return false; }
         busy.current = true;
+        lastStepAt.current = performance.now();
         const context = lifetime.current;
+        // Move now. The server applies the same rule, so its answer normally
+        // replaces this with an identical visit; otherwise the avatar returns.
+        const shown = advanceStronghold(visit, tile);
+        showStep(shown);
         try {
             const next = await strongholdRequest(character.name, sector, 'step', { tile, version: visit.version, presenceId: context?.presenceId }, context?.controller.signal);
+            if (context === lifetime.current) lastStepReplyAt.current = performance.now();
             adopt(next, context);
             return context === lifetime.current && !context?.controller.signal.aborted && next.visit.tile === tile && next.visit.threat < 100 && !next.patrol;
         } catch (e) {
             stopWalk();
             if (alive.current && context === lifetime.current && !context?.controller.signal.aborted) setError((e as Error).message);
             return false;
-        } finally { if (context === lifetime.current) busy.current = false; }
+        } finally {
+            if (context === lifetime.current) busy.current = false;
+            if (alive.current && predictedRef.current === shown) showStep(null);
+        }
+    }
+    /**
+     * Once the last step's glide has ended, run the next queued input, else
+     * the next tile of a walked path. Nothing is taken from the queue until it
+     * runs, so rescheduling this never loses an input.
+     */
+    function continueWalk() {
+        if (!queued.current.length && !path.current.length) return;
+        if (walkTimer.current) clearTimeout(walkTimer.current);
+        walkTimer.current = setTimeout(() => {
+            walkTimer.current = null;
+            if (!alive.current) return;
+            const input = queued.current.shift();
+            if (!input) void pump();
+            else if ('tile' in input) startWalk(input.tile);
+            else void stepToward(input.dx, input.dy);
+        }, Math.max(0, STEP_MS - (performance.now() - lastStepAt.current)));
     }
     async function pump() {
         const next = path.current.shift();
         if (next == null || !await step(next)) { stopWalk(); return; }
-        if (alive.current && path.current.length) walkTimer.current = setTimeout(() => void pump(), 90);
+        if (alive.current) continueWalk();
     }
-    function walkTo(tile: number) {
-        if (document.hidden || movementBlocked || overview || !current.current || busy.current || stopped.current) return;
-        const route = findHollowGatePath({ ...base, playerX: current.current.tile % base.width, playerY: Math.floor(current.current.tile / base.width) }, tile, seen);
-        if (!route?.length) return;
-        stopWalk(); path.current = route; void pump();
-    }
-    function direction(dx: number, dy: number) {
+    async function stepToward(dx: number, dy: number) {
         const visit = current.current;
         if (!visit) return;
         const x = visit.tile % base.width + dx, y = Math.floor(visit.tile / base.width) + dy;
-        if (x < 0 || y < 0 || x >= base.width || y >= base.height) return;
-        stopWalk(); void step(y * base.width + x);
+        if (x < 0 || y < 0 || x >= base.width || y >= base.height) { stopWalk(); return; }
+        if (await step(y * base.width + x)) { if (alive.current) continueWalk(); } else stopWalk();
+    }
+    function startWalk(tile: number) {
+        if (!current.current) return;
+        const route = findHollowGatePath({ ...base, playerX: current.current.tile % base.width, playerY: Math.floor(current.current.tile / base.width) }, tile, seen);
+        if (!route?.length) return;
+        stopWalk(); path.current = route; continueWalk();
+    }
+    function walkTo(tile: number) {
+        if (document.hidden || movementBlocked || overview || !current.current || stopped.current) return;
+        // A tap during a step re-targets the walk from where that step lands.
+        if (busy.current) { stopWalk(); queued.current = [{ tile }]; return; }
+        startWalk(tile);
+    }
+    function direction(dx: number, dy: number, repeat = false) {
+        if (!current.current) return;
+        const pacing = busy.current || performance.now() - lastStepAt.current < STEP_MS;
+        // A held key walks at the glide's pace. Its repeats are never queued,
+        // so letting go cannot add a step after the key is up.
+        if (repeat && pacing) return;
+        if (pacing) {
+            // A deliberate press is never dropped: it waits its turn. Keys cancel
+            // a tapped walk, and the queue is short so taps cannot run far ahead.
+            path.current = [];
+            if (queued.current.length < MAX_QUEUED_INPUTS) queued.current.push({ dx, dy });
+            if (!busy.current) continueWalk();
+            return;
+        }
+        stopWalk();
+        void stepToward(dx, dy);
     }
     useEffect(() => {
         const key = (event: KeyboardEvent) => {
@@ -197,11 +304,23 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
             const element = event.target as HTMLElement;
             if (element?.closest('input, textarea, select, dialog, [contenteditable="true"]') || event.ctrlKey || event.metaKey || event.altKey) return;
             const delta = ({ arrowup: [0, -1], arrowdown: [0, 1], arrowleft: [-1, 0], arrowright: [1, 0], w: [0, -1], s: [0, 1], a: [-1, 0], d: [1, 0] } as Record<string, number[]>)[event.key.toLowerCase()];
-            if (delta) { event.preventDefault(); direction(delta[0], delta[1]); }
+            // The controller layer re-sends a held stick as synthetic presses
+            // (lib/gamepad-navigation.ts), which are a held key's repeats.
+            if (delta) { event.preventDefault(); direction(delta[0], delta[1], event.repeat || !event.isTrusted); }
         };
         window.addEventListener('keydown', key);
         return () => window.removeEventListener('keydown', key);
     });
+    // Shared tile handlers (see StrongholdTileCell), calling the latest walkTo.
+    const walkToRef = useRef(walkTo);
+    useLayoutEffect(() => { walkToRef.current = walkTo; });
+    const onTileClick = useCallback((event: ReactMouseEvent<HTMLDivElement>) => walkToRef.current(Number(event.currentTarget.dataset.tile)), []);
+    const onTileKeyDown = useCallback((event: ReactKeyboardEvent<HTMLDivElement>) => {
+        if (event.currentTarget.getAttribute('role') !== 'button' || (event.key !== 'Enter' && event.key !== ' ')) return;
+        event.preventDefault();
+        walkToRef.current(Number(event.currentTarget.dataset.tile));
+    }, []);
+    const anbuCaption = targetVillage === character.village ? 'Village vault · Protected' : (character.level ?? 0) < ANBU_RAID_MIN_LEVEL ? `Treasury raid · Level ${ANBU_RAID_MIN_LEVEL}` : 'Vault defender · Challenge to raid';
     useEffect(() => { if (movementBlocked || overview) stopWalk(); }, [movementBlocked, overview]);
     useEffect(() => {
         const onVisibility = () => { if (document.hidden) stopWalk(); };
@@ -288,14 +407,11 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
                         const known = seen.has(idx), lit = visible.has(idx);
                         if (!known && !lit) return null;
                         const walkable = known && tile.kind !== 'wall' && !tile.solid && idx !== playerTile;
-                        return <div key={idx} data-tile={idx} role={walkable ? 'button' : undefined} aria-disabled={walkable && movementBlocked ? true : undefined} tabIndex={walkable && !movementBlocked ? 0 : -1} aria-label={walkable ? `${tile.kind === 'boss' ? 'Anbu vault' : idx === STRONGHOLD_VAULT && obsidian ? 'Blood Altar' : tile.terrain === 'door' ? 'Passage' : 'Dungeon floor'}, row ${Math.floor(idx / base.width) + 1}, column ${idx % base.width + 1}` : undefined}
-                            className={`stronghold-tile ${tile.kind === 'wall' ? 'is-wall' : 'is-floor'}${obsidian && idx === STRONGHOLD_VAULT ? ' is-blood-altar' : ''}${intelKnown && idx === STRONGHOLD_INTEL_TILE ? ' is-intel-cache' : ''}`} onClick={() => walkTo(idx)}
-                            onKeyDown={event => { if (walkable && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); walkTo(idx); } }}
-                            style={{ gridColumn: idx % base.width + 1, gridRow: Math.floor(idx / base.width) + 1, width: tileSize, height: tileSize, opacity: lit ? 1 : .42 }}>
-                            {known && idx === STRONGHOLD_VAULT && obsidian && <span className="underground-marker" aria-hidden="true">⚔</span>}
-                            {known && idx === STRONGHOLD_INTEL_TILE && !obsidian && <span className="underground-marker" aria-hidden="true">▤</span>}
-                            {known && tile.kind === 'boss' && <span className="stronghold-anbu-station" style={{ width: avatarSize, height: avatarSize * 1.28 }}><i aria-hidden="true" />{anbuAvatar ? <img className="stronghold-anbu" src={anbuAvatar} alt={anbuName} /> : <span className="stronghold-anbu-fallback" aria-hidden="true">◆</span>}{!overview && <b>{anbuName}<small>{targetVillage === character.village ? 'Village vault · Protected' : (character.level ?? 0) < ANBU_RAID_MIN_LEVEL ? `Treasury raid · Level ${ANBU_RAID_MIN_LEVEL}` : 'Vault defender · Challenge to raid'}</small></b>}</span>}
-                        </div>;
+                        return <StrongholdTileCell key={idx} idx={idx} width={base.width} tileSize={tileSize} avatarSize={avatarSize} overview={overview}
+                            known={known} lit={lit} walkable={walkable} movementBlocked={movementBlocked}
+                            wall={tile.kind === 'wall'} boss={tile.kind === 'boss'} door={tile.terrain === 'door'}
+                            bloodAltar={obsidian && idx === STRONGHOLD_VAULT} intelCache={intelKnown && idx === STRONGHOLD_INTEL_TILE} intelMarker={!obsidian && idx === STRONGHOLD_INTEL_TILE}
+                            anbuAvatar={anbuAvatar} anbuName={anbuName} anbuCaption={anbuCaption} onClick={onTileClick} onKeyDown={onTileKeyDown} />;
                     })}
                     {rooms.filter(room => seen.has((room.y + 2) * base.width + room.x + 3)).map(room => <span key={room.id} className="stronghold-room-label" style={{ left: (room.x + 3.5) * tileSize, top: (room.y + 0.3) * tileSize, fontSize: overview ? 9 : 12 }}>{room.name}</span>)}
                     <div className="stronghold-player stronghold-avatar" style={{ left: (run.playerX + 0.5) * tileSize, top: (run.playerY + 0.5) * tileSize, width: avatarSize, height: avatarSize }}>

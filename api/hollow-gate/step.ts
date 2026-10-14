@@ -1,4 +1,4 @@
-import { recoverHollowGatePendingOperation } from './_pending-operation.js';
+import { loadHollowGateRunForAction } from './_pending-operation.js';
 import { randomInt } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
@@ -6,7 +6,6 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { withKvLock } from '../_lock.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { cors, safeName } from '../_utils.js';
-import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { hollowGateRunKey, type HollowGateRunToken } from './_run-token.js';
 import { hollowGateManifestNode, hollowGateMarkVisited, hollowGatePositionNodeId } from './_floor-manifest.js';
 import { hollowGateCombatBindingKey, type HollowGateCombatBinding } from './_combat-session.js';
@@ -19,34 +18,13 @@ import { undergroundFeatureBlocks } from '../../shared/underground-floor-collisi
 const coord = (value: unknown): number => Math.floor(Number(value));
 const bounded = (x: number, y: number): boolean => Number.isInteger(x) && Number.isInteger(y) && x >= 0 && x < 31 && y >= 0 && y < 21;
 
-async function persistRunProjection(playerName: string, token: string, run: HollowGateRunToken): Promise<number> {
-    const changed = () => new Error('The saved run changed during movement.');
-    // An open run excludes idle recovery, so the shared writer settles none
-    // here; it fences the regeneration cursor exactly as the raw write did.
-    const out = await mutatePlayerSave<null>(playerName, ({ character: freshCharacter }) => {
-        const freshRun = freshCharacter.hollowGateRun && typeof freshCharacter.hollowGateRun === 'object'
-            ? freshCharacter.hollowGateRun as Record<string, unknown>
-            : null;
-        if (!freshRun || freshRun.runToken !== token || !run.position) throw changed();
-        return {
-            ok: true,
-            character: {
-                ...freshCharacter,
-                hollowGateRun: {
-                    ...freshRun,
-                    playerX: run.position.x,
-                    playerY: run.position.y,
-                    torch: run.torch,
-                    threat: run.threat,
-                    wardSteps: run.wardSteps,
-                },
-            },
-            value: null,
-        };
-    }, { lockTtlSec: 10 });
-    if (!out.ok) throw changed();
-    return out._saveVersion;
-}
+// A step writes the run row only. It used to copy position, torch, threat and
+// ward steps into the save's run projection too: a whole-save read and
+// compare-and-set (twice the save's bytes) on every tile, about two thirds of
+// a step's time. Nothing reads those copies. The run row is the authority, a
+// reload rebuilds the board from /resume, the shrine screen never autosaves,
+// and the endpoints that change the save (events, fights, consumables, settle)
+// still write their own fields into the projection.
 
 export function deriveHollowGateStepState(
     run: Pick<HollowGateRunToken, 'torch' | 'threat' | 'wardSteps' | 'stepVersion' | 'currentFloor' | 'floorDepth'> & Partial<Pick<HollowGateRunToken, 'variantId' | 'resolvedEncounterIds'>>,
@@ -97,7 +75,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const runKey = hollowGateRunKey(playerName, token);
         const result = await withKvLock(runKey, async () => {
-            const run = await recoverHollowGatePendingOperation(kv, runKey, await kv.get<HollowGateRunToken>(runKey), playerName, token);
+            const run = await loadHollowGateRunForAction(kv, runKey, playerName, token);
             if (!run || run.playerName !== playerName) return { status: 409, body: { error: 'The Hollow Gate run has expired.' } };
             if (!run.chosenAugmentId) return { status: 409, body: { error: 'Choose the sealed augment before moving.' } };
             const floor = Math.max(1, Math.floor(Number(run.currentFloor) || 1));
@@ -110,7 +88,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             const recent = Array.isArray(run.recentStepIds) ? run.recentStepIds : [];
             if (recent.includes(requestId)) {
-                const saveVersion = await persistRunProjection(playerName, token, run);
                 return { status: 200, body: {
                     ok: true,
                     alreadyReported: true,
@@ -121,7 +98,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     stepVersion: Math.max(0, Math.floor(Number(run.stepVersion) || 0)),
                     wanderers: hollowGateWanderersForRun(run),
                     ambush: run.pendingAmbush ?? null,
-                    _saveVersion: saveVersion,
                 } };
             }
             if (run.activeEncounter || run.pendingAmbush) {
@@ -191,13 +167,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 visitedTiles: hollowGateMarkVisited(run.visitedTiles, manifest, to),
             };
             await kv.set(runKey, next);
-            let saveVersion = 0;
-            try {
-                saveVersion = await persistRunProjection(playerName, token, next);
-            } catch (error) {
-                await kv.set(runKey, run).catch(() => undefined);
-                throw error;
-            }
             return { status: 200, body: {
                 ok: true,
                 position: to,
@@ -208,7 +177,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 torchSputtered: torch === 0 && torchBefore > 0,
                 ambush: pendingAmbush,
                 wanderers,
-                _saveVersion: saveVersion,
             } };
         }, { failClosed: true, ttlSec: 10 });
         return res.status(result.status).json(result.body);

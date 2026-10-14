@@ -140,8 +140,9 @@
   box-sizing: border-box;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
   width: 100%;
-  max-height: calc(100dvh - (var(--dialog-viewport-margin) * 2));
+  max-height: calc(100dvh - max(var(--dialog-viewport-margin), env(safe-area-inset-top, 0px)) - max(var(--dialog-viewport-margin), env(safe-area-inset-bottom, 0px)));
   overflow: hidden;
   background: linear-gradient(180deg, rgba(255,255,255,.035), transparent 120px), linear-gradient(135deg, var(--panel), var(--panel-2));
   border: 1px solid var(--border-strong);
@@ -163,11 +164,17 @@
   min-width: 0;
 }
 .ui-modal-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.3;
   margin: 0;
   font-family: var(--font-display);
   font-size: var(--fs-lg);
   font-weight: var(--fw-bold);
   color: var(--gold);
+}
+.ui-modal-header > button {
+  flex-shrink: 0;
 }
 .ui-modal-body {
   min-width: 0;

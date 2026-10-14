@@ -8,6 +8,7 @@ import {
     hollowGateRunAfterPetDefeat,
     hollowGateRunAfterUnresolvedFight,
     hollowGateShinobiFallback,
+    hollowGateStepOnlyChange,
     isSameHollowGateFloor,
 } from "./hollow-gate-app-flow";
 
@@ -171,5 +172,39 @@ describe("hollow gate shinobi escape and Second Wind — the run the shrine keep
         assert.doesNotMatch(app, /hollowGateRun \?\? previous/, "a board-less saved run crashes the shrine");
         assert.equal((app.match(/hollowGateRunAfterUnresolvedFight\(previous, result\.character\?\.hollowGateRun/g) ?? []).length, 2,
             "the escape and Second Wind branches both use the guard");
+    });
+});
+
+describe("hollow gate run mirror: steps settle, everything else copies at once", () => {
+    const tiles = [{ kind: "empty", terrain: "room_floor" }, { kind: "chest", terrain: "room_floor" }] as HollowGateShrineRun["tiles"];
+    const live = run({ tiles });
+
+    it("a step (position, board, torch, threat, wards, wanderers) is step-only", () => {
+        const stepped = { ...live, playerX: 2, tiles: tiles.slice(), torch: 4, threat: 14, wardSteps: 0, wanderers: [] };
+        assert.equal(hollowGateStepOnlyChange(live, stepped), true);
+    });
+
+    it("anything else is copied at once: a floor, a fight, keys, completion, a new run", () => {
+        assert.equal(hollowGateStepOnlyChange(live, { ...live, floor: 3 }), false);
+        assert.equal(hollowGateStepOnlyChange(live, { ...live, activeCombat: { runId: "r", nodeId: "n", floor: 2, kind: "battle", mode: "pve" } }), false);
+        assert.equal(hollowGateStepOnlyChange(live, { ...live, keys: 3 }), false);
+        assert.equal(hollowGateStepOnlyChange(live, { ...live, completed: true }), false);
+        assert.equal(hollowGateStepOnlyChange(live, { ...live, runToken: "token-b" }), false);
+        assert.equal(hollowGateStepOnlyChange(live, { ...live, playerX: 0, keys: 1 }), false, "a step that also changed keys copies at once");
+    });
+
+    it("no run, an emptied run, or the same object is never deferred", () => {
+        assert.equal(hollowGateStepOnlyChange(null, live), false);
+        assert.equal(hollowGateStepOnlyChange(live, null), false);
+        assert.equal(hollowGateStepOnlyChange(live, live), false);
+        const boardless = { floor: 2, runToken: "token-a", keys: 2, torch: 5, threat: 40, playerX: 1, playerY: 1 } as unknown as HollowGateShrineRun;
+        assert.equal(hollowGateStepOnlyChange(boardless, live), false, "a server projection in the character is replaced at once");
+    });
+
+    it("App mirrors through the hook, not a per-step setCharacter", () => {
+        const app = readFileSync(join(process.cwd(), "shinobij.client", "src", "App.tsx"), "utf8");
+        assert.match(app, /useHollowGateRunMirror\(\{ screen, run: hollowGateRun, characterRef, setCharacter \}\)/);
+        assert.doesNotMatch(app, /setCharacter\(\(prev\) => \{\s*if \(!prev \|\| prev\.hollowGateRun === hollowGateRun\) return prev;/,
+            "the old effect re-rendered the whole App on every Hollow Gate step");
     });
 });

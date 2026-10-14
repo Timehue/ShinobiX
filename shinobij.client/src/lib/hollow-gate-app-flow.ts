@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { gameConfirm } from "../components/GameAlert";
 import type { HollowGatePetFightRef } from "../components/HollowGatePetFight";
 import type { Character, HollowGateShrineRun, HollowGateTile, VersionedCharacterCommit } from "../types/character";
@@ -8,7 +8,8 @@ import { applyAttunementToRun } from "./hollow-gate-attunement";
 import type { HollowGateCombatSettleResult } from "./hollow-gate-combat-api";
 // The procedural floor generator is loaded on demand — see
 // ./hollow-gate-generator-loader.
-import { loadHollowGateGenerator } from "./hollow-gate-generator-loader";
+import { loadHollowGateGenerator, warmHollowGateGenerator } from "./hollow-gate-generator-loader";
+import { cacheDynamicImport } from "./lazyWithRetry";
 import type { HollowGatePveFightRef } from "./hollow-gate-pve";
 import { hollowGateAlphaCinematicImage } from "./hollow-gate-presentation";
 import {
@@ -109,6 +110,75 @@ export function hollowGateRunAfterPetDefeat(
     saved: HollowGateShrineRun | null | undefined,
 ): HollowGateShrineRun | null {
     return hollowGateRunAfterUnresolvedFight(live, saved);
+}
+
+/**
+ * The shrine and fight screens, cached so a warm-up and App's lazy render share
+ * one import. The shrine starts loading while the player confirms the key.
+ */
+export const loadHollowGateShrineView = cacheDynamicImport(() => import("../features/hollowGate/HollowGateShrineView"));
+export const loadHollowGateFight = cacheDynamicImport(() => import("../screens/HollowGateFight"));
+
+/**
+ * While the shrine is on screen (a fresh dive, an admin playtest, or any boot
+ * restore straight into a run), warm the generator chunks, and shortly after,
+ * the fight screen, so the first encounter opens without a download. The fight
+ * is not warmed on Save-Data.
+ */
+export function useHollowGateShrineWarmup(onShrine: boolean): void {
+    useEffect(() => {
+        if (!onShrine) return;
+        warmHollowGateGenerator();
+        if ((navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData) return;
+        const timer = window.setTimeout(() => { void loadHollowGateFight().catch(() => undefined); }, 1500);
+        return () => window.clearTimeout(timer);
+    }, [onShrine]);
+}
+
+/** The run fields one step changes: the optimistic move and the server's answer to it. */
+const HOLLOW_GATE_STEP_FIELDS: ReadonlySet<string> = new Set(["playerX", "playerY", "tiles", "torch", "threat", "wardSteps", "wanderers"]);
+
+/** True when `next` differs from `previous` only in what a step changes. */
+export function hollowGateStepOnlyChange(
+    previous: HollowGateShrineRun | null | undefined,
+    next: HollowGateShrineRun | null | undefined,
+): boolean {
+    if (!previous || !next || previous === next) return false;
+    const before = previous as unknown as Record<string, unknown>, after = next as unknown as Record<string, unknown>;
+    for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
+        if (!HOLLOW_GATE_STEP_FIELDS.has(key) && before[key] !== after[key]) return false;
+    }
+    return true;
+}
+
+/** How long walking must pause before a step's board reaches the character copy. */
+export const HOLLOW_GATE_MIRROR_SETTLE_MS = 600;
+
+/**
+ * Mirror the live shrine run into character.hollowGateRun, the copy the save
+ * payload and a re-entry read. Copying it on every step re-rendered the whole
+ * App a second time per tile. Any other change (a new run, a floor, a fight,
+ * an event, the end) is still copied at once; a step's board and position
+ * follow once walking pauses. A pending copy is dropped when the run changes
+ * again or the shrine screen closes, so it can never write a run that is no
+ * longer live (the phantom-floor trap isSameHollowGateFloor describes).
+ */
+export function useHollowGateRunMirror({ screen, run, characterRef, setCharacter }: {
+    screen: Screen;
+    run: HollowGateShrineRun | null;
+    characterRef: RefObject<Character | null>;
+    setCharacter: SetState<Character | null>;
+}): void {
+    useEffect(() => {
+        if (screen !== "hollowGateShrine") return;
+        const mirror = () => setCharacter((prev) => {
+            if (!prev || prev.hollowGateRun === run) return prev;
+            return { ...prev, hollowGateRun: run };
+        });
+        if (!hollowGateStepOnlyChange(characterRef.current?.hollowGateRun, run)) { mirror(); return; }
+        const timer = window.setTimeout(mirror, HOLLOW_GATE_MIRROR_SETTLE_MS);
+        return () => window.clearTimeout(timer);
+    }, [screen, run, characterRef, setCharacter]);
 }
 
 export function useHollowGateAppFlow(params: {

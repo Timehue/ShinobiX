@@ -1,5 +1,6 @@
 import { isDeepStrictEqual } from 'node:util';
 import type { KvLike } from '../_storage.js';
+import { readKvProjection, type KvProjection } from '../_storage-projection.js';
 import { storedValueEquals } from '../_stored-value.js';
 import type { HollowGateRunToken } from './_run-token.js';
 import { retireHollowGatePresenceByRunKey } from './_presence.js';
@@ -51,14 +52,63 @@ export function hollowGateSavedTokenMismatch(character: Character, token: string
     return Boolean(saved?.runToken && saved.runToken !== token);
 }
 
+/**
+ * The only save fields the repair reads. Every run action, including every
+ * step, checks for a proof, and reading the whole save (hundreds of KB) for
+ * three fields was most of a step's cost. Postgres extracts them where the
+ * data lives (`mgetProjected`); other stores project after an ordinary read.
+ */
+const PENDING_PROOF_PROJECTION: KvProjection = {
+    hollowGatePendingOperation: ['character', 'hollowGatePendingOperation'],
+    runToken: ['character', 'hollowGateRun', 'runToken'],
+    redeemedHollowGateRuns: ['character', 'redeemedHollowGateRuns'],
+};
+
+/**
+ * The save's character reduced to those three fields, or undefined when there
+ * is no save. Each branch of the repair decides exactly as it does on the whole
+ * character: a missing field stays missing, and an explicit null stays null.
+ */
+export async function readHollowGatePendingProof(
+    store: Pick<KvLike, 'mget' | 'mgetProjected'>, playerName: string,
+): Promise<Character | undefined> {
+    const [row] = await readKvProjection(store, [`save:${playerName}`], PENDING_PROOF_PROJECTION);
+    if (!row) return undefined;
+    const view: Character = {};
+    if (Object.hasOwn(row, 'hollowGatePendingOperation')) view.hollowGatePendingOperation = row.hollowGatePendingOperation;
+    if (Object.hasOwn(row, 'runToken')) view.hollowGateRun = { runToken: row.runToken };
+    if (Object.hasOwn(row, 'redeemedHollowGateRuns')) view.redeemedHollowGateRuns = row.redeemedHollowGateRuns;
+    return view;
+}
+
+/**
+ * The run row and the save's proof, read together, then repaired. The caller
+ * holds the run lock, and every writer of a proof holds it too, so neither read
+ * can see the other half of an operation in progress: the order of the two
+ * reads cannot change the result, and reading them at once saves a round trip.
+ */
+export async function loadHollowGateRunForAction(
+    store: KvLike, runKey: string, playerName: string, token: string,
+): Promise<HollowGateRunToken | null> {
+    const [run, saved] = await Promise.all([
+        store.get<HollowGateRunToken>(runKey),
+        readHollowGatePendingProof(store, playerName),
+    ]);
+    return repairHollowGateRun(store, runKey, run, token, saved);
+}
+
 /** Caller holds the run lock. The proof exists only after its player CAS
  * commits; repairing a run never repeats a wallet effect. Every run action
  * observes this repair before inspecting or changing run state. */
 export async function recoverHollowGatePendingOperation(
     store: KvLike, runKey: string, run: HollowGateRunToken | null, playerName: string, token: string,
 ): Promise<HollowGateRunToken | null> {
-    const record = await store.get<{ character?: Character }>(`save:${playerName}`);
-    const character = record?.character;
+    return repairHollowGateRun(store, runKey, run, token, await readHollowGatePendingProof(store, playerName));
+}
+
+async function repairHollowGateRun(
+    store: KvLike, runKey: string, run: HollowGateRunToken | null, token: string, character: Character | undefined,
+): Promise<HollowGateRunToken | null> {
     const proof = hollowGatePendingOperationOf(character, token);
     if (!proof || !character || hollowGateSavedTokenMismatch(character, token)) return run;
     const receiptId = `${proof.kind}:${proof.id}`;
