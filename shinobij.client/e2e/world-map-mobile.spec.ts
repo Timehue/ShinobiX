@@ -59,7 +59,7 @@ for (const mode of ['camera', 'fallback'] as const) {
                 // The transparent 48px target stays tappable in the full-world
                 // overview; its visible artwork fits inside the sector ring.
                 const art = village.querySelector('.atlas-landmark-art')!;
-                const plate = document.querySelector('.wpk-moonshadow')!;
+                const plate = document.querySelector('.world-poi-plate.wpk-moonshadow')!;
                 const collisions = [art, plate].filter((element) => getComputedStyle(element).display !== 'none').flatMap((element) => {
                     const crest = element.getBoundingClientRect();
                     return [...document.querySelectorAll('.atlas-sector')].filter((sector) => {
