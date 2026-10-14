@@ -1,12 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { kv } from '../_storage.js';
+import { readKvProjection, type KvProjection } from '../_storage-projection.js';
 import { withKvLock } from '../_lock.js';
 import { onlineStore } from '../_realtime/online-store.js';
 import { battleAuthorityKeys, battleEvidenceFrom, resolveBattleAuthority } from '../_realtime/battle-authority.js';
 import { toPlayerRecord } from '../_realtime/presence-input.js';
 import { leaveStrongholdPresence, strongholdLocation, touchStrongholdPresence } from '../_stronghold-presence.js';
 import { sectorPresenceBlock } from '../_sector-presence-gate.js';
-import { villageCampaignStronghold } from '../_village-war-campaign.js';
+import { villageCampaignStrongholdLookup } from '../_village-war-campaign.js';
 import { isIncapacitated } from '../_elapsed-state.js';
 import { isWarSector } from '../_war-map-sectors.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
@@ -28,8 +29,33 @@ export const strongholdVisitKey = (name: string, sector: number) => `stronghold:
 type Result = { status: number; body: Record<string, unknown> };
 const fail = (error: string, status = 409): Result => ({ status, body: { error } });
 
-async function unrelatedStrongholdBattle(playerName: string, ownedPatrolId?: string): Promise<boolean> {
-    const evidence = battleEvidenceFrom(await kv.mget(...battleAuthorityKeys(playerName)));
+/**
+ * The save fields a stronghold entry or step decides on: village (war
+ * objectives), level (admission) and the three isIncapacitated reads. A step
+ * used to read the whole save twice, hundreds of KB per tile; Postgres now
+ * extracts these where the save lives. A save whose character holds none of
+ * them falls back to the whole read, so every check decides exactly as before.
+ */
+const STRONGHOLD_SAVE_FACTS: KvProjection = {
+    name: ['character', 'name'],
+    village: ['character', 'village'],
+    level: ['character', 'level'],
+    hp: ['character', 'hp'],
+    hospitalized: ['character', 'hospitalized'],
+    hospitalizedUntil: ['character', 'hospitalizedUntil'],
+};
+type StrongholdSaveFacts = { character?: Record<string, unknown> } | null;
+async function strongholdSaveFacts(playerName: string): Promise<StrongholdSaveFacts> {
+    const saveKey = `save:${playerName}`;
+    const [row] = await readKvProjection(kv, [saveKey], STRONGHOLD_SAVE_FACTS);
+    if (!row) return null;
+    if (Object.keys(row).length > 0) return { character: row };
+    return kv.get<{ character?: Record<string, unknown> }>(saveKey);
+}
+
+/** `values` is the battleAuthorityKeys read when the caller already made it. */
+async function unrelatedStrongholdBattle(playerName: string, ownedPatrolId?: string, values?: readonly unknown[] | null): Promise<boolean> {
+    const evidence = battleEvidenceFrom(values ?? await kv.mget(...battleAuthorityKeys(playerName)));
     const authority = await resolveBattleAuthority(playerName, evidence);
     const projection = evidence.battleState as { kind?: string; sessionId?: string } | null;
     const ownedPatrol = !!ownedPatrolId && authority.source === 'solo-pve' && projection?.kind === 'solo-pve' && projection.sessionId === ownedPatrolId;
@@ -79,26 +105,40 @@ export async function handleStrongholdAction(playerName: string, action: string,
     const presenceBlock = sectorPresenceBlock(playerName, sector);
     if (presenceBlock) return fail(presenceBlock.error, presenceBlock.status);
     if (action === 'stronghold-enter' || action === 'stronghold-step') {
-        const save = await kv.get<{ character?: { village?: string } }>(`save:${playerName}`);
-        if (await villageCampaignStronghold(String(save?.character?.village ?? ''), sector)) return fail('This village war stronghold uses its nominated battle mode. Open the war objective to enter.');
+        // The war rows do not depend on the village, so both reads go at once.
+        const [[save], objectiveFor] = await Promise.all([
+            readKvProjection(kv, [`save:${playerName}`], { village: ['character', 'village'] }),
+            villageCampaignStrongholdLookup(sector),
+        ]);
+        if (objectiveFor(String(save?.village ?? ''))) return fail('This village war stronghold uses its nominated battle mode. Open the war objective to enter.');
     }
     return withKvLock(key, async () => {
-        let visit = await kv.get<StrongholdVisit>(key);
+        // Every read this action can need, at once: each statement under the
+        // lock is its own fenced transaction, so three serial reads cost three
+        // times the round trips. The checks below still run in their original
+        // order, and nothing is written before the last of them.
+        const needsSaveFacts = action === 'stronghold-enter' || action === 'stronghold-step';
+        const [storedVisit, battleValues, saveFacts] = await Promise.all([
+            kv.get<StrongholdVisit>(key),
+            action === 'stronghold-patrol-report' ? null : kv.mget(...battleAuthorityKeys(playerName)),
+            needsSaveFacts ? strongholdSaveFacts(playerName) : null,
+        ]);
+        let visit = storedVisit;
         const presenceId = typeof body.presenceId === 'string' && /^[a-zA-Z0-9_-]{8,80}$/.test(body.presenceId) ? body.presenceId : undefined;
         if (action === 'stronghold-enter' && !presenceId) return fail('Re-enter the stronghold to reconnect.');
         if (action === 'stronghold-enter') {
             const presence = onlineStore.get(playerName);
             if (presence?.pendingAttacker || (presence?.travelingUntil ?? 0) > Date.now()) return fail('Finish your current combat or travel before entering.');
             if (presence?.inBattle && !visit?.patrolId) return fail('Finish your current battle before entering.');
-            if (await unrelatedStrongholdBattle(playerName, visit?.patrolId)) return fail('Finish your current battle before entering.');
-            const record = await kv.get<{ character?: Record<string, unknown> }>(`save:${playerName}`);
+            if (await unrelatedStrongholdBattle(playerName, visit?.patrolId, battleValues)) return fail('Finish your current battle before entering.');
+            const record = saveFacts;
             if (!record?.character || !strongholdLevelEligible(record.character.level)) return fail(`Strongholds require level ${STRONGHOLD_MIN_LEVEL}.`, 403);
             // A pending patrol may be terminal and still owe its settlement after a reload.
             if (!visit?.patrolId && isIncapacitated(record.character, Date.now())) return fail('Recover before entering the stronghold.');
         }
         if (!visit || visit.layoutVersion !== STRONGHOLD_LAYOUT_VERSION) {
             if (action !== 'stronghold-enter') return fail('Re-enter the stronghold to reconnect.');
-            const record = await kv.get<{ character?: Record<string, unknown> }>(`save:${playerName}`);
+            const record = saveFacts;
             if (!record?.character || !strongholdLevelEligible(record.character.level)) return fail(`Strongholds require level ${STRONGHOLD_MIN_LEVEL}.`, 403);
             if (isIncapacitated(record.character, Date.now())) return fail('Recover before entering the stronghold.');
             visit = { id: randomUUID(), layoutVersion: STRONGHOLD_LAYOUT_VERSION, sector, tile: STRONGHOLD_SPAWN,
@@ -112,7 +152,7 @@ export async function handleStrongholdAction(playerName: string, action: string,
         } else if (action !== 'stronghold-patrol-report' && (!presenceId || visit.presenceId !== presenceId)) {
             return fail('This stronghold session ended or opened in another tab. Reconnect to continue.');
         }
-        if (action !== 'stronghold-patrol-report' && action !== 'stronghold-enter' && await unrelatedStrongholdBattle(playerName, visit.patrolId)) {
+        if (action !== 'stronghold-patrol-report' && action !== 'stronghold-enter' && await unrelatedStrongholdBattle(playerName, visit.patrolId, battleValues)) {
             if (action === 'stronghold-state') return snapshot(playerName, visit, { combatBlocked: true });
             return fail('Finish your current battle before exploring the stronghold.');
         }
@@ -153,7 +193,7 @@ export async function handleStrongholdAction(playerName: string, action: string,
         if (action === 'stronghold-step' && body.version === visit.version && !visit.patrolId && visit.threat < 100) {
             const presence = onlineStore.get(playerName);
             if (presence?.pendingAttacker || presence?.inBattle || (presence?.travelingUntil ?? 0) > Date.now()) return fail('Finish your current combat or travel before moving.');
-            const record = await kv.get<{ character?: Record<string, unknown> }>(`save:${playerName}`);
+            const record = saveFacts;
             if (!record?.character || isIncapacitated(record.character, Date.now())) return fail('Recover before exploring the stronghold.');
             const next = advanceStronghold(visit, Number(body.tile));
             if (!next) return fail('Choose an adjacent open tile.');
