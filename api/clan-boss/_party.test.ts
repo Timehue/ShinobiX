@@ -55,6 +55,12 @@ describe('Clan Boss operation party transitions', () => {
         assert.equal(snapshot.saveVersion, 3);
     });
 
+    it('does not count equipped gathering tools as combat items', () => {
+        const base = player('leader');
+        const snapshot = snapshotForPlayer({ ...base, character: { ...base.character, equipment: { hand: 'kunai', pickaxe: 'tool-basic-pickaxe', fishingPole: 'tool-golden-fishing-pole' } } }, NOW);
+        assert.equal(snapshot.combatItemCount, 1);
+    });
+
     it('accepts up to four real members and invalidates every ready snapshot when membership changes', () => {
         let value = party();
         value.members[0] = { ...value.members[0]!, ready: true, snapshot: snapshotForPlayer(player('leader'), NOW) };

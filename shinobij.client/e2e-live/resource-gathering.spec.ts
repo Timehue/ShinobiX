@@ -186,15 +186,25 @@ test('shop tools equip, survive reload, spend durability, and connect to refinin
     let current = await readSave(); expect(current.ryo).toBe(4700);
     expect(current.gatheringToolUses).toMatchObject({ 'tool-basic-pickaxe': 0, 'tool-basic-fishing-pole': 0 });
     await navigate('inventory');
-    const kit = page.getByRole('region', { name: 'Gathering equipment' });
-    await kit.getByRole('button', { name: 'Equip Basic Pickaxe', exact: true }).click();
-    await kit.getByRole('button', { name: 'Equip Basic Fishing Pole', exact: true }).click();
-    await expect(kit.getByText('50 / 50 uses remaining')).toHaveCount(2);
-    expect(await kit.locator('.gathering-tool-slot').evaluateAll(cards => cards.every(card => card.scrollWidth <= card.clientWidth + 1))).toBe(true);
-    await kit.screenshot({ path: info.outputPath('basic-tool-kit.png') });
+    // The tools equip into the active loadout, like any other gear.
+    const loadout = page.locator('.inventory-equipped-panel');
+    const equipTool = async (name: string, slot: string) => {
+        await page.getByRole('button', { name: `Inspect ${name}`, exact: true }).click();
+        const details = page.getByRole('dialog', { name: `${name} item details` });
+        await details.getByRole('button', { name: `Equip to ${slot}`, exact: true }).click();
+        await expect(details).toHaveCount(0);
+    };
+    await equipTool('Basic Pickaxe', 'Pickaxe');
+    await equipTool('Basic Fishing Pole', 'Fishing Pole');
+    const basicSlots = [
+        loadout.getByRole('button', { name: 'Mining equipment slot, equipped with Basic Pickaxe, 50 of 50 uses left', exact: true }),
+        loadout.getByRole('button', { name: 'Fishing equipment slot, equipped with Basic Fishing Pole, 50 of 50 uses left', exact: true }),
+    ];
+    for (const slot of basicSlots) await expect(slot).toBeVisible();
+    await loadout.screenshot({ path: info.outputPath('basic-tool-kit.png') });
     await healthy(); await page.screenshot({ path: info.outputPath('basic-tools-equipped.png'), fullPage: true });
     await page.reload();
-    await expect(kit.getByText('50 / 50 uses remaining')).toHaveCount(2);
+    for (const slot of basicSlots) await expect(slot).toBeVisible();
     current = await readSave(); expect(current.equipment).toMatchObject({ pickaxe: 'tool-basic-pickaxe', fishingPole: 'tool-basic-fishing-pole' });
     await navigate('worldMap');
     const enter = page.getByRole('button', { name: 'Enter World Map', exact: true });
@@ -241,10 +251,11 @@ test('shop tools equip, survive reload, spend durability, and connect to refinin
     await expect(toolDetails).toContainText('Permanent · never breaks');
     await expect(toolDetails).not.toContainText('Equip for passive bonuses');
     await toolDetails.getByRole('button', { name: 'Close', exact: true }).last().click();
-    await kit.getByRole('button', { name: 'Equip Golden Pickaxe', exact: true }).click();
-    await kit.getByRole('button', { name: 'Equip Golden Fishing Pole', exact: true }).click();
-    await expect(kit.getByText('Permanent · never breaks')).toHaveCount(2);
-    await kit.screenshot({ path: info.outputPath('golden-tool-kit.png') });
+    await equipTool('Golden Pickaxe', 'Pickaxe');
+    await equipTool('Golden Fishing Pole', 'Fishing Pole');
+    await expect(loadout.getByRole('button', { name: 'Mining equipment slot, equipped with Golden Pickaxe, never breaks', exact: true })).toBeVisible();
+    await expect(loadout.getByRole('button', { name: 'Fishing equipment slot, equipped with Golden Fishing Pole, never breaks', exact: true })).toBeVisible();
+    await loadout.screenshot({ path: info.outputPath('golden-tool-kit.png') });
     await healthy(); await page.screenshot({ path: info.outputPath('golden-tools-equipped.png'), fullPage: true });
     current = await readSave(); expect(current.inventory).toEqual(expect.arrayContaining(['tool-basic-pickaxe', 'tool-basic-fishing-pole']));
     expect(current.gatheringToolUses['tool-basic-pickaxe']).toBe(1);

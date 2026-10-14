@@ -2,6 +2,7 @@
 import { useLayoutEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { SectorHud } from '../../src/components/SectorHud';
+import { SectorPeers } from '../../src/components/SectorPeers';
 import { WorldSectorCanvas } from '../../src/components/WorldSectorCanvas';
 import { projectSectorPlayers } from '../../src/lib/sector-player-roster';
 import { useSectorPlayerAction } from '../../src/lib/use-sector-player-action';
@@ -13,7 +14,7 @@ import '../../src/index.css';
 import '../../src/styles/veiled-steel.css';
 import '../../src/styles/layout/adaptive-stages.css';
 
-type Settings = { sector: number; present: boolean; depleted: boolean; suspended: boolean; contest: boolean; blocked: boolean; broken: boolean; pending: boolean; hunt: boolean; vista: boolean; fighting: boolean; awake: boolean };
+type Settings = { sector: number; tile: number; peerTile: number; present: boolean; depleted: boolean; suspended: boolean; contest: boolean; blocked: boolean; broken: boolean; pending: boolean; hunt: boolean; vista: boolean; fighting: boolean; awake: boolean };
 const events: string[] = [];
 let finish: () => void = () => {};
 declare global { interface Window { sectorFixture: {
@@ -21,7 +22,7 @@ declare global { interface Window { sectorFixture: {
 } } }
 
 export function Fixture() {
-    const [settings, setSettings] = useState<Settings>({sector:22,present:true,depleted:false,suspended:false,contest:true,blocked:false,broken:false,pending:false,hunt:true,vista:false,fighting:false,awake:false});
+    const [settings, setSettings] = useState<Settings>({sector:22,tile:78,peerTile:78,present:true,depleted:false,suspended:false,contest:true,blocked:false,broken:false,pending:false,hunt:true,vista:false,fighting:false,awake:false});
     useLayoutEffect(() => { window.sectorFixture = {configure: next=>setSettings(prev=>({...prev,...next})), events, finish:()=>finish()}; });
     const [endsAt] = useState(() => Date.now()+3_600_000);
     const contest = settings.contest ? {id:'fixture-war',sector:settings.sector,winCondition:'card' as const,attackerVillage:'Stormveil Village',defenderVillage:'Ashen Leaf Village',endsAt,garrisonReady:true}:null;
@@ -51,11 +52,13 @@ export function Fixture() {
     };
     return <div className="map-instance" style={{maxWidth:900,margin:'12px auto'}}><div className="instance-frame sector-instance-frame">
         <WorldSectorCanvas sector={settings.sector} biome="shadow" weather="clear" ambienceBiome="shadow"
-            playerTile={78} playerName="FixtureViewer" playerAvatarImage="" suspended={settings.suspended}
+            playerTile={settings.tile} playerName="FixtureViewer" playerAvatarImage="" suspended={settings.suspended}
             isCurrent={settings.present} enterDirection={null} regionSplash={null} onRegionSplashDone={()=>{}}
             mapImage={settings.vista?undefined:`/sector-map/s${settings.sector}.webp`} sceneImage={sectorBackgroundImage(settings.sector)} roadExits={roadExitsForSector(settings.sector)}
             showLivePeers={false} players={[]} sharedImages={{}} sleeperPeers={[]}
-            onSelectTile={note('tile')} onCrossExit={note('exit')} overlayLayer={null} encounterLayer={null}
+            onSelectTile={note('tile')} onCrossExit={note('exit')}
+            overlayLayer={new URLSearchParams(location.search).has('motion') ? <SectorPeers sector={settings.sector}
+                peers={[{name:'WalkingPeer',level:40,tile:settings.peerTile,sleeping:false}]} /> : null} encounterLayer={null}
             hudLayer={<SectorHud key={settings.sector} {...props} rosterState="current" playerAction={playerAction} onPlayerAction={playerAction.run}/>} />
     </div></div>;
 }

@@ -1,8 +1,9 @@
-import { useLayoutEffect, type RefObject } from 'react';
+import { useLayoutEffect, useState, type RefObject } from 'react';
 
 /** Size the existing square grid to the usable shell, never its camera or tiles.
  * Like the atlas layout, use unscrolled coordinates so scrolling cannot grow it. */
 export function useSectorHudLayout(ref: RefObject<HTMLDivElement | null>) {
+    const [compact, setCompact] = useState(() => matchMedia('(max-width: 979px)').matches);
     useLayoutEffect(() => {
         const hud = ref.current;
         const stage = hud?.parentElement;
@@ -15,6 +16,7 @@ export function useSectorHudLayout(ref: RefObject<HTMLDivElement | null>) {
             const viewport = window.visualViewport;
             const height = viewport?.scale === 1 ? viewport.height : innerHeight;
             const side = matchMedia('(min-width: 980px), (min-width: 560px) and (max-height: 450px)').matches;
+            setCompact(innerWidth < 980);
             const top = stage.getBoundingClientRect().top + scrollY + (center?.scrollTop ?? 0);
             const navBounds = nav?.getBoundingClientRect();
             const chrome = navBounds?.height ? height - navBounds.top : 0;
@@ -22,28 +24,21 @@ export function useSectorHudLayout(ref: RefObject<HTMLDivElement | null>) {
             const context = hud.querySelector<HTMLElement>('.sector-hud-context');
             const contextStyle = context ? getComputedStyle(context) : null;
             const contextHeight = context?.offsetHeight ? context.offsetHeight + parseFloat(contextStyle!.marginBottom) : 0;
-            // Reserve a heading and one actionable row even on short phones.
-            // Taller screens leave more roster room below the full-width map.
+            // Desktop budgets the roster beside the map. Mobile scrolls below it.
             const base = (hud.querySelector<HTMLElement>('.sector-hud-top')?.offsetHeight ?? 0) + contextHeight + 2;
             const set = (key: string, value: number) => {
                 const px = `${Math.max(0, Math.floor(value))}px`;
                 if (stage.style.getPropertyValue(key) !== px) stage.style.setProperty(key, px);
             };
-            // A 12×12 board cannot stay useful when it is squeezed to the old
-            // 180px phone floor: each movement tile is only 15px wide. On a
-            // narrow phone the HUD can continue below the fold, but the board
-            // should claim the available width so its tiles remain tappable.
-            // Tablet/desktop still budget by height to keep their command panel
-            // in view beside or beneath the board.
+            // Phones retain the full-width map and scroll to their information.
             const boardSize = matchMedia('(max-width: 559px)').matches
-                ? stage.clientWidth
-                : Math.max(180, available - (side ? 0 : base + 112));
+                ? stage.clientWidth : Math.max(180, available - (side ? 0 : base + 112));
             set('--sector-board-size', boardSize);
             const mapHeight = stage.querySelector('.sector-image-map')?.getBoundingClientRect().height ?? 0;
             const extra = available - base - (side ? 0 : mapHeight);
-            // The roster scrolls when space is tight. A fixed minimum here can
-            // push the entire HUD under the mobile navigation instead.
-            set('--sector-nearby-height', Math.max(0, extra));
+            // Always leave a heading, actionable rows and chat below the map.
+            // The mobile document owns the extra height instead of clipping it.
+            set('--sector-nearby-height', side ? Math.max(0, extra) : Math.max(240, extra));
             set('--sector-stage-height', available);
             stage.setAttribute('data-sector-routes', String(innerWidth >= 980 && available - mapHeight >= 76));
             // The shared help portal occupies a reserved header slot on phones.
@@ -51,6 +46,8 @@ export function useSectorHudLayout(ref: RefObject<HTMLDivElement | null>) {
             if (help?.width) {
                 document.body.style.setProperty('--sector-tip-top', `${help.top + scrollY}px`);
                 document.body.style.setProperty('--sector-tip-left', `${help.left + scrollX}px`);
+                const header = document.querySelector('.mobile-top-hud')?.getBoundingClientRect();
+                document.body.style.setProperty('--sector-tip-visibility', help.top >= (header?.bottom ?? 0) ? 'visible' : 'hidden');
             }
         };
         const schedule = () => { if (!frame) frame = requestAnimationFrame(measure); };
@@ -82,6 +79,8 @@ export function useSectorHudLayout(ref: RefObject<HTMLDivElement | null>) {
             stage.removeAttribute('data-sector-routes');
             document.body.style.removeProperty('--sector-tip-top');
             document.body.style.removeProperty('--sector-tip-left');
+            document.body.style.removeProperty('--sector-tip-visibility');
         };
     }, [ref]);
+    return compact;
 }
