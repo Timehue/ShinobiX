@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { expectViewportSafe } from './helpers/adaptive-assertions';
 
 const fixture = '/e2e/fixtures/profession-change.html';
 
@@ -22,6 +23,7 @@ test('profession scroll stays beside the village scroll and enforces purchase re
     if (info.project.name === 'desktop') expect(bounds[0].top).toBe(bounds[1].top);
     else expect(bounds[1].top).toBeGreaterThanOrEqual(bounds[0].bottom);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await expectViewportSafe(page);
     await scrolls.screenshot({ path: info.outputPath('marketplace-scrolls.png') });
 });
 
@@ -55,6 +57,13 @@ for (const from of ['healer', 'vanguard', 'petTamer']) {
         await expect(dialog).toBeVisible();
         await expect(dialog.getByRole('radio')).toHaveCount(2);
         await expect(dialog.locator(`input[value="${from}"]`)).toHaveCount(0);
+        await expectViewportSafe(page);
+        const regions = await dialog.evaluate(el => ({
+            details: el.querySelector('.village-transfer-details')!.getBoundingClientRect().bottom,
+            actions: el.querySelector('.village-transfer-actions')!.getBoundingClientRect().top,
+        }));
+        expect(regions.details).toBeLessThanOrEqual(regions.actions);
+        await expect(dialog.getByRole('button', { name: 'Cancel', exact: true })).toBeInViewport();
         await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
         expect(changes).toBe(0);
         await scroll.getByRole('button', { name: 'Use scroll · Choose profession' }).click();

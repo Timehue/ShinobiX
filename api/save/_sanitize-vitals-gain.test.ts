@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { sanitizeCharacterSave } from './[name].js';
+import { settleVitalsRegen } from '../_elapsed-state.js';
 
 // These tests pin the bounded legacy sanitizer itself. Release mode defaults
 // to the stricter receipt-backed raw-save boundary and is covered separately.
@@ -117,4 +118,91 @@ test('vitals: a server-side level-up refill in the same save is not clamped', ()
     const out = sanitize(incoming, stored, 0);
     assert.ok(out.level > 1, `level should rise (got ${out.level})`);
     assert.equal(out.hp, out.maxHp, 'level-up refill kept at the new max');
+});
+
+/*
+ * An open Hollow Gate dive on the STORED save. The dive earns no idle recovery
+ * (canRegenVitals, api/_elapsed-state.ts), the client neither regenerates nor
+ * autosaves on its screens, and every in-dive heal is server-written. So a
+ * mid-dive save gets neither the regen nor the grace, only pill credits (owner
+ * ruling 2026-10-14). Otherwise a forged save could heal the HP the dive's next
+ * fight starts from.
+ */
+// A fresh run per call: the run sanitizer writes to the run object in place.
+const dive = (over: Char = {}): Char => ({
+    runToken: 'live-dive-token', serverSeed: 'dive-seed', floor: 3, keys: 1, torch: 6, threat: 20, entryCurrencies: {}, ...over,
+});
+const TEN_MINUTES = 600;
+
+test('vitals: an open dive on the stored save allows no regen and no grace, however long it idled', () => {
+    const stored = base({ hollowGateRun: dive() });
+    // Outside a dive, ten idle minutes would allow 100 + 600 + 60 = 760.
+    const out = sanitize({ ...stored, hp: 1000, chakra: 1000, stamina: 1000 }, stored, TEN_MINUTES);
+    assert.equal(out.hp, 100, 'hp held at the stored value');
+    assert.equal(out.chakra, 100, 'chakra held at the stored value');
+    assert.equal(out.stamina, 100, 'stamina held at the stored value');
+});
+
+test('vitals: an Aura Sphere adds nothing mid-dive', () => {
+    // A level-300 sphere scales both the regen and the grace six-fold outside a dive.
+    const stored = base({ hollowGateRun: dive(), equipment: { aura: 'aura-sphere' }, auraSphereLevel: 300 });
+    const out = sanitize({ ...stored, hp: 1000 }, stored, TEN_MINUTES);
+    assert.equal(out.hp, 100);
+});
+
+test('vitals: mid-dive, a consumed pill still justifies exactly its +25', () => {
+    const stored = base({ hollowGateRun: dive(), itemStacks: [{ itemId: 'Chakra Pill', count: 2 }, { itemId: 'Soldier Pill', count: 1 }] });
+    const out = sanitize(
+        { ...stored, itemStacks: [{ itemId: 'Chakra Pill', count: 1 }], hp: 1000, chakra: 1000, stamina: 1000 },
+        stored,
+        TEN_MINUTES,
+    );
+    assert.equal(out.chakra, 125, 'one Chakra Pill => +25 chakra and nothing more');
+    assert.equal(out.stamina, 125, 'one Soldier Pill => +25 stamina and nothing more');
+    assert.equal(out.hp, 100, 'no pill justifies an hp rise');
+});
+
+test('vitals: the STORED dive decides, so a save cannot clear, swap or finish its own run to dodge the cap', () => {
+    const stored = base({ hollowGateRun: dive() });
+    const forgedRuns: unknown[] = [null, dive({ runToken: 'forged-token' }), dive({ completed: true })];
+    for (const hollowGateRun of forgedRuns) {
+        const out = sanitize({ ...stored, hollowGateRun, hp: 1000 }, stored, TEN_MINUTES);
+        assert.equal(out.hp, 100, `incoming run ${JSON.stringify(hollowGateRun)}`);
+    }
+    const withoutRun: Char = { ...stored, hp: 1000 };
+    delete withoutRun.hollowGateRun;
+    assert.equal(sanitize(withoutRun, stored, TEN_MINUTES).hp, 100, 'incoming run omitted');
+});
+
+test('vitals: a save that marks its own dive completed cannot unlock the next save', () => {
+    // One save is always judged by the stored run, so the way around it is to
+    // make a forged `completed: true` STICK and send a second save. The run
+    // sanitizer keeps `completed` server-owned for a token-bound dive.
+    const stored = base({ hollowGateRun: dive() });
+    const first = sanitize({ ...stored, hollowGateRun: dive({ completed: true }), hp: 1000 }, stored, TEN_MINUTES);
+    assert.equal(first.hollowGateRun.completed, undefined, 'the forged completed flag is not kept');
+    const second = sanitize({ ...first, hp: 1000 }, first, TEN_MINUTES);
+    assert.equal(second.hp, 100, 'the next save is still capped');
+});
+
+test('vitals: once the dive is over, the regen allowance is back unchanged', () => {
+    // Extraction and death null the run (api/hollow-gate/settle.ts); a stored run
+    // already marked completed is over too.
+    for (const hollowGateRun of [null, dive({ completed: true })]) {
+        const stored = base({ hollowGateRun });
+        const out = sanitize({ ...stored, hp: 1000 }, stored, 30);
+        assert.equal(out.hp, 100 + 30 + GRACE_SEC, `stored run ${JSON.stringify(hollowGateRun)}`);
+    }
+});
+
+test('vitals: the dive rule drops the allowance on exactly the records the server stops regenerating', () => {
+    // Both read hasActiveHollowGateRun. This fails if either side forks its own
+    // copy of the predicate and the two drift apart.
+    const shapes: unknown[] = [undefined, null, {}, { floor: 2 }, { completed: true }, dive(), dive({ completed: true })];
+    for (const hollowGateRun of shapes) {
+        const stored = base({ hollowGateRun });
+        const { excluded } = settleVitalsRegen({ character: stored, _saveAt: NOW - 30_000 }, { now: NOW, battleLocked: false });
+        const capped = sanitize({ ...stored, hp: 1000 }, stored, 30).hp === 100;
+        assert.equal(capped, excluded, `stored run ${JSON.stringify(hollowGateRun)}`);
+    }
 });

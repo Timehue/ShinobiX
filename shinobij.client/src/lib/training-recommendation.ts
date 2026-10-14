@@ -47,7 +47,7 @@ export function trainingRecommendation(character: Pick<Character, "bloodline" | 
     const advice = availableGenerals.length === 2
         ? `I'd start with ${generalNames.join(" or ")}. Both general stats strengthen your ${discipline} attack and defense.`
         : `${generalExplanation} I'd start with ${label}. ${benefit}`;
-    return { stat, label, discipline, source, reason, capped,
+    return { stat, label, discipline, source, reason, benefit, capped,
         generalStats,
         companionLine: `${basis} ${advice} Try 15m; we can explore while it runs.`,
         supportingStats: path.map(formatStatName).join(", "),

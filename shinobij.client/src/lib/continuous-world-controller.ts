@@ -6,7 +6,7 @@ import { loadContinuousWorld, worldMovementRequest, type WorldMovementReply } fr
 import { bindContinuousWorldControl } from './continuous-world-control';
 import { isRealtimePresenceLive } from './use-presence-socket';
 import { worldRoadCrossings } from '../../../shared/world-road-crossings';
-import { tapCandidates } from './world-tap';
+import { createTapIndex } from './world-tap';
 import { createWorldMovePacer } from './world-move-pacing';
 
 type Host = { canvas: HTMLCanvasElement; chunk: HTMLDivElement; marker: HTMLDivElement;
@@ -27,6 +27,8 @@ export async function mountContinuousWorld(host: Host) {
     walker.restore(initialPosition);
     const renderer = createContinuousWorldRenderer(host.canvas, world.space, world.navigation);
     const crossings = worldRoadCrossings(world.space.roads);
+    // Built at the first tap, so a tap measures only the nodes near it, not the whole world.
+    let tapIndex: ReturnType<typeof createTapIndex> | null = null;
     let sequence = initial.sequence ?? 0, sector = initial.sector!, tile = initial.tile!;
     let held: WorldPoint | null = null, frame = 0, last = 0, lastSend = 0;
     let inFlight = false, disposed = false, stale = false, sentCursor = '', resyncing = false, drag: { x: number; y: number; moved: boolean } | null = null;
@@ -99,7 +101,7 @@ export async function mountContinuousWorld(host: Host) {
                 y: walker.position.y + (event.clientY - rect.top - rect.height / 2) / scale };
             const chunk = renderer.chunks.get(sector)!, col = Math.floor(point.x - chunk.x), row = Math.floor(point.y - chunk.y);
             if (col >= 0 && col < 12 && row >= 0 && row < 12 && host.onTapTile?.(row * 12 + col)) { drag = null; held = null; return; }
-            const candidates = tapCandidates(world.nodes.values(), point, crossings);
+            const candidates = (tapIndex ??= createTapIndex(world.nodes.values()))(point, crossings);
             const cursor = walker.cursor(world.space.layoutVersion);
             const closest = candidates.find(({ node }) => world.model.distanceWithin(cursor,
                 { layoutVersion: cursor.layoutVersion, from: node.id, to: node.id, progress: 0 }, 32) !== null);

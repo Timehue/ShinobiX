@@ -46,6 +46,10 @@ export const STRONGHOLD_INTEL_ROOM_ID = 6;
 export const STRONGHOLD_INTEL_TILE = strongholdIndex(23, 11);
 
 const floorTemplates = new Map<boolean, StrongholdTile[]>();
+/** The shared floor itself, for read-only lookups: a step reads one tile, not a copy of all 851. */
+function strongholdTemplate(sector: number): readonly Readonly<StrongholdTile>[] {
+    return floorTemplates.get(isDeathsGateStronghold(sector)) ?? (buildStrongholdTiles(sector), floorTemplates.get(isDeathsGateStronghold(sector))!);
+}
 export function buildStrongholdTiles(sector = 0): StrongholdTile[] {
     const key = isDeathsGateStronghold(sector), template = floorTemplates.get(key);
     if (template) return template.map(tile => ({ ...tile }));
@@ -123,7 +127,7 @@ export function canStepStronghold(from: number, to: number, sector = 0): boolean
     if (!Number.isInteger(to) || to < 0 || to >= STRONGHOLD_DIMS.width * STRONGHOLD_DIMS.height) return false;
     const width = STRONGHOLD_DIMS.width;
     const adjacent = Math.abs(from % width - to % width) + Math.abs(Math.floor(from / width) - Math.floor(to / width)) === 1;
-    const tile = buildStrongholdTiles(sector)[to];
+    const tile = strongholdTemplate(sector)[to];
     return adjacent && tile.kind === 'empty' && !tile.solid;
 }
 

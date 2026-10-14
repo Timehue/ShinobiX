@@ -25,6 +25,10 @@ export function SectorHud(props: WorldSectorCommandPanelProps & {
         onHunt, onOpenSectorContest, villageWarAdmissionOpen } = props;
     // Mobile info expands into the scrollable page; desktop uses a sheet.
     const [sheet, setSheet] = useState<'info' | 'chat' | null>(null);
+    // The HUD stays mounted across sectors (remounting it was the crossing's
+    // longest task), so what a remount reset is reset here: an open sheet closes.
+    const [sheetSector, setSheetSector] = useState(sector);
+    if (sheetSector !== sector) { setSheetSector(sector); setSheet(null); }
     const open = sheet === 'info';
     const setOpen = (next: boolean) => setSheet(next ? 'info' : null);
     // Stable, so the memoised chat skips the HUD's re-renders (it only calls setSheet).
@@ -34,8 +38,8 @@ export function SectorHud(props: WorldSectorCommandPanelProps & {
     const triggerRef = useRef<HTMLButtonElement | null>(null);
     const id = useId();
     const originVersion = useRef(0);
-    // Closing this HUD retires read-only navigation, even if WorldMap stays mounted.
-    useLayoutEffect(() => () => { originVersion.current += 1; }, []);
+    // Leaving the sector, or closing this HUD, retires read-only navigation, even if WorldMap stays mounted.
+    useLayoutEffect(() => () => { originVersion.current += 1; }, [sector]);
     const run = (key: string, fromSector: number, intent: SectorPlayerIntent) => {
         const version = originVersion.current;
         onPlayerAction(key, fromSector, intent, () => originVersion.current === version);
@@ -97,7 +101,7 @@ export function SectorHud(props: WorldSectorCommandPanelProps & {
         <section className="sector-nearby" aria-label="Nearby players">
             <SectorNearby sector={sector} biome={biome} players={players} present={present}
                 rosterState={rosterState} action={playerAction} onAction={run} />
-            <SectorChat sector={sector} present={present} playerName={chatName} hudRef={rootRef}
+            <SectorChat key={sector} sector={sector} present={present} playerName={chatName} hudRef={rootRef}
                 sheetOpen={sheet === 'chat'} onSheet={setChatSheet} inline={compact} />
         </section>
         {!compact && open && <SectorHudPanel id={`${id}-info`} rootRef={rootRef} onClose={close} title="Sector Info">
