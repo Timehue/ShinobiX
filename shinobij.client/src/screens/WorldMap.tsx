@@ -222,6 +222,7 @@ import { useSectorIntelPlate } from "../lib/village-intel";
 import { confirmSectorBattleRegistration, engageOpenSectorBattle, isVillageWarMapEnabled, villageAccent } from "../lib/village-war-map";
 import { useAcademyWorldMapFocus, useWorldMapZoom } from "../lib/use-world-map-zoom";
 import { SectorOwnershipOverlay } from "../components/SectorOwnershipOverlay";
+import { WorldMapPin } from "../components/WorldMapPin";
 import { isMercAiId } from "../lib/merc-ai";
 import { fetchSectorRoster, engageMerc, mercEngageMessage, synthMercWanderer, type RoamingMercView } from "../lib/merc-roam-client";
 import { sectorEngagementFor, sectorContestEntryFor, sectorContestGarrisonReady, viewerSectorContest, beginSectorContest, beginOpenSectorBattle, type SectorWarContestView } from "../lib/sector-war-engagement";
@@ -444,7 +445,6 @@ function WorldMapContent({
     // breach minutes, contest end, trails) refresh on this 5s visible-only tick, not a 1s full re-render.
     const raidStartCooldownMs = useLiveActionDeadline(raidStartActionScope(character.name));
     const [, setMapClockTick] = useState(0);
-    useEffect(() => visiblePoll(() => setMapClockTick((tick) => tick + 1), 5_000, 0), []);
     const pendingBountyHunterRef = useRef<{ hunterId: string; sector: number } | null>(null);
     const bountyHunterStartInFlightRef = useRef(false);
     const [authoritativeHuntStates, setAuthoritativeHuntStates] = useState<Record<string, WorldHuntTrailView>>({});
@@ -2638,6 +2638,9 @@ function WorldMapContent({
         ?? locations.find((location) => location.name === character.village)
         ?? { x: 20, y: 20 };
     const wmZoom = useWorldMapZoom(getWorldMapRegionForPoint(mapOpeningPoint.x, mapOpeningPoint.y));
+    useEffect(() => visiblePoll(() => {
+        if (!wmZoom.isGestureActive()) setMapClockTick((tick) => tick + 1);
+    }, 5_000, 0), [wmZoom.isGestureActive]);
     const wmFrameRef = useWorldMapLayout(wmZoom.active);
     // Marker layout (0–100 grid), hand-curated. Each village's nearby sectors
     // cluster around its banner; neutral sectors spread across the mid-map. A
@@ -5079,23 +5082,13 @@ function WorldMapContent({
                 ref={wmZoom.viewportRef}
                 {...wmZoom.viewportHandlers}
             >
+            <div className="wm-camera" ref={wmZoom.contentRef}>
             <div
                 className="anime-world-map atlas-world-map generated-world-map"
-                ref={wmZoom.contentRef}
                 style={{ backgroundImage: `url(${worldMapBg})`, ...wmZoom.contentStyle }}
             >
-                {/* Gentle magical-dust + light-sweep over the whole world (sits
-                    behind the z-10 sector/village markers). Keeps the overworld
-                    feeling alive without obscuring the painted map.
-
-                    Both particle canvases are DESKTOP-ONLY. In mobile zoom mode the
-                    map rides a ~3x cover scale, so each canvas is magnified far past
-                    its backing store into indistinct mush — while its rAF loop keeps
-                    repainting the full-bleed layer. Measured at 390x844 on a 4x-
-                    throttled CPU, dropping these two took the idle map from 47 to 61
-                    fps: a third of the phone's frame budget, spent on smears nobody
-                    can resolve. The time-of-day wash below is a static two-div tint
-                    on a 60s timer, so it stays on every device. */}
+                {/* Desktop particle canvases stay below the map pins. Mobile
+                    keeps the static time-of-day wash without their paint loops. */}
                 {!wmZoom.active && <SceneAmbience biome="central" intensity={0.5} />}
                 {/* Real-clock time-of-day wash + a high, sparse bird flock drifting
                     over the atlas. Both sit below the z-10 markers. */}
@@ -5114,17 +5107,17 @@ function WorldMapContent({
                 ))}
                 {/* The road graph + region name plates — the connective tissue
                     that makes the scattered sector markers read as one world. */}
-                <WorldRoadsOverlay />
+                <WorldRoadsOverlay counterScalePins={wmZoom.active} />
                 {/* Name plaques for the eight headline places — the 2026-07
                     keyart carries no baked lettering. */}
-                <WorldPoiPlates />
+                <WorldPoiPlates counterScalePins={wmZoom.active} />
                 {/* Hovered (or in-flight) walking route from where the player
                     stands — the sandbox-MMO-style "how would I walk there" glow. */}
                 <RouteGlowOverlay from={currentSector} to={routeHoverSector} />
                 {sectorPoints.map((sector) => {
                     if (sector.id === FESTIVAL_SECTOR) return (
+                        <WorldMapPin key={sector.id} active={wmZoom.active} x={sector.x} y={sector.y} layer={currentSector === sector.id ? 24 : 10}>
                         <button
-                            key={sector.id}
                             className={"atlas-sector atlas-sector-central" + (currentSector === sector.id ? " atlas-sector-current" : "")}
                             style={{ left: sector.x + "%", top: sector.y + "%" }}
                             onClick={() => triggerTravelPoint(sector.id)}
@@ -5134,6 +5127,7 @@ function WorldMapContent({
                             {currentSector === sector.id && <span className="atlas-you-label" aria-hidden="true">YOU</span>}
                             <img src={festivalMarkerArt} alt="" style={{ width: 28, height: 28, objectFit: "cover", borderRadius: "50%" }} />
                         </button>
+                        </WorldMapPin>
                     );
                     const huntTrail = huntTrailForSector(sector.id);
                     const sectorShrine = isSectorTracesEnabled() ? shrineForSector(sector.id) : undefined;
@@ -5150,8 +5144,9 @@ function WorldMapContent({
                             ? `${huntTrail.mission.name} trail | ${sectorName(sector.id) ?? `Sector ${sector.id}`} (S${sector.id})`
                             : `${sectorName(sector.id) ?? `Sector ${sector.id}`} (S${sector.id}) | ${weatherEffects[weatherForSector(sector.id, biomeForSector(sector.id))].name}${sectorShrine ? ` | ⛩ ${sectorShrine.name}` : ""}`;
                     return (
+                    <WorldMapPin key={sector.id} active={wmZoom.active} x={sector.x} y={sector.y}
+                        layer={currentSector === sector.id ? 24 : sector.id === worldBossSector || sector.id === weeklyBossSector ? 12 : 10}>
                     <button
-                        key={sector.id}
                         className={
                             (sector.id === 99
                                 ? "atlas-sector atlas-sector-deaths-gate"
@@ -5209,12 +5204,13 @@ function WorldMapContent({
                             <span className="academy-map-target-label" aria-hidden="true">Next · travel here</span>
                         )}
                     </button>
+                    </WorldMapPin>
                 ); })}
 
                 {/* Village War Map ownership: holder banners + siege pulses over the
                     sector markers. Flag-gated (villageWarMap.v1) + pointer-events:none,
                     so it stays inert/invisible on the default world map. */}
-                {warMapOn && <SectorOwnershipOverlay sectorPoints={sectorPoints} />}
+                {warMapOn && <SectorOwnershipOverlay sectorPoints={sectorPoints} counterScalePins={wmZoom.active} />}
 
                 {/* Roaming weekly boss: the boss's current sector NODE is highlighted
                     in-place (pulsing ring + 👹 flag, see weeklyBossSector above and
@@ -5228,8 +5224,9 @@ function WorldMapContent({
                     on the atlas was cluttering the village markers.) */}
 
                 {locations.map((location) => (
+                        <WorldMapPin key={location.name} active={wmZoom.active} x={location.x} y={location.y}
+                            layer={currentSector === 0 && location.name === character.village ? 24 : 7}>
                         <button
-                            key={location.name}
                             className={"atlas-landmark atlas-" + location.type + (currentSector === 0 && location.name === character.village ? " atlas-current-location" : "")}
                             style={{
                                 left: location.x + "%",
@@ -5243,6 +5240,7 @@ function WorldMapContent({
                             {currentSector === 0 && location.name === character.village && <span className="atlas-you-label" aria-hidden="true">YOU</span>}
                             <img className="atlas-landmark-art" src={location.art} alt="" draggable={false} />
                         </button>
+                        </WorldMapPin>
                 ))}
 
                 {/* (The Hollow Gate Rift structure is deliberately NOT drawn on the
@@ -5262,6 +5260,7 @@ function WorldMapContent({
                     </div>
                 ))}
             </div>
+            </div>{/* end wm-camera */}
             </div>{/* end world-map-scroll */}
             {firstContractVisible(character) && (
                 <button

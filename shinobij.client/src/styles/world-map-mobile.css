@@ -59,6 +59,12 @@
 }
 
 @media (max-width: 979px) {
+    .wm-camera { display: contents; }
+    html.wm-zoom .world-map-scroll > .wm-camera {
+        display: block;
+        width: 100%;
+        transform-origin: 0 0;
+    }
     /* The help trigger is in the topbar. Keep transient road messages just
        above navigation; the measured frame reserves their space while open. */
     html.wm-zoom body:has(.world-atlas-card) > .sage-whisper {
@@ -173,6 +179,24 @@
         filter: none;
     }
 
+    /* Even an off-camera pulse invalidates the transformed atlas. Preserve
+       the static boss/siege cues without continuously painting them on phones. */
+    html.wm-zoom .world-map-scroll :is(.atlas-sector-deaths-gate, .atlas-sector-weekly-boss, .atlas-sector-world-boss, .atlas-boss-flag, .atlas-hunt-flag, .vw-claim-ring, .vw-banner) {
+        animation: none !important;
+    }
+
+    /* A shadow filter on each road created ~95 separate filtered surfaces.
+       Roads stay readable through their existing pale, rounded dashed stroke. */
+    html.wm-zoom .world-map-scroll :is(.world-road, .vw-banner) {
+        filter: none;
+    }
+    html.wm-zoom .world-map-scroll .world-biome-glow {
+        filter: none;
+    }
+    html.wm-zoom .world-atlas-card .wm-village-chip {
+        backdrop-filter: none;
+    }
+
     html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .world-atlas-frame > .wm-village-bar {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -279,6 +303,8 @@
     html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .world-map-scroll .atlas-sector.academy-click-target {
         width: 48px !important;
         height: 48px !important;
+        min-width: 48px !important;
+        min-height: 48px !important;
     }
 
     html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .world-map-scroll button.atlas-landmark[data-landmark-art="true"] {
@@ -296,11 +322,27 @@
        Paint feedback keeps its existing 150ms easing. */
     html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .world-map-scroll .atlas-sector,
     html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .world-map-scroll button.atlas-landmark[data-landmark-art="true"] {
-        transition: transform var(--wm-marker-motion, 0s), filter 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+        transition: transform 150ms ease, filter 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
     }
 
-    html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .world-map-scroll :is(.world-region-label, .world-poi-plate, .vw-sector-claim) {
-        transition: transform var(--wm-marker-motion, 0s);
+    .wm-scale-pin {
+        position: absolute;
+        width: 0;
+        height: 0;
+        transform-origin: 0 0;
+        pointer-events: none;
+        transition: scale var(--wm-marker-motion, 0s);
+    }
+    html.wm-zoom .world-map-scroll .wm-scale-pin > :is(.atlas-sector, .atlas-landmark, .world-region-label, .world-poi-plate, .vw-sector-claim) {
+        left: 0 !important;
+        top: 0 !important;
+    }
+    .wm-scale-pin > :is(.atlas-sector, .atlas-landmark) {
+        pointer-events: auto;
+    }
+    @media (hover: hover) {
+        .wm-scale-pin:has(> .atlas-sector:hover) { z-index: 20 !important; }
+        .wm-scale-pin[data-map-layer="24"]:has(> .atlas-sector:hover) { z-index: 24 !important; }
     }
 
     html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .world-map-scroll .world-poi-plate {
@@ -324,6 +366,9 @@
        needed here. */
 
     @media (prefers-reduced-motion: reduce) {
+        html.wm-zoom .world-map-scroll :is(.wm-camera, .wm-scale-pin) {
+            transition: none !important;
+        }
         html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .wm-village-chip {
             transition: none;
         }
