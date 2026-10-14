@@ -190,7 +190,7 @@ Full details in `docs/auth-and-anti-cheat-patterns.md`. The load-bearing invaria
   - `npm run test:e2e` — the cross-browser responsive + accessibility smoke
     (`e2e/`, 5 browser projects). It has grown to ~2,000 cases: **~37 min
     locally** (measured 2026-09-27 on Windows: 1,330 passed, ~700 skipped by
-    project); CI splits it across 3 shards. For a narrow change, run the
+    project); CI splits it across 5 shards. For a narrow change, run the
     affected specs first (see below).
   - `npm run test:e2e:combat-layout` — the combat layout / jutsu-arming matrix
     (`e2e-live/combat-layout-matrix.spec.ts`). **30–50 min locally**, depending
