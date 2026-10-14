@@ -991,7 +991,16 @@ const INITIAL_GRAPH_FAIL_BYTES = 1_500_000;
 // ~30 B between builds, so the merge image read 395,511 B and blocked the deploy.
 // Re-baselined, with the owner's approval, to 396,500 B for ~1 KB of variance. The
 // next startup addition should still trim its own code first.
-const INITIAL_GRAPH_GZIP_FAIL_BYTES = 396_500;
+// 2026-10-14 JUTSU FRAMES: 9f96bc698 imports styles/jutsu-frames.css (16.3 KB raw,
+// ~2.8 KB gzip) at the END of index.css, so it loads at startup. Main's own image
+// then read 398,034 B and every deploy stopped. It cannot simply move to a lazy
+// chunk: profile-skin, jutsu-training-skin, battle-skin, veiled-steel,
+// mobile-noncombat-aaa and several index partials style the same classes, and
+// its last-in-index.css position is what wins those ties. Re-baselined, with the
+// owner's approval, to 399,000 B (~1 KB of variance). The bytes already ship in
+// main; this only lets deploys through. Moving that stylesheet out of startup,
+// with its cascade verified, is the trim the next startup addition owes.
+const INITIAL_GRAPH_GZIP_FAIL_BYTES = 399_000;
 const SENTRY_VENDOR_FAIL_BYTES = 100_000;
 const SENTRY_VENDOR_RE = /^assets\/sentry-vendor-[^/]+\.js$/;
 // Three.js, React Three Fiber, Drei, and postprocessing are intentionally one
