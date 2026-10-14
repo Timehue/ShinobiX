@@ -45,6 +45,9 @@ import { useShowdownPointGeometry } from "./use-showdown-point-geometry";
 import { petBloomEnabled } from "../lib/pet-coliseum-flag";
 import * as THREE from "three";
 import { PetModel3D, DEFAULT_PET_MODEL_FRAME, type PetModelFrame } from "./PetModel3D";
+import { PetCollarAura } from './PetCollarAura';
+import { petModelVariantSurface } from '../lib/pet-visual-variant';
+import type { PetModelSurfaceTreatment } from '../lib/pet-model-surface';
 import { PetModelBoundary } from "./PetModelBoundary";
 import { WildBindingArenaFx, type WildBindingCinematic } from "./WildBindingArenaFx";
 import { PetSwitchSealFx } from "./pet-showdown/pet-switch-seal-fx";
@@ -370,6 +373,8 @@ interface FighterSlotInfo {
     basePos: [number, number, number];
     model: PetCombatModelConfig | null;
     fallbackImage: string;
+    collarId?: string;
+    surface?: PetModelSurfaceTreatment;
 }
 
 function slotPositions(count: number, side: "player" | "enemy"): [number, number, number][] {
@@ -1670,7 +1675,8 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
                             reticle, rings and popups are siblings and keep
                             their shared scale. */}
                         <group scale={(modelCalibration?.modelScale ?? 1) * rarityScale}>
-                            <PetModel3D config={info.model} frame={frame} element={info.view.element} signature={signature} quality={quality} />
+                            <PetModel3D config={info.model} frame={frame} element={info.view.element} signature={signature} quality={quality} surfaceTreatment={info.surface} />
+                            {!ko && info.collarId && <PetCollarAura collarId={info.collarId} timeline={timeline} haloVisible={quality.id !== 'low'} />}
                         </group>
                         </PetSummon3D>
                     </Suspense>
@@ -2522,6 +2528,7 @@ function PetShowdownBattleView({ initialState, playerPets, sharedImages, submitT
                 view, side: "player", basePos: playerPos[i],
                 model: petCombatModel(petLike),
                 fallbackImage: petCardImage(petLike, sharedImages),
+                collarId: petLike.loadout?.collar, surface: petModelVariantSurface(petLike),
             });
         });
         stateView.enemy.forEach((view, i) => {
@@ -2530,6 +2537,7 @@ function PetShowdownBattleView({ initialState, playerPets, sharedImages, submitT
                 view, side: "enemy", basePos: enemyPos[i],
                 model: petCombatModel(petLike),
                 fallbackImage: petCardImage(petLike, sharedImages),
+                collarId: petLike.loadout?.collar, surface: petModelVariantSurface(petLike),
             });
         });
         return map;

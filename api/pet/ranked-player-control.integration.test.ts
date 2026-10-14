@@ -24,10 +24,11 @@ async function call(handler: Handler, name: string, body: Record<string, unknown
     await handler({ method: 'POST', body, headers: { 'x-player-token': issuePlayerToken(name) }, socket: { remoteAddress: '203.0.113.147' } } as never, res as never);
     return output;
 }
-const builds = () => ['starter-fire', 'starter-water', 'starter-lightning', 'starter-earth'].map(id => tacticsPreset(id));
+const builds = () => ['starter-fire', 'starter-water', 'starter-lightning', 'starter-earth'].map(id => ({ ...tacticsPreset(id), ownedPetId: id }));
+const ownedPets = () => builds().map(b => ({ id: b.ownedPetId, templateId: b.speciesId, name: b.speciesId, rarity: 'standard', element: 'Fire' }));
 async function pair(prefix: string) {
     const a = `${prefix}a`, b = `${prefix}b`;
-    for (const name of [a, b]) await kv.set(`save:${name}`, { _saveVersion: 1, character: { name, level: 40, ryo: 500, petRankedRating: 1000, pets: [] } });
+    for (const name of [a, b]) await kv.set(`save:${name}`, { _saveVersion: 1, character: { name, level: 40, ryo: 500, petRankedRating: 1000, pets: ownedPets() } });
     const first = await call(queue, a, { action: 'join', builds: builds() }); assert.equal(first.body.state, 'queued');
     const second = await call(queue, b, { action: 'join', builds: builds() }); assert.equal(second.body.state, 'active');
     assert.equal(second.body.control, PET_ARENA_RANKED_CONTROL);
@@ -66,7 +67,7 @@ test('premature reports cannot rate a match; terminal concession rates both save
     const sa = await kv.get<any>(`save:${a}`), sb = await kv.get<any>(`save:${b}`);
     assert.ok(sa.character.petRankedRating > 1000); assert.ok(sb.character.petRankedRating < 1000);
     assert.equal(sa.character.petRankedRating + sb.character.petRankedRating, 2000);
-    assert.equal(sa.character.ryo, 500); assert.deepEqual(sa.character.pets, []);
+    assert.equal(sa.character.ryo, 500); assert.deepEqual(sa.character.pets.map((p: { id: string }) => p.id), ownedPets().map(p => p.id));
     const peerReplay = await call(settle, b, { ...report, playerName: b, opponentName: a, outcome: 'win' });
     assert.equal(peerReplay.status, 200); assert.equal(peerReplay.body.outcome, 'loss');
     const retries = await Promise.all(Array.from({ length: 4 }, () => call(settle, a, report)));
@@ -87,7 +88,7 @@ test('active ranked reservations recover rather than opening another room, and f
 
 test('a failed half-admission repairs from durable intent and never resets accepted commands', async () => {
     const a = 'repairranka', b = 'repairrankb';
-    for (const name of [a, b]) await kv.set(`save:${name}`, { _saveVersion: 1, character: { name, level: 40, petRankedRating: 1000, pets: [] } });
+    for (const name of [a, b]) await kv.set(`save:${name}`, { _saveVersion: 1, character: { name, level: 40, petRankedRating: 1000, pets: ownedPets() } });
     await rankedArenaQueue(a, 'join', { builds: builds() });
     let failed = false;
     const faulty = { ...rankedArenaDependencies, store: { ...kv, set: async (...args: Parameters<typeof kv.set>) => {

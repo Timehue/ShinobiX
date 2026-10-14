@@ -164,11 +164,16 @@ for (const mode of ['active', 'completed', 'without-webgl2'] as const) {
         }
         // Back at matchmaking the queue control belongs to the Pet Arena, which
         // sits beside the retained-result box rather than inside it.
-        await expect(page.getByRole('button', { name: 'Find ranked match', exact: true })).toBeEnabled();
+        const findMatch = page.getByRole('button', { name: 'Find ranked match', exact: true });
+        await expect(findMatch).toBeDisabled();
+        const carried = page.locator('.pta-roster-pet');
+        await expect(carried).toHaveCount(myTeam.length);
+        for (let index = 0; index < myTeam.length; index++) await carried.nth(index).click();
+        await expect(findMatch).toBeEnabled();
         // The App's character must adopt the server response/current save;
         // replay-only local state would leave the pre-match 1000 Elo in the
-        // ladder header. (The Pet Arena roster lists species, not the save's
-        // pets, so the rating is the visible signal.)
+        // ladder header. The builder must also show the adopted owned pet name.
+        await expect(carried.filter({ hasText: 'Authoritative ranked companion' })).toHaveCount(1);
         await expect(page.locator('.pl-rank-num').first()).toHaveText('1012');
         await expect(page.getByRole('complementary', { name: 'Device and server saves diverged' })).toHaveCount(0);
         expect(acknowledged).toBe(true);
@@ -184,10 +189,19 @@ test('Pet Arena queues the selected squad for a ranked match', async ({ page }) 
     test.setTimeout(60_000);
     const errors: string[] = [];
     page.on('pageerror', error => errors.push(error.message));
-    const runtime = await installUiAuditRuntime(page);
-    const joins: Array<{ action: string; builds?: Array<{ speciesId: string }> }> = [];
+    const save = uiAuditSave();
+    // Two instances of one species must remain separately selectable. None of
+    // these companions is a loaned starter from the old default squad.
+    const pets = [1, 1, 3, 4].map((species, index) => ({
+        id: `owned-ranked-${index}`, templateId: `standard-${species}`, name: `Carried fighter ${index + 1}`,
+        rarity: 'standard', level: 40, hp: 900, attack: 120, defense: 70, speed: 80,
+        element: 'Fire', role: 'assassin', jutsus: [],
+    }));
+    save.character = { ...save.character, pets, activePetId: pets[0].id };
+    const runtime = await installUiAuditRuntime(page, save);
+    const joins: Array<{ action: string; builds?: Array<{ speciesId: string; ownedPetId?: string }> }> = [];
     await page.route('**/api/pvp/pet-ranked-queue', route => {
-        const body = route.request().postDataJSON() as { action: string; builds?: Array<{ speciesId: string }> };
+        const body = route.request().postDataJSON() as { action: string; builds?: Array<{ speciesId: string; ownedPetId?: string }> };
         if (body.action === 'join') { joins.push(body); return json(route, { state: 'queued' }); }
         return json(route, { state: 'idle' });
     });
@@ -197,13 +211,18 @@ test('Pet Arena queues the selected squad for a ranked match', async ({ page }) 
 
     await expectUiAuditBoot(page, runtime, 'petLadder');
     const findMatch = page.getByRole('button', { name: 'Find ranked match', exact: true });
+    await expect(findMatch).toBeDisabled({ timeout: showdownLoadTimeout });
+    const carried = page.locator('.pta-roster-pet');
+    await expect(carried).toHaveCount(pets.length);
+    const chosen = [2, 0, 3, 1];
+    for (const index of chosen) await carried.filter({ hasText: pets[index].name }).click();
     await expect(findMatch).toBeEnabled({ timeout: showdownLoadTimeout });
-    await expect(page.getByRole('heading', { name: 'Build your squad 4/4 selected' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Choose your carried companions.*4\/4 selected/ })).toBeVisible();
     await findMatch.click();
     await expect.poll(() => joins.length).toBe(1);
-    // The default squad is the four starter builds, sent as full builds (not pet ids).
+    expect(joins[0].builds?.map(build => build.ownedPetId)).toEqual(chosen.map(index => pets[index].id));
     expect(joins[0].builds?.map(build => build.speciesId))
-        .toEqual(['starter-fire', 'starter-water', 'starter-lightning', 'starter-earth'].map(id => tacticsPreset(id).speciesId));
+        .toEqual(chosen.map(index => tacticsPreset(pets[index].templateId).speciesId));
     expect(errors).toEqual([]);
 });
 
