@@ -15,7 +15,6 @@ import {
 import type { CSSProperties, Dispatch, ReactElement, SetStateAction } from "react";
 import "../styles/central-skin.css";
 import "../styles/central-hub-forge.css";
-import "../styles/jutsu-frames.css";
 // Compact local location and material glyphs shared with the rest of the game.
 import {
     GiCrossedSwords, GiDragonHead, GiBookshelf,
