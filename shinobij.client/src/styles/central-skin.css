@@ -468,7 +468,7 @@
    when the device viewport is landscape. Choose the district-card layout from
    the width it actually receives, so medium tablet/4:3 views do not squeeze
    card copy into a sliver beside the artwork. */
-@container central-directory (max-width: 620px) {
+@container central-directory (max-width: 760px) {
     .central-hub .central-grid {
         grid-template-columns: minmax(0, 1fr) !important;
     }
@@ -580,6 +580,16 @@
     min-width: 0;
     gap: 6px;
     padding-block: 15px;
+}
+
+/* Preserve the two-column desktop directory in narrower application rails.
+   Scale the artwork and gutters before sacrificing the reference layout. */
+@container central-directory (min-width: 760px) and (max-width: 900px) {
+    .central-hub .central-card {
+        grid-template-columns: clamp(112px, 14cqw, 132px) minmax(0, 1fr) 16px !important;
+        gap: 10px !important;
+        padding: 0 9px 0 0 !important;
+    }
 }
 
 .central-card-meta {
@@ -895,6 +905,48 @@
     .central-hub .central-card strong { font-size: 12.5px !important; }
     .central-hub .central-card small { font-size: 10px !important; }
     .central-card-arrow { width: 16px; }
+}
+
+/* A compact directory needs the full card width for its destination copy.
+   Measure its container so this also holds beside desktop application rails. */
+@container central-directory (max-width: 380px) {
+    .central-hub .central-card {
+        grid-template-columns: minmax(0, 1fr) !important;
+        grid-template-rows: 96px auto;
+        gap: 0 !important;
+        padding: 0 !important;
+    }
+
+    .central-card-art {
+        border-right: 0;
+        border-bottom: 1px solid rgba(var(--district-accent-rgb), 0.24);
+    }
+
+    .central-card-art img {
+        min-height: 0;
+        height: 100%;
+        object-position: center 45%;
+    }
+
+    .central-card-content {
+        padding: 14px 34px 16px 14px;
+        gap: 8px;
+    }
+
+    .central-card-meta {
+        flex-wrap: wrap;
+        gap: 6px 10px;
+    }
+
+    .central-card-kicker { font-size: 9px; }
+    .central-card-badge { max-width: 100%; font-size: 9px; }
+    .central-hub .central-card strong { font-size: 16px !important; }
+    .central-hub .central-card small { font-size: 12px !important; line-height: 1.5; }
+    .central-card-arrow {
+        position: absolute;
+        inset-inline-end: 12px;
+        inset-block-end: 18px;
+    }
 }
 
 /* First-visit tips on the two record/commerce destinations used to force the

@@ -819,6 +819,23 @@ test('a hidden sector HUD retires its pending spectator navigation even after re
     await expect.poll(()=>page.evaluate(()=>window.sectorFixture.events.at(-1))).toBe('spectator-cancelled');
 });
 
+// The World Map keeps one HUD across sectors, so crossing must retire what the
+// last sector started, as remounting the HUD used to.
+test('crossing into another sector retires a pending spectator navigation',async({page})=>{
+    await page.goto('/e2e/fixtures/sector-hud.html');
+    await expect(page.locator('.sector-hud')).toBeVisible();
+    await page.evaluate(()=>window.sectorFixture.configure({contest:false,hunt:false,fighting:true,pending:true}));
+    await page.getByRole('button',{name:'Spectate A Very Long Shinobi Name From the Northern Watch'}).click();
+    await expect(page.getByRole('button',{name:'Spectate A Very Long Shinobi Name From the Northern Watch'})).toHaveText('Opening…');
+    await page.evaluate(()=>window.sectorFixture.configure({sector:23}));
+    // The same HUD now names the new sector, so the crossing has committed
+    // before the pending navigation is allowed to finish.
+    await expect(page.locator('.sector-hud-heading')).toContainText(/Sector 23\b/);
+    await expect(page.locator('.sector-hud')).toHaveCount(1);
+    await page.evaluate(()=>window.sectorFixture.finish());
+    await expect.poll(()=>page.evaluate(()=>window.sectorFixture.events.at(-1))).toBe('spectator-cancelled');
+});
+
 
 type ChatLine = {id:string;name:string;text:string;ts:number;village?:string;level?:number};
 async function chatServer(page: Page, options: {refuseFirstPost?: boolean} = {}) {

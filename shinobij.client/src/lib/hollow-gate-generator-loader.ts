@@ -61,4 +61,14 @@ export function warmHollowGateGenerator(): void {
     const swallow = () => { /* the awaited call site reports the real failure */ };
     void loadHollowGateGenerator().catch(swallow);
     void loadHollowGateTileRuntime().catch(swallow);
+    void loadHollowGateMovementDrain().catch(swallow);
+}
+
+/**
+ * The step queue that seals each move with the server. Every step goes through
+ * it, so it is warmed with the chunks above: the first step of a run no longer
+ * waits for a download before its request can leave.
+ */
+export function loadHollowGateMovementDrain() {
+    return retryDynamicImport(() => import("./hollow-gate-movement-drain"));
 }

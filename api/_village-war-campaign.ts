@@ -1,5 +1,6 @@
 import { randomInt } from 'node:crypto';
 import { kv } from './_storage.js';
+import { readKvProjection, type KvProjection } from './_storage-projection.js';
 import { withKvLock } from './_lock.js';
 import { commitWarBattleSettlement } from './_war-battle-settlement.js';
 import { HOME_SECTORS, isWarVillage } from './_war-map-sectors.js';
@@ -89,4 +90,53 @@ export async function villageCampaignStronghold(village: string, sector: number)
         if (objective) return { war, objective };
     }
     return null;
+}
+
+/** The war-row fields villageCampaignStronghold decides on, read where each row lives. */
+const CAMPAIGN_STRONGHOLD_PROJECTION: KvProjection = {
+    villages: ['villages'],
+    endedAt: ['endedAt'],
+    declarationFunding: ['declarationFunding'],
+    startsAt: ['campaign', 'startsAt'],
+    endsAt: ['campaign', 'endsAt'],
+    strongholds: ['campaign', 'strongholds'],
+};
+
+/**
+ * villageCampaignStronghold's decision for one sector, before the village is
+ * known, so the war rows can be read alongside the player's save. A stronghold
+ * step checks this on every tile, and each war row carries every receipt and
+ * admission of a five-day campaign; this reads only the fields the decision
+ * uses. The returned lookup answers exactly as villageCampaignStronghold's
+ * objective would.
+ */
+export async function villageCampaignStrongholdLookup(sector: number): Promise<(village: string) => CampaignStrongholdObjective | null> {
+    const keys = await kv.keys('world:war:*');
+    const rows = keys.length ? await readKvProjection(kv, keys, CAMPAIGN_STRONGHOLD_PROJECTION) : [];
+    const now = Date.now();
+    const wars = rows.flatMap(row => {
+        if (!row || !Array.isArray(row.villages)) return [];
+        const hasCampaign = row.startsAt !== undefined || row.endsAt !== undefined || row.strongholds !== undefined;
+        const war = {
+            villages: row.villages as [string, string],
+            ...(row.endedAt !== undefined ? { endedAt: row.endedAt as number } : {}),
+            ...(row.declarationFunding !== undefined ? { declarationFunding: row.declarationFunding as { status: string } } : {}),
+            ...(hasCampaign ? { campaign: { startsAt: row.startsAt, endsAt: row.endsAt, strongholds: row.strongholds ?? [] } as unknown as VillageCampaign } : {}),
+        } as CampaignWarRow;
+        return [war];
+    });
+    return (village: string) => {
+        for (const war of wars) {
+            if (!war.villages.includes(village) || !campaignWarPlayable(war, now)) continue;
+            const objective = war.campaign!.strongholds.find(o => o.sector === sector);
+            if (objective) return objective;
+        }
+        return null;
+    };
+}
+type CampaignStrongholdObjective = VillageCampaign['strongholds'][number];
+
+/** villageCampaignStronghold's objective alone, without transferring the war rows. */
+export async function villageCampaignStrongholdObjective(village: string, sector: number): Promise<CampaignStrongholdObjective | null> {
+    return (await villageCampaignStrongholdLookup(sector))(village);
 }

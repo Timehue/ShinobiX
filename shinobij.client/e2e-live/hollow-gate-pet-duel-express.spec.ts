@@ -28,6 +28,18 @@ import { SHOWDOWN_FORMAT_SIZE, type ShowdownFormat } from '../../shared/pet-show
  *     seals; the browser refuses a fresh entry without it.
  *   - GET /api/save/<name> reads the server save, to check what was and was
  *     not paid.
+ * ONE BROWSER REQUEST IS EDITED. Each /api/hollow-gate/floor-seal leaves
+ * without its `wanderersVersion` opt-in, so the server seals the floor without
+ * wanderers, as it does for an older browser. Since PR #347 (2026-10-12),
+ * three hostile wanderers start on first-floor battle tiles and hunt the
+ * diver. A step that ends within one tile of one is sealed as a battle ambush,
+ * and a hunter must be fought as a shinobi. The nearest battle tile was often
+ * a hunter's own starting tile, and the walk there met the hunter, so this
+ * spec failed in 2 runs of 4 on 2026-10-14. Steering around the hunters does
+ * not fix it: on about 45% of 320 sampled first floors, no walk within the
+ * threat budget reached a Hound without coming within one tile of a hunter.
+ * The wanderers are not this spec's subject, and
+ * api/hollow-gate/_wanderers.integration.test.ts covers them.
  * WHAT GOES THROUGH THE UI. Everything else: the World Map landmark, the
  * entry menu and its key confirmation (the server start spends the real key),
  * the augment the server offered, the walk to a Hound on the D-pad (each tile
@@ -48,11 +60,15 @@ import { SHOWDOWN_FORMAT_SIZE, type ShowdownFormat } from '../../shared/pet-show
  *
  * The floor is generated from the server's seed, so the spec learns it from
  * the manifest /api/hollow-gate/floor-seal returns and plans the shortest walk
- * to a Hound over empty floor. Every tile adds 4 threat and 100 opens an
- * ambush, so the walk must stay under 25 steps. Over 20,000 seeded first
- * floors the nearest Hound was 2 to 22 steps away (median 7). About one floor
- * in a thousand hid every Hound behind a trap, so a trap is crossed only when
- * there is no other way; its modal is answered like a player would.
+ * to a Hound over empty floor. The same reply lists the props' footprints.
+ * They are solid: the browser bumps into one without sending a step, and the
+ * server refuses one. A walk that ignored them ran into one on about 1 floor
+ * in 500, so the plan treats them as walls. Every tile adds 4 threat and 100
+ * opens an ambush, so the walk must stay under 25 steps. Of 20,000 seeded
+ * first floors sealed this way, all but one had a Hound 2 to 22 steps away
+ * (median 7). About one floor in 600 hid every Hound behind a trap, so a trap
+ * is crossed only when there is no other way; its modal is answered like a
+ * player would.
  *
  * The server's draw is random and this spec does not pin it: each run fights
  * whichever format was drawn and checks the browser against the server's
@@ -72,6 +88,8 @@ type FloorManifest = {
     walkable: string;
     nodes: Record<string, string>;
 };
+/** A prop's ground footprint (shared/underground-floor-features.ts): solid tiles. */
+type FloorFeature = { cells: number[] };
 type Fighter = { id: string; name: string; level: number };
 type DuelState = {
     sessionId: string;
@@ -256,11 +274,13 @@ type WalkPlan = { kind: 'battle' | 'elite'; path: number[] };
 /**
  * The shortest walk from the spawn to a Hollow Hound over empty floor. Other
  * tiles open their own modal or event, so they are refused, except a trap,
- * which is crossed only when nothing else reaches a Hound. A plain Hound tile
- * is preferred; an elite Hound is the same encounter at a harder grade.
+ * which is crossed only when nothing else reaches a Hound. A prop's footprint
+ * is a wall. A plain Hound tile is preferred; an elite Hound is the same
+ * encounter at a harder grade.
  */
-function planWalk(manifest: FloorManifest): WalkPlan {
+function planWalk(manifest: FloorManifest, features: readonly FloorFeature[]): WalkPlan {
     const { width: w, height: h, walkable, nodes } = manifest;
+    const solid = new Set(features.flatMap((feature) => feature.cells));
     const start = manifest.spawn.y * w + manifest.spawn.x;
     for (const kind of ['battle', 'elite'] as const) {
         const cost = new Map<number, number>([[start, 0]]);
@@ -282,7 +302,7 @@ function planWalk(manifest: FloorManifest): WalkPlan {
                 const ny = y + dy;
                 if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
                 const next = ny * w + nx;
-                if (walkable[next] !== '1') continue;
+                if (walkable[next] !== '1' || solid.has(next)) continue;
                 const tile = nodes[String(next)];
                 const stepCost = !tile || tile === kind ? 1 : tile === 'trap' ? 1_000 : Number.POSITIVE_INFINITY;
                 const total = cost.get(current)! + stepCost;
@@ -362,11 +382,22 @@ async function enterTheShrineFromTheMap(page: Page, info: TestInfo) {
     await page.getByRole('button', { name: 'Enter the shrine', exact: true }).click();
 }
 
+/** Seal every floor without wanderers, as for an older browser (see the header). */
+async function sealFloorsWithoutWanderers(page: Page) {
+    await page.route('**/api/hollow-gate/floor-seal', async (route) => {
+        const body = route.request().postDataJSON() as Json | null;
+        if (!body) return route.continue();
+        delete body.wanderersVersion;
+        return route.continue({ postData: JSON.stringify(body) });
+    });
+}
+
 async function startDiver(page: Page, request: APIRequestContext, info: TestInfo) {
     const pageErrors: string[] = [];
     page.on('pageerror', (error) => pageErrors.push(error.message));
     const diver = await seedDiver(request, info);
     await installSession(page, diver);
+    await sealFloorsWithoutWanderers(page);
     // Any other story scene that opens over the map is not this spec's
     // subject; skip it as a player would, whenever it appears.
     await page.addLocatorHandler(page.getByRole('dialog', { name: /visual novel scene/i }), async (scene) => {
@@ -399,10 +430,16 @@ async function sendPetFromTheShrine(page: Page, info: TestInfo, diver: Diver): P
     await confirmEntry.getByRole('button', { name: 'Enter', exact: true }).click();
     const started = await jsonOf<Dive['started']>(await startReply, 'hollow-gate/start');
     expect(started.token, 'the server minted the run token').toMatch(/^[a-f0-9]{32}$/);
-    const floorSeal = await jsonOf<{ manifest: FloorManifest; position: { x: number; y: number } }>(await sealReply, 'hollow-gate/floor-seal');
+    const floorSeal = await jsonOf<{
+        manifest: FloorManifest;
+        position: { x: number; y: number };
+        floorFeatures?: FloorFeature[] | null;
+        wanderers?: unknown[] | null;
+    }>(await sealReply, 'hollow-gate/floor-seal');
     const manifest = floorSeal.manifest;
     expect(manifest.floor).toBe(1);
     expect(floorSeal.position, 'a fresh floor starts on its spawn').toEqual(manifest.spawn);
+    expect(floorSeal.wanderers ?? [], 'the floor is sealed without wanderers').toEqual([]);
     await expect(page.locator('.app-shell[data-screen="hollowGateShrine"]')).toBeVisible({ timeout: 30_000 });
     const afterEntry = await diver.readCharacter();
     expect(afterEntry.itemStacks?.some((stack) => stack.itemId === HOLLOW_GATE_KEY && stack.count > 0) ?? false, 'the dive spent the key').toBe(false);
@@ -420,7 +457,7 @@ async function sendPetFromTheShrine(page: Page, info: TestInfo, diver: Diver): P
     await expect(page.locator('.hollow-gate-shrine [role="log"]')).toContainText(`Augment attuned: ${chosen.label}`);
 
     // Walk to a Hollow Hound on the D-pad. Every tile is a real sealed step.
-    const plan = planWalk(manifest);
+    const plan = planWalk(manifest, floorSeal.floorFeatures ?? []);
     const steps = plan.path.length - 1;
     expect(steps, 'the walk must finish before threat opens an ambush').toBeLessThanOrEqual(MAX_WALK_STEPS);
     const hound = plan.path[steps];
@@ -428,7 +465,7 @@ async function sendPetFromTheShrine(page: Page, info: TestInfo, diver: Diver): P
     info.annotations.push({ type: 'hollow-gate-walk', description: `${steps} steps to a ${plan.kind} Hound at (${houndTile.x},${houndTile.y})` });
     for (let i = 1; i <= steps; i++) {
         const reply = await stepOnDpad(page, manifest.width, plan.path[i - 1], plan.path[i]);
-        expect(reply.ambush ?? null, 'no threat ambush interrupts the walk').toBeNull();
+        expect(reply.ambush ?? null, 'no ambush interrupts the walk').toBeNull();
         if (manifest.nodes[String(plan.path[i])] === 'trap') {
             const trap = page.getByRole('dialog', { name: 'Ancient Seal Trap', exact: true });
             await trap.getByRole('button', { name: 'Press on', exact: true }).click();
@@ -484,6 +521,9 @@ test('Send pet opens the server-drawn duel on the shrine, and a forfeit settles 
 
     const before = await diver.readCharacter();
     expect(before.hollowGateRun?.runToken).toBe(dive.started.token);
+    // Retain the actual fight presentation as well as the post-fight shrine.
+    await page.evaluate(() => document.fonts.ready);
+    await page.screenshot({ path: info.outputPath('hollow-gate-pet-duel.png'), animations: 'disabled' });
     await forfeitTheDuel(page, dive);
 
     // The shrine shows the defeat, and the run goes on. The settle reply's
@@ -510,7 +550,8 @@ test('Send pet opens the server-drawn duel on the shrine, and a forfeit settles 
     expect(after.itemStacks ?? []).toEqual(before.itemStacks ?? []);
 
     // A withdrawn encounter no longer pins the diver to its tile.
-    await stepOnDpad(page, dive.manifest.width, dive.hound, dive.plan.path[dive.plan.path.length - 2]);
+    const stepBack = await stepOnDpad(page, dive.manifest.width, dive.hound, dive.plan.path[dive.plan.path.length - 2]);
+    expect(stepBack.ambush ?? null, 'no ambush meets the step back').toBeNull();
     await expect(shrine.getByRole('gridcell', { name: new RegExp(`^${diver.name}, current location`) })).toBeVisible();
     await page.screenshot({ path: info.outputPath('hollow-gate-pet-defeat-shrine.png'), animations: 'disabled' });
     expect(pageErrors, 'no uncaught page errors').toEqual([]);

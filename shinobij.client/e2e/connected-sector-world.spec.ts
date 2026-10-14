@@ -16,6 +16,8 @@ async function boot(page: Page, sector: number, tile: number, village = 'Stormve
     await page.addInitScript(() => localStorage.setItem('legacyRumors.seen.v1:auditninja', JSON.stringify([10, 20, 30, 40, 45])));
     await page.goto('/#/worldMap');
     await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'worldMap');
+    // The shell route commits before the lazy personal-journey payload is ready.
+    await expect(page.locator('.loading-screen')).toBeHidden({ timeout: 30_000 });
     const here = sector === 99 ? page.getByRole('button', { name: `You are here, ${sectorName(sector)}`, exact: true })
         : page.getByRole('button', { name: new RegExp('Return to Sector ' + sector) });
     await expect.poll(async () => await here.isVisible() || await page.locator('.sector-image-map').isVisible()).toBe(true);
