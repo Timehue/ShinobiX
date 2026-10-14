@@ -125,7 +125,7 @@ export function HealerInjuredList({
             const data = await res.json().catch(() => ({}));
             if (!res.ok) {
                 if (res.status < 500) delete pendingRequestIds.current[targetName];
-                setHealMsg(m => ({ ...m, [targetName]: `Error: ${data.error ?? 'Failed'}` }));
+                setHealMsg(m => ({ ...m, [targetName]: `Error: ${data.error ?? 'The ward could not complete that heal. Refresh the ward and try again.'}` }));
                 return;
             }
             delete pendingRequestIds.current[targetName];
@@ -165,16 +165,17 @@ export function HealerInjuredList({
             }) : prev);
             const rankedUp = finalRank > prevRank;
             const totalXp = xpGained + missionXp;
-            let msg = `Success: Healed! +${totalXp} XP`;
+            let msg = `Success: Healed ${targetName}. +${totalXp} profession XP`;
             if (raidAssist) msg += ` · Raid Assist +50%`;
-            if (missionsCompleted.length > 0) msg += ` (mission complete!)`;
-            if (rankedUp) msg += ` — Rank ${finalRank}!`;
+            msg += ".";
+            if (missionsCompleted.length > 0) msg += " Mission complete.";
+            if (rankedUp) msg += ` Healer Rank ${finalRank}.`;
             setHealMsg(m => ({ ...m, [targetName]: msg }));
             // Hide the row locally until next roster refresh confirms.
             setHealed(s => new Set(s).add(targetName));
             setTreatedAt(t => ({ ...t, [targetName.toLowerCase()]: serverNow() }));
         } catch {
-            setHealMsg(m => ({ ...m, [targetName]: "Error: Network error" }));
+            setHealMsg(m => ({ ...m, [targetName]: "Error: The heal did not reach the ward. Check your connection and try again." }));
         } finally {
             setHealing(s => { const next = new Set(s); next.delete(targetName); return next; });
         }
@@ -201,7 +202,7 @@ export function HealerInjuredList({
     return (
         <>
             {headquarters && hospitalizedPlayers.length === 0 && <div className="ph-empty ph-ward-empty" role="status"><span className="ph-eyebrow">Ward status</span><strong>No admitted allies need treatment.</strong><p>The ward is quiet. Wounded allies will appear here when they are admitted.</p></div>}
-            {headquarters && Object.entries(healMsg).filter(([name]) => healed.has(name)).map(([name, message]) => <p className="ph-heal-receipt" role="status" key={name}><GameArtIcon kind="healer" size={16} /> {name}: {message.replace(/^(Success|Error):\s*/, "")}</p>)}
+            {headquarters && Object.entries(healMsg).filter(([name]) => healed.has(name)).map(([name, message]) => <p className="ph-heal-receipt" role="status" key={name}><GameArtIcon kind="healer" size={16} /> {message.replace(/^(Success|Error):\s*/, "")}</p>)}
             {hospitalizedPlayers.length > 0 && (
                 <section className="healer-patient-list" aria-labelledby="healer-admitted-heading" style={{ marginTop: "1.5rem" }}>
                     <h4 id="healer-admitted-heading" style={{ marginBottom: "0.5rem" }}>{headquarters ? "Admitted allies" : <><GameArtIcon kind="healer" size={20} /> Admitted Players</>}{isHealer ? ` — ${character.village}` : ""}</h4>
