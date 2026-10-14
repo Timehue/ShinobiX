@@ -1,4 +1,4 @@
-import { hollowGateSavedTokenMismatch, recoverHollowGatePendingOperation } from './_pending-operation.js';
+import { hollowGateSavedTokenMismatch, loadHollowGateRunForAction, readHollowGatePendingProof } from './_pending-operation.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { isIncapacitated } from '../_elapsed-state.js';
 import { kv } from '../_storage.js';
@@ -9,7 +9,7 @@ import { withKvLock } from '../_lock.js';
 import { loadAdminCombatContent } from '../_admin-content.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { readSoloPveSession, soloPveSessionKey, writeSoloPveSession } from '../solo-pve/_store.js';
-import { hollowGateRunKey, HOLLOW_GATE_RUN_EXPIRED_MESSAGES, type HollowGateRunToken } from './_run-token.js';
+import { hollowGateRunKey, HOLLOW_GATE_RUN_EXPIRED_MESSAGES } from './_run-token.js';
 import {
     createHollowGateCombatBinding,
     hollowGateCombatBindingKey,
@@ -61,11 +61,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const runKey = hollowGateRunKey(playerName, token);
         const outcome = await withKvLock<StartOutcome>(runKey, async () => {
-            const run = await recoverHollowGatePendingOperation(kv, runKey, await kv.get<HollowGateRunToken>(runKey), playerName, token);
+            const run = await loadHollowGateRunForAction(kv, runKey, playerName, token);
             if (!run) return { status: 409, body: { error: HOLLOW_GATE_RUN_EXPIRED_MESSAGES.combatStart } };
             if (run.playerName !== playerName) return { status: 403, body: { error: 'Not your run.' } };
-            const currentSave = await kv.get<{ character?: Record<string, unknown> }>(`save:${playerName}`);
-            if (currentSave?.character && hollowGateSavedTokenMismatch(currentSave.character, token)) {
+            // Only the saved run token is compared here, so read just that field;
+            // the whole save is read once, below, to seed the fight.
+            const savedRunToken = await readHollowGatePendingProof(kv, playerName);
+            if (savedRunToken && hollowGateSavedTokenMismatch(savedRunToken, token)) {
                 return { status: 409, body: { error: 'This Hollow Gate token does not match your active dive.' } };
             }
             if (!run.chosenAugmentId) return { status: 409, body: { error: 'Choose the sealed augment before entering combat.' } };
