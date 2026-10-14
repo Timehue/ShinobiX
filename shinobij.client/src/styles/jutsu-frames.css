@@ -1,0 +1,270 @@
+/* Shared jutsu material for menus, loadouts and creator previews. Layered
+   important declarations keep the treatment consistent across menu skins. */
+:root {
+    --jutsu-frame-gold: #b49a63;
+    --jutsu-frame-highlight: #e1ce9e;
+    --jutsu-frame-shadow: #55462e;
+    --jutsu-art-nw: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2034%2034%22%3E%3Cg%20transform%3D%22rotate(0%2017%2017)%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22steel%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20stop-color%3D%22%23536176%22%2F%3E%3Cstop%20offset%3D%22.32%22%20stop-color%3D%22%23202c3c%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23090f18%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Cpath%20d%3D%22M0%200H34L28%206H19L6%2019V28L0%2034Z%22%20fill%3D%22url(%23steel)%22%20stroke%3D%22%23576579%22%20stroke-width%3D%22.8%22%2F%3E%3Cpath%20d%3D%22M4%2027V16L16%204H27M9%2023V17L17%209H23%22%20fill%3D%22none%22%20stroke%3D%22%23768397%22%20stroke-width%3D%22.85%22%2F%3E%3Cpath%20d%3D%22M11%2011Q12%204%2019%206Q18%2012%2011%2011ZM11%2011Q4%2012%206%2019Q12%2018%2011%2011Z%22%20fill%3D%22%231b2738%22%20stroke%3D%22%2378899f%22%20stroke-width%3D%22.8%22%2F%3E%3Cpath%20d%3D%22M11%209L13%2011L11%2013L9%2011Z%22%20fill%3D%22%238c9aae%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E");
+    --jutsu-art-ne: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2034%2034%22%3E%3Cg%20transform%3D%22rotate(90%2017%2017)%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22steel%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20stop-color%3D%22%23536176%22%2F%3E%3Cstop%20offset%3D%22.32%22%20stop-color%3D%22%23202c3c%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23090f18%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Cpath%20d%3D%22M0%200H34L28%206H19L6%2019V28L0%2034Z%22%20fill%3D%22url(%23steel)%22%20stroke%3D%22%23576579%22%20stroke-width%3D%22.8%22%2F%3E%3Cpath%20d%3D%22M4%2027V16L16%204H27M9%2023V17L17%209H23%22%20fill%3D%22none%22%20stroke%3D%22%23768397%22%20stroke-width%3D%22.85%22%2F%3E%3Cpath%20d%3D%22M11%2011Q12%204%2019%206Q18%2012%2011%2011ZM11%2011Q4%2012%206%2019Q12%2018%2011%2011Z%22%20fill%3D%22%231b2738%22%20stroke%3D%22%2378899f%22%20stroke-width%3D%22.8%22%2F%3E%3Cpath%20d%3D%22M11%209L13%2011L11%2013L9%2011Z%22%20fill%3D%22%238c9aae%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E");
+    --jutsu-art-se: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2034%2034%22%3E%3Cg%20transform%3D%22rotate(180%2017%2017)%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22steel%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20stop-color%3D%22%23536176%22%2F%3E%3Cstop%20offset%3D%22.32%22%20stop-color%3D%22%23202c3c%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23090f18%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Cpath%20d%3D%22M0%200H34L28%206H19L6%2019V28L0%2034Z%22%20fill%3D%22url(%23steel)%22%20stroke%3D%22%23576579%22%20stroke-width%3D%22.8%22%2F%3E%3Cpath%20d%3D%22M4%2027V16L16%204H27M9%2023V17L17%209H23%22%20fill%3D%22none%22%20stroke%3D%22%23768397%22%20stroke-width%3D%22.85%22%2F%3E%3Cpath%20d%3D%22M11%2011Q12%204%2019%206Q18%2012%2011%2011ZM11%2011Q4%2012%206%2019Q12%2018%2011%2011Z%22%20fill%3D%22%231b2738%22%20stroke%3D%22%2378899f%22%20stroke-width%3D%22.8%22%2F%3E%3Cpath%20d%3D%22M11%209L13%2011L11%2013L9%2011Z%22%20fill%3D%22%238c9aae%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E");
+    --jutsu-art-sw: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2034%2034%22%3E%3Cg%20transform%3D%22rotate(270%2017%2017)%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22steel%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20stop-color%3D%22%23536176%22%2F%3E%3Cstop%20offset%3D%22.32%22%20stop-color%3D%22%23202c3c%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23090f18%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Cpath%20d%3D%22M0%200H34L28%206H19L6%2019V28L0%2034Z%22%20fill%3D%22url(%23steel)%22%20stroke%3D%22%23576579%22%20stroke-width%3D%22.8%22%2F%3E%3Cpath%20d%3D%22M4%2027V16L16%204H27M9%2023V17L17%209H23%22%20fill%3D%22none%22%20stroke%3D%22%23768397%22%20stroke-width%3D%22.85%22%2F%3E%3Cpath%20d%3D%22M11%2011Q12%204%2019%206Q18%2012%2011%2011ZM11%2011Q4%2012%206%2019Q12%2018%2011%2011Z%22%20fill%3D%22%231b2738%22%20stroke%3D%22%2378899f%22%20stroke-width%3D%22.8%22%2F%3E%3Cpath%20d%3D%22M11%209L13%2011L11%2013L9%2011Z%22%20fill%3D%22%238c9aae%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E");
+}
+
+@layer jutsu-frames {
+    /* Dark steel artwork surround, separate from the card's gold edge. The
+       inset overlay leaves image sizing and all input targets unchanged. */
+    :is(.jutsu-workbench-art, .technique-thumb, .jutsu-plan-art, .jutsu-mobile-info-hero > span, .archives-jutsu-art, .jutsu-signature-art, .jutsu-art-frame) {
+        position: relative !important;
+        overflow: hidden !important;
+    }
+
+    :is(.jutsu-workbench-art, .technique-thumb, .jutsu-plan-art, .jutsu-mobile-info-hero > span, .archives-jutsu-art, .jutsu-signature-art, .jutsu-art-frame)::before {
+        content: "" !important;
+        position: absolute !important;
+        z-index: 2 !important;
+        inset: 0 !important;
+        border-radius: inherit !important;
+        box-shadow:
+            inset 0 0 0 1px #66758a,
+            inset 0 0 0 3px #283444,
+            inset 0 0 0 7px #0e1621,
+            inset 0 0 0 8px #536174,
+            inset 0 0 0 9px #060b12,
+            inset 0 0 18px rgba(0, 0, 0, 0.5) !important;
+        background:
+            var(--jutsu-art-nw) left top / 34px 34px no-repeat,
+            var(--jutsu-art-ne) right top / 34px 34px no-repeat,
+            var(--jutsu-art-se) right bottom / 34px 34px no-repeat,
+            var(--jutsu-art-sw) left bottom / 34px 34px no-repeat !important;
+        pointer-events: none !important;
+    }
+
+    :is(.technique-cost, .technique-bloodline, .jutsu-equipped-badge) {
+        z-index: 3 !important;
+    }
+
+    .archives-jutsu-art {
+        display: block !important;
+        width: 28px !important;
+        height: 28px !important;
+        flex-shrink: 0 !important;
+        border-radius: 4px !important;
+    }
+
+    .archives-jutsu-art::before {
+        background-size: 10px 10px !important;
+        box-shadow: inset 0 0 0 1px #080d14, inset 0 0 0 2px #354151 !important;
+    }
+
+    .jutsu-signature-art {
+        width: 46px !important;
+        height: 46px !important;
+        flex-shrink: 0 !important;
+        border-radius: 6px !important;
+    }
+
+    .jutsu-signature-art > img {
+        display: block !important;
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover !important;
+    }
+
+    .jutsu-signature-art::before {
+        background-size: 22px 22px !important;
+        box-shadow: inset 0 0 0 2px #0e1621,
+            inset 0 0 0 3px #536174, inset 0 0 0 4px #060b12 !important;
+    }
+
+    .jutsu-signature-art.is-sealed { filter: grayscale(1) brightness(0.7); }
+
+    :is(.jutsu-loadout-slot.is-filled, .jutsu-collection-card, .jutsu-detail-art, .technique-card, .jutsu-plan-art, .jutsu-mobile-info-hero > span, .archives-jutsu-row, .jutsu-art-frame) {
+        position: relative !important;
+        isolation: isolate !important;
+        border: 1px solid #776643 !important;
+        border-radius: 6px !important;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06),
+            0 3px 10px rgba(0, 0, 0, 0.3) !important;
+    }
+
+    /* A single metallic edge: bright at the light source, dark on the return. */
+    :is(.jutsu-loadout-slot.is-filled, .jutsu-collection-card, .jutsu-detail-art, .technique-card, .jutsu-plan-art, .jutsu-mobile-info-hero > span, .archives-jutsu-row, .jutsu-art-frame)::after {
+        content: "" !important;
+        position: absolute !important;
+        z-index: 5 !important;
+        inset: -1px !important;
+        padding: 1px !important;
+        border-radius: inherit !important;
+        background: linear-gradient(135deg, #dcc795, #8a7449 22%, #4a4030 52%, #a38b59 82%, #d4bd86) !important;
+        mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0) !important;
+        mask-composite: exclude !important;
+        pointer-events: none !important;
+    }
+
+    :is(.jutsu-loadout-slot.is-filled, .jutsu-collection-card, .technique-card) {
+        background: linear-gradient(175deg, #19212c, #0b111b 75%) !important;
+    }
+
+    :is(.jutsu-loadout-slot.is-filled, .jutsu-collection-card, .jutsu-detail-art, .technique-card, .jutsu-plan-art, .jutsu-mobile-info-hero > span, .archives-jutsu-row, .jutsu-art-frame):is(.is-selected, .selected, .selected-action, .is-drag-over),
+    :is(.jutsu-loadout-slot.is-filled, .jutsu-collection-card, .jutsu-detail-art, .technique-card, .jutsu-plan-art, .jutsu-mobile-info-hero > span, .archives-jutsu-row, .jutsu-art-frame):focus-visible,
+    :is(.jutsu-loadout-slot.is-filled, .jutsu-collection-card, .jutsu-detail-art, .technique-card, .jutsu-plan-art, .jutsu-mobile-info-hero > span, .archives-jutsu-row, .jutsu-art-frame):has(> :focus-visible) {
+        border-color: var(--jutsu-frame-highlight) !important;
+        box-shadow: inset 0 0 0 1px rgba(225, 206, 158, 0.16),
+            0 0 0 1px rgba(225, 206, 158, 0.36),
+            0 5px 18px rgba(0, 0, 0, 0.4) !important;
+    }
+
+    @media (hover: hover) {
+        :is(.jutsu-loadout-slot.is-filled, .jutsu-collection-card, .jutsu-detail-art, .technique-card, .jutsu-plan-art, .jutsu-mobile-info-hero > span, .archives-jutsu-row, .jutsu-art-frame):hover:not(:disabled):not(.jutsu-on-cooldown) {
+            border-color: var(--jutsu-frame-highlight) !important;
+        }
+    }
+
+    /* Artwork leads the loadout and collection grids. */
+    .profile-page-card .jutsu-loadout-grid,
+    .profile-page-card .jutsu-collection-grid:not(.is-list-view) {
+        grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+        gap: 12px !important;
+    }
+    .profile-page-card .jutsu-loadout-slot.is-filled { min-height: 0 !important; }
+    .profile-page-card .jutsu-slot-select {
+        min-height: 0 !important;
+        padding: 5px !important;
+        gap: 0 !important;
+    }
+    .profile-page-card .jutsu-workbench-art:not(.jutsu-detail-art) {
+        aspect-ratio: 1 !important;
+        height: auto !important;
+        min-height: 0 !important;
+        border: 0 !important;
+        border-radius: 3px !important;
+    }
+    .profile-page-card .jutsu-workbench-art img {
+        position: absolute !important;
+        inset: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        min-height: 0 !important;
+    }
+    .profile-page-card .jutsu-slot-select > strong {
+        display: grid !important;
+        align-content: center !important;
+        min-height: 44px !important;
+        padding: 8px 5px 4px !important;
+        color: #e8e9ed !important;
+        font: 600 12px/1.3 Inter, sans-serif !important;
+        text-align: left !important;
+    }
+    .profile-page-card .jutsu-slot-number {
+        top: 10px !important;
+        left: 10px !important;
+        min-width: 22px !important;
+        height: 22px !important;
+        color: #d9c59a !important;
+        background: rgba(6, 10, 16, 0.82) !important;
+        border: 1px solid rgba(201, 173, 117, 0.25) !important;
+        font-size: 10px !important;
+    }
+    .profile-page-card .jutsu-slot-remove {
+        top: 9px !important;
+        right: 9px !important;
+        color: #c1c7cf !important;
+        background: rgba(6, 10, 16, 0.82) !important;
+        border: 1px solid rgba(255, 255, 255, 0.12) !important;
+        border-radius: 3px !important;
+    }
+    .profile-page-card .jutsu-workbench-level {
+        top: auto !important;
+        right: 6px !important;
+        bottom: 6px !important;
+        width: auto !important;
+        min-width: 25px !important;
+        height: 23px !important;
+        padding: 0 5px !important;
+        border: 1px solid rgba(201, 173, 117, 0.7) !important;
+        border-radius: 3px !important;
+        background: rgba(9, 13, 20, 0.9) !important;
+        color: #e1ce9e !important;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35) !important;
+        font: 700 10px Inter, sans-serif !important;
+    }
+    .profile-page-card .jutsu-collection-grid { grid-auto-rows: max-content !important; }
+    .profile-page-card .jutsu-collection-card { padding: 5px !important; min-height: auto !important; }
+    .profile-page-card .jutsu-collection-copy { padding: 10px 22px 5px 5px !important; text-align: left !important; }
+    .profile-page-card .jutsu-collection-copy strong {
+        min-height: 32px !important;
+        font: 600 12px/1.3 Inter, sans-serif !important;
+        color: #e8e9ed !important;
+    }
+    .profile-page-card .jutsu-collection-copy small { margin-top: 5px !important; color: #9ca7b5 !important; font-size: 9px !important; }
+    .profile-page-card .jutsu-collection-card .jutsu-workbench-level { top: 6px !important; bottom: auto !important; right: 6px !important; }
+    .profile-page-card .jutsu-equipped-badge {
+        color: #d4c092 !important;
+        background: rgba(7, 11, 17, 0.88) !important;
+        border-color: rgba(201, 173, 117, 0.35) !important;
+        font-size: 8px !important;
+        letter-spacing: 0.02em !important;
+        padding: 3px 5px !important;
+    }
+    .profile-page-card .jutsu-quick-equip {
+        right: 7px !important;
+        bottom: 8px !important;
+        background: #171f2a !important;
+        border-color: #56606d !important;
+        border-radius: 3px !important;
+        color: #d7dee8 !important;
+    }
+    .profile-page-card .jutsu-collection-card.is-list .jutsu-workbench-art {
+        width: 72px !important;
+        height: 72px !important;
+    }
+    .profile-page-card .jutsu-detail-hero { height: auto !important; }
+    .profile-page-card .jutsu-detail-art { aspect-ratio: 1 !important; height: auto !important; min-height: 0 !important; }
+    .profile-page-card .jutsu-detail-hero .jutsu-workbench-level {
+        width: auto !important; height: 24px !important; top: 8px !important; bottom: auto !important; right: 8px !important;
+    }
+    .technique-grid {
+        grid-template-columns: repeat(auto-fill, minmax(126px, 1fr)) !important;
+        gap: 12px !important;
+    }
+    .technique-card { padding: 5px !important; grid-template-rows: auto minmax(38px, auto) !important; }
+    .technique-thumb { aspect-ratio: 1 !important; height: auto !important; width: 100% !important; border-radius: 3px !important; }
+    .technique-name {
+        padding: 5px 4px !important;
+        color: #e8e9ed !important;
+        font: 600 12px/1.3 Inter, sans-serif !important;
+        text-align: left !important;
+        text-transform: none !important;
+        letter-spacing: 0 !important;
+    }
+    .technique-cost {
+        border: 1px solid rgba(201, 173, 117, 0.7) !important;
+        border-radius: 3px !important;
+        background: rgba(9, 13, 20, 0.9) !important;
+        color: #e1ce9e !important;
+    }
+    @media (max-width: 1040px) {
+        .profile-page-card .jutsu-loadout-grid,
+        .profile-page-card .jutsu-collection-grid:not(.is-list-view) {
+            grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        }
+    }
+    @media (max-width: 680px) {
+        .profile-page-card .jutsu-loadout-grid,
+        .profile-page-card .jutsu-collection-grid:not(.is-list-view) {
+            grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        }
+        .jutsu-training-screen .technique-card {
+            grid-template-columns: 80px minmax(0, 1fr) !important;
+            grid-template-rows: auto !important;
+            align-items: center !important;
+        }
+        .jutsu-training-screen .technique-thumb { width: 80px !important; height: 80px !important; }
+    }
+    @media (max-width: 480px) {
+        .profile-page-card .jutsu-loadout-grid,
+        .profile-page-card .jutsu-collection-grid:not(.is-list-view) {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        }
+    }
+}
