@@ -4578,7 +4578,7 @@ function WorldMapContent({
                                             <AnbuVaultRaid
                                                 key={`${character.name}:${vaultRaid.sector}`}
                                                 character={character}
-                                                sharedImages={sharedImages}
+                                                sharedImages={sharedImages} initialCampaign={villageCampaign}
                                                 sector={vaultRaid.sector}
                                                 onAttackPlayer={handleSelectedSectorPlayerAttack}
                                                 sectorContest={sectorWarContest}
