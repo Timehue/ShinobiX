@@ -3408,7 +3408,7 @@ function WorldMapContent({
         }
         completeWorldRewardOperation(character.name, explored.operation.id);
         if (interactive) {
-            alert(`Sector ${explored.operation.sector} explored. +${Number(explored.reward?.ryo ?? 0)} ryo.`);
+            gameToast(`Sector ${explored.operation.sector} explored. +${Number(explored.reward?.ryo ?? 0)} ryo.`);
         }
         return "recovered";
     }
@@ -3784,7 +3784,7 @@ function WorldMapContent({
             stamina: Math.min(character.maxStamina, character.stamina + staminaReward),
         });
 
-        alert("You recovered in Sector " + sector + ". +" + staminaReward + " stamina.");
+        gameToast("You recovered in Sector " + sector + ". +" + staminaReward + " stamina.");
     }
 
     function selectedSectorCombatEnvironment() {

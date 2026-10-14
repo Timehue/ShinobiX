@@ -40,10 +40,10 @@ export function PvpBattleResultPanel(p: Props) {
                 </header>
 
                 {cancelled ? <p>No rewards or penalties.</p> : <section className="pvp-result-rewards" aria-label="Battle rewards">
-                    <header><b>Battle Rewards</b><small>{confirmed ? "Server verified" : "Settlement pending"}</small></header>
+                    <header><b>Battle Rewards</b><small>{confirmed ? "Server verified" : "Not verified yet"}</small></header>
                     <p>{p.isSpectator ? "Spectators receive no rewards."
                         : confirmed ? p.settlementNotice || "No personal payout for this result."
-                            : failed ? "Reward details will appear after settlement succeeds."
+                            : failed ? "Reward details will appear after your result is recorded."
                                 : "Calculating official rewards…"}</p>
                 </section>}
 
@@ -57,7 +57,7 @@ export function PvpBattleResultPanel(p: Props) {
                 <div className={"pvp-result-settlement" + (failed ? " is-failed" : "")}
                     role={failed ? "alert" : "status"}>
                     <span>{confirmed ? cancelled ? "✓ Cancellation confirmed." : "✓ Result secured by the server."
-                        : failed ? "! " + (p.settlementError || "Battle settlement is pending.")
+                        : failed ? "! " + (p.settlementError || "Your result is not recorded yet. Press Retry.")
                             : cancelled ? "Confirming cancellation…" : "Securing the official result…"}</span>
                     {failed ? <button type="button" onClick={p.onRetrySettlement}>Retry</button> : null}
                 </div>
