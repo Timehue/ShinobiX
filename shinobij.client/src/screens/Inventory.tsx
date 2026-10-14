@@ -64,8 +64,7 @@ import type { VersionedCharacterCommit } from "../types/character";
 import type { Screen } from "../types/core";
 import { VILLAGE_TRANSFER_SCROLL_ID } from "../../../shared/village-transfer";
 import { PROFESSION_CHANGE_APPROVAL_ID } from "../../../shared/profession-change";
-import { GatheringEquipment } from '../components/GatheringEquipment';
-import { gatheringTool, gatheringToolRemaining } from '../../../shared/gathering-tools';
+import { gatheringTool, gatheringToolRemaining, isGatheringToolSlot } from '../../../shared/gathering-tools';
 import { resourceRequest } from '../lib/resource-api';
 
 const ITEM_CATEGORY_ART: Record<ItemCategory, GameArtIconKind> = {
@@ -156,6 +155,9 @@ export function Inventory({
     const [attunePickFor, setAttunePickFor] = useState<string | null>(null);
     const [attuneBusy, setAttuneBusy] = useState(false);
     const [attuneMsg, setAttuneMsg] = useState("");
+    // Equipping a gathering tool settles on the server, so hold one request at a time.
+    const [toolBusy, setToolBusy] = useState(false);
+    const toolBusyRef = useRef(false);
     const academyInventoryStep = normalizeOnboardingStep(character.onboardingStep) === "inventory";
     // Idle regen replaces `character` every second while a vital is below max;
     // the catalogs only change with their real inputs, so they stay stable and
@@ -364,6 +366,11 @@ export function Inventory({
         { label: "Legs", equipmentSlot: "legs", accepts: "legs", className: "slot-legs" },
         { label: "Potion", equipmentSlot: "potion", accepts: "potion", className: "slot-left-item-3" },
         { label: "Feet", equipmentSlot: "feet", accepts: "feet", className: "slot-feet" },
+        // Gathering tools take the row under the feet. They are equipped for
+        // fishing and mining only; every combat read drops them
+        // (shared/gathering-tools.ts combatEquipment).
+        { label: "Fishing", equipmentSlot: "fishingPole", accepts: "fishingPole", className: "slot-fishing-pole" },
+        { label: "Mining", equipmentSlot: "pickaxe", accepts: "pickaxe", className: "slot-pickaxe" },
     ];
 
     // Combat consumables (thrown / the three item slots / potion) are spent ON
@@ -620,10 +627,18 @@ export function Inventory({
     }
 
     async function changeGatheringTool(id: string, unequip: boolean) {
-        const result = await resourceRequest({ action: 'equip', playerName: character.name, itemId: id, unequip });
-        if (result.character) onVersionedCharacter(result.character, result._saveVersion);
-        if (!result.ok) alert(result.error ?? 'Could not change your gathering tool.');
-        else setSelectedInventoryItem(null);
+        if (toolBusyRef.current) return;
+        toolBusyRef.current = true;
+        setToolBusy(true);
+        try {
+            const result = await resourceRequest({ action: 'equip', playerName: character.name, itemId: id, unequip });
+            if (result.character) onVersionedCharacter(result.character, result._saveVersion);
+            if (!result.ok) alert(result.error ?? 'Could not change your gathering tool.');
+            else setSelectedInventoryItem(null);
+        } finally {
+            toolBusyRef.current = false;
+            setToolBusy(false);
+        }
     }
 
     function isSellableGear(item: GameItem) {
@@ -761,7 +776,6 @@ export function Inventory({
                 autoRevealAfterMs={720}
             />}
             <div className="inventory-page">
-                <GatheringEquipment character={character} commit={onVersionedCharacter} />
                 <section className="inventory-equipped-panel">
                     <div className="inventory-equipped-heading">
                         <div>
@@ -798,6 +812,15 @@ export function Inventory({
                             const equipped = equippedItem && (!isConsumableSlot || (remaining ?? 0) > 0)
                                 ? equippedItem
                                 : undefined;
+                            // A basic gathering tool wears out, so its slot carries a
+                            // durability bar. A golden tool never breaks and has none.
+                            const toolSlot = isGatheringToolSlot(slot.equipmentSlot);
+                            const tool = gatheringTool(equipped?.id);
+                            const toolDurability = tool?.durability ?? null;
+                            const toolUsesLeft = tool && toolDurability !== null ? gatheringToolRemaining(character, tool.id) ?? 0 : null;
+                            const toolWear = tool
+                                ? toolUsesLeft !== null && toolDurability !== null ? `, ${toolUsesLeft} of ${toolDurability} uses left` : ", never breaks"
+                                : "";
 
                             return (
                                 <button
@@ -820,8 +843,12 @@ export function Inventory({
                                             setSlotFilter((current) => (current === acceptSlot ? null : acceptSlot));
                                         }
                                     }}
-                                    aria-label={`${slot.label} equipment slot${equipped ? `, equipped with ${equipped.name}` : ", empty"}`}
-                                    title={equipped ? `${equipped.name}: click to inspect` : `Show ${slot.label} items in backpack`}
+                                    aria-label={`${slot.label} equipment slot${equipped ? `, equipped with ${equipped.name}` : ", empty"}${toolWear}`}
+                                    title={toolSlot
+                                        ? equipped
+                                            ? `${equipped.name}${toolWear}. Used for ${slot.label.toLowerCase()} only, never in battle. Click to inspect.`
+                                            : `Show ${equipmentSlotLabel(slot.equipmentSlot!)} items in backpack. Used for ${slot.label.toLowerCase()} only, never in battle.`
+                                        : equipped ? `${equipped.name}: click to inspect` : `Show ${slot.label} items in backpack`}
                                 >
                                     {equipped?.image ? (
                                         <img
@@ -879,6 +906,12 @@ export function Inventory({
                                             }}
                                         >
                                             ×{remaining}
+                                        </span>
+                                    )}
+
+                                    {toolUsesLeft !== null && toolDurability !== null && (
+                                        <span className={`equip-slot-durability${toolUsesLeft <= 5 ? " low" : ""}`} aria-hidden="true">
+                                            <span style={{ width: `${Math.round((toolUsesLeft / toolDurability) * 100)}%` }} />
                                         </span>
                                     )}
                                 </button>
@@ -1336,6 +1369,7 @@ export function Inventory({
                                             type="button"
                                             className={`item-action-primary${academyInventoryStep && ACADEMY_STARTER_GEAR_IDS.some((id) => id === selectedGameItem.id) ? " academy-click-target" : ""}`}
                                             data-academy-hint={academyInventoryStep && ACADEMY_STARTER_GEAR_IDS.some((id) => id === selectedGameItem.id) ? "Next · equip gear" : undefined}
+                                            disabled={selectedGatheringTool ? toolBusy || gatheringToolRemaining(character, selectedGatheringTool.id) === 0 : undefined}
                                             onClick={() => equipItem(selectedGameItem)}
                                         >
                                             Equip to {equipmentSlotLabel(equipSlotForItem(selectedGameItem))}
@@ -1346,6 +1380,7 @@ export function Inventory({
                                         <button
                                             type="button"
                                             className="item-action-secondary"
+                                            disabled={selectedGatheringTool ? toolBusy : undefined}
                                             onClick={() => unequipItem(selected.equipmentSlot!)}
                                         >
                                             Unequip
