@@ -2,6 +2,7 @@
 import { SHOWDOWN_ELEMENT_BEATS, type ShowdownEvent, type ShowdownPetView, type ShowdownStateView } from '../../shared/pet-showdown-contract.js';
 import { TACTICS_MAX_ROUNDS, type TacticsBuild, type TacticsMove, type TacticsOrder, type TacticsPetSheet, type TacticsSeat } from '../../shared/pet-tactics-contract.js';
 import { TACTICS_BASIC, TACTICS_ITEMS, TACTICS_MOVES, tacticsSpecies } from '../../shared/pet-tactics-roster.js';
+import { validateTacticsBuild } from '../../shared/pet-tactics-build.js';
 
 type Condition = { until: number; amount: number; born: number };
 export type TacticsPet = TacticsPetSheet & {
@@ -25,26 +26,12 @@ export function validateBuilds(value: unknown): TacticsBuild[] {
     const seen = new Set<string>();
     return value.map(raw => {
         const species = tacticsSpecies(raw?.speciesId);
-        if (!species || seen.has(species.id)) throw new TacticsError('Each squad needs four different roster species.');
-        seen.add(species.id);
-        const ids = raw?.moveIds;
-        if (!Array.isArray(ids) || ids.length !== 4 || new Set(ids).size !== 4 || ids.some(id => typeof id !== 'string' || !species.pool.includes(id))) {
-            throw new TacticsError('Equip four distinct moves from this pet’s pool.');
-        }
-        const moves = ids.map(id => TACTICS_MOVES[id]);
-        if (!moves.some(m => m.power > 0 && m.cooldown === 0 && m.hold === 0)) throw new TacticsError('Each pet needs repeatable offense.');
-        if (moves.filter(m => m.kind === 'stun').length > 1 || moves.filter(m => m.power > 0 && m.element !== 'None' && m.element !== species.element).length > 1) {
-            throw new TacticsError('At most one control and one off-element attack per pet.');
-        }
-        const allocation = {} as TacticsBuild['allocation'];
-        for (const key of ['vitality', 'power', 'guard', 'agility'] as const) {
-            const n = raw?.allocation?.[key];
-            if (!Number.isSafeInteger(n) || n < 0 || n > 25) throw new TacticsError('Allocation values must be whole numbers from 0 to 25.');
-            allocation[key] = n;
-        }
-        if (Object.values(allocation).reduce((a, b) => a + b, 0) !== 49) throw new TacticsError('Allocate exactly 49 competitive points.');
-        if (!TACTICS_ITEMS.some(i => i.id === raw?.item)) throw new TacticsError('Choose a competitive item.');
-        return { speciesId: species.id, moveIds: [...ids], allocation, item: raw.item };
+        const ownedPetId = typeof raw?.ownedPetId === 'string' && raw.ownedPetId.trim() ? raw.ownedPetId : undefined;
+        const identity = ownedPetId ? `owned:${ownedPetId}` : `species:${species?.id}`;
+        if (!species || seen.has(identity)) throw new TacticsError('Choose four distinct pets.');
+        seen.add(identity);
+        try { return validateTacticsBuild(raw); }
+        catch (error) { throw new TacticsError(error instanceof Error ? error.message : 'Invalid competitive build.'); }
     });
 }
 
@@ -58,7 +45,7 @@ export function sealTeam(builds: TacticsBuild[], seat: TacticsSeat): TacticsPet[
             defense: Math.round(base.defense * (1 + a.guard * .004)), spDefense: Math.round(base.spDefense * (1 + a.guard * .004)),
             speed: Math.round(base.speed * (1 + a.agility * .004)),
         };
-        return { id: `${seat}-${index}`, speciesId: species.id, name: species.name, element: species.element, role: species.role, rarity: species.rarity,
+        return { id: `${seat}-${index}`, speciesId: species.id, ...(build.ownedPetId ? { ownedPetId: build.ownedPetId } : {}), name: species.name, element: species.element, role: species.role, rarity: species.rarity,
             hp: stats.hp, maxHp: stats.hp, stamina: 100, meter: 0, slot: index < 2 ? index : null, ko: false, stats,
             allocation: { ...a }, trait: species.traitText, item: build.item, conditions: [], fieldRounds: 0, guardCost: 12, guardReduction: 50,
             moves: build.moveIds.map(id => ({ ...TACTICS_MOVES[id], available: true, ranges: [] })),
@@ -320,7 +307,8 @@ export function petSheets(battle: TacticsBattle, seat: TacticsSeat): TacticsPetS
                 return { slot: target.slot!, min: Math.min(cap, Math.floor(base * .98)), max: Math.min(cap, Math.ceil(base * 1.02)) };
             }) };
         };
-        return { id: pet.id, speciesId: pet.speciesId, name: pet.name, element: pet.element, role: pet.role, rarity: pet.rarity,
+        return { id: pet.id, speciesId: pet.speciesId, ...(pet.ownedPetId ? { ownedPetId: pet.ownedPetId } : {}), name: pet.name, element: pet.element, role: pet.role, rarity: pet.rarity,
+            ...(pet.appearance ? { appearance: { ...pet.appearance } } : {}),
             hp: pet.hp, maxHp: pet.maxHp, stamina: pet.stamina, meter: pet.meter, slot: pet.slot, ko: pet.ko,
             stats: { ...pet.stats }, allocation: { ...pet.allocation }, trait: pet.trait, item: pet.item, fieldRounds: pet.fieldRounds,
             guardCost: guardCost(pet), guardReduction: pet.guardChain === 0 ? 50 : pet.guardChain === 1 ? 30 : 15,
@@ -331,6 +319,7 @@ export function petSheets(battle: TacticsBattle, seat: TacticsSeat): TacticsPetS
 export function cinematicView(battle: TacticsBattle, seat: TacticsSeat, opponent: string): ShowdownStateView {
     const project = (team: TacticsPet[]): ShowdownPetView[] => [...team].sort((a, b) => (a.slot ?? 10) - (b.slot ?? 10)).map(p => ({
         id: p.id, name: p.name, element: p.element, role: p.role, rarity: p.rarity, templateId: p.speciesId,
+        ...(p.appearance ? { appearance: { ...p.appearance } } : {}),
         level: 50, hp: p.hp, maxHp: p.maxHp, stamina: p.stamina, maxStamina: 100, meter: p.meter, ko: p.ko,
         guarding: p.guardMult < 1, benched: p.slot === null, speed: p.stats.speed * ((p.conditionsByKind.slow?.until ?? -1) > battle.round ? .75 : 1),
         skipsNextAction: p.stunned, canSwitchOut: true, statuses: Object.entries(p.conditionsByKind).filter(([, c]) => c.until > battle.round).map(([kind, c]) => ({ kind, rounds: c.until - battle.round, magnitude: c.amount })),

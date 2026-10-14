@@ -529,6 +529,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('expedition', 'pet', 'server-owned', 'pets', ['pet-identity']),
     f('nickname', 'pet', 'server-owned', 'pets', ['pet-identity'], 'renames go through the pet endpoints'),
     f('loadout', 'pet', 'server-owned', 'pets', ['pet-identity']),
+    f('rankedBuild', 'pet', 'server-owned', 'pets', ['pet-identity'], 'validated competitive techniques, allocation and item; dedicated pet progress endpoint'),
     f('templateId', 'pet', 'server-owned', 'pets', ['pet-identity']),
     f('origin', 'pet', 'server-owned', 'pets', ['pet-identity']),
     f('breedingUsesMax', 'pet', 'server-owned', 'pets', ['pet-identity']),
