@@ -9,7 +9,7 @@ import { withKvLock } from '../_lock.js';
 import { loadAdminCombatContent } from '../_admin-content.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { readSoloPveSession, soloPveSessionKey, writeSoloPveSession } from '../solo-pve/_store.js';
-import { hollowGateRunKey, HOLLOW_GATE_RUN_EXPIRED_MESSAGES, type HollowGateRunToken } from './_run-token.js';
+import { hollowGateRunKey, HOLLOW_GATE_RUN_EXPIRED_MESSAGES } from './_run-token.js';
 import {
     createHollowGateCombatBinding,
     hollowGateCombatBindingKey,

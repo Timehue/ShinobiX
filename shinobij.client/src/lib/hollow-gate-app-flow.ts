@@ -8,7 +8,8 @@ import { applyAttunementToRun } from "./hollow-gate-attunement";
 import type { HollowGateCombatSettleResult } from "./hollow-gate-combat-api";
 // The procedural floor generator is loaded on demand — see
 // ./hollow-gate-generator-loader.
-import { loadHollowGateGenerator } from "./hollow-gate-generator-loader";
+import { loadHollowGateGenerator, warmHollowGateGenerator } from "./hollow-gate-generator-loader";
+import { cacheDynamicImport } from "./lazyWithRetry";
 import type { HollowGatePveFightRef } from "./hollow-gate-pve";
 import { hollowGateAlphaCinematicImage } from "./hollow-gate-presentation";
 import {
@@ -109,6 +110,29 @@ export function hollowGateRunAfterPetDefeat(
     saved: HollowGateShrineRun | null | undefined,
 ): HollowGateShrineRun | null {
     return hollowGateRunAfterUnresolvedFight(live, saved);
+}
+
+/**
+ * The shrine and fight screens, cached so a warm-up and App's lazy render share
+ * one import. The shrine starts loading while the player confirms the key.
+ */
+export const loadHollowGateShrineView = cacheDynamicImport(() => import("../features/hollowGate/HollowGateShrineView"));
+export const loadHollowGateFight = cacheDynamicImport(() => import("../screens/HollowGateFight"));
+
+/**
+ * While the shrine is on screen (a fresh dive, an admin playtest, or any boot
+ * restore straight into a run), warm the generator chunks, and shortly after,
+ * the fight screen, so the first encounter opens without a download. The fight
+ * is not warmed on Save-Data.
+ */
+export function useHollowGateShrineWarmup(onShrine: boolean): void {
+    useEffect(() => {
+        if (!onShrine) return;
+        warmHollowGateGenerator();
+        if ((navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData) return;
+        const timer = window.setTimeout(() => { void loadHollowGateFight().catch(() => undefined); }, 1500);
+        return () => window.clearTimeout(timer);
+    }, [onShrine]);
 }
 
 /** The run fields one step changes: the optimistic move and the server's answer to it. */
