@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { before, test } from 'node:test';
 import type { PvpSession } from '../../pvp/session.js';
+import type { ClanWar } from './_storage.js';
+import { CLAN_WAR_RULES, createClanWarCampaign, joinClanWarQueue, matchClanWarQueue,
+    readyClanWarMatch, startClanWarMatch, type ClanWarCampaignMutation } from '../../../shared/clan-war-campaign.js';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -8,6 +11,31 @@ process.env.SHINOBIX_QA_MEMORY_KV = '1';
 let kv: typeof import('../../_storage.js').kv;
 let settle: typeof import('./_pvp-settlement.js').settlePvpClanWarContinuation;
 let scrollDrop: typeof import('./_war-points.js').clanWarPvpTerritoryScrollDrop;
+
+for(const late of [false,true])test(`campaign shrine PvP ${late?'late':'scored'} scroll projection matches delivery and replay`,async()=>{
+    const prefix=late?'pvp-v2-late-scroll':'pvp-v2-scored-scroll';
+    let battleId='';for(let index=0;index<200;index++){const candidate=`${prefix}-${index}`;if(scrollDrop(candidate,'clanpvpfrom')){battleId=candidate;break;}}
+    assert.ok(battleId,'the deterministic fixture found a successful legacy 20% roll');
+    const session=terminal(battleId),terminalAt=Number(session.endedAt);
+    let campaign=createClanWarCampaign({instanceId:`cw2-${battleId}`,now:terminalAt-CLAN_WAR_RULES.preparationMs-CLAN_WAR_RULES.shrineWindowMs+(late?-1000:1000),
+        rosters:[{clan:'From',members:['clanpvpfrom','from1','from2','from3'].map(name=>({name,level:30}))},
+            {clan:'To',members:['clanpvpto','to1','to2','to3'].map(name=>({name,level:30}))}],
+        sectors:Array(6).fill(12),offsets:Array(6).fill(0),modes:['pvp1v1','pet1v1','tilecards','tilecards','pet1v1','pvp1v1']});
+    const admittedAt=campaign.shrines[0].closesAt-16*60_000;
+    const next=(result:ClanWarCampaignMutation)=>{assert.ok(result.ok,result.ok?'':result.error);return result.campaign;};
+    for(const [clan,name] of [['From','clanpvpfrom'],['To','clanpvpto']])campaign=next(joinClanWarQueue(campaign,{entryId:`entry-${clan}`,clan,name,mode:'pvp1v1',scope:'shrine',windowIndex:0,now:admittedAt}));
+    campaign=next(matchClanWarQueue(campaign,session.clanWarChallengeId!,admittedAt));
+    for(const name of ['clanpvpfrom','clanpvpto'])campaign=next(readyClanWarMatch(campaign,session.clanWarChallengeId!,name,admittedAt));
+    campaign=next(startClanWarMatch(campaign,session.clanWarChallengeId!,admittedAt));
+    session.createdAt=admittedAt;await seed(session);
+    const key=`clan-war:${session.clanWarId}`,war=(await kv.get<ClanWar>(key))!;
+    await kv.set(key,{...war,campaign,startedAt:campaign.declaredAt,pendingChallenges:war.pendingChallenges.map(challenge=>({...challenge,campaignMatchId:challenge.id,createdAt:admittedAt,acceptedAt:admittedAt,expiresAt:campaign.shrines[0].closesAt}))});
+    const first=await settle(session),replay=await settle(session);
+    const expected=late?{}:{clanpvpfrom:1};
+    assert.deepEqual(first?.territoryScrollsByPlayer,expected);assert.deepEqual(replay?.territoryScrollsByPlayer,expected);
+    assert.equal(scrollCount(await kv.get('save:clanpvpfrom')),late?0:1);
+    assert.equal((await kv.get<Record<string,any>>('save:clanpvpfrom'))!.character.clanPoints,late?0:50);
+});
 
 function scrollCount(save: Record<string, any> | null): number {
     return (save?.character?.itemStacks ?? [])

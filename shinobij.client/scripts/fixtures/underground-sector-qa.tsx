@@ -6,6 +6,9 @@ import { StrongholdExplore } from '../../src/features/anbuInfiltration/Stronghol
 import { AnbuVaultRaid } from '../../src/features/anbuInfiltration/AnbuVaultRaid';
 import { useHollowGateWalk } from '../../src/features/hollowGate/use-hollow-gate-walk';
 import { generateHollowGateFloor } from '../../src/lib/hollow-gate-generate';
+import { hollowRifts } from '../../src/data/hollow-rifts';
+import { riftEventConfig } from '../../src/lib/rift-run';
+import { hollowGateVariantDims, variantFromEventConfig } from '../../src/lib/hollow-gate-variant';
 import { computeHollowGateVisible } from '../../src/lib/hollow-gate-visibility';
 import { findHollowGatePath } from '../../src/lib/hollow-gate-path';
 import { createHollowGateWanderers, advanceHollowGateWanderers } from '../../../shared/hollow-gate-wanderers';
@@ -23,6 +26,16 @@ import { LiveCapabilitiesStore } from '../../src/lib/live-capabilities';
 import { PUBLIC_CAPABILITY_IDS } from '../../../shared/public-capabilities';
 
 const params = new URLSearchParams(location.search);
+const questRift = hollowRifts.find(rift => rift.id === params.get('rift'));
+const questVariant = questRift ? variantFromEventConfig(riftEventConfig(questRift)) : undefined;
+// Reproduce saves with an assigned legacy atlas, which used to hide the new
+// underground terrain. Keep a content icon assigned to check that it survives.
+const sharedImages = params.has('legacyAtlas') ? {
+    'shrine:tile-room-floor': '/assets/dungeon/0x72-dungeon-tileset-ii.png',
+    'shrine:tile-corridor-floor': '/assets/dungeon/0x72-dungeon-tileset-ii.png',
+    'shrine:tile-wall': '/assets/dungeon/0x72-dungeon-tileset-ii.png',
+    'shrine:icon-exit': '/ui/icon-96/gate.webp',
+} : {};
 const targetVillage = params.get('targetVillage') ?? 'Frostfang Village';
 const capabilities = Object.fromEntries(PUBLIC_CAPABILITY_IDS.map(id => [id, { state: 'available', reason: 'available' }]));
 const capabilityStore = new LiveCapabilitiesStore(async () => ({ ok: true, status: 200, json: async () => ({ ok: true, capabilities }) }));
@@ -37,10 +50,12 @@ const contest: SectorWarContestView | null = params.has('war') ? {
 function initialRun(requestedFloor?: number): HollowGateShrineRun {
     let seed = 91825;
     const rng = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
-    const floor = requestedFloor ?? Number(params.get('floor') ?? 2);
+    const floor = requestedFloor ?? Number(params.get('floor') ?? (questRift ? 1 : 2));
     const event = params.has('event');
-    const run = generateHollowGateFloor(floor, floor === (event ? 3 : 5), event ? { width: 19, height: 15 } : undefined, rng);
+    const run = generateHollowGateFloor(floor, floor === (questRift?.floors ?? (event ? 3 : 5)), questVariant ? hollowGateVariantDims(questVariant) : event ? { width: 19, height: 15 } : undefined, rng);
     run.keys = Number(params.get('keys') ?? run.keys);
+    run.threat = Number(params.get('threat') ?? run.threat);
+    run.completed = params.has('completed');
     if (params.has('risk')) run.entryCurrencies = { hollowShards: Math.max(0, (character.hollowShards ?? 0) - 20000), ryo: Math.max(0, character.ryo - 40000) };
     run.runToken = 'underground-qa';
     run.floorFeatures = planUndergroundFloorFeatures(run.tiles, run.width, true, false, run.playerY * run.width + run.playerX);
@@ -52,9 +67,10 @@ function initialRun(requestedFloor?: number): HollowGateShrineRun {
         if (index != null) { run.playerX = index % run.width; run.playerY = Math.floor(index / run.width); }
     }
     if (event) run.variant = { id: 'event-qa', label: 'Festival Rift', maxFloor: 3, bossName: 'Festival Guardian', width: 19, height: 15 };
+    if (questVariant) run.variant = questVariant;
     if (!params.has('bossIntro')) sessionStorage.setItem(`shinobix:hollow-gate-alpha-intro:underground-qa:${floor}`, '1');
     const visible = computeHollowGateVisible(run);
-    run.tiles = run.tiles.map((t, i) => ({ ...t, seen: params.has('explored') || visible.has(i) }));
+    run.tiles = run.tiles.map((t, i) => ({ ...t, seen: params.has('explored') || visible.has(i) || (params.has('legacyAtlas') && t.kind === 'exit') }));
     return run;
 }
 export function CaveFixture() {
@@ -96,7 +112,7 @@ export function CaveFixture() {
     }, [run, walk]);
     useEffect(() => { document.body.dataset.tile = String(run.playerY * run.width + run.playerX); document.body.dataset.npcs = JSON.stringify(run.wanderers); }, [run]);
     if (exited) return <h1>Returned to sector</h1>;
-    return <HollowGateShrineView character={character} hollowGateRun={run} hollowGateLog={[]} sharedImages={{}}
+    return <HollowGateShrineView character={character} hollowGateRun={run} hollowGateLog={[]} sharedImages={sharedImages}
         hollowGateIntroPage={intro} setHollowGateIntroPage={setIntro} hollowGateEvent={event} hollowGateHiddenChamber={null}
         moveHollowGatePlayer={move} onTileClick={index => {
             if (hollowGateNpcCanTalk(run, index)) resolveHollowGateTile({ ...run.tiles[index], kind: 'npc' }, index % run.width, Math.floor(index / run.width), {

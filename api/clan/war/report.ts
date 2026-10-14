@@ -99,6 +99,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const ch = war.pendingChallenges.find(c => c.id === challengeId);
             if (!ch) return { status: 404 as const, body: { error: 'Challenge not found or already completed.' } };
             if (ch.status !== 'accepted') return { status: 409 as const, body: { error: 'Challenge has not been accepted yet.' } };
+            if (war.campaign && !identity.admin) {
+                return { status: 409 as const, body: { error: 'Clan war matches are settled by their battle server. No result report is required.' } };
+            }
 
             // Pet modes are SERVER-RESOLVED (api/clan/war/pet.ts runs the same
             // deterministic duel engine the client renders) and finalize themselves.

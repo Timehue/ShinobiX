@@ -496,7 +496,8 @@ import { readFileSync } from "node:fs";
 // loadScreenImageCategories its three post-mount callers already reference.
 // → 6,470 after extracting synchronous Hollow Gate movement projection to
 // lib/hollow-gate-movement-projection.ts.
-const MAX_LINES = 6467;
+// Clan battle launch now loads on use from lib/clan-war-battle-launch.ts.
+const MAX_LINES = 6308;
 
 test("App.tsx stays within its line budget (drain, don't regrow)", () => {
   const src = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");

@@ -76,6 +76,8 @@ const INVENTORY: ReadonlyArray<{ file: string; mechanism: Mechanism; markers: re
     { file: '_save-debit-saga.ts', mechanism: 'economy-tx', markers: ['inspectSettlementReceipt', 'inspectSharedCredit', 'receiptAbsenceProvable', 'markEconomyTx'] },
     { file: 'sector/shrine-offer.ts', mechanism: 'economy-tx', markers: ['runSaveDebitSaga', 'SHRINE_OFFER_SAGA', 'parseSettlementRequestId'] },
     { file: 'clan/treasury/donate.ts', mechanism: 'economy-tx', markers: ['runSaveDebitSaga', 'CLAN_DONATION_SAGA', 'parseSettlementRequestId'] },
+    { file: 'clan/_program.ts', mechanism: 'economy-tx', markers: ['runSaveDebitSaga','CLAN_PROJECT_SAGA','parseSettlementRequestId','week.claimed[id]','kv.compareSet'] },
+    { file: 'clan/war/_campaign-service-cancel.ts', mechanism: 'state-machine', markers: ['feeRefundedAt','refundCampaignPersonalFee','kv.compareSetMany','declarationPayment'] },
     { file: 'village/treasury/donate.ts', mechanism: 'economy-tx', markers: ['runSaveDebitSaga', 'VILLAGE_DONATION_SAGA', 'parseSettlementRequestId'] },
     // Bounty placement is the saga above; the payout (issue #180) reserves the
     // head on the board before an in-save-receipted credit.
@@ -97,7 +99,11 @@ const INVENTORY: ReadonlyArray<{ file: string; mechanism: Mechanism; markers: re
     { file: 'village/_kage-inactivity.ts', mechanism: 'in-save-receipt', markers: ['inspectSettlementReceipt', 'receiptAbsenceProvable', 'appendSettlementReceipt'] },
     // Stakes that open something on a shared row, moved onto the saga.
     { file: 'village/hollow-gate-unlock.ts', mechanism: 'economy-tx', markers: ['runSaveDebitSaga', 'HOLLOW_GATE_UNLOCK_SAGA', 'parseSettlementRequestId'] },
-    { file: 'clan/war/declare.ts', mechanism: 'economy-tx', markers: ['runSaveDebitSaga', 'CLAN_WAR_DECLARE_SAGA', 'parseSettlementRequestId'] },
+    { file: 'clan/war/declare.ts', mechanism: 'economy-tx', markers: ['declareClanWarCampaign', 'parseSettlementRequestId'] },
+    { file: 'clan/war/_campaign-declare.ts', mechanism: 'economy-tx', markers: ['runSaveDebitSaga', 'CLAN_WAR_DECLARE_SAGA', 'claimClanWarReservations', 'publishPoolDeclaration'] },
+    { file: 'clan/war/_pool-declaration.ts', mechanism: 'economy-tx', markers: ['kv.compareSetMany', 'economyTxKey', "state:'complete'", 'clanWarReservationKey'] },
+    { file: 'clan/war/_campaign-provisions.ts', mechanism: 'state-machine', markers: ['kv.compareSetMany', 'activatedAt:now', 'provisionCost'] },
+    { file: 'clan/war/_campaign-rewards.ts', mechanism: 'in-save-receipt', markers: ['mutatePlayerSave', 'clanWarRewardReceipts', 'campaignRewardId', 'fingerprint'] },
     { file: 'village/kage-challenge.ts', mechanism: 'economy-tx', markers: ['runSaveDebitSaga', 'KAGE_CHALLENGE_DECLARE_SAGA', 'parseSettlementRequestId'] },
 ];
 
