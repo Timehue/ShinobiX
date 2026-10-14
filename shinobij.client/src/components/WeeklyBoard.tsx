@@ -9,6 +9,7 @@ import type { Character } from "../types/character";
 import { fetchWeeklyBoard, claimWeeklyMission, rewardText, weeklyClaimErrorText, type WeeklyBoard as Board } from "../lib/weekly-board";
 import { readScreenCache, writeScreenCache } from "../lib/screen-cache";
 import { GameArtIcon } from "./GameArtIcon";
+import { gameToast } from "./GameToast";
 import { SharedClockLeaf } from "./SharedClockLeaf";
 
 const CACHE_TTL_MS = 60_000;
@@ -77,7 +78,7 @@ export function WeeklyBoard({ character, updateCharacter }: { character: Charact
             } : prev);
         }
         if (res.reward) {
-            alert(`Reward claimed: ${rewardText(res.reward)}.`);
+            gameToast(`Reward claimed: ${rewardText(res.reward)}.`);
         }
         setBoard((previous) => {
             if (!previous) return previous;

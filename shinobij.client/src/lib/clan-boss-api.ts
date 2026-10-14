@@ -45,7 +45,7 @@ export async function startClanBossAssault(hostName: string, partyId: string | u
             body: JSON.stringify({ hostName, partyId, expectedVersion, requestId, hostLoadout }),
         });
         const data = await r.json().catch(() => ({})) as Record<string, unknown>;
-        if (!r.ok) return { error: (data.error as string) ?? `HTTP ${r.status}`, status: r.status };
+        if (!r.ok) return { error: (data.error as string) ?? "The clan boss assault could not start. Try again in a moment.", status: r.status };
         return data as ClanBossStartResult;
     } catch (e) { return { error: String((e as Error).message) }; }
 }

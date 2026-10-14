@@ -219,7 +219,8 @@ export function Profile({
     // and caps, and is the same view earnedStatPoints/allocatedStatPoints take, so
     // display, the cap math, and the spend path cannot disagree about a stat.
     const safeStats = normalizeStats(character.stats);
-    const [statInputs, setStatInputs] = useState<Partial<Record<keyof Stats, number>>>({});
+    // "" while a field is cleared, so typing 25 over a 1 does not read as 125.
+    const [statInputs, setStatInputs] = useState<Partial<Record<keyof Stats, number | "">>>({});
     const [statWarning, setStatWarning] = useState("");
     const [titleInput, setTitleInput] = useState(character.customTitle ?? "");
     const [profileMutationBusy, setProfileMutationBusy] = useState(false);
@@ -294,7 +295,8 @@ export function Profile({
     }
 
     function addStat(stat: keyof Stats) {
-        const amount = Math.max(0, Math.floor(statInputs[stat] ?? 1));
+        const typed = statInputs[stat];
+        const amount = Math.max(0, Math.floor(typed === undefined || typed === "" ? 1 : typed));
         if (amount === 0) return;
         if (amount > character.unspentStats) {
             setStatWarning(`Not enough points — only ${character.unspentStats} remaining.`);
@@ -617,6 +619,8 @@ export function Profile({
         const pct = Math.min(100, Math.round((value / rankCap) * 100));
         const statLabel = formatStatLabel(stat);
         const inputId = `stat-points-${stat}`;
+        // The most this stat can take right now: the pool, and the room under the rank cap.
+        const inputMax = Math.max(1, Math.min(character.unspentStats, room));
         return (
             <div className="stat-card" key={stat}>
                 <div className="stat-card-label" id={`${inputId}-label`}>{statLabel}</div>
@@ -632,9 +636,13 @@ export function Profile({
                         id={inputId}
                         type="number"
                         min={1}
-                        max={Math.max(1, Math.min(character.unspentStats, room))}
+                        max={inputMax}
                         value={statInputs[stat] ?? 1}
-                        onChange={(e) => setStatInputs((prev) => ({ ...prev, [stat]: Math.max(1, parseInt(e.target.value) || 1) }))}
+                        onChange={(e) => {
+                            const raw = e.target.value;
+                            setStatInputs((prev) => ({ ...prev, [stat]: raw === "" ? "" : Math.max(1, Math.min(inputMax, parseInt(raw) || 1)) }));
+                        }}
+                        onBlur={() => { if (statInputs[stat] === "") setStatInputs((prev) => ({ ...prev, [stat]: 1 })); }}
                         className="stat-input"
                         disabled={atCap}
                         aria-label={`Points to add to ${statLabel}`}

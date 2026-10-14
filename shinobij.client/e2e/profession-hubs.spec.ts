@@ -142,7 +142,7 @@ test('healer can treat a worldwide patient and receives a visible receipt', asyn
     });
     await expectUiAuditBoot(page, runtime, 'professions');
     await page.getByRole('button', { name: 'Heal ally', exact: true }).click();
-    await expect(page.getByRole('status').filter({ hasText: 'WoundedAlly: Healed!' })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'Healed WoundedAlly. +90 profession XP.' })).toBeVisible();
     expect(healBody).toMatchObject({ healerName: 'AuditNinja', targetName: 'WoundedAlly', requestId: expect.stringMatching(/^heal_/) });
     await expect(page.getByRole('button', { name: 'Heal ally', exact: true })).toHaveCount(0);
     await expect(page.locator('.ph-metric').filter({ hasText: 'Chakra available' }).locator('dd')).toHaveText('8,980');
@@ -240,7 +240,7 @@ test('healer retries a failed request with the same receipt ID and clears pendin
     await page.getByRole('button', { name: 'Heal ally', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Healing…', exact: true })).toBeDisabled();
     finishRequest();
-    await expect(page.getByRole('status').filter({ hasText: 'WoundedAlly: Healed!' })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'Healed WoundedAlly. +90 profession XP.' })).toBeVisible();
     expect(requests).toHaveLength(2);
     expect(requests[0]).toEqual(requests[1]);
     await expect(page.locator('.ph-metric').filter({ hasText: 'Chakra available' }).locator('dd')).toHaveText('8,980');

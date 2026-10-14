@@ -1,4 +1,4 @@
-import { expect, test, type Page, type Route } from '@playwright/test';
+import { expect, test, type Locator, type Page, type Route } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave } from './helpers/ui-audit-runtime';
@@ -71,6 +71,13 @@ async function openVest(page: Page, keyboard = false) {
     return dialog;
 }
 
+// Sell All takes two taps: the first only arms it, the second sells.
+const SELL_ALL_CONFIRM = 'Confirm: sell all 3 for 270 ryo';
+async function sellAllVests(vest: Locator) {
+    await vest.getByRole('button', { name: /Sell All x3/ }).click();
+    await vest.getByRole('button', { name: SELL_ALL_CONFIRM, exact: true }).click();
+}
+
 async function capture(page: Page, label: string) {
     if (!process.env.BANK_AUDIT_PHASE) return;
     const output = resolve('test-results/safe-consolidation', process.env.BANK_AUDIT_PHASE);
@@ -104,7 +111,12 @@ test('Inventory guards a pending Sell All and keeps a newly opened selection aft
     await boot();
     const vest = await openVest(page, true);
     const all = vest.getByRole('button', { name: /Sell All x3/ });
-    await all.evaluate((node: HTMLButtonElement) => { node.click(); node.click(); });
+    await all.evaluate((node: HTMLButtonElement) => node.click());
+    const armed = vest.getByRole('button', { name: SELL_ALL_CONFIRM, exact: true });
+    await expect(armed).toBeEnabled();
+    expect(requests, 'the first Sell All tap only arms the sale').toHaveLength(0);
+    // A double tap on the armed button still sends exactly one sale.
+    await armed.evaluate((node: HTMLButtonElement) => { node.click(); node.click(); });
     await expect.poll(() => requests.length).toBe(1);
     await expect(all).toBeDisabled();
     await expect(all).toHaveAttribute('aria-busy', 'true');
@@ -153,7 +165,7 @@ test('Inventory preserves an interrupted sale with inline recovery and distingui
     const vest = await openVest(page);
     for (const response of ['network', 'server', 'timeout', 'malformed', 'rejected']) {
         mode = response;
-        await vest.getByRole('button', { name: /Sell All x3/ }).click();
+        await sellAllVests(vest);
         const warning = vest.locator('#inventory-sale-error');
         await expect(warning).toContainText(response === 'rejected' ? 'Item is not available in your backpack.' : 'Action unconfirmed. Refresh before retrying.');
         await expect(warning).toHaveAttribute('role', 'alert');
@@ -165,7 +177,7 @@ test('Inventory preserves an interrupted sale with inline recovery and distingui
     }
     expect(requests[1].requestId).toBe(requests[0].requestId);
     mode = 'accepted';
-    await vest.getByRole('button', { name: /Sell All x3/ }).click();
+    await sellAllVests(vest);
     await expect(vest).toHaveCount(0);
     await expect(page.locator('.game-toast-stack')).toContainText('Sold 3 × Shinobi Vest for 270 ryo.');
     expect(requests).toHaveLength(6);
@@ -180,7 +192,7 @@ test('Inventory confirms a settled sale whose reply arrives after a newer save',
     await page.route('**/api/inventory/sell', route => { requests++; return acceptSale(route, true); });
     await boot();
     const vest = await openVest(page, true);
-    await vest.getByRole('button', { name: /Sell All x3/ }).click();
+    await sellAllVests(vest);
     await expect(vest).toHaveCount(0);
     await expect(page.locator('.game-toast-stack')).toContainText('Sold 3 × Shinobi Vest for 270 ryo.');
     await expect(page.locator('#inventory-sale-error')).toHaveCount(0);
@@ -203,7 +215,7 @@ test('Inventory keeps late sale failures visible after closing details or openin
     await boot();
     for (const otherSelection of [false, true]) {
         const vest = await openVest(page);
-        await vest.getByRole('button', { name: /Sell All x3/ }).click();
+        await sellAllVests(vest);
         await expect.poll(() => requests).toBe(otherSelection ? 2 : 1);
         await vest.getByRole('button', { name: 'Close item details', exact: true }).click();
         await expect(vest).toHaveCount(0);

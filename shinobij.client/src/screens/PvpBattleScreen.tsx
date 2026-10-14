@@ -910,7 +910,7 @@ export function PvpBattleScreen({
                         lastFailure = parsed.message;
                     } else {
                         const body = await res.json().catch(() => ({} as { error?: string }));
-                        lastFailure = typeof body.error === "string" ? body.error : `Join failed (HTTP ${res.status}).`;
+                        lastFailure = typeof body.error === "string" ? body.error : "Could not join this battle. Retry by reopening it.";
                     }
                 } catch { /* retry */ }
             }
@@ -1739,7 +1739,7 @@ export function PvpBattleScreen({
                 <div className="card" style={{ textAlign: "center", padding: "2rem" }}>
                     <h2>PvP Battle</h2>
                     <p style={{ color: sessionLoadFailure ? "#fca5a5" : "var(--text-dim)" }}>
-                        {sessionLoadFailure || "Connecting to battle session..."}
+                        {sessionLoadFailure || "Connecting to the battle…"}
                     </p>
                     {spectatorOrigin && <button type="button" onClick={() => exitBattle(returnTarget)}>Stop watching</button>}
                     {sessionLoadFailure && (
@@ -1747,12 +1747,12 @@ export function PvpBattleScreen({
                             <button type="button" onClick={() => {
                                 setSessionLoadFailure("");
                                 setSessionRetryKey(value => value + 1);
-                            }}>Retry Connection</button>
+                            }}>Retry connection</button>
                             {spectatorOrigin ? null : sessionExitCheck === "safe" ? (
-                                <button type="button" onClick={() => exitBattle(returnTarget)}>Return Safely</button>
+                                <button type="button" onClick={() => exitBattle(returnTarget)}>Leave battle</button>
                             ) : (
                                 <button type="button" disabled={sessionExitCheck === "checking"} onClick={() => void verifyPendingSessionBeforeExit()}>
-                                    {sessionExitCheck === "checking" ? "Checking Battle Status..." : "Verify Exit Safety"}
+                                    {sessionExitCheck === "checking" ? "Checking the battle…" : "Check before leaving"}
                                 </button>
                             )}
                         </div>
@@ -2070,7 +2070,7 @@ export function PvpBattleScreen({
                 // combat log while retaining the pending jutsu so the player
                 // can retry or choose a different legal target.
                 const errData = await res.json().catch(() => ({} as Record<string, unknown>));
-                const errMsg = typeof errData?.error === "string" ? errData.error : `Server rejected move (${res.status})`;
+                const errMsg = typeof errData?.error === "string" ? errData.error : "That move may not have gone through. Choose your action again.";
                 if (isCurrentScope()) {
                     // A 5xx may follow a successful combat commit whose receipt
                     // or response failed. Keep that token for an exact retry.

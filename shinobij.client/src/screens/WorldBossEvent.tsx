@@ -15,6 +15,7 @@ import {
 import { worldBossCrystalEffects, worldBossDefinition, WORLD_BOSS_ASHFALL_MS } from '../../../shared/world-boss-event';
 import { sectorName } from '../../../shared/sector-geo';
 import { visiblePoll } from '../lib/poll';
+import { worldBossRewardLine as rewardLine } from '../lib/world-boss-raid-result';
 import '../styles/world-boss-event.css';
 
 function formatClock(ms: number): string {
@@ -33,15 +34,7 @@ function eventStatusLabel(status: string, bossName: string): string {
     if (status === 'victory') return `${bossName} has fallen`;
     if (status === 'retreated') return `${bossName} has withdrawn`;
     if (status === 'stopped') return `${bossName} event has stopped`;
-    return 'Awaiting the next muster';
-}
-
-type WorldBossRewardView = NonNullable<NonNullable<WorldBossEventClientState['queue']>['match']>['reward'];
-
-function rewardLine(reward: WorldBossRewardView): string {
-    if (!reward) return '';
-    const contents = [...reward.itemIds.map(id => id.replace(/-/g, ' ')), ...(reward.gearDrop ? ['weapon or armor'] : [])];
-    return `+${reward.ryo.toLocaleString()} Ryo · +${reward.statPoints} stats · +${reward.boneCharms} Bone Charms${contents.length ? ` · ${contents.join(' · ')}` : ''}`;
+    return 'Awaiting the next World Boss event';
 }
 
 export function WorldBossEvent({
@@ -116,7 +109,7 @@ export function WorldBossEvent({
     const event = view?.event ?? null;
     const boss = worldBossDefinition(event?.bossId);
     // Until the first read lands no boss is known, so paint none: the default
-    // boss's art would flash before Murogane's or Donkaku's. With no muster
+    // boss's art would flash before Murogane's or Donkaku's. With no active event
     // the default art stays as the backdrop, but no boss's trait is named.
     const bossKnown = view !== null;
     const bossName = event?.bossName ?? 'Roaming World Boss';
@@ -219,18 +212,18 @@ export function WorldBossEvent({
 
         <section className="world-boss-hero" aria-labelledby="world-boss-title" style={{ backgroundImage: `linear-gradient(90deg, rgba(4, 8, 17, .96) 0%, rgba(4, 8, 17, .72) 44%, rgba(4, 8, 17, .22) 100%)${bossKnown ? `, url("${boss.keyArt}")` : ""}` }}>
             <div className="world-boss-hero-copy">
-                <p className="world-boss-kicker">THE FOUR-VILLAGE MUSTER</p>
+                <p className="world-boss-kicker">WORLD BOSS EVENT</p>
                 <h1 id="world-boss-title">{bossName}</h1>
                 <p className="world-boss-subtitle">One threat on the road. Three shinobi in the field. A world that answers together.</p>
                 {event && <p className="world-boss-trait"><strong>{boss.traitName}:</strong> {boss.traitDescription}</p>}
                 <div className="world-boss-status-line"><span className={`world-boss-status-dot status-${event?.status ?? 'idle'}`} />{eventStatusLabel(event?.status ?? '', bossName)}</div>
             </div>
             <div className="world-boss-hero-fade" />
-            <div className="world-boss-hero-tag"><strong>72</strong><span>HOUR<br />MUSTER</span></div>
+            <div className="world-boss-hero-tag"><strong>72</strong><span>HOUR<br />EVENT</span></div>
         </section>
 
         <div className="world-boss-event-content">
-            {!event && <section className="world-boss-empty"><span className="world-boss-empty-icon">✦</span><h2>No active muster</h2><p>{phaseCopy}</p></section>}
+            {!event && <section className="world-boss-empty"><span className="world-boss-empty-icon">✦</span><h2>No active World Boss event</h2><p>{phaseCopy}</p></section>}
 
             {event && <>
                 <section className="world-boss-vitals" aria-label="Shared boss status">
