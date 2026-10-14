@@ -1913,7 +1913,7 @@ textarea {
 }
 
     .bulk-card-prompt-input::placeholder {
-        color: var(--slate-600);
+        color: var(--sj-text-secondary);
     }
 
 .bulk-progress-wrap {
