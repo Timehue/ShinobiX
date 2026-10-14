@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { resolve } from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { PET_RIG_REPAIR_REVISIONS } from "./pet-proper-animation-assets";
+import { PET_RIG_REPAIR_REVISIONS, PET_CHARACTER_MOTION_ASSET_REVISION } from "./pet-proper-animation-assets";
 import {
     PET_SHOWDOWN_ANIMATION_ASSET_REVISION,
     PET_SHOWDOWN_ANIMATION_MODEL_IDS,
@@ -100,9 +100,13 @@ test("each replacement preserves its reviewed model but carries a full identity 
             assert.equal(authored.json.extras?.showdownAnimationArtPass, "20260923-raijin-articulated-v1");
             assert.ok(authored.json.animations.some((animation: { channels: unknown[] }) => animation.channels.length > 8), "Raijin's polished pass must articulate more than the original blockout");
         }
-        for (const animation of authored.json.animations) {
+        for (const [index, animation] of authored.json.animations.entries()) {
             assert.ok(animation.channels.length >= 4, `${id}/${animation.name}: performance is too sparse`);
-            assert.ok(animation.channels.length <= (id === "starter-lightning-l" ? 16 : 8), `${id}/${animation.name}: excessive whole-rig animation channels`);
+            const originalCount = authored.json.extras.performanceRefinement.sourceBoundary.channels[index];
+            assert.ok(originalCount <= (id === "starter-lightning-l" ? 16 : 8), `${id}/${animation.name}: original identity performance must stay focused`);
+            assert.equal(authored.json.extras.characterMotion?.revision, PET_CHARACTER_MOTION_ASSET_REVISION);
+            assert.ok(animation.channels.length <= authored.json.skins[0].joints.length + 1, `${id}/${animation.name}: bank exceeds the measured skeleton's channel budget`);
+            assert.equal(new Set(animation.channels.map((channel: { target: { node: number; path: string } }) => `${channel.target.node}:${channel.target.path}`)).size, animation.channels.length, 'joint tracks cannot compete');
             assert.equal(animation.channels.length, animation.samplers.length);
         }
         assert.ok(authored.file.byteLength > 300_000, `${id}: output is unexpectedly truncated`);

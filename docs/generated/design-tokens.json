@@ -2476,6 +2476,14 @@
           {
             "source": "shinobij.client/src/styles/hub-screens-skin.css",
             "line": 1544
+          },
+          {
+            "source": "shinobij.client/src/styles/pet-techniques.css",
+            "line": 53
+          },
+          {
+            "source": "shinobij.client/src/styles/pet-yard-model-preview.css",
+            "line": 36
           }
         ]
       },
@@ -2636,7 +2644,7 @@
           },
           {
             "source": "shinobij.client/src/styles/jutsu-frames.css",
-            "line": 264
+            "line": 274
           },
           {
             "source": "shinobij.client/src/styles/pet-skin.css",
@@ -2841,6 +2849,10 @@
           {
             "source": "shinobij.client/src/styles/landing-home.css",
             "line": 436
+          },
+          {
+            "source": "shinobij.client/src/styles/pet-yard-model-preview.css",
+            "line": 43
           },
           {
             "source": "shinobij.client/src/styles/training-skin.css",
@@ -3606,7 +3618,7 @@
           },
           {
             "source": "shinobij.client/src/styles/jutsu-frames.css",
-            "line": 252
+            "line": 262
           },
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
@@ -5008,7 +5020,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/jutsu-frames.css",
-            "line": 246
+            "line": 256
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",

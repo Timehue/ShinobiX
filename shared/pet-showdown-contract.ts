@@ -449,6 +449,8 @@ export interface ShowdownPetView {
     rarity: string;
     /** Catalog species id — lets the client resolve the 3D model for AI pets. */
     templateId?: string;
+    /** Server-sealed cosmetics; presence also seals an empty appearance. */
+    appearance?: { collarId?: string; paletteVariantId?: string };
     level: number;
     hp: number;
     maxHp: number;
