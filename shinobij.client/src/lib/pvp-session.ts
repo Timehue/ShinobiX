@@ -18,6 +18,7 @@ import type { PvpRecoveryContext } from "./pvp-pending-session";
 import { bindPvpSessionCreateIntent } from "./pvp-session-intent";
 import { isWildSector } from "./screen-guards";
 import { setSectorReopen } from "./sector-return";
+import {prepareClanWarReturn} from './clan-war-navigation';
 
 export function preloadPvpChallengeModules<T>(
     saveData: boolean,
@@ -77,7 +78,7 @@ export function pvpResultReturn(context: PvpRecoveryContext | null, currentSecto
     // (owner, 2026-10-09). Ranked, clan-war and Kage fights keep their hubs.
     const returnTarget: Screen = context?.spectatingFromSector != null ? "worldMap"
         : context?.spectatingFromScreen ?? (context?.kageChallengeId ? "townHall" : context?.sectorAttack ? "worldMap"
-            : context?.mode?.startsWith("clanWar") ? "clan" : context?.mode === "ranked" ? "arenaDistrict"
+            : context?.mode?.startsWith("clanWar") ? context.clanWarReturnScreen??"clan" : context?.mode === "ranked" ? "arenaDistrict"
                 : duelFieldSector(context) != null ? "worldMap" : "battleArena");
     return {
         returnTarget,
@@ -108,6 +109,7 @@ export function pvpResultReturn(context: PvpRecoveryContext | null, currentSecto
  */
 export function markPvpSectorReturn(target: Screen, context: PvpRecoveryContext | null, currentSector: number): void {
     if (target !== "worldMap" || !context) return;
+    if(context.mode?.startsWith('clanWar')&&context.clanWarReturnScreen==='worldMap'){prepareClanWarReturn();return;}
     if (!context.sectorAttack && context.spectatingFromSector == null) {
         const field = duelFieldSector(context);
         if (field != null) setSectorReopen(field);

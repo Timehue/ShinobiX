@@ -2,6 +2,8 @@ import { memo, useId, useMemo } from 'react';
 import './underground-sector.css';
 import { planUndergroundFloorFeatures, type UndergroundFloorFeature as FloorFeatureSpec } from '../../../shared/underground-floor-features';
 import { UndergroundFloorFeature } from './UndergroundFloorFeature';
+import { RiftBreach } from './RiftBreach';
+import { riftBreachSites } from '../lib/rift-breach-layout';
 
 type TerrainTile = { kind: string; terrain?: string; roomId?: number | null };
 type Props = {
@@ -12,6 +14,7 @@ type Props = {
     known: ReadonlySet<number>;
     mode: 'stronghold' | 'cave';
     vault?: boolean;
+    rift?: boolean;
     features?: readonly FloorFeatureSpec[];
     renderWindow?: { left: number; top: number; width: number; height: number };
 };
@@ -22,9 +25,10 @@ const FORTRESS_ROOM_ART = ['entry-hall', 'watch-barracks', 'armory', 'signal-cha
 /** Painted room floors use the same overhead map approach as sector floors.
  * Their built-in stations match shared collision bays; only the authoritative
  * tile geometry can connect rooms. Unknown terrain stays masked. */
-export const UndergroundSectorTerrain = memo(function UndergroundSectorTerrain({ tiles, width, height, visible, known, mode, vault = false, features, renderWindow }: Props) {
+export const UndergroundSectorTerrain = memo(function UndergroundSectorTerrain({ tiles, width, height, visible, known, mode, vault = false, rift = false, features, renderWindow }: Props) {
     const id = useId().replaceAll(':', '');
     const cave = mode === 'cave';
+    const breaches = useMemo(() => rift && cave ? riftBreachSites(tiles, width) : [], [tiles, width, rift, cave]);
     const geometry = useMemo(() => tiles.map((tile, index) => {
         const x = index % width, y = Math.floor(index / width);
         const wallAt = (cx: number, cy: number) => cx < 0 || cy < 0 || cx >= width || cy >= height
@@ -53,7 +57,11 @@ export const UndergroundSectorTerrain = memo(function UndergroundSectorTerrain({
         return rooms.filter(room => ids.has(room.roomId));
     }, [rooms, tiles, known, visible]);
     const fixtures = useMemo(() => features ?? (cave ? [] : planUndergroundFloorFeatures(tiles, width, false, vault, 4 * width + 5)), [features, tiles, width, cave, vault]);
-    const paintRoom = (room: typeof rooms[number]) => <g key={room.roomId} className="underground-room-floor" data-room={room.roomId}>
+    const paintRoom = (room: typeof rooms[number]) => rift ? <g key={room.roomId} className="rift-chamber-floor" data-room={room.roomId}>
+        <image href="/underground/rift-chamber-floor-v2.webp" x={room.x} y={room.y}
+            width={room.right - room.x} height={room.bottom - room.y} preserveAspectRatio="none" />
+        <rect x={room.x} y={room.y} width={room.right - room.x} height={room.bottom - room.y} fill="var(--hg-floor-accent)" opacity=".035" />
+    </g> : <g key={room.roomId} className="underground-room-floor" data-room={room.roomId}>
         <image href="/underground/fortress-room-base-v3.webp" x={room.x} y={room.y}
             width={room.right - room.x} height={room.bottom - room.y} preserveAspectRatio="none" />
         {fixtures.filter(f => f.roomId === room.roomId).map((f, i) => {
@@ -98,7 +106,7 @@ export const UndergroundSectorTerrain = memo(function UndergroundSectorTerrain({
             </radialGradient>
             {cave && <pattern id={`${id}-material`} width="6" height="6" patternUnits="userSpaceOnUse">
                 <rect width="6" height="6" fill={`url(#${id}-slate)`} />
-                <image href="/underground/hollow-cavern-v1.webp" width="6" height="6" preserveAspectRatio="none" />
+                <image href={rift ? '/underground/rift-chamber-floor-v2.webp' : '/underground/hollow-cavern-v1.webp'} width="6" height="6" preserveAspectRatio="none" />
                 <rect width="6" height="6" fill="var(--under-floor)" opacity=".22" />
             </pattern>}
             {!cave && <pattern id={`${id}-passage-floor`} width="2" height="2" patternUnits="userSpaceOnUse">
@@ -134,8 +142,8 @@ export const UndergroundSectorTerrain = memo(function UndergroundSectorTerrain({
                     {/* Sample wall art in world coordinates, as the floor does,
                         so adjoining wall faces do not restart the same crop. */}
                     <path transform={`translate(${-g.x} ${-g.y})`}
-                        d={cave ? `M${g.x} ${g.y + .28}q.2-.18 .4-.05t.3-.05q.18-.06 .3.1V${g.y + 1}h-1Z` : `M${g.x} ${g.y + .18}h1v.82h-1Z`} fill={`url(#${id}-wall-art)`} />
-                    <path d={cave ? 'M0 .28Q.2 .1 .4 .23T.7 .18Q.88 .12 1 .28' : 'M0 .19H1'} fill="none" stroke="var(--under-highlight)" strokeWidth=".012" opacity=".45" />
+                        d={rift ? `M${g.x} ${g.y + .22}l.16-.03 .19.05 .22-.06 .21.05 .22-.01V${g.y + 1}h-1Z` : cave ? `M${g.x} ${g.y + .28}q.2-.18 .4-.05t.3-.05q.18-.06 .3.1V${g.y + 1}h-1Z` : `M${g.x} ${g.y + .18}h1v.82h-1Z`} fill={`url(#${id}-wall-art)`} />
+                    <path d={rift ? 'M0 .22L.16 .19 .35 .24 .57 .18 .78 .23 1 .22' : cave ? 'M0 .28Q.2 .1 .4 .23T.7 .18Q.88 .12 1 .28' : 'M0 .19H1'} fill="none" stroke="var(--under-highlight)" strokeWidth=".012" opacity=".45" />
                     <rect y=".86" width="1" height=".14" fill="#02070c" opacity=".35" />
                 </>}
                 {!g.wall && <>
@@ -146,7 +154,7 @@ export const UndergroundSectorTerrain = memo(function UndergroundSectorTerrain({
                 </>}
             </g>;
         })}
-        {!cave && <>
+        {(!cave || rift) && <>
             {/* Every room is one coherent painting: flooring, light and built-in
                 stations share a camera, material scale and architectural plan.
                 Only discovered rooms are mounted, so a phone loads its current
@@ -194,6 +202,11 @@ export const UndergroundSectorTerrain = memo(function UndergroundSectorTerrain({
                     </g>;
             })}
         </g>
+        {/* The discovered stone rim may project over the dark background, just
+            like an actor sprite. Its anchors must all be known; no hidden
+            terrain is painted or revealed beneath its transparent silhouette. */}
+        {breaches.filter(site => inDrawing(site) && site.cells.every(i => known.has(i) || visible.has(i)))
+            .map(site => <RiftBreach key={site.roomId} site={site} active={site.cells.some(i => visible.has(i))} />)}
         {!cave && !vault && <g clipPath={`url(#${id}-known)`}>
             {/* A direct tint keeps the Obsidian palette without allocating a
                 filtered surface for the entire offscreen dungeon atlas. */}

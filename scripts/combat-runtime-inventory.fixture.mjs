@@ -53,7 +53,7 @@ export const EXPECTED_RUNTIME_MODE_CONTRACTS = deepFreeze([
   C('ranked-shinobi-pvp', [route('/pvp/ranked-queue', 'start'), route('/pvp/ranked-format-weapon', 'start'), route('/ranked-season', 'leaderboard+record'), route('/pvp/session', 'state'), route('/pvp/move', 'action'), ...PVP_SUPPORT]),
   C('village-guard-pvp-human', [route('/village-guard/challenge', 'lifecycle'), ...PVP_RUNTIME]),
   C('kage-succession-pvp', [route('/village/kage-challenge', 'lifecycle+settlement'), ...PVP_RUNTIME]),
-  C('clan-war-pvp-1v1', [route('/clan/war/challenge', 'lifecycle'), ...PVP_RUNTIME, route('/clan/war/report', 'settlement')]),
+  C('clan-war-pvp-1v1', [route('/clan/war/challenge', 'lifecycle'), route('/clan/war/queue', 'lifecycle'), ...PVP_RUNTIME, route('/clan/war/report', 'settlement')]),
   C('ranked-2v2', [
     route('/pvp/ranked-2v2', 'lifecycle+settlement+start'),
     route('/pvp/ranked-format-weapon', 'start'),
@@ -61,7 +61,7 @@ export const EXPECTED_RUNTIME_MODE_CONTRACTS = deepFreeze([
     route('/towers/pvp-state', 'state'),
   ]),
   C('clan-war-pvp-2v2', [
-    route('/clan/war/challenge', 'lifecycle'),
+    route('/clan/war/challenge', 'lifecycle'), route('/clan/war/queue', 'lifecycle'),
     route('/clan/war/pvp-2v2', 'settlement+start'),
     route('/towers/pvp-action', 'action'),
     route('/towers/pvp-state', 'state'),
@@ -103,8 +103,8 @@ export const EXPECTED_RUNTIME_MODE_CONTRACTS = deepFreeze([
   C('village-war-mercenary', [route('/village/war-merc', 'settlement+start+state'), route('/sector/merc-roam', 'settlement+start+state')]),
   C('sector-war-card', [route('/village/sector-card', 'action+settlement+start+state')]),
   C('sector-war-pet', [route('/village/sector-pet', 'settlement+start+state')]),
-  C('clan-war-tilecards', [route('/clan/war/challenge', 'lifecycle'), route('/clan/war/tilecards', 'action+settlement+start+state')]),
-  C('clan-war-pet', [route('/clan/war/challenge', 'lifecycle'), route('/clan/war/pet', 'settlement+start+state')]),
+  C('clan-war-tilecards', [route('/clan/war/challenge', 'lifecycle'), route('/clan/war/queue', 'lifecycle'), route('/clan/war/tilecards', 'action+settlement+start+state')]),
+  C('clan-war-pet', [route('/clan/war/challenge', 'lifecycle'), route('/clan/war/queue', 'lifecycle'), route('/clan/war/pet', 'settlement+start+state')]),
   C('pet-showdown-practice', [route('/pet/showdown', 'action+settlement+start+state')]),
   C('wild-pet-binding', [route('/pet/wild-binding', 'action+settlement+start+state')]),
   C('pet-wanderer-showdown', [route('/pet/showdown', 'action+start+state')]),

@@ -23,7 +23,7 @@ import { withKvLock } from '../../_lock.js';
 import { safeName } from '../../_utils.js';
 import { claimTowerBattleLeases, releaseTowerBattleLeases } from '../../towers/_battle-lease.js';
 import {
-    createTowerPvpMatch,
+    createTowerPvpMatch,activateReadyTowerPvpMatch,
     TOWER_PVP_ID,
     type StoredTowerPvpMatch,
     type TowerPvpFighterSeed,
@@ -106,6 +106,9 @@ export async function startClanWar2v2Match(input: {
     if (challenge.result) {
         return { ok: false, status: 409, code: 'challenge-settled', error: 'That 2v2 challenge already has a result.' };
     }
+    const { campaignBattleAdmissionError } = await import('./_campaign-queue.js');
+    const admissionError = await campaignBattleAdmissionError(war, challenge);
+    if (admissionError) return { ok: false, status: 409, code: 'campaign-admission', error: admissionError };
     const members = [...sides.from, ...sides.to];
     if (!members.includes(actor)) {
         return { ok: false, status: 403, code: 'not-a-member', error: 'You are not in that Clan War duel.' };
@@ -164,6 +167,13 @@ export async function startClanWar2v2Match(input: {
                     toClan,
                 },
             });
+            if(war.campaign){
+                // The campaign admission already required all four own-player
+                // confirmations. Carry that consent into the reused engine;
+                // clan fighters cannot use the public arena's ready endpoint.
+                for(const member of match.roster)member.ready=true;
+                if(!activateReadyTowerPvpMatch(match,Date.now()))throw new Error('Confirmed campaign teams could not start combat.');
+            }
             await writeTowerPvpMatch(match);
             // Index last: a crash before this point leaves an orphan match whose
             // leases are released below, never a challenge pointing at nothing.
