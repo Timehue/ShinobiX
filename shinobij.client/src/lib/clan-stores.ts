@@ -241,8 +241,8 @@ export function clanRationDonateBlock(character: object, owned: number, now: num
 /** The button says what the button does, including how much it will send. */
 export function clanRationDonateLabel(count: number): string {
     const n = nonNeg(count);
-    if (n <= 0) return "Donate Ration Packs";
-    return n === 1 ? "Donate 1 Ration Pack" : `Donate ${n.toLocaleString()} Ration Packs`;
+    if (n <= 0) return "Donate ration packs";
+    return n === 1 ? "Donate 1 ration pack" : `Donate ${n.toLocaleString()} ration packs`;
 }
 
 /** The confirmation after a routed ration donation: how many rations were

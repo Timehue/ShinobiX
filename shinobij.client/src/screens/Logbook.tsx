@@ -415,7 +415,7 @@ export function Logbook({
                             updateCharacter(next);
                             setCeremony({ title: exam.title, prestige });
                         }).catch((error) => alert(error instanceof Error ? error.message : "Rank exam could not be verified."));
-                    }}>{upcoming ? `Opens at level ${exam.unlockLevel}` : complete ? prestige ? "Claim Distinction" : `Pass ${exam.title}` : "Requirements Incomplete"}</button>
+                    }}>{upcoming ? `Opens at level ${exam.unlockLevel}` : complete ? prestige ? "Claim distinction" : `Pass ${exam.title}` : "Requirements incomplete"}</button>
                 </div>}
             </section>
         );
@@ -450,7 +450,7 @@ export function Logbook({
                         <div className="logbook-requirement-grid">{academyChecklist.requirements.map(renderRequirement)}</div>
                         {academyComplete && (
                             <div className="menu">
-                                <button className="start-primary-btn academy-reward-btn" disabled={claimCooldownMs > 0} onClick={claimAcademyReward}>{claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Academy Reward"}</button>
+                                <button className="start-primary-btn academy-reward-btn" disabled={claimCooldownMs > 0} onClick={claimAcademyReward}>{claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Academy reward"}</button>
                             </div>
                         )}
                     </section>
@@ -511,7 +511,7 @@ export function Logbook({
                         <p className="hint">War Ground: Sector {activeVillageWar.warGroundSector}. Each mission needs 3 successful enemy-village raids and claims for -30 enemy village HP.</p>
                         <div className="location-grid">{villageWarDailyMissions.map((mission) => {
                             const canClaim = !mission.complete && todayWarCompleted === mission.index && mission.progress >= VILLAGE_WAR_RAIDS_PER_MISSION;
-                            return <div key={mission.title} className="location-button mission-card"><span className="tile-icon">WAR</span><span>{mission.title}</span><small>Raid enemy village from Sector {activeVillageWar.warGroundSector}: {mission.progress}/{VILLAGE_WAR_RAIDS_PER_MISSION}</small><small>Reward: -{VILLAGE_WAR_MISSION_DAMAGE} enemy village HP</small><div className="mission-progress"><span style={{ width: `${(mission.progress / VILLAGE_WAR_RAIDS_PER_MISSION) * 100}%` }}></span></div><div className="menu">{mission.complete ? <button disabled>Complete Today</button> : canClaim ? <button disabled={warMissionPending} onClick={() => { void claimWarMission(mission.index); }}>{warMissionPending ? "Claiming…" : "Claim War Damage"}</button> : <button onClick={goToWarGround}>Go To War Ground</button>}</div></div>;
+                            return <div key={mission.title} className="location-button mission-card"><span className="tile-icon">WAR</span><span>{mission.title}</span><small>Raid enemy village from Sector {activeVillageWar.warGroundSector}: {mission.progress}/{VILLAGE_WAR_RAIDS_PER_MISSION}</small><small>Reward: -{VILLAGE_WAR_MISSION_DAMAGE} enemy village HP</small><div className="mission-progress"><span style={{ width: `${(mission.progress / VILLAGE_WAR_RAIDS_PER_MISSION) * 100}%` }}></span></div><div className="menu">{mission.complete ? <button disabled>Complete today</button> : canClaim ? <button disabled={warMissionPending} onClick={() => { void claimWarMission(mission.index); }}>{warMissionPending ? "Claiming…" : "Claim war damage"}</button> : <button onClick={goToWarGround}>Go to War Ground</button>}</div></div>;
                         })}</div>
                     </section>
                 </>
@@ -539,7 +539,7 @@ export function Logbook({
                                 <div className="mission-progress"><span style={{ width: `${progressPercent}%` }}></span></div>
                                 {accepted && !complete && <p><strong>Next:</strong> {nextAction.instruction}</p>}
                                 <div className="menu">
-                                    {!accepted ? <button disabled={fieldTrailPending !== null || claimingFieldMissionId !== null || !hasDailyMissionSlot(character)} onClick={() => { void acceptMission(mission); }}>{hasDailyMissionSlot(character) ? "Accept" : "Daily Limit Reached"}</button> : complete ? <button disabled={claimingFieldMissionId !== null || claimCooldownMs > 0} onClick={() => { void claimMission(mission); }}>{claimingFieldMissionId === mission.id ? "Claiming…" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Reward"}</button> : null}
+                                    {!accepted ? <button disabled={fieldTrailPending !== null || claimingFieldMissionId !== null || !hasDailyMissionSlot(character)} onClick={() => { void acceptMission(mission); }}>{hasDailyMissionSlot(character) ? "Accept" : "Daily limit reached"}</button> : complete ? <button disabled={claimingFieldMissionId !== null || claimCooldownMs > 0} onClick={() => { void claimMission(mission); }}>{claimingFieldMissionId === mission.id ? "Claiming…" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim reward"}</button> : null}
                                 </div>
                             </div>
                         );
@@ -555,7 +555,7 @@ export function Logbook({
                             <span>{event.name}</span>
                             <small>Lvl {event.levelReq} | {event.biome} | {rewardSummary(event.ryoReward, event.staminaReward, event.currencyRewards, character)}</small>
                             <p>{event.dialogue.join(" ")}</p>
-                            <div className="menu"><button onClick={() => claimRewardEvent(event)}>Claim Event Reward</button></div>
+                            <div className="menu"><button onClick={() => claimRewardEvent(event)}>Claim event reward</button></div>
                         </div>
                     ))}</div>
                 </>
@@ -606,7 +606,7 @@ export function Logbook({
                                 <p><strong>Next:</strong> {nextAction.instruction}</p>
                                 <div className="mission-progress"><span style={{ width: `${progressPercent}%` }}></span></div>
                                 <div className="menu">
-                                    {complete ? <button disabled={claimingFieldMissionId !== null || claimCooldownMs > 0} onClick={() => { void claimMission(mission); }}>{claimingFieldMissionId === mission.id ? "Claiming…" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Reward"}</button> : nextAction.objective === "explore" ? null : <button onClick={() => {
+                                    {complete ? <button disabled={claimingFieldMissionId !== null || claimCooldownMs > 0} onClick={() => { void claimMission(mission); }}>{claimingFieldMissionId === mission.id ? "Claiming…" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim reward"}</button> : nextAction.objective === "explore" ? null : <button onClick={() => {
                                         setScreen("worldMap");
                                     }}>{nextAction.label}</button>}
                                     <button className="danger-button" disabled={fieldTrailPending !== null || claimingFieldMissionId !== null} onClick={() => { void abandonMission(mission.id); }}>Abandon</button>

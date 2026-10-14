@@ -131,7 +131,7 @@ export function ChangePasswordCard({ playerName }: { playerName: string }) {
                 </p>
             )}
             <button disabled={busy || !next || !confirm} onClick={() => void submit()}>
-                {busy ? "Saving…" : "Update Password"}
+                {busy ? "Saving…" : "Update password"}
             </button>
             {issuedCode && <RecoveryCodeReveal code={issuedCode} onDone={() => setIssuedCode("")} />}
         </div>

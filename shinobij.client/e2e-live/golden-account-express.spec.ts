@@ -29,14 +29,14 @@ async function createCharacter(page: Page) {
     await expectHealthyViewport(page);
 
     await page.getByTestId('start-create').click();
-    await page.getByRole('button', { name: 'Choose Village' }).click();
+    await page.getByRole('button', { name: 'Choose village' }).click();
     await page.locator('.cc-village-card').first().click();
-    await page.getByRole('button', { name: 'Choose Bloodline' }).click();
+    await page.getByRole('button', { name: 'Choose bloodline' }).click();
     await page.locator('.cc-bloodline-card').first().click();
-    await page.getByRole('button', { name: 'Choose Avatar' }).click();
+    await page.getByRole('button', { name: 'Choose avatar' }).click();
     await page.locator('.cc-avatar-card').first().click();
     await page.getByRole('button', { name: 'Preview Shinobi' }).click();
-    await page.getByRole('button', { name: 'Name and Password' }).click();
+    await page.getByRole('button', { name: 'Name and password' }).click();
     await page.getByLabel('Name').fill(PLAYER_NAME);
     await page.locator('#cc-password').fill(PASSWORD);
     await page.locator('#cc-confirm-password').fill(PASSWORD);
@@ -104,7 +104,7 @@ test('registration survives refresh and a clean-device login against real Expres
         response.request().method() === 'GET'
         && new URL(response.url()).pathname.toLowerCase() === `/api/save/${PLAYER_NAME.toLowerCase()}`,
     );
-    await page.getByRole('button', { name: 'Enter Village' }).click();
+    await page.getByRole('button', { name: 'Enter village' }).click();
     expect((await restoredSave).status()).toBe(200);
     await expect.poll(() => page.evaluate(() => {
         const raw = localStorage.getItem('ninjav-admin-build-v1');

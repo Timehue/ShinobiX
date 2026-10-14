@@ -35,7 +35,7 @@ export const NINDO_BACKGROUNDS: NindoBackground[] = [
     },
     {
         id: "royal", label: "Kage Gold",
-        background: "linear-gradient(180deg, rgba(8,10,22,.76), rgba(6,7,16,.9)), radial-gradient(120% 85% at 50% -10%, rgba(250,204,21,.38), transparent 55%), linear-gradient(160deg, #1a1c3a, #0a0b18)",
+        background: "linear-gradient(180deg, rgba(8,10,22,.76), rgba(6,7,16,.9)), radial-gradient(120% 85% at 50% -10%, rgba(230, 196, 119, .38), transparent 55%), linear-gradient(160deg, #1a1c3a, #0a0b18)",
     },
     {
         id: "sakura", label: "Sakura",

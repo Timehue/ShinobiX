@@ -84,7 +84,7 @@ export function AiImagePrompt({
                 />
 
                 <button type="button" onClick={generateImage} disabled={isGenerating}>
-                    {isGenerating ? "Generating..." : "Generate"}
+                    {isGenerating ? "Generating…" : "Generate"}
                 </button>
             </div>
 

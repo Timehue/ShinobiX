@@ -31,12 +31,12 @@ test(`clan campaign ${phase} is readable and exposes only available actions`,asy
     const panel=page.getByRole('region',{name:'Clan war campaign'});await expect(panel).toBeVisible();
     if(phase==='service'){
         await expect(panel.getByRole('status')).toContainText('Campaign closed for a service failure');
-        await expect(panel.getByRole('button',{name:'Join Queue',exact:true})).toHaveCount(0);
+        await expect(panel.getByRole('button',{name:'Join queue',exact:true})).toHaveCount(0);
     }else{
         for(const mode of ['Shinobi Duel','Shinobi Team Battle','Pet Showdown','Chronicle Showdown'])await expect(panel.getByRole('heading',{name:mode,exact:true})).toBeVisible();
-        const queues=panel.getByRole('button',{name:'Join Queue',exact:true});expect(await queues.count()).toBe(3);
+        const queues=panel.getByRole('button',{name:'Join queue',exact:true});expect(await queues.count()).toBe(3);
         for(const queue of await queues.all()){if(phase==='preparing')await expect(queue).toBeDisabled();else await expect(queue).toBeEnabled();}
-        await expect(panel.getByRole('button',{name:'Open Partner Slot',exact:true})).toBeVisible();
+        await expect(panel.getByRole('button',{name:'Open partner slot',exact:true})).toBeVisible();
     }
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);
     await page.screenshot({path:info.outputPath(`war-${phase}.png`),fullPage:true});

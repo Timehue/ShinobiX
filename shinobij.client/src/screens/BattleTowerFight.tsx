@@ -2183,7 +2183,7 @@ export function BattleTowerFight({
                                 </button>
                             )}
                             <button onClick={() => void send({ type: "wait" })} disabled={!myTurn || busy}>
-                                <i className="cmd-icon" aria-hidden="true"><GiSandsOfTime /></i><span>End Turn</span><small>Pass</small>
+                                <i className="cmd-icon" aria-hidden="true"><GiSandsOfTime /></i><span>End turn</span><small>Pass</small>
                             </button>
                         </CombatCommandBar>
 

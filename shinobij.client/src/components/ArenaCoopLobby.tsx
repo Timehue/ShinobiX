@@ -176,7 +176,7 @@ export function ArenaCoopLobby({ character, sharedImages, onExit }: {
                                     </div>
                                     {lobby.seats.filter((s) => s.team === team).map((s) => (
                                         <div key={s.slot} style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.85rem", padding: "0.15rem 0" }}>
-                                            <span style={{ width: 8, height: 8, borderRadius: "50%", background: s.name ? (s.ready ? "var(--success)" : "#eab308") : "var(--slate-600)", flexShrink: 0 }} />
+                                            <span style={{ width: 8, height: 8, borderRadius: "50%", background: s.name ? (s.ready ? "var(--success)" : "#d1a758") : "var(--slate-600)", flexShrink: 0 }} />
                                             <span style={{ color: s.name ? "var(--slate-200)" : "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                                 {s.name ? `${s.name}${s.isYou ? " (you)" : ""}` : "Open — AI"}
                                             </span>

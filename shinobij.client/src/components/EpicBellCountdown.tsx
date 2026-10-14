@@ -15,5 +15,5 @@ export function EpicBellCountdown({ deadline, now }: { deadline: number; now: nu
     const left = timeLeftLabel(deadline, Math.max(now, sharedNow));
     if (!left) return null;
     const expired = left === "0:00";
-    return <p style={{ fontSize: ".78rem", margin: "0 0 8px", fontWeight: 700, color: expired ? "var(--red-400)" : "#fbbf24" }}><GameArtIcon kind="mission" size={15} /> {expired ? "The bell rang. Your next attempt restarts this stage." : `${left} before the bell rings`}</p>;
+    return <p style={{ fontSize: ".78rem", margin: "0 0 8px", fontWeight: 700, color: expired ? "var(--red-400)" : "#e6c477" }}><GameArtIcon kind="mission" size={15} /> {expired ? "The bell rang. Your next attempt restarts this stage." : `${left} before the bell rings`}</p>;
 }

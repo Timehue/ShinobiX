@@ -640,7 +640,7 @@ test("open Fold landing uses compact navigation and keeps both entry actions cle
     const menu = page.getByRole("button", { name: "Open navigation" });
     const notice = page.getByRole("region", { name: "Data storage notice" });
     const enter = page.getByTestId("start-create");
-    const explore = page.getByRole("button", { name: /Explore Gameplay/ });
+    const explore = page.getByRole("button", { name: /See gameplay/ });
     await expect(utility).toBeHidden();
     await expect(menu).toBeVisible();
     await expect(navigation).toBeHidden();
@@ -665,7 +665,7 @@ test("open Fold landing uses compact navigation and keeps both entry actions cle
 
     await menu.click();
     await expect(navigation).toBeVisible();
-    await expect(navigation.getByRole("button", { name: "The World" })).toBeVisible();
+    await expect(navigation.getByRole("button", { name: "The world" })).toBeVisible();
     await expect(navigation.getByRole("button", { name: "Log In" })).toBeVisible();
 });
 
@@ -868,7 +868,7 @@ test("Inventory and Jutsu tabs keep selection, focus, and panels in sync", async
     await page.locator(".profile-mobile-tabs").getByRole("button", { name: "Jutsu" }).click();
     const jutsuTabs = page.getByRole("tablist", { name: "Jutsu workspace" });
     const loadoutTab = jutsuTabs.getByRole("tab", { name: /^Loadout/ });
-    const collectionTab = jutsuTabs.getByRole("tab", { name: /^Learned Jutsu/ });
+    const collectionTab = jutsuTabs.getByRole("tab", { name: /^Learned jutsu/ });
     await loadoutTab.focus();
     await loadoutTab.press("End");
     await expect(collectionTab).toBeFocused();
@@ -1153,7 +1153,7 @@ test.describe("Awakening Stone cinematic", () => {
 
         await expectUiAuditBoot(page, runtime, "centralHub");
         await page.locator(".central-card").filter({ hasText: "Awakening Stone" }).click();
-        await page.getByRole("button", { name: /Awaken Element/ }).click();
+        await page.getByRole("button", { name: /Awaken element/ }).click();
 
         const cinematic = page.getByRole("dialog", { name: "Lightning Release" });
         await expect(cinematic).toBeVisible();
@@ -1225,7 +1225,7 @@ test.describe("Awakening Stone cinematic", () => {
             await expect(confirm).toContainText("10 Fate Shards");
             await confirm.getByRole("button", { name: "Reroll", exact: true }).click();
         };
-        await page.getByRole("button", { name: /^Reroll Element 1 element/ }).click();
+        await page.getByRole("button", { name: /^Reroll element 1 element/ }).click();
         expect(requestCount, "the first tap only asks to confirm").toBe(0);
         await confirmReroll();
         // The "Error:" prefix only colours the message; the player reads the sentence.
@@ -1237,7 +1237,7 @@ test.describe("Awakening Stone cinematic", () => {
         ).toEqual([]);
         runtimeErrors.length = 0;
 
-        await page.getByRole("button", { name: /^Reroll Element 1 element/ }).click();
+        await page.getByRole("button", { name: /^Reroll element 1 element/ }).click();
         await confirmReroll();
         const cinematic = page.getByRole("dialog", { name: "Fire Release" });
         await expect(cinematic).toBeVisible();
@@ -1303,7 +1303,7 @@ test.describe("Awakening Stone cinematic", () => {
 
         await expectUiAuditBoot(page, runtime, "centralHub");
         await page.locator(".central-card").filter({ hasText: "Awakening Stone" }).click();
-        await page.getByRole("button", { name: /Reroll Elements/ }).click();
+        await page.getByRole("button", { name: /Reroll elements/ }).click();
         const confirm = page.getByRole("alertdialog", { name: "Reroll both elements", exact: true });
         await expect(confirm).toContainText("Water and Wind");
         await confirm.getByRole("button", { name: "Reroll both", exact: true }).click();

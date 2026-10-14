@@ -195,8 +195,8 @@ export function PremiumOffers({ character, onVersionedCharacter }: {
                             {tier.bonusPercent > 0 && (
                                 <span style={{
                                     position: "absolute", top: 6, right: 6,
-                                    background: "rgba(9,12,24,0.86)", color: "#facc15",
-                                    border: "1px solid rgba(250,204,21,0.55)", borderRadius: 999,
+                                    background: "rgba(9,12,24,0.86)", color: "#e6c477",
+                                    border: "1px solid rgba(230, 196, 119, 0.55)", borderRadius: 999,
                                     padding: "2px 8px", fontSize: "0.72rem", fontWeight: 700,
                                 }}>+{tier.bonusPercent}% extra</span>
                             )}

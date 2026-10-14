@@ -17,7 +17,7 @@ import type { Screen } from "../types/core";
 // readout also spells its state out in the sentence beneath the figures.
 const RATION_TONE_COLOR: Record<ClanStoresTone, string | undefined> = {
     neutral: undefined,
-    warn: "#fbbf24",
+    warn: "#e6c477",
     danger: "#f87171",
 };
 
@@ -69,7 +69,7 @@ export function ClanWarsPanel({ character, clanName, provisions, storesOpen = tr
 
     if (activeWar?.campaignView) return <ClanWarCampaignPanel war={activeWar} name={character.name} clanName={clanName} onRefresh={refresh} onLaunchBattle={onLaunchBattle} onOpenMap={()=>setScreen('worldMap')} canProvision={canProvision}/>;
     if(!activeWar&&recentEnded[0]?.campaignView)return <ClanWarCampaignPanel war={recentEnded[0]} name={character.name} clanName={clanName} onRefresh={refresh}/>;
-    if (!activeWar&&recentEnded[0]?.campaignView) return <><ClanWarCampaignPanel war={recentEnded[0]} name={character.name} clanName={clanName} onRefresh={refresh} onLaunchBattle={onLaunchBattle}/><div className="menu"><button onClick={()=>setScreen('shinobiCouncil')}>Plan the Next Campaign</button></div></>;
+    if (!activeWar&&recentEnded[0]?.campaignView) return <><ClanWarCampaignPanel war={recentEnded[0]} name={character.name} clanName={clanName} onRefresh={refresh} onLaunchBattle={onLaunchBattle}/><div className="menu"><button onClick={()=>setScreen('shinobiCouncil')}>Plan the next campaign</button></div></>;
 
     return (
         <div className="summary-box">

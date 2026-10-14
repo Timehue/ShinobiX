@@ -578,7 +578,7 @@ function CardHallInner({
             aria-pressed={tab === item}
             onClick={() => setTab(item)}
           >
-            {item === "pvp" ? "Free-Play PvP" : item === "packs" ? "Card Packs" : item[0].toUpperCase() + item.slice(1)}
+            {item === "pvp" ? "Free-play PvP" : item === "packs" ? "Card packs" : item[0].toUpperCase() + item.slice(1)}
           </button>
         ))}
       </nav>
@@ -655,7 +655,7 @@ function CardHallInner({
                   disabled={busy}
                   style={{ marginLeft: 8 }}
                 >
-                  Play Again
+                  Play again
                 </button>
               </div>
             ) : null}
@@ -717,7 +717,7 @@ function CardHallInner({
                   onClick={() => void resumeShowdown()}
                   disabled={busy}
                 >
-                  Resume Interrupted Showdown
+                  Resume interrupted Showdown
                 </button>
               </p>
             ) : null}
@@ -725,7 +725,7 @@ function CardHallInner({
               {busy ? "Preparing showdown…" : "Start Showdown vs AI"}
             </button>
             <button onClick={() => setTab("deck")} style={{ marginLeft: 8 }}>
-              Review Deck
+              Review deck
             </button>
           </div>
         )
@@ -1038,7 +1038,7 @@ function FreePlayQueue({
       // the player can retry and cleanup will send another leave on navigation.
       if (leaseIsCurrent(lease)) {
         setSearching(true);
-        setError(`${message} Your search remains active; retry Cancel Search.`);
+        setError(`${message} Your search is still active. Press “Cancel search” again.`);
       }
     } finally {
       if (leaseIsCurrent(lease)) setLeaving(false);
@@ -1060,7 +1060,7 @@ function FreePlayQueue({
       </button>
       {searching ? (
         <button onClick={() => void cancel()} disabled={leaving} style={{ marginLeft: 8 }}>
-          {leaving ? "Canceling…" : "Cancel Search"}
+          {leaving ? "Canceling…" : "Cancel search"}
         </button>
       ) : null}
       <div className="chronicle-spar-challenge">
@@ -1079,7 +1079,7 @@ function FreePlayQueue({
             />
           </label>
           <button type="submit" disabled={challengeBusy || !challengeName.trim()}>
-            {challengeBusy ? "Working…" : "Send Spar Challenge"}
+            {challengeBusy ? "Working…" : "Send spar challenge"}
           </button>
         </form>
         {outgoingChallenge ? <p role="status">Challenge sent to {outgoingChallenge.toName}. Waiting for their answer…</p> : null}

@@ -107,7 +107,7 @@ export function SageOfferModal({ offer, playerName, actionsAllowed, canMutate, o
         try {
             const sure = await gameConfirm(
                 `You may only ever have ONE Legacy. This cannot be changed later. There is no respec and no exchange, ever. Accept the ${picked.name} and it is yours for life.`,
-                { title: "The Point of No Return", confirmLabel: "I Accept This Path Forever", cancelLabel: "Go Back", danger: true },
+                { title: "The Point of No Return", confirmLabel: "I accept this path forever", cancelLabel: "Go back", danger: true },
             );
             if (!mountedRef.current || request !== requestRef.current || !sure) return;
             if (!canMutate()) {
@@ -269,25 +269,25 @@ export function SageOfferModal({ offer, playerName, actionsAllowed, canMutate, o
                                 onClick={() => { void handleAccept(o.legacyId); }}
                                 style={{ marginTop: 8, width: "100%", background: "var(--purple-400)", color: "#0b1020", fontWeight: 700 }}
                             >
-                                Accept This Path
+                                Accept this path
                             </button>
                         )}
                     </article>
                 ))}
 
                 {note && (
-                    <p role="alert" aria-live="assertive" aria-atomic="true" style={{ margin: "10px 0 0", fontSize: ".78rem", color: "#fbbf24", fontStyle: "italic" }}>{note}</p>
+                    <p role="alert" aria-live="assertive" aria-atomic="true" style={{ margin: "10px 0 0", fontSize: ".78rem", color: "#e6c477", fontStyle: "italic" }}>{note}</p>
                 )}
 
                 <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
                     <button disabled={busy || !actionsAllowed} onClick={() => void handleDecline()} style={{ flex: 1 }}>
-                        Turn Down for Now
+                        Turn down for now
                     </button>
                     <button onClick={onClose} style={{ flex: 1 }}>
-                        Step Away
+                        Step away
                     </button>
                 </div>
-                {!actionsAllowed && <p role="status" style={{ margin: "8px 0 0", fontSize: ".76rem", color: "#fbbf24", textAlign: "center" }}>Legacy choices are temporarily paused. Reading the offer and stepping away remain safe.</p>}
+                {!actionsAllowed && <p role="status" style={{ margin: "8px 0 0", fontSize: ".76rem", color: "#e6c477", textAlign: "center" }}>Legacy choices are temporarily paused. Reading the offer and stepping away remain safe.</p>}
                 <p style={{ margin: "6px 0 0", fontSize: ".7rem", color: "#9aa3b2", textAlign: "center" }}>
                     Turn him down and he departs for a few days · step away and he keeps waiting here.
                 </p>

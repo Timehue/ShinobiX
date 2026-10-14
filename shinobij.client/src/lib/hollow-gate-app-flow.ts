@@ -219,7 +219,7 @@ export function useHollowGateAppFlow(params: {
         try {
             const confirmed = await gameConfirm(
                 "Forfeit this Hollow Gate run?\n\nThis emergency exit works even if an encounter is broken. The run ends as a defeat, unbanked loot takes the normal death penalty, and you are sent to the hospital.",
-                { title: "Emergency Forfeit", confirmLabel: "Forfeit Run" },
+                { title: "Emergency Forfeit", confirmLabel: "Forfeit run" },
             );
             if (!confirmed || !scope.isCurrent()) return;
             await leave({ death: true, force: true });
@@ -315,8 +315,8 @@ export function useHollowGateAppFlow(params: {
                 body: `The shrine cannot draw the floor below ${from.floor}.\n\n${detail}\n\nYour run and its haul are intact. Try the stair again, or hold position and leave to bank what you carry.`,
                 kind: "descend",
                 choices: [
-                    { label: "Try the Stair Again", tone: "primary", onSelect: () => { setEvent(null); void descendAfterBoss(from); } },
-                    { label: "Hold Position", onSelect: () => setEvent(null) },
+                    { label: "Try the stair again", tone: "primary", onSelect: () => { setEvent(null); void descendAfterBoss(from); } },
+                    { label: "Hold position", onSelect: () => setEvent(null) },
                 ],
             });
         } finally {
@@ -344,7 +344,7 @@ export function useHollowGateAppFlow(params: {
                     body: `The Alpha's howl breaks into a thousand violet sparks. For the first time in generations, clean moonlight reaches the shrine floor.\n\nYou did not destroy its old oath. You released it.\n\nRUN SUMMARY\n${buildRunSummary()}`,
                     kind: "boss",
                     choices: [{
-                        label: "Take Final Rewards + Leave",
+                        label: "Take final rewards + leave",
                         tone: "primary",
                         onSelect: () => {
                             setEvent(null);

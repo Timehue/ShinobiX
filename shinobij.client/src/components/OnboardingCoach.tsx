@@ -699,7 +699,7 @@ export function OnboardingCoach({
         // This beat is the only hard full-screen overlay in onboarding, and an admitted
         // player returns to the village — where the modal covered everything again,
         // offering only "Begin Your First Spar" (which the server refuses while
-        // admitted) or "Skip Tutorial" (which permanently ends onboarding and forfeits
+        // admitted) or "Skip tutorial" (which permanently ends onboarding and forfeits
         // the Academy Trial). Hospitalized players do not regen, the one recovery hint
         // lives in the Daily Briefing (suppressed for the whole tutorial), and paid
         // discharge costs 2,500 ryo against 100 starting ryo. So the only exit was to
@@ -746,7 +746,7 @@ export function OnboardingCoach({
                         Begin the Resonance Trial
                     </button>
                     <button style={{ ...skipStyle, marginLeft: 0, marginTop: 10, display: "inline-block" }} onClick={requestSkip}>
-                        Skip Tutorial
+                        Skip tutorial
                     </button>
                 </div>
             </div>,
@@ -780,7 +780,7 @@ export function OnboardingCoach({
                     <button className="start-primary-btn" onClick={() => setScreen("worldMap")}>Open World Map</button>
                 )}
                 {visitedSector && (
-                    <button className="start-primary-btn" onClick={() => { if (onReturnToVillage) onReturnToVillage(); else setScreen("village"); }}>Return to Village</button>
+                    <button className="start-primary-btn" onClick={() => { if (onReturnToVillage) onReturnToVillage(); else setScreen("village"); }}>Return to village</button>
                 )}
             </>,
         );

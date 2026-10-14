@@ -12,7 +12,7 @@
     gap: 9px;
     padding: 12px;
     border-radius: 10px;
-    border: 1px solid rgba(250,204,21,.3);
+    border: 1px solid rgba(230, 196, 119, .3);
     background: rgba(2,6,23,.52);
 }
 
@@ -26,7 +26,7 @@
         width: 100%;
         aspect-ratio: 1 / 1;
         border-radius: 10px;
-        border: 2px solid rgba(250,204,21,.45);
+        border: 2px solid rgba(230, 196, 119, .45);
         object-fit: cover;
         background: rgba(15,23,42,.85);
     }
@@ -55,9 +55,9 @@
     gap: 8px;
     margin-top: 10px;
     padding: 9px 11px;
-    border-left: 3px solid rgba(250, 204, 21, .55);
+    border-left: 3px solid rgba(230, 196, 119, .55);
     border-radius: 8px;
-    background: rgba(250, 204, 21, .08);
+    background: rgba(230, 196, 119, .08);
 }
 
 .town-seat-claim {
@@ -140,7 +140,7 @@
     }
 
 .cafe-stock-packs {
-    border-color: rgba(250, 204, 21, .45);
+    border-color: rgba(230, 196, 119, .45);
 }
 
     .cafe-stock-packs strong {
@@ -214,7 +214,7 @@
     justify-content: space-between;
     gap: 12px;
     margin-bottom: 14px;
-    border-left: 4px solid rgba(250, 204, 21, .75) !important;
+    border-left: 4px solid rgba(230, 196, 119, .75) !important;
 }
 
     .town-supply-call[data-tone="hungry"] {
@@ -223,7 +223,7 @@
     }
 
     .town-supply-call[data-tone="low"] {
-        background: rgba(250, 204, 21, .1) !important;
+        background: rgba(230, 196, 119, .1) !important;
     }
 
 .town-supply-call-copy {

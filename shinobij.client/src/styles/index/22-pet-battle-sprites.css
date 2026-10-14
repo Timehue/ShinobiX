@@ -436,13 +436,13 @@
     padding: clamp(18px, 2.6vw, 28px);
     overflow: hidden;
     border-radius: 18px;
-    border: 1px solid rgba(250, 204, 21, 0.42);
+    border: 1px solid rgba(230, 196, 119, 0.42);
     background:
-        radial-gradient(circle at 16% 42%, rgba(250, 204, 21, 0.36), transparent 24%),
+        radial-gradient(circle at 16% 42%, rgba(230, 196, 119, 0.36), transparent 24%),
         linear-gradient(135deg, rgba(69, 26, 3, 0.96), rgba(15, 23, 42, 0.94));
     backdrop-filter: blur(8px);
     box-shadow:
-        inset 0 0 24px rgba(250, 204, 21, 0.14),
+        inset 0 0 24px rgba(230, 196, 119, 0.14),
         0 0 0 999px rgba(2, 6, 23, 0.52),
         0 24px 60px rgba(0, 0, 0, 0.58);
     animation: petVictoryPopup 0.28s ease-out both;
@@ -696,7 +696,7 @@
     width: 100% !important;
     margin: 0 auto !important;
     padding: 10px 14px !important;
-    border: 1px solid rgba(250, 204, 21, 0.22) !important;
+    border: 1px solid rgba(230, 196, 119, 0.22) !important;
     border-radius: 10px !important;
     background: rgba(2, 6, 23, 0.48) !important;
 }
@@ -828,7 +828,7 @@
     display: grid !important;
     gap: 8px !important;
     padding: 10px !important;
-    border: 1px solid rgba(250, 204, 21, 0.28) !important;
+    border: 1px solid rgba(230, 196, 119, 0.28) !important;
     border-radius: 9px !important;
     background: rgba(120, 53, 15, 0.16) !important;
 }
@@ -848,7 +848,7 @@
     display: grid !important;
     gap: 2px !important;
     text-align: left !important;
-    border: 1px solid rgba(250, 204, 21, 0.25) !important;
+    border: 1px solid rgba(230, 196, 119, 0.25) !important;
     background: rgba(15, 23, 42, 0.74) !important;
     color: #f8fafc !important;
     padding: 8px 10px !important;
@@ -948,7 +948,7 @@
     gap: 12px;
     padding: 14px 18px;
     margin-bottom: 22px;
-    border: 1px solid rgba(250, 204, 21, .35);
+    border: 1px solid rgba(230, 196, 119, .35);
     border-radius: 12px;
     background: linear-gradient(135deg, rgba(15,23,42,.92), rgba(30,41,59,.85));
 }
@@ -979,7 +979,7 @@
 .rank-up-btn {
     padding: 7px 18px;
     border-radius: 8px;
-    border: 1px solid rgba(250,204,21,.5);
+    border: 1px solid rgba(230, 196, 119, .5);
     background: linear-gradient(135deg, rgba(180,83,9,.85), rgba(14,116,144,.6));
     color: #fef3c7;
     font-weight: 700;
@@ -1041,7 +1041,7 @@
 }
 
     .hunt-contract-card:hover {
-        border-color: rgba(250,204,21,.35);
+        border-color: rgba(230, 196, 119, .35);
     }
 
 .hunt-contract-top {
@@ -1120,8 +1120,8 @@
     align-items: center;
     gap: 8px;
     padding: 8px 12px;
-    background: rgba(234,179,8,.1);
-    border: 1px solid rgba(234,179,8,.3);
+    background: rgba(209, 167, 88, .1);
+    border: 1px solid rgba(209, 167, 88, .3);
     border-radius: 8px;
     font-size: 0.85rem;
     color: var(--slate-200);
@@ -1198,12 +1198,12 @@
     max-width: 460px;
     width: 100%;
     background: linear-gradient(160deg, #0b1224 0%, #131e3a 55%, #0b1224 100%);
-    border: 2px solid rgba(250, 204, 21, 0.75);
+    border: 2px solid rgba(230, 196, 119, 0.75);
     border-radius: 14px;
     box-shadow:
         0 24px 60px rgba(0, 0, 0, 0.65),
-        0 0 0 1px rgba(250, 204, 21, 0.18) inset,
-        0 0 32px rgba(250, 204, 21, 0.18);
+        0 0 0 1px rgba(230, 196, 119, 0.18) inset,
+        0 0 32px rgba(230, 196, 119, 0.18);
     padding: 22px 24px 18px;
     color: var(--slate-200);
     animation: game-alert-rise 180ms cubic-bezier(0.16, 1, 0.3, 1);
@@ -1213,7 +1213,7 @@
         content: '';
         position: absolute;
         inset: 4px;
-        border: 1px solid rgba(250, 204, 21, 0.18);
+        border: 1px solid rgba(230, 196, 119, 0.18);
         border-radius: 10px;
         pointer-events: none;
     }
@@ -1224,7 +1224,7 @@
     gap: 10px;
     margin-bottom: 12px;
     padding-bottom: 10px;
-    border-bottom: 1px solid rgba(250, 204, 21, 0.22);
+    border-bottom: 1px solid rgba(230, 196, 119, 0.22);
 }
 
 .game-alert-badge {
@@ -1234,8 +1234,8 @@
     width: 28px;
     height: 28px;
     border-radius: 6px;
-    background: rgba(250, 204, 21, 0.14);
-    border: 1px solid rgba(250, 204, 21, 0.55);
+    background: rgba(230, 196, 119, 0.14);
+    border: 1px solid rgba(230, 196, 119, 0.55);
     color: var(--gold-400);
     font-size: 0.95rem;
     font-weight: 700;
@@ -1272,15 +1272,15 @@
     letter-spacing: 0.14em;
     color: var(--slate-100);
     background: rgba(3, 7, 18, 0.72);
-    border: 1px solid rgba(250, 204, 21, 0.45);
+    border: 1px solid rgba(230, 196, 119, 0.45);
     border-radius: 8px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45) inset;
 }
 
     .game-alert-input:focus {
         outline: none;
-        border-color: rgba(250, 204, 21, 0.95);
-        box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.3), 0 1px 3px rgba(0, 0, 0, 0.45) inset;
+        border-color: rgba(230, 196, 119, 0.95);
+        box-shadow: 0 0 0 2px rgba(230, 196, 119, 0.3), 0 1px 3px rgba(0, 0, 0, 0.45) inset;
     }
 
 .game-alert-footer {
@@ -1300,7 +1300,7 @@
 
 .game-alert-ok {
     background: linear-gradient(180deg, var(--gold-400) 0%, var(--gold-2) 100%);
-    border: 1px solid rgba(250, 204, 21, 0.9);
+    border: 1px solid rgba(230, 196, 119, 0.9);
     color: #0b1224;
     font-weight: 800;
     letter-spacing: 0.08em;
@@ -1308,20 +1308,20 @@
     padding: 9px 28px;
     border-radius: 8px;
     cursor: pointer;
-    box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3), 0 0 12px rgba(250, 204, 21, 0.35);
+    box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3), 0 0 12px rgba(230, 196, 119, 0.35);
     transition: transform 80ms ease, box-shadow 120ms ease, filter 120ms ease;
 }
 
     @media (hover: hover) {
         .game-alert-ok:hover {
             filter: brightness(1.07);
-            box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3), 0 0 18px rgba(250, 204, 21, 0.55);
+            box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3), 0 0 18px rgba(230, 196, 119, 0.55);
         }
     }
 
     .game-alert-ok:active {
         transform: translateY(1px);
-        box-shadow: 0 1px 0 rgba(0, 0, 0, 0.3), 0 0 12px rgba(250, 204, 21, 0.35);
+        box-shadow: 0 1px 0 rgba(0, 0, 0, 0.3), 0 0 12px rgba(230, 196, 119, 0.35);
     }
 
     .game-alert-ok:focus-visible {
@@ -1435,7 +1435,7 @@
 
     .weapon-info-badge[data-rarity="rare"]      { background: rgba(59,130,246,.2); color: var(--blue-300); border: 1px solid rgba(59,130,246,.4); }
     .weapon-info-badge[data-rarity="epic"]      { background: rgba(168,85,247,.2); color: #d8b4fe; border: 1px solid rgba(168,85,247,.4); }
-    .weapon-info-badge[data-rarity="legendary"] { background: rgba(234,179,8,.2);  color: var(--gold); border: 1px solid rgba(234,179,8,.4); }
+    .weapon-info-badge[data-rarity="legendary"] { background: rgba(209, 167, 88, .2);  color: var(--gold); border: 1px solid rgba(209, 167, 88, .4); }
 
 .weapon-info-stats {
     width: 100%;
@@ -1569,9 +1569,9 @@
    flagged; grave news (a lost seat, a collected bounty, an ambushed camp) is
    red-edged; everything else is quiet. */
 .away-notice-action {
-    background: rgba(250, 204, 21, 0.1);
-    border-color: rgba(250, 204, 21, 0.35);
-    border-left-color: #facc15;
+    background: rgba(230, 196, 119, 0.1);
+    border-color: rgba(230, 196, 119, 0.35);
+    border-left-color: var(--sj-gold-bright);
 }
 
 .away-notice-grave {
@@ -1612,7 +1612,7 @@
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: #1a1405;
-    background: #facc15;
+    background: var(--sj-gold-bright);
     border-radius: 99px;
     padding: 0.08rem 0.45rem;
 }

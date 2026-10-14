@@ -6,8 +6,8 @@
 
 .profile-page-card,
 .inventory-page {
-    --bsv2-gold:        #c4a25a;
-    --bsv2-gold-bright: #e8d496;
+    --bsv2-gold:        var(--sj-gold);
+    --bsv2-gold-bright: var(--sj-gold-bright);
     --bsv2-gold-soft:   rgba(196,162,90,0.45);
     --bsv2-gold-faint:  rgba(196,162,90,0.22);
     --bsv2-ink:         #050a18;
@@ -210,7 +210,7 @@
     color: var(--text-dim);
     font-weight: 600;
 }
-.profile-page-card .sic-tone-gold { color: var(--gold); border-color: rgba(250,204,21,0.42); background: rgba(250,204,21,0.11); }
+.profile-page-card .sic-tone-gold { color: var(--gold); border-color: rgba(230, 196, 119, 0.42); background: rgba(230, 196, 119, 0.11); }
 .profile-page-card .sic-tone-danger { color: var(--red-300); border-color: rgba(248,113,113,0.42); background: rgba(127,29,29,0.18); }
 .profile-page-card .sic-tone-legacy { color: #d8b4fe; border-color: rgba(192,132,252,0.42); background: rgba(88,28,135,0.18); }
 .profile-page-card .sic-tone-village { color: var(--blue-300); border-color: rgba(96,165,250,0.42); background: rgba(30,64,175,0.15); }
@@ -1004,7 +1004,7 @@
     gap: 12px !important;
     padding: 12px !important;
     border-radius: 6px !important;
-    border: 1px solid rgba(250,204,21,0.3) !important;
+    border: 1px solid rgba(230, 196, 119, 0.3) !important;
     background: linear-gradient(90deg, rgba(120,53,15,0.28), rgba(2,6,23,0.72)) !important;
 }
 .profile-page-card .profile-dossier-aura h4 {
@@ -1567,7 +1567,7 @@
 .profile-page-card .play-games-achievements-button {
     min-block-size: 40px;
     padding: 8px 12px;
-    border: 1px solid rgba(250, 204, 21, 0.42);
+    border: 1px solid rgba(230, 196, 119, 0.42);
     border-radius: 9px;
     background: linear-gradient(135deg, rgba(58, 43, 18, 0.94), rgba(21, 24, 34, 0.98));
     color: #ffe7a0;
@@ -1581,7 +1581,7 @@
 }
 @media (hover: hover) and (pointer: fine) {
     .profile-page-card .play-games-achievements-button:hover {
-        border-color: rgba(250, 204, 21, 0.8);
+        border-color: rgba(230, 196, 119, 0.8);
         background: linear-gradient(135deg, rgba(85, 61, 20, 0.98), rgba(28, 32, 45, 0.98));
     }
 }
@@ -3463,8 +3463,8 @@
 .user-hub-screen .user-hub-title {
     font: 500 10px Inter, sans-serif;
     color: var(--gold);
-    background: rgba(250,204,21,0.1);
-    border: 1px solid rgba(250,204,21,0.3);
+    background: rgba(230, 196, 119, 0.1);
+    border: 1px solid rgba(230, 196, 119, 0.3);
     border-radius: 4px;
     padding: 1px 6px;
 }

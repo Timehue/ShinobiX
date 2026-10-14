@@ -151,14 +151,14 @@ async function playToTerminal(page: Page, playerName: string, initial: Session):
 async function createCharacter(page: Page, playerName: string, password: string) {
     await page.goto('/', { waitUntil: 'networkidle' });
     await page.getByTestId('start-create').click();
-    await page.getByRole('button', { name: 'Choose Village' }).click();
+    await page.getByRole('button', { name: 'Choose village' }).click();
     await page.locator('.cc-village-card').first().click();
-    await page.getByRole('button', { name: 'Choose Bloodline' }).click();
+    await page.getByRole('button', { name: 'Choose bloodline' }).click();
     await page.locator('.cc-bloodline-card').first().click();
-    await page.getByRole('button', { name: 'Choose Avatar' }).click();
+    await page.getByRole('button', { name: 'Choose avatar' }).click();
     await page.locator('.cc-avatar-card').first().click();
     await page.getByRole('button', { name: 'Preview Shinobi' }).click();
-    await page.getByRole('button', { name: 'Name and Password' }).click();
+    await page.getByRole('button', { name: 'Name and password' }).click();
     await page.getByLabel('Name').fill(playerName);
     await page.locator('#cc-password').fill(password);
     await page.locator('#cc-confirm-password').fill(password);
@@ -337,7 +337,7 @@ test(`a new player completes the full persisted Academy first session against bu
 
     await page.getByRole('button', { name: 'Open Profile' }).click();
     await page.locator('.profile-mobile-tabs').getByRole('button', { name: 'Jutsu' }).click();
-    await page.getByRole('tab', { name: /Learned Jutsu/ }).click();
+    await page.getByRole('tab', { name: /Learned jutsu/ }).click();
     await page.getByRole('searchbox', { name: 'Search jutsu' }).fill('Flicker');
     await page.getByRole('button', { name: 'Equip Flicker' }).click();
     await expect(page.getByRole('button', { name: 'Open Inventory' })).toBeVisible();
@@ -445,7 +445,7 @@ test(`a new player completes the full persisted Academy first session against bu
     await expect(page.getByRole('heading', { name: 'Mission Hall' })).toBeVisible();
     const missionResponse = page.waitForResponse((response) => response.request().method() === 'POST'
         && new URL(response.url()).pathname === '/api/missions/claim-mission');
-    await page.getByRole('button', { name: 'Claim Academy Trial Reward' }).click();
+    await page.getByRole('button', { name: 'Claim Academy Trial reward' }).click();
     expect((await missionResponse).status()).toBe(200);
     await expect(page.locator('.game-toast-stack')).toContainText('Academy Trial complete!');
     await expect(page.getByRole('alertdialog', { name: 'Notice' })).toHaveCount(0);
@@ -492,8 +492,8 @@ test(`a new player completes the full persisted Academy first session against bu
         && save.character.academyTraceSector === 1
     ), 'the acknowledged field trace must persist before returning');
 
-    await expect(page.getByRole('button', { name: 'Return to Village' })).toBeVisible();
-    await page.getByRole('button', { name: 'Return to Village' }).click();
+    await expect(page.getByRole('button', { name: 'Return to village' })).toBeVisible();
+    await page.getByRole('button', { name: 'Return to village' }).click();
     const fieldSeal = page.getByRole('dialog', { name: "Shiranui's Field Seal" });
     await expect(fieldSeal).toBeVisible();
     await fieldSeal.getByRole('button', { name: 'Accept the Field Seal' }).click();
@@ -539,10 +539,10 @@ test(`a new player completes the full persisted Academy first session against bu
         else await expect(awakeningDialog.or(skipScene).or(advanceScene).first()).toBeVisible();
     }
     await expect(awakeningDialog).toBeVisible();
-    await expect(awakeningDialog.getByRole('button', { name: /Awaken Element/ })).toContainText('Level 2 reward');
+    await expect(awakeningDialog.getByRole('button', { name: /Awaken element/ })).toContainText('Level 2 reward');
     const awakeningResponse = page.waitForResponse((response) => response.request().method() === 'POST'
         && new URL(response.url()).pathname === '/api/awakening/roll');
-    await awakeningDialog.getByRole('button', { name: /Awaken Element/ }).click();
+    await awakeningDialog.getByRole('button', { name: /Awaken element/ }).click();
     expect((await awakeningResponse).status()).toBe(200);
     await waitForPersisted(page, playerName, (save) => (
         (save.character?.elements?.length ?? 0) > 0
@@ -562,7 +562,7 @@ test(`a new player completes the full persisted Academy first session against bu
     // Ninth Rank also qualifies the first village chapters, and either may be
     // queued ahead of the Aura Sphere. Skip other scenes; read the Aura Sphere
     // scene through to its claim, which Skip would forfeit.
-    const auraAdvance = page.getByRole('button', { name: /^(Next|Continue|Begin Battle)$/ });
+    const auraAdvance = page.getByRole('button', { name: /^(Next|Continue|Begin battle)$/ });
     // Its pages, then the finale (titled after the event), whose claim button
     // only appears once the closing line finishes typing.
     const auraScene = page.getByRole('dialog', { name: /^(A Timed Issue Seal|The Sphere Awakens|The Elder's Aura Sphere)\b/ });
@@ -619,7 +619,7 @@ test(`a new player completes the full persisted Academy first session against bu
     await page.getByPlaceholder('Enter your password').fill(password);
     const loginSave = page.waitForResponse((response) => response.request().method() === 'GET'
         && new URL(response.url()).pathname.toLowerCase() === `/api/save/${encodeURIComponent(playerName.toLowerCase())}`);
-    await page.getByRole('button', { name: 'Enter Village' }).click();
+    await page.getByRole('button', { name: 'Enter village' }).click();
     expect((await loginSave).status()).toBe(200);
     await reachAfterStory('.stormveil-village-screen');
     await expect(page.locator('.icx-root')).toHaveCount(0);
@@ -665,12 +665,12 @@ test(`a new player completes the full persisted Academy first session against bu
         await page.locator('.mobile-bottom-nav').getByRole('button', { name: 'Menu', exact: true }).click();
         await page.getByRole('dialog', { name: 'Shinobi menu' }).getByRole('button', { name: 'Training', exact: true }).click();
         await expect(page.getByRole('heading', { name: 'Training Grounds' })).toBeVisible();
-        await expect(page.getByRole('button', { name: 'Collect Training', exact: true })).toBeEnabled({ timeout: remainingMs + 30_000 });
+        await expect(page.getByRole('button', { name: 'Collect training', exact: true })).toBeEnabled({ timeout: remainingMs + 30_000 });
         await hardReload();
-        await expect(page.getByRole('button', { name: 'Collect Training', exact: true })).toBeEnabled();
+        await expect(page.getByRole('button', { name: 'Collect training', exact: true })).toBeEnabled();
         const collectionResponse = page.waitForResponse((response) => response.request().method() === 'POST'
             && new URL(response.url()).pathname === '/api/training/complete');
-        await page.getByRole('button', { name: 'Collect Training', exact: true }).click();
+        await page.getByRole('button', { name: 'Collect training', exact: true }).click();
         const collection = await collectionResponse;
         expect(collection.status()).toBe(200);
         const grant = await collection.json() as { granted?: boolean; applied?: number; overflow?: number };

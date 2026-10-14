@@ -438,13 +438,13 @@ export function TriggeredVisualNovel({ event: sourceEvent, character, pageIndex,
                                     ? "The scene settles into silence. Your village story continues. The chapter's guardian is waiting."
                                     : `The scene fades. A shinobi challenger steps from the shadows of ${biomeLabel(event.biome)}.`;
     const completionLabel = isPetEncounterEvent
-        ? "Meet Companion"
+        ? "Meet companion"
         : isAncientChestEvent
-            ? "Open Chest"
+            ? "Open chest"
             : isAuraSphereEvent
                 ? "Claim Aura Sphere"
                 : isSageEvent
-                    ? "Hear the Sage's Offer"
+                    ? "Hear the Sage's offer"
                     : isStoryEpilogue || isStoryInterlude
                         ? "Continue"
                         : "Continue to Story Hall";
@@ -471,8 +471,8 @@ export function TriggeredVisualNovel({ event: sourceEvent, character, pageIndex,
                 <div className={!isAuraSphereEvent && !isStoryChapterEvent && !isSageEvent && !isStoryInterlude && !isStoryEpilogue ? "vn-controls vn-decision-controls" : "vn-controls"}>
                     {!isAuraSphereEvent && !isStoryChapterEvent && !isSageEvent && !isStoryInterlude && !isStoryEpilogue ? (
                         <>
-                            <button onClick={cancelScene}>Leave - No Reward</button>
-                            <button className="admin-button" onClick={() => startBattle()}>Enter Battle</button>
+                            <button onClick={cancelScene}>Leave - no reward</button>
+                            <button className="admin-button" onClick={() => startBattle()}>Enter battle</button>
                         </>
                     ) : (
                         <button onClick={completeScene}>
@@ -505,10 +505,10 @@ export function TriggeredVisualNovel({ event: sourceEvent, character, pageIndex,
                             the canonical server fight reports a verified win. Leaving here
                             dismisses the event with no reward. */}
                         <button onClick={cancelScene}>
-                            Leave — No Reward
+                            Leave — no reward
                         </button>
                         <button className="admin-button" onClick={() => startBattle()}>
-                            Enter Battle — {biomeLabel(event.biome)}
+                            Enter battle — {biomeLabel(event.biome)}
                         </button>
                     </>
                 ) : (
@@ -602,7 +602,7 @@ export function TriggeredVisualNovel({ event: sourceEvent, character, pageIndex,
                 return (
                     <div className="vn-controls">
                         <button disabled={!canBack} onClick={previousLine}>Back</button>
-                        <button onClick={nextLine}>{isLastLine ? (isSageEvent || isStoryInterlude || isStoryEpilogue ? "Continue" : "Begin Battle") : "Next"}</button>
+                        <button onClick={nextLine}>{isLastLine ? (isSageEvent || isStoryInterlude || isStoryEpilogue ? "Continue" : "Begin battle") : "Next"}</button>
                     </div>
                 );
             }}
@@ -673,19 +673,19 @@ export function TriggeredVisualNovel({ event: sourceEvent, character, pageIndex,
                         ) : (
                             <div className="vn-controls">
                                 <button disabled={!canBack} onClick={previousLine}>Back</button>
-                                <button onClick={nextLine}>{isLastLine ? (isSageEvent || isStoryInterlude || isStoryEpilogue ? "Continue" : "Begin Battle") : "Next"}</button>
+                                <button onClick={nextLine}>{isLastLine ? (isSageEvent || isStoryInterlude || isStoryEpilogue ? "Continue" : "Begin battle") : "Next"}</button>
                             </div>
                         )}
                     </div>
                 </div>
                 <div className="vn-choice-row">
-                    <button onClick={replayScene}>Replay Scene</button>
+                    <button onClick={replayScene}>Replay scene</button>
                     {/* Story chapters must fight through a lane CHOICE (which seals the
                         real reward + the reckoning) — the free battle would pay the
                         zeroed event reward and skip both. */}
                     {!isSageEvent && !isStoryInterlude && !isStoryEpilogue && !isStoryChapterEvent && <button onClick={() => startBattle()}>Battle in {biomeLabel(event.biome)}</button>}
                     {(!isStoryChapterEvent || isStoryEpilogue) && !isFieldStory && (
-                        <button onClick={completeScene}>{isSageEvent ? "Skip to the Offer" : isStoryInterlude || isStoryEpilogue ? "Continue" : "Claim Reward + Continue"}</button>
+                        <button onClick={completeScene}>{isSageEvent ? "Skip to the offer" : isStoryInterlude || isStoryEpilogue ? "Continue" : "Claim reward + continue"}</button>
                     )}
                 </div>
                 {!isSageEvent && !isStoryInterlude && !isStoryEpilogue && (

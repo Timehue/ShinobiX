@@ -297,7 +297,7 @@ export function WeeklyBossArena({
                 {worldBossTabs}
                 {/* A failed first read is not "no boss": say so until the poll recovers. */}
                 {loadError ? (
-                    <div role="status" style={{ color: "#fbbf24", margin: "0.8rem 0" }}><GameArtIcon kind="warning" size={16} /> The Weekly Boss status could not be loaded. It will try again automatically.</div>
+                    <div role="status" style={{ color: "#e6c477", margin: "0.8rem 0" }}><GameArtIcon kind="warning" size={16} /> The Weekly Boss status could not be loaded. It will try again automatically.</div>
                 ) : (
                     <section className="weekly-boss-empty-state" aria-label="Weekly Boss status">
                         <span aria-hidden="true"><GiTombstone /></span>
@@ -377,7 +377,7 @@ export function WeeklyBossArena({
                 onBack={() => setScreen(backScreen)}
             />
             {worldBossTabs}
-            {loadError && <div role="status" style={{ color: "#fbbf24", marginBottom: "0.5rem" }}><GameArtIcon kind="warning" size={16} /> The Weekly Boss status could not be refreshed. It will try again automatically.</div>}
+            {loadError && <div role="status" style={{ color: "#e6c477", marginBottom: "0.5rem" }}><GameArtIcon kind="warning" size={16} /> The Weekly Boss status could not be refreshed. It will try again automatically.</div>}
             {error && <div role="alert" style={{ color: "var(--red-400)", marginBottom: "0.5rem" }}><GameArtIcon kind="warning" size={16} /> {error}</div>}
             {guardCycleAvailability !== "available" && (
                 <div role="status" style={{ background: "rgba(15,23,42,0.55)", border: "1px solid rgba(148,163,184,0.35)", borderRadius: 6, padding: "0.55rem 0.75rem", margin: "0.5rem 0", fontSize: "0.84rem", color: "var(--slate-300)" }}>
@@ -430,7 +430,7 @@ export function WeeklyBossArena({
                                     aria-valuetext={`${hpRemaining.toLocaleString()} of ${hpMax.toLocaleString()} HP remaining — ${hpPctLabel}%${broken ? ", broken and staggered" : ""}`}
                                     style={{ height: 10, background: "#0a0a1a", border: "1px solid rgba(248,113,113,0.45)", borderRadius: 5, overflow: "hidden" }}
                                 >
-                                    <div style={{ width: `${hpPct}%`, height: "100%", background: broken ? "linear-gradient(90deg, #facc15, #f59e0b)" : "linear-gradient(90deg, #dc2626, #f87171)", transition: "width 0.4s ease" }} />
+                                    <div style={{ width: `${hpPct}%`, height: "100%", background: broken ? "linear-gradient(90deg, #e6c477, #f59e0b)" : "linear-gradient(90deg, #dc2626, #f87171)", transition: "width 0.4s ease" }} />
                                 </div>
                             </div>
                         )}
@@ -459,7 +459,7 @@ export function WeeklyBossArena({
                     · Attempts: <strong>{attemptsUsed}/{WEEKLY_BOSS_MAX_ATTEMPTS}</strong>
                 </span>
             </p>
-            <div style={{ background: "rgba(15,23,42,0.5)", border: "1px solid rgba(250,204,21,0.25)", borderRadius: 6, padding: "0.5rem 0.7rem", margin: "0.4rem 0", fontSize: "0.82rem" }}>
+            <div style={{ background: "rgba(15,23,42,0.5)", border: "1px solid rgba(230, 196, 119, 0.25)", borderRadius: 6, padding: "0.5rem 0.7rem", margin: "0.4rem 0", fontSize: "0.82rem" }}>
                 <div><GiTrophy style={WB_ICON} /><strong>Rewards at despawn</strong></div>
                 <div>· Top 10 by damage → <strong style={{ color: "var(--gold)" }}>1 Weekly Boss Core</strong> each</div>
                 <div>· Top 25 by damage → <strong style={{ color: "var(--blue-400)" }}>1 Dungeon Key</strong> each</div>
@@ -530,7 +530,7 @@ export function WeeklyBossArena({
                                 ? <><GiPadlock style={WB_ICON} />Contribution paused</>
                             : lockedOut
                                 ? <><GiPadlock style={WB_ICON} />No attempts left</>
-                                : <><GiCrossedSwords style={WB_ICON} />Fight Boss ({attemptsLeft} left · 20 stamina)</>}
+                                : <><GiCrossedSwords style={WB_ICON} />Fight boss ({attemptsLeft} left · 20 stamina)</>}
                     </button>
                 )}
                 <button className="back-btn" onClick={() => setScreen(backScreen)}>× Back</button>
@@ -547,9 +547,9 @@ export function WeeklyBossArena({
                     const inKeyTier = i < 25;
                     const isMe = name === myKey;
                     const bg = isMvp
-                        ? "rgba(250,204,21,0.18)"
+                        ? "rgba(230, 196, 119, 0.18)"
                         : inCoreTier
-                            ? "rgba(250,204,21,0.07)"
+                            ? "rgba(230, 196, 119, 0.07)"
                             : inKeyTier
                                 ? "rgba(96,165,250,0.07)"
                                 : "transparent";

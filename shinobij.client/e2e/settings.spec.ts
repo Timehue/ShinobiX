@@ -110,7 +110,7 @@ test('after the wait, deletion still requires explicit confirmation and a masked
     await page.getByRole('button', { name: 'Delete', exact: true }).click();
     const dialog = page.getByRole('dialog').or(page.getByRole('alertdialog'));
     await expect(dialog.locator('input[type=password]')).toBeVisible();
-    await expect(dialog.getByRole('button', { name: 'Delete Forever', exact: true })).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'Delete forever', exact: true })).toBeVisible();
     expect(deletes).toBe(0);
     await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
     expect(deletes).toBe(0);
@@ -138,7 +138,7 @@ test('moved account controls still start Google linking, change passwords, and r
     await password.getByLabel('Current password', { exact: true }).fill('OldTestPassword47');
     await password.getByLabel('New password', { exact: true }).fill('NewTestPassword47');
     await password.getByLabel('Confirm new password', { exact: true }).fill('NewTestPassword47');
-    await password.getByRole('button', { name: 'Update Password', exact: true }).click();
+    await password.getByRole('button', { name: 'Update password', exact: true }).click();
     await expect(password.getByText('Password changed.', { exact: true })).toBeVisible();
     await expect(password.getByLabel('New password', { exact: true })).toHaveValue('');
     const recovery = page.locator('.recovery-code-card');

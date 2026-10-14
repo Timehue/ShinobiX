@@ -4843,7 +4843,7 @@ export default function App() {
                                 setHollowGateEvent(null);
                                 triggerHollowGateAmbush(sealed);
                             } },
-                            { label: "Emergency Forfeit", tone: "danger", onSelect: () => {
+                            { label: "Emergency forfeit", tone: "danger", onSelect: () => {
                                 setHollowGateEvent(null);
                                 void abandonHollowGateShrine();
                             } },
@@ -4917,7 +4917,7 @@ export default function App() {
                 kind: opts.isBoss ? "boss" : "pet_battle",
                 choices: [
                     {
-                        label: "Fight as Shinobi",
+                        label: "Fight as shinobi",
                         tone: "primary",
                         onSelect: () => {
                             setHollowGateEvent(null);
@@ -5866,7 +5866,7 @@ export default function App() {
                                         setHollowGatePendingAmbush(null);
                                         triggerHollowGateAmbush({ nodeId: bound.nodeId, kind: "card" });
                                     } },
-                                    { label: "Emergency Forfeit", tone: "danger", onSelect: () => {
+                                    { label: "Emergency forfeit", tone: "danger", onSelect: () => {
                                         setHollowGateEvent(null);
                                         void abandonHollowGateShrine();
                                     } },

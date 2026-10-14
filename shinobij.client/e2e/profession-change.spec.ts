@@ -152,7 +152,7 @@ test('an opened war crate reports its loot even when a newer save was adopted fi
         () => ({ ok: true, character: opened, rewards: { relic: true, ryo: 500, boneCharms: 0, honorSeals: 2, dungeonKey: false }, _saveVersion: 2 }));
     await page.getByRole('button', { name: /Legendary War Crate/ }).first().click();
     const details = page.getByRole('dialog', { name: 'Legendary War Crate item details' });
-    await details.getByRole('button', { name: 'Open Crate', exact: true }).click();
+    await details.getByRole('button', { name: 'Open crate', exact: true }).click();
     await expect.poll(reply.requests).toBe(1);
     expect(await page.evaluate(next => window.adoptNewerSave!(next, 3), { ...opened, unlockedAchievements: [] })).toBe(true);
     reply.release();

@@ -60,7 +60,7 @@ describe('Village War Map feedback contract', () => {
     });
 
     it('3c — Declare War has an affordability state computed against the live WR pool', () => {
-        assert.match(screen, /declareAfford: wrAffordability\(declareCost, myView\?\.warResources \?\? 0, \{ verb: "Declare War", estimate: true \}\)/);
+        assert.match(screen, /declareAfford: wrAffordability\(declareCost, myView\?\.warResources \?\? 0, \{ verb: "Declare war", estimate: true \}\)/);
         assert.match(screen, /disabled=\{!!busy \|\| !declareAfford\.affordable\}/);
         // The "~" is explained in VISIBLE text, not a tooltip.
         assert.match(screen, /className="hint vwm-declare-note">\{declareEstimateNote\(/);

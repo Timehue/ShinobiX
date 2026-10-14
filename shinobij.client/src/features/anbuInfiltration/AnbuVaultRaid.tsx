@@ -365,7 +365,7 @@ function AnbuVaultRaidLegacy({
                     </div>
                 )}
                 {error && <p role="alert">{error}</p>}
-                <button className="spire-result-btn" disabled={starting} onClick={leaveResolvedRaid}>{starting ? 'Leaving…' : 'Slip Away'}</button>
+                <button className="spire-result-btn" disabled={starting} onClick={leaveResolvedRaid}>{starting ? 'Leaving…' : 'Slip away'}</button>
             </div>
         );
     }

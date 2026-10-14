@@ -324,7 +324,7 @@ test('a village cook turns hunt spoils into Provisions and Materials the server 
         await tabs.getByRole('button', { name: 'Orders', exact: true }).click();
         const orders = panelFor(page, 'Village Orders');
         await expect(orders.getByRole('status')).toContainText('Orders are read-only.');
-        await expect(orders.getByRole('button', { name: 'Post Order', exact: true })).toHaveCount(0);
+        await expect(orders.getByRole('button', { name: 'Post order', exact: true })).toHaveCount(0);
         const blockedActions = [
             { path: '/api/village/elder-focus', data: { playerName: name, focus: 'training' } },
             { path: '/api/village/elder-focus', data: { playerName: name, focus: 'war', action: 'appoint', appointee: name } },

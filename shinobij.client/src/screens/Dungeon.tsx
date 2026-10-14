@@ -105,7 +105,7 @@ export function DungeonEncounter({
     const stageBackdrop = stage === 'tile' ? adminTileScene : stage === 'intro' ? adminBackdrop : undefined;
     const canBack = lineIndex > 0;
     const isLastLine = lineIndex >= pageDialogue.length - 1;
-    const actionLabel = stage === "intro" ? "Challenge Seal One" : stage === "tile" ? "Start Chronicle Seal" : "Challenge Rare Pet";
+    const actionLabel = stage === "intro" ? "Challenge Seal One" : stage === "tile" ? "Start Chronicle Seal" : "Challenge rare pet";
     const [encounter, setEncounter] = useState<{ token: string; stage: string } | null>(null);
     const actionLocked = useRef(false);
     useEffect(() => { actionLocked.current = false; }, [dungeonRunToken, stage, lineIndex]);
@@ -140,8 +140,8 @@ export function DungeonEncounter({
                 <p>“Three clean signals. No rescue rope used. Take what the vault owes you; I have the next challenger to keep breathing.”</p>
                 <p>The Warden, Chronicle, and Rare Beast proofs are bound to this run. Claim the reserved reward now; if the request is interrupted, this screen remains recoverable.</p>
                 <div className="menu vn-decision-controls">
-                    <button className="danger-button" onClick={onLeave}>Abandon Dungeon</button>
-                    <button className="admin-button" onClick={onClaimReward}>Claim Dungeon Reward</button>
+                    <button className="danger-button" onClick={onLeave}>Abandon dungeon</button>
+                    <button className="admin-button" onClick={onClaimReward}>Claim dungeon reward</button>
                 </div>
             </div>
         );
@@ -285,12 +285,12 @@ export function DungeonPetBattle({ character, onWin, onLeave, onVersionedCharact
             <div className="card cinematic-card pet-battle-theme pet-battle-lobby">
                 <h2>Rare Beast Seal</h2>
                 <p className="hint">You need at least one pet to complete this seal.</p>
-                <button className="danger-button" onClick={onLeave}>Leave Dungeon</button>
+                <button className="danger-button" onClick={onLeave}>Leave dungeon</button>
             </div>
         );
     }
     if (isPetOnExpedition(selectedPet)) {
-        return <div className="card cinematic-card pet-battle-theme pet-battle-lobby"><h2>Rare Beast Seal</h2><p className="hint">{petDisplayName(selectedPet)} is away exploring. Choose another pet in the Pet Yard or wait for it to return.</p><button className="danger-button" onClick={onLeave}>Leave Dungeon</button></div>;
+        return <div className="card cinematic-card pet-battle-theme pet-battle-lobby"><h2>Rare Beast Seal</h2><p className="hint">{petDisplayName(selectedPet)} is away exploring. Choose another pet in the Pet Yard or wait for it to return.</p><button className="danger-button" onClick={onLeave}>Leave dungeon</button></div>;
     }
     if (!battle) {
         return (
@@ -326,9 +326,9 @@ export function DungeonPetBattle({ character, onWin, onLeave, onVersionedCharact
                 </div>
                 {error && <p className="hint" style={{ color: "#fca5a5" }}>{error}</p>}
                 <div className="menu vn-decision-controls">
-                    <button className="danger-button" onClick={onLeave}>Leave Dungeon</button>
+                    <button className="danger-button" onClick={onLeave}>Leave dungeon</button>
                     <button className="admin-button" disabled={starting} onClick={() => void startBattle()}>
-                        {starting ? "Breaking the seal…" : "Start Pet Battle"}
+                        {starting ? "Breaking the seal…" : "Start pet battle"}
                     </button>
                 </div>
             </div>
@@ -355,7 +355,7 @@ export function DungeonPetBattle({ character, onWin, onLeave, onVersionedCharact
                 onFinished={(result) => { outcome.current = result; }}
                 onExit={() => { setBattle(null); void (outcome.current === "win" ? onWin() : onLeave()); }}
                 hideRematch
-                exitLabel="Continue Dungeon"
+                exitLabel="Continue dungeon"
                 onRematch={() => {}}
             />
         </Suspense>

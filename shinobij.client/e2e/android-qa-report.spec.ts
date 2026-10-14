@@ -69,7 +69,7 @@ test('account rename applies a versioned save and survives a reload on the same 
     });
     await expectUiAuditBoot(page, runtime, 'settings');
     await page.getByLabel('Account name', { exact: true }).fill('RenamedNinja');
-    await page.getByRole('button', { name: 'Save Account Name', exact: true }).click();
+    await page.getByRole('button', { name: 'Save account name', exact: true }).click();
     await expect(page.locator('.account-name-card [role=status]')).toContainText('Sign in with RenamedNinja');
     await expect(page.getByLabel('Account name', { exact: true })).toHaveValue('RenamedNinja');
     await page.reload();
@@ -136,7 +136,7 @@ for (const viewport of [{ width: 360, height: 640 }, { width: 844, height: 390 }
         await page.setViewportSize(viewport);
         const runtime = await installUiAuditRuntime(page);
         await expectUiAuditBoot(page, runtime, 'profile');
-        await expect(page.getByRole('button', { name: 'Upload Avatar', exact: true })).toBeDisabled();
+        await expect(page.getByRole('button', { name: 'Upload avatar', exact: true })).toBeDisabled();
         await expect(page.locator('#profile-avatar-restriction')).toBeVisible();
         await expect(page.locator('.profile-avatar-upload input[type=file]')).toHaveCount(0);
         await expect(page.getByRole('heading', { name: 'Change Password', exact: true })).toHaveCount(0);
@@ -183,7 +183,7 @@ for (const viewport of [{ width: 360, height: 640 }, { width: 844, height: 390 }
         const checkboxBox = (await showPasswords.boundingBox())!;
         expect(checkboxBox.width).toBeLessThanOrEqual(22);
         expect(checkboxBox.height).toBeLessThanOrEqual(22);
-        await page.getByRole('button', { name: 'Update Password', exact: true }).scrollIntoViewIfNeeded();
+        await page.getByRole('button', { name: 'Update password', exact: true }).scrollIntoViewIfNeeded();
         await page.screenshot({ path: test.info().outputPath('profile-account.png') });
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
     });
@@ -206,7 +206,7 @@ test('renamed login loads the original save and keeps primary navigation connect
     await page.getByRole('button', { name: 'Use a name and password', exact: true }).click();
     await page.getByPlaceholder('Enter existing shinobi name', { exact: true }).fill('LoginAlias');
     await page.getByPlaceholder('Enter your password', { exact: true }).fill('ExamplePass123');
-    await page.getByRole('button', { name: /Enter Village/ }).click();
+    await page.getByRole('button', { name: /Enter village/ }).click();
     await expect(page.locator('.app-shell')).toBeVisible();
     const nav = page.locator('.mobile-bottom-nav');
     for (const [label, screen] of [['Items', 'inventory'], ['Village', 'village'], ['World Map', 'worldMap']]) {
@@ -230,7 +230,7 @@ test('supporters can open the avatar picker from the profile button', async ({ p
     const runtime = await installUiAuditRuntime(page, save);
     await expectUiAuditBoot(page, runtime, 'profile');
     const picker = page.waitForEvent('filechooser');
-    await page.getByRole('button', { name: 'Upload Avatar', exact: true }).click();
+    await page.getByRole('button', { name: 'Upload avatar', exact: true }).click();
     expect((await picker).isMultiple()).toBe(false);
 });
 
@@ -241,7 +241,7 @@ for (const viewport of [{ width: 286, height: 821 }, { width: 360, height: 640 }
         await page.route('**/api/**', (route) => route.fulfill({ contentType: 'application/json', body: '{}' }));
         await page.goto('/');
         await page.getByTestId('start-create').click();
-        for (const label of ['Choose Village', 'Choose Bloodline', 'Choose Avatar', 'Preview Shinobi', 'Name and Password']) {
+        for (const label of ['Choose village', 'Choose bloodline', 'Choose avatar', 'Preview shinobi', 'Name and password']) {
             await page.getByRole('button', { name: label, exact: true }).click();
         }
         for (const id of ['cc-password', 'cc-confirm-password']) {
@@ -264,9 +264,9 @@ for (const viewport of [{ width: 286, height: 821 }, { width: 360, height: 640 }
             expect(buttonBox.y + buttonBox.height).toBeLessThanOrEqual(inputBox.y + inputBox.height + 1);
             expect(buttonBox.x + buttonBox.width).toBeLessThanOrEqual(inputBox.x + inputBox.width);
         }
-        await page.getByRole('button', { name: 'Enter the World', exact: true }).scrollIntoViewIfNeeded();
-        await expect(page.getByRole('button', { name: 'Enter the World', exact: true })).toBeInViewport();
-        await page.getByRole('button', { name: 'Enter the World', exact: true }).click({ trial: true });
+        await page.getByRole('button', { name: 'Enter the world', exact: true }).scrollIntoViewIfNeeded();
+        await expect(page.getByRole('button', { name: 'Enter the world', exact: true })).toBeInViewport();
+        await page.getByRole('button', { name: 'Enter the world', exact: true }).click({ trial: true });
         await page.screenshot({ path: test.info().outputPath('creator-passwords.png') });
     });
 

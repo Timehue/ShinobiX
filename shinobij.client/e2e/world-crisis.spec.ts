@@ -230,14 +230,14 @@ async function installAuthenticatedApi(page: Page) {
 async function createAccount(page: Page) {
     await page.goto("/", { waitUntil: "networkidle" });
     await page.getByTestId("start-create").click();
-    await page.getByRole("button", { name: "Choose Village" }).click();
+    await page.getByRole("button", { name: "Choose village" }).click();
     await page.locator(".cc-village-card").first().click();
-    await page.getByRole("button", { name: "Choose Bloodline" }).click();
+    await page.getByRole("button", { name: "Choose bloodline" }).click();
     await page.locator(".cc-bloodline-card").first().click();
-    await page.getByRole("button", { name: "Choose Avatar" }).click();
+    await page.getByRole("button", { name: "Choose avatar" }).click();
     await page.locator(".cc-avatar-card").first().click();
     await page.getByRole("button", { name: "Preview Shinobi" }).click();
-    await page.getByRole("button", { name: "Name and Password" }).click();
+    await page.getByRole("button", { name: "Name and password" }).click();
     await page.getByLabel("Name").fill("AuditNinja");
     await page.locator("#cc-password").fill("Audit!Pass1234");
     await page.locator("#cc-confirm-password").fill("Audit!Pass1234");
@@ -270,8 +270,8 @@ test("World News report calls every shinobi into the server-authoritative outski
     // Hash-only navigation leaves the current onboarding overlay mounted; boot
     // is where saved deep links are restored and the server-owned save wins.
     await page.reload({ waitUntil: "networkidle" });
-    await expect(page.getByRole("button", { name: "World News", exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "World News", exact: true }).click();
+    await expect(page.getByRole("button", { name: "World news", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "World news", exact: true }).click();
     await expect(page.getByRole("button", { name: "Watch The Fourfold Breach world news report" })).toBeVisible();
     await expectNoHorizontalOverflow(page);
 
@@ -332,7 +332,7 @@ test("Level-80 World News opens the global 1v3 and 3v3 Hollow Gate Reckoning", a
     await page.evaluate(() => sessionStorage.setItem("hall.initialTab", "news"));
     await page.goto("/#/hallOfLegends", { waitUntil: "networkidle" });
     await page.reload({ waitUntil: "networkidle" });
-    await page.getByRole("button", { name: "World News", exact: true }).click();
+    await page.getByRole("button", { name: "World news", exact: true }).click();
     await page.getByRole("button", { name: "Watch The Hollow Gate Reckoning world news report" }).click();
     await expect(page.getByRole("dialog", { name: "The Hollow Gate Reckoning world news report" })).toBeVisible();
     const cinematicArt = page.locator(".crisis-cinematic__reckoning-art");

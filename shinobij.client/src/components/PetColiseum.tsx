@@ -1282,7 +1282,7 @@ function PetColiseumDuelView({ playerPet, enemyPet, playerReservePet, enemyReser
                                 {petDisplayName(playerPet)}
                                 <small style={{ display: "block", marginTop: 5, color: "#dbeafe", font: "800 clamp(9px,1vw,12px)/1.2 Inter,system-ui,sans-serif", letterSpacing: ".13em", textTransform: "uppercase" }}>{playerFamily.label} · {playerFamily.tell}</small>
                             </span>
-                            <span style={{ font: "900 clamp(44px,9vw,104px) var(--font-display)", color: "#fff", letterSpacing: "0.02em", textShadow: "0 0 26px rgba(250,204,21,0.9), 0 4px 12px #000", animation: "petDuelVs 700ms cubic-bezier(.2,.9,.2,1) both" }}>VS</span>
+                            <span style={{ font: "900 clamp(44px,9vw,104px) var(--font-display)", color: "#fff", letterSpacing: "0.02em", textShadow: "0 0 26px rgba(230, 196, 119, 0.9), 0 4px 12px #000", animation: "petDuelVs 700ms cubic-bezier(.2,.9,.2,1) both" }}>VS</span>
                             <span style={{ flex: 1, textAlign: "left", font: "800 clamp(18px,3vw,38px) var(--font-display)", color: "#fca5a5", textShadow: "0 2px 10px #000", animation: "petDuelVsName 500ms ease-out 120ms both" }}>
                                 {petDisplayName(enemyPet)}
                                 <small style={{ display: "block", marginTop: 5, color: "#fee2e2", font: "800 clamp(9px,1vw,12px)/1.2 Inter,system-ui,sans-serif", letterSpacing: ".13em", textTransform: "uppercase" }}>{enemyFamily.label} · {enemyFamily.tell}</small>
@@ -1334,7 +1334,7 @@ function PetColiseumDuelView({ playerPet, enemyPet, playerReservePet, enemyReser
                                     disabled={!selectedOpeningTactic || tacticCommitting}
                                     style={{ width: "100%", minHeight: mobileQa ? 40 : 46, marginTop: 10, border: `1.5px solid ${selectedOpeningTactic?.color ?? "#475569"}`, borderRadius: 11, background: selectedOpeningTactic ? `linear-gradient(180deg,${selectedOpeningTactic.color}dd,${selectedOpeningTactic.color}88)` : "rgba(30,41,59,.78)", color: selectedOpeningTactic ? "#050914" : "#718096", boxShadow: selectedOpeningTactic ? `0 7px 22px ${selectedOpeningTactic.color}3d,inset 0 1px rgba(255,255,255,.35)` : "none", font: `900 ${mobileQa ? 10 : 12}px/1 var(--font-display),Inter,sans-serif`, letterSpacing: ".12em", textTransform: "uppercase", cursor: selectedOpeningTactic && !tacticCommitting ? "pointer" : "default" }}
                                 >
-                                    {tacticCommitting ? `${selectedOpeningTactic?.name ?? "Plan"} locked — take your stance` : selectedOpeningTactic ? `Lock In ${selectedOpeningTactic.name}` : "Select a Plan"}
+                                    {tacticCommitting ? `${selectedOpeningTactic?.name ?? "Plan"} locked — take your stance` : selectedOpeningTactic ? `Lock in ${selectedOpeningTactic.name}` : "Select a plan"}
                                 </button>
                             </div>
                         )}
@@ -1498,7 +1498,7 @@ function PetColiseumDuelView({ playerPet, enemyPet, playerReservePet, enemyReser
                 const accent = elementColor(playerPet.element);
                 const sig = commandEcho.tone === "signature";
                 const plan = commandEcho.tone === "plan";
-                const edge = sig ? "#fbbf24" : plan ? "rgba(148,163,184,0.7)" : accent.glow;
+                const edge = sig ? "#e6c477" : plan ? "rgba(148,163,184,0.7)" : accent.glow;
                 return (
                     <div key={`cmd-${commandEcho.id}`} style={{
                         position: "absolute", left: mobileQa ? "50%" : "clamp(14px,4vw,54px)",
@@ -1535,8 +1535,8 @@ function PetColiseumDuelView({ playerPet, enemyPet, playerReservePet, enemyReser
                         width: mobileQa ? "calc(100% - 34px)" : "min(680px,82vw)",
                         padding: mobileQa ? "15px 18px" : "20px 34px",
                         textAlign: "center", boxSizing: "border-box",
-                        borderTop: `2px solid ${clashResult.side === "player" ? "#5eead4" : clashResult.side === "enemy" ? "#fb7185" : "#fbbf24"}`,
-                        borderBottom: `2px solid ${clashResult.side === "player" ? "#5eead4" : clashResult.side === "enemy" ? "#fb7185" : "#fbbf24"}`,
+                        borderTop: `2px solid ${clashResult.side === "player" ? "#5eead4" : clashResult.side === "enemy" ? "#fb7185" : "#e6c477"}`,
+                        borderBottom: `2px solid ${clashResult.side === "player" ? "#5eead4" : clashResult.side === "enemy" ? "#fb7185" : "#e6c477"}`,
                         background: "linear-gradient(90deg,transparent,rgba(2,6,18,.94) 15%,rgba(2,6,18,.97) 85%,transparent)",
                         boxShadow: "0 16px 45px rgba(0,0,0,.68)",
                         animation: "petClashResult 1850ms cubic-bezier(.16,.84,.24,1) forwards",
@@ -1653,9 +1653,9 @@ function PetColiseumDuelView({ playerPet, enemyPet, playerReservePet, enemyReser
 
             {resultVisible && (
                 <div ref={resultDialogRef} role="dialog" aria-modal="true" aria-label={`${resultLabel}: Pet Colosseum result`} tabIndex={-1} style={{ position: "absolute", inset: 0, zIndex: 40, display: "flex", alignItems: "flex-start", justifyContent: "center", overflowY: "auto", overscrollBehavior: "contain", padding: "max(13px, env(safe-area-inset-top)) max(13px, env(safe-area-inset-right)) max(13px, env(safe-area-inset-bottom)) max(13px, env(safe-area-inset-left))", boxSizing: "border-box", background: "rgba(3,7,18,0.72)" }}>
-                    <div style={{ width: "min(620px, 100%)", margin: "auto", padding: mobileQa ? "22px 16px" : "30px 34px", boxSizing: "border-box", textAlign: "center", border: "1px solid rgba(251,191,36,.35)", borderRadius: 22, background: "linear-gradient(180deg,rgba(8,11,22,.98),rgba(15,23,42,.96))", boxShadow: "0 24px 80px rgba(0,0,0,.72),inset 0 1px 0 rgba(255,255,255,.08)", animation: "petBattleResult 850ms cubic-bezier(.16,.84,.24,1) both" }}>
+                    <div style={{ width: "min(620px, 100%)", margin: "auto", padding: mobileQa ? "22px 16px" : "30px 34px", boxSizing: "border-box", textAlign: "center", border: "1px solid rgba(230, 196, 119, .35)", borderRadius: 22, background: "linear-gradient(180deg,rgba(8,11,22,.98),rgba(15,23,42,.96))", boxShadow: "0 24px 80px rgba(0,0,0,.72),inset 0 1px 0 rgba(255,255,255,.08)", animation: "petBattleResult 850ms cubic-bezier(.16,.84,.24,1) both" }}>
                         <div style={{ color: "#cbd5e1", font: "900 12px/1 Inter, system-ui, sans-serif", letterSpacing: ".22em", textTransform: "uppercase", marginBottom: 8 }}>{resultLabel} · Pet Colosseum</div>
-                        <div data-testid="pet-duel-result-title" style={{ overflowWrap: "anywhere", font: `900 ${mobileQa ? 42 : 58}px/.95 var(--font-display), Inter, system-ui, sans-serif`, color: resultLabel === "Victory" ? "#4ade80" : resultLabel === "Defeat" ? "#f87171" : "#facc15", textShadow: "0 0 24px currentColor, 0 4px 16px #000", textTransform: "uppercase" }}>
+                        <div data-testid="pet-duel-result-title" style={{ overflowWrap: "anywhere", font: `900 ${mobileQa ? 42 : 58}px/.95 var(--font-display), Inter, system-ui, sans-serif`, color: resultLabel === "Victory" ? "#4ade80" : resultLabel === "Defeat" ? "#f87171" : "#e6c477", textShadow: "0 0 24px currentColor, 0 4px 16px #000", textTransform: "uppercase" }}>
                             {battleWinnerName ? `${battleWinnerName} wins!` : "Draw!"}
                         </div>
                         <div style={{ color: "#e2e8f0", font: "700 13px Inter, system-ui, sans-serif", marginTop: 10 }}>
@@ -1670,7 +1670,7 @@ function PetColiseumDuelView({ playerPet, enemyPet, playerReservePet, enemyReser
                         {settlementStatus === "error" && (
                             <div role="alert" style={{ marginTop: 12 }}>
                                 <div style={{ color: "#fecaca", font: "800 13px Inter, system-ui, sans-serif" }}>{settlementCopy?.error ?? "Gate verification paused. Your completed duel is safe to retry."}</div>
-                                <button onClick={onRetrySettlement} style={{ ...resultBtn, marginTop: 9 }}>{settlementCopy?.retry ?? "Retry Gate Settlement"}</button>
+                                <button onClick={onRetrySettlement} style={{ ...resultBtn, marginTop: 9 }}>{settlementCopy?.retry ?? "Retry Gate settlement"}</button>
                             </div>
                         )}
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginTop: 18 }}>

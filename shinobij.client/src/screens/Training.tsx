@@ -225,7 +225,7 @@ export function Training({ character, savedBloodlines = [], onVersionedCharacter
                     <p className="hint">{trainingReady
                         ? "Collect your stat points, then start another session or return to your next activity."
                         : "Training continues while you play or log out. Return when it is ready to collect."}</p>
-                    <button onClick={completeTraining} disabled={!trainingReady || trainingBusy}>{trainingBusy ? "Settling…" : trainingReady ? "Collect Training" : "Training…"}</button>
+                    <button onClick={completeTraining} disabled={!trainingReady || trainingBusy}>{trainingBusy ? "Settling…" : trainingReady ? "Collect training" : "Training…"}</button>
                     <button onClick={cancelTraining} disabled={trainingBusy} style={{ marginLeft: 8 }}>Cancel (keep prorated stats)</button>
                 </div>
             )}
@@ -536,10 +536,10 @@ function JutsuSealPanel({
     }
 
     return (
-        <div className="summary-box" style={{ background: "linear-gradient(180deg, rgba(250,204,21,0.10), rgba(8,10,22,0.4))", border: "1px solid rgba(250,204,21,0.45)", marginBottom: "0.75rem" }}>
-            <strong style={{ color: "#facc15" }}><GameArtIcon kind="crown" size={18} /> Honor Seal Training</strong>
+        <div className="summary-box" style={{ background: "linear-gradient(180deg, rgba(230, 196, 119, 0.10), rgba(8,10,22,0.4))", border: "1px solid rgba(230, 196, 119, 0.45)", marginBottom: "0.75rem" }}>
+            <strong style={{ color: "#e6c477" }}><GameArtIcon kind="crown" size={18} /> Honor Seal Training</strong>
             <span className="hint" style={{ marginLeft: 10 }}>
-                Balance: <strong style={{ color: "#facc15" }}>{balance.toLocaleString()}</strong>
+                Balance: <strong style={{ color: "#e6c477" }}>{balance.toLocaleString()}</strong>
                 {hasDiscount && <span style={{ marginLeft: 8, color: "#f97316" }}> · Vanguard 10% off</span>}
                 {stockpilePct > 0 && <span style={{ marginLeft: 8, color: "#f97316" }}> · Stockpile −{stockpilePct}% speed-ups</span>}
             </span>
@@ -577,7 +577,7 @@ function JutsuSealPanel({
                 )}
             </div>
             {/* The prefix only picks the colour; the player reads the sentence. */}
-            {msg && <p className="hint" style={{ margin: "8px 0 0", color: msg.startsWith("Success:") ? "#facc15" : "#f87171" }}>{msg.replace(/^(Success|Error):\s*/, "")}</p>}
+            {msg && <p className="hint" style={{ margin: "8px 0 0", color: msg.startsWith("Success:") ? "#e6c477" : "#f87171" }}>{msg.replace(/^(Success|Error):\s*/, "")}</p>}
         </div>
     );
 }

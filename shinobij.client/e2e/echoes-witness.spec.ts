@@ -263,7 +263,7 @@ test("a failed witness response retries to the first server-sealed answer and su
   await expectUiAuditBoot(page, authority.runtime, "echoesOfWar");
   await openAgeOne(page);
 
-  await page.getByRole("button", { name: "Record This Age", exact: true }).click();
+  await page.getByRole("button", { name: "Record this age", exact: true }).click();
   await expectHeadingInView(page, page.getByRole("heading", { name: "The First Record" }));
   await expectViewportSafe(page);
 
@@ -309,9 +309,9 @@ test("Replay Memory recovers a missing first-clear conclusion with its sealed ba
   await openAgeOne(page);
 
   const aya = page.locator(".echoes-node").filter({ hasText: "Aya, The Courier" });
-  await aya.getByRole("button", { name: "Rematch / Story", exact: true }).click();
+  await aya.getByRole("button", { name: "Rematch / story", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Aya, The Courier" })).toBeVisible();
-  await page.getByRole("button", { name: "Replay Memory", exact: true }).click();
+  await page.getByRole("button", { name: "Replay memory", exact: true }).click();
 
   await expect(page.getByText("Good. That is the table he never had to face.", { exact: true })).toBeVisible();
   expect(authority.showdownStarts()).toBe(0);
@@ -329,6 +329,6 @@ test("Replay Memory recovers a missing first-clear conclusion with its sealed ba
   }).toBe(true);
 
   await page.locator(".echoes-witness-shell .back-btn").click();
-  await expect(page.getByRole("button", { name: "Replay Conclusion", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Replay conclusion", exact: true })).toBeVisible();
   expect(authority.showdownStarts()).toBe(0);
 });

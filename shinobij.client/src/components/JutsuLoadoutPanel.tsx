@@ -195,7 +195,7 @@ function SelectedJutsuDetails({
                 disabled={!equipped && loadoutFull}
                 onClick={equipped ? onUnequip : onEquip}
             >
-                {equipped ? "Unequip Jutsu" : loadoutFull ? "Loadout Full" : "Equip Jutsu"}
+                {equipped ? "Unequip jutsu" : loadoutFull ? "Loadout full" : "Equip jutsu"}
             </button>
         </div>
     );
@@ -219,7 +219,7 @@ export function JutsuLoadoutPanel({
     /**
      * Jutsu id -> the name of the bloodline that grants it, for every jutsu the
      * character's active bloodline carries. Drives the bloodline chips
-     * and the "Bloodline Only" source filter; an absent entry = ordinary jutsu.
+     * and the "Bloodline only" source filter; an absent entry = ordinary jutsu.
      */
     bloodlineJutsuNames?: ReadonlyMap<string, string>;
     onPlaceJutsu: (jutsuId: string, slotIndex?: number) => void;
@@ -264,7 +264,7 @@ export function JutsuLoadoutPanel({
     // character's own bloodline jutsu, plus any kit getAllJutsus rank-stamped.
     const isBloodlineJutsu = (jutsu: Jutsu) => hasBloodlineMarker(jutsu, bloodlineJutsuNames);
     // Only offer the bloodline controls when this character actually has
-    // bloodline jutsu, and never let a stale "Bloodline Only" selection empty
+    // bloodline jutsu, and never let a stale "Bloodline only" selection empty
     // the grid after the bloodline is unequipped.
     const hasBloodlineJutsus = learnedJutsus.some(isBloodlineJutsu);
     const activeSourceFilter: JutsuSourceFilter = hasBloodlineJutsus ? sourceFilter : "All";
@@ -314,7 +314,7 @@ export function JutsuLoadoutPanel({
                             className="danger-button jutsu-unequip-all"
                             disabled={character.equippedJutsuIds.length === 0}
                             onClick={onUnequipAll}
-                        >Unequip All</button>
+                        >Unequip all</button>
                     </header>
 
                     <div className="jutsu-workbench-tabs" role="tablist" aria-label="Jutsu workspace">
@@ -344,7 +344,7 @@ export function JutsuLoadoutPanel({
                             onKeyDown={handleHorizontalTabKeyDown}
                             onClick={() => setWorkspaceTab("collection")}
                         >
-                            <span>Learned Jutsu</span>
+                            <span>Learned jutsu</span>
                             <strong>{learnedJutsus.length}</strong>
                         </button>
                     </div>
@@ -461,7 +461,7 @@ export function JutsuLoadoutPanel({
                             <strong>{equippedCount} of {unlockedSlots} slots equipped</strong>
                             <small>{loadoutFull ? "Loadout full — manage slots to make room." : "Quick equip fills the next open battle slot."}</small>
                         </div>
-                        <button type="button" onClick={() => setWorkspaceTab("loadout")}>Manage Loadout</button>
+                        <button type="button" onClick={() => setWorkspaceTab("loadout")}>Manage loadout</button>
                     </div>
 
                     <section className="jutsu-collection-section">
@@ -476,21 +476,21 @@ export function JutsuLoadoutPanel({
                                     <input type="search" value={nameFilter} onChange={(event) => setNameFilter(event.target.value)} placeholder="Search jutsu..." aria-label="Search jutsu" />
                                 </label>
                                 <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} aria-label="Filter by offense">
-                                    <option value="All">All Offenses</option>
+                                    <option value="All">All offenses</option>
                                     {disciplines.map((discipline) => <option key={discipline} value={discipline}>{discipline}</option>)}
                                 </select>
                                 <select value={elementFilter} onChange={(event) => setElementFilter(event.target.value)} aria-label="Filter by element">
-                                    <option value="All">All Elements</option>
+                                    <option value="All">All elements</option>
                                     {elements.map((element) => <option key={element} value={element}>{element}</option>)}
                                 </select>
                                 <select value={effectFilter} onChange={(event) => setEffectFilter(event.target.value)} aria-label="Filter by effect">
-                                    <option value="All">All Effects</option>
+                                    <option value="All">All effects</option>
                                     {effects.map((effect) => <option key={effect} value={effect}>{effect}</option>)}
                                 </select>
                                 {hasBloodlineJutsus && (
                                     <select value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value as JutsuSourceFilter)} aria-label="Filter by source">
-                                        <option value="All">All Sources</option>
-                                        <option value="Bloodline">Bloodline Only</option>
+                                        <option value="All">All sources</option>
+                                        <option value="Bloodline">Bloodline only</option>
                                         <option value="Standard">Non-Bloodline</option>
                                     </select>
                                 )}

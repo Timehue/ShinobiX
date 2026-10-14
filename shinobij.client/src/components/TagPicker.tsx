@@ -40,7 +40,7 @@ export function TagPicker({ tag, setTag, percent, setPercent, rank, jutsuTarget,
                     else setPercent(100);
                 }}
             >
-                <option value="">No Tag</option>
+                <option value="">No tag</option>
                 {groupTags(availableTags).map((group) => (
                     <optgroup key={group.label} label={group.label}>
                         {group.tags.map((tagName) => (

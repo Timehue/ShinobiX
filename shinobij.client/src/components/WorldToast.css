@@ -12,8 +12,8 @@
     padding: 12px 16px;
     border-radius: 8px;
     background: linear-gradient(160deg, rgba(17,24,39,.97), rgba(2,6,23,.97));
-    border: 1px solid rgba(250,204,21,.52);
-    box-shadow: 0 8px 30px rgba(0,0,0,.55), 0 0 24px rgba(250,204,21,.2);
+    border: 1px solid rgba(230, 196, 119, .52);
+    box-shadow: 0 8px 30px rgba(0,0,0,.55), 0 0 24px rgba(230, 196, 119, .2);
     animation: world-toast-in .34s ease-out;
 }
 .world-toast > [aria-hidden] {
@@ -24,7 +24,7 @@
     border-radius: 50%;
     color: var(--gold-300);
     background: rgba(120,53,15,.55);
-    border: 1px solid rgba(250,204,21,.45);
+    border: 1px solid rgba(230, 196, 119, .45);
     flex-shrink: 0;
 }
 .world-toast > div { min-width: 0; }

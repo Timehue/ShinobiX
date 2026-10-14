@@ -878,7 +878,7 @@
 .clan-exchange-art::before { content: ""; position: absolute; inset: 8px; border: 1px solid rgba(255,255,255,.06); border-radius: 8px; }
 .clan-exchange-art-ring,.clan-exchange-art-glow,.clan-exchange-art-main,.clan-exchange-art-mini { position: absolute; }
 .clan-exchange-art-ring { width: 112px; height: 112px; border: 1px solid rgba(223,178,82,.25); border-radius: 50%; background: radial-gradient(circle,rgba(255,255,255,.05),transparent 64%); }
-.clan-exchange-art-glow { width: 86px; height: 86px; border-radius: 50%; background: rgba(250,204,21,.22); filter: blur(18px); opacity: .5; }
+.clan-exchange-art-glow { width: 86px; height: 86px; border-radius: 50%; background: rgba(230, 196, 119, .22); filter: blur(18px); opacity: .5; }
 .clan-exchange-art-img { position: relative; z-index: 1; width: 144px; height: 144px; object-fit: contain; filter: drop-shadow(0 14px 18px rgba(0,0,0,.56)); }
 .clan-exchange-art-main { z-index: 1; display: grid; place-items: center; width: 58px; height: 58px; color: #fff7d6; border: 1px solid rgba(255,255,255,.16); border-radius: 8px; background: rgba(2,6,23,.46); }
 .clan-exchange-art-mini { z-index: 2; display: grid; place-items: center; width: 28px; height: 28px; color: #e0f2fe; border: 1px solid rgba(125,211,252,.28); border-radius: 50%; background: rgba(8,47,73,.82); }
@@ -1049,7 +1049,7 @@
 .hg-mm-wall { background: #251840; }
 .hg-mm-floor { background: #4b3a76; }
 .hg-mm-lit { background: #7c5fb8; }
-.hg-mm-goal { background: #fbbf24; border-radius: 50%; }
+.hg-mm-goal { background: var(--sj-gold-bright); border-radius: 50%; }
 .hg-mm-exit { background: #34d399; border-radius: 50%; }
 .hg-mm-you { background: #ffffff; border-radius: 50%; box-shadow: 0 0 4px var(--blue-400); }
 
@@ -1093,7 +1093,7 @@
     position: absolute;
     top: -6px;
     right: -9px;
-    background: var(--gold, #eab308);
+    background: var(--gold, var(--sj-gold));
     color: #1c1917;
     border-radius: 999px;
     font-size: 10px;
@@ -1586,7 +1586,7 @@ button.atlas-landmark.sector-story-field-marker--art:focus-visible {
     padding: 8px 10px;
 }
 
-    .sector-traces-sign-row.is-focused { border-color: var(--gold, #eab308); box-shadow: 0 0 10px rgba(234, 179, 8, .3); }
+    .sector-traces-sign-row.is-focused { border-color: var(--gold, var(--sj-gold)); box-shadow: 0 0 10px rgba(209, 167, 88, .3); }
 
 .sector-traces-sign-text { margin: 0 0 4px; font-size: 13.5px; }
 
@@ -1601,8 +1601,8 @@ button.atlas-landmark.sector-story-field-marker--art:focus-visible {
 }
 
 .sector-traces-spark {
-    background: rgba(234, 179, 8, .12);
-    border: 1px solid rgba(234, 179, 8, .4);
+    background: rgba(209, 167, 88, .12);
+    border: 1px solid rgba(209, 167, 88, .4);
     border-radius: 999px;
     color: #fde68a;
     font-size: 11.5px;
@@ -1612,7 +1612,7 @@ button.atlas-landmark.sector-story-field-marker--art:focus-visible {
 
     .sector-traces-spark:disabled { opacity: .55; cursor: default; }
 
-    .sector-traces-spark.is-sparked { background: rgba(234, 179, 8, .3); }
+    .sector-traces-spark.is-sparked { background: rgba(209, 167, 88, .3); }
 
 .sector-traces-compose textarea {
     width: 100%;
