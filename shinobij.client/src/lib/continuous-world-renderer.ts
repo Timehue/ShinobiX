@@ -48,7 +48,10 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
     // An image counts as arrived once it is DECODED, not merely loaded: drawing a
     // loaded-but-undecoded 1024px webp decodes it synchronously inside a frame,
     // and that first frame over new ground was a visible hitch while walking.
-    // decode() works off the main thread; the frame afterwards finds it ready.
+    // Waiting for decode() keeps that work out of the walking frames. It is not
+    // always off the main thread: a software canvas (headless Chromium, traced)
+    // still decodes when the painting below first draws the map, in the decode's
+    // own task.
     const decoded = new WeakSet<HTMLImageElement>();
     const whenDecoded = (image: HTMLImageElement, arrived: () => void) => {
         const settle = () => { decoded.add(image); arrived(); };

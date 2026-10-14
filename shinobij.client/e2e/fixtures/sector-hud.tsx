@@ -59,7 +59,7 @@ export function Fixture() {
             onSelectTile={note('tile')} onCrossExit={note('exit')}
             overlayLayer={new URLSearchParams(location.search).has('motion') ? <SectorPeers sector={settings.sector}
                 peers={[{name:'WalkingPeer',level:40,tile:settings.peerTile,sleeping:false}]} /> : null} encounterLayer={null}
-            hudLayer={<SectorHud key={settings.sector} {...props} rosterState="current" playerAction={playerAction} onPlayerAction={playerAction.run}/>} />
+            hudLayer={<SectorHud {...props} rosterState="current" playerAction={playerAction} onPlayerAction={playerAction.run}/>} />
     </div></div>;
 }
 createRoot(document.getElementById('root')!).render(<Fixture/>);
