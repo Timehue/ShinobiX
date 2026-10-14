@@ -254,7 +254,7 @@ export function VillageWarScreen({
                 <p>Enemy player victories anywhere in the world earn 20 points. Spars and ranked matches are excluded. Queue to defend a stronghold from Town Hall; attackers must travel to and enter the enemy stronghold, and its appointed ANBU stands in when no player is queued. Shrine fighters must be physically inside the golden shrine; its fights cannot dispatch a defender from town.</p>
                 <p>The higher score wins after five days; equal scores draw. Kages can offer mutual peace or surrender. Existing contribution rewards and seven-day rematch cooldowns still apply. Village wars do not transfer sector ownership.</p>
             </div>}
-            {loadError && <div role="status" style={{ color: "#fbbf24", marginBottom: "0.5rem" }}><GameArtIcon kind="warning" size={16} /> Could not refresh the war ({loadError}). Retrying automatically.</div>}
+            {loadError && <div role="status" style={{ color: "#fbbf24", marginBottom: "0.5rem" }}><GameArtIcon kind="warning" size={16} /> Live village-war data is temporarily unavailable. Retrying automatically…</div>}
             {actionError && <div role="alert" style={{ color: "#f87171", marginBottom: "0.5rem" }}><GameArtIcon kind="warning" size={16} /> {actionError}</div>}
             {notice && <div role="status" style={{ color: "#4ade80", marginBottom: "0.5rem" }}>{notice}</div>}
             {claimable.length > 0 && (

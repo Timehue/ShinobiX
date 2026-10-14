@@ -11,6 +11,16 @@ import { gameConfirm } from "../components/GameAlert";
 import { fetchClanData } from "../lib/clan-api";
 import {ClanWarCampaignPanel} from '../components/ClanWarCampaignPanel';
 
+// A bare status ("HTTP 500"), "Failed." or a browser network error tells the
+// player nothing, so show one plain sentence. Real server sentences are kept.
+const CLAN_WAR_NO_ANSWER = "The war council did not answer. Try again in a moment.";
+function clanWarActionError(error?: string): string {
+    const text = (error ?? "").trim();
+    return !text || text === "Failed." || /^HTTP \d+$/.test(text) || /^(Failed to fetch|NetworkError|Load failed)/i.test(text)
+        ? CLAN_WAR_NO_ANSWER
+        : text;
+}
+
 function ClanWarModeIcon({ mode, size = 18 }: { mode: string; size?: number }) {
     const kind = mode.startsWith("pet") ? "petTamer" : mode === "tilecards" ? "cardHall" : "attack";
     return <GameArtIcon kind={kind} size={size} />;
@@ -117,7 +127,7 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
             return cwDeclareWar(declareTarget, character.name,declareFunding);
         });
         if (!result) return;
-        if (!result.ok) { setError(result.error ?? "Failed."); return; }
+        if (!result.ok) { setError(clanWarActionError(result.error)); return; }
         setError("");
         setDeclareTarget("");
         await refresh();
@@ -134,7 +144,7 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
             mode: composeMode,
         }));
         if (!result) return;
-        if (!result.ok) { setError(result.error ?? "Failed."); return; }
+        if (!result.ok) { setError(clanWarActionError(result.error)); return; }
         setError("");
         setComposePartner("");
         await refresh();
@@ -144,7 +154,7 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
         if (!myWar) return;
         const result = await runClanMutation(() => cwChallengeAction({ action: "join-send", warId: myWar.id, challengeId }));
         if (!result) return;
-        if (!result.ok) { setError(result.error ?? "Failed."); return; }
+        if (!result.ok) { setError(clanWarActionError(result.error)); return; }
         setError("");
         await refresh();
     }
@@ -153,7 +163,7 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
         if (!myWar) return;
         const result = await runClanMutation(() => cwChallengeAction({ action: "leave-send", warId: myWar.id, challengeId }));
         if (!result) return;
-        if (!result.ok) { setError(result.error ?? "Failed."); return; }
+        if (!result.ok) { setError(clanWarActionError(result.error)); return; }
         setError("");
         await refresh();
     }
@@ -168,7 +178,7 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
             challengeId: ch.id,
         }));
         if (!result) return;
-        if (!result.ok) { setError(result.error ?? "Failed."); return; }
+        if (!result.ok) { setError(clanWarActionError(result.error)); return; }
         setError("");
         await refresh();
     }
@@ -177,7 +187,7 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
         if (!myWar) return;
         const result = await runClanMutation(() => cwChallengeAction({ action: "join-accept", warId: myWar.id, challengeId }));
         if (!result) return;
-        if (!result.ok) { setError(result.error ?? "Failed."); return; }
+        if (!result.ok) { setError(clanWarActionError(result.error)); return; }
         setError("");
         await refresh();
     }
@@ -186,7 +196,7 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
         if (!myWar) return;
         const result = await runClanMutation(() => cwChallengeAction({ action: "leave-accept", warId: myWar.id, challengeId }));
         if (!result) return;
-        if (!result.ok) { setError(result.error ?? "Failed."); return; }
+        if (!result.ok) { setError(clanWarActionError(result.error)); return; }
         setError("");
         await refresh();
     }
@@ -195,7 +205,7 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
         if (!myWar) return;
         const result = await runClanMutation(() => cwChallengeAction({ action: "cancel", warId: myWar.id, challengeId }));
         if (!result) return;
-        if (!result.ok) { setError(result.error ?? "Failed."); return; }
+        if (!result.ok) { setError(clanWarActionError(result.error)); return; }
         setError("");
         await refresh();
     }
@@ -204,7 +214,7 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
         if (!myWar) return;
         const result = await runClanMutation(() => cwChallengeAction({ action: "decline", warId: myWar.id, challengeId }));
         if (!result) return;
-        if (!result.ok) { setError(result.error ?? "Failed."); return; }
+        if (!result.ok) { setError(clanWarActionError(result.error)); return; }
         setError("");
         await refresh();
     }
