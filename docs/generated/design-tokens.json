@@ -2714,19 +2714,19 @@
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 98
+            "line": 103
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 179
+            "line": 184
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 206
+            "line": 211
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 247
+            "line": 252
           },
           {
             "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
@@ -3337,19 +3337,19 @@
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 88
+            "line": 93
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 189
+            "line": 194
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 206
+            "line": 211
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 226
+            "line": 231
           },
           {
             "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
@@ -3668,7 +3668,7 @@
           },
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 226
+            "line": 231
           },
           {
             "source": "shinobij.client/src/features/character-creator/character-creator.css",
@@ -4371,7 +4371,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/components/underground-sector.css",
-            "line": 170
+            "line": 175
           },
           {
             "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
