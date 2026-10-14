@@ -75,5 +75,6 @@ test("the World Map uses the live deadline and a coarse visible-only clock, not 
     const map = read("../screens/WorldMap.tsx");
     assert.match(map, /const raidStartCooldownMs = useLiveActionDeadline\(raidStartActionScope\(character\.name\)\);/);
     assert.doesNotMatch(map, /\buseActionDeadline\(/, "the World Map must not re-render every second for a zero cooldown");
-    assert.match(map, /visiblePoll\(\(\) => setMapClockTick\(\(tick\) => tick \+ 1\), 5_000, 0\)/);
+    assert.match(map, /visiblePoll\(\(\) => \{\s*if \(!wmZoom\.isGestureActive\(\)\) setMapClockTick\(\(tick\) => tick \+ 1\);\s*\}, 5_000, 0\)/,
+        "the coarse map clock must defer its screen refresh while fingers move");
 });
