@@ -360,9 +360,6 @@ export {
     PROFESSION_MAX_RANK,
 };
 
-import {
-} from "./constants/hunter";
-
 import type { Achievement } from "./constants/achievements";
 import { createAchievementSyncGate } from "./lib/achievement-sync";
 
@@ -538,8 +535,6 @@ export type { EventEncounterBattle } from "./lib/triggered-event-battle";
 // Bloodline lookup + access-control helpers moved to ./lib/bloodline.
 // They import starterSavedBloodlines back from this file (re-exported
 // above the table). All call sites in App.tsx keep the same names.
-import {
-} from "./lib/bloodline";
 // rollNewAwakeningElement / rollAwakeningElements moved to ./lib/elements.
 // JUTSU_MAX_LEVEL / JUTSU_TRAINING_CAP / STORAGE / PLAYER_ACCOUNTS_STORAGE /
 // HP_CAP / CHAKRA_CAP / STAMINA_CAP moved to ./constants/game.
