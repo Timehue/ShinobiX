@@ -456,10 +456,13 @@ async function towerJson<T>(res: Response): Promise<T> {
     }
 }
 
+/** Shown when a Tower refusal carries no sentence of its own. */
+const TOWER_REQUEST_REFUSED = 'The Battle Towers server did not answer. Try again in a moment.';
+
 /** The public floor-catalog metadata for the lobby picker. */
 export async function fetchTowerFloors(): Promise<TowerFloorMeta[]> {
     return withTowerFetch('/api/towers/floors', undefined, async res => {
-        if (!res.ok) throw new Error(`Request failed (${res.status})`);
+        if (!res.ok) throw new Error(TOWER_REQUEST_REFUSED);
         const data = await towerJson<{ floors: TowerFloorMeta[] }>(res);
         return data.floors;
     });
@@ -583,7 +586,7 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
         }, async res => {
             if (!res.ok) {
                 const err = await res.json().catch(() => ({})) as { error?: string };
-                throw new Error(err.error || `Request failed (${res.status})`);
+                throw new Error(err.error || TOWER_REQUEST_REFUSED);
             }
             return towerJson<T>(res);
         });
@@ -603,7 +606,7 @@ async function towerPartyFetch<T>(url: string, init?: RequestInit): Promise<T> {
                 memberRequirements?: TowerPartyMemberRequirement[];
             };
             throw new TowerPartyApiError(
-                errorBody.error || `Request failed (${res.status})`,
+                errorBody.error || TOWER_REQUEST_REFUSED,
                 res.status,
                 errorBody.errorCode,
                 errorBody.party,
@@ -733,7 +736,7 @@ export function submitTowerAction(runId: string, playerName: string, action: Tow
                 currentVersion: errorBody.currentVersion ?? errorBody.session.actionVersion ?? 0,
             };
         }
-        throw new Error(errorBody.error || `Request failed (${res.status})`);
+        throw new Error(errorBody.error || TOWER_REQUEST_REFUSED);
     });
 }
 
@@ -780,7 +783,7 @@ export async function fetchTowerState(runId: string, playerName: string, signal?
     return withTowerFetch(`/api/towers/state?runId=${encodeURIComponent(runId)}&playerName=${encodeURIComponent(playerName)}`, { signal }, async res => {
         if (!res.ok) {
             const err = await res.json().catch(() => ({})) as { error?: string; errorCode?: string; leaseReleased?: boolean };
-            throw new TowerStateApiError(err.error || `Request failed (${res.status})`, res.status, err.errorCode, err.leaseReleased);
+            throw new TowerStateApiError(err.error || TOWER_REQUEST_REFUSED, res.status, err.errorCode, err.leaseReleased);
         }
         const data = await towerJson<{ session: TowerSession }>(res);
         return data.session;

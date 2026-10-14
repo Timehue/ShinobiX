@@ -76,7 +76,9 @@ test("elapsed steps preserve the original fifty-millisecond displacement bound",
 test("renderer lifecycle keeps one WebGL context and exposes real recovery", () => {
     const rite = readFileSync(new URL("../components/PetWarfrontRite.tsx", import.meta.url), "utf8");
     const stage = readFileSync(new URL("../components/PetWarfrontRiteStage3D.tsx", import.meta.url), "utf8");
-    const blind = readFileSync(new URL("../../public/kage-blind.html", import.meta.url), "utf8");
+    // A dev-only review page: it lives beside the other QA harnesses at the
+    // client root, which Vite serves in dev but never copies into the build.
+    const blind = readFileSync(new URL("../../kage-blind.html", import.meta.url), "utf8");
 
     assert.doesNotMatch(rite, /PetWarfrontRiteStage3D\s+key=\{clash\.index\}/u);
     assert.match(rite, /sceneKey=\{clash\.index\}/u);

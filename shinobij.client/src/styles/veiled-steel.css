@@ -273,9 +273,11 @@ html body.ui-scroll-locked {
   transition: transform var(--motion-normal) ease, border-color var(--motion-normal) ease, background var(--motion-normal) ease;
 }
 
-.ui-panel--interactive:hover {
-  border-color: var(--sj-border-strong);
-  transform: translateY(-2px);
+@media (hover: hover) {
+  .ui-panel--interactive:hover {
+    border-color: var(--sj-border-strong);
+    transform: translateY(-2px);
+  }
 }
 
 .app-shell:not(.screen-start) :where(.card, .profile-page-card, .inventory-page) > h2:first-of-type,

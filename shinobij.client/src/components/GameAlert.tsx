@@ -93,7 +93,32 @@ function useDialogFocusTrap(
 
 const routeAlert = createAlertRouter();
 
-function showGameAlert(message: string): void {
+const SERVER_UNREACHABLE_NOTICE = "The server could not be reached. Check your connection and try again.";
+const SERVER_FAILED_NOTICE = "The server could not finish that. Try again in a moment.";
+
+/**
+ * Every alert() passes through here, so a raw browser or server error that a
+ * call site forwarded unchanged ("Failed to fetch", a 502 page parsed as JSON,
+ * a bare "Internal server error.") becomes a sentence a player can act on.
+ * Anything else is returned untouched.
+ */
+export function playerAlertText(message: string): string {
+    const text = message.trim();
+    if (/^(Failed to fetch|Load failed|NetworkError when attempting to fetch resource\.?)$/.test(text) || /^Unexpected token/.test(text)) return SERVER_UNREACHABLE_NOTICE;
+    if (/^Internal server error\.?$/.test(text)) return SERVER_FAILED_NOTICE;
+    return message;
+}
+
+/** Keys pressed this soon after a notice opens were meant for whatever had focus before it. */
+export const NOTICE_KEY_GUARD_MS = 250;
+
+/** Whether a keydown may dismiss the open notice: never a held key, never a keystroke typed as it arrived. */
+export function noticeKeyCanDismiss(e: { repeat: boolean }, openedAt: number, now: number): boolean {
+    return !e.repeat && now - openedAt >= NOTICE_KEY_GUARD_MS;
+}
+
+function showGameAlert(rawMessage: string): void {
+    const message = playerAlertText(rawMessage);
     // A rate-limit "slow down" refusal only asks the player to wait — never
     // worth a modal to click through. It becomes a quiet toast, and a repeat of
     // the same notice within SLOW_DOWN_TOAST_GAP_MS is dropped (see
@@ -150,11 +175,22 @@ export function GameAlertHost() {
     }, []);
 
     const dismiss = () => setQueue((q) => q.slice(1));
+    const openedAtRef = useRef(0);
+    const head = queue[0];
+
+    // Each notice starts its own key guard, including one that takes the place
+    // of a dismissed notice in the queue.
+    useLayoutEffect(() => {
+        if (head) openedAtRef.current = performance.now();
+    }, [head]);
 
     useEffect(() => {
         if (queue.length === 0) return;
         function onKey(e: KeyboardEvent) {
-            if (e.key === "Enter" || e.key === "Escape" || e.key === " ") {
+            // Space is left to the focused OK button, which activates natively.
+            // Enter is ignored while held, or when it was typed (into chat, say)
+            // as the notice arrived. Escape always dismisses.
+            if (e.key === "Escape" || (e.key === "Enter" && noticeKeyCanDismiss(e, openedAtRef.current, performance.now()))) {
                 e.preventDefault();
                 dismiss();
             }
@@ -221,6 +257,9 @@ export function GameAlertHost() {
                             // while OK is focused.
                             if (e.key === "Enter" || e.key === " ") {
                                 e.stopPropagation();
+                                // OK takes focus the moment the notice opens, so a
+                                // held key or one typed as it arrived would click it.
+                                if (!noticeKeyCanDismiss(e, openedAtRef.current, performance.now())) e.preventDefault();
                             }
                         }}
                     >
@@ -393,6 +432,11 @@ export type GameConfirmOptions = {
     initialFocus?: "confirm" | "cancel";
 };
 
+/** A destructive confirm opens on Cancel, so a stray Enter cannot accept it. An explicit initialFocus wins. */
+export function confirmFocusesCancel(opts: GameConfirmOptions | undefined): boolean {
+    return opts?.initialFocus ? opts.initialFocus === "cancel" : opts?.danger === true;
+}
+
 type ConfirmRequest = {
     message: string;
     opts?: GameConfirmOptions;
@@ -435,7 +479,7 @@ export function GameConfirmHost() {
     // without unmounting its buttons (autoFocus alone only handles the mount).
     useEffect(() => {
         if (!current) return;
-        (current.opts?.initialFocus === "cancel" ? cancelRef : confirmRef).current?.focus();
+        (confirmFocusesCancel(current.opts) ? cancelRef : confirmRef).current?.focus();
     }, [current]);
 
     useEffect(() => {
@@ -484,6 +528,7 @@ export function GameConfirmHost() {
 
     const opts = current.opts ?? {};
     const moreCount = queue.length - 1;
+    const focusCancel = confirmFocusesCancel(opts);
 
     return createPortal(
         <div className="game-alert-backdrop" onClick={() => settle(false)} role="presentation">
@@ -508,7 +553,7 @@ export function GameConfirmHost() {
                             {moreCount} more {moreCount === 1 ? "prompt" : "prompts"} queued
                         </span>
                     )}
-                    <button ref={cancelRef} type="button" className="game-alert-cancel" onClick={() => settle(false)} autoFocus={opts.initialFocus === "cancel"}>
+                    <button ref={cancelRef} type="button" className="game-alert-cancel" onClick={() => settle(false)} autoFocus={focusCancel}>
                         {opts.cancelLabel ?? "Cancel"}
                     </button>
                     <button
@@ -516,7 +561,7 @@ export function GameConfirmHost() {
                         type="button"
                         className={`game-alert-ok${opts.danger ? " danger" : ""}`}
                         onClick={() => settle(true)}
-                        autoFocus={opts.initialFocus !== "cancel"}
+                        autoFocus={!focusCancel}
                     >
                         {opts.confirmLabel ?? "Confirm"}
                     </button>

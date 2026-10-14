@@ -77,7 +77,7 @@ async function postClanRecord(name: string, body: object): Promise<void> {
         const fallback =
             res.status === 429 ? "The clan server is busy (rate limited). Wait a moment and retry." :
             res.status === 401 || res.status === 403 ? "You're not authorized to change this clan right now." :
-            `Clan save failed (HTTP ${res.status}).`;
+            "The clan change was not saved. Try again in a moment.";
         throw new ClanSaveError(res.status, detail || fallback);
     }
 }
@@ -94,6 +94,6 @@ export async function postGuardQueue(action: "queue" | "dequeue", payload: objec
     }
     if (!res.ok) {
         const data = await res.json().catch(() => ({})) as { error?: string };
-        throw new ClanSaveError(res.status, data.error || `Guard queue update failed (HTTP ${res.status}).`);
+        throw new ClanSaveError(res.status, data.error || "Your guard status did not change. Try again in a moment.");
     }
 }

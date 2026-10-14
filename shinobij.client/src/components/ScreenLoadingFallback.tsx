@@ -32,6 +32,19 @@ const SCREEN_MESSAGES: Partial<Record<Screen, string>> = {
     hollowGateShrine: "Restoring Shrine",
     hollowGateTiles: "Restoring Seal Trial",
     pvpBattle: "Restoring Battle",
+    inventory: "Loading Inventory",
+    logbook: "Loading Logbook",
+    professions: "Loading Professions",
+    pets: "Loading Pet Yard",
+    home: "Loading Pet Home",
+    shinobiTiles: "Loading Card Hall",
+    weeklyBoss: "Loading World Bosses",
+    tavern: "Loading Tavern",
+    messages: "Loading Mail",
+    hallOfLegends: "Loading Hall of Legends",
+    sunscarFestival: "Loading Sunscar Festival",
+    echoesOfWar: "Loading Echoes of War",
+    endlessTower: "Loading Endless Tower",
 };
 
 export function ScreenLoadingFallback({ screen, travelingUntil = 0 }: { screen: Screen; travelingUntil?: number }) {
@@ -68,9 +81,9 @@ export function ScreenLoadingFallback({ screen, travelingUntil = 0 }: { screen: 
                 }}
             >
                 <strong style={{ display: "block", color: "var(--gold)", marginBottom: 4 }}>
-                    {SCREEN_MESSAGES[screen] ?? "Loading Screen"}
+                    {SCREEN_MESSAGES[screen] ?? "Loading…"}
                 </strong>
-                <span style={{ fontSize: 13, color: "var(--text-dim)" }}>Restoring the next view...</span>
+                <span style={{ fontSize: 13, color: "var(--text-dim)" }}>One moment…</span>
             </div>
         </div>
     );

@@ -267,9 +267,11 @@ button {
     /* This hover is for a mouse or trackpad only. A touch browser keeps :hover on
        whatever a tap last hit, so on a phone a tapped button stayed brightened,
        lifted and ringed until the next touch. Desktop hover is unchanged,
-       because a media query moves neither specificity nor order. */
+       because a media query moves neither specificity nor order. A disabled
+       button gets no hover at all; the exclusion sits inside :where() so it
+       adds no specificity and every per-screen :hover still wins as before. */
     @media (hover: hover) {
-        button:hover {
+        button:hover:where(:not(:disabled, [aria-disabled="true"])) {
             filter: brightness(1.12);
             transform: translateY(-1px);
             border-color: color-mix(in srgb, var(--sj-gold) 55%, var(--sj-border-strong));

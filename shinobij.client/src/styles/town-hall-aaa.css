@@ -275,10 +275,12 @@
     box-shadow: 0 0 18px rgba(89, 185, 142, 0.38);
 }
 
-.app-shell.screen-townHall .town-priority-card:hover {
-    border-color: rgba(230, 184, 92, 0.35);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 15px 32px rgba(0, 0, 0, 0.3);
-    transform: translateY(-2px);
+@media (hover: hover) {
+    .app-shell.screen-townHall .town-priority-card:hover {
+        border-color: rgba(230, 184, 92, 0.35);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 15px 32px rgba(0, 0, 0, 0.3);
+        transform: translateY(-2px);
+    }
 }
 
 .app-shell.screen-townHall .town-task-list span {
@@ -462,10 +464,12 @@
     box-shadow: 0 0 20px color-mix(in srgb, var(--elder-accent) 48%, transparent);
 }
 
-.app-shell.screen-townHall .elder-seat-grid .elder-card:hover {
-    border-color: color-mix(in srgb, var(--elder-accent) 62%, #253749);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 17px 34px rgba(0, 0, 0, 0.32);
-    transform: translateY(-2px);
+@media (hover: hover) {
+    .app-shell.screen-townHall .elder-seat-grid .elder-card:hover {
+        border-color: color-mix(in srgb, var(--elder-accent) 62%, #253749);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 17px 34px rgba(0, 0, 0, 0.32);
+        transform: translateY(-2px);
+    }
 }
 
 .app-shell.screen-townHall .elder-seat-grid .elder-card-active {

@@ -2222,7 +2222,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                                             onClick={() => void sendArenaChallenge(arenaChallengeName, tacticalSize, tacticalPicks)}>
                                             Send Challenge
                                         </button>
-                                        {arenaChallengeMsg && <p className="hint" style={{ margin: 0, color: arenaChallengeMsg.startsWith("Success:") ? "var(--green-400)" : "var(--red-400)" }}>{arenaChallengeMsg}</p>}
+                                        {arenaChallengeMsg && <p className="hint" style={{ margin: 0, color: arenaChallengeMsg.startsWith("Success:") ? "var(--green-400)" : "var(--red-400)" }}>{arenaChallengeMsg.replace(/^(Success|Error):\s*/, "")}</p>}
                                     </div>
 
                                     <div className="summary-box" style={{ display: "grid", gap: "0.5rem", alignContent: "start" }}>

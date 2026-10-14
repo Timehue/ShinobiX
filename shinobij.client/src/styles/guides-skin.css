@@ -360,9 +360,11 @@
     transition: transform .28s ease, filter .28s ease;
 }
 
-.guide-card:hover .guide-card-media img {
-    transform: scale(1.025);
-    filter: saturate(1);
+@media (hover: hover) {
+    .guide-card:hover .guide-card-media img {
+        transform: scale(1.025);
+        filter: saturate(1);
+    }
 }
 
 .guide-card-media > span {

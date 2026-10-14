@@ -49,7 +49,7 @@ export async function resolveHollowGateServerEvent(params: {
         const data = await response.json().catch(() => ({})) as HollowGateEventResult;
         return response.ok && data.ok
             ? data
-            : { ...data, ok: false, error: data.error || `Hollow Gate event failed (${response.status}).` };
+            : { ...data, ok: false, error: data.error || "The Hollow Gate event did not resolve. Try it again." };
     } catch {
         return { ok: false, error: "The Hollow Gate event service is unreachable." };
     }
@@ -86,7 +86,7 @@ export async function sealHollowGateFloor(playerName: string, token: string, run
         const data = await response.json().catch(() => ({})) as { ok?: boolean; wanderers?: HollowGateShrineRun['wanderers']; floorFeatures?: HollowGateShrineRun['floorFeatures']; detour?: { tileIndex: number; extraSteps: number; condition: "echo-cache" } | null; riftSignal?: { tileIndex: number; kind: string; distortionId: string } | null; pendingAmbush?: { nodeId: string; kind: "battle" | "ambush" | "boss" | "card" } | null; activeCombat?: HollowGateShrineRun["activeCombat"]; position?: { x: number; y: number }; error?: string };
         return response.ok && data.ok
             ? { ok: true, position: data.position, detour: data.detour, riftSignal: data.riftSignal, pendingAmbush: data.pendingAmbush, wanderers: data.wanderers, floorFeatures: data.floorFeatures }
-            : { ok: false, position: data.position, activeCombat: data.activeCombat, error: data.error || `Floor seal failed (${response.status}).` };
+            : { ok: false, position: data.position, activeCombat: data.activeCombat, error: data.error || "The floor seal did not go through. Reconnect and try again." };
     } catch {
         return { ok: false, error: "The Hollow Gate floor seal is unreachable." };
     }

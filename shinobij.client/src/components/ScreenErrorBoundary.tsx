@@ -67,7 +67,7 @@ export class ScreenErrorBoundary extends Component<Props, State> {
                         ? { cursor: "pointer", marginTop: 4, background: "linear-gradient(180deg, var(--gold), #eab308)", color: "#1a1306", fontWeight: 900, fontSize: 14, border: "none", borderRadius: 10, padding: "11px 22px", boxShadow: "0 5px 18px rgba(234,179,8,0.24)" }
                         : { cursor: "pointer", marginTop: 10, background: "transparent", color: "#cbd5e1", fontWeight: 700, fontSize: 13, border: "1px solid rgba(148,163,184,0.35)", borderRadius: 10, padding: "9px 18px" }}
                 >
-                    {chunk ? "Reload to Continue" : "Reload Current Screen"}
+                    {chunk ? "Reload to Continue" : "Reload the game"}
                 </button>
                 <div style={{ marginTop: 12 }}><RecoveryActions /></div>
             </div>

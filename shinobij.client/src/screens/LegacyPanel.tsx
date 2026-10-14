@@ -13,6 +13,7 @@ import {
 } from "../lib/legacy";
 import { PlayerNameplate } from "../components/PlayerNameplate";
 import { GameArtIcon } from "../components/GameArtIcon";
+import { gameConfirm } from "../components/GameAlert";
 import { LegacyMoment, type LegacyMomentData } from "../components/LegacyMoment";
 import { rollEmissarySpawn, emissaryForCategory } from "../lib/legacy-emissaries";
 import { rumorLog } from "../lib/legacy-rumors";
@@ -156,6 +157,8 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
 
     async function handleTrial(action: "start" | "complete" | "reroll") {
         if (busy) return;
+        // The reroll sits right under Check Progress and wipes the current proof's progress in one tap.
+        if (action === "reroll" && !await gameConfirm("Ask for a different proof? You'll lose all progress on the current proof.", { title: "Ask for a different proof", confirmLabel: "Reset progress", danger: true, initialFocus: "cancel" })) return;
         setBusy(true);
         if (action === "start" || action === "reroll") {
             const result = action === "start" ? await trialStart(character.name) : await trialReroll(character.name);

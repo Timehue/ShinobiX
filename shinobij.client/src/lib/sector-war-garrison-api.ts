@@ -23,7 +23,7 @@ async function post<T>(body: Record<string, unknown>): Promise<T> {
     });
     if (!res.ok) {
         const err = await res.json().catch(() => ({})) as { error?: string };
-        throw new Error(err.error || `Request failed (${res.status})`);
+        throw new Error(err.error || 'The garrison assault did not answer. Try again in a moment.');
     }
     return res.json() as Promise<T>;
 }

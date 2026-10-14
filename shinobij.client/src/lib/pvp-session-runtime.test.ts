@@ -423,9 +423,9 @@ describe("PvP reliability source wiring", () => {
         // this pins — probe first, allow exit only on proof — is unchanged.
         assert.match(screen, /verifyPendingSessionBeforeExit[\s\S]*fetchPendingPvpRecovery\(fetch, character\.name[,)][\s\S]*setSessionExitCheck\("safe"\)/,
             "an unavailable battle may expose destructive exit only after authenticated pending-session proof");
-        assert.match(screen, /sessionExitCheck === "safe"[\s\S]*Return Safely/,
+        assert.match(screen, /sessionExitCheck === "safe"[\s\S]*Leave battle/,
             "transient GET failure must keep the same-mount retry/recovery controller alive");
-        assert.match(screen, /sessionExitCheck === "safe"[\s\S]*exitBattle\(returnTarget\)[\s\S]*Return Safely/,
+        assert.match(screen, /sessionExitCheck === "safe"[\s\S]*exitBattle\(returnTarget\)[\s\S]*Leave battle/,
             "a proven-safe recovery exit must restore the sealed battle origin, never infer Village or World Map from live sector state");
         // The sector-attack flow moved out of App's JSX into lib/sector-attack.ts,
         // so the whole module IS the slice this used to carve out of App.

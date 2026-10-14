@@ -273,14 +273,18 @@
 .pet-sanctuary-message { margin: .7rem 0; border: 1px solid rgba(117,217,190,.32); border-radius: 10px; color: #d4f5ea; background: rgba(27,83,70,.32); padding: .65rem .8rem; font-size: .8rem; }
 .pet-sanctuary-grid { display: grid; gap: 1rem; }
 .pet-sanctuary-card { position: relative; overflow: hidden; border: 1px solid var(--home-line); border-radius: 19px; background: linear-gradient(155deg,rgba(21,39,53,.98),rgba(5,13,24,.99)); padding: .75rem; box-shadow: 0 20px 42px rgba(0,0,0,.22); transition: transform .18s ease,border-color .18s ease,box-shadow .18s ease; }
-.pet-sanctuary-card:hover { transform: translateY(-3px); border-color: rgba(117,217,190,.4); box-shadow: 0 25px 50px rgba(0,0,0,.3); }
+@media (hover: hover) {
+    .pet-sanctuary-card:hover { transform: translateY(-3px); border-color: rgba(117,217,190,.4); box-shadow: 0 25px 50px rgba(0,0,0,.3); }
+}
 .pet-sanctuary-card.rarity-rare { border-color: rgba(104,197,225,.45); }
 .pet-sanctuary-card.rarity-legendary { border-color: rgba(230,189,112,.58); }
 .pet-sanctuary-card.rarity-mythic { border-color: rgba(200,121,255,.58); }
 .pet-sanctuary-portrait { position: relative; display: grid; place-items: center; height: 190px; overflow: hidden; border-radius: 14px; background: radial-gradient(circle at 50% 40%,rgba(117,217,190,.2),rgba(3,8,18,.72) 70%); }
 .pet-sanctuary-portrait::after { content: ""; position: absolute; inset: auto 12% 10px; height: 18px; border-radius: 50%; background: rgba(0,0,0,.32); filter: blur(8px); }
 .pet-sanctuary-portrait img { position: relative; z-index: 1; width: 100%; height: 100%; object-fit: contain; transition: transform .25s ease; }
-.pet-sanctuary-card:hover .pet-sanctuary-portrait img { transform: scale(1.035); }
+@media (hover: hover) {
+    .pet-sanctuary-card:hover .pet-sanctuary-portrait img { transform: scale(1.035); }
+}
 .pet-sanctuary-portrait > span { color: #8ca4b0; font: 800 2.2rem Georgia,serif; }
 .pet-sanctuary-portrait em { position: absolute; z-index: 2; right: .55rem; bottom: .5rem; border: 1px solid var(--home-line); border-radius: 999px; color: #d7e5e8; background: rgba(3,8,18,.82); padding: .24rem .58rem; font-size: .67rem; font-style: normal; }
 .pet-sanctuary-card > .chromatic-ribbon { position: absolute; z-index: 3; top: 1rem; left: 1rem; color: #111a26; }

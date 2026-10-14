@@ -1282,12 +1282,10 @@ test("selected-sector projection keeps controls, receipts, traces, and responsiv
     await expect(stage.getByRole("button", { name: "Current tile row 2 column 10" })).toHaveCount(1);
     await page.keyboard.press('Escape');
 
-    const noticeDialog = page.getByRole("alertdialog", { name: "Notice" });
     await page.keyboard.press("e");
-    await expect(noticeDialog).toBeVisible();
-    await expect(noticeDialog).toContainText("Sector 44 explored. +35 ryo.");
-    await noticeDialog.getByRole("button", { name: "OK", exact: true }).click();
-    await expect(noticeDialog).toBeHidden();
+    // A routine explore result is a toast, not a Notice the player has to click through.
+    await expect(page.locator(".game-toast-stack")).toContainText("Sector 44 explored. +35 ryo.");
+    await expect(page.getByRole("alertdialog", { name: "Notice" })).toHaveCount(0);
 
     expect(sharedRequestId).toMatch(/^[A-Za-z0-9_-]{8,96}$/);
     expect(dungeonRequests).toEqual([{

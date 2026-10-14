@@ -119,8 +119,9 @@ function ShopBase({
 }) {
     const [selectedItem, setSelectedItem] = useState<GameItem | null>(null);
     // Bulk-buy quantity for capped consumables/throwables/potions. Reset to 1
-    // whenever a different item popup opens.
-    const [buyQty, setBuyQty] = useState(1);
+    // whenever a different item popup opens. "" while the field is cleared, so
+    // typing 25 over a 1 does not read as 125; it counts as 1 only at purchase.
+    const [buyQty, setBuyQty] = useState<number | "">(1);
     const [purchaseBusy, setPurchaseBusy] = useState(false);
     const purchaseBusyRef = useRef(false);
     const scrollsRef = useRef<HTMLDivElement>(null);
@@ -480,6 +481,10 @@ function ShopBase({
                                     {(() => {
                                         const cap = consumableHoldCap(selectedItem);
                                         const unit = getShopCost(selectedItem.cost, selectedItem.id);
+                                        // buy() refuses an over-level item, so the button says so
+                                        // up front instead of opening a refusal.
+                                        const levelLocked = !meetsItemLevelReq(selectedItem, character.level);
+                                        const levelLabel = `Requires Lv. ${effectiveItemLevelReq(selectedItem)}`;
 
                                         // One-off gear: single Buy button, exactly as before.
                                         if (cap == null) {
@@ -487,13 +492,18 @@ function ShopBase({
                                                 <button
                                                     type="button"
                                                     onClick={() => { void buy(selectedItem); }}
-                                                    disabled={purchaseBusy || alreadyOwned(selectedItem) || wallet < unit}
+                                                    disabled={purchaseBusy || alreadyOwned(selectedItem) || wallet < unit || levelLocked}
+                                                    aria-busy={purchaseBusy}
                                                 >
                                                     {alreadyOwned(selectedItem)
                                                         ? "Owned"
-                                                        : wallet < unit
-                                                            ? `Need More ${currencyLabel}`
-                                                            : <>Buy for {currencyIcon} {unit} {currencyLabel}</>}
+                                                        : levelLocked
+                                                            ? levelLabel
+                                                            : purchaseBusy
+                                                                ? "Buying…"
+                                                                : wallet < unit
+                                                                    ? `Need More ${currencyLabel}`
+                                                                    : <>Buy for {currencyIcon} {unit} {currencyLabel}</>}
                                                 </button>
                                             );
                                         }
@@ -505,13 +515,15 @@ function ShopBase({
                                         const capLeft = Math.max(0, cap - owned);
                                         const affordable = unit > 0 ? Math.floor(wallet / unit) : 0;
                                         const maxBuyable = Math.min(99, capLeft, affordable);
-                                        const qty = Math.min(Math.max(1, buyQty), Math.max(1, maxBuyable));
+                                        const qty = Math.min(Math.max(1, buyQty === "" ? 1 : buyQty), Math.max(1, maxBuyable));
 
                                         return (
                                             <div className="shop-bulk-buy" style={{ display: "flex", flexDirection: "column", gap: 6, width: "100%" }}>
                                                 <small style={{ color: "#86efac", fontWeight: "bold" }}>In bag: {owned} / {cap}</small>
 
-                                                {capLeft <= 0 ? (
+                                                {levelLocked ? (
+                                                    <button type="button" disabled>{levelLabel}</button>
+                                                ) : capLeft <= 0 ? (
                                                     <button type="button" disabled>At carry limit ({cap})</button>
                                                 ) : maxBuyable < 1 ? (
                                                     <button type="button" disabled>Need More {currencyLabel}</button>
@@ -523,15 +535,16 @@ function ShopBase({
                                                                 type="number"
                                                                 min={1}
                                                                 max={maxBuyable}
-                                                                value={qty}
-                                                                onChange={(e) => setBuyQty(Math.max(1, Math.min(maxBuyable, Math.floor(Number(e.target.value) || 1))))}
+                                                                value={buyQty === "" ? "" : qty}
+                                                                onChange={(e) => setBuyQty(e.target.value === "" ? "" : Math.max(1, Math.min(maxBuyable, Math.floor(Number(e.target.value) || 1))))}
+                                                                onBlur={() => { if (buyQty === "") setBuyQty(1); }}
                                                                 style={{ width: 64, textAlign: "center" }}
                                                             />
                                                             <button type="button" aria-label="More" onClick={() => setBuyQty(Math.min(maxBuyable, qty + 1))} disabled={qty >= maxBuyable}>+</button>
                                                             <button type="button" onClick={() => setBuyQty(maxBuyable)} disabled={qty >= maxBuyable}>Max</button>
                                                         </div>
-                                                        <button type="button" disabled={purchaseBusy} onClick={() => { void buy(selectedItem, qty); }}>
-                                                            Buy {qty} for {currencyIcon} {unit * qty} {currencyLabel}
+                                                        <button type="button" disabled={purchaseBusy} aria-busy={purchaseBusy} onClick={() => { void buy(selectedItem, qty); }}>
+                                                            {purchaseBusy ? "Buying…" : <>Buy {qty} for {currencyIcon} {unit * qty} {currencyLabel}</>}
                                                         </button>
                                                     </>
                                                 )}

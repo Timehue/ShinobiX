@@ -125,7 +125,7 @@ export async function createPvpSessionWithRecovery(
             }
             lastError = typeof body?.error === "string" && body.error.trim()
                 ? body.error.trim()
-                : `PvP session create failed (HTTP ${response.status}).`;
+                : "The battle could not be started. Try again in a moment.";
             if (response.status === 409 || response.status >= 500) {
                 ambiguous = true;
                 continue;

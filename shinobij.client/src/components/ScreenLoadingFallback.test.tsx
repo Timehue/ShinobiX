@@ -30,6 +30,14 @@ test("only the World Map borrows the mask; other screens keep their own card", (
     assert.doesNotMatch(html, /Traveling/);
 });
 
+test("a screen with no card of its own reads as plain loading, not developer copy", () => {
+    const html = renderToStaticMarkup(<ScreenLoadingFallback screen="userHub" />);
+    assert.match(html, /Loading…/);
+    assert.doesNotMatch(html, /Loading Screen|Restoring the next view/);
+    assert.match(renderToStaticMarkup(<ScreenLoadingFallback screen="pets" />), /Loading Pet Yard/);
+    assert.match(renderToStaticMarkup(<ScreenLoadingFallback screen="shinobiTiles" />), /Loading Card Hall/);
+});
+
 test("App hands the fallback the live trip deadline, and nothing once it has ended", () => {
     const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
     assert.match(app, /<ScreenLoadingFallback screen=\{screen\} travelingUntil=\{isTraveling \? travelingUntil : 0\} \/>/);

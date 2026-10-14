@@ -18,6 +18,7 @@ function refusalLine(refusal: SectorChatRefusal): string {
     if (refusal.status === 429) return `You are speaking too fast. Try again in ${Math.max(1, Math.ceil((refusal.retryAfterMs ?? 1000) / 1000))}s.`;
     if (refusal.status === 409) return 'Your voice cannot reach this sector yet. Give it a moment.';
     if (refusal.status === 0) return 'The message did not carry. Check your connection and try again.';
+    if (refusal.status >= 500) return 'The sector could not hear you. Try again in a moment.';
     return refusal.error;
 }
 
