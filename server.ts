@@ -220,6 +220,9 @@ if (process.env.ENABLE_LEGACY !== '1') {
 }
 
 const app = express();
+// Express announces itself on every response by default. Nothing reads the
+// banner, and it tells a scanner which framework's CVEs to try first.
+app.disable('x-powered-by');
 
 app.use((_req: Request, res: Response, next: NextFunction) => {
     for (const [name, value] of Object.entries(securityHeaders())) {
