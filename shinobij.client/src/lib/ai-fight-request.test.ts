@@ -411,7 +411,7 @@ test("explore and raid starts carry their exact server proofs", () => {
     const logbookEnd = logbook.indexOf("function goToWarGround");
     assert.ok(logbookStart >= 0 && logbookEnd > logbookStart, "Logbook must keep its raid entry ahead of goToWarGround");
     const logbookRaid = logbook.slice(logbookStart, logbookEnd);
-    assert.match(logbookRaid, /setSectorReopen\(raid\.targetSector\)/);
+    assert.match(logbookRaid, /setSectorTravelIntent\(character\.name, raid\.targetSector\)/);
     assert.match(logbookRaid, /setScreen\("worldMap"\)/);
     assert.doesNotMatch(logbook, /mintAiRaidToken|raidProof/, "the Logbook must not start a raid fight of its own");
 });
