@@ -11,6 +11,7 @@ import {
     CLAN_BOSS_PARTY_STALE_MS,
     CLAN_BOSS_SOLO_FALLBACK_MS,
 } from '../../shared/clan-boss-operation.js';
+import { combatEquipment } from '../../shared/gathering-tools.js';
 import { kv } from '../_storage.js';
 import { makeKvLockPrimitives, withKvLock, withLockCore } from '../_lock.js';
 import { clanBareSlug, safeName } from '../_utils.js';
@@ -139,8 +140,9 @@ export async function loadPartyPlayerContext(rawName: string): Promise<PartyPlay
 
 export function snapshotForPlayer(ctx: PartyPlayerContext, now: number): ClanBossLoadoutSnapshot {
     const c = ctx.character;
+    // Gathering tools are equipped for fishing and mining, not for the fight.
     const equipment = c.equipment && typeof c.equipment === 'object'
-        ? Object.values(c.equipment as Record<string, unknown>)
+        ? Object.values(combatEquipment(c.equipment as Record<string, unknown>))
         : [];
     const combatItemCount = equipment.filter((itemId) => typeof itemId === 'string' && itemId.length > 0).length;
     return {

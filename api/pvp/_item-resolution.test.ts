@@ -10,7 +10,7 @@
  */
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { hydrateCharacterFromSave } from './session.js';
+import { hydrateCharacterFromSave, stripNonCombatFields } from './session.js';
 import { deriveCombatMultipliers, buildItemLookup } from './_multipliers.js';
 import { ITEM_CATALOG } from './_item-catalog.js';
 import { buildAdminItemCatalog } from '../_admin-item-catalog.js';
@@ -105,6 +105,23 @@ describe('equipped-item resolution against the admin catalog', () => {
         assert.equal(warnings.length, 1);
         assert.ok(warnings[0].includes('ghost-item-42'), warnings[0]);
         assert.ok(!warnings[0].includes('custom-ash-mantle'), 'only the unresolved id is named');
+    });
+
+    // Gathering tools sit in the active loadout for fishing and mining only.
+    it('never seals an equipped pickaxe or fishing pole into a fighter', () => {
+        const hydrated = hydrateCharacterFromSave(
+            saveCharacter({ hand: 'custom-storm-tanto', pickaxe: 'tool-basic-pickaxe', fishingPole: 'tool-golden-fishing-pole' }),
+            {},
+            { creatorItems: [] },
+            adminContent,
+        );
+        assert.deepEqual(itemIds(hydrated), ['custom-storm-tanto']);
+        assert.deepEqual(hydrated.equipment, { hand: 'custom-storm-tanto' });
+    });
+
+    it('drops gathering tools from a character stripped for a fight', () => {
+        const stripped = stripNonCombatFields({ name: 'Rin', equipment: { hand: 'kunai', pickaxe: 'tool-basic-pickaxe', item1: 'tool-golden-pickaxe' } });
+        assert.deepEqual(stripped.equipment, { hand: 'kunai' });
     });
 
     it('feeds admin gear into the derived multiplier layer (armor DR + passives)', () => {
