@@ -88,7 +88,7 @@ function ClanShrineRoom({character,initialWar,index,sharedImages,onExit,onLaunch
                     {player.name===clanWarPlayerKey(character.name)&&avatar?<img src={avatar} alt=""/>:<b>{player.displayName.slice(0,2).toUpperCase()}</b>}<small>{player.name===clanWarPlayerKey(character.name)?'You':`${player.displayName} · ${player.clan===character.clan?'Ally':'Rival'}`}</small></span>)}</div>
                 <p className="hint">Choose an adjacent tile or use arrow keys. Both clans must be inside to begin a bonus match.</p>
                 <details><summary>Players inside · {room?.players.length??0}</summary><ul>{room?.players.map(player=><li key={player.name}>{player.displayName} · {player.clan}{player.inBattle?' · fighting':''}</li>)}</ul></details></div>
-                <ClanWarCampaignPanel war={war} name={character.name} clanName={character.clan??''} scope="shrine" windowIndex={index}
-                    onRefresh={refresh} onLaunchBattle={launch}/></div>
+                {room?<ClanWarCampaignPanel war={war} name={character.name} clanName={character.clan??''} scope="shrine" windowIndex={index}
+                    onRefresh={refresh} onLaunchBattle={launch}/>:<p role="status">Entering the shrine…</p>}</div>
         </section></dialog>;
 }
