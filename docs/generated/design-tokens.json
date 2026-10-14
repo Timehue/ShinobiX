@@ -2429,7 +2429,7 @@
           },
           {
             "source": "shinobij.client/src/styles/inventory-aaa.css",
-            "line": 594
+            "line": 626
           },
           {
             "source": "shinobij.client/src/styles/pet-battle-readiness.css",
@@ -2527,7 +2527,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 3310
+            "line": 3307
           }
         ]
       },
@@ -2633,6 +2633,10 @@
           {
             "source": "shinobij.client/src/styles/index/38-account-recovery.css",
             "line": 100
+          },
+          {
+            "source": "shinobij.client/src/styles/jutsu-frames.css",
+            "line": 264
           },
           {
             "source": "shinobij.client/src/styles/pet-skin.css",
@@ -3589,6 +3593,10 @@
             "line": 1497
           },
           {
+            "source": "shinobij.client/src/styles/jutsu-frames.css",
+            "line": 252
+          },
+          {
             "source": "shinobij.client/src/styles/landing-skin.css",
             "line": 501
           },
@@ -3598,7 +3606,7 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 3255
+            "line": 3252
           },
           {
             "source": "shinobij.client/src/styles/story-archive-guidance.css",
@@ -3753,7 +3761,7 @@
           },
           {
             "source": "shinobij.client/src/styles/inventory-aaa.css",
-            "line": 533
+            "line": 565
           },
           {
             "source": "shinobij.client/src/styles/pet-skin.css",
@@ -4310,7 +4318,7 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 3232
+            "line": 3229
           }
         ]
       },
@@ -4979,8 +4987,12 @@
         "valuePx": 1040,
         "occurrences": [
           {
+            "source": "shinobij.client/src/styles/jutsu-frames.css",
+            "line": 246
+          },
+          {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 3218
+            "line": 3215
           }
         ]
       },
@@ -5112,7 +5124,7 @@
           },
           {
             "source": "shinobij.client/src/styles/inventory-aaa.css",
-            "line": 518
+            "line": 550
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",

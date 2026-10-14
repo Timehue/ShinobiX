@@ -5,7 +5,9 @@
  * number / loadout out.
  */
 import { armorReductionForItem } from "./equipment";
-import { combatEquipment } from "../../../shared/gathering-tools";
+// From the items module, not gathering-tools: this file loads at startup, and
+// gathering-tool-items is already in that graph (see the note there).
+import { combatEquipment } from "../../../shared/gathering-tool-items";
 import type { Character } from "../types/character";
 import type { PetTrait } from "../types/pet";
 import type { GameItem, EquipmentSlot } from "../types/combat";
