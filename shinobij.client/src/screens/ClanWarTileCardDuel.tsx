@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
+import {clanWarReturnTarget,prepareClanWarReturn} from '../lib/clan-war-navigation';
 import { getAllTileCards } from "../data/tile-cards";
 import {
   buildChronicleDeck,
@@ -417,8 +418,9 @@ export function ClanWarTileCardDuel({
   return (
     <CardClashDuelScreen
       character={character}
-      setScreen={setScreen}
-      config={CLAN_WAR_DUEL_CONFIG}
+      setScreen={screen=>setScreen(screen===clanWarReturnTarget()?prepareClanWarReturn():screen)}
+      config={{...CLAN_WAR_DUEL_CONFIG,backScreen:clanWarReturnTarget(),backLabel:'Return to Clan War',
+          doneNote:(_won,draw)=>draw?'The server recorded a draw.':'The server recorded this clan-war result.'}}
       sharedImages={sharedImages}
     />
   );

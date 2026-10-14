@@ -16,12 +16,23 @@ test('parseWarCrate distinguishes village vs clan crate ids and extracts the war
     assert.deepEqual(parseWarCrate(VILLAGE_CRATE), { kind: 'village', warId: 'stormveil-vs-frostfang' });
     assert.deepEqual(parseWarCrate(`${VILLAGE_CRATE}-g2`), { kind: 'village', warId: 'stormveil-vs-frostfang' });
     assert.deepEqual(parseWarCrate(CLAN_CRATE), { kind: 'clan', warId: 'ashen-vs-crimson' });
+    assert.deepEqual(parseWarCrate(`${CLAN_CRATE}-gcw2-${'a'.repeat(24)}`), { kind: 'clan', warId: 'ashen-vs-crimson' });
     assert.equal(parseWarCrate('war-crate-foo'), null);                    // no -vs-
     assert.equal(parseWarCrate('war-crate-Storm-vs-Frost'), null);         // uppercase (slugs are lowercase)
     assert.equal(parseWarCrate('mvp-crate-stormveil-vs-frostfang'), null); // unsupported crate kind
     assert.equal(parseWarCrate('war-crate-a-vs-b-vs-c'), null);            // extra segment
     assert.equal(parseWarCrate(''), null);
     assert.equal(parseWarCrate('../../world:war:x' as string), null);      // no key-injection
+});
+
+test('campaign clan crates require real winning-side participation and preserve an earned reward after departure', () => {
+    const id = `${CLAN_CRATE}-gcw2-${'a'.repeat(24)}`;
+    const war = wonWar(id,{clanParticipants:{fighter:{clan:'Stormveil',played:1},loser:{clan:'Crimson',played:1},idle:{clan:'Stormveil',played:0}}});
+    assert.equal(warCrateClaimDecision(war,id,'Another',[],NOW,{slug:'fighter',name:'Fighter'}).reason,'granted');
+    assert.equal(warCrateClaimDecision(war,id,'Stormveil',[],NOW,{slug:'newcomer',name:'New'}).granted,false);
+    assert.equal(warCrateClaimDecision(war,id,'Stormveil',[],NOW,{slug:'idle',name:'Idle'}).reason,'did-not-fight');
+    assert.equal(warCrateClaimDecision(war,id,'Stormveil',[],NOW,{slug:'loser',name:'Loser'}).reason,'not-winner');
+    assert.equal(warCrateClaimDecision(war,id,'Another',[id],NOW,{slug:'fighter',name:'Fighter'}).reason,'already-claimed');
 });
 
 test('warCrateClaimDecision grants a legit, unclaimed, unexpired win (village + clan)', () => {
