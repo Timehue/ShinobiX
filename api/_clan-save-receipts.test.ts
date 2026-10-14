@@ -2,11 +2,11 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { validateClanSaveWrite } from './_clan-save-validate.js';
 
-const prior = { name: 'Audit Clan', founderName: 'founder', members: [{ name: 'founder' }], treasury: { ryo: 1000 } };
+const prior = { name: 'Audit Clan', createdAt:1, founderName: 'founder', members: [{ name: 'founder' }], treasury: { ryo: 1000 } };
 const real = [{ transactionId: 'real-transaction', fingerprint: 'real-fingerprint', resource: 'ryo', amount: 100, appliedAt: 1 }];
 const forged = [{ transactionId: 'forged-transaction', fingerprint: 'forged-fingerprint', resource: 'ryo', amount: 100, appliedAt: 1 }];
 
-for (const field of ['clanMissionSettlements', 'clanExchangeSettlements']) {
+for (const field of ['clanMissionSettlements', 'clanExchangeSettlements','campaignHistory','campaignPrestige']) {
     test(`clan saves cannot forge, clear, or replace ${field}`, () => {
         const ctx = {callerName:'founder',isAdmin:false};
         assert.equal(validateClanSaveWrite(null,{...prior,[field]:forged},ctx).next[field],undefined);

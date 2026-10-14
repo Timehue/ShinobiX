@@ -32,11 +32,12 @@ export function ClanImageMark({
     image,
     name,
     village,
-}: { image?: string; name: string; village?: string }) {
+    frame=false,
+}: { image?: string; name: string; village?: string;frame?:boolean }) {
     return image
-        ? <img className="clan-image-mark" src={image} alt={name} />
+        ? <img className={`clan-image-mark${frame?' clan-sigil-frame':''}`} src={image} alt={name} />
         : (
-            <div className="clan-image-mark clan-image-fallback">
+            <div className={`clan-image-mark clan-image-fallback${frame?' clan-sigil-frame':''}`}>
                 {name.slice(0, 2).toUpperCase() || village?.slice(0, 2).toUpperCase() || "CL"}
             </div>
         );

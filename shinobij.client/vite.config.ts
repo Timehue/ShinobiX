@@ -1456,6 +1456,10 @@ export default defineConfig({
                     // manual group also hoisted lazy presentation dependencies.
                     if ([
                         '/src/lib/world-state.ts',
+                        // These boot-loaded navigation/countdown helpers share
+                        // the world lifetime; avoid separate tiny startup files.
+                        '/src/lib/sector-return.ts',
+                        '/src/lib/shared-now-store.ts',
                         '/src/lib/stats.ts',
                         '/src/lib/character-progress.ts',
                         '/src/lib/character-level-projection.ts',

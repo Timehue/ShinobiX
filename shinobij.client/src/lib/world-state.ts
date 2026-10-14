@@ -29,7 +29,7 @@ import { resolveSectorWeather } from "../../../shared/sector-weather";
 import { clampNumber, playerSlug } from "./utils";
 import { cleanVillageTreasury, defaultVillageTreasury, makeVillageDailyAgenda, normalizeAnbuAppointees, normalizeVillageDailyAgenda } from "./village-state";
 import { normalizeNoticePosts } from "./clan-notices";
-import { sharedClanWarCache } from "./clan-war-api";
+import { sharedClanWarCache } from "./clan-war-read-api";
 import { countItem, removeItem } from "./inventory";
 import { villageLeadership } from "../data/village-leadership";
 import { villageUpgradeDefinitions, VILLAGE_UPGRADE_MAX_LEVEL } from "./village-upgrades";
@@ -802,10 +802,12 @@ export async function claimServerWarCrates(
         if (war.warCrateId && !claimed.has(war.warCrateId) && villageWarCrateEarnedBy(war, character)) eligible.add(war.warCrateId);
     }
     const myClan = character.clan;
-    if (myClan) {
+    {
         for (const war of Object.values(sharedClanWarCache)) {
             if (!war.endedAt || now - war.endedAt > WAR_CRATE_EXPIRY_MS) continue;
-            if (war.warCrateId && war.winnerClan === myClan && !claimed.has(war.warCrateId)) eligible.add(war.warCrateId);
+            const earned=war.campaignView?.playerContribution;
+            const eligibleClan=war.campaignView?earned&&earned.played>0&&earned.clan===war.winnerClan:myClan&&war.winnerClan===myClan;
+            if (war.warCrateId && eligibleClan && !claimed.has(war.warCrateId)) eligible.add(war.warCrateId);
         }
     }
     for (const record of (clanData?.warHistory ?? []).slice(0, 3)) {

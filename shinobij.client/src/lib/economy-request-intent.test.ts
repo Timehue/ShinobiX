@@ -64,7 +64,7 @@ test('every retry-safe economy call sends its retained id and settles it only on
         ['shinobij.client/src/lib/clan-seal-pool-api.ts', 'export async function postSealDistribution', '"seal-distribute"'],
         ['shinobij.client/src/lib/player-api.ts', 'export async function postHollowGateUnlock', '"hollow-gate-unlock"'],
         ['shinobij.client/src/lib/player-api.ts', 'export async function postKageChallengeDeclare', '"kage-challenge-declare"'],
-        ['shinobij.client/src/lib/clan-war-api.ts', 'export async function cwDeclareWar', '"clan-war-declare"'],
+        ['shinobij.client/src/lib/clan-war-actions.ts', 'export async function cwDeclareWar', '"clan-war-declare"'],
     ] as const;
     for (const [file, start, scope] of wrappers) {
         const source = readFileSync(file, 'utf8');

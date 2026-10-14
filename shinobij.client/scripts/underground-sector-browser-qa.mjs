@@ -7,6 +7,7 @@ import { resolve, extname } from 'node:path';
 import assert from 'node:assert/strict';
 import { chromium, webkit } from '@playwright/test';
 import { STRONGHOLD_ROOMS, STRONGHOLD_DIMS } from '../../shared/sector-stronghold.ts';
+import { hollowRifts } from '../src/data/hollow-rifts.ts';
 const tmp = resolve('.tmp/underground-sector-qa-' + process.pid);
 const output = resolve(process.argv.find(a => a.startsWith('--output='))?.slice(9) ?? '../docs/stronghold/underground-audit');
 await mkdir(tmp, { recursive: true });
@@ -51,7 +52,7 @@ function sampleMovementFrames(page) {
         const values = [], start = performance.now(); let previous = start;
         const frame = now => { values.push(now - previous); previous = now;
             if (now - start < 2000) requestAnimationFrame(frame);
-            else { values.sort((a,b) => a-b); resolve({ frames: values.length, p95Ms: values[Math.floor(values.length * .95)], longestMs: values.at(-1), visibility: document.visibilityState, focused: document.hasFocus(), tiles: document.querySelectorAll('.stronghold-tile,.hg-cell').length }); }
+            else { values.sort((a,b) => a-b); resolve({ frames: values.length, meanMs: (now - start) / values.length, zeroDeltaFrames: values.filter(value => value === 0).length, p95Ms: values[Math.floor(values.length * .95)], longestMs: values.at(-1), visibility: document.visibilityState, focused: document.hasFocus(), tiles: document.querySelectorAll('.stronghold-tile,.hg-cell').length }); }
         }; requestAnimationFrame(frame);
     }));
 }
@@ -68,6 +69,120 @@ try {
             if (process.argv.includes('--resources')) {
                 const { auditHollowGateResources } = await import('./hollow-gate-resource-qa.mjs');
                 checks.push(...await auditHollowGateResources({ browser, engineName, url, output }));
+                continue;
+            }
+            if (process.argv.includes('--rift-states')) {
+                const viewport = { width: 320, height: 568 };
+                for (const rift of hollowRifts) {
+                    const page = await browser.newPage({ viewport, reducedMotion: 'reduce', hasTouch: true }); watch(page);
+                    const query = `?rift=${rift.id}&floor=${rift.floors}&legacyAtlas&keys=12000&shards=123456789&ryo=900000&risk&threat=95`;
+                    await page.goto(url + query);
+                    await page.locator('.underground-terrain').waitFor();
+                    await page.waitForLoadState('networkidle');
+                    await page.screenshot({ path: `${output}/${engineName}-${rift.id}-final-risk.png` });
+                    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false, `${rift.id} risk/threat HUD overflows`);
+                    assert.equal(await page.locator('.underground-depths li').count(), rift.floors);
+                    assert.equal((await page.locator('.hg-floor-identity strong').last().textContent())?.trim(), rift.bossName, 'guardian intel uses the actual final boss');
+                    for (const button of await page.getByRole('button', { name: /^Move / }).all()) {
+                        const box = await button.boundingBox();
+                        assert(box && box.x >= 0 && box.x + box.width <= viewport.width + 1 && box.y >= 0 && box.y + box.height <= viewport.height + 1, 'final-depth HUD keeps controls on screen');
+                    }
+                    await page.goto(url + query + '&completed');
+                    await page.locator('.underground-terrain').waitFor();
+                    assert.match(await page.locator('.hg-cave-header h2').innerText(), /The Rift Falls Silent/);
+                    assert.equal(await page.locator('.hg-rift-badge').innerText(), 'RIFT');
+                    checks.push({ engine: engineName, rift: rift.id, floor: rift.floors, viewport, riskHud: true, completion: true });
+                    await page.close();
+                }
+                continue;
+            }
+            if (process.argv.includes('--quest-rifts') || process.argv.includes('--rift-motion-only') || process.argv.includes('--rift-motion-smoke')) {
+                for (const viewport of (process.argv.includes('--rift-motion-only') || process.argv.includes('--rift-motion-smoke') ? [] : [{ width: 1366, height: 900 }, { width: 390, height: 844 }, { width: 320, height: 568 }, { width: 844, height: 390 }])) for (const rift of hollowRifts) {
+                    const page = await browser.newPage({ viewport, reducedMotion: 'reduce', hasTouch: viewport.width < 900 }); watch(page);
+                    await page.route('**/api/**', route => route.fulfill({ json: { ok: true } }));
+                    await page.goto(`${url}?rift=${rift.id}&legacyAtlas`);
+                    await page.bringToFront();
+                    await page.locator('.underground-terrain').waitFor();
+                    await page.waitForLoadState('networkidle');
+                    assert.equal(await page.locator('.underground-world--rift').getAttribute('data-hg-rift'), rift.id);
+                    assert.equal(await page.locator('.hg-rift-badge').innerText(), 'RIFT');
+                    assert(await page.locator('.rift-breach.is-awake').count() > 0, 'the arrival chamber visibly contains the power source');
+                    assert(await page.locator('.rift-chamber-floor').count() > 0, 'rift chambers use their authored ritual floor');
+                    assert.equal(await page.locator('.rift-energy-ribbon').first().evaluate(el => getComputedStyle(el).animationName), 'none', 'reduced motion preserves static mystical scenery');
+                    assert.equal(await page.locator('.hg-cave-header .act-label').evaluate(el => getComputedStyle(el).color), await page.locator('.hg-rift-badge').evaluate(el => getComputedStyle(el).color), 'rift title follows its theme palette');
+                    assert.equal(await page.locator('.hg-cell').evaluateAll(cells => cells.some(cell => cell.style.background)), false, 'legacy atlas must not cover the cavern');
+                    assert.equal(await page.locator('.hg-cell .hg-icon-img').count() > 0, true, 'assigned content icons remain available');
+                    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1), false, `${rift.id} overflows horizontally`);
+                    assert.equal(await page.locator('.underground-depths li').count(), rift.floors);
+                    const mask = await page.locator('.underground-terrain clipPath').first().evaluate(el => [...el.children].map(tile => Number(tile.getAttribute('data-tile'))));
+                    const known = await page.locator('.hg-cell').evaluateAll(cells => cells.map(cell => (Number(cell.getAttribute('aria-rowindex')) - 1) * Number(cell.parentElement.getAttribute('aria-colcount')) + Number(cell.getAttribute('aria-colindex')) - 1));
+                    assert(mask.length > 0 && mask.every(i => known.includes(i)), 'rift scenery remains inside explored terrain');
+                    const before = await page.locator('body').getAttribute('data-tile');
+                    const current = page.locator('.hg-cell[aria-current="location"]');
+                    const row = Number(await current.getAttribute('aria-rowindex')), column = Number(await current.getAttribute('aria-colindex'));
+                    const adjacent = page.locator(`.hg-cell.hg-clickable:not(.hg-door):is([aria-rowindex="${row}"][aria-colindex="${column - 1}"],[aria-rowindex="${row}"][aria-colindex="${column + 1}"],[aria-rowindex="${row - 1}"][aria-colindex="${column}"],[aria-rowindex="${row + 1}"][aria-colindex="${column}"])`).first();
+                    const nextRow = Number(await adjacent.getAttribute('aria-rowindex')), nextColumn = Number(await adjacent.getAttribute('aria-colindex'));
+                    const direction = nextRow < row ? 'up' : nextRow > row ? 'down' : nextColumn < column ? 'left' : 'right';
+                    const move = page.getByRole('button', { name: `Move ${direction}`, exact: true });
+                    try { if (viewport.width < 900) await move.tap(); else await move.click(); }
+                    catch (error) { await page.screenshot({ path: `${output}/${engineName}-${rift.id}-failure.png` }); throw error; }
+                    await page.waitForFunction(tile => document.body.dataset.tile !== tile, before);
+                    await page.screenshot({ path: `${output}/${engineName}-${rift.id}-${viewport.width}x${viewport.height}.png` });
+                    for (const button of await page.getByRole('button', { name: /^Move / }).all()) {
+                        const box = await button.boundingBox();
+                        assert(box && box.width >= 44 && box.height >= 44 && box.y >= 0 && box.y + box.height <= viewport.height + 1, `${rift.id} keeps movement controls on screen at ${viewport.width}x${viewport.height}: ${JSON.stringify(box)}`);
+                    }
+                    const palette = await page.locator('.underground-world').evaluate(el => getComputedStyle(el).getPropertyValue('--hg-floor-accent').trim());
+                    await page.getByText('Floor map & expedition journal', { exact: true }).click();
+                    await page.locator('.hg-minimap').waitFor({ state: 'visible' });
+                    await page.getByRole('button', { name: 'Emergency Forfeit', exact: true }).click();
+                    await page.getByRole('heading', { name: 'Returned to sector' }).waitFor();
+                    checks.push({ engine: engineName, rift: rift.id, viewport, palette, movement: true, exit: true, legacyAtlasSuppressed: true });
+                    await page.close();
+                }
+                if (process.argv.includes('--visual-only')) continue;
+                const page = await browser.newPage({ viewport: { width: 390, height: 844 }, reducedMotion: 'no-preference', hasTouch: true }); watch(page);
+                await page.route('**/api/**', route => route.fulfill({ json: { ok: true } }));
+                await page.goto(`${url}?rift=rift-legacy-echo`); await page.bringToFront(); await page.locator('.rift-breach.is-awake').waitFor();
+                assert.equal(await page.locator('.rift-energy-ribbon').first().evaluate(el => getComputedStyle(el).animationName), 'rift-energy-rise');
+                await page.waitForLoadState('networkidle');
+                if (process.argv.includes('--rift-motion-smoke')) {
+                    assert.equal(await page.locator('.rift-energy-ribbon img').first().evaluate(img => img.complete && img.naturalWidth > 0), true);
+                    const motion = await page.locator('.rift-energy-ribbon').first().evaluate(async el => {
+                        const animation = el.getAnimations()[0], before = Number(animation.currentTime);
+                        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+                        return { running: animation.playState === 'running', advanced: Number(animation.currentTime) > before };
+                    });
+                    assert.deepEqual(motion, { running: true, advanced: true });
+                    await page.screenshot({ path: `${output}/${engineName}-rift-energy-awake.png` });
+                    checks.push({ engine: engineName, paintedEnergyLoaded: true, motion }); await page.close(); continue;
+                }
+                const animatedSamples = [], pausedSamples = [];
+                for (let sample = 0; sample < 3; sample++) {
+                    animatedSamples.push(await sampleMovementFrames(page));
+                    const pausedStyle = await page.addStyleTag({ content: '.rift-energy-overlay * { animation: none !important; }' });
+                    pausedSamples.push(await sampleMovementFrames(page));
+                    await pausedStyle.evaluate(el => el.remove());
+                }
+                const middleSample = samples => [...samples].sort((a,b) => a.meanMs - b.meanMs)[1];
+                const frames = middleSample(animatedSamples), staticFrames = middleSample(pausedSamples);
+                await page.screenshot({ path: `${output}/${engineName}-rift-energy-awake.png` });
+                await page.addStyleTag({ content: '.rift-energy-overlay * { animation: none !important; }' });
+                const baseline = await browser.newPage({ viewport: { width: 390, height: 844 }, reducedMotion: 'no-preference', hasTouch: true }); watch(baseline);
+                await baseline.route('**/api/**', route => route.fulfill({ json: { ok: true } }));
+                await baseline.goto(`${url}?floor=1`); await baseline.bringToFront(); await baseline.waitForLoadState('networkidle');
+                const baselineFrames = await sampleMovementFrames(baseline);
+                await writeFile(`${output}/${engineName}-rift-motion.json`, JSON.stringify({ rift: frames, staticRift: staticFrames, standardCavern: baselineFrames, animatedSamples, pausedSamples }, null, 2));
+                // A loaded host can also stall the unanimated control. Judge
+                // the added effect against alternating paused samples; apply
+                // the 30fps floor when the control demonstrates that capacity.
+                const controlMean = staticFrames.meanMs;
+                assert(animatedSamples.every(sample => sample.frames >= 40) && pausedSamples.every(sample => sample.frames >= 40),
+                    'Timing is inconclusive: insufficient frame samples under host contention; inspect the saved paired samples.');
+                assert((controlMean >= 34 || frames.meanMs < 34) && frames.meanMs <= controlMean * 1.2 + 1,
+                    `rift energy frame pacing regressed: ${JSON.stringify({ frames, staticFrames, baselineFrames })}`);
+                await baseline.close();
+                checks.push({ engine: engineName, riftEnergyMotion: true, ...frames }); await page.close();
                 continue;
             }
             if (process.argv.includes('--entry-levels')) {

@@ -282,6 +282,10 @@ const EXEMPT = new Set([
  * the bump from their own next load.
  */
 const OTHER_PLAYER_MUTATION_ROUTES = new Set([
+    // Explicitly enabled disposable QA setup positions eight registered fixture
+    // accounts. The admin caller owns none of their versions; each browser loads
+    // its own canonical save after setup.
+    '_qa-clan-campaign.ts',
     'admin/bloodline-review.ts',
     'admin/economy-reconcile.ts',
     'admin/legacy.ts',
