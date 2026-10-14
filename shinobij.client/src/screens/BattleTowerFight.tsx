@@ -518,7 +518,9 @@ export function BattleTowerFight({
     /** A team-pvp match that sealed a consumable kit (ranked 2v2, Clan War 2v2)
      *  shows its thrown ammunition and items; the open Team Arena keeps them hidden. */
     teamPvpConsumables?: boolean;
-    /** Hunt encounters show the creature's own artwork instead of a Tower warden. */
+    /** Hunt encounters show the creature's own artwork instead of a Tower warden.
+     *  A world boss raid uses it only as the result card's backdrop: its boss and
+     *  guards each resolve their own art from `character.visual`. */
     enemyAvatarOverride?: string;
 }) {
     const isTeamPvp = variant === "team-pvp";
@@ -1440,7 +1442,7 @@ export function BattleTowerFight({
     }
 
     function avatarFor(a: TowerActor): string | null {
-        if ((isHunt || isWorldBoss) && a.side === 'enemy' && enemyAvatarOverride) return enemyAvatarOverride;
+        if (isHunt && a.side === 'enemy' && enemyAvatarOverride) return enemyAvatarOverride;
         // Player's own actor → the live avatar prop; allies → their sealed avatar if present;
         // PvP rivals are live players, so prefer their server-sealed avatar before
         // interpreting an enemy-side actor as a Tower NPC sprite.
@@ -1449,7 +1451,7 @@ export function BattleTowerFight({
             if (ownAvatar) return ownAvatar;
         }
         const sealed = a.character?.avatarImage;
-        if ((isHunt || isWorldBoss) && a.side === "enemy" && enemyAvatarOverride) return enemyAvatarOverride;
+        if (isHunt && a.side === "enemy" && enemyAvatarOverride) return enemyAvatarOverride;
         if (isTeamPvp && typeof sealed === "string" && sealed) return sealed;
         if (a.side === "enemy") {
             return resolveTowerCombatantArt(String(a.character?.visual ?? ""), sharedImages).src;
@@ -1459,9 +1461,8 @@ export function BattleTowerFight({
         return resolveTowerCombatantArt(visual, sharedImages).src;
     }
     function isUnknownCombatant(a: TowerActor): boolean {
-        if ((isHunt || isWorldBoss) && enemyAvatarOverride) return false;
+        if (isHunt && enemyAvatarOverride) return false;
         if (a.side !== "enemy") return false;
-        if ((isHunt || isWorldBoss) && enemyAvatarOverride) return false;
         if (isTeamPvp && typeof a.character?.avatarImage === "string" && a.character.avatarImage) return false;
         return resolveTowerCombatantArt(String(a.character?.visual ?? ""), sharedImages).kind === "unknown";
     }

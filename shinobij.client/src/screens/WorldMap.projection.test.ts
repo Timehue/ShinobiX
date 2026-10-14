@@ -328,9 +328,15 @@ test("WorldMap charges a flee on the server and never lets Escape or the backdro
     assert.match(bossPortal, /maxHeight: "88dvh", overflowY: "auto"/u, "the boss card scrolls on a short phone like the wanderer card");
     // One hostile at a time, and the one held back is DEFERRED, not dropped: a
     // refused engage returns false so the actor asks again once the choice ends.
-    assert.match(engage, /if \(requiresWandererChoice\(wandererDialog\) \|\| bossDialog\) return false;/u);
+    assert.match(engage, /if \(requiresWandererChoice\(wandererDialog\) \|\| bossDialog \|\| worldBossQueueOpen\) return false;/u);
     assert.match(sliceBetween(worldMapSource, "function handleBossEngage", "function standBossFight"),
-        /if \(!roamingBoss\?\.aiId \|\| requiresWandererChoice\(wandererDialog\)\) return false;/u);
+        /if \(!roamingBoss\?\.aiId \|\| requiresWandererChoice\(wandererDialog\) \|\| worldBossQueueOpen\) return false;/u);
+    // The world boss queue sheet and its raid open over the live sector board,
+    // where wanderers keep stalking. A hostile reaching a queued player would
+    // pull them into another fight, and a member left incapacitated makes the
+    // server refuse the whole team's raid (api/world-boss-event/_encounter.ts).
+    // Movement is held too while the queue owns the screen.
+    assert.match(worldMapSource, /worldMovementBlocked=\{\(\) => [^}]*\|\| worldBossQueueOpen\}/u);
     // The robber streak's gang gauntlet belongs to the bandits (the server never
     // counts a night ninja toward it): Fight on a night ninja is that ninja.
     assert.match(fight, /if \(!nemesis && w\.archetype !== "nightblade" && \(character\.robberStreak \?\? 0\) >= 5\)/u);

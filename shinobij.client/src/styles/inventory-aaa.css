@@ -128,13 +128,15 @@
 }
 
 /* Loadout silhouette and slots */
+/* The sixth row (the gathering tools) adds 108px below the figure; the
+   silhouette keeps its old bottom edge so the tool row sits under its feet. */
 .inventory-page .inventory-character-layout {
-    min-height: 556px !important;
+    min-height: 664px !important;
     margin-top: 8px;
 }
 
 .inventory-page .inventory-silhouette {
-    inset: 50px 66px 20px !important;
+    inset: 50px 66px 128px !important;
     opacity: 0.55 !important;
     background:
         radial-gradient(circle at 50% 28%, rgba(116, 173, 189, 0.12), transparent 34%),
@@ -207,7 +209,8 @@
 .inventory-page .slot-left-hand,
 .inventory-page .slot-left-item-2,
 .inventory-page .slot-relic,
-.inventory-page .slot-left-item-3 {
+.inventory-page .slot-left-item-3,
+.inventory-page .slot-fishing-pole {
     left: 10px !important;
 }
 
@@ -215,8 +218,37 @@
 .inventory-page .slot-right-item-1,
 .inventory-page .slot-right-hand,
 .inventory-page .slot-right-item-2,
-.inventory-page .slot-right-item-3 {
+.inventory-page .slot-right-item-3,
+.inventory-page .slot-pickaxe {
     right: 10px !important;
+}
+
+/* Gathering tools take their own row under the feet. Their whole layout lives
+   in this lazy Inventory sheet, so none of it reaches the startup graph. */
+.inventory-page .slot-fishing-pole,
+.inventory-page .slot-pickaxe {
+    top: 534px;
+}
+
+/* A basic gathering tool's remaining uses, along the slot's bottom edge. */
+.inventory-page .equip-slot-durability {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 3;
+    height: 3px;
+    background: rgba(0, 0, 0, 0.7);
+}
+
+.inventory-page .equip-slot-durability > span {
+    display: block;
+    height: 100%;
+    background: var(--inventory-cyan);
+}
+
+.inventory-page .equip-slot-durability.low > span {
+    background: #d18c74;
 }
 
 /* Backpack toolbar */

@@ -1,6 +1,7 @@
 import { GATHERING_TOOLS, type GatheringTool, type GatheringToolSlot } from './gathering-tool-items';
 export { GATHERING_TOOLS } from './gathering-tool-items';
 export type { GatheringTool, GatheringToolSlot } from './gathering-tool-items';
+export { combatEquipment, isGatheringToolSlot } from './gathering-tool-items';
 export function gatheringTool(id: unknown): GatheringTool | undefined { return GATHERING_TOOLS.find(tool => tool.id === id); }
 export function gatheringToolOwned(character: object, id: string): boolean {
     const c = character as { inventory?: string[]; equipment?: Record<string, string> };

@@ -1,3 +1,6 @@
+/* The roaming world boss. On the world atlas only its sector node glows: the
+   boss itself stands inside that sector (.sector-world-boss), where clicking it
+   opens the team queue. */
 .atlas-sector-world-boss {
     z-index: 12;
     border-color: #8bded1;
@@ -14,70 +17,92 @@
     0%, 100% { box-shadow: 0 0 0 3px rgba(68, 205, 187, .4), 0 0 18px rgba(58, 218, 198, .62), 0 4px 10px rgba(0,0,0,.52); }
     50% { box-shadow: 0 0 0 5px rgba(106, 244, 218, .62), 0 0 34px rgba(58, 218, 198, .9), 0 4px 14px rgba(0,0,0,.58); }
 }
-.atlas-world-boss-flag {
+
+/* A board structure like the shrine standee: the art is the marker, with no
+   card chrome. Its feet sit on the placed point. Every global button state is
+   restated here, because the global button:hover lift would replace the anchor
+   transform and drop the boss off its tile. */
+.sector-world-boss {
     position: absolute;
-    top: 50%;
-    left: 50%;
-    z-index: 1;
-    width: 84px;
-    height: 112px;
+    z-index: 8;
+    width: clamp(64px, 21%, 150px);
+    aspect-ratio: 3 / 4;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
     transform: translate(-50%, -100%);
-    overflow: visible;
-    pointer-events: none;
+    transform-origin: 50% 100%;
+    cursor: pointer;
+    transition: transform .15s ease, filter .15s ease;
 }
-.atlas-world-boss-sprite {
+.sector-world-boss:focus-visible {
+    outline: 2px solid #e5d39a;
+    outline-offset: 2px;
+    transform: translate(-50%, -100%) scale(1.04);
+}
+@media (hover: hover) {
+    .sector-world-boss:hover {
+        transform: translate(-50%, -100%) scale(1.04);
+        filter: brightness(1.08);
+        box-shadow: none;
+    }
+}
+.sector-world-boss-sprite {
     position: absolute;
     inset: 0;
     transform-origin: 50% 100%;
     background: url('/world-boss/hollow-beast-walk-v1.webp') 0 0 / 400% 100% no-repeat;
-    filter: drop-shadow(0 0 7px rgba(76, 234, 210, .7)) drop-shadow(0 5px 5px rgba(0, 0, 0, .75));
-    animation: hollow-beast-walk 1.3s steps(3, end) infinite, hollow-beast-breathe 2.8s ease-in-out infinite;
+    filter: drop-shadow(0 0 8px rgba(76, 234, 210, .7)) drop-shadow(0 5px 5px rgba(0, 0, 0, .75));
+    animation: world-boss-walk 1.3s steps(3, end) infinite, world-boss-breathe 2.8s ease-in-out infinite;
+    pointer-events: none;
 }
-.atlas-world-boss-sprite.is-white-red-glow {
-    filter: drop-shadow(0 0 7px rgba(255, 250, 244, .92)) drop-shadow(0 0 15px rgba(255, 105, 112, .48)) drop-shadow(0 5px 5px rgba(0, 0, 0, .75));
+.sector-world-boss-sprite.is-white-red-glow {
+    filter: drop-shadow(0 0 8px rgba(255, 250, 244, .92)) drop-shadow(0 0 16px rgba(255, 105, 112, .48)) drop-shadow(0 5px 5px rgba(0, 0, 0, .75));
 }
-.atlas-world-boss-flag.is-paused .atlas-world-boss-sprite {
-    animation: none;
+/* Holding position while a team forms: it stops walking and only breathes. */
+.sector-world-boss.is-paused .sector-world-boss-sprite {
+    animation: world-boss-breathe 2.8s ease-in-out infinite;
     background-position: 0 0;
 }
-@keyframes hollow-beast-walk {
+.sector-world-boss-name {
+    position: absolute;
+    left: 50%;
+    top: 100%;
+    display: grid;
+    justify-items: center;
+    gap: 1px;
+    margin-top: 2px;
+    padding: 2px 9px 3px;
+    transform: translateX(-50%);
+    border: 1px solid rgba(255, 158, 132, .6);
+    border-radius: 999px;
+    background: rgba(24, 6, 8, .84);
+    color: #ffd9cc;
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1.15;
+    white-space: nowrap;
+    pointer-events: none;
+}
+.sector-world-boss-name small {
+    color: #ffc872;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+@keyframes world-boss-walk {
     to { background-position: 100% 0; }
 }
-@keyframes hollow-beast-breathe {
+@keyframes world-boss-breathe {
     0%, 100% { transform: translateY(0) scaleY(1); }
     50% { transform: translateY(-2px) scaleY(1.018); }
 }
-@media (max-width: 720px) {
-    .atlas-world-boss-flag { width: 76px; height: 102px; }
-}
-.world-boss-map-call {
-    position: relative;
-    z-index: 15;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    width: min(100%, 610px);
-    min-height: 50px;
-    margin: 0 0 11px;
-    padding: 7px 11px 7px 7px;
-    overflow: hidden;
-    border: 1px solid rgba(104, 225, 204, .48);
-    border-radius: 11px;
-    color: #eaf8f5;
-    background: linear-gradient(100deg, rgba(9, 33, 43, .98), rgba(17, 47, 59, .95));
-    box-shadow: 0 5px 22px rgba(15, 137, 133, .2);
-    text-align: left;
-    cursor: pointer;
-}
-@media (hover: hover) {
-    .world-boss-map-call:hover { border-color: #7ff0da; filter: brightness(1.1); }
-}
-.world-boss-map-call > img { flex: 0 0 38px; width: 38px; height: 38px; border-radius: 7px; object-fit: cover; object-position: 72% center; }
-.world-boss-map-call > span { display: grid; gap: 3px; min-width: 0; }
-.world-boss-map-call strong { color: #7fe7d4; font-size: 10px; font-weight: 900; letter-spacing: .12em; }
-.world-boss-map-call small { color: #b7cbd4; font-size: 10px; }
-.world-boss-map-call > b { flex: 0 0 auto; margin-left: auto; color: #ffc872; font-size: 10px; letter-spacing: .08em; }
 @media (prefers-reduced-motion: reduce) {
     .atlas-sector-world-boss,
-    .atlas-world-boss-sprite { animation: none; }
+    .sector-world-boss-sprite,
+    .sector-world-boss.is-paused .sector-world-boss-sprite { animation: none; }
+    .sector-world-boss { transition: none; }
 }

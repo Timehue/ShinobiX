@@ -147,13 +147,22 @@ const SEALED_TERMINAL_REPLAY = { recoverySnapshotSealed: true } as const;
 // opposite orders and deadlock. failClosed: a contended lock aborts the whole
 // settlement (caller returns 503 → client retries) rather than racing a
 // currency/rating write. (#8)
+//
+// Both fighters' claims join the same terminal saga, resume in the same tick,
+// and then lock the WINNER's save (a casual claim locks only the winner's).
+// The winner's credit section holds it ~0.5s in production, longer than the
+// default ~0.4s acquire budget, so the second claim used to 503 and redo the
+// whole claim from the top (2026-10-13: +0.9s on the loser's result card).
+// Two more attempts (the next waits 400ms, then 800ms) let it queue behind the
+// holder instead. Still fail-closed, still well inside the 5s lock lease.
+const CLAIM_SAVE_LOCK_ATTEMPTS = 7;
 async function withSavesLocked<T>(slugs: string[], fn: () => Promise<T>): Promise<T> {
     const ordered = [...new Set(slugs.filter(Boolean))].sort();
     let run = fn;
     for (let i = ordered.length - 1; i >= 0; i--) {
         const slug = ordered[i];
         const next = run;
-        run = () => withKvLock(`save:${slug}`, next, { failClosed: true });
+        run = () => withKvLock(`save:${slug}`, next, { failClosed: true, maxAttempts: CLAIM_SAVE_LOCK_ATTEMPTS });
     }
     return run();
 }
