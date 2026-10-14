@@ -88,7 +88,8 @@ import { aiRaidLaunchFailureMessage, mintAiRaidToken } from "../lib/ai-raid-api"
 import { raidStartActionScope } from "../lib/action-deadline-store";
 import { useLiveActionDeadline } from "../lib/use-action-deadline";
 import { sameJsonValue } from "../lib/pvp-session-runtime";
-import type { WorldAiFightContext, WorldAiFightKind, WorldAiFightRequest } from "../../../shared/world-ai-fight";
+import type { WorldAiFightContext, WorldAiFightRequest } from "../../../shared/world-ai-fight";
+import { WORLD_FIGHT_KIND_BY_MODE } from "../lib/world-ai-presentation-modes";
 import { wandererAvatar, wandererRobberPortrait, questBossPortrait, WANDERER_BOSS_PORTRAIT, WANDERER_NEMESIS_PORTRAIT } from "../lib/wanderer-art";
 import { makeBuiltinAi } from "../lib/combat-ai";
 import { genericPetArenaOpponents, type PetArenaOpponent } from "../data/pet-arena-opponents";
@@ -270,17 +271,6 @@ type ActiveHuntTrail = { mission: CreatorMission; sector: number; progress: numb
 type HuntToast = { id: number; kicker: string; text: string };
 /** The open hunt encounter card: which trail, which beast, and what it's showing. */
 type HuntEncounterState = { trail: ActiveHuntTrail; ai: CreatorAi; sector: number; view: HuntEncounterView };
-
-const WORLD_FIGHT_KIND_BY_MODE: Readonly<Record<string, WorldAiFightKind>> = {
-    single: "wanderer",
-    ambush: "wanderer-ambush",
-    patrol: "patrol",
-    bountyHunter: "bounty-hunter",
-    huntPack: "hunt-pack",
-    huntTarget: "hunt-target",
-    questboss: "questbook-boss",
-    storyReckoning: "story-reckoning",
-};
 
 function WorldMapContent({
     setCurrentBiome,
