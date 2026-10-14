@@ -23,3 +23,16 @@ export function createTravelPresentationScope(timer = {
         dispose() { active = false; cancelArrival(); },
     };
 }
+
+/** Capture the map/account lifetime, but read position and travel locks live. */
+export function createSectorActionGuard(
+    presentation: { isCurrent: () => boolean },
+    position: () => { sector: number; traveling: boolean },
+    requestInFlight: () => boolean,
+    sector: number,
+): () => boolean {
+    return () => {
+        const current = position();
+        return presentation.isCurrent() && !requestInFlight() && !current.traveling && current.sector === sector;
+    };
+}
