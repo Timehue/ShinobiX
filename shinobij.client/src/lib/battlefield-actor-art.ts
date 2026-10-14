@@ -36,6 +36,7 @@ import towerRavagerSprite from "../assets/combat-actors/bosses/tower-ravager-idl
 import clanOniSprite from "../assets/combat-actors/bosses/clan-boss-oni-idle.webp";
 import clanLeviathanSprite from "../assets/combat-actors/bosses/clan-boss-leviathan-idle.webp";
 import clanGolemSprite from "../assets/combat-actors/bosses/clan-boss-golem-idle.webp";
+import { worldBossDefinitionForVisual } from "../../../shared/world-boss-event";
 
 const HOLLOW_HOUND_SPRITE = "/hollow-gate/hollow-hound-idle.webp";
 
@@ -194,7 +195,8 @@ export function battlefieldAiSprite(
     const published = sharedImages?.[`ai:${suppliedId}:body`]
         || sharedImages?.[`ai:${id}:body`];
     if (published) return published;
-    return BUNDLED_AI_BATTLE_SPRITES[id]
+    return worldBossDefinitionForVisual(id)?.battleSprite
+        || BUNDLED_AI_BATTLE_SPRITES[id]
         || QUEST_BOSS_SPRITES[id]
         || runtimeSprite(id)
         || rivalFallbackSprite;

@@ -45,7 +45,8 @@ export function inferSpriteKind(src: string): BattlefieldSpriteKind {
     if (/(moon-serpent|leviathan)/i.test(src)) return "serpentine";
     if (/(wild-boar|wolf|lizard|panther|bear|chakra-beast|warren-alpha|hollow-hound)/i.test(src)) return "quadruped";
     if (/golem/i.test(src)) return "construct";
-    if (/(apex-|boss-|ravager|armored|spectral|worldstorm|drake|oni|gate-heir|mirror-shard)/i.test(src)) return "boss";
+    // `/world-boss/` is the roaming event bosses' public art folder.
+    if (/(apex-|boss-|\/world-boss\/|ravager|armored|spectral|worldstorm|drake|oni|gate-heir|mirror-shard)/i.test(src)) return "boss";
     return "humanoid";
 }
 
@@ -54,6 +55,8 @@ export function inferSpriteNativeFacing(src: string): BattlefieldSpriteFacing {
     const filename = src.split(/[?#]/, 1)[0].split("/").pop() ?? "";
     // The Queen's head/claws point right. Accept the source and Vite-hashed name.
     if (/^sunscar-queen-body-v1(?:-[\w-]+)?\.webp$/i.test(filename)) return "right";
+    // Murogane's walk-sheet frame walks to the right, head leading.
+    if (/^hollow-gate-bull-battle-v1\.webp$/i.test(filename)) return "right";
     return "left";
 }
 

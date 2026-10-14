@@ -1,6 +1,7 @@
 /*
  * Vanguard PvP-win report (api/missions/report-pvp-win.ts), called from the PvP
- * win completion in App.handlePvpWin.
+ * win completion in App.handlePvpWin when the winner is a Vanguard (see
+ * `pvpWinReportRequired`).
  *
  * The server is authoritative: it re-validates the win against the real
  * PvpSession, applies its own anti-abuse rules, and feeds both Vanguard mission
@@ -15,6 +16,29 @@
  */
 
 export type PvpWinMissionCompletion = { id: string; name: string; xpReward: number };
+
+/**
+ * Whether the win report has anything left to do after a confirmed claim.
+ *
+ * The report has two jobs: Vanguard mission progress, and repairing the
+ * winner's Legacy record. The claim can only succeed after the server's
+ * terminal barrier has settled that Legacy record (any failure there answers
+ * 503), so for a winner whose authoritative save is not a Vanguard the report
+ * is a guaranteed no-op: one more serial round trip before the result card
+ * could say "secured". Without the claim's save snapshot, report as before.
+ */
+export function pvpWinReportRequired(claimCharacter: { profession?: string } | undefined): boolean {
+    return !claimCharacter || claimCharacter.profession === "vanguard";
+}
+
+/**
+ * Whether the completion must re-read the owner save. The claim's own save
+ * snapshot was adopted first, so it is current unless a later call in this
+ * same pass wrote the save (a bounty payout, a raid report, a mission report).
+ */
+export function pvpOwnerSaveRefreshRequired(input: { claimSnapshotAdopted: boolean; saveChangedSinceClaim: boolean }): boolean {
+    return !input.claimSnapshotAdopted || input.saveChangedSinceClaim;
+}
 
 /**
  * Decided refusals about THIS battle. The window mismatch is the reachable one:
