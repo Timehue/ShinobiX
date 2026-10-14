@@ -1,6 +1,6 @@
 import type {Biome,WeatherType,Screen} from '../types/core';
 import type {usePvpSessionController} from './use-pvp-session-controller';
-import {sharedClanWarCache,type CwChallenge} from './clan-war-api';
+import {sharedClanWarCache,type CwChallenge} from './clan-war-read-api';
 import {clanWarLaunchOrigin} from './clan-war-launch-origin';
 import {stringifyPvpSessionPayload,pvpSessionEnvironment} from './pvp-session';
 import {weatherEffects} from '../data/world';
