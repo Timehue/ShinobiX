@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buyClanExchangeItem, eligibleCacheItems, refundClanExchangeTreasuryPurchase } from './_exchange.js';
+import { buyClanExchangeItem, eligibleCacheItems, refundClanExchangeTreasuryPurchase,CLAN_EXCHANGE_ITEMS } from './_exchange.js';
 import type { CatalogItem } from '../pvp/_item-catalog.js';
 
 function clan(level = 10) {
@@ -69,7 +69,7 @@ test('kageCoffer citadel capstone pays ryo at Lv 40', () => {
     const result = buyClanExchangeItem({ character: character(5000), clanData: clan(40), itemId: 'kageCoffer' });
     assert.equal(result.ok, true);
     if (!result.ok) return;
-    assert.equal(result.character.clanPoints, 1000);
+    assert.equal(result.character.clanPoints, 3500);
     assert.equal(result.character.ryo, 50_000);
 });
 
@@ -136,12 +136,28 @@ test('the other four caches in five still pay an Epic or Legendary piece', () =>
     }
 });
 
-test('locked and empty exchange items fail closed', () => {
-    const locked = buyClanExchangeItem({ character: character(1000), clanData: clan(1), itemId: 'clanBannerFrame' });
-    assert.equal(locked.ok, false);
-    if (!locked.ok) assert.equal(locked.code, 'coming-soon');
-
+test('empty exchange caches fail closed', () => {
     const empty = buyClanExchangeItem({ character: character(7000), clanData: clan(25), itemId: 'weaponCache', itemCatalog: {}, rng: () => 0 });
     assert.equal(empty.ok, false);
     if (!empty.ok) assert.equal(empty.code, 'empty-cache');
+});
+test('the clan crest cosmetic is a permanent, once-only unlock with no combat or treasury payout',()=>{
+    const first=buyClanExchangeItem({character:character(1000),clanData:clan(1),itemId:'clanBannerFrame'});assert.equal(first.ok,true);
+    if(!first.ok)return;
+    assert.equal(first.character.clanPoints,500);assert.deepEqual(first.clanData,clan(1));
+    assert.equal((first.character.clanExchangePurchases as {oneTime:Record<string,boolean>}).oneTime.clanBannerFrame,true);
+    const second=buyClanExchangeItem({character:first.character,clanData:clan(1),itemId:'clanBannerFrame'});assert.equal(second.ok,false);
+    if(!second.ok)assert.equal(second.code,'limit-reached');
+});
+test('the balanced premium shelves give better bulk value and attainable cache savings under the shared weekly cap',()=>{
+    const get=(id:string)=>CLAN_EXCHANGE_ITEMS.find(item=>item.id===id)!;
+    const small=get('smallRyoPouch'),large=get('largeRyoPouch'),coffer=get('kageCoffer');
+    assert.ok(large.cost/10000<small.cost/2500);assert.ok(coffer.cost/50000<large.cost/10000);
+    assert.ok(get('weaponCache').cost<=2*1000);assert.ok(get('armorCache').cost<=3*1000);
+    assert.equal(get('weaponCache').requiredClanLevel,25);assert.equal(get('armorCache').requiredClanLevel,40);
+});
+test('a server-sealed paid recovery keeps its original catalog terms after a price rebalance',()=>{
+    const original={...CLAN_EXCHANGE_ITEMS.find(item=>item.id==='weaponCache')!,cost:6000};
+    const replay=buyClanExchangeItem({character:character(7000),clanData:clan(25),itemId:'weaponCache',definition:original,rng:()=>0.9});
+    assert.equal(replay.ok,true);if(replay.ok){assert.equal(replay.character.clanPoints,1000);assert.equal(replay.item.cost,6000);}
 });

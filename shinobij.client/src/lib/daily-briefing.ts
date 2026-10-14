@@ -5,7 +5,7 @@
  * cache/world-state graph.
  */
 import { activeVillageWarsGlobal } from "./world-state";
-import { sharedClanWarCache } from "./clan-war-api";
+import { sharedClanWarCache } from "./clan-war-read-api";
 
 export interface WarLine {
     id: string;

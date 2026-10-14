@@ -1,12 +1,36 @@
-import { economyIntentSettled, pendingEconomyIntent } from "./economy-request-intent";
+import type { ClanWarCampaignView } from "../../../shared/clan-war-campaign";
+import {clanWarViewerCache as viewerCache} from './clan-war-cache-state';
+import {retryDynamicImport} from './lazyWithRetry';
 
-export const sharedClanWarCache: Record<string, CwWar> = {};
+export {sharedClanWarCache,cwListWars} from './clan-war-read-api';
+export type ClanShrineRoomView={serverNow:number;players:Array<{name:string;displayName:string;clan:string;tile:number;inBattle:boolean}>};
+export type ClanWarQueueActionInput={warId:string;action:string;mode?:string;scope?:'normal'|'shrine';windowIndex?:number;partnerEntryId?:string;matchId?:string;tile?:number};
+const changedViewerError='The signed-in player changed. Reopen the clan page.';
+
+// Listing remains on the startup graph; paid and battle actions load on use.
+// Capture the caller before loading so a delayed chunk cannot switch actors.
+async function loadClanWarActions() {
+    const viewer = viewerCache.scope();
+    const actions=await retryDynamicImport(()=>import('./clan-war-actions')).catch(()=>{
+        throw new Error('Clan war actions could not load. Reload the page and try again.');
+    });
+    if(!viewerCache.current(viewer))throw new Error(changedViewerError);
+    return {actions,viewer};
+}
+
+export async function cwQueueAction(body:ClanWarQueueActionInput): Promise<{ok:boolean;error?:string;war?:CwWar;serverNow?:number;shrinePlayers?:string[];room?:ClanShrineRoomView}> {
+    try {
+        const {actions,viewer}=await loadClanWarActions();
+        return actions.cwQueueAction(body,viewer);
+    } catch(error) { return {ok:false,error:String((error as Error).message)}; }
+}
 
 export type CwChallengeMode = "pvp1v1" | "pvp2v2" | "pet1v1" | "pet2v2" | "tilecards";
 type CwChallengeStatus = "queuing" | "pending" | "accepted" | "completed" | "expired" | "cancelled";
 export type CwChallengeResult = "from-wins" | "to-wins" | "draw";
 export type CwChallenge = {
     id: string;
+    campaignMatchId?: string;
     mode: CwChallengeMode;
     fromClan: string;
     fromPlayer: string;
@@ -30,6 +54,7 @@ export type CwChallenge = {
 };
 export type CwWar = {
     id: string;
+    campaignView?: ClanWarCampaignView;
     clans: [string, string];
     villages: Record<string, string>;
     hp: Record<string, number>;
@@ -54,56 +79,18 @@ export type CwWar = {
 };
 // CW_HP_MAX / CW_DAMAGE / CW_MODE_LABEL / CW_MODE_ICON moved to ./constants/clan.
 
-// Coalesce concurrent callers. Three pollers (App-level 30s + ClanWarsPanel 20s
-// + ClanBattlesTab 15s, the latter two on separate screens) can overlap; without
-// this each fires its own uncached origin fetch of the full war list. While a
-// request is in flight, additional callers share it and receive identical data —
-// behavior-identical to firing simultaneously, with no added staleness (the
-// in-flight handle is cleared the moment it settles, so the next call is fresh).
-let _cwListInFlight: Promise<CwWar[]> | null = null;
-export async function cwListWars(): Promise<CwWar[]> {
-    if (_cwListInFlight) return _cwListInFlight;
-    _cwListInFlight = (async () => {
-        try {
-            const r = await fetch("/api/clan/war/list");
-            if (!r.ok) return [];
-            const data = await r.json() as { wars?: CwWar[] };
-            const wars = data.wars ?? [];
-            // Populate the shared cache so the war-reward sweep can scan
-            // ended clan wars for unclaimed rewards on next render.
-            for (const w of wars) sharedClanWarCache[w.id] = w;
-            return wars;
-        } catch { return []; }
-    })();
-    try { return await _cwListInFlight; }
-    finally { _cwListInFlight = null; }
-}
 // The Honor Seal cost carries a retained requestId (lib/economy-request-intent):
 // declaring again after a lost answer finishes or replays the first
 // declaration instead of charging a second time.
-export async function cwDeclareWar(toClan: string, declarerName: string): Promise<{ ok: boolean; error?: string; war?: CwWar }> {
-    const intent = pendingEconomyIntent("clan-war-declare", [declarerName.trim().toLowerCase(), toClan.trim().toLowerCase()]);
+export async function cwDeclareWar(toClan: string, declarerName: string,funding:'personal'|'pool'='personal'): Promise<{ ok: boolean; error?: string; war?: CwWar }> {
     try {
-        const res = await fetch("/api/clan/war/declare", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ toClan, requestId: intent.requestId }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (economyIntentSettled(res.status, data)) intent.complete();
-        if (!res.ok) return { ok: false, error: data.error ?? `HTTP ${res.status}` };
-        return { ok: true, war: data.war };
+        const {actions}=await loadClanWarActions();
+        return actions.cwDeclareWar(toClan,declarerName,funding);
     } catch (e) { return { ok: false, error: String((e as Error).message) }; }
 }
 export async function cwChallengeAction(body: Record<string, unknown>): Promise<{ ok: boolean; error?: string; war?: CwWar; challenge?: CwChallenge }> {
     try {
-        const r = await fetch("/api/clan/war/challenge", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-        });
-        const data = await r.json().catch(() => ({}));
-        if (!r.ok) return { ok: false, error: data.error ?? `HTTP ${r.status}` };
-        return { ok: true, war: data.war, challenge: data.challenge };
+        const {actions}=await loadClanWarActions();
+        return actions.cwChallengeAction(body);
     } catch (e) { return { ok: false, error: String((e as Error).message) }; }
 }

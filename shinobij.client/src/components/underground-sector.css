@@ -28,6 +28,80 @@
 .underground-world--cave[data-hg-floor="3"] { --under-floor: #35495c; --under-rock: #1b2839; --under-highlight: #a1bcd7; }
 .underground-world--cave[data-hg-floor="4"] { --under-floor: #494359; --under-rock: #282333; --under-highlight: #b8a7d6; }
 .underground-world--cave[data-hg-floor="5"] { --under-floor: #543d51; --under-rock: #2d2034; --under-highlight: #d7a8c3; }
+/* Rift identity follows its quest throughout every depth. These palettes use
+   the same continuous cavern materials and camera as the main Hollow Gate. */
+.underground-world--cave.underground-world--rift {
+    --hg-floor-accent: #b6a0e4;
+    --hg-floor-accent-soft: #b6a0e426;
+    --hg-floor-fog: #352b4b80;
+    --under-floor: #494457;
+    --under-rock: #252431;
+    --under-wall-light: #79718c;
+    --under-highlight: #c2b6de;
+    --under-water: #151d30;
+}
+.underground-world--rift[data-hg-rift="rift-hollow-stalker"] {
+    --hg-floor-accent: #7fb9a6; --hg-floor-accent-soft: #7fb9a626; --hg-floor-fog: #153c3880;
+    --under-floor: #354b45; --under-rock: #1a2b29; --under-wall-light: #617d71; --under-highlight: #a9ccbc; --under-water: #0a2525;
+}
+.underground-world--rift[data-hg-rift="rift-beast-warren"] {
+    --hg-floor-accent: #d5a16c; --hg-floor-accent-soft: #d5a16c26; --hg-floor-fog: #49332180;
+    --under-floor: #594c3e; --under-rock: #302925; --under-wall-light: #88755f; --under-highlight: #d6bb94; --under-water: #252724;
+}
+.underground-world--rift[data-hg-rift="rift-engine-echo"] {
+    --hg-floor-accent: #e5a36d; --hg-floor-accent-soft: #e5a36d26; --hg-floor-fog: #3f2e2a80;
+    --under-floor: #4c5053; --under-rock: #252b30; --under-wall-light: #7b858b; --under-highlight: #bfcbd0; --under-water: #162731;
+}
+.underground-world--rift[data-hg-rift="rift-hollow-name"] {
+    --hg-floor-accent: #c995aa; --hg-floor-accent-soft: #c995aa26; --hg-floor-fog: #48293880;
+    --under-floor: #55434e; --under-rock: #2c222c; --under-wall-light: #897080; --under-highlight: #d6b1c2; --under-water: #211d2c;
+}
+.underground-world--rift[data-hg-rift="rift-mirror-shard"] {
+    --hg-floor-accent: #9bbfe4; --hg-floor-accent-soft: #9bbfe426; --hg-floor-fog: #253c5580;
+    --under-floor: #3e4f62; --under-rock: #202c3d; --under-wall-light: #748ca3; --under-highlight: #c0d8ef; --under-water: #112c42;
+}
+.underground-world--rift[data-hg-rift="rift-gate-heir"] {
+    --hg-floor-accent: #dcc18b; --hg-floor-accent-soft: #dcc18b26; --hg-floor-fog: #433a2780;
+    --under-floor: #535348; --under-rock: #2c2c29; --under-wall-light: #858572; --under-highlight: #dbd0ad; --under-water: #202a2d;
+}
+.underground-world.underground-world--rift .hg-cave-header .act-label { color: var(--hg-floor-accent) !important; }
+.hg-rift-badge { display: inline-block; margin-left: 8px; padding: 2px 7px; border: 1px solid var(--hg-floor-accent); border-radius: 4px; color: var(--hg-floor-accent); background: var(--hg-floor-accent-soft); font-size: 9px; letter-spacing: .12em; vertical-align: middle; }
+.underground-world--rift .hg-cave-location { border-color: color-mix(in srgb, var(--hg-floor-accent) 40%, transparent); }
+.underground-world--rift .hg-controls button[aria-label^="Move "] { min-height: 44px; }
+.hg-rift-depth { display: block; margin-bottom: 5px; font: 9px/1.3 var(--font-body, system-ui); text-transform: uppercase; letter-spacing: .16em; color: #9c9cae; }
+.underground-world--rift .hg-cave-header h2 { font-weight: 500; color: #f2ece2 !important; }
+.underground-world--rift[data-hg-depths="1"] .underground-depths { display: none; }
+.hollow-gate-shrine.underground-world--rift { border-color: #aaa0c63b !important; background: linear-gradient(145deg, #14131cf5, #0b0b13fa) !important; box-shadow: inset 0 1px 0 #ffffff08, 0 18px 60px #0005; }
+.underground-world--rift .hg-viewport { border-color: #a29abc4d; box-shadow: 0 0 30px #0005; background: #080a13; }
+.underground-world--rift .hg-viewport::after { content: ''; position: absolute; inset: 0; z-index: 2; background: radial-gradient(ellipse at 50% 35%, transparent 30%, #0608125c 100%); pointer-events: none; }
+.underground-world--rift .hg-cave-location { background: #0c101be8; box-shadow: none; padding: 7px 10px; }
+.underground-world--rift .hg-controls { gap: 12px !important; }
+.rift-breach-spill { opacity: .7; }
+.rift-energy-overlay { position: absolute; z-index: 0; pointer-events: none; contain: layout paint; isolation: isolate; will-change: transform; overflow: hidden; }
+.rift-energy-overlay .rift-breach-spill { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 70%, color-mix(in srgb, var(--hg-floor-accent) 16%, transparent), transparent 60%); will-change: opacity; animation: rift-spill-breathe 7s ease-in-out infinite; }
+.rift-energy-ribbon { position: absolute; top: 16%; width: 22%; height: 50%; opacity: .35; will-change: transform, opacity; animation: rift-energy-rise 6s ease-in-out infinite; }
+.rift-energy-ribbon img { display: block; width: 100%; height: 100%; object-fit: fill; }
+.rift-energy-mote { position: absolute; width: 2px; height: 2px; border-radius: 50%; background: #e3d7fc; box-shadow: 0 0 4px #ddd4ff80; opacity: 0; will-change: transform, opacity; animation: rift-mote-rise 6.5s ease-out infinite; }
+@keyframes rift-spill-breathe { 0%, 100% { opacity: .45; } 50% { opacity: .85; } }
+@keyframes rift-energy-rise { 0% { transform: translate3d(0, 5px, 0); opacity: .05; } 50% { opacity: .45; } 100% { transform: translate3d(0, var(--rift-wisp-rise), 0); opacity: 0; } }
+@keyframes rift-mote-rise { 0% { opacity: 0; transform: translate3d(0, 5px, 0); } 25% { opacity: .65; } 100% { opacity: 0; transform: translate3d(0, var(--rift-mote-rise), 0); } }
+@media (max-width: 620px) {
+    .underground-world--rift .hg-cave-header h2 { font-size: 21px; }
+    .hg-rift-depth { display: inline; margin-right: 8px; font-size: 8px; letter-spacing: .06em; }
+    .underground-world.underground-world--rift .hg-cave-vitals { display: grid !important; grid-template-columns: minmax(88px, 1fr) auto; gap: 12px !important; }
+    .underground-world.underground-world--rift .hg-cave-threat { width: auto; min-width: 0 !important; }
+    .underground-world--rift .hg-resource-belt { display: grid; grid-template-columns: repeat(3, max-content); gap: 6px 8px; min-width: 0; }
+    .underground-world--rift .hg-resource-risk { grid-column: 1 / -1; margin-left: 0; font-size: 11px; }
+    .underground-world--rift .hg-resource { min-width: 0; grid-template-columns: 16px auto; gap: 0 3px; }
+    .underground-world--rift .hg-resource img { width: 16px; height: 20px; }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+    .hg-rift-depth { display: inline; margin-right: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .rift-energy-overlay .rift-breach-spill, .rift-energy-ribbon, .rift-energy-mote { animation: none; }
+    .rift-energy-mote { opacity: .35; }
+}
 .underground-terrain { position: absolute; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
 .underground-fixture { filter: drop-shadow(0 0.025px 0.035px #000a); }
 .underground-built-in { filter: none; }

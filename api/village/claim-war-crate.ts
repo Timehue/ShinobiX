@@ -7,6 +7,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { isPlayerSaveVersionConflict, retryOnSaveVersionConflict, SAVE_VERSION_CONFLICT_REPLY } from '../save/_projected-write.js';
 import { bumpLegacyStats, legacyBootstrapBeforeCounterIncrement } from '../_legacy-track.js';
+import type { ClanWarCampaign } from '../../shared/clan-war-campaign.js';
 
 /*
  * /api/village/claim-war-crate  — POST only  (P0.2c, warCrateServerAuth.v1)
@@ -41,7 +42,7 @@ const CLAN_WAR_KEY_PREFIX = 'clan-war:';
 // row remains `world:war:<slugA>-vs-<slugB>`. Parse the suffix but never splice
 // it into the storage key. Clan-war ids retain their legacy exact shape.
 const VILLAGE_CRATE_ID_RE = /^war-crate-([a-z0-9]+-vs-[a-z0-9]+)(?:-g[1-9][0-9]*)?$/;
-const CLAN_CRATE_ID_RE = /^clan-war-crate-([a-z0-9]+-vs-[a-z0-9]+)$/;
+const CLAN_CRATE_ID_RE = /^clan-war-crate-([a-z0-9]+-vs-[a-z0-9]+)(?:-gcw2-[a-f0-9]{24})?$/;
 
 /** Normalized winner-bearing shape of either war record (winner = winnerVillage or
  *  winnerClan). Only the fields the crate decision needs. */
@@ -49,6 +50,8 @@ export type WarWinnerLite = {
     endedAt?: number;
     warCrateId?: string;
     winner?: string;
+    /** V2 clan campaigns preserve the side earned by each real participant. */
+    clanParticipants?: Record<string, { clan: string; played: number }>;
     /** VILLAGE wars only (owner ruling 2026-10-08): the winner's crate is for
      *  members of the winning village who FOUGHT — war damage on the server's
      *  contribution ledger (keyed by safeName slug), or the side's MVP. Winning
@@ -99,10 +102,13 @@ export function warCrateClaimDecision(
         return { granted: false, reason: 'no-won-war' };
     }
     if (now - Number(war.endedAt) > WAR_CRATE_EXPIRY_MS) return { granted: false, reason: 'expired' };
-    if (String(claimantSide).trim() !== war.winner) return { granted: false, reason: 'not-winner' };
+    const earned = war.clanParticipants ? war.clanParticipants[claimant?.slug ?? ''] : undefined;
+    const side = war.clanParticipants ? earned?.clan : String(claimantSide).trim();
+    if (side !== war.winner) return { granted: false, reason: 'not-winner' };
     // A crate already claimed stays claimed (and can still finish its Legacy
     // delivery), whatever the participation rule says today.
     if (claimedIds.includes(crateId)) return { granted: false, reason: 'already-claimed' };
+    if (war.clanParticipants && (!earned || earned.played <= 0)) return { granted: false, reason: 'did-not-fight' };
     if (war.fighters && !(claimant && foughtForWinner(war.fighters, war.winner, claimant))) {
         return { granted: false, reason: 'did-not-fight' };
     }
@@ -118,7 +124,7 @@ type VillageWarRow = {
     contributions?: Record<string, { damage?: unknown; side?: unknown } | undefined>;
     mvpByVillage?: Record<string, string>;
 };
-type ClanWarRow = { endedAt?: number; warCrateId?: string; winnerClan?: string };
+type ClanWarRow = { endedAt?: number; warCrateId?: string; winnerClan?: string; campaign?: ClanWarCampaign };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -128,7 +134,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {});
         const playerName = safeName(String(body.playerName ?? ''));
-        const warCrateId = String(body.warCrateId ?? '').trim().slice(0, 80);
+        const warCrateId = String(body.warCrateId ?? '').trim().slice(0, 160);
         if (!playerName) return res.status(400).json({ error: 'Invalid player name.' });
 
         const identity = await authedPlayerOrAdmin(req, playerName);
@@ -158,7 +164,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             } : null;
         } else {
             const c = await kv.get<ClanWarRow>(`${CLAN_WAR_KEY_PREFIX}${parsed.warId}`);
-            war = c ? { endedAt: c.endedAt, warCrateId: c.warCrateId, winner: c.winnerClan } : null;
+            war = c ? { endedAt: c.endedAt, warCrateId: c.warCrateId, winner: c.winnerClan,
+                ...(c.campaign ? {clanParticipants:c.campaign.contributions} : {}) } : null;
         }
 
         // Decide + grant through mutatePlayerSave (the save lock, fail-closed, and

@@ -13,6 +13,7 @@ export type PvpRecoveryContext = {
     /** The duel began on the World Map, so its result goes back to sector. */
     fromField?: boolean;
     clanWarChallengeId?: string;
+    clanWarReturnScreen?:'clan'|'worldMap';
     kageChallengeId?: string;
     kageVillage?: string;
 };
