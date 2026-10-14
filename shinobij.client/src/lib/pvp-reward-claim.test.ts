@@ -332,9 +332,20 @@ describe("pvp-reward-claim", () => {
         assert.match(app, /if \(claim\.character[\s\S]*commitVersionedCharacter\(claim\.character, claim\._saveVersion\)/,
             "the claim callback must adopt the exact authoritative snapshot before later continuations");
         const friendlySnapshot = app.indexOf("if (isFriendlyDuel && hasVersionedPvpClaimSnapshot(serverClaim))");
-        const ownerSaveRead = app.indexOf("const ownerSave = await readPvpOwnerSaveForContinuation(", friendlySnapshot);
+        const ownerSaveRead = app.indexOf("await readPvpOwnerSaveForContinuation(pvpOriginatingPlayerName, activeContinuation)", friendlySnapshot);
         assert.ok(friendlySnapshot >= 0 && ownerSaveRead > friendlySnapshot,
             "a friendly duel should ACK its adopted claim snapshot without a redundant owner-save GET");
+        // A sanctioned win re-reads the owner save only when a call after the
+        // claim wrote it; otherwise the adopted claim snapshot is that base.
+        assert.match(app, /const ownerSave = pvpOwnerSaveRefreshRequired\(\{ claimSnapshotAdopted: hasVersionedPvpClaimSnapshot\(serverClaim\), saveChangedSinceClaim \}\)\s*\? await readPvpOwnerSaveForContinuation/);
+        assert.match(app, /projection\.bounty = bounty;\s*if \(bounty\) saveChangedSinceClaim = true;/,
+            "a paid bounty changed the save, so the owner save must be re-read");
+        assert.match(app, /await recordMissionRaid\([^)]*\);\s*requirePvpContinuation\(activeContinuation\);\s*saveChangedSinceClaim = true;/,
+            "a raid report changed the save, so the owner save must be re-read");
+        assert.match(app, /const reportRequired = pvpWinReportRequired\(serverClaim\?\.character\);[\s\S]*?if \(reportRequired\) saveChangedSinceClaim = true;/,
+            "only a Vanguard winner still sends the win report, and it changes the save");
+        assert.match(app, /if \(ownerSave && versionDecision\?\.accepted\)/,
+            "with no re-read there is nothing newer to commit than the claim snapshot");
         assert.match(app, /const isFriendlyDuel = serverClaim\?\.progressionAuthorized !== true/,
             "missing browser context must not make a server-authorized match take the spar shortcut");
         assert.match(screen, /const effectiveIsSpar = isSpar && !serverPlayerRanked && !serverProgressionMatch/,
