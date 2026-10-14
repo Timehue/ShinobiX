@@ -13,6 +13,8 @@ import sharp from "sharp";
 import {
     WORLD_BOSS_DEFINITIONS,
     worldBossBattleVisual,
+    worldBossGuardVisual,
+    worldBossDefinitionForGuardVisual,
     worldBossDefinitionForVisual,
 } from "../../../shared/world-boss-event";
 import { battlefieldAiSprite, defaultAiRivalSprite } from "./battlefield-actor-art";
@@ -51,7 +53,7 @@ test("published admin art still overrides the bundled world boss art", () => {
     assert.equal(resolveTowerCombatantArt(visual, { [`ai:${visual}`]: "/api/img?id=face" }).src, "/api/img?id=face");
 });
 
-test("only exact world boss visuals match; the guards keep their Tower art", () => {
+test("only exact world boss visuals match; ordinary Tower brutes keep their art", () => {
     assert.equal(worldBossDefinitionForVisual("world-boss-unknown"), null);
     assert.equal(worldBossDefinitionForVisual("hollow-maze-minotaur"), null);
     assert.equal(worldBossDefinitionForVisual(undefined), null);
@@ -64,7 +66,21 @@ test("world boss board art is sized as a boss and faces the way it was drawn", (
         assert.equal(inferSpriteKind(boss.battleSprite), "boss", `${boss.name} sprite box`);
     }
     const facing = Object.fromEntries(WORLD_BOSS_DEFINITIONS.map(boss => [boss.id, inferSpriteNativeFacing(boss.battleSprite)]));
-    assert.deepEqual(facing, { "hollow-beast": "left", "hollow-gate-bull": "right", "hollow-maze-minotaur": "left" });
+    assert.deepEqual(facing, { "hollow-beast": "left", "hollow-gate-bull": "right", "hollow-maze-minotaur": "right" });
+    for (const boss of WORLD_BOSS_DEFINITIONS) {
+        assert.equal(inferSpriteNativeFacing(boss.battleSprite), boss.mapSpriteFacing);
+    }
+});
+
+test("each broodguard uses the matching boss body and portrait", () => {
+    for (const boss of WORLD_BOSS_DEFINITIONS) {
+        const visual = worldBossGuardVisual(boss.id);
+        assert.equal(worldBossDefinitionForGuardVisual(visual)?.id, boss.id);
+        assert.equal(worldBossDefinitionForVisual(visual), null);
+        assert.equal(battlefieldAiSprite(visual), boss.battleSprite);
+        assert.equal(resolveTowerCombatantArt(visual).src, boss.battlePortrait);
+    }
+    assert.equal(worldBossDefinitionForGuardVisual('world-boss-guard-unknown'), null);
 });
 
 test("world boss battle art ships as small transparent cutouts and opaque portraits", async () => {

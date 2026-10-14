@@ -299,7 +299,7 @@ test("the queue popup shows the boss the player clicked while it loads", () => {
     assert.match(dialog, /\{event\?\.bossName \?\? knownBoss\?\.bossName \?\?/u);
     // The World Bosses hub's Roaming Boss tab had the same flash: it paints no
     // boss until its first read lands, then the event's own, and names a
-    // boss's trait only while a muster is on.
+    // boss's trait only while an event is active.
     const hub = read("../screens/WorldBossEvent.tsx");
     assert.match(hub, /const bossKnown = view !== null;/u);
     assert.match(hub, /\$\{bossKnown \? `, url\("\$\{boss\.keyArt\}"\)` : ""\}/u);

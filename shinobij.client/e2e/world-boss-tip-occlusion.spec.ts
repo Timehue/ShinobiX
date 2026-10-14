@@ -87,12 +87,12 @@ function worldBossSession() {
         phaseState: { bossId: "boss", pendingPhases: [75, 50, 25], triggeredPhases: [] },
         status: "active",
         winner: null,
-        log: ["The Four-Village Muster begins."],
+        log: ["The World Boss raid begins."],
         roundCap: 20,
         turnStartedAt: Date.now(),
         actionVersion: 1,
         worldBossEvent: { eventId: "e2e-world-boss", matchId: "e2e-world-boss-match", matchHpAtStart: 15_000 },
-        encounterFloor: { id: 9_800, name: "Chicxulub: The Muster", objective: "defeat-boss", roundBudget: 18 },
+        encounterFloor: { id: 9_800, name: "Chicxulub: Raid", objective: "defeat-boss", roundBudget: 18 },
     };
 }
 
@@ -187,7 +187,7 @@ async function enterRaid(page: Page) {
         }
         await returnToWorldAtlas(page);
     }
-    await page.getByRole("button", { name: /, world boss muster$/ }).click();
+    await page.getByRole("button", { name: /, world boss event$/ }).click();
     await expect(combat.or(standee).first()).toBeVisible();
     if (!await combat.isVisible()) await standee.click();
 }

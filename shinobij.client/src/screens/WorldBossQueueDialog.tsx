@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/set-state-in-effect -- refreshes server-authoritative queue state on open and while waiting. */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { BattleHistoryEntry, Character, VersionedCharacterCommit } from '../types/character';
 import type { TowerHostLoadout } from '../lib/towers-api';
 import { BattleTowerFight } from './BattleTowerFight';
@@ -13,6 +13,7 @@ import { WORLD_BOSS_QUEUE_REJOIN_COOLDOWN_MS, worldBossDefinition } from '../../
 import { sectorName } from '../../../shared/sector-geo';
 import { visiblePoll } from '../lib/poll';
 import { useBodyScrollLock } from '../lib/useBodyScrollLock';
+import { worldBossRewardLine } from '../lib/world-boss-raid-result';
 import '../styles/world-boss-queue-dialog.css';
 
 function formatQueueClock(ms: number): string {
@@ -47,10 +48,18 @@ export function WorldBossQueueDialog({
     const [message, setMessage] = useState('');
     const [now, setNow] = useState(() => Date.now());
     const [serverOffset, setServerOffset] = useState(0);
+    const appliedCacheSaveVersion = useRef(0);
+    const commitRef = useRef(onVersionedCharacter);
+    useEffect(() => { commitRef.current = onVersionedCharacter; }, [onVersionedCharacter]);
 
     const refresh = useCallback(async () => {
         const next = await fetchWorldBossEvent(character.name);
         if (!next) return;
+        if (next.character && Number.isSafeInteger(next._saveVersion)
+            && Number(next._saveVersion) > appliedCacheSaveVersion.current) {
+            const version = Number(next._saveVersion);
+            if (commitRef.current(next.character as unknown as Character, version)) appliedCacheSaveVersion.current = version;
+        }
         const receivedAt = Date.now();
         setView(next);
         setNow(receivedAt);
@@ -97,6 +106,7 @@ export function WorldBossQueueDialog({
     const rejoinCooldownMinutes = Math.ceil(WORLD_BOSS_QUEUE_REJOIN_COOLDOWN_MS / 60_000);
     const hpPercent = event ? Math.max(0, Math.min(100, event.hp / Math.max(1, event.hpMax) * 100)) : 0;
     const activeMatch = match?.status === 'active' && match.session ? match : null;
+    const rewardText = worldBossRewardLine(match?.reward);
 
     async function changeQueue(action: 'join' | 'leave') {
         if (busy) return;
@@ -125,6 +135,7 @@ export function WorldBossQueueDialog({
             settleFn={settle}
             settleOnAnyDone
             variant="world-boss"
+            worldBossReturnLabel="Return to boss queue"
             enemyAvatarOverride={boss.keyArt}
         />;
     }
@@ -164,6 +175,7 @@ export function WorldBossQueueDialog({
                     {match?.status === 'cancelled' && <div className="world-boss-queue-message" role="status">{match.error ?? 'That team could not be started. You can queue again.'}</div>}
                     {!atBoss && event.active && <div className="world-boss-queue-message">Travel to Sector {event.currentSector} to join the team.</div>}
                     {message && <div className="world-boss-queue-message" role="status">{message}</div>}
+                    {rewardText && <div className="world-boss-queue-message" role="status"><strong>Raid reward secured</strong><p>{rewardText}</p></div>}
 
                     {queue?.queued
                         ? <button type="button" className="world-boss-queue-leave" disabled={busy} onClick={() => void changeQueue('leave')}>{busy ? 'Updating…' : 'Leave queue'}</button>
