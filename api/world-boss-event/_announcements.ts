@@ -14,7 +14,7 @@ export async function announceWorldBossEventTransition(
     if (status === 'roaming') {
         const sector = Number.isInteger(event.spawnSector) ? `Sector ${event.spawnSector}` : 'the wilderness';
         title = `${event.bossName} has entered the world`;
-        message = `The threat appeared in ${sector} and is advancing toward ${village}. Find its marker on the world map and join a team of up to three.`;
+        message = `The threat appeared in ${sector} and is advancing toward ${village}. The world map highlights its sector. Travel there and click the boss to join a team of up to three.`;
     } else if (status === 'final-stand') {
         title = `${event.bossName}: Final Stand`;
         message = `The boss has reached its final stand near ${village}. Defeat it before the event closes to prevent Ashfall from affecting the village.`;
