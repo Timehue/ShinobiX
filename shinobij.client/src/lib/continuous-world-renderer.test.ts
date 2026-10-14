@@ -99,3 +99,52 @@ test('walking copies cached terrain tiles instead of repainting the world', () =
     for (let frame = 0; frame < 10; frame++) renderer.draw({ x: 30, y: 6 }, 9);
     assert.equal(counts.tilePaints, settled);
 }));
+
+test('a floor map decodes off the frame: a draw never decodes it or builds its painting', async () => {
+    // Drawing a loaded-but-undecoded 1024px webp decodes it inside that frame, and
+    // its feathered painting (a full-size canvas, two full-canvas fills) used to be
+    // built by the same frame: one visible hitch per new map while walking.
+    const originals = ['Image', 'devicePixelRatio', 'document'].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)] as const);
+    const images: DecodingImage[] = [];
+    let built = 0, finishDecode!: () => void;
+    const decoding = new Promise<void>(resolve => { finishDecode = resolve; });
+    class DecodingImage {
+        complete = false; naturalWidth = 0; onload: (() => void) | null = null; src = '';
+        constructor() { images.push(this); }
+        decode() { return decoding; }
+        arrive() { this.complete = true; this.naturalWidth = 1536; this.onload?.(); }
+    }
+    const gradient = { addColorStop() {} };
+    const fake = (methods: Record<string, (...args: unknown[]) => unknown>) => new Proxy(methods, { get(target, key) { return target[key as string] ?? (() => {}); } });
+    const drawn: unknown[] = [];
+    const screen = fake({ createRadialGradient() { return gradient; } });
+    const surface = fake({ drawImage(source: unknown) { drawn.push(source); }, createRadialGradient() { return gradient; }, createLinearGradient() { return gradient; } });
+    Object.defineProperty(globalThis, 'Image', { configurable: true, value: DecodingImage });
+    Object.defineProperty(globalThis, 'devicePixelRatio', { configurable: true, value: 1 });
+    Object.defineProperty(globalThis, 'document', { configurable: true, value: { createElement: () => { built++; return { width: 0, height: 0, getContext: () => surface }; } } });
+    const canvas = { clientWidth: 120, clientHeight: 120, width: 0, height: 0, getContext: () => screen };
+    const space = { chunks: [{ sector: 9, x: 0, y: 0 }], roads: [] } as unknown as ContinuousWorldSpace;
+    try {
+        const renderer = createContinuousWorldRenderer(canvas as unknown as HTMLCanvasElement, space);
+        const point = { x: 6, y: 6 };
+        settle(renderer, point);
+        const map = images.find(image => !image.src.includes('world-terrain'))!;
+        map.arrive();
+        const canvasesBeforeDecode = built;
+        drawn.length = 0;
+        for (let frame = 0; frame < 5; frame++) renderer.draw({ x: 6 + frame * .05, y: 6 }, 9);
+        assert.equal(drawn.includes(map), false, 'no frame draws (and so decodes) the map before its decode settles');
+        assert.equal(built, canvasesBeforeDecode, 'no frame builds a painting before the decode settles');
+        finishDecode();
+        await decoding; await Promise.resolve();
+        assert.equal(built, canvasesBeforeDecode + 1, 'the decode task builds the painting itself');
+        // The biome's ground field and rock patch are then cut from the map once,
+        // as before; after that, frames build nothing.
+        settle(renderer, point);
+        const settled = built;
+        for (let frame = 0; frame < 60; frame++) renderer.draw(point, 9);
+        assert.equal(built, settled, 'settled frames reuse the painting and the ground');
+        assert.equal(drawn.includes(map), true, 'the decoded map is drawn');
+        renderer.dispose();
+    } finally { for (const [key, descriptor] of originals) { if (descriptor) Object.defineProperty(globalThis, key, descriptor); else Reflect.deleteProperty(globalThis, key); } }
+});
