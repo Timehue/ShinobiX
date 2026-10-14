@@ -5923,7 +5923,7 @@ export default function App() {
                     />
                 )}
                 {!activeTriggeredEvent && screen === "battleTowers" && character && (
-                    <BattleTowers character={character} creatorItems={creatorItems} savedBloodlines={savedBloodlines} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} sharedImages={sharedImages} onExit={goBack} onRecordBattle={recordBattle} />
+                    <BattleTowers character={character} creatorItems={creatorItems} savedBloodlines={savedBloodlines} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} sharedImages={sharedImages} onExit={goBack} onWorldBossExit={() => setScreen("weeklyBoss")} onRecordBattle={recordBattle} />
                 )}
                 {!activeTriggeredEvent && screen === "weeklyBoss" && character && (
                     <WorldBossesHub character={character} currentSector={currentSector}

@@ -70,6 +70,8 @@ import { towerFeatureTerrain, towerFeatureProp, towerObstacleProp } from "../lib
 import { battlefieldFacingTowardNearest } from "../lib/battlefield-sprite";
 import { battlefieldAiSprite } from "../lib/battlefield-actor-art";
 import { worldBossRaidResult, type WorldBossRaidReceipt } from "../lib/world-boss-raid-result";
+import { settleWorldBossEvent } from "../lib/world-boss-event-api";
+import { worldBossDefinition, worldBossDefinitionForVisual } from "../../../shared/world-boss-event";
 import { resolveOwnAvatar } from "../lib/own-avatar";
 import { visiblePoll } from "../lib/poll";
 import { isRealtimeConnected, onStatus, onTowerKick } from "../lib/presence-socket";
@@ -476,16 +478,16 @@ export function BattleTowerFight({
     onLeaveActive,
     onContinue,
     onRecordBattle,
-    settleFn,
-    settleOnAnyDone,
+    settleFn = initialSession.worldBossEvent ? settleWorldBossEvent : undefined,
+    settleOnAnyDone = !!initialSession.worldBossEvent,
     actionFn,
     actionRetryFn,
     stateFn = fetchTowerState,
     storyTheme,
-    variant = "tower",
+    variant = initialSession.worldBossEvent ? "world-boss" : "tower",
     pvpContextLabel = 'Team Arena',
     teamPvpConsumables = false,
-    enemyAvatarOverride,
+    enemyAvatarOverride = initialSession.worldBossEvent ? (worldBossDefinitionForVisual(String(initialSession.actors.find(actor => actor.id === initialSession.phaseState.bossId)?.character.visual ?? ""))?.keyArt ?? worldBossDefinition(initialSession.worldBossEvent.bossId).keyArt) : undefined,
     worldBossReturnLabel = "Return to World Boss event",
 }: {
     character: Character;
@@ -535,6 +537,7 @@ export function BattleTowerFight({
     const isTeamPvp = variant === "team-pvp";
     const isHunt = variant === "hunt";
     const isWorldBoss = variant === "world-boss";
+    const worldBossHealthLabel = initialSession.worldBossEvent?.bossId ? "Shared boss health" : "Saved raid health";
     const isCaravanAmbush = variant === "caravan-ambush";
     const [session, setSession] = useState<TowerSession>(initialSession);
     const displayLog = session.log;
@@ -1575,7 +1578,7 @@ export function BattleTowerFight({
         bossUnlocked === false && Number.isFinite(addsRemaining) ? `Boss barrier · ${addsRemaining} reinforcement${addsRemaining === 1 ? "" : "s"} left`
         : Number.isFinite(breakProgress) && Number.isFinite(breakGoal) ? `Break seals ${breakProgress}/${breakGoal}`
         : bossUnlocked === true && bossActor ? `Boss vulnerable · ${hpPct(bossActor)}% HP`
-        : objective === "defeat-boss" && bossActor ? `${isWorldBoss ? "Raid target" : "Boss"} ${hpPct(bossActor)}% HP`
+        : objective === "defeat-boss" && bossActor ? `${isWorldBoss ? worldBossHealthLabel : "Boss"} ${hpPct(bossActor)}% HP`
         : objective === "protect-npc" && npcActor ? `${npcActor.name} ${hpPct(npcActor)}% HP · hold ${roundsSurvived}${holdGoal == null ? " rounds" : `/${holdGoal} rounds · ${holdRemaining} remaining`}`
         : objective === "survive" ? `Held ${roundsSurvived}${holdGoal == null ? " rounds" : `/${holdGoal} rounds · ${holdRemaining} remaining`}`
         : objective === "kill-escort" && npcActor ? `${npcActor.name} ${hpPct(npcActor)}% HP · ${enemiesAlive} foe${enemiesAlive !== 1 ? "s" : ""} left`
@@ -1590,7 +1593,7 @@ export function BattleTowerFight({
             : isTeamPvp
                 ? "Eliminate the rival team"
                 : objective === "defeat-boss" && bossActor
-                    ? `${isWorldBoss ? "Drive back" : "Defeat"} ${bossActor.name}`
+                    ? `${isWorldBoss ? "Fight" : "Defeat"} ${bossActor.name}`
                     : objective === "protect-npc" && npcActor
                         ? `Protect ${npcActor.name}`
                         : objective === "survive"
@@ -2364,7 +2367,7 @@ export function BattleTowerFight({
                 {/* Enemy + log rail */}
                 <aside className="tower-roster-rail tower-enemy-rail" style={{ minWidth: 0 }} aria-label={isTeamPvp ? "Rival Team and battle log" : "Enemies and battle log"}>
                     {focusedEnemy && <TowerCombatantHud actor={focusedEnemy} avatar={avatarFor(focusedEnemy) ?? fallbackArtFor(focusedEnemy)}
-                        healthLabel={isWorldBoss && focusedEnemy.id === bossId ? "Raid target health" : undefined}
+                        healthLabel={isWorldBoss && focusedEnemy.id === bossId ? worldBossHealthLabel : undefined}
                         label={focusedEnemy.id === bossId ? "Enemy commander" : isTeamPvp ? "Rival fighter" : "Enemy fighter"}
                         active={focusedEnemy.id === activeId}
                         onInspect={() => inspectActor(focusedEnemy, `tower-dossier-${focusedEnemy.id}`)} />}
