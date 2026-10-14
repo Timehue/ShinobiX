@@ -61,6 +61,7 @@ export function Training({ character, savedBloodlines = [], onVersionedCharacter
     const selectedStat = chosenStat ?? recommendation.stat;
     const currentStatCap = statCapForLevel(character.level);
     const [timerPickerOpen, setTimerPickerOpen] = useState(false);
+    const timerOpenerRef = useRef<HTMLButtonElement | null>(null);
     const [trainingBusy, setTrainingBusy] = useState(false);
     const [trainingNotice, setTrainingNotice] = useState<string | null>(null);
     const trainingBusyRef = useRef(false);
@@ -207,12 +208,16 @@ export function Training({ character, savedBloodlines = [], onVersionedCharacter
 
             <div className="training-guide-panel">
                 <strong>Training Plan</strong>
-                <ul>
-                    <li>Training raises the selected stat directly — and every point you earn counts toward your next level.</li>
-                    <li id="training-recommendation"><strong>Recommended: {recommendation.label}.</strong> {recommendation.reason}</li>
-                    <li>Choose 15m while learning; longer timers run longer and show their exact gain below.</li>
-                    <li>You can return to the village while training runs, then come back to collect.</li>
-                </ul>
+                <p id="training-recommendation"><strong>Recommended: {recommendation.label}</strong>{recommendation.benefit}</p>
+                <details className="training-guidance">
+                    <summary>How training works</summary>
+                    <ul>
+                        <li>{recommendation.reason}</li>
+                        <li>Training raises the selected stat directly. Every point you earn counts toward your next level.</li>
+                        <li>Choose 15m while learning. Each timer shows its exact gain and stamina cost.</li>
+                        <li>Keep playing while training runs, then return to collect.</li>
+                    </ul>
+                </details>
             </div>
 
             {activeTraining && (
@@ -256,7 +261,8 @@ export function Training({ character, savedBloodlines = [], onVersionedCharacter
                                         data-academy-autoscroll={showAcademyTrainingHint && !timerPickerOpen && recommendation.stat === stat && !statCapped ? "true" : undefined}
                                         disabled={statCapped}
                                         aria-describedby={recommendation.stat === stat ? "training-recommendation" : undefined}
-                                        onClick={() => {
+                                        onClick={(event) => {
+                                            timerOpenerRef.current = event.currentTarget;
                                             setSelectedStat(stat);
                                             setTimerPickerOpen(true);
                                         }}
@@ -277,6 +283,7 @@ export function Training({ character, savedBloodlines = [], onVersionedCharacter
             <Modal
                 open={timerPickerOpen}
                 onClose={() => setTimerPickerOpen(false)}
+                returnFocusRef={timerOpenerRef}
                 title={`Train ${selectedStatLabel}`}
                 size="md"
                 backdropClassName="training-timer-backdrop"
