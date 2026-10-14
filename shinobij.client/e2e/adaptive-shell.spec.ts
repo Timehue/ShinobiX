@@ -1321,6 +1321,8 @@ test("selected-sector projection keeps controls, receipts, traces, and responsiv
     expect(traceRequests).toEqual([{ method: "GET", sector: "44", player: "AdaptiveNinja" }]);
     await hud.getByRole("button", { name: "Sector Info", exact: true }).click();
     await expect(commandPanel).toBeVisible();
+    const inlineSectorInfo = testInfo.project.name === "chromium-mobile";
+    await expect(hud.locator(".sector-hud-inline-info")).toHaveCount(inlineSectorInfo ? 1 : 0);
     await expectViewportSafe(page, { overlays: [".sector-hud-panel"], logicalStages: [".walkable-sector-map"] });
     const signsButton = commandPanel.getByRole("button", { name: "Trail signs (1)", exact: true });
     const shrineButton = commandPanel.getByRole("button", { name: /Shrine of the Ancients/ });
@@ -1339,14 +1341,15 @@ test("selected-sector projection keeps controls, receipts, traces, and responsiv
     await signsDialog.getByRole("button", { name: "Close", exact: true }).click();
     await expect(signsDialog).toHaveCount(0);
 
-    // Desktop's floating sheet retires when a portal dialog opens. Mobile's
-    // inline disclosure stays expanded, so verify and close it before reopening.
-    if (testInfo.project.name === "chromium-mobile") {
+    // Inline mobile information preserves the reader's place after a modal.
+    // The desktop popup retires when the modal takes over and must be reopened.
+    if (inlineSectorInfo) {
         await expect(commandPanel).toBeVisible();
-        await hud.getByRole("button", { name: "Close Sector Info", exact: true }).click();
+        await expect(hud.getByRole("button", { name: "Sector Info", exact: true })).toHaveAttribute("aria-expanded", "true");
+    } else {
+        await expect(commandPanel).toHaveCount(0);
+        await hud.getByRole("button", { name: "Sector Info", exact: true }).click();
     }
-    await expect(commandPanel).toHaveCount(0);
-    await hud.getByRole("button", { name: "Sector Info", exact: true }).click();
     await shrineButton.click();
     const shrineDialog = page.getByRole("dialog", { name: "Shrine of the Ancients" });
     await expect(shrineDialog).toBeVisible();
@@ -1359,11 +1362,12 @@ test("selected-sector projection keeps controls, receipts, traces, and responsiv
     await shrineDialog.getByRole("button", { name: "Close", exact: true }).click();
     await expect(shrineDialog).toHaveCount(0);
 
-    if (testInfo.project.name === "chromium-mobile") {
+    if (inlineSectorInfo) {
         await expect(commandPanel).toBeVisible();
         await hud.getByRole("button", { name: "Close Sector Info", exact: true }).click();
     }
     await expect(commandPanel).toHaveCount(0);
+    await expect(hud.getByRole("button", { name: "Sector Info", exact: true })).toHaveAttribute("aria-expanded", "false");
     await expectNoLargeOverlap(stage.locator(".sector-image-map"), hud);
     await expectViewportSafe(page, { logicalStages: [".walkable-sector-map"] });
     const mobileNav = page.locator(".mobile-bottom-nav");
