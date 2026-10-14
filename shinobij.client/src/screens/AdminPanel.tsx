@@ -24,6 +24,7 @@ import { AdminLegacyPanel } from "./AdminLegacyPanel";
 import { AdminDiagnosticsPanel } from "./AdminDiagnosticsPanel";
 import { AdminVillageLeadersPanel } from "./AdminVillageLeadersPanel";
 import "../styles/index/19-town-hall.css";
+import "../styles/jutsu-frames.css";
 import { makeAdminJutsuActions } from "./admin-jutsu-actions";
 import { runServerReset } from "./admin-server-reset";
 import { AiImagePrompt } from "../components/AiImagePrompt";
