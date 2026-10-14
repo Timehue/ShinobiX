@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Character } from "../types/character";
+import type { Character, VersionedCharacterCommit } from "../types/character";
 import type { Screen } from "../types/core";
+import {prepareClanWarReturn} from '../lib/clan-war-navigation';
 import { BattleTowerFight } from "./BattleTowerFight";
 import { GameArtIcon } from "../components/GameArtIcon";
 import { fetchTowerPvpSession, submitTowerPvpActionWithLostResponseRetry, type TowerPvpMatch } from "../lib/tower-pvp-api";
@@ -19,7 +20,10 @@ import { readClanWar2v2Stash, settleClanWar2v2, startClanWar2v2 } from "../lib/c
  * them onto one published match, so a reload or a late joiner lands in the same
  * fight rather than minting a second one.
  */
-export function ClanWar2v2Battle({ character, setScreen }: { character: Character; setScreen: (s: Screen) => void }) {
+export function ClanWar2v2Battle({ character, setScreen, sharedImages, onVersionedCharacter }: {
+    character: Character; setScreen: (s: Screen) => void;
+    sharedImages?: Record<string, string>; onVersionedCharacter?: VersionedCharacterCommit;
+}) {
     const stash = readClanWar2v2Stash();
     const warId = String(stash.warId ?? "");
     const challengeId = String(stash.challengeId ?? "");
@@ -27,7 +31,7 @@ export function ClanWar2v2Battle({ character, setScreen }: { character: Characte
     const [error, setError] = useState<string | null>(null);
     const mountedRef = useRef(true);
 
-    const back = useCallback(() => setScreen("clan"), [setScreen]);
+    const back = useCallback(() => setScreen(prepareClanWarReturn()), [setScreen]);
 
     useEffect(() => {
         mountedRef.current = true;
@@ -70,6 +74,8 @@ export function ClanWar2v2Battle({ character, setScreen }: { character: Characte
     return (
         <BattleTowerFight
             character={character}
+            sharedImages={sharedImages}
+            onVersionedCharacter={onVersionedCharacter}
             runId={match.matchId}
             initialSession={match.combat}
             stateFn={fetchTowerPvpSession}
@@ -80,6 +86,7 @@ export function ClanWar2v2Battle({ character, setScreen }: { character: Characte
             settleFn={settleClanWar2v2(challengeId)}
             settleOnAnyDone
             variant="team-pvp"
+            pvpContextLabel="Clan War 2v2"
             // A reward-bearing clan-war duel seals the fighters' own consumable budget.
             teamPvpConsumables={match.rules?.consumables === "enabled"}
             onExit={back}

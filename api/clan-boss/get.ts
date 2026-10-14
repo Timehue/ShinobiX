@@ -35,26 +35,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const boss = resolveClanBossDef(week);
         if (!boss) return res.status(500).json({ error: 'Clan boss data missing.' });
-        const sectorState = await loadSectorState(weekId, boss);
 
-        // Live standings: scan every clan's progress for the week, rank by composite score.
-        const progressKeys = await kv.keys(`clan-boss:progress:${weekId}:*`);
-        const progressList = (progressKeys.length ? await kv.mget<ClanBossProgress[]>(...progressKeys) : [])
-            .filter(Boolean) as ClanBossProgress[];
+        // Independent plain reads, run together: the sector state, the live
+        // standings, and the caller's save (for their clan name).
+        const [sectorState, progressList, save] = await Promise.all([
+            loadSectorState(weekId, boss),
+            // Live standings: scan every clan's progress for the week, rank by composite score.
+            (async () => {
+                const progressKeys = await kv.keys(`clan-boss:progress:${weekId}:*`);
+                return (progressKeys.length ? await kv.mget<ClanBossProgress[]>(...progressKeys) : [])
+                    .filter(Boolean) as ClanBossProgress[];
+            })(),
+            kv.get<Record<string, unknown>>(`save:${playerName}`),
+        ]);
         const standings = rankClanBoss(progressList).slice(0, 12);
-
-        const save = await kv.get<Record<string, unknown>>(`save:${playerName}`);
         const char = save?.character as Record<string, unknown> | undefined;
         const clanName = char && typeof char.clan === 'string' ? char.clan : '';
 
-        let myClan: unknown = null;
+        // The caller's own progress is read only after the standings mget, as it
+        // always was: that read lands on the same read-cache snapshot, so the
+        // clan's pool and attempts never show older than its rank and score.
+        let progress: ClanBossProgress | null = null;
+        let archive: { standings?: Array<{ clanName: string; score: number; killed: boolean; rank: number }> } | null = null;
         if (clanName) {
-            let progress = await loadClanBossProgress(weekId, clanName);
-            if (!progress) {
-                const clanRec = await kv.get<{ members?: Array<unknown> }>(`save:clan-${clanSlug(clanName)}`);
-                const memberCount = Array.isArray(clanRec?.members) ? clanRec!.members!.length : 1;
-                progress = newClanBossProgress(clanName, week, memberCount);
-            }
+            [progress, archive] = await Promise.all([
+                (async () => {
+                    const stored = await loadClanBossProgress(weekId, clanName);
+                    if (stored) return stored;
+                    const clanRec = await kv.get<{ members?: Array<unknown> }>(`save:clan-${clanSlug(clanName)}`);
+                    const memberCount = Array.isArray(clanRec?.members) ? clanRec!.members!.length : 1;
+                    return newClanBossProgress(clanName, week, memberCount);
+                })(),
+                // Last week's result for this clan (from the archive) — a "how'd we do" line.
+                kv.get<{ standings?: Array<{ clanName: string; score: number; killed: boolean; rank: number }> }>(clanBossArchiveKey(clanBossWeekId(now - CB_WEEK_MS))),
+            ]);
+        }
+
+        let myClan: unknown = null;
+        if (progress) {
             const myRank = standings.find(s => clanSlug(s.clanName) === clanSlug(clanName));
             myClan = {
                 clanName,
@@ -70,11 +88,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             };
         }
 
-        // Last week's result for this clan (from the archive) — a "how'd we do" line.
         let lastWeek: unknown = null;
         if (clanName) {
-            const prevWeekId = clanBossWeekId(now - CB_WEEK_MS);
-            const archive = await kv.get<{ standings?: Array<{ clanName: string; score: number; killed: boolean; rank: number }> }>(clanBossArchiveKey(prevWeekId));
             const mine = archive?.standings?.find(s => clanSlug(s.clanName) === clanSlug(clanName));
             if (mine) lastWeek = { rank: mine.rank, score: mine.score, killed: mine.killed };
         }

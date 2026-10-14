@@ -6,6 +6,7 @@ import { riftPlacement, strongholdPlacement } from "../data/sector-structure-pla
 import { SectorShrineStandee, SectorTraceMarkers } from "./SectorTraces";
 import { SectorWanderer } from "./SectorWanderer";
 import { SectorWeeklyBossActor } from "./SectorWeeklyBossActor";
+import { SectorWorldBossStandee, type WorldSectorWorldBossMarker } from "./SectorWorldBossStandee";
 import { SectorStoryFieldMarker, type SectorStoryFieldMarkerProps } from "./SectorStoryFieldMarker";
 import { SectorGroundLandmarks } from "./SectorGroundLandmarks";
 import { sectorFloorLayout } from "../lib/sector-floor-layout";
@@ -44,6 +45,7 @@ export type WorldSectorOverlayLayerProps = Readonly<{
     traceSigns: TrailSignView[];
     shrine: WorldSectorShrineMarker | null;
     boss: WorldSectorBossMarker | null;
+    worldBoss: WorldSectorWorldBossMarker | null;
     fieldStory?: SectorStoryFieldMarkerProps | null;
     onEngageWanderer: (wanderer: Wanderer) => boolean | void;
     onOpenTrace: (signId: string) => void;
@@ -67,6 +69,7 @@ export function WorldSectorOverlayLayer({
     traceSigns,
     shrine,
     boss,
+    worldBoss,
     fieldStory,
     onEngageWanderer,
     onOpenTrace,
@@ -146,6 +149,8 @@ export function WorldSectorOverlayLayer({
                     onEngage={boss.onEngage}
                 />
             )}
+
+            {worldBoss && <SectorWorldBossStandee sector={sector} {...worldBoss} />}
         </>
     );
 }

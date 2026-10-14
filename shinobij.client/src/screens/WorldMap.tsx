@@ -1,4 +1,6 @@
 import { gainXp } from "../lib/character-level-projection";
+import {ClanShrineGateway} from '../features/clanWar/ClanShrineGateway';
+import type {CwChallenge} from '../lib/clan-war-api';
 import { resourceActionsToday } from '../../../shared/resource-gathering';
 import { interiorTileFromKey } from '../lib/world-interior-tile';
 import { getPvpJutsuLoadout } from "../lib/jutsu-loadout";
@@ -86,7 +88,8 @@ import { aiRaidLaunchFailureMessage, mintAiRaidToken } from "../lib/ai-raid-api"
 import { raidStartActionScope } from "../lib/action-deadline-store";
 import { useLiveActionDeadline } from "../lib/use-action-deadline";
 import { sameJsonValue } from "../lib/pvp-session-runtime";
-import type { WorldAiFightContext, WorldAiFightKind, WorldAiFightRequest } from "../../../shared/world-ai-fight";
+import type { WorldAiFightContext, WorldAiFightRequest } from "../../../shared/world-ai-fight";
+import { WORLD_FIGHT_KIND_BY_MODE } from "../lib/world-ai-presentation-modes";
 import { wandererAvatar, wandererRobberPortrait, questBossPortrait, WANDERER_BOSS_PORTRAIT, WANDERER_NEMESIS_PORTRAIT } from "../lib/wanderer-art";
 import { makeBuiltinAi } from "../lib/combat-ai";
 import { genericPetArenaOpponents, type PetArenaOpponent } from "../data/pet-arena-opponents";
@@ -121,7 +124,7 @@ import { travelMaskMs } from "../lib/travel-mask";
 import { serverNow } from "../lib/server-clock";
 import { storyReckoningActionFailure } from "../lib/story-reckoning-feedback";
 
-const AnbuVaultRaid = lazy(() => import("../features/anbuInfiltration/AnbuVaultRaid").then(m => ({ default: m.AnbuVaultRaid }))); const WorldBossMapCalloutOverlay = lazy(() => import("../components/WorldBossMapCalloutOverlay").then(m => ({ default: m.WorldBossMapCalloutOverlay })));
+const AnbuVaultRaid = lazy(() => import("../features/anbuInfiltration/AnbuVaultRaid").then(m => ({ default: m.AnbuVaultRaid }))); const WorldBossQueueHost = lazy(() => import("../components/WorldBossQueueHost").then(m => ({ default: m.WorldBossQueueHost })));
 import { SectorMap } from "../components/SectorMap";
 import { SceneCritters } from "../components/SceneCritters";
 import { DayNightSky } from "../components/DayNightSky";
@@ -168,14 +171,14 @@ import { biomeLabel, weatherEffects } from "../data/world";
 import { builtinFetchMissions, builtinHuntMissions, missionRaidProgressKey, missionRaidRequirement, nextFieldMissionObjective } from "../data/missions";
 import { takeFieldMissionNavigationIntent } from "../lib/field-mission-navigation";
 import { makeId, playerSlug, sameSector } from "../lib/utils";
-import { setSectorReopen, takeSectorReopen, consumeReloadIntoSector } from "../lib/sector-return";
+import { setSectorReopen, takeSectorReopen, takeSectorTravelIntent, consumeReloadIntoSector } from "../lib/sector-return";
 import { isRecentlyStruckDown } from "../lib/sleeper-kill";
 import { useLiveSectorRoster, getLocalSectorTile, getLiveSectorRoster, useSectorRosterState, getSectorRosterState } from "../lib/presence-store";
 import { isSectorLivePeersEnabled } from "../components/sector-peers-flag";
 import type { SectorPeer } from "../components/SectorPeers";
 import { isWeeklyBossRoamEnabled, weeklyBossRoamState, weeklyBossRoamCooldownId, WEEKLY_BOSS_ROAM_REENGAGE_COOLDOWN_MS, type RoamingBoss } from "../lib/weekly-boss-roam";
 import { stageWeeklyBossFight } from "../lib/weekly-boss-launch";
-import { useWorldBossMap, WorldBossSectorFlag } from "../components/WorldBossMapOverlay";
+import { useWorldBossMap } from "../components/WorldBossMapOverlay";
 import { playerNameTile } from "../lib/sector-tile";
 import { fetchPlayerCombatSave, pvpSessionEnvironment, stringifyPvpSessionPayload } from "../lib/pvp-session";
 import { createPvpSessionWithRecovery, pvpStableBattleIdFromRequestBody } from "../lib/pvp-session-create";
@@ -269,17 +272,6 @@ type HuntToast = { id: number; kicker: string; text: string };
 /** The open hunt encounter card: which trail, which beast, and what it's showing. */
 type HuntEncounterState = { trail: ActiveHuntTrail; ai: CreatorAi; sector: number; view: HuntEncounterView };
 
-const WORLD_FIGHT_KIND_BY_MODE: Readonly<Record<string, WorldAiFightKind>> = {
-    single: "wanderer",
-    ambush: "wanderer-ambush",
-    patrol: "patrol",
-    bountyHunter: "bounty-hunter",
-    huntPack: "hunt-pack",
-    huntTarget: "hunt-target",
-    questboss: "questbook-boss",
-    storyReckoning: "story-reckoning",
-};
-
 function WorldMapContent({
     setCurrentBiome,
     setScreen,
@@ -330,6 +322,7 @@ function WorldMapContent({
     capturePvpCreateScope,
     onLaunchWeeklyBoss,
     onExplorePresentationActiveChange,
+    onLaunchClanWarBattle,
 }: {
     setCurrentBiome: (biome: Biome) => void;
     setScreen: (screen: Screen) => void;
@@ -391,6 +384,7 @@ function WorldMapContent({
     // fight (shared leaderboard, 3-attempt cap), then returns the player here.
     onLaunchWeeklyBoss?: (bossAiId: string, bossDisplayName?: string, returnScreen?: Screen) => void;
     onExplorePresentationActiveChange?: (active: boolean) => void;
+    onLaunchClanWarBattle?:(challenge:CwChallenge,warId:string)=>void;
 }) {
     const legacyAvailable = useLegacyAvailability();
     const legacyActionsAvailable = useLegacyMutationAvailability();
@@ -431,6 +425,15 @@ function WorldMapContent({
     const [regionSplash, setRegionSplash] = useState<{ label: string; tint: string; stamp: number } | null>(null);
     const [routeHoverSector, setRouteHoverSector] = useState<number | null>(null);
     const [selectedVillageTerritory, setSelectedVillageTerritory] = useState<typeof locations[number] | null>(null);
+    // Restore the walked tile across battles and expose the latest position to
+    // delayed quest, travel and combat responses.
+    const { sectorPlayerPos, setSectorPlayerPos, travelRequestInFlight, travelPresentation, getWorldPosition, captureSectorAction } = useWorldTravelPresentation(character.name,
+        () => getLocalSectorTile(),
+        (sector) => {
+            setSelectedSector(isWildSector(sector) && sector !== FESTIVAL_SECTOR ? sector : null);
+            setSelectedVillageTerritory(null);
+            setRouteHoverSector(null);
+        }, { sector: currentSector, traveling: isTraveling });
     const [territoryGuards, setTerritoryGuards] = useState<{ name: string; level: number; village: string; defenseBonusPercent?: number }[]>([]);
     const [sectorEnemyGuards, setSectorEnemyGuards] = useState<{ name: string; level: number; defenseBonusPercent?: number }[]>([]);
     const [huntToast, setHuntToast] = useState<HuntToast | null>(null);
@@ -468,16 +471,6 @@ function WorldMapContent({
         .map((mission) => mission.id)
         .sort()
         .join("|");
-
-    useEffect(() => {
-        const intent = takeFieldMissionNavigationIntent(character.name);
-        if (!intent || !acceptedMissionIds.includes(intent.missionId)) return;
-        const mission = builtinFetchMissions.find((entry) => entry.id === intent.missionId);
-        if (!mission || mission.targetSector !== intent.targetSector
-            || nextFieldMissionObjective(mission, missionProgress[mission.id] ?? 0,
-                missionProgress[missionRaidProgressKey(mission.id)] ?? 0) !== intent.objective) return;
-        setSelectedSector(intent.objective === "explore" ? mission.targetSector : null);
-    }, [character.name, acceptedMissionIds, missionProgress]);
 
     function adoptHuntProgressMirror(
         missionId: string,
@@ -534,26 +527,6 @@ function WorldMapContent({
         })();
         return () => { cancelled = true; };
     }, [acceptedHuntKey, character.name]);
-
-    // Returning from an explore ambush: reopen the sector detail the player was in
-    // (set by exploreSector before the fight). One-shot — consumed on this mount so
-    // a normal trip to the world map still opens on the overview, and already
-    // cleared by the Hospital on a KO so a death never reopens the death sector.
-    useEffect(() => {
-        const reopen = takeSectorReopen();
-        if (reopen !== null && reopen !== FESTIVAL_SECTOR) { setSelectedSector(reopen); return; }
-        // Refresh restore: if the page was reloaded straight onto the World Map
-        // while standing in a real explorable sector (see isWildSector), reopen that sector's
-        // detail. selectedSector is ephemeral React state, so without this a refresh
-        // dumps the player on the overview ("the refresh moved me"). currentSector is
-        // only reset to 0 when the player enters a town (lib/screen-guards TOWN_SCREENS),
-        // so a wild-sector reload — from the map OR from any menu opened in the field —
-        // lands back in that sector; a normal in-session trip to the map still opens on
-        // the overview (consumeReloadIntoSector is a one-shot, false on SPA navigation).
-        if (consumeReloadIntoSector() && isWildSector(currentSector) && currentSector !== FESTIVAL_SECTOR) {
-            setSelectedSector(currentSector);
-        }
-    }, []);
 
     // ── Scout Network (clan upgrade) ──────────────────────────────────────
     // During the viewer clan's active clan war, surface enemy-clan members who
@@ -652,6 +625,8 @@ function WorldMapContent({
         weather: WeatherType,
         inheritedScope?: { signal: AbortSignal; isCurrent: () => boolean },
     ) {
+        if (getWorldPosition().traveling || travelRequestInFlight.current
+            || !sameSector(getWorldPosition().sector, sector)) return;
         const createScope = inheritedScope ?? capturePvpCreateScope(character.name);
         if (!createScope.isCurrent()) return;
         if (!capabilityAdmissionAllowed(mutationAvailability())) return;
@@ -959,7 +934,7 @@ function WorldMapContent({
         if (roamingBoss?.weekKey) coolWanderer(weeklyBossRoamCooldownId(roamingBoss.weekKey), ms);
     }
     function handleBossEngage() {
-        if (!roamingBoss?.aiId || requiresWandererChoice(wandererDialog)) return false; // waits its turn
+        if (!roamingBoss?.aiId || requiresWandererChoice(wandererDialog) || worldBossQueueOpen) return false; // waits its turn
         setBossDialog({
             name: roamingBoss.bossName ?? "Weekly Boss",
             portrait: sharedImages["ai:" + roamingBoss.aiId] || "",
@@ -1001,7 +976,7 @@ function WorldMapContent({
         adoptFleeTotals(fled);
     }
 
-    const { view: worldBossView, event: worldBossEvent, sector: worldBossSector, queueOpen: worldBossQueueOpen, activate: handleWorldBossMarker, closeQueue: closeWorldBossQueue } = useWorldBossMap(globalViewOpen, currentSector, isTraveling, triggerTravelPoint);
+    const { view: worldBossView, event: worldBossEvent, sector: worldBossSector, queueOpen: worldBossQueueOpen, closeQueue: closeWorldBossQueue, standeeIn: worldBossStandeeIn } = useWorldBossMap(globalViewOpen, currentSector, isTraveling);
     const mercWanderers = useMemo(() => {
         if (!villageWarViewOpen || !isVillageWarMapEnabled() || mercRoster.sector !== selectedSector) return [];
         const cd = character.wandererCooldowns; const now = Date.now();
@@ -1306,7 +1281,7 @@ function WorldMapContent({
         sector: number,
         worldEncounter: WorldAiFightRequest,
     ) {
-        if (!sameSector(currentSector, sector)) return gameToast(`Travel to Sector ${sector} before starting this encounter.`, { kind: "info" });
+        if (!captureSectorAction(sector)()) return gameToast(`Travel to Sector ${sector} before starting this encounter.`, { kind: "info" });
         if (!capabilityAdmissionAllowed(mutationAvailability())) return;
         const b = biomeForSector(sector);
         setCurrentBiome(b);
@@ -1331,12 +1306,15 @@ function WorldMapContent({
      * Solo-PvE host. Runtime World encounters use launchWorldMapFight above.
      */
     async function launchAiGuardRaid(aiId: string, level: number, sector: number, setup?: () => void, missionId?: string) {
+        const isCurrent = captureSectorAction(sector);
+        if (!isCurrent()) return;
         if (!capabilityAdmissionAllowed(mutationAvailability())) return;
         if (aiRaidLaunchInFlight.current || raidStartCooldownMs > 0) return;
         aiRaidLaunchInFlight.current = true;
         setup?.();
         try {
             const raidProof = await mintAiRaidToken({ playerName: character.name, opponentId: aiId, sector, ...(missionId ? { missionId } : {}) });
+            if (!isCurrent()) return;
             if (raidProof.ok === false) {
                 alert(aiRaidLaunchFailureMessage(raidProof));
                 return;
@@ -1349,6 +1327,7 @@ function WorldMapContent({
                 opponentId: raidProof.opponentId,
                 opponentLevel: level,
                 battleKind: "raidAi",
+                returnScreen: "worldMap",
                 sector: raidProof.sector,
                 raidToken: raidProof.token,
             })) {
@@ -1590,6 +1569,7 @@ function WorldMapContent({
     }
     async function startBountyHunterFight(w: Wanderer) {
         if (selectedSector == null) return;
+        const isCurrent = captureSectorAction(selectedSector);
         if (combatActive || isCombatActive()) {
             pendingBountyHunterRef.current = { hunterId: w.id, sector: selectedSector };
             return;
@@ -1599,6 +1579,7 @@ function WorldMapContent({
         setWandererDialog({ w, busy: true });
         const gate = await startBountyHunter(character.name, w.id);
         bountyHunterStartInFlightRef.current = false;
+        if (!isCurrent()) return;
         if (combatActive || isCombatActive()) {
             pendingBountyHunterRef.current = { hunterId: w.id, sector: selectedSector };
             setWandererDialog(null);
@@ -1972,7 +1953,7 @@ function WorldMapContent({
     }
     function handleWandererEngage(w: Wanderer) {
         if (selectedSector == null || !sameSector(currentSector, selectedSector)) return;
-        if (requiresWandererChoice(wandererDialog) || bossDialog) return false; // one hostile at a time: it engages after this choice
+        if (requiresWandererChoice(wandererDialog) || bossDialog || worldBossQueueOpen) return false; // one hostile at a time; a world boss queue or raid is busy too
         if (combatActive || isCombatActive()) {
             if (w.verb === "bountyHunter") pendingBountyHunterRef.current = { hunterId: w.id, sector: selectedSector };
             return;
@@ -2497,8 +2478,10 @@ function WorldMapContent({
         );
     }
     async function handleStoryReckoningAccept(arc: StoryReckoning) {
+        const isCurrent = captureSectorAction(getWorldPosition().sector);
         setSelectedCreatorEvent(null);
         const resp = await acceptStoryReckoning(character.name, arc.id);
+        if (!isCurrent()) return;
         if (!resp.ok) {
             if (resp.character && !onVersionedCharacter(resp.character, resp._saveVersion)) return;
             setTimeout(() => alert(storyReckoningActionFailure(resp.reason, arc, "accept")), 40);
@@ -2598,20 +2581,6 @@ function WorldMapContent({
     const [petVnDone, setPetVnDone] = useState(false);
     const [petVnPage, setPetVnPage] = useState(0);
     const [petVnLine, setPetVnLine] = useState(0);
-    // Reopening a sector after a fight restores the TILE too, not just the
-    // board: "return to the sector" has to mean the spot you attacked from, and
-    // this state is otherwise recreated at the centre on every remount (which
-    // then broadcasts that centre tile to presence via the effect below, so
-    // everyone else would see you teleport as well). presence-store keeps the
-    // last tile at module scope, so it survives WorldMap's unmount during the
-    // battle. Peek, never take — the mount effect above owns consuming the latch.
-    const { sectorPlayerPos, setSectorPlayerPos, travelRequestInFlight, travelPresentation } = useWorldTravelPresentation(character.name,
-        () => getLocalSectorTile(), // the spot the player last stood on: hydrated at boot from the owner's save read (walked tile, else the arrival tile), set on arrival, kept across a fight; the store's own default is the centre
-        (sector) => {
-            setSelectedSector(isWildSector(sector) && sector !== FESTIVAL_SECTOR ? sector : null);
-            setSelectedVillageTerritory(null);
-            setRouteHoverSector(null);
-        });
     const sectorObstacles = useSectorTileGrounding(selectedSector, sectorPlayerPos, setSectorPlayerPos);
     const [selectedCreatorEvent, setSelectedCreatorEvent] = useState<CreatorEvent | null>(null);
     // Anbu Vault Infiltration (anbuInfiltration.v1): the walk-up prompt on the
@@ -2653,7 +2622,7 @@ function WorldMapContent({
         { name: "Stormveil Village", type: "village", biome: villageBiomeMap["Stormveil Village"], x: 16, y: 74, art: stormveilLandmarkArt },
         { name: "Ashen Leaf Village", type: "village", biome: villageBiomeMap["Ashen Leaf Village"], x: 16, y: 20, art: ashenLeafLandmarkArt },
         { name: "Frostfang Village", type: "village", biome: villageBiomeMap["Frostfang Village"], x: 76, y: 20, art: frostfangLandmarkArt },
-        { name: "Moonshadow Village", type: "village", biome: villageBiomeMap["Moonshadow Village"], x: 86, y: 64, art: moonshadowLandmarkArt },
+        { name: "Moonshadow Village", type: "village", biome: villageBiomeMap["Moonshadow Village"], x: 91, y: 84, art: moonshadowLandmarkArt },
         { name: "Central", type: "central", biome: "central" as Biome, x: 48, y: 40, art: centralLandmarkArt, staminaReward: 20, xpReward: 20 },
         // Hollow Gate — the violet obelisk shrine east of the keep. Sector 57
         // (Hollow Temple) sits just beside it and is map-travel-only, so this
@@ -2799,8 +2768,8 @@ function WorldMapContent({
         arrive: (arrivalTile?: number) => void,
         request?: { mode: "edge"; originSector: number; originTile: number; exitId: string },
     ) {
-        if (isTraveling || travelRequestInFlight.current) return;
-        if (currentSector === sector) {
+        if (!travelPresentation.current.isCurrent() || getWorldPosition().traveling || travelRequestInFlight.current) return;
+        if (getWorldPosition().sector === sector) {
             arrive();
             return;
         }
@@ -2808,6 +2777,7 @@ function WorldMapContent({
         travelRequestInFlight.current = true;
         const presentation = travelPresentation.current;
         void (async () => {
+            let arrivalScheduled = false;
             try {
                 if (request && !await confirmRoadPosition(character.name, request.originSector, request.originTile)) throw new Error('Road position not confirmed');
                 if (!presentation.isCurrent()) return;
@@ -2847,11 +2817,13 @@ function WorldMapContent({
                 setRouteHoverSector(sector);
                 setSelectedSector(null);
                 setSelectedVillageTerritory(null);
+                arrivalScheduled = true;
                 presentation.scheduleArrival(() => {
                     arrive(data.arrivalTile);
                     setPendingTravel(null);
                     setTravelingUntil(0);
                     setRouteHoverSector(null);
+                    travelRequestInFlight.current = false;
                 }, travelMs);
             } catch {
                 if (!presentation.isCurrent()) return;
@@ -2861,40 +2833,28 @@ function WorldMapContent({
                     text: 'Could not reach the travel server. Please try again.',
                 });
             } finally {
-                if (presentation.isCurrent()) travelRequestInFlight.current = false;
+                if (presentation.isCurrent() && !arrivalScheduled) travelRequestInFlight.current = false;
             }
         })();
     }
 
     /** Run a location-sensitive action after the server has accepted travel and arrival is visible locally. */
     function runWhenSectorConfirmed(sector: number, action: () => void) {
-        if (sameSector(currentSector, sector) && !isTraveling && travelingUntil <= Date.now()) {
-            action();
+        const isCurrent = captureSectorAction(sector);
+        if (getWorldPosition().traveling || travelRequestInFlight.current) return;
+        if (sameSector(getWorldPosition().sector, sector)) {
+            if (isCurrent()) action();
             return;
         }
-        beginSectorTravel(sector, (arrivalTile) => {
-            const biome = biomeForSector(sector);
-            setCurrentBiome(biome);
-            setCurrentWeather(weatherForSector(sector, biome));
-            setCurrentSector(sector);
-            setSelectedSector(sector);
-            setSectorPlayerPos(Number.isInteger(arrivalTile) ? arrivalTile! : SECTOR_CENTRE_TILE);
-            // Let the confirmed arrival state commit before the action reads the
-            // current sector or publishes a co-location-sensitive request.
-            window.setTimeout(action, 0);
+        travelToSector(sector, () => {
+            // Wait for the arrival commit, then recheck the map lifetime and location.
+            window.setTimeout(() => { if (isCurrent()) action(); }, 0);
         });
     }
 
-    function triggerTravelPoint(sector: number) {
-        const road = currentSector == null ? undefined : roadExitsForSector(currentSector).find(exit => exit.destinationSector === sector);
-        if (road && requestContinuousWorldWalk(sector, road.destinationTile)) return;
-        if (sector === FESTIVAL_SECTOR) {
-            setSelectedSector(null);
-            setScreen("sunscarFestival");
-            return;
-        }
+    function travelToSector(sector: number, onArrival?: () => void) {
         // Where you stood in the sector you LEFT, captured before any state moves.
-        const originSector = currentSector;
+        const originSector = getWorldPosition().sector;
         beginSectorTravel(sector, (arrivalTile) => {
             const biome = biomeForSector(sector);
             setCurrentBiome(biome);
@@ -2904,12 +2864,54 @@ function WorldMapContent({
             // Legacy fast travel uses the server's sealed arrival; older replies
             // fall back to the same shared edge definition.
             const arrival = (Number.isInteger(arrivalTile) ? arrivalTile : undefined)
-                ?? (originSector == null ? null : travelArrivalTile(originSector, sector));
+                ?? (sameSector(originSector, sector) ? getWorldPosition().tile : originSector == null ? null : travelArrivalTile(originSector, sector));
             setSectorPlayerPos(arrival ?? SECTOR_CENTRE_TILE);
             const splashLabel = regionSplashLabelFor(sector);
             if (splashLabel) setRegionSplash({ label: splashLabel, tint: regionTintForSector(sector), stamp: Date.now() });
+            onArrival?.();
         });
     }
+
+    function triggerTravelPoint(sector: number) {
+        const originSector = getWorldPosition().sector;
+        const road = originSector == null ? undefined : roadExitsForSector(originSector).find(exit => exit.destinationSector === sector);
+        if (road && requestContinuousWorldWalk(sector, road.destinationTile)) return;
+        if (sector === FESTIVAL_SECTOR) {
+            setSelectedSector(null);
+            setScreen("sunscarFestival");
+            return;
+        }
+        travelToSector(sector);
+    }
+
+    // Consume navigation after the travel presentation's mount effect has
+    // installed its scope. Explicit destinations take priority over returning
+    // to the current field; a remote return must also request real travel.
+    useEffect(() => {
+        const presentation = travelPresentation.current;
+        queueMicrotask(() => {
+            // StrictMode replays mount effects. The retired first pass must
+            // not consume a one-shot destination or start a durable trip.
+            if (!presentation.isCurrent()) return;
+            const reopen = takeSectorReopen();
+            const reload = consumeReloadIntoSector();
+            const destination = takeSectorTravelIntent(character.name);
+            if (destination !== null) { travelToSector(destination); return; }
+            const intent = takeFieldMissionNavigationIntent(character.name);
+            if (intent && acceptedMissionIds.includes(intent.missionId)) {
+                const mission = builtinFetchMissions.find((entry) => entry.id === intent.missionId);
+                if (mission && mission.targetSector === intent.targetSector
+                    && nextFieldMissionObjective(mission, missionProgress[mission.id] ?? 0,
+                        missionProgress[missionRaidProgressKey(mission.id)] ?? 0) === intent.objective) {
+                    if (intent.objective === "explore") travelToSector(playableFieldObjectiveSector(mission.targetSector));
+                    else setSelectedSector(null);
+                    return;
+                }
+            }
+            if (reopen !== null && isWildSector(reopen) && reopen !== FESTIVAL_SECTOR) { travelToSector(reopen); return; }
+            if (reload && isWildSector(currentSector) && currentSector !== FESTIVAL_SECTOR) setSelectedSector(currentSector);
+        });
+    }, []);
 
     function crossSectorExit(exit: SectorExit) {
         if (!sameSector(currentSector, exit.sector) || sectorPlayerPos !== exit.tile) return;
@@ -3141,11 +3143,13 @@ function WorldMapContent({
     // a refresh or the next exploration brings the same choice back.
     function presentExploreAmbush(sector: number, worldExploreRequestId: string): boolean {
         if (!isWildSector(sector)) return startExploreAmbushFight(sector, worldExploreRequestId);
-        setSelectedSector(sector);
-        setWandererDialog({ w: exploreAmbushWanderer(worldExploreRequestId, character.level), ambush: { sector, requestId: worldExploreRequestId } });
+        travelToSector(sector, () => {
+            setWandererDialog({ w: exploreAmbushWanderer(worldExploreRequestId, character.level), ambush: { sector, requestId: worldExploreRequestId } });
+        });
         return true;
     }
     function startExploreAmbushFight(sector: number, worldExploreRequestId: string): boolean {
+        if (!captureSectorAction(sector)()) return false;
         setSectorReopen(isWildSector(sector) ? sector : null);
         return requestAiFight({
             // The server ignores this suggestion and derives the closest-level
@@ -3153,6 +3157,7 @@ function WorldMapContent({
             opponentId: "server-explore-opponent",
             opponentLevel: character.level,
             battleKind: "explore",
+            returnScreen: "worldMap",
             opponentName: "Wild Challenger",
             sector,
             worldExploreRequestId,
@@ -3327,13 +3332,16 @@ function WorldMapContent({
     // tiles against the daily cap while those calls are out.
     const exploreInFlight = useRef(false);
     async function exploreSector(sector: number) {
-        if (exploreInFlight.current) return;
+        if (exploreInFlight.current || travelRequestInFlight.current || getWorldPosition().traveling
+            || !sameSector(getWorldPosition().sector, sector)) return;
         exploreInFlight.current = true;
         onExplorePresentationActiveChange?.(true);
         setExplorePresentationInFlight(true);
         try {
             const recovered = await recoverPendingWorldRewards(true);
             if (recovered !== "none") return;
+            if (!travelPresentation.current.isCurrent() || travelRequestInFlight.current || getWorldPosition().traveling
+                || !sameSector(getWorldPosition().sector, sector)) return;
             if (savedFinds.length >= MAX_PENDING_FINDS) {
                 setActiveGather(savedFinds[0]);
                 gameToast("Collect a saved find to make room for more exploration.", { kind: "info" });
@@ -3354,7 +3362,6 @@ function WorldMapContent({
             setSelectedSector(sector);
             setCurrentBiome(biome);
             setCurrentWeather(weatherForSector(sector, biome));
-            setCurrentSector(sector);
             await resolveExplore(sector);
         } finally {
             exploreInFlight.current = false;
@@ -3363,9 +3370,12 @@ function WorldMapContent({
     }
 
     function focusDiscoverySector(sector: number) {
+        // An older exploration receipt proves a reward, not a relocation.
+        // Recover it without moving the player back to its recorded sector.
+        if (getWorldPosition().traveling || travelRequestInFlight.current
+            || !sameSector(getWorldPosition().sector, sector)) return;
         const discoveryBiome = biomeForSector(sector);
         setSelectedSector(sector);
-        setCurrentSector(sector);
         setCurrentBiome(discoveryBiome);
         setCurrentWeather(weatherForSector(sector, discoveryBiome));
     }
@@ -3513,18 +3523,19 @@ function WorldMapContent({
         await continueWorldDiscovery(operation, true);
     }
     async function huntSector(sector: number) {
+        const isCurrent = captureSectorAction(sector);
         if (!isWildSector(sector)) {
             alert(`Hunting is only available in Sectors 1-${MAX_WILD_SECTOR}.`);
             return;
         }
+        if (getWorldPosition().traveling || travelRequestInFlight.current
+            || !sameSector(getWorldPosition().sector, sector)) return;
 
         const biome = biomeForSector(sector);
         setSelectedVillageTerritory(null);
         setSelectedSector(sector);
         setCurrentBiome(biome);
         setCurrentWeather(weatherForSector(sector, biome));
-        setCurrentSector(sector);
-
         const activeTrail = huntTrailForSector(sector);
         if (!activeTrail) {
             setHuntToast({
@@ -3550,6 +3561,7 @@ function WorldMapContent({
             action: "state",
             missionId: activeHuntMission.id,
         });
+        if (!isCurrent()) return;
         if (!authoritative.ok || !authoritative.state) {
             // A successful state read can reconcile a stale accepted card by
             // clearing a same-day claimed contract. Apply that versioned save
@@ -3653,6 +3665,8 @@ function WorldMapContent({
      */
     async function resolveHuntChoice(encounter: HuntEncounterState, choice: HuntChoice) {
         const { trail, ai, sector } = encounter;
+        const isCurrent = captureSectorAction(sector);
+        if (!isCurrent()) return;
         const mission = trail.mission;
         setHuntEncounter(null);
 
@@ -3663,6 +3677,7 @@ function WorldMapContent({
             sector,
             choiceId: choice.id,
         });
+        if (!isCurrent()) return;
         if (!decision.ok) {
             alert(decision.error ?? "The trail could not be recorded. Try that sign again.");
             return;
@@ -3718,20 +3733,13 @@ function WorldMapContent({
                 : `The sign cuts toward ${sectorRegionName(nextSector)}, Sector ${nextSector}. Trail ${nextProgress}/${Math.max(1, requiredTracks - 1)}.`,
         });
         if (nextSector !== sector) {
-            beginSectorTravel(nextSector, () => {
-                const nextBiome = biomeForSector(nextSector);
-                setCurrentBiome(nextBiome);
-                setCurrentWeather(weatherForSector(nextSector, nextBiome));
-                setCurrentSector(nextSector);
-                setSelectedSector(nextSector);
-            });
+            travelToSector(nextSector);
         }
     }
 
     /** The contract target itself, opened according to the Hunt Quality earned. */
     function launchHuntBeastFight(encounter: HuntEncounterState) {
-        // No sector plumbing needed — huntSector() already moved the player here
-        // before it opened the card.
+        // The encounter opens only on the confirmed hunt sector.
         const { trail, ai } = encounter;
         const mission = trail.mission;
         setHuntEncounter(null);
@@ -3787,6 +3795,8 @@ function WorldMapContent({
     }
 
     function focusSectorCombat(sector: number, biome: Biome, weather: WeatherType) {
+        if (getWorldPosition().traveling || travelRequestInFlight.current
+            || !sameSector(getWorldPosition().sector, sector)) return;
         setCurrentSector(sector);
         setCurrentBiome(biome);
         setCurrentWeather(weather);
@@ -3911,22 +3921,20 @@ function WorldMapContent({
     }
 
     function triggerCreatorEvent(event: CreatorEvent) {
-        const sector = event.targetSector ?? 56;
-        const biome = biomeForWorldSector(sector);
-        setCurrentSector(sector);
-        setCurrentBiome(biome);
-        setCurrentWeather(weatherForSector(sector, biome));
         if (character.level < event.levelReq) return alert("Requires level " + event.levelReq + ".");
-        if (event.eventKind === "visualNovel") {
-            setCreatorEventPage(0);
-            setCreatorEventLine(0);
-            setSelectedCreatorEvent(event);
-            return;
-        }
-        const leveled = gainXp(character, 0); // XP retired — legacy xpReward ignored
-        const rewarded = applyCurrencyRewards(leveled, event.currencyRewards);
-        updateCharacter({ ...rewarded, ryo: rewarded.ryo + event.ryoReward, stamina: Math.min(rewarded.maxStamina, rewarded.stamina + event.staminaReward) });
-        alert(event.name + "\n\n" + event.dialogue.join("\n") + "\n\n" + rewardSummary(event.ryoReward, event.staminaReward, event.currencyRewards, character));
+        const sector = playableFieldObjectiveSector(event.targetSector ?? currentSector);
+        runWhenSectorConfirmed(sector, () => {
+            if (event.eventKind === "visualNovel") {
+                setCreatorEventPage(0);
+                setCreatorEventLine(0);
+                setSelectedCreatorEvent(event);
+                return;
+            }
+            const leveled = gainXp(character, 0); // XP retired — legacy xpReward ignored
+            const rewarded = applyCurrencyRewards(leveled, event.currencyRewards);
+            updateCharacter({ ...rewarded, ryo: rewarded.ryo + event.ryoReward, stamina: Math.min(rewarded.maxStamina, rewarded.stamina + event.staminaReward) });
+            alert(event.name + "\n\n" + event.dialogue.join("\n") + "\n\n" + rewardSummary(event.ryoReward, event.staminaReward, event.currencyRewards, character));
+        });
     }
     function completeCreatorEvent(event: CreatorEvent) {
         if (event.id.startsWith(FIELD_STORY_PREFIX)) { setSelectedCreatorEvent(null); return; }
@@ -3959,6 +3967,8 @@ function WorldMapContent({
         setSelectedCreatorEvent(null);
     }
     function launchCreatorEventFight(event: CreatorEvent, battle?: EventEncounterBattle) {
+        const sector = playableFieldObjectiveSector(event.targetSector ?? getWorldPosition().sector);
+        if (!captureSectorAction(sector)()) return;
         const opponent = creatorEventPracticeOpponent(event.aiProfileId, battle?.aiProfileId, character.level);
         setCurrentBiome(event.biome);
         setCurrentWeather(weatherForBiome(event.biome));
@@ -3969,7 +3979,7 @@ function WorldMapContent({
             // receipt tying combat to the separate VN completion reward. Keep
             // the canonical Solo-PvE combat preview non-paying until they do.
             battleKind: "practice",
-            sector: event.targetSector,
+            sector,
             returnScreen: "worldMap",
         });
         if (launched) setSelectedCreatorEvent(null);
@@ -4045,15 +4055,19 @@ function WorldMapContent({
                     }
                     if (c.trait === RIFT_ACCEPT_MARKER) {
                         const rift = riftBySynthId(ev.id);
+                        const presentation = travelPresentation.current;
                         giverAcceptedRef.current = ev.id; // taken, not turned down
                         setSelectedCreatorEvent(null);
                         if (rift) void acceptRift(character.name, rift.id).then((resp) => {
+                            if (!presentation.isCurrent()) return;
                             if (resp.ok && resp.activeRiftQuest) {
                                 if (onServerVersion?.(resp._saveVersion) === false) return;
                                 updateCharacter(prev => prev ? ({ ...prev, activeRiftQuest: resp.activeRiftQuest }) : prev);
                                 const sealedSector = resp.activeRiftQuest.targetSector;
                                 if (Number.isInteger(sealedSector)) {
-                                    setSelectedSector(playableFieldObjectiveSector(sealedSector));
+                                    // Open the destination through confirmed travel so presence,
+                                    // the arrival tile and the visible board agree on where we are.
+                                    triggerTravelPoint(playableFieldObjectiveSector(sealedSector));
                                     const previewSector = riftTargetSector(character.name, rift.id);
                                     if (sealedSector !== previewSector) {
                                         setTravelToast({
@@ -4464,7 +4478,7 @@ function WorldMapContent({
                         onCrossExit={roadWalk.requestExit}
                         onWalkArrive={roadWalk.arriveAtTile}
                         onWorldAuthority={worldAuthority}
-                        worldMovementBlocked={() => isTraveling || travelRequestInFlight.current || warShrine.open}
+                        worldMovementBlocked={() => isTraveling || travelRequestInFlight.current || warShrine.open || worldBossQueueOpen}
                         hudLayer={
                     <>{!vaultRaid && warShrine.tracker}<SectorHud key={selectedSector}
                         sector={selectedSector}
@@ -4495,6 +4509,7 @@ function WorldMapContent({
                             <>
                             {!vaultRaid && <SectorVillageEntrance sector={selectedSector} village={character.village} present={sectorIsCurrent}
                                 onEnter={name => { const village = locations.find(l => l.type === "village" && l.name === name); if (village) enterLandmark(village); }} />}
+                            {!vaultRaid&&<ClanShrineGateway character={character} sector={selectedSector} present={sectorIsCurrent} blocked={combatActive||isTraveling} sharedImages={sharedImages} onLaunchBattle={onLaunchClanWarBattle}/>}
                             {!vaultRaid && <WorldSectorOverlayLayer
                                 sector={selectedSector}
                                 biome={ambienceBiomeForSector(selectedSector)}
@@ -4504,7 +4519,7 @@ function WorldMapContent({
                                 vault={sectorIsCurrent ? sectorOverlayVault : null}
                                 traceSigns={sectorTraces?.signs ?? []}
                                 shrine={sectorOverlayShrine}
-                                boss={sectorOverlayBoss}
+                                boss={sectorOverlayBoss} worldBoss={sectorIsCurrent ? worldBossStandeeIn(selectedSector) : null}
                                 fieldStory={sectorIsCurrent && fieldObjective?.pointId && fieldObjective.sector === selectedSector ? {
                                     pointId: fieldObjective.pointId, title: fieldObjective.name, tile: fieldObjective.tile,
                                     onOpen: () => setFieldScene({ questId: fieldObjective.questId, pointId: fieldObjective.pointId! }),
@@ -4582,6 +4597,7 @@ function WorldMapContent({
                                 document.body,
                             )}
 
+                            {worldBossQueueOpen && !vaultRaid && createPortal(<Suspense fallback={null}><WorldBossQueueHost currentSector={currentSector} onClose={closeWorldBossQueue} character={character} creatorItems={wmCreatorItems} savedBloodlines={savedBloodlines} sharedImages={sharedImages} onVersionedCharacter={onVersionedCharacter} onRecordBattle={onRecordBattle} /></Suspense>, document.body)}
                             {bossDialog && createPortal(
                                 <ModalDialogScrim label={`${bossDialog.name} — encounter`} onBackdrop={() => undefined} onEscape={() => undefined}>
                                     <div className="card" style={{ maxWidth: 380, width: "88%", maxHeight: "88dvh", overflowY: "auto", textAlign: "center", padding: 18, border: "1px solid rgba(236,91,56,.6)" }} onClick={(e) => e.stopPropagation()}>
@@ -5039,7 +5055,6 @@ function WorldMapContent({
                     label={currentSector === FESTIVAL_SECTOR ? "\u2190 Sunscar Festival" : isWildSector(currentSector) ? `\u2190 Return to Sector ${currentSector}` : "\u2190 Village"}
                 />
             )}
-            <Suspense fallback={null}><WorldBossMapCalloutOverlay showCallout={!wmZoom.active} event={worldBossEvent} sector={worldBossSector} currentSector={currentSector} isTraveling={isTraveling} activate={handleWorldBossMarker} open={worldBossQueueOpen} onClose={closeWorldBossQueue} character={character} creatorItems={wmCreatorItems} savedBloodlines={savedBloodlines} sharedImages={sharedImages} onVersionedCharacter={onVersionedCharacter} onRecordBattle={onRecordBattle} /></Suspense>
             {hollowGateMenu && (
                 <HollowGateEntryMenu
                     hollowGateEventConfig={hollowGateEventConfig}
@@ -5092,7 +5107,7 @@ function WorldMapContent({
                     { c: "volcano", x: 16, y: 20 },
                     { c: "snow", x: 76, y: 20 },
                     { c: "forest", x: 16, y: 74 },
-                    { c: "shadow", x: 86, y: 64 },
+                    { c: "shadow", x: 91, y: 84 },
                     { c: "central", x: 48, y: 40 },
                 ].map((g) => (
                     <div key={g.c} className={"world-biome-glow wbg-" + g.c} style={{ left: g.x + "%", top: g.y + "%" }} aria-hidden="true" />
@@ -5152,12 +5167,12 @@ function WorldMapContent({
                         }
                         style={{ left: sector.x + "%", top: sector.y + "%", ...sectorMarkerStyle(sector.id) }}
                         data-academy-hint={academySectorTargetId === sector.id ? "Next · travel here" : undefined} data-academy-autoscroll={academySectorTargetId === sector.id ? "true" : undefined}
-                        onClick={() => sector.id === worldBossSector ? handleWorldBossMarker(sector.id) : triggerTravelPoint(sector.id)} onMouseEnter={() => setRouteHoverSector(sector.id)} onMouseLeave={() => setRouteHoverSector((current) => (current === sector.id ? null : current))}
-                        title={(currentSector === sector.id ? `You are here | ${sectorTitle}` : sectorTitle) + (sector.id === worldBossSector ? ` | ${worldBossEvent?.bossName ?? "World boss"} is here; travel in or open its team queue` : "") + (richnessLabel ? ` | ${richnessLabel}` : "") + (contract ? (contract.nightOnly ? " | Night contract posted today" : " | Contract posted today") : "")}
+                        onClick={() => triggerTravelPoint(sector.id)} onMouseEnter={() => setRouteHoverSector(sector.id)} onMouseLeave={() => setRouteHoverSector((current) => (current === sector.id ? null : current))}
+                        title={(currentSector === sector.id ? `You are here | ${sectorTitle}` : sectorTitle) + (sector.id === worldBossSector ? ` | ${worldBossEvent?.bossName ?? "World boss"} is here; enter the sector and click it to join the raid` : "") + (richnessLabel ? ` | ${richnessLabel}` : "") + (contract ? (contract.nightOnly ? " | Night contract posted today" : " | Contract posted today") : "")}
                         aria-label={currentSector === sector.id ? "You are here, " + (sectorName(sector.id) ?? ("Sector " + sector.id)) + (sector.id === worldBossSector ? ", world boss muster" : "") : "Travel to " + (sectorName(sector.id) ?? ("Sector " + sector.id)) + " (Sector " + sector.id + ")" + (sector.id === worldBossSector ? ", world boss location" : "")}
                     >
                         {currentSector === sector.id && <span className="atlas-you-label" aria-hidden="true">YOU</span>}
-                        {sector.id === 99 ? <GameArtIcon kind="warning" size={20} /> : sector.id}<WorldBossSectorFlag event={worldBossEvent} sector={sector.id} />
+                        {sector.id === 99 ? <GameArtIcon kind="warning" size={20} /> : sector.id}
                         {scoutedSectors.has(sector.id) && (
                             <span
                                 style={{ position: "absolute", top: -5, right: -5, fontSize: 11, lineHeight: 1, filter: "drop-shadow(0 0 2px #000)", pointerEvents: "none" }}

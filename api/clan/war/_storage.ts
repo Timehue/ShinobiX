@@ -11,6 +11,10 @@
 
 import { kv } from '../../_storage.js';
 import { setSafeRecordValue } from '../../_utils.js';
+import {
+    completeClanWarMatch, closeClanWarCampaign, pruneClanWarQueue, projectClanWarCampaign,
+    type ClanWarCampaign, type ClanWarCampaignView,
+} from '../../../shared/clan-war-campaign.js';
 
 export type ChallengeMode = 'pvp1v1' | 'pvp2v2' | 'pet1v1' | 'pet2v2' | 'tilecards';
 
@@ -27,6 +31,8 @@ export type ChallengeResult = 'from-wins' | 'to-wins' | 'draw';
 
 export type ClanChallenge = {
     id: string;
+    /** V2 queue admission; its budget and scoring are owned by the campaign. */
+    campaignMatchId?: string;
     mode: ChallengeMode;
     fromClan: string;
     // Challenger player name(s). Hidden from the defender's queue UI
@@ -62,6 +68,8 @@ export type ClanChallenge = {
 
 export type ClanWar = {
     id: string;                 // sorted-pair slug
+    /** Absent on legacy HP wars. Never reinterpret an existing war as v2. */
+    campaign?: ClanWarCampaign;
     clans: [string, string];    // canonical sorted alphabetically
     villages: Record<string, string>; // clan → village at war-declare time
     hp: Record<string, number>; // clan → current HP
@@ -218,6 +226,15 @@ export function canActAsClanLeadership(role: string): boolean {
 // 14-day auto-finalize so the leaderboard stays consistent.
 export function computeMvpByClan(war: ClanWar): Record<string, string> {
     const mvp: Record<string, string> = {};
+    if (war.campaign) {
+        for (const clan of war.clans) {
+            const ranked = Object.values(war.campaign.contributions).filter(entry => entry.clan === clan)
+                .sort((a, b) => (b.normalPoints + b.shrinePoints) - (a.normalPoints + a.shrinePoints)
+                    || b.wins - a.wins || b.played - a.played || a.name.localeCompare(b.name));
+            if (ranked[0]) setSafeRecordValue(mvp, clan, ranked[0].name);
+        }
+        return mvp;
+    }
     for (const clan of war.clans) {
         const tallies = new Map<string, { wins: number; damage: number }>();
         for (const past of war.completedChallenges) {
@@ -253,6 +270,12 @@ export function finalizeClanWarEnd(
     opts: { endedAt: number; winnerClan?: string; reason: 'hp-zero' | 'timeout' | 'dissolution' }
 ): ClanWar {
     const { endedAt, winnerClan, reason } = opts;
+    if (war.campaign && war.campaign.closedAt === undefined) {
+        const surrenderingClan = reason === 'dissolution' ? war.clans.find(clan => clan !== winnerClan) : undefined;
+        const campaign = closeClanWarCampaign(war.campaign, endedAt,
+            reason === 'dissolution' ? endedAt<war.campaign.startsAt?'withdrawal':'dissolution' : 'time', surrenderingClan);
+        war = { ...war, campaign, winnerClan: campaign.winnerClan };
+    }
     // Sweep any in-flight challenges → cancelled, move to history.
     const sweep = war.pendingChallenges.map(ch => ({
         ...ch,
@@ -263,10 +286,10 @@ export function finalizeClanWarEnd(
     const finalWar: ClanWar = {
         ...war,
         endedAt,
-        winnerClan: winnerClan ?? war.winnerClan,
+        winnerClan: war.campaign?war.campaign.winnerClan:winnerClan ?? war.winnerClan,
         pendingChallenges: [],
         completedChallenges: history,
-        updatedAt: endedAt,
+        updatedAt: Math.max(war.updatedAt, endedAt),
     };
     // MVP from the full completed-challenge history.
     finalWar.mvpByClan = computeMvpByClan(finalWar);
@@ -288,6 +311,16 @@ export function applyLazyClanWarExpiry(
     war: ClanWar,
     now: number = Date.now()
 ): { war: ClanWar; changed: boolean; needsCooldownStamp: boolean } {
+    if (war.campaign) {
+        // The campaign service reconciles authoritative terminal battles before
+        // closing. A pure read projection must never freeze a partially settled
+        // score or apply the legacy unanswered-challenge HP penalty.
+        if (war.endedAt) return { war, changed: false, needsCooldownStamp: false };
+        const campaign = pruneClanWarQueue(war.campaign, now);
+        const changed = JSON.stringify(campaign.queue) !== JSON.stringify(war.campaign.queue)
+            || JSON.stringify(campaign.matches) !== JSON.stringify(war.campaign.matches);
+        return { war: changed ? { ...war, campaign } : war, changed, needsCooldownStamp: false };
+    }
     let changed = false;
     let needsCooldownStamp = false;
     let next = war;
@@ -393,6 +426,19 @@ export function isTentativeAutoConfirmable(ch: ClanChallenge, now: number = Date
 // (server-driven game outcome). Caller is responsible for kv.set'ing
 // the result and stamping the rematch cooldown when warJustEnded.
 export function applyFinalResult(war: ClanWar, ch: ClanChallenge, result: ChallengeResult, now: number): { war: ClanWar; completed: ClanChallenge; warJustEnded: boolean } {
+    if (war.campaign) {
+        if (!ch.campaignMatchId) throw new Error('Campaign result requires a server-admitted match.');
+        const settled = completeClanWarMatch(war.campaign, ch.campaignMatchId, result, now);
+        if (!settled.ok) throw new Error(`Campaign result refused: ${settled.code}`);
+        const completed: ClanChallenge = { ...ch, status: 'completed', result, completedAt: now,
+            tentativeResult: undefined, tentativeBy: undefined, tentativeAt: undefined };
+        const campaign = ch.battleId ? { ...settled.campaign, matches: { ...settled.campaign.matches,
+            [ch.campaignMatchId]: { ...settled.campaign.matches[ch.campaignMatchId], battleId: ch.battleId } } } : settled.campaign;
+        return { war: { ...war, campaign, updatedAt: Math.max(war.updatedAt, now),
+            pendingChallenges: war.pendingChallenges.filter(entry => entry.id !== ch.id),
+            completedChallenges: [completed, ...war.completedChallenges.filter(entry => entry.id !== ch.id)].slice(0, MAX_COMPLETED_HISTORY) },
+            completed, warJustEnded: false };
+    }
     const dmg = CHALLENGE_DAMAGE[ch.mode] ?? 0;
     const winnerClanName = result === 'from-wins' ? ch.fromClan : result === 'to-wins' ? war.clans.find(c => c !== ch.fromClan) : undefined;
     const loserClanName = winnerClanName ? war.clans.find(c => c !== winnerClanName) : undefined;
@@ -441,7 +487,7 @@ export function applyFinalResult(war: ClanWar, ch: ClanChallenge, result: Challe
 // who is NOT a member of the sending clan. Defenders only see clan +
 // mode for pending/queuing challenges — the names appear once status
 // flips to 'accepted' (battle is committed and anonymity ends).
-export function redactClanWarForViewer(war: ClanWar, viewerClan: string): ClanWar {
+export function redactClanWarForViewer(war: ClanWar, viewerClan: string, viewerName = '', now = Date.now(), scoutLevel = 0): ClanWar & { campaignView?: ClanWarCampaignView } {
     const redactedPending = war.pendingChallenges.map(ch => {
         if (ch.status !== 'pending' && ch.status !== 'queuing') return ch;
         // Caller is on the sending side → see everything.
@@ -449,5 +495,6 @@ export function redactClanWarForViewer(war: ClanWar, viewerClan: string): ClanWa
         // Otherwise drop fromPlayer/fromPlayer2 from the wire response.
         return { ...ch, fromPlayer: '', fromPlayer2: undefined };
     });
-    return { ...war, pendingChallenges: redactedPending };
+    return { ...war, pendingChallenges: redactedPending,
+        ...(war.campaign ? { campaign: undefined, campaignView: projectClanWarCampaign(war.campaign, viewerClan, viewerName, now, scoutLevel) } : {}) };
 }

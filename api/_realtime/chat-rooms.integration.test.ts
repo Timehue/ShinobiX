@@ -25,6 +25,8 @@ const RIVAL = 'roomrival';
 const GUEST = 'roomguest';
 const VILLAGE = 'Frostfang Village';
 let tokens: Record<string, string>;
+let sockets: typeof import('./socket.js');
+let notify: typeof import('./notify.js');
 
 before(async () => {
     process.env.NODE_ENV = 'test';
@@ -38,11 +40,14 @@ before(async () => {
     await kv.set(`save:${RIVAL}`, { _saveVersion: 1, character: { name: RIVAL, village: 'Moonshadow Village', clan: 'Ash Clan', level: 9 } });
     await kv.set(`save:${GUEST}`, { _saveVersion: 1, character: { name: GUEST, village: VILLAGE, clan: 'Storm Clan', level: 2 } });
     await kv.set(authKey(GUEST), { guest: true });
+    // Load the server graph as fixture setup. The room-admission deadline
+    // should measure the Socket.IO contract, including its acknowledgements,
+    // rather than first-time TypeScript module loading under parallel workers.
+    sockets = await import('./socket.js');
+    notify = await import('./notify.js');
 });
 
 test('tavern and clan rooms admit only the readers their GETs admit', { timeout: 30_000 }, async (t) => {
-    const sockets = await import('./socket.js');
-    const notify = await import('./notify.js');
     const server = createServer();
     await new Promise<void>((done) => server.listen(0, '127.0.0.1', done));
     t.after(async () => { await sockets.closeSocketServer(); if (server.listening) await new Promise<void>((done) => server.close(() => done())); });
@@ -106,7 +111,6 @@ test('tavern and clan rooms admit only the readers their GETs admit', { timeout:
 });
 
 test('a subscribe loop is throttled per socket', { timeout: 30_000 }, async (t) => {
-    const sockets = await import('./socket.js');
     const server = createServer();
     await new Promise<void>((done) => server.listen(0, '127.0.0.1', done));
     t.after(async () => { await sockets.closeSocketServer(); if (server.listening) await new Promise<void>((done) => server.close(() => done())); });

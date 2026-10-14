@@ -21,6 +21,8 @@ type ClanBlob = {
     founderName?: string;
     image?: string;
     createdAt?: number;
+    serverCreatedAt?: number;
+    memberJoinedAt?: Record<string, number>;
     level?: number;
     xp?: number;
     members?: Array<Record<string, unknown>>;
@@ -109,7 +111,7 @@ export function validateClanSaveWrite(
     // or treasury debit was co-written. A client clan save cannot forge, clear,
     // or replace that evidence, including on the first write.
     // clanBossRewardReceipts is the weekly Clan Boss settlement's pay-once ledger.
-    for (const field of ['pvpWarXpReceipts', 'settlementReceipts', 'clanMissionSettlements', 'clanExchangeSettlements', 'clanBossRewardReceipts']) {
+    for (const field of ['pvpWarXpReceipts', 'settlementReceipts', 'clanMissionSettlements', 'clanExchangeSettlements', 'clanBossRewardReceipts','campaignHistory','campaignPrestige','program']) {
         if (prev[field] !== undefined) next[field] = prev[field];
         else delete next[field];
     }
@@ -235,7 +237,32 @@ export function validateClanSaveWrite(
         } else {
             next.members = incomingMembers;
         }
+    } else if (Object.prototype.hasOwnProperty.call(incoming, 'members')) {
+        next.members = prev.members;
+        suppressed.push('invalid members roster');
     }
+
+    // Eligibility dates belong to the server. Keep the original display date
+    // for compatibility, but a newly created clan cannot backdate its war age.
+    // Pre-cutover rosters are grandfathered from the existing stored clan date;
+    // every genuinely new membership is stamped now, including a rejoin.
+    const now = Date.now();
+    const validDate = (raw: unknown): number | undefined => {
+        const date = Number(raw);
+        return Number.isSafeInteger(date) && date > 0 && date <= now ? date : undefined;
+    };
+    const establishedAt = validDate(prev.serverCreatedAt)
+        ?? (existing ? validDate(prev.createdAt) ?? now - 7 * 86_400_000 : now);
+    next.serverCreatedAt = establishedAt;
+    const previousMembers = new Set((Array.isArray(prev.members) ? prev.members : [])
+        .map(member => safeName(String(member?.name ?? ''))).filter(Boolean));
+    const priorJoined = prev.memberJoinedAt && typeof prev.memberJoinedAt === 'object' ? prev.memberJoinedAt : {};
+    next.memberJoinedAt = Object.fromEntries((Array.isArray(next.members) ? next.members : []).flatMap(member => {
+        const slug = safeName(String(member?.name ?? ''));
+        if (!slug) return [];
+        const joinedAt = previousMembers.has(slug) ? validDate(priorJoined[slug]) ?? establishedAt : now;
+        return [[slug, joinedAt]];
+    }));
 
     // ── roleOverrides ───────────────────────────────────────────────
     // Only Founder (or admin) can appoint or change roles. A non-Founder

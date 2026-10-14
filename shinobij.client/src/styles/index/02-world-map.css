@@ -437,6 +437,12 @@ html.wm-zoom .world-map-scroll .vw-sector-claim {
     html.wm-zoom .world-map-scroll .generated-world-map {
         transition: none !important;
     }
+    /* The marker loops honour Reduce Motion like the world-boss marker does
+       (world-boss-map.css). The ring and flag still show, just still. */
+    .atlas-sector-deaths-gate,
+    .atlas-sector-weekly-boss,
+    .atlas-boss-flag,
+    .atlas-hunt-flag { animation: none; }
 }
 
 /* ── Mobile idle budget: freeze the decorative loops, keep the decoration ─────

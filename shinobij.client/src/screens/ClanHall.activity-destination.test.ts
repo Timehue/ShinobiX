@@ -15,11 +15,11 @@ const screen = readFileSync(new URL('./ClanHall.tsx', import.meta.url), 'utf8');
 
 test('the Clan Hall opens on the goal board when an activity asks for it', () => {
     // The one-shot hint is honoured on a fresh mount…
-    assert.match(screen, /return initial === "boss" \|\| initial === "territory" \|\| initial === "missions" \? initial : "exchange";/);
+    assert.match(screen, /return initial === "boss" \|\| initial === "territory" \|\| initial === "missions" \|\| initial === "wars" \|\| initial === "exchange" \? initial : "overview";/);
     // …and on a Clan Hall that is already open on another tab.
     assert.match(screen, /useActivitySectionRequests(?:<[^>]+>)?\("clan\.initialView", \["boss", "missions"\], setView\)/);
-    // Ordinary entry is unchanged: without a hint the Hall still opens on the Exchange.
-    assert.match(screen, /} catch \{ return "exchange"; \}/);
+    // Ordinary entry now opens on the shared-goal overview. Explicit activity hints still win.
+    assert.match(screen, /} catch \{ return "overview"; \}/);
     // The goal board is a real tab with the clan's objectives, progress and rewards.
     assert.match(screen, /view === "missions" && \(?\s*<div className="clan-mission-grid">/);
     assert.match(screen, /clanMissionProgress\(clanData, mission\.key\)/);

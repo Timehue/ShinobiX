@@ -11,7 +11,7 @@
  * interval, so a chip appears/clears within a few seconds of the cache moving.
  */
 import type { Screen } from "../types/core";
-import { sharedClanWarCache } from "./clan-war-api";
+import { sharedClanWarCache } from "./clan-war-read-api";
 import {
     activeVillageWarsFor,
     loadAllSectorTerritories,

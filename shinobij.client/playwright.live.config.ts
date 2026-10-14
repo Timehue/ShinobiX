@@ -31,6 +31,7 @@ export default defineConfig({
         env: {
             NODE_ENV: 'test',
             SHINOBIX_QA_MEMORY_KV: '1',
+            CLAN_CAMPAIGN_QA:'1',
             PORT: port,
             SESSION_SECRET: 'live-express-e2e-session-secret-32-bytes-minimum',
             ADMIN_PASSWORD: 'live-express-e2e-admin',

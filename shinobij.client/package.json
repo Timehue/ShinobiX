@@ -17,6 +17,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test:e2e": "playwright test",
+    "test:e2e:travel-handoff": "node --import tsx node_modules/@playwright/test/cli.js test -c playwright.travel-handoff.config.ts",
     "build:dojo-qa": "vite build --config scripts/vite.dojo-qa.config.mjs --configLoader runner",
     "test:e2e:dojo-circuit": "playwright test -c playwright.dojo-circuit.config.ts",
     "test:e2e:live": "playwright test -c playwright.live.config.ts",

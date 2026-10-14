@@ -7,6 +7,9 @@ import { quietRoadCooldowns } from '../e2e-live/helpers/quiet-road';
 const evidence = process.env.SECTOR_HUD_EVIDENCE_DIR || '../docs/sector-hud-layout-2026-09-19';
 mkdirSync(evidence, { recursive: true });
 
+const sectorInfo = (page: Page) => page.locator('.sector-hud-inline-info, .sector-hud-panel[aria-labelledby$="-info-title"]');
+const infoTrigger = (page: Page) => page.getByRole('button', {name:/^Sector Info(?: · Claim ready)?$/});
+
 test('optional map notices reopen for new content, sector changes and visible re-entry', async ({ page }) => {
     await page.goto('/e2e/fixtures/map-notification.html');
     const collapse = () => page.getByRole('button', { name: 'Collapse field lesson notice' }).click();
@@ -58,6 +61,152 @@ async function boot(page: Page, count = 8, configure?: () => Promise<void>, sect
     await expect(page.locator('.sector-image-map')).toBeVisible({timeout: 60_000});
 }
 
+for (const [width,height] of [[360,560],[412,800],[390,664]]) test(`mobile scrolls below map for details at ${width}x${height}`, async ({page}, testInfo) => {
+    await page.setViewportSize({width,height});
+    await boot(page,100,async()=>{await chatServer(page);});
+    await expect(page.locator('.sector-hud-scroll-cue')).toBeVisible();
+    const initialWidth = (await page.locator('.sector-image-map').boundingBox())!.width;
+    expect(initialWidth).toBeGreaterThan(width - 40);
+    const original = await page.locator('.sector-player-tile').getAttribute('aria-label');
+    await page.locator('.sector-nearby-heading').evaluate(element => window.scrollTo(0, scrollY + element.getBoundingClientRect().top - 80));
+    await expect.poll(()=>page.evaluate(()=>scrollY)).toBeGreaterThan(0);
+    await expect(page.getByRole('button',{name:'Attack Shinobi001',exact:true})).toBeInViewport();
+    await page.locator('.sector-nearby-scroll').evaluate(element=>{element.scrollTop=element.scrollHeight;});
+    const last = page.getByRole('button',{name:'Attack Shinobi100',exact:true});
+    await last.scrollIntoViewIfNeeded();
+    await expect(last).toBeInViewport();
+    const nav = (await page.locator('.mobile-bottom-nav').boundingBox())!;
+    expect((await last.boundingBox())!.y + (await last.boundingBox())!.height).toBeLessThan(nav.y);
+    await expect(page.locator('.sector-player-tile')).toHaveAttribute('aria-label',original!);
+    await page.screenshot({path:testInfo.outputPath(`scroll-roster-${width}x${height}.png`)});
+    await page.getByRole('button',{name:'Sector Info',exact:true}).click();
+    await expect(page.locator('.sector-hud-inline-info')).toBeVisible();
+    await expect(page.getByRole('dialog',{name:'Sector Info',exact:true})).toHaveCount(0);
+    await page.locator('.sector-hud-inline-info').scrollIntoViewIfNeeded();
+    expect((await page.locator('.sector-image-map').boundingBox())!.width).toBeCloseTo(initialWidth,0);
+    await page.screenshot({path:testInfo.outputPath(`scroll-info-${width}x${height}.png`)});
+    await page.getByRole('button',{name:'Close Sector Info'}).click();
+    await openChat(page);
+    await expect(page.locator('.sector-chat')).toHaveAttribute('data-layout','inline');
+    await expect(page.getByRole('dialog',{name:'Sector chat',exact:true})).toHaveCount(0);
+    await page.getByRole('textbox',{name:/Message everyone in/}).scrollIntoViewIfNeeded();
+    await expect(page.getByRole('textbox',{name:/Message everyone in/})).toBeInViewport();
+});
+
+test('lightweight phones walk through intermediate positions', async ({page})=>{
+    await page.emulateMedia({reducedMotion:'no-preference'});
+    await page.setViewportSize({width:360,height:560});
+    await page.goto('/e2e/fixtures/sector-hud.html?motion');
+    await page.evaluate(()=>document.documentElement.classList.add('lite-fx'));
+    const self=page.locator('.sector-avatar-overlay .sector-avatar-figure'), peer=page.locator('.sector-peer');
+    await expect(peer).toBeVisible();
+    await expect(self).not.toHaveClass(/is-walking/);
+    await expect(peer).not.toHaveClass(/is-walking/);
+    const start = await Promise.all([self.boundingBox(),peer.boundingBox()]);
+    await page.evaluate(()=>window.sectorFixture.configure({tile:82,peerTile:82}));
+    await expect(self).toHaveClass(/is-walking/);
+    await expect(peer).toHaveClass(/is-walking/);
+    const samples=await page.evaluate(async()=>{
+        const nodes=[document.querySelector('.sector-avatar-overlay .sector-avatar-figure')!,document.querySelector('.sector-peer')!];
+        const result:string[][]=[];
+        for(let i=0;i<8;i++){await new Promise(requestAnimationFrame);result.push(nodes.map(node=>getComputedStyle(node).transform));}
+        return result;
+    });
+    await expect(self).not.toHaveClass(/is-walking/);
+    await expect(peer).not.toHaveClass(/is-walking/);
+    const end=await Promise.all([self.boundingBox(),peer.boundingBox()]);
+    for(let i=0;i<2;i++){
+        expect(new Set(samples.map(row=>row[i])).size).toBeGreaterThan(1);
+        expect(end[i]!.x).toBeGreaterThan(start[i]!.x+20);
+    }
+    await expect(page.locator('.sector-avatar-dust')).toHaveCount(0);
+});
+
+async function expectUncoveredControl(page: Page, control: ReturnType<Page['locator']>) {
+    await control.evaluate(element => element.scrollIntoView({block:'center', inline:'nearest'}));
+    await expect(control).toBeInViewport();
+    const result = await control.evaluate(element => {
+        const r = element.getBoundingClientRect();
+        const top = document.querySelector('.mobile-top-hud')?.getBoundingClientRect().bottom ?? 0;
+        const nav = document.querySelector('.mobile-bottom-nav')?.getBoundingClientRect();
+        const bottom = nav?.height ? nav.top : innerHeight;
+        return {covered: document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)?.closest('button') !== element,
+            horizontal: r.left >= 0 && r.right <= innerWidth, vertical: r.top >= top && r.bottom <= bottom};
+    });
+    expect(result).toEqual({covered:false, horizontal:true, vertical:true});
+}
+
+test('touch scrolling past the last nearby player continues down to chat',async({page},info)=>{
+    test.skip(info.project.name!=='chromium-touch');
+    await page.setViewportSize({width:568,height:320});
+    await boot(page,100,async()=>{await chatServer(page);});
+    await expect(page.locator('.sector-player-row')).toHaveCount(100);
+    const roster=page.locator('.sector-nearby-scroll');
+    await roster.evaluate(element=>element.scrollIntoView({block:'center'}));
+    await roster.evaluate(element=>{element.scrollTop=element.scrollHeight;});
+    const before=await page.evaluate(()=>scrollY);
+    const original=await page.locator('.sector-player-tile').getAttribute('aria-label');
+    const cdp=await page.context().newCDPSession(page);
+    const r=(await roster.boundingBox())!;
+    const point={x:r.x+r.width/2,y:Math.min(240,r.y+r.height-24)};
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[point]});
+    for(let i=1;i<=6;i++)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{...point,y:point.y-i*20}]});
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    await expect.poll(()=>page.evaluate(()=>scrollY)).toBeGreaterThan(before);
+    await expect(page.locator('.sector-player-tile')).toHaveAttribute('aria-label',original!);
+    await expectUncoveredControl(page,page.locator('.sector-chat-toggle'));
+});
+
+test('mobile rotation preserves the Info surface, chat draft and current tile', async ({page},info) => {
+    await page.setViewportSize({width:390,height:664});
+    await boot(page,8,async()=>{await chatServer(page);});
+    const original = await page.locator('.sector-player-tile').getAttribute('aria-label');
+    await page.getByRole('button',{name:'Sector Info',exact:true}).click();
+    await expect(page.locator('.sector-hud-inline-info')).toBeVisible();
+    await page.setViewportSize({width:844,height:390});
+    await expect(page.locator('.sector-hud-inline-info')).toBeVisible();
+    await expectUncoveredControl(page,page.getByRole('button',{name:'Close Sector Info'}));
+    await page.setViewportSize({width:1366,height:768});
+    const dialog = page.getByRole('dialog',{name:'Sector Info',exact:true});
+    await expect(dialog).toBeVisible();
+    await expect(page.locator('.sector-hud-inline-info')).toHaveCount(0);
+    await expectUncoveredControl(page,page.getByRole('button',{name:'Close Sector Info'}));
+    await page.setViewportSize({width:360,height:560});
+    await expect(page.locator('.sector-hud-inline-info')).toBeVisible();
+    await expect(dialog).toHaveCount(0);
+    await page.getByRole('button',{name:'Close Sector Info'}).click();
+    await openChat(page);
+    const box = page.getByRole('textbox',{name:/Message everyone in/});
+    await box.fill('Keep this draft while rotating.');
+    await page.setViewportSize({width:844,height:390});
+    await openChat(page);
+    await expect(box).toHaveValue('Keep this draft while rotating.');
+    await page.setViewportSize({width:390,height:664});
+    await openChat(page);
+    await expect(box).toHaveValue('Keep this draft while rotating.');
+    await expectUncoveredControl(page,page.getByRole('button',{name:'Send message'}));
+    await expect(page.locator('.sector-player-tile')).toHaveAttribute('aria-label',original!);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    await page.screenshot({path:info.outputPath('rotated-chat.png')});
+});
+
+for (const [width,height] of [[360,560],[412,800],[390,664],[844,390],[568,320]]) test(`Lavafront information and actions stay unclipped at ${width}x${height}`,async({page},info)=>{
+    await page.setViewportSize({width,height});
+    await page.goto('/e2e/fixtures/sector-hud.html');
+    await expect(page.locator('.sector-hud')).toBeVisible();
+    await page.evaluate(()=>window.sectorFixture.configure({sector:99}));
+    await expect(page.locator('.sector-hud-heading')).toContainText('The Lavafront Gate');
+    await page.getByRole('button',{name:'Sector Info · Claim ready'}).click();
+    await expect(page.locator('.sector-hud-inline-info')).toBeVisible();
+    for (const control of await page.locator('.sector-hud button').all()) await expectUncoveredControl(page,control);
+    expect(await page.locator('.sector-hud').evaluate(element=>element.scrollWidth<=element.clientWidth+1)).toBe(true);
+    await page.getByRole('button',{name:'Claim 288 ryo'}).click();
+    await page.getByRole('button',{name:'Fight Garrison'}).click();
+    await page.getByRole('button',{name:'Raid Controlled Sector'}).click();
+    expect(await page.evaluate(()=>window.sectorFixture.events)).toEqual(['claim','garrison','raid-sector']);
+    await page.screenshot({path:info.outputPath(`lavafront-${width}x${height}.png`)});
+});
+
 test('capture sector baseline', async ({page}) => {
     test.skip(process.env.SECTOR_HUD_BASELINE !== '1');
     for (const [width, height] of [[1366,768],[390,844]]) {
@@ -72,7 +221,9 @@ for (const [width, height] of [[320,568],[360,800],[390,844],[430,932],[667,375]
     test(`HUD fits ${width}x${height}`, async ({page}) => {
         await page.setViewportSize({width, height});
         await boot(page, 25);
-        const trigger = page.getByRole('button', {name: 'Sector Info'});
+        const compact = width < 980;
+        if (compact) await page.locator('.sector-hud').scrollIntoViewIfNeeded();
+        const trigger = infoTrigger(page);
         await expect(trigger).toBeVisible();
         await expect(page.getByRole('button',{name:/Players Here|^Actions$|^Recover$|^Leave$/})).toHaveCount(0);
         await expect(page.getByRole('list',{name:'Sector players'})).toBeVisible();
@@ -91,7 +242,7 @@ for (const [width, height] of [[320,568],[360,800],[390,844],[430,932],[667,375]
         await page.locator('.sector-image-map img').evaluateAll(images=>Promise.all(images.map(image=>(image as HTMLImageElement).decode().catch(()=>{}))));
         const closedMap = await page.locator('.sector-image-map').boundingBox();
         const closedHud = await page.locator('.sector-hud').boundingBox();
-        if (width === 390 || width >= 980) {
+        if (width >= 980) {
             const nav = await page.locator('.mobile-bottom-nav').boundingBox();
             expect((nav?.height ? nav.y : height) - (closedHud!.y + closedHud!.height)).toBeLessThanOrEqual(14);
             await expect(page.getByRole('list', {name: 'Sector players'})).toBeVisible();
@@ -100,14 +251,14 @@ for (const [width, height] of [[320,568],[360,800],[390,844],[430,932],[667,375]
         if (width === 1366) await expect(page.locator('.sector-stage-routes')).toContainText('Moonstone Rise');
         await page.screenshot({path: `${evidence}/after-${width}x${height}-closed.png`});
         await trigger.click();
-        const panel = page.getByRole('dialog', {name: 'Sector Info', exact: true});
+        const panel = sectorInfo(page);
         await expect(panel).toBeVisible();
         await expect(page.locator('.sector-player-row')).toHaveCount(25);
         const bounds = await panel.boundingBox();
         expect(bounds!.y).toBeGreaterThanOrEqual(0);
         expect(bounds!.x).toBeGreaterThanOrEqual(0);
         expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
-        expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(height);
+        if (!compact) expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(height);
         const controls = await page.locator('.sector-hud-controls button, .sector-hud-panel-heading button, .sector-roster-action').evaluateAll(elements =>
             elements.map(element => { const r = element.getBoundingClientRect(); return [r.width, r.height]; }));
         for (const [w,h] of controls) { expect(w).toBeGreaterThanOrEqual(44); expect(h).toBeGreaterThanOrEqual(44); }
@@ -116,7 +267,7 @@ for (const [width, height] of [[320,568],[360,800],[390,844],[430,932],[667,375]
         expect(stage!.width).toBeCloseTo(closedMap!.width, 0);
         const hud = await page.locator('.sector-hud').boundingBox();
         const nav = await page.locator('.mobile-bottom-nav').boundingBox();
-        expect(stage!.y + stage!.height).toBeLessThanOrEqual(nav?.height ? nav.y : height);
+        if (!compact) expect(stage!.y + stage!.height).toBeLessThanOrEqual(nav?.height ? nav.y : height);
         if (width >= 980 || (width >= 560 && height <= 450)) {
             expect(hud!.x).toBeGreaterThanOrEqual(stage!.x + stage!.width);
             if (height <= 450) expect(stage!.width).toBeGreaterThanOrEqual(height - 150);
@@ -124,8 +275,8 @@ for (const [width, height] of [[320,568],[360,800],[390,844],[430,932],[667,375]
         else {
             expect(hud!.y).toBeGreaterThanOrEqual(stage!.y + stage!.height);
             expect(hud!.y - (stage!.y + stage!.height)).toBeLessThanOrEqual(2);
-            expect(hud!.y + hud!.height).toBeLessThanOrEqual(nav?.height ? nav.y : height);
-            expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(hud!.y);
+            expect(bounds!.y).toBeGreaterThan(hud!.y);
+            expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeGreaterThan(height);
         }
         await page.screenshot({path: `${evidence}/after-${width}x${height}-info.png`});
     });
@@ -158,7 +309,7 @@ test('nearby roster uses explicit actions and the shared current-roster gate', a
 test('dismissal consumes the gesture, isolates shortcuts and keeps the canvas mounted', async ({page}) => {
     await page.setViewportSize({width: 1366, height: 768});
     await boot(page);
-    const trigger = page.getByRole('button', {name: 'Sector Info'});
+    const trigger = infoTrigger(page);
     await expect(trigger).toBeVisible();
     const world = page.locator('.continuous-world-map');
     await expect(world).toHaveAttribute('aria-busy', 'false');
@@ -172,14 +323,14 @@ test('dismissal consumes the gesture, isolates shortcuts and keeps the canvas mo
     await expect(tile).toHaveAttribute('aria-label', original!);
     await page.keyboard.press('Escape');
     await expect(trigger).toBeFocused();
-    await expect(page.getByRole('dialog', {name:'Sector Info',exact:true})).toHaveCount(0);
+    await expect(sectorInfo(page)).toHaveCount(0);
     await trigger.click();
     // The camera follows the avatar. Pointer destinations belong to the canvas;
     // semantic tile buttons remain available to keyboard/assistive navigation.
     const bounds = await canvas.boundingBox();
     const east = {x: bounds!.width * 7 / 12, y: bounds!.height / 2};
     await canvas.click({position:east});
-    await expect(page.getByRole('dialog', {name:'Sector Info',exact:true})).toHaveCount(0);
+    await expect(sectorInfo(page)).toHaveCount(0);
     await expect(tile).toHaveAttribute('aria-label', original!);
     await canvas.click({position:east});
     await expect(tile).toHaveAttribute('aria-label', 'Current tile row 7 column 8');
@@ -213,7 +364,7 @@ test('dismissal consumes the gesture, isolates shortcuts and keeps the canvas mo
     await holdUntilMoved('ArrowLeft');
     expect(Number(await canvas.getAttribute('data-world-x'))).toBeLessThan(beforeWest);
     const settled = await tile.getAttribute('aria-label');
-    const info = page.getByRole('button', {name: 'Sector Info'});
+    const info = infoTrigger(page);
     await info.focus();
     await page.keyboard.down('ArrowRight');
     await page.waitForTimeout(350);
@@ -291,7 +442,7 @@ test('a failed roster update is read only and recovery does not reopen a closed 
     await expect(page.getByRole('button',{name:'Attack Shinobi001'})).toBeDisabled();
     await expect(page.getByText('Waiting for a current sector roster.')).toBeVisible();
     await page.evaluate(async()=>{const store=await import('/src/lib/presence-store.ts');store.pushLiveSectorPlayers(store.getLiveSectorPlayers(),22);});
-    await expect(page.getByRole('button',{name:'Sector Info'})).toHaveAttribute('aria-expanded','false');
+    await expect(infoTrigger(page)).toHaveAttribute('aria-expanded','false');
     await expect(page.getByRole('button',{name:'Attack Shinobi001'})).toBeEnabled();
 });
 
@@ -406,34 +557,34 @@ test('scouting, blocked actions, image recovery, fullscreen and authoritative co
     await page.evaluate(()=>window.sectorFixture.finish());
     await expect.poll(()=>page.evaluate(()=>window.sectorFixture.events)).toEqual([
         'attack:A Very Long Shinobi Name From the Northern Watch','reconciled:A Very Long Shinobi Name From the Northern Watch']);
-    await page.getByRole('button',{name:'Sector Info'}).click();
+    await infoTrigger(page).click();
     await page.evaluate(()=>window.sectorFixture.configure({sector:23}));
-    await expect(page.getByRole('dialog')).toHaveCount(0);
-    await page.getByRole('button',{name:'Sector Info'}).click();
+    await expect(sectorInfo(page)).toHaveCount(0);
+    await infoTrigger(page).click();
     await page.evaluate(()=>window.sectorFixture.configure({suspended:true}));
     await expect(page.locator('.sector-hud')).toHaveCount(0);
     await page.evaluate(()=>window.sectorFixture.configure({suspended:false}));
-    await expect(page.getByRole('button',{name:'Sector Info'})).toHaveAttribute('aria-expanded','false');
+    await expect(infoTrigger(page)).toHaveAttribute('aria-expanded','false');
 });
 
 test('bright terrain, enlarged text and keyboard navigation',async({page})=>{
     await page.setViewportSize({width:360,height:800});
     await boot(page,1,undefined,28);
     await page.evaluate(()=>{document.documentElement.style.fontSize='20px';});
-    await page.getByRole('button',{name:'Sector Info'}).focus();
+    await infoTrigger(page).focus();
     await page.keyboard.press('Enter');
     await page.keyboard.press('Tab');
     await expect(page.getByRole('button',{name:'Close Sector Info'})).toBeFocused();
     await page.screenshot({path:`${evidence}/snow-enlarged-text.png`});
     await page.keyboard.press('Escape');
-    await expect(page.getByRole('button',{name:'Sector Info'})).toBeFocused();
+    await expect(infoTrigger(page)).toBeFocused();
     expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
 });
 
 test('HUD accessibility',async({page})=>{
     await boot(page);
     expect((await new AxeBuilder({page}).include('.sector-hud').analyze()).violations).toEqual([]);
-    await page.getByRole('button',{name:'Sector Info'}).click();
+    await infoTrigger(page).click();
     const results=await new AxeBuilder({page}).include('.sector-hud').analyze();
     expect(results.violations).toEqual([]);
 });
@@ -450,7 +601,7 @@ test('the existing day and night vista leaves HUD text unchanged',async({page})=
         colors.push(await page.locator('.sector-hud').evaluate(element=>{
             const style=getComputedStyle(element);return [style.color,style.backgroundColor,style.filter];
         }));
-        await page.getByRole('button',{name:'Sector Info'}).click();
+        await infoTrigger(page).click();
         await page.screenshot({path:`${evidence}/vista-${hour===12?'day':'night'}-fixture.png`});
     }
     expect(colors[0]).toEqual(colors[1]);
@@ -505,6 +656,7 @@ test('nearby roster touch scrolling stays inside its own area',async({page},test
     test.skip(testInfo.project.name!=='chromium-touch');
     await boot(page,100);
     const panel=page.locator('.sector-nearby-scroll');
+    await panel.scrollIntoViewIfNeeded();
     await expect(page.getByRole('list', {name:'Sector players'})).toBeVisible();
     const r=await panel.boundingBox();
     const cdp=await page.context().newCDPSession(page);
@@ -519,42 +671,35 @@ test('nearby roster touch scrolling stays inside its own area',async({page},test
     await expect(page.locator('.sector-player-tile')).toHaveAttribute('aria-label',original!);
 });
 
-test('sector info touch scrolling stays inside its panel and dismissal does not move',async({page},testInfo)=>{
+test('sector information follows mobile page scrolling without moving the player',async({page},testInfo)=>{
     test.skip(testInfo.project.name!=='chromium-touch');
-    await page.goto('/e2e/fixtures/sector-hud.html');
-    await page.getByRole('button',{name:'Sector Info · Claim ready'}).tap();
-    const panel=page.locator('.sector-hud-panel-scroll');
-    const r=await panel.boundingBox();
+    await boot(page);
+    await page.getByRole('button',{name:'Sector Info',exact:true}).tap();
+    const info=page.locator('.sector-hud-inline-info');
+    await info.scrollIntoViewIfNeeded();
+    const original=await page.locator('.sector-player-tile').getAttribute('aria-label');
+    const r=await info.boundingBox();
     const cdp=await page.context().newCDPSession(page);
-    const point={x:r!.x+r!.width*.5,y:r!.y+r!.height-16};
-    const pageScroll=await page.evaluate(()=>scrollY);
+    const point={x:r.x+r.width*.5,y:Math.min(400,r.y+100)};
+    const before=await page.evaluate(()=>scrollY);
     await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[point]});
     for(let i=1;i<=6;i++) await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{...point,y:point.y-i*20}]});
     await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
-    await expect.poll(()=>panel.evaluate(element=>element.scrollTop)).toBeGreaterThan(0);
-    expect(await page.evaluate(()=>scrollY)).toBe(pageScroll);
-    const tile=page.getByRole('button',{name:'Move to tile row 1 column 2',exact:true});
-    await tile.tap();
-    await expect(page.getByRole('dialog',{name:'Sector Info',exact:true})).toHaveCount(0);
-    expect(await page.evaluate(()=>window.sectorFixture.events)).toEqual([]);
-    await tile.tap();
-    expect(await page.evaluate(()=>window.sectorFixture.events)).toEqual(['tile']);
+    await expect.poll(()=>page.evaluate(()=>scrollY)).toBeGreaterThan(before);
+    await expect(info).toBeVisible();
+    await expect(page.locator('.sector-player-tile')).toHaveAttribute('aria-label',original);
 });
 
-test('a fresh outside touch consumes only the dismissal gesture',async({page},testInfo)=>{
+test('mobile inline information stays expanded when the player returns to the map',async({page},testInfo)=>{
     test.skip(!testInfo.project.use.hasTouch);
     await page.setViewportSize({width:390,height:844});
     await boot(page);
-    await expect(page.locator('.continuous-world-map')).toHaveAttribute('aria-busy','false');
-    await page.getByRole('button',{name:'Sector Info'}).tap();
-    const original=await page.locator('.sector-player-tile').getAttribute('aria-label');
-    const canvas=page.locator('.continuous-world-map > canvas');
-    const bounds=await canvas.boundingBox();
-    await canvas.tap({position:{x:bounds!.width*.15,y:bounds!.height*.1}});
+    await infoTrigger(page).tap();
+    await page.evaluate(()=>scrollTo(0,0));
+    await expect(sectorInfo(page)).toBeVisible();
     await expect(page.getByRole('dialog',{name:'Sector Info',exact:true})).toHaveCount(0);
-    await expect(page.locator('.sector-player-tile')).toHaveAttribute('aria-label',original!);
-    await canvas.tap({position:{x:bounds!.width*7/12,y:bounds!.height/2}});
-    await expect(page.locator('.sector-player-tile')).toHaveAttribute('aria-label','Current tile row 7 column 8');
+    await page.getByRole('button',{name:'Close Sector Info'}).tap();
+    await expect(sectorInfo(page)).toHaveCount(0);
 });
 
 
@@ -726,43 +871,25 @@ for (const [width,height] of [[1366,768],[390,844]]) test(`sector chat listens a
     await expect(page.locator('.sector-chat-line.is-own')).toHaveCount(1);
     const hud = await page.locator('.sector-hud').boundingBox();
     const nav = await page.locator('.mobile-bottom-nav').boundingBox();
-    expect(hud!.y + hud!.height).toBeLessThanOrEqual((nav?.height ? nav.y : height) + 1);
+    if (width >= 980) expect(hud!.y + hud!.height).toBeLessThanOrEqual((nav?.height ? nav.y : height) + 1);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     const log = page.locator('.sector-chat-log');
     expect(await log.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
 });
 
-test('on a phone the chat opens as a sheet over the board and shares the slot with Sector Info',async({page})=>{
+test('on a phone chat and Sector Info expand below the map',async({page})=>{
     await page.setViewportSize({width:390,height:844});
-    await boot(page,3,async()=>{ await chatServer(page); });
-    await expect(page.locator('.sector-chat')).toHaveAttribute('data-layout', /compact|tight/);
+    await boot(page,3,async()=>{await chatServer(page);});
+    await expect(page.locator('.sector-chat')).toHaveAttribute('data-layout','inline');
     await openChat(page);
-    const sheet = page.getByRole('dialog', {name:'Sector chat', exact:true});
-    await expect(sheet).toBeVisible();
-    await expect(sheet.getByText('Heading to the north gate now.', {exact:true})).toBeVisible();
-    // The whole composer is on screen and actually takes the tap.
-    const box = sheet.getByRole('textbox', {name: /Message everyone in/});
-    const hit = await box.evaluate(element => { const r = element.getBoundingClientRect();
-        return document.elementFromPoint(r.x + 20, r.y + r.height / 2) === element && r.bottom <= innerHeight; });
-    expect(hit).toBe(true);
-    const bounds = await sheet.boundingBox();
-    const hud = await page.locator('.sector-hud').boundingBox();
-    expect(bounds!.y).toBeGreaterThanOrEqual(0);
-    expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(hud!.y);
-    // Sector Info takes the slot; the two never stack.
-    await page.getByRole('button', {name:'Sector Info'}).click();
-    await expect(page.getByRole('dialog', {name:'Sector Info', exact:true})).toBeVisible();
-    await expect(sheet).toHaveCount(0);
-    await page.getByRole('button',{name:'Close Sector Info'}).click();
-    // Dismissing the sheet with a board tap consumes that tap: the player stays put.
-    await openChat(page);
-    const tile = page.locator('.sector-player-tile');
-    const original = await tile.getAttribute('aria-label');
-    const canvas = page.locator('.continuous-world-map > canvas');
-    const mapBounds = await canvas.boundingBox();
-    await canvas.click({position:{x:mapBounds!.width * .15,y:mapBounds!.height * .1}});
-    await expect(sheet).toHaveCount(0);
-    await expect(tile).toHaveAttribute('aria-label', original!);
+    await expect(page.getByText('Heading to the north gate now.',{exact:true})).toBeVisible();
+    const box=page.getByRole('textbox',{name:/Message everyone in/});
+    await box.scrollIntoViewIfNeeded();
+    expect(await box.evaluate(element=>{const r=element.getBoundingClientRect();return document.elementFromPoint(r.x+20,r.y+r.height/2)===element;})).toBe(true);
+    await infoTrigger(page).click();
+    await expect(sectorInfo(page)).toBeVisible();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(box).toBeVisible();
 });
 
 test('a refused line keeps its draft, and the retry lands',async({page})=>{

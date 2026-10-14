@@ -9,6 +9,7 @@ import type { Character } from "../types/character";
 import { fetchWeeklyBoard, claimWeeklyMission, rewardText, weeklyClaimErrorText, type WeeklyBoard as Board } from "../lib/weekly-board";
 import { readScreenCache, writeScreenCache } from "../lib/screen-cache";
 import { GameArtIcon } from "./GameArtIcon";
+import { SharedClockLeaf } from "./SharedClockLeaf";
 
 const CACHE_TTL_MS = 60_000;
 
@@ -22,6 +23,18 @@ function isWeeklyBoard(value: unknown): value is Board {
     return typeof candidate.weekKey === "string"
         && Number.isFinite(candidate.endsAt)
         && Array.isArray(candidate.missions);
+}
+
+/**
+ * The " · Xd Yh left" countdown to the board's rotation. It reads the clock, so
+ * the board renders it inside a SharedClockLeaf, which recomputes it on every
+ * one-second tick without re-rendering the board around it.
+ */
+function timeLeftLabel(endsAt: number): string {
+    const msLeft = Math.max(0, endsAt - Date.now());
+    const days = Math.floor(msLeft / 86_400_000);
+    const hours = Math.floor((msLeft % 86_400_000) / 3_600_000);
+    return ` · ${days}d ${hours}h left`;
 }
 
 export function WeeklyBoard({ character, updateCharacter }: { character: Character; updateCharacter: (c: Character | ((prev: Character | null) => Character | null)) => void }) {
@@ -74,15 +87,13 @@ export function WeeklyBoard({ character, updateCharacter }: { character: Charact
         });
     }
 
-    // eslint-disable-next-line react-hooks/purity -- countdown is time-sensitive by design
-    const msLeft = board ? Math.max(0, board.endsAt - Date.now()) : 0;
-    const days = Math.floor(msLeft / 86_400_000);
-    const hours = Math.floor((msLeft % 86_400_000) / 3_600_000);
-
+    // The countdown is the board's only render-time clock read. It sits in a
+    // SharedClockLeaf, so it still updates on every one-second tick now that the
+    // Mission Hall no longer re-renders this board each second.
     return (
         <section className="mh-section">
             <h3 className="mh-section-title"><GameArtIcon kind="mission" size={25} /> Weekly Board</h3>
-            <p className="hint">A rotating set of cross-system goals, the same for everyone. Resets every Monday{board ? ` · ${days}d ${hours}h left` : ""}. Progress counts from when you first open the board each week.</p>
+            <p className="hint">A rotating set of cross-system goals, the same for everyone. Resets every Monday{board ? <SharedClockLeaf>{() => timeLeftLabel(board.endsAt)}</SharedClockLeaf> : ""}. Progress counts from when you first open the board each week.</p>
             {loading
                 ? <p className="hint">Loading weekly board…</p>
                 : !board || board.missions.length === 0

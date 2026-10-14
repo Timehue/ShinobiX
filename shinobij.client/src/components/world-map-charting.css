@@ -153,7 +153,8 @@
        to clear the DESKTOP plate, and on a short board its %-footprint then
        reached the old spot (up to 51% of this name covered). */
     .wpk-hollowgate { left: 63% !important; top: 80.5% !important; }
-    .wpk-moonshadow { left: 84% !important; top: 87% !important; }
+    /* Moonshadow's crest now occupies this open southern column too. */
+    .wpk-moonshadow { left: 91% !important; top: 95% !important; }
     .wpk-sunscar    { left: 40% !important; top: 92% !important; }
 }
 

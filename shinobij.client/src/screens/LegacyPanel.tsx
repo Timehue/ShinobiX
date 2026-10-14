@@ -348,10 +348,14 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
                         const shape = sig.method === "AOE_BURST" ? "Area nova" : sig.method === "AOE_CIRCLE" ? "Dashing strike" : sig.ap === 40 ? "Self technique" : "Focused strike";
                         // NB: tag NAMES only, never percents/rank — rank is owner-only.
                         const effectTags = sig.tags.filter((t) => t.name !== "Move");
-                        const hideImg = (e: React.SyntheticEvent<HTMLImageElement>) => { (e.currentTarget as HTMLImageElement).style.display = "none"; };
+                        const hideImg = (e: React.SyntheticEvent<HTMLImageElement>) => {
+                            e.currentTarget.style.display = "none";
+                            const artwork = e.currentTarget.closest<HTMLElement>(".jutsu-signature-art");
+                            if (artwork) artwork.style.display = "none";
+                        };
                         return status.legacy.stage >= LEGACY_SIGNATURE_MIN_STAGE ? (
                             <div style={{ marginTop: 8, border: `1px solid ${LEGACY_ACCENT}44`, background: `${LEGACY_ACCENT}0f`, borderRadius: 10, padding: 10, display: "flex", gap: 10 }}>
-                                {sig.image && <img src={sig.image} alt="" style={{ width: 46, height: 46, borderRadius: 8, flexShrink: 0 }} onError={hideImg} />}
+                                {sig.image && <span className="jutsu-signature-art"><img src={sig.image} alt="" onError={hideImg} /></span>}
                                 <div style={{ minWidth: 0 }}>
                                     <div style={{ fontSize: ".58rem", letterSpacing: ".1em", textTransform: "uppercase", color: LEGACY_ACCENT }}>◆ Signature Technique · your 16th slot</div>
                                     <b style={{ fontSize: ".86rem", color: "#e2e8f0" }}>{sig.name}</b>
@@ -369,7 +373,7 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
                             </div>
                         ) : (
                             <div style={{ marginTop: 8, border: "1px dashed rgba(148,163,184,.32)", borderRadius: 10, padding: 10, display: "flex", gap: 10, opacity: 0.75 }}>
-                                {sig.image && <img src={sig.image} alt="" style={{ width: 46, height: 46, borderRadius: 8, flexShrink: 0, filter: "grayscale(1) brightness(.7)" }} onError={hideImg} />}
+                                {sig.image && <span className="jutsu-signature-art is-sealed"><img src={sig.image} alt="" onError={hideImg} /></span>}
                                 <div style={{ minWidth: 0 }}>
                                     <div style={{ fontSize: ".58rem", letterSpacing: ".1em", textTransform: "uppercase", color: "#9aa3b2" }}><GameArtIcon kind="key" size={14} /> Sealed until the {TRIAL_NAMES.bind}</div>
                                     <b style={{ fontSize: ".86rem", color: "#cbd5e1" }}>{sig.name}</b>

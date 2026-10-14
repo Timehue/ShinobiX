@@ -160,6 +160,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const now = Date.now();
             const existing = normalizeClanWarPetSession(await kv.get<Partial<ClanWarPetSession>>(sessionKey));
+            if (!existing) {
+                const { campaignBattleAdmissionError } = await import('./_campaign-queue.js');
+                const error = await campaignBattleAdmissionError(war, ch, now);
+                if (error) return { status: 409 as const, body: { error } };
+            }
             const session: ClanWarPetSession = existing ?? {
                 warId, challengeId, mode,
                 // The seed is minted server-side when the challenge is created, so

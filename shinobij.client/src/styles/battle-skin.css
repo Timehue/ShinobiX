@@ -569,11 +569,11 @@
         0 0 22px rgba(34, 211, 238, 0.95) !important;
     filter: brightness(1.2) !important;
     cursor: crosshair !important;
-    animation: pvpSelfTargetPulse 1.1s ease-in-out infinite;
-}
-@keyframes pvpSelfTargetPulse {
-    0%, 100% { box-shadow: inset 0 0 18px rgba(103, 232, 249, 0.5), 0 0 16px rgba(34, 211, 238, 0.8) !important; }
-    50%      { box-shadow: inset 0 0 26px rgba(103, 232, 249, 0.78), 0 0 30px rgba(34, 211, 238, 1) !important; }
+    /* `none`, not a pulse: keyframe declarations marked !important are ignored
+       and the !important box-shadow above wins anyway, so the old pulse animated
+       nothing. It still has to override the tile's other animations (ground nova,
+       hazard), exactly as the empty pulse did. */
+    animation: none;
 }
 .arena-fullscreen .hex-tile.hex-enemy .avatar-orb.enemy-orb {
     box-shadow:
@@ -910,7 +910,7 @@
     border-color: var(--bsv2-player, #4ea8ff) !important;
     box-shadow: 0 0 8px rgba(78,168,255,0.3);
 }
-.arena-fullscreen .battle-chat-input-row input::placeholder { color: rgba(196,162,90,0.4); }
+.arena-fullscreen .battle-chat-input-row input::placeholder { color: var(--sj-text-secondary); }
 .arena-fullscreen .battle-chat-input-row button {
     background: linear-gradient(180deg, #1a2238 0%, #0a1020 100%) !important;
     border: 1px solid var(--bsv2-gold-soft, rgba(196,162,90,0.45)) !important;
@@ -6264,6 +6264,20 @@ body:has(> .combat-instance) > .screen-hint-banner > .screen-hint-battle-trigger
         background: linear-gradient(180deg, rgba(18, 54, 76, 0.99), rgba(5, 21, 38, 0.99));
         box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.2), 0 10px 26px rgba(0, 0, 0, 0.58);
     }
+}
+
+/* The corner above is free only in the PvP/Solo dossier layout. The tactical
+   board (BattleTowerFight: towers, team PvP, hunts, caravan ambushes and the
+   roaming world boss) keeps its status bar there, and that bar ends in the
+   Leave / Retreat / Forfeit control. Those fights can open over a screen that
+   owns a tip (the World Map raid, a Battle Arena team match), so on a phone
+   the pill painted over the exit, or over the turn order just below it when
+   World Map's own !important placement (world-map-mobile.css) had parked it
+   at the atlas top bar. It belongs to the screen underneath, so it stands
+   down for the whole fight and returns when the fight closes. That World Map
+   rule moves the pill but never shows it, so it cannot undo this. */
+body:has(> .combat-instance.shinobi-combat-shell--tactical) > .screen-hint-banner {
+    display: none !important;
 }
 
 /* Modal's ordinary depth is intentionally below an active fight. This

@@ -9,6 +9,7 @@ import { CW_ADMITTED_CHALLENGE_MODES, CW_DAMAGE, CW_HP_MAX, CW_MODE_LABEL } from
 import { cwChallengeAction, cwDeclareWar, cwListWars, type CwChallenge, type CwChallengeMode, type CwChallengeResult, type CwWar } from "../lib/clan-war-api";
 import { gameConfirm } from "../components/GameAlert";
 import { fetchClanData } from "../lib/clan-api";
+import {ClanWarCampaignPanel} from '../components/ClanWarCampaignPanel';
 
 function ClanWarModeIcon({ mode, size = 18 }: { mode: string; size?: number }) {
     const kind = mode.startsWith("pet") ? "petTamer" : mode === "tilecards" ? "cardHall" : "attack";
@@ -16,13 +17,13 @@ function ClanWarModeIcon({ mode, size = 18 }: { mode: string; size?: number }) {
 }
 
 export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanWarBattle }: { character: Character; playerRoster: PlayerRecord[]; setScreen: (s: Screen) => void; launchClanWarBattle: (ch: CwChallenge, warId?: string) => void }) {
-    void setScreen; // navigation now lives inside launchClanWarBattle
     const [wars, setWars] = useState<CwWar[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [busy, setBusy] = useState(false);
     const busyRef = useRef(false);
     const [declareTarget, setDeclareTarget] = useState("");
+    const [declareFunding,setDeclareFunding]=useState<'personal'|'pool'>('personal');
     const [composeMode, setComposeMode] = useState<CwChallengeMode>("pvp1v1");
     // composePartner is unused now that 2v2 is queue-based, but kept as
     // a no-op so existing handleSend reset-state lines compile cleanly.
@@ -112,8 +113,8 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
     async function handleDeclare() {
         if (!declareTarget) return;
         const result = await runClanMutation(async () => {
-            if (!(await gameConfirm(`Declare clan war on ${declareTarget}? Both clans will see this in the Shinobi Council Hall.`))) return null;
-            return cwDeclareWar(declareTarget, character.name);
+            if (!(await gameConfirm(`Declare war on ${declareTarget}? This spends 100 Honor Seals (90 with Warmonger) from ${declareFunding==='pool'?'the clan Seal Pool':'your personal Seals'}, opens 24 hours of preparation, then 72 hours of scored battles. Your rival does not need to accept.`))) return null;
+            return cwDeclareWar(declareTarget, character.name,declareFunding);
         });
         if (!result) return;
         if (!result.ok) { setError(result.error ?? "Failed."); return; }
@@ -225,6 +226,8 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
     // validateAgainstPvpSession check in report.ts catch any drift.
 
 
+    if (myWar?.campaignView) return <ClanWarCampaignPanel war={myWar} name={character.name} clanName={myClan} onRefresh={refresh} onLaunchBattle={launchClanWarBattle} onOpenMap={()=>setScreen('worldMap')} canProvision={canLead}/>;
+
     if (!myClan) {
         return (
             <section className="council-section">
@@ -247,7 +250,7 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                     ?
                 </button>
             </div>
-            {showClanWarManual && <ClanWarManual onClose={() => setShowClanWarManual(false)} />}
+            {showClanWarManual && <ClanWarManual legacy={!!myWar&&!myWar.campaignView} onClose={() => setShowClanWarManual(false)} />}
             {error && <div style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--red-400)", marginBottom: "0.5rem", padding: "0.4rem 0.6rem", background: "#3b0a0a", borderRadius: 4 }}><GameArtIcon kind="warning" size={18} /> {error}</div>}
             {loading && <p className="council-empty">Loading clan wars…</p>}
 
@@ -541,12 +544,13 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                     <p style={{ marginTop: 0 }}>Your clan ({myClan}) is not currently in a clan war.</p>
                     {canLead ? (
                         <>
-                            <p style={{ fontSize: "0.82rem", color: "#fbbf24" }}>Wars run until one clan's 1,000 HP hits 0. 7-day rematch cooldown.</p>
+                            <p style={{ fontSize: "0.82rem", color: "#fbbf24" }}>100 Honor Seals · 24-hour preparation · 72-hour campaign. Win through the four battle queues and golden-shrine bonus fights. Three-day recovery; seven-day rematch cooldown.</p>
                             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                                 <select value={declareTarget} onChange={e => setDeclareTarget(e.target.value)} style={{ padding: "0.35rem" }} disabled={busy}>
                                     <option value="">Pick enemy clan…</option>
                                     {eligibleTargets.map(c => <option key={c} value={c}>{c}</option>)}
                                 </select>
+                                <select aria-label="Declaration funding" value={declareFunding} onChange={event=>setDeclareFunding(event.target.value as 'personal'|'pool')} disabled={busy}><option value="personal">My Honor Seals</option><option value="pool">Clan Seal Pool</option></select>
                                 <button onClick={handleDeclare} disabled={busy || !declareTarget} style={{ padding: "0.4rem 0.8rem", background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "var(--red-400)" }}>
                                     {busy ? "Declaring…" : <><GameArtIcon kind="attack" size={18} /> Declare Clan War</>}
                                 </button>

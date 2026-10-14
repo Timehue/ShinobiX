@@ -74,6 +74,11 @@ export function WorldBossEvent({
     const [now, setNow] = useState(() => Date.now());
     const [serverOffset, setServerOffset] = useState(0);
     const appliedCacheSaveVersion = useRef(0);
+    // App passes a fresh onVersionedCharacter every render. Read it through a
+    // ref so `refresh` stays stable; otherwise the initial fetch and the poll
+    // below restarted on every App render.
+    const commitRef = useRef(onVersionedCharacter);
+    useEffect(() => { commitRef.current = onVersionedCharacter; }, [onVersionedCharacter]);
 
     const refresh = useCallback(async () => {
         const next = await fetchWorldBossEvent(character.name);
@@ -82,6 +87,7 @@ export function WorldBossEvent({
             if (next.character && Number.isSafeInteger(next._saveVersion)
                 && Number(next._saveVersion) > appliedCacheSaveVersion.current) {
                 const version = Number(next._saveVersion);
+                const onVersionedCharacter = commitRef.current;
                 if (onVersionedCharacter(next.character as unknown as Character, version)) appliedCacheSaveVersion.current = version;
             }
             setView(next);
@@ -92,7 +98,7 @@ export function WorldBossEvent({
                 setFight({ runId: match.runId, session: match.session });
             }
         }
-    }, [character.name, dismissedRunId, fight, onVersionedCharacter]);
+    }, [character.name, dismissedRunId, fight]);
 
     useEffect(() => { void refresh(); }, [refresh]);
     useEffect(() => visiblePoll(() => refresh(), fight ? 6_000 : 2_000, 0.08), [fight, refresh]);
@@ -127,7 +133,7 @@ export function WorldBossEvent({
     const receiptText = receipt?.rewardSummary || rewardLine(ownReward);
     const phaseCopy = useMemo(() => {
         if (event?.status === 'final-stand') return 'The creature has stopped moving. Every team can still challenge it until the event clock ends.';
-        if (event?.status === 'roaming') return 'Follow its signal across the wild sectors. The next hop is shown on the map.';
+        if (event?.status === 'roaming') return 'Follow its signal across the wild sectors. The world map highlights the sector it stands in now.';
         if (event?.status === 'victory') return 'Teams drove the creature back. Your shared contribution is recorded below.';
         if (event?.status === 'retreated') return 'The threat withdrew when the event clock expired. Your contribution remains on the record.';
         if (event?.status === 'stopped') return 'The event is closed. Contributions earned before closure remain recorded.';
@@ -302,7 +308,7 @@ export function WorldBossEvent({
                         {!queue?.queued && rejoinRemaining > 0 && <div className="world-boss-inline-message" role="status">Leaving ended PvP protection. You can rejoin the world boss queue in {formatClock(rejoinRemaining)}.</div>}
                         {match?.status === 'preparing' && <div className="world-boss-queue-countdown"><span className="world-boss-spinner" /><div><strong>Team assembled</strong><span>Sealing the encounter and loading the squad.</span></div></div>}
                         {match?.status === 'cancelled' && <div className="world-boss-inline-message">{match.error ?? 'That team could not be started. Queue again when ready.'}</div>}
-                        {!atBoss && event.active && <div className="world-boss-travel-note">Travel to Sector {event.currentSector} to join the queue. The map marker shows the boss's live position.</div>}
+                        {!atBoss && event.active && <div className="world-boss-travel-note">Travel to Sector {event.currentSector} to join the queue. The world map highlights the boss's sector, and you can click the boss there to join.</div>}
                         {flash && <div className="world-boss-inline-message" role="status">{flash}</div>}
                         {activeMatch && activeMatch.runId === dismissedRunId && <button className="world-boss-primary" onClick={() => setFight({ runId: activeMatch.runId, session: activeMatch.session! })}>Resume team fight <span>→</span></button>}
                         {(!queue?.queued && !activeMatch && event.active) && <button className="world-boss-primary" disabled={!atBoss || busy || rejoinRemaining > 0} onClick={() => void mutateQueue('join')}>{busy ? 'Joining…' : rejoinRemaining > 0 ? `Rejoin in ${formatClock(rejoinRemaining)}` : atBoss ? 'Join the team queue' : 'Find the boss on the map'} <span>→</span></button>}

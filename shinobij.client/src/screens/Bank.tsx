@@ -1,17 +1,19 @@
 import { BANK_INTEREST_WINDOW_MS, projectedBankInterest } from "../../../shared/bank-interest";
 import { getBankInterestPercent } from "../lib/village-upgrades";
-import { useRef, useState } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
 import { type Character } from "../App";
 import { sendCurrency, previewCredit, TRADE_CURRENCIES, TRADE_CURRENCY_LABELS, TRADE_MINS, TRADE_CAPS, TRADE_TAX_PCT, type TradeCurrency } from "../lib/player-trade";
 import { gameConfirm } from "../components/GameAlert";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { AMBIGUOUS_ACTION_MESSAGE } from "../lib/ambiguous-action";
 import { gameToast } from "../components/GameToast";
-import { useSharedNow } from "../lib/use-shared-now";
+import { getSharedNow, subscribeSharedNow } from "../lib/shared-now-store";
 import { pendingBankTransferIntent, readPendingBankTransferIntent } from "../lib/bank-transfer-intent";
 import type { VersionedCharacterCommit } from "../types/character";
 import { FacilityHero } from "../components/FacilityHero";
 import { GameIcon, ShinobiCurrencyIcon } from "../components/icons/GameIcon";
+
+const noSubscription = () => () => undefined;
 
 export function Bank({ character, updateCharacter, onVersionedCharacter, onBack }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; onVersionedCharacter: VersionedCharacterCommit; onBack: () => void }) {
     const [amount, setAmount] = useState(0);
@@ -75,11 +77,19 @@ export function Bank({ character, updateCharacter, onVersionedCharacter, onBack 
             setSending(false);
         }
     }
-    const now = useSharedNow();
     const interestPercent = getBankInterestPercent(character);
     const lastClaim = character.lastBankInterestAt ?? 0;
     const nextClaimAt = lastClaim + BANK_INTEREST_WINDOW_MS;
-    const canClaimInterest = character.bankRyo > 0 && interestPercent > 0 && now >= nextClaimAt;
+    // canClaimInterest is the only thing on this screen that reads the clock,
+    // and it can only change while an eligible claim is still ahead. So, like
+    // useLiveActionDeadline, subscribe to the one-second display clock only
+    // then, instead of re-rendering the whole Bank every second. The stored
+    // clock is read without subscribing to decide; a stale reading can only
+    // ever start one extra tick, which refreshes it.
+    const interestEligible = character.bankRyo > 0 && interestPercent > 0;
+    const claimAhead = interestEligible && nextClaimAt > getSharedNow();
+    const now = useSyncExternalStore(claimAhead ? subscribeSharedNow : noSubscription, getSharedNow, getSharedNow);
+    const canClaimInterest = interestEligible && now >= nextClaimAt;
     const projectedInterest = projectedBankInterest(character.bankRyo, interestPercent);
     const interestStatus = canClaimInterest
         ? projectedInterest > 0 ? "Ready now" : "Deposit too small"
