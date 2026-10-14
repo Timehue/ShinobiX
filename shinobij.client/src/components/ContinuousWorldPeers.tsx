@@ -89,6 +89,7 @@ export function ContinuousWorldPeers({ sector, selfName, sharedImages }: { secto
                     item.point = advancePeerPath(item.points, dt * 8) ?? item.point;
                     const element = elements.current.get(peer.name);
                     if (!element) continue;
+                    element.classList.toggle('is-walking', item.points.length > 1);
                     const x = (item.point.x - chunk.x) * scale, y = (item.point.y - chunk.y) * scale;
                     // A standing peer would be handed the very same transform string again.
                     if (element === item.element && x === item.x && y === item.y) continue;

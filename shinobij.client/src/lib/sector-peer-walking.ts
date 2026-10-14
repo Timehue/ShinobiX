@@ -12,7 +12,7 @@ export function useSectorPeerWalking(peers: readonly { name: string; tile: numbe
     const obstacles = useSectorObstacles();
     useLayoutEffect(() => {
         if (sector === undefined || !sectorWalkMask(sector, obstacles) || !metrics.w) {
-            for (const node of nodes.current.values()) { node.style.removeProperty('--peer-x'); node.style.removeProperty('--peer-y'); node.style.transition = ''; }
+            for (const node of nodes.current.values()) { node.style.removeProperty('--peer-x'); node.style.removeProperty('--peer-y'); node.style.transition = ''; node.classList.remove('is-walking'); }
             positions.current.clear();
             return;
         }
@@ -26,7 +26,7 @@ export function useSectorPeerWalking(peers: readonly { name: string; tile: numbe
             positions.current.set(peer.name, p);
             routes.set(peer.name, walkPath(sector, safe, destination, obstacles) ?? [safe]);
         }
-        const reduce = document.documentElement.classList.contains('lite-fx') || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         let frame = 0, last = 0;
         const tick = (now: number) => {
             const distance = last ? Math.min(.05, (now - last) / 1000) * 6.5 : 0;
@@ -44,6 +44,7 @@ export function useSectorPeerWalking(peers: readonly { name: string; tile: numbe
                 node.style.setProperty('--peer-x', centre(metrics.w, p.col, metrics.padX, metrics.gapX) + 'px');
                 node.style.setProperty('--peer-y', centre(metrics.h, p.row, metrics.padY, metrics.gapY) + 'px');
                 node.style.transition = 'none';
+                node.classList.toggle('is-walking', !reduce && route.length > 0);
             }
             if (moving) frame = requestAnimationFrame(tick);
         };
