@@ -68,6 +68,9 @@ export function createPetCombatRigMotion(scenes: readonly (Object3D | null)[], d
             look = MathUtils.lerp(look, MathUtils.clamp(lookError, -.16, .16), blend);
             for (const [bone, pose, track, role, side, gain, offset, paired] of joints) {
                 pose.copy(bone.quaternion);
+                // Baked wing/attention curves own these joints too. Stacking a
+                // second fold or breath would defeat their reviewed skin poses.
+                if (keyed?.has(track)) continue;
                 if (role === 'wing') {
                     if (frame.wingPhase === null || committed) continue;
                     // Current feather weights tolerate a restrained fold; the
@@ -82,7 +85,7 @@ export function createPetCombatRigMotion(scenes: readonly (Object3D | null)[], d
                 } else if (role === 'leg') {
                     // Supplement only unkeyed distal joints. Imported authored
                     // knee/ankle curves always win over this recovery layer.
-                    if (gaitWeight === 0 || keyed?.has(track)) continue;
+                    if (gaitWeight === 0) continue;
                     const sideOffset = frame.galloping && paired ? 0 : side < 0 ? .5 : 0;
                     const swing = max(0, sin((frame.phase + offset + sideOffset + .5) * PI * 2));
                     const flex = swing * swing * gaitWeight * (frame.galloping ? .42 : .28);

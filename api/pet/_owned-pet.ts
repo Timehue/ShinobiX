@@ -168,6 +168,7 @@ export function createOwnedPet(templateId: string, options: CreateOwnedPetOption
         training: undefined,
         expedition: undefined,
         loadout: undefined,
+        rankedBuild: undefined,
         doctrine: undefined,
     };
     // Starter validation hands us a trait-applied snapshot; the signed catalog

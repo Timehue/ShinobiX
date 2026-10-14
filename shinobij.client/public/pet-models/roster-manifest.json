@@ -81,11 +81,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "C170C0AE1AC5D252C723667285F89383304BA2F738484E93F3A6602CCC644226",
+      "sha256": "50ACD594B7F4B1EE4D5B92D0FCFEDB5E583EBD3E3D9F6D0DC1D39FBF18ABE52C",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 598160,
+        "bytes": 1007916,
         "triangles": 40000,
         "vertices": 26107,
         "materials": 1,
@@ -205,11 +205,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "1756EA7A5A4A511DFFBB23A5CBC91DDEB2B84F08D9508E217629C642CB5DEF69",
+      "sha256": "755CF4589BF4FE43D452E4FFFE80273AA4AE4EA2A396D2947DD6DC22BAFB812D",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 578892,
+        "bytes": 754000,
         "triangles": 40000,
         "vertices": 25337,
         "materials": 1,
@@ -328,11 +328,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "273E89AFB76D31AE4623D7F76FB77610E2F8DF99DF2A6CF4890192EE41AFC663",
+      "sha256": "6991AB385716CF19C74480D293526F5281E55ADD18C3503F9F819D93504F3B7E",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 503872,
+        "bytes": 679108,
         "triangles": 40000,
         "vertices": 25624,
         "materials": 1,
@@ -452,11 +452,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "1B963E9D0EFE6E885C0D656A48C43E2944F09D2BE5B0C4D75DECFE5BC9879279",
+      "sha256": "17FE44E8581482B6E7CD8F1D0E45D5AB3850F8AABD09E0E24EC084C5B591E9DC",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 527768,
+        "bytes": 693736,
         "triangles": 40000,
         "vertices": 26336,
         "materials": 1,
@@ -576,11 +576,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "93A0A4A599EF3DE4DC019B6D19DADA1070992BB40C32EEFBF90E232779F0FF70",
+      "sha256": "B6914BFC8C3B9703C3211A74DF5334C206275CBE2CC8AB9DD1B31E685BFDCEFA",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 521196,
+        "bytes": 686228,
         "triangles": 40000,
         "vertices": 25231,
         "materials": 1,
@@ -700,11 +700,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "B9EE5C30D394D7365E024C9D7F02D80D5912F0A571CD0354560FB94C79BF633D",
+      "sha256": "68F836C9C93DA9441112C66CB644EA8B46B927CCF4C753461AD6B6573AE135FC",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 556568,
+        "bytes": 815932,
         "triangles": 40000,
         "vertices": 26076,
         "materials": 1,
@@ -824,11 +824,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "7F2329D421EA6F358B7539C7789AEA91D3BBE1ED1AAEF4B213C534F12326C9BE",
+      "sha256": "04BF0488D5785C3C894276201CCBE30A5A750DCEC99750BC33A5CA919D86ADE1",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 672752,
+        "bytes": 919564,
         "triangles": 40000,
         "vertices": 25801,
         "materials": 1,
@@ -948,11 +948,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "77B07E623B68286BD2B2FACDAEF66EF110DF07D4AA54241697F83B9CA0F68569",
+      "sha256": "D8EA4B2C69CAE9D4661E15078211FB16DB18C451501A1965BCB7F7A600BFB09C",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 662660,
+        "bytes": 747188,
         "triangles": 40000,
         "vertices": 29060,
         "materials": 1,
@@ -1047,11 +1047,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "89D5E130D1FCCCCAAE35DF6546A484FE1C81197012EF107036F7E6CE495042DB",
+      "sha256": "C35347E931A4CEB2E76D298A8BB3F936F1B0DEB9C2D0918C64B26ACF1BE38BA4",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 560936,
+        "bytes": 725920,
         "triangles": 40000,
         "vertices": 25407,
         "materials": 1,
@@ -1170,11 +1170,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "8E1ADD6E1D108A8C748245B0B4794DB8FE85C60D1DF3026B6A1DAC5061731ADC",
+      "sha256": "7F73B4690746CD2A9C7AE25AD13B82C4E40F9E38E80A6D6E9E2DE363B351D9B7",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 622600,
+        "bytes": 785444,
         "triangles": 40000,
         "vertices": 27593,
         "materials": 1,
@@ -1294,11 +1294,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "D774B25278AE670CC52138B66B954FE552CAB5E32BC01044E29C228C2E7432B5",
+      "sha256": "83DD07C44B4A85FC8F29A5A42351CB8C347673D29F135BB38C3A94A0F9428495",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 567528,
+        "bytes": 732808,
         "triangles": 40000,
         "vertices": 26381,
         "materials": 1,
@@ -1423,11 +1423,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "EB8020CE58DDEC898FB0D2D63B1E03BDB41381168F2E73B08DC76D144C536C5B",
+      "sha256": "8D703BE1258A90236A245A500B3A73D3A1ED97536A4D68A0054B2218262F36A3",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 569668,
+        "bytes": 734624,
         "triangles": 40000,
         "vertices": 24801,
         "materials": 1,
@@ -1547,11 +1547,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "F573093801F475D5CA381F17F01C69519721D2DFF792F0C405C4AD6644D2CE38",
+      "sha256": "F1F73BA9539201A0D5250799045DCB902461D0359F060F7A942489FCDBB7BE07",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 556460,
+        "bytes": 731220,
         "triangles": 40000,
         "vertices": 25702,
         "materials": 1,
@@ -1670,11 +1670,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "0EC3B660F2BB5542DE2294572753E62B99E47F5365BCDF3A548167AAA107B665",
+      "sha256": "C32AC28C5E6B99907C834491895A83A0878312CA295BA88ECAFE5028421040F0",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 639776,
+        "bytes": 865708,
         "triangles": 40000,
         "vertices": 25917,
         "materials": 1,
@@ -1793,11 +1793,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "46E09DC588783A6EF05817ABDC6B8AC07650ED88A6A5DC8AE0EBB330D45CBB2D",
+      "sha256": "1B6A89DDE2A4DAAAD6F901956A63BBB80062AFF94C774135B70BC99ACB7346E1",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 540836,
+        "bytes": 706108,
         "triangles": 40000,
         "vertices": 28130,
         "materials": 1,
@@ -1916,11 +1916,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "FD0EEC1692CD960653155F4491F5E4F1E950F4826EA66F9C9F03D486A9B46227",
+      "sha256": "61B62F9F259265D29E316827D37AC54C2BCCCD6C0B26DD9B1D58F9B5909116FE",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 600540,
+        "bytes": 767028,
         "triangles": 40000,
         "vertices": 26640,
         "materials": 1,
@@ -2040,11 +2040,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "468755BC9B3102A4A816028687F3CB1CDBB4C58CE1440509537CB23EAFC4CD32",
+      "sha256": "04454EC2B22D152EAF17DB6EA91319FB294D004B5ED20316EAABBED6B370B29D",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 530168,
+        "bytes": 832352,
         "triangles": 40000,
         "vertices": 24189,
         "materials": 1,
@@ -2164,11 +2164,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "0E036C72AD81D48C9DC70DA9E4C4DFB8FC413D6E2422A4BDAC9E4F778C68AEA2",
+      "sha256": "33AAB8BAFE18F533FB36C0209590E831A2FF2951CAB3B823757FCC3EB75BF06C",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 620892,
+        "bytes": 1039244,
         "triangles": 40000,
         "vertices": 26500,
         "materials": 1,
@@ -2297,11 +2297,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "86B3762DA78C567B905DD74C3D7789339FB02F637FD46F0B94F2B64417921E7F",
+      "sha256": "FFC6CC1B6837A703ABD14675F93CFABE21EA7013A54C2E80BB917761E984C5A2",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 516008,
+        "bytes": 687248,
         "triangles": 40000,
         "vertices": 26286,
         "materials": 1,
@@ -2420,11 +2420,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "BA99CFC4484E07207FA9299ACDB3639E60DA8F8B6BD42DEDE30FB5C24BA59EB5",
+      "sha256": "4DC015B5F523F21FEFFB51C990080C1FB690B6B9204F062319706D55B5112505",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 574480,
+        "bytes": 739572,
         "triangles": 40000,
         "vertices": 25032,
         "materials": 1,
@@ -2543,11 +2543,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.96,
-      "sha256": "5D2368215088C4E82BFC7F19BD4AF60F02CD52B588BC14ED88060BD481643140",
+      "sha256": "7B8EE2ED797240F18FB2338F0EC0D9DDC5B5F98031841157920B8AA342766535",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 534584,
+        "bytes": 709680,
         "triangles": 40000,
         "vertices": 24939,
         "materials": 1,
@@ -2666,11 +2666,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "ED32D97037581EAAC0339277DD60FDF1A124733D05408E23EA44CA1CA09DD232",
+      "sha256": "61724C59DCD387F3A0513E1A4A2333B6156DF99D88CE7C9A931D061444AE579F",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 710600,
+        "bytes": 1052228,
         "triangles": 40000,
         "vertices": 29008,
         "materials": 1,
@@ -2790,11 +2790,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "6D85D4C2D6DB33F056F042764D34D17B8C802F2C1F810B49E673705E701B3C57",
+      "sha256": "9C231B3630BE61DF5A3530E30C418D8A5F86E3D36F64247A713FFA5EAAB0D05C",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 574384,
+        "bytes": 749604,
         "triangles": 40000,
         "vertices": 25136,
         "materials": 1,
@@ -2914,11 +2914,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.96,
-      "sha256": "B157199B399FD894D056A10AB82A55ABDA48286EFB5315C3329FC2973D0A3E09",
+      "sha256": "50635D4ADD3B0072BD5AB663FAB3CB315DBD0BE97408F1F9BF79EC32EBEC2D63",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 525000,
+        "bytes": 699612,
         "triangles": 40000,
         "vertices": 26225,
         "materials": 1,
@@ -3038,11 +3038,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 1.44,
-      "sha256": "769AC80A3F6A316D47D6E0AD5F920FA9B66F6C53247900408E6A95A00E26E002",
+      "sha256": "EBBF1EE41F6E2454D307017A9328C02FA422035D929273A01A1E3EB9D49F0CAD",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 503404,
+        "bytes": 678588,
         "triangles": 40000,
         "vertices": 24699,
         "materials": 1,
@@ -3170,11 +3170,11 @@
       "provider": "fal-ai/hunyuan3d/v2 single-view fallback + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 1.92,
-      "sha256": "F3451B9A7B916EBECB94C6906D00AE3416FC9515C6B5C7A9F796FCC630CB98F9",
+      "sha256": "C3C261F256E7F17095816A5B1BEEEB671393A2D3D29FDA1C04B6C65C33D5D40F",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 524524,
+        "bytes": 811036,
         "triangles": 40000,
         "vertices": 24656,
         "materials": 1,
@@ -3294,11 +3294,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "B71975D148EECEB1C7A5162614220020691280A0E3DD7B6CB92DD8E66B3DB4A6",
+      "sha256": "446371F854C957BFCEB2704B8EB169DA0047A2B4C7B2018DDDE82A8AF815CBDE",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 567628,
+        "bytes": 742780,
         "triangles": 40000,
         "vertices": 27028,
         "materials": 1,
@@ -3418,11 +3418,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "A0D715EC74BD18D2337C3999ACA5D02596B4D442206F6DDDF5310996C9E82799",
+      "sha256": "DBD0B08F5F7429D785DE1B91B7A4313B62F81435D62E59B83A3DFFD88E7654AD",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 605972,
+        "bytes": 833716,
         "triangles": 40000,
         "vertices": 27610,
         "materials": 1,
@@ -3541,11 +3541,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "FED5D2C628EB2AA40D6409C8C202FF46E4E8DCEAD1E812BD70D64BE1DECD6127",
+      "sha256": "C21133856B2FDE0EB77E609E1D1C94317B7CB9D4F24206262D284E3814AA056B",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 585760,
+        "bytes": 760416,
         "triangles": 40000,
         "vertices": 25292,
         "materials": 1,
@@ -3671,11 +3671,11 @@
       "provider": "fal-ai/hunyuan3d/v2 single-view fallback + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 1.44,
-      "sha256": "3CD463306E1CC97E7FE58F44007754AE6E2900F501E8D4C10CF6E1D5C1BB8FF9",
+      "sha256": "C623D1FB6C17FC14E97DB122E4CA8C942F31DE54277B5CC5FC8D2A59BF6C6E82",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 540036,
+        "bytes": 695744,
         "triangles": 40000,
         "vertices": 24904,
         "materials": 1,
@@ -3794,11 +3794,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "33FFC76226D9E3B11F22AF41D667F69BB553D7AE9E4707A71D9BBCB5E1734B70",
+      "sha256": "4686B39488760FA1F4BF508D31559AB056D8F6F037ACA8F698EB0B90CD0AB666",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 546292,
+        "bytes": 711296,
         "triangles": 40000,
         "vertices": 24579,
         "materials": 1,
@@ -3918,11 +3918,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "E026F1CDC72180E19EFC1B0F08EAAC55939A23856C6DF3BB0C8F09FE34EB2A4D",
+      "sha256": "98444137E88EF87BC89B666BD0686EE12D34ACFA739308A2D460B080ECD7A52B",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 596204,
+        "bytes": 847384,
         "triangles": 40000,
         "vertices": 24522,
         "materials": 1,
@@ -4041,11 +4041,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "EC618D4843166CF514C816B095328F3D259065A08E01B17C1A9C7A3D12A07476",
+      "sha256": "73071CAE17C0C2B9F51744EEA39C71E27234D44D2141B5F6D298C7C5D471A3F5",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 510864,
+        "bytes": 675816,
         "triangles": 40000,
         "vertices": 24907,
         "materials": 1,
@@ -4164,11 +4164,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "00056BB147E37A2C7523FFF4245BE07D579CB465DA8C38BF3E94901980857026",
+      "sha256": "F7F56DBA65AEA35428974F511D0206F5F722C135A2C7AE6837D2F91012DBB535",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 577984,
+        "bytes": 743252,
         "triangles": 40000,
         "vertices": 28205,
         "materials": 1,
@@ -4296,11 +4296,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.96,
-      "sha256": "007E1DF735D32C15E0A38E353B3A21C8D4B1A8065CAF3E60DD445D500EE82D69",
+      "sha256": "108543B6E899603215C51BB9E638E93889CD53F3D0BB548A3EE001A7BE6AA123",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 489904,
+        "bytes": 654868,
         "triangles": 40000,
         "vertices": 25019,
         "materials": 1,
@@ -4424,11 +4424,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 1.44,
-      "sha256": "1E48AAA285A02FA3718C49E64983878C61DB7368FC09CB3DA2AF264BFC80E488",
+      "sha256": "BC72683D295861D9108BFB8D83B4B1A6026D8A0C73FFAE50DD0E1479D7BB1481",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 514196,
+        "bytes": 751152,
         "triangles": 40000,
         "vertices": 25092,
         "materials": 1,
@@ -4555,11 +4555,11 @@
       "provider": "fal-ai/hunyuan3d/v2 single-view fallback + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.96,
-      "sha256": "6DA815F1F9E3B7E8E491CE2597580303CD4EF356992AF4E3A5687490C27A74B8",
+      "sha256": "5174CECD7803213D1F0C769E86EB765182D3A126629F8F02631075554D0D1469",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 552640,
+        "bytes": 717912,
         "triangles": 40000,
         "vertices": 25119,
         "materials": 1,
@@ -4688,11 +4688,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 1.44,
-      "sha256": "5877CF4D316ED6F383A725ADD5567D4848F16CFC49B80172D4258F6A82F04531",
+      "sha256": "2C9DA8C70216570EFC15E623CF1D65EEC69E3453C5E03DCE55C009169254B3AD",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 466384,
+        "bytes": 631592,
         "triangles": 40000,
         "vertices": 24196,
         "materials": 1,
@@ -4818,11 +4818,11 @@
       "provider": "fal-ai/hunyuan3d/v2 single-view fallback + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.96,
-      "sha256": "C03D7562BA9E12F606F57C057B8AB52534F07120371E5901E7D15AE2028AF7B5",
+      "sha256": "3CD2BE791553B3AFBD953E20419072841BD958FBE9F2D20F07795A52DB88EDE8",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 520492,
+        "bytes": 685744,
         "triangles": 40000,
         "vertices": 25508,
         "materials": 1,
@@ -4941,11 +4941,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "73C54FED7A2F9DD4616666DF5C6EC2E556FBE67AEF2FF3E5998760BFEED20F7A",
+      "sha256": "B5044E448829A7A70FB74B616DE6E2C05DD7D25667C8C31CE86FAF2C116100A0",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 531012,
+        "bytes": 696316,
         "triangles": 40000,
         "vertices": 26394,
         "materials": 1,
@@ -5070,11 +5070,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "8BEFB437ABC7AE62B407EF0B1F29E3178F966EE96108EFB3C55E02778E159459",
+      "sha256": "A838122A3D44293C40C5B50BCB48516D81709472527744EA50D49CB3C122CA33",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 565592,
+        "bytes": 740112,
         "triangles": 40000,
         "vertices": 25841,
         "materials": 1,
@@ -5193,11 +5193,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "09A609D896C9BED985EB75AD09B2BA37F1802B9E23327DC947A395830DE91C2B",
+      "sha256": "045148B2F2E8055A6657DC91FE2FE0709C28A0C7E2E4FE7D66CD5473BC9A4BC7",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 544396,
+        "bytes": 786684,
         "triangles": 40000,
         "vertices": 24930,
         "materials": 1,
@@ -5317,11 +5317,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "0C511A2CBD66CBA0BCE78FDC9AE3142D9CB497B438166CABEF484FC497CEA28E",
+      "sha256": "4FB0BEDA925664737704A5457EDDEC536C0AE678FFDD1679274F72B93ECE47E9",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 540232,
+        "bytes": 714764,
         "triangles": 40000,
         "vertices": 25322,
         "materials": 1,
@@ -5441,11 +5441,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "68356DBBD4ACA05C906A5E61026DC34D2C917FD3596F1B6955018CE8BA2FEB82",
+      "sha256": "AA8F00E3908378E22A876F04F645307BC57EAD213CF520AC09122258B4923C3B",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 585448,
+        "bytes": 750720,
         "triangles": 40000,
         "vertices": 27001,
         "materials": 1,
@@ -5565,11 +5565,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "EB47A97DB9E3BB33CEFD7C79118055D9087A78AAD9C8EB82F63D10B504486085",
+      "sha256": "DBF202C3C55EBBC1B63F94F73263B44D1F3FEBBEE938038AE22D19302C5FA32D",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 533020,
+        "bytes": 698328,
         "triangles": 40000,
         "vertices": 24431,
         "materials": 1,
@@ -5694,11 +5694,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "66939EBE232A5D48F2721960059512CB7211F2675711EEB5EDE3E6D391533EC2",
+      "sha256": "950D02C4C748E68F54D93503702445C5574D5D8B630A584212A589FEC63F51FC",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 515840,
+        "bytes": 752864,
         "triangles": 40000,
         "vertices": 23773,
         "materials": 1,
@@ -5817,11 +5817,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "626EA8B5130A541895971832A2A2AF264539183AA27F29A980EB6961C351CF33",
+      "sha256": "421576420C5456BE25186ED4C485C1111E7D231DDDCA83C4849BC7E0F37E7F3C",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 639192,
+        "bytes": 908580,
         "triangles": 40000,
         "vertices": 29424,
         "materials": 1,
@@ -5941,11 +5941,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "8CDB84AE7C0D39DE4D7AA05E58DED09102020CADF9BF0BD99C4D284A573EFBCA",
+      "sha256": "E651DC7C461202CB83E28F903B9D7571D1D308C3A4FE74B4FF7AD69CE14EB5AE",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 551464,
+        "bytes": 708384,
         "triangles": 40000,
         "vertices": 23430,
         "materials": 1,
@@ -6064,11 +6064,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "42AFCC3CECADCE9D5E527C31014CCF315E6FF257C4D4519E782F6332163E5612",
+      "sha256": "27A8413E21DBA6A5A543037230F07B8FC976EE661748C8EC69E9FEACB36A7ABA",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 555728,
+        "bytes": 807736,
         "triangles": 40000,
         "vertices": 24855,
         "materials": 1,
@@ -6188,11 +6188,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "BB5070B0417B8A6C78CE4AAB5D28D7DED7D890114414C0B2B6F89616F3C1980E",
+      "sha256": "F1E869BC44AA9154647663F6E6B24DA94A2402BEEDE5F6E2DF35AABF90D61CE3",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 569884,
+        "bytes": 745008,
         "triangles": 40000,
         "vertices": 26930,
         "materials": 1,
@@ -6312,11 +6312,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "8D1E622BBF0491D4606DC1F48FDCDEE87545C7CFF5E9AAF2B695BF905E211203",
+      "sha256": "A40CD8569E92E59D5A5951EA8A66B29B50C197AFA59C93C046B34C7EF0C9901B",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 569344,
+        "bytes": 887684,
         "triangles": 40000,
         "vertices": 26267,
         "materials": 1,
@@ -6436,11 +6436,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "9F2A74F693C606C9A91DA164DB226CE44A14CF460C134FC81E2E987155E72EEE",
+      "sha256": "8872E7BBA6D4B09F88535ADE7F14C382EAB012CDB0B2564C952C02506CB9DB32",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 4738996,
+        "bytes": 655992,
         "triangles": 40000,
         "vertices": 25493,
         "materials": 1,
@@ -6530,11 +6530,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "EEFF47FA02D1612B126B9AF9648CB1EC270495F240A1AB974234168C6A1B4AA1",
+      "sha256": "F9F8E6DE3E112738D74D2B63DD7A3AAB5092168F1FD1EB1C7ED20A44E57CB4AF",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 495824,
+        "bytes": 670560,
         "triangles": 40000,
         "vertices": 25108,
         "materials": 1,
@@ -6654,11 +6654,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "6E729C546021BA790F86DD5A940AAAEE28B3968D1F1966E3D92E1B5751E535BB",
+      "sha256": "C911FD0C4C18E190B4EBB60D9D76F47B4E8ADCBB3A7CDAE5AE85711CF08069D6",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 556964,
+        "bytes": 722264,
         "triangles": 40000,
         "vertices": 27058,
         "materials": 1,
@@ -6783,11 +6783,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "3D1E254B38112F8B558A64C4574E68FEE7DDA9CCFECB1A8583B78E386293E8A9",
+      "sha256": "6D916180BC8DC1E6B36EAD1E8A9E7150699CA466102C5AFB710319675C1A03B9",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 502992,
+        "bytes": 807964,
         "triangles": 40000,
         "vertices": 25115,
         "materials": 1,
@@ -6838,7 +6838,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "67FFBF2068DD3634161B767C41708904B4BC095E0E5C7D1DC5C5944EF1403867",
+      "sha256": "EA9528EAF469FDC2C5A3E13D7DD7033A246CCF2F93ABDEF50A3B6898937C23A0",
       "visualReview": {
         "passed": true,
         "reason": "Ironback Turtle is a complete upright green anime turtle with rigid charcoal iron shell, cream plastron, red scarf, dark guards, paired limbs and short tail."
@@ -6888,7 +6888,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 539808,
+        "bytes": 715228,
         "triangles": 40000,
         "vertices": 24637,
         "skins": 1,
@@ -6936,7 +6936,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "BF90EF25FC55CDFDEB0C918E1743A626B02F640539F120D6DA954B540321A638",
+      "sha256": "2E8ACA0710DEF83844690AB51E397A67ADB7717EDF092E044F2BF60DFC189A29",
       "visualReview": {
         "passed": true,
         "reason": "Dune Viper preserves its unusual golden serpent-drake identity with full S-neck, cream belly, dark headwrap, one continuous coil and four small clawed limbs."
@@ -6986,7 +6986,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 521172,
+        "bytes": 686212,
         "triangles": 40000,
         "vertices": 24882,
         "skins": 1,
@@ -7034,7 +7034,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "EB8A3B6C6D2C6CF8718A1C5FB639F490A085BECDF784A8AE6CAE3C4D712EF98C",
+      "sha256": "CA345FAB1F674D1CCA7E92628AEC8B154ED276E58DF2F0CC0BFB9E6986F9B09A",
       "visualReview": {
         "passed": true,
         "reason": "Ashwing Raven is one complete charcoal and midnight-blue raven with ember eyes, natural paired wings, black talons, pointed tail and attached headwrap; the source duplicate head is absent."
@@ -7084,7 +7084,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 550448,
+        "bytes": 715812,
         "triangles": 40000,
         "vertices": 27096,
         "skins": 1,
@@ -7137,7 +7137,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "0F645DC68E05050E25DFD26CEA12B1DBFADECE89F91E640E3727398F2C0FB033",
+      "sha256": "B72499743089F5AE785B4D3C9FD00DC94B423D01F56DE2BCB14F621546984B08",
       "visualReview": {
         "passed": true,
         "reason": "Azure Toad reconstructs the fragmented sprite as one complete cyan anime amphibian with gold eyes, navy vest, silver forehead plate, webbed hands and two connected frog legs."
@@ -7187,7 +7187,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 554200,
+        "bytes": 719224,
         "triangles": 40000,
         "vertices": 24782,
         "skins": 1,
@@ -7234,7 +7234,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "0181A36C37894E777E2B5369E92CCAFBBFC48372EE872723001F31CA420BE9F2",
+      "sha256": "93703A7365193ECD0096F94DA2EB37B55BD718FA7A760D527B365E65B1F5F209",
       "visualReview": {
         "passed": true,
         "reason": "Bristle Boar is a muscular four-legged russet anime boar with spiky gold mane, paired ivory tusks, pink snout, teal harness, dark hooves and one thin tufted tail."
@@ -7284,7 +7284,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 649336,
+        "bytes": 806304,
         "triangles": 40000,
         "vertices": 27553,
         "skins": 1,
@@ -7332,7 +7332,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "DFD57FFCEF15186A0C6A1BF62D851F18CC80DB132317BA5ECEB7516A84887D82",
+      "sha256": "D75DA1A355E7F7D67F823F69A57DBA24C2D4EDF8AB619E4B1AB79356329C8303",
       "visualReview": {
         "passed": true,
         "reason": "Silver Owl is a complete gray horned anime owl with gold eyes, paired wings and talons, dark scarf and rigid attached back sword; source transparency holes and floating scarf are removed."
@@ -7382,7 +7382,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 565332,
+        "bytes": 730644,
         "triangles": 40000,
         "vertices": 26695,
         "skins": 1,
@@ -7435,7 +7435,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "A76393B03B79C2EDF8B87F968D7D0883FD09AF7387D73A20A7398EDBECF73662",
+      "sha256": "63CAC12068F9C4567F085036DC7AE1FD1B03574E5A821588D60DD02154A08A74",
       "visualReview": {
         "passed": true,
         "reason": "Glass Serpent is a solid game-ready cyan glass-styled serpent-drake with long crest, pale belly, paired arms and legs and one continuous curled tail."
@@ -7485,7 +7485,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 603580,
+        "bytes": 768604,
         "triangles": 40000,
         "vertices": 25832,
         "skins": 1,
@@ -7533,7 +7533,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "5934236A1EA1B200923ABC6B90A3AB9019E99F637C223050078FB4CBBC8B7969",
+      "sha256": "5D032B2AB9C501F2E865FCD3A9A9CA2E191B849C7C963C791A2D2C67FC1ABCD0",
       "visualReview": {
         "passed": true,
         "reason": "Mist Lynx is a clean pale-blue spotted quadruped with gold eyes, navy scarf, four complete paws and one continuous cloud-curl tail."
@@ -7583,7 +7583,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 525216,
+        "bytes": 681624,
         "triangles": 40000,
         "vertices": 24696,
         "skins": 1,
@@ -7630,7 +7630,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "6690E2C27110B0496C684B6162B619DEA526DEF13B43937C58FF4DBD687F4A5B",
+      "sha256": "4CA2F64BE90B3059A618755269F2D843D7CD5BE6770E9842C9554B3EEB70D6CF",
       "visualReview": {
         "passed": true,
         "reason": "Steel Beetle is a glossy gunmetal anime rhinoceros beetle with exactly six armored legs, paired rigid wing cases, one forked horn and a crimson scarf band."
@@ -7680,7 +7680,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 543412,
+        "bytes": 769384,
         "triangles": 40000,
         "vertices": 25285,
         "skins": 1,
@@ -7727,7 +7727,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "E51EC807A91443215DCD673194AF3A9AD931BE820592B9DF037BF36C920DB857",
+      "sha256": "49674A5A6DE87514437CCFAE3BD54022EC249A04B48698EDFE317D28E96FF76F",
       "visualReview": {
         "passed": true,
         "reason": "Pearl Crane is an elegant complete white-and-navy crane with coral beak, violet sash, paired natural wings, two stable long legs and a layered tail."
@@ -7777,7 +7777,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 594868,
+        "bytes": 760124,
         "triangles": 40000,
         "vertices": 28220,
         "skins": 1,
@@ -7825,7 +7825,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "1EA670E0337AB6A9A461EEF5180F8E849F649B5C2EBB9584FD0687E781C25F81",
+      "sha256": "272E933298FDCB8E96AECA3E330915BC16CE6FADEC84E0A0350F3D189428D0B7",
       "visualReview": {
         "passed": true,
         "reason": "Cinder Weasel is a complete upright orange anime mustelid ninja with cream face and tail tip, sharp eyes, dark headband and scarf, paired limbs and one large coherent curled tail."
@@ -7875,7 +7875,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 552360,
+        "bytes": 806188,
         "triangles": 40000,
         "vertices": 25682,
         "skins": 1,
@@ -7923,7 +7923,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "6CD7BEAFAE1B14569A676A7C25B9A593D3B94C5A28A98749D4F258ED47528689",
+      "sha256": "778B86B4BA655F5C503F3884AD5809997EF6C483A0AFDEB16890C65436103767",
       "visualReview": {
         "passed": true,
         "reason": "Thorn Stag is a complete midnight-blue elemental quadruped with gold eyes, dark mane, four grounded legs, one raised tail and one symmetrical branching antler pair."
@@ -7973,7 +7973,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 541892,
+        "bytes": 698068,
         "triangles": 40000,
         "vertices": 25958,
         "skins": 1,
@@ -8020,7 +8020,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "5DEAD5E2DDA0AC21B228254C722485DFA515D63A8D70B0777BEDC11B5F0438F2",
+      "sha256": "AEFE954561CF9DFAA75EB635AE60B8B282D068569203CD70AE98A83D1CF2F065",
       "visualReview": {
         "passed": true,
         "reason": "Stormfin Gull is one complete blue-and-gray anime ninja bird with determined eyes, gold beak and talons, paired layered wings, streamer hood, tail feathers and one rigid sheathed sword."
@@ -8070,7 +8070,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 560204,
+        "bytes": 801880,
         "triangles": 40000,
         "vertices": 25009,
         "skins": 1,
@@ -8123,7 +8123,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "35D7A02998153F165B4F5E856453767F7032BDFC64A3F2FADFD26504F5C3974F",
+      "sha256": "C02FE42732D50323E69E9D2DDD97E43FDCD48AD05E6D25E0725BA73C2BE4999C",
       "visualReview": {
         "passed": true,
         "reason": "Duskwings Bat is a complete charcoal anime bat ninja with huge ears, orange eyes, metal brow plate, two separate arms, two membrane wings, two clawed legs and one tail membrane."
@@ -8173,7 +8173,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 536168,
+        "bytes": 707788,
         "triangles": 40000,
         "vertices": 25239,
         "skins": 1,
@@ -8225,7 +8225,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "707C30B80DC039745FB9943659B73022E2A213DA2EA6F6F07162E2FDCA945FE3",
+      "sha256": "BFC838F4ED0AE5225E94597C0C85EEDF84ED37F3CC08BFF1CFB3B7532BE24A8E",
       "visualReview": {
         "passed": true,
         "reason": "Mossback Toad is a complete olive spotted anime amphibian with red-lidded eyes, leafy moss crown, teal tunic, navy scarf, webbed hands and feet and one rigid sheathed sword."
@@ -8275,7 +8275,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 631460,
+        "bytes": 796384,
         "triangles": 40000,
         "vertices": 26259,
         "skins": 1,
@@ -8323,7 +8323,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "007FBC047C3B963C395CE1C72A11AAADC390529A9A9D8F182107498426F7A3A0",
+      "sha256": "71757E353A3DE484921D30E8ABB8A2AF8D4EB21DE21A721011ACADC8BD44A531",
       "visualReview": {
         "passed": true,
         "reason": "Bamboo Ape is a complete brown anime ape ninja with tan face, stern eyes, teal gi, red belt, paired hands and feet and a rigid attached bamboo bundle."
@@ -8373,7 +8373,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 549248,
+        "bytes": 724424,
         "triangles": 40000,
         "vertices": 26170,
         "skins": 1,
@@ -8420,7 +8420,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "01243B8BA96B9BCD59E1E1F4D432B39FB773A19E960C7AC919A4523665BF7D72",
+      "sha256": "0AE62B4D5647BEE16253ED6C48DFCF5E79E1D0A250C5CB1EA82BB070E6764A67",
       "visualReview": {
         "passed": true,
         "reason": "Frostbite Cub is a complete silver-white anime cub with huge icy eyes, navy ninja wraps, paired upright limbs and one coherent fluffy tail."
@@ -8470,7 +8470,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 560344,
+        "bytes": 735104,
         "triangles": 40000,
         "vertices": 25175,
         "skins": 1,
@@ -8518,7 +8518,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "B058B2029E99FED30EECA031344C3C78DB70B3382F9F63DB06B2738EEF227ACD",
+      "sha256": "E0F5145842F9E6A1528639B5143843FA88341CABC95505F0133BC067A3BCCBAD",
       "visualReview": {
         "passed": true,
         "reason": "Shrine Salamander is a complete glossy ember-orange elemental lizard with exactly four webbed limbs, large gold eyes, dark wraps and one continuous tail ending in an attached flame."
@@ -8568,7 +8568,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 559804,
+        "bytes": 697228,
         "triangles": 40000,
         "vertices": 25252,
         "skins": 1,
@@ -8616,7 +8616,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "CDED74FF1B41B927B9E8FAA6767226937CB22109C6D68B198D785E24A1BE1BBE",
+      "sha256": "7AE043CAF05C7DD7E7D1720A3EBAC4BAEF295D0240F4FE5860E7DC29D29A08F0",
       "visualReview": {
         "passed": true,
         "reason": "Granite Badger reconstructs the tiny source as a complete stocky charcoal anime badger with cream face mask, navy ninja layers, sturdy paws, one tail and one rigid back sword."
@@ -8666,7 +8666,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 489460,
+        "bytes": 664144,
         "triangles": 40000,
         "vertices": 24948,
         "skins": 1,
@@ -8713,7 +8713,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "7553C19BADC84FB6C270E9A7837DB5381F9F737B3482B834A0750CB98BC867A3",
+      "sha256": "270DF828B4E8E34BDD16EB351C874CB8EE9381D60ED1710612EFAA9465036155",
       "visualReview": {
         "passed": true,
         "reason": "Young Direwolf is an anime battle wolf rather than an ordinary dog, with gold eyes, shaggy charcoal coat, blue scarf, red ribbon, four complete legs and one raised tail."
@@ -8763,7 +8763,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 485824,
+        "bytes": 806636,
         "triangles": 40000,
         "vertices": 25969,
         "skins": 1,
@@ -8811,7 +8811,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "5BCC7D7B2FC43E707D98F09E25CBCDF91A217B26BEC95F2AF04C49CCDBEAE334",
+      "sha256": "9D7A5EE78A0DA4D3C65DBD89D99D78BBFDCA5BF4E6C4B31B2428DFBD5CB73634",
       "visualReview": {
         "passed": true,
         "reason": "Magma Hyena is a complete charcoal elemental quadruped with fierce amber eyes, sculpted mane, four grounded paws, one tail and restrained molten-orange crack accents."
@@ -8861,7 +8861,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 557636,
+        "bytes": 713924,
         "triangles": 40000,
         "vertices": 27666,
         "skins": 1,
@@ -8908,7 +8908,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "6826D71B3E29C3418CA3DC273AAA7C7646CFB2CCCF5C6F0DF36E65ADD49493BC",
+      "sha256": "047F2A4DFEB0A95FF2B58431E4F0C72D3D4BB7A0978E84FC13FBA631C51C49A6",
       "visualReview": {
         "passed": true,
         "reason": "Ember Ocelot is a polished orange anime wildcat with dark rosettes, navy ninja wraps, four feline legs and one coherent ringed tail."
@@ -8958,7 +8958,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 525480,
+        "bytes": 824496,
         "triangles": 40000,
         "vertices": 25339,
         "skins": 1,
@@ -9006,7 +9006,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "57144F59C50D8A6812CB8280A6A16C16B2EB169069CDE3A66326D1000E821748",
+      "sha256": "65E88536B4BE529B118CBA3E76B0718197366A346B3C5A9A96F0A5AA6219D249",
       "visualReview": {
         "passed": true,
         "reason": "Pyre Kestrel reconstructs the tiny source as one rust-red anime raptor with spotted orange breast, cream face, two layered wings, two taloned legs and no floating flame halo."
@@ -9056,7 +9056,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 614072,
+        "bytes": 780132,
         "triangles": 40000,
         "vertices": 28029,
         "skins": 1,
@@ -9109,7 +9109,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "DE0BF90060A39D15DA8911348B9B6B81C8FBEA959952222DFC5DFDCE91405CFF",
+      "sha256": "E66B0916CCD411FFFFD0F4D7D672C22959E6E468CF0EC61BE1FE0E1B16733EB6",
       "visualReview": {
         "passed": true,
         "reason": "Scoria Mongoose is a complete low orange quadruped ninja with metal brow plate, navy scarf, dark limb guards and one large coherent curled tail."
@@ -9159,7 +9159,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 510068,
+        "bytes": 666464,
         "triangles": 40000,
         "vertices": 24765,
         "skins": 1,
@@ -9206,7 +9206,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "5541B3F3FDF3DF7312A1E240DCCE6E6DC79BAB9BB76BC66B18C594E41E1CDD91",
+      "sha256": "23BDDF0900834DB224ACDC3209EC4522BD621A975A05217D365F018A56376D87",
       "visualReview": {
         "passed": true,
         "reason": "Blaze Caracal is a premium russet anime wildcat with tall tufted ears, cream chest, dark ninja wraps, four feline legs and one continuous tail ending in an attached flame."
@@ -9256,7 +9256,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 504892,
+        "bytes": 729260,
         "triangles": 40000,
         "vertices": 25098,
         "skins": 1,
@@ -9304,7 +9304,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "7391375C7749EA1B25D93C7E2FD53EED4BC1CCFDDB939DEEA2C37A02FA4F1EFF",
+      "sha256": "0AF33571B053FE35BE8E86C194B5BFCDF920EB57DB8DFF11D8366DB36E398745",
       "visualReview": {
         "passed": true,
         "reason": "Tidal Mink is a complete upright brown anime mustelid with cream face, bright blue martial-arts uniform, paired limbs and one thick tapering tail."
@@ -9354,7 +9354,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 597164,
+        "bytes": 772328,
         "triangles": 40000,
         "vertices": 25547,
         "skins": 1,
@@ -9402,7 +9402,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "A22D9E4A3B00D9DC54D5EC44A4BFDA3627506EB4929FEDC4F27BD151931DABC3",
+      "sha256": "6B97CA4BA51DBA68DB7A383262D64F5F1F1E03D15F511BF2E83A86983AE11897",
       "visualReview": {
         "passed": true,
         "reason": "Frost Seal preserves the source's unusual icy seal-lion identity with star markings, crystalline crest, four powerful legs, short tail and paired saber fangs."
@@ -9452,7 +9452,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 543044,
+        "bytes": 672208,
         "triangles": 40000,
         "vertices": 25705,
         "skins": 1,
@@ -9500,7 +9500,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 1.44,
-      "sha256": "589434B5D06DD0D931E561C0485D8419C7673487D9498FCC97B315F0D5B5DB7C",
+      "sha256": "E9A863CB9398DDD3BA25E364E752DC7D182C56FD332CDF53B1F4409CDC99F08B",
       "visualReview": {
         "passed": true,
         "reason": "Coral Serval v2 is a clean golden spotted anime serval with four complete legs, ringed tail, navy scarf and one compact rigid coral ridge attached to the upper back. Multi-view v1 was rejected for a large projection slab; its side-view fallback was rejected for an elongated head and floating fragment."
@@ -9550,7 +9550,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 533524,
+        "bytes": 821796,
         "triangles": 40000,
         "vertices": 23723,
         "skins": 1,
@@ -9598,7 +9598,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "8DEDCB7A00C575222064DD9445032B6B49055454F06CC4AD03C791DF6133FFB1",
+      "sha256": "C1ACE16BC87EF6117DD3FE882AED9B624568FAC1187ABED5D93B117E3B66B398",
       "visualReview": {
         "passed": true,
         "reason": "Brine Cormorant is one complete navy anime bird with long cream beak, red headband, two folded wings, two webbed feet and two rigid crossed back sheaths."
@@ -9648,7 +9648,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 552552,
+        "bytes": 796800,
         "triangles": 40000,
         "vertices": 25747,
         "skins": 1,
@@ -9696,7 +9696,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "C3FD292D47005DB961F4D656BB1117E490B3031982FAAE10FDFCF93CFEFC506E",
+      "sha256": "2412DA8755786948D2E55AB216C95CD827B752CA775AFE719CFCA7C2BFB49EE6",
       "visualReview": {
         "passed": true,
         "reason": "Glacier Marten reconstructs the source as a complete silver-white low quadruped with vivid green eyes, layered navy wraps, four paws and one oversized fluffy tail."
@@ -9746,7 +9746,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 537204,
+        "bytes": 826116,
         "triangles": 40000,
         "vertices": 25775,
         "skins": 1,
@@ -9794,7 +9794,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "3364F79CA5DE269E4D3928B19D1275EC37E56883957E87132F5967E837233633",
+      "sha256": "CDFB9381C35E7A235621C6C4DD61B850ABA94B72A6E640F868F81CAB3BD75E40",
       "visualReview": {
         "passed": true,
         "reason": "Cyclone Harrier is one complete slate anime raptor with warm orange hood, bright eye mask, navy head ties and scarf, two folded wings, two taloned legs and one compact feather tail."
@@ -9844,7 +9844,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 639968,
+        "bytes": 1153028,
         "triangles": 40000,
         "vertices": 27554,
         "skins": 1,
@@ -9897,7 +9897,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "48F34B6A555D9FB6F2A5802E5EBFB8E24F5901C688237EC6073AEC892554445C",
+      "sha256": "921D037FF87BC5047C6F2F0388583B5E8B96131876981FEC4CCF92528321B936",
       "visualReview": {
         "passed": true,
         "reason": "Zephyr Osprey is a complete cream-and-brown anime osprey with black eye mask, navy scarf, two layered wings, two taloned legs and a coherent short tail."
@@ -9947,7 +9947,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 603720,
+        "bytes": 769044,
         "triangles": 40000,
         "vertices": 27485,
         "skins": 1,
@@ -10000,7 +10000,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "BD6A8224B5635EEEEC97A3BF30973F45F59A6DF308632A1038690C44CE2CC590",
+      "sha256": "3296D661F55BD9886845922CDB53FF25BFC898F7E2E1CA6431E65F98C8B5ADDB",
       "visualReview": {
         "passed": true,
         "reason": "Gust Tern is one compact white-and-navy anime seabird with coral beak, bright eyes, two folded wings, two feet and one clean pointed feather tail."
@@ -10050,7 +10050,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 634308,
+        "bytes": 799620,
         "triangles": 40000,
         "vertices": 27832,
         "skins": 1,
@@ -10103,7 +10103,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "D596695584CCD58A42531BF718698A7BF34639577FE3BB5D6B802192A28D30D1",
+      "sha256": "104FFE0AC4360305CBA20AF349D411BB0600EC1E4902FEAA7593845D06D3BCFC",
       "visualReview": {
         "passed": true,
         "reason": "Squall Plover is a complete round rust-brown anime shorebird with cream face, navy head wrap and scarf, two layered wings, two tiny taloned legs and one short tail."
@@ -10153,7 +10153,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 549476,
+        "bytes": 785248,
         "triangles": 40000,
         "vertices": 25266,
         "skins": 1,
@@ -10206,7 +10206,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.96,
-      "sha256": "DB39F43E287B00E7BFAD177D523B1A9C313042F2D4B59FDE95902503F3ED7107",
+      "sha256": "A53C36E27CA6B8B5BCBAD74BDD2AC73B96411A96FC3B040CA8717FB999F724F3",
       "visualReview": {
         "passed": true,
         "reason": "Drift Albatross v2 is a clean navy-and-white anime seabird with orange hooked beak, stern eyes, compact scarf, two wings, two legs and one feather tail. Turnaround v1 reconstruction was rejected because its back weapon became two large flat projection slabs."
@@ -10256,7 +10256,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 552860,
+        "bytes": 718212,
         "triangles": 40000,
         "vertices": 26657,
         "skins": 1,
@@ -10309,7 +10309,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "7B5EBEAA841EB0413096402EB5D3B7DEBEEC34D2233FCFBC013D711BA7BB64A5",
+      "sha256": "58F916B29E0BCBDD23BD7855ABF83D2A0D3B64087B22839E2E36F6372117E4EB",
       "visualReview": {
         "passed": true,
         "reason": "Volt Polecat is a complete upright midnight-blue anime polecat ninja with cream face mask, paired limbs, layered cloth and one thick striped tail ending in an attached pale-yellow tip."
@@ -10359,7 +10359,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 500728,
+        "bytes": 663684,
         "triangles": 40000,
         "vertices": 25231,
         "skins": 1,
@@ -10407,7 +10407,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "A44D92F4BBAF68659AA9E5881B5E87ED662437D8CDE484FC7CBB3A50E2BBEFB7",
+      "sha256": "E5316D4370C90EAC0DEC6F753DFDFDEAECB96619D4611B5C6010A7833A34D322",
       "visualReview": {
         "passed": true,
         "reason": "Surge Stoat is one complete orange anime mustelid with large eyes, navy mask and tunic, paired upright limbs and one oversized fluffy tail with no weapon or floating accessory."
@@ -10457,7 +10457,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 586896,
+        "bytes": 761568,
         "triangles": 40000,
         "vertices": 25393,
         "skins": 1,
@@ -10505,7 +10505,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "F111A1922716EA5BD6595D2813573E0F2DDA00BC09322E40C40131F9E077F6A1",
+      "sha256": "1D8E47C7499E6999356EDE83537CAA0FA02E3AF060F41D5C2FC8C7F93ADD0C31",
       "visualReview": {
         "passed": true,
         "reason": "Thunder Jerboa is a complete golden anime jerboa with two huge ears, paired forepaws and hind legs, navy wraps and one long tail ending in a small attached solid bulb."
@@ -10555,7 +10555,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 556792,
+        "bytes": 893140,
         "triangles": 40000,
         "vertices": 24686,
         "skins": 1,
@@ -10603,7 +10603,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "05B5E0E73553A681F6137BE015820DC7C8D5326955E2C4D35902F75D25F1913A",
+      "sha256": "5EB46DD3B146BD1242CE2D6945F37A179F81061EFFB976EA9253445F013E064E",
       "visualReview": {
         "passed": true,
         "reason": "Static Meerkat is a complete upright tan anime meerkat with dark paws, navy hooded shinobi layers, red sash, paired limbs and one long attached tapering tail."
@@ -10653,7 +10653,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 482788,
+        "bytes": 794820,
         "triangles": 40000,
         "vertices": 25261,
         "skins": 1,
@@ -10701,7 +10701,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "DA6B342BB093B71EAE1F59A8A551FE0492E3A36547A66A1AF47A5E4E856D759B",
+      "sha256": "8A30B4D8DE61632F496E8AAAA17D1390DAB09E23A3D59DD1D99037DBD8FAE539",
       "visualReview": {
         "passed": true,
         "reason": "Arc Buzzard is one compact slate anime raptor with red eyes, ochre hooked beak, navy wrap, red sash, exactly two feathered wings, two taloned legs and one coherent tail."
@@ -10751,7 +10751,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 555080,
+        "bytes": 721120,
         "triangles": 40000,
         "vertices": 27116,
         "skins": 1,
@@ -10804,7 +10804,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "D5361E20344E8C8B48D8298AE52071AE420E3653C0C3C4B6C2967F4E384801AC",
+      "sha256": "D94B3B505BCF7307E9FA6E77995782F5BEB2A80F9FD28196CA486E5A623AB45F",
       "visualReview": {
         "passed": true,
         "reason": "Granite Wombat is a complete stocky gray anime wombat with metal head plate, purple scarf, paired upright limbs, heavy claws and one tiny attached tail, without source weapons."
@@ -10854,7 +10854,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 531456,
+        "bytes": 706100,
         "triangles": 40000,
         "vertices": 25579,
         "skins": 1,
@@ -10902,7 +10902,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "74DFD42E0D4E98F0B2303D2054F68976318265730A7D76A978D3CFAF5285C019",
+      "sha256": "8BE76E64E9EF2525B548A3DF4FFA74256DC4DA1BF042CD3C79D40F61AFA8B5D8",
       "visualReview": {
         "passed": true,
         "reason": "Stoneback Tapir v2 is a complete heavy charcoal anime tapir with long rounded snout, cream belly confined to the front, navy wraps, paired limbs and a tiny rear tail. Turnaround v1 was rejected because its rear panel incorrectly repeated the belly and misplaced the tail."
@@ -10952,7 +10952,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 467860,
+        "bytes": 642492,
         "triangles": 40000,
         "vertices": 23899,
         "skins": 1,
@@ -11000,7 +11000,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "70015A164BF698B633B252766970FCA733A7AD26FF5617732D584671BD37F7C7",
+      "sha256": "09B25FED9E1F2CEC4AB5BD20031A766599927F5DF1EDE57237BF4825909DF03D",
       "visualReview": {
         "passed": true,
         "reason": "Quartz Aardvark is a complete low pale-lavender quadruped with crystalline pattern, huge ears, long pink-tipped snout, red eyes, four clawed legs and one short curved tail."
@@ -11050,7 +11050,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 527076,
+        "bytes": 756972,
         "triangles": 40000,
         "vertices": 25167,
         "skins": 1,
@@ -11098,7 +11098,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "FA3602F2EC192716B740CD275721FF788EA88EB8EB21179BDE5F1365E1E35361",
+      "sha256": "C6FCE5F883884813F6A8F3BEEAA40D37F8939E17CA76886668C5C963B3E3AE1D",
       "visualReview": {
         "passed": true,
         "reason": "Terra Porcupine is one complete upright brown anime porcupine with navy tunic, red scarf, paired limbs and a dense symmetrical fan of attached tapered quills kept stable by conservative weighting."
@@ -11148,7 +11148,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 889352,
+        "bytes": 1064568,
         "triangles": 40000,
         "vertices": 39119,
         "skins": 1,
@@ -11195,7 +11195,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "017D16BC1D1C94F89B19ABBA0E61BEDF789D0C3E5F02E3B899A0DB85A9550789",
+      "sha256": "2413F839DCA1E87FDAB0C05E2DD21D68D91E1FB0D8B6BB5FE1D64D5409F8BF86",
       "visualReview": {
         "passed": true,
         "reason": "Bramble Capybara is one complete round golden anime capybara with navy martial-arts wrap, paired limbs, tiny tail and a symmetrical short bramble crown attached directly to the head."
@@ -11245,7 +11245,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 543368,
+        "bytes": 849632,
         "triangles": 40000,
         "vertices": 25288,
         "skins": 1,
@@ -11293,7 +11293,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 1.44,
-      "sha256": "0F1A643B689655596DA3CFBF7B59397D6C9716AF4FED50DBFDB0F7251C78EDCC",
+      "sha256": "DA14266F04E277FA12BB143A480F69F39B0E3A000AAE0C33BA2100CBFA0D8EBA",
       "visualReview": {
         "passed": true,
         "reason": "Glacier Wolf v4 is a complete pale ice-blue anime wolf with navy blindfold and scarf, four coherent legs and one curled tail. Tall-crystal v2 produced giant white slabs and low-ridge v3 still produced a cyan projection bar, so accepted v4 moves crystal identity to runtime VFX and keeps the mesh clean."
@@ -11343,7 +11343,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 604940,
+        "bytes": 761168,
         "triangles": 40000,
         "vertices": 26981,
         "skins": 1,
@@ -11391,7 +11391,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "555B92A180975F99CAEFD614C17BC791B612E65660635EBD4AD37816A5F96FF8",
+      "sha256": "2C278B1A19D1B9BAE8321D19126E0BB42EAFCEAE237E47789A2416C6EAC1F931",
       "visualReview": {
         "passed": true,
         "reason": "Tempest Hawk is one complete deep-navy legendary anime raptor with gold eyes, silver forehead plate, white chest chevron, two layered wings, two taloned legs and a coherent tail fan; lightning remains runtime VFX."
@@ -11441,7 +11441,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 586820,
+        "bytes": 752896,
         "triangles": 40000,
         "vertices": 27149,
         "skins": 1,
@@ -11494,7 +11494,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "8669940EEE773DDC485C04BFF1C3DA48A881794C4949BD66FFDB76DD4EE5EA9C",
+      "sha256": "66148518EDC9EDCCB2CDB645285CD5F4239F477684A92AF73E0A27C32DC21388",
       "visualReview": {
         "passed": true,
         "reason": "Umbra Fox is a sleek complete midnight-navy anime fox with red eyes and inner ears, four legs, dark scarf and one large raised tail whose cyan tip is solid attached stylized fur."
@@ -11544,7 +11544,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 544396,
+        "bytes": 700724,
         "triangles": 40000,
         "vertices": 27105,
         "skins": 1,
@@ -11591,7 +11591,7 @@
       "provider": "fal-ai/hunyuan3d/v2 side-view fallback + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 1.92,
-      "sha256": "7AD7E876D8560667F49CCF3AE2B3E9BC601AFA9AF0F497F8CE1E6020E16CF3CA",
+      "sha256": "2A92AA8D65A512D477904155D7A290AEAB168A3A1E5C22A7AE2C3A2D4A05CA2E",
       "visualReview": {
         "passed": true,
         "reason": "Spirit Deer is a clean cyan spirit quadruped with pale eyes, solid antlers, compact neck scarf, four legs and a small tail. Multi-view v1 had cloth slivers, v2 duplicated slender hind legs, and stockier v3 created full-height slabs; the accepted v3 prepared side-view fallback was normalized +90 degrees and has coherent anatomy."
@@ -11641,7 +11641,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 459324,
+        "bytes": 615592,
         "triangles": 40000,
         "vertices": 23368,
         "skins": 1,
@@ -11688,7 +11688,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 2.4,
-      "sha256": "EAAC0DB6D8B447A532D77E66C8934413E9497246DC69C425717DD5B6DAE9FA6E",
+      "sha256": "5E5B047D1661B3CCA3A906B4410ACD13D2EE1B0E40F501F5CEDDF54D365B2F36",
       "visualReview": {
         "passed": true,
         "reason": "Ironfang Tiger v4 returns to the source sprite's muscular upright fighter identity with fierce face, saber fangs, painted stripes, compact navy gear, paired arms and legs and a tiny attached tail nub. Three quadruped multi-view attempts and one side-view fallback were rejected for detached rear fragments or malformed far legs."
@@ -11738,7 +11738,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 579516,
+        "bytes": 754764,
         "triangles": 40000,
         "vertices": 24497,
         "skins": 1,
@@ -11785,7 +11785,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "0EF55491AFF3FECB75C714499B26B64894B115545DDF63A0D374B35FE052F8D0",
+      "sha256": "34229CBC76F365BED4459D84B99FB232353A3FAA265B79EDFA6329404B77AE5C",
       "visualReview": {
         "passed": true,
         "reason": "Azure Kirin is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -11835,7 +11835,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 554960,
+        "bytes": 711132,
         "triangles": 40000,
         "vertices": 25770,
         "skins": 1,
@@ -11882,7 +11882,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "03FC44B2C403B538C50A17ADCE4E4BA92140A2FFE7DFBBE5DB5290ED5D1CFDFA",
+      "sha256": "969F6F0AC6355377D7D6BB3A65799AA98BD2A8591E09C78C8BB3F6BADCDD2579",
       "visualReview": {
         "passed": true,
         "reason": "Ember Phoenix is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -11932,7 +11932,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 634552,
+        "bytes": 799832,
         "triangles": 40000,
         "vertices": 27397,
         "skins": 1,
@@ -11985,7 +11985,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 1.44,
-      "sha256": "31F4BA9E177F1BC37C9BEC367B1E6C558AF2076D2C3EED4BBA10089B9492B28C",
+      "sha256": "A67645D1FD3A29FD883D74AB18914160F1483E2675348A3BD626B6369B1B76FC",
       "visualReview": {
         "passed": true,
         "reason": "Moon Serpent is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation. Accepted after 3 paid reconstruction attempts; rejected candidates remain quarantined for audit."
@@ -12035,7 +12035,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 559940,
+        "bytes": 706132,
         "triangles": 40000,
         "vertices": 25652,
         "skins": 1,
@@ -12082,7 +12082,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "039B43F4B4DB60167579B3F0CF6F0D7496EA00028090D2AE4C210AD2FD16A8AC",
+      "sha256": "1AA3CA4A76D803AEF87EBEF9AB2ECB1C9F190223EC887E82596D41AB04E44D38",
       "visualReview": {
         "passed": true,
         "reason": "Storm Lion is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -12132,7 +12132,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 637752,
+        "bytes": 877596,
         "triangles": 40000,
         "vertices": 28093,
         "skins": 1,
@@ -12180,7 +12180,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "5C7EC0D26D7C34FBAA665D359F3DB04CDDC2300DA8D84E0BC30CD42AE6F7FEE6",
+      "sha256": "7BF2B7C3AFEE4091FD560E5D612879A7BF20511D8745EB7B93DB0C19EB5D18A8",
       "visualReview": {
         "passed": true,
         "reason": "Crystal Bear is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -12230,7 +12230,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 554064,
+        "bytes": 720288,
         "triangles": 40000,
         "vertices": 24821,
         "skins": 1,
@@ -12278,7 +12278,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "F1962605384BC1A837E1BFA5413EE15E661632CF2AA251A974289ED45B8747F5",
+      "sha256": "E2004F7851EA0637AD18F0DDA36A02040CA27F75F5F19F56BDCF9DE0CA7FCB89",
       "visualReview": {
         "passed": true,
         "reason": "Void Raven is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -12328,7 +12328,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 709732,
+        "bytes": 875084,
         "triangles": 40000,
         "vertices": 36410,
         "skins": 1,
@@ -12381,7 +12381,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "0B07AA0322674D088533050EF40FA87F2A69F91D290950790A4D585981FC1FEA",
+      "sha256": "4F085A22EBC5B9775B6B314DA731084168827FF5179AF9E773530E761BB29CE2",
       "visualReview": {
         "passed": true,
         "reason": "Thunder Drake is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -12431,7 +12431,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 593600,
+        "bytes": 768628,
         "triangles": 40000,
         "vertices": 25841,
         "skins": 1,
@@ -12478,7 +12478,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "0085A5C83ED0704C2EBF2CCB7DF4B65BAB8159F354128812D8678FEFCF7B1DB1",
+      "sha256": "AE7B79B0E8C56E45827D6B1F3A2C747EA991B67934C4718619B86F4535FF8850",
       "visualReview": {
         "passed": true,
         "reason": "Frost Lynx is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -12528,7 +12528,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 528208,
+        "bytes": 703324,
         "triangles": 40000,
         "vertices": 25684,
         "skins": 1,
@@ -12576,7 +12576,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "3BF25089F1FFDDA0B1FC771E242DC3FD4D2FAF74A86575EE23833B1D13ABC94C",
+      "sha256": "5B82A047540924C6661352832C249195BE0EE3E30474A0F5E98786E27C3ED76B",
       "visualReview": {
         "passed": true,
         "reason": "Armored Polar Bear is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -12626,7 +12626,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 552580,
+        "bytes": 727968,
         "triangles": 40000,
         "vertices": 25245,
         "skins": 1,
@@ -12674,7 +12674,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "E04B85D32F5DF8623225482F422BE246D4AAED16EF748AF22BA3F9ACFA9FE934",
+      "sha256": "778BA16A7A0729FA5F9E270D9BE54AFA717DBC46E8C5286CE0B7D29F3F16F523",
       "visualReview": {
         "passed": true,
         "reason": "Ancient Crane is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -12724,7 +12724,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 685404,
+        "bytes": 850732,
         "triangles": 40000,
         "vertices": 31935,
         "skins": 1,
@@ -12777,7 +12777,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "E04EFB447F6C7E1C2D728F96D28BC2324D22549346B8E1546485A26003D4D9A6",
+      "sha256": "472952FED52164124C2D0DDCE74A36BD89777AEB2B5D599E7DC02B7BD82BD966",
       "visualReview": {
         "passed": true,
         "reason": "Inferno Chimera is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -12827,7 +12827,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 622980,
+        "bytes": 970540,
         "triangles": 40000,
         "vertices": 28432,
         "skins": 1,
@@ -12875,7 +12875,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "C7445A141ECD238B9DFEAB15E0B51BF31AEAFF4FFAA67D0870C057A75963B528",
+      "sha256": "D761F0769ECACDD38A5290F5A9536C74F8AEAE358FA0CBEB37A9D115880798F8",
       "visualReview": {
         "passed": true,
         "reason": "Ash Garuda is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -12925,7 +12925,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 638404,
+        "bytes": 803744,
         "triangles": 40000,
         "vertices": 28133,
         "skins": 1,
@@ -12977,7 +12977,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "D9E07D52D09A9081F7DB6915C5523E287E507A0E4D962E624618C138902F9627",
+      "sha256": "89408FD1D69460F6AD4AD7C8340B3C9BE11F4923464BA570212597D8E894CA2A",
       "visualReview": {
         "passed": true,
         "reason": "Magma Behemoth is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -13027,7 +13027,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 656656,
+        "bytes": 991796,
         "triangles": 40000,
         "vertices": 26229,
         "skins": 1,
@@ -13075,7 +13075,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "307FA6FDE2FD10C620C388BA5DA2BED2429A3FBA89D8A11506992AF994938BD9",
+      "sha256": "CDA8701B82ACB46C9836508BD7964588545D84779E7A171973347F4E0B411D61",
       "visualReview": {
         "passed": true,
         "reason": "Tidelord Leviathan is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -13125,7 +13125,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 602708,
+        "bytes": 777752,
         "triangles": 40000,
         "vertices": 26595,
         "skins": 1,
@@ -13173,7 +13173,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "8556346091174F0D741A47A32CE8A3E76DBE2BFE2F9B0F07DB8B04E75BDCDDDB",
+      "sha256": "CC7A9F9B00403F239DE254EB488B89F10B8240E756A78D7A35ECFEA60E0861AD",
       "visualReview": {
         "passed": true,
         "reason": "Frost Wyrm is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -13223,7 +13223,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 733772,
+        "bytes": 908768,
         "triangles": 40000,
         "vertices": 27777,
         "skins": 1,
@@ -13271,7 +13271,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "B62CDA23BB2A2D9E3DE332F503CBC461418C5151A00EDE1D233EC205CF1B3B7E",
+      "sha256": "759ED5D6AD2DD3F1CA545BED52FCE551A0CB8BDD5461CCAF90DB3DD0A2A42559",
       "visualReview": {
         "passed": true,
         "reason": "Abyss Kraken is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -13321,7 +13321,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 492872,
+        "bytes": 657788,
         "triangles": 40000,
         "vertices": 24787,
         "skins": 1,
@@ -13368,7 +13368,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "2BA978CAABAF61F0805DB108CA83BEF47DD69CC7BAC8D660E017C15B6335380E",
+      "sha256": "935FC433B764D41546BC34619CED3B9708EA84D4E305EEC3835CB8D29AC084EC",
       "visualReview": {
         "passed": true,
         "reason": "Storm Roc is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -13418,7 +13418,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 657392,
+        "bytes": 997868,
         "triangles": 40000,
         "vertices": 27181,
         "skins": 1,
@@ -13471,7 +13471,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS + reviewed geometry cleanup",
       "textured": true,
       "estimatedGenerationCostUsd": 0.96,
-      "sha256": "C9EAC36AD9FF438697F727013C43B52EE5DFF3CC3EC895C397EFC5F458E3CDF2",
+      "sha256": "A847F6DF31488F64E2B0A7BFBC39B0281CFB1D0F6CA1FAEFD672290C3272B40D",
       "visualReview": {
         "passed": true,
         "reason": "Tempest Pegasus now contains one coherent head, neck, torso and four-legged silhouette. The detached duplicate head island was removed while preserving its authored atlas, wings, mane, skeleton and eight animation clips; front, side, rear and three-quarter QA pass."
@@ -13522,7 +13522,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 468072,
+        "bytes": 624956,
         "triangles": 35854,
         "vertices": 24152,
         "skins": 1,
@@ -13570,7 +13570,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "D826CDA0C534E8498A388CE68F76F0458CB63274AA6E499E516B97018F32A3C3",
+      "sha256": "E21C2075F7CC09BCAD819F694BF334DC62048541E3FE1F9CB903B4C6D7858A50",
       "visualReview": {
         "passed": true,
         "reason": "Cyclone Sphinx is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -13620,7 +13620,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 606376,
+        "bytes": 851416,
         "triangles": 40000,
         "vertices": 27383,
         "skins": 1,
@@ -13668,7 +13668,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.96,
-      "sha256": "F6711B3DF909366F11A0C0A019339DE17216CC159EACC8A2F5A1462D953D75F6",
+      "sha256": "5391D6E77B1AD9E2AC5FE7D9F8E2822CB7B6F3FC4F06B0444FD007F9E94A88C8",
       "visualReview": {
         "passed": true,
         "reason": "Thunder Raiju is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation. Accepted after 2 paid reconstruction attempts; rejected candidates remain quarantined for audit."
@@ -13718,7 +13718,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 555136,
+        "bytes": 711412,
         "triangles": 40000,
         "vertices": 25789,
         "skins": 1,
@@ -13765,7 +13765,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "E7DB16DDA41EFAC8F2ECD7683E66542FE87304C4871B681148CD4D4FBCB5967A",
+      "sha256": "1491476F75660D17E5840825BCEE0863557EF4DF90E16D9607690FAD557D9A6F",
       "visualReview": {
         "passed": true,
         "reason": "Storm Wyvern is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -13815,7 +13815,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 561788,
+        "bytes": 736800,
         "triangles": 40000,
         "vertices": 27170,
         "skins": 1,
@@ -13862,7 +13862,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS + reviewed geometry cleanup",
       "textured": true,
       "estimatedGenerationCostUsd": 1.44,
-      "sha256": "92B92799B600B01AA4515742930FE96C7DA5C9D757DE286C22D9E2435B3419BB",
+      "sha256": "F50C699833C51020DE6CAC245975D595EB056A6F4ED957022AD9D2F8615F339A",
       "visualReview": {
         "passed": true,
         "reason": "Galvanic Manticore now contains one coherent head, neck, torso and four-legged silhouette. The detached duplicate head island was removed while preserving its authored atlas, mane plates, tail, skeleton and eight animation clips; front, side, rear and three-quarter QA pass."
@@ -13913,7 +13913,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 462704,
+        "bytes": 619088,
         "triangles": 34434,
         "vertices": 24811,
         "skins": 1,
@@ -13961,7 +13961,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "6A252554DD24AE935799136E1E2776801F27AB318C9891F43698584CF1736902",
+      "sha256": "A90D4B39A7A1EB6DBF7FA75E5E9CE3DA5748A7BF25267F5D41E8779377CC8D50",
       "visualReview": {
         "passed": true,
         "reason": "Titan Golem is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -14011,7 +14011,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 570716,
+        "bytes": 746124,
         "triangles": 40000,
         "vertices": 24289,
         "skins": 1,
@@ -14058,7 +14058,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "7A42F5B1A6DB6234959BCCA8498B71DC30F1AD26AF0AD8618B9A98084609486C",
+      "sha256": "07BB5C0C47E997EACDF9C4543C47FDA955F9FB588DDF27B4E84B92A5EA6BF6A7",
       "visualReview": {
         "passed": true,
         "reason": "Granite Gargoyle is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -14108,7 +14108,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 524612,
+        "bytes": 699936,
         "triangles": 40000,
         "vertices": 25343,
         "skins": 1,
@@ -14155,7 +14155,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "D9612A5D57DD000BED5C563EAF6D8093F9354A6D85F6B070F92F99D60CD29BF3",
+      "sha256": "8866E665EA91EDE88637EDAA5F46C965FD0BB3435CB686AAD6098A12A6F01620",
       "visualReview": {
         "passed": true,
         "reason": "Verdant Treant is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -14205,7 +14205,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 665512,
+        "bytes": 840856,
         "triangles": 40000,
         "vertices": 33314,
         "skins": 1,
@@ -14252,7 +14252,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "86CBBB8985D2AC122E69D79320681281FFED2F44186470913401F09E64016DA2",
+      "sha256": "9027D7EFB395958B98BBBD299AA83FC84C36A5F9A5899149E4FB4C89119DE183",
       "visualReview": {
         "passed": true,
         "reason": "Eclipse Kitsune is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -14302,7 +14302,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 514292,
+        "bytes": 838000,
         "triangles": 40000,
         "vertices": 25547,
         "skins": 1,
@@ -14350,7 +14350,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.96,
-      "sha256": "9EAACDA3A0CFCF7A5C9FA6C8CE852081014F2B855D160E85F68C65445AD0CE81",
+      "sha256": "A80D2C15EDBA0AAB60A9B4332401D6A2F3054CE404B969B31E3B2249322B38B9",
       "visualReview": {
         "passed": true,
         "reason": "Worldstorm Dragon is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation. Accepted after 2 paid reconstruction attempts; rejected candidates remain quarantined for audit."
@@ -14400,7 +14400,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 507840,
+        "bytes": 664028,
         "triangles": 40000,
         "vertices": 25145,
         "skins": 1,
@@ -14448,7 +14448,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "4138E6942301EFCFA9FCC4DF200E815D17C781409D90B33141E31287238E5796",
+      "sha256": "0E7D718DFA003DA76025E267B3EB46A0C92299524C526BB4896F27FAA61A897D",
       "visualReview": {
         "passed": true,
         "reason": "Ancient Frost Titan is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -14498,7 +14498,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 620924,
+        "bytes": 796224,
         "triangles": 40000,
         "vertices": 26621,
         "skins": 1,
@@ -14545,7 +14545,7 @@
       "provider": "fal-ai/hunyuan3d/v2 side-view fallback + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 1.44,
-      "sha256": "22ADAE5D442DCABC0FB637B8B07CF30BFE612CC323BD4BB527F5E47764C2DC65",
+      "sha256": "F3AC39FEC5284C8107F5BD0CE4C7D62E5947AAA7A5A489A8C1B88C8BF32110CB",
       "visualReview": {
         "passed": true,
         "reason": "Solar Stag is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation. Accepted after 3 paid reconstruction attempts; rejected candidates remain quarantined for audit."
@@ -14595,7 +14595,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 469524,
+        "bytes": 625768,
         "triangles": 40000,
         "vertices": 23832,
         "skins": 1,
@@ -14642,7 +14642,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS + reviewed geometry cleanup",
       "textured": true,
       "estimatedGenerationCostUsd": 0.96,
-      "sha256": "CB1B99FAE6485983BB61F7E29B63E34B3525FC5EA6CE135534C9BE1A8FB5C1A9",
+      "sha256": "5C3736144F5B895C963CAE5F79A19B2856F1C7FC7898D25D9B1A22190375BF98",
       "visualReview": {
         "passed": true,
         "reason": "Abyssal Oni Hound now contains one coherent head, neck, torso, and four-legged silhouette. The disconnected duplicate head, neck, and front-leg island was removed without changing the approved atlas, primary anatomy, skeleton, or animation set; front, side, rear, and three-quarter QA pass."
@@ -14694,7 +14694,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 459376,
+        "bytes": 615688,
         "triangles": 30422,
         "vertices": 28087,
         "skins": 1,
@@ -14741,7 +14741,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "D49115358FE0A85397F588FB539FD723D188ABC1D23C74B2957102E304235317",
+      "sha256": "9936F40F9C7C76A0A8F28E2E14D838052EE115D932A95759A5131919BB8D056F",
       "visualReview": {
         "passed": true,
         "reason": "Vermillion Suzaku is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -14791,7 +14791,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 679632,
+        "bytes": 845044,
         "triangles": 40000,
         "vertices": 30076,
         "skins": 1,
@@ -14844,7 +14844,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "62BAC62739D0908BB1E25BF677A377D3C150BBC32126148DD96ACA320653AB32",
+      "sha256": "572B2AE1115D9EA4D6BF4C8130DF0EE18232A543A903AAD5E5E78B3A47A1C597",
       "visualReview": {
         "passed": true,
         "reason": "Azure Ryujin is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -14894,7 +14894,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 676440,
+        "bytes": 929180,
         "triangles": 40000,
         "vertices": 28380,
         "skins": 1,
@@ -14939,7 +14939,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "B0D70F7F52D8D1770FD0E16CC387398B44370C272D21328B6902D6A14A086E34",
+      "sha256": "DA33B48FD4388E97E9055D794B945C6B4901F66EE5F41E16F3947EB289192CF2",
       "visualReview": {
         "passed": true,
         "reason": "Turtle Duck is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -14989,7 +14989,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 533596,
+        "bytes": 708104,
         "triangles": 40000,
         "vertices": 24185,
         "skins": 1,
@@ -15037,7 +15037,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "C8A3280D6FB7C6832550C0BEDC5019DF8551D1C42F54B796B2100D3D016B7652",
+      "sha256": "D12E479EF77DFEBE42C6588BEA78850CD2610A4E7922A7D1F4605FA732C21EE1",
       "visualReview": {
         "passed": true,
         "reason": "Stormgod Raijin is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -15087,7 +15087,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 596356,
+        "bytes": 836308,
         "triangles": 40000,
         "vertices": 25744,
         "skins": 1,
@@ -15135,7 +15135,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "7CC9F2CD60ED08CF26D27C1A3A80384C3519A0D51B9D7E9CA08F0F52220CA66B",
+      "sha256": "35A18F7B504139E87725EAB46069EA460F2510CA6C4A89E3EFA10B64AEDA524C",
       "visualReview": {
         "passed": true,
         "reason": "Worldroot Colossus is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -15185,7 +15185,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 678764,
+        "bytes": 854108,
         "triangles": 40000,
         "vertices": 32196,
         "skins": 1,
@@ -15231,7 +15231,7 @@
       "generatedAt": "2026-08-03T12:00:00.000Z",
       "provider": "fal-ai/hunyuan3d-v3/multi-view + deterministic 21-bone production rig",
       "textured": true,
-      "sha256": "E57D60F55D5FD0C3F91DFEF668A3F16A98D3FCBB7474C1651457A5A01AEBC68F",
+      "sha256": "775658C8D0EB21BF1EB17EFD64AD09A45537F9B960D754B4DE0A749D60795EBA",
       "visualReview": {
         "passed": true,
         "views": [
@@ -15244,7 +15244,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 1016504,
+        "bytes": 1314540,
         "triangles": 15558,
         "vertices": 16648,
         "materials": 1,
@@ -15292,7 +15292,7 @@
       "generatedAt": "2026-08-03T12:00:00.000Z",
       "provider": "fal-ai/hunyuan3d-v3/multi-view + deterministic 21-bone production rig",
       "textured": true,
-      "sha256": "1D704BC7C231EE45CEFE9187F2B76187797542EE9EC1ED877AD1ECDD963358E2",
+      "sha256": "36672BF18D084B73D63342E2F4CF3BDDC6A0E7259FF3953476E0AAA1785D4379",
       "visualReview": {
         "passed": true,
         "views": [
@@ -15305,7 +15305,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 1085340,
+        "bytes": 1255028,
         "triangles": 12992,
         "vertices": 10347,
         "materials": 1,
@@ -15348,7 +15348,7 @@
       "generatedAt": "2026-08-03T12:00:00.000Z",
       "provider": "fal-ai/hunyuan3d-v3/multi-view + deterministic 21-bone production rig",
       "textured": true,
-      "sha256": "292C52DC1999069575A6B73485098B314AA16B6A63168AE693AA3DC0068D3DE1",
+      "sha256": "F9AFD8561726CE77FD8DCC4931C1F4E7ACF1887CEC01A10008AE668217CBC831",
       "visualReview": {
         "passed": true,
         "views": [
@@ -15361,7 +15361,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 1034024,
+        "bytes": 1370020,
         "triangles": 20063,
         "vertices": 19753,
         "materials": 1,
@@ -15404,7 +15404,7 @@
       "generatedAt": "2026-08-03T12:00:00.000Z",
       "provider": "fal-ai/hunyuan3d-v3/multi-view + deterministic 21-bone production rig",
       "textured": true,
-      "sha256": "B2096D4ED94EFE64C443B04375261F35E057DF655099556C53ED04D3D3E3A8A6",
+      "sha256": "9679DB6546B02507AEC57D05E6EE9335EC245AFD10B2EF7948AA1D301F0E3A35",
       "visualReview": {
         "passed": true,
         "views": [
@@ -15417,7 +15417,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 1066888,
+        "bytes": 1422016,
         "triangles": 16142,
         "vertices": 14752,
         "materials": 1,
@@ -15460,7 +15460,7 @@
       "generatedAt": "2026-08-03T12:00:00.000Z",
       "provider": "fal-ai/hunyuan3d-v3/multi-view + deterministic 21-bone production rig",
       "textured": true,
-      "sha256": "6CF685B5E5F92E0214DBA6E6F2484BAB955395A3E62F6967F7F186778EA82C80",
+      "sha256": "2DEE04DDB64A263495068473D12FB9B33C2C575E8AC70B4E2221531292A750A8",
       "visualReview": {
         "passed": true,
         "views": [
@@ -15473,7 +15473,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 1030216,
+        "bytes": 1180544,
         "triangles": 22328,
         "vertices": 15743,
         "materials": 1,
@@ -15528,7 +15528,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 1234248,
+        "bytes": 1420404,
         "triangles": 39718,
         "vertices": 45222,
         "materials": 1,
@@ -15538,7 +15538,7 @@
         "animations": 13,
         "bones": 27
       },
-      "sha256": "5CCDBB8CFC6BEF320FF44CA250D42C4661B864A42153953E621F619F9CEA9B3E",
+      "sha256": "6356C52F9C61DD5DCB82F2220568D4BF2A20C0B3B4791232AF82C44F85F56E3C",
       "animationBank": {
         "revision": "20260825-identity-v5",
         "family": "pouncer",

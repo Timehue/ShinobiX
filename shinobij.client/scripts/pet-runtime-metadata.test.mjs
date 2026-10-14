@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { dirname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { runInNewContext } from 'node:vm';
@@ -156,13 +156,17 @@ for (const check of [true, false])
         const jsonPath = resolve(client, 'public/pet-models/warfront-lod/manifest.json'), tsPath = resolve(client, 'src/generated/pet-warfront-lod-manifest.ts');
         const files = new Map([[jsonPath, JSON.stringify(lodCertified)], [tsPath, lodSource]]);
         const readFile = async (file, encoding) => { assert.equal(encoding, 'utf8'); assert.ok(files.has(file)); reads.push(file); return files.get(file); };
-        const writeFile = async (file, content) => { assert.equal(check, false); assert.equal(file, tsPath); assert.equal(content, lodSource.replaceAll('\r\n', '\n')); writes.push(file); };
+        const temporary = `${tsPath}.codegen-tmp`;
+        const writeFile = async (file, content) => { assert.equal(check, false); assert.equal(file, temporary); assert.equal(content, lodSource.replaceAll('\r\n', '\n')); writes.push(file); };
+        const renames = [];
+        const rename = async (from, to) => { assert.equal(check, false); assert.equal(from, temporary); assert.equal(to, tsPath); renames.push([from, to]); };
         const fail = () => { throw new Error('metadata-only path reached model work'); };
         const fakeProcess = { argv: ['node', 'writer', '--manifest-only', ...(check ? ['--check'] : [])], exit(code) { assert.equal(code, 0); throw stop; } };
-        const execute = new AsyncFunction('resolve', 'dirname', 'fileURLToPath', 'readFile', 'writeFile', 'mkdir', 'readdir', 'stat', 'MeshoptDecoder', 'MeshoptEncoder', 'MeshoptSimplifier', 'process', 'console', executable);
-        await assert.rejects(execute(resolve, dirname, fileURLToPath, readFile, writeFile, fail, fail, fail, new Proxy({}, { get: fail }), new Proxy({}, { get: fail }), new Proxy({}, { get: fail }), fakeProcess, { log() { } }), error => error === stop);
+        const execute = new AsyncFunction('resolve', 'dirname', 'sep', 'fileURLToPath', 'readFile', 'writeFile', 'rename', 'mkdir', 'readdir', 'stat', 'MeshoptDecoder', 'MeshoptEncoder', 'MeshoptSimplifier', 'process', 'console', executable);
+        await assert.rejects(execute(resolve, dirname, sep, fileURLToPath, readFile, writeFile, rename, fail, fail, fail, new Proxy({}, { get: fail }), new Proxy({}, { get: fail }), new Proxy({}, { get: fail }), fakeProcess, { log() { } }), error => error === stop);
         assert.deepEqual(reads, check ? [jsonPath, tsPath] : [jsonPath]);
-        assert.deepEqual(writes, check ? [] : [tsPath]);
+        assert.deepEqual(writes, check ? [] : [temporary]);
+        assert.deepEqual(renames, check ? [] : [[temporary, tsPath]]);
     });
 
 test('both compact exports preserve every expanded readonly literal type', () => {
