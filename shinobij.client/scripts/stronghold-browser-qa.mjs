@@ -238,6 +238,8 @@ try {
             try { await page.waitForFunction(expected => document.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow') === String(expected), n * 4, { timeout: 5000 }); }
             catch (e) { console.log({ engineName, n, state, pageErrors: errors, focus: await page.evaluate(() => document.activeElement?.outerHTML), text: await page.locator('body').innerText() }); throw e; }
         }
+        // A step shows at once and the patrol opens with the server's answer to it.
+        await page.waitForFunction(() => document.body.dataset.patrol === 'qa-patrol', null, { timeout: 5000 });
         assert.equal(state.steps, 25); assert.equal(await page.locator('body').getAttribute('data-patrol'), 'qa-patrol');
         checks.push(`${engineName}: exit failure restores polling; exactly 25 steps trigger patrol`); await page.close();
         const boss = fixture({ tile: 697, visited: [697] }); const host = await prepare(browser, { width: 844, height: 390 }, boss, '?host=1'); await ready(host);
