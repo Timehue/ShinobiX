@@ -13,7 +13,7 @@ function encounter(floor: TowerFloor) {
 }
 
 test('every newly started Story floor resolves through enemies and bosses, without escort or timer objectives', () => {
-    assert.equal(TOWER_CATALOG_VERSION, 'story-tower-v5');
+    assert.equal(TOWER_CATALOG_VERSION, 'story-tower-v6');
     const allowed = new Set(['defeat-all', 'defeat-boss', 'defeat-all-then-boss', 'kill-adds-first']);
     for (const floor of FLOOR_CATALOG) {
         assert.ok(allowed.has(floor.objective), `floor ${floor.id} is a combat objective`);
@@ -51,6 +51,23 @@ test('the Archivist survives its final phase gate and must be defeated to clear 
     boss.hp = 0;
     checkTowerWinner(session, floor);
     assert.equal(session.winner, 'squad');
+});
+
+test('a saved v5 run retains its larger map and feature positions after the arena resize', () => {
+    const oldFloor: TowerFloor = {
+        ...structuredClone(getFloor(6)!),
+        map: { width: 18, height: 12 },
+        features: [{ kind: 'ward', tiles: [190, 191, 192], percent: 22 }],
+    };
+    const session = encounter(oldFloor);
+    sealTowerCatalogFloor(session, oldFloor, 'story');
+    session.floorProvenance!.contentVersion = 'story-tower-v5';
+    const resolved = floorForSession(session)!;
+    assert.deepEqual(resolved.map, oldFloor.map);
+    assert.deepEqual(resolved.features, oldFloor.features);
+    assert.deepEqual(session.map.width, 18);
+    assert.deepEqual(session.map.height, 12);
+    assert.notDeepEqual(resolved.map, getFloor(6)!.map);
 });
 
 test('existing sealed v3 defense and archive runs keep their original objective and rewards', () => {

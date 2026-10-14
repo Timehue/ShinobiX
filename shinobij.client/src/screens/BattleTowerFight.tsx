@@ -3,7 +3,7 @@ import { sameJsonValue } from "../lib/pvp-session-runtime";
 import { TowerPersonalBestReceipt } from "../components/TowerPersonalBestReceipt";
 import { TOWER_DISRUPT_AP, TOWER_SIGNATURES, TOWER_HONORS, towerSignaturePattern } from "../../../shared/tower-progression";
 import { towerImpactCues, type TowerImpactCue } from "../lib/tower-impact-cues";
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from "react";
 import "../styles/battle-skin.css";
 import "../styles/tower-tactical.css";
 import type { Character, BattleHistoryEntry, VersionedCharacterCommit } from "../types/character";
@@ -27,9 +27,8 @@ import { ARENA_IMPACT_LAG_MS, combatHitLabel, diffCombatVitals, reactionDirectio
 import { useBoardScale } from "../lib/use-board-scale";
 import { useBattleTabs } from "../lib/use-battle-tabs";
 import {
-    buildTowerMilestoneReceipt, buildTowerTileLabel, clampTowerPan, clampTowerZoom,
+    buildTowerMilestoneReceipt, buildTowerTileLabel,
     estimateTowerActionDamage, towerPreviewTargetInRange,
-    TOWER_ZOOM_MAX, TOWER_ZOOM_MIN, TOWER_ZOOM_STEP, type TowerPan,
 } from "../lib/tower-tactical-ui";
 import type { StoryFightTheme } from "../lib/story-fight-theme";
 import { towerStoryFieldReport } from "../lib/tower-story-catalog";
@@ -50,8 +49,9 @@ import {
 import { gameConfirm } from "../components/GameAlert";
 import { ShinobiCombatShell } from "../components/ShinobiCombatShell";
 import { BattleTabBar } from "../components/BattleTabBar";
-import { CombatCommandBar, PlainCombatBattleLog } from "../components/CombatHudLayout";
+import { CombatActionTray, CombatCommandBar, PlainCombatBattleLog } from "../components/CombatHudLayout";
 import { TowerActorDetails, TowerActorEffects } from "../components/TowerActorDetails";
+import { TowerCombatantHud } from "../components/TowerCombatantHud";
 import { CombatDetailPortal } from "../components/CombatDetailPortal";
 import { CombatJutsuMeta } from "../components/CombatJutsuMeta";
 import {
@@ -530,15 +530,14 @@ export function BattleTowerFight({
     const battleTabs = useBattleTabs(session.log.length);
     const combatFloor = session.sealedCatalogFloor ?? session.encounterFloor;
     const [mode, setMode] = useState<Mode>("idle");
-    const [showTacticalGrid, setShowTacticalGrid] = useState(false);
     const [selJutsu, setSelJutsu] = useState<JutsuLike | null>(null);
     const [selWeaponId, setSelWeaponId] = useState<string>("");
     const [inspectedLoadout, setInspectedLoadout] = useState<{ kind: "jutsu" | "weapon"; id: string } | null>(null);
     const [inspectedEnemyId, setInspectedEnemyId] = useState<string | null>(null);
     const [actorInspection, setActorInspection] = useState<{ id: string; triggerId: string } | null>(null);
-    const [inlineInspection, setInlineInspection] = useState(() => typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches);
+    const [inlineInspection, setInlineInspection] = useState(() => typeof window !== "undefined" && window.matchMedia("(min-width: 980px)").matches);
     useEffect(() => {
-        const media = window.matchMedia("(min-width: 1024px)");
+        const media = window.matchMedia("(min-width: 980px)");
         const update = (event: MediaQueryListEvent) => setInlineInspection(event.matches);
         media.addEventListener("change", update);
         return () => media.removeEventListener("change", update);
@@ -778,52 +777,8 @@ export function BattleTowerFight({
             </div>
         );
     };
-    const { battlefieldCallbackRef, boardContainerSize, effectiveScale: fittedScale } = useBoardScale(layer.width, layer.height);
-    const [boardZoom, setBoardZoom] = useState(TOWER_ZOOM_MIN);
-    const [boardPan, setBoardPan] = useState<TowerPan>({ x: 0, y: 0 });
-    const boardDragRef = useRef<{ pointerId: number; startX: number; startY: number; pan: TowerPan; moved: boolean } | null>(null);
-    const suppressBoardClickRef = useRef(false);
-    const suppressBoardClickTimerRef = useRef<number | null>(null);
-    // ── Panning is written to the DOM, not pushed through React ──────────────
-    // A drag fires a pointermove every frame. Routing each one through
-    // setBoardPan re-rendered this whole screen (~120 hex tiles plus every actor,
-    // hazard and overlay) per frame, and the pan fed `left`/`top`, so the browser
-    // ran a full LAYOUT of the board each time instead of a compositor-only move.
-    // The live pan now lives in a ref and is applied as a `transform` in a
-    // rAF-coalesced write; React state is updated once, when the finger lifts, so
-    // reset / zoom-clamp / the "Fit / reset" disabled check keep working off it.
-    const boardPanElRef = useRef<HTMLDivElement | null>(null);
-    const boardPanRef = useRef<TowerPan>({ x: 0, y: 0 });
-    const boardPanFrameRef = useRef(0);
-    const applyBoardPan = useCallback(() => {
-        const el = boardPanElRef.current;
-        if (!el) return;
-        const { x, y } = boardPanRef.current;
-        el.style.transform = `translate3d(${x}px, ${y}px, 0)`;
-    }, []);
-    // Callback ref, not a plain one: a remount would otherwise leave the board
-    // without its transform until the next pan change.
-    const boardPanCallbackRef = useCallback((el: HTMLDivElement | null) => {
-        boardPanElRef.current = el;
-        if (el) applyBoardPan();
-    }, [applyBoardPan]);
-    const scheduleBoardPan = useCallback(() => {
-        if (boardPanFrameRef.current) return;
-        boardPanFrameRef.current = requestAnimationFrame(() => {
-            boardPanFrameRef.current = 0;
-            applyBoardPan();
-        });
-    }, [applyBoardPan]);
-    // Keep the DOM in step with any pan that came from React (reset, zoom clamp,
-    // the drag's own commit on pointer-up) rather than from the finger.
-    useEffect(() => {
-        boardPanRef.current = boardPan;
-        applyBoardPan();
-    }, [boardPan, applyBoardPan]);
-    useEffect(() => () => {
-        if (boardPanFrameRef.current) cancelAnimationFrame(boardPanFrameRef.current);
-    }, []);
-
+    // Leave one hex of breathing room for tall boss sprites and edge labels.
+    const { battlefieldCallbackRef, boardContainerSize, effectiveScale: fittedScale } = useBoardScale(layer.width + HEX_W, layer.height + HEX_H);
     const activeId = session.turnQueue[session.activeIndex];
     const activeActor = session.actors.find(a => a.id === activeId);
     const summonedCompanion = session.actors.find(a => (a.character as Record<string, unknown> | undefined)?.companion === true && a.hp > 0);
@@ -835,45 +790,17 @@ export function BattleTowerFight({
     const bossId = session.phaseState?.bossId;
     const lockedBossId = session.objectiveState.bossUnlocked === false ? bossId : undefined;
 
-    const maximumBoardZoom = fittedScale > 0
-        ? clampTowerZoom(TOWER_ZOOM_MAX, TOWER_ZOOM_MAX / fittedScale)
-        : TOWER_ZOOM_MAX;
-    const renderedScale = Math.min(TOWER_ZOOM_MAX, fittedScale * boardZoom);
+    const renderedScale = fittedScale;
     const renderedBoardSize = useMemo(() => ({
         width: layer.width * renderedScale,
         height: layer.height * renderedScale,
     }), [layer.width, layer.height, renderedScale]);
-    const clampPanToBoard = useCallback((pan: TowerPan) => clampTowerPan(
-        pan,
-        { width: boardContainerSize.w, height: boardContainerSize.h },
-        renderedBoardSize,
-    ), [boardContainerSize.w, boardContainerSize.h, renderedBoardSize]);
-
-    useEffect(() => {
-        setBoardZoom(current => clampTowerZoom(current, maximumBoardZoom));
-    }, [maximumBoardZoom]);
-    useEffect(() => {
-        setBoardPan(current => clampPanToBoard(current));
-    }, [clampPanToBoard]);
-
-    const changeBoardZoom = useCallback((delta: number) => {
-        setBoardZoom(current => clampTowerZoom(current + delta, maximumBoardZoom));
-    }, [maximumBoardZoom]);
-    const resetBoardView = useCallback(() => {
-        setBoardZoom(TOWER_ZOOM_MIN);
-        setBoardPan({ x: 0, y: 0 });
-    }, []);
     const focusBoardTile = useCallback((tile: number | null) => {
         if (tile == null || tile < 0 || tile >= w * h) return;
         setActionFocusTile(tile);
-        const center = tileCenter(tile);
-        setBoardPan(clampPanToBoard({
-            x: renderedBoardSize.width / 2 - center.x * renderedScale,
-            y: renderedBoardSize.height / 2 - center.y * renderedScale,
-        }));
         const timer = window.setTimeout(() => setActionFocusTile(current => current === tile ? null : current), 1500);
         presentationTimersRef.current.push(timer);
-    }, [w, h, tileCenter, clampPanToBoard, renderedBoardSize.width, renderedBoardSize.height, renderedScale]);
+    }, [w, h]);
     useEffect(() => {
         const previous = previousActorsRef.current;
         const previousActive = previousActiveIdRef.current;
@@ -961,54 +888,6 @@ export function BattleTowerFight({
         }, 1450);
         presentationTimersRef.current.push(timer);
     }, []);
-    const onBoardPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-        if (boardZoom <= TOWER_ZOOM_MIN) return;
-        if (event.pointerType === "mouse" && event.button !== 0) return;
-        boardDragRef.current = {
-            pointerId: event.pointerId,
-            startX: event.clientX,
-            startY: event.clientY,
-            // The ref, not the state: mid-gesture the state is one commit behind.
-            pan: boardPanRef.current,
-            moved: false,
-        };
-        event.currentTarget.setPointerCapture(event.pointerId);
-    }, [boardZoom]);
-    const onBoardPointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-        const drag = boardDragRef.current;
-        if (!drag || drag.pointerId !== event.pointerId) return;
-        const dx = event.clientX - drag.startX;
-        const dy = event.clientY - drag.startY;
-        if (!drag.moved && Math.hypot(dx, dy) < 5) return;
-        drag.moved = true;
-        event.preventDefault();
-        boardPanRef.current = clampPanToBoard({ x: drag.pan.x + dx, y: drag.pan.y + dy });
-        scheduleBoardPan();
-    }, [clampPanToBoard, scheduleBoardPan]);
-    const endBoardPointer = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-        const drag = boardDragRef.current;
-        if (!drag || drag.pointerId !== event.pointerId) return;
-        if (drag.moved) {
-            suppressBoardClickRef.current = true;
-            if (suppressBoardClickTimerRef.current != null) window.clearTimeout(suppressBoardClickTimerRef.current);
-            suppressBoardClickTimerRef.current = window.setTimeout(() => {
-                suppressBoardClickRef.current = false;
-                suppressBoardClickTimerRef.current = null;
-            }, 0);
-        }
-        if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
-        boardDragRef.current = null;
-        // One commit per gesture, not one per frame. React state stays the
-        // authority for reset / zoom-clamp between drags.
-        if (drag.moved) setBoardPan(boardPanRef.current);
-    }, []);
-    useEffect(() => () => {
-        if (suppressBoardClickTimerRef.current != null) window.clearTimeout(suppressBoardClickTimerRef.current);
-        suppressBoardClickTimerRef.current = null;
-        suppressBoardClickRef.current = false;
-        boardDragRef.current = null;
-    }, []);
-
     // ── Endless Spire theater — boss identity, intro nameplate, phase banners ────
     const spireTier = Number(session.ascensionTier ?? 0);
     const isSpire = spireTier > 0;
@@ -1528,7 +1407,6 @@ export function BattleTowerFight({
     }
 
     function onTileClick(tile: number) {
-        if (suppressBoardClickRef.current) return;
         if (busy) return;
         const occ = session.actors.find(a => a.hp > 0 && a.pos === tile);
         if (occ && inlineInspection) setActorInspection({ id: occ.id, triggerId: `tower-board-actor-${occ.id}` });
@@ -1713,6 +1591,9 @@ export function BattleTowerFight({
             && enemies.some(enemy => enemy.id !== bossActor.id && enemy.hp > 0))
     ));
     const inspectedActor = session.actors.find(actor => actor.id === actorInspection?.id) ?? null;
+    const focusedEnemy = enemies.find(actor => actor.id === inspectedEnemyId)
+        ?? (bossActor && bossActor.hp > 0 ? bossActor : enemies.find(actor => actor.hp > 0))
+        ?? enemies[0];
     const fighterDetails = inspectedActor && actorInspection && session.status === "active" ? (
         <TowerActorDetails actor={inspectedActor} key={inspectedActor.id} round={session.round} avatar={avatarFor(inspectedActor)}
             triggerId={actorInspection.triggerId} onClose={closeActorInspection} inline={inlineInspection}
@@ -1883,6 +1764,9 @@ export function BattleTowerFight({
 
                 {/* Squad rail (+ protect-target allies) */}
                 <aside className="tower-roster-rail tower-squad-rail" style={{ minWidth: 0 }} aria-label={isTeamPvp || isWorldBoss ? "Your Team" : "Squad"}>
+                    {myActor && <TowerCombatantHud actor={myActor} avatar={avatarFor(myActor) ?? fallbackArtFor(myActor)}
+                        label="Your fighter" active={myActor.id === activeId}
+                        onInspect={() => inspectActor(myActor, `tower-dossier-${myActor.id}`)} />}
                     <RailHeader icon="shield" label={isTeamPvp || isWorldBoss ? "Your Team" : "Squad"} accent="var(--tower-rail-ally)" />
                     <div className="tower-roster-list">
                         {allies.map(a => <ActorCard key={a.id} actor={a} round={session.round} highlight={a.id === activeId} avatar={avatarFor(a)} fallbackArt={fallbackArtFor(a)} ally={a.side === "npc"} selected={a.id === actorInspection?.id} inspectionInline={inlineInspection} onInspect={() => inspectActor(a, `tower-roster-actor-${a.id}`)} />)}
@@ -1903,27 +1787,23 @@ export function BattleTowerFight({
                     <header className="tower-fight-header tower-fight-statusbar" style={{
                             ...(encounterArt ? { ["--tower-encounter-art" as string]: `url("${encounterArt.src}")` } : {}),
                         }} data-has-encounter-art={encounterArt ? "true" : undefined} data-art-kind={encounterArt?.kind}>
-                        <h1 className="tower-fight-title">{isTeamPvp ? `${session.actors.filter(a => a.side === 'squad').length}v${session.actors.filter(a => a.side === 'enemy').length} ${pvpContextLabel} · eliminate the rival team` : isCaravanAmbush ? `${storyEncounterTitle} · ${session.actors.filter(a => a.side === 'enemy').length} attackers` : storyEncounterTitle}</h1>
-                        <span className="tower-objective-progress" role="status" aria-label={`Objective progress: ${objectiveProgress}`}>{objectiveDirective} · {objectiveProgress}</span>
+                        <h1 className="tower-fight-title" title={storyEncounterTitle}>{isTeamPvp ? `${session.actors.filter(a => a.side === 'squad').length}v${session.actors.filter(a => a.side === 'enemy').length} ${pvpContextLabel}` : storyEncounterTitle}</h1>
+                        <span className="tower-objective-progress" role="status" title={objectiveDirective} aria-label={`${objectiveDirective}. Objective progress: ${objectiveProgress}`}>{objectiveProgress}</span>
                         <span className="tower-round-readout" title={roundPresentation.hudTitle} aria-label={roundPresentation.hudTitle} style={{
                             color: roundPresentation.hardLimit && session.round >= roundPresentation.hardLimit - 2 ? "var(--red-400)"
                                 : roundPresentation.hardLimit && session.round >= Math.floor(roundPresentation.hardLimit * 0.66) ? "var(--gold)" : "var(--text-dim)",
-                        }}>{roundPresentation.hudLabel}</span>
+                        }}>{roundPresentation.debriefLabel === "Rounds / par" ? `Round ${session.round}` : roundPresentation.hudLabel}</span>
                         {turnLabel && (
                             <span className="tower-fight-turn-pill" data-own-turn={myTurn} data-side={activeActor?.side}>
                                 <span className="tower-fight-turn-label" aria-live="polite">{turnLabel}</span>
                                 {activeIsLiveHuman && session.turnStartedAt ? <TowerTurnCountdown turnStartedAt={session.turnStartedAt} /> : null}
                             </span>
                         )}
-                        <div className="tower-resource-rail tower-header-resource-rail" aria-label="Your combat resources">
-                            <strong style={{ color: "var(--gold)", fontSize: "1rem", lineHeight: 1 }}>{myTurn ? session.activeAp : "—"}</strong>
-                            <span style={{ color: "var(--text-dim)", fontSize: "0.68rem" }}>AP</span>
-                            <span style={{ color: "var(--slate-600)" }}>·</span>
-                            <span style={{ color: "var(--text-dim)", fontSize: "0.68rem" }}>{myTurn ? `${session.actionsThisTurn}/5` : "waiting"}</span>
-                            <span style={{ color: "var(--slate-600)" }}>·</span>
-                            <span className="tower-header-stat" title="Health" aria-label={`Health: ${Math.max(0, myActor?.hp ?? 0)} of ${myActor?.maxHp ?? 0}`}><small>HP</small> {Math.max(0, myActor?.hp ?? 0)}/{myActor?.maxHp ?? 0}</span>
-                            <span className="tower-header-stat" title="Chakra" aria-label={`Chakra: ${myChakra}`}><small>CP</small> {myChakra}</span>
-                            <span className="tower-header-stat" title="Stamina" aria-label={`Stamina: ${myStamina}`}><small>SP</small> {myStamina}</span>
+                        <div className="tower-resource-rail tower-header-resource-rail" aria-label="Action points and turn actions">
+                            <strong className="tower-ap-value">{myTurn ? session.activeAp : "—"}</strong>
+                            <span>AP</span>
+                            <span aria-hidden="true">·</span>
+                            <span aria-label={myTurn ? `${session.actionsThisTurn} of 5 actions used` : "Waiting for your turn"}>{myTurn ? `${session.actionsThisTurn}/5` : "—"}</span>
                         </div>
                         {actionFeedback.phase === "error" && (
                             <span className="tower-header-action-error" aria-hidden="true" title={reject ?? undefined}>{actionFeedback.label} failed</span>
@@ -1940,7 +1820,7 @@ export function BattleTowerFight({
                                 className="tower-fight-leave"
                                 disabled={(isTeamPvp || isHunt || isWorldBoss) && busy}
                                 aria-label={isHunt ? "Retreat" : isTeamPvp ? "Forfeit" : isCaravanAmbush || isWorldBoss ? "Leave battle view" : "Leave view"}
-                                style={{ padding: "4px 10px", fontSize: "0.8rem", borderColor: isTeamPvp ? "var(--red-400)" : "var(--slate-600)", color: isTeamPvp ? "#fecaca" : "var(--slate-300)" }}
+                                style={{ borderColor: isTeamPvp ? "var(--red-400)" : "var(--slate-600)", color: isTeamPvp ? "#fecaca" : "var(--slate-300)" }}
                                 onClick={async () => {
                                     if (isWorldBoss) {
                                         if (await gameConfirm('Leave the team fight view? The raid remains active, and you can resume it from the muster.')) (onLeaveActive ?? onExit)();
@@ -1963,27 +1843,11 @@ export function BattleTowerFight({
                             {remainingTurnActors.map((actor, index) => (
                                 <li key={actor.id} className={index === 0 ? "is-active" : undefined} aria-current={index === 0 ? "step" : undefined}>
                                     <span className={`tower-turn-dot tower-turn-dot--${actor.side}`} aria-hidden="true" />
-                                    <span>{index === 0 ? "Now: " : "Next: "}{actor.name}</span>
+                                    <span>{index === 0 ? "Now: " : ""}{actor.name}</span>
                                 </li>
                             ))}
                         </ol>
                     )}
-
-                    <div className="tower-field-tools">
-                        <div className="tower-board-toolbar">
-                            <span className="tower-board-help">Drag the field to pan after zooming in.</span>
-                            <div className="tower-board-controls" role="group" aria-label="Battlefield view controls">
-                                {!inlineInspection && myActor && <button id="tower-own-effects-toggle" type="button" aria-label="Your effects" aria-haspopup="dialog" onClick={() => inspectActor(myActor, "tower-own-effects-toggle")}>Effects</button>}
-                                <button className="tower-grid-toggle" type="button" aria-pressed={showTacticalGrid} onClick={() => setShowTacticalGrid(value => !value)} title="Show the tactical hex grid">Grid</button>
-                                <button type="button" onClick={() => changeBoardZoom(-TOWER_ZOOM_STEP)} disabled={boardZoom <= TOWER_ZOOM_MIN} aria-label="Zoom battlefield out">−</button>
-                                <input type="range" min={TOWER_ZOOM_MIN} max={maximumBoardZoom} step={0.05} value={boardZoom} aria-label="Battlefield zoom"
-                                    onChange={event => setBoardZoom(clampTowerZoom(Number(event.target.value), maximumBoardZoom))} />
-                                <output aria-live="polite">{Math.round(boardZoom * 100)}%</output>
-                                <button type="button" onClick={() => changeBoardZoom(TOWER_ZOOM_STEP)} disabled={boardZoom >= maximumBoardZoom} aria-label="Zoom battlefield in">+</button>
-                                <button type="button" onClick={resetBoardView} disabled={boardZoom === TOWER_ZOOM_MIN && boardPan.x === 0 && boardPan.y === 0}>Fit / reset</button>
-                            </div>
-                        </div>
-                    </div>
 
                     <div className="tower-board-stage">
                         {nearbyPylon && session.status === "active" && <button type="button" className="tower-disrupt-control" disabled={!myTurn || busy || session.actionsThisTurn >= 5 || session.activeAp < disruptAp} onClick={() => void send({ type: "disrupt", tile: nearbyPylon.tiles[0]! })} title="Disable this pylon, interrupt the boss telegraph and expose the boss for two rounds.">Disrupt pylon <small>{disruptAp} AP</small></button>}
@@ -2001,21 +1865,16 @@ export function BattleTowerFight({
                             </aside>
                         )}
 
-                        <div ref={battlefieldCallbackRef} className={`tower-board-area${boardZoom > TOWER_ZOOM_MIN ? " is-pannable" : ""}`}
-                        data-grid-visible={showTacticalGrid || mode !== "idle"} data-biome={session.map.biome}
-                        role="region" aria-label="Tactical battlefield. Use the zoom controls, then drag to pan."
-                        onPointerDown={onBoardPointerDown} onPointerMove={onBoardPointerMove} onPointerUp={endBoardPointer} onPointerCancel={endBoardPointer}
+                        <div ref={battlefieldCallbackRef} className="tower-board-area"
+                        data-grid-visible={mode !== "idle"} data-biome={session.map.biome}
+                        data-grid-width={w} data-grid-height={h}
+                        role="region" aria-label="Tactical battlefield"
                         style={{ flex: 1, position: "relative", overflow: "hidden", borderRadius: 10, border: "1px solid #53605d", background: `linear-gradient(rgba(8,13,17,.35), rgba(8,13,17,.35)), url(${biomeFloor}) center/cover no-repeat` }}>
-                        {/* left/top carry only the CENTERING offset, which changes on
-                            resize or zoom. The pan itself rides `transform`, written
-                            by applyBoardPan — a compositor move rather than a relayout
-                            of the whole board on every frame of a drag. */}
-                        <div ref={boardPanCallbackRef} style={{
+                        <div style={{
                             position: "absolute",
                             left: `${(boardContainerSize.w - renderedBoardSize.width) / 2}px`,
                             top: `${(boardContainerSize.h - renderedBoardSize.height) / 2}px`,
                             width: `${renderedBoardSize.width}px`, height: `${renderedBoardSize.height}px`,
-                            willChange: boardZoom > TOWER_ZOOM_MIN ? "transform" : undefined,
                         }}>
                             <div className="hex-grid-layer" ref={gridLayerRef} style={{ position: "absolute", left: 0, top: 0, width: layer.width, height: layer.height, transform: `scale(${renderedScale})`, transformOrigin: "top left" }}>
                                 <div className="tower-battlefield-ground" aria-hidden="true" style={{ backgroundImage: `url(${biomeFloor})` }} />
@@ -2265,12 +2124,12 @@ export function BattleTowerFight({
                     {/* Keep the rules note outside the fixed-height command/card dock. */}
                     {arenaSuppressedGear && (
                         <p className="tower-arena-loadout-note" role="note">
-                            Team Arena disables consumables and thrown ammunition. Reusable hand weapons remain available.
+                            {pvpContextLabel} disables consumables and thrown ammunition. Reusable hand weapons remain available.
                         </p>
                     )}
 
                     {/* Action bar — command bar + painted jutsu/weapon/item cards (the main combat UI) */}
-                    <div className="tower-action-dock">
+                    <CombatActionTray className="tower-action-dock">
                         <div id="tower-action-guidance" className="tower-sr-only" role={actionFeedback.phase === "error" ? "alert" : "status"} aria-live="polite" aria-atomic="true" aria-busy={busy}>
                             {actionFeedback.phase === "submitting" ? "Submitting " + actionFeedback.label + ". Waiting for the battle result."
                                 : actionFeedback.phase === "error" ? actionFeedback.label + " was rejected. " + (reject ?? "Try another action.")
@@ -2435,7 +2294,7 @@ export function BattleTowerFight({
                                         onClose={() => setInspectedLoadout(null)}
                                     >
                                         <div className="combat-jutsu-detail-header">
-                                            <div><strong id={`tower-combat-detail-label-jutsu-${inspectedLoadoutJutsu.id}`}>{inspectedLoadoutJutsu.name ?? "Jutsu"}</strong><small>{isWorldBoss ? 'Raid loadout' : isCaravanAmbush ? 'Caravan loadout' : isHunt ? 'Hunt loadout' : 'Sealed Tower loadout'}</small></div>
+                                            <div><strong id={`tower-combat-detail-label-jutsu-${inspectedLoadoutJutsu.id}`}>{inspectedLoadoutJutsu.name ?? "Jutsu"}</strong><small>{isTeamPvp ? `${pvpContextLabel} loadout` : isWorldBoss ? 'Raid loadout' : isCaravanAmbush ? 'Caravan loadout' : isHunt ? 'Hunt loadout' : 'Sealed Tower loadout'}</small></div>
                                             <button type="button" data-combat-detail-close aria-label="Close combat details" onClick={() => setInspectedLoadout(null)}>×</button>
                                         </div>
                                         <div className="combat-jutsu-detail-grid">
@@ -2460,7 +2319,7 @@ export function BattleTowerFight({
                                         onClose={() => setInspectedLoadout(null)}
                                     >
                                         <div className="combat-jutsu-detail-header">
-                                            <div><strong id={`tower-combat-detail-label-item-${inspectedLoadoutWeapon.item.id}`}>{inspectedLoadoutWeapon.item.name ?? "Weapon"}</strong><small>{isWorldBoss ? 'Raid equipment' : isCaravanAmbush ? 'Caravan equipment' : isHunt ? 'Hunt equipment' : 'Sealed Tower equipment'}</small></div>
+                                            <div><strong id={`tower-combat-detail-label-item-${inspectedLoadoutWeapon.item.id}`}>{inspectedLoadoutWeapon.item.name ?? "Weapon"}</strong><small>{isTeamPvp ? `${pvpContextLabel} equipment` : isWorldBoss ? 'Raid equipment' : isCaravanAmbush ? 'Caravan equipment' : isHunt ? 'Hunt equipment' : 'Sealed Tower equipment'}</small></div>
                                             <button type="button" data-combat-detail-close aria-label="Close combat details" onClick={() => setInspectedLoadout(null)}>×</button>
                                         </div>
                                         <div className="combat-jutsu-detail-grid">
@@ -2475,7 +2334,7 @@ export function BattleTowerFight({
                                 )}
                             </div>
                         )}
-                    </div>
+                    </CombatActionTray>
 
                     <PlainCombatBattleLog
                         className="tower-mobile-battle-log"
@@ -2489,6 +2348,10 @@ export function BattleTowerFight({
 
                 {/* Enemy + log rail */}
                 <aside className="tower-roster-rail tower-enemy-rail" style={{ minWidth: 0 }} aria-label={isTeamPvp ? "Rival Team and battle log" : "Enemies and battle log"}>
+                    {focusedEnemy && <TowerCombatantHud actor={focusedEnemy} avatar={avatarFor(focusedEnemy) ?? fallbackArtFor(focusedEnemy)}
+                        label={focusedEnemy.id === bossId ? "Enemy commander" : isTeamPvp ? "Rival fighter" : "Enemy fighter"}
+                        active={focusedEnemy.id === activeId}
+                        onInspect={() => inspectActor(focusedEnemy, `tower-dossier-${focusedEnemy.id}`)} />}
                     <RailHeader icon="sword" label={isTeamPvp ? "Rival Team" : "Enemies"} accent="var(--tower-rail-foe)" />
                     <div className="tower-roster-list">
                         {enemies.map(a => <ActorCard key={a.id} actor={a} round={session.round} highlight={a.id === activeId} avatar={avatarFor(a)} fallbackArt={fallbackArtFor(a)} boss={a.id === bossId} unknown={isUnknownCombatant(a)}
@@ -2574,11 +2437,11 @@ export function BattleTowerFight({
                                 ? session.winner === "squad" ? "Team victory" : session.winner === "draw" ? "Match draw" : "Team defeated"
                                 : session.winner === "squad" ? `Floor ${session.floor} cleared` : `Floor ${session.floor} failed`}
                             chapter={isWorldBoss ? 'The Four-Village Muster' : isCaravanAmbush ? 'Sunscar Dispatch' : isHunt ? 'Shinobi Outpost' : isTeamPvp ? pvpContextLabel : sealedStoryFloor?.chapterTitle || "Battle Towers"}
-                            encounter={isCaravanAmbush ? combatFloor?.name : !isTeamPvp ? sealedStoryFloor?.name : "Competitive exhibition"}
+                            encounter={isCaravanAmbush ? combatFloor?.name : !isTeamPvp ? sealedStoryFloor?.name : pvpContextLabel === 'Team Arena' ? "Competitive exhibition" : undefined}
                             art={isWorldBoss && enemyAvatarOverride ? enemyAvatarOverride : storyTheme?.backdropImage} />
                         <div className="tower-completion-body">
                         <TowerBattleDebrief session={session} score={mySettlementResult?.score} teamLabel={isTeamPvp || isWorldBoss ? "Team" : "Squad"} />
-                        {isTeamPvp && <p className="hint">Competitive exhibition complete · no rating, currency, items, or progression rewards.</p>}
+                        {isTeamPvp && pvpContextLabel === 'Team Arena' && <p className="hint">Competitive exhibition complete · no rating, currency, items, or progression rewards.</p>}
                         {isWorldBoss && <p className="hint">{settlement.phase === 'settled' ? 'Your team contribution is banked to the shared event. Return to the muster for your event reward receipt.' : settlement.phase === 'error' ? 'World boss settlement paused. Retry to confirm your contribution.' : 'Saving your team contribution to the world event…'}</p>}
                         {isCaravanAmbush && <p className="hint">{settlement.phase === 'settled' ? 'The dispatch record is saved. Your convoy is ready to move.' : 'Saving the convoy report…'}</p>}
                         {isHunt && <p className="hint">{settlement.phase === 'settled' ? 'Hunt progress saved. Return to the map to continue or turn in your contract.' : 'Saving hunt progress…'}</p>}

@@ -5961,7 +5961,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "sectorPet" && villageWarScreenMountAllowed(screen, villageWarAvailability) && character && <SectorWarPetBattle character={character} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "sectorGarrison" && villageWarScreenMountAllowed(screen, villageWarAvailability) && character && <SectorWarGarrisonAssault character={character} sharedImages={sharedImages} onVersionedCharacter={commitVersionedCharacter} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "clanWarPet" && character && <ClanWarPetBattle character={character} setScreen={setScreen} />}
-                {!activeTriggeredEvent && screen === "clanWar2v2" && character && <ClanWar2v2Battle character={character} setScreen={setScreen} />}
+                {!activeTriggeredEvent && screen === "clanWar2v2" && character && <ClanWar2v2Battle character={character} setScreen={setScreen} sharedImages={sharedImages} onVersionedCharacter={commitVersionedCharacter} />}
                 {!activeTriggeredEvent && screen === "cardClashFreePlay" && character && <CardClashFreePlay character={character} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "shinobiCouncil" && character && <ShinobiCouncilHall character={character} setScreen={setScreen} playerRoster={playerRoster} launchClanWarBattle={launchClanWarBattle} onBack={goBack} />}
                 {!activeTriggeredEvent && screen === "tilecardsDuel" && character && <ClanWarTileCardDuel character={character} setScreen={setScreen} sharedImages={sharedImages} />}
