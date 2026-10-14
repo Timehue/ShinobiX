@@ -8,7 +8,7 @@ export type TacticsSeat = 'a' | 'b';
 export type TacticsElement = 'Fire' | 'Water' | 'Wind' | 'Lightning' | 'Earth' | 'None';
 export type TacticsAllocation = { vitality: number; power: number; guard: number; agility: number };
 export type TacticsItem = 'reserve-cell' | 'ward-charm' | 'focus-lens';
-export type TacticsBuild = { speciesId: string; moveIds: string[]; allocation: TacticsAllocation; item: TacticsItem };
+export type TacticsBuild = { speciesId: string; ownedPetId?: string; moveIds: string[]; allocation: TacticsAllocation; item: TacticsItem };
 export type TacticsMoveKind = 'damage' | 'burn' | 'wound' | 'mark' | 'slow' | 'stun' | 'heal' | 'shield' | 'cleanse' | 'protect' | 'redirect' | 'buff' | 'weather';
 export type TacticsMove = {
     id: string; name: string; element: TacticsElement; cls: 'physical' | 'special' | 'status';
@@ -29,7 +29,8 @@ export type TacticsOrder =
     | { actorId: string; kind: 'switch'; reserveId: string };
 export type TacticsMoveOption = TacticsMove & { available: boolean; reason?: string; ranges: { slot: number; min: number; max: number }[] };
 export type TacticsPetSheet = {
-    id: string; speciesId: string; name: string; element: TacticsElement; role: string; rarity: string;
+    id: string; speciesId: string; ownedPetId?: string; name: string; element: TacticsElement; role: string; rarity: string;
+    appearance?: { collarId?: string; paletteVariantId?: string };
     hp: number; maxHp: number; stamina: number; meter: number; slot: number | null; ko: boolean;
     stats: TacticsSpecies['stats']; allocation: TacticsAllocation; trait: string; item: TacticsItem;
     conditions: string[]; fieldRounds: number; guardCost: number; guardReduction: number; moves: TacticsMoveOption[]; signature: TacticsMoveOption;

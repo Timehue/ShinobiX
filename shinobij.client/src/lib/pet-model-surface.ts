@@ -5,6 +5,7 @@ export type PetModelSurfaceTreatment = Readonly<{
     tintBlend: number;
     emissive: string;
     emissiveIntensity: number;
+    preserveAtlasContrast?: boolean;
 }>;
 
 /**
@@ -20,6 +21,7 @@ export const CHROMATIC_PET_SURFACE: PetModelSurfaceTreatment = Object.freeze({
     tintBlend: 0.76,
     emissive: "#f0abfc",
     emissiveIntensity: 0.5,
+    preserveAtlasContrast: true,
 });
 
 /**
