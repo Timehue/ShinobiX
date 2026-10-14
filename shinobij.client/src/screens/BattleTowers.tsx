@@ -58,7 +58,7 @@ function clearRunKeys() {
 // timeout enters a recoverable error state without deleting the saved run id.
 const RESUME_TIMEOUT_MS = 12_000;
 
-export function BattleTowers({ character, creatorItems, savedBloodlines, updateCharacter, onVersionedCharacter, sharedImages, onExit, onRecordBattle }: { character: Character; creatorItems: GameItem[]; savedBloodlines: SavedBloodline[]; updateCharacter: (c: Character) => void; onVersionedCharacter: VersionedCharacterCommit; sharedImages?: Record<string, string>; onExit: () => void; onRecordBattle?: (entry: BattleHistoryEntry) => void }) {
+export function BattleTowers({ character, creatorItems, savedBloodlines, updateCharacter, onVersionedCharacter, sharedImages, onExit, onWorldBossExit, onRecordBattle }: { character: Character; creatorItems: GameItem[]; savedBloodlines: SavedBloodline[]; updateCharacter: (c: Character) => void; onVersionedCharacter: VersionedCharacterCommit; sharedImages?: Record<string, string>; onExit: () => void; onWorldBossExit?: () => void; onRecordBattle?: (entry: BattleHistoryEntry) => void }) {
     const hostLoadout: TowerHostLoadout = useMemo(() => buildHostLoadout(character, savedBloodlines, creatorItems), [character, savedBloodlines, creatorItems]);
     // If a runId survived a refresh, start by checking the server; otherwise the
     // lobby shows immediately (no resume flash on a fresh entry).
@@ -185,7 +185,7 @@ export function BattleTowers({ character, creatorItems, savedBloodlines, updateC
                 initialSession={view.session}
                 onRecordBattle={onRecordBattle}
                 settleOnAnyDone
-                onContinue={() => { clearRunKeys(); setView({ phase: "lobby" }); }}
+                onContinue={view.session.worldBossEvent ? undefined : () => { clearRunKeys(); setView({ phase: "lobby" }); }}
                 onLeaveActive={() => {
                     // Leaving the view is not a server abandon. Unlock navigation but
                     // preserve an independent reconnect breadcrumb for this MPvE run.
@@ -193,7 +193,7 @@ export function BattleTowers({ character, creatorItems, savedBloodlines, updateC
                     writeRecoveryKey(view.runId);
                     onExit();
                 }}
-                onExit={() => { clearRunKeys(); setView({ phase: "lobby" }); onExit(); }}
+                onExit={() => { clearRunKeys(); setView({ phase: "lobby" }); (view.session.worldBossEvent ? onWorldBossExit ?? onExit : onExit)(); }}
             />
         );
     }
