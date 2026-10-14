@@ -327,10 +327,15 @@ export type UiAuditRuntime = Awaited<ReturnType<typeof installUiAuditRuntime>>;
 export async function expectUiAuditBoot(page: Page, runtime: UiAuditRuntime, screen: string) {
     // The game deliberately keeps background polls alive. Network idleness is
     // therefore incidental browser timing, not proof that the requested screen
-    // is usable. Wait for the production shell contract instead; locator.waitFor
-    // uses the existing test budget and does not inflate the suite's timeouts.
+    // is usable. Wait for the production shell and its lazy screen to finish;
+    // locator.waitFor uses the existing test budget without inflating timeouts.
     await page.goto(`/#/${screen}`, { waitUntil: "domcontentloaded" });
-    await page.locator(`.app-shell[data-screen="${screen}"]`).waitFor({ state: "visible" });
+    // Keep the active test page foregrounded so WebKit can deliver the frames
+    // its input-stability checks and the game camera need.
+    await page.bringToFront();
+    const shell = page.locator(`.app-shell[data-screen="${screen}"]`);
+    await shell.waitFor({ state: "visible" });
+    await shell.locator('.lazy-screen-fallback').waitFor({ state: 'hidden' });
     const commit = runtime.lastCommit();
     if (commit) {
         expect(runtime.persistedStateMatchesLastPost()).toBe(true);
