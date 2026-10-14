@@ -5,6 +5,7 @@ import { useState, useEffect, useLayoutEffect, useMemo, useRef, type ChangeEvent
 import "../styles/index/25-mobile-profile-tabs.css";
 import "../styles/profile-skin.css";
 import "../styles/training-skin.css";
+import "../styles/jutsu-frames.css";
 import type { Character, VersionedCharacterCommit } from "../types/character";
 // Currency lines reuse the game's own emblem set so they match the HUD.
 import { GameIcon } from "../components/icons/GameIcon";
