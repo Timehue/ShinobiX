@@ -6,6 +6,7 @@ import {
     addItems,
     removeItem,
     countItem,
+    itemCountsById,
     ownsItem,
     totalItemCount,
     unifiedItemStacks,
@@ -104,6 +105,39 @@ describe("inventory — counts & display", () => {
         assert.equal(ownsItem(c, STACK), true);
         assert.equal(ownsItem(c, "nope"), false);
         assert.equal(totalItemCount(c), 5);
+    });
+
+    it("itemCountsById answers exactly what countItem answers, for every id", () => {
+        // The Shop and Pet Yard read per-row counts from this map, so it must
+        // agree with countItem on every awkward shape a save can carry:
+        // duplicate uniques, a stackable straddling both stores, duplicate /
+        // zero / negative / fractional / non-numeric / over-cap stack entries,
+        // a stack with no itemId, and no itemStacks array at all.
+        const fixtures: Character[] = [
+            mk(),
+            mk([GEAR, GEAR, STACK, SCROLL, ""]),
+            mk([STACK], [{ itemId: STACK, count: 2 }]),
+            mk([], [
+                { itemId: STACK, count: 2 },
+                { itemId: STACK, count: 3 },
+                { itemId: SCROLL, count: 0 },
+                { itemId: "potion-rejuvenation", count: -4 },
+                { itemId: "fraction", count: 2.7 },
+                { itemId: "garbage", count: "x" as unknown as number },
+                { itemId: "", count: 5 },
+                { itemId: "over-cap", count: MAX_ITEM_STACK + 50 },
+                { itemId: "over-cap", count: 10 },
+            ]),
+            mk([GEAR, "over-cap"], [{ itemId: "over-cap", count: MAX_ITEM_STACK }]),
+            { itemStacks: [{ itemId: STACK, count: 1 }] } as unknown as Character,
+        ];
+        const ids = [GEAR, STACK, SCROLL, "potion-rejuvenation", "fraction", "garbage", "", "over-cap", "nope"];
+        for (const c of fixtures) {
+            const counts = itemCountsById(c);
+            for (const id of ids) {
+                assert.equal(counts.get(id) ?? 0, countItem(c, id), `${id} in ${JSON.stringify(c)}`);
+            }
+        }
     });
 
     it("unifiedItemStacks merges both stores", () => {

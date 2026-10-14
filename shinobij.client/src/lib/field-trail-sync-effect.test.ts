@@ -48,22 +48,32 @@ describe("accepted field contract sync", () => {
 });
 
 // The same trap in callbacks and hooks whose effects fetch: the deps array
-// that drives the fetch must not name a per-render App callback.
+// that drives the fetch must not name a per-render App callback. `via` pins
+// that the callback is still called, read through its latest-value ref.
 describe("fetching callbacks and hooks do not depend on per-render App callbacks", () => {
-    const cases: Array<{ file: string; anchor: string; allowed: string[] }> = [
+    const cases: Array<{ file: string; anchor: string; allowed: string[]; via?: RegExp }> = [
         { file: "../screens/LegacyPanel.tsx", anchor: "const reload = useCallback(", allowed: ["character.name"] },
         { file: "../components/PetBreedingBarn.tsx", anchor: "const refresh = useCallback(", allowed: ["character.name"] },
         { file: "./use-village-tax.ts", anchor: "const name = character?.name;", allowed: ["character?.name", "setCharacter"] },
         { file: "./jutsu-training-queue.ts", anchor: "if (!isServerSettlementReady(\"timedJutsuTrainingQueue\")) return;", allowed: ["playerName", "activeJutsuTraining", "setActiveJutsuTraining"] },
+        // App passes Card Hall an inline onStartFreePlay. As a dep it restarted
+        // the 2.5s queue poll and, through enterSparMatch, re-fetched the spar
+        // inbox on every App render.
+        { file: "../screens/CardHall.tsx", anchor: "if (!searching) return;", allowed: ["searching", "activeAuthority", "leaseIsCurrent"], via: /const onStart = onStartRef\.current;/ },
+        { file: "../screens/CardHall.tsx", anchor: "const enterSparMatch = useCallback(", allowed: [], via: /const onStart = onStartRef\.current;/ },
+        { file: "../screens/CardHall.tsx", anchor: "const syncChallenges = async () => {", allowed: ["pageVisible", "character.name", "outgoingChallenge", "enterSparMatch"] },
+        // The World Boss screen's first fetch and its poll both hang off refresh.
+        { file: "../screens/WorldBossEvent.tsx", anchor: "const refresh = useCallback(", allowed: ["character.name", "dismissedRunId", "fight"], via: /const onVersionedCharacter = commitRef\.current;/ },
     ];
-    for (const { file, anchor, allowed } of cases) {
-        test(file, () => {
+    for (const { file, anchor, allowed, via } of cases) {
+        test(`${file}: ${anchor}`, () => {
             const src = readFileSync(new URL(file, import.meta.url), "utf8");
             const start = src.indexOf(anchor);
             assert.notEqual(start, -1, `${file} must keep ${anchor}`);
             const deps = src.slice(start).match(/\n\s*\}, \[([^\]]*)\]\);/);
             assert.ok(deps, `${file} deps array not found`);
-            assert.deepEqual(deps[1].split(",").map((dep) => dep.trim()).sort(), [...allowed].sort());
+            assert.deepEqual(deps[1].split(",").map((dep) => dep.trim()).filter(Boolean).sort(), [...allowed].sort());
+            if (via) assert.match(src.slice(start, start + (deps.index ?? 0) + deps[0].length), via);
         });
     }
 });

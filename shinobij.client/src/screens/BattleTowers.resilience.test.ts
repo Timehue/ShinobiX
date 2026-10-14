@@ -73,24 +73,24 @@ test("Tower tactical controls remain available and accessible off turn", () => {
     assert.match(fight, /Boss barrier ·/);
     assert.match(fight, /Break seals/);
     assert.match(api, /pendingEnemyWaves\?: Array<\{ round: number; afterClear\?: boolean; actors: TowerActor\[\] \}>/);
-    assert.match(fight, /Fit \/ reset/);
+    assert.doesNotMatch(fight, /Fit \/ reset|tower-board-toolbar/);
     assert.match(tacticalCss, /touch-action:\s*none/);
-    assert.match(tacticalCss, /@media \(max-width: 1023px\)/);
+    assert.match(tacticalCss, /@media \(max-width: 979px\)/);
 });
 
 test("short desktop Tower fights reserve a usable board and contain the shared loadout tray", () => {
     assert.match(fight, /className="tower-action-dock"/);
     const shortDesktopStart = tacticalCss.indexOf("@media (min-width: 1024px) and (max-height: 900px)");
-    const mobileStart = tacticalCss.indexOf("@media (max-width: 1023px)", shortDesktopStart);
+    const mobileStart = tacticalCss.indexOf("@media (max-width: 979px)", shortDesktopStart);
     assert.ok(shortDesktopStart >= 0 && mobileStart > shortDesktopStart, "the short-desktop contract must precede the mobile layout");
     const shortDesktop = tacticalCss.slice(shortDesktopStart, mobileStart);
     assert.match(shortDesktop, /\.tower-board-area[\s\S]*?min-height:\s*clamp\(250px, 37dvh, 333px\)\s*!important/);
-    assert.match(tacticalCss, /\.tower-action-dock\s*\{[\s\S]*?flex:\s*0 0 164px;[\s\S]*?min-height:\s*164px;[\s\S]*?max-height:\s*164px;/,
+    assert.match(tacticalCss, /\.tower-action-dock\s*\{[\s\S]*?flex:\s*0 0 244px;[\s\S]*?min-height:\s*244px;[\s\S]*?max-height:\s*244px;/,
         "the desktop dock must reserve commands and cards without the removed guidance row");
     assert.match(shortDesktop, /\.basic-action-bar[\s\S]*?grid-template-columns:\s*repeat\(auto-fit, minmax\(64px, 1fr\)\)[\s\S]*?overflow:\s*hidden !important/,
         "desktop commands must remain contained on one compact row");
-    assert.match(tacticalCss, /@media \(min-width: 980px\)[\s\S]*?\.combat-jutsu-bar[\s\S]*?height:\s*112px !important;[\s\S]*?\.combat-equipped-jutsu-grid[\s\S]*?grid-auto-flow:\s*column !important;[\s\S]*?overflow-x:\s*auto !important;[\s\S]*?\.combat-jutsu-card-wrap[\s\S]*?height:\s*92px !important;/,
-        "the PvP/PvE-sized one-row loadout must remain horizontally reachable inside its tray");
+    assert.match(tacticalCss, /@media \(min-width: 980px\)[\s\S]*?\.combat-jutsu-bar[\s\S]*?height:\s*192px !important;[\s\S]*?\.combat-equipped-jutsu-grid[\s\S]*?grid-auto-flow:\s*row !important;[\s\S]*?overflow-y:\s*auto !important;[\s\S]*?\.combat-jutsu-card-wrap[\s\S]*?height:\s*86px !important;/,
+        "the PvP/PvE loadout must wrap and remain vertically reachable inside its tray");
 });
 
 test("active co-op reconciliation is push-led, bounded, and revision-safe", () => {

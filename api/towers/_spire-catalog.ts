@@ -23,7 +23,7 @@ import { hexZone, towerArenaMap } from './_floor-catalog.js';
 import { SPIRE_MAX_TIER } from './_modifiers.js';
 
 /** Increment only when generated Spire floor rules change. Active runs seal this value. */
-export const SPIRE_CATALOG_VERSION = 'endless-spire-v8' as const;
+export const SPIRE_CATALOG_VERSION = 'endless-spire-v9' as const;
 
 export type SpireBossKey =
     | 'warden' | 'revenant' | 'ravager' | 'sovereign'
@@ -137,11 +137,13 @@ const BOSS_BY_FLOOR: SpireBossKey[] = [
 // The existing release bands remain fixed across all five weekly blessings.
 // v8 (2026-09-29): re-measured after shields gained a two-round lifetime.
 // Small per-floor adjustments preserve the released difficulty bands across blessings.
+// v9: compact arenas shorten the approach. Recalibrate only the six affected boss
+// HP values against the unchanged real-engine release bands and all five blessings.
 const HP_BY_FLOOR: number[] = [
     17600, 13800, 25000, 21000, 36300,   // 1-5
-    19300, 33300, 48500, 25800, 60700,   // 6-10
-    42000, 34100, 34900, 45100, 62500,   // 11-15
-    30900, 27300, 30500, 27100, 40300,   // 16-20
+    19300, 33300, 53500, 25800, 60700,   // 6-10
+    43600, 36900, 40500, 46900, 62500,   // 11-15
+    30900, 27300, 34700, 27100, 40300,   // 16-20
 ];
 
 /** The four milestone floors (title/border unlocks; keys namespaced spire-tier-N in settle). */
