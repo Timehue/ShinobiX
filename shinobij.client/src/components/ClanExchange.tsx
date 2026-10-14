@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { CLAN_EXCHANGE_ITEMS } from '../../../shared/clan-exchange-catalog';
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { GameIcon, type GameIconName } from "./icons/GameIcon";
 import { CacheRewardReveal } from "./CacheRewardReveal";
 import { ClanImageMark } from "./Marks";
@@ -25,6 +26,7 @@ type ExchangeReward =
     | { kind: "item"; itemId: string; count: number }
     | { kind: "treasury"; currency: "warSupply"; amount: number }
     | { kind: "cache"; cache: "weapon" | "armor" }
+    | {kind:'cosmetic';cosmetic:'clanBannerFrame'}
     | { kind: "locked"; reason: string };
 
 const CACHE_REVEAL_ACCENT: Record<string, string> = {
@@ -54,26 +56,7 @@ type ExchangeItem = {
     reward: ExchangeReward;
 };
 
-// VERBATIM mirror of CLAN_EXCHANGE_ITEMS in api/clan/_exchange.ts (server is the
-// source of truth). Names/descriptions/tiers/halls/levels/costs/limits/rewards must match.
-const EXCHANGE_ITEMS: ExchangeItem[] = [
-    { id: "smallRyoPouch", tier: 1, hall: "camp", requiredClanLevel: 1, name: "Genin Coin Cache", description: "A drawstring purse of ryō, issued to every active clan member.", cost: 100, limit: { kind: "weekly", count: 5 }, rarity: "standard", reward: { kind: "currency", currency: "ryo", amount: 2500 } },
-    { id: "boneCharmBundle", tier: 1, hall: "camp", requiredClanLevel: 1, name: "Ossuary Charm Satchel", description: "Ten carved bone charms strung for bloodline rites and events.", cost: 150, limit: { kind: "weekly", count: 5 }, rarity: "rare", reward: { kind: "currency", currency: "boneCharms", amount: 10 } },
-    { id: "fateShardBundle", tier: 1, hall: "camp", requiredClanLevel: 1, name: "Fate Shard Offering", description: "Five Fate Shards drawn from the clan's offering bowl.", cost: 250, limit: { kind: "weekly", count: 3 }, rarity: "rare", reward: { kind: "currency", currency: "fateShards", amount: 5 } },
-    { id: "clanBannerFrame", tier: 1, hall: "camp", requiredClanLevel: 1, name: "Clan Banner Sigil", description: "A clan banner sigil — reserved for the coming cosmetic frame rites.", cost: 500, limit: { kind: "oneTime" }, rarity: "epic", reward: { kind: "locked", reason: "Coming Soon" } },
-    { id: "largeRyoPouch", tier: 1, hall: "dojo", requiredClanLevel: 7, name: "Chūnin War Chest", description: "A chūnin's war chest — ten thousand ryō for a proven earner.", cost: 400, limit: { kind: "weekly", count: 3 }, rarity: "rare", reward: { kind: "currency", currency: "ryo", amount: 10000 } },
-    { id: "boneCharmCrate", tier: 2, hall: "dojo", requiredClanLevel: 7, name: "Ossuary Reliquary", description: "A lacquered reliquary of thirty-five bone charms.", cost: 450, limit: { kind: "weekly", count: 3 }, rarity: "epic", reward: { kind: "currency", currency: "boneCharms", amount: 35 } },
-    { id: "auraStone", tier: 2, hall: "dojo", requiredClanLevel: 7, name: "Kaguya Aura Stone", description: "A single Kaguya aura stone for advanced shinobi growth.", cost: 800, limit: { kind: "weekly", count: 2 }, rarity: "epic", reward: { kind: "currency", currency: "auraStones", amount: 1 } },
-    { id: "fateShardCrate", tier: 2, hall: "compound", requiredClanLevel: 15, name: "Sealed Fate Reliquary", description: "A warded reliquary holding fifteen Fate Shards.", cost: 650, limit: { kind: "weekly", count: 2 }, rarity: "epic", reward: { kind: "currency", currency: "fateShards", amount: 15 } },
-    { id: "warSupplyGrant", tier: 2, hall: "compound", requiredClanLevel: 15, name: "Quartermaster's Requisition", description: "Requisition five hundred War Supply straight to the clan stores.", cost: 750, limit: { kind: "weekly", count: 2 }, rarity: "epic", reward: { kind: "treasury", currency: "warSupply", amount: 500 } },
-    { id: "honorSealBundle", tier: 2, hall: "compound", requiredClanLevel: 15, name: "Rite of Honor Seals", description: "Ten ceremonial Honor Seals for high-value shinobi development.", cost: 1000, limit: { kind: "weekly", count: 1 }, rarity: "epic", reward: { kind: "currency", currency: "honorSeals", amount: 10 } },
-    { id: "premiumFateShardCrate", tier: 3, hall: "fortress", requiredClanLevel: 25, name: "Grand Fate Reliquary", description: "A grand reliquary packed with thirty-five Fate Shards.", cost: 1200, limit: { kind: "weekly", count: 1 }, rarity: "legendary", reward: { kind: "currency", currency: "fateShards", amount: 35 } },
-    { id: "greaterWarSupplyGrant", tier: 3, hall: "fortress", requiredClanLevel: 25, name: "Grand Quartermaster Requisition", description: "Requisition fifteen hundred War Supply to the clan stores.", cost: 1750, limit: { kind: "weekly", count: 1 }, rarity: "legendary", reward: { kind: "treasury", currency: "warSupply", amount: 1500 } },
-    { id: "weaponCache", tier: 3, hall: "fortress", requiredClanLevel: 25, name: "Forbidden Armory Scroll", description: "A forbidden armory scroll — unseals one Epic or Legendary weapon from the live catalog. About one scroll in five instead holds an upgrade weapon with extra EP, for the best gear tier you have bought or crafted.", cost: 6000, limit: { kind: "weekly", count: 1 }, rarity: "legendary", reward: { kind: "cache", cache: "weapon" } },
-    { id: "auraStoneBundle", tier: 3, hall: "citadel", requiredClanLevel: 40, name: "Kaguya Aura Trove", description: "A trove of three Kaguya aura stones bound in a clan scroll.", cost: 1500, limit: { kind: "weekly", count: 1 }, rarity: "legendary", reward: { kind: "currency", currency: "auraStones", amount: 3 } },
-    { id: "armorCache", tier: 3, hall: "citadel", requiredClanLevel: 40, name: "Vault of the Fallen", description: "A vault of the fallen — unseals one Epic or Legendary armor piece from the live catalog. About one vault in five instead holds an upgrade armor piece with extra damage reduction, for the best gear tier you have bought or crafted.", cost: 8000, limit: { kind: "weekly", count: 1 }, rarity: "legendary", reward: { kind: "cache", cache: "armor" } },
-    { id: "kageCoffer", tier: 3, hall: "citadel", requiredClanLevel: 40, name: "Kage's Coffer", description: "The kage's own coffer — fifty thousand ryō for the clan's finest.", cost: 4000, limit: { kind: "weekly", count: 1 }, rarity: "legendary", reward: { kind: "currency", currency: "ryo", amount: 50000 } },
-];
+const EXCHANGE_ITEMS: ExchangeItem[] = CLAN_EXCHANGE_ITEMS;
 
 const ARMOR_SLOTS = new Set(["armor", "head", "body", "waist", "legs", "feet"]);
 // Hall shelves — order + unlock levels mirror clanHallTier() breakpoints on the
@@ -129,6 +112,7 @@ function rewardSummary(item: ExchangeItem, allItems: GameItem[]): string {
     if (reward.kind === "treasury") return `${reward.amount.toLocaleString()} War Supply to clan`;
     if (reward.kind === "item") return `${reward.count}x ${allItems.find((entry) => entry.id === reward.itemId)?.name ?? item.name}`;
     if (reward.kind === "cache") return reward.cache === "weapon" ? "Epic/Legendary weapon roll, or 1 in 5 an upgrade weapon" : "Epic/Legendary armor roll, or 1 in 5 an upgrade armor piece";
+    if(reward.kind==='cosmetic')return 'Permanent clan crest frame';
     return reward.reason;
 }
 
@@ -169,13 +153,15 @@ function ExchangeProductArt({ item }: { item: ExchangeItem }) {
     );
 }
 
-function itemStatus(character: Character, clanData: EnhancedClanData, item: ExchangeItem, allItems: GameItem[]) {
+// `eligibleCaches` is eligibleCacheCount(allItems, cache) for both caches,
+// counted once per catalog by the caller.
+function itemStatus(character: Character, clanData: EnhancedClanData, item: ExchangeItem, eligibleCaches: Record<"weapon" | "armor", number>) {
     const count = purchaseCount(character, item);
     const limit = limitCount(item);
     if (item.reward.kind === "locked") return { state: "coming-soon", disabled: true, label: "Coming soon", reason: item.reward.reason, count, limit } as const;
     if (clanData.level < item.requiredClanLevel) return { state: "level-locked", disabled: true, label: `Clan Level ${item.requiredClanLevel}`, reason: `Unlocks at Clan Level ${item.requiredClanLevel}.`, count, limit } as const;
     if (count >= limit) return { state: "limit-reached", disabled: true, label: "Limit reached", reason: item.limit.kind === "oneTime" ? "Already requisitioned." : "Requisition limit reached for this period.", count, limit } as const;
-    if (item.reward.kind === "cache" && eligibleCacheCount(allItems, item.reward.cache) === 0) return { state: "unavailable", disabled: true, label: "Unavailable", reason: "No eligible live catalog items are configured.", count, limit } as const;
+    if (item.reward.kind === "cache" && eligibleCaches[item.reward.cache] === 0) return { state: "unavailable", disabled: true, label: "Unavailable", reason: "No eligible live catalog items are configured.", count, limit } as const;
     const pointGap = Math.max(0, item.cost - num(character.clanPoints));
     if (pointGap > 0) return { state: "need-points", disabled: true, label: `${pointGap.toLocaleString()} CP short`, reason: `${num(character.clanPoints).toLocaleString()} / ${item.cost.toLocaleString()} Clan Points`, count, limit } as const;
     return { state: "ready", disabled: false, label: "Requisition", reason: "Ready to claim", count, limit } as const;
@@ -247,13 +233,25 @@ export function ClanExchange({
     }, [character.name, clanData.name, paidRequests]);
     const clanPoints = num(character.clanPoints);
     const statusPriority = { ready: 0, "need-points": 1, "limit-reached": 2, unavailable: 3, "level-locked": 4, "coming-soon": 5 } as const;
-    const unlockedItems = EXCHANGE_ITEMS
-        .filter((item) => item.reward.kind !== "locked" && clanData.level >= item.requiredClanLevel)
+    // ClanHall memoizes the live catalog on creatorItems and nothing edits it
+    // in place, so the cache-eligible counts only change with that array.
+    const eligibleCaches = useMemo(() => ({
+        weapon: eligibleCacheCount(allItems, "weapon"),
+        armor: eligibleCacheCount(allItems, "armor"),
+    }), [allItems]);
+    const liveItems = EXCHANGE_ITEMS
+        .filter((item) => item.reward.kind !== "locked" && clanData.level >= item.requiredClanLevel);
+    // Each live card's status, worked out once per render instead of twice per
+    // sort comparison, again for readyCount and again inside every card. Plain
+    // render work rather than a memo: itemStatus reads the clock (the purchase
+    // limits are keyed on the current week / month).
+    const statusByItem = new Map(liveItems.map((item) => [item, itemStatus(character, clanData, item, eligibleCaches)]));
+    const unlockedItems = liveItems
         .sort((a, b) => {
-            const stateDifference = statusPriority[itemStatus(character, clanData, a, allItems).state] - statusPriority[itemStatus(character, clanData, b, allItems).state];
+            const stateDifference = statusPriority[statusByItem.get(a)!.state] - statusPriority[statusByItem.get(b)!.state];
             return stateDifference || a.cost - b.cost;
         });
-    const readyCount = unlockedItems.filter((item) => itemStatus(character, clanData, item, allItems).state === "ready").length;
+    const readyCount = unlockedItems.filter((item) => statusByItem.get(item)!.state === "ready").length;
     const nextTier = EXCHANGE_TIERS.find((entry) => entry.level > clanData.level);
     const futureGroups = EXCHANGE_TIERS
         .map((entry) => ({ ...entry, items: EXCHANGE_ITEMS.filter((item) => item.reward.kind !== "locked" && item.hall === entry.hall && clanData.level < entry.level) }))
@@ -298,7 +296,7 @@ export function ClanExchange({
                 <img className="clan-exchange-hero-art" src={clanVaultHero} alt="" aria-hidden="true" />
                 <div className="clan-exchange-hero-copy">
                     <div className="clan-exchange-identity">
-                        <ClanImageMark image={clanData.image} name={clanData.name} village={clanData.village} />
+                        <ClanImageMark image={clanData.image} name={clanData.name} village={clanData.village} frame={!!character.clanExchangePurchases?.oneTime?.clanBannerFrame||!!clanData.campaignPrestige?.earnedBanners?.length} />
                         <div>
                             <span className="clan-exchange-kicker">Quartermaster · {clanData.name}</span>
                             <h3>Clan Exchange</h3>
@@ -327,7 +325,7 @@ export function ClanExchange({
                     </div>
                 </div>
                 <div className="clan-exchange-grid clan-exchange-current-grid">
-                    {unlockedItems.map((item) => <ExchangeCard key={item.id} item={item} character={character} clanData={clanData} allItems={allItems} busy={busyItem === item.id} onConfirm={setConfirming} />)}
+                    {unlockedItems.map((item) => <ExchangeCard key={item.id} item={item} status={statusByItem.get(item)!} allItems={allItems} busy={busyItem === item.id} onConfirm={setConfirming} />)}
                 </div>
             </section>
 
@@ -422,20 +420,18 @@ export function ClanExchange({
 
 function ExchangeCard({
     item,
-    character,
-    clanData,
+    status,
     allItems,
     busy,
     onConfirm,
 }: {
     item: ExchangeItem;
-    character: Character;
-    clanData: EnhancedClanData;
+    /** itemStatus for this item, from the parent's once-per-render pass. */
+    status: ReturnType<typeof itemStatus>;
     allItems: GameItem[];
     busy: boolean;
     onConfirm: (item: ExchangeItem) => void;
 }) {
-    const status = itemStatus(character, clanData, item, allItems);
     const remaining = Math.max(0, status.limit - status.count);
     return (
         <article className={`clan-exchange-card ${item.rarity} is-${status.state}${status.disabled ? " locked" : ""}`}>

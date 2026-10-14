@@ -12,7 +12,7 @@ import { effectiveItemLevelReq, meetsItemLevelReq } from "../../../shared/item-l
 import { wildBindingSeal } from "../../../shared/wild-binding";
 import { getAllItems } from "../lib/items";
 import { weaponEffectDisplayValue } from "../lib/weapon-effect-display";
-import { countItem } from "../lib/inventory";
+import { countItem, itemCountsById } from "../lib/inventory";
 import { gatheringTool } from '../../../shared/gathering-tools';
 import { normalizeEquipmentSlot, equipmentSlotLabel, armorReductionForQuality, consolidateItemBonuses, consumableHoldCap } from "../lib/equipment";
 import { petFeedXpForItem, stackableItemIds } from "../data/pet-config";
@@ -181,6 +181,14 @@ function ShopBase({
                 : group.consumables ? isShopConsumable(item)
                     : group.slots.includes(normalizeEquipmentSlot(item.slot)) && !isShopConsumable(item) && !wildBindingSeal(item.id)),
     })), [shopItems]);
+    // Per-row ownership lookups, rebuilt only when the stores they read change.
+    // ownedGearIds holds exactly the ids alreadyOwned searched with includes()
+    // (inventory[] plus every equipped id; Set.has and includes() compare the
+    // same way), and bagCounts.get(id) ?? 0 equals countItem(character, id).
+    const { inventory, itemStacks, equipment } = character;
+    const ownedGearIds = useMemo(() => new Set([...inventory, ...Object.values(equipment)]), [inventory, equipment]);
+    const bagCounts = useMemo(() => itemCountsById({ inventory, itemStacks }), [inventory, itemStacks]);
+    const bagCount = (id: string) => bagCounts.get(id) ?? 0;
 
     const rarityIcon: Record<string, string> = {
         common: "○",
@@ -259,7 +267,7 @@ function ShopBase({
     }
 
     const alreadyOwned = (item: GameItem) =>
-        stackableItemIds.has(item.id) ? false : character.inventory.includes(item.id) || Object.values(character.equipment).includes(item.id);
+        stackableItemIds.has(item.id) ? false : ownedGearIds.has(item.id);
 
     function itemBonusLines(item: GameItem) {
         // Armor blocks maxChakra/maxStamina visually so the popup doesn't
@@ -332,7 +340,7 @@ function ShopBase({
 
                                         {consumableHoldCap(item) != null && (
                                             <small style={{ color: "#86efac", fontWeight: "bold" }}>
-                                                In bag: {countItem(character, item.id)} / {consumableHoldCap(item)}
+                                                In bag: {bagCount(item.id)} / {consumableHoldCap(item)}
                                             </small>
                                         )}
                                     </button>
@@ -385,7 +393,7 @@ function ShopBase({
                                     <p><strong>Use:</strong> Bind a wild pet during an Explore or Caravan encounter</p>
                                     <p><strong>Resolve required:</strong> {wildBindingSeal(selectedItem.id)!.resolveThreshold}% or lower</p>
                                     <p><strong>Binding bonus:</strong> +{wildBindingSeal(selectedItem.id)!.captureBonus} chance points</p>
-                                    <p><strong>Owned:</strong> {countItem(character, selectedItem.id)} / {consumableHoldCap(selectedItem)}</p>
+                                    <p><strong>Owned:</strong> {bagCount(selectedItem.id)} / {consumableHoldCap(selectedItem)}</p>
                                     <p><strong>Consumed:</strong> One per attempt</p>
                                     <p><strong>Shop Price:</strong> {currencyIcon} {getShopCost(selectedItem.cost)} {currencyLabel}{shopDiscountPercent > 0 ? ` (was ${selectedItem.cost})` : ""}</p>
                                 </div> : <div className="item-popup-detail-grid">
@@ -493,7 +501,7 @@ function ShopBase({
                                         // Capped consumable: bulk-buy stepper. Cap the selectable
                                         // amount to whatever's left under the hold cap AND what the
                                         // wallet can afford (and a 99 ceiling per the spec).
-                                        const owned = countItem(character, selectedItem.id);
+                                        const owned = bagCount(selectedItem.id);
                                         const capLeft = Math.max(0, cap - owned);
                                         const affordable = unit > 0 ? Math.floor(wallet / unit) : 0;
                                         const maxBuyable = Math.min(99, capLeft, affordable);

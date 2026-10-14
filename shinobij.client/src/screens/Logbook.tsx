@@ -29,7 +29,7 @@ import { activeVillageWarsFor, loadVillageState, VILLAGE_WAR_DAILY_MISSIONS, VIL
 import { applyVillageWarMissionDamage } from "../lib/village-war-mission-damage";
 import { requestAiFight } from "../lib/ai-fight-request";
 import { missionClaimActionScope } from "../lib/action-deadline-store";
-import { setSectorReopen } from "../lib/sector-return";
+import { setSectorTravelIntent } from "../lib/sector-return";
 import { useActionDeadline } from "../lib/use-action-deadline";
 import { claimWarMissionServer } from "../lib/world-reward-api";
 import { passRankExamServer } from "../lib/exam-api";
@@ -256,13 +256,13 @@ export function Logbook({
     function startRaid(raid: CreatorRaid) {
         if (character.level < raid.levelReq) return alert(`Requires level ${raid.levelReq}.`);
         if (!raid.targetSector || !raid.aiProfileId) return alert("This raid has not been published with a verified guard and sector.");
-        setSectorReopen(raid.targetSector);
+        setSectorTravelIntent(character.name, raid.targetSector);
         setScreen("worldMap");
     }
 
     function goToWarGround() {
         if (!activeVillageWar) return alert("Your village is not in an active war.");
-        setSectorReopen(activeVillageWar.warGroundSector);
+        setSectorTravelIntent(character.name, activeVillageWar.warGroundSector);
         setScreen("worldMap");
     }
 

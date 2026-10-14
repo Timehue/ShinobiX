@@ -59,6 +59,7 @@ import { JUTSU_CATALOG } from './_jutsu-catalog.js';
 import { LEGACY_JUTSU_CATALOG, LEGACY_JUTSU_ID_BY_LEGACY } from './_legacy-jutsu-catalog.js';
 import { legacyEnabled, LEGACY_PVP_RECEIPT_TTL_SECONDS } from '../_legacy-track.js';
 import { deriveCombatMultipliers, deriveEquipmentStatBonuses, derivePveBonuses, buildItemLookup } from './_multipliers.js';
+import { combatEquipment } from '../../shared/gathering-tools.js';
 import { territoryRewardsSuspended } from '../_territory-lifecycle.js';
 import { carriedBloodlines, characterMayUseJutsu } from './_bloodline-gate.js';
 import { loadAdminCombatContent, type AdminCombatContent } from '../_admin-content.js';
@@ -1059,7 +1060,8 @@ export function stripNonCombatFields(character: Record<string, unknown>): Record
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(character)) {
         if (SESSION_STRIP_CHAR_FIELDS.has(k)) continue;
-        out[k] = v;
+        // Gathering tools ride in the loadout for fishing and mining only.
+        out[k] = k === 'equipment' ? combatEquipment(v) : v;
     }
     return out;
 }
@@ -1373,7 +1375,14 @@ function missingEquippedForgedItems(
 // session-create path already fans out a Promise.all) and this stays synchronous.
 // Omitting it resolves exactly as before — built-ins ∪ the save's own content for
 // jutsu, built-ins ∪ the player's own creatorItems for gear.
-export function hydrateCharacterFromSave(saveCharacter: Record<string, unknown>, clientCharacter: Record<string, unknown>, save: Record<string, unknown> | null = null, admin: AdminCombatContent | null = null): Record<string, unknown> {
+export function hydrateCharacterFromSave(rawSaveCharacter: Record<string, unknown>, clientCharacter: Record<string, unknown>, save: Record<string, unknown> | null = null, admin: AdminCombatContent | null = null): Record<string, unknown> {
+    // Gathering tools never enter a fight. Every read below (the sealed
+    // pvpItems, the multiplier and gear-stat folds, the PvE bonuses and the
+    // sealed equipment map) works from the combat loadout.
+    const combatGear = combatEquipment(rawSaveCharacter.equipment);
+    const saveCharacter = combatGear === rawSaveCharacter.equipment
+        ? rawSaveCharacter
+        : { ...rawSaveCharacter, equipment: combatGear };
     // Start with the save (server is authority for HP, level, stats, etc.).
     const merged: Record<string, unknown> = { ...saveCharacter };
     // Only the server's Ranked Format path may add this combat-only authority.

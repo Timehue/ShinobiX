@@ -63,7 +63,7 @@ export function TownHallWarDisplay({ village, sectorMapOpen, sectorMapStatus, se
         <div className='town-war-display-grid'>
             <article className='town-war-display-card' aria-label='Village war display'>
                 <div className='town-war-display-shrine-banner'><img src='/ui/village-war/war-shrine-landmark-gold-v1.webp'
-                    width={512} height={384} alt='Golden war shrine' loading='lazy' decoding='async' /></div>
+                    width={512} height={384} alt='Golden war shrine' loading='lazy' decoding='async' /><span>The Shrine</span></div>
                 <div className='town-war-display-copy'><h4>Village War</h4><p className='town-war-display-status'>
                     {!primaryVillageWar ? 'No active village war' : preparing ? `Preparing against ${enemy}` : settling ? 'Final results settling' : `At war with ${enemy}`}</p>
                     {primaryVillageWar?.campaignVersion === 2 ? <>
@@ -83,7 +83,7 @@ export function TownHallWarDisplay({ village, sectorMapOpen, sectorMapStatus, se
                 </div>
             </article>
             <article className='town-war-display-card' aria-label='Sector war display'>
-                <div className='town-war-display-sector-banner'><img src={WAR_CREST} width={80} height={80} alt='' loading='lazy' /><span>Hold the border</span></div>
+                <div className='town-war-display-sector-banner'><img src={WAR_CREST} width={80} height={80} alt='' loading='lazy' /><span>Hold the Border</span></div>
                 <div className='town-war-display-copy'><h4>Sector Wars</h4>
                     <p className='town-war-display-status'>{!sectorMapOpen ? 'Sector operations unavailable' : contests === null ? readFailed ? 'Sector war status unavailable' : 'Checking sector wars…'
                         : `${activeContests.length} active sector war${activeContests.length === 1 ? '' : 's'}`}</p>

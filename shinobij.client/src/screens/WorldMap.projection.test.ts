@@ -129,8 +129,9 @@ test("WorldMap and its selected-sector leaves keep the projection line-budget ra
         // achieved count, no buffer.
         // Shrine room state/presentation and vault marker selection remain in
         // feature leaves. Tighten the achieved count instead of growing this screen.
-        lineCount(worldMapSource) <= 5341,
-        `WorldMap.tsx grew past 5,341 lines; retired overview layers must stay retired.`,
+        // Encounter mode mapping now lives in world-ai-presentation-modes.ts.
+        lineCount(worldMapSource) <= 5336,
+        `WorldMap.tsx grew past 5,336 lines; retired overview layers must stay retired.`,
     );
     assert.ok(
         lineCount(canvasSource) <= 220,
@@ -327,9 +328,15 @@ test("WorldMap charges a flee on the server and never lets Escape or the backdro
     assert.match(bossPortal, /maxHeight: "88dvh", overflowY: "auto"/u, "the boss card scrolls on a short phone like the wanderer card");
     // One hostile at a time, and the one held back is DEFERRED, not dropped: a
     // refused engage returns false so the actor asks again once the choice ends.
-    assert.match(engage, /if \(requiresWandererChoice\(wandererDialog\) \|\| bossDialog\) return false;/u);
+    assert.match(engage, /if \(requiresWandererChoice\(wandererDialog\) \|\| bossDialog \|\| worldBossQueueOpen\) return false;/u);
     assert.match(sliceBetween(worldMapSource, "function handleBossEngage", "function standBossFight"),
-        /if \(!roamingBoss\?\.aiId \|\| requiresWandererChoice\(wandererDialog\)\) return false;/u);
+        /if \(!roamingBoss\?\.aiId \|\| requiresWandererChoice\(wandererDialog\) \|\| worldBossQueueOpen\) return false;/u);
+    // The world boss queue sheet and its raid open over the live sector board,
+    // where wanderers keep stalking. A hostile reaching a queued player would
+    // pull them into another fight, and a member left incapacitated makes the
+    // server refuse the whole team's raid (api/world-boss-event/_encounter.ts).
+    // Movement is held too while the queue owns the screen.
+    assert.match(worldMapSource, /worldMovementBlocked=\{\(\) => [^}]*\|\| worldBossQueueOpen\}/u);
     // The robber streak's gang gauntlet belongs to the bandits (the server never
     // counts a night ninja toward it): Fight on a night ninja is that ninja.
     assert.match(fight, /if \(!nemesis && w\.archetype !== "nightblade" && \(character\.robberStreak \?\? 0\) >= 5\)/u);
@@ -483,7 +490,7 @@ test("WorldMap keeps live Village War admission checks around command-panel asyn
 
 test("selected-sector scouting is read-only and never impersonates travel", () => {
     const launch = sliceBetween(worldMapSource, "function launchWorldMapFight", "async function launchAiGuardRaid");
-    assertOrdered(launch, ["sameSector(currentSector, sector)", "capabilityAdmissionAllowed", "requestAiFight"], "World fight location guard");
+    assertOrdered(launch, ["captureSectorAction(sector)()", "capabilityAdmissionAllowed", "requestAiFight"], "World fight location guard");
     assert.doesNotMatch(launch, /setCurrentSector\(/u);
 
     const projection = sliceBetween(worldMapSource, "<WorldSectorCanvas", "if (selectedVillageTerritory) {");

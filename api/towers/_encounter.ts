@@ -295,7 +295,7 @@ export function buildTowerEncounter(p: BuildEncounterParams): TowerSession {
     // Story and Spire roll one pylon, one ward and one hazard. Boss attacks,
     // summons, geysers, and player-cast fields have their own separate budgets.
     const publicTactics = !p.embedFloor && (!p.towerId || p.towerId === 'celestial' || p.towerId === 'endless-spire') && floor.id < 9_000;
-    const useLargeEnvironment = floor.id < 9_000 && map.width >= 16;
+    const useLargeEnvironment = floor.id < 9_000 && (map.width >= 16 || (publicTactics && map.width >= 12));
     if (useLargeEnvironment) map.features = rollTowerEnvironment(map.features ?? [], p.seed);
 
     // Per-run elements: assign the tower's seeded elements round-robin to the pylon

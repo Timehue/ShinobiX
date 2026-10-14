@@ -467,6 +467,9 @@ export async function runClanStoresDailyPass(args: {
             await lock(warKey, async () => {
                 const row = (await store.get<Record<string, unknown>>(warKey)) ?? null;
                 if (!row || row.endedAt) return;
+                // Campaign provisions are a voluntary clan-war action. The
+                // legacy daily HP-war pass must never silently debit them.
+                if ((row.campaign as {version?:number}|undefined)?.version===2) return;
                 if (row.storesDate === args.today) return;
                 const fed: Record<string, boolean> = {};
                 for (const clan of war.clans) {

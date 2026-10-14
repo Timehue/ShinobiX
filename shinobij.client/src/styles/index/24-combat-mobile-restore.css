@@ -420,17 +420,13 @@
         var(--danger) calc(var(--rt-pct, 0%)),
         rgba(127, 29, 29, 0.55) calc(var(--rt-pct, 0%))
     ) !important;
+    /* Static on purpose: an !important box-shadow beats any keyframe, so a
+       box-shadow pulse here restyled the ring every frame and never showed. */
     box-shadow: 0 0 18px rgba(239, 68, 68, 0.6) !important;
-    animation: timer-pulse 0.8s ease-in-out infinite alternate;
 }
 
 .round-timer-display.round-timer-urgent .round-timer-num {
     color: var(--red-300);
-}
-
-@keyframes timer-pulse {
-    from { box-shadow: 0 0 10px rgba(239, 68, 68, 0.4); }
-    to   { box-shadow: 0 0 24px rgba(239, 68, 68, 0.9); }
 }
 
 /* Inactive placeholder when it's the enemy's turn */

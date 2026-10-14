@@ -73,6 +73,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!fresh) return { status: 404 as const, body: { error: 'War not found.' } };
             const { war: war0, changed: didExpire, needsCooldownStamp } = applyLazyClanWarExpiry(fresh);
             let war = war0;
+            if (war.campaign) {
+                return { status: 409 as const, body: { error: 'Use the Clan War queues to find a match in this campaign.' } };
+            }
             if (war.endedAt) {
                 if (didExpire) {
                     await kv.set(key, war);

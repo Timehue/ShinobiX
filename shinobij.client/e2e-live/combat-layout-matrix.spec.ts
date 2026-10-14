@@ -11,24 +11,27 @@ import { API_CONNECTION_RETRIES, test } from './helpers/reconnecting-request';
 import { sampleStableGrid } from '../scripts/combat-layout-settling';
 
 // The loadout's scroll container. Phones wrap basic commands and the loadout in
-// one `.combat-action-tray` scrollport; elsewhere the tray is `display:
-// contents` (DOM-present, layout-absent) and `.combat-jutsu-bar` scrolls
-// itself. `.first()` on this selector is the tray when present (it precedes the
-// bar in DOM order) and the bar for Tower, which has no tray; the two evaluate
-// callbacks then step through a contents-tray to the bar that really scrolls.
+// one `.combat-action-tray` scrollport. Desktop PvP/PvE trays are `display:
+// contents` and their `.combat-jutsu-bar` scrolls; desktop Tower trays contain
+// a scrolling `.combat-equipped-jutsu-grid`. The callbacks resolve the actual
+// scrollport so lower-card detail checks observe and restore its position.
 // They run inside page.evaluate (serialized by source), so each must stay
 // self-contained — no shared helper closure.
 const ACTION_PANEL_SELECTOR = '.combat-action-tray, .combat-jutsu-bar';
 const readTrayScrollTop = (panel: Element): number => {
     const element = panel as HTMLElement;
-    const scroller = element.classList.contains('combat-action-tray') && getComputedStyle(element).display === 'contents'
+    const scroller = element.classList.contains('tower-action-dock') && getComputedStyle(element).overflowY === 'hidden'
+        ? element.querySelector<HTMLElement>('.combat-equipped-jutsu-grid') ?? element
+        : element.classList.contains('combat-action-tray') && getComputedStyle(element).display === 'contents'
         ? element.querySelector<HTMLElement>('.combat-jutsu-bar') ?? element
         : element;
     return scroller.scrollTop;
 };
 const resetTrayScroll = (panel: Element): void => {
     const element = panel as HTMLElement;
-    const scroller = element.classList.contains('combat-action-tray') && getComputedStyle(element).display === 'contents'
+    const scroller = element.classList.contains('tower-action-dock') && getComputedStyle(element).overflowY === 'hidden'
+        ? element.querySelector<HTMLElement>('.combat-equipped-jutsu-grid') ?? element
+        : element.classList.contains('combat-action-tray') && getComputedStyle(element).display === 'contents'
         ? element.querySelector<HTMLElement>('.combat-jutsu-bar') ?? element
         : element;
     scroller.scrollTop = 0;
@@ -1271,6 +1274,7 @@ type SelectionGeometry = {
     documentHeight: number;
     visualViewport: { width: number; height: number; offsetLeft: number; offsetTop: number; scale: number } | null;
     visibleTileCount: number;
+    expectedTileCount: number;
     allTilesNamed: boolean;
     tileCenterHitCount: number;
     tileCenterMisses: string[];
@@ -1389,7 +1393,9 @@ async function selectionGeometry(page: Page, rootSelector: string): Promise<Sele
         };
         const gridLayer = root?.querySelector('.hex-grid-layer') ?? null;
         const trayCandidate = root?.querySelector<HTMLElement>('.combat-action-tray') ?? null;
-        const actionTray = trayCandidate && getComputedStyle(trayCandidate).display !== 'contents'
+        const actionTray = trayCandidate?.classList.contains('tower-action-dock') && getComputedStyle(trayCandidate).overflowY === 'hidden'
+            ? trayCandidate.querySelector<HTMLElement>('.combat-equipped-jutsu-grid')
+            : trayCandidate && getComputedStyle(trayCandidate).display !== 'contents'
             ? trayCandidate
             : root?.querySelector<HTMLElement>('.combat-jutsu-bar') ?? null;
         // Tower draws several non-interactive overlays with the tile skin class.
@@ -1445,6 +1451,10 @@ async function selectionGeometry(page: Page, rootSelector: string): Promise<Sele
                 scale: window.visualViewport.scale,
             } : null,
             visibleTileCount: tiles.length,
+            expectedTileCount: (() => {
+                const board = root?.querySelector<HTMLElement>('.tower-board-area');
+                return board ? Number(board.dataset.gridWidth) * Number(board.dataset.gridHeight) : 120;
+            })(),
             allTilesNamed: tiles.every(tile => Boolean(tile.getAttribute('aria-label')?.trim())),
             tileCenterHitCount,
             tileCenterMisses,
@@ -1506,9 +1516,9 @@ function expectTransitionTraceStable(
 
 function expectCombatBoardUsable(geometry: SelectionGeometry, label: string, isTower: boolean): void {
     expect(geometry.board?.height ?? 0, `${label} board height`).toBeGreaterThanOrEqual(90);
-    // Story/MPvP are 12x10; generated party-MPvE maps can be larger. Never
-    // accept a reduced board, and require every actual button in larger maps.
-    if (isTower) expect(geometry.visibleTileCount, `${label} visible Tower tile count`).toBeGreaterThanOrEqual(120);
+    // Tower tutorials use 12x8, standard fights 12x10, and major bosses 14x10.
+    // Saved runs can retain older dimensions. Require the complete sealed map.
+    if (isTower) expect(geometry.visibleTileCount, `${label} visible Tower tile count`).toBe(geometry.expectedTileCount);
     else expect(geometry.visibleTileCount, `${label} visible combat tile count`).toBe(120);
     expect(geometry.allTilesNamed, `${label} every combat tile must have an accessible name`).toBe(true);
     expect(
@@ -1563,6 +1573,7 @@ async function assertJutsuSelectionGeometryStable(
         }
         expectCombatBoardUsable(before, `${rootSelector} ${viewport.width}x${viewport.height} idle`, isTower);
         if (isTower) {
+            const headerControlMinimum = viewport.width < 980 ? 44 : 32;
             const leaveControl = root.locator('.tower-fight-leave');
             await expect(leaveControl, `${rootSelector} leave or forfeit control`).toBeVisible();
             const leaveMinimum = await leaveControl.evaluate((control) => {
@@ -1572,14 +1583,14 @@ async function assertJutsuSelectionGeometryStable(
                     height: Number.parseFloat(style.minHeight),
                 };
             });
-            expect(leaveMinimum.width, `${rootSelector} leave or forfeit CSS min-width`).toBeGreaterThanOrEqual(44);
-            expect(leaveMinimum.height, `${rootSelector} leave or forfeit CSS min-height`).toBeGreaterThanOrEqual(44);
+            expect(leaveMinimum.width, `${rootSelector} leave or forfeit CSS min-width`).toBeGreaterThanOrEqual(headerControlMinimum);
+            expect(leaveMinimum.height, `${rootSelector} leave or forfeit CSS min-height`).toBeGreaterThanOrEqual(headerControlMinimum);
             const leaveBox = await leaveControl.boundingBox();
-            // Firefox/DPR projection can report an exact 44 CSS-pixel box as
-            // 43.999998. Keep the authored 44px minimum above authoritative,
+            // Firefox/DPR projection can report a CSS-pixel box just below its
+            // integer size. Keep the authored responsive minimum authoritative,
             // while tolerating only sub-hundredth floating-point noise here.
-            expect(leaveBox?.width ?? 0, `${rootSelector} leave or forfeit target width`).toBeGreaterThanOrEqual(43.99);
-            expect(leaveBox?.height ?? 0, `${rootSelector} leave or forfeit target height`).toBeGreaterThanOrEqual(43.99);
+            expect(leaveBox?.width ?? 0, `${rootSelector} leave or forfeit target width`).toBeGreaterThanOrEqual(headerControlMinimum - 0.01);
+            expect(leaveBox?.height ?? 0, `${rootSelector} leave or forfeit target height`).toBeGreaterThanOrEqual(headerControlMinimum - 0.01);
         }
 
         await startTransitionTrace(page, rootSelector);

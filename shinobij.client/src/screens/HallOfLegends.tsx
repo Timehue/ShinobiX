@@ -38,6 +38,21 @@ type WeeklyBossLb = {
 
 const LEGACY_HALL_TABS = new Set<LbTab>(["legends", "eras"]);
 
+// One leaderboard row. Declared at module scope (it used to be a function
+// inside HallOfLegends) so its component identity is stable: a fresh inner
+// component type made React unmount and remount every row on every render.
+// `me` is the viewer's display name, which the inner version closed over.
+function HolRow({ me, rank, name, value, suffix = "", village, tier = false }: { me: string; rank: number; name: string; value: number | string; suffix?: string; village?: string; tier?: boolean }) {
+    const isMe = name === me;
+    return (
+        <div className={`hol-row ${isMe ? "hol-row-me" : ""}`}>
+            <span className="hol-rank-num">{rank <= 3 ? <GameArtIcon kind="crown" size={18} /> : `#${rank}`}</span>
+            <span className="hol-name">{name}{village ? <span className="hol-village"> · {village}</span> : null}{tier && typeof value === "number" ? <> <RankBadge rating={value} size="xs" /></> : null}</span>
+            <span className="hol-value">{typeof value === "number" ? value.toLocaleString() : value}{suffix}</span>
+        </div>
+    );
+}
+
 export 
 function HallOfLegends({ character, setScreen, playerRoster, onVersionedCharacter }: { character: Character; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[]; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; onVersionedCharacter: (character: Character, version?: number) => boolean }) {
     const legacyAvailable = useLegacyAvailability();
@@ -218,17 +233,6 @@ function HallOfLegends({ character, setScreen, playerRoster, onVersionedCharacte
         : [character];
     const me = character.accountName || character.name;
 
-    function Row({ rank, name, value, suffix = "", village, tier = false }: { rank: number; name: string; value: number | string; suffix?: string; village?: string; tier?: boolean }) {
-        const isMe = name === me;
-        return (
-            <div className={`hol-row ${isMe ? "hol-row-me" : ""}`}>
-                <span className="hol-rank-num">{rank <= 3 ? <GameArtIcon kind="crown" size={18} /> : `#${rank}`}</span>
-                <span className="hol-name">{name}{village ? <span className="hol-village"> · {village}</span> : null}{tier && typeof value === "number" ? <> <RankBadge rating={value} size="xs" /></> : null}</span>
-                <span className="hol-value">{typeof value === "number" ? value.toLocaleString() : value}{suffix}</span>
-            </div>
-        );
-    }
-
     function sortedTop(field: (c: Character) => number, n = 10) {
         return [...all].sort((a, b) => field(b) - field(a)).slice(0, n);
     }
@@ -358,16 +362,16 @@ function HallOfLegends({ character, setScreen, playerRoster, onVersionedCharacte
                         })()}
                         <p className="hol-board-label"><GameArtIcon kind="attack" size={18} />Ranked Battle Rating (Elo)</p>
                         {sortedTop(c => c.rankedRating ?? 1000).map((c, i) => (
-                            <Row key={c.name} rank={i+1} name={c.accountName || c.name} value={c.rankedRating ?? 1000} suffix=" Elo" village={c.village} tier />
+                            <HolRow me={me} key={c.name} rank={i+1} name={c.accountName || c.name} value={c.rankedRating ?? 1000} suffix=" Elo" village={c.village} tier />
                         ))}
                         <p className="hol-board-label" style={{ marginTop: "1rem" }}><GameArtIcon kind="petTamer" size={18} />Pet Colosseum Rating (Elo)</p>
                         {sortedTop(c => c.petRankedRating ?? 1000).map((c, i) => (
-                            <Row key={`pet-${c.name}`} rank={i+1} name={c.accountName || c.name} value={c.petRankedRating ?? 1000} suffix=" Elo" village={c.village} tier />
+                            <HolRow me={me} key={`pet-${c.name}`} rank={i+1} name={c.accountName || c.name} value={c.petRankedRating ?? 1000} suffix=" Elo" village={c.village} tier />
                         ))}
                         <p className="hint" style={{ marginTop: "1rem", marginBottom: "0.2rem", opacity: 0.75 }}><GameArtIcon kind="roleDefender" size={16} /> Warfront is an offline ladder: set a defense and challenge nearby ranks. Standings persist across seasons.</p>
                         <p className="hol-board-label" style={{ marginTop: "1rem" }}><GameArtIcon kind="roleDefender" size={18} />Beastbound Warfront Ladder — Top 10</p>
                         {petLadders?.tactical.length
-                            ? petLadders.tactical.map((e) => <Row key={`plt-${e.rank}`} rank={e.rank} name={e.name} value={`${e.record.wins}W ${e.record.losses}L`} village={e.village} />)
+                            ? petLadders.tactical.map((e) => <HolRow me={me} key={`plt-${e.rank}`} rank={e.rank} name={e.name} value={`${e.record.wins}W ${e.record.losses}L`} village={e.village} />)
                             : <p className="hol-empty">No squads ranked yet.</p>}
                         {season?.lastSeason && (() => {
                             const champs = [
@@ -380,7 +384,7 @@ function HallOfLegends({ character, setScreen, playerRoster, onVersionedCharacte
                                     {champs.length === 0
                                         ? <p className="hol-empty">No champions crowned last season.</p>
                                         : champs.map((ch) => (
-                                            <Row key={ch.mode} rank={1} name={ch.name} value={`${ch.rating} Elo`} suffix={` · ${ch.mode}`} village={ch.village} />
+                                            <HolRow me={me} key={ch.mode} rank={1} name={ch.name} value={`${ch.rating} Elo`} suffix={` · ${ch.mode}`} village={ch.village} />
                                         ))}
                                 </>
                             );
@@ -391,7 +395,7 @@ function HallOfLegends({ character, setScreen, playerRoster, onVersionedCharacte
                     <>
                         <p className="hol-board-label">Total PvP Kills</p>
                         {sortedTop(c => c.totalPvpKills ?? 0).map((c, i) => (
-                            <Row key={c.name} rank={i+1} name={c.accountName || c.name} value={c.totalPvpKills ?? 0} suffix=" kills" village={c.village} />
+                            <HolRow me={me} key={c.name} rank={i+1} name={c.accountName || c.name} value={c.totalPvpKills ?? 0} suffix=" kills" village={c.village} />
                         ))}
                     </>
                 )}
@@ -399,7 +403,7 @@ function HallOfLegends({ character, setScreen, playerRoster, onVersionedCharacte
                     <>
                         <p className="hol-board-label">Total Stat Points Earned</p>
                         {sortedTop(c => c.xp).map((c, i) => (
-                            <Row key={c.name} rank={i+1} name={c.accountName || c.name} value={c.xp} suffix=" pts" village={c.village} />
+                            <HolRow me={me} key={c.name} rank={i+1} name={c.accountName || c.name} value={c.xp} suffix=" pts" village={c.village} />
                         ))}
                     </>
                 )}
@@ -422,7 +426,7 @@ function HallOfLegends({ character, setScreen, playerRoster, onVersionedCharacte
                     <>
                         <p className="hol-board-label">Pet Colosseum Wins</p>
                         {sortedTop(c => c.totalPetWins ?? 0).map((c, i) => (
-                            <Row key={c.name} rank={i+1} name={c.accountName || c.name} value={c.totalPetWins ?? 0} suffix=" wins" village={c.village} />
+                            <HolRow me={me} key={c.name} rank={i+1} name={c.accountName || c.name} value={c.totalPetWins ?? 0} suffix=" wins" village={c.village} />
                         ))}
                     </>
                 )}
@@ -435,7 +439,7 @@ function HallOfLegends({ character, setScreen, playerRoster, onVersionedCharacte
                             : gauntletLb.rows.length === 0
                                 ? <p className="hol-empty">No runs submitted yet this week — be the first to set the pace.</p>
                                 : gauntletLb.rows.map((e) => (
-                                    <Row key={`g-${e.rank}`} rank={e.rank} name={e.name} value={`${e.roundsCleared}/10 rounds`} suffix={` · ${e.heartsLeft}❤`} village={e.village} />
+                                    <HolRow me={me} key={`g-${e.rank}`} rank={e.rank} name={e.name} value={`${e.roundsCleared}/10 rounds`} suffix={` · ${e.heartsLeft}❤`} village={e.village} />
                                 ))}
                     </>
                 )}
@@ -443,7 +447,7 @@ function HallOfLegends({ character, setScreen, playerRoster, onVersionedCharacte
                     <>
                         <p className="hol-board-label">Endless Tower — Waves Survived</p>
                         {sortedTop(c => c.totalEndlessTowerWins ?? 0).map((c, i) => (
-                            <Row key={c.name} rank={i+1} name={c.accountName || c.name} value={c.totalEndlessTowerWins ?? 0} suffix=" waves" village={c.village} />
+                            <HolRow me={me} key={c.name} rank={i+1} name={c.accountName || c.name} value={c.totalEndlessTowerWins ?? 0} suffix=" waves" village={c.village} />
                         ))}
                     </>
                 )}
@@ -459,7 +463,7 @@ function HallOfLegends({ character, setScreen, playerRoster, onVersionedCharacte
                             return top.length === 0
                                 ? <p className="hol-empty">No village war victories recorded yet.</p>
                                 : top.map((c, i) => (
-                                    <Row key={`won-${c.name}`} rank={i+1} name={c.accountName || c.name} value={c.warsWon ?? 0} suffix={` win${(c.warsWon ?? 0) === 1 ? "" : "s"}`} village={c.village} />
+                                    <HolRow me={me} key={`won-${c.name}`} rank={i+1} name={c.accountName || c.name} value={c.warsWon ?? 0} suffix={` win${(c.warsWon ?? 0) === 1 ? "" : "s"}`} village={c.village} />
                                 ));
                         })()}
                         <p className="hol-board-label" style={{ marginTop: "1rem" }}><GameArtIcon kind="crown" size={18} />MVP Wall</p>
@@ -468,7 +472,7 @@ function HallOfLegends({ character, setScreen, playerRoster, onVersionedCharacte
                             return top.length === 0
                                 ? <p className="hol-empty">No war MVPs crowned yet.</p>
                                 : top.map((c, i) => (
-                                    <Row key={`mvp-${c.name}`} rank={i+1} name={c.accountName || c.name} value={c.warMvpCount ?? 0} suffix={` MVP${(c.warMvpCount ?? 0) === 1 ? "" : "s"}`} village={c.village} />
+                                    <HolRow me={me} key={`mvp-${c.name}`} rank={i+1} name={c.accountName || c.name} value={c.warMvpCount ?? 0} suffix={` MVP${(c.warMvpCount ?? 0) === 1 ? "" : "s"}`} village={c.village} />
                                 ));
                         })()}
                         <p className="hol-board-label" style={{ marginTop: "1rem" }}><GameArtIcon kind="attack" size={18} />All-Time War Damage</p>
@@ -477,12 +481,12 @@ function HallOfLegends({ character, setScreen, playerRoster, onVersionedCharacte
                             return top.length === 0
                                 ? <p className="hol-empty">No war damage tallied yet.</p>
                                 : top.map((c, i) => (
-                                    <Row key={`dmg-${c.name}`} rank={i+1} name={c.accountName || c.name} value={c.lifetimeWarDamage ?? 0} suffix=" HP" village={c.village} />
+                                    <HolRow me={me} key={`dmg-${c.name}`} rank={i+1} name={c.accountName || c.name} value={c.lifetimeWarDamage ?? 0} suffix=" HP" village={c.village} />
                                 ));
                         })()}
                         <p className="hol-board-label" style={{ marginTop: "1rem" }}><GameArtIcon kind="attack" size={18} />Raids Completed</p>
                         {sortedTop(c => c.totalVillageRaids ?? 0).map((c, i) => (
-                            <Row key={`raid-${c.name}`} rank={i+1} name={c.accountName || c.name} value={c.totalVillageRaids ?? 0} suffix=" raids" village={c.village} />
+                            <HolRow me={me} key={`raid-${c.name}`} rank={i+1} name={c.accountName || c.name} value={c.totalVillageRaids ?? 0} suffix=" raids" village={c.village} />
                         ))}
                         {/* Per-village W/L record from the server (api/world-state
                             standings). Ranked by win differential, then wins. */}
@@ -494,7 +498,8 @@ function HallOfLegends({ character, setScreen, playerRoster, onVersionedCharacte
                             return rows.length === 0
                                 ? <p className="hol-empty">No village war records yet.</p>
                                 : rows.map((s, i) => (
-                                    <Row
+                                    <HolRow
+                                        me={me}
                                         key={`standing-${s.village}`}
                                         rank={i+1}
                                         name={s.village}
@@ -549,7 +554,7 @@ function HallOfLegends({ character, setScreen, playerRoster, onVersionedCharacte
                                                     ? " dmg · core"
                                                     : " dmg · key";
                                             return (
-                                                <Row key={name} rank={i + 1} name={playerChar?.name ?? name} value={dmg as number} suffix={tierSuffix} village={playerChar?.village} />
+                                                <HolRow me={me} key={name} rank={i + 1} name={playerChar?.name ?? name} value={dmg as number} suffix={tierSuffix} village={playerChar?.village} />
                                             );
                                         })
                                     }
@@ -609,7 +614,8 @@ function HallOfLegends({ character, setScreen, playerRoster, onVersionedCharacte
                                 return <p className="hol-empty">No {professionTabs.find(p => p.id === professionFilter)?.label}s in the world yet.</p>;
                             }
                             return top.map((c, i) => (
-                                <Row
+                                <HolRow
+                                    me={me}
                                     key={c.name}
                                     rank={i + 1}
                                     name={`${c.accountName || c.name}  · ${rankLabel(c)}`}

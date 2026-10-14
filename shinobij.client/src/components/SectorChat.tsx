@@ -45,9 +45,10 @@ export const SectorChat = memo(SectorChatView, (previous: SectorChatProps, next:
 type SectorChatProps = {
     sector: number; present: boolean; playerName: string;
     hudRef: RefObject<HTMLDivElement | null>; sheetOpen: boolean; onSheet: (open: boolean) => void;
+    inline?: boolean;
 };
 
-function SectorChatView({ sector, present, playerName, hudRef, sheetOpen, onSheet }: SectorChatProps) {
+function SectorChatView({ sector, present, playerName, hudRef, sheetOpen, onSheet, inline = false }: SectorChatProps) {
     const { messages, status, live, skewMs, send } = useSectorChat(sector, present);
     const { locked, loading } = useSocialLock(playerName);
     // Same click lease Sector Info keeps: a touch outside the sheet closes it
@@ -70,8 +71,8 @@ function SectorChatView({ sector, present, playerName, hudRef, sheetOpen, onShee
     const [readTs, setReadTs] = useState(0);
     const [now, setNow] = useState(() => Date.now());
     const id = useId();
-    const docked = layout === 'roomy';
-    const open = docked ? dockedChoice ?? true : sheetOpen && layout !== null;
+    const docked = inline || layout === 'roomy';
+    const open = docked ? dockedChoice ?? !inline : sheetOpen && layout !== null;
     const lines = shapeSectorChat(messages, playerName);
     const newest = messages.length ? messages[messages.length - 1].ts : 0;
     const unread = open ? 0 : unreadSectorChat(messages, readTs, playerName);
@@ -211,7 +212,7 @@ function SectorChatView({ sector, present, playerName, hudRef, sheetOpen, onShee
         {notice && <p className="sector-chat-notice" role="status">{notice}</p>}
     </div>;
 
-    return <section ref={rootRef} className={`sector-chat${open ? ' is-open' : ''}`} data-layout={layout ?? 'compact'}
+    return <section ref={rootRef} className={`sector-chat${open ? ' is-open' : ''}`} data-layout={inline ? 'inline' : layout ?? 'compact'}
         aria-labelledby={`${id}-title`}>
         <h3 className="sector-chat-head">
             <button ref={toggleRef} type="button" className="sector-chat-toggle" aria-expanded={open}
