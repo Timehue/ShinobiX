@@ -1137,7 +1137,7 @@ export function CentralHub({
                                                 <strong>Techniques ({bl.jutsus.length})</strong>
                                                 {bl.jutsus.map((j) => (
                                                     <div key={j.id} className="archives-jutsu-row">
-                                                        {j.image && <img src={j.image} alt={j.name} className="archives-jutsu-img" loading="lazy" decoding="async" />}
+                                                        {j.image && <span className="archives-jutsu-art"><img src={j.image} alt={j.name} className="archives-jutsu-img" loading="lazy" decoding="async" /></span>}
                                                         <div>
                                                             <span className="archives-jutsu-name">{j.name}</span>
                                                             <span className="archives-jutsu-meta">{j.type} · {j.element} · {j.ap} AP</span>
