@@ -18,6 +18,8 @@ export type WorldBossEventClientState = {
         hp: number;
         hpMax: number;
         currentSector: number | null;
+        /** Absent from a server that predates the in-sector patrol. */
+        previousSector?: number | null;
         nextSector: number | null;
         nextHopInMs: number;
         movementPaused: boolean;
@@ -93,12 +95,24 @@ export type WorldBossSettlement = {
     _saveVersion?: number;
 };
 
+let serverClockOffsetMs = 0;
+
+/** The server's clock as of the last event read, so every player sees the boss at the same point of its patrol. */
+export function worldBossServerNow(): number {
+    return Date.now() + serverClockOffsetMs;
+}
+
 export async function fetchWorldBossEvent(playerName?: string): Promise<WorldBossEventClientState | null> {
     try {
         const query = playerName ? `?playerName=${encodeURIComponent(playerName)}` : '';
         const response = await fetch(`/api/world-boss-event${query}`, { method: 'GET', cache: 'no-store' });
         if (!response.ok) return null;
-        return await response.json() as WorldBossEventClientState;
+        const state = await response.json() as WorldBossEventClientState;
+        // The anonymous read is publicly cacheable for 5 s. A cached copy says
+        // how old it is, and its serverNow is that much behind the server.
+        const ageMs = Math.max(0, Number(response.headers.get('age')) || 0) * 1000;
+        if (Number.isFinite(state.serverNow)) serverClockOffsetMs = state.serverNow + ageMs - Date.now();
+        return state;
     } catch {
         return null;
     }
