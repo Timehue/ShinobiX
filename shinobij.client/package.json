@@ -16,7 +16,7 @@
     "check:story-content": "node ../node_modules/tsx/dist/cli.mjs ../scripts/generate-story-content.mts --check",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test:e2e": "playwright test",
+    "test:e2e": "node --import tsx node_modules/@playwright/test/cli.js test",
     "test:e2e:travel-handoff": "node --import tsx node_modules/@playwright/test/cli.js test -c playwright.travel-handoff.config.ts",
     "build:dojo-qa": "vite build --config scripts/vite.dojo-qa.config.mjs --configLoader runner",
     "test:e2e:dojo-circuit": "playwright test -c playwright.dojo-circuit.config.ts",
