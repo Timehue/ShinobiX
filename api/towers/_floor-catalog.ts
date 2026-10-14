@@ -14,7 +14,7 @@
  */
 
 /** Increment only when shipped Story-Tower rules/rewards change. Active runs seal this value. */
-export const TOWER_CATALOG_VERSION = 'story-tower-v5' as const;
+export const TOWER_CATALOG_VERSION = 'story-tower-v6' as const;
 
 export const TOWER_OBJECTIVES = [
     'defeat-all',           // clear every enemy
@@ -44,13 +44,12 @@ export const OBJECTIVES_NEEDING_GOAL: ReadonlySet<TowerObjective> = new Set([
 export const TOWER_BIOMES = ['forest', 'snow', 'volcano', 'shadow', 'central'] as const;
 export type TowerBiome = (typeof TOWER_BIOMES)[number];
 
-/** Reviewed encounter footprints. Keep every shipped Tower arena on one of these
- *  three classes so actors remain readable while complex bosses retain enough
- *  room for phase walls, summons, telegraphs, and closing-ring play. */
+/** Duel-sized encounter footprints. Standard floors match the 12×10 PvP/PvE
+ *  arena; milestones keep two extra columns for summons and phase mechanics. */
 export const TOWER_ARENA_SIZES = {
-    compact: { width: 16, height: 10 },
-    standard: { width: 18, height: 12 },
-    major: { width: 20, height: 14 },
+    compact: { width: 12, height: 8 },
+    standard: { width: 12, height: 10 },
+    major: { width: 14, height: 10 },
 } as const;
 export type TowerArenaClass = keyof typeof TOWER_ARENA_SIZES;
 
@@ -276,8 +275,8 @@ function ph(w: number, h: number): number[] {
     return hexZone(Math.floor(h / 2) * w + Math.floor(w / 2), w, h);
 }
 
-// ─── Chapter 1 seed catalog: 10 escalating floors on adaptive reviewed boards — 16×10
-// tutorials, 18×12 standard encounters, and 20×14 milestone bosses. Varied objectives +
+// ─── Chapter 1 seed catalog: 10 escalating floors on adaptive reviewed boards — 12×8
+// tutorials, 12×10 standard encounters, and 14×10 milestone bosses. Varied objectives +
 // 4 boss floors, each boss with a DISTINCT mechanic
 // (bulwark / regen / summon / enrage). Features carry placeholder tiles (ph); the
 // encounter builder rolls one pylon plus one rotating ward/hazard and scatters
@@ -307,7 +306,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         id: 1, name: 'Foothold', biome: 'forest', objective: 'defeat-all',
         roundBudget: 8, map: towerArenaMap('compact'), fieldRule: { kind: 'none' },
         enemies: [{ aiId: 'grunt-bandit', count: 8 }],
-        features: [pylon(16, 10), pylon(16, 10)],
+        features: [pylon(12, 8), pylon(12, 8)],
         firstClearReward: { ryo: 400, xp: 150 },
         ...CHAPTER_ONE_PRESENTATION,
         artKey: 'foothold',
@@ -327,7 +326,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         terrainPillars: 6, // terrain debuts here — light cover, learn to use it
         dynamicHazards: [{ kind: 'geyser', count: 3, pct: 4, everyRounds: 3 }], // geysers debut — learn the beat
         enemies: [{ aiId: 'grunt-bandit', count: 5 }, { aiId: 'grunt-archer', count: 4, spawnRound: 2 }],
-        features: [pylon(16, 10), pylon(16, 10), pylon(16, 10), ward(16, 10, 20)],
+        features: [pylon(12, 8), pylon(12, 8), pylon(12, 8), ward(12, 8, 20)],
         firstClearReward: { ryo: 600, xp: 220, boneCharms: 5 },
         ...CHAPTER_ONE_PRESENTATION,
         artKey: 'crossfire-glade',
@@ -350,7 +349,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         boardObjects: [{ kind: 'font', resource: 'chakra', percent: 20, cap: 40, label: 'Chakra Well' }],
         dynamicHazards: [{ kind: 'geyser', count: 4, pct: 4, everyRounds: 3 }],
         enemies: [{ aiId: 'grunt-blocker', count: 6 }, { aiId: 'grunt-archer', count: 4 }],
-        features: [pylon(16, 10), hazard(16, 10), hazard(16, 10)],
+        features: [pylon(12, 8), hazard(12, 8), hazard(12, 8)],
         firstClearReward: { ryo: 800, xp: 300 },
         ...CHAPTER_ONE_PRESENTATION,
         artKey: 'frozen-gauntlet',
@@ -374,7 +373,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
             { aiId: 'grunt-bandit', count: 2, spawnRound: 3 },
             { aiId: 'grunt-brute', count: 1, spawnRound: 3 },
         ],
-        features: [pylon(16, 10), pylon(16, 10), ward(16, 10, 25)],
+        features: [pylon(12, 8), pylon(12, 8), ward(12, 8, 25)],
         firstClearReward: { ryo: 1000, xp: 380, fateShards: 5 },
         ...CHAPTER_ONE_PRESENTATION,
         artKey: 'hold-the-line',
@@ -398,7 +397,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         // squishy" — strikes debut on floor 7.
         enemies: [{ aiId: 'grunt-bandit', count: 3 }, { aiId: 'grunt-acolyte', count: 2, spawnRound: 2 }],
         boss: { aiId: 'boss-warden', phases: [60, 30], mechanic: 'bulwark', targetMode: 'squishiest', aegis: { shieldPct: 17 } },
-        features: [pylon(20, 14), pylon(20, 14), pylon(20, 14), ward(20, 14, 25)],
+        features: [pylon(14, 10), pylon(14, 10), pylon(14, 10), ward(14, 10, 25)],
         firstClearReward: { ryo: 2000, xp: 800, fateShards: 10, milestone: 'tower-floor-5' },
         ...CHAPTER_ONE_PRESENTATION,
         artKey: 'spire-warden',
@@ -420,7 +419,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         boardObjects: [{ kind: 'shrine', percent: 10, label: 'Battle Shrine' }, { kind: 'font', resource: 'chakra', percent: 20, cap: 40, label: 'Chakra Well' }],
         dynamicHazards: [{ kind: 'geyser', count: 4, pct: 4, everyRounds: 3 }],
         enemies: [{ aiId: 'grunt-acolyte', count: 5 }, { aiId: 'grunt-brute', count: 4 }],
-        features: [pylon(18, 12), pylon(18, 12), pylon(18, 12), hazard(18, 12)],
+        features: [pylon(12, 10), pylon(12, 10), pylon(12, 10), hazard(12, 10)],
         firstClearReward: { ryo: 1400, xp: 550, boneCharms: 8 },
         ...CHAPTER_ONE_PRESENTATION,
         artKey: 'acolyte-coven',
@@ -446,7 +445,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         // VOLLEY — telegraphed strikes DEBUT here: a barrage at the nearest shinobi every 3
         // rounds. Violet tiles + a full round to scatter teach the read on a forgiving 11%.
         boss: { aiId: 'boss-revenant', phases: [66, 33], mechanic: 'regen', regenFlatCap: 650, targetMode: 'support', strike: { kind: 'volley', pct: 11, radius: 1, everyRounds: 3 } },
-        features: [pylon(18, 12), pylon(18, 12), pylon(18, 12), ward(18, 12, 25)],
+        features: [pylon(12, 10), pylon(12, 10), pylon(12, 10), ward(12, 10, 25)],
         firstClearReward: { ryo: 2400, xp: 950, fateShards: 12 },
         ...CHAPTER_ONE_PRESENTATION,
         artKey: 'hollow-revenant',
@@ -465,7 +464,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         roundBudget: 12, map: towerArenaMap('standard'), fieldRule: { kind: 'debuff', tag: 'Increase Damage Taken', percent: 10 },
         // Defeat the ambush force; no escort actor or separate survival condition.
         enemies: [{ aiId: 'grunt-bandit', count: 4 }, { aiId: 'grunt-brute', count: 2 }, { aiId: 'grunt-archer', count: 3, spawnRound: 2 }],
-        features: [pylon(18, 12), pylon(18, 12), ward(18, 12, 25), hazard(18, 12)],
+        features: [pylon(12, 10), pylon(12, 10), ward(12, 10, 25), hazard(12, 10)],
         firstClearReward: { ryo: 1800, xp: 700, fateShards: 8 },
         ...CHAPTER_ONE_PRESENTATION,
         artKey: 'escort-vanguard',
@@ -491,7 +490,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         enemies: [{ aiId: 'grunt-brute', count: 2 }],
         // NOVA debut: the Ravager erupts a boss-centred blast — melee learns to back off mid-swarm.
         boss: { aiId: 'boss-ravager', phases: [66, 33], mechanic: 'summon', summonAiId: 'grunt-bandit', summonCount: 3, targetMode: 'lowest-hp', strike: { kind: 'nova', pct: 14, radius: 1, everyRounds: 2, firstRound: 2 } },
-        features: [pylon(18, 12), pylon(18, 12), pylon(18, 12), hazard(18, 12), hazard(18, 12)],
+        features: [pylon(12, 10), pylon(12, 10), pylon(12, 10), hazard(12, 10), hazard(12, 10)],
         firstClearReward: { ryo: 3000, xp: 1200, fateShards: 15 },
         ...CHAPTER_ONE_PRESENTATION,
         artKey: 'pit-of-embers',
@@ -519,7 +518,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         // trivializing the final wall. Its threat is the collapsing ring squeezing you IN — a nova fits.
         boss: { aiId: 'boss-sovereign', phases: [75, 50, 25], mechanic: 'enrage', targetMode: 'lowest-hp', strike: { kind: 'nova', pct: 14, radius: 1, everyRounds: 2 }, phasePillars: 2 },
         closingRing: { pct: 3, fromRound: 11, minRadius: 3 },
-        features: [pylon(20, 14), pylon(20, 14), pylon(20, 14), pylon(20, 14), ward(20, 14, 25), hazard(20, 14)],
+        features: [pylon(14, 10), pylon(14, 10), pylon(14, 10), pylon(14, 10), ward(14, 10, 25), hazard(14, 10)],
         firstClearReward: { ryo: 6000, xp: 2500, fateShards: 30, milestone: 'tower-floor-10' },
         ...CHAPTER_ONE_PRESENTATION,
         artKey: 'spire-sovereign',
@@ -549,7 +548,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
             { aiId: 'stormglass-marksman', count: 3, spawnRound: 2 },
             { aiId: 'stormglass-weaver', count: 2, spawnRound: 4 },
         ],
-        features: [pylon(18, 12), pylon(18, 12), ward(18, 12, 24), hazard(18, 12, 10)],
+        features: [pylon(12, 10), pylon(12, 10), ward(12, 10, 24), hazard(12, 10, 10)],
         firstClearReward: { ryo: 3500, xp: 1400, boneCharms: 10 },
         chapter: 2,
         chapterTitle: 'The Stormglass Rebellion',
@@ -577,7 +576,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
             targetMode: 'support', strike: { kind: 'volley', pct: 12, radius: 1, everyRounds: 3, firstRound: 3 },
             phasePillars: 1, aegis: { shieldPct: 12 },
         },
-        features: [pylon(18, 12), pylon(18, 12), pylon(18, 12), ward(18, 12, 25)],
+        features: [pylon(12, 10), pylon(12, 10), pylon(12, 10), ward(12, 10, 25)],
         firstClearReward: { ryo: 4500, xp: 1800, fateShards: 14 },
         chapter: 2,
         chapterTitle: 'The Stormglass Rebellion',
@@ -611,7 +610,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
             { aiId: 'stormglass-bastion', count: 1, spawnRound: 4 },
             { aiId: 'stormglass-weaver', count: 2, spawnRound: 4 },
         ],
-        features: [pylon(18, 12), pylon(18, 12), ward(18, 12, 28), hazard(18, 12, 10)],
+        features: [pylon(12, 10), pylon(12, 10), ward(12, 10, 28), hazard(12, 10, 10)],
         firstClearReward: { ryo: 4200, xp: 1700, fateShards: 10 },
         chapter: 2,
         chapterTitle: 'The Stormglass Rebellion',
@@ -640,7 +639,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
             { aiId: 'stormglass-weaver', count: 3, spawnRound: 3 },
             { aiId: 'stormglass-lancer', count: 3, spawnRound: 5 },
         ],
-        features: [pylon(18, 12), pylon(18, 12), pylon(18, 12), ward(18, 12, 24), hazard(18, 12, 11)],
+        features: [pylon(12, 10), pylon(12, 10), pylon(12, 10), ward(12, 10, 24), hazard(12, 10, 11)],
         firstClearReward: { ryo: 5000, xp: 2100, fateShards: 12, boneCharms: 12 },
         chapter: 2,
         chapterTitle: 'The Stormglass Rebellion',
@@ -671,7 +670,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
             strike: { kind: 'slam', pct: 12, radius: 1, everyRounds: 3, firstRound: 2 },
             phasePillars: 2, aegis: { shieldPct: 10 },
         },
-        features: [pylon(20, 14), pylon(20, 14), pylon(20, 14), pylon(20, 14), ward(20, 14, 25), hazard(20, 14, 12), hazard(20, 14, 12)],
+        features: [pylon(14, 10), pylon(14, 10), pylon(14, 10), pylon(14, 10), ward(14, 10, 25), hazard(14, 10, 12), hazard(14, 10, 12)],
         firstClearReward: { ryo: 9000, xp: 3600, fateShards: 45, boneCharms: 15, milestone: 'tower-floor-15' },
         chapter: 2,
         chapterTitle: 'The Stormglass Rebellion',
@@ -707,7 +706,7 @@ export const CLAN_BOSS_FLOORS: readonly TowerFloor[] = [
         // hurls the caught back (fits a melee brute, and scatter costs less here than on the razor-tuned
         // story floors). Gentle cadence (every 4) keeps the weekly chip economy intact — tune with clan balance.
         boss: { aiId: 'clan-boss-oni', phases: [75, 50, 25], mechanic: 'enrage', targetMode: 'lowest-hp', strike: { kind: 'slam', pct: 8, radius: 1, everyRounds: 4 } },
-        features: [pylon(20, 14), pylon(20, 14), pylon(20, 14), ward(20, 14, 25)],
+        features: [pylon(14, 10), pylon(14, 10), pylon(14, 10), ward(14, 10, 25)],
         balanceFor: 3, firstClearReward: {},
     },
     {
@@ -715,7 +714,7 @@ export const CLAN_BOSS_FLOORS: readonly TowerFloor[] = [
         roundBudget: 18, map: towerArenaMap('major'), fieldRule: { kind: 'none' },
         enemies: [{ aiId: 'grunt-acolyte', count: 2 }],
         boss: { aiId: 'clan-boss-leviathan', phases: [66, 33], mechanic: 'summon', summonAiId: 'grunt-bandit', summonCount: 2, targetMode: 'lowest-hp', strike: { kind: 'nova', pct: 8, radius: 1, everyRounds: 4 } },
-        features: [pylon(20, 14), pylon(20, 14), pylon(20, 14), hazard(20, 14)],
+        features: [pylon(14, 10), pylon(14, 10), pylon(14, 10), hazard(14, 10)],
         balanceFor: 3, firstClearReward: {},
     },
     {
@@ -726,7 +725,7 @@ export const CLAN_BOSS_FLOORS: readonly TowerFloor[] = [
         // solo player's per-round pressure so the low-population fallback always
         // banks progress instead of hitting a binary percentage-heal wall.
         boss: { aiId: 'clan-boss-kage', phases: [66, 33], mechanic: 'regen', regenFlatCap: 150, targetMode: 'support', strike: { kind: 'volley', pct: 8, radius: 1, everyRounds: 4 } },
-        features: [pylon(20, 14), pylon(20, 14), pylon(20, 14), ward(20, 14, 25)],
+        features: [pylon(14, 10), pylon(14, 10), pylon(14, 10), ward(14, 10, 25)],
         balanceFor: 3, firstClearReward: {},
     },
     {
@@ -737,7 +736,7 @@ export const CLAN_BOSS_FLOORS: readonly TowerFloor[] = [
         // boss-HP damage and shrink the weekly chip pool).
         enemies: [{ aiId: 'grunt-blocker', count: 3 }],
         boss: { aiId: 'clan-boss-golem', phases: [60, 30], mechanic: 'bulwark', targetMode: 'squishiest', strike: { kind: 'nova', pct: 8, radius: 1, everyRounds: 4 } },
-        features: [pylon(20, 14), pylon(20, 14), ward(20, 14, 25), ward(20, 14, 25)],
+        features: [pylon(14, 10), pylon(14, 10), ward(14, 10, 25), ward(14, 10, 25)],
         balanceFor: 3, firstClearReward: {},
     },
 ];

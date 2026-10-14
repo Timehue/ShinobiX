@@ -13,8 +13,22 @@
  * that. Module scope so it survives WorldMap's unmount/remount during a battle.
  */
 import { isWildSector } from "./screen-guards";
+import { isPlayableWildSector } from "../../../shared/sector-geo";
 
 let pendingSectorReopen: number | null = null;
+let pendingSectorTravel: { owner: string; sector: number } | null = null;
+
+/** An explicit destination must survive App's ordinary current-sector reopen. */
+export function setSectorTravelIntent(playerName: string, sector: number) {
+    const owner = playerName.trim().toLowerCase();
+    pendingSectorTravel = owner && isPlayableWildSector(sector) ? { owner, sector } : null;
+}
+
+export function takeSectorTravelIntent(playerName: string): number | null {
+    const intent = pendingSectorTravel;
+    pendingSectorTravel = null;
+    return intent?.owner === playerName.trim().toLowerCase() ? intent.sector : null;
+}
 
 export function setSectorReopen(sector: number | null) {
     pendingSectorReopen = sector;
@@ -28,6 +42,7 @@ export function takeSectorReopen(): number | null {
 
 export function clearSectorReopen() {
     pendingSectorReopen = null;
+    pendingSectorTravel = null;
 }
 
 /**

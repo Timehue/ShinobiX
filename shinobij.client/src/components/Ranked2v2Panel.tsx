@@ -152,6 +152,7 @@ export function Ranked2v2Panel({ character, sharedImages, onVersionedCharacter }
                 onVersionedCharacter={onVersionedCharacter}
                 settleOnAnyDone
                 variant="team-pvp"
+                pvpContextLabel="Ranked 2v2"
                 // The Ranked Format seals its neutral kunai, pills, smoke bomb and potion.
                 teamPvpConsumables={(state.match as TowerPvpMatch).rules?.consumables === "enabled"}
                 onExit={() => { setTowerPvpMatchId(null); void refresh(); }}

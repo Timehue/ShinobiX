@@ -73,28 +73,24 @@ test("only equipped collection cards carry the badge, and both views share one c
     assert.match(source, /jutsu-collection-grid \$\{view === "list" \? "is-list-view" : ""\}/);
 });
 
-test("grid tiles anchor the badge to the art panel, not to the growing tile bottom", () => {
-    // A tile's height follows the jutsu name, so anchoring from the bottom walks
-    // the badge up onto a name that wraps in a narrow (88px) column.
+test("grid badges stay inside the artwork as the art and name change height", () => {
     const shared = css.match(/\.profile-page-card \.jutsu-equipped-badge\s*\{([^}]*)\}/);
     assert.ok(shared, "expected the shared .jutsu-equipped-badge rule");
     assert.match(shared[1], /position:\s*absolute;/);
-    assert.match(shared[1], /right:\s*7px;/);
-    assert.match(shared[1], /top:\s*57px;/);
-    assert.doesNotMatch(shared[1], /bottom:/);
+    assert.match(shared[1], /right:\s*auto;/);
+    assert.match(shared[1], /top:\s*auto;/);
+    assert.match(shared[1], /left:\s*6px;/);
+    assert.match(shared[1], /bottom:\s*6px;/);
 
-    // 57px only clears the name because it lands inside the 78px art panel.
+    // The badge is an artwork child, so its bottom anchor cannot enter the copy.
     assert.match(
-        css,
-        /\.profile-page-card \.jutsu-collection-card \.jutsu-workbench-art\s*\{[^}]*height:\s*78px;/s,
+        panelMarkup(),
+        /jutsu-workbench-art[^>]*>[\s\S]*?jutsu-equipped-badge[^>]*>Equipped<\/span><\/span><span class="jutsu-collection-copy"/,
     );
 });
 
 test("list rows re-anchor the badge into the art column, clear of the jutsu name", () => {
-    // A list row is half a grid tile tall and centres its copy column, so the
-    // shared anchor lands the badge on the name (and, once it is art-relative,
-    // on the quick-equip button); the override must drop both inherited anchors,
-    // not just add new ones.
+    // List rows keep their badge within the compact artwork column.
     const override = css.match(
         /\.profile-page-card \.jutsu-collection-card\.is-list \.jutsu-equipped-badge\s*\{([^}]*)\}/,
     );
