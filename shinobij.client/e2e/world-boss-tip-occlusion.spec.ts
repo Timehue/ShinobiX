@@ -261,6 +261,7 @@ test(`the World Map tip stands down for the world boss raid (${setting.name})`, 
     await expect(combat).toHaveCount(0);
     const queue = page.getByRole("dialog", { name: "Chicxulub" });
     await expect(queue).toBeVisible();
+    await expect(tip).toBeHidden();
     await queue.getByRole("button", { name: "Close team queue" }).click();
     await expect(queue).toHaveCount(0);
 

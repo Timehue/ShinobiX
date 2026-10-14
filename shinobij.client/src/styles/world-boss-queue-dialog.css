@@ -9,6 +9,11 @@
     backdrop-filter: blur(5px);
     animation: world-boss-queue-fade-in .16s ease-out;
 }
+/* Ambient screen guidance belongs behind the queue's modal controls. Restore
+   it when the queue closes, including after returning from a team raid. */
+body:has(.world-boss-queue-overlay) > .screen-hint-banner {
+    display: none !important;
+}
 .world-boss-queue-dialog {
     width: min(560px, 100%);
     overflow: hidden;
