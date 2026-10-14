@@ -283,6 +283,8 @@ export function Training({ character, savedBloodlines = [], onVersionedCharacter
                 className="training-timer-modal"
             >
                 <p className="training-timer-intro">Choose a session length for {selectedStatLabel}. The gain and stamina cost are shown before you start.</p>
+                {/* Every timer greys out while a session runs; say why once, where a phone can read it. */}
+                {activeTraining && !trainingBusy && <p className="hint" role="status">A training session is already active. Collect or cancel it before you start another.</p>}
                 <div className="location-grid training-timer-grid">
                 {timers.map((timer) => {
                     // XP retired — the growth bonus now boosts the STAT gain
@@ -476,7 +478,7 @@ function JutsuSealPanel({
             if (!res.ok) {
                 if (res.status === 409) setFreeSpeedup((prev) => prev ? { ...prev, available: false } : prev);
                 if (res.status === 403 || res.status === 409) setFreeCheck((n) => n + 1);
-                setMsg(res.status === 429 ? throttledMessage(data.retryAfterMs) : `Error: ${data.error ?? 'Failed'}`);
+                setMsg(res.status === 429 ? throttledMessage(data.retryAfterMs) : `Error: ${data.error ?? 'The free finish did not go through. Refresh to check your lesson, then try again.'}`);
                 return;
             }
             patchLessonEndsAt(lessonToken, Number(data.newEndsAt));
@@ -508,20 +510,29 @@ function JutsuSealPanel({
                 return;
             }
             if (!res.ok) {
-                setMsg(`Error: ${data.error ?? 'Failed'}`);
+                setMsg(`Error: ${data.error ?? 'The speed-up did not go through. Refresh to check your Seals and lesson, then try again.'}`);
                 return;
             }
             const minutesReduced: number = Number(data.minutesReduced ?? 0);
             // The server's own new end time, applied to the lesson as it is now.
             patchLessonEndsAt(lessonToken, Number(data.newEndsAt));
             updateCharacter(prev => prev ? ({ ...prev, honorSeals: Number(data.honorSealsRemaining) }) : prev);
-            setMsg(`Success: -${minutesReduced} min (spent ${data.sealsSpent} Seals)`);
+            const sealsSpent = Number(data.sealsSpent ?? 0);
+            setMsg(`Success: Lesson shortened by ${minutesReduced} minute${minutesReduced === 1 ? "" : "s"} for ${sealsSpent} Honor Seal${sealsSpent === 1 ? "" : "s"}.`);
         } catch {
             setMsg(`Error: ${AMBIGUOUS_ACTION_MESSAGE}`);
         } finally {
             busyRef.current = false;
             setBusy(false);
         }
+    }
+
+    // "Finish now" spends a stack of Honor Seals in one tap, so it confirms the
+    // way the ryo finish does (finishWithRyo).
+    async function finishWithSeals() {
+        if (!activeJutsuTraining || busyRef.current) return;
+        if (!(await gameConfirm(`Finish ${activeJutsuTraining.label} training now for ${finishCost.toLocaleString()} Honor Seal${finishCost === 1 ? "" : "s"}?`))) return;
+        await speedUp(finishSeals);
     }
 
     return (
@@ -552,20 +563,21 @@ function JutsuSealPanel({
                 {activeJutsuTraining && serverNow() < activeJutsuTraining.endsAt && (
                     <>
                         <button onClick={() => void speedUp(1)} disabled={busy || balance < speedupCost(1) || speedUpWaitSec > 0} style={{ background: "linear-gradient(#422006,#1c1006)", borderColor: "#fde68a" }}>
-                            {busy ? "…" : speedUpWaitSec > 0 ? `Ready in ${speedUpWaitSec}s` : "−10 min (1 Seal)"}
+                            {busy ? "Spending…" : speedUpWaitSec > 0 ? `Ready in ${speedUpWaitSec}s` : "−10 min (1 Seal)"}
                         </button>
-                        <button onClick={() => void speedUp(finishSeals)} disabled={busy || balance < finishCost || speedUpWaitSec > 0} style={{ background: "linear-gradient(#422006,#1c1006)", borderColor: "#fde68a" }}>
-                            {busy ? "…" : `Finish now (${finishCost} Seal${finishCost === 1 ? "" : "s"})`}
+                        <button onClick={() => void finishWithSeals()} disabled={busy || balance < finishCost || speedUpWaitSec > 0} style={{ background: "linear-gradient(#422006,#1c1006)", borderColor: "#fde68a" }}>
+                            {busy ? "Spending…" : `Finish now (${finishCost} Seal${finishCost === 1 ? "" : "s"})`}
                         </button>
                         {ownsLogistician && freeSpeedup?.available && remainingMinutes >= 2 && (
                             <button onClick={() => void freeFinish()} disabled={busy} style={{ background: "linear-gradient(#14532d,#052e16)", borderColor: "#86efac" }}>
-                                {busy ? "…" : "Finish now · free (Logistician, weekly)"}
+                                {busy ? "Finishing…" : "Finish now · free (Logistician, weekly)"}
                             </button>
                         )}
                     </>
                 )}
             </div>
-            {msg && <p className="hint" style={{ margin: "8px 0 0", color: msg.startsWith("Success:") ? "#facc15" : "#f87171" }}>{msg}</p>}
+            {/* The prefix only picks the colour; the player reads the sentence. */}
+            {msg && <p className="hint" style={{ margin: "8px 0 0", color: msg.startsWith("Success:") ? "#facc15" : "#f87171" }}>{msg.replace(/^(Success|Error):\s*/, "")}</p>}
         </div>
     );
 }
