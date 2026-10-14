@@ -21,6 +21,14 @@ test("ambient screen hints collapse to an operable combat-safe help control", ()
     assert.match(triggerRule[1], /pointer-events:\s*auto/);
 });
 
+test("ambient screen hints stand down for the tactical board, whose exit owns that corner", () => {
+    const shell = readFileSync(new URL("./ShinobiCombatShell.tsx", import.meta.url), "utf8");
+    const tower = readFileSync(new URL("../screens/BattleTowerFight.tsx", import.meta.url), "utf8");
+    assert.match(shell, /shinobi-combat-shell--\$\{mode\}/);
+    assert.match(tower, /<ShinobiCombatShell\s+mode="tactical"/);
+    assert.match(combatCss, /body:has\(> \.combat-instance\.shinobi-combat-shell--tactical\) > \.screen-hint-banner\s*\{\s*display:\s*none\s*!important;\s*\}/);
+});
+
 test("expanded combat help uses the canonical trapped modal above the combat HUD", () => {
     assert.match(hint, /import \{ Modal \} from "\.\/ui\/Modal"/);
     assert.match(combatCss, /\.screen-hint-modal-backdrop\s*\{[\s\S]*?z-index:\s*9100\s*!important;/);

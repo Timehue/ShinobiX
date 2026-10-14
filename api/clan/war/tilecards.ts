@@ -10,6 +10,7 @@ import {
     clanWarCooldownKey, loadClanContext, type ChallengeResult, type ClanWar,
 } from './_storage.js';
 import { awardWarEndClanXp } from './_war-xp.js';
+import { awardFinalizedWarPoints } from './_war-points.js';
 import { resolveChronicleDeckWithSave, type ChronicleDeckResolution } from '../../card-clash/_deck.js';
 import {
     CHRONICLE_RULES_VERSION, advanceExpiredChronicleTurn, applyAction, createMatch,
@@ -50,17 +51,20 @@ async function persistAndFinalize(session: Session) {
     await syncCardDuelPresence(kv, sessionKey(session.challengeId), session, SESSION_TTL_SEC); // F01
     if (session.status !== 'done' || !session.state?.winner) return;
     const warKey = `clan-war:${session.warId}`;
-    const endedWar = await withKvLock(warKey, async (): Promise<ClanWar | null> => {
+    const finalized = await withKvLock(warKey, async () => {
         const fresh = await kv.get<ClanWar>(warKey); if (!fresh) return null;
         const { war } = applyLazyClanWarExpiry(fresh); if (war.endedAt) return null;
         const challenge = war.pendingChallenges.find((item) => item.id === session.challengeId);
         if (!challenge || challenge.status !== 'accepted') return null;
-        const now = Date.now(); const applied = applyFinalResult(war, challenge, winnerResult(session, challenge), now);
+        const now = session.updatedAt; const applied = applyFinalResult(war, challenge, winnerResult(session, challenge), now);
         await kv.set(warKey, applied.war);
         if (applied.warJustEnded) await kv.set(clanWarCooldownKey(applied.war.clans[0], applied.war.clans[1]), now, { ex: CLAN_WAR_REMATCH_COOLDOWN_SEC });
-        return applied.warJustEnded ? applied.war : null;
+        return applied;
     });
-    if (endedWar) await awardWarEndClanXp(endedWar).catch((error) => console.error('[clan/war/tilecards] clan-xp award failed', error));
+    if (finalized) {
+        if (finalized.war.campaign) await awardFinalizedWarPoints({war:finalized.war,challenge:finalized.completed},'');
+        if (finalized.warJustEnded) await awardWarEndClanXp(finalized.war).catch((error) => console.error('[clan/war/tilecards] clan-xp award failed', error));
+    }
 }
 // The shared clock: passes expired turns, and forfeits a duelist who misses two
 // in a row (shared/chronicle-duel.ts advanceExpiredChronicleTurn). The war then
@@ -70,6 +74,15 @@ function advanceTimeout(session: Session, now: number): boolean {
     const state = advanceExpiredChronicleTurn(session.state, now);
     if (state === session.state) return false;
     session.state = state; session.status = state.status === 'complete' ? 'done' : 'active'; session.updatedAt = now; return true;
+}
+/** Campaign closure drives the same authoritative clock even when duelists disconnect. */
+export async function reconcileClanWarCardDuel(challengeId: string, now = Date.now()): Promise<Session | null> {
+    return withKvLock(sessionKey(challengeId), async () => {
+        const session = await kv.get<Session>(sessionKey(challengeId));
+        if (!session || session.rulesVersion !== CHRONICLE_RULES_VERSION) return null;
+        if (advanceTimeout(session, now) || session.status === 'done') await persistAndFinalize(session);
+        return session;
+    }, {failClosed:true});
 }
 function actionIntent(body: Record<string, unknown>, action: string): ChronicleActionIntent { return { action, handIndex:index(body.handIndex),zoneIndex:index(body.zoneIndex),tributeZoneIndexes:Array.isArray(body.tributeZoneIndexes)?body.tributeZoneIndexes.map(index).filter((n):n is number=>n!==undefined):undefined,attackerZoneIndex:index(body.attackerZoneIndex),targetZoneIndex:body.targetZoneIndex===null?null:index(body.targetZoneIndex),targetSide:body.targetSide==='p1'||body.targetSide==='p2'?body.targetSide:undefined,graveyardIndex:index(body.graveyardIndex),...(body.position==='attack'||body.position==='defense'?{position:body.position}:{})}; }
 
@@ -96,6 +109,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const war = await kv.get<ClanWar>(`clan-war:${warId}`); if (!war) return {status:404 as const,body:{error:'War not found.'}};
                 const challenge = war.pendingChallenges.find((item)=>item.id===challengeId); if (!challenge) return {status:404 as const,body:{error:'Challenge not found.'}};
                 if (challenge.mode !== 'tilecards' || challenge.status !== 'accepted') return {status:409 as const,body:{error:'The card challenge is not active.'}};
+                if (!session) {
+                    const { campaignBattleAdmissionError } = await import('./_campaign-queue.js');
+                    const error = await campaignBattleAdmissionError(war, challenge, now);
+                    if (error) return { status:409 as const,body:{error} };
+                }
                 const lower=me.toLowerCase(); const from=(challenge.fromPlayer??'').toLowerCase()===lower||(challenge.fromPlayer2??'').toLowerCase()===lower; const to=(challenge.acceptedPlayer??'').toLowerCase()===lower||(challenge.acceptedPlayer2??'').toLowerCase()===lower;
                 if (!identity.admin && !from && !to) return {status:403 as const,body:{error:'Only an accepted participant can join.'}};
                 const clan=from?challenge.fromClan:(war.clans.find((item)=>item!==challenge.fromClan)??''); const resolution=await resolveDeck(me,submittedIds(body.deck??body.defaultDeck),identity.admin); if(!resolution)return{status:400 as const,body:{error:'No legal 40-card Chronicle deck is available.'}}; const deck=resolution.deck; const version=versionEcho(resolution);

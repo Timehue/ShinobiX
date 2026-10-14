@@ -2542,7 +2542,7 @@
           },
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
-            "line": 7039
+            "line": 7053
           }
         ]
       },
@@ -3539,6 +3539,10 @@
             "line": 111
           },
           {
+            "source": "shinobij.client/src/styles/clan-war-campaign.css",
+            "line": 8
+          },
+          {
             "source": "shinobij.client/src/styles/pet-arena-presentation.css",
             "line": 176
           },
@@ -3691,7 +3695,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
-            "line": 6289
+            "line": 6303
           },
           {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",
@@ -3719,6 +3723,10 @@
           {
             "source": "shinobij.client/src/screens/EchoesOfWar.css",
             "line": 874
+          },
+          {
+            "source": "shinobij.client/src/styles/clan-overview.css",
+            "line": 7
           },
           {
             "source": "shinobij.client/src/styles/hub-screens-skin.css",
@@ -3861,6 +3869,10 @@
           {
             "source": "shinobij.client/src/components/first-contract.css",
             "line": 263
+          },
+          {
+            "source": "shinobij.client/src/features/clanWar/clan-shrine.css",
+            "line": 3
           },
           {
             "source": "shinobij.client/src/features/villageWar/town-hall-war-display.css",
@@ -4523,7 +4535,7 @@
           },
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
-            "line": 7142
+            "line": 7156
           },
           {
             "source": "shinobij.client/src/styles/combat-grid-appearance.css",
@@ -5181,7 +5193,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
-            "line": 6289
+            "line": 6303
           },
           {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",

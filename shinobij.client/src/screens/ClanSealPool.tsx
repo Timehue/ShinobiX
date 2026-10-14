@@ -5,7 +5,7 @@ import { GameArtIcon } from "../components/GameArtIcon";
 import type { Character } from "../App";
 
 type LogEntry = {
-    kind: "donate" | "distribute" | "distribute-refund";
+    kind: "donate" | "distribute" | "distribute-refund" | "war-declare";
     by: string;
     to?: string;
     amount: number;
@@ -248,7 +248,7 @@ export function ClanSealPool({
                     <div style={{ marginTop: 6, fontSize: "0.75rem", maxHeight: 180, overflowY: "auto" }}>
                         {pool.log.map((e, i) => (
                             <div key={i} style={{ padding: "3px 0", borderBottom: "1px solid rgba(148,163,184,0.15)" }}>
-                                {e.kind === "donate"
+                                {e.kind === "war-declare" ? `${e.by} funded a war against ${e.to ?? 'a rival'}` : e.kind === "donate"
                                     ? <><GameArtIcon kind="crown" size={15} /> {e.by} donated <strong>{e.amount}</strong> Seals</>
                                     : e.kind === "distribute-refund"
                                         ? <><GameArtIcon kind="warning" size={15} /> <strong>{e.amount}</strong> Seals returned to the pool ({e.to} could not be credited)</>

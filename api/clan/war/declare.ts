@@ -5,18 +5,17 @@ import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { LockContendedError, withKvLock } from '../../_lock.js';
 import { parseSettlementRequestId } from '../../_settlement-receipts.js';
-import { runSaveDebitSaga, saveDebitTransactionId, SaveDebitRefusal } from '../../_save-debit-saga.js';
-import { economyTxKey, type EconomyTxRecord } from '../../_economy-tx.js';
-import { CLAN_WAR_DECLARE_SAGA, type ClanWarDeclarePlan } from '../../_save-debit-kinds.js';
+import { SaveDebitRefusal } from '../../_save-debit-saga.js';
+import { declareClanWarCampaign } from './_campaign-declare.js';
 import {
     CLAN_WAR_HP_MAX,
     clanInActiveWar,
     clanWarCooldownKey,
     clanWarKey,
     clanWarPairId,
-    CLAN_WAR_REMATCH_COOLDOWN_SEC,
     loadClanContext,
     canActAsClanLeadership,
+    redactClanWarForViewer,
     type ClanWar,
 } from './_storage.js';
 
@@ -75,40 +74,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
         const requestedToClan = String(body?.toClan ?? '').trim();
         if (!requestedToClan) return res.status(400).json({ error: 'Missing toClan.' });
-
-        // A retry of a declaration that already charged is finished or
-        // replayed from its journal. The checks below would refuse it: its own
-        // war may already stand, and the declarer may have changed role since.
-        const requestId = parseSettlementRequestId(body?.requestId);
-        if (!identity.admin && requestId) {
-            const journal = await kv.get<EconomyTxRecord>(economyTxKey(saveDebitTransactionId(CLAN_WAR_DECLARE_SAGA.kind, identity.name, requestId)));
-            const fromClan = journal?.meta?.fromClan;
-            const toClan = journal?.meta?.toClan;
-            if (journal && journal.state !== 'refunded' && typeof fromClan === 'string' && typeof toClan === 'string') {
-                if (toClan.toLowerCase() !== requestedToClan.toLowerCase()) {
-                    return res.status(409).json({ error: 'That request id was already used for a different action.' });
-                }
-                const outcome = await runSaveDebitSaga<Record<string, unknown>, ClanWarDeclarePlan, Record<string, never>>({
-                    definition: CLAN_WAR_DECLARE_SAGA,
-                    playerName: identity.name,
-                    requestId,
-                    identity: { war: clanWarPairId(fromClan, toClan) },
-                    sharedKey: clanWarKey(fromClan, toClan),
-                    resource: 'honorSeals',
-                    amount: CLAN_WAR_DECLARATION_COST,
-                    meta: { fromClan, toClan },
-                    // Only reached when the debit receipt is gone, and the
-                    // journal says this request already charged.
-                    decide: () => ({ ok: false, status: 409, error: 'This declaration needs an administrator to finish it.', details: { reconcile: true } }),
-                });
-                return res.status(200).json({ war: outcome.shared, character: outcome.character, _saveVersion: outcome._saveVersion });
-            }
+        // Every real-player declaration uses the new campaign rules.
+        // Existing administrative HP fixtures remain available for legacy QA.
+        if (!identity.admin) {
+            if(body?.funding!==undefined&&!['personal','pool'].includes(body.funding))return res.status(400).json({error:'Choose personal Seals or the clan Seal Pool.'});
+            const outcome = await declareClanWarCampaign({ playerName: identity.name, toClan: requestedToClan,
+                requestId: parseSettlementRequestId(body?.requestId) ?? '',funding:body?.funding??'personal' });
+            const clan = outcome.war.campaign?.rosters.find(roster => roster.members.some(member => member.name === identity.name))?.clan ?? '';
+            return res.status(200).json({ character:outcome.character,_saveVersion:outcome._saveVersion, war: redactClanWarForViewer(outcome.war, clan, identity.name) });
         }
 
         // Pull actor's clan context. Admin may declare on behalf of any
         // clan via the `fromClan` body field (testing); regular players
         // must use their own clan.
-        const ctx = await loadClanContext(identity.admin ? String(body?.fromClan ?? '') : identity.name);
+        const ctx = await loadClanContext(String(body?.fromClan ?? ''));
         const fromClan = identity.admin ? (String(body?.fromClan ?? '') || ctx.clan) : ctx.clan;
         if (!fromClan) return res.status(400).json({ error: 'You must be in a clan to declare war.' });
         if (fromClan === requestedToClan) return res.status(400).json({ error: 'Cannot declare war on your own clan.' });
@@ -176,7 +155,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 hpMax,
                 startedAt: now,
                 updatedAt: now,
-                declaredBy: identity.admin ? 'admin' : (ctx.name || identity.name),
+                declaredBy: 'admin',
                 pendingChallenges: [],
                 completedChallenges: [],
                 warCrateId: `clan-war-crate-${id}`,
@@ -198,53 +177,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(result.status).json(result.body);
         }
 
-        // The Honor Seal cost and the war record settle as one retry-safe
-        // saga (api/_save-debit-saga.ts), under the same pair lock as before
-        // and then the declarer's save. The war used to be written after a
-        // plain debit: when that write failed the seals were gone with no war
-        // and no record, and pressing Declare again charged a second 100. Now
-        // a war write that provably failed refunds the seals (503, refunded),
-        // and one whose outcome is unknown is finished by the retry with the
-        // same request id, never charged twice.
-        const outcome = await runSaveDebitSaga<Record<string, unknown>, ClanWarDeclarePlan, Record<string, never>>({
-            definition: CLAN_WAR_DECLARE_SAGA,
-            playerName: identity.name,
-            requestId,
-            identity: { war: id },
-            sharedKey: key,
-            resource: 'honorSeals',
-            amount: CLAN_WAR_DECLARATION_COST,
-            meta: { fromClan, toClan },
-            decide: ({ character, shared }) => {
-                // Re-check under the lock so two simultaneous declares for the
-                // same pair cannot both succeed.
-                if (shared?.startedAt && !shared.endedAt) {
-                    return { ok: false, status: 409, error: 'War already exists for this clan pair.', details: { war: shared } };
-                }
-                const balance = Number(character.honorSeals ?? 0);
-                if (balance < CLAN_WAR_DECLARATION_COST) {
-                    return {
-                        ok: false,
-                        status: 400,
-                        error: `Declaring war costs ${CLAN_WAR_DECLARATION_COST} Honor Seals. You hold ${balance}.`,
-                        details: { cost: CLAN_WAR_DECLARATION_COST, balance },
-                    };
-                }
-                return {
-                    ok: true,
-                    character: { ...character, honorSeals: balance - CLAN_WAR_DECLARATION_COST },
-                    plan: { war: buildWar(Date.now()) as unknown as Record<string, unknown>, cost: CLAN_WAR_DECLARATION_COST },
-                    result: {},
-                };
-            },
-            messages: {
-                refunded: 'The war could not be declared, so your Honor Seals were refunded. Please retry.',
-                pending: 'Your Honor Seals were spent but the war was not declared yet. Press Declare again to finish it; you will not be charged twice.',
-            },
-        });
-        // The character travels with its version, so the global client echo
-        // leaves it to the caller; this screen refetches on its next save.
-        return res.status(200).json({ war: outcome.shared, character: outcome.character, _saveVersion: outcome._saveVersion });
     } catch (err) {
         if (err instanceof SaveDebitRefusal) return res.status(err.status).json({ ...err.details, error: err.message });
         if (err instanceof LockContendedError) return res.status(503).json({ error: 'The war table is busy. Nothing was spent; try again.', retryable: true });

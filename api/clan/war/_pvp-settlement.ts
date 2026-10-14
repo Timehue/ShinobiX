@@ -48,8 +48,10 @@ function territoryScrollsByPlayer(
     challenge: ClanChallenge,
     battleId: string,
     outcome: 'applied' | 'superseded',
+    war: ClanWar,
 ): Record<string, number> {
     if (outcome !== 'applied' || challenge.mode !== 'pvp1v1' || challenge.result === 'draw') return {};
+    if (war.campaign && (!challenge.campaignMatchId || !war.campaign.matches[challenge.campaignMatchId]?.scoreEligible)) return {};
     return Object.fromEntries(challengeWinners(challenge).map((name) => {
         const player = safeName(name);
         return [player, player && clanWarPvpTerritoryScrollDrop(battleId, player) ? 1 : 0];
@@ -209,7 +211,7 @@ export async function settlePvpClanWarContinuation(
             pointsByPlayer: prior.outcome === 'applied'
                 ? finalizedWarPointTotals(settlementBody)
                 : {},
-            territoryScrollsByPlayer: territoryScrollsByPlayer(challenge, session.battleId, prior.outcome),
+            territoryScrollsByPlayer: territoryScrollsByPlayer(challenge, session.battleId, prior.outcome, war),
         };
     }
 
@@ -356,6 +358,7 @@ export async function settlePvpClanWarContinuation(
             publication.challenge,
             session.battleId,
             publication.outcome,
+            publication.war,
         ),
     };
 }

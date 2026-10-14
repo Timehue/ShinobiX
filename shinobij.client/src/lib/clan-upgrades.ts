@@ -139,27 +139,25 @@ export const CLAN_UPGRADE_DEFS: ClanUpgradeDef[] = [
         key: "warRoom",
         name: "War Room",
         icon: "⚔️",
-        desc: "Adds to your clan's HP pool when a clan war is declared.",
+        desc: "Increases clan XP earned from completed clan-war campaigns.",
         category: "war",
-        // War Room's effect is a FLAT HP add (warRoomBonusHp), not a percent —
-        // perLevelPercent/maxPercent are unused for this key.
-        perLevelPercent: 0,
-        maxPercent: 0,
-        effectLabel: (lvl) => `+${warRoomBonusHp(lvl)} clan-war HP`,
+        perLevelPercent: 0.2,
+        maxPercent: 10,
+        effectLabel: (lvl) => `+${Math.min(10,Math.max(0,0.2*lvl)).toFixed(1)}% campaign clan XP`,
     },
     {
         key: "scoutNetwork",
         name: "Scout Network",
         icon: "🔭",
-        desc: "Reveals enemy-clan members out in the world during a clan war.",
+        desc: "Provides earlier golden-shrine notices and enemy-clan reconnaissance.",
         category: "recon",
         perLevelPercent: 0,
         maxPercent: 0,
         effectLabel: (lvl) => {
             const tier = scoutIntelTier(lvl);
-            if (tier >= 3) return "Enemy positions, level & name";
-            if (tier === 2) return "Enemy positions & level";
-            if (tier === 1) return "Enemy positions (red dots)";
+            if (tier >= 3) return "90-minute shrine intel · enemy positions, level & name";
+            if (tier === 2) return "60-minute shrine location and mode · enemy positions & level";
+            if (tier === 1) return "60-minute shrine location · enemy positions";
             return "Locked — reach level 1";
         },
     },
@@ -170,8 +168,7 @@ export const CLAN_UPGRADE_DEF_BY_KEY: Record<ClanUpgradeKey, ClanUpgradeDef> =
 
 /**
  * Percent-point effect of a building at a given level. Returns 0 for the
- * flat-HP / recon buildings (War Room, Scout Network), which expose their
- * effects through warRoomBonusHp() / scoutIntelTier() instead.
+ * recon buildings, which expose information through scoutIntelTier().
  */
 export function clanUpgradeEffectPercent(key: ClanUpgradeKey, level: number): number {
     const def = CLAN_UPGRADE_DEF_BY_KEY[key];

@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import type { Character } from "../types/character";
-import { cwListWars, sharedClanWarCache, type CwWar } from "../lib/clan-war-api";
+import { cwListWars, sharedClanWarCache, type CwWar } from "../lib/clan-war-read-api";
 import {
     endedVillageWarRecordsFor,
     loadVillageState,
