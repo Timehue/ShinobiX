@@ -11,7 +11,7 @@ import { STAT_CAP_FIELDS } from '../combat-core/formulas.js';
 import { preserveStatPointEntitlement, STAT_RESPEC_FATE_COST } from './_stat-entitlement.js';
 import { earnedStatPoints, earnedForLevel, applyDerivedLevel } from '../_xp-engine.js';
 import { parseStoryFieldRecords } from '../../shared/story-field-work.js';
-import { auraRegenBonus, vitalRegenPerTick } from '../_elapsed-state.js';
+import { auraRegenBonus, hasActiveHollowGateRun, vitalRegenPerTick } from '../_elapsed-state.js';
 import { clientRyoDecreaseAllowed, pooledVitalRegenEnabled } from '../_release-flags.js';
 import {
     strictRawSaveLedgerEnabled,
@@ -329,6 +329,19 @@ export function sanitizeProgression(
     // save refilled vitals server-side a few lines up, so the cap is skipped for
     // it; it is also skipped when the stored record carries no `_saveAt` (its
     // age is unknowable — never clamp a legitimate long-idle regen).
+    //
+    // An open Hollow Gate dive on the STORED save gets neither the regen nor the
+    // grace, only pill credits (owner ruling 2026-10-14). The dive has no idle
+    // recovery on either side: canRegenVitals excludes it, and the client
+    // neither regenerates nor autosaves on the dive screens. Every in-dive heal
+    // or hit is written to the stored save by its endpoint first. The grace is
+    // per save and a save is accepted every 3 s, so keeping it let a scripted
+    // save loop climb ~1,200 per vital per minute mid-dive. That is the free
+    // heal the dive's no-retreat rule exists to stop
+    // (shinobij.client/src/lib/screen-guards.ts). The stored run decides, so a
+    // save cannot clear its own run to dodge this. sanitizeChallengeProgress
+    // keeps `completed` server-owned, so it cannot mark the run finished for the
+    // next save either.
     {
         const storedAt = Math.floor(Number(existing?._saveAt) || 0);
         const levelRose = Math.floor(Number(char.level) || 1) > Math.floor(Number(exChar.level) || 1);
@@ -348,11 +361,13 @@ export function sanitizeProgression(
             // elapsed seconds turned a 60-point cushion into 360 per vital per save
             // at level 100, which widens the anti-cheat window rather than
             // mirroring anything.
+            const diveOpen = hasActiveHollowGateRun(exChar);
             const aura = auraRegenBonus(exChar);
             const pooledRegen = pooledVitalRegenEnabled();
-            const allowanceFor = (maxKey: 'maxHp' | 'maxChakra' | 'maxStamina'): number =>
-                Math.ceil(elapsedSec * vitalRegenPerTick(exChar[maxKey], aura, pooledRegen))
-                + VITALS_GAIN_GRACE_SEC * (1 + aura);
+            const allowanceFor = (maxKey: 'maxHp' | 'maxChakra' | 'maxStamina'): number => diveOpen
+                ? 0
+                : Math.ceil(elapsedSec * vitalRegenPerTick(exChar[maxKey], aura, pooledRegen))
+                    + VITALS_GAIN_GRACE_SEC * (1 + aura);
             const credits: Record<VitalKey, number> = { hp: 0, chakra: 0, stamina: 0 };
             for (const [itemId, credit] of Object.entries(CLIENT_CONSUMABLE_VITAL_CREDITS)) {
                 const consumed = countOwnedItem(exChar, itemId) - countOwnedItem(char, itemId);

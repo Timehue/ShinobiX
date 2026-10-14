@@ -38,10 +38,15 @@ export function sanitizeChallengeProgress(char: Record<string, unknown>, exChar:
     if (storedHollowGateToken && incomingHollowGateRun?.runToken !== storedHollowGateToken) {
         char.hollowGateRun = { ...storedHollowGateRun };
     } else if (storedHollowGateToken && incomingHollowGateRun) {
+        // `completed` is server-owned as well (owner ruling 2026-10-14). No server
+        // path sets it, because extraction and death null the run. A dive that
+        // reads as completed earns idle recovery again (canRegenVitals) and
+        // escapes the vitals-gain cap, so a save that kept the token could heal
+        // mid-dive by marking its own run finished.
         for (const field of [
             'runToken', 'serverSeed', 'augmentOffers', 'chosenAugment',
             'entryCurrencies', 'keys', 'torch', 'threat', 'wardSteps',
-            'secondWindArmed',
+            'secondWindArmed', 'completed',
         ]) {
             if (storedHollowGateRun && field in storedHollowGateRun) incomingHollowGateRun[field] = storedHollowGateRun[field];
             else delete incomingHollowGateRun[field];
