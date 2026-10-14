@@ -1,4 +1,5 @@
 import type { TacticsAllocation, TacticsBuild, TacticsElement, TacticsMove, TacticsSpecies } from './pet-tactics-contract.js';
+import { PET_TACTICS_IDENTITIES } from './pet-tactics-catalog.js';
 
 const move = (id: string, name: string, kind: TacticsMove['kind'], target: TacticsMove['target'], cost: number,
     effect: string, options: Partial<TacticsMove> = {}): TacticsMove => ({
@@ -83,7 +84,35 @@ export const TACTICS_ROSTER: readonly TacticsSpecies[] = [
     species('starter-water-l', 'Abyssal Leviathan', 'Water', 'legendary', 'sentinel', 'medic', ['undertow', 'mend', 'intercept', 'purify'], 'heal'),
     species('mythic-0', 'Eclipse Kitsune', 'Wind', 'mythic', 'balanced', 'scout', ['expose', 'purify', 'rally', 'wind-sky'], 'buff'),
 ];
-export const tacticsSpecies = (id: string): TacticsSpecies | undefined => TACTICS_ROSTER.find(p => p.id === id);
+// Carried companions keep their actual species and evolved art. Competitive
+// stats use the same bounded role profiles as sparring, independent of save stats.
+const toolsByRole: Record<string, string[]> = {
+    striker: ['open-wound', 'expose', 'rally', 'protect'],
+    caster: ['expose', 'rally', 'protect', 'purify'],
+    sentinel: ['open-wound', 'intercept', 'aegis', 'purify'],
+    medic: ['undertow', 'mend', 'purify', 'aegis'],
+    scout: ['expose', 'rally', 'protect', 'purify'],
+    balanced: ['open-wound', 'expose', 'protect', 'rally'],
+};
+const roleMap: Record<string, string> = { defender: 'sentinel', sage: 'medic', assassin: 'striker', tracker: 'scout' };
+const allSpecies = new Map(TACTICS_ROSTER.map(p => [p.id, p]));
+for (const [id, name, element, rarity, catalogRole] of PET_TACTICS_IDENTITIES) {
+    if (allSpecies.has(id)) continue;
+    const role = roleMap[catalogRole] ?? 'balanced';
+    const trait = role === 'sentinel' ? 'sentinel' : role === 'medic' ? 'medic' : role === 'scout' ? 'scout' : 'steady';
+    allSpecies.set(id, species(id, name, element as TacticsElement, rarity, role, trait, toolsByRole[role],
+        role === 'medic' ? 'heal' : role === 'sentinel' ? 'shield' : 'damage'));
+}
+export const tacticsSpecies = (id: string): TacticsSpecies | undefined => allSpecies.get(id);
+
+export function ownedTacticsSpeciesId(pet: { id?: unknown; templateId?: unknown; evolutionStage?: unknown; rarity?: unknown }): string | null {
+    const id = typeof pet.templateId === 'string' && pet.templateId.trim()
+        ? pet.templateId.trim() : String(pet.id ?? '').replace(/-\d{10,}$/, '').split(':')[0];
+    const baseStarter = /^starter-(fire|water|wind|lightning|earth)$/.test(id);
+    const stage = Number(pet.evolutionStage) || (pet.rarity === 'legendary' ? 2 : pet.rarity === 'rare' ? 1 : 0);
+    const visualId = baseStarter ? `${id}${stage >= 2 ? '-l' : stage === 1 ? '-r' : ''}` : id;
+    return tacticsSpecies(visualId) ? visualId : null;
+}
 export function tacticsPreset(speciesId: string, preset = 0): TacticsBuild {
     const pet = tacticsSpecies(speciesId);
     if (!pet) throw new Error('Unknown competitive species.');

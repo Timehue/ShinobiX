@@ -18,15 +18,34 @@
     50% { box-shadow: 0 0 0 5px rgba(106, 244, 218, .62), 0 0 34px rgba(58, 218, 198, .9), 0 4px 14px rgba(0,0,0,.58); }
 }
 
-/* A board structure like the shrine standee: the art is the marker, with no
-   card chrome. Its feet sit on the placed point. Every global button state is
-   restated here, because the global button:hover lift would replace the anchor
-   transform and drop the boss off its tile. */
+/* The boss patrols on a one-tile track: a percentage translate moves the track
+   in whole tiles (lib/world-boss-patrol). Taps pass through the track; only
+   the figure takes them. It walks past trail signs (z 5), wanderers (z 6),
+   structures and the village entrance (z 7) and story markers (z 8), so it
+   sits under all of them and never takes their taps. */
+.sector-world-boss-track {
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 4;
+    width: calc(100% / 12);
+    height: calc(100% / 12);
+    pointer-events: none;
+}
+
+/* A board figure like the shrine standee: the art is the marker, with no
+   card chrome. Its feet sit near the bottom of its track's tile. Every global
+   button state is restated here, because the global button:hover lift would
+   replace the anchor transform and drop the boss off its tile. */
 .sector-world-boss {
     position: absolute;
+    left: 50%;
+    top: 92%;
     z-index: 8;
-    width: clamp(64px, 21%, 150px);
+    /* 21% of the board, which is 2.52 of the track's tiles. */
+    width: clamp(64px, 252%, 150px);
     aspect-ratio: 3 / 4;
+    pointer-events: auto;
     padding: 0;
     border: none;
     border-radius: 0;
@@ -49,22 +68,29 @@
         box-shadow: none;
     }
 }
+/* Flipped from script to face the way it walks. */
+.sector-world-boss-figure {
+    position: absolute;
+    inset: 0;
+    transform-origin: 50% 100%;
+    pointer-events: none;
+}
+/* Standing (at either end of its patrol, or holding while a team forms) it
+   only breathes on its first frame; the walk cycle plays while it moves. */
 .sector-world-boss-sprite {
     position: absolute;
     inset: 0;
     transform-origin: 50% 100%;
     background: url('/world-boss/hollow-beast-walk-v1.webp') 0 0 / 400% 100% no-repeat;
     filter: drop-shadow(0 0 8px rgba(76, 234, 210, .7)) drop-shadow(0 5px 5px rgba(0, 0, 0, .75));
-    animation: world-boss-walk 1.3s steps(3, end) infinite, world-boss-breathe 2.8s ease-in-out infinite;
+    animation: world-boss-breathe 2.8s ease-in-out infinite;
     pointer-events: none;
+}
+.sector-world-boss.is-walking .sector-world-boss-sprite {
+    animation: world-boss-walk 1.3s steps(3, end) infinite, world-boss-breathe 2.8s ease-in-out infinite;
 }
 .sector-world-boss-sprite.is-white-red-glow {
     filter: drop-shadow(0 0 8px rgba(255, 250, 244, .92)) drop-shadow(0 0 16px rgba(255, 105, 112, .48)) drop-shadow(0 5px 5px rgba(0, 0, 0, .75));
-}
-/* Holding position while a team forms: it stops walking and only breathes. */
-.sector-world-boss.is-paused .sector-world-boss-sprite {
-    animation: world-boss-breathe 2.8s ease-in-out infinite;
-    background-position: 0 0;
 }
 .sector-world-boss-name {
     position: absolute;
@@ -103,6 +129,6 @@
 @media (prefers-reduced-motion: reduce) {
     .atlas-sector-world-boss,
     .sector-world-boss-sprite,
-    .sector-world-boss.is-paused .sector-world-boss-sprite { animation: none; }
+    .sector-world-boss.is-walking .sector-world-boss-sprite { animation: none; }
     .sector-world-boss { transition: none; }
 }
