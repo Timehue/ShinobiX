@@ -309,7 +309,7 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
     defineMode({
         id: 'clan-war-pvp-1v1', label: 'Clan War shinobi PvP 1v1', category: 'shinobi-pvp', authorityEngine: E.PVP,
         orchestrationOwner: O.CLAN_WAR,
-        clientEntries: ['App.tsx', 'lib/clan-war-api.ts', 'components/ClanWarCampaignPanel.tsx', 'features/clanWar/ClanShrineGateway.tsx', ...PVP_CLIENT],
+        clientEntries: ['App.tsx', 'lib/clan-war-api.ts', 'lib/clan-war-actions.ts', 'lib/clan-war-battle-launch.ts', 'components/ClanWarCampaignPanel.tsx', 'features/clanWar/ClanShrineGateway.tsx', ...PVP_CLIENT],
         routes: [
             mountedRoute('/clan/war/challenge', 'clan/war/challenge', ['lifecycle']),
             mountedRoute('/clan/war/queue', 'clan/war/queue', ['lifecycle']),
@@ -322,7 +322,7 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
         id: 'clan-war-pvp-2v2', label: 'Clan War shinobi PvP 2v2', category: 'shinobi-pvp', authorityEngine: E.TOWER,
         intendedAuthorityEngine: E.PVP, orchestrationOwner: O.CLAN_WAR,
         clientEntries: [
-            'App.tsx', 'lib/clan-war-api.ts', 'components/ClanWarCampaignPanel.tsx', 'features/clanWar/ClanShrineGateway.tsx', 'lib/clan-war-2v2-api.ts', 'screens/ClanWar2v2Battle.tsx',
+            'App.tsx', 'lib/clan-war-api.ts', 'lib/clan-war-actions.ts', 'lib/clan-war-battle-launch.ts', 'components/ClanWarCampaignPanel.tsx', 'features/clanWar/ClanShrineGateway.tsx', 'lib/clan-war-2v2-api.ts', 'screens/ClanWar2v2Battle.tsx',
             // The fight itself is issued through the shared Tower MPvP transport.
             'lib/tower-pvp-api.ts',
         ],
@@ -682,7 +682,7 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
     defineMode({
         id: 'clan-war-tilecards', label: 'Clan War Tile Cards', category: 'card', authorityEngine: E.CHRONICLE,
         orchestrationOwner: O.CLAN_WAR,
-        clientEntries: ['screens/ClanWarTileCardDuel.tsx', 'lib/clan-war-api.ts', 'components/ClanWarCampaignPanel.tsx', 'features/clanWar/ClanShrineGateway.tsx'],
+        clientEntries: ['screens/ClanWarTileCardDuel.tsx', 'lib/clan-war-api.ts', 'lib/clan-war-actions.ts', 'lib/clan-war-battle-launch.ts', 'components/ClanWarCampaignPanel.tsx', 'features/clanWar/ClanShrineGateway.tsx'],
         routes: [
             mountedRoute('/clan/war/challenge', 'clan/war/challenge', ['lifecycle']),
             mountedRoute('/clan/war/queue', 'clan/war/queue', ['lifecycle']),
@@ -693,7 +693,7 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
     defineMode({
         id: 'clan-war-pet', label: 'Clan War pet 1v1 and 2v2', category: 'pet-showdown', authorityEngine: E.PET_SHOWDOWN,
         orchestrationOwner: O.CLAN_WAR,
-        clientEntries: ['App.tsx', 'screens/ClanWarPetBattle.tsx', 'lib/clan-war-pet-api.ts', 'lib/clan-war-api.ts', 'components/ClanWarCampaignPanel.tsx', 'features/clanWar/ClanShrineGateway.tsx'],
+        clientEntries: ['App.tsx', 'screens/ClanWarPetBattle.tsx', 'lib/clan-war-pet-api.ts', 'lib/clan-war-api.ts', 'lib/clan-war-actions.ts', 'lib/clan-war-battle-launch.ts', 'components/ClanWarCampaignPanel.tsx', 'features/clanWar/ClanShrineGateway.tsx'],
         routes: [
             mountedRoute('/clan/war/challenge', 'clan/war/challenge', ['lifecycle']),
             mountedRoute('/clan/war/queue', 'clan/war/queue', ['lifecycle']),

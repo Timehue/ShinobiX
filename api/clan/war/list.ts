@@ -58,8 +58,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ||(identity&&!identity.admin&&war.campaign.rosters.some(roster=>roster.members.some(member=>member.name===identity.name))))
                 ? await reconcileClanWarCampaign(war.id,now) ?? war : applyLazyClanWarExpiry(war,now).war);
         }
-        const clan = viewerClan ? await kv.get<Record<string, unknown>>(clanRecordKey(viewerClan)) : null;
-        const scoutLevel = Number((clan?.upgrades as Record<string, unknown> | undefined)?.scoutNetwork ?? 0);
+        const [clanUpgrades] = !isAdmin && viewerClan && projected.some(war => war.campaign && war.clans.includes(viewerClan))
+            ? await readKvProjection(kv, [clanRecordKey(viewerClan)], { scoutNetwork: ['upgrades', 'scoutNetwork'] }) : [];
+        const scoutLevel = Number(clanUpgrades?.scoutNetwork ?? 0);
         const shaped = isAdmin
             ? projected
             : projected.map(w => redactClanWarForViewer(w, viewerClan, identity && !identity.admin ? identity.name : '', now,scoutLevel));
