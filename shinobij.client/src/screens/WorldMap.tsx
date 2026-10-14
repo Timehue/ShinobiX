@@ -4480,7 +4480,7 @@ function WorldMapContent({
                         onWorldAuthority={worldAuthority}
                         worldMovementBlocked={() => isTraveling || travelRequestInFlight.current || warShrine.open || worldBossQueueOpen}
                         hudLayer={
-                    <>{!vaultRaid && warShrine.tracker}<SectorHud key={selectedSector}
+                    <>{!vaultRaid && warShrine.tracker}<SectorHud
                         sector={selectedSector}
                         present={sectorIsCurrent}
                         biome={biome}
@@ -4573,7 +4573,7 @@ function WorldMapContent({
                                             <AnbuVaultRaid
                                                 key={`${character.name}:${vaultRaid.sector}`}
                                                 character={character}
-                                                sharedImages={sharedImages}
+                                                sharedImages={sharedImages} initialCampaign={villageCampaign}
                                                 sector={vaultRaid.sector}
                                                 onAttackPlayer={handleSelectedSectorPlayerAttack}
                                                 sectorContest={sectorWarContest}
