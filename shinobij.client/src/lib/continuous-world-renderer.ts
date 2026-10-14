@@ -45,7 +45,19 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
     resize?.observe(canvas);
     let revision = 0, lastDraw = '';
     let lastView: { tilePx: number; chunk: WorldChunk; crossings: typeof crossings; x: number; y: number } | undefined;
-    const material = (name: string) => { let image = materials.get(name); if (!image) { image = new Image(); image.onload = () => { revision++; }; image.src = `/sector-map/world-terrain/${name}.webp`; materials.set(name, image); } return image; };
+    // An image counts as arrived once it is DECODED, not merely loaded: drawing a
+    // loaded-but-undecoded 1024px webp decodes it synchronously inside a frame,
+    // and that first frame over new ground was a visible hitch while walking.
+    // decode() works off the main thread; the frame afterwards finds it ready.
+    const decoded = new WeakSet<HTMLImageElement>();
+    const whenDecoded = (image: HTMLImageElement, arrived: () => void) => {
+        const settle = () => { decoded.add(image); arrived(); };
+        image.onload = () => { if (typeof image.decode === 'function') image.decode().then(settle, settle); else settle(); };
+    };
+    // Without decode() (an older engine) a loaded image is used as before.
+    const usable = (image: HTMLImageElement | undefined): image is HTMLImageElement => !!image && image.complete && image.naturalWidth > 0
+        && (decoded.has(image) || typeof image.decode !== 'function');
+    const material = (name: string) => { let image = materials.get(name); if (!image) { image = new Image(); whenDecoded(image, () => { revision++; }); image.src = `/sector-map/world-terrain/${name}.webp`; materials.set(name, image); } return image; };
     const roads = space.roads.map(r => ({ ...r, left: Math.min(...r.points.map(p => p.x)), right: Math.max(...r.points.map(p => p.x)),
         top: Math.min(...r.points.map(p => p.y)), bottom: Math.max(...r.points.map(p => p.y)) }));
     const nearestChunk = (x: number, y: number) => space.chunks.reduce((best, chunk) =>
@@ -59,7 +71,14 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
     };
     const imageFor = (sector: number) => {
         let image = images.get(sector);
-        if (!image) { image = new Image(); image.onload = () => { revision++; }; image.src = sectorFloorImage(sector); images.set(sector, image); }
+        if (!image) {
+            const created = image = new Image();
+            // Its feathered painting is built here too, in the decode's own task, rather
+            // than by the first frame that draws this map (a full-size canvas and two
+            // full-canvas fills). An image evicted meanwhile is not built.
+            whenDecoded(created, () => { if (images.get(sector) === created) painting(sector, created); revision++; });
+            created.src = sectorFloorImage(sector); images.set(sector, created);
+        }
         return image;
     };
     function painting(sector: number, image: HTMLImageElement) {
@@ -91,9 +110,9 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
     }
     function texture(chunk: WorldChunk, image: HTMLImageElement) {
         const biome = sectorBiomeOf(chunk.sector), mask = sectorWalkMask(chunk.sector);
-        if (!mask || !image.complete || !image.naturalWidth) return;
+        if (!mask || !usable(image)) return;
         const terrain = material(biome === 'snow' ? 'snow' : biome === 'volcano' || biome === 'shadow' ? 'cinder' : 'forest');
-        const ready = terrain.complete && terrain.naturalWidth > 0, sourceKey = ready ? terrain.src : image.src;
+        const ready = usable(terrain), sourceKey = ready ? terrain.src : image.src;
         // Until the material arrives, the first map's stand-in holds. Each map of the biome
         // used to rebuild it from its own art in turn, every frame, so the screen never went
         // idle (and never would, had the material's request failed).
@@ -149,7 +168,7 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
             const image = images.get(road.a.sector) ?? images.get(road.b.sector);
             const source = images.has(road.a.sector) ? road.a : road.b;
             let pattern = roadTextures.get(source.sector);
-            if (!pattern && image?.complete && image.naturalWidth) { pattern = ctx.createPattern(patch(image, source.tile), 'repeat')!; pattern.setTransform(new DOMMatrix().scale(1 / 128)); roadTextures.set(source.sector, pattern); }
+            if (!pattern && usable(image)) { pattern = ctx.createPattern(patch(image, source.tile), 'repeat')!; pattern.setTransform(new DOMMatrix().scale(1 / 128)); roadTextures.set(source.sector, pattern); }
             ctx.beginPath(); road.points.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
             ctx.strokeStyle = '#28291f66'; ctx.lineWidth = 1.45; ctx.stroke(); ctx.strokeStyle = pattern ?? '#8f8773'; ctx.lineWidth = 1.1; ctx.stroke();
         }
@@ -165,7 +184,7 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
             ctx.restore();
         }
         // Only maps already requested: the camera's own neighbourhood decides what loads (see draw).
-        for (const chunk of visible) { const image = images.get(chunk.sector); if (image?.complete && image.naturalWidth) ctx.drawImage(painting(chunk.sector, image), chunk.x, chunk.y, 12, 12); }
+        for (const chunk of visible) { const image = images.get(chunk.sector); if (usable(image)) ctx.drawImage(painting(chunk.sector, image), chunk.x, chunk.y, 12, 12); }
         // A low rock line where two walkable-looking strips touch without a step between them.
         for (const wall of walls) {
             if (wall.x < left - 1 || wall.x > right + 1 || wall.y < top - 1 || wall.y > bottom + 1) continue;

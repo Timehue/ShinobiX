@@ -8,7 +8,7 @@ import { usePlayerSaveCoordinator } from "./lib/use-player-save-coordinator";
 import { decideBootBattleRecovery } from "./lib/boot-battle-recovery";
 import { usePlayerSaveState, isContentAdminName as snapshotContentAdminName, savedJutsuPool as restoredJutsuPool } from './lib/use-player-save-state';
 import { retireStalePetDuel } from "./lib/pet-duel-legacy-challenge";
-import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState, useMemo } from "react";
+import { Suspense, startTransition, useCallback, useEffect, useLayoutEffect, useRef, useState, useMemo } from "react";
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import type * as React from "react";
 import { installAuthFetch, setActivePlayer, setActiveToken, setAdminSession, SESSION_EXPIRED_EVENT } from "./authFetch";
@@ -47,7 +47,7 @@ import type { FieldExploreProgress } from "./lib/world-reward-api";
 import { useEndlessTowerActions } from "./lib/use-endless-tower-actions";
 import { clearSavePreview, readSavePreview, writeSavePreview } from "./lib/save-preview";
 import { setBootKind as perfSetBootKind, notifyScreen as perfNotifyScreen, notifyRestoreComplete as perfNotifyRestoreComplete } from "./lib/perfTelemetry";
-import { lazyWithRetry, retryDynamicImport } from "./lib/lazyWithRetry";
+import { cacheDynamicImport, lazyWithRetry, retryDynamicImport } from "./lib/lazyWithRetry";
 import { pullSharedAdminSnapshots, rememberSharedAdminItems } from "./lib/shared-admin-items";
 import { runSingleFlight } from "./lib/single-flight";
 import { adoptSaveVersion } from "./lib/save-version";
@@ -146,7 +146,7 @@ export { endlessScaleFactor, endlessWaveReward, endlessTowerMilestoneReward };
 
 import { dailyMissionsCompleted, dailyHuntsCompleted } from "./lib/character-progress";
 import { nextNarrativeDelivery, prepareStorySettlement } from "./lib/story-history";
-import { regenerateIdleVitals } from "./lib/loaded-vitals";
+import { isIdleVitalsOnlyChange, regenerateIdleVitals } from "./lib/loaded-vitals";
 import { acceptVersionedSnapshot } from "./lib/versioned-snapshot";
 export { dailyMissionsCompleted, dailyHuntsCompleted };
 // Install the global fetch interceptor once at module load. From here on,
@@ -169,7 +169,8 @@ const IntroCinematic = lazyWithRetry(loadIntroCinematic);
 const Bank = lazyWithRetry(() => import("./screens/Bank").then(m => ({ default: m.Bank })));
 const EndlessTowerLobby = lazyWithRetry(() => import("./screens/EndlessTowerLobby").then(m => ({ default: m.EndlessTowerLobby })));
 const EndlessTowerFight = lazyWithRetry(() => import("./screens/EndlessTowerFight").then(m => ({ default: m.EndlessTowerFight })));
-const HollowGateFight = lazyWithRetry(() => import("./screens/HollowGateFight").then(m => ({ default: m.HollowGateFight })));
+const loadHollowGateFight = cacheDynamicImport(() => import("./screens/HollowGateFight"));
+const HollowGateFight = lazyWithRetry(() => loadHollowGateFight().then(m => ({ default: m.HollowGateFight })));
 // The sealed PET duel, on the Showdown engine and bound to the run.
 const HollowGatePetFight = lazyWithRetry(() => import("./components/HollowGatePetFight").then(m => ({ default: m.HollowGatePetFight })));
 const VillageWarScreen = lazyWithRetry(() => import("./screens/VillageWarScreen").then(m => ({ default: m.VillageWarScreen })));
@@ -401,7 +402,8 @@ const UserHub = lazyWithRetry(() => import("./screens/UserHub").then(m => ({ def
 const Messages = lazyWithRetry(() => import("./screens/Messages").then(m => ({ default: m.Messages })));
 const UserView = lazyWithRetry(() => import("./screens/UserView").then(m => ({ default: m.UserView })));
 const ScreenTopChrome = lazyWithRetry(() => import("./components/ScreenTopChrome").then(m => ({ default: m.ScreenTopChrome })));
-const HollowGateShrineView = lazyWithRetry(() => import("./features/hollowGate/HollowGateShrineView").then(m => ({ default: m.HollowGateShrineView })));
+const loadHollowGateShrineView = cacheDynamicImport(() => import("./features/hollowGate/HollowGateShrineView"));
+const HollowGateShrineView = lazyWithRetry(() => loadHollowGateShrineView().then(m => ({ default: m.HollowGateShrineView })));
 const LeftProfileCard = lazyWithRetry(() => import("./components/LeftProfileCard").then(m => ({ default: m.LeftProfileCard })));
 const SectorBanner = lazyWithRetry(() => import("./components/SectorBanner").then(m => ({ default: m.SectorBanner })));
 const IncomingChallengeModal = lazyWithRetry(() => import("./components/IncomingChallengeModal").then(m => ({ default: m.IncomingChallengeModal })));
@@ -492,7 +494,7 @@ export type { CreatorEvent, PendingArenaStoryBattle, StoryStep };
 
 // Shrine floor generation (ASCII layouts + BSP + maze, ./lib/hollow-gate-dungeon)
 // is loaded ON DEMAND — see ./lib/hollow-gate-generator-loader for why that is free.
-import { loadHollowGateTileRuntime, warmHollowGateGenerator } from "./lib/hollow-gate-generator-loader";
+import { loadHollowGateMovementDrain, loadHollowGateTileRuntime, warmHollowGateGenerator } from "./lib/hollow-gate-generator-loader";
 import { buildHollowGateRunFromStart, HOLLOW_GATE_FLOOR_LOAD_FAILED } from "./lib/hollow-gate-run-build";
 import { hollowGateEncounterPresentation } from "./lib/hollow-gate-presentation";
 import { resumeHollowGateServerRun, settleHollowGateRunOnly, startHollowGateServerRun, attachStartedRun, clearHollowGateRunLocal, reportHollowGateRunError } from "./lib/hollow-gate-server";
@@ -506,7 +508,7 @@ import {
     formatHollowGateCombatReward,
     type HollowGatePveFightRef,
 } from "./lib/hollow-gate-pve";
-import { hollowGateRunAfterUnresolvedFight, useHollowGateAppFlow } from "./lib/hollow-gate-app-flow";
+import { hollowGateRunAfterUnresolvedFight, useHollowGateAppFlow, useHollowGateRunMirror } from "./lib/hollow-gate-app-flow";
 import { enterHollowGateShrineFlow, recoverHollowGateRunLazily, reportHollowGateEntryFailure } from "./lib/hollow-gate-entry";
 import type { StoryBossSettleResult } from "./lib/story-combat-api";
 import { requestStoryBossFight } from "./lib/story-fight-theme";
@@ -1291,7 +1293,14 @@ export default function App() {
     // all three boot-restore paths that hydrate a saved run and jump straight
     // here. Scattered call sites at the entry points kept missing the restores,
     // which is exactly the path back into a long run.
-    useEffect(() => { if (screen === "hollowGateShrine") warmHollowGateGenerator(); }, [screen]);
+    useEffect(() => {
+        if (screen !== "hollowGateShrine") return;
+        warmHollowGateGenerator();
+        // Warm the fight screen too, so the first encounter opens without a download (not on Save-Data).
+        if ((navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData) return;
+        const timer = window.setTimeout(() => { void loadHollowGateFight().catch(() => undefined); }, 1500);
+        return () => window.clearTimeout(timer);
+    }, [screen]);
 
     // A pending threat ambush lives on the server token, not in the saved board.
     // Read it on every route into the shrine, including boot restores that never
@@ -1332,15 +1341,6 @@ export default function App() {
         return () => { cancelled = true; };
     }, [screen, character?.name, hollowGateRun?.runToken, hollowGateRun?.floor]);
 
-    // Persist the in-progress shrine run to the character so it survives refresh:
-    // mirror local hollowGateRun into character.hollowGateRun whenever it changes inside the shrine.
-    useEffect(() => {
-        if (screen !== "hollowGateShrine") return;
-        setCharacter((prev) => {
-            if (!prev || prev.hollowGateRun === hollowGateRun) return prev;
-            return { ...prev, hollowGateRun };
-        });
-    }, [screen, hollowGateRun]);
 
     // Refresh/reconnect: the save carries only a pointer to the server board.
     // Re-submit the same sealed binding so the API can validate and return the
@@ -1752,6 +1752,8 @@ export default function App() {
     // Multiplayer heartbeat — keeps server presence alive and detects incoming attacks
     const characterRef = useRef<Character | null>(null);
     useLayoutEffect(() => { characterRef.current = character; }, [character]);
+    // Mirror the live shrine run into character.hollowGateRun (steps once walking pauses).
+    useHollowGateRunMirror({ screen, run: hollowGateRun, characterRef, setCharacter });
     const currentAccountNameRef = useRef(currentAccountName);
     useLayoutEffect(() => { currentAccountNameRef.current = currentAccountName; }, [currentAccountName]);
     const screenRef = useRef<Screen>(screen);
@@ -3315,8 +3317,16 @@ export default function App() {
         loadScreenImageCategories(screenRef.current);
     }
 
+    const rosterSelfRef = useRef<{ seen: Character | null; sector: number; at: number }>({ seen: null, sector: 0, at: 0 });
     useEffect(() => {
         if (!character) return;
+        // An idle-regen tick only raises vitals, which screens read from
+        // `character`, not this row; refreshing the row every tick re-rendered
+        // the whole App twice a second, so ticks refresh it at most every 15 s.
+        const self = rosterSelfRef.current, seen = self.seen;
+        self.seen = character;
+        if (seen && self.sector === currentSector && Date.now() - self.at < 15_000 && isIdleVitalsOnlyChange(seen, character)) return;
+        Object.assign(self, { sector: currentSector, at: Date.now() });
         setPlayerRoster((current) => {
             const record: PlayerRecord = {
                 name: character.name,
@@ -3454,7 +3464,9 @@ export default function App() {
     useEffect(() => {
         // Anonymous landing/account views have no vitals to regenerate.
         if (!character?.name) return;
-        const interval = setInterval(() => {
+        // A transition: the per-second bar update may yield to input and frames
+        // (walking the world map) instead of blocking them for a whole App render.
+        const interval = setInterval(() => startTransition(() => {
             setCharacter((prev) => {
                 if (!prev) return prev;
                 if (isPresenceBattleActive(screen)) return prev;
@@ -3462,7 +3474,7 @@ export default function App() {
                 const auraBonuses = getActiveAuraSphereBonuses(prev);
                 return regenerateIdleVitals(prev, 1 + auraBonuses.regen);
             });
-        }, 1000);
+        }), 1000);
 
         return () => clearInterval(interval);
     }, [character?.name, screen, raidBattleKind, pvpBattleId, pvpCompletionConfirmed, endlessBattleActive, pendingArenaStoryBattle, pendingEventEncounter, activeDungeonEvent, hollowGateTileGameActive, pendingPetBattleOpponent, petBattleActive, missionBattleActive]);
@@ -4836,6 +4848,8 @@ export default function App() {
     // (it closed over nothing App owns). Its callers below now handle the
     // rejection its on-demand generator import can produce.
     async function enterHollowGateShrine(eventCfg?: HollowGateEventConfig) {
+        // Fetch the shrine's code while the player confirms the key and the run starts.
+        void loadHollowGateShrineView().catch(() => undefined); warmHollowGateGenerator();
         return enterHollowGateShrineFlow({
             eventCfg, character, setHollowGateRun, setHollowGateLog, setHollowGateEvent, setHollowGateHiddenChamber,
             setCharacter, setCurrentBiome, setCurrentWeather, setScreen, setHollowGateIntroPage, pushHollowGateLog,
@@ -5145,7 +5159,7 @@ export default function App() {
     // never be dropped by the eager-updater timing race (see hollowGateMoveFxRef).
     async function drainHollowGateMoveFx() {
         if (!character || !hollowGateRun) return;
-        const { drainHollowGateMovement } = await import('./lib/hollow-gate-movement-drain');
+        const { drainHollowGateMovement } = await loadHollowGateMovementDrain();
         await drainHollowGateMovement({ playerName: character.name, run: hollowGateRun,
             currentPlayer: () => characterRef.current?.name, currentRun: () => hollowGateMovementRunRef.current,
             queue: hollowGateMoveFxRef, setRun: setHollowGateRun, log: pushHollowGateLog, stopWalk: stopHollowGateWalk,

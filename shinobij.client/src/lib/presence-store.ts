@@ -375,7 +375,19 @@ export function moveLiveWorldPlayer(name: string, sector: number, position: Play
     liveArr = liveArr.map((p, i) => i === index ? { ...p, worldPosition: position, movementSequence: sequence } : p);
     recentWorldMoves.set(playerKey(name), Date.now());
     liveSigStale = true;
-    notify();
+    notifyWorldMoves();
+}
+
+// A crowd's world moves arrive as one socket message per walker per update,
+// several a second each, and every one re-rendered the peer layer. The store
+// itself updates at once (every read sees it); subscribers hear once per
+// frame, which is how often the peer layer draws anyway. A hidden page, or a
+// runtime without frames, is told at once as before.
+let worldMoveFrame = 0;
+function notifyWorldMoves(): void {
+    if (typeof requestAnimationFrame !== "function" || typeof document === "undefined" || document.hidden) { notify(); return; }
+    if (worldMoveFrame) return;
+    worldMoveFrame = requestAnimationFrame(() => { worldMoveFrame = 0; notify(); });
 }
 
 /**
