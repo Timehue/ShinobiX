@@ -207,7 +207,7 @@ test("authenticated player can open every Central Hub system", async ({ page }, 
             const roamingBossTab = tabs.getByRole("button", { name: /Roaming Boss/ });
             await expect(weeklyTab).toHaveAttribute("aria-pressed", "true");
             await roamingBossTab.click();
-            await expect(page.getByRole("heading", { name: "No active muster" })).toBeVisible();
+            await expect(page.getByRole("heading", { name: "No active World Boss event" })).toBeVisible();
             await expect(roamingBossTab).toHaveAttribute("aria-pressed", "true");
             await weeklyTab.click();
             await expect(page.getByRole("heading", { name: "Weekly Boss" }).first()).toBeVisible();

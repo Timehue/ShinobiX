@@ -56,7 +56,7 @@ export const WORLD_BOSS_DEFINITIONS = [
         keyArt: '/world-boss/donkaku-key-art-v1.webp',
         mapSprite: '/world-boss/donkaku-walk-v1.webp',
         mapSpriteKind: 'walk-sheet',
-        mapSpriteFacing: 'left',
+        mapSpriteFacing: 'right',
         battleSprite: '/world-boss/donkaku-battle-v1.webp',
         battlePortrait: '/world-boss/donkaku-portrait-v1.webp',
         mapGlow: 'white-red',
@@ -74,6 +74,17 @@ export function worldBossDefinition(bossId: string | null | undefined): WorldBos
 }
 
 const WORLD_BOSS_VISUAL_PREFIX = 'world-boss-';
+const WORLD_BOSS_GUARD_VISUAL_PREFIX = 'world-boss-guard-';
+
+export function worldBossGuardVisual(bossId: WorldBossId): string {
+    return WORLD_BOSS_GUARD_VISUAL_PREFIX + bossId;
+}
+
+export function worldBossDefinitionForGuardVisual(visual: string | null | undefined): WorldBossDefinition | null {
+    if (!visual?.startsWith(WORLD_BOSS_GUARD_VISUAL_PREFIX)) return null;
+    const bossId = visual.slice(WORLD_BOSS_GUARD_VISUAL_PREFIX.length);
+    return WORLD_BOSS_DEFINITIONS.find(boss => boss.id === bossId) ?? null;
+}
 
 /** The team fight's boss-actor `character.visual`; the client resolves its art from it. */
 export function worldBossBattleVisual(bossId: WorldBossId): string {
