@@ -1,0 +1,95 @@
+{
+  "images": [
+    {
+      "src": "http://127.0.0.1:59475/chronicle/cards/tc-61-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:59475/chronicle/cards/story-story-ai-frostfang-village-4-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:59475/chronicle/cards/pet-witness-wind-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:59475/chronicle/cards/chronicle-gale-reversal-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:59475/chronicle/cards/story-story-ai-frostfang-village-25-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:59475/chronicle/cards/story-wandering-sage-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:59475/chronicle/cards/tc-131-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:59475/chronicle/cards/chronicle-forbidden-archive-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:59475/chronicle/cards/tc-61-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:59475/chronicle/cards/story-story-ai-frostfang-village-4-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:59475/chronicle/cards/pet-witness-wind-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:59475/chronicle/cards/chronicle-gale-reversal-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:59475/chronicle/cards/story-story-ai-frostfang-village-25-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:59475/chronicle/cards/story-wandering-sage-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:59475/chronicle/cards/tc-131-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:59475/chronicle/cards/chronicle-forbidden-archive-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    }
+  ],
+  "inspectorBackdrop": "fixed",
+  "inspectorFoil": {
+    "className": "chronicle-card__foil chronicle-card__foil--holographic",
+    "animation": "chronicleFoilSweep",
+    "mask": "linear-gradient(rgba(0, 0, 0, 0) 12%, rgb(0, 0, 0) 23%, rgb(0, 0, 0) 57%, rgba(0, 0, 0, 0) 72%)"
+  },
+  "reducedMotionAnimation": "none",
+  "mobileOverflow": false,
+  "packFoil": "chronicleFoilSweep",
+  "failures": [],
+  "consoleErrors": []
+}

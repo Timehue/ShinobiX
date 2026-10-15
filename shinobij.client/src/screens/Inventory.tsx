@@ -37,7 +37,7 @@ import {
 import { getCharacterElements, hasCharacterElement } from "../lib/elements";
 import { AURA_SPHERE_ITEM_ID, ELEMENTAL_CORE_ID, HOLLOW_BEAST_CACHE_ID } from "../constants/game";
 import { getAllTileCards, type TileCard } from "../data/tile-cards";
-import { getChronicleCard } from "../lib/chronicle-duel";
+import { getChronicleCard, chronicleInventoryCatalog, type ChronicleInventoryCard } from "../lib/chronicle-duel";
 import { addItem, countItem, removeItem, unifiedItemStacks } from "../lib/inventory";
 import { ExchangeRequestError, requestExchange } from "../lib/sunscar-exchange";
 import { ACADEMY_STARTER_GEAR_IDS, normalizeOnboardingStep } from "../lib/onboarding-step";
@@ -129,7 +129,7 @@ export function Inventory({
     const [exchangeEligibility, setExchangeEligibility] = useState<{ selection: NonNullable<typeof selectedInventoryItem>; message: string } | null>(null);
     const [checkingExchange, setCheckingExchange] = useState(false);
     const [inventoryTab, setInventoryTab] = useState<"items" | "tileCards">("items");
-    const [selectedTileCard, setSelectedTileCard] = useState<{ card: TileCard; count: number } | null>(null);
+    const [selectedTileCard, setSelectedTileCard] = useState<{ card: ChronicleInventoryCard; count: number } | null>(null);
     // Card art that fails to load shows the Card Hall glyph instead of an empty frame.
     const [brokenCardArt, setBrokenCardArt] = useState<ReadonlySet<string>>(() => new Set());
     const [slotFilter, setSlotFilter] = useState<EquipmentSlot | null>(null);
@@ -256,10 +256,10 @@ export function Inventory({
     const tileCards = character.tileCards;
     const tileCardStacks = useMemo(() => {
         // First match wins, exactly like the Array.find this replaced.
-        const cardsById = new Map<string, TileCard>();
-        for (const c of allTileCards) if (!cardsById.has(c.id)) cardsById.set(c.id, c);
+        const cardsById = new Map<string, ChronicleInventoryCard>();
+        for (const c of chronicleInventoryCatalog(allTileCards)) if (!cardsById.has(c.id)) cardsById.set(c.id, c);
         return Object.values(
-            tileCards.reduce<Record<string, { id: string; card?: TileCard; count: number }>>((stacks, cardId) => {
+            tileCards.reduce<Record<string, { id: string; card?: ChronicleInventoryCard; count: number }>>((stacks, cardId) => {
                 const card = cardsById.get(cardId);
 
                 if (!stacks[cardId]) {

@@ -1,0 +1,52 @@
+{
+  "images": [
+    {
+      "src": "http://127.0.0.1:51564/chronicle/cards/tc-119-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51564/chronicle/cards/tc-120-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51564/chronicle/cards/tc-119-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51564/chronicle/cards/tc-120-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    }
+  ],
+  "cardIds": [
+    "tc-119",
+    "tc-120"
+  ],
+  "renderedCardIds": [
+    "tc-119",
+    "tc-120"
+  ],
+  "inspectorBackdrop": "fixed",
+  "inspectorFoil": {
+    "className": "chronicle-card__foil",
+    "animation": "none",
+    "mask": "none"
+  },
+  "reducedMotionAnimation": "none",
+  "mobileOverflow": false,
+  "mobileCards": [
+    {
+      "name": "PHANTOM REAPER",
+      "visible": true
+    },
+    {
+      "name": "ETERNAL FROSTGIANT",
+      "visible": true
+    }
+  ],
+  "failures": [],
+  "consoleErrors": []
+}

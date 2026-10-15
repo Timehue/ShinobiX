@@ -1,0 +1,108 @@
+{
+  "images": [
+    {
+      "src": "http://127.0.0.1:58019/chronicle/cards/story-story-ai-stormveil-village-65-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58019/chronicle/cards/story-story-ai-stormveil-village-75-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58019/chronicle/cards/story-story-ai-stormveil-village-85-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58019/chronicle/cards/story-story-ai-ashen-leaf-village-65-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58019/chronicle/cards/story-story-ai-ashen-leaf-village-75-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58019/chronicle/cards/story-story-ai-ashen-leaf-village-85-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58019/chronicle/cards/story-story-ai-stormveil-village-65-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58019/chronicle/cards/story-story-ai-stormveil-village-75-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58019/chronicle/cards/story-story-ai-stormveil-village-85-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58019/chronicle/cards/story-story-ai-ashen-leaf-village-65-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58019/chronicle/cards/story-story-ai-ashen-leaf-village-75-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58019/chronicle/cards/story-story-ai-ashen-leaf-village-85-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    }
+  ],
+  "cardIds": [
+    "story-story-ai-stormveil-village-65",
+    "story-story-ai-stormveil-village-75",
+    "story-story-ai-stormveil-village-85",
+    "story-story-ai-ashen-leaf-village-65",
+    "story-story-ai-ashen-leaf-village-75",
+    "story-story-ai-ashen-leaf-village-85"
+  ],
+  "inspectorBackdrop": "fixed",
+  "inspectorFoil": {
+    "className": "chronicle-card__foil chronicle-card__foil--holographic",
+    "animation": "chronicleFoilSweep",
+    "mask": "linear-gradient(rgba(0, 0, 0, 0) 12%, rgb(0, 0, 0) 23%, rgb(0, 0, 0) 57%, rgba(0, 0, 0, 0) 72%)"
+  },
+  "reducedMotionAnimation": "none",
+  "mobileOverflow": false,
+  "mobileCards": [
+    {
+      "name": "TEMPEST EXECUTION SQUAD",
+      "visible": true
+    },
+    {
+      "name": "MIRA VOLT, FALSE BETRAYER",
+      "visible": true
+    },
+    {
+      "name": "HOLLOW TEMPEST GENERAL",
+      "visible": true
+    },
+    {
+      "name": "ROOTBOUND RETRIEVAL SQUAD",
+      "visible": true
+    },
+    {
+      "name": "ANCESTOR-BOUND FLAME BEAST",
+      "visible": true
+    },
+    {
+      "name": "ROOTBOUND ELDER CHAMPION",
+      "visible": true
+    }
+  ],
+  "failures": [],
+  "consoleErrors": []
+}

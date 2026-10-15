@@ -1,0 +1,93 @@
+{
+  "images": [
+    {
+      "src": "http://127.0.0.1:50663/chronicle/cards/chronicle-call-of-the-cinderhorn-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:50663/chronicle/cards/chronicle-call-of-the-rimetide-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:50663/chronicle/cards/chronicle-call-of-the-ironroot-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:50663/chronicle/cards/chronicle-call-of-the-galewing-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:50663/chronicle/cards/chronicle-call-of-the-stormcrown-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:50663/chronicle/cards/chronicle-call-of-the-cinderhorn-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:50663/chronicle/cards/chronicle-call-of-the-rimetide-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:50663/chronicle/cards/chronicle-call-of-the-ironroot-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:50663/chronicle/cards/chronicle-call-of-the-galewing-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:50663/chronicle/cards/chronicle-call-of-the-stormcrown-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    }
+  ],
+  "cardIds": [
+    "chronicle-call-of-the-cinderhorn",
+    "chronicle-call-of-the-rimetide",
+    "chronicle-call-of-the-ironroot",
+    "chronicle-call-of-the-galewing",
+    "chronicle-call-of-the-stormcrown"
+  ],
+  "inspectorBackdrop": "fixed",
+  "inspectorFoil": {
+    "className": "chronicle-card__foil chronicle-card__foil--holographic",
+    "animation": "chronicleFoilSweep",
+    "mask": "linear-gradient(rgba(0, 0, 0, 0) 12%, rgb(0, 0, 0) 23%, rgb(0, 0, 0) 57%, rgba(0, 0, 0, 0) 72%)"
+  },
+  "reducedMotionAnimation": "none",
+  "mobileOverflow": false,
+  "mobileCards": [
+    {
+      "name": "CALL OF THE CINDERHORN",
+      "visible": true
+    },
+    {
+      "name": "CALL OF THE RIMETIDE",
+      "visible": true
+    },
+    {
+      "name": "CALL OF THE IRONROOT",
+      "visible": true
+    },
+    {
+      "name": "CALL OF THE GALEWING",
+      "visible": true
+    },
+    {
+      "name": "CALL OF THE STORMCROWN",
+      "visible": true
+    }
+  ],
+  "failures": [],
+  "consoleErrors": []
+}

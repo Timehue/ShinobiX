@@ -203,7 +203,10 @@ export const ChronicleCardView = memo(function ChronicleCardView({
       aria-pressed={onClick ? selected : undefined}
       aria-label={`${card.name}. ${details}`}
     >
-      <span className="chronicle-card__foil" aria-hidden="true" />
+      <span
+        className={`chronicle-card__foil${card.rarity === "legendary" || card.rarity === "mythic" ? " chronicle-card__foil--holographic" : ""}`}
+        aria-hidden="true"
+      />
       <header className="chronicle-card__header">
         <strong className="chronicle-card__name">{card.name}</strong>
         {card.cardClass === "monster" ? (

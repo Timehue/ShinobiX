@@ -1,0 +1,63 @@
+{
+  "images": [
+    {
+      "src": "http://127.0.0.1:65344/chronicle/cards/legacy-beast-sovereign-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:65344/chronicle/cards/legacy-silent-gambit-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:65344/chronicle/cards/legacy-warborn-banner-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:65344/chronicle/cards/legacy-beast-sovereign-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:65344/chronicle/cards/legacy-silent-gambit-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:65344/chronicle/cards/legacy-warborn-banner-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    }
+  ],
+  "cardIds": [
+    "legacy-beast-sovereign",
+    "legacy-silent-gambit",
+    "legacy-warborn-banner"
+  ],
+  "inspectorBackdrop": "fixed",
+  "inspectorFoil": {
+    "className": "chronicle-card__foil chronicle-card__foil--holographic",
+    "animation": "chronicleFoilSweep",
+    "mask": "linear-gradient(rgba(0, 0, 0, 0) 12%, rgb(0, 0, 0) 23%, rgb(0, 0, 0) 57%, rgba(0, 0, 0, 0) 72%)"
+  },
+  "reducedMotionAnimation": "none",
+  "mobileOverflow": false,
+  "mobileCards": [
+    {
+      "name": "LEGACY OF THE BEAST SOVEREIGN",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE SILENT GAMBIT",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE WARBORN BANNER",
+      "visible": true
+    }
+  ],
+  "failures": [],
+  "consoleErrors": []
+}

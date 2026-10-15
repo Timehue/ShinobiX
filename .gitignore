@@ -509,6 +509,15 @@ Desktop.ini
 # Regenerate with: node scripts/gen-store-art.mjs
 store-art/
 
+# Chronicle high-resolution authoring masters and intermediate review plates
+# stay local. Ship the reviewed WebPs, prompts, hashes and release evidence.
+/shinobij.client/art-source/chronicle-refresh/masters/
+/shinobij.client/art-source/chronicle-refresh/rejected/
+/shinobij.client/art-source/chronicle-refresh/review/*.png
+!/shinobij.client/art-source/chronicle-refresh/review/integration-recheck-desktop.png
+!/shinobij.client/art-source/chronicle-refresh/review/integration-recheck-mobile-cards.png
+!/shinobij.client/art-source/chronicle-refresh/review/integration-duel-recheck-duel-desktop.png
+
 # Flutter Android shell (mobile/). Its template keeps a debug-only manifest in a
 # folder the Visual Studio `[Dd]ebug/` rule above would silently drop. Build
 # output and keystores are ignored by mobile/.gitignore and

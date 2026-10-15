@@ -1,0 +1,52 @@
+{
+  "images": [
+    {
+      "src": "http://127.0.0.1:56200/chronicle/cards/tc-51-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:56200/chronicle/cards/tc-72-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:56200/chronicle/cards/tc-51-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:56200/chronicle/cards/tc-72-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    }
+  ],
+  "cardIds": [
+    "tc-51",
+    "tc-72"
+  ],
+  "renderedCardIds": [
+    "tc-51",
+    "tc-72"
+  ],
+  "inspectorBackdrop": "fixed",
+  "inspectorFoil": {
+    "className": "chronicle-card__foil",
+    "animation": "none",
+    "mask": "none"
+  },
+  "reducedMotionAnimation": "none",
+  "mobileOverflow": false,
+  "mobileCards": [
+    {
+      "name": "SAPLING SPIRIT",
+      "visible": true
+    },
+    {
+      "name": "VOLT HAWK",
+      "visible": true
+    }
+  ],
+  "failures": [],
+  "consoleErrors": []
+}

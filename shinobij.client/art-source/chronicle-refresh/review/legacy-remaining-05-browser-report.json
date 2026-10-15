@@ -1,0 +1,212 @@
+{
+  "images": [
+    {
+      "src": "http://127.0.0.1:63477/chronicle/cards/legacy-siege-runner-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:63477/chronicle/cards/legacy-war-drummer-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:63477/chronicle/cards/legacy-wandering-shinobi-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:63477/chronicle/cards/legacy-village-veteran-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:63477/chronicle/cards/legacy-proven-fighter-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:63477/chronicle/cards/legacy-road-worn-shinobi-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:63477/chronicle/cards/legacy-ember-student-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:63477/chronicle/cards/legacy-quiet-mind-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:63477/chronicle/cards/legacy-calloused-fist-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:63477/chronicle/cards/legacy-steel-apprentice-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:63477/chronicle/cards/legacy-field-hand-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:63477/chronicle/cards/legacy-beast-friend-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:63477/chronicle/cards/legacy-siege-runner-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:63477/chronicle/cards/legacy-war-drummer-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:63477/chronicle/cards/legacy-wandering-shinobi-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:63477/chronicle/cards/legacy-village-veteran-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:63477/chronicle/cards/legacy-proven-fighter-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:63477/chronicle/cards/legacy-road-worn-shinobi-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:63477/chronicle/cards/legacy-ember-student-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:63477/chronicle/cards/legacy-quiet-mind-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:63477/chronicle/cards/legacy-calloused-fist-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:63477/chronicle/cards/legacy-steel-apprentice-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:63477/chronicle/cards/legacy-field-hand-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:63477/chronicle/cards/legacy-beast-friend-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    }
+  ],
+  "cardIds": [
+    "legacy-siege-runner",
+    "legacy-war-drummer",
+    "legacy-wandering-shinobi",
+    "legacy-village-veteran",
+    "legacy-proven-fighter",
+    "legacy-road-worn-shinobi",
+    "legacy-ember-student",
+    "legacy-quiet-mind",
+    "legacy-calloused-fist",
+    "legacy-steel-apprentice",
+    "legacy-field-hand",
+    "legacy-beast-friend"
+  ],
+  "renderedCardIds": [
+    "legacy-siege-runner",
+    "legacy-war-drummer",
+    "legacy-wandering-shinobi",
+    "legacy-village-veteran",
+    "legacy-proven-fighter",
+    "legacy-road-worn-shinobi",
+    "legacy-ember-student",
+    "legacy-quiet-mind",
+    "legacy-calloused-fist",
+    "legacy-steel-apprentice",
+    "legacy-field-hand",
+    "legacy-beast-friend"
+  ],
+  "inspectorBackdrop": "fixed",
+  "inspectorFoil": {
+    "className": "chronicle-card__foil",
+    "animation": "none",
+    "mask": "none"
+  },
+  "reducedMotionAnimation": "none",
+  "mobileOverflow": false,
+  "mobileCards": [
+    {
+      "name": "LEGACY OF THE SIEGE RUNNER",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE WAR DRUMMER",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE WANDERING SHINOBI",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE VILLAGE VETERAN",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE PROVEN FIGHTER",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE ROAD-WORN SHINOBI",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE EMBER STUDENT",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE QUIET MIND",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE CALLOUSED FIST",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE STEEL APPRENTICE",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE FIELD HAND",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE BEAST FRIEND",
+      "visible": true
+    }
+  ],
+  "failures": [],
+  "consoleErrors": []
+}

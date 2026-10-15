@@ -1,0 +1,977 @@
+[
+  {
+    "id": "legacy-elemental-storm",
+    "runtimeSha256": "3e0d76434d3fd8eb6c2658ba15e3755674d6e537467b510f8436e9bd2d576ea0",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-01-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-01-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-01-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-burning-vanguard",
+    "runtimeSha256": "8467e03784efc1a91c91466f18e8b03340ba9a48d661549674213794b08c6c6a",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-01-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-01-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-01-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-chakra-tempest",
+    "runtimeSha256": "93fbed464d0c1630b61714d8715de76eaba8f7457f925ee742ba32e91faa3435",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-01-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-01-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-01-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-stormcallers-path",
+    "runtimeSha256": "2ce7c1fba88509412172cfd48c0cddb5876130121f3dcf9624238669506d237c",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-01-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-01-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-01-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-shadow-strategist",
+    "runtimeSha256": "75e02acb82667bf01337f8feb767b01f52ca2de79afe81a064a832fdb5ea18d2",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-01-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-01-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-01-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-silent-fang",
+    "runtimeSha256": "4a95a35432aa2400c7becc85403624a95440276ad0000cfdd1b91d80e10fffbb",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-01-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-01-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-01-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-dream-weaver",
+    "runtimeSha256": "ce22c7cd49a6dbd6ec9ed57921ca4d6b2aaf199f829073d2e3e3869ab5a44aed",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-01-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-01-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-01-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-mirage-dancer",
+    "runtimeSha256": "fa837ae3dfb9bb4138105ff9da6d59cc604c34165bcde8b607e2cf3f30063508",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-01-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-01-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-01-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-iron-fist",
+    "runtimeSha256": "24c87f20c576b0345a8b73293329b6acf6b2b480af91192206feef219f0b5ecc",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-01-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-01-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-01-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-bloodied-knuckle",
+    "runtimeSha256": "53c196bea39ae93775bb6f0a4ebc0d18a3035a47451c1137779d52dedb128e66",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-01-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-01-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-01-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-mountain-stance",
+    "runtimeSha256": "63e480b68eeec96c0bbd07a33e27cea992d541ad5844ad035e17090cec51c19d",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-01-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-01-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-01-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-crashing-wave",
+    "runtimeSha256": "a1b0fdec60048ba58e6d1b4c6ee425958acd2feffdab26400560d8256fc0e5ff",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-01-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-01-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-01-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-warborn-blade",
+    "runtimeSha256": "4502a113fedf77bfd67c735672abbf43b8bbdf689d721c1e41f7e2de17af1bf4",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-02-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-02-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-02-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-crimson-duelist",
+    "runtimeSha256": "8280bf11b84edfd3e58ec2d8f299ccc83e70d5ef60826b9a216c46f60ddf7fad",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-02-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-02-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-02-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-quiet-scabbard",
+    "runtimeSha256": "d81f9347f0a74be95f6759a4afdf1c5a01975f49db65d30a5f764f24f0d071f7",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-02-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-02-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-02-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-hunters-edge",
+    "runtimeSha256": "cfb9150468980d787f31176328b0a5de31d6a75ece34d38362757fddc06593f1",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-02-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-02-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-02-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-proving-grounds",
+    "runtimeSha256": "314d2da9a8465e43cec459138762c21dc3c02e0b68941fa64a6b9abf7e51d826",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-02-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-02-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-02-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-ranked-ascendant",
+    "runtimeSha256": "65b4427405edd71c4338b96611a6f30b80e44f6c8049cf37d6f6930028b05ae2",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-02-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-02-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-02-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-giant-slayer",
+    "runtimeSha256": "8d0d027d0137b361b1d25a6245857f0d4bd43ffb123935baa60e6935d3fa1523",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-02-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-02-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-02-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-wall-of-defiance",
+    "runtimeSha256": "ce7d7721dfba99c39c86fdfbe1bf4b58b1e9a2f331a7e5b004274629e8fa8c65",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-02-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-02-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-02-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-hollow-seeker",
+    "runtimeSha256": "5d4bbe34362ae57ceb4c1e24a43b13f30e92677c4238fa8790e67408c838ba22",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-02-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-02-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-02-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-tower-climber",
+    "runtimeSha256": "b32c0dac9c03f2854104ce8628df656b522a71253a607656db5153c39544f6b7",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-02-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-02-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-02-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-mission-hound",
+    "runtimeSha256": "1f1be0e25444270ed45092530ac6ef6d145acbfee000fd360cff2eaf8adfa07b",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-02-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-02-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-02-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-beast-tracker",
+    "runtimeSha256": "a7710601df9c75284afd22259cb098e70aad97e312dd6f47b5c3964ef6c94958",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-02-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-02-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-02-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-boss-breaker",
+    "runtimeSha256": "902d15ff7f53d83bdef2825760cfbb9484d5545e638eeb44172f58b11c703572",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-03-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-03-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-03-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-dungeon-delver",
+    "runtimeSha256": "4073ef605cb3d83ed6702ac2eaef2491841ba707b5c2e774c1a514168831701e",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-03-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-03-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-03-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-ashen-hearth",
+    "runtimeSha256": "e27157edc9b9928e7a71275b48b5c529b19d20378bf17f8bbf88f4f362e2742d",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-03-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-03-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-03-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-embers-discipline",
+    "runtimeSha256": "4ca9f0121a547930b0c1a1d41e8ad508e484920f1e50316c97a677466ec7763f",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-03-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-03-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-03-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-tidebreaker",
+    "runtimeSha256": "f8696190dfcb1093679e1b1538cfcf489f692071686fa8921538ff69b27b4b98",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-03-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-03-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-03-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-thunder-raider",
+    "runtimeSha256": "c2584eaa79d4eb895be451ae1a577cef203c137f171b6eaf47dd087588a156e2",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-03-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-03-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-03-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-northern-fang",
+    "runtimeSha256": "84808ae6312c6304b7bf73f865d03f17490b3aa9ff4f11913377c7e1dc154650",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-03-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-03-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-03-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-winter-sentinel",
+    "runtimeSha256": "297a20326628485adaac9ec3321029fee941944841a4b17e8a4c05d61760251f",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-03-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-03-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-03-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-veiled-lantern",
+    "runtimeSha256": "ebfd9e82334d4631c8c335ceb5acde34ec08c7ddcfb77122d11fbf4017cb2b64",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-03-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-03-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-03-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-midnight-errand",
+    "runtimeSha256": "d0acf3b04f063e2499543a582e9c6900eb867c91cbc53f88ef738a95f19d91b6",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-03-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-03-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-03-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-hidden-path",
+    "runtimeSha256": "813c6fccf05f3ce003e57f77ce623a286de327b665385a4e70e99b93d112ebcd",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-03-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-03-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-03-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-wayfarers-mark",
+    "runtimeSha256": "fce092d51f14bf2f213f0d5778290fe5d6bd71bf31d9594e7f6aa0c45eb39c87",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-03-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-03-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-03-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-rumor-chaser",
+    "runtimeSha256": "222a6a56b88587066f39b3f8e74d67a0e7c8f462458603e841ba0abdce66000d",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-04-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-04-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-04-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-strangers-friend",
+    "runtimeSha256": "c4f335165f6c2c2d031cfc661f9abc1d1982f83286d844ca3beb2b6807aed091",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-04-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-04-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-04-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-shielding-palm",
+    "runtimeSha256": "83827ca0d7da804051893848021610e525bd3664d645b8a63f99f2e528b45258",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-04-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-04-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-04-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-field-medic",
+    "runtimeSha256": "4845bdc052d06a93c2f54c9bc67d163d938603f6c6c7b8e01a947df684909853",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-04-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-04-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-04-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-purifying-light",
+    "runtimeSha256": "8f210a7b40ebcb5d9ce137855531ca2345b0522e18605f7b73e3d8b1bd684816",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-04-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-04-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-04-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-pack-leader",
+    "runtimeSha256": "219b0ae779371ba6cafb5baa98a3ae732b8f0b2045cc2c0feaa3a8c85a98b647",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-04-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-04-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-04-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-wild-heart",
+    "runtimeSha256": "54c854d3c03a02ff8bc84d5a0b70f2e8615858ad161378228e7577e6fdd70b13",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-04-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-04-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-04-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-coliseum-tamer",
+    "runtimeSha256": "34bf17749a504bc5cb287969ae587d4142c74711f07a71664bc18d4ebbff88c3",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-04-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-04-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-04-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-card-sharp",
+    "runtimeSha256": "56cd12be4afd8ce85a13ab76797d28637f40fb0c7c93b37bf020a4390d6e6003",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-04-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-04-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-04-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-tables-shadow",
+    "runtimeSha256": "ad6f21189b505ddac3d93bdc44d35c83beb0503de0f333becc76060fc1b4342a",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-04-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-04-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-04-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-sector-warden",
+    "runtimeSha256": "7bd1b713963e937a905b034e6b81f27eecd7c7c89d8e1d2e4802ac2109484496",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-04-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-04-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-04-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-banner-taker",
+    "runtimeSha256": "3586c0ab4f423a00f22d9b4c48eb20fb829ecccb5972df624e11e3290089be36",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-04-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-04-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-04-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-siege-runner",
+    "runtimeSha256": "654dd3a394b2eaf2b9ab25c5b07e4a7ef3a5899c9da54ccf8a5a2f1a3cd1c2ce",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-05-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-05-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-05-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-war-drummer",
+    "runtimeSha256": "d1eb4d8a1fb75c30c8691dc900df471675c0192904017986964c981584363101",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-05-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-05-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-05-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-wandering-shinobi",
+    "runtimeSha256": "88dba4732888c97be53ff00675bcefe2aefbd540cfa62fa85dc1e14c41d38129",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-05-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-05-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-05-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-village-veteran",
+    "runtimeSha256": "30ddc34c6f3dcfb2889ffe64017902d048a3912b861b927a0e97e29a90242ee4",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-05-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-05-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-05-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-proven-fighter",
+    "runtimeSha256": "f6d65fa683d5d836acec78d263204e82317d3077b139de3512c8eda8b613a6a3",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-05-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-05-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-05-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-road-worn-shinobi",
+    "runtimeSha256": "8ca772113f51e12f8230681529911513cd1ce7132beaf05047d2e0f993622a75",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-05-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-05-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-05-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-ember-student",
+    "runtimeSha256": "418a790dc53f69c8750af0fceedd5908e78688eb9532692e3056329bce3feefa",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-05-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-05-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-05-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-quiet-mind",
+    "runtimeSha256": "8e4953be4f70826e5e7256237c9eebc3bfa34d777990be6c9ee6c2120030da53",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-05-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-05-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-05-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-calloused-fist",
+    "runtimeSha256": "cf44dd72967f68317456c8ca70a48e9e28fb9a1ddf4d58b4cda14edd095ccc9e",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-05-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-05-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-05-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-steel-apprentice",
+    "runtimeSha256": "1f718391640ba3fe46d7e8f384c6b8988a75897d26ef89f1b38c8a098cbcf1f7",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-05-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-05-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-05-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-field-hand",
+    "runtimeSha256": "0741ac9d982b0962342757ebc73dfd19e94c01530dc4aee8ae52d991e6445d6d",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-05-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-05-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-05-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-beast-friend",
+    "runtimeSha256": "e80b0e996eea0a70e3cd3f19cee6931179dfccb2ac7b61f317e24c84f96f1627",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-05-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-05-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-05-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-table-regular",
+    "runtimeSha256": "725574d32b7fb399a0c12cac797ce25129e03b0af545f39ed6d138d61c7cfa6b",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-06-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-06-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-06-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-lantern-bearer",
+    "runtimeSha256": "824923d5c5d682f17fe665988d89abc76b8ddde98206e219172435ad569e7ac1",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-06-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-06-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-06-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-first-steps",
+    "runtimeSha256": "1ff69b955118d6e5b6acb26e79da6d79d581ca0baa35995d7742fc1ca0619e48",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-06-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-06-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-06-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-honest-ryo",
+    "runtimeSha256": "70f71019b59814012f73fd5ecb897160ddbab3a4a8b839223095b5aad2f5d86b",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-06-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-06-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-06-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "legacy-steadfast-neighbor",
+    "runtimeSha256": "d321f0058133bbc7681f4a241597ec30a6accf747c078fd636cdecb4eae65754",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-06-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-06-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/legacy-remaining-06-browser-report.json",
+    "checks": [
+      "Living human bearer with coherent face and hands",
+      "Distinct role and costume within consistent painted style",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary face clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  }
+]

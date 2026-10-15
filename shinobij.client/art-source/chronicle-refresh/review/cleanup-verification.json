@@ -1,0 +1,22 @@
+{
+  "removedFiles": 790,
+  "bytesFreed": 94350958,
+  "tests": {
+    "total": 106,
+    "passed": 106,
+    "failed": 0
+  },
+  "compilation": {
+    "server": "passed",
+    "client": "passed"
+  },
+  "artifactVerification": "passed",
+  "runtimeAssets": {
+    "current": 1108,
+    "obsolete": 0
+  },
+  "sizecheck": "passed",
+  "obsoleteGuardNegativeCheck": "passed",
+  "compatibilityHTTP": "passed",
+  "scope": "Local checkout; ready for main release"
+}

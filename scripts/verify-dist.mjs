@@ -83,14 +83,18 @@ const forbiddenClientExtensions = new Set([
 // 56 KB per full card against 207 KB for the existing set) took the production
 // image build of PR #399 to 539.4 MiB, 0.4 MiB over. Reserve 541 MiB, about
 // 1.6 MiB of headroom.
-// 2026-10-15: the completed whole-roster deformation review repairs skull
-// bindings and normalizes 13 starter rigs. Exact certified delivery data grows
-// by 5,745,888 B (5.48 MiB), including seven restored starter contact banks.
-// The merged client measures 544.8 MiB, within the 545 MiB allowance.
-// The selected 480-file inventory,
-// exact delivery bytes, authoring exclusions and independent JS/CSS budgets
-// remain enforced.
-const maxClientArtifactBytes = 545 * 1024 * 1024;
+// 2026-10-15: all 404 faces now have individual painted art and 150 matching
+// two-view figures. The verified set is 142.59 MiB; 790 obsolete files removed
+// 89.98 MiB. Keep that intentional replacement in its own 144 MiB partition.
+// The prior non-Chronicle client measured 449.35 MiB against a 451 MiB ceiling.
+// The completed pet shape review grows certified GLB delivery by 5,745,888 B
+// while matching animated atlases shrink by 50,338 B. Credit only that fixed
+// 5,695,550 B increase; preserve the existing non-art headroom and JS/CSS gates.
+// The exact selected 480-file pet inventory and delivery hashes remain enforced.
+const maxChronicleArtBytes = 144 * 1024 * 1024;
+const maxPetShapeReviewGrowthBytes = 5695550;
+const maxOtherClientBytes = 451 * 1024 * 1024 + maxPetShapeReviewGrowthBytes;
+const maxClientArtifactBytes = maxChronicleArtBytes + maxOtherClientBytes;
 const maxRallyAtlasBytes = 4 * 1024 * 1024;
 
 function fail(msg) {
@@ -266,6 +270,17 @@ const leakedSourceFile = clientRelativeFiles.find((file) => {
 if (leakedSourceFile) fail(`client dist contains an authoring source file: ${leakedSourceFile}`);
 
 const clientArtifactBytes = clientFiles.reduce((total, file) => total + statSync(file).size, 0);
+const chronicleArtBytes = clientFiles
+    .filter((file) => /^chronicle\/(?:cards|figures)\//.test(relative(clientDist, file).replace(/\\/g, '/')))
+    .reduce((total, file) => total + statSync(file).size, 0);
+if (chronicleArtBytes > maxChronicleArtBytes) {
+    fail(`Chronicle art is ${(chronicleArtBytes / 1024 / 1024).toFixed(1)} MiB; ceiling is ${maxChronicleArtBytes / 1024 / 1024} MiB`);
+}
+const otherClientBytes = clientArtifactBytes - chronicleArtBytes;
+if (otherClientBytes > maxOtherClientBytes) {
+    fail(`client excluding Chronicle art is ${(otherClientBytes / 1024 / 1024).toFixed(1)} MiB; ceiling is ${maxOtherClientBytes / 1024 / 1024} MiB`);
+}
+console.log(`[verify:dist] Chronicle art ${(chronicleArtBytes / 1024 / 1024).toFixed(1)} / 144 MiB; other runtime assets ${(otherClientBytes / 1024 / 1024).toFixed(1)} / ${(maxOtherClientBytes / 1024 / 1024).toFixed(1)} MiB.`);
 if (clientArtifactBytes > maxClientArtifactBytes) {
     fail(`client dist is ${(clientArtifactBytes / 1024 / 1024).toFixed(1)} MB; runtime artifact ceiling is ${maxClientArtifactBytes / 1024 / 1024} MB`);
 }

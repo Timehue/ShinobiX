@@ -1,0 +1,196 @@
+{
+  "images": [
+    {
+      "src": "http://127.0.0.1:65111/chronicle/cards/tc-43-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:65111/chronicle/cards/tc-44-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:65111/chronicle/cards/tc-45-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:65111/chronicle/cards/tc-46-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:65111/chronicle/cards/tc-47-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:65111/chronicle/cards/tc-48-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:65111/chronicle/cards/tc-49-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:65111/chronicle/cards/tc-50-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:65111/chronicle/cards/tc-52-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:65111/chronicle/cards/tc-53-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:65111/chronicle/cards/tc-55-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:65111/chronicle/cards/tc-43-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:65111/chronicle/cards/tc-44-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:65111/chronicle/cards/tc-45-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:65111/chronicle/cards/tc-46-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:65111/chronicle/cards/tc-47-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:65111/chronicle/cards/tc-48-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:65111/chronicle/cards/tc-49-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:65111/chronicle/cards/tc-50-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:65111/chronicle/cards/tc-52-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:65111/chronicle/cards/tc-53-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:65111/chronicle/cards/tc-55-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    }
+  ],
+  "cardIds": [
+    "tc-43",
+    "tc-44",
+    "tc-45",
+    "tc-46",
+    "tc-47",
+    "tc-48",
+    "tc-49",
+    "tc-50",
+    "tc-52",
+    "tc-53",
+    "tc-55"
+  ],
+  "renderedCardIds": [
+    "tc-43",
+    "tc-44",
+    "tc-45",
+    "tc-46",
+    "tc-47",
+    "tc-48",
+    "tc-49",
+    "tc-50",
+    "tc-52",
+    "tc-53",
+    "tc-55"
+  ],
+  "inspectorBackdrop": "fixed",
+  "inspectorFoil": {
+    "className": "chronicle-card__foil",
+    "animation": "none",
+    "mask": "none"
+  },
+  "reducedMotionAnimation": "none",
+  "mobileOverflow": false,
+  "mobileCards": [
+    {
+      "name": "IRON BEETLE KING",
+      "visible": true
+    },
+    {
+      "name": "PHANTOM SPIDER LADY",
+      "visible": true
+    },
+    {
+      "name": "STORM SERPENT",
+      "visible": true
+    },
+    {
+      "name": "FROSTFANG DIRE WOLF",
+      "visible": true
+    },
+    {
+      "name": "ASHEN FOREST GUARDIAN",
+      "visible": true
+    },
+    {
+      "name": "MOONSHADOW NINE-TAIL",
+      "visible": true
+    },
+    {
+      "name": "SHRINE DRAGON SPIRIT",
+      "visible": true
+    },
+    {
+      "name": "CRIMSON TAG MASTER",
+      "visible": true
+    },
+    {
+      "name": "SPARK MOUSE",
+      "visible": true
+    },
+    {
+      "name": "TIDE SHRIMP",
+      "visible": true
+    },
+    {
+      "name": "BREEZE PIXIE",
+      "visible": true
+    }
+  ],
+  "failures": [],
+  "consoleErrors": []
+}

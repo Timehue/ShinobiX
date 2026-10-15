@@ -2,7 +2,7 @@
  * generate-card-variants — build the small Chronicle card art used everywhere
  * except the zoom modal.
  *
- * The authored card art is 768x1097 (~207 KB each, 47 MB across 233 cards), and
+ * The runtime card art is 768x1097 (masters live outside public/), and
  * that resolution is only justified in ONE place: the card inspector, where
  * `.chronicle-card-zoom .chronicle-card` is `width: min(390px, 74vw, 45vh)` and
  * therefore wants ~780 px on a 2x display. Every other surface is far smaller:
