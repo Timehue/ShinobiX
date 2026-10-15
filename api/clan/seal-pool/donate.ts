@@ -20,6 +20,7 @@ import {
     appendSettlementReceipt as appendPlayerReceipt,
     inspectSettlementReceipt as inspectPlayerReceipt,
     SERVER_SETTLEMENT_RECEIPT_LIMIT,
+    ownReceiptValue,
 } from '../../_settlement-receipts.js';
 import { receiptAbsenceProvable } from '../../_save-debit-saga.js';
 import { loadPool, savePool } from './_storage.js';
@@ -202,7 +203,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 await updateDurableSettlement(transactionId, { state: 'debit-applied' }, { kv });
             } else {
                 donorResult = {
-                    ...donorReceipt.receipt.value,
+                    ...ownReceiptValue(donorReceipt.receipt.value, ['donated', 'honorSealsRemaining', 'dailyDonatedToday', 'dailyCap']),
                     ...(Number.isFinite(Number(donorRecord._saveVersion)) ? { _saveVersion: Number(donorRecord._saveVersion) } : {}),
                 };
             }
