@@ -254,7 +254,7 @@ export function VillageWarScreen({
                 <p>Enemy player victories anywhere in the world earn 20 points. Spars and ranked matches are excluded. Queue to defend a stronghold from Town Hall; attackers must travel to and enter the enemy stronghold, and its appointed ANBU stands in when no player is queued. Shrine fighters must be physically inside the golden shrine; its fights cannot dispatch a defender from town.</p>
                 <p>The higher score wins after five days; equal scores draw. Kages can offer mutual peace or surrender. Existing contribution rewards and seven-day rematch cooldowns still apply. Village wars do not transfer sector ownership.</p>
             </div>}
-            {loadError && <div role="status" style={{ color: "#fbbf24", marginBottom: "0.5rem" }}><GameArtIcon kind="warning" size={16} /> Live village-war data is temporarily unavailable. Retrying automatically…</div>}
+            {loadError && <div role="status" style={{ color: "#e6c477", marginBottom: "0.5rem" }}><GameArtIcon kind="warning" size={16} /> Live village-war data is temporarily unavailable. Retrying automatically…</div>}
             {actionError && <div role="alert" style={{ color: "#f87171", marginBottom: "0.5rem" }}><GameArtIcon kind="warning" size={16} /> {actionError}</div>}
             {notice && <div role="status" style={{ color: "#4ade80", marginBottom: "0.5rem" }}>{notice}</div>}
             {claimable.length > 0 && (
@@ -264,7 +264,7 @@ export function VillageWarScreen({
                         <div key={w.warCrateId} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
                             <span>vs {w.villages.find(v => v !== myVillage) ?? "?"} — won {new Date(w.endedAt).toLocaleDateString()}</span>
                             <button disabled={Boolean(claimingCrate)} onClick={() => claimVictory(w)} style={{ padding: "0.3rem 0.7rem", background: "linear-gradient(#1a3a1a,#0a2010)", borderColor: "#4ade80", fontSize: "0.85rem" }}>
-                                {claimingCrate === w.warCrateId ? "Claiming…" : "Claim Reward"}
+                                {claimingCrate === w.warCrateId ? "Claiming…" : "Claim reward"}
                             </button>
                         </div>
                     ))}
@@ -276,7 +276,7 @@ export function VillageWarScreen({
                         <div style={{ fontWeight: 700, color: "#f87171", fontSize: "1.1rem" }}>{myVillage} vs {enemyVillage}</div>
                         <div style={{ color: "#94a3b8", fontSize: "0.85rem" }}>Started {new Date(activeWar.startedAt).toLocaleDateString()}</div>
                         {activeWar.pendingUntil && activeWar.pendingUntil > serverNow() && (
-                            <div style={{ marginTop: 8, padding: "0.5rem 0.7rem", background: "linear-gradient(#3b2a05, #1f1402)", border: "1px solid #fbbf24", borderRadius: 6 }}>
+                            <div style={{ marginTop: 8, padding: "0.5rem 0.7rem", background: "linear-gradient(#3b2a05, #1f1402)", border: "1px solid #e6c477", borderRadius: 6 }}>
                                 <strong style={{ color: "#fde047" }}><GameArtIcon kind="mission" size={16} /> War starts in {Math.max(1, Math.ceil((activeWar.pendingUntil - serverNow()) / 60_000))} min</strong>
                                 <p style={{ fontSize: "0.78rem", color: "#fcd34d", margin: "4px 0 0" }}>
                                     Rally your village before the five-day scoring period begins.
@@ -378,7 +378,7 @@ export function VillageWarScreen({
                         return (
                             <div style={{ marginTop: "1rem", padding: "0.8rem", background: "#0a0a1a", borderRadius: 8 }}>
                                 <h3 style={{ marginTop: 0 }}>Declare War (Kage)</h3>
-                                <p style={{ fontSize: "0.8rem", color: "#fbbf24", marginTop: 0, marginBottom: "0.5rem" }}>
+                                <p style={{ fontSize: "0.8rem", color: "#e6c477", marginTop: 0, marginBottom: "0.5rem" }}>
                                     Cost: <strong>{warDeclareCostText(declareQuote)}</strong> · Rematch cooldown: 7 days · One war per village at a time
                                 </p>
                                 <select value={declareTarget} onChange={e => setDeclareTarget(e.target.value)} style={{ padding: "0.4rem", marginRight: "0.5rem" }}>
@@ -394,7 +394,7 @@ export function VillageWarScreen({
                                     style={{ padding: "0.5rem 1rem", background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }}
                                     title={blockReason ?? undefined}
                                 >
-                                    {declaring ? "Declaring…" : <><GameArtIcon kind="attack" size={17} /> Declare War</>}
+                                    {declaring ? "Declaring…" : <><GameArtIcon kind="attack" size={17} /> Declare war</>}
                                 </button>
                                 {blockReason && <p style={{ fontSize: "0.78rem", color: "#94a3b8", margin: "0.4rem 0 0" }}>{blockReason}</p>}
                             </div>

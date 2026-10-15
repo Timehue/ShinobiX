@@ -21,13 +21,13 @@ export function GuestSocialLock({ what, compact = false }: { what: string; compa
                 margin: compact ? "8px 0 0" : "12px 0",
                 padding: compact ? "10px 12px" : "16px 18px",
                 borderRadius: 10,
-                border: "1px solid rgba(250, 204, 21, .28)",
-                background: "rgba(250, 204, 21, .07)",
+                border: "1px solid rgba(230, 196, 119, .28)",
+                background: "rgba(230, 196, 119, .07)",
                 color: "#e6dcc0",
                 lineHeight: 1.5,
             }}
         >
-            <h3 style={{ margin: "0 0 6px", fontSize: compact ? ".92rem" : "1.02rem", color: "#facc15" }}>
+            <h3 style={{ margin: "0 0 6px", fontSize: compact ? ".92rem" : "1.02rem", color: "#e6c477" }}>
                 <GiPadlock aria-hidden="true" /> {SOCIAL_LOCK_TITLE}
             </h3>
             <p style={{ margin: "0 0 10px", fontSize: compact ? ".8rem" : ".88rem" }}>

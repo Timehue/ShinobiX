@@ -9,7 +9,7 @@ test('built Guild disables level 30 contracts for a level 16 player', async ({ p
     const runtime = await installUiAuditRuntime(page, save);
     await expectUiAuditBoot(page, runtime, 'hunting');
     await expect(page.getByRole('button', { name: 'Requires level 30' }).first()).toBeDisabled();
-    await expect(page.getByRole('button', { name: 'Accept Hunt' }).first()).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Accept hunt' }).first()).toBeEnabled();
     await expect(page.getByText('23 / 23', { exact: true })).toBeVisible();
     await page.screenshot({ path: info.outputPath('guild-built.png') });
 });

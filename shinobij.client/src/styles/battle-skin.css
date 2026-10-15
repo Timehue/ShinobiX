@@ -5,8 +5,8 @@
    To revert: delete this block.
    ========================================================================= */
 .arena-fullscreen {
-    --bsv2-gold:        #c4a25a;
-    --bsv2-gold-bright: #e8d496;
+    --bsv2-gold:        var(--sj-gold);
+    --bsv2-gold-bright: var(--sj-gold-bright);
     --bsv2-gold-soft:   rgba(196,162,90,0.45);
     --bsv2-gold-faint:  rgba(196,162,90,0.22);
     --bsv2-ink:         #050a18;
@@ -175,7 +175,7 @@
     gap: 4px;
     margin: 4px 0 1px;
     padding-top: 4px;
-    border-top: 1px dashed rgba(251, 191, 36, 0.28);
+    border-top: 1px dashed rgba(230, 196, 119, 0.28);
     color: #fde68a;
     font-size: 9px;
 }
@@ -193,9 +193,9 @@
     align-items: baseline;
     gap: 3px;
     padding: 1px 5px;
-    border: 1px solid rgba(251, 191, 36, 0.36);
+    border: 1px solid rgba(230, 196, 119, 0.36);
     border-radius: 999px;
-    background: rgba(251, 191, 36, 0.10);
+    background: rgba(230, 196, 119, 0.10);
     white-space: nowrap;
 }
 .combat-pending-effects .pending-effect-pill small { opacity: 0.8; font-size: 8px; }
@@ -632,7 +632,7 @@
 .arena-fullscreen .battle-log-damage  { color: var(--red-300) !important; font-weight: 600 !important; } /* red    — damage / DoT ticks */
 .arena-fullscreen .battle-log-dmgmod  { color: var(--blue-300) !important; font-weight: 600 !important; } /* blue   — increase/decrease damage */
 .arena-fullscreen .battle-log-shield  { color: #7dd3fc !important; font-weight: 600 !important; } /* cyan   — shield / barrier / reflect */
-.arena-fullscreen .battle-log-control { color: #fbbf24 !important; font-weight: 600 !important; } /* amber  — stun / push / pull / seal */
+.arena-fullscreen .battle-log-control { color: var(--sj-gold-bright) !important; font-weight: 600 !important; } /* amber  — stun / push / pull / seal */
 .arena-fullscreen .battle-log-prevent { color: #5eead4 !important; font-weight: 600 !important; } /* teal   — prevents / protections */
 .arena-fullscreen .battle-log-tempo   { color: var(--purple-400) !important; font-weight: 600 !important; } /* violet — copy / mirror / lag / overclock */
 .arena-fullscreen .battle-log-system  { color: #e8d496 !important; font-weight: 600 !important; } /* gold   — cast headers / rounds / outcomes */
@@ -684,7 +684,7 @@
 .bh-log .battle-log-damage  { color: var(--red-300); font-weight: 600; }
 .bh-log .battle-log-dmgmod  { color: var(--blue-300); font-weight: 600; }
 .bh-log .battle-log-shield  { color: #7dd3fc; font-weight: 600; }
-.bh-log .battle-log-control { color: #fbbf24; font-weight: 600; }
+.bh-log .battle-log-control { color: var(--sj-gold-bright); font-weight: 600; }
 .bh-log .battle-log-prevent { color: #5eead4; font-weight: 600; }
 .bh-log .battle-log-tempo   { color: var(--purple-400); font-weight: 600; }
 .bh-log .battle-log-system  { color: #e8d496; font-weight: 600; }
@@ -3898,7 +3898,7 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
 .battle-log-screen .durable-round-log .battle-log-damage { color: #fca5a5; font-weight: 600; }
 .battle-log-screen .durable-round-log .battle-log-dmgmod { color: #93c5fd; font-weight: 600; }
 .battle-log-screen .durable-round-log .battle-log-shield { color: #7dd3fc; font-weight: 600; }
-.battle-log-screen .durable-round-log .battle-log-control { color: #fbbf24; font-weight: 600; }
+.battle-log-screen .durable-round-log .battle-log-control { color: var(--sj-gold-bright); font-weight: 600; }
 .battle-log-screen .durable-round-log .battle-log-prevent { color: #5eead4; font-weight: 600; }
 .battle-log-screen .durable-round-log .battle-log-tempo { color: #c4b5fd; font-weight: 600; }
 .battle-log-screen .durable-round-log .battle-log-system { color: #e8d496; font-weight: 600; }
@@ -4031,7 +4031,7 @@ html body > .combat-instance.screen-battleTowerFight .tower-action-guidance.is-e
 }
 
 .screen-battleTowerFight [role="dialog"]:focus-visible {
-    outline: 2px solid var(--gold-400, #facc15);
+    outline: 2px solid var(--gold-400, var(--sj-gold-bright));
     outline-offset: 4px;
 }
 
@@ -7040,14 +7040,14 @@ html body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-help > .combat-
 html body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-help:focus-visible > .combat-help-glyph {
     border-color: #fde68a;
     color: #fffbea;
-    box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.2), 0 3px 9px rgba(0, 0, 0, 0.78);
+    box-shadow: 0 0 0 3px rgba(230, 196, 119, 0.2), 0 3px 9px rgba(0, 0, 0, 0.78);
 }
 @media (hover: hover) {
     #combat .combat-jutsu-help:hover > .combat-help-glyph,
     html body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-help:hover > .combat-help-glyph {
         border-color: #fde68a;
         color: #fffbea;
-        box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.2), 0 3px 9px rgba(0, 0, 0, 0.78);
+        box-shadow: 0 0 0 3px rgba(230, 196, 119, 0.2), 0 3px 9px rgba(0, 0, 0, 0.78);
     }
 }
 

@@ -173,8 +173,8 @@ export function EchoesOfWar(props: EchoesOfWarProps) {
             reset={resetEchoesContent}
             title="The tower's memories are unavailable"
             body="The Echoes of War script could not be verified. No Showdown, reward, or story progress was changed."
-            retryLabel="Retry Loading the Memories"
-            returnLabel="Leave the Tower"
+            retryLabel="Retry loading the memories"
+            returnLabel="Leave the tower"
             onReturn={props.onBack}
         >
             <EchoesOfWarContent {...props} />
@@ -620,22 +620,22 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
                         {!unlocked ? <p className="echoes-locked-note">{selected.lockedHint}</p> : null}
                         <div className="echoes-detail-actions">
                             {resumable ? (
-                                <button className="echoes-primary" onClick={() => beginBattle(selected, resumable.matchId)}>Resume Interrupted Showdown</button>
+                                <button className="echoes-primary" onClick={() => beginBattle(selected, resumable.matchId)}>Resume interrupted Showdown</button>
                             ) : null}
                             {unlocked ? (
                                 <button className={resumable ? "" : "echoes-primary"} onClick={() => { if (resumable) { writeResumePointer(null); setResume(null); } challenge(selected); }}>
-                                    {resumable ? "Start Over" : cleared ? "Replay Memory" : "Challenge"}
+                                    {resumable ? "Start over" : cleared ? "Replay memory" : "Challenge"}
                                 </button>
                             ) : null}
                             {seen?.pre || cleared ? (
-                                <button onClick={() => playScene(selected, "pre", { markSeen: { id: selected.id, kind: "pre" } })}>Replay Intro</button>
+                                <button onClick={() => playScene(selected, "pre", { markSeen: { id: selected.id, kind: "pre" } })}>Replay intro</button>
                             ) : null}
                             {cleared && seen?.post ? (
-                                <button onClick={() => playScene(selected, "victory", {}, entry?.firstClearBattleBeat)}>Replay Conclusion</button>
+                                <button onClick={() => playScene(selected, "victory", {}, entry?.firstClearBattleBeat)}>Replay conclusion</button>
                             ) : null}
                             {cleared && echoesWitnessEraForCloseEncounter(selected.id) ? (
                                 <button onClick={() => openWitness(echoesWitnessEraForCloseEncounter(selected.id)!.id)}>
-                                    {witnessChoices[echoesWitnessEraForCloseEncounter(selected.id)!.id] ? "Review Witness Record" : "Record This Age"}
+                                    {witnessChoices[echoesWitnessEraForCloseEncounter(selected.id)!.id] ? "Review Witness Record" : "Record this age"}
                                 </button>
                             ) : null}
                         </div>
@@ -693,7 +693,7 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
                 </div>
                 {state !== "locked" ? (
                     <button className="echoes-node-action" onClick={() => setSelectedId(opponent.id)}>
-                        {cleared ? "Rematch / Story" : "Challenge"}
+                        {cleared ? "Rematch / story" : "Challenge"}
                     </button>
                 ) : null}
             </li>
@@ -721,10 +721,10 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
                         <div className="echoes-header-stats">
                             <span className="echoes-points-chip"><GameArtIcon kind="cardHall" size={17} /> {chroniclePoints}</span>
                             <span className="echoes-stat">{eraCleared}/{eraOpponents.length} memories finished</span>
-                            <button className="echoes-ghost-btn" onClick={() => playEraIntro(selectedEra, {})}>Replay Age Intro</button>
+                            <button className="echoes-ghost-btn" onClick={() => playEraIntro(selectedEra, {})}>Replay age intro</button>
                             {eraCleared >= eraOpponents.length ? (
                                 <button className="echoes-ghost-btn" onClick={() => openWitness(selectedEra.id as EchoesWitnessEraId)}>
-                                    {witnessChoices[selectedEra.id as EchoesWitnessEraId] ? "Review Witness Record" : "Record This Age"}
+                                    {witnessChoices[selectedEra.id as EchoesWitnessEraId] ? "Review Witness Record" : "Record this age"}
                                 </button>
                             ) : null}
                         </div>
@@ -739,7 +739,7 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
                 <ol className="echoes-ladder echoes-ladder--era">
                     {eraOpponents.map(renderNode)}
                 </ol>
-                <p className="echoes-footnote">Spend Chronicle Points on card packs in the Card Hall. Losses cost nothing except the climb back down. <button type="button" className="echoes-pack-link" onClick={onOpenCardPacks}>Open Card Packs →</button></p>
+                <p className="echoes-footnote">Spend Chronicle Points on card packs in the Card Hall. Losses cost nothing except the climb back down. <button type="button" className="echoes-pack-link" onClick={onOpenCardPacks}>Open card packs →</button></p>
             </div>
         );
     }
@@ -793,7 +793,7 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
                     );
                 })}
             </div>
-            <p className="echoes-footnote">{ECHOES_HERO_COPY.footnote} <button type="button" className="echoes-pack-link" onClick={onOpenCardPacks}>Open Card Packs →</button></p>
+            <p className="echoes-footnote">{ECHOES_HERO_COPY.footnote} <button type="button" className="echoes-pack-link" onClick={onOpenCardPacks}>Open card packs →</button></p>
         </div>
     );
 }

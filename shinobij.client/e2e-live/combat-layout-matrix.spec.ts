@@ -2044,7 +2044,7 @@ test('Solo-PvE combat layout viewport matrix', async ({ page, request }, testInf
     await dismissNotices(page);
     await resolveSaveConflict(page);
     const mission = page.locator('.mh-combat-card').filter({ hasText: 'E-Rank Drill' });
-    await mission.getByRole('button', { name: /Begin Mission/ }).click();
+    await mission.getByRole('button', { name: /Begin mission/ }).click();
     await expect(page.locator('.mission-arena-fight')).toBeVisible();
     await expect(page.locator('.mission-arena-fight .combat-action-notice')).toBeVisible();
     await assertBattlefieldActorPresentation(page, '.mission-arena-fight', {

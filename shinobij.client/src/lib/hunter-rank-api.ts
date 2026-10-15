@@ -12,7 +12,7 @@ export async function rankUpHunterServer(playerName: string): Promise<HunterRank
             if (response.ok && data?.character && typeof data._saveVersion === 'number' && Number.isSafeInteger(data._saveVersion) && data._saveVersion > 0) {
                 return { character: data.character, _saveVersion: data._saveVersion };
             }
-            if (response.ok && data?.character) message = 'Hunter Rank advanced, but its save receipt was invalid. Refresh before continuing.';
+            if (response.ok && data?.character) message = 'Hunter Rank advanced, but your save did not come back correctly. Refresh before continuing.';
             message = data?.error || message;
             if (response.status < 500) break;
         } catch { message = 'Hunter Rank advancement could not reach the server.'; }

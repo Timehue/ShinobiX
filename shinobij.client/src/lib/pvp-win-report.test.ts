@@ -6,8 +6,8 @@ import { pvpOwnerSaveRefreshRequired, pvpWinReportRequired, reportPvpWin } from 
 /*
  * Same rule as the bounty claim, one call further down App.handlePvpWin: a
  * refusal this battle can never talk its way out of must not reject, because
- * the PvP completion turns a rejection into "Battle settlement callbacks did
- * not finish" with Retry as the only forward control.
+ * the PvP completion turns a rejection into "Your result is not recorded
+ * yet" with Retry as the only forward control.
  *
  * The reachable case is a window mismatch. report-pvp-win rejects a session
  * older than 24h (SESSION_REPLAY_WINDOW_MS) and 404s once the live row and its

@@ -494,7 +494,7 @@ import { loadHollowGateMovementDrain, loadHollowGateTileRuntime, warmHollowGateG
 import { buildHollowGateRunFromStart, HOLLOW_GATE_FLOOR_LOAD_FAILED } from "./lib/hollow-gate-run-build";
 import { hollowGateEncounterPresentation } from "./lib/hollow-gate-presentation";
 import { resumeHollowGateServerRun, settleHollowGateRunOnly, startHollowGateServerRun, attachStartedRun, clearHollowGateRunLocal, reportHollowGateRunError } from "./lib/hollow-gate-server";
-import { stageWorldBossEventReturn, worldBossTabStorageKey } from "./lib/world-boss-hub-navigation";
+import { returnToWorldBossHollowBeast } from "./lib/world-boss-hub-navigation";
 import { startHollowGateCombat, settleHollowGateCombat, type HollowGateCombatKind, type HollowGateCombatSettleResult, type HollowGateServerFight } from "./lib/hollow-gate-combat-api";
 import { hollowGateRewardLines, hollowGateSealRunMarkers, resolveHollowGateServerEvent, sealHollowGateFloor } from "./lib/hollow-gate-event-api";
 import { hollowGateRunSummary } from "./lib/hollow-gate-summary";
@@ -2459,7 +2459,7 @@ export default function App() {
                 setPvpRole("p2");
                 setPvpBattleContext({ mode: challenge.mode, clanWarPoints: challenge.clanWarPoints, sectorAttack: challenge.sectorAttack, sector: currentSector, fromField: screenRef.current === "worldMap", kageChallengeId: challenge.kageChallengeId, kageVillage: challenge.kageVillage });
                 setScreen("pvpBattle");
-                alert("The acceptance response was interrupted. Reconnecting to the authoritative session…");
+                alert("The acceptance response was interrupted. Reconnecting to your battle…");
                 return;
             }
             const battleId = createResult.battleId;
@@ -3810,7 +3810,7 @@ export default function App() {
         if (continuation.signal.aborted || !continuation.isCurrentScope()) throw new DOMException("PvP completion scope changed.", "AbortError");
         const snapshot = latestSaveRef.current;
         if (!snapshot || saveConflictAccountKey(snapshot.name) !== activeSaveAccountKey()) {
-            throw new Error("PvP battle history lost its account scope.");
+            throw new Error("This battle could not be added to your battle log yet. Press Retry.");
         }
         const next = { ...snapshot.character, battleHistory: appendBattleHistory(snapshot.character.battleHistory, entry) };
         installAuthoritativeSaveRef({
@@ -4272,11 +4272,11 @@ export default function App() {
             }, continuation?.signal);
             if (!requireCurrentOwner()) return;
             if (!state.ok) {
-                if (continuation) throw new Error(state.error || "Raid mission projection could not be confirmed.");
+                if (continuation) throw new Error(state.error || "Raid mission progress could not be confirmed yet. Press Retry.");
                 continue;
             }
             if (state.character && !commitVersionedCharacter(state.character, state._saveVersion)) {
-                if (continuation) throw new Error("Raid mission save projection became stale.");
+                if (continuation) throw new Error("Your save changed while raid mission progress was recorded. Press Retry.");
                 continue;
             }
             if (!requireCurrentOwner()) return;
@@ -4573,7 +4573,7 @@ export default function App() {
         if (!character || !activeDungeonEvent) return;
         const owner = character.name, event = activeDungeonEvent;
         const runToken = activeDungeonRunToken ?? character.activeDungeonRun?.token;
-        if (!runToken) return alert("The Dungeon run seal is missing. Reopen this dungeon from its authoritative entrypoint.");
+        if (!runToken) return alert("The Dungeon run seal is missing. Reopen this dungeon from its entrance.");
         const { resolveVerifiedDungeonWardenPortrait } = await import("./lib/ai-fight-art");
         const enemyAvatar = await resolveVerifiedDungeonWardenPortrait(event, sharedImages);
         if (characterRef.current?.name !== owner || characterRef.current?.activeDungeonRun?.token !== runToken
@@ -4826,7 +4826,7 @@ export default function App() {
                                 setHollowGateEvent(null);
                                 triggerHollowGateAmbush(sealed);
                             } },
-                            { label: "Emergency Forfeit", tone: "danger", onSelect: () => {
+                            { label: "Emergency forfeit", tone: "danger", onSelect: () => {
                                 setHollowGateEvent(null);
                                 void abandonHollowGateShrine();
                             } },
@@ -4900,7 +4900,7 @@ export default function App() {
                 kind: opts.isBoss ? "boss" : "pet_battle",
                 choices: [
                     {
-                        label: "Fight as Shinobi",
+                        label: "Fight as shinobi",
                         tone: "primary",
                         onSelect: () => {
                             setHollowGateEvent(null);
@@ -5849,7 +5849,7 @@ export default function App() {
                                         setHollowGatePendingAmbush(null);
                                         triggerHollowGateAmbush({ nodeId: bound.nodeId, kind: "card" });
                                     } },
-                                    { label: "Emergency Forfeit", tone: "danger", onSelect: () => {
+                                    { label: "Emergency forfeit", tone: "danger", onSelect: () => {
                                         setHollowGateEvent(null);
                                         void abandonHollowGateShrine();
                                     } },
@@ -5924,11 +5924,7 @@ export default function App() {
                     />
                 )}
                 {!activeTriggeredEvent && screen === "battleTowers" && character && (
-                    <BattleTowers character={character} creatorItems={creatorItems} savedBloodlines={savedBloodlines} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} sharedImages={sharedImages} onExit={goBack} onWorldBossExit={() => {
-                        stageWorldBossEventReturn(character.name);
-                        try { sessionStorage.setItem(worldBossTabStorageKey(character.name), 'hollow-beast'); } catch { /* navigation still works without storage */ }
-                        setScreen("weeklyBoss");
-                    }} onRecordBattle={recordBattle} />
+                    <BattleTowers character={character} creatorItems={creatorItems} savedBloodlines={savedBloodlines} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} sharedImages={sharedImages} onExit={goBack} onWorldBossExit={() => returnToWorldBossHollowBeast(character.name, () => setScreen("weeklyBoss"))} onRecordBattle={recordBattle} />
                 )}
                 {!activeTriggeredEvent && screen === "weeklyBoss" && character && (
                     <WorldBossesHub character={character} currentSector={currentSector}
@@ -6093,7 +6089,7 @@ export default function App() {
                     ): Promise<BountyReceipt | null> {
                         const activeContinuation = requirePvpContinuation(continuation);
                         if (!character) return null;
-                        if (!pvpBattleId) throw new Error("PvP settlement is missing its battle id.");
+                        if (!pvpBattleId) throw new Error("This battle is missing its record. Press Retry.");
                         const settledBattleId = pvpBattleId;
                         const context = pvpBattleContext;
                         const rewardSector = context?.sector ?? currentSector;
@@ -6180,7 +6176,7 @@ export default function App() {
                             if (ownerSave && versionDecision?.accepted) {
                                 if (!commitVersionedCharacter(ownerSave.character, ownerSave.version)) {
                                     pvpCompletionUiRef.current.delete(pvpSettlementScopeKey);
-                                    throw new Error("PvP owner save became stale before projection.");
+                                    throw new Error("Your save changed while this result was recorded. Press Retry.");
                                 }
                             }
 
@@ -6246,7 +6242,7 @@ export default function App() {
                                         const ownerSave = await readPvpOwnerSaveForContinuation(pvpOriginatingPlayerName, activeContinuation);
                                         requirePvpContinuation(activeContinuation);
                                         if (!commitVersionedCharacter(ownerSave.character, ownerSave.version)) {
-                                            throw new Error("Ranked loss save became stale before projection.");
+                                            throw new Error("Your save changed while this result was recorded. Press Retry.");
                                         }
                                     }
                                     requirePvpContinuation(activeContinuation);

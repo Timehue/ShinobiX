@@ -29,7 +29,7 @@ test("desktop right menu keeps the world overview reachable across menus and rel
     // The field-only World Map / Return to Village pair was removed; the World
     // group's World Map entry is the single overview shortcut.
     await expect(rightMenu.getByRole("button", { name: "World Map", exact: true })).toHaveCount(1);
-    await expect(rightMenu.getByRole("button", { name: "Return to Village", exact: true })).toHaveCount(0);
+    await expect(rightMenu.getByRole("button", { name: "Return to village", exact: true })).toHaveCount(0);
     await page.screenshot({ path: info.outputPath("desktop-field-navigation.png"), animations: "disabled" });
 
     await rightMenu.getByRole("button", { name: "Guides", exact: true }).click();

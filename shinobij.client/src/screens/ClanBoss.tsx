@@ -202,7 +202,7 @@ export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRe
     }, [mutationAvailability]);
     const settleAcceptedOperation = useCallback((runId: string, playerName: string) => {
         if (!capabilityAdmissionAllowed(mutationAvailability("clanBoss"))) {
-            return Promise.reject(new Error("Clan Boss settlement is paused. Keep this operation open and retry when live actions return."));
+            return Promise.reject(new Error("Saving Clan Boss results is paused. Keep this operation open and try again when live actions return."));
         }
         return settleClanBossAssault(runId, playerName);
     }, [mutationAvailability]);
@@ -283,8 +283,8 @@ export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRe
             {!clanBossActionsAvailable ? <p className="clan-raid-flash" role="status">New assaults and party changes are paused. Status and accepted-operation recovery remain available.</p> : null}
 
             {!clan.killed && partyState && partiesUsable ? <ClanBossPartyLobby envelope={partyState} playerSlug={playerSlug} clanmates={clanmates} busy={busy || !clanBossActionsAvailable || !partyActionsAvailable} onAction={act} onStart={start} /> : null}
-            {!clan.killed && soloCompatibility ? <section className="operation-lobby"><h4>Solo Compatibility</h4><p>Party operations are temporarily disabled. The weekly boss remains available through the server-owned solo path.</p><button type="button" className="operation-start" disabled={busy || !clanBossActionsAvailable || clan.myAttemptsLeft <= 0} onClick={start}>{busy ? "Starting…" : !clanBossActionsAvailable ? "Assaults paused" : clan.myAttemptsLeft > 0 ? `Start Solo Assault (${clan.myAttemptsLeft} left)` : "No assaults left this week"}</button></section> : null}
-            {!partyState && partiesUsable ? <div className="operation-error" role="status"><p>The party service is offline. Existing combat remains recoverable; party changes are paused.</p><button type="button" onClick={() => void load()}>Retry Party Service</button></div> : null}
+            {!clan.killed && soloCompatibility ? <section className="operation-lobby"><h4>Solo Compatibility</h4><p>Party operations are temporarily disabled. The weekly boss remains available through the server-owned solo path.</p><button type="button" className="operation-start" disabled={busy || !clanBossActionsAvailable || clan.myAttemptsLeft <= 0} onClick={start}>{busy ? "Starting…" : !clanBossActionsAvailable ? "Assaults paused" : clan.myAttemptsLeft > 0 ? `Start solo assault (${clan.myAttemptsLeft} left)` : "No assaults left this week"}</button></section> : null}
+            {!partyState && partiesUsable ? <div className="operation-error" role="status"><p>The party service is offline. Existing combat remains recoverable; party changes are paused.</p><button type="button" onClick={() => void load()}>Retry party service</button></div> : null}
 
             <div className="operation-preparation">
                 <h4>Preparation Loop</h4>
@@ -292,7 +292,7 @@ export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRe
             </div>
 
             <p className="hint operation-score-note">Your clan has removed <strong>{clan.damageDealt.toLocaleString()}</strong> HP with <strong>{clan.participants}</strong> participating member{clan.participants === 1 ? "" : "s"}. This authored boss uses <strong>{boss?.mechanic}</strong> mechanics. Most assaults are expected to chip the persistent pool; active support and objective play qualify for threshold rewards without competing against damage dealers.</p>
-            <p className="hint operation-score-note">Operation settlement applies profession XP, clan points, and sector pressure immediately. Qualified personal Ryo and Fate Shards are paid once by the existing weekly settlement after the campaign ends. Each active contributor also has a 5% chance of an upgrade gear piece from every assault, paid immediately.</p>
+            <p className="hint operation-score-note">Each assault applies profession XP, clan points, and sector pressure immediately. Qualified personal Ryo and Fate Shards are paid once by the weekly payout after the campaign ends. Each active contributor also has a 5% chance of an upgrade gear piece from every assault, paid immediately.</p>
 
             <h4>Clan Standings</h4>
             {!view.standings?.length ? <p className="hint">No clan has struck yet.</p> : <div className="operation-standings">{view.standings.map((standing) => <div key={standing.clanName} className={standing.clanName === clan.clanName ? "is-mine" : ""}><span>#{standing.rank}</span><strong>{standing.clanName}{standing.killed ? " · cleared" : ""}</strong><span>{standing.score.toLocaleString()} pts</span></div>)}</div>}

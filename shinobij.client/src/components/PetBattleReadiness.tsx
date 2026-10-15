@@ -142,7 +142,7 @@ export function PetBattleReadiness({
                     >
                         {selectedWarfrontBlocker
                             ? selectedWarfrontBlocker.action
-                            : tacticalUnlocked ? `Add ${name} to Squad` : `Need ${TACTICAL_ARENA_PET_REQUIREMENT - tacticalReadyPets.length} More Ready`} <span aria-hidden="true">→</span>
+                            : tacticalUnlocked ? `Add ${name} to squad` : `Need ${TACTICAL_ARENA_PET_REQUIREMENT - tacticalReadyPets.length} more ready`} <span aria-hidden="true">→</span>
                     </button>
                 </article>
             </div>

@@ -138,7 +138,7 @@ export function ClanSealPool({
     if (!character.clan) return null;
 
     return (
-        <div className="summary-box" style={{ background: "linear-gradient(180deg, rgba(250,204,21,0.10), rgba(8,10,22,0.4))", border: "1px solid rgba(250,204,21,0.45)", marginTop: "0.75rem" }}>
+        <div className="summary-box" style={{ background: "linear-gradient(180deg, rgba(230, 196, 119, 0.10), rgba(8,10,22,0.4))", border: "1px solid rgba(230, 196, 119, 0.45)", marginTop: "0.75rem" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
                 <strong style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "var(--gold)" }}><GameArtIcon kind="crown" size={20} /> Clan Honor Seal Pool</strong>
                 <span style={{ color: "var(--gold)", fontWeight: 600 }}>

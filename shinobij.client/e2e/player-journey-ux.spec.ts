@@ -52,7 +52,7 @@ for (const viewport of [{ width: 1366, height: 768 }, { width: 390, height: 844 
                 return route.fulfill({ json: { granted: true, character, _saveVersion: version, activeTraining: null, applied: 3, overflow: 0, cap: 100 } });
             });
             await expectUiAuditBoot(page, runtime, 'training');
-            await page.getByRole('button', { name: 'Collect Training', exact: true }).click();
+            await page.getByRole('button', { name: 'Collect training', exact: true }).click();
             await expect(page.locator('.training-feedback[role="status"]')).toContainText('+3 Strength');
             await expect(page.getByRole('alertdialog', { name: 'Notice' })).toHaveCount(0);
             await page.getByRole('button', { name: /^Strength/ }).click();
@@ -82,7 +82,7 @@ for (const viewport of [{ width: 1366, height: 768 }, { width: 390, height: 844 
                 await session.scrollIntoViewIfNeeded();
                 await page.waitForTimeout(1200);
                 await capture(page, `16-clock-${screen}`);
-                const claim = session.getByRole('button', { name: screen === 'training' ? /Collect Training|Training…/ : /Claim jutsu level|Claim when ready/ });
+                const claim = session.getByRole('button', { name: screen === 'training' ? /Collect training|Training…/ : /Claim jutsu level|Claim when ready/ });
                 await expect(claim).toBeDisabled();
                 await expect(session).not.toContainText(screen === 'training' ? 'Ready to collect!' : 'Lesson complete.');
                 if (screen === 'jutsuTraining') await expect(session.getByRole('button', { name: /Finish now/ })).toContainText('1,000 ryo');
@@ -149,7 +149,7 @@ for (const viewport of [{ width: 1366, height: 768 }, { width: 390, height: 844 
             save.character = { ...save.character, level: 1, onboardingStep: 'firstMission', academyTrialClaimed: false, academySparClaimed: true };
             const runtime = await installUiAuditRuntime(page, save);
             await expectUiAuditBoot(page, runtime, 'missions');
-            const reward = page.getByRole('button', { name: 'Claim Academy Trial Reward' });
+            const reward = page.getByRole('button', { name: 'Claim Academy Trial reward' });
             const guide = page.locator('.onboarding-coach-banner');
             const sizes = [{ width: 1366, height: 768 }, { width: 390, height: 844 }, viewport]
                 .filter((size, index, all) => index === 0 || size.width !== all[index - 1].width || size.height !== all[index - 1].height);

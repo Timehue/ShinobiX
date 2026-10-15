@@ -106,7 +106,7 @@ test('daily claim survives a lost response, receipt retry, logout and relogin', 
     await page.getByLabel('Name').fill(name);
     await page.getByPlaceholder('Enter your password').fill(password);
     const restored = page.waitForResponse(r => new URL(r.url()).pathname === `/api/save/${name}` && r.request().method() === 'GET' && r.status() === 200);
-    await page.getByRole('button', { name: 'Enter Village' }).click();
+    await page.getByRole('button', { name: 'Enter village' }).click();
     expect((await (await restored).json()).character.fateShards).toBe(25);
     await expect(briefing).toHaveCount(0);
 });

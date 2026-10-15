@@ -109,7 +109,7 @@ export function AccountRecoveryForm({ initialName = "", onRecovered, onCancel, h
                     className="start-primary-btn"
                     onClick={() => void onRecovered(name.trim(), next)}
                 >
-                    Enter Village
+                    Enter village
                 </button>
             </div>
         );

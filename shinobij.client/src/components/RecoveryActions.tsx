@@ -29,12 +29,12 @@ export function RecoveryActions({ compact = false }: RecoveryActionsProps) {
                 onClick={recoverToVillage}
                 style={{
                     ...buttonBase,
-                    background: "linear-gradient(180deg, var(--gold), #eab308)",
+                    background: "linear-gradient(180deg, var(--gold), #d1a758)",
                     color: "#1a1306",
                     border: "none",
                 }}
             >
-                Return to Village
+                Return to village
             </button>
             <button
                 type="button"
@@ -46,18 +46,18 @@ export function RecoveryActions({ compact = false }: RecoveryActionsProps) {
                     border: "1px solid rgba(148,163,184,0.45)",
                 }}
             >
-                Return to Start
+                Return to start
             </button>
         </div>
         <details style={{ width: "100%", marginTop: 6, color: "#94a3b8", fontSize: 12, textAlign: "center" }}>
             <summary style={{ cursor: "pointer", display: "inline-block", padding: "4px 8px" }}>Advanced recovery options</summary>
-            <p style={{ maxWidth: 390, margin: "8px auto", lineHeight: 1.45 }}>Reset Local Save clears this device’s cached session data. Your server save is not deleted.</p>
+            <p style={{ maxWidth: 390, margin: "8px auto", lineHeight: 1.45 }}>“Reset local save” clears this device’s cached session data. Your server save is not deleted.</p>
             <button
                 type="button"
                 onClick={resetLocalSaveAndReload}
                 style={{ ...buttonBase, background: "#3b1116", color: "#fecdd3", border: "1px solid rgba(248,113,113,0.55)" }}
             >
-                Reset Local Save…
+                Reset local save…
             </button>
         </details>
         </>

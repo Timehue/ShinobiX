@@ -107,7 +107,7 @@ export function EndlessTowerLobby({
                         disabled={actionLocked}
                         onClick={() => runOnce(onBank)}
                     >
-                        Retreat &amp; Bank
+                        Retreat &amp; bank
                     </button>
                 )}
             </div>

@@ -71,7 +71,7 @@ async function openCurrentSectorForMobileFieldWork(page: Page) {
     const atlas = page.locator(".world-atlas-card");
     const returnToSector = atlas.getByRole("button", { name: /Return to Sector 1$/ });
     const journal = page.getByRole("complementary", { name: "Personal quest" });
-    const retry = page.getByRole("button", { name: "Retry Journey Load", exact: true });
+    const retry = page.getByRole("button", { name: "Retry journey load", exact: true });
     await expect.poll(async () => await returnToSector.isVisible()
         || await journal.isVisible() || await retry.isVisible()).toBe(true);
     if (await returnToSector.isVisible()) {
@@ -120,7 +120,7 @@ test("a road-story content outage keeps choices closed until an explicit retry s
     });
     await page.goto("/#/worldMap", { waitUntil: "domcontentloaded" });
     await openCurrentSectorForMobileFieldWork(page);
-    const retry = page.getByRole("button", { name: "Retry Journey Load", exact: true });
+    const retry = page.getByRole("button", { name: "Retry journey load", exact: true });
     await expect(retry).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole("complementary", { name: "Personal quest" })).toHaveCount(0);
     expect(attempts).toBe(3);
@@ -445,7 +445,7 @@ test("field work saves a route choice, resumes its next objective, and replays h
     await expectHeadingInView(page, novel.getByRole("heading", { level: 2, name: "Two Ways Up" }));
     await expect(novel.getByRole("button", { name: /Take the high line/ })).toHaveCount(0);
     await expect(novel.getByRole("button", { name: /^Battle in/ })).toHaveCount(0);
-    await expect(novel.getByRole("button", { name: /Claim Reward/ })).toHaveCount(0);
+    await expect(novel.getByRole("button", { name: /Claim reward/ })).toHaveCount(0);
     if ((page.viewportSize()?.width ?? 1000) <= 480) {
         const next = novel.getByRole("button", { name: "Next", exact: true });
         const hint = page.locator(".screen-hint-battle-trigger");

@@ -74,9 +74,9 @@ function ClanShrineRoom({character,initialWar,index,sharedImages,onExit,onLaunch
         onLaunchBattle?.(challenge,warId);
     }
     return <dialog ref={dialog} className="clan-shrine-dialog" aria-label="Clan golden shrine interior" onCancel={event=>{event.preventDefault();void leave();}}>
-        <section className="clan-shrine-room"><header><div><span className="clan-campaign-kicker">{war.clans.join(' vs ')}</span><h2>Golden War Shrine</h2></div><button disabled={busy||active} onClick={()=>void leave()}>Leave Shrine</button></header>
+        <section className="clan-shrine-room"><header><div><span className="clan-campaign-kicker">{war.clans.join(' vs ')}</span><h2>Golden War Shrine</h2></div><button disabled={busy||active} onClick={()=>void leave()}>Leave shrine</button></header>
             <p role="status">Sector {window.sector} · {closed?'The shrine has closed.':`${Math.max(0,Math.ceil((window.closesAt-now)/60_000))} minutes left`} · {Math.max(0,window.matchLimit-window.usedMatches)} bonus matches remain</p>
-            {error&&<p role="alert">{error} {!closed&&<button disabled={busy} onClick={()=>{entered.current=false;void refresh();}}>Re-enter Shrine</button>}</p>}
+            {error&&<p role="alert">{error} {!closed&&<button disabled={busy} onClick={()=>{entered.current=false;void refresh();}}>Re-enter shrine</button>}</p>}
             <div className="clan-shrine-layout"><div><div className="clan-shrine-floor" tabIndex={0} role="group" aria-label="Shrine courtyard" onKeyDown={event=>{
                 const delta=({ArrowUp:-12,ArrowDown:12,ArrowLeft:-1,ArrowRight:1} as Record<string,number>)[event.key];if(delta===undefined||!me)return;
                 event.preventDefault();void walk(me.tile+delta);

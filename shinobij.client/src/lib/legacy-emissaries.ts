@@ -135,7 +135,7 @@ export const EMISSARY_DEFS: readonly EmissaryDef[] = [
     },
     {
         slug: "lantern-warden-mei", name: "Lantern-Warden Mei", categories: ["support", "village"],
-        tellTint: "#fbbf24",
+        tellTint: "#e6c477",
         greeting: "Shield in one hand, lantern in the other. Guess which one has saved more lives.",
         lore: [
             "My pack has splints, lamp oil, two door braces, and no spare room. If you need saving, try to be a small emergency.",

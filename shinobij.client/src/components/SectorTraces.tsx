@@ -18,7 +18,8 @@ import { createPortal } from "react-dom";
 import { nearestWalkableTile } from "../../../shared/sector-walk-mask";
 import { useSectorObstacles } from "../lib/sector-obstacles";
 import { GameArtIcon } from "./GameArtIcon";
-import { SHRINE_TIERS, shrineForSector, type ShrineDef } from "../../../shared/shrines";
+import { gameConfirm } from "./GameAlert";
+import { SHRINE_MAX_OFFERING, SHRINE_MIN_OFFERING, SHRINE_TIERS, shrineForSector, type ShrineDef } from "../../../shared/shrines";
 import { parseScars, pruneScars, scarAgeLabel, scarLine } from "../../../shared/sector-scars";
 import {
     hasPendingShrineOffering,
@@ -192,12 +193,34 @@ export function SectorTracesModal({ state, traces, playerName, playerRyo, sector
     const [note, setNote] = useState<string | null>(null);
     const [customOffer, setCustomOffer] = useState("");
     const focusRef = useRef<HTMLDivElement | null>(null);
+    const sheetRef = useRef<HTMLDivElement | null>(null);
+    const closeRef = useRef(onClose);
     const shrine = traces.shrine;
     const def = shrineForSector(traces.sector);
 
     useEffect(() => {
         focusRef.current?.scrollIntoView({ block: "center" });
     }, [state.focusSignId]);
+
+    // The host map re-renders every frame, so Escape reads onClose through a ref
+    // and binds once. Focus moves into the sheet and returns to its opener.
+    useEffect(() => { closeRef.current = onClose; }, [onClose]);
+    useEffect(() => {
+        const restoreTo = document.activeElement as HTMLElement | null;
+        sheetRef.current?.focus({ preventScroll: true });
+        function onKeyDown(event: KeyboardEvent) {
+            if (event.key !== "Escape" || event.defaultPrevented) return;
+            // A confirm or notice stacked above this sheet keeps its own Escape.
+            if (document.querySelector(".game-alert-backdrop")) return;
+            event.stopPropagation();
+            closeRef.current();
+        }
+        window.addEventListener("keydown", onKeyDown);
+        return () => {
+            window.removeEventListener("keydown", onKeyDown);
+            if (restoreTo && document.contains(restoreTo)) restoreTo.focus();
+        };
+    }, []);
 
     async function submitSign() {
         const text = draft.trim();
@@ -246,6 +269,27 @@ export function SectorTracesModal({ state, traces, playerName, playerRyo, sector
         }
     }
 
+    // A typed amount is clamped to what the shrine accepts and to the ryo on
+    // hand, so a stray extra zero cannot offer more than meant. The one
+    // exception is an unconfirmed earlier offering of that exact amount: its
+    // retry must keep the amount so it finishes without charging again.
+    function customOfferAmount(): number {
+        const typed = Math.floor(Number(customOffer));
+        if (!Number.isFinite(typed)) return SHRINE_MIN_OFFERING;
+        if (shrine && hasPendingShrineOffering(playerName, shrine.id, typed)) return typed;
+        return Math.max(SHRINE_MIN_OFFERING, Math.min(SHRINE_MAX_OFFERING, playerRyo, typed));
+    }
+
+    async function offerCustom() {
+        if (!shrine || busy) return;
+        const amount = customOfferAmount();
+        setCustomOffer(String(amount));
+        // Refuse before asking, rather than confirming a spend offer() will refuse.
+        if (amount > playerRyo && !hasPendingShrineOffering(playerName, shrine.id, amount)) { setNote("Not enough ryo on hand."); return; }
+        if (!(await gameConfirm(`Offer ${amount.toLocaleString()} ryo to ${shrine.name}? An offering cannot be taken back.`, { confirmLabel: "Offer" }))) return;
+        await offer(amount);
+    }
+
     const nextTier = shrine && shrine.tier < SHRINE_TIERS.length - 1 ? SHRINE_TIERS[shrine.tier + 1] : null;
     const tierFloor = shrine ? SHRINE_TIERS[shrine.tier].at : 0;
     const tierProgress = shrine && nextTier
@@ -254,7 +298,7 @@ export function SectorTracesModal({ state, traces, playerName, playerRyo, sector
 
     return createPortal(
         <div className="sector-traces-scrim" onClick={onClose}>
-            <div className="sector-traces-sheet card" role="dialog" aria-modal="true" aria-label={state.view === "shrine" ? shrine?.name : "Trail signs"} onClick={(e) => e.stopPropagation()}>
+            <div ref={sheetRef} tabIndex={-1} className="sector-traces-sheet card" role="dialog" aria-modal="true" aria-label={state.view === "shrine" ? shrine?.name : "Trail signs"} onClick={(e) => e.stopPropagation()}>
                 {state.view === "shrine" && shrine && def ? (
                     <>
                         <header className="sector-traces-head">
@@ -297,11 +341,11 @@ export function SectorTracesModal({ state, traces, playerName, playerRyo, sector
                             ))}
                             <div className="sector-traces-custom">
                                 <input
-                                    type="number" min={10} max={250_000} placeholder="custom"
+                                    type="number" min={SHRINE_MIN_OFFERING} max={Math.max(SHRINE_MIN_OFFERING, Math.min(SHRINE_MAX_OFFERING, playerRyo))} placeholder="custom"
                                     value={customOffer} onChange={(e) => setCustomOffer(e.target.value)}
                                     aria-label="Custom offering amount"
                                 />
-                                <button type="button" className="sector-action-btn" disabled={busy || !sectorIsCurrent || !(Number(customOffer) >= 10)} onClick={() => offer(Math.floor(Number(customOffer)))}>
+                                <button type="button" className="sector-action-btn" disabled={busy || !sectorIsCurrent || !(Number(customOffer) >= SHRINE_MIN_OFFERING)} onClick={() => { void offerCustom(); }}>
                                     Offer
                                 </button>
                             </div>

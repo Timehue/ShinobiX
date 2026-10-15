@@ -36,9 +36,9 @@ export class StoryFieldContentBoundary extends Component<Props, State> {
                 : "The journey record could not be verified. No destination, choice, or reward was changed."}</p>
             <div className="menu">
                 {stale
-                    ? <button type="button" onClick={() => window.location.reload()}>Reload Latest Game</button>
-                    : <button type="button" onClick={this.retry}>Retry Journey Load</button>}
-                <button type="button" onClick={this.props.onReturn}>Return to Village</button>
+                    ? <button type="button" onClick={() => window.location.reload()}>Reload latest game</button>
+                    : <button type="button" onClick={this.retry}>Retry journey load</button>}
+                <button type="button" onClick={this.props.onReturn}>Return to village</button>
             </div>
         </section>;
     }

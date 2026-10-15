@@ -10,7 +10,7 @@ test("a legal single Sage offer is selected and uses separate native controls", 
     assert.doesNotMatch(source, /role="button"|tabIndex=\{0\}|onKeyDown=/);
     assert.match(source, /onClick=\{\(\) => setSelected\(o\.legacyId\)\}/);
     assert.match(source, /<\/button>\s*\{selected === o\.legacyId && \(\s*<button/);
-    assert.match(source, /Accept This Path/);
+    assert.match(source, /Accept this path/);
     assert.match(source, /mountedRef\.current = true;[\s\S]*?requestRef\.current \+= 1;[\s\S]*?window\.clearTimeout\(departureTimerRef\.current\)/);
     assert.match(source, /if \(!mountedRef\.current \|\| request !== requestRef\.current\) return;/);
     assert.match(source, /scheduleDeparture\(\(\) => \{ \(onDismissed \?\? onDeclined\)\(\); onClose\(\); \}\)/);

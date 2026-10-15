@@ -80,7 +80,7 @@ html[data-vp="lg"] .battle-hud-sidebar {
     border: 4px solid #7c3f11;
     border-image: linear-gradient(var(--gold-2), #7c2d12) 1;
     border-left: none;
-    box-shadow: inset 0 0 0 2px rgba(250,204,21,.4), 4px 0 16px rgba(0,0,0,.5);
+    box-shadow: inset 0 0 0 2px rgba(230, 196, 119, .4), 4px 0 16px rgba(0,0,0,.5);
     padding: 60px 18px 16px 14px;
     box-sizing: border-box;
 }
@@ -217,7 +217,7 @@ html[data-vp="lg"] .arena-fullscreen .hex-battlefield {
     padding: 8px 10px;
     font-weight: 700;
     font-size: 0.82rem;
-    color: #fbbf24;
+    color: var(--sj-gold-bright);
     background: rgba(0, 0, 0, 0.3);
     border-bottom: 1px solid rgba(148, 163, 184, 0.15);
 }
@@ -329,7 +329,7 @@ html[data-vp="lg"] .battle-chat-col.battle-chat-hidden {
 }
 
 @media (hover: hover) {
-    .battle-chat-toggle:hover { color: #fbbf24; border-color: #fbbf24; }
+    .battle-chat-toggle:hover { color: var(--sj-gold-bright); border-color: var(--sj-gold-bright); }
 }
 
 .battle-chat-messages {
@@ -404,23 +404,23 @@ html[data-vp="lg"] .battle-chat-col.battle-chat-hidden {
 }
 
 .battle-chat-input-row input:focus {
-    border-color: #fbbf24;
+    border-color: var(--sj-gold-bright);
 }
 
 .battle-chat-input-row button {
     padding: 4px 8px;
     font-size: 0.7rem;
     font-weight: 600;
-    border: 1px solid rgba(251, 191, 36, 0.4);
+    border: 1px solid rgba(230, 196, 119, 0.4);
     border-radius: 4px;
-    background: rgba(251, 191, 36, 0.15);
-    color: #fbbf24;
+    background: rgba(230, 196, 119, 0.15);
+    color: var(--sj-gold-bright);
     cursor: pointer;
 }
 
 .battle-chat-input-row button:disabled { opacity: 0.4; cursor: default; }
 @media (hover: hover) {
-    .battle-chat-input-row button:hover:not(:disabled) { background: rgba(251, 191, 36, 0.3); }
+    .battle-chat-input-row button:hover:not(:disabled) { background: rgba(230, 196, 119, 0.3); }
 }
 
 html[data-vp="xl"] .arena-fullscreen,
@@ -466,7 +466,7 @@ html[data-vp="lg"] .arena-fullscreen .combat-layout > .combat-side-hud:last-chil
     border: 4px solid #7c3f11 !important;
     border-image: linear-gradient(var(--gold-2), #7c2d12) 1 !important;
     border-right: none !important;
-    box-shadow: inset 0 0 0 2px rgba(250,204,21,.4), -4px 0 16px rgba(0,0,0,.5) !important;
+    box-shadow: inset 0 0 0 2px rgba(230, 196, 119, .4), -4px 0 16px rgba(0,0,0,.5) !important;
 }
 
 html[data-vp="xl"] .arena-fullscreen .combat-avatar,

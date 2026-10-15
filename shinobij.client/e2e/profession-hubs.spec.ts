@@ -95,7 +95,7 @@ for (const profession of ['vanguard', 'petTamer', 'healer']) {
         await assertLayout(page);
         expect(errors).toEqual([]);
         const destinations = {
-            vanguard: [['Find a Target', 'userHub'], ['Raid a Village', 'villageWar'], ['Sector Map', 'villageWarMap'], ['Arena District', 'arenaDistrict']],
+            vanguard: [['Find a target', 'userHub'], ['Raid a village', 'villageWar'], ['Sector Map', 'villageWarMap'], ['Arena District', 'arenaDistrict']],
             petTamer: [['Pet Yard', 'pets'], ['Pet Arena', 'petArena']],
             healer: [['Village Hospital', 'hospital']],
         };
@@ -191,7 +191,7 @@ test('Vanguard ignores yesterday’s earnings and respects Sector Map maintenanc
     const map = page.locator('.ph-hub').getByRole('button', { name: /Sector Map/ });
     await expect(map).toBeDisabled();
     await expect(map).toContainText('temporarily unavailable');
-    await expect(page.locator('.ph-hub').getByRole('button', { name: /Raid a Village/ })).toBeEnabled();
+    await expect(page.locator('.ph-hub').getByRole('button', { name: /Raid a village/ })).toBeEnabled();
 });
 
 test('Tamer loads published companion portraits and applies mastery bonuses immediately', async ({ page }) => {

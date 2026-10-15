@@ -214,7 +214,7 @@ for (const pending of ["element", "bloodline"] as const) {
         });
         await expectUiAuditBoot(page, runtime, "centralHub");
         await page.locator(".central-card").filter({ hasText: "Awakening Stone" }).click();
-        const elementButton = page.getByRole("button", { name: /^Reroll Element 1 element/ });
+        const elementButton = page.getByRole("button", { name: /^Reroll element 1 element/ });
         const bloodlineButton = page.locator(".aw-forge-card.rank-s button");
         await (pending === "element" ? elementButton : bloodlineButton).click();
         // A paid element reroll asks first; the request leaves on Reroll.

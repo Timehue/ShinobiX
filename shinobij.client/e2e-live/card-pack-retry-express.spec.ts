@@ -207,7 +207,7 @@ test(`seeded Chronicle pack with ${initialChroniclePoints} CP: lost committed re
         // GameAlertHost replaces window.alert with the themed DOM Notice.
         const notice = page.getByRole('alertdialog', { name: 'Notice', exact: true });
         await expect(notice).toContainText(/Pack opening unconfirmed/i);
-        await expect(notice).toContainText('Refresh before retrying to recover the same purchase.');
+        await expect(notice).toContainText('then refresh to recover the same purchase.');
         await notice.getByRole('button', { name: 'OK', exact: true }).click();
         expect(observed).toHaveLength(1);
         expect(observed[0].requestId).toMatch(/^[A-Za-z0-9_-]{16,80}$/);

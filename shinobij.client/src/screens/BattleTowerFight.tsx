@@ -122,8 +122,8 @@ function settlementRetryMessage(response: TowerSettleResponse, memberSlug: strin
         response.results[memberSlug]?.reason,
         response.consumables?.[memberSlug]?.reason,
     ].filter((reason): reason is string => Boolean(reason && RETRYABLE_SETTLEMENT_REASONS.has(reason)));
-    if (reasons.length > 0) return `The server asked to retry ${reasons.map(reason => reason.replace(/-/g, " ")).join(" and ")}.`;
-    return "The server returned a result but did not confirm a stable receipt.";
+    if (reasons.length > 0) return "The Tower was busy and could not save your result yet.";
+    return "The Tower sent your result but could not confirm it was saved.";
 }
 
 function isStableTowerSettlement(response: TowerSettleResponse): boolean {
@@ -1068,7 +1068,7 @@ export function BattleTowerFight({
                 setSettlement(current => ({
                     ...current,
                     phase: "error",
-                    message: String((error as Error)?.message || "Settlement could not be confirmed."),
+                    message: String((error as Error)?.message || "Your result could not be confirmed."),
                 }));
             }
         })();
@@ -1088,7 +1088,7 @@ export function BattleTowerFight({
         if (resultCanExit) onExit();
     }, [resultCanExit, onExit]);
     const leaveUnsettled = onLeaveActive ? async () => {
-        if (await gameConfirm("Leave this result and recover it later? Settlement is not confirmed. Your run stays saved; reopen this encounter to retry.")) {
+        if (await gameConfirm("Leave this result and recover it later? Your result is not confirmed yet. Your run stays saved; reopen this encounter to try again.")) {
             onLeaveActive();
         }
     } : undefined;
@@ -2200,7 +2200,7 @@ export function BattleTowerFight({
                                 </button>
                             )}
                             <button onClick={() => void send({ type: "wait" })} disabled={!myTurn || busy}>
-                                <i className="cmd-icon" aria-hidden="true"><GiSandsOfTime /></i><span>End Turn</span><small>Pass</small>
+                                <i className="cmd-icon" aria-hidden="true"><GiSandsOfTime /></i><span>End turn</span><small>Pass</small>
                             </button>
                         </CombatCommandBar>
 
@@ -2419,7 +2419,7 @@ export function BattleTowerFight({
                                         ? <span className={settlement.response.results[meSlug]!.paid ? undefined : "hint"}>
                                             {towerRewardReceiptText(settlement.response.results[meSlug]!, true)}
                                         </span>
-                                        : <span className="hint">{settlement.phase === "error" ? "Settlement paused" : "Settling…"}</span>}
+                                        : <span className="hint">{settlement.phase === "error" ? "Your rewards are not saved yet." : "Saving your rewards…"}</span>}
                                 </div>
                                 {newlyRecordedTowerMilestones.map(milestone => (
                                     <p key={milestone} className="tower-result-milestone-receipt">{buildTowerMilestoneReceipt(milestone)}</p>
@@ -2440,7 +2440,7 @@ export function BattleTowerFight({
                         <div className="tower-completion-actions">
                         {onContinue && <button type="button" className="tower-plan-next" disabled={!resultCanExit} onClick={() => { if (resultCanExit) onContinue(); }}>Plan next floor</button>}
                         <button ref={resultCanExit ? resultPrimaryRef : undefined} className="tower-completion-return" onClick={exitResult} aria-disabled={!resultCanExit} disabled={!resultCanExit}
-                            title={!resultCanExit ? "Confirm settlement before leaving so this result remains recoverable." : undefined}>
+                            title={!resultCanExit ? "Wait for your result to save before leaving so it stays recoverable." : undefined}>
                             Return to the Spire
                         </button>
                         </div>
@@ -2463,13 +2463,13 @@ export function BattleTowerFight({
                             objectiveLabel={isWorldBoss ? worldBossRaidResult(session.winner, settlement.worldBossReceipt).objective : undefined}
                             worldBossReceipt={settlement.worldBossReceipt} />
                         {isTeamPvp && pvpContextLabel === 'Team Arena' && <p className="hint">Competitive exhibition complete · no rating, currency, items, or progression rewards.</p>}
-                        {isWorldBoss && <p className="hint">{settlement.phase === 'settled' ? worldBossRaidResult(session.winner, settlement.worldBossReceipt).detail : settlement.phase === 'error' ? 'World boss settlement paused. Retry to confirm your contribution.' : 'Saving your team contribution to the world event…'}</p>}
+                        {isWorldBoss && <p className="hint">{settlement.phase === 'settled' ? worldBossRaidResult(session.winner, settlement.worldBossReceipt).detail : settlement.phase === 'error' ? 'Your contribution is not saved yet. Press Try again to confirm it.' : 'Saving your team contribution to the world event…'}</p>}
                         {isCaravanAmbush && <p className="hint">{settlement.phase === 'settled' ? 'The dispatch record is saved. Your convoy is ready to move.' : 'Saving the convoy report…'}</p>}
                         {isHunt && <p className="hint">{settlement.phase === 'settled' ? 'Hunt progress saved. Return to the map to continue or turn in your contract.' : 'Saving hunt progress…'}</p>}
                         {!isTeamPvp && !isWorldBoss && !isHunt && !isCaravanAmbush && session.winner === "squad" && (
                             settlement.response?.results[meSlug]
                                 ? <p className="tower-completion-reward">{towerRewardReceiptText(settlement.response.results[meSlug]!, false)}</p>
-                                : <p className="hint">{settlement.phase === "error" ? "Reward settlement paused." : "Settling rewards…"}</p>
+                                : <p className="hint">{settlement.phase === "error" ? "Your rewards are not saved yet." : "Saving your rewards…"}</p>
                         )}
                         {settlement.gearLine && <p className="tower-completion-reward" data-testid="tower-gear-drop">{settlement.gearLine}</p>}
                         {newlyRecordedTowerMilestones.map(milestone => (
@@ -2483,7 +2483,7 @@ export function BattleTowerFight({
                         {onContinue && <button type="button" className="tower-plan-next" disabled={!resultCanExit} onClick={() => { if (resultCanExit) onContinue(); }}>Plan next floor</button>}
                         <button ref={resultCanExit ? resultPrimaryRef : undefined} className="tower-completion-return" onClick={exitResult}
                             aria-disabled={!resultCanExit} disabled={!resultCanExit}
-                            title={!resultCanExit ? "Confirm settlement before leaving so this result remains recoverable." : undefined}>
+                            title={!resultCanExit ? "Wait for your result to save before leaving so it stays recoverable." : undefined}>
                             {isWorldBoss ? worldBossReturnLabel : isCaravanAmbush ? 'Return to the caravan' : isHunt ? 'Return to the map' : isTeamPvp ? `Return to ${pvpContextLabel}` : "Return to the Tower"}
                         </button>
                         </div>
@@ -2501,16 +2501,16 @@ function SettlementStatusNotice({ state, required, onRetry, onLeave, primaryRef 
     if (state.phase === "error") {
         return (
             <div className="tower-settlement-status tower-settlement-status--error" role="alert">
-                <strong>Settlement was not confirmed</strong>
-                <span>{state.message ?? "The server did not confirm this receipt."} Your completed run is still saved.</span>
-                <button ref={primaryRef} type="button" onClick={onRetry}>Retry settlement</button>
+                <strong>Your result is not saved yet</strong>
+                <span>{state.message ?? "The server did not confirm your result."} Your completed run is still saved.</span>
+                <button ref={primaryRef} type="button" onClick={onRetry}>Try again</button>
                 {onLeave && <button type="button" onClick={onLeave}>Leave and recover later</button>}
             </div>
         );
     }
     return (
         <div className="tower-settlement-status" role="status" aria-live="polite">
-            <strong>{state.attempts > 1 ? `Retrying settlement (attempt ${state.attempts})…` : "Finalizing the run receipt…"}</strong>
+            <strong>{state.attempts > 1 ? `Trying again (attempt ${state.attempts})…` : "Saving your result…"}</strong>
             <span>{onLeave ? "Waiting for confirmation. You can leave this view and recover the saved result later." : "Keep this result open until the server confirms it."}</span>
             {onLeave && <button ref={primaryRef} type="button" onClick={onLeave}>Leave and recover later</button>}
         </div>

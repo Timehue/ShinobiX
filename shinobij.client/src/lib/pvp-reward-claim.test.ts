@@ -484,7 +484,7 @@ describe("pvp-reward-claim", () => {
                 character: { name: "foreign" },
                 _saveVersion: 4,
             }), { status: 200 })) as typeof fetch),
-            /foreign save/,
+            /different account's save/,
         );
         abort.abort();
         await assert.rejects(readPvpOwnerSaveForContinuation("rin", continuation, fetch), /PvP completion scope changed/);

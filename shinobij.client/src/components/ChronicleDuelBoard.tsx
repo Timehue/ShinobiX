@@ -1652,7 +1652,7 @@ export function ChronicleDuelBoard({
                   })
                 }
               >
-                Play Face-Up Attack
+                Play face-up Attack
               </button>
               <button
                 className="summon-defense secondary"
@@ -1671,7 +1671,7 @@ export function ChronicleDuelBoard({
                   })
                 }
               >
-                Set Face-Down Defense
+                Set face-down Defense
               </button>
             </>
           ) : null}
@@ -1793,14 +1793,14 @@ export function ChronicleDuelBoard({
                 }
                 onClick={() => act({ action: "start-battle" })}
               >
-                Start Attacking
+                Start attacking
               </button>
               <button
                 className={`secondary ${selected ? "chronicle-phase-action-deferred" : ""}`}
                 disabled={busy}
                 onClick={() => act({ action: "enter-end-phase" })}
               >
-                End Turn
+                End turn
               </button>
             </>
           ) : null}
@@ -1834,15 +1834,15 @@ export function ChronicleDuelBoard({
                 }}
               >
                 {directAttackPower === null
-                  ? "Direct Attack"
-                  : `Direct Attack · ${directAttackPower.toLocaleString()}`}
+                  ? "Direct attack"
+                  : `Direct attack · ${directAttackPower.toLocaleString()}`}
               </button>
               <button
                 className="secondary"
                 disabled={busy}
                 onClick={() => act({ action: "enter-main-2" })}
               >
-                Finish Attacking
+                Finish attacking
               </button>
             </>
           ) : null}
@@ -1852,7 +1852,7 @@ export function ChronicleDuelBoard({
               disabled={busy}
               onClick={() => act({ action: "enter-end-phase" })}
             >
-              End Turn
+              End turn
             </button>
           ) : null}
           {/* Same recovery path as Continue above: End Turn already hands the
@@ -1863,7 +1863,7 @@ export function ChronicleDuelBoard({
               disabled={busy}
               onClick={() => act({ action: "end-turn" })}
             >
-              Finish Turn
+              Finish turn
             </button>
           ) : null}
         </div>
