@@ -27640,7 +27640,7 @@
     },
     "mythic-4": {
       "name": "Abyssal Oni Hound",
-      "firstPass": "reviewed-no-additional-repair-needed",
+      "firstPass": "repaired-and-double-checked",
       "secondPass": "complete",
       "beforeSha256": "6a030f2152ff5de290d157d5bb41e392634a3899ea9c1f8b91bae979bcd92f64",
       "beforeEvidence": [
@@ -27669,8 +27669,24 @@
         "shinobij.client/.tmp/pet-reviewed-skulls/mythic-before.json",
         "shinobij.client/.tmp/pet-reviewed-skulls/mythic-refined-before.json"
       ],
+      "reopened": {
+        "at": "2026-10-15T22:36:11.779Z",
+        "releasedCommit": "74163467e931918b9de5af96e1ef0ffdfc4b28c6",
+        "releasedSha256": "6a030f2152ff5de290d157d5bb41e392634a3899ea9c1f8b91bae979bcd92f64",
+        "reason": "User screenshots and exact companion-preview reproduction expose muzzle and lower-jaw collapse outside the former upper-skull check. Independent fixed anatomical landmarks now catch the actual released fixture."
+      },
+      "candidateSha256": "10fc738a32473fb682bbbcea70fdb66feef4aac9189366367a515b2167708aea",
+      "promotedSha256": "10fc738a32473fb682bbbcea70fdb66feef4aac9189366367a515b2167708aea",
+      "conservation": {
+        "geometry": true,
+        "topology": true,
+        "atlas": true,
+        "boneNodes": true,
+        "allAnimationTracks": true,
+        "protectedFootVertices": 2662
+      },
       "secondPassSource": {
-        "sha256": "6a030f2152ff5de290d157d5bb41e392634a3899ea9c1f8b91bae979bcd92f64",
+        "sha256": "10fc738a32473fb682bbbcea70fdb66feef4aac9189366367a515b2167708aea",
         "clips": [
           "idle",
           "idle_2",
@@ -27703,23 +27719,23 @@
           "side"
         ],
         "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/mythic-source-second-head/mythic-4-head-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/mythic-source-second-head/mythic-4-head-side.webp",
-          "shinobij.client/.tmp/pet-shape-review/mythic-source-second-body/mythic-4-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/mythic-source-second-body/mythic-4-side.webp"
+          "shinobij.client/.tmp/pet-shape-review/oni-v2-final-source-head/mythic-4-head-front.webp",
+          "shinobij.client/.tmp/pet-shape-review/oni-v2-final-source-head/mythic-4-head-side.webp",
+          "shinobij.client/.tmp/pet-shape-review/oni-v2-final-source-body/mythic-4-front.webp",
+          "shinobij.client/.tmp/pet-shape-review/oni-v2-final-source-body/mythic-4-side.webp"
         ],
         "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/mythic-source-second-head/mythic-4-head-front.webp": "2bb8df0e1e830a110f15733f14e75971144ecae99456d4b79680d73c08c05a85",
-          "shinobij.client/.tmp/pet-shape-review/mythic-source-second-head/mythic-4-head-side.webp": "a161b71b062c5bf229b67b302ce7328fa33fb9d25f4a86708be17a109ad03f66",
-          "shinobij.client/.tmp/pet-shape-review/mythic-source-second-body/mythic-4-front.webp": "2b3cb033db131e31f9c9443579b008929e0e53ac7a452bf54c18369ecff29bd6",
-          "shinobij.client/.tmp/pet-shape-review/mythic-source-second-body/mythic-4-side.webp": "b09de3525b07c8730b9522c2224f88d21586e1679accf6bb1b7f804f438ef940"
+          "shinobij.client/.tmp/pet-shape-review/oni-v2-final-source-head/mythic-4-head-front.webp": "32f2517de7b79c9669aff8f5322fbc9830aef9f7f68df001a50b126d7fc91ab7",
+          "shinobij.client/.tmp/pet-shape-review/oni-v2-final-source-head/mythic-4-head-side.webp": "ad93647a6357828e6e02d4e04ce36cde6aedff9b3fdbb413103239bb3a2e403e",
+          "shinobij.client/.tmp/pet-shape-review/oni-v2-final-source-body/mythic-4-front.webp": "28fed30f2df32667ac5b420412202754f84cf74ff8ec2dab3d0f0d79464e416d",
+          "shinobij.client/.tmp/pet-shape-review/oni-v2-final-source-body/mythic-4-side.webp": "4613026d853b7f1860d8bd44eaf277c4b6fe869a0aef655d6cac660fa39ebbfa"
         },
-        "finding": "All 13 clips inspected at six alternate phases in front and side head and full-body views for this source asset. Oni hound yellow eyes, open red mouth, muzzle and red horns retain their shapes through both idles, strike, recoil and turned death; scarf, four paws and raised tail stay intact.",
-        "reviewedAt": "2026-10-15T05:29:20.830Z",
+        "finding": "All 13 clips, all six alternate phases, front/side enlarged whole-face and full body actually inspected. Muzzle, lips, teeth, tongue and jaw retain the authored shape during head motion. Scarf/neck transition, body joins, horns, paws and tail remain coherent. The former lower-face collapse is absent; preserve open-mouth sculpt rather than treating malformed skinning as jaw animation.",
+        "reviewedAt": "2026-10-15T22:45:33.528Z",
         "reviewer": "Codex visual inspection"
       },
       "secondPassBattle": {
-        "sha256": "e9acfec3a4ad2a9f4760e871235426b497f74ee129154f304b32e588fd9da1df",
+        "sha256": "65f31b06986faa35e2c3e3377d45154a9cacc022b6ba2d0e5cc99e07006443e4",
         "clips": [
           "idle",
           "idle_2",
@@ -27752,24 +27768,24 @@
           "side"
         ],
         "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/mythic-lod-second-head/mythic-4-head-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/mythic-lod-second-head/mythic-4-head-side.webp",
-          "shinobij.client/.tmp/pet-shape-review/mythic-lod-second-body/mythic-4-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/mythic-lod-second-body/mythic-4-side.webp"
+          "shinobij.client/.tmp/pet-shape-review/oni-v2-final-battle-head/mythic-4-head-front.webp",
+          "shinobij.client/.tmp/pet-shape-review/oni-v2-final-battle-head/mythic-4-head-side.webp",
+          "shinobij.client/.tmp/pet-shape-review/oni-v2-final-battle-body/mythic-4-front.webp",
+          "shinobij.client/.tmp/pet-shape-review/oni-v2-final-battle-body/mythic-4-side.webp"
         ],
         "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/mythic-lod-second-head/mythic-4-head-front.webp": "048e95eb8a767d4bffd9b0e825a67cdbed5a2998aa80a03cf5408d45e1c2488a",
-          "shinobij.client/.tmp/pet-shape-review/mythic-lod-second-head/mythic-4-head-side.webp": "c94e63994d31a902f9fa084cbd8e17eacb8ee923a72a4b5e3c925c2353cde095",
-          "shinobij.client/.tmp/pet-shape-review/mythic-lod-second-body/mythic-4-front.webp": "d90383fab8418620fd14915d727bace213350edf0d2ffbddb476e62ba7a36362",
-          "shinobij.client/.tmp/pet-shape-review/mythic-lod-second-body/mythic-4-side.webp": "17515f385db90cd673265b3b49eb770e92ec801fd993bf86177da2b66744442e"
+          "shinobij.client/.tmp/pet-shape-review/oni-v2-final-battle-head/mythic-4-head-front.webp": "51a8f02a11afea3ef656476aebcd140b0fe3545e609dea8282b29600c8183376",
+          "shinobij.client/.tmp/pet-shape-review/oni-v2-final-battle-head/mythic-4-head-side.webp": "98b03429dd27ca1e0328863ac3f43075a4c77b15693146503a0bec7b3c6cce34",
+          "shinobij.client/.tmp/pet-shape-review/oni-v2-final-battle-body/mythic-4-front.webp": "c67857e4f322a1a283c59144011b1640fa92fb405607f665c0f3d87e795618ad",
+          "shinobij.client/.tmp/pet-shape-review/oni-v2-final-battle-body/mythic-4-side.webp": "9eda6e931b6315c48360876aa034603ffd2951bf38d31ab7e74406e3e36ee395"
         },
-        "finding": "All 13 clips inspected at six alternate phases in front and side head and full-body views for this battle asset. Oni hound yellow eyes, open red mouth, muzzle and red horns retain their shapes through both idles, strike, recoil and turned death; scarf, four paws and raised tail stay intact.",
-        "reviewedAt": "2026-10-15T05:29:21.131Z",
+        "finding": "All 13 clips, all six alternate phases, front/side enlarged whole-face and full body actually inspected. Muzzle, lips, teeth, tongue and jaw retain the authored shape during head motion. Scarf/neck transition, body joins, horns, paws and tail remain coherent. The former lower-face collapse is absent; preserve open-mouth sculpt rather than treating malformed skinning as jaw animation.",
+        "reviewedAt": "2026-10-15T22:45:38.349Z",
         "reviewer": "Codex visual inspection"
       },
       "runtimeVisualPass": {
-        "sourceSha256": "6a030f2152ff5de290d157d5bb41e392634a3899ea9c1f8b91bae979bcd92f64",
-        "battleSha256": "e9acfec3a4ad2a9f4760e871235426b497f74ee129154f304b32e588fd9da1df",
+        "sourceSha256": "10fc738a32473fb682bbbcea70fdb66feef4aac9189366367a515b2167708aea",
+        "battleSha256": "65f31b06986faa35e2c3e3377d45154a9cacc022b6ba2d0e5cc99e07006443e4",
         "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
         "rows": [
           "idle",
@@ -27802,25 +27818,25 @@
           "side"
         ],
         "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/mythic-4-source-head.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/mythic-4-source-body.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/mythic-4-battle-head.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/mythic-4-battle-body.webp"
+          "shinobij.client/.tmp/pet-shape-review/oni-complete-face-v2-runtime/mythic-4-source-head.webp",
+          "shinobij.client/.tmp/pet-shape-review/oni-complete-face-v2-runtime/mythic-4-source-body.webp",
+          "shinobij.client/.tmp/pet-shape-review/oni-complete-face-v2-runtime/mythic-4-battle-head.webp",
+          "shinobij.client/.tmp/pet-shape-review/oni-complete-face-v2-runtime/mythic-4-battle-body.webp"
         ],
         "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/mythic-4-source-head.webp": "3267c4fa6ad9e90e367c5e8cddb4b2d710d9c33c5a8c11c5be33a80d42fdfa6a",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/mythic-4-source-body.webp": "d144349262196a283ee5f9be3e44bed2de5198868a5eac8e1cd0e6be1eff09b4",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/mythic-4-battle-head.webp": "c217577f480b74f46bcf7051a63c8b7eb5653abc98bfa9b68d0bf7654c2d71de",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/mythic-4-battle-body.webp": "d57a5fd61190644e119ca833190c5ecc0204f0d737e9ca1de90cde0f2b333572"
+          "shinobij.client/.tmp/pet-shape-review/oni-complete-face-v2-runtime/mythic-4-source-head.webp": "e489a8621f2d08c34f207e7f5f65c0ca191c8f1b1dbb5a4c72b919c9aa52b690",
+          "shinobij.client/.tmp/pet-shape-review/oni-complete-face-v2-runtime/mythic-4-source-body.webp": "6ea636cb5c8956754dca955a9666b8352e882bd12c3df0236d51868012fea3d9",
+          "shinobij.client/.tmp/pet-shape-review/oni-complete-face-v2-runtime/mythic-4-battle-head.webp": "8d10e82989ebffda0e2caf0ead2bc7871867e505ad58ff977bf77c8438767dd5",
+          "shinobij.client/.tmp/pet-shape-review/oni-complete-face-v2-runtime/mythic-4-battle-body.webp": "fe30403650ef30865bf966eb9b3ee4ec6796c7fa574606f4f0d0da429d388d9b"
         },
-        "finding": "All sixteen production rows inspected in both versions, front and side, head and body. Reviewed all sixteen runtime rows in both source and battle versions, with normal and brighter front and side head and body sheets. Oni Hound muzzle, lower jaw, teeth, yellow eyes, red horns, swept fur, blue bandanna, four clawed legs, red flank markings and tail remain stable throughout the sampled motions and transitions.",
+        "finding": "All 16 continuous production state/transition rows at six phases, front/side whole-face and full-body views, source and battle, actually inspected at low quality. Complete face and connected scarf/neck transition remain coherent during idle, locomotion, attack sequence, stagger, death and revive. Independently inspected 24 frames of the actual companion preview with its regenerated certified LOD; no collapse. Independent desktop/mobile production probes cover the muzzle and lower jaw that the former upper-skull probe missed.",
         "reviewer": "Codex visual inspection",
-        "reviewedAt": "2026-10-15T07:48:17.310Z"
+        "reviewedAt": "2026-10-15T22:45:38.583Z"
       },
       "finalReceipt": {
-        "sourceSha256": "6a030f2152ff5de290d157d5bb41e392634a3899ea9c1f8b91bae979bcd92f64",
-        "battleSha256": "e9acfec3a4ad2a9f4760e871235426b497f74ee129154f304b32e588fd9da1df",
-        "atlasSha256": "d4e84da0ab05d65e02a488ffd1593eaf375900d838978caa705d2927a695c092",
+        "sourceSha256": "10fc738a32473fb682bbbcea70fdb66feef4aac9189366367a515b2167708aea",
+        "battleSha256": "65f31b06986faa35e2c3e3377d45154a9cacc022b6ba2d0e5cc99e07006443e4",
+        "atlasSha256": "b1fc77ffc72c4250341c1eb1a5ee6df4f7ebd7a5c92e4910e95cf671283249fd",
         "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
         "evidence": [
           "docs/screenshots/pet-shape-2026-10-15/mythic-4-source-clips-head-1.webp",
@@ -27833,7 +27849,7 @@
           "docs/screenshots/pet-shape-2026-10-15/mythic-4-runtime-battle-body.webp",
           "docs/screenshots/pet-shape-2026-10-15/mythic-4-numeric-evidence.json"
         ],
-        "packagedAt": "2026-10-15T07:48:18.120Z"
+        "packagedAt": "2026-10-15T22:45:38.847Z"
       }
     },
     "mythic-5": {

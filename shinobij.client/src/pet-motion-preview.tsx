@@ -22,7 +22,8 @@ function Fighter({ pet, motion, paused, victorious, sequence }: {pet: typeof ini
         const production = petCombatModel(pet)!;
         return params.has('original') ? { ...production, url: `/.tmp/pet-performance-originals/${new URL(production.url, location.origin).pathname.slice('/pet-models/'.length)}` }
             : params.has('performance') ? { ...production, url: `/.tmp/pet-performance-candidates${new URL(production.url, location.origin).pathname}` }
-            : params.has('candidates') ? { ...production, url: `/.tmp/pet-skin-candidates/${new URL(production.url, location.origin).pathname.slice('/pet-models/'.length)}` } : production;
+            : params.has('candidates') ? { ...production, url: `/.tmp/pet-skin-candidates/${new URL(production.url, location.origin).pathname.slice('/pet-models/'.length)}` }
+            : params.has('battle') ? { ...production, url: production.url.replace('/pet-models/','/pet-models/warfront-lod/') } : production;
     }, [pet]);
     const frame = useRef({ ...DEFAULT_PET_MODEL_FRAME });
     const elapsed = useRef(0);
@@ -52,6 +53,7 @@ function Probe({ petId }: { petId: string }) {
         const bones: Record<string, number[]> = {};
         let skinned = 0, atlases = 0;
         let skullVertices = 0, maxSkullDrift = 0;
+        let muzzleVertices = 0, jawVertices = 0, maxMuzzleDrift = 0, maxJawDrift = 0;
         if (params.has('skullProbe')) scene.updateMatrixWorld(true);
         scene.traverse(object => {
             if (object instanceof THREE.Bone && !bones[object.name]) bones[object.name] = object.quaternion.toArray();
@@ -67,10 +69,18 @@ function Probe({ petId }: { petId: string }) {
                 const position = object.geometry.attributes.position;
                 const expected = new THREE.Vector3(), shown = new THREE.Vector3();
                 for (let v = 0; v < position.count; v++) {
-                    if (position.getY(v) < .16 || position.getZ(v) < .30) continue;
+                    const y=position.getY(v), z=position.getZ(v);
+                    const skull=y>=.16&&z>=.30;
+                    // Independent anatomical landmarks, not the repair mask.
+                    const muzzle=y>=.04&&y<=.15&&z>=.78;
+                    const jaw=y>=-.16&&y<=.025&&z>=.75;
+                    if (!skull&&!muzzle&&!jaw) continue;
                     expected.fromBufferAttribute(position, v).applyMatrix4(object.bindMatrix).applyMatrix4(object.skeleton.boneInverses[headIndex]);
                     object.getVertexPosition(v, shown).applyMatrix4(object.matrixWorld).applyMatrix4(inverse);
-                    maxSkullDrift = Math.max(maxSkullDrift, shown.distanceTo(expected)); skullVertices++;
+                    const drift=shown.distanceTo(expected);
+                    if(skull){maxSkullDrift=Math.max(maxSkullDrift,drift);skullVertices++;}
+                    if(muzzle){maxMuzzleDrift=Math.max(maxMuzzleDrift,drift);muzzleVertices++;}
+                    if(jaw){maxJawDrift=Math.max(maxJawDrift,drift);jawVertices++;}
                 }
             }
         });
@@ -83,6 +93,10 @@ function Probe({ petId }: { petId: string }) {
         if (params.has('skullProbe')) {
             gl.domElement.dataset.skullVertices = String(skullVertices);
             gl.domElement.dataset.maxSkullDrift = String(maxSkullDrift);
+            gl.domElement.dataset.muzzleVertices = String(muzzleVertices);
+            gl.domElement.dataset.jawVertices = String(jawVertices);
+            gl.domElement.dataset.maxMuzzleDrift = String(maxMuzzleDrift);
+            gl.domElement.dataset.maxJawDrift = String(maxJawDrift);
         }
     });
     return null;

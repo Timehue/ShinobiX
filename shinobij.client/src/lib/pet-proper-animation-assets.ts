@@ -39,7 +39,7 @@ const REPAIRED_RIG_REVISIONS: Readonly<Record<string, string>> = {
     'starter-wind-r': '20261015-reviewed-orthogonal-rig-v1',
     'starter-wind-l': '20261015-reviewed-contact-v1',
     ...PET_SKIN_REPAIR_REVISIONS,
-    'mythic-4': '20261014-oni-skull-v1',
+    'mythic-4': '20261015-oni-full-face-v2',
     'standard-0': '20261014-reviewed-skull-v1',
     'standard-1': '20261014-reviewed-skull-v1',
     'standard-2': '20261014-reviewed-skull-v1',

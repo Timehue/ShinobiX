@@ -1,0 +1,9 @@
+{
+  "sourceCommit": "74163467e931918b9de5af96e1ef0ffdfc4b28c6",
+  "originalPath": "public/pet-models/roster/mythic-4.glb",
+  "fixture": "mythic-4-v1.glb",
+  "sha256": "6a030f2152ff5de290d157d5bb41e392634a3899ea9c1f8b91bae979bcd92f64",
+  "preRepairFixture": "mythic-4-original.glb",
+  "preRepairSha256": "5c3736144f5b895c963cae5f79a19b2856f1c7fc7898d25d9b1a22190375bf98",
+  "purpose": "Actual released asset that passes the former upper-skull test while its muzzle and lower jaw deform during idle. Preserve independently of future repair masks."
+}
