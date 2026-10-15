@@ -2,10 +2,10 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { resolve, relative } from 'node:path';
-import { createHash } from 'node:crypto';
 import { Matrix4, Vector3, Quaternion } from 'three';
 import sharp from 'sharp';
 import { runtimePetModels } from './lib/pet-runtime-audit.mjs';
+import {assertPayloadPreservedOrReviewed} from './lib/pet-reviewed-payload.mjs';
 import { parseStudioGlb } from './lib/pet-studio-glb.mjs';
 import { CHARACTER_MOTION_REVISION, createCharacterRig, solveFoot, footTrajectory, readCharacterTake, sampleChannel } from './lib/pet-character-motion.mjs';
 const publicRoot = resolve(import.meta.dirname, '../public/pet-models');
@@ -50,9 +50,9 @@ test('every delivered full model and LOD carries the reviewed contact bank and b
     const paths = new Set(runtimePetModels.flatMap(row => [assetPath(row.path), resolve(assetRoot, 'warfront-lod', relative(publicRoot, row.path))]));
     assert.equal(paths.size, 320);
     for (const path of paths) {
-        const { json, bin } = parseStudioGlb(await readFile(path)), proof = json.extras.characterMotion;
+        const bytes=await readFile(path),{ json, bin } = parseStudioGlb(bytes), proof = json.extras.characterMotion;
         assert.equal(proof?.revision, CHARACTER_MOTION_REVISION, path);
-        assert.equal(createHash('sha256').update(bin.subarray(0, proof.preservedPayloadBytes)).digest('hex'), proof.preservedPayloadSha256, path);
+        assertPayloadPreservedOrReviewed(path,bytes,json,bin,proof);
         assert.ok(proof.maxDecodedError <= .00002, path);
         for (const clip of proof.clips) assert.ok(clip.maxContactErrorNormalized < .0001, `${path}/${clip.name}`);
         if (path.includes('warfront-lod')) for (const image of json.images) {
@@ -65,8 +65,11 @@ test('every delivered full model and LOD carries the reviewed contact bank and b
 
 test('production spline interpolation keeps planted feet grounded and cyclic poses seamless', async () => {
     const ids = new Set(['standard-0', 'standard-1', 'standard-5', 'standard-7', 'standard-13', 'starter-fire-l', 'starter-lightning-l', 'mythic-10']);
+    for(const row of runtimePetModels)if(row.pet.id.startsWith('starter-'))ids.add(row.pet.id);
     for (const row of runtimePetModels.filter(row => ids.has(row.pet.id))) {
         const { json, bin } = parseStudioGlb(await readFile(assetPath(row.path))), rig = createCharacterRig(json);
+        // The authored aquatic/amphibious bank intentionally has no planted gait.
+        if(['aquatic','serpentine','amphibious'].includes(json.extras.characterMotion.family))continue;
         const chain = rig.chains[0]; assert.ok(chain, row.pet.id);
         for (const clip of json.animations.filter(clip => ['idle', 'walk', 'gallop', 'guard', 'rest'].includes(clip.name))) {
             const take = await readCharacterTake(json, bin, clip);

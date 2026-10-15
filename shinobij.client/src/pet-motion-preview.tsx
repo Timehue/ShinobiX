@@ -51,12 +51,28 @@ function Probe({ petId }: { petId: string }) {
     useFrame(({ scene, gl }) => {
         const bones: Record<string, number[]> = {};
         let skinned = 0, atlases = 0;
+        let skullVertices = 0, maxSkullDrift = 0;
+        if (params.has('skullProbe')) scene.updateMatrixWorld(true);
         scene.traverse(object => {
             if (object instanceof THREE.Bone && !bones[object.name]) bones[object.name] = object.quaternion.toArray();
             if (!(object instanceof THREE.SkinnedMesh)) return;
             skinned++;
             const materials = Array.isArray(object.material) ? object.material : [object.material];
             for (const material of materials) if ((material as THREE.MeshStandardMaterial).map?.image) atlases++;
+            if (params.has('skullProbe') && petId === 'mythic-4') {
+                object.skeleton.update();
+                const headIndex = object.skeleton.bones.findIndex(b => b.name === 'head');
+                if (headIndex < 0) return;
+                const inverse = object.skeleton.bones[headIndex].matrixWorld.clone().invert();
+                const position = object.geometry.attributes.position;
+                const expected = new THREE.Vector3(), shown = new THREE.Vector3();
+                for (let v = 0; v < position.count; v++) {
+                    if (position.getY(v) < .16 || position.getZ(v) < .30) continue;
+                    expected.fromBufferAttribute(position, v).applyMatrix4(object.bindMatrix).applyMatrix4(object.skeleton.boneInverses[headIndex]);
+                    object.getVertexPosition(v, shown).applyMatrix4(object.matrixWorld).applyMatrix4(inverse);
+                    maxSkullDrift = Math.max(maxSkullDrift, shown.distanceTo(expected)); skullVertices++;
+                }
+            }
         });
         gl.domElement.dataset.bones = JSON.stringify(bones);
         gl.domElement.dataset.renderCalls = String(gl.info.render.calls);
@@ -64,6 +80,10 @@ function Probe({ petId }: { petId: string }) {
         gl.domElement.dataset.petReady = petId;
         gl.domElement.dataset.skinned = String(skinned);
         gl.domElement.dataset.atlases = String(atlases);
+        if (params.has('skullProbe')) {
+            gl.domElement.dataset.skullVertices = String(skullVertices);
+            gl.domElement.dataset.maxSkullDrift = String(maxSkullDrift);
+        }
     });
     return null;
 }

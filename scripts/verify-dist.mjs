@@ -85,11 +85,15 @@ const forbiddenClientExtensions = new Set([
 // 1.6 MiB of headroom.
 // 2026-10-15: all 404 faces now have individual painted art and 150 matching
 // two-view figures. The verified set is 142.59 MiB; 790 obsolete files removed
-// 89.98 MiB. Budget the intentional replacement separately: the rest of the
-// client is 449.35 MiB and keeps ~1.65 MiB headroom, rather than allowing this
-// art refresh to mask unrelated growth under a larger undifferentiated cap.
+// 89.98 MiB. Keep that intentional replacement in its own 144 MiB partition.
+// The prior non-Chronicle client measured 449.35 MiB against a 451 MiB ceiling.
+// The completed pet shape review grows certified GLB delivery by 5,745,888 B
+// while matching animated atlases shrink by 50,338 B. Credit only that fixed
+// 5,695,550 B increase; preserve the existing non-art headroom and JS/CSS gates.
+// The exact selected 480-file pet inventory and delivery hashes remain enforced.
 const maxChronicleArtBytes = 144 * 1024 * 1024;
-const maxOtherClientBytes = 451 * 1024 * 1024;
+const maxPetShapeReviewGrowthBytes = 5695550;
+const maxOtherClientBytes = 451 * 1024 * 1024 + maxPetShapeReviewGrowthBytes;
 const maxClientArtifactBytes = maxChronicleArtBytes + maxOtherClientBytes;
 const maxRallyAtlasBytes = 4 * 1024 * 1024;
 
@@ -276,7 +280,7 @@ const otherClientBytes = clientArtifactBytes - chronicleArtBytes;
 if (otherClientBytes > maxOtherClientBytes) {
     fail(`client excluding Chronicle art is ${(otherClientBytes / 1024 / 1024).toFixed(1)} MiB; ceiling is ${maxOtherClientBytes / 1024 / 1024} MiB`);
 }
-console.log(`[verify:dist] Chronicle art ${(chronicleArtBytes / 1024 / 1024).toFixed(1)} / 144 MiB; other runtime assets ${(otherClientBytes / 1024 / 1024).toFixed(1)} / 451 MiB.`);
+console.log(`[verify:dist] Chronicle art ${(chronicleArtBytes / 1024 / 1024).toFixed(1)} / 144 MiB; other runtime assets ${(otherClientBytes / 1024 / 1024).toFixed(1)} / ${(maxOtherClientBytes / 1024 / 1024).toFixed(1)} MiB.`);
 if (clientArtifactBytes > maxClientArtifactBytes) {
     fail(`client dist is ${(clientArtifactBytes / 1024 / 1024).toFixed(1)} MB; runtime artifact ceiling is ${maxClientArtifactBytes / 1024 / 1024} MB`);
 }
