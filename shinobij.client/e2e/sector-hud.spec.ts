@@ -81,7 +81,7 @@ for (const [width,height] of [[360,560],[412,800],[390,664]]) test(`mobile scrol
     await page.screenshot({path:testInfo.outputPath(`scroll-roster-${width}x${height}.png`)});
     await page.getByRole('button',{name:'Sector info',exact:true}).click();
     await expect(page.locator('.sector-hud-inline-info')).toBeVisible();
-    await expect(page.getByRole('dialog',{name:'Sector info',exact:true})).toHaveCount(0);
+    await expect(page.getByRole('dialog',{name:'Sector Info',exact:true})).toHaveCount(0);
     await page.locator('.sector-hud-inline-info').scrollIntoViewIfNeeded();
     expect((await page.locator('.sector-image-map').boundingBox())!.width).toBeCloseTo(initialWidth,0);
     await page.screenshot({path:testInfo.outputPath(`scroll-info-${width}x${height}.png`)});
@@ -167,7 +167,7 @@ test('mobile rotation preserves the Info surface, chat draft and current tile', 
     await expect(page.locator('.sector-hud-inline-info')).toBeVisible();
     await expectUncoveredControl(page,page.getByRole('button',{name:'Close Sector Info'}));
     await page.setViewportSize({width:1366,height:768});
-    const dialog = page.getByRole('dialog',{name:'Sector info',exact:true});
+    const dialog = page.getByRole('dialog',{name:'Sector Info',exact:true});
     await expect(dialog).toBeVisible();
     await expect(page.locator('.sector-hud-inline-info')).toHaveCount(0);
     await expectUncoveredControl(page,page.getByRole('button',{name:'Close Sector Info'}));
@@ -697,7 +697,7 @@ test('mobile inline information stays expanded when the player returns to the ma
     await infoTrigger(page).tap();
     await page.evaluate(()=>scrollTo(0,0));
     await expect(sectorInfo(page)).toBeVisible();
-    await expect(page.getByRole('dialog',{name:'Sector info',exact:true})).toHaveCount(0);
+    await expect(page.getByRole('dialog',{name:'Sector Info',exact:true})).toHaveCount(0);
     await page.getByRole('button',{name:'Close Sector Info'}).tap();
     await expect(sectorInfo(page)).toHaveCount(0);
 });
