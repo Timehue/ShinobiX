@@ -3,9 +3,22 @@ import { preparationTier, supportPoints } from './war-preparations.js';
 export const WAR_DAY_MS = 86_400_000;
 export const VILLAGE_CAMPAIGN_DURATION_MS = 5 * WAR_DAY_MS;
 export const SHRINE_ROOM_PRESENCE_TTL_MS = 20_000;
-export const SHRINE_WIN_LIMIT = 15;
-export const SHRINE_WIN_POINTS = 100;
-export const SHRINE_CONTROL_BONUS = 1000;
+export const SHRINE_WIN_LIMIT = 10;
+export const SHRINE_WIN_POINTS = 20;
+export const SHRINE_CONTROL_BONUS = 100;
+export type VillageCampaignVersion = 2 | 3;
+/** Persisted declaration version owns rewards, including delayed settlements. */
+export function shrineRules(c: { version: VillageCampaignVersion }) {
+    return c.version === 2 ? { winPoints: 100, controlBonus: 1000 }
+        : { winPoints: SHRINE_WIN_POINTS, controlBonus: SHRINE_CONTROL_BONUS };
+}
+export interface ShrineWindow { id: string; opensAt: number; closesAt: number }
+/** Elapsed milliseconds from scoring start, independent of calendar days and DST. */
+export function rotatingShrineWindows(startsAt: number): ShrineWindow[] {
+    return Array.from({ length: 5 }, (_, day) => ({ id: `shrine-${day}`,
+        opensAt: startsAt + (2 + 29 * day) * 3_600_000,
+        closesAt: startsAt + (4 + 29 * day) * 3_600_000 }));
+}
 export type WarBattleMode = 'combat' | 'pet' | 'card';
 export type WarOperation = 'supply' | 'sabotage' | 'espionage';
 export const WAR_MODES: readonly WarBattleMode[] = ['combat', 'pet', 'card'];
@@ -42,7 +55,7 @@ export interface CampaignUsage {
 }
 export interface VillageCampaign {
     espionageIntelBonuses?: Record<string, boolean>;
-    version: 2; startsAt: number; endsAt: number;
+    version: VillageCampaignVersion; startsAt: number; endsAt: number;
     shrine: CampaignObjective[]; strongholds: CampaignObjective[];
     intel: Record<string, number>; pvp: Record<string, number>; pve: Record<string, number>;
     usage: Record<string, CampaignUsage>;
@@ -54,7 +67,7 @@ export interface VillageCampaign {
 export interface CampaignView {
     supportTiers?: { watchtower: number; warAcademy: number };
     espionageBonusUsed?: boolean;
-    version: 2; startsAt: number; endsAt: number;
+    version: VillageCampaignVersion; startsAt: number; endsAt: number;
     scores: Record<string, { pvp: number; pve: number; rawPve: number; total: number }>;
     shrine: CampaignObjective[];
     strongholds: CampaignObjective[];
@@ -75,7 +88,7 @@ export function campaignView(c: VillageCampaign, villages: readonly string[], vi
     const revealed = WAR_INTEL_THRESHOLDS.filter(threshold => (c.intel[viewerVillage] ?? 0) >= threshold).length;
     const enemy = c.strongholds.filter(o => o.village !== viewerVillage);
     return {
-        version: 2, startsAt: c.startsAt, endsAt: c.endsAt,
+        version: c.version, startsAt: c.startsAt, endsAt: c.endsAt,
         scores: Object.fromEntries(villages.map(v => [v, campaignScore(c, v)])),
         shrine: c.shrine.map(({ controlParticipantMs: _private, ...objective }) => objective),
         strongholds: c.strongholds.filter(o => o.village === viewerVillage || enemy.indexOf(o) < revealed),
@@ -106,6 +119,8 @@ export function reserveCampaignOperation(c: VillageCampaign, village: string, pl
 export function scoreCampaignBattle(c: VillageCampaign, args: {
     receipt: string; village: string; player: string; at: number; createdAt: number;
     objectiveId?: string; operation?: WarOperation; pve?: boolean;
+    /** Server-sealed role rewards for a shrine fight; never accepted from a client. */
+    shrineVictory?: { enemyVillage: string; winPoints: number; lossPenalty: number };
     supportTiers?: { watchtower: number; warAcademy: number };
 }): number {
     if (c.receipts[args.receipt]) return c.receipts[args.receipt].points;
@@ -131,10 +146,19 @@ export function scoreCampaignBattle(c: VillageCampaign, args: {
             const previousIntel = c.intel[args.village] ?? 0;
             c.intel[args.village] = Math.min(WAR_INTEL_MAX, previousIntel + reward.intel + extraIntel);
             intel = c.intel[args.village] - previousIntel;
-        } else if (!args.objectiveId || (o && args.createdAt >= o.opensAt && args.at < o.closesAt && o.bouts < o.limit)) {
-            points = o ? (o.village ? 50 : SHRINE_WIN_POINTS) : 20;
+        } else if (!args.objectiveId || (o && args.createdAt >= o.opensAt && args.at < o.closesAt
+            && (o.bouts < o.limit || (c.version === 3 && !o.village)))) {
+            const normalShrineVictory = c.version === 3 && o && !o.village;
+            points = normalShrineVictory ? (args.shrineVictory?.winPoints ?? 5) : o ? (o.village ? 50 : shrineRules(c).winPoints) : 20;
+            if (normalShrineVictory) {
+                if (o.bouts < o.limit) points += shrineRules(c).winPoints;
+                const normal = args.shrineVictory;
+                if (normal && normal.enemyVillage !== args.village) {
+                    c.pvp[normal.enemyVillage] = Math.max(0, (c.pvp[normal.enemyVillage] ?? 0) - normal.lossPenalty);
+                }
+            }
             c.pvp[args.village] = (c.pvp[args.village] ?? 0) + points;
-            if (o) { o.bouts++; o.wins[args.village] = (o.wins[args.village] ?? 0) + 1; }
+            if (o && o.bouts < o.limit) { o.bouts++; o.wins[args.village] = (o.wins[args.village] ?? 0) + 1; }
         }
     }
     c.receipts[args.receipt] = { points, village: args.village, player: args.player, at: args.at, ...(intel ? { intel } : {}) };
@@ -149,7 +173,7 @@ export function advanceCampaign(c: VillageCampaign, now: number): void {
             if (now < o.closesAt || o.bonusSettled) continue;
             o.bonusSettled = true;
             const winner = shrineTimeLeader(o);
-            if (winner) { c.pvp[winner] = (c.pvp[winner] ?? 0) + SHRINE_CONTROL_BONUS; o.bonusWinner = winner; }
+            if (winner) { c.pvp[winner] = (c.pvp[winner] ?? 0) + shrineRules(c).controlBonus; o.bonusWinner = winner; }
             continue;
         }
         if (!o.bonusSettled && now < o.closesAt && o.bouts < o.limit) continue;

@@ -3,7 +3,7 @@ import { installUiAuditRuntime, expectUiAuditBoot, uiAuditSave } from './helpers
 import { expectViewportSafe } from './helpers/adaptive-assertions';
 import { sectorArtKey } from '../../shared/sector-geo';
 
-for (const scoredBouts of [0, 15]) test(`travelers enter, move and leave the golden shrine with ${scoredBouts} scored bouts; control stays open until closing`, async ({ page }, testInfo) => {
+for (const version of [2, 3] as const) for (const capped of [false, true]) test(`v${version}: travelers enter, move and leave the golden shrine with ${capped ? "capped" : "zero"} scored bouts; control stays open until closing`, async ({ page }, testInfo) => {
     test.setTimeout(90_000);
     const save = { ...uiAuditSave(), currentSector: 40 };
     const bucket = Math.floor(Date.now() / (6 * 3_600_000)), wandererCooldowns: Record<string, number> = {};
@@ -12,10 +12,11 @@ for (const scoredBouts of [0, 15]) test(`travelers enter, move and leave the gol
     const runtime = await installUiAuditRuntime(page, save);
     await page.addInitScript(() => localStorage.setItem('legacyRumors.seen.v1:auditninja', JSON.stringify([10, 20, 30, 40, 45])));
     const village = 'Stormveil Village', enemy = 'Moonshadow Village', warId = 'moonshadowvillage-vs-stormveilvillage';
-    const startsAt = Date.now() - 21 * 3_600_000, endsAt = startsAt + 5 * 86_400_000;
-    const objective = { id: 'shrine-0', sector: 40, mode: 'combat', opensAt: startsAt + 20 * 3_600_000,
-        closesAt: startsAt + 86_400_000, bouts: scoredBouts, limit: 15, wins: {}, controlTimeMs: { [village]: 120_000, [enemy]: 60_000 } };
-    const campaign = { version: 2, startsAt, endsAt, scores: { [village]: { pvp: 250, pve: 0, rawPve: 0, total: 250 },
+    const scoredBouts = capped ? (version === 2 ? 15 : 10) : 0;
+    const startsAt = Date.now() - (version === 2 ? 21 : 3) * 3_600_000, endsAt = startsAt + 5 * 86_400_000;
+    const objective = { id: 'shrine-0', sector: 40, mode: 'combat', opensAt: startsAt + (version === 2 ? 20 : 2) * 3_600_000,
+        closesAt: startsAt + (version === 2 ? 24 : 4) * 3_600_000, bouts: scoredBouts, limit: version === 2 ? 15 : 10, wins: {}, controlTimeMs: { [village]: 120_000, [enemy]: 60_000 } };
+    const campaign = { version, startsAt, endsAt, scores: { [village]: { pvp: 250, pve: 0, rawPve: 0, total: 250 },
         [enemy]: { pvp: 100, pve: 0, rawPve: 0, total: 100 } }, shrine: [objective], strongholds: [],
         hiddenStrongholds: 3, intel: 0, operationAllowance: { total: 0, categories: {}, players: {} } };
     let tile = 126, rivalInside = true, closedAt = 0;
@@ -24,7 +25,7 @@ for (const scoredBouts of [0, 15]) test(`travelers enter, move and leave the gol
     page.on('request', request => { if (request.url().endsWith('/api/player/world-move') && request.method() === 'POST') worldSteps++; });
     page.on('pageerror', error => errors.push(error.message));
     await page.route('**/api/world-state', route => route.fulfill({ json: { territories: [], standings: [], wars: [{
-        id: warId, villages: [village, enemy], startedAt: startsAt, updatedAt: startsAt, campaignVersion: 2,
+        id: warId, villages: [village, enemy], startedAt: startsAt, updatedAt: startsAt, campaignVersion: version,
         campaignEndsAt: endsAt, warGroundSector: 40, hp: { [village]: 5000, [enemy]: 5000 }, warPoints: { [village]: 250, [enemy]: 100 } }] } }));
     await page.route('**/api/village/war-campaign', route => {
         const body = route.request().postDataJSON();
@@ -90,9 +91,17 @@ for (const scoredBouts of [0, 15]) test(`travelers enter, move and leave the gol
     rivalInside = false;
     await expect(room.getByText('Your village controls the shrine and is adding uncontested time.', { exact: true })).toBeVisible({ timeout: 15_000 });
     closedAt = Date.now() - 1;
-    await expect(room.getByText(scoredBouts === 0 ? `${village} held the most uncontested time and earned 1,000 War Points.`
+    await expect(room.getByText(scoredBouts === 0 ? `${village} held the most uncontested time and earned ${version === 2 ? "1,000" : "100"} War Points.`
         : 'Uncontested time was tied or zero. No window bonus was awarded.', { exact: true })).toBeVisible({ timeout: 15_000 });
     await expect(room.getByText('This scoring window is complete.', { exact: true })).toBeVisible();
+    await room.getByText('Controls and scoring', { exact: true }).click();
+    if (version === 3) {
+        await expect(room.getByText(/These continue after the extra-point cap: Kage wins earn 30/)).toBeVisible();
+        await expect(room.getByText(/earn 20 extra War Points each/)).toBeVisible();
+    } else {
+        await expect(room.getByText(/These continue after the extra-point cap/)).toHaveCount(0);
+        await expect(room.getByText(/earn 100 War Points each/)).toBeVisible();
+    }
     await room.getByRole('button', { name: 'Leave shrine', exact: true }).click();
     await expect(room).toHaveCount(0);
     expect(actions.some(a => a.action === 'shrine-leave')).toBe(true);
