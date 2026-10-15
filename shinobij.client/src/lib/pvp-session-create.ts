@@ -75,7 +75,7 @@ export async function createPvpSessionWithRecovery(
     const requestTimeoutMs = Math.max(10, Math.min(15_000, Math.floor(options.requestTimeoutMs ?? 8_000)));
     let ambiguous = false;
     let conclusiveRejection = false;
-    let lastError = "Could not create the authoritative PvP battle.";
+    let lastError = "Could not start the PvP battle. Try again.";
 
     for (let attempt = 0; attempt < attempts; attempt += 1) {
         if (options.signal?.aborted || !isCurrent()) throw abortError();
@@ -125,7 +125,7 @@ export async function createPvpSessionWithRecovery(
             }
             lastError = typeof body?.error === "string" && body.error.trim()
                 ? body.error.trim()
-                : `PvP session create failed (HTTP ${response.status}).`;
+                : "The battle could not be started. Try again in a moment.";
             if (response.status === 409 || response.status >= 500) {
                 ambiguous = true;
                 continue;

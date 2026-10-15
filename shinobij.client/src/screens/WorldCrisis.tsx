@@ -111,7 +111,7 @@ export function WorldCrisis({ character, creatorItems, savedBloodlines, setScree
                     <h1 id="world-crisis-title">{WORLD_CRISIS_TITLE}</h1>
                     <p>The quartered seal issued one recall order through four old civic works. The wardens are not invading from another world. They are village machinery obeying a command that should have stayed buried.</p>
                 </div>
-                <button type="button" className="world-crisis__news" onClick={() => openWorldNews(setScreen)}>Watch World News</button>
+                <button type="button" className="world-crisis__news" onClick={() => openWorldNews(setScreen)}>Watch world news</button>
             </header>
 
             <div className="world-crisis__status" role="status" aria-live="polite">

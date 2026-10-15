@@ -32,11 +32,11 @@
     border-radius: 16px;
     color: var(--slate-200);
     background: linear-gradient(160deg, #0b1224 0%, #131e3a 55%, #0b1224 100%);
-    border: 2px solid rgba(250, 204, 21, 0.7);
+    border: 2px solid rgba(230, 196, 119, 0.7);
     box-shadow:
         0 24px 60px rgba(0, 0, 0, 0.65),
-        0 0 0 1px rgba(250, 204, 21, 0.18) inset,
-        0 0 34px rgba(250, 204, 21, 0.20);
+        0 0 0 1px rgba(230, 196, 119, 0.18) inset,
+        0 0 34px rgba(230, 196, 119, 0.20);
     animation: he-rise 200ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -77,9 +77,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(250, 204, 21, 0.08);
-    border: 2px solid rgba(250, 204, 21, 0.55);
-    box-shadow: 0 0 18px rgba(250, 204, 21, 0.20);
+    background: rgba(230, 196, 119, 0.08);
+    border: 2px solid rgba(230, 196, 119, 0.55);
+    box-shadow: 0 0 18px rgba(230, 196, 119, 0.20);
 }
 
 .he-portrait img {
@@ -134,7 +134,7 @@
 .he-contract {
     margin: 12px 0 0;
     padding-left: 12px;
-    border-left: 3px solid rgba(250, 204, 21, 0.4);
+    border-left: 3px solid rgba(230, 196, 119, 0.4);
     font-size: 0.86rem;
     line-height: 1.5;
     color: var(--text-dim);
@@ -197,8 +197,8 @@
 
 @media (hover: hover) {
     .he-choice:hover {
-        border-color: rgba(250, 204, 21, 0.7);
-        background: rgba(250, 204, 21, 0.08);
+        border-color: rgba(230, 196, 119, 0.7);
+        background: rgba(230, 196, 119, 0.08);
         transform: translateY(-1px);
     }
 }
@@ -259,7 +259,7 @@
 }
 
 @media (hover: hover) {
-    .he-back:hover { border-color: rgba(250, 204, 21, 0.6); color: var(--gold-300); }
+    .he-back:hover { border-color: rgba(230, 196, 119, 0.6); color: var(--gold-300); }
 }
 
 .he-back--wide {

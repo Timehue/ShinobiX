@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { GameArtIcon } from "./GameArtIcon";
+import { gameToast } from "./GameToast";
 import type { Character } from "../types/character";
 import { fetchBountyBoard, hasPendingBountyPlacement, placeBounty, type BountyEntry } from "../lib/pvp-bounty";
 import { bountyBackerLabel, formatBountyAge, formatReputationNumber, sortBountiesByAmount } from "../lib/reputation-profile";
@@ -49,7 +50,7 @@ export function BountyBoardPanel({
         updateCharacter({ ...character, ryo: res.balances?.ryo ?? character.ryo });
         if (res.bounties) setBounties(res.bounties);
         setBountyTarget("");
-        alert(`Bounty placed: ${bountyAmount.toLocaleString()} ryo on ${target}'s head.`);
+        gameToast(`Bounty placed: ${bountyAmount.toLocaleString()} ryo on ${target}'s head.`);
     }
 
     const me = character.name.toLowerCase();
@@ -88,13 +89,13 @@ export function BountyBoardPanel({
                 value={bountyAmount}
                 onChange={(e) => setBountyAmount(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
             />
-            <div className="menu"><button onClick={() => void submitBounty()} disabled={!canPlaceBounty} title={!canPlaceBounty ? "Jonin rank is required to place a bounty." : undefined}>Place Bounty</button></div>
+            <div className="menu"><button onClick={() => void submitBounty()} disabled={!canPlaceBounty} title={!canPlaceBounty ? "Jonin rank is required to place a bounty." : undefined}>Place bounty</button></div>
 
             <p className="hint" style={{ marginTop: 10 }}>
                 Active bounties — defeat the target in a duel to claim the pool.
             </p>
             {bounties === null ? (
-                <p className="hint">Checking the bounty ledger...</p>
+                <p className="hint">Checking the bounty ledger…</p>
             ) : bounties.length === 0 ? (
                 <p className="hint">No active bounties are posted.</p>
             ) : (

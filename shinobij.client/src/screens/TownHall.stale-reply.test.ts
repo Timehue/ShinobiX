@@ -49,7 +49,7 @@ test("Clan Hall finishes a settled action when its reply is refused as stale", (
     const claim = handler(clanHall, "claimClanMission");
     assert.match(claim, /setClaimedClanMissions\(\(prev\) => current \? result\.claimed : Array\.from\(new Set\(\[\.\.\.prev, \.\.\.result\.claimed\]\)\)\)/);
     assert.match(claim, /if \(current\) setClanData\(/);
-    assert.match(claim, /alert\(`Clan mission reward claimed!/);
+    assert.match(claim, /gameToast\(`Clan mission reward claimed\./);
     // Leaving clears the local clan whatever the commit returns.
     assert.match(handler(clanHall, "leaveClan"), /if \(left\.character\) onVersionedCharacter\([\s\S]*?setClanData\(null\);/);
 });

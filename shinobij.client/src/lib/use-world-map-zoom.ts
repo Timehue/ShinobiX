@@ -35,6 +35,7 @@ const TAP_SLOP_PX = 14;        // max finger travel that still counts as a tap
 // stretched away from its interactive coordinate system.
 const MOBILE_SHELL_QUERY = WORLD_MAP_MOBILE_QUERY;
 const WORLD_MAP_CONTROL_SELECTOR = "button, a, input, select, textarea, [role='button']";
+const COUNTER_SCALED_MARKERS = ".wm-scale-pin";
 
 /** Keep a 48px target above the minimum after transform rounding. Rounding the
  * inverse DOWN, or reusing it while zooming out, can shrink the target. Upward
@@ -163,9 +164,11 @@ export interface WorldMapZoomApi {
     /** True within the mobile shell unless opted out. When false the map
      *  renders exactly as the legacy path — this hook adds nothing. */
     active: boolean;
+    /** Presentation clocks can defer an atlas-wide refresh while fingers move. */
+    isGestureActive: () => boolean;
     /** Attach to the `.world-map-scroll` viewport element. */
     viewportRef: (el: HTMLDivElement | null) => void;
-    /** Attach to the map div itself. The pan/zoom transform is written straight
+    /** Attach to the `.wm-camera` wrapper. The pan/zoom transform is written straight
      *  onto this node (see `applyView`), never through React or a CSS variable. */
     contentRef: (el: HTMLDivElement | null) => void;
     /** Pointer handlers for the viewport (no-ops when inactive). Wheel zoom and
@@ -237,14 +240,29 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
     const [active, setActive] = useState<boolean>(() => isWorldMapZoomEnabled());
     const [selectedRegion, setSelectedRegion] = useState<WorldMapRegionId | null>(initialRegion);
     const regionRef = useRef<WorldMapRegionId | null>(initialRegion);
+    const regionRefreshPendingRef = useRef(false);
+    const elRef = useRef<HTMLDivElement | null>(null);
+    const pointers = useRef<Map<number, Pt>>(new Map());
+    const pinch = useRef<{ dist: number; mid: Pt } | null>(null);
+    const lastTap = useRef<TapMark | null>(null);
+    const moved = useRef(0);
+    const suppressClick = useRef(false);
+    // Compatibility mouse focus arrives after a touch pointer-up.
+    const mousePressed = useRef(false);
     const releaseRegion = useCallback(() => {
         if (regionRef.current === null) return;
         regionRef.current = null;
-        setSelectedRegion(null);
+        if (pointers.current.size) {
+            // Deselect the preset immediately without rendering WorldMap's
+            // entire controller on the first drag/pinch frame. React catches
+            // up once the gesture's last camera frame has painted.
+            regionRefreshPendingRef.current = true;
+            elRef.current?.closest(".world-atlas-frame")?.querySelectorAll('.wm-village-chip[aria-pressed="true"]')
+                .forEach((chip) => chip.setAttribute("aria-pressed", "false"));
+        } else setSelectedRegion(null);
     }, []);
 
     // Live refs so pointer handlers never read stale closure state.
-    const elRef = useRef<HTMLDivElement | null>(null);
     const contentElRef = useRef<HTMLDivElement | null>(null);
     const resizeCleanupRef = useRef<(() => void) | null>(null);
     const nativeListenerCleanupRef = useRef<(() => void) | null>(null);
@@ -267,11 +285,14 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
     // written straight to the DOM in `applyView`.
     const viewRef = useRef<MapView>({ zoom: MIN_ZOOM, tx: 0, ty: 0 });
     const activeRef = useRef(active);
-    // Last `--wm-marker-scale` actually written. See applyView for why this is
+    // Last native marker scale actually written. See applyView for why this is
     // tracked separately from the zoom.
     const appliedMarkerScaleRef = useRef(Number.NaN);
     const applyFrameRef = useRef(0);
     const markerMotionCleanupRef = useRef<(() => void) | null>(null);
+    const rasterReleaseFrameRef = useRef(0);
+    const markerElementsRef = useRef<HTMLElement[]>([]);
+    const markerObserverRef = useRef<MutationObserver | null>(null);
 
     // ── Writing the camera to the DOM ────────────────────────────────────────
     // `transform` is set DIRECTLY on the element and never through a CSS custom
@@ -283,11 +304,9 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
     // to out-specify a legacy `transform: none !important` mobile rule; that rule
     // is gone, so the inline style now wins on its own.)
     //
-    // `--wm-marker-scale` genuinely must be a variable — the pinned markers read
-    // it (see `.atlas-* { scale(var(--wm-marker-scale)) }`) — so it pays that
-    // same subtree-invalidation cost. Upward inverse-zoom buckets limit writes
-    // during a pinch and keep them off the pan path entirely: panning never
-    // changes zoom. The stored value is the exact value published to CSS.
+    // Pin wrappers use the native scale property. Updating an inherited marker variable
+    // here restyled every road, banner and decorative child on each pinch frame.
+    // A scale write only updates the pin itself; panning never changes its scale.
     //
     // Counter-scale pins by the inverse camera zoom. Their touch targets stay
     // the same screen size, while pinch zoom spreads crowded destinations apart.
@@ -299,19 +318,29 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
         const animated = animate && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
         const painted = animated ? new DOMMatrixReadOnly(getComputedStyle(el).transform) : null;
         markerMotionCleanupRef.current?.();
+        const markers = markerElementsRef.current;
         if (!activeRef.current) {
             el.style.transform = "";
             el.style.transition = "";
-            el.style.removeProperty("--wm-marker-scale");
+            el.removeAttribute("data-wm-compact-overview");
+            el.querySelector<HTMLElement>("[data-map-clearance-art]")?.style.removeProperty("--wm-marker-scale");
+            for (const marker of markers) marker.style.removeProperty("scale");
             appliedMarkerScaleRef.current = Number.NaN;
             return;
         }
         const v = viewRef.current;
         const writeMarkerScale = (zoom: number) => {
             const markerScale = worldMapMarkerScaleForZoom(zoom);
+            const compact = sizeRef.current.w * zoom < 600;
+            if (el.hasAttribute("data-wm-compact-overview") !== compact) {
+                el.toggleAttribute("data-wm-compact-overview", compact);
+            }
             if (markerScale !== appliedMarkerScaleRef.current) {
                 appliedMarkerScaleRef.current = markerScale;
-                el.style.setProperty("--wm-marker-scale", String(markerScale));
+                for (const marker of markers) marker.style.scale = String(markerScale);
+                // Only the tightly packed crest needs zoom-aware artwork sizing.
+                // Keep its variable on the image so roads and other pins never inherit it.
+                el.querySelector<HTMLElement>("[data-map-clearance-art]")?.style.setProperty("--wm-marker-scale", String(markerScale));
             }
         };
         let finishMotion: (() => void) | null = null;
@@ -323,17 +352,19 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
             writeMarkerScale(painted.a);
             // A method call survives property-read elimination in production
             // and flushes cancellation before the new transitions are armed.
-            el.getAnimations();
-            el.style.setProperty("--wm-marker-motion", `140ms ${worldMapMarkerTransitionEasing(painted.a, v.zoom)}`);
+            el.getAnimations({ subtree: true });
+            const motion = `140ms ${worldMapMarkerTransitionEasing(painted.a, v.zoom)}`;
+            for (const marker of markers) marker.style.setProperty("--wm-marker-motion", motion);
             const finish = () => {
                 if (markerMotionCleanupRef.current !== finish) return;
                 markerMotionCleanupRef.current = null;
-                el.style.removeProperty("--wm-marker-motion");
+                for (const marker of markers) marker.style.removeProperty("--wm-marker-motion");
             };
             markerMotionCleanupRef.current = finish;
             finishMotion = finish;
         }
-        el.style.transition = animated ? "transform 140ms ease-out" : "none";
+        const cameraTransition = animated ? "transform 140ms ease-out" : "none";
+        if (el.style.transition !== cameraTransition) el.style.transition = cameraTransition;
         el.style.transform = `translate(${v.tx}px, ${v.ty}px) scale(${v.zoom})`;
         writeMarkerScale(v.zoom);
         if (finishMotion) {
@@ -369,16 +400,51 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
 
     useEffect(() => () => {
         if (applyFrameRef.current) cancelAnimationFrame(applyFrameRef.current);
+        if (rasterReleaseFrameRef.current) cancelAnimationFrame(rasterReleaseFrameRef.current);
+        markerObserverRef.current?.disconnect();
         markerMotionCleanupRef.current?.();
     }, []);
 
-    // Attach point for the map div. Re-applies the current camera on (re)mount so
+    // Attach point for the camera wrapper. Re-applies its view on (re)mount so
     // a React remount never leaves the node without its transform.
     const contentRef = useCallback((el: HTMLDivElement | null) => {
         markerMotionCleanupRef.current?.();
+        markerObserverRef.current?.disconnect();
+        markerObserverRef.current = null;
+        contentElRef.current?.style.removeProperty("will-change");
         contentElRef.current = el;
+        markerElementsRef.current = el ? [...el.querySelectorAll<HTMLElement>(COUNTER_SCALED_MARKERS)] : [];
         appliedMarkerScaleRef.current = Number.NaN;
-        if (el) applyView(false);
+        if (!el) {
+            if (applyFrameRef.current) { cancelAnimationFrame(applyFrameRef.current); applyFrameRef.current = 0; }
+            if (rasterReleaseFrameRef.current) { cancelAnimationFrame(rasterReleaseFrameRef.current); rasterReleaseFrameRef.current = 0; }
+            pointers.current.clear();
+            pinch.current = null;
+            lastTap.current = null;
+            moved.current = 0;
+            suppressClick.current = false;
+            mousePressed.current = false;
+            if (regionRefreshPendingRef.current) {
+                regionRefreshPendingRef.current = false;
+                setSelectedRegion(regionRef.current);
+            }
+        }
+        if (el) {
+            applyView(false);
+            // Poll-driven ownership/quest markers can mount during a gesture.
+            // Initialize only those new nodes, leaving the camera in flight.
+            const observer = new MutationObserver(() => {
+                const previous = new Set(markerElementsRef.current);
+                const markers = [...el.querySelectorAll<HTMLElement>(COUNTER_SCALED_MARKERS)];
+                markerElementsRef.current = markers;
+                if (!activeRef.current) return;
+                for (const marker of markers) {
+                    if (!previous.has(marker)) marker.style.scale = String(worldMapMarkerScaleForZoom(viewRef.current.zoom));
+                }
+            });
+            observer.observe(el, { childList: true, subtree: true });
+            markerObserverRef.current = observer;
+        }
     }, [applyView]);
 
     // Entering zoom mode paints the camera; leaving it strips the inline transform
@@ -389,15 +455,25 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
         syncTouchGuardRef.current();
     }, [active, applyView]);
 
-    const pointers = useRef<Map<number, Pt>>(new Map());
-    const pinch = useRef<{ dist: number; mid: Pt } | null>(null);
-    const lastTap = useRef<TapMark | null>(null);
-    const moved = useRef(0);
-    const suppressClick = useRef(false);
-    // A mousedown in the map, real or a touch tap's compatibility event, whose
-    // mouseup has not arrived yet. See onFocusCapture.
-    const mousePressed = useRef(false);
-
+    const isGestureActive = useCallback(() => pointers.current.size > 0, []);
+    const releaseGestureRaster = useCallback(() => {
+        if (rasterReleaseFrameRef.current) cancelAnimationFrame(rasterReleaseFrameRef.current);
+        // Let the final queued camera write paint before dropping promotion.
+        // A permanent hint retained a blurry raster after phone rotation, so
+        // promotion is only kept while the player has a finger on the map.
+        rasterReleaseFrameRef.current = requestAnimationFrame(() => {
+            rasterReleaseFrameRef.current = requestAnimationFrame(() => {
+                rasterReleaseFrameRef.current = 0;
+                if (!pointers.current.size) {
+                    contentElRef.current?.style.removeProperty("will-change");
+                    if (regionRefreshPendingRef.current) {
+                        regionRefreshPendingRef.current = false;
+                        setSelectedRegion(regionRef.current);
+                    }
+                }
+            });
+        });
+    }, []);
     // ── Activation: track viewport width + the flag override ──────────────────
     useEffect(() => {
         if (typeof window === "undefined") return;
@@ -409,11 +485,15 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
             // clears the inline transform once React has caught up.
             if (!next) {
                 viewRef.current = { zoom: MIN_ZOOM, tx: 0, ty: 0 };
+                lastTap.current = null;
+                moved.current = 0;
+                suppressClick.current = false;
                 // End every gesture in flight too. endPointer ignores pointer-ups
                 // once zoom mode is off, and a press on a map control holds no
                 // viewport capture to lose, so its pointer would stay tracked and
                 // make later touches the second finger of a pinch, whose click
                 // the map swallows.
+                releaseGestureRaster();
                 pointers.current.clear();
                 pinch.current = null;
                 mousePressed.current = false;
@@ -429,7 +509,7 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
             mq?.removeEventListener?.("change", recompute);
             activationRef.current = () => undefined;
         };
-    }, []);
+    }, [releaseGestureRaster]);
 
     // Tag <html> so the CSS override (fit-to-screen + reset marker sizing) applies
     // only in zoom mode; the legacy fixed-canvas rules stay the fallback.
@@ -635,6 +715,11 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
 
     const onPointerDown = useCallback((e: React.PointerEvent) => {
         if (!activeRef.current) return;
+        if (rasterReleaseFrameRef.current) {
+            cancelAnimationFrame(rasterReleaseFrameRef.current);
+            rasterReleaseFrameRef.current = 0;
+        }
+        if (contentElRef.current) contentElRef.current.style.willChange = "transform";
         // Track a gesture even when it starts on a marker, but keep a clean
         // tap's native target. Capture it only once it becomes an actual drag.
         const onControl = isWorldMapControlTarget(e.target);
@@ -713,6 +798,7 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
         const p = localPt(e);
         pointers.current.delete(e.pointerId);
         if (pointers.current.size < 2) pinch.current = null;
+        if (!pointers.current.size) releaseGestureRaster();
 
         // Double-tap toggle (only a clean tap — little finger travel).
         if (moved.current <= TAP_SLOP_PX && !suppressClick.current && !isWorldMapControlTarget(e.target)) {
@@ -733,12 +819,13 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
             }
             lastTap.current = { t: now, x: p.x, y: p.y };
         }
-    }, [zoomAt, coverZoom, coverView, commitView, releaseRegion]);
+    }, [zoomAt, coverZoom, coverView, commitView, releaseRegion, releaseGestureRaster]);
 
     const cancelPointer = useCallback((e: React.PointerEvent) => {
         pointers.current.delete(e.pointerId);
         if (pointers.current.size < 2) pinch.current = null;
-    }, []);
+        if (!pointers.current.size) releaseGestureRaster();
+    }, [releaseGestureRaster]);
 
     const lostPointerCapture = useCallback((e: React.PointerEvent) => {
         // Touch starts with implicit capture on a marker. When a drag transfers
@@ -765,6 +852,7 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
             if (viewport && event.target instanceof Node && viewport.contains(event.target)) return;
             pointers.current.delete(event.pointerId);
             if (pointers.current.size < 2) pinch.current = null;
+            if (!pointers.current.size) releaseGestureRaster();
             // The press's mouseup lands outside the map too, so it cannot end
             // the press mark, and WebKit focuses nothing on a press, so no
             // focus consumes the mark either.
@@ -776,7 +864,7 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
             window.removeEventListener("pointerup", onWindowRelease, true);
             window.removeEventListener("pointercancel", onWindowRelease, true);
         };
-    }, [active]);
+    }, [active, releaseGestureRaster]);
 
     const onClickCapture = useCallback((e: React.MouseEvent) => {
         if (!activeRef.current || !suppressClick.current) return;
@@ -873,6 +961,7 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
 
     return {
         active,
+        isGestureActive,
         viewportRef,
         contentRef,
         viewportHandlers: {

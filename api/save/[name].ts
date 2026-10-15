@@ -31,6 +31,7 @@ import { legacyEnabled } from '../_legacy-track.js';
 import { clientRyoDecreaseAllowed } from '../_release-flags.js';
 import { parseBaseSaveVersion, saveVersionTelemetryKey, isVersionlessPlayerSave, matchesStoredSaveVersion, nextSaveVersion, storedSaveVersion } from './_save-version.js';
 import { recordHollowGateExternalCredits } from '../hollow-gate/_external-credits.js';
+import { keepStoredPvpRewardReceipts } from '../pvp/_reward-settlement.js';
 import { shouldWriteRegistry } from './_registry-throttle.js';
 import { assertAccountDeletionReady, AccountDeletionWaitError } from '../_account-deletion-wait.js';
 import { deletePlayerFirstPactState, detachPlayerReferences } from '../_delete-player-account.js';
@@ -1460,10 +1461,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (adminCharacter && typeof adminCharacter === 'object' && !Array.isArray(adminCharacter)) {
                         // Derive credits from the locked wallet delta; a stale editor
                         // snapshot must not replace the current run's provenance.
-                        (payload as Record<string, unknown>).character = recordHollowGateExternalCredits(
-                            ((existing as Record<string, unknown> | null)?.character ?? {}) as Record<string, unknown>,
+                        const storedCharacter = ((existing as Record<string, unknown> | null)?.character ?? {}) as Record<string, unknown>;
+                        // An older posted copy of the PvP receipt journal must not
+                        // drop battles settled since (keepStoredPvpRewardReceipts).
+                        (payload as Record<string, unknown>).character = keepStoredPvpRewardReceipts(recordHollowGateExternalCredits(
+                            storedCharacter,
                             adminCharacter as Record<string, unknown>,
-                        );
+                        ), storedCharacter);
                     }
                     // This path skips sanitizeCharacterSave entirely, so apply the
                     // admin-slot rule here too: personal forged gear is never shared

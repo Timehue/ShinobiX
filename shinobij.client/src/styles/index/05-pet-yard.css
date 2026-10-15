@@ -73,7 +73,7 @@
 
     .pet-slot-card.pet-selected {
         border-color: var(--gold-400);
-        background: rgba(250,204,21,.12);
+        background: rgba(230, 196, 119, .12);
     }
 
     .pet-slot-card.pet-active {
@@ -136,7 +136,7 @@
 }
 
 .rarity-legendary {
-    background: rgba(250,204,21,.2);
+    background: rgba(230, 196, 119, .2);
     color: var(--gold-400);
 }
 
@@ -229,7 +229,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 2px solid rgba(250,204,21,.4);
+    border: 2px solid rgba(230, 196, 119, .4);
 }
 
     .pet-detail-avatar img {
@@ -283,7 +283,7 @@
     display: grid;
     gap: 6px;
     padding: 8px 10px;
-    border: 1px solid rgba(250, 204, 21, 0.3);
+    border: 1px solid rgba(230, 196, 119, 0.3);
     border-radius: 10px;
     background: rgba(2, 6, 23, 0.48);
 }
@@ -318,7 +318,7 @@
         height: 100%;
         border-radius: inherit;
         background: linear-gradient(90deg, var(--danger), var(--gold) 50%, var(--success));
-        box-shadow: 0 0 12px rgba(250, 204, 21, 0.3);
+        box-shadow: 0 0 12px rgba(230, 196, 119, 0.3);
         transition: width 0.25s ease;
     }
 

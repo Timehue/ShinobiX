@@ -24,6 +24,9 @@ export type ServerArenaActor = {
     ownerSlug: string | null;
     ai: boolean;
     hp: number;
+    /** Server-sealed unlimited-health score attack. */
+    unlimitedHealth?: boolean;
+    damageReceived?: number;
     maxHp: number;
     chakra: number;
     maxChakra: number;

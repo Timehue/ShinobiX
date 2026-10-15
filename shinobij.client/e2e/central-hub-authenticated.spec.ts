@@ -137,14 +137,14 @@ async function installAuthenticatedApi(page: Page) {
 async function createAccount(page: Page) {
     await page.goto("/", { waitUntil: "networkidle" });
     await page.getByTestId("start-create").click();
-    await page.getByRole("button", { name: "Choose Village" }).click();
+    await page.getByRole("button", { name: "Choose village" }).click();
     await page.locator(".cc-village-card").first().click();
-    await page.getByRole("button", { name: "Choose Bloodline" }).click();
+    await page.getByRole("button", { name: "Choose bloodline" }).click();
     await page.locator(".cc-bloodline-card").first().click();
-    await page.getByRole("button", { name: "Choose Avatar" }).click();
+    await page.getByRole("button", { name: "Choose avatar" }).click();
     await page.locator(".cc-avatar-card").first().click();
     await page.getByRole("button", { name: "Preview Shinobi" }).click();
-    await page.getByRole("button", { name: "Name and Password" }).click();
+    await page.getByRole("button", { name: "Name and password" }).click();
     await page.getByLabel("Name").fill("AuditNinja");
     await page.locator("#cc-password").fill("Audit!Pass1234");
     await page.locator("#cc-confirm-password").fill("Audit!Pass1234");
@@ -191,7 +191,7 @@ test("authenticated player can open every Central Hub system", async ({ page }, 
         await expect(page.getByRole("heading", { name: destination.heading }).first()).toBeVisible();
         if (destination.tile === "Shinobi Outpost") {
             const rankUp = page.locator(".rank-up-btn");
-            await expect(rankUp).toContainText(/^Rank Up → /);
+            await expect(rankUp).toContainText(/^Rank up → /);
             await expect(rankUp).not.toContainText("?");
             await capture(page, testInfo, "hunter-guild-rank-up-desktop");
         }
@@ -207,7 +207,7 @@ test("authenticated player can open every Central Hub system", async ({ page }, 
             const roamingBossTab = tabs.getByRole("button", { name: /Roaming Boss/ });
             await expect(weeklyTab).toHaveAttribute("aria-pressed", "true");
             await roamingBossTab.click();
-            await expect(page.getByRole("heading", { name: "No active muster" })).toBeVisible();
+            await expect(page.getByRole("heading", { name: "No active World Boss event" })).toBeVisible();
             await expect(roamingBossTab).toHaveAttribute("aria-pressed", "true");
             await weeklyTab.click();
             await expect(page.getByRole("heading", { name: "Weekly Boss" }).first()).toBeVisible();
@@ -224,8 +224,8 @@ test("authenticated player can open every Central Hub system", async ({ page }, 
         if (name === "Awakening Stone") {
             const rerollButtons = dialog.locator(".aw-roll-row .aw-paid-btn");
             await expect(rerollButtons).toHaveCount(2);
-            await expect(dialog.getByRole("button", { name: /^Reroll Element 1 element/ })).toBeVisible();
-            await expect(dialog.getByRole("button", { name: /^Reroll Elements Both elements/ })).toBeVisible();
+            await expect(dialog.getByRole("button", { name: /^Reroll element 1 element/ })).toBeVisible();
+            await expect(dialog.getByRole("button", { name: /^Reroll elements Both elements/ })).toBeVisible();
             await capture(page, testInfo, "awakening-stone-premium-desktop");
             const forge = dialog.getByRole("heading", { name: /Bloodline Awakening/i });
             await forge.scrollIntoViewIfNeeded();
@@ -342,8 +342,8 @@ for (const contract of bloodlineAwakeningContracts) {
         await expect(page.locator(".bloodline-awakening-build-meter b")).toHaveText(`0.75 / ${contract.pointBudget}`);
         await expect(page.getByLabel("Jutsu target")).toHaveValue("OPPONENT");
         await expect(page.getByLabel("Jutsu method")).toHaveValue("SINGLE");
-        await expect(page.getByRole("button", { name: "40 AP Utility" })).toBeVisible();
-        await expect(page.getByRole("button", { name: "60 AP Damage" })).toBeVisible();
+        await expect(page.getByRole("button", { name: "40 AP utility" })).toBeVisible();
+        await expect(page.getByRole("button", { name: "60 AP damage" })).toBeVisible();
 
         await page.screenshot({
             path: testInfo.outputPath(`bloodline-awakening-${contract.rank.charAt(0).toLowerCase()}-builder.png`),
@@ -362,7 +362,7 @@ for (const contract of bloodlineAwakeningContracts) {
         await page.locator(".bloodline-wizard-step").filter({ hasText: "Details" }).click();
         await page.locator(".bloodline-wizard-panel > input").first().fill(`${contract.rank} Audit Legacy`);
         await page.locator(".bloodline-wizard-step").filter({ hasText: "Review" }).click();
-        const saveButton = page.getByRole("button", { name: "Awaken Bloodline" });
+        const saveButton = page.getByRole("button", { name: "Awaken bloodline" });
         await expect(saveButton).toBeEnabled();
         if (contract.rank === "B Rank") {
             api.failNextAwakeningSave();

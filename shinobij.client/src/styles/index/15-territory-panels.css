@@ -11,7 +11,7 @@ body .arena-fullscreen .hex-tile.jutsu-target-tile {
     background: rgba(245, 158, 11, 0.42) !important;
     box-shadow:
         inset 0 0 22px rgba(120, 53, 15, 0.78),
-        0 0 18px rgba(250, 204, 21, 0.85) !important;
+        0 0 18px rgba(230, 196, 119, 0.85) !important;
 }
 
 .jutsu-range-tile {

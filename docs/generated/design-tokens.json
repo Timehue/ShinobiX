@@ -2245,7 +2245,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 584
+            "line": 586
           }
         ]
       },
@@ -2316,11 +2316,11 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/mobile-noncombat-aaa.css",
-            "line": 983
+            "line": 973
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 1180
+            "line": 1182
           }
         ]
       },
@@ -2347,7 +2347,7 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1984
+            "line": 1986
           }
         ]
       },
@@ -2369,7 +2369,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/features/sunscar/rally-render.css",
-            "line": 81
+            "line": 113
           }
         ]
       },
@@ -2380,7 +2380,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/index/03-rails-daily-briefing.css",
-            "line": 358
+            "line": 356
           },
           {
             "source": "shinobij.client/src/styles/pet-chronicle-ceremony.css",
@@ -2395,7 +2395,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/mobile-noncombat-aaa.css",
-            "line": 991
+            "line": 981
           }
         ]
       },
@@ -2407,6 +2407,21 @@
           {
             "source": "shinobij.client/src/styles/pet-warfront-rite.css",
             "line": 1351
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "height",
+        "valuePx": 420,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/features/sunscar/rally-render.css",
+            "line": 31
+          },
+          {
+            "source": "shinobij.client/src/styles/training-skin.css",
+            "line": 327
           }
         ]
       },
@@ -2448,7 +2463,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/03-rails-daily-briefing.css",
-            "line": 351
+            "line": 349
           },
           {
             "source": "shinobij.client/src/styles/index/39-civic-facilities.css",
@@ -2475,7 +2490,7 @@
           },
           {
             "source": "shinobij.client/src/styles/hub-screens-skin.css",
-            "line": 1544
+            "line": 1550
           },
           {
             "source": "shinobij.client/src/styles/pet-techniques.css",
@@ -2535,7 +2550,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 3307
+            "line": 3317
           }
         ]
       },
@@ -2550,7 +2565,7 @@
           },
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
-            "line": 7053
+            "line": 7059
           }
         ]
       },
@@ -2573,7 +2588,7 @@
           },
           {
             "source": "shinobij.client/src/styles/world-map-mobile.css",
-            "line": 68
+            "line": 74
           }
         ]
       },
@@ -2620,11 +2635,11 @@
           },
           {
             "source": "shinobij.client/src/styles/central-skin.css",
-            "line": 834
+            "line": 844
           },
           {
             "source": "shinobij.client/src/styles/central-skin.css",
-            "line": 2829
+            "line": 2883
           },
           {
             "source": "shinobij.client/src/styles/index/14-menu-panels-bloodline-vn.css",
@@ -2648,11 +2663,11 @@
           },
           {
             "source": "shinobij.client/src/styles/pet-skin.css",
-            "line": 1114
+            "line": 1118
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 1954
+            "line": 1956
           },
           {
             "source": "shinobij.client/src/styles/sunscar-exchange.css",
@@ -2672,7 +2687,7 @@
           },
           {
             "source": "shinobij.client/src/styles/training-skin.css",
-            "line": 363
+            "line": 410
           }
         ]
       },
@@ -2746,7 +2761,7 @@
           },
           {
             "source": "shinobij.client/src/features/sunscar/rally-render.css",
-            "line": 58
+            "line": 90
           },
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
@@ -2758,19 +2773,19 @@
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 5471
+            "line": 5479
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 5994
+            "line": 6002
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 6200
+            "line": 6208
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 6228
+            "line": 6236
           },
           {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",
@@ -2856,7 +2871,7 @@
           },
           {
             "source": "shinobij.client/src/styles/training-skin.css",
-            "line": 274
+            "line": 313
           }
         ]
       },
@@ -2875,7 +2890,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/14-menu-panels-bloodline-vn.css",
-            "line": 1576
+            "line": 1561
           },
           {
             "source": "shinobij.client/src/styles/index/18-mobile-safe-adaptive.css",
@@ -2899,7 +2914,7 @@
           },
           {
             "source": "shinobij.client/src/styles/mobile-noncombat-aaa.css",
-            "line": 1030
+            "line": 1020
           },
           {
             "source": "shinobij.client/src/styles/pet-arena-lobby.css",
@@ -2907,7 +2922,7 @@
           },
           {
             "source": "shinobij.client/src/styles/pet-home.css",
-            "line": 382
+            "line": 386
           },
           {
             "source": "shinobij.client/src/styles/pet-yard-refined.css",
@@ -2915,7 +2930,7 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1881
+            "line": 1883
           }
         ]
       },
@@ -2978,11 +2993,11 @@
           },
           {
             "source": "shinobij.client/src/screens/PetShowdown.css",
-            "line": 1902
+            "line": 1904
           },
           {
             "source": "shinobij.client/src/styles/index/03-rails-daily-briefing.css",
-            "line": 415
+            "line": 413
           },
           {
             "source": "shinobij.client/src/styles/index/36-clan-boss-operation.css",
@@ -3040,7 +3055,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/screens/EchoesOfWar.css",
-            "line": 1031
+            "line": 1033
           },
           {
             "source": "shinobij.client/src/screens/PetLadder.css",
@@ -3064,7 +3079,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/03-rails-daily-briefing.css",
-            "line": 312
+            "line": 310
           },
           {
             "source": "shinobij.client/src/styles/index/06-combat-core.css",
@@ -3116,7 +3131,7 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 2090
+            "line": 2092
           },
           {
             "source": "shinobij.client/src/styles/sunscar-modes.css",
@@ -3128,11 +3143,11 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 812
+            "line": 814
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1089
+            "line": 1091
           },
           {
             "source": "shinobij.client/src/styles/world-boss-tabs.css",
@@ -3241,19 +3256,19 @@
           },
           {
             "source": "shinobij.client/src/styles/central-skin.css",
-            "line": 1473
+            "line": 1525
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 2745
+            "line": 2753
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 6220
+            "line": 6228
           },
           {
             "source": "shinobij.client/src/styles/index/11-sector-explore-village-themes.css",
-            "line": 800
+            "line": 714
           },
           {
             "source": "shinobij.client/src/styles/index/15-world-map-territory.css",
@@ -3285,7 +3300,7 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 655
+            "line": 657
           },
           {
             "source": "shinobij.client/src/styles/sunscar-hub.css",
@@ -3308,7 +3323,7 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1965
+            "line": 1967
           }
         ]
       },
@@ -3330,11 +3345,11 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/index/03-rails-daily-briefing.css",
-            "line": 372
+            "line": 370
           },
           {
             "source": "shinobij.client/src/styles/ui.css",
-            "line": 185
+            "line": 192
           }
         ]
       },
@@ -3389,7 +3404,7 @@
           },
           {
             "source": "shinobij.client/src/styles/central-skin.css",
-            "line": 903
+            "line": 955
           },
           {
             "source": "shinobij.client/src/styles/index/14-menu-panels-bloodline-vn.css",
@@ -3397,7 +3412,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/14-menu-panels-bloodline-vn.css",
-            "line": 1434
+            "line": 1419
           },
           {
             "source": "shinobij.client/src/styles/index/29-clan-exchange-storefront.css",
@@ -3413,23 +3428,23 @@
           },
           {
             "source": "shinobij.client/src/styles/pet-home.css",
-            "line": 331
+            "line": 335
           },
           {
             "source": "shinobij.client/src/styles/pet-home.css",
-            "line": 510
+            "line": 514
           },
           {
             "source": "shinobij.client/src/styles/pet-home.css",
-            "line": 580
+            "line": 584
           },
           {
             "source": "shinobij.client/src/styles/pet-skin.css",
-            "line": 856
+            "line": 860
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1827
+            "line": 1829
           }
         ]
       },
@@ -3503,7 +3518,7 @@
           },
           {
             "source": "shinobij.client/src/styles/town-hall-aaa.css",
-            "line": 692
+            "line": 696
           }
         ]
       },
@@ -3544,7 +3559,7 @@
           },
           {
             "source": "shinobij.client/src/features/sunscar/rally-render.css",
-            "line": 55
+            "line": 87
           },
           {
             "source": "shinobij.client/src/styles/caravan-run.css",
@@ -3630,7 +3645,7 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 3252
+            "line": 3262
           },
           {
             "source": "shinobij.client/src/styles/story-archive-guidance.css",
@@ -3707,7 +3722,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
-            "line": 6303
+            "line": 6309
           },
           {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",
@@ -3734,7 +3749,7 @@
           },
           {
             "source": "shinobij.client/src/screens/EchoesOfWar.css",
-            "line": 874
+            "line": 876
           },
           {
             "source": "shinobij.client/src/styles/clan-overview.css",
@@ -3742,19 +3757,19 @@
           },
           {
             "source": "shinobij.client/src/styles/hub-screens-skin.css",
-            "line": 1127
+            "line": 1133
           },
           {
             "source": "shinobij.client/src/styles/pet-home.css",
-            "line": 326
+            "line": 330
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 1144
+            "line": 1146
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 1764
+            "line": 1766
           },
           {
             "source": "shinobij.client/src/styles/world-boss-event.css",
@@ -3797,7 +3812,7 @@
           },
           {
             "source": "shinobij.client/src/styles/pet-skin.css",
-            "line": 627
+            "line": 629
           },
           {
             "source": "shinobij.client/src/styles/pet-warfront-rite.css",
@@ -3839,7 +3854,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/screens/PetShowdown.css",
-            "line": 1902
+            "line": 1904
           }
         ]
       },
@@ -3861,7 +3876,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 2251
+            "line": 2256
           }
         ]
       },
@@ -3904,31 +3919,31 @@
           },
           {
             "source": "shinobij.client/src/styles/central-skin.css",
-            "line": 1867
+            "line": 1921
           },
           {
             "source": "shinobij.client/src/styles/central-skin.css",
-            "line": 2793
+            "line": 2847
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 2504
+            "line": 2509
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 2714
+            "line": 2722
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 3923
+            "line": 3931
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 5042
+            "line": 5050
           },
           {
             "source": "shinobij.client/src/styles/index/01-base-app-chrome.css",
-            "line": 593
+            "line": 595
           },
           {
             "source": "shinobij.client/src/styles/index/06-combat-core.css",
@@ -3936,11 +3951,11 @@
           },
           {
             "source": "shinobij.client/src/styles/index/08-polish-nav-passes.css",
-            "line": 522
+            "line": 523
           },
           {
             "source": "shinobij.client/src/styles/index/33-hollow-gate-cinematic.css",
-            "line": 221
+            "line": 222
           },
           {
             "source": "shinobij.client/src/styles/index/34-hollow-gate-combat-director.css",
@@ -3982,15 +3997,15 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 4155
+            "line": 4163
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 4294
+            "line": 4302
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 5994
+            "line": 6002
           }
         ]
       },
@@ -4049,7 +4064,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1965
+            "line": 1967
           }
         ]
       },
@@ -4088,7 +4103,7 @@
           },
           {
             "source": "shinobij.client/src/styles/central-skin.css",
-            "line": 794
+            "line": 804
           },
           {
             "source": "shinobij.client/src/styles/cinematic-vn.css",
@@ -4112,19 +4127,19 @@
           },
           {
             "source": "shinobij.client/src/styles/index/08-polish-nav-passes.css",
-            "line": 264
+            "line": 265
           },
           {
             "source": "shinobij.client/src/styles/index/11-sector-explore-village-themes.css",
-            "line": 345
+            "line": 346
           },
           {
             "source": "shinobij.client/src/styles/index/17-shop-inventory-loadout.css",
-            "line": 173
+            "line": 182
           },
           {
             "source": "shinobij.client/src/styles/index/17-shop-inventory-loadout.css",
-            "line": 278
+            "line": 287
           },
           {
             "source": "shinobij.client/src/styles/index/18-mobile-safe-adaptive.css",
@@ -4176,7 +4191,7 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 1194
+            "line": 1196
           },
           {
             "source": "shinobij.client/src/styles/start-skin.css",
@@ -4184,27 +4199,27 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 786
+            "line": 788
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1034
+            "line": 1036
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1244
+            "line": 1246
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1390
+            "line": 1392
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 2008
+            "line": 2010
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 2063
+            "line": 2065
           },
           {
             "source": "shinobij.client/src/styles/village-war-map-skin.css",
@@ -4266,7 +4281,7 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1520
+            "line": 1522
           }
         ]
       },
@@ -4277,7 +4292,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1773
+            "line": 1775
           }
         ]
       },
@@ -4338,7 +4353,7 @@
           },
           {
             "source": "shinobij.client/src/styles/pet-skin.css",
-            "line": 871
+            "line": 875
           },
           {
             "source": "shinobij.client/src/styles/pet-warfront-rite.css",
@@ -4346,7 +4361,7 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 3229
+            "line": 3239
           }
         ]
       },
@@ -4368,7 +4383,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 2371
+            "line": 2376
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
@@ -4407,19 +4422,19 @@
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 4294
+            "line": 4302
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 5471
+            "line": 5479
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 6200
+            "line": 6208
           },
           {
             "source": "shinobij.client/src/styles/index/02-world-map.css",
-            "line": 698
+            "line": 697
           },
           {
             "source": "shinobij.client/src/styles/index/10-layout-lock-herald.css",
@@ -4447,11 +4462,11 @@
           },
           {
             "source": "shinobij.client/src/styles/pet-home.css",
-            "line": 309
+            "line": 313
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 735
+            "line": 737
           },
           {
             "source": "shinobij.client/src/styles/sunscar-caravan.css",
@@ -4459,11 +4474,11 @@
           },
           {
             "source": "shinobij.client/src/styles/training-skin.css",
-            "line": 317
+            "line": 364
           },
           {
             "source": "shinobij.client/src/styles/village-transfer.css",
-            "line": 27
+            "line": 28
           }
         ]
       },
@@ -4497,7 +4512,7 @@
           },
           {
             "source": "shinobij.client/src/styles/town-hall-aaa.css",
-            "line": 646
+            "line": 650
           }
         ]
       },
@@ -4508,11 +4523,11 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 5471
+            "line": 5479
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 5994
+            "line": 6002
           }
         ]
       },
@@ -4547,7 +4562,7 @@
           },
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
-            "line": 7156
+            "line": 7162
           },
           {
             "source": "shinobij.client/src/styles/combat-grid-appearance.css",
@@ -4631,11 +4646,11 @@
           },
           {
             "source": "shinobij.client/src/styles/mobile-noncombat-aaa.css",
-            "line": 1001
+            "line": 991
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 979
+            "line": 981
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
@@ -4707,19 +4722,19 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 776
+            "line": 778
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1229
+            "line": 1231
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1945
+            "line": 1947
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1965
+            "line": 1967
           },
           {
             "source": "shinobij.client/src/styles/world-map-mobile.css",
@@ -4742,7 +4757,7 @@
           },
           {
             "source": "shinobij.client/src/styles/central-skin.css",
-            "line": 775
+            "line": 785
           },
           {
             "source": "shinobij.client/src/styles/index/22-pet-battle-sprites.css",
@@ -4805,23 +4820,23 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 913
+            "line": 915
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1019
+            "line": 1021
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1510
+            "line": 1512
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1773
+            "line": 1775
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 2107
+            "line": 2109
           }
         ]
       },
@@ -4937,51 +4952,51 @@
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 4560
+            "line": 4568
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 4609
+            "line": 4617
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 4639
+            "line": 4647
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 4681
+            "line": 4689
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 4782
+            "line": 4790
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 4819
+            "line": 4827
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 4849
+            "line": 4857
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 4899
+            "line": 4907
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 4936
+            "line": 4944
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 5047
+            "line": 5055
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 5097
+            "line": 5105
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 5303
+            "line": 5311
           },
           {
             "source": "shinobij.client/src/styles/index/24-combat-mobile-restore.css",
@@ -5024,7 +5039,7 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 3215
+            "line": 3225
           }
         ]
       },
@@ -5054,7 +5069,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/hub-screens-skin.css",
-            "line": 1123
+            "line": 1129
           },
           {
             "source": "shinobij.client/src/styles/jutsu-training-skin.css",
@@ -5069,7 +5084,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 2219
+            "line": 2224
           },
           {
             "source": "shinobij.client/src/styles/index/06-combat-core.css",
@@ -5089,11 +5104,11 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1013
+            "line": 1015
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1019
+            "line": 1021
           }
         ]
       },
@@ -5104,11 +5119,11 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 2251
+            "line": 2256
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
-            "line": 2371
+            "line": 2376
           }
         ]
       },
@@ -5119,7 +5134,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/town-hall-aaa.css",
-            "line": 624
+            "line": 628
           }
         ]
       },
@@ -5130,7 +5145,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/index/08-polish-nav-passes.css",
-            "line": 529
+            "line": 530
           }
         ]
       },
@@ -5160,7 +5175,7 @@
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
-            "line": 1134
+            "line": 1136
           }
         ]
       },
@@ -5205,7 +5220,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
-            "line": 6303
+            "line": 6309
           },
           {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",
@@ -5243,11 +5258,11 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1383
+            "line": 1385
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 2002
+            "line": 2004
           }
         ]
       },

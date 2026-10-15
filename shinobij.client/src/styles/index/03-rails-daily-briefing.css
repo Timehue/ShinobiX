@@ -60,7 +60,7 @@
 
 .notif-chip.tone-danger { background: linear-gradient(180deg, rgba(220, 38, 38, 0.92), rgba(153, 27, 27, 0.92)); border-color: rgba(248, 113, 113, 0.6); }
 .notif-chip.tone-war    { background: linear-gradient(180deg, rgba(190, 18, 60, 0.92), rgba(136, 19, 55, 0.92)); border-color: rgba(251, 113, 133, 0.55); }
-.notif-chip.tone-event  { background: linear-gradient(180deg, rgba(217, 119, 6, 0.92), rgba(146, 64, 14, 0.92)); border-color: rgba(251, 191, 36, 0.55); }
+.notif-chip.tone-event  { background: linear-gradient(180deg, rgba(217, 119, 6, 0.92), rgba(146, 64, 14, 0.92)); border-color: rgba(230, 196, 119, 0.55); }
 .notif-chip.tone-info   { background: linear-gradient(180deg, rgba(30, 64, 175, 0.92), rgba(30, 58, 138, 0.92)); border-color: rgba(96, 165, 250, 0.55); }
 
 /* Collapsed right rail (74px): icon-only, centred chips. */
@@ -136,8 +136,8 @@
     min-height: 0;
     /* Header and footer are pinned (see below); the body is the scroll area. */
     overflow: hidden;
-    border-radius: 16px;
-    border: 1px solid rgba(250, 204, 21, 0.35);
+    border-radius: var(--r-md);
+    border: 1px solid rgba(230, 196, 119, 0.35);
     color: #e5e7eb;
     /* The atmospheric, TEXTLESS background art is set inline on the element
        (an imported, Vite-hashed asset) layered under a vertical scrim that is
@@ -148,7 +148,7 @@
     background-size: cover;
     background-position: center top;
     background-repeat: no-repeat;
-    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.7);
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.28);
     animation: db-rise 0.2s ease-out;
 }
 @keyframes db-rise { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
@@ -216,39 +216,37 @@
     gap: 12px;
     flex-wrap: wrap;
     padding: 12px 14px;
-    border-radius: 12px;
-    border: 1px solid rgba(250, 204, 21, 0.45);
+    border-radius: var(--r-sm);
+    border: 1px solid rgba(230, 196, 119, 0.45);
     background: linear-gradient(135deg, rgba(120, 53, 15, 0.6), rgba(2, 6, 15, 0.55));
 }
 .db-reward-main { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .db-reward-amt { font-size: 1.15rem; font-weight: 800; color: var(--gold-400); text-shadow: 0 1px 4px #000; }
-.db-reward-shards { font-size: 0.95rem; font-weight: 800; color: #ce93d8; }
+.db-reward-shards { font-size: 0.95rem; font-weight: 800; color: color-mix(in srgb, var(--rarity-epic) 62%, var(--sj-text-primary)); }
 .db-reward-sub { font-size: 0.82rem; color: var(--slate-200); }
 .db-claim-btn {
     padding: 9px 18px;
-    border-radius: 9px;
-    border: 1px solid rgba(252, 211, 77, 0.7);
-    background: linear-gradient(180deg, #fbbf24, #d97706);
-    color: #1a1207;
+    border-radius: var(--r-xs);
+    border: 1px solid var(--sj-gold-bright);
+    background: linear-gradient(180deg, var(--sj-gold-bright), var(--sj-gold));
+    color: var(--sj-void);
     font-size: 1rem;
     font-weight: 800;
     cursor: pointer;
-    box-shadow: 0 2px 10px rgba(217, 119, 6, 0.45);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--sj-gold-bright) 55%, transparent);
     transition: filter 0.12s ease, transform 0.08s ease;
-    animation: db-claim-pulse 1.8s ease-in-out infinite;
 }
 @media (hover: hover) {
     .db-claim-btn:hover { filter: brightness(1.08); }
 }
 .db-claim-btn:active { transform: translateY(1px); }
-.db-claim-btn:disabled { filter: grayscale(0.3) brightness(0.9); cursor: default; animation: none; }
-@keyframes db-claim-pulse { 0%, 100% { box-shadow: 0 2px 10px rgba(217, 119, 6, 0.45); } 50% { box-shadow: 0 2px 18px rgba(252, 211, 77, 0.75); } }
+.db-claim-btn:disabled { filter: grayscale(0.3) brightness(0.9); cursor: default; box-shadow: none; }
 .db-streak { display: flex; flex-direction: column; align-items: flex-end; text-align: right; }
 .db-streak-flame { font-size: 0.95rem; font-weight: 800; color: #fb923c; }
 .db-streak-next { font-size: 0.72rem; color: var(--slate-300); }
 
 /* Sections */
-.db-section { min-width: 0; background: rgba(2, 6, 15, 0.55); border: 1px solid rgba(148, 163, 184, 0.18); border-radius: 12px; padding: 12px 14px; }
+.db-section { min-width: 0; background: rgba(2, 6, 15, 0.55); border: 1px solid rgba(148, 163, 184, 0.18); border-radius: var(--r-sm); padding: 12px 14px; }
 .db-section > h3 {
     margin: 0 0 10px;
     font-size: 0.72rem;
@@ -270,7 +268,7 @@
     min-width: 0;
     text-align: left;
     padding: 8px 10px;
-    border-radius: 9px;
+    border-radius: var(--r-sm);
     border: 1px solid rgba(148, 163, 184, 0.2);
     background: rgba(2, 6, 15, 0.5);
     color: #e5e7eb;
@@ -297,8 +295,8 @@
 .db-dismiss {
     width: 100%;
     padding: 11px;
-    border-radius: 10px;
-    border: 1px solid rgba(250, 204, 21, 0.4);
+    border-radius: var(--r-sm);
+    border: 1px solid rgba(230, 196, 119, 0.4);
     background: linear-gradient(180deg, var(--gold-2), #b45309);
     color: #1a1207;
     font-weight: 800;
@@ -310,7 +308,7 @@
 }
 
 @media (max-width: 560px) {
-    .daily-briefing-card { border-radius: 14px; }
+    .daily-briefing-card { border-radius: var(--r-md); }
     .daily-briefing-body {
         padding: 0 10px 4px;
         gap: 12px;
@@ -318,7 +316,7 @@
     .daily-briefing-header { padding: 16px 14px 10px; }
     .daily-briefing-footer { padding: 10px 12px calc(12px + env(safe-area-inset-bottom, 0px)); }
     .db-reward { padding: 10px 12px; gap: 10px; }
-    .db-section { padding: 10px; border-radius: 10px; }
+    .db-section { padding: 10px; border-radius: var(--r-sm); }
     .db-war {
         display: grid;
         grid-template-columns: minmax(72px, auto) minmax(0, 1fr);
@@ -398,10 +396,10 @@
 @container activity-spine (max-width: 440px) {
     .activity-spine-grid { grid-template-columns:1fr; }
 }
-.activity-horizon { min-width:0;border-left:2px solid #64748b;padding-left:9px; }
-.activity-horizon-now { border-color:#facc15; }
-.activity-horizon-this-week { border-color:#c084fc; }
-.activity-horizon-long-term { border-color:#34d399; }
+.activity-horizon { min-width:0;border-left:2px solid var(--sj-border-strong);padding-left:9px; }
+.activity-horizon-now { border-color:var(--sj-gold); }
+.activity-horizon-this-week { border-color:var(--sj-spirit); }
+.activity-horizon-long-term { border-color:var(--sj-text-muted); }
 .activity-horizon h4 { margin-bottom:7px;font-size:.76rem;text-transform:uppercase; }
 .activity-card { padding:8px;border:1px solid #334155;border-radius:8px;display:flex;flex-direction:column;gap:6px;min-width:0;margin-bottom:8px; }
 .activity-card.is-complete { border-color:#238364; }

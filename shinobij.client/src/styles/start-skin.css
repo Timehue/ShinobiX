@@ -27,18 +27,18 @@
     font-size: clamp(28px, 6.5vw, 72px);
     line-height: 1;
     margin: 0;
-    background: linear-gradient(180deg, #fef3c7 0%, #fbbf24 45%, #b45309 100%);
+    background: linear-gradient(180deg, #fef3c7 0%, var(--sj-gold-bright) 45%, #b45309 100%);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
     text-shadow: 0 1px 0 rgba(0,0,0,0.4);
-    filter: drop-shadow(0 4px 18px rgba(250, 204, 21, 0.25));
+    filter: drop-shadow(0 4px 18px rgba(230, 196, 119, 0.25));
 }
 
 .start-title-mark {
-    color: #fbbf24;
+    color: var(--sj-gold-bright);
     margin: 0 0.25em;
-    filter: drop-shadow(0 0 8px rgba(250,204,21,0.6));
+    filter: drop-shadow(0 0 8px rgba(230, 196, 119, 0.6));
 }
 
 .start-subtitle {
@@ -57,7 +57,7 @@
     border-radius: 10px;
     padding: 22px 26px 26px !important;
     box-shadow:
-        0 0 0 1px rgba(250, 204, 21, 0.07) inset,
+        0 0 0 1px rgba(230, 196, 119, 0.07) inset,
         0 18px 50px rgba(0,0,0,0.55),
         0 0 28px rgba(202, 138, 4, 0.07) !important;
     backdrop-filter: blur(2px);
@@ -72,7 +72,7 @@
     position: absolute;
     width: 18px;
     height: 18px;
-    border: 1px solid rgba(250, 204, 21, 0.55);
+    border: 1px solid rgba(230, 196, 119, 0.55);
     pointer-events: none;
 }
 .start-card::before {
@@ -98,7 +98,7 @@
     font-weight: 700;
     border-bottom: none !important;
     padding-bottom: 0 !important;
-    text-shadow: 0 0 16px rgba(250, 204, 21, 0.25);
+    text-shadow: 0 0 16px rgba(230, 196, 119, 0.25);
     text-transform: uppercase;
 }
 
@@ -109,7 +109,7 @@
     margin: 0 12px;
     font-size: 0.9em;
     vertical-align: 1px;
-    filter: drop-shadow(0 0 6px rgba(250, 204, 21, 0.5));
+    filter: drop-shadow(0 0 6px rgba(230, 196, 119, 0.5));
 }
 
 /* --------- Field rows --------- */
@@ -172,7 +172,7 @@
 }
 
 .start-card .start-input:focus {
-    border-color: rgba(250, 204, 21, 0.65);
+    border-color: rgba(230, 196, 119, 0.65);
     box-shadow: 0 0 0 2px rgba(202, 138, 4, 0.18);
 }
 
@@ -247,7 +247,7 @@
     margin-top: 16px;
     background: linear-gradient(180deg, rgba(146, 64, 14, 0.85), rgba(69, 26, 3, 0.92)) !important;
     color: #fef3c7;
-    border: 1px solid rgba(250, 204, 21, 0.65) !important;
+    border: 1px solid rgba(230, 196, 119, 0.65) !important;
     border-radius: 8px;
     padding: 13px 24px !important;
     font-family: var(--font-display);
@@ -258,27 +258,27 @@
     text-transform: uppercase;
     position: relative;
     box-shadow:
-        0 0 0 1px rgba(250, 204, 21, 0.12) inset,
+        0 0 0 1px rgba(230, 196, 119, 0.12) inset,
         0 8px 26px rgba(0,0,0,0.5),
-        0 0 22px rgba(250, 204, 21, 0.10);
+        0 0 22px rgba(230, 196, 119, 0.10);
     transition: filter 0.15s, box-shadow 0.15s, transform 0.12s;
 }
 
 .start-primary-btn::before,
 .start-primary-btn::after {
     content: "✦";
-    color: #fbbf24;
+    color: var(--sj-gold-bright);
     margin: 0 14px;
-    filter: drop-shadow(0 0 6px rgba(250,204,21,0.55));
+    filter: drop-shadow(0 0 6px rgba(230, 196, 119, 0.55));
 }
 
 @media (hover: hover) {
     .start-primary-btn:hover {
         filter: brightness(1.08);
         box-shadow:
-            0 0 0 1px rgba(250, 204, 21, 0.22) inset,
+            0 0 0 1px rgba(230, 196, 119, 0.22) inset,
             0 10px 32px rgba(0,0,0,0.6),
-            0 0 30px rgba(250, 204, 21, 0.22);
+            0 0 30px rgba(230, 196, 119, 0.22);
     }
 }
 
@@ -307,11 +307,11 @@
     padding: 28px 32px 36px !important;
     background:
         linear-gradient(160deg, rgba(10, 10, 12, 0.96) 0%, rgba(13, 12, 4, 0.95) 60%, rgba(8, 6, 6, 0.96) 100%) !important;
-    border: 1px solid rgba(250, 204, 21, 0.22) !important;
+    border: 1px solid rgba(230, 196, 119, 0.22) !important;
     border-top: 3px solid #ca8a04 !important;
     border-radius: 10px;
     box-shadow:
-        0 0 0 1px rgba(250, 204, 21, 0.06) inset,
+        0 0 0 1px rgba(230, 196, 119, 0.06) inset,
         0 22px 60px rgba(0,0,0,0.6) !important;
     position: relative;
 }
@@ -322,7 +322,7 @@
     position: absolute;
     width: 22px;
     height: 22px;
-    border: 1px solid rgba(250, 204, 21, 0.55);
+    border: 1px solid rgba(230, 196, 119, 0.55);
     pointer-events: none;
 }
 .start-leaderboard::before {
@@ -353,7 +353,7 @@
     font-family: var(--font-display);
     font-size: 28px;
     letter-spacing: 0.18em;
-    text-shadow: 0 0 22px rgba(250, 204, 21, 0.4);
+    text-shadow: 0 0 22px rgba(230, 196, 119, 0.4);
     border: none !important;
     padding: 0 !important;
     flex: 1;
@@ -479,7 +479,7 @@
 
 .start-leaderboard-value {
     font-weight: 800;
-    color: #fbbf24;
+    color: var(--sj-gold-bright);
     font-size: 16px;
     white-space: nowrap;
 }
@@ -505,7 +505,7 @@
     font-family: var(--font-display);
     letter-spacing: 0.12em;
     font-size: 18px;
-    text-shadow: 0 0 18px rgba(250, 204, 21, 0.25);
+    text-shadow: 0 0 18px rgba(230, 196, 119, 0.25);
 }
 
 .start-tournament-card p {
@@ -515,7 +515,7 @@
 }
 
 .start-tournament-card p strong {
-    color: #fbbf24;
+    color: var(--sj-gold-bright);
     font-weight: 700;
     letter-spacing: 0.05em;
 }
@@ -548,7 +548,7 @@
 
 @media (hover: hover) {
     .start-back-button:hover {
-        border-color: rgba(250, 204, 21, 0.8);
+        border-color: rgba(230, 196, 119, 0.8);
         color: var(--gold-300) !important;
     }
 }

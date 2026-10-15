@@ -10,6 +10,7 @@ export type WeeklyBossAuthoritativeRun = {
     createdAt: number;
     startState?: 'prepared' | 'ready';
     settledAt?: number;
+    settledDamage?: number;
 };
 
 export const weeklyBossRunKey = (runId: string) => `weekly-boss-run:${runId}`;
@@ -46,5 +47,10 @@ export function validateAuthoritativeWeeklyBossRun(params: {
         return { ok: false, reason: 'stale-boss' };
     }
     if (!session.enemy) return { ok: false, reason: 'missing-boss' };
-    return { ok: true, damage: Math.max(0, Math.floor(run.initialBossHp - Math.max(0, session.enemy.hp))) };
+    // The counter is server-owned and survives healing, overkill and event trimming.
+    // Completed pre-cutover attempts keep their original finite-health evidence.
+    const damage = session.enemy.unlimitedHealth ? (session.enemy.damageReceived ?? 0)
+        + (session.enemy.finiteHpAtScoreAttackCutover === undefined ? 0 : Math.max(0, run.initialBossHp - session.enemy.finiteHpAtScoreAttackCutover))
+        : run.initialBossHp - Math.max(0, session.enemy.hp);
+    return { ok: true, damage: Math.max(0, Math.floor(damage)) };
 }

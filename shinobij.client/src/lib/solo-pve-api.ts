@@ -18,6 +18,9 @@ export type SoloPveStatus = {
 export type SoloPveFighter = {
     name: string;
     hp: number;
+    /** Server-sealed unlimited-health score attack. */
+    unlimitedHealth?: boolean;
+    damageReceived?: number;
     maxHp: number;
     chakra: number;
     maxChakra: number;
@@ -39,9 +42,9 @@ export type SoloPveGroundEffect = {
 };
 
 export type SoloPveEventSnapshot = {
-    player: Pick<SoloPveFighter, 'hp' | 'maxHp' | 'chakra' | 'stamina' | 'shield' | 'pos' | 'statuses'>;
-    enemy: Pick<SoloPveFighter, 'hp' | 'maxHp' | 'chakra' | 'stamina' | 'shield' | 'pos' | 'statuses'>;
-    companion?: Pick<SoloPveFighter, 'hp' | 'maxHp' | 'chakra' | 'stamina' | 'shield' | 'pos' | 'statuses'> & { roundsLeft: number; cooldowns: Record<string, number> };
+    player: Pick<SoloPveFighter, 'hp' | 'unlimitedHealth' | 'damageReceived' | 'maxHp' | 'chakra' | 'stamina' | 'shield' | 'pos' | 'statuses'>;
+    enemy: Pick<SoloPveFighter, 'hp' | 'unlimitedHealth' | 'damageReceived' | 'maxHp' | 'chakra' | 'stamina' | 'shield' | 'pos' | 'statuses'>;
+    companion?: Pick<SoloPveFighter, 'hp' | 'unlimitedHealth' | 'damageReceived' | 'maxHp' | 'chakra' | 'stamina' | 'shield' | 'pos' | 'statuses'> & { roundsLeft: number; cooldowns: Record<string, number> };
     ap: { player: number; enemy: number };
     cooldowns: { player: Record<string, number>; enemy: Record<string, number> };
     groundEffects: SoloPveGroundEffect[];
@@ -243,7 +246,7 @@ async function json<T>(response: Response): Promise<T> {
 export async function fetchSoloPveState(sessionId: string, playerName: string): Promise<SoloPveSession> {
     const response = await fetch(`/api/solo-pve/state?sessionId=${encodeURIComponent(sessionId)}&playerName=${encodeURIComponent(playerName)}`);
     const body = await json<{ error?: string; session?: SoloPveSession }>(response);
-    if (!response.ok || !body.session) throw new Error(body.error ?? `Request failed (${response.status})`);
+    if (!response.ok || !body.session) throw new Error(body.error ?? 'The combat server did not return this fight. Try again in a moment.');
     return body.session;
 }
 
@@ -280,9 +283,10 @@ export async function submitSoloPveAction(params: {
         if (cause instanceof DOMException && (cause.name === 'TimeoutError' || cause.name === 'AbortError')) {
             throw new Error('The combat server did not respond in time. Try the action again.', { cause });
         }
-        throw cause;
+        // A raw fetch TypeError reads "Failed to fetch" / "Load failed" in the HUD.
+        throw new Error('The combat server could not be reached. Check your connection and try the action again.', { cause });
     }
     const body = await json<SoloPveActionResponse>(response);
-    if (!response.ok && !body.session) throw new Error(body.error ?? `Request failed (${response.status})`);
+    if (!response.ok && !body.session) throw new Error(body.error ?? 'The combat server did not accept that action. Try it again.');
     return body;
 }

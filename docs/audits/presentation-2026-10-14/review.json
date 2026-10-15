@@ -1,0 +1,112 @@
+{
+  "title": "Shinobi Journey desktop and mobile presentation review",
+  "date": "2026-10-14",
+  "scope": "Player-facing screens, navigation, menu sections, creator stages, dialogs, story readers, companion workflows and combat presentation.",
+  "screenWalk": {
+    "restorableScreens": 46,
+    "captures": 184,
+    "viewports": ["360x640", "844x390", "768x1024", "1440x900"],
+    "additionalChecks": ["320x568", "432x1008", "1024x768", "1280x800", "1440x960", "2520x1080"],
+    "browsers": ["Chromium", "Firefox desktop", "WebKit mobile"]
+  },
+  "corrections": [
+    {
+      "surface": "Central district cards",
+      "finding": "The 320px layout left 121px for destination copy; Firefox's medium desktop layout also squeezed the copy below 180px.",
+      "change": "Preserve the user's preferred two-column desktop design. Between 760px and 900px of directory width, reduce artwork and gutters to protect copy width; narrower directories use one column. Compact phones use art banners above full-width copy.",
+      "evidence": "central-320.png"
+    },
+    {
+      "surface": "Training Grounds",
+      "finding": "Hidden horizontal guidance and stat carousels consumed the opening phone viewport and obscured choices.",
+      "change": "Show the recommendation and benefit immediately, disclose detailed guidance, and display every stat group in a responsive grid. Preserve training rules and costs."
+    },
+    {
+      "surface": "Training timer dialog",
+      "finding": "The bottom timer choices required scrolling on short landscape phones. WebKit did not restore focus to the selected stat after dismissal.",
+      "change": "Compact the header, padding and decorative icons below 420px of landscape height; all four choices fit together. Pass the clicked stat as the explicit dialog focus-return target.",
+      "evidence": "training-landscape.png"
+    },
+    {
+      "surface": "Card Hall full deck",
+      "finding": "A populated desktop deck made the sticky list approximately 2797px tall.",
+      "change": "Bound the desktop rail to the viewport and give it its own scrolling. Mobile retains normal page scrolling. Verify the last card and footer actions remain reachable by keyboard.",
+      "evidence": "deck-desktop.png"
+    },
+    {
+      "surface": "Premium offers",
+      "change": "Add consistent spacing, a readable balance summary, themed product borders and a grid that fits narrow containers. Keep purchase behavior and pricing copy intact.",
+      "evidence": "premium-320.png"
+    },
+    {
+      "surface": "Shared dialogs",
+      "change": "Allow long titles to wrap, prevent close controls from shrinking, remove the card's intrinsic minimum width, and account for top and bottom safe areas in maximum dialog height."
+    },
+    {
+      "surface": "Rally pause menu",
+      "finding": "A compact phone's short race canvas clipped most pause settings and actions inside a narrow scrollable overlay.",
+      "change": "Use a viewport-sized, themed modal above the race stage, with focus containment and return, 48px controls and a 16px graphics selector. Verify the normal menu fits without internal scrolling.",
+      "evidence": "rally-pause-320.png"
+    },
+    {
+      "surface": "Profession and village transfer dialogs",
+      "finding": "Compact-phone transfer choices could overlap the footer and intercept Cancel or confirmation clicks.",
+      "change": "Give the scrolling choices and action footer separate grid rows; remove intrinsic minimum widths from the fieldset and wrap destination copy.",
+      "evidence": "transfer-320.png"
+    },
+    {
+      "surface": "Level-locked marketplace stock",
+      "finding": "Inline-flex level requirements escaped narrow merchandise cards and widened the phone viewport, including subsequently opened dialogs.",
+      "change": "Render requirement and price metadata as bounded, wrapping blocks within each card. Check low-level characters as well as unlocked stock."
+    }
+  ],
+  "verification": {
+    "primaryDesktopAndMobile": "76 passed",
+    "completeMenuSuite": "108 passed, 9 intentional project skips; one transient browser ERR_NETWORK_CHANGED failure passed its focused desktop recheck",
+    "smallPhoneAndLandscape": "75 passed; the detected Central defect was corrected and rechecked in the focused Central suite",
+    "menuSectionsCreatorAndSecondaryScreens": "68 passed; the detected full-deck defect was corrected and rechecked in the focused deck suite",
+    "focusedCentral": "10 passed across five viewport projects",
+    "preferredCentralLayout": "After the user's preference clarification, 7 fresh source-preview checks passed across desktop, ultrawide, compact phone, landscape, Firefox and WebKit; assert two desktop columns where the directory has sufficient width and at least 180px for destination copy. Evidence: central-desktop-preferred.png",
+    "focusedDeck": "5 passed, 1 intentional mobile skip",
+    "ultrawide": "13 passed",
+    "shortLandscapeTraining": "2 passed",
+    "crossBrowser": "12 passed in the earlier production browser pass; after all corrections, 7 additional Firefox desktop/WebKit mobile checks passed against the final release build, with 1 intentional mobile-only skip of the desktop deck rail",
+    "populatedCompanionFestivalMarketplaceAndCinematicStory": "13 passed, 1 intentional project skip",
+    "classicStoryReader": "2 passed",
+    "firstPactProduction": "4 passed",
+    "combat": "5 strict cases passed, including Solo-PvE and PvP across 28 viewports from 286px to 3440px plus browser zoom scenarios, and three tower combat variants",
+    "petCombatAndHollowGate": "2 passed against the isolated Express server on desktop and mobile",
+    "chronicleDuel": "10 viewport checks and 25 interaction flows passed, including card inspection, targeting, hand selection, collection/deck and five encounter hosts",
+    "battleRecord": "4 passed including populated history, action details and scrolling to/selecting the final timeline action",
+    "bloodlineRitual": "15 passed across desktop, mobile and landscape including rank variants, skip/Escape, focus release and reduced motion",
+    "dungeonSeals": "9 passed: all three seals at desktop, compact phone and landscape",
+    "transferDialogsAndLockedMarketplace": "45 passed across Chromium desktop, 320px phone and landscape; 4 additional compact-phone WebKit flows passed. Checks include dialog bounds, separated content/footer regions, Cancel, confirm, error/retry, long choice labels, and locked merchandise metadata.",
+    "sunscarNestedScreens": "70 checks passed with zero runtime errors in Chromium and WebKit at 320x568, 390x844, 844x390 and 768x1024; covers the race desk, entry, running race, pause, contracts, departure, map inspection, encounter and resume",
+    "styleAndTrainingUnitChecks": "24 passed",
+    "scopedLint": "passed without errors or warnings",
+    "finalProductionBuild": "passed for the original correction set, including transfer dialogs and locked marketplace cards; the subsequent preferred Central breakpoint refinement is verified against the source preview",
+    "distributionIntegrity": "passed",
+    "buildSizeBudgets": "passed; the existing product JS/CSS size warning remains advisory"
+  },
+  "repeat": {
+    "primaryMenus": "npm run test:e2e:ui-audit --prefix shinobij.client",
+    "populatedWorkflows": "npm run test:e2e:presentation --prefix shinobij.client",
+    "transferAndDungeonStates": "npm run test:e2e:presentation-source --prefix shinobij.client",
+    "combat": "npm run test:e2e:combat-layout --prefix shinobij.client",
+    "localScreenshotWalk": "From shinobij.client in PowerShell: $env:UI_AUDIT_BASE_URL='http://127.0.0.1:5198'; node --import tsx scripts/presentation-review.ts",
+    "contactSheets": "From shinobij.client: node scripts/presentation-contact-sheet.mjs phone"
+  },
+  "secondPass": {
+    "date": "2026-10-14",
+    "menuDialogsAndBattleRecords": "17 fresh production-build checks passed across Chromium compact phone/landscape, Firefox desktop and WebKit mobile; 3 intentional skips of the desktop-only deck rail",
+    "marketplaceAndTransferDialogs": "15 fresh interaction/layout checks passed across compact phone, landscape and WebKit",
+    "sunscar": "70 fresh checks passed with zero runtime errors after rebuilding the isolated fixture from current source; added explicit Tab/Shift+Tab containment, Escape dismissal and pause-button focus-return assertions",
+    "rawScreenshotObservations": "Reviewed all 117 original observations: 116 map markers clipped by the intentional pannable map camera and 1 native text-input value scrolling within its field",
+    "scopedLintAndDiffWhitespace": "passed",
+    "finding": "No additional clipping or interaction regressions found in this second pass."
+  },
+  "evidenceLocation": "Representative images ship beside this report. Full screenshots, traces and measurements remain in shinobij.client/test-results/; Sunscar captures are in .tmp/sunscar-mobile-ux-qa/ and Chronicle captures in .tmp/presentation-chronicle/.",
+  "catalogReconciliation": "The 46-screen restoration walk is supplemented by all six creator stages, public profiles, populated battle records, three profession variants and transfer choosers, cinematic/classic story readers, three dungeon seals, ceremony/awakening states, companion workflows, combat renderers, Sunscar submenus and the card-duel encounter hosts. Stateful encounters are reached through isolated fixtures because URL restoration alone cannot open them. Admin authoring/operations screens are outside the player-facing scope; retired route identifiers without render branches are not screens.",
+  "auditMaintenance": "Added compact-phone, landscape and browser projects; menu, dialog, creator and full-deck regression checks; populated workflow config; screenshot-walk tools; pet-duel screenshots; and reliable empty-body reset and asynchronous race-exit checks in the Sunscar harness.",
+  "method": "Responsive browser emulation, screenshot inspection and layout/input assertions with isolated fixture saves and test-server accounts. Physical-device certification and every possible live player-data combination are outside this pass."
+}

@@ -151,6 +151,10 @@ export type PvpRejection = {
 export type PvpFighter = {
     name: string;
     hp: number;
+    /** Server-sealed unlimited-health score attack. */
+    unlimitedHealth?: boolean;
+    damageReceived?: number;
+    finiteHpAtScoreAttackCutover?: number;
     maxHp: number;
     chakra: number;
     maxChakra: number;

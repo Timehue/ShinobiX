@@ -6,8 +6,8 @@
 
 .pet-yard-screen,
 .pet-arena-screen {
-    --bsv2-gold:        #c4a25a;
-    --bsv2-gold-bright: #e8d496;
+    --bsv2-gold:        var(--sj-gold);
+    --bsv2-gold-bright: var(--sj-gold-bright);
     --bsv2-gold-soft:   rgba(196,162,90,0.45);
     --bsv2-gold-faint:  rgba(196,162,90,0.22);
     --bsv2-ink:         #050a18;
@@ -137,10 +137,12 @@
         inset 0 0 12px rgba(0,0,0,0.4) !important;
     transition: border-color 120ms, transform 120ms;
 }
-.pet-yard-screen .pet-slot-avatar:hover {
-    border-color: rgba(78,168,255,0.85) !important;
-    transform: translateY(-2px);
-    box-shadow: 0 0 16px rgba(78,168,255,0.35);
+@media (hover: hover) {
+    .pet-yard-screen .pet-slot-avatar:hover {
+        border-color: rgba(78,168,255,0.85) !important;
+        transform: translateY(-2px);
+        box-shadow: 0 0 16px rgba(78,168,255,0.35);
+    }
 }
 .pet-yard-screen .pet-slot-avatar.is-active,
 .pet-yard-screen .pet-slot-avatar[aria-current="true"] {
@@ -647,9 +649,11 @@
     box-shadow: 0 2px 0 rgba(0,0,0,0.6), inset 0 0 16px rgba(0,0,0,0.4);
     transition: border-color 120ms, transform 120ms;
 }
-.pet-arena-screen .pet-arena-card:hover {
-    border-color: rgba(78,168,255,0.85) !important;
-    transform: translateY(-2px);
+@media (hover: hover) {
+    .pet-arena-screen .pet-arena-card:hover {
+        border-color: rgba(78,168,255,0.85) !important;
+        transform: translateY(-2px);
+    }
 }
 .pet-arena-screen .pet-arena-card strong {
     color: var(--bsv2-gold-bright) !important;
@@ -935,7 +939,7 @@
 .pet-arena-screen .pet-matchup-hint .dis { color: var(--red-400); }
 .pet-arena-screen .pet-matchup-hint.neutral { color: var(--text-dim); font-weight: 500; }
 .pet-arena-screen .pet-matchup-hint.good { display: block; color: var(--green-400); border-color: rgba(74,222,128,0.4); }
-.pet-arena-screen .pet-matchup-hint.warn { display: block; color: #fbbf24; border-color: rgba(251,191,36,0.4); }
+.pet-arena-screen .pet-matchup-hint.warn { display: block; color: var(--sj-gold-bright); border-color: rgba(230, 196, 119, 0.4); }
 
 /* ----- Quick-challenge online players list + tips ----- */
 .pet-arena-screen .pet-challenge-row {
@@ -1041,12 +1045,12 @@
 
 .expedition-result-modal {
     background: linear-gradient(145deg, rgba(15, 23, 42, 0.98), rgba(30, 41, 59, 0.96));
-    border: 1px solid rgba(250, 204, 21, 0.45);
+    border: 1px solid rgba(230, 196, 119, 0.45);
     border-radius: 18px;
     padding: 28px 24px 22px;
     width: 100%;
     max-width: 420px;
-    box-shadow: 0 8px 48px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(250, 204, 21, 0.12);
+    box-shadow: 0 8px 48px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(230, 196, 119, 0.12);
     display: flex;
     flex-direction: column;
     gap: 16px;
@@ -1076,12 +1080,12 @@
     padding: 12px 14px;
     background: rgba(248, 250, 252, 0.04);
     border-radius: 10px;
-    border-left: 3px solid rgba(250, 204, 21, 0.5);
+    border-left: 3px solid rgba(230, 196, 119, 0.5);
 }
 .expedition-level-up {
     text-align: center;
-    background: linear-gradient(90deg, rgba(250,204,21,0.18), rgba(251,146,60,0.18));
-    border: 1px solid rgba(250, 204, 21, 0.55);
+    background: linear-gradient(90deg, rgba(230, 196, 119, 0.18), rgba(251,146,60,0.18));
+    border: 1px solid rgba(230, 196, 119, 0.55);
     border-radius: 10px;
     padding: 10px 14px;
     font-size: 0.9rem;
@@ -1100,8 +1104,8 @@
     border: 1px solid rgba(100, 116, 139, 0.2);
 }
 .expedition-reward-row.expedition-reward-rare {
-    background: rgba(250, 204, 21, 0.07);
-    border-color: rgba(250, 204, 21, 0.3);
+    background: rgba(230, 196, 119, 0.07);
+    border-color: rgba(230, 196, 119, 0.3);
 }
 .expedition-reward-row.expedition-reward-legendary {
     background: rgba(251, 146, 60, 0.1);

@@ -46,8 +46,8 @@ export function VanguardHub({ character, onVersionedCharacter, setScreen, onBack
             <section aria-label="Vanguard destinations">
                 <ProfessionSectionHeading eyebrow="Deployment" title="Take the field" detail="Choose your next battle" />
                 <div className="ph-destinations">
-                    <ProfessionDestination image={targetArt} title="Find a Target" description="Challenge a rival shinobi" onClick={() => setScreen("userHub")} featured />
-                    <ProfessionDestination image={raidArt} title="Raid a Village" description="Join the village war effort" onClick={() => setScreen("villageWar")} />
+                    <ProfessionDestination image={targetArt} title="Find a target" description="Challenge a rival shinobi" onClick={() => setScreen("userHub")} featured />
+                    <ProfessionDestination image={raidArt} title="Raid a village" description="Join the village war effort" onClick={() => setScreen("villageWar")} />
                     <ProfessionDestination image={mapArt} title="Sector Map" description="Survey the contested territories" onClick={() => setScreen("villageWarMap")} disabled={!sectorMapOpen} status={!sectorMapOpen ? sectorMapAdmissionMessage(availability) : undefined} />
                     <ProfessionDestination image={arenaArt} title="Arena District" description="Enter the competitive arenas" onClick={() => setScreen("arenaDistrict")} />
                 </div>

@@ -20,7 +20,7 @@ export default function VillageCampaignBattle({ character, warId, run, sharedIma
         return response;
     }, [request, onVersionedCharacter]);
     const cardConfig = useMemo<CardClashDuelConfig>(() => ({ stashKey: 'villageCampaignCard.v1', endpoint: '/api/village/war-campaign',
-        title: 'Village War · Card Stronghold', backScreen: 'villageWar', backLabel: 'Back to War',
+        title: 'Village War · Card Stronghold', backScreen: 'villageWar', backLabel: 'Back to war',
         emptyTitle: 'Battle unavailable', emptyNote: 'Return to the war objectives.', emptyBackLabel: 'Back',
         awaitingNote: 'Preparing the stronghold defense.', forfeitConfirm: 'Forfeit this stronghold battle?',
         doneNote: () => 'The server recorded this battle. Return to the war to see the score.', autoJoin: true }), []);
@@ -28,7 +28,7 @@ export default function VillageCampaignBattle({ character, warId, run, sharedIma
     if (run.mode === 'card') return <CardClashDuelScreen character={character} setScreen={onBack} config={cardConfig} sharedImages={sharedImages} context={cardContext} />;
     if (run.mode === 'pet') return <PetDuelReplayScreen<CampaignPetSession> pets={activeCarriedPets(character)} config={{
         title: 'Village War · Pet Stronghold', intro: 'Your sealed pet team fights the stronghold defense.',
-        missingText: 'No pet battle selected.', backLabel: 'Back to War', onBack, ready: true, pickerless: { loading: 'Loading the sealed battle…', missing: 'This battle could not be loaded.' },
+        missingText: 'No pet battle selected.', backLabel: 'Back to war', onBack, ready: true, pickerless: { loading: 'Loading the sealed battle…', missing: 'This battle could not be loaded.' },
         submitLabel: 'Watch battle', submitErrorText: 'Could not load the pet battle.', submit: async () => ({ session: (await request('state')).session as CampaignPetSession }),
         fetchState: async () => (await request('state')).session as CampaignPetSession,
         resolved: session => session.status === 'done', watch: async () => {
@@ -43,7 +43,7 @@ export default function VillageCampaignBattle({ character, warId, run, sharedIma
             <h2>War operation complete</h2>
             {settleState === 'failed' ? <button onClick={retry}>Retry report</button> : <p>{settleState === 'settled'
                 ? `${(settleResult as CampaignBattle)?.warResult?.points ?? 0} supporting War Points recorded.` : 'Reporting the battle…'}</p>}
-            <button onClick={onBack}>Back to War</button>
+            <button onClick={onBack}>Back to war</button>
         </div></div>} />;
-    return <div className='summary-box'><h3>Live combat defense</h3><p>Your battle is being opened in the PvP arena.</p><button onClick={onBack}>Back to War</button></div>;
+    return <div className='summary-box'><h3>Live combat defense</h3><p>Your battle is being opened in the PvP arena.</p><button onClick={onBack}>Back to war</button></div>;
 }

@@ -49,9 +49,9 @@ export class ContentLoadBoundary extends Component<BoundaryProps, State> {
                     : this.props.body}</p>
                 <div className="menu">
                     {staleDeployment
-                        ? <button type="button" onClick={this.reloadLatest}>Reload Latest Game</button>
+                        ? <button type="button" onClick={this.reloadLatest}>Reload latest game</button>
                         : <button type="button" onClick={this.retry}>{this.props.retryLabel}</button>}
-                    {!staleDeployment && this.props.onReturn ? <button type="button" onClick={this.props.onReturn}>{this.props.returnLabel ?? "Go Back"}</button> : null}
+                    {!staleDeployment && this.props.onReturn ? <button type="button" onClick={this.props.onReturn}>{this.props.returnLabel ?? "Go back"}</button> : null}
                 </div>
             </section>
         );
@@ -70,8 +70,8 @@ export function StoryContentBoundary({ village, children, onReturn }: {
             reset={() => resetStoryContent(village)}
             title="Village chronicle unavailable"
             body="The archive could not be verified. No chapter, reward, or story choice was changed."
-            retryLabel="Retry Chronicle Load"
-            returnLabel="Return to Village"
+            retryLabel="Retry chronicle load"
+            returnLabel="Return to village"
             onReturn={onReturn}
         >
             {children}

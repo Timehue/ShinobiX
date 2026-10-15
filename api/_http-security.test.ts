@@ -34,6 +34,7 @@ describe('_http-security', () => {
         assert.match(src, /publicErrorPayload\(err,\s*reqId\)/, '500 handler should use the production-safe payload helper');
         assert.doesNotMatch(src, /error:\s*String\(err\)/, '500 handler must not echo raw errors directly');
         assert.match(src, /sendDefaultPii:\s*false/, 'Sentry must keep default PII collection disabled');
+        assert.match(src, /app\.disable\(\s*['"]x-powered-by['"]\s*\)/, 'responses must not advertise the server framework');
     });
 
     it('CSP includes the asset and realtime surfaces used by the app', () => {

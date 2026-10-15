@@ -723,8 +723,9 @@ function applyBossAegis(session: TowerSession, boss: TowerActor): number {
     const cfg = boss.character.aegis as { shieldPct?: number } | undefined;
     const pct = Math.max(0, Math.min(AEGIS_SHIELD_MAX_PCT, Math.floor(Number(cfg?.shieldPct ?? 0))));
     if (pct <= 0) return 0;
-    const ceiling = Math.floor((boss.maxHp * AEGIS_SHIELD_MAX_PCT) / 100);
-    const grant = Math.min(Math.floor((boss.maxHp * pct) / 100), Math.max(0, ceiling - boss.shield));
+    const healthBudget = Math.min(boss.maxHp, session.worldBossEvent?.defenseHpBudget ?? boss.maxHp);
+    const ceiling = Math.floor((healthBudget * AEGIS_SHIELD_MAX_PCT) / 100);
+    const grant = Math.min(Math.floor((healthBudget * pct) / 100), Math.max(0, ceiling - boss.shield));
     if (grant <= 0) return 0;
     boss.shield += grant;
     if (grant > 0) boss.shieldExpiresAtRound = shieldExpiryForGrant(session.round);
@@ -2235,7 +2236,7 @@ export function checkTowerWinner(session: TowerSession, floor: TowerFloor): void
     if (!squadFightersAlive(session)) {
         session.status = 'done'; session.winner = 'enemy';
         session.objectiveState.failed = true;
-        session.log.push('Squad wiped — floor failed.');
+        session.log.push(session.worldBossEvent ? 'Team wiped — world boss raid ended. Your contribution can still be banked.' : 'Squad wiped — floor failed.');
         return;
     }
     if (objectiveFailed(session, floor)) {
@@ -2249,7 +2250,7 @@ export function checkTowerWinner(session: TowerSession, floor: TowerFloor): void
         session.objectiveState.completed = true;
         session.log.push(session.towerId === 'hunt' ? 'Hunt encounter cleared!'
             : session.towerId === 'sunscar-caravan-ambush' ? 'The road is open.'
-                : `Floor ${floor.id} cleared!`);
+                : session.worldBossEvent ? 'Boss health depleted — confirm the shared world boss result.' : `Floor ${floor.id} cleared!`);
     }
 }
 
@@ -2982,7 +2983,7 @@ export function endTurn(session: TowerSession, floor: TowerFloor): void {
         session.status = 'done';
         session.winner = 'enemy';
         session.objectiveState.failed = true;
-        session.log.push('Round limit reached — floor failed.');
+        session.log.push(session.worldBossEvent ? 'Round limit reached — world boss raid ended. Bank your team contribution.' : 'Round limit reached — floor failed.');
         return;
     }
     session.round += 1;

@@ -78,7 +78,12 @@ const forbiddenClientExtensions = new Set([
 // The final double-checked client measures 536.2 MiB. Retain full UNORM8 weights
 // and reserve 539 MiB (2.8 MiB headroom); the exact 480-file roster, hashes,
 // authoring exclusions, and independent JS/CSS budgets remain enforced.
-const maxClientArtifactBytes = 539 * 1024 * 1024;
+// 2026-10-14: art landed on main since then used that headroom up, and the 12
+// new Chronicle cards (24 WebPs with their 512 px variants, 0.92 MiB in all,
+// 56 KB per full card against 207 KB for the existing set) took the production
+// image build of PR #399 to 539.4 MiB, 0.4 MiB over. Reserve 541 MiB, about
+// 1.6 MiB of headroom.
+const maxClientArtifactBytes = 541 * 1024 * 1024;
 const maxRallyAtlasBytes = 4 * 1024 * 1024;
 
 function fail(msg) {

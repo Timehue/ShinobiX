@@ -126,3 +126,9 @@ test("combatWeatherSource draws only the sealed sky, and none under authored art
     assert.equal(combatWeatherSource({ sealedPositive: "Water", sealedNegative: "Fire", authoredBackdrop: true, weatherFromElements }), null);
     assert.deepEqual(calls, ["el:Water/Fire", "el:/"]);
 });
+
+test('unlimited-health damage still produces a hit number when HP stays fixed', () => {
+    const hits = diffCombatVitals('enemy', { hp: 100, unlimitedHealth: true, damageReceived: 1000 },
+        { hp: 100, unlimitedHealth: true, damageReceived: 9001000 });
+    assert.deepEqual(hits, [{ target: 'enemy', amount: 9000000, kind: 'damage' }]);
+});

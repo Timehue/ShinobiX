@@ -31,7 +31,7 @@ for (const duplicate of [false, true]) {
         await page.getByRole('button', { name: 'Inspect Legendary War Crate', exact: true }).click();
         const details = page.getByRole('dialog', { name: 'Legendary War Crate item details', exact: true });
         await expect(details).toContainText('0.10%');
-        await details.getByRole('button', { name: 'Open Crate', exact: true }).click();
+        await details.getByRole('button', { name: 'Open crate', exact: true }).click();
         // The crate opens a reward reveal: it auto-reveals, then lists one row per reward.
         const reveal = page.getByRole('dialog', { name: 'Legendary War Crate reward reveal', exact: true });
         const rewards = reveal.getByRole('status', { name: 'Items received' });

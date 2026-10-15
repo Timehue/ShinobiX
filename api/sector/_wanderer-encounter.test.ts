@@ -26,13 +26,22 @@ import { resolveNaturalWorldWanderer } from '../missions/_world-ai-fight.js';
 const BUCKET = 5000;
 const NOW = BUCKET * 6 * 60 * 60 * 1000 + 4321; // inside bucket 5000
 
-function populated(verb?: string) {
+function populated(verb?: string, bucket = BUCKET) {
     for (let sector = 1; sector <= WANDERER_SECTOR_COUNT; sector++) {
-        for (const w of rollWanderers(sector, BUCKET)) {
+        for (const w of rollWanderers(sector, bucket)) {
             if (!verb || w.verb === verb) return w;
         }
     }
-    throw new Error(`no ${verb ?? ''} wanderer rolled in bucket ${BUCKET}`);
+    throw new Error(`no ${verb ?? ''} wanderer rolled in bucket ${bucket}`);
+}
+
+/** The first window from BUCKET on that rolls a `verb` wanderer somewhere.
+ *  Bandits are rare (about 5% of sectors), so one window may hold none. */
+function populatedInSomeWindow(verb: string) {
+    for (let bucket = BUCKET; bucket < BUCKET + 50; bucket++) {
+        try { return { w: populated(verb, bucket), now: bucket * 6 * 60 * 60 * 1000 + 4321 }; } catch { /* next window */ }
+    }
+    throw new Error(`no ${verb} wanderer in 50 windows from ${BUCKET}`);
 }
 
 describe('shared wanderer roll on the server', () => {
@@ -110,13 +119,13 @@ describe('shared wanderer roll on the server', () => {
 describe('naturalWandererOffers: the verb comes from the roll, not the client', () => {
     it('a wanderer passes only for the verbs it really offers, echoed verb or not', () => {
         const pilgrim = populated('gift');
-        const bandit = populated('attack');
+        const { w: bandit, now } = populatedInSomeWindow('attack');
         assert.equal(naturalWandererOffers(pilgrim.id, NOW, {}, ['gift']), true);
-        assert.equal(naturalWandererOffers(bandit.id, NOW, {}, ['gift']), false, 'no verb echoed: still refused');
-        assert.equal(naturalWandererOffers(bandit.id, NOW, { wandererVerb: 'attack' }, ['gift']), false);
+        assert.equal(naturalWandererOffers(bandit.id, now, {}, ['gift']), false, 'no verb echoed: still refused');
+        assert.equal(naturalWandererOffers(bandit.id, now, { wandererVerb: 'attack' }, ['gift']), false);
         // A forged echo still fails the underlying match first.
-        assert.equal(naturalWandererOffers(bandit.id, NOW, { wandererVerb: 'gift' }, ['gift']), false);
-        assert.equal(naturalWandererOffers(bandit.id, NOW, {}, ['attack', 'patrol']), true);
+        assert.equal(naturalWandererOffers(bandit.id, now, { wandererVerb: 'gift' }, ['gift']), false);
+        assert.equal(naturalWandererOffers(bandit.id, now, {}, ['attack', 'patrol']), true);
     });
 
     it('a night ninja (slot 2) offers only a fight, and only while it is night', () => {

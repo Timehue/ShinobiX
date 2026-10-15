@@ -52,7 +52,7 @@ test("story wins keep the sealed run open until the authoritative reward settles
         /renderResult=\{\(\{ won, settleState, settleResult, retry \}\) =>/,
         "the story renderer must retain MissionArenaFight's run-scoped retry callback",
     );
-    assert.match(host, /settleState === "failed"[\s\S]*?<button onClick=\{retry\}>\{result \? 'Retry Record Delivery' : 'Retry Reward'\}<\/button>/);
+    assert.match(host, /settleState === "failed"[\s\S]*?<button onClick=\{retry\}>\{result \? 'Retry record delivery' : 'Retry reward'\}<\/button>/);
     assert.match(
         host,
         /disabled=\{settleState !== "settled" \|\| !result\} onClick=\{closeFight\}>Continue<\/button>/,

@@ -228,7 +228,7 @@ function AnbuVaultRaidLegacy({
     // install the authoritative settled character it returns.
     function adoptSettledCharacter(next: Character, version: unknown) {
         if (accountKey(next.name) !== accountKey(character.name) || typeof version !== 'number' || !Number.isFinite(version)) {
-            throw new Error('The settlement returned an invalid character snapshot. Retry to reconnect.');
+            throw new Error('Your result came back for the wrong save. Try again to reconnect.');
         }
         // False also means a newer save is already installed. Keep that newer
         // snapshot and still complete this server-confirmed encounter.
@@ -236,7 +236,7 @@ function AnbuVaultRaidLegacy({
     }
     async function settleInfiltration(runId: string, _playerName: string, signal?: AbortSignal): Promise<unknown> {
         if (!anbuInfiltrationAdmissionEnabled(mutationAvailability("anbuInfiltration"))) {
-            throw new Error("ANBU settlement is paused. Keep this run open and retry when live admission returns.");
+            throw new Error("Saving ANBU results is paused. Keep this run open and try again when live actions return.");
         }
         const owner = lifetime.current;
         const r = await reportInfiltration(runId, character.name, signal);
@@ -250,7 +250,7 @@ function AnbuVaultRaidLegacy({
 
     async function settlePatrol(runId: string, _playerName: string, signal?: AbortSignal): Promise<unknown> {
         if (!anbuInfiltrationAdmissionEnabled(mutationAvailability("anbuInfiltration"))) {
-            throw new Error('Stronghold settlement is paused. Retry when live admission returns.');
+            throw new Error('Saving Stronghold results is paused. Try again when live actions return.');
         }
         const owner = lifetime.current;
         const result = await strongholdRequest(character.name, sector, 'patrol-report', { runId }, signal);
@@ -384,7 +384,7 @@ function AnbuVaultRaidLegacy({
                     </div>
                 )}
                 {error && <p role="alert">{error}</p>}
-                <button className="spire-result-btn" disabled={starting} onClick={leaveResolvedRaid}>{starting ? 'Leaving…' : 'Slip Away'}</button>
+                <button className="spire-result-btn" disabled={starting} onClick={leaveResolvedRaid}>{starting ? 'Leaving…' : 'Slip away'}</button>
             </div>
         );
     }

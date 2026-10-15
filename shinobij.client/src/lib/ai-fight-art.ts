@@ -4,7 +4,7 @@ import { resolveStorywideActorImage } from "./vn-storywide-direction";
 import { vnActorImageKey } from './vn-shared-artwork';
 import { isRetiredVnArt } from './vn-retired-artwork';
 import { resolveCinematicActorImage } from './vn-presentation';
-import { worldBossDefinitionForVisual } from '../../../shared/world-boss-event';
+import { worldBossDefinitionForVisual, worldBossDefinitionForGuardVisual } from '../../../shared/world-boss-event';
 
 export type TowerEnemySpriteKey =
     | "bandit"
@@ -80,7 +80,7 @@ export function resolveTowerEnemyPortrait(
     const riftPortrait = RIFT_BOSS_PORTRAITS[visual];
     if (riftPortrait) return riftPortrait;
 
-    const worldBossPortrait = worldBossDefinitionForVisual(visual)?.battlePortrait;
+    const worldBossPortrait = (worldBossDefinitionForVisual(visual) ?? worldBossDefinitionForGuardVisual(visual))?.battlePortrait;
     if (worldBossPortrait) return worldBossPortrait;
 
     const hollowKind = /^hollow-gate-(battle|elite|ambush|beast)-f\d+$/.exec(visual)?.[1];

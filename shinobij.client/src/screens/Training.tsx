@@ -61,6 +61,7 @@ export function Training({ character, savedBloodlines = [], onVersionedCharacter
     const selectedStat = chosenStat ?? recommendation.stat;
     const currentStatCap = statCapForLevel(character.level);
     const [timerPickerOpen, setTimerPickerOpen] = useState(false);
+    const timerOpenerRef = useRef<HTMLButtonElement | null>(null);
     const [trainingBusy, setTrainingBusy] = useState(false);
     const [trainingNotice, setTrainingNotice] = useState<string | null>(null);
     const trainingBusyRef = useRef(false);
@@ -207,12 +208,16 @@ export function Training({ character, savedBloodlines = [], onVersionedCharacter
 
             <div className="training-guide-panel">
                 <strong>Training Plan</strong>
-                <ul>
-                    <li>Training raises the selected stat directly — and every point you earn counts toward your next level.</li>
-                    <li id="training-recommendation"><strong>Recommended: {recommendation.label}.</strong> {recommendation.reason}</li>
-                    <li>Choose 15m while learning; longer timers run longer and show their exact gain below.</li>
-                    <li>You can return to the village while training runs, then come back to collect.</li>
-                </ul>
+                <p id="training-recommendation"><strong>Recommended: {recommendation.label}</strong>{recommendation.benefit}</p>
+                <details className="training-guidance">
+                    <summary>How training works</summary>
+                    <ul>
+                        <li>{recommendation.reason}</li>
+                        <li>Training raises the selected stat directly. Every point you earn counts toward your next level.</li>
+                        <li>Choose 15m while learning. Each timer shows its exact gain and stamina cost.</li>
+                        <li>Keep playing while training runs, then return to collect.</li>
+                    </ul>
+                </details>
             </div>
 
             {activeTraining && (
@@ -225,7 +230,7 @@ export function Training({ character, savedBloodlines = [], onVersionedCharacter
                     <p className="hint">{trainingReady
                         ? "Collect your stat points, then start another session or return to your next activity."
                         : "Training continues while you play or log out. Return when it is ready to collect."}</p>
-                    <button onClick={completeTraining} disabled={!trainingReady || trainingBusy}>{trainingBusy ? "Settling…" : trainingReady ? "Collect Training" : "Training…"}</button>
+                    <button onClick={completeTraining} disabled={!trainingReady || trainingBusy}>{trainingBusy ? "Settling…" : trainingReady ? "Collect training" : "Training…"}</button>
                     <button onClick={cancelTraining} disabled={trainingBusy} style={{ marginLeft: 8 }}>Cancel (keep prorated stats)</button>
                 </div>
             )}
@@ -256,7 +261,8 @@ export function Training({ character, savedBloodlines = [], onVersionedCharacter
                                         data-academy-autoscroll={showAcademyTrainingHint && !timerPickerOpen && recommendation.stat === stat && !statCapped ? "true" : undefined}
                                         disabled={statCapped}
                                         aria-describedby={recommendation.stat === stat ? "training-recommendation" : undefined}
-                                        onClick={() => {
+                                        onClick={(event) => {
+                                            timerOpenerRef.current = event.currentTarget;
                                             setSelectedStat(stat);
                                             setTimerPickerOpen(true);
                                         }}
@@ -277,12 +283,15 @@ export function Training({ character, savedBloodlines = [], onVersionedCharacter
             <Modal
                 open={timerPickerOpen}
                 onClose={() => setTimerPickerOpen(false)}
+                returnFocusRef={timerOpenerRef}
                 title={`Train ${selectedStatLabel}`}
                 size="md"
                 backdropClassName="training-timer-backdrop"
                 className="training-timer-modal"
             >
                 <p className="training-timer-intro">Choose a session length for {selectedStatLabel}. The gain and stamina cost are shown before you start.</p>
+                {/* Every timer greys out while a session runs; say why once, where a phone can read it. */}
+                {activeTraining && !trainingBusy && <p className="hint" role="status">A training session is already active. Collect or cancel it before you start another.</p>}
                 <div className="location-grid training-timer-grid">
                 {timers.map((timer) => {
                     // XP retired — the growth bonus now boosts the STAT gain
@@ -476,7 +485,7 @@ function JutsuSealPanel({
             if (!res.ok) {
                 if (res.status === 409) setFreeSpeedup((prev) => prev ? { ...prev, available: false } : prev);
                 if (res.status === 403 || res.status === 409) setFreeCheck((n) => n + 1);
-                setMsg(res.status === 429 ? throttledMessage(data.retryAfterMs) : `Error: ${data.error ?? 'Failed'}`);
+                setMsg(res.status === 429 ? throttledMessage(data.retryAfterMs) : `Error: ${data.error ?? 'The free finish did not go through. Refresh to check your lesson, then try again.'}`);
                 return;
             }
             patchLessonEndsAt(lessonToken, Number(data.newEndsAt));
@@ -508,14 +517,15 @@ function JutsuSealPanel({
                 return;
             }
             if (!res.ok) {
-                setMsg(`Error: ${data.error ?? 'Failed'}`);
+                setMsg(`Error: ${data.error ?? 'The speed-up did not go through. Refresh to check your Seals and lesson, then try again.'}`);
                 return;
             }
             const minutesReduced: number = Number(data.minutesReduced ?? 0);
             // The server's own new end time, applied to the lesson as it is now.
             patchLessonEndsAt(lessonToken, Number(data.newEndsAt));
             updateCharacter(prev => prev ? ({ ...prev, honorSeals: Number(data.honorSealsRemaining) }) : prev);
-            setMsg(`Success: -${minutesReduced} min (spent ${data.sealsSpent} Seals)`);
+            const sealsSpent = Number(data.sealsSpent ?? 0);
+            setMsg(`Success: Lesson shortened by ${minutesReduced} minute${minutesReduced === 1 ? "" : "s"} for ${sealsSpent} Honor Seal${sealsSpent === 1 ? "" : "s"}.`);
         } catch {
             setMsg(`Error: ${AMBIGUOUS_ACTION_MESSAGE}`);
         } finally {
@@ -524,11 +534,19 @@ function JutsuSealPanel({
         }
     }
 
+    // "Finish now" spends a stack of Honor Seals in one tap, so it confirms the
+    // way the ryo finish does (finishWithRyo).
+    async function finishWithSeals() {
+        if (!activeJutsuTraining || busyRef.current) return;
+        if (!(await gameConfirm(`Finish ${activeJutsuTraining.label} training now for ${finishCost.toLocaleString()} Honor Seal${finishCost === 1 ? "" : "s"}?`))) return;
+        await speedUp(finishSeals);
+    }
+
     return (
-        <div className="summary-box" style={{ background: "linear-gradient(180deg, rgba(250,204,21,0.10), rgba(8,10,22,0.4))", border: "1px solid rgba(250,204,21,0.45)", marginBottom: "0.75rem" }}>
-            <strong style={{ color: "#facc15" }}><GameArtIcon kind="crown" size={18} /> Honor Seal Training</strong>
+        <div className="summary-box" style={{ background: "linear-gradient(180deg, rgba(230, 196, 119, 0.10), rgba(8,10,22,0.4))", border: "1px solid rgba(230, 196, 119, 0.45)", marginBottom: "0.75rem" }}>
+            <strong style={{ color: "#e6c477" }}><GameArtIcon kind="crown" size={18} /> Honor Seal Training</strong>
             <span className="hint" style={{ marginLeft: 10 }}>
-                Balance: <strong style={{ color: "#facc15" }}>{balance.toLocaleString()}</strong>
+                Balance: <strong style={{ color: "#e6c477" }}>{balance.toLocaleString()}</strong>
                 {hasDiscount && <span style={{ marginLeft: 8, color: "#f97316" }}> · Vanguard 10% off</span>}
                 {stockpilePct > 0 && <span style={{ marginLeft: 8, color: "#f97316" }}> · Stockpile −{stockpilePct}% speed-ups</span>}
             </span>
@@ -552,20 +570,21 @@ function JutsuSealPanel({
                 {activeJutsuTraining && serverNow() < activeJutsuTraining.endsAt && (
                     <>
                         <button onClick={() => void speedUp(1)} disabled={busy || balance < speedupCost(1) || speedUpWaitSec > 0} style={{ background: "linear-gradient(#422006,#1c1006)", borderColor: "#fde68a" }}>
-                            {busy ? "…" : speedUpWaitSec > 0 ? `Ready in ${speedUpWaitSec}s` : "−10 min (1 Seal)"}
+                            {busy ? "Spending…" : speedUpWaitSec > 0 ? `Ready in ${speedUpWaitSec}s` : "−10 min (1 Seal)"}
                         </button>
-                        <button onClick={() => void speedUp(finishSeals)} disabled={busy || balance < finishCost || speedUpWaitSec > 0} style={{ background: "linear-gradient(#422006,#1c1006)", borderColor: "#fde68a" }}>
-                            {busy ? "…" : `Finish now (${finishCost} Seal${finishCost === 1 ? "" : "s"})`}
+                        <button onClick={() => void finishWithSeals()} disabled={busy || balance < finishCost || speedUpWaitSec > 0} style={{ background: "linear-gradient(#422006,#1c1006)", borderColor: "#fde68a" }}>
+                            {busy ? "Spending…" : `Finish now (${finishCost} Seal${finishCost === 1 ? "" : "s"})`}
                         </button>
                         {ownsLogistician && freeSpeedup?.available && remainingMinutes >= 2 && (
                             <button onClick={() => void freeFinish()} disabled={busy} style={{ background: "linear-gradient(#14532d,#052e16)", borderColor: "#86efac" }}>
-                                {busy ? "…" : "Finish now · free (Logistician, weekly)"}
+                                {busy ? "Finishing…" : "Finish now · free (Logistician, weekly)"}
                             </button>
                         )}
                     </>
                 )}
             </div>
-            {msg && <p className="hint" style={{ margin: "8px 0 0", color: msg.startsWith("Success:") ? "#facc15" : "#f87171" }}>{msg}</p>}
+            {/* The prefix only picks the colour; the player reads the sentence. */}
+            {msg && <p className="hint" style={{ margin: "8px 0 0", color: msg.startsWith("Success:") ? "#e6c477" : "#f87171" }}>{msg.replace(/^(Success|Error):\s*/, "")}</p>}
         </div>
     );
 }

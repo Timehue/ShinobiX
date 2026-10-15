@@ -538,7 +538,7 @@ export function HollowGateShrineView({
                                                         }}
                                                         style={{ background: "linear-gradient(135deg,#7c3aed,#a855f7)", borderColor: "#c4b5fd" }}
                                                     >
-                                                        {isLast ? "Enter the Shrine" : "Next"}
+                                                        {isLast ? "Enter the shrine" : "Next"}
                                                     </button>
                                                 </div>
                                             </div>
@@ -549,7 +549,7 @@ export function HollowGateShrineView({
                                 <div>
                                     <p className="act-label" style={{ color: "#a855f7", letterSpacing: 2 }}>
                                         {run.variant?.label ? run.variant.label.toUpperCase() : "HOLLOW GATE · ANCIENT CAVERN"}
-                                        {run.variant && <span className={isQuestRift ? 'hg-rift-badge' : undefined} style={isQuestRift ? undefined : { marginLeft: 8, fontSize: 10, color: "#fbbf24", border: "1px solid #b45309", borderRadius: 999, padding: "1px 8px", letterSpacing: 1 }}>{isQuestRift ? 'RIFT' : 'EVENT'}</span>}
+                                        {run.variant && <span className={isQuestRift ? 'hg-rift-badge' : undefined} style={isQuestRift ? undefined : { marginLeft: 8, fontSize: 10, color: "#e6c477", border: "1px solid #b45309", borderRadius: 999, padding: "1px 8px", letterSpacing: 1 }}>{isQuestRift ? 'RIFT' : 'EVENT'}</span>}
                                     </p>
                                     <h2 style={{ margin: 0, color: "#faf5ff" }}>{isQuestRift ? <><span className="hg-rift-depth">Depth {String(run.floor).padStart(2, '0')} / {String(maxFloor).padStart(2, '0')}</span>{run.completed ? 'The Rift Falls Silent' : floorProfile.name}</> : <>Floor {run.floor} / {maxFloor} · {run.completed ? `${bossName} Defeated` : floorProfile.name}</>}</h2>
                                 </div>
@@ -879,7 +879,7 @@ export function HollowGateShrineView({
                                     onClick={onEmergencyForfeit}
                                     title="Ends the run as a defeat. Use this if the run or an encounter is stuck."
                                 >
-                                    {exitPending ? "Settling Run..." : "Emergency Forfeit"}
+                                    {exitPending ? "Settling run…" : "Emergency forfeit"}
                                 </button>
                             </div>
 
@@ -918,7 +918,7 @@ export function HollowGateShrineView({
                                             title={hollowGateEvent.title}
                                             body={hollowGateEvent.body}
                                             image={hollowGateEvent.image || HOLLOW_GATE_ALPHA_CINEMATIC}
-                                            actionLabel={hollowGateEvent.choices[0]?.label || "Take Final Rewards + Leave"}
+                                            actionLabel={hollowGateEvent.choices[0]?.label || "Take final rewards + leave"}
                                             onContinue={() => hollowGateEvent.choices[0]?.onSelect()}
                                             onEmergencyForfeit={onEmergencyForfeit}
                                             exitPending={exitPending}
@@ -947,7 +947,7 @@ export function HollowGateShrineView({
                                                     onClick={onEmergencyForfeit}
                                                     title="Ends the run as a defeat if this encounter cannot continue."
                                                 >
-                                                    {exitPending ? "Settling Run..." : "Emergency Forfeit Run"}
+                                                    {exitPending ? "Settling run…" : "Emergency forfeit run"}
                                                 </button>
                                             </div>
                                     </HollowGateEventDialog>
@@ -971,11 +971,11 @@ export function HollowGateShrineView({
                                             <div style={{ background: "rgba(168,85,247,0.12)", padding: 10, borderRadius: 6 }}><strong>Ancient Tablet</strong><br/>{hollowGateHiddenChamber.searched ? "Read" : "Readable"}</div>
                                         </div>
                                         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                                            <button autoFocus={!hollowGateHiddenChamber.searched} disabled={hollowGateHiddenChamber.searched} onClick={() => { playGameSfx("paper", { gain: 0.72 }); onSearchHiddenChamber(); }}><GameArtIcon kind="map" size={16} /> Search Chamber</button>
-                                            <button disabled={hollowGateHiddenChamber.relicTaken} onClick={() => { playGameSfx("mythic", { gain: 0.62 }); onTakeHiddenChamberRelic(); }}><GameArtIcon kind="reward" size={16} /> Take Relic</button>
-                                            <button autoFocus={hollowGateHiddenChamber.searched} onClick={onCloseHiddenChamber} className="danger-button">Return to Shrine</button>
+                                            <button autoFocus={!hollowGateHiddenChamber.searched} disabled={hollowGateHiddenChamber.searched} onClick={() => { playGameSfx("paper", { gain: 0.72 }); onSearchHiddenChamber(); }}><GameArtIcon kind="map" size={16} /> Search chamber</button>
+                                            <button disabled={hollowGateHiddenChamber.relicTaken} onClick={() => { playGameSfx("mythic", { gain: 0.62 }); onTakeHiddenChamberRelic(); }}><GameArtIcon kind="reward" size={16} /> Take relic</button>
+                                            <button autoFocus={hollowGateHiddenChamber.searched} onClick={onCloseHiddenChamber} className="danger-button">Return to shrine</button>
                                             <button onClick={onEmergencyForfeit} className="danger-button">
-                                                {exitPending ? "Settling Run..." : "Emergency Forfeit Run"}
+                                                {exitPending ? "Settling run…" : "Emergency forfeit run"}
                                             </button>
                                         </div>
                                 </HollowGateEventDialog>

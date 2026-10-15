@@ -1,13 +1,14 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
+import { createWeeklyBossSettlementCoordinator } from "../lib/weekly-boss-settlement";
 import { MissionArenaFight } from "./MissionArenaFight";
 import type { Character } from "../types/character";
 import type { SoloPveSession } from "../lib/solo-pve-api";
 import { soloPveArenaTransport, soloPveSessionForArena } from "../lib/solo-pve-arena-adapter";
 import { useLiveCapabilities } from "../lib/live-capabilities-context";
 import { capabilityAdmissionAllowed } from "../lib/live-capability-admission";
+import { WeeklyBossResult } from "../components/WeeklyBossResult";
 
-// Weekly Boss = a SOLO fight against the server-shared WORLD boss (one HP pool;
-// the encounter opens at the shared remaining HP, or a fixed floor once Broken),
+// Weekly Boss is a solo unlimited-health score attack,
 // rendered on the normal Arena shell (MissionArenaFight) — the same format as
 // PvE / missions / story. It replaced BattleTowerFight (the tower rail), so the
 // fight no longer looks like a tower floor ("Floor 9200 …"). The fight is a
@@ -38,6 +39,11 @@ export function WeeklyBossFight({
     onExit: () => void;
     exitLabel?: string;
 }) {
+    const settlementScope = useMemo(() => ({ runId, playerName: character.name, coordinate: createWeeklyBossSettlementCoordinator() }), [runId, character.name]);
+    const settleOnce = useCallback((id: string, playerName: string) => {
+        if (id !== settlementScope.runId || playerName !== settlementScope.playerName) return Promise.reject(new Error('This Weekly Boss settlement belongs to another attempt.'));
+        return settlementScope.coordinate(() => settleFn(id, playerName));
+    }, [settlementScope, settleFn]);
     const { mutationAvailability, viewAvailability } = useLiveCapabilities();
     const guardedTransport = useMemo(() => ({
         ...soloPveArenaTransport,
@@ -61,31 +67,14 @@ export function WeeklyBossFight({
             runId={runId}
             initialSession={soloPveSessionForArena(initialSession)}
             transport={guardedTransport}
-            settleFn={settleFn}
+            settleFn={settleOnce}
             settleOnAnyDone
             // Weekly settlement atomically owns contribution, usage costs, and
             // physical HP/hospital state. Reusing it here also makes the
             // explicit leave/forfeit path wait for that durable settlement.
-            outcomeFn={settleFn}
+            outcomeFn={settleOnce}
             onExit={onExit}
-            renderResult={({ won, settleState, settleResult }) => {
-                const dealt = (settleResult as { dealt?: number } | null)?.dealt;
-                return (
-                    <div className="battle-ended-overlay">
-                        <div className="card battle-ended-card">
-                            <h2>{won ? "The Boss Falters!" : "Assault Logged"}</h2>
-                            {settleState === "settled" && typeof dealt === "number" ? (
-                                <p>You dealt <strong>{dealt.toLocaleString()}</strong> damage this run — taken off the world&apos;s shared boss HP and banked to this week&apos;s leaderboard. Return to see where you rank.</p>
-                            ) : settleState === "failed" ? (
-                                <p>Your damage couldn&apos;t be logged to the leaderboard — return and try again.</p>
-                            ) : (
-                                <p>Taking your damage off the shared world boss and banking it to this week&apos;s leaderboard…</p>
-                            )}
-                            <button className="start-primary-btn" onClick={onExit}>{exitLabel}</button>
-                        </div>
-                    </div>
-                );
-            }}
+            renderResult={({ settleState, settleResult, retry }) => <WeeklyBossResult settleState={settleState} settleResult={settleResult} onRetry={retry} onExit={onExit} exitLabel={exitLabel} />}
         />
     );
 }

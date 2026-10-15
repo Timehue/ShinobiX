@@ -262,8 +262,8 @@ describe('Weekly Boss score-attack rules on the solo runtime', () => {
     it('seals the guard-down damage window into the server engine', () => {
         const open = applySoloPveAction(weekly(1), { type: 'basicAttack' }).session;
         const guarded = applySoloPveAction(weekly(2), { type: 'basicAttack' }).session;
-        const openDamage = 99_999_999 - open.enemy.hp;
-        const guardedDamage = 99_999_999 - guarded.enemy.hp;
+        const openDamage = open.enemy.damageReceived ?? 0;
+        const guardedDamage = guarded.enemy.damageReceived ?? 0;
         assert.ok(openDamage > guardedDamage, `open=${openDamage}, guarded=${guardedDamage}`);
     });
 

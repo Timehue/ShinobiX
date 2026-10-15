@@ -163,7 +163,7 @@ export function sectorContestGarrisonReady(
 
 /** Button/notice wording for a contest entry. Pure so the panel stays dumb. */
 export function sectorContestLabel(winCondition: "card" | "pet"): string {
-    return winCondition === "card" ? "Card Battle" : "Pet Battle";
+    return winCondition === "card" ? "Card battle" : "Pet battle";
 }
 
 /** Where a contest screen's Back goes, kept in a SIBLING key. It cannot live in

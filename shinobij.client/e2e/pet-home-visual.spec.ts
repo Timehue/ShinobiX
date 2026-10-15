@@ -614,11 +614,11 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     await expect(readiness).toContainText("Aegis Pendant");
     await expect(readiness).toContainText("27 victories");
     await expect(readiness.getByRole("button", { name: /Deploy Sumi/ })).toBeEnabled();
-    await expect(readiness.getByRole("button", { name: /Add Sumi to Squad/ })).toBeEnabled();
+    await expect(readiness.getByRole("button", { name: /Add Sumi to squad/ })).toBeEnabled();
     await shot(page, testInfo, "14-existing-pet-yard-tab");
     await readiness.screenshot({ path: testInfo.outputPath("14a-battle-deployment-console.png"), animations: "disabled" });
 
-    await readiness.getByRole("button", { name: /Add Sumi to Squad/ }).click();
+    await readiness.getByRole("button", { name: /Add Sumi to squad/ }).click();
     await expect(page.getByRole("heading", { name: "Beastbound Warfront", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: /Beastbound Warfront/ })).toHaveAttribute("aria-current", "page");
     const deployedWarfrontPet = page.locator(".pet-pick", { hasText: "Sumi" });
@@ -711,7 +711,7 @@ test("Pet battle readiness mirrors server admission and lineage rules", async ({
     let warfront = readiness.locator('[data-circuit="warfront"]');
     let colosseum = readiness.locator('[data-circuit="colosseum"]');
     await expect(warfront).not.toContainText("Training results unclaimed");
-    await expect(warfront.getByRole("button", { name: /Add Sumi to Squad/ })).toBeEnabled();
+    await expect(warfront.getByRole("button", { name: /Add Sumi to squad/ })).toBeEnabled();
     await expect(colosseum.getByRole("button", { name: /Deploy Sumi/ })).toBeEnabled();
 
     delete selectedPet.training;
@@ -756,7 +756,7 @@ test("Pet battle readiness mirrors server admission and lineage rules", async ({
     await page.getByRole("navigation", { name: "Pet Yard activities" }).getByRole("button", { name: "Battle & techniques" }).click();
     readiness = page.locator(".pet-battle-readiness");
     await expect(readiness.getByRole("button", { name: /Deploy Sumi/ })).toBeEnabled();
-    await expect(readiness.getByRole("button", { name: /Add Sumi to Squad/ })).toBeEnabled();
+    await expect(readiness.getByRole("button", { name: /Add Sumi to squad/ })).toBeEnabled();
     await readiness.getByRole("button", { name: /Deploy Sumi/ }).click();
     await expect(page.getByRole("heading", { name: "The Colosseum", exact: true })).toBeVisible();
     const bredColosseumPet = page.locator(".showdown-roster-card", { hasText: "Sumi" });
@@ -865,9 +865,9 @@ test("the training gate tells overflow and a Supporter's sixth carried pet apart
     // The advice is true: Set as Active pulls the sixth pet into the training five.
     // The role is recorded by the server first, so a Start Training pressed
     // straight after cannot reach a server that still has the old order.
-    await page.getByRole("button", { name: "Set as Active", exact: true }).click();
+    await page.getByRole("button", { name: "Set as active", exact: true }).click();
     await expect(trainingHint).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Start Training", exact: true })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Start training", exact: true })).toBeEnabled();
     expect(state.roleRequests).toEqual([{ action: "set-active", petId: fullRosterPets[fullRosterPets.length - 1].id, assign: true }]);
 });
 
@@ -1060,18 +1060,19 @@ test("refined integration companion actions and recovery", async ({ page }, test
     });
     await gotoSettled(page, '/#/pets');
     await page.getByRole('button', { name: 'Select Sumi', exact: true }).click();
-    await page.getByRole('button', { name: 'Collect Results', exact: true }).click();
+    await page.getByRole('button', { name: 'Collect results', exact: true }).click();
     await expect(page.getByRole('alertdialog')).toContainText('Training desk unavailable');
     await page.locator('.game-alert-ok').click();
-    await expect(page.getByRole('button', { name: 'Collect Results', exact: true })).toBeEnabled();
-    await page.getByRole('button', { name: 'Collect Results', exact: true }).click();
-    await expect(page.getByRole('alertdialog')).toContainText('completed bond training');
-    await page.locator('.game-alert-ok').click();
-    await expect(page.getByRole('button', { name: 'Start Training', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Collect results', exact: true })).toBeEnabled();
+    await page.getByRole('button', { name: 'Collect results', exact: true }).click();
+    // A routine collection confirms with a toast, not a modal to click through.
+    await expect(page.locator('.game-toast-stack')).toContainText('completed bond training');
+    await expect(page.getByRole('alertdialog')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Start training', exact: true })).toBeVisible();
     await expect(page.locator('.pet-xp-line')).toContainText('35/');
     await page.getByRole('button', { name: 'Add Vitality point', exact: true }).click();
-    await page.getByRole('button', { name: 'Commit Build', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'Commit Build', exact: true })).toBeDisabled();
+    await page.getByRole('button', { name: 'Commit build', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Commit build', exact: true })).toBeDisabled();
     expect(state.character.pets[0].growthAllocation).toMatchObject({ vitality: 1 });
     const nav = page.getByRole('navigation', { name: 'Pet Yard activities' });
     await nav.getByRole('button', { name: 'Care', exact: true }).click();
@@ -1262,18 +1263,18 @@ test("Warfront failed settlement allows Leave and recovers the exact report afte
         await expect(report).toBeHidden();
     }
     await expect(page.locator(".wfr-result")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Retry Settlement", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Try again", exact: true })).toBeVisible();
     const leave = page.getByRole("button", { name: "Leave the Warfront", exact: true });
     await expect(leave).toBeEnabled();
     await page.screenshot({ path: testInfo.outputPath("failed-report-leave-enabled.png") });
     await leave.click();
     await expect(page.locator(".wfr-result")).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Retry Settlement", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Try again", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Pet Yard", exact: true }).click();
     recovered = true;
     await page.getByRole("button", { name: "Pet Arena", exact: true }).click();
     await expect.poll(() => bodies.length).toBe(2);
-    await expect(page.getByRole("button", { name: "Retry Settlement", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Try again", exact: true })).toHaveCount(0);
     expect(bodies[1]).toEqual(bodies[0]);
     expect(bodies[0].battleToken).toBe("qa-warfront-exact-seal");
     expect(bodies[0].warfrontPlan).toBeTruthy();

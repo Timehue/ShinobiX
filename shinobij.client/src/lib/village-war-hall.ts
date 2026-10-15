@@ -176,7 +176,7 @@ export async function postVillageWarCommand(command: VillageWarCommand, myVillag
     try {
         const { status, data } = await postVillageWarUpdate({ kind: "war-command", command, villages: [myVillage, enemyVillage] });
         if (status >= 200 && status < 300) return { ok: true, war: villageWarRow(data?.war) };
-        return { ok: false, status, error: String(data?.error ?? `The war command failed (HTTP ${status}).`) };
+        return { ok: false, status, error: String(data?.error ?? "The war command did not go through. Try again in a moment.") };
     } catch {
         return { ok: false, status: 0, error: "The server could not be reached. Try again." };
     }

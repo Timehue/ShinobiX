@@ -371,7 +371,7 @@ type Dive = {
     size: number;
 };
 
-/** World Map → the Hollow Gate landmark → "Enter the Shrine". */
+/** World Map → the Hollow Gate landmark → "Enter the shrine". */
 async function enterTheShrineFromTheMap(page: Page, info: TestInfo) {
     if (info.project.name.includes('mobile')) {
         // The phone map opens on the diver's own region; the Gate stands in the
@@ -379,7 +379,7 @@ async function enterTheShrineFromTheMap(page: Page, info: TestInfo) {
         await page.getByRole('group', { name: 'Jump to region' }).getByRole('button', { name: 'Central', exact: true }).click();
     }
     await page.getByRole('button', { name: 'Enter Hollow Gate', exact: true }).click({ timeout: 45_000 });
-    await page.getByRole('button', { name: 'Enter the Shrine', exact: true }).click();
+    await page.getByRole('button', { name: 'Enter the shrine', exact: true }).click();
 }
 
 /** Seal every floor without wanderers, as for an older browser (see the header). */
@@ -468,7 +468,7 @@ async function sendPetFromTheShrine(page: Page, info: TestInfo, diver: Diver): P
         expect(reply.ambush ?? null, 'no ambush interrupts the walk').toBeNull();
         if (manifest.nodes[String(plan.path[i])] === 'trap') {
             const trap = page.getByRole('dialog', { name: 'Ancient Seal Trap', exact: true });
-            await trap.getByRole('button', { name: 'Press On', exact: true }).click();
+            await trap.getByRole('button', { name: 'Press on', exact: true }).click();
             await expect(trap).toHaveCount(0);
         }
     }
@@ -477,7 +477,7 @@ async function sendPetFromTheShrine(page: Page, info: TestInfo, diver: Diver): P
     const sendPet = page.getByRole('button', { name: `Send ${diver.lead.name}`, exact: true });
     const choice = page.getByRole('dialog').filter({ has: sendPet });
     await expect(choice).toBeVisible();
-    await expect(choice.getByRole('button', { name: 'Fight as Shinobi', exact: true })).toBeVisible();
+    await expect(choice.getByRole('button', { name: 'Fight as shinobi', exact: true })).toBeVisible();
     await expect(choice).toContainText(`Pet combat is a Pet Colosseum duel led by ${diver.lead.name}: 1v1, 2v2 or 3v3 at random`);
     const encounterReply = apiReply(page, '/api/hollow-gate/combat-start', (body) => body.mode === 'pet');
     const duelReply = apiReply(page, '/api/pet/showdown', (body) => body.action === 'hollow-gate');
@@ -521,6 +521,9 @@ test('Send pet opens the server-drawn duel on the shrine, and a forfeit settles 
 
     const before = await diver.readCharacter();
     expect(before.hollowGateRun?.runToken).toBe(dive.started.token);
+    // Retain the actual fight presentation as well as the post-fight shrine.
+    await page.evaluate(() => document.fonts.ready);
+    await page.screenshot({ path: info.outputPath('hollow-gate-pet-duel.png'), animations: 'disabled' });
     await forfeitTheDuel(page, dive);
 
     // The shrine shows the defeat, and the run goes on. The settle reply's

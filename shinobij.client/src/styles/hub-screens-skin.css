@@ -6,8 +6,8 @@
 .logbook-screen,
 .jutsu-training-screen,
 .mission-hall {
-    --bsv2-gold:        #c4a25a;
-    --bsv2-gold-bright: #e8d496;
+    --bsv2-gold:        var(--sj-gold);
+    --bsv2-gold-bright: var(--sj-gold-bright);
     --bsv2-gold-soft:   rgba(196,162,90,0.45);
     --bsv2-gold-faint:  rgba(196,162,90,0.22);
     --bsv2-ink:         #050a18;
@@ -388,7 +388,9 @@
         inset 0 0 18px rgba(0,0,0,0.4);
     transition: border-color 120ms, transform 120ms;
 }
-.mission-hall .hunt-contract-card:hover { border-color: rgba(78,168,255,0.85) !important; transform: translateY(-2px); }
+@media (hover: hover) {
+    .mission-hall .hunt-contract-card:hover { border-color: rgba(78,168,255,0.85) !important; transform: translateY(-2px); }
+}
 .mission-hall .hunt-contract-top { color: var(--bsv2-gold-bright) !important; font: 600 12px var(--font-display) !important; letter-spacing: 0.1em; }
 .mission-hall .hunt-description { color: #c8cfdc !important; font: 400 11px Inter, sans-serif !important; }
 .mission-hall .hunt-drops { color: rgba(196,162,90,0.75) !important; font: 400 10px Inter, sans-serif !important; }
@@ -848,10 +850,12 @@
     box-shadow: 0 0 18px color-mix(in srgb, var(--mission-rank-color) 38%, transparent);
 }
 
-.mission-hall .mh-field-card:hover {
-    border-color: color-mix(in srgb, var(--mission-rank-color) 72%, white 8%) !important;
-    box-shadow: 0 20px 42px rgba(0, 0, 0, 0.42), 0 0 24px color-mix(in srgb, var(--mission-rank-color) 10%, transparent);
-    transform: translateY(-3px);
+@media (hover: hover) {
+    .mission-hall .mh-field-card:hover {
+        border-color: color-mix(in srgb, var(--mission-rank-color) 72%, white 8%) !important;
+        box-shadow: 0 20px 42px rgba(0, 0, 0, 0.42), 0 0 24px color-mix(in srgb, var(--mission-rank-color) 10%, transparent);
+        transform: translateY(-3px);
+    }
 }
 
 .mission-hall .mh-field-art {
@@ -880,9 +884,11 @@
     transition: filter 180ms ease, transform 260ms ease;
 }
 
-.mission-hall .mh-field-card:hover .mh-field-art img {
-    filter: saturate(1.02) contrast(1.06) brightness(0.94);
-    transform: scale(1.055);
+@media (hover: hover) {
+    .mission-hall .mh-field-card:hover .mh-field-art img {
+        filter: saturate(1.02) contrast(1.06) brightness(0.94);
+        transform: scale(1.055);
+    }
 }
 
 .mission-hall .mh-field-rank {

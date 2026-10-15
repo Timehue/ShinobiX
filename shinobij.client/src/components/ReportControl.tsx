@@ -58,7 +58,7 @@ const inputStyle: CSSProperties = {
 };
 const primaryBtn: CSSProperties = {
     minHeight: 38, padding: "8px 16px", borderRadius: 8,
-    border: "1px solid rgba(250,204,21,0.6)", background: "linear-gradient(180deg,#d98a12,#7a350f)",
+    border: "1px solid rgba(230, 196, 119, 0.6)", background: "linear-gradient(180deg,#d98a12,#7a350f)",
     color: "#fff7d6", fontWeight: 800, cursor: "pointer",
 };
 const secondaryBtn: CSSProperties = {

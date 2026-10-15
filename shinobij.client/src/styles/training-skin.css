@@ -200,6 +200,45 @@
     font: 500 12px/1.4 Inter, sans-serif;
 }
 
+.training-guide-panel > p {
+    margin: 0;
+    color: var(--slate-300);
+    font-size: 14px;
+    line-height: 1.55;
+}
+
+.training-guide-panel > p strong {
+    font: 600 14px/1.4 var(--font-body);
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+.training-guidance {
+    margin-block-start: 12px;
+    border-block-start: 1px solid rgba(78,168,255,0.2);
+}
+
+.training-guidance > summary {
+    min-block-size: 44px;
+    align-content: center;
+    color: #9ed8ff;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.training-guidance > summary:focus-visible {
+    outline: 2px solid #9ed8ff;
+    outline-offset: 3px;
+    border-radius: 4px;
+}
+
+.training-guidance ul {
+    grid-template-columns: minmax(0, 1fr);
+    padding-inline-start: 18px;
+    padding-block-end: 8px;
+}
+
 .card:has(.stat-group-list) .location-button.academy-timer-target {
     border-color: #e8d496 !important;
     box-shadow:
@@ -281,6 +320,14 @@
         width: 22px !important;
         height: 22px !important;
     }
+}
+
+/* Four choices should fit together in a short phone window. Keep the text
+   and close action; the decorative stat icon returns when height permits. */
+@media (orientation: landscape) and (max-height: 420px) {
+    .training-timer-modal > .ui-modal-header { padding-block: 8px; }
+    .training-timer-modal > .ui-modal-body { padding: 12px; }
+    .training-timer-modal .training-timer-grid .tile-icon { display: none; }
 }
 
 /* Active training summary box */

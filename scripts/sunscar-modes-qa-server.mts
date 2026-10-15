@@ -33,7 +33,7 @@ async function reset(rippleSeal = false, expiredReady = false) {
 }
 await reset();
 app.get('/__qa/session', (_req, res) => res.json({ name, token: issuePlayerToken(name) }));
-app.post('/__qa/reset', async (req, res) => { await reset(req.body.rippleSeal === true, req.body.expiredReady === true); res.json({ ok: true }); });
+app.post('/__qa/reset', async (req, res) => { await reset(req.body?.rippleSeal === true, req.body?.expiredReady === true); res.json({ ok: true }); });
 app.post('/__qa/encounter', async (req, res) => {
     const { caravanEvent } = await import('../shared/sunscar/caravan-events.js');
     const event = caravanEvent(String(req.body.eventId));

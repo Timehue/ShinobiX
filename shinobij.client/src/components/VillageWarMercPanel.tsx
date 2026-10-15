@@ -98,7 +98,7 @@ export function VillageWarMercPanel({ character, onChanged }: { character: Chara
             <h3>Mercenaries</h3>
             {MERC_RULES_LINES.map((line) => <p key={line} className="hint">{line}</p>)}
             {!canHire && (
-                <p className="hint" style={{ color: "#fbbf24" }}><GameArtIcon kind="crown" size={16} /> Only your seated Kage or a current Elder can hire and send mercenaries.</p>
+                <p className="hint" style={{ color: "#e6c477" }}><GameArtIcon kind="crown" size={16} /> Only your seated Kage or a current Elder can hire and send mercenaries.</p>
             )}
             {contexts.length === 0 && (
                 <p className="hint">No Combat sector defense to hire for right now. Bands become available when an enemy attacks one of your Combat sectors.</p>

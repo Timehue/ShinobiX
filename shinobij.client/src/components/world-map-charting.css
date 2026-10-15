@@ -23,7 +23,7 @@
 
 .world-region-label {
     position: absolute;
-    transform: translate(-50%, -50%) scale(var(--wm-marker-scale, 1));
+    transform: translate(-50%, -50%);
     transform-origin: center;
     z-index: 3;
     pointer-events: none;
@@ -42,11 +42,11 @@
  * eight headline places. Dark glass plate + hairline rule, in the register of
  * an in-world cartouche. Pointer-events:none and below the z-10 markers, so a
  * plate can sit near a pin without ever stealing its click. They counter-scale
- * with --wm-marker-scale like the markers do, so mobile zoom SEPARATES plates
+ * through WorldMapPin wrappers like the markers do, so mobile zoom SEPARATES plates
  * from pins instead of inflating both. */
 .world-poi-plate {
     position: absolute;
-    transform: translate(-50%, -50%) scale(var(--wm-marker-scale, 1));
+    transform: translate(-50%, -50%);
     transform-origin: center;
     z-index: 4;
     pointer-events: none;
@@ -138,7 +138,7 @@
    the map's open ground instead: that measures 0% obscured on the pinch board,
    2.5-7.2% on the wide-short ones. It is less tidy than sitting under the icon,
    but at these sizes legibility wins — and a phone player pinches in to read
-   anyway, at which point --wm-marker-scale separates plates from pins.
+   anyway, at which point the scale wrappers separate plates from pins.
 
    Keyed to 980px to match the force-size breakpoint exactly. These override the
    inline left/top the component sets, so they need !important. If you re-tune a
@@ -153,8 +153,8 @@
        to clear the DESKTOP plate, and on a short board its %-footprint then
        reached the old spot (up to 51% of this name covered). */
     .wpk-hollowgate { left: 63% !important; top: 80.5% !important; }
-    /* Moonshadow's crest now occupies this open southern column too. */
-    .wpk-moonshadow { left: 91% !important; top: 95% !important; }
+    /* Keep the central court's caption beneath its crest on small boards. */
+    .wpk-moonshadow { left: 84% !important; top: 78% !important; }
     .wpk-sunscar    { left: 40% !important; top: 92% !important; }
 }
 

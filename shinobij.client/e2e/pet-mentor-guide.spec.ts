@@ -38,6 +38,8 @@ const WANDERER_MAX_INDEX = 1;
 // The after-dark night ninja slot. Seeded too, so a run that lands on in-world
 // night still finds a quiet road.
 const WANDERER_NIGHT_INDEX = WANDERER_MAX_INDEX + 1;
+// The angler/miner and rift-creature slots sit above it (shared/wanderer-extra-slots.ts).
+const WANDERER_LAST_INDEX = WANDERER_NIGHT_INDEX + 2;
 
 /**
  * Keep the road empty for the sector this fixture drops the player into.
@@ -58,7 +60,7 @@ function quietRoadCooldowns(sector: number, now = Date.now()): Record<string, nu
     const cooldowns: Record<string, number> = {};
     for (const offset of [-1, 0, 1]) {
         const bucket = Math.floor(now / WANDERER_BUCKET_MS) + offset;
-        for (let index = 0; index <= WANDERER_NIGHT_INDEX; index++) {
+        for (let index = 0; index <= WANDERER_LAST_INDEX; index++) {
             cooldowns[`w-${sector}-${bucket}-${index}`] = expiry;
         }
     }

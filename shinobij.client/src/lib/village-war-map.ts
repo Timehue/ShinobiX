@@ -136,7 +136,7 @@ export class WarMapRequestError extends Error {
     readonly status: number;
     readonly data: Record<string, unknown>;
     constructor(status: number, data: Record<string, unknown>) {
-        super(String(data.message ?? data.error ?? `HTTP ${status}`));
+        super(String(data.message ?? data.error ?? "The war map did not answer. Try again in a moment."));
         this.name = "WarMapRequestError";
         this.status = status;
         this.data = data;

@@ -130,12 +130,16 @@ export function Inventory({
     const [checkingExchange, setCheckingExchange] = useState(false);
     const [inventoryTab, setInventoryTab] = useState<"items" | "tileCards">("items");
     const [selectedTileCard, setSelectedTileCard] = useState<{ card: TileCard; count: number } | null>(null);
+    // Card art that fails to load shows the Card Hall glyph instead of an empty frame.
+    const [brokenCardArt, setBrokenCardArt] = useState<ReadonlySet<string>>(() => new Set());
     const [slotFilter, setSlotFilter] = useState<EquipmentSlot | null>(null);
     const [categoryFilter, setCategoryFilter] = useState<"all" | ItemCategory>("all");
     const [itemSearch, setItemSearch] = useState("");
     const [salePending, setSalePending] = useState<{ quantity: number; name: string } | null>(null);
     const saleBusyRef = useRef(false);
     // A named piece is one of a kind, so its first Sell click only arms the sale.
+    // The same arm covers an epic-or-better piece, a piece you are wearing, and
+    // Sell All. It holds the key of the armed button (see saleArmKey below).
     const [namedSaleArmed, setNamedSaleArmed] = useState<string | null>(null);
     const [saleError, setSaleError] = useState<{ selection: NonNullable<typeof selectedInventoryItem>; message: string } | null>(null);
     const saleNoticeRef = useRef<HTMLDivElement>(null);
@@ -760,6 +764,27 @@ export function Inventory({
     const equippedConsumableSelected = selected?.source === "equipped"
         && selected.equipmentSlot != null
         && consumableEquipSlots.has(normalizeEquipmentSlot(selected.equipmentSlot));
+    // A one-tap sale is final, so the pieces that hurt to lose take a second tap:
+    // named gear, epic or better, anything worn, and every Sell All.
+    const singleSaleNeedsArm = !!selectedGameItem && (isNamedGearId(selectedGameItem.id)
+        || rarityWeight(selectedGameItem.rarity) >= rarityWeight("epic")
+        || selected?.source === "equipped");
+    const saleArmKey = selectedGameItem ? `${selected?.source}:${selectedGameItem.id}` : "";
+    const sellAllArmKey = selectedGameItem ? `all:${selectedGameItem.id}` : "";
+    const singleSaleArmedLabel = !selectedGameItem ? ""
+        : isNamedGearId(selectedGameItem.id) ? `Confirm: sell this named piece for ${selectedSellValue} ryo`
+            : selected?.source === "equipped" ? `Confirm: sell this equipped piece for ${selectedSellValue} ryo`
+                : `Confirm: sell this ${selectedGameItem.rarity} piece for ${selectedSellValue} ryo`;
+    // Equip refuses an off-element or over-level piece (equipItem), so the button
+    // says why instead of offering a tap that only opens a refusal. Gathering
+    // tools skip both checks there, so they skip them here too.
+    const selectedEquipBlock = selectedGameItem && !selectedGatheringTool
+        ? selectedGameItem.weaponElement && !hasCharacterElement(character, selectedGameItem.weaponElement)
+            ? `Needs the ${selectedGameItem.weaponElement} element`
+            : !meetsItemLevelReq(selectedGameItem, character.level)
+                ? `Requires Lv. ${effectiveItemLevelReq(selectedGameItem)}`
+                : null
+        : null;
 
     return (
         <>
@@ -786,7 +811,7 @@ export function Inventory({
                             {equippedSlotCount}<small>/{visualSlots.length}</small>
                         </span>
                     </div>
-                    <p className="inventory-panel-intro">Select a slot to filter compatible gear, or inspect an equipped item.</p>
+                    <p className="inventory-panel-intro">Select a slot to filter compatible gear, or inspect an equipped item. Fishing and Mining tools work only for gathering and are never used in battle.</p>
 
                     <div className="inventory-character-layout">
                         <div className="inventory-silhouette">
@@ -1126,10 +1151,13 @@ export function Inventory({
                                             }}
                                         >
                                             <div className="tile-card-inventory-art">
-                                                {card?.image ? (
-                                                    <img src={card.image} alt={card.name} loading="lazy" decoding="async" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                                                {card?.image && !brokenCardArt.has(card.image) ? (
+                                                    <img src={card.image} alt={card.name} loading="lazy" decoding="async" onError={() => {
+                                                        const src = card?.image ?? "";
+                                                        setBrokenCardArt((prev) => prev.has(src) ? prev : new Set(prev).add(src));
+                                                    }} />
                                                 ) : (
-                                                    <span>🃏</span>
+                                                    <GameArtIcon kind="cardHall" size={34} />
                                                 )}
                                             </div>
 
@@ -1349,7 +1377,7 @@ export function Inventory({
                                             disabled={openingWarCrate}
                                             onClick={() => void consumeItem(selected.entry)}
                                         >
-                                            {openingWarCrate ? "Opening…" : "Open Crate"}
+                                            {openingWarCrate ? "Opening…" : "Open crate"}
                                         </button>
                                     )}
 
@@ -1360,7 +1388,7 @@ export function Inventory({
                                             disabled={openingHollowBeastCache}
                                             onClick={() => void consumeItem(selected.entry)}
                                         >
-                                            {openingHollowBeastCache ? "Opening…" : "Open Cache"}
+                                            {openingHollowBeastCache ? "Opening…" : "Open cache"}
                                         </button>
                                     )}
 
@@ -1369,10 +1397,10 @@ export function Inventory({
                                             type="button"
                                             className={`item-action-primary${academyInventoryStep && ACADEMY_STARTER_GEAR_IDS.some((id) => id === selectedGameItem.id) ? " academy-click-target" : ""}`}
                                             data-academy-hint={academyInventoryStep && ACADEMY_STARTER_GEAR_IDS.some((id) => id === selectedGameItem.id) ? "Next · equip gear" : undefined}
-                                            disabled={selectedGatheringTool ? toolBusy || gatheringToolRemaining(character, selectedGatheringTool.id) === 0 : undefined}
+                                            disabled={selectedGatheringTool ? toolBusy || gatheringToolRemaining(character, selectedGatheringTool.id) === 0 : !!selectedEquipBlock || undefined}
                                             onClick={() => equipItem(selectedGameItem)}
                                         >
-                                            Equip to {equipmentSlotLabel(equipSlotForItem(selectedGameItem))}
+                                            {selectedEquipBlock ?? `Equip to ${equipmentSlotLabel(equipSlotForItem(selectedGameItem))}`}
                                         </button>
                                     )}
 
@@ -1424,22 +1452,27 @@ export function Inventory({
                                                         </div>
                                                     );
                                                 }
+                                                // Shown under the button, not only in a tooltip a phone never shows.
+                                                const attuneBlocked = awakenedElements.length === 0
+                                                    ? "Awaken an element at the Awakening Stone first."
+                                                    : coreCount < 1
+                                                        ? "Forge an Elemental Core at the Crafter to attune this weapon."
+                                                        : "";
                                                 return (
-                                                    <button
-                                                        type="button"
-                                                        className="item-action-secondary"
-                                                        disabled={coreCount < 1 || awakenedElements.length === 0 || attuneBusy}
-                                                        title={awakenedElements.length === 0
-                                                            ? "Awaken an element first."
-                                                            : coreCount < 1
-                                                                ? "Forge an Elemental Core at the Crafter."
-                                                                : "Attune this weapon to one of your awakened elements."}
-                                                        onClick={() => { setAttuneMsg(""); setAttunePickFor(weaponId); }}
-                                                    >
-                                                        {currentElement
-                                                            ? `Re-attune (currently ${currentElement}) · 1 Core`
-                                                            : `Attune with Elemental Core · ${coreCount} owned`}
-                                                    </button>
+                                                    <>
+                                                        <button
+                                                            type="button"
+                                                            className="item-action-secondary"
+                                                            disabled={!!attuneBlocked || attuneBusy}
+                                                            title={attuneBlocked || "Attune this weapon to one of your awakened elements."}
+                                                            onClick={() => { setAttuneMsg(""); setAttunePickFor(weaponId); }}
+                                                        >
+                                                            {currentElement
+                                                                ? `Re-attune (currently ${currentElement}) · 1 Core`
+                                                                : `Attune with Elemental Core · ${coreCount} owned`}
+                                                        </button>
+                                                        {attuneBlocked && !attuneMsg && <small className="attune-message">{attuneBlocked}</small>}
+                                                    </>
                                                 );
                                             })()}
                                             {attuneMsg && <small className="attune-message">{attuneMsg}</small>}
@@ -1464,13 +1497,13 @@ export function Inventory({
                                             aria-busy={!!salePending}
                                             aria-describedby={salePending ? "inventory-sale-pending" : selectedSaleError ? "inventory-sale-error" : undefined}
                                             onClick={() => {
-                                                if (isNamedGearId(selectedGameItem.id) && namedSaleArmed !== selectedGameItem.id) { setNamedSaleArmed(selectedGameItem.id); return; }
+                                                if (singleSaleNeedsArm && namedSaleArmed !== saleArmKey) { setNamedSaleArmed(saleArmKey); return; }
                                                 setNamedSaleArmed(null);
                                                 void sellSelectedItem(1);
                                             }}
                                         >
-                                            {isNamedGearId(selectedGameItem.id) && namedSaleArmed === selectedGameItem.id
-                                                ? `Confirm: sell this named piece for ${selectedSellValue} ryo`
+                                            {singleSaleNeedsArm && namedSaleArmed === saleArmKey
+                                                ? singleSaleArmedLabel
                                                 : `Sell for ${selectedSellValue} ryo`}
                                         </button>
                                     )}
@@ -1482,9 +1515,15 @@ export function Inventory({
                                             disabled={!!salePending}
                                             aria-busy={!!salePending}
                                             aria-describedby={salePending ? "inventory-sale-pending" : selectedSaleError ? "inventory-sale-error" : undefined}
-                                            onClick={() => sellSelectedItem(selected.count)}
+                                            onClick={() => {
+                                                if (namedSaleArmed !== sellAllArmKey) { setNamedSaleArmed(sellAllArmKey); return; }
+                                                setNamedSaleArmed(null);
+                                                void sellSelectedItem(selected.count);
+                                            }}
                                         >
-                                            Sell All x{selected.count} for {selectedSellValue * selected.count} ryo
+                                            {namedSaleArmed === sellAllArmKey
+                                                ? `Confirm: sell all ${selected.count} for ${selectedSellValue * selected.count} ryo`
+                                                : `Sell all x${selected.count} for ${selectedSellValue * selected.count} ryo`}
                                         </button>
                                     )}
 

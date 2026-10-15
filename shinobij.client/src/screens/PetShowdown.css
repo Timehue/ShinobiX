@@ -62,12 +62,12 @@
     transition: border-color 0.15s, background 0.15s, transform 0.1s;
 }
 @media (hover: hover) {
-    .showdown-choice:hover { border-color: rgba(251, 191, 36, 0.6); }
+    .showdown-choice:hover { border-color: rgba(230, 196, 119, 0.6); }
 }
 .showdown-choice.active {
-    border-color: #fbbf24;
+    border-color: var(--sj-gold-bright);
     background: rgba(72, 48, 18, 0.9);
-    box-shadow: 0 0 14px rgba(251, 191, 36, 0.25);
+    box-shadow: 0 0 14px rgba(230, 196, 119, 0.25);
 }
 .showdown-choice-label { font-weight: 700; }
 .showdown-choice-blurb { font-size: 0.78rem; color: #b9a583; }
@@ -118,11 +118,11 @@
     transition: border-color 0.15s, transform 0.12s;
 }
 @media (hover: hover) {
-    .showdown-roster-card:hover:not(:disabled) { transform: translateY(-2px); border-color: rgba(251, 191, 36, 0.55); }
+    .showdown-roster-card:hover:not(:disabled) { transform: translateY(-2px); border-color: rgba(230, 196, 119, 0.55); }
 }
 .showdown-roster-card.picked {
-    border-color: #fbbf24;
-    box-shadow: 0 0 12px rgba(251, 191, 36, 0.3);
+    border-color: var(--sj-gold-bright);
+    box-shadow: 0 0 12px rgba(230, 196, 119, 0.3);
 }
 .showdown-roster-card.busy { opacity: 0.45; cursor: not-allowed; }
 .showdown-roster-card img {
@@ -138,7 +138,7 @@
     width: 22px;
     height: 22px;
     border-radius: 50%;
-    background: #fbbf24;
+    background: var(--sj-gold-bright);
     color: #1c1207;
     font-weight: 800;
     font-size: 0.8rem;
@@ -170,8 +170,8 @@
     font-weight: 700;
     padding: 1px 4px;
     border-radius: 4px;
-    background: rgba(251, 191, 36, 0.15);
-    border: 1px solid rgba(251, 191, 36, 0.3);
+    background: rgba(230, 196, 119, 0.15);
+    border: 1px solid rgba(230, 196, 119, 0.3);
     color: #e8dcc2;
 }
 .showdown-roster-kit em.gear { background: rgba(147, 197, 253, 0.15); border-color: rgba(147, 197, 253, 0.3); }
@@ -240,7 +240,7 @@
     min-block-size: 34px;
 }
 @media (hover: hover) {
-    .showdown-chip:hover { border-color: rgba(251, 191, 36, 0.6); }
+    .showdown-chip:hover { border-color: rgba(230, 196, 119, 0.6); }
 }
 /* Icon-only chips are a fixed square, so a label swap can never reflow the
    HUD column the way "Muted" / "Sound" used to. */
@@ -252,7 +252,7 @@
     padding: 0;
     color: var(--ink-dim, #b9a583);
 }
-.showdown-chip.icon.on { color: #fbbf24; border-color: rgba(251, 191, 36, 0.6); }
+.showdown-chip.icon.on { color: var(--sj-gold-bright); border-color: rgba(230, 196, 119, 0.6); }
 .showdown-chip.danger.icon { color: #fca5a5; }
 .showdown-chip.danger { border-color: rgba(248, 113, 113, 0.5); color: #fca5a5; }
 
@@ -272,7 +272,7 @@
    for on a phone. */
 .showdown-hud {
     --brass: #d9b478;
-    --brass-hot: #fbbf24;
+    --brass-hot: var(--sj-gold-bright);
     --lacquer-hi: #2a1e10;
     --lacquer-lo: #0b0805;
     --ink: #f3ead7;
@@ -354,7 +354,7 @@
     gap: 6px;
 }
 
-.showdown-round { font-weight: 800; font-size: 0.9rem; color: #fbbf24; text-shadow: 0 1px 4px #000; }
+.showdown-round { font-weight: 800; font-size: 0.9rem; color: var(--sj-gold-bright); text-shadow: 0 1px 4px #000; }
 .showdown-vs { font-size: 0.78rem; color: #d9c9a8; text-shadow: 0 1px 4px #000; max-width: 160px; text-align: right; }
 
 /* FIELD WEATHER — the sky a weather technique actually calls, drawn by the
@@ -483,7 +483,7 @@
     --frame-ink: var(--brass-hot);
     --frame-alpha: 1;
     border-color: var(--brass-hot);
-    box-shadow: inset 0 0 0 1px rgba(251, 220, 160, 0.2), 0 0 14px rgba(251, 191, 36, 0.45);
+    box-shadow: inset 0 0 0 1px rgba(251, 220, 160, 0.2), 0 0 14px rgba(230, 196, 119, 0.45);
 }
 /* Selection anywhere in this HUD is bracket ignition, never a hue swap. */
 .showdown-plate.targetable {
@@ -624,7 +624,7 @@
     background: linear-gradient(90deg, #fcd34d, #f59e0b);
     transition: width 0.45s cubic-bezier(0.2, 0.8, 0.3, 1);
 }
-.showdown-plate-meter.full { box-shadow: 0 0 8px rgba(251, 191, 36, 0.8); }
+.showdown-plate-meter.full { box-shadow: 0 0 8px rgba(230, 196, 119, 0.8); }
 .showdown-plate-meter.full > span { animation: showdown-meter-glow 0.8s ease-in-out infinite; }
 @keyframes showdown-meter-glow {
     50% { filter: brightness(1.5); }
@@ -727,7 +727,7 @@
 }
 .showdown-tech-pill.signature .showdown-menu-label { color: #fcd34d; }
 .showdown-tech-pill.signature:not(.is-disabled) .showdown-menu-note {
-    color: #fbbf24;
+    color: var(--sj-gold-bright);
     animation: showdown-hint-pulse 1.1s ease-in-out infinite;
 }
 
@@ -766,8 +766,8 @@
 .showdown-stance-chip:nth-child(1) .showdown-menu-icon { color: #5ed6c4; box-shadow: inset 0 0 0 1px rgba(94, 214, 196, 0.4); }
 .showdown-stance-chip:nth-child(2) { border-color: rgba(134, 239, 172, 0.45); }
 .showdown-stance-chip:nth-child(2) .showdown-menu-icon { color: #86efac; box-shadow: inset 0 0 0 1px rgba(134, 239, 172, 0.4); }
-.showdown-stance-chip:nth-child(3) { border-color: rgba(251, 191, 36, 0.45); }
-.showdown-stance-chip:nth-child(3) .showdown-menu-icon { color: #fbbf24; box-shadow: inset 0 0 0 1px rgba(251, 191, 36, 0.4); }
+.showdown-stance-chip:nth-child(3) { border-color: rgba(230, 196, 119, 0.45); }
+.showdown-stance-chip:nth-child(3) .showdown-menu-icon { color: var(--sj-gold-bright); box-shadow: inset 0 0 0 1px rgba(230, 196, 119, 0.4); }
 @media (hover: hover) {
     .showdown-stance-chip:hover:not(.is-disabled) { filter: brightness(1.15); }
 }
@@ -949,8 +949,8 @@
     font-weight: 700;
     padding: 1px 5px;
     border-radius: 4px;
-    background: rgba(251, 191, 36, 0.14);
-    border: 1px solid rgba(251, 191, 36, 0.3);
+    background: rgba(230, 196, 119, 0.14);
+    border: 1px solid rgba(230, 196, 119, 0.3);
     color: #e8dcc2;
     max-width: 96px;
     overflow: hidden;
@@ -1011,7 +1011,7 @@
     from { transform: translateX(-50%) scale(1.35); opacity: 0; }
     to { transform: translateX(-50%) scale(1); opacity: 1; }
 }
-.showdown-banner.round { --banner-ink: #fbbf24; }
+.showdown-banner.round { --banner-ink: var(--sj-gold-bright); }
 .showdown-banner.effective { --banner-ink: #4ade80; }
 .showdown-banner.weak { --banner-ink: #94a3b8; font-size: 1.1rem; }
 .showdown-banner.perfect { --banner-ink: #fcd34d; }
@@ -1175,7 +1175,7 @@
     border: 1px solid rgba(217, 180, 120, 0.22);
     font-size: 0.8rem;
 }
-.showdown-recap-row.mvp { border-color: rgba(251, 191, 36, 0.6); background: rgba(48, 34, 12, 0.85); }
+.showdown-recap-row.mvp { border-color: rgba(230, 196, 119, 0.6); background: rgba(48, 34, 12, 0.85); }
 .showdown-recap-row img { width: 26px; height: 26px; object-fit: contain; }
 .showdown-recap-name { flex: 1; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .showdown-recap-stat { font-size: 0.72rem; color: #d9c9a8; white-space: nowrap; }
@@ -1384,7 +1384,7 @@
     paint-order: stroke fill;
     text-shadow: 0 3px 14px #000;
 }
-.showdown-result-title.win { --banner-ink: #fcd34d; box-shadow: 0 0 60px rgba(251, 191, 36, 0.22); }
+.showdown-result-title.win { --banner-ink: #fcd34d; box-shadow: 0 0 60px rgba(230, 196, 119, 0.22); }
 .showdown-result-title.loss { --banner-ink: #f87171; box-shadow: 0 0 60px rgba(220, 38, 38, 0.18); }
 
 /* Everything below the verdict sits on one plaque, so the panel reads as a
@@ -1834,6 +1834,8 @@
     .showdown-flash { animation: none; opacity: 0; }
     .showdown-ko-impact { animation: none; opacity: 0; backdrop-filter: none; }
     .showdown-finisher { animation: none; transform: translate(-50%, 0); }
+    /* The last-ten-seconds clock keeps its red text and border; only the blink stops. */
+    .showdown-turn-timer.urgent { animation: none; }
 
     .showdown-plate.targetable,
     .showdown-plate-meter.full > span,
@@ -1884,7 +1886,7 @@
     border: none;
     padding: 0;
     font: inherit;
-    color: #fbbf24;
+    color: var(--sj-gold-bright);
     text-decoration: underline;
     cursor: pointer;
 }

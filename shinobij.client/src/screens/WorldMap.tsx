@@ -90,7 +90,8 @@ import { useLiveActionDeadline } from "../lib/use-action-deadline";
 import { sameJsonValue } from "../lib/pvp-session-runtime";
 import type { WorldAiFightContext, WorldAiFightRequest } from "../../../shared/world-ai-fight";
 import { WORLD_FIGHT_KIND_BY_MODE } from "../lib/world-ai-presentation-modes";
-import { wandererAvatar, wandererRobberPortrait, questBossPortrait, WANDERER_BOSS_PORTRAIT, WANDERER_NEMESIS_PORTRAIT } from "../lib/wanderer-art";
+import { wandererAvatar, wandererRobberPortrait, questBossPortrait, WANDERER_BOSS_PORTRAIT, WANDERER_KAGERO_PORTRAIT, WANDERER_NEMESIS_PORTRAIT } from "../lib/wanderer-art";
+import { anglerTip, roadFightAftermath, roadNemesisActorId, roadNemesisTier, roadNemesisTitle, useRoadCast, wandererForcesChoice } from "../lib/road-cast";
 import { makeBuiltinAi } from "../lib/combat-ai";
 import { genericPetArenaOpponents, type PetArenaOpponent } from "../data/pet-arena-opponents";
 import { ROAD_WANDERER_PREFIX, nextRoadEvent, synthRoadWanderer, roadEventBySynthId, roadEventToCreatorEvent, reportStoryRoadEvent, applyRoadEventChoice } from "../lib/story-road-events";
@@ -222,6 +223,7 @@ import { useSectorIntelPlate } from "../lib/village-intel";
 import { confirmSectorBattleRegistration, engageOpenSectorBattle, isVillageWarMapEnabled, villageAccent } from "../lib/village-war-map";
 import { useAcademyWorldMapFocus, useWorldMapZoom } from "../lib/use-world-map-zoom";
 import { SectorOwnershipOverlay } from "../components/SectorOwnershipOverlay";
+import { WorldMapPin } from "../components/WorldMapPin";
 import { isMercAiId } from "../lib/merc-ai";
 import { fetchSectorRoster, engageMerc, mercEngageMessage, synthMercWanderer, type RoamingMercView } from "../lib/merc-roam-client";
 import { sectorEngagementFor, sectorContestEntryFor, sectorContestGarrisonReady, viewerSectorContest, beginSectorContest, beginOpenSectorBattle, type SectorWarContestView } from "../lib/sector-war-engagement";
@@ -444,7 +446,6 @@ function WorldMapContent({
     // breach minutes, contest end, trails) refresh on this 5s visible-only tick, not a 1s full re-render.
     const raidStartCooldownMs = useLiveActionDeadline(raidStartActionScope(character.name));
     const [, setMapClockTick] = useState(0);
-    useEffect(() => visiblePoll(() => setMapClockTick((tick) => tick + 1), 5_000, 0), []);
     const pendingBountyHunterRef = useRef<{ hunterId: string; sector: number } | null>(null);
     const bountyHunterStartInFlightRef = useRef(false);
     const [authoritativeHuntStates, setAuthoritativeHuntStates] = useState<Record<string, WorldHuntTrailView>>({});
@@ -700,7 +701,7 @@ function WorldMapContent({
         if (createResult.kind === "ambiguous") {
             setPvpBattleId(battleId);
             setScreen("pvpBattle");
-            alert("The battle response was interrupted. Reconnecting to the authoritative session…");
+            alert("The battle response was interrupted. Reconnecting to your battle…");
             return;
         }
         try {
@@ -763,9 +764,10 @@ function WorldMapContent({
     // pet of that rarity, the same rule the server fields (lib/road-beast.ts).
     // Dressing it here gives the billboard, the dialog and the duel one name.
     const roadBeastPets = useMemo(() => roadBeastReadyPets(character), [character]);
+    const roadCast = useRoadCast(selectedSector, naturalWanderers, character); // + angler/miner, rift creature, Kagero; patrols answer to the road's village
     const sectorWanderers = useMemo(
-        () => naturalWanderers.map((wanderer) => withRoadBeastIdentity(wanderer, roadBeastPets, sharedImages)),
-        [naturalWanderers, roadBeastPets, sharedImages],
+        () => roadCast.map((wanderer) => withRoadBeastIdentity(wanderer, roadBeastPets, sharedImages)),
+        [roadCast, roadBeastPets, sharedImages],
     );
     const [bountyBoard, setBountyBoard] = useState<BountyEntry[]>([]);
     useEffect(() => {
@@ -1359,9 +1361,9 @@ function WorldMapContent({
         // The sealed World start owns the encounter cooldown. Do not hide or
         // relocate this NPC before the start ACK: a rejected/offline start must
         // leave the exact encounter available to retry.
-        // Streak ≥ 5 → the gang ambushes: 3 robbers, then the boss. (A nemesis duel
-        // or a night ninja, a lone prowler, is its own encounter and skips it.)
-        if (!nemesis && w.archetype !== "nightblade" && (character.robberStreak ?? 0) >= 5) {
+        // Streak ≥ 5 → the gang ambushes: 3 robbers, then the boss. Only a bandit
+        // springs it; Kagero, night ninjas, rift creatures and miners fight alone.
+        if (!nemesis && w.archetype === "bandit" && (character.robberStreak ?? 0) >= 5) {
             launchWorldMapFight(
                 buildRobberAi(character.level, "amb0", 0),
                 selectedSector,
@@ -1373,10 +1375,10 @@ function WorldMapContent({
         // escalated by its tier — always scaled to the player.
         const nem = nemesis ? (character.wandererNemesis ?? null) : null;
         const lvl = Math.max(1, Math.min(100, character.level + (nem ? Math.max(1, nem.tier) : 1)));
-        const name = nem ? nem.name : w.name;
+        const name = nem ? roadNemesisTitle(roadNemesisTier(nem)) : w.name;
         const statBonus = nem ? Math.min(12, Math.max(1, nem.tier) * 2) : 0;
         const ai = makeBuiltinAi(`wanderer-${nem ? "nemesis" : w.id}`, name, nem ? "😡" : "🥷", lvl, "Wandering Road", [], statBonus, undefined, "bruiser");
-        ai.image = nem ? WANDERER_NEMESIS_PORTRAIT : wandererAvatar(w.avatarKey);
+        ai.image = nem ? WANDERER_KAGERO_PORTRAIT : wandererAvatar(w.avatarKey);
         launchWorldMapFight(
             ai,
             selectedSector,
@@ -1401,6 +1403,7 @@ function WorldMapContent({
         rememberWanderer(w);
         setWandererDialog({ w, msg: roadRumorFor(w) });
     }
+    const askAngler = (w: Wanderer) => setWandererDialog({ w, msg: anglerTip(selectedSector ?? 0, character.resourceGathering, currentWandererDayBucket()) });
     function rememberWanderer(w: Wanderer) {
         const key = w.archetype;
         updateCharacter(prev => {
@@ -1488,7 +1491,7 @@ function WorldMapContent({
     }
     function startPatrolFight(w: Wanderer) {
         if (selectedSector == null) return;
-        const hostile = activeVillageWarsFor(character.village).length > 0;
+        const hostile = w.patrolStance === "rivalWar" || (!w.patrolStance && activeVillageWarsFor(character.village).length > 0);
         const lvl = Math.max(1, Math.min(100, character.level + (hostile ? 3 : 1)));
         const ai = makeBuiltinAi(`wanderer-patrol-${w.id}`, hostile ? `${w.name} Captain` : w.name, "PT", lvl, "Road Patrol", [], hostile ? 7 : 3, undefined, hostile ? "defender" : "balanced");
         ai.image = w.avatarImage || wandererAvatar(w.avatarKey);
@@ -1707,10 +1710,10 @@ function WorldMapContent({
                 : `${p.hunterName ?? "The bounty hunter"} put you down, but they can't cash a contract this size. The bounty on your head still stands. Only a real shinobi can collect it.`), 40);
             return;
         }
-        if (p.mode === "single") {
-            if (won && p.nemesis) setTimeout(() => alert(`You put your rival ${p.name ?? "the bandit"} in the dirt at last. Revenge.`), 40);
-            else if (!won && p.nemesis) setTimeout(() => alert(`${p.name ?? "Your rival"} bests you again, and grows bolder. This isn't over.`), 40);
-            else if (!won && p.name) setTimeout(() => alert(`${p.name} took what they wanted and laughed. You won't forget that name, and they'll be back.`), 40);
+        if (p.mode === "single") { // Kagero steps back after any fight, so he never jumps you on your return.
+            if (p.nemesis) coolWanderer(roadNemesisActorId(context.sector, currentWandererDayBucket()), WANDERER_FLEE_COOLDOWN_MS);
+            const line = roadFightAftermath({ sourceId: context.sourceId, name: p.name, won, nemesisTier: roadNemesisTier(settlement.character?.wandererNemesis ?? character.wandererNemesis) });
+            if (line) setTimeout(() => alert(line), 40);
             return;
         }
         if (p.mode === "ambush") {
@@ -1949,7 +1952,7 @@ function WorldMapContent({
         setWandererDialog((current) => current?.w.id === LEGACY_SAGE_WANDERER_ID ? null : current);
     }, [legacyAvailable]);
     function requiresWandererChoice(d: WorldWandererDialogState | null) {
-        return !!d && !d.msg && (d.w.verb === "attack" || d.w.verb === "bountyHunter");
+        return !!d && !d.msg && wandererForcesChoice(d.w);
     }
     function handleWandererEngage(w: Wanderer) {
         if (selectedSector == null || !sameSector(currentSector, selectedSector)) return;
@@ -2055,12 +2058,7 @@ function WorldMapContent({
         // A roaming mercenary or contract hunter stops you like a bandit: Fight
         // (the merc's server-resolved clash, the hunter's sealed fight) or pay to Flee.
         if (isMercAiId(w.id) || w.verb === "bountyHunter") { setWandererDialog({ w }); return; }
-        // A bandit you face while you have a rival has a chance of BEING that rival,
-        // back for more (bandits only: a night ninja is never your road rival).
-        if (w.archetype === "bandit" && character.wandererNemesis && Math.random() < 0.45) {
-            setWandererDialog({ w, nemesis: true });
-            return;
-        }
+        if (w.archetype === "nemesis") { setWandererDialog({ w, nemesis: true }); return; } // Kagero walks his own sectors (lib/road-cast)
         // The world remembers your Quest Book choices (character.questStandings): a
         // spared Goro's old gang may wave you through; colder choices earn cold words.
         const react = standingReaction(w.archetype, character.questStandings, Math.random());
@@ -2622,7 +2620,7 @@ function WorldMapContent({
         { name: "Stormveil Village", type: "village", biome: villageBiomeMap["Stormveil Village"], x: 16, y: 74, art: stormveilLandmarkArt },
         { name: "Ashen Leaf Village", type: "village", biome: villageBiomeMap["Ashen Leaf Village"], x: 16, y: 20, art: ashenLeafLandmarkArt },
         { name: "Frostfang Village", type: "village", biome: villageBiomeMap["Frostfang Village"], x: 76, y: 20, art: frostfangLandmarkArt },
-        { name: "Moonshadow Village", type: "village", biome: villageBiomeMap["Moonshadow Village"], x: 91, y: 84, art: moonshadowLandmarkArt },
+        { name: "Moonshadow Village", type: "village", biome: villageBiomeMap["Moonshadow Village"], x: 84, y: 71, art: moonshadowLandmarkArt },
         { name: "Central", type: "central", biome: "central" as Biome, x: 48, y: 40, art: centralLandmarkArt, staminaReward: 20, xpReward: 20 },
         // Hollow Gate — the violet obelisk shrine east of the keep. Sector 57
         // (Hollow Temple) sits just beside it and is map-travel-only, so this
@@ -2638,6 +2636,9 @@ function WorldMapContent({
         ?? locations.find((location) => location.name === character.village)
         ?? { x: 20, y: 20 };
     const wmZoom = useWorldMapZoom(getWorldMapRegionForPoint(mapOpeningPoint.x, mapOpeningPoint.y));
+    useEffect(() => visiblePoll(() => {
+        if (!wmZoom.isGestureActive()) setMapClockTick((tick) => tick + 1);
+    }, 5_000, 0), [wmZoom.isGestureActive]);
     const wmFrameRef = useWorldMapLayout(wmZoom.active);
     // Marker layout (0–100 grid), hand-curated. Each village's nearby sectors
     // cluster around its banner; neutral sectors spread across the mid-map. A
@@ -3085,7 +3086,7 @@ function WorldMapContent({
         // operation parked until every matching mission explicitly ACKs
         // `recorded:true`; a dropped 200 response then replays one evidence id.
         if (!(await recordMissionExplore(sector, operation.id, settled.fieldProgress))) {
-            notifyFailure("The tile is safely recorded, but its mission receipt is still syncing. Reopen the map to recover it before exploring again.");
+            notifyFailure("The tile is safely recorded, but its mission progress is still syncing. Reopen the map to recover it before exploring again.");
             return null;
         }
         return { operation, outcome: settled.outcome?.kind === "gather" && !pendingGatherFinds(settled.character).map(f => f.id).includes(settled.outcome.find.id) ? undefined : settled.outcome, reward: settled.reward };
@@ -3408,7 +3409,7 @@ function WorldMapContent({
         }
         completeWorldRewardOperation(character.name, explored.operation.id);
         if (interactive) {
-            alert(`Sector ${explored.operation.sector} explored. +${Number(explored.reward?.ryo ?? 0)} ryo.`);
+            gameToast(`Sector ${explored.operation.sector} explored. +${Number(explored.reward?.ryo ?? 0)} ryo.`);
         }
         return "recovered";
     }
@@ -3784,7 +3785,7 @@ function WorldMapContent({
             stamina: Math.min(character.maxStamina, character.stamina + staminaReward),
         });
 
-        alert("You recovered in Sector " + sector + ". +" + staminaReward + " stamina.");
+        gameToast("You recovered in Sector " + sector + ". +" + staminaReward + " stamina.");
     }
 
     function selectedSectorCombatEnvironment() {
@@ -4377,8 +4378,8 @@ function WorldMapContent({
         })();
         const targetedHunters = bountyHunterWanderers.filter((wanderer) => wanderer.verb === "bountyHunter");
         const bystanderHunters = bountyHunterWanderers.filter((wanderer) => wanderer.verb === "watch");
-        const hostileNaturals = sectorWanderers.filter((wanderer) => wanderer.verb === "attack"); // bandits + night ninjas
-        const ambientNaturals = sectorWanderers.filter((wanderer) => wanderer.verb !== "attack");
+        const hostileNaturals = sectorWanderers.filter(wandererForcesChoice); // bandits, night ninjas, Kagero, rift creatures, warring patrols
+        const ambientNaturals = sectorWanderers.filter((wanderer) => !wandererForcesChoice(wanderer));
         // Priority is danger/current objective → pet onboarding → other system
         // objectives → optional encounters → ambient life. Keep the field mentor
         // beside the prompt that opens her lesson so a full road never advertises
@@ -4588,7 +4589,7 @@ function WorldMapContent({
                                         <div style={{ display: "grid", placeItems: "center", minHeight: "100dvh", padding: 24 }}>
                                             <div className="card" role="status" style={{ maxWidth: 460, textAlign: "center", padding: 20 }}>
                                                 <h3>ANBU operation paused</h3>
-                                                <p>The vault run remains recoverable, but traversal, combat, and settlement requests are paused until live admission returns.</p>
+                                                <p>The vault run remains recoverable, but moving, fighting, and saving results are paused until live actions return.</p>
                                                 <button type="button" onClick={() => setVaultRaid(null)}>Leave operation view</button>
                                             </div>
                                         </div>
@@ -4610,7 +4611,7 @@ function WorldMapContent({
                                         <p style={{ fontSize: ".74rem", color: "#9aa3b2", margin: "0 0 12px" }}>{roadFleePriceLine(character)}</p>
                                         {bossDialog.error && <p role="alert" style={{ fontSize: ".76rem", color: "var(--red-300)", margin: "-6px 0 12px" }}>{bossDialog.error}</p>}
                                         <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                                            <button disabled={!globalMutationsOpen || bossDialog.busy} onClick={standBossFight} style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "var(--red-400)", fontWeight: 700, opacity: globalMutationsOpen ? 1 : 0.55 }}>{globalMutationsOpen ? "Stand & Fight" : "Fight paused"}</button>
+                                            <button disabled={!globalMutationsOpen || bossDialog.busy} onClick={standBossFight} style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "var(--red-400)", fontWeight: 700, opacity: globalMutationsOpen ? 1 : 0.55 }}>{globalMutationsOpen ? "Stand & fight" : "Fight paused"}</button>
                                             <button disabled={bossDialog.busy} onClick={() => void fleeBoss()}>Flee</button>
                                         </div>
                                     </div>
@@ -4689,6 +4690,7 @@ function WorldMapContent({
                                         fleeWanderer={fleeWanderer}
                                         tradeWithWanderer={tradeWithWanderer}
                                         askRoadRumor={askRoadRumor}
+                                        askAngler={askAngler}
                                         visitWandererMedic={visitWandererMedic}
                                         startPatrolFight={startPatrolFight}
                                         followTracker={followTracker}
@@ -4861,7 +4863,7 @@ function WorldMapContent({
                         <h3>{loc.name}</h3>
                         <p className="territory-hostile-tag"><GameArtIcon kind="warning" size={17} /> Hostile Territory</p>
                         <p>{weatherEffects[weather].effect}</p>
-                        <button disabled={resourceActionsToday(character) >= 100 || explorePresentationInFlight} onClick={() => runWhenSectorConfirmed(virtualSector, () => { void exploreSector(virtualSector); })}>{resourceActionsToday(character) >= 100 ? 'Shared daily actions used (100/100)' : 'Explore Territory'}</button>
+                        <button disabled={resourceActionsToday(character) >= 100 || explorePresentationInFlight} onClick={() => runWhenSectorConfirmed(virtualSector, () => { void exploreSector(virtualSector); })}>{resourceActionsToday(character) >= 100 ? 'Shared daily actions used (100/100)' : 'Explore territory'}</button>
                         <button onClick={() => runWhenSectorConfirmed(virtualSector, () => restInSector(virtualSector))}>Recover</button>
 
                         <div className="territory-guard-section">
@@ -4939,7 +4941,7 @@ function WorldMapContent({
                                                 setPvpBattleId(battleId);
                                                 if (createResult.kind === "ambiguous") {
                                                     setScreen("pvpBattle");
-                                                    alert("The guard battle response was interrupted. Reconnecting to the authoritative session…");
+                                                    alert("The guard battle response was interrupted. Reconnecting to your battle…");
                                                     return;
                                                 }
                                                 try {
@@ -4984,7 +4986,7 @@ function WorldMapContent({
                                             setCurrentWeather(weather);
                                         });
                                     })}>
-                                        Raid Village Garrison
+                                        Raid village garrison
                                     </button>
                                 </>
                             )}
@@ -5079,23 +5081,13 @@ function WorldMapContent({
                 ref={wmZoom.viewportRef}
                 {...wmZoom.viewportHandlers}
             >
+            <div className="wm-camera" ref={wmZoom.contentRef}>
             <div
                 className="anime-world-map atlas-world-map generated-world-map"
-                ref={wmZoom.contentRef}
                 style={{ backgroundImage: `url(${worldMapBg})`, ...wmZoom.contentStyle }}
             >
-                {/* Gentle magical-dust + light-sweep over the whole world (sits
-                    behind the z-10 sector/village markers). Keeps the overworld
-                    feeling alive without obscuring the painted map.
-
-                    Both particle canvases are DESKTOP-ONLY. In mobile zoom mode the
-                    map rides a ~3x cover scale, so each canvas is magnified far past
-                    its backing store into indistinct mush — while its rAF loop keeps
-                    repainting the full-bleed layer. Measured at 390x844 on a 4x-
-                    throttled CPU, dropping these two took the idle map from 47 to 61
-                    fps: a third of the phone's frame budget, spent on smears nobody
-                    can resolve. The time-of-day wash below is a static two-div tint
-                    on a 60s timer, so it stays on every device. */}
+                {/* Desktop particle canvases stay below the map pins. Mobile
+                    keeps the static time-of-day wash without their paint loops. */}
                 {!wmZoom.active && <SceneAmbience biome="central" intensity={0.5} />}
                 {/* Real-clock time-of-day wash + a high, sparse bird flock drifting
                     over the atlas. Both sit below the z-10 markers. */}
@@ -5107,24 +5099,24 @@ function WorldMapContent({
                     { c: "volcano", x: 16, y: 20 },
                     { c: "snow", x: 76, y: 20 },
                     { c: "forest", x: 16, y: 74 },
-                    { c: "shadow", x: 91, y: 84 },
+                    { c: "shadow", x: 84, y: 71 },
                     { c: "central", x: 48, y: 40 },
                 ].map((g) => (
                     <div key={g.c} className={"world-biome-glow wbg-" + g.c} style={{ left: g.x + "%", top: g.y + "%" }} aria-hidden="true" />
                 ))}
                 {/* The road graph + region name plates — the connective tissue
                     that makes the scattered sector markers read as one world. */}
-                <WorldRoadsOverlay />
+                <WorldRoadsOverlay counterScalePins={wmZoom.active} />
                 {/* Name plaques for the eight headline places — the 2026-07
                     keyart carries no baked lettering. */}
-                <WorldPoiPlates />
+                <WorldPoiPlates counterScalePins={wmZoom.active} />
                 {/* Hovered (or in-flight) walking route from where the player
                     stands — the sandbox-MMO-style "how would I walk there" glow. */}
                 <RouteGlowOverlay from={currentSector} to={routeHoverSector} />
                 {sectorPoints.map((sector) => {
                     if (sector.id === FESTIVAL_SECTOR) return (
+                        <WorldMapPin key={sector.id} active={wmZoom.active} x={sector.x} y={sector.y} layer={currentSector === sector.id ? 24 : 10}>
                         <button
-                            key={sector.id}
                             className={"atlas-sector atlas-sector-central" + (currentSector === sector.id ? " atlas-sector-current" : "")}
                             style={{ left: sector.x + "%", top: sector.y + "%" }}
                             onClick={() => triggerTravelPoint(sector.id)}
@@ -5134,6 +5126,7 @@ function WorldMapContent({
                             {currentSector === sector.id && <span className="atlas-you-label" aria-hidden="true">YOU</span>}
                             <img src={festivalMarkerArt} alt="" style={{ width: 28, height: 28, objectFit: "cover", borderRadius: "50%" }} />
                         </button>
+                        </WorldMapPin>
                     );
                     const huntTrail = huntTrailForSector(sector.id);
                     const sectorShrine = isSectorTracesEnabled() ? shrineForSector(sector.id) : undefined;
@@ -5150,8 +5143,9 @@ function WorldMapContent({
                             ? `${huntTrail.mission.name} trail | ${sectorName(sector.id) ?? `Sector ${sector.id}`} (S${sector.id})`
                             : `${sectorName(sector.id) ?? `Sector ${sector.id}`} (S${sector.id}) | ${weatherEffects[weatherForSector(sector.id, biomeForSector(sector.id))].name}${sectorShrine ? ` | ⛩ ${sectorShrine.name}` : ""}`;
                     return (
+                    <WorldMapPin key={sector.id} active={wmZoom.active} x={sector.x} y={sector.y}
+                        layer={currentSector === sector.id ? 24 : sector.id === worldBossSector || sector.id === weeklyBossSector ? 12 : 10}>
                     <button
-                        key={sector.id}
                         className={
                             (sector.id === 99
                                 ? "atlas-sector atlas-sector-deaths-gate"
@@ -5169,7 +5163,7 @@ function WorldMapContent({
                         data-academy-hint={academySectorTargetId === sector.id ? "Next · travel here" : undefined} data-academy-autoscroll={academySectorTargetId === sector.id ? "true" : undefined}
                         onClick={() => triggerTravelPoint(sector.id)} onMouseEnter={() => setRouteHoverSector(sector.id)} onMouseLeave={() => setRouteHoverSector((current) => (current === sector.id ? null : current))}
                         title={(currentSector === sector.id ? `You are here | ${sectorTitle}` : sectorTitle) + (sector.id === worldBossSector ? ` | ${worldBossEvent?.bossName ?? "World boss"} is here; enter the sector and click it to join the raid` : "") + (richnessLabel ? ` | ${richnessLabel}` : "") + (contract ? (contract.nightOnly ? " | Night contract posted today" : " | Contract posted today") : "")}
-                        aria-label={currentSector === sector.id ? "You are here, " + (sectorName(sector.id) ?? ("Sector " + sector.id)) + (sector.id === worldBossSector ? ", world boss muster" : "") : "Travel to " + (sectorName(sector.id) ?? ("Sector " + sector.id)) + " (Sector " + sector.id + ")" + (sector.id === worldBossSector ? ", world boss location" : "")}
+                        aria-label={currentSector === sector.id ? "You are here, " + (sectorName(sector.id) ?? ("Sector " + sector.id)) + (sector.id === worldBossSector ? ", world boss event" : "") : "Travel to " + (sectorName(sector.id) ?? ("Sector " + sector.id)) + " (Sector " + sector.id + ")" + (sector.id === worldBossSector ? ", world boss location" : "")}
                     >
                         {currentSector === sector.id && <span className="atlas-you-label" aria-hidden="true">YOU</span>}
                         {sector.id === 99 ? <GameArtIcon kind="warning" size={20} /> : sector.id}
@@ -5209,12 +5203,13 @@ function WorldMapContent({
                             <span className="academy-map-target-label" aria-hidden="true">Next · travel here</span>
                         )}
                     </button>
+                    </WorldMapPin>
                 ); })}
 
                 {/* Village War Map ownership: holder banners + siege pulses over the
                     sector markers. Flag-gated (villageWarMap.v1) + pointer-events:none,
                     so it stays inert/invisible on the default world map. */}
-                {warMapOn && <SectorOwnershipOverlay sectorPoints={sectorPoints} />}
+                {warMapOn && <SectorOwnershipOverlay sectorPoints={sectorPoints} counterScalePins={wmZoom.active} />}
 
                 {/* Roaming weekly boss: the boss's current sector NODE is highlighted
                     in-place (pulsing ring + 👹 flag, see weeklyBossSector above and
@@ -5228,8 +5223,9 @@ function WorldMapContent({
                     on the atlas was cluttering the village markers.) */}
 
                 {locations.map((location) => (
+                        <WorldMapPin key={location.name} active={wmZoom.active} x={location.x} y={location.y}
+                            layer={currentSector === 0 && location.name === character.village ? 24 : 7}>
                         <button
-                            key={location.name}
                             className={"atlas-landmark atlas-" + location.type + (currentSector === 0 && location.name === character.village ? " atlas-current-location" : "")}
                             style={{
                                 left: location.x + "%",
@@ -5241,8 +5237,9 @@ function WorldMapContent({
                             data-landmark-art="true"
                         >
                             {currentSector === 0 && location.name === character.village && <span className="atlas-you-label" aria-hidden="true">YOU</span>}
-                            <img className="atlas-landmark-art" src={location.art} alt="" draggable={false} />
+                            <img className="atlas-landmark-art" data-map-clearance-art={location.name === "Moonshadow Village" ? "true" : undefined} src={location.art} alt="" draggable={false} />
                         </button>
+                        </WorldMapPin>
                 ))}
 
                 {/* (The Hollow Gate Rift structure is deliberately NOT drawn on the
@@ -5262,6 +5259,7 @@ function WorldMapContent({
                     </div>
                 ))}
             </div>
+            </div>{/* end wm-camera */}
             </div>{/* end world-map-scroll */}
             {firstContractVisible(character) && (
                 <button

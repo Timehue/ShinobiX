@@ -72,9 +72,9 @@ describe("Dungeon pet client authority adapter", () => {
         assert.match(authoritativePet, /encounter=\{\{ kind: "dungeon-seal", runToken: dungeonRunToken \}\}/);
         assert.match(authoritativePet, /onVersionedCharacter=\{onVersionedCharacter\}/);
         assert.doesNotMatch(dungeon, /startDungeonPetBattle|settleDungeonPetBattle|PetColiseumDuel/);
-        // Leave Dungeon is the escape hatch and must stay clickable while the
+        // Leave dungeon is the escape hatch and must stay clickable while the
         // bounded start request is in flight (2026-08-20 stuck-UI audit).
-        assert.match(dungeon, /onClick=\{onLeave\}>Leave Dungeon/);
+        assert.match(dungeon, /onClick=\{onLeave\}>Leave dungeon/);
         assert.doesNotMatch(authoritativePet, /disabled=\{startBusy\}[^>]*onClick=\{onLeave\}/);
         assert.doesNotMatch(authoritativePet, /Math\.random|Date\.now|genericPetArenaOpponents|petTamerPveMultiplier|petPveHpMult|petAlphaBond/);
         assert.doesNotMatch(app, /dungeonStage|setDungeonStage/);

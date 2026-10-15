@@ -225,7 +225,7 @@
 .tower-turn-queue li.is-active {
     border-color: var(--gold);
     color: #fff7d6;
-    box-shadow: 0 0 0 1px rgba(250, 204, 21, 0.15);
+    box-shadow: 0 0 0 1px rgba(230, 196, 119, 0.15);
 }
 
 .tower-turn-queue small {
@@ -942,7 +942,7 @@
    obscure the circular ground markers. Glow the visible art silhouette instead. */
 .tower-board-actor:focus-visible .battlefield-actor,
 .battlefield-actor.tower-actor-highlight--active {
-    filter: drop-shadow(0 0 5px rgba(250, 204, 21, 0.95));
+    filter: drop-shadow(0 0 5px rgba(230, 196, 119, 0.95));
 }
 .battlefield-actor.tower-actor-highlight--target {
     filter: drop-shadow(0 0 6px rgba(248, 113, 113, 0.95));
@@ -1047,7 +1047,7 @@
     right: -7px;
     bottom: -5px;
     padding: 1px 4px;
-    border: 1px solid #facc15;
+    border: 1px solid var(--sj-gold-bright);
     border-radius: 4px;
     background: #111827;
     color: #fef08a;
@@ -1061,7 +1061,7 @@
     display: inline-block;
     margin-top: 3px;
     padding: 1px 4px;
-    border: 1px solid rgba(250, 204, 21, 0.55);
+    border: 1px solid rgba(230, 196, 119, 0.55);
     border-radius: 4px;
     color: #fef08a;
     font-size: 0.55rem;
@@ -1170,7 +1170,7 @@
     box-shadow: inset 0 0 10px currentColor;
 }
 
-.tower-score-grade--s { color: #fbbf24; }
+.tower-score-grade--s { color: var(--sj-gold-bright); }
 .tower-score-grade--a { color: #67e8f9; }
 .tower-score-grade--b { color: #86efac; }
 .tower-score-grade--c { color: #fca5a5; }
@@ -1184,7 +1184,7 @@
 
 .tower-route-live {
     padding: 4px 5px;
-    border: 1px solid rgba(251, 191, 36, 0.28);
+    border: 1px solid rgba(230, 196, 119, 0.28);
     border-radius: 5px;
     background: rgba(120, 53, 15, 0.22);
     color: #fde68a !important;
@@ -1261,7 +1261,7 @@
     margin: 12px auto 0;
     padding: 10px;
     max-width: 360px;
-    border: 1px solid rgba(250, 204, 21, 0.6);
+    border: 1px solid rgba(230, 196, 119, 0.6);
     border-radius: 10px;
     background: rgba(66, 32, 6, 0.55);
     color: #fef3c7;

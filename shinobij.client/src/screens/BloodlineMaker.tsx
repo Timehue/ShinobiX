@@ -458,8 +458,8 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                     {jutsu.method === "AOE_BURST" && <div className="summary-box bloodline-element-lock">AOE Burst: a direct area nuke — no movement, no ground tile. Target an enemy in range; they take the hit and every other enemy in the 6 hexes touching them takes the same full damage. In a 1v1 fight it just hits your target like a normal nuke; in multi-enemy fights (Battle Towers, team battles) it blasts the whole cluster. Locked to 60 AP. Costs +1 jutsu point.</div>}
                     <label>AP Type</label>
                     <div className="admin-ap-toggle">
-                        <button type="button" className={jutsu.ap === 40 ? "active" : ""} disabled={jutsu.method === "AOE_SPIRAL"} title={jutsu.method === "AOE_SPIRAL" ? "AOE Movement is locked to 60 AP" : undefined} onClick={() => updateJutsuAp(jutsuIndex, 40)}>40 AP Utility</button>
-                        <button type="button" className={jutsu.ap === 60 ? "active" : ""} onClick={() => updateJutsuAp(jutsuIndex, 60)}>60 AP Damage</button>
+                        <button type="button" className={jutsu.ap === 40 ? "active" : ""} disabled={jutsu.method === "AOE_SPIRAL"} title={jutsu.method === "AOE_SPIRAL" ? "AOE Movement is locked to 60 AP" : undefined} onClick={() => updateJutsuAp(jutsuIndex, 40)}>40 AP utility</button>
+                        <button type="button" className={jutsu.ap === 60 ? "active" : ""} onClick={() => updateJutsuAp(jutsuIndex, 60)}>60 AP damage</button>
                     </div>
                     {jutsu.method === "AOE_SPIRAL" && <small className="tag-effect-help">AOE Movement is locked to 60 AP — it cannot be a 40 AP utility jutsu.</small>}
                     {jutsu.ap === 60 && jutsu.target !== "SELF" && (
@@ -724,7 +724,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                     ))}
                     {renderPointTotal()}
                     {!editingBloodline && !lockedRank && <div className="bloodline-awakening-gate" role="status"><strong>Awakening ritual required</strong><span>Begin at the Awakening Stone to choose a rank and bind the required ancient materials.</span>{onOpenAwakening && <button type="button" onClick={onOpenAwakening}>Open Awakening Stone →</button>}</div>}
-                    <button className="bloodline-awakening-save" onClick={saveBloodline} disabled={persisting || overLimit || (!editingBloodline && !lockedRank)}>{persisting ? "Sealing Legacy…" : editingBloodline ? "Seal Changes" : "Awaken Bloodline"}</button>
+                    <button className="bloodline-awakening-save" onClick={saveBloodline} disabled={persisting || overLimit || (!editingBloodline && !lockedRank)}>{persisting ? "Sealing legacy…" : editingBloodline ? "Seal changes" : "Awaken bloodline"}</button>
                     {savedBloodlines.length > 0 && (
                         <section className="bloodline-awakening-saved">
                             <div className="bloodline-awakening-saved-heading">

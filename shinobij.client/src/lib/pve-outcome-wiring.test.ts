@@ -42,7 +42,8 @@ test("every mode on the shared arena shell passes the outcome reporter", () => {
         assert.match(source, /outcomeFn=\{/, `${name} must wire outcomeFn, or its defeats cost nothing`);
         assert.match(source, /reportPveFightOutcome\(/, `${name} must call the shared outcome endpoint`);
     }
-    assert.match(weeklyBoss, /outcomeFn=\{settleFn\}/, "Weekly Boss must use its durable settlement as the outcome reporter");
+    assert.match(weeklyBoss, /outcomeFn=\{settleOnce\}/, "Weekly Boss must use its coordinated durable settlement as the outcome reporter");
+    assert.match(weeklyBoss, /settleFn=\{settleOnce\}/, "both completion paths must share the same receipt request");
     assert.match(weeklyBoss, /settleOnAnyDone/, "Weekly Boss must bank damage on every completed result");
     assert.doesNotMatch(weeklyBoss, /reportPveFightOutcome\(/, "Weekly Boss must not double-report through the shared endpoint");
 });

@@ -50,7 +50,7 @@ export function storyArchiveGuidance(character: Character, content: StoryContent
             kicker: "CHRONICLE UNBOUND",
             title: "No village story is bound to this record",
             body: "Return to your village and continue the road. The archive will open when a village chapter is completed.",
-            actionLabel: "Return to Village",
+            actionLabel: "Return to village",
         };
     }
 
@@ -71,7 +71,7 @@ export function storyArchiveGuidance(character: Character, content: StoryContent
             kicker: "NEXT CHAPTER READY",
             title: "The road is ready to continue",
             body: "Resume opens this milestone directly. Earlier optional interludes remain waiting and return to their normal order afterward.",
-            actionLabel: "Return to Village",
+            actionLabel: "Return to village",
         };
     }
 
@@ -80,7 +80,7 @@ export function storyArchiveGuidance(character: Character, content: StoryContent
         kicker: "NEXT MILESTONE",
         title: `Reach level ${nextLevel}`,
         body: "Grow through Missions, Training, and the World Map. The next chapter will find you automatically when you qualify.",
-        actionLabel: "Return to Village",
+        actionLabel: "Return to village",
     };
 }
 
