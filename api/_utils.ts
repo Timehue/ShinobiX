@@ -102,6 +102,11 @@ const REPLACE_SUBTREE_KEYS = new Set<string>([
     // sends the complete compacted list. A save holding both roles used to
     // blend a teacher receipt's seals/contrib/clanPoints into a student one.
     'mentorRewardReceipts',
+    // A keyed map its one writer (embedPvpSettlementReceipt) rebuilds whole,
+    // dropping entries past their 2-day retention. The key-union merge used to
+    // put every expired entry back, so the map only grew, and past 2,048
+    // entries its reader fails closed and the player's PvP rewards stop.
+    'pvpRewardSettlementReceipts',
 ]);
 const PROTOTYPE_POLLUTION_KEYS = new Set<string>(['__proto__', 'constructor', 'prototype']);
 

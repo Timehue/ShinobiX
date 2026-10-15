@@ -112,6 +112,36 @@ describe('serverSettlementReceipts through the save merge', { concurrency: false
         assert.deepEqual(stored, [teacher2, student, teacher]);
     });
 
+    it('a PvP receipt past its retention stays dropped once the writer drops it', async () => {
+        // embedPvpSettlementReceipt rebuilds the keyed map without entries
+        // older than two days. The key-union merge used to put each one back,
+        // so the map only grew until its reader failed closed at 2,048.
+        const { embedPvpSettlementReceipt, inspectPvpCredit } = await import('../pvp/_reward-settlement.js');
+        const name = `${PREFIX}pvpmap`;
+        await kv.set(`save:${name}`, { _saveVersion: 1, _saveAt: Date.now(), character: settledCharacter(name) });
+        const credit = async (id: string, now: number) => {
+            const out = await mutatePlayerSave(name, ({ character }) => {
+                const decision = inspectPvpCredit(character, id, `fp-${id}`);
+                assert.equal(decision.fresh, true);
+                return { ok: true, character: embedPvpSettlementReceipt(character, decision.receipts, id, `fp-${id}`, now), value: null };
+            });
+            assert.equal(out.ok, true);
+        };
+        const t0 = Date.now();
+        await credit('pvp-settlement-old-0001', t0 - 3 * 24 * 60 * 60 * 1_000);
+        await credit('pvp-settlement-new-0001', t0);
+        const map = ((await kv.get<Json>(`save:${name}`))!.character as Json).pvpRewardSettlementReceipts as Json;
+        assert.deepEqual(Object.keys(map), ['pvp-settlement-new-0001']);
+    });
+
+    it('ownReceiptValue keeps only the keys a replay asks for', () => {
+        // A receipt stored before the fix: its own keys plus inherited ones.
+        const blended = { cooked: 2, dailyCooked: 3, dailyCap: 10, kind: 'pve-outcome', runId: 'run-1', recipe: 'other' };
+        assert.deepEqual(receipts.ownReceiptValue(blended, ['cooked', 'dailyCooked', 'dailyCap']), { cooked: 2, dailyCooked: 3, dailyCap: 10 });
+        // An optional key the receipt never had stays absent rather than undefined.
+        assert.deepEqual(Object.keys(receipts.ownReceiptValue({ ryo: 1 }, ['ryo', 'gearDrop'])), ['ryo']);
+    });
+
     it('a client autosave can neither shrink, reorder nor rewrite the stored receipts', () => {
         const stored = [
             { requestId: 'world-boss-reward-req-0001', fingerprint: 'fp-b', value: { ryo: 120 }, settledAt: 2 },
