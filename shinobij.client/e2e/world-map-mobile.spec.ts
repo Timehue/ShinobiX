@@ -1316,7 +1316,8 @@ test("animated zoom keeps intermediate landmark targets compact and tappable", a
     const bucket = Math.floor(now / (6 * 60 * 60 * 1000));
     const cooldowns: Record<string, number> = {};
     for (const offset of [-1, 0, 1]) {
-        for (const index of [0, 1, 2]) cooldowns[`w-40-${bucket + offset}-${index}`] = now + 30 * 24 * 60 * 60 * 1000;
+        // ...plus the angler/miner (3) and rift-creature (4) slots above it.
+        for (const index of [0, 1, 2, 3, 4]) cooldowns[`w-40-${bucket + offset}-${index}`] = now + 30 * 24 * 60 * 60 * 1000;
     }
     save.character = { ...save.character, wandererCooldowns: cooldowns };
     const errors = await bootWorldMap(page, save);

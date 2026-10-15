@@ -41,7 +41,9 @@
 >   Card Hall. Both reuse those modes' existing, server-safe reward paths.
 > - **Nemesis rivalry** *(depth layer, shipped):* a bandit who beats you in a sector
 >   duel becomes your **nemesis** (`character.wandererNemesis` — name + escalating
->   tier). While you carry a rival, a bandit you meet has ~45% chance of *being* that
+>   tier). *Superseded 2026-10-14: the rival is now one authored character, Kagero,
+>   who walks his own sectors (`shared/road-nemesis.ts`, content doc §8c).* While
+>   you carry a rival, a bandit you met had ~45% chance of *being* that
 >   rival, back for more — its own **scarred portrait**, a grudge line, and a fight
 >   scaled to `player + tier`. Beat it and the rivalry ends ("Revenge."); lose and it
 >   grows bolder. Client-only, reusing the arena fight + the win/loss handoff.

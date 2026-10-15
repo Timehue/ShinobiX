@@ -59,3 +59,13 @@ test("invalid successful responses are not cached as completed receipts", async 
         assert.deepEqual(await sendQueuedWarfrontReceipt(body), { character: { name: body.playerName } });
     } finally { clearPendingWarfrontReceipt(body); globalThis.fetch = original; }
 });
+
+test("an expired seal resolves with the roster instead of looping on Try again", async () => {
+    const original = globalThis.fetch;
+    const body = { playerName: "ExpiredQA", battleToken: "expired-seal", reportKey: "26:tactical", warfrontPlan: {} };
+    const reply = { ok: true, reward: 0, reason: "invalid-or-spent-pet-battle-token", character: { name: body.playerName } };
+    try {
+        globalThis.fetch = async () => Response.json(reply);
+        assert.deepEqual(await sendQueuedWarfrontReceipt(body), reply);
+    } finally { clearPendingWarfrontReceipt(body); globalThis.fetch = original; }
+});

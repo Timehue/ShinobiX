@@ -36,7 +36,7 @@ async function post(handler: typeof settleHandler, body: Record<string, unknown>
     return { status, body: result };
 }
 
-async function startRaid(id: string, bossId: WorldBossId, hp = 600_000, finish = true) {
+async function startRaid(id: string, bossId: WorldBossId, hp = 600_000, finish = true, entryHp = 12_000) {
     const now = Date.now();
     const slug = `raider-${id}`;
     const event: WorldBossEventRecord = {
@@ -51,7 +51,7 @@ async function startRaid(id: string, bossId: WorldBossId, hp = 600_000, finish =
         members: [{ slug, name: slug, village: '', clan: '' }], createdAt: now, startedAt: now, matchHp: 0,
     };
     await kv.set(`save:${slug}`, { currentSector: sector, _saveVersion: 1, character: {
-        name: slug, level: 100, hp: 12_000, maxHp: 12_000, maxChakra: 1000, chakra: 1000, maxStamina: 1000, stamina: 1000,
+        name: slug, level: 100, hp: entryHp, maxHp: 12_000, maxChakra: 1000, chakra: 1000, maxStamina: 1000, stamina: 1000,
         specialty: 'Taijutsu', inventory: [], ryo: 0, unspentStats: 500, spentStats: {}, examsPassed: [],
         stats: { strength: 1000, speed: 1000, taijutsuOffense: 2500, taijutsuDefense: 2500 },
     } });
@@ -112,8 +112,7 @@ test('each boss is wired from queue start through action, shared HP, reward and 
         assert.equal(event.hp, first.body.hpRemaining);
         assert.equal(eventStore.publicWorldBossEvent(event, event.status, world.worldBossEventPosition(event, Date.now())).active, false);
         const returnedQueue = await queue.worldBossQueueView(event, raid.slug);
-        assert.equal(returnedQueue.match?.status, 'settled');
-        assert.deepEqual(returnedQueue.match?.reward, first.body.reward);
+        assert.equal(returnedQueue.match?.status, 'settled');        assert.deepEqual(returnedQueue.match?.reward, first.body.reward);
         // A missing event must be a retryable failure, never a false zero-HP victory.
         await kv.del(eventStore.worldBossEventKey(event.eventId));
         assert.equal((await post(settleHandler, body)).status, 503);
@@ -222,6 +221,67 @@ test('a wiped raid deducts recorded potions and thrown ammunition exactly once',
     const after=await kv.get(saveKey);
     await post(settleHandler,body);
     assert.deepEqual(await kv.get(saveKey),after);
+});
+
+test('a wounded raider enters with the HP they have and leaves with the HP they finished on', async () => {
+    const raid = await startRaid('wounded-entry', 'hollow-maze-minotaur', 1000, true, 5000);
+    const session = (await towerStore.readSession(raid.match.runId))!;
+    const fighter = session.actors.find(actor => actor.side === 'squad' && actor.ownerSlug === raid.slug)!;
+    assert.ok(fighter.hp <= 5000 && fighter.hp > 0, `seated at ${fighter.hp}, not the full 12,000 pool`);
+    assert.deepEqual(session.worldBossEvent!.seededVitals, { [raid.slug]: { hp: 5000 } });
+    const body = { runId: raid.match.runId, playerName: raid.slug };
+    const settled = await post(settleHandler, body);
+    assert.equal(settled.status, 200, JSON.stringify(settled.body));
+    assert.equal(settled.body.character.hp, fighter.hp, 'the save keeps the HP the raider finished on');
+    assert.notEqual(settled.body.character.hospitalized, true);
+    const save = await kv.get(`save:${raid.slug}`);
+    assert.equal((await post(settleHandler, body)).status, 200);
+    assert.deepEqual(await kv.get(`save:${raid.slug}`), save, 'a retry must not charge the raid twice');
+});
+
+test('a raider knocked out in the raid goes to the hospital', async () => {
+    const raid = await startRaid('knocked-out', 'hollow-maze-minotaur', 600_000, false, 8000);
+    const session = (await towerStore.readSession(raid.match.runId))!;
+    session.status = 'done';
+    session.winner = 'enemy';
+    session.actors.find(actor => actor.side === 'squad')!.hp = 0;
+    await towerStore.writeSession(session);
+    const settled = await post(settleHandler, { runId: raid.match.runId, playerName: raid.slug });
+    assert.equal(settled.status, 200, JSON.stringify(settled.body));
+    const save = await kv.get<any>(`save:${raid.slug}`);
+    assert.equal(save.character.hp, 0);
+    assert.equal(save.character.hospitalized, true);
+});
+
+test('a late raid settlement charges HP the save lost elsewhere instead of healing it back', async () => {
+    const raid = await startRaid('late-settle', 'hollow-maze-minotaur', 600_000, false, 9000);
+    const session = (await towerStore.readSession(raid.match.runId))!;
+    session.status = 'done';
+    session.winner = 'enemy';
+    session.actors.find(actor => actor.side === 'squad')!.hp = 7000;
+    await towerStore.writeSession(session);
+    const saveKey = `save:${raid.slug}`;
+    const save = await kv.get<any>(saveKey);
+    save.character.hp = 6000; // 3,000 lost in another fight while the raid was open
+    await kv.set(saveKey, save);
+    const settled = await post(settleHandler, { runId: raid.match.runId, playerName: raid.slug });
+    assert.equal(settled.status, 200, JSON.stringify(settled.body));
+    assert.equal((await kv.get<any>(saveKey)).character.hp, 4000);
+});
+
+test('a raid sealed before raids carried HP leaves the save HP alone', async () => {
+    const raid = await startRaid('pre-seal', 'hollow-maze-minotaur', 600_000, false, 9000);
+    const session = (await towerStore.readSession(raid.match.runId))!;
+    delete session.worldBossEvent!.seededVitals;
+    session.status = 'done';
+    session.winner = 'enemy';
+    session.actors.find(actor => actor.side === 'squad')!.hp = 0;
+    await towerStore.writeSession(session);
+    const settled = await post(settleHandler, { runId: raid.match.runId, playerName: raid.slug });
+    assert.equal(settled.status, 200, JSON.stringify(settled.body));
+    const save = await kv.get<any>(`save:${raid.slug}`);
+    assert.equal(save.character.hp, 9000);
+    assert.notEqual(save.character.hospitalized, true);
 });
 
 test('new banking receipts never fabricate zero-damage facts for older settled matches',async()=>{

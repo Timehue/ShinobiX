@@ -50,6 +50,20 @@ export function inspectSettlementReceipt(
     return { status: 'replay', receipt: existing, receipts };
 }
 
+/**
+ * The keys a replay reads back from a receipt's `value`, and nothing else.
+ * Until 2026-10 the save merge paired receipts by position, so a receipt
+ * stored before then can also hold keys from the receipt that preceded it.
+ * Its own keys always won, so picking them recovers exactly what it wrote.
+ */
+export function ownReceiptValue(value: Record<string, unknown>, keys: readonly string[]): Record<string, unknown> {
+    const out: Record<string, unknown> = {};
+    for (const key of keys) {
+        if (Object.prototype.hasOwnProperty.call(value, key)) out[key] = value[key];
+    }
+    return out;
+}
+
 export function appendSettlementReceipt(
     character: Record<string, unknown>,
     receipts: ServerSettlementReceipt[],

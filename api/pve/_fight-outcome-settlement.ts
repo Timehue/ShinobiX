@@ -186,7 +186,7 @@ export function applyPveOutcomeWithReceipt(params: {
             // A fight seeded from the save charges what the save has lost since,
             // so this write cannot undo damage taken while it was outstanding:
             // the lapse reconciler and a client report can both land late.
-            sessionSeededVitals(params.session),
+            sessionSeededVitals(params.session, params.playerName),
         );
     // Caravan sessions are created only from the real current pools and held
     // behind the normal battle lock. Their terminal record includes legitimate
@@ -308,7 +308,7 @@ export function applyPveOutcomeBodyOnce(params: {
         params.continuousVitals === true,
         params.spar === true,
         sessionHpIsDecreaseOnly(params.session),
-        sessionSeededVitals(params.session),
+        sessionSeededVitals(params.session, params.playerName),
     );
     if (params.markedSettled === true || pveOutcomeBodyWritten(params.character, params.session, params.playerName)) {
         const kept = { ...params.character };

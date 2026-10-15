@@ -90,7 +90,8 @@ import { useLiveActionDeadline } from "../lib/use-action-deadline";
 import { sameJsonValue } from "../lib/pvp-session-runtime";
 import type { WorldAiFightContext, WorldAiFightRequest } from "../../../shared/world-ai-fight";
 import { WORLD_FIGHT_KIND_BY_MODE } from "../lib/world-ai-presentation-modes";
-import { wandererAvatar, wandererRobberPortrait, questBossPortrait, WANDERER_BOSS_PORTRAIT, WANDERER_NEMESIS_PORTRAIT } from "../lib/wanderer-art";
+import { wandererAvatar, wandererRobberPortrait, questBossPortrait, WANDERER_BOSS_PORTRAIT, WANDERER_KAGERO_PORTRAIT, WANDERER_NEMESIS_PORTRAIT } from "../lib/wanderer-art";
+import { anglerTip, roadFightAftermath, roadNemesisActorId, roadNemesisTier, roadNemesisTitle, useRoadCast, wandererForcesChoice } from "../lib/road-cast";
 import { makeBuiltinAi } from "../lib/combat-ai";
 import { genericPetArenaOpponents, type PetArenaOpponent } from "../data/pet-arena-opponents";
 import { ROAD_WANDERER_PREFIX, nextRoadEvent, synthRoadWanderer, roadEventBySynthId, roadEventToCreatorEvent, reportStoryRoadEvent, applyRoadEventChoice } from "../lib/story-road-events";
@@ -763,9 +764,10 @@ function WorldMapContent({
     // pet of that rarity, the same rule the server fields (lib/road-beast.ts).
     // Dressing it here gives the billboard, the dialog and the duel one name.
     const roadBeastPets = useMemo(() => roadBeastReadyPets(character), [character]);
+    const roadCast = useRoadCast(selectedSector, naturalWanderers, character); // + angler/miner, rift creature, Kagero; patrols answer to the road's village
     const sectorWanderers = useMemo(
-        () => naturalWanderers.map((wanderer) => withRoadBeastIdentity(wanderer, roadBeastPets, sharedImages)),
-        [naturalWanderers, roadBeastPets, sharedImages],
+        () => roadCast.map((wanderer) => withRoadBeastIdentity(wanderer, roadBeastPets, sharedImages)),
+        [roadCast, roadBeastPets, sharedImages],
     );
     const [bountyBoard, setBountyBoard] = useState<BountyEntry[]>([]);
     useEffect(() => {
@@ -1359,9 +1361,9 @@ function WorldMapContent({
         // The sealed World start owns the encounter cooldown. Do not hide or
         // relocate this NPC before the start ACK: a rejected/offline start must
         // leave the exact encounter available to retry.
-        // Streak ≥ 5 → the gang ambushes: 3 robbers, then the boss. (A nemesis duel
-        // or a night ninja, a lone prowler, is its own encounter and skips it.)
-        if (!nemesis && w.archetype !== "nightblade" && (character.robberStreak ?? 0) >= 5) {
+        // Streak ≥ 5 → the gang ambushes: 3 robbers, then the boss. Only a bandit
+        // springs it; Kagero, night ninjas, rift creatures and miners fight alone.
+        if (!nemesis && w.archetype === "bandit" && (character.robberStreak ?? 0) >= 5) {
             launchWorldMapFight(
                 buildRobberAi(character.level, "amb0", 0),
                 selectedSector,
@@ -1373,10 +1375,10 @@ function WorldMapContent({
         // escalated by its tier — always scaled to the player.
         const nem = nemesis ? (character.wandererNemesis ?? null) : null;
         const lvl = Math.max(1, Math.min(100, character.level + (nem ? Math.max(1, nem.tier) : 1)));
-        const name = nem ? nem.name : w.name;
+        const name = nem ? roadNemesisTitle(roadNemesisTier(nem)) : w.name;
         const statBonus = nem ? Math.min(12, Math.max(1, nem.tier) * 2) : 0;
         const ai = makeBuiltinAi(`wanderer-${nem ? "nemesis" : w.id}`, name, nem ? "😡" : "🥷", lvl, "Wandering Road", [], statBonus, undefined, "bruiser");
-        ai.image = nem ? WANDERER_NEMESIS_PORTRAIT : wandererAvatar(w.avatarKey);
+        ai.image = nem ? WANDERER_KAGERO_PORTRAIT : wandererAvatar(w.avatarKey);
         launchWorldMapFight(
             ai,
             selectedSector,
@@ -1401,6 +1403,7 @@ function WorldMapContent({
         rememberWanderer(w);
         setWandererDialog({ w, msg: roadRumorFor(w) });
     }
+    const askAngler = (w: Wanderer) => setWandererDialog({ w, msg: anglerTip(selectedSector ?? 0, character.resourceGathering, currentWandererDayBucket()) });
     function rememberWanderer(w: Wanderer) {
         const key = w.archetype;
         updateCharacter(prev => {
@@ -1488,7 +1491,7 @@ function WorldMapContent({
     }
     function startPatrolFight(w: Wanderer) {
         if (selectedSector == null) return;
-        const hostile = activeVillageWarsFor(character.village).length > 0;
+        const hostile = w.patrolStance === "rivalWar" || (!w.patrolStance && activeVillageWarsFor(character.village).length > 0);
         const lvl = Math.max(1, Math.min(100, character.level + (hostile ? 3 : 1)));
         const ai = makeBuiltinAi(`wanderer-patrol-${w.id}`, hostile ? `${w.name} Captain` : w.name, "PT", lvl, "Road Patrol", [], hostile ? 7 : 3, undefined, hostile ? "defender" : "balanced");
         ai.image = w.avatarImage || wandererAvatar(w.avatarKey);
@@ -1707,10 +1710,10 @@ function WorldMapContent({
                 : `${p.hunterName ?? "The bounty hunter"} put you down, but they can't cash a contract this size. The bounty on your head still stands. Only a real shinobi can collect it.`), 40);
             return;
         }
-        if (p.mode === "single") {
-            if (won && p.nemesis) setTimeout(() => alert(`You put your rival ${p.name ?? "the bandit"} in the dirt at last. Revenge.`), 40);
-            else if (!won && p.nemesis) setTimeout(() => alert(`${p.name ?? "Your rival"} bests you again, and grows bolder. This isn't over.`), 40);
-            else if (!won && p.name) setTimeout(() => alert(`${p.name} took what they wanted and laughed. You won't forget that name, and they'll be back.`), 40);
+        if (p.mode === "single") { // Kagero steps back after any fight, so he never jumps you on your return.
+            if (p.nemesis) coolWanderer(roadNemesisActorId(context.sector, currentWandererDayBucket()), WANDERER_FLEE_COOLDOWN_MS);
+            const line = roadFightAftermath({ sourceId: context.sourceId, name: p.name, won, nemesisTier: roadNemesisTier(settlement.character?.wandererNemesis ?? character.wandererNemesis) });
+            if (line) setTimeout(() => alert(line), 40);
             return;
         }
         if (p.mode === "ambush") {
@@ -1949,7 +1952,7 @@ function WorldMapContent({
         setWandererDialog((current) => current?.w.id === LEGACY_SAGE_WANDERER_ID ? null : current);
     }, [legacyAvailable]);
     function requiresWandererChoice(d: WorldWandererDialogState | null) {
-        return !!d && !d.msg && (d.w.verb === "attack" || d.w.verb === "bountyHunter");
+        return !!d && !d.msg && wandererForcesChoice(d.w);
     }
     function handleWandererEngage(w: Wanderer) {
         if (selectedSector == null || !sameSector(currentSector, selectedSector)) return;
@@ -2055,12 +2058,7 @@ function WorldMapContent({
         // A roaming mercenary or contract hunter stops you like a bandit: Fight
         // (the merc's server-resolved clash, the hunter's sealed fight) or pay to Flee.
         if (isMercAiId(w.id) || w.verb === "bountyHunter") { setWandererDialog({ w }); return; }
-        // A bandit you face while you have a rival has a chance of BEING that rival,
-        // back for more (bandits only: a night ninja is never your road rival).
-        if (w.archetype === "bandit" && character.wandererNemesis && Math.random() < 0.45) {
-            setWandererDialog({ w, nemesis: true });
-            return;
-        }
+        if (w.archetype === "nemesis") { setWandererDialog({ w, nemesis: true }); return; } // Kagero walks his own sectors (lib/road-cast)
         // The world remembers your Quest Book choices (character.questStandings): a
         // spared Goro's old gang may wave you through; colder choices earn cold words.
         const react = standingReaction(w.archetype, character.questStandings, Math.random());
@@ -4380,8 +4378,8 @@ function WorldMapContent({
         })();
         const targetedHunters = bountyHunterWanderers.filter((wanderer) => wanderer.verb === "bountyHunter");
         const bystanderHunters = bountyHunterWanderers.filter((wanderer) => wanderer.verb === "watch");
-        const hostileNaturals = sectorWanderers.filter((wanderer) => wanderer.verb === "attack"); // bandits + night ninjas
-        const ambientNaturals = sectorWanderers.filter((wanderer) => wanderer.verb !== "attack");
+        const hostileNaturals = sectorWanderers.filter(wandererForcesChoice); // bandits, night ninjas, Kagero, rift creatures, warring patrols
+        const ambientNaturals = sectorWanderers.filter((wanderer) => !wandererForcesChoice(wanderer));
         // Priority is danger/current objective → pet onboarding → other system
         // objectives → optional encounters → ambient life. Keep the field mentor
         // beside the prompt that opens her lesson so a full road never advertises
@@ -4692,6 +4690,7 @@ function WorldMapContent({
                                         fleeWanderer={fleeWanderer}
                                         tradeWithWanderer={tradeWithWanderer}
                                         askRoadRumor={askRoadRumor}
+                                        askAngler={askAngler}
                                         visitWandererMedic={visitWandererMedic}
                                         startPatrolFight={startPatrolFight}
                                         followTracker={followTracker}
