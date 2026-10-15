@@ -600,22 +600,20 @@ jobs:
           retention-days: 14
 
   e2e_responsive_matrix:
-    name: CI / e2e-responsive / ${{ matrix.shard }}-of-8
+    name: CI / e2e-responsive / ${{ matrix.shard }}-of-5
     needs: release_artifact
     if: ${{ always() }}
     runs-on: ubuntu-latest
-    # Run 38762907081 exhausted the five-way shard 2 at the 35-minute cap
-    # near the end of its 665 cases, without an assertion failure. Split the
-    # same complete suite eight ways to retain coverage and leave room for
-    # the CSP, Stronghold and sector audits. Hosted Playwright browser downloads
-    # can consume 15+ minutes on a slow runner, so leave enough time for the
-    # browser shard itself to finish after dependencies are installed while
-    # staying inside the workflow's enforced sub-36-minute job budget.
+    # Run 36622735387 exhausted shards 1 and 2 before all browser cases ran,
+    # so the suite is split five ways. Each shard now runs only its smoke slice;
+    # the CSP, Stronghold and dedicated suites run in e2e_responsive_flows. On
+    # main a slice took 12-26 minutes and setup about 2, so 35 minutes leaves
+    # room for a slow runner inside the workflow's sub-36-minute job budget.
     timeout-minutes: 35
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+        shard: [1, 2, 3, 4, 5]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -625,19 +623,18 @@ jobs:
           cache-dependency-path: shinobij.client/package-lock.json
       - name: Initialize evidence
         run: |
-          mkdir -p .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-8
-          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\nshard=%s-of-8\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "${{ matrix.shard }}" > .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-8/provenance.txt
+          mkdir -p .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-5
+          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\nshard=%s-of-5\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "${{ matrix.shard }}" > .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-5/provenance.txt
       - name: Require successful release artifact
         if: ${{ needs.release_artifact.result != 'success' }}
         run: |
-          echo "release-artifact=${{ needs.release_artifact.result }}" | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-8/upstream-results.log
+          echo "release-artifact=${{ needs.release_artifact.result }}" | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-5/upstream-results.log
           exit 1
-      # Ranked browser fixtures need root storage packages. Stronghold QA also
-      # uses the locked root tsx/esbuild tooling to build its disposable fixture.
+      # Ranked browser fixtures need root storage packages.
       - name: Install server runtime and QA dependencies
-        run: npm ci 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-8/root-install.log
+        run: npm ci 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-5/root-install.log
       - name: Install client dependencies
-        run: npm ci --prefix shinobij.client 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-8/client-install.log
+        run: npm ci --prefix shinobij.client 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-5/client-install.log
       - name: Download joined release artifact
         uses: actions/download-artifact@v8
         with:
@@ -658,86 +655,159 @@ jobs:
         uses: ./.github/actions/playwright-browsers
         with:
           browsers: chromium firefox webkit
-          log: .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-8/browser-install.log
-      # Surface focused policy/lifecycle failures before the long browser matrix.
-      - name: Verify built CSP in Chromium and WebKit
-        if: ${{ matrix.shard == 1 }}
-        run: node --test scripts/check-http-security-browser.mjs 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-8/csp-browser.log
-      - name: Stronghold request lifecycle and recovery
-        # Keep all Stronghold modes sequential on shard 2. Eight Playwright
-        # shards leave room for these audits within the 35-minute job limit.
-        if: ${{ matrix.shard == 2 }}
-        env:
-          NODE_ENV: test
-          SHINOBIX_QA_MEMORY_KV: '1'
-        working-directory: shinobij.client
-        run: node scripts/stronghold-browser-qa.mjs --output=../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-8/stronghold 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-8/stronghold.log
-      # Run the Stronghold modes sequentially on that same shard:
-      # all Stronghold modes build into the same disposable fixture directory.
-      - name: Stronghold dismissal and settlement races
-        if: ${{ matrix.shard == 2 }}
-        env:
-          NODE_ENV: test
-          SHINOBIX_QA_MEMORY_KV: '1'
-        working-directory: shinobij.client
-        run: node scripts/stronghold-browser-qa.mjs --dismissal --output=../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-8/stronghold-dismissal 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-8/stronghold-dismissal.log
-      - name: Stronghold resource lifecycle
-        if: ${{ matrix.shard == 2 }}
-        env:
-          NODE_ENV: test
-          SHINOBIX_QA_MEMORY_KV: '1'
-        working-directory: shinobij.client
-        run: node scripts/stronghold-browser-qa.mjs --resources --output=../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-8/stronghold-resources 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-8/stronghold-resources.log
+          log: .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-5/browser-install.log
       - name: Cross-browser responsive and accessibility smoke
-        run: npm run test:e2e --prefix shinobij.client -- --shard=${{ matrix.shard }}/8 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-8/playwright.log
-      - name: Village transfer purchase and recovery
-        if: ${{ matrix.shard == 4 }}
-        working-directory: shinobij.client
-        run: node node_modules/@playwright/test/cli.js test --config playwright.village-transfer.config.ts 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-8/village-transfer.log
-      - name: Dojo Circuit gamepad flow
-        if: ${{ matrix.shard == 5 }}
-        working-directory: shinobij.client
-        run: npm run test:e2e:dojo-circuit 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-8/dojo-circuit.log
-      - name: Sector controls and spectator integration
-        if: ${{ matrix.shard == 3 }}
-        working-directory: shinobij.client
-        run: node node_modules/@playwright/test/cli.js test --config playwright.sector-hud.config.ts --project chromium 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-8/sector-hud.log
-      - name: Pet Gauntlet playback and renderer recovery
-        if: ${{ matrix.shard == 1 }}
-        run: xvfb-run -a npm run test:e2e:gauntlet-render --prefix shinobij.client 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-8/gauntlet-render.log
-      - name: Era campaigns and admission refresh
-        if: ${{ matrix.shard == 3 }}
-        working-directory: shinobij.client
-        run: node node_modules/@playwright/test/cli.js test --config playwright.world-eras.config.ts 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-8/world-eras.log
-      - name: Profession scroll purchase, inventory and change flow
-        if: ${{ matrix.shard == 3 }}
-        working-directory: shinobij.client
-        run: node node_modules/@playwright/test/cli.js test --config playwright.profession-change.config.ts 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-8/profession-change.log
-      - name: Fishing and Fracture Chain interaction
-        if: ${{ matrix.shard == 5 }}
-        working-directory: shinobij.client
-        run: node node_modules/@playwright/test/cli.js test --config playwright.resource-gathering.config.ts --retries=1 --forbid-only 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-8/resource-gathering.log
-      - name: Named forge purchase and recovery
-        if: ${{ matrix.shard == 4 }}
-        working-directory: shinobij.client
-        run: node node_modules/@playwright/test/cli.js test --config playwright.named-forge.config.ts --retries=0 --forbid-only 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-8/named-forge.log
-      - name: Chronicle pack purchase and recovery
-        if: ${{ matrix.shard == 5 }}
-        working-directory: shinobij.client
-        run: node node_modules/@playwright/test/cli.js test --config playwright.chronicle-packs.config.ts --retries=0 --forbid-only 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-8/chronicle-packs.log
-      - name: Rally renderer recovery
-        if: ${{ matrix.shard == 4 }}
-        working-directory: shinobij.client
-        run: node node_modules/@playwright/test/cli.js test --config playwright.rally-recovery.config.ts --retries=0 --forbid-only 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-8/rally-recovery.log
+        # Below the job ceiling, so a hung smoke fails here and the evidence
+        # upload below still runs. The slowest slice measured 26.4 minutes.
+        timeout-minutes: 31
+        run: npm run test:e2e --prefix shinobij.client -- --shard=${{ matrix.shard }}/5 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-5/playwright.log
       - name: Retain responsive browser evidence
         if: always()
         continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true
-          name: evidence-e2e-responsive-${{ matrix.shard }}-of-8-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: evidence-e2e-responsive-${{ matrix.shard }}-of-5-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-8/
+            .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-5/
+            shinobij.client/playwright-report/
+            shinobij.client/test-results/
+          if-no-files-found: warn
+          retention-days: 14
+
+  e2e_responsive_flows:
+    name: CI / e2e-responsive-flows / ${{ matrix.shard }}
+    needs: release_artifact
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    # The CSP, Stronghold and dedicated feature suites used to ride after (or
+    # before) a smoke slice, which put shards 2 and 5 at 32-34 of their 35
+    # minutes on main and cancelled PR #407's shard 2 with every test green.
+    # Here they run beside the smoke shards instead. Each shard measured about
+    # 11-13 minutes of suite time on main, so 29 minutes still fails a hang.
+    timeout-minutes: 29
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: shinobij.client/package-lock.json
+      - name: Initialize evidence
+        run: |
+          mkdir -p .ci-evidence/e2e-responsive-flows-${{ matrix.shard }}
+          printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\nshard=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "${{ matrix.shard }}" > .ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/provenance.txt
+      - name: Require successful release artifact
+        if: ${{ needs.release_artifact.result != 'success' }}
+        run: |
+          echo "release-artifact=${{ needs.release_artifact.result }}" | tee .ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/upstream-results.log
+          exit 1
+      # Ranked browser fixtures need root storage packages. Stronghold QA also
+      # uses the locked root tsx/esbuild tooling to build its disposable fixture.
+      - name: Install server runtime and QA dependencies
+        run: npm ci 2>&1 | tee .ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/root-install.log
+      - name: Install client dependencies
+        run: npm ci --prefix shinobij.client 2>&1 | tee .ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/client-install.log
+      - name: Download joined release artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: release-dist-${{ github.sha }}-${{ github.run_id }}
+          path: .ci-artifacts/release
+      - name: Verify and extract exact release artifact
+        run: |
+          cd .ci-artifacts/release
+          sha256sum -c release-dist.tgz.sha256
+          grep -Fx "sha=$GITHUB_SHA" provenance.txt
+          grep -Fx "run_id=$GITHUB_RUN_ID" provenance.txt
+          artifact_attempt="$(sed -n 's/^run_attempt=//p' provenance.txt)"
+          [[ "$artifact_attempt" =~ ^[1-9][0-9]*$ ]]
+          (( artifact_attempt <= GITHUB_RUN_ATTEMPT ))
+          cd ../..
+          tar -xzf .ci-artifacts/release/release-dist.tgz
+      - name: Install release browsers
+        uses: ./.github/actions/playwright-browsers
+        with:
+          browsers: chromium firefox webkit
+          log: .ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/browser-install.log
+      - name: Verify built CSP in Chromium and WebKit
+        if: ${{ matrix.shard == 1 }}
+        run: node --test scripts/check-http-security-browser.mjs 2>&1 | tee .ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/csp-browser.log
+      - name: Stronghold request lifecycle and recovery
+        # Keep all Stronghold modes together, in order, on flow shard 1.
+        if: ${{ matrix.shard == 1 }}
+        env:
+          NODE_ENV: test
+          SHINOBIX_QA_MEMORY_KV: '1'
+        working-directory: shinobij.client
+        run: node scripts/stronghold-browser-qa.mjs --output=../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/stronghold 2>&1 | tee ../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/stronghold.log
+      # Run the Stronghold modes sequentially on that same shard:
+      # all Stronghold modes build into the same disposable fixture directory.
+      - name: Stronghold dismissal and settlement races
+        if: ${{ matrix.shard == 1 }}
+        env:
+          NODE_ENV: test
+          SHINOBIX_QA_MEMORY_KV: '1'
+        working-directory: shinobij.client
+        run: node scripts/stronghold-browser-qa.mjs --dismissal --output=../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/stronghold-dismissal 2>&1 | tee ../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/stronghold-dismissal.log
+      - name: Stronghold resource lifecycle
+        if: ${{ matrix.shard == 1 }}
+        env:
+          NODE_ENV: test
+          SHINOBIX_QA_MEMORY_KV: '1'
+        working-directory: shinobij.client
+        run: node scripts/stronghold-browser-qa.mjs --resources --output=../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/stronghold-resources 2>&1 | tee ../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/stronghold-resources.log
+      - name: Sector controls and spectator integration
+        if: ${{ matrix.shard == 1 }}
+        working-directory: shinobij.client
+        run: node node_modules/@playwright/test/cli.js test --config playwright.sector-hud.config.ts --project chromium 2>&1 | tee ../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/sector-hud.log
+      - name: Era campaigns and admission refresh
+        if: ${{ matrix.shard == 1 }}
+        working-directory: shinobij.client
+        run: node node_modules/@playwright/test/cli.js test --config playwright.world-eras.config.ts 2>&1 | tee ../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/world-eras.log
+      - name: Profession scroll purchase, inventory and change flow
+        if: ${{ matrix.shard == 1 }}
+        working-directory: shinobij.client
+        run: node node_modules/@playwright/test/cli.js test --config playwright.profession-change.config.ts 2>&1 | tee ../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/profession-change.log
+      - name: Village transfer purchase and recovery
+        if: ${{ matrix.shard == 1 }}
+        working-directory: shinobij.client
+        run: node node_modules/@playwright/test/cli.js test --config playwright.village-transfer.config.ts 2>&1 | tee ../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/village-transfer.log
+      - name: Fishing and Fracture Chain interaction
+        if: ${{ matrix.shard == 2 }}
+        working-directory: shinobij.client
+        run: node node_modules/@playwright/test/cli.js test --config playwright.resource-gathering.config.ts --retries=1 --forbid-only 2>&1 | tee ../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/resource-gathering.log
+      - name: Chronicle pack purchase and recovery
+        if: ${{ matrix.shard == 2 }}
+        working-directory: shinobij.client
+        run: node node_modules/@playwright/test/cli.js test --config playwright.chronicle-packs.config.ts --retries=0 --forbid-only 2>&1 | tee ../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/chronicle-packs.log
+      - name: Pet Gauntlet playback and renderer recovery
+        if: ${{ matrix.shard == 2 }}
+        run: xvfb-run -a npm run test:e2e:gauntlet-render --prefix shinobij.client 2>&1 | tee .ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/gauntlet-render.log
+      - name: Named forge purchase and recovery
+        if: ${{ matrix.shard == 2 }}
+        working-directory: shinobij.client
+        run: node node_modules/@playwright/test/cli.js test --config playwright.named-forge.config.ts --retries=0 --forbid-only 2>&1 | tee ../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/named-forge.log
+      - name: Rally renderer recovery
+        if: ${{ matrix.shard == 2 }}
+        working-directory: shinobij.client
+        run: node node_modules/@playwright/test/cli.js test --config playwright.rally-recovery.config.ts --retries=0 --forbid-only 2>&1 | tee ../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/rally-recovery.log
+      - name: Dojo Circuit gamepad flow
+        if: ${{ matrix.shard == 2 }}
+        working-directory: shinobij.client
+        run: npm run test:e2e:dojo-circuit 2>&1 | tee ../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/dojo-circuit.log
+      - name: Retain responsive flow evidence
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          include-hidden-files: true
+          name: evidence-e2e-responsive-flows-${{ matrix.shard }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/
             shinobij.client/playwright-report/
             shinobij.client/test-results/
           if-no-files-found: warn
@@ -746,18 +816,20 @@ jobs:
   e2e_responsive:
     name: CI / e2e-responsive
     if: ${{ always() }}
-    needs: e2e_responsive_matrix
+    needs: [e2e_responsive_matrix, e2e_responsive_flows]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Require every responsive browser shard
         env:
           RESPONSIVE_MATRIX: ${{ needs.e2e_responsive_matrix.result }}
+          RESPONSIVE_FLOWS: ${{ needs.e2e_responsive_flows.result }}
         run: |
           mkdir -p .ci-evidence/e2e-responsive
           printf 'sha=%s\nrun_id=%s\nrun_attempt=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > .ci-evidence/e2e-responsive/provenance.txt
-          printf 'e2e-responsive-matrix=%s\n' "$RESPONSIVE_MATRIX" | tee .ci-evidence/e2e-responsive/results.log
+          printf 'e2e-responsive-matrix=%s\ne2e-responsive-flows=%s\n' "$RESPONSIVE_MATRIX" "$RESPONSIVE_FLOWS" | tee .ci-evidence/e2e-responsive/results.log
           test "$RESPONSIVE_MATRIX" = success
+          test "$RESPONSIVE_FLOWS" = success
       - name: Retain responsive aggregate evidence
         if: always()
         continue-on-error: true
