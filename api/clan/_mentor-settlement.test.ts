@@ -203,6 +203,22 @@ describe('mentor claim economics', { concurrency: false }, () => {
         assert.equal(student[0].ryo, rewards.MENTOR_STUDENT_RYO);
     });
 
+    test('1b) a mixed receipt stored before the merge fix loses the other role\'s amounts on the next payment', async () => {
+        // The student also mentors someone under another sensei's record; the
+        // old merge copied that teacher receipt's amounts into a student receipt.
+        const mixed = {
+            v: 1, settlementId: 'older-settlement', role: 'student', fingerprint: 'fp-older', senseiSlug: OTHER_SENSEI,
+            pairingId: 'pairing-other', milestones: ['academy'], appliedAt: START - 5_000,
+            ryo: 100, seals: 10, contrib: 2, clanPoints: { requested: 25, awarded: 25, weekKey: '2026-W37', reason: null },
+        };
+        await setStudent({ mentorRewardReceipts: [mixed] });
+        assert.equal((await claim()).status, 200);
+        assert.deepEqual(await economy(), paid(1, 25), 'the payment itself is unchanged');
+        const kept = receipts(await read(STUDENT_KEY)).find((r) => r.settlementId === 'older-settlement');
+        const { seals: _s, contrib: _c, clanPoints: _p, ...own } = mixed;
+        assert.deepEqual(kept, own);
+    });
+
     test('2) a multi-milestone batch keeps per-milestone amounts and one full-batch Clan Points request', async () => {
         await setStudent({ level: 45, rankedWins: 2 });
         const four = await claim();

@@ -298,7 +298,8 @@ type PetSettlementAttempt = {
     scope: PetArenaPlayerScope;
     status: PetSettlementStatus;
     running: boolean;
-    run: () => Promise<boolean>;
+    /** `{ detail }` = applied, with a settled line that replaces the default. */
+    run: () => Promise<boolean | { detail: string }>;
 };
 
 type PetSettlementPresentation = Pick<PetSettlementAttempt, "id" | "kind" | "label" | "scope" | "status"> & {
@@ -594,7 +595,9 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                 label: attempt.label,
                 scope: attempt.scope,
                 status: "settled",
-                detail: "Battle record confirmed. Rewards and one-use items are sealed.",
+                detail: typeof completed === "object"
+                    ? completed.detail
+                    : "Battle record confirmed. Rewards and one-use items are sealed.",
             });
         } catch (error) {
             if (settlementAttemptRef.current !== attempt || !playerScopeIsActive(attempt.scope)) return;
@@ -640,15 +643,18 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
         void runPetSettlementAttempt(attempt);
     }
 
-    async function settleQueuedWarfront(body: PendingWarfrontReceipt, scope: PetArenaPlayerScope): Promise<boolean> {
+    async function settleQueuedWarfront(body: PendingWarfrontReceipt, scope: PetArenaPlayerScope): Promise<boolean | { detail: string }> {
         const id = `tactical:${body.reportKey}`;
         if (!queueWarfrontReceipt(body)) throw new Error("The previous Warfront result still needs to be recorded.");
         setQueuedWarfrontAttempt(id);
         const data = await sendQueuedWarfrontReceipt<PetBattleSettlementResponse>(body);
         if (!playerScopeIsActive(scope)) return false;
         const applied = applyPetBattleSettlement(data, scope, []);
-        if (applied) clearPendingWarfrontReceipt(body);
-        return applied;
+        if (!applied) return false;
+        clearPendingWarfrontReceipt(body);
+        return data.reason === "invalid-or-spent-pet-battle-token"
+            ? { detail: "This Warfront result expired before it was recorded. Your pets are free to fight again." }
+            : true;
     }
 
     function recoverQueuedWarfront(scope: PetArenaPlayerScope): boolean {
