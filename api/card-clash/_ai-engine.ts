@@ -7,12 +7,15 @@ import {
   createMatch,
   elementBattleBonus,
   getChronicleCard,
+  isChronicleToken,
+  meetsSnareElementRequirement,
   monsterAttack,
   monsterDefense,
   projectMatchForViewer,
   tributeCountForLevel,
   type ChronicleActionIntent,
   type ChronicleAiDifficulty,
+  type ChronicleElement,
   type ChronicleMatch,
   type ChronicleProjection,
   type ChronicleSideKey,
@@ -94,32 +97,45 @@ function mediumAiDeck(): string[] {
 }
 
 const HARD_AI_DECK = Object.freeze([
-  // Crimson Tempest: 19 no-Tribute Monsters, three one-Tribute threats and
-  // two finishers. The Fire concentration supports Volcano and Fire Traps.
-  "tc-28", "tc-28", "tc-28",
-  "tc-74", "tc-74", "tc-74",
-  "tc-83", "tc-83", "tc-83",
-  "tc-92", "tc-92", "tc-92",
-  "tc-08", "tc-08",
-  "tc-13", "tc-13",
-  "tc-54", "tc-54", "tc-54",
-  "tc-50",
-  "tc-42", "tc-42",
-  "tc-124",
-  "tc-137",
+  // Crimson Tempest: 16 no-Tribute Monsters, five one-Tribute threats and
+  // three finishers. The Fire concentration supports Volcano and Fire Snares.
+  //
+  // Rebuilt 2026-10-14 (docs/chronicle-balance-pass-2026-10.md). When power
+  // tier stopped following rarity (08-17), most of the old list moved to
+  // Tribute Levels, and the deck quietly became 5 free bodies against 19
+  // Tribute Monsters. It could rarely summon, and the starter deck beat "Hard"
+  // 45% of the time. Restoring the old 19/3/2 curve overshot to 98%: a clean
+  // curve alone crushes the starter, whose eight two-Tribute Monsters rarely
+  // reach the field. Tuned against the Medium pilot, this list beats the
+  // starter deck 85% of the time and a Shop-upgraded starter 49%. The curve is
+  // pinned by _ai-engine.test.ts, so a future re-tier fails a test.
+  "tc-92", "tc-92", "tc-92", // L4 Rare
+  "tc-67", "tc-67", "tc-67", // L4 Common
+  "tc-42", "tc-42", // L2 Epic, piercing
+  "tc-08", "tc-08", // L2 FLIP: destroy their strongest
+  "tc-13", "tc-13", // L4 FLIP: heal
+  "tc-61", "tc-61", "tc-61", // L2 Common
+  "tc-01", // L1 Training Dummy, Tribute fodder
+  "tc-137", // L5 Legendary
+  "tc-28", "tc-28", "tc-28", // L5 Rare, piercing
+  "tc-83", // L5 Rare
+  "tc-124", // L8 Legendary finisher
+  "tc-50", // L7 Epic finisher, seals all Snares
+  "tc-54", // L7 Common
   "chronicle-field-volcano", "chronicle-field-volcano",
   "chronicle-stacked-scrolls",
-  "chronicle-giant-felling-edict",
+  "chronicle-soldier-pill",
   "chronicle-hollow-breach", "chronicle-hollow-breach",
   "chronicle-hundredfold-tempest",
   "chronicle-sealbreak-verdict",
   "chronicle-storm-shear",
   "chronicle-ringed-detonation",
-  "chronicle-mirror-shell-counter",
+  // Mirror-Shell Counter needs a face-up Water Monster since the balance pass,
+  // so an all-Fire deck runs a Fire Snare in its slot.
+  "chronicle-ashen-veil",
   "chronicle-returning-cylinder-seal",
-  "chronicle-torrential-tag-field",
-  "chronicle-pitfall-tag-array", "chronicle-pitfall-tag-array",
-  "chronicle-cinder-minefield",
+  "chronicle-soldier-pill",
+  "chronicle-smoke-bomb", "chronicle-smoke-bomb", "chronicle-smoke-bomb",
 ] as const);
 
 export const CHRONICLE_AI_DECKS: Readonly<
@@ -173,19 +189,17 @@ export function createAiMatch(
 function controlsFaceUpElement(
   state: ChronicleMatch,
   sideKey: ChronicleSideKey,
-  element: string,
+  element: ChronicleElement,
 ): boolean {
-  return state[sideKey].monsterZones.some((monster) => {
-    if (!monster?.faceUp) return false;
-    const card = getChronicleCard(monster.cardId);
-    return card?.cardClass === "monster" && card.element === element;
-  });
+  return state[sideKey].monsterZones.some((monster) =>
+    meetsSnareElementRequirement(monster, element),
+  );
 }
 
 function canSupportTrapRequirement(
   state: ChronicleMatch,
   sideKey: ChronicleSideKey,
-  element: string | undefined,
+  element: ChronicleElement | undefined,
 ): boolean {
   if (!element || controlsFaceUpElement(state, sideKey, element)) return true;
   return state[sideKey].hand.some((id) => {
@@ -260,6 +274,20 @@ function trapResponsePriority(
   if (card.effect.kind === "returnOneMonsterToHand") return 2;
   if (card.effect.kind === "negateOneAttack") return 1;
   return 2;
+}
+
+/** Field Monsters that can pay a Tribute now: a Shadow Double cannot on the
+ *  turn it appears. */
+function tributableIndexes(
+  state: ChronicleMatch,
+  sideKey: ChronicleSideKey,
+): number[] {
+  return state[sideKey].monsterZones.flatMap((monster, index) =>
+    monster &&
+    !(isChronicleToken(monster.cardId) && monster.summonedOnTurn === state.turnNumber)
+      ? [index]
+      : [],
+  );
 }
 
 function otherSide(side: ChronicleSideKey): ChronicleSideKey {
@@ -366,6 +394,38 @@ function chooseMainAction(
       if (!card || card.cardClass !== "magic") continue;
       if (card.magicType === "field") continue;
       const scope = card.effect.targetScope;
+      if (card.effect.kind === "callSummon") {
+        // The Call spends the Normal Summon on a Level 8 body, which beats any
+        // free summon, so it goes first whenever the pair is in hand. The
+        // Keeper keeps a margin rather than paying its last Health.
+        if (
+          !state.normalSummonUsed &&
+          side.hand.includes(card.effect.calledMonsterId ?? "") &&
+          side.monsterZones.some((zone) => zone === null) &&
+          side.lifePoints > (card.effect.healthCost ?? 0) + 1_000
+        )
+          return { action: "activate-magic", handIndex };
+        continue;
+      }
+      if (card.effect.kind === "summonShadowDoubles") {
+        // Worth casting when a Tribute Monster in hand is waiting for bodies.
+        const bodies = tributableIndexes(state, "p2").length;
+        const waiting = side.hand.some((id) => {
+          const held = getChronicleCard(id);
+          return (
+            held?.cardClass === "monster" &&
+            held.monsterEffect?.kind !== "callSummonOnly" &&
+            tributeCountForLevel(held.level) > bodies
+          );
+        });
+        if (
+          waiting &&
+          side.monsterZones.filter((zone) => zone === null).length >=
+            (card.effect.amount ?? 2)
+        )
+          return { action: "activate-magic", handIndex };
+        continue;
+      }
       if (
         card.effect.kind === "destroyAllOpponentMonsters" ||
         card.effect.kind === "destroyAllMonsters"
@@ -518,11 +578,17 @@ function chooseMainAction(
   }
   if (!state.normalSummonUsed) {
     const openZone = side.monsterZones.findIndex((zone) => zone === null);
+    const tributable = tributableIndexes(state, "p2");
+    const spareDoubles = tributable.filter((index) =>
+      isChronicleToken(side.monsterZones[index]!.cardId),
+    ).length;
     const candidates = side.hand.flatMap((id, handIndex) => {
       const card = getChronicleCard(id);
       if (!card || card.cardClass !== "monster") return [];
+      // Only its Call can bring a called Monster out.
+      if (card.monsterEffect?.kind === "callSummonOnly") return [];
       const tributes = tributeCountForLevel(card.level);
-      if (tributes > side.monsterZones.filter(Boolean).length) return [];
+      if (tributes > tributable.length) return [];
       return [{ handIndex, card, tributes }];
     });
     candidates.sort((a, b) => {
@@ -566,29 +632,39 @@ function chooseMainAction(
             return 150;
         }
       };
+      // A Tribute paid with a Shadow Double costs nothing on the board, so only
+      // the real bodies a Summon would spend count against it.
+      const realTributes = (tributes: number) => Math.max(0, tributes - spareDoubles);
       const av =
         a.card.attack +
         a.card.defense +
         effectValue(a.card) * (difficulty === "hard" ? 1.3 : difficulty === "easy" ? 0.35 : 1) -
-        a.tributes * (difficulty === "hard" ? 1_850 : difficulty === "easy" ? 2_400 : 2_100);
+        realTributes(a.tributes) * (difficulty === "hard" ? 1_850 : difficulty === "easy" ? 2_400 : 2_100);
       const bv =
         b.card.attack +
         b.card.defense +
         effectValue(b.card) * (difficulty === "hard" ? 1.3 : difficulty === "easy" ? 0.35 : 1) -
-        b.tributes * (difficulty === "hard" ? 1_850 : difficulty === "easy" ? 2_400 : 2_100);
+        realTributes(b.tributes) * (difficulty === "hard" ? 1_850 : difficulty === "easy" ? 2_400 : 2_100);
       return bv - av || a.card.level - b.card.level;
     });
     const choice = candidates[0];
     if (choice) {
-      const tributeCandidates = side.monsterZones.flatMap((monster, index) =>
-        monster ? [{ monster, index }] : [],
-      );
+      const tributeCandidates = tributable.map((index) => ({
+        monster: side.monsterZones[index]!,
+        index,
+      }));
       if (difficulty === "hard")
         tributeCandidates.sort(
           (a, b) =>
             visibleMonsterThreat(state, a.monster) -
             visibleMonsterThreat(state, b.monster),
         );
+      // Shadow Doubles exist to be spent: every difficulty pays with them first.
+      tributeCandidates.sort(
+        (a, b) =>
+          Number(isChronicleToken(b.monster.cardId)) -
+          Number(isChronicleToken(a.monster.cardId)),
+      );
       const tributeZoneIndexes = tributeCandidates
         .map(({ index }) => index)
         .slice(0, choice.tributes);
@@ -643,8 +719,24 @@ function knownBattleMargin(
     defenderCard?.cardClass !== "monster"
   )
     return null;
+  const attackerAttack = monsterAttack(attacker, state.activeField, state);
+  const defenderAttack = monsterAttack(defender, state.activeField, state);
+  // A face-up "gains X ATK vs a stronger Monster" is public, and resolveAttack
+  // and the player's battle preview both apply it. The Keeper used to ignore
+  // it and kept attacking into those cards and losing the battle.
+  const strongerBonus = (
+    card: typeof attackerCard,
+    own: number,
+    opposing: number,
+  ): number =>
+    defender.position === "attack" &&
+    card.monsterEffect?.kind === "gainAttackWhenBattlingStronger" &&
+    opposing > own
+      ? (card.monsterEffect.amount ?? 0)
+      : 0;
   const attackerValue =
-    monsterAttack(attacker, state.activeField, state) +
+    attackerAttack +
+    strongerBonus(attackerCard, attackerAttack, defenderAttack) +
     elementBattleBonus(
       attackerCard.element,
       defenderCard.element,
@@ -652,7 +744,7 @@ function knownBattleMargin(
     );
   const defenderValue =
     (defender.position === "attack"
-      ? monsterAttack(defender, state.activeField, state)
+      ? defenderAttack + strongerBonus(defenderCard, defenderAttack, attackerAttack)
       : monsterDefense(defender)) +
     elementBattleBonus(
       defenderCard.element,

@@ -3,6 +3,7 @@ import type { EchoesBattleBeat } from "../../../shared/echoes-witness";
 import type { TileCard } from "../data/tile-cards";
 import {
     CHRONICLE_CARD_CATALOG,
+    CHRONICLE_TOKEN_CARDS,
     MAIN_DECK_SIZE,
     countChronicleCardsWithStarter,
     deckLimitForCard,
@@ -57,8 +58,13 @@ export function displayCatalog(tileCards: readonly TileCard[]): ChronicleDisplay
     return CHRONICLE_CARD_CATALOG.map((card) => art.has(card.id) ? { ...card, image: art.get(card.id) } : { ...card });
 }
 
+/** Every card the board can show by id: the catalog plus field-only tokens
+ *  (a Shadow Double). Tokens are never owned, so collection and deck views,
+ *  which list owned ids or displayCatalog, never surface one. */
 export function displayCardsById(tileCards: readonly TileCard[]): Record<string, ChronicleDisplayCard> {
-    return Object.fromEntries(displayCatalog(tileCards).map((card) => [card.id, card]));
+    return Object.fromEntries(
+        [...displayCatalog(tileCards), ...CHRONICLE_TOKEN_CARDS].map((card) => [card.id, card]),
+    );
 }
 
 export function ownedChronicleCounts(tileCardIds: readonly string[]): Map<string, number> {
@@ -150,8 +156,10 @@ export {
     MAX_COPIES_PER_CARD,
     STARTING_LIFE_POINTS,
     TURN_TIMEOUT_MS,
+    callOnlySummonBlocker,
     createMatch,
     projectMatchForViewer,
+    summoningJutsuBlocker,
 } from "../../../shared/chronicle-duel";
 export type {
     ChronicleActionIntent,

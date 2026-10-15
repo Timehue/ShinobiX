@@ -18,6 +18,7 @@ import {
   CHRONICLE_PET_WITNESS_SOURCES,
   type ChroniclePetWitnessSource,
 } from "./pet-witness-card-sources.js";
+export { WARDED_RULE_TEXT } from "./chronicle-keywords.js";
 
 export const CHRONICLE_RULES_VERSION = 10 as const;
 export const STARTING_LIFE_POINTS = 8_000;
@@ -38,7 +39,12 @@ export const CHRONICLE_FOUNDING_FORMAT = Object.freeze({
   startingLifePoints: STARTING_LIFE_POINTS,
   openingHandSize: OPENING_HAND_SIZE,
   mainDeckSize: MAIN_DECK_SIZE,
-  firstPlayerDrawsOnFirstTurn: true,
+  // The first player skips its turn-one draw (balance pass 2026-10-14). With
+  // the draw, going first won 60.1% of starter mirrors: the opener sets a body
+  // and Snares on six cards before the second player may attack at all.
+  // With the whole pass shipped, the same 2,000-game mirror lands at 48.6%.
+  // docs/chronicle-balance-pass-2026-10.md has the method.
+  firstPlayerDrawsOnFirstTurn: false,
   firstPlayerMayBattleOnFirstTurn: false,
   defaultField: Object.freeze({
     name: "Neutral Field",
@@ -187,7 +193,8 @@ export type ChronicleMonsterEffectKind =
   | "discardOpponentCardOnBattleDamage"
   | "alliedElementAttackBoost"
   | "sealAttackTraps"
-  | "sealAllTraps";
+  | "sealAllTraps"
+  | "callSummonOnly";
 export interface ChronicleMonsterEffect {
   kind: ChronicleMonsterEffectKind;
   trigger: ChronicleMonsterEffectTrigger;
@@ -232,7 +239,9 @@ export type ChronicleEffectKind =
   | "returnOneMonsterToHand"
   | "recoverOneGraveyardCard"
   | "reviveLevel4OrLowerMonster"
-  | "reviveLevel4OrLowerNormalMonster";
+  | "reviveLevel4OrLowerNormalMonster"
+  | "callSummon"
+  | "summonShadowDoubles";
 export type ChronicleTrigger =
   "onMonsterSummoned" | "onAttackDeclared" | "onMagicActivated";
 export type ChronicleTargetScope =
@@ -271,6 +280,8 @@ export interface ChronicleEffect {
   fieldId?: ChronicleFieldId;
   boostElement?: ChronicleElement;
   penaltyElement?: ChronicleElement;
+  /** callSummon: the one Monster this Call brings onto the field. */
+  calledMonsterId?: string;
   duration: "instant" | "untilEndTurn" | "whileEquipped" | "whileFieldActive";
   originatingActionContinues: boolean;
   order: number;
@@ -298,6 +309,11 @@ export interface ChronicleMonsterCard extends ChronicleCardBase {
   powerTier: MonsterPowerTier;
   effectText?: string;
   monsterEffect?: ChronicleMonsterEffect;
+  /** Snares cannot destroy or return it during the turn it is Summoned. */
+  warded?: true;
+  /** A Shadow Double: made by a card, never owned, and gone once it leaves
+   * the field. Tokens are not in CHRONICLE_CARD_CATALOG. */
+  token?: true;
 }
 
 export interface ChronicleMagicCard extends ChronicleCardBase {
@@ -413,6 +429,32 @@ const TRIBUTE_TIER_CYCLE: readonly MonsterPowerTier[] = [
 const TRIBUTE_TRIGGER_IDS: ReadonlySet<string> = new Set(["tc-97"]);
 
 /**
+ * The opposite case: a FLIP effect fires when a Set card is turned face-up, so
+ * the card has to be Set first, and a Set pays the same Tribute a Summon does.
+ * On a Level 5+ body the effect cost a whole card before it could ever fire.
+ * The balance pass (2026-10-14) measured that: "FLIP: destroy their strongest"
+ * on a Level 5 drew at -8.8 points, while a Level 2 flip drew at +14.
+ *
+ * So every FLIP card sits on a free-summon tier, chosen per card: the effects
+ * that remove or lock a Monster get the small Level 2 body, and the rest get
+ * Level 4. Legacy cards are listed too (monsterFromLegacy reads this). The
+ * engine test asserts that every onFlip Monster sits on a free-summon Level,
+ * so a new FLIP card left out of this list fails it.
+ */
+const FLIP_TRIGGER_TIERS: Readonly<Record<string, "weak" | "standard">> = {
+  "tc-08": "weak", // FLIP: destroy the opponent's highest-ATK Monster
+  "tc-24": "weak", // FLIP: flip and lock the opponent's strongest
+  "tc-91": "weak", // FLIP: destroy the attacker
+  "tc-10": "standard", // FLIP: draw 1
+  "tc-13": "standard", // FLIP: gain 500
+  "tc-33": "standard", // FLIP: recover a Jutsu
+  "tc-57": "standard", // FLIP: both players cycle a card
+  "tc-85": "standard", // FLIP: the attacker loses 500 ATK
+  "legacy-field-medic": "standard", // FLIP: gain 900
+  "legacy-shadow-strategist": "standard", // FLIP: draw 1
+};
+
+/**
  * Power tier — which decides LEVEL, and therefore tribute cost — assigned
  * INDEPENDENTLY OF RARITY (owner ruling, 2026-08-16).
  *
@@ -443,20 +485,24 @@ export const REVIEWED_MONSTER_TIERS: Readonly<
     for (const card of shinobiTileCards) {
       const seen = seenPerRarity.get(card.rarity) ?? 0;
       seenPerRarity.set(card.rarity, seen + 1);
-      assigned[card.id] = TRIBUTE_TRIGGER_IDS.has(card.id)
-        ? TRIBUTE_TIER_CYCLE[seen % TRIBUTE_TIER_CYCLE.length]
-        : BASE_TIER_CYCLE[seen % BASE_TIER_CYCLE.length];
+      assigned[card.id] =
+        FLIP_TRIGGER_TIERS[card.id] ??
+        (TRIBUTE_TRIGGER_IDS.has(card.id)
+          ? TRIBUTE_TIER_CYCLE[seen % TRIBUTE_TIER_CYCLE.length]
+          : BASE_TIER_CYCLE[seen % BASE_TIER_CYCLE.length]);
     }
     return assigned;
   })(),
 );
 
 /**
- * What rarity buys now that it no longer buys levels: a flat stat premium on
- * top of the tier baseline, on every body. A Common 7-star is a plain tribute
- * wall; a Legendary 7-star is the same body hitting 500 harder — and a
- * Legendary 4-star hits like a 5-star for no tribute at all. Monster effects
- * (which already skew to the top rarities) are the other half of the premium.
+ * What rarity buys now that it no longer buys levels: a stat premium on top of
+ * the tier baseline, on every body. A Common 7-star is a plain tribute wall; a
+ * Legendary 7-star is the same body hitting 450 harder. Monster effects (which
+ * already skew to the top rarities) are the other half of the premium.
+ *
+ * Free-summon bodies take two-thirds of it (FREE_SUMMON_PREMIUM_SCALE), so a
+ * Legendary 4-star out-hits a Common one by 300 ATK rather than 450.
  */
 const RARITY_STAT_BONUS: Readonly<
   Record<ChronicleRarity, { attack: number; defense: number }>
@@ -474,9 +520,10 @@ const RARITY_STAT_BONUS: Readonly<
  * exactly +100 across ATK+DEF (Fire +200/-100, Earth -100/+200, and so on), so
  * element only ever redistributes between the two stats. That leaves this table
  * as the sole term that changes a card's total, and its totals strictly climb
- * (0 < 250 < 550 < 850 < 1100). An Epic therefore outclasses every Rare at the
- * same Level, at every Level — which is the rule, not a coincidence of the
- * current numbers.
+ * (0 < 250 < 550 < 850 < 1100, or 0 < 150 < 350 < 550 < 750 on a free-summon
+ * body). Every card at one Level shares one tier, so the two scales never meet
+ * at a Level. An Epic therefore outclasses every Rare at the same Level, at
+ * every Level — which is the rule, not a coincidence of the current numbers.
  */
 const RARITY_STAT_TOTALS = Object.freeze(
   Object.fromEntries(
@@ -486,6 +533,27 @@ const RARITY_STAT_TOTALS = Object.freeze(
     ]),
   ),
 );
+
+/**
+ * Balance pass 2026-10-14 (docs/chronicle-balance-pass-2026-10.md). Free-summon
+ * battles decide most games, so ATK at Levels 1-4 is where rarity turns
+ * straight into wins: Epic and Legendary free bodies drew at +16 points while
+ * every Tribute band sat near zero, and even a vanilla Rare 1,950-ATK 4-star
+ * drew at +20. A smaller premium there narrows the gap a fresh collection has
+ * to climb, and Tribute bodies keep the full premium.
+ */
+const FREE_SUMMON_PREMIUM_SCALE = 2 / 3;
+
+function rarityPremium(
+  tier: MonsterPowerTier,
+  rarity: ChronicleRarity,
+): { attack: number; defense: number } {
+  const bonus = RARITY_STAT_BONUS[rarity];
+  if (tier !== "weak" && tier !== "standard") return bonus;
+  const scaled = (value: number) =>
+    Math.round((value * FREE_SUMMON_PREMIUM_SCALE) / 50) * 50;
+  return { attack: scaled(bonus.attack), defense: scaled(bonus.defense) };
+}
 
 /**
  * The one place a Monster's ATK/DEF is decided, for EVERY family — base set,
@@ -501,7 +569,7 @@ function ladderStats(
 ): { attack: number; defense: number } {
   const base = TIER_PROFILE[tier];
   const shape = ELEMENT_PROFILE[element];
-  const premium = RARITY_STAT_BONUS[rarity];
+  const premium = rarityPremium(tier, rarity);
   return {
     attack: Math.max(100, base.attack + shape.attack + premium.attack),
     defense: Math.max(100, base.defense + shape.defense + premium.defense),
@@ -607,7 +675,7 @@ function monsterFromSource(source: TileCard): ChronicleMonsterCard {
   const profile = ELEMENT_PROFILE[element];
   const isTrainingDummy = source.id === "tc-01";
   const override = isTrainingDummy ? undefined : MONSTER_STAT_OVERRIDES[source.id];
-  const premium = RARITY_STAT_BONUS[source.rarity];
+  const premium = rarityPremium(powerTier, source.rarity);
   return {
     id: source.id,
     name: source.name,
@@ -720,6 +788,10 @@ function monsterFromLegacy(
     ? (LEGACY_ELEMENT_BY_VILLAGE[source.villageAffinity] ??
       categoryElement)
     : categoryElement;
+  // A FLIP Legacy card keeps its rarity but takes a free-summon body; see
+  // FLIP_TRIGGER_TIERS.
+  const flipTier = FLIP_TRIGGER_TIERS[`legacy-${source.id}`];
+  const powerTier = flipTier ?? profile.powerTier;
   return {
     id: `legacy-${source.id}`,
     name: source.name,
@@ -730,14 +802,14 @@ function monsterFromLegacy(
     cardClass: "monster",
     monsterType: "normal",
     family: "Legacy Pattern",
-    level: profile.level,
+    level: flipTier ? TIER_PROFILE[flipTier].level : profile.level,
     // Stats come from the SHARED ladder (tier baseline + element + rarity
     // premium), not from LEGACY_PROFILE's own attack/defense. Those hand-set
     // numbers predate the rarity rule and broke it across families — a Rare
     // tc-card could outstat an Epic Legacy card of the same Level. Level still
     // comes from the Legacy ladder, so the progression fiction is untouched.
-    ...ladderStats(profile.powerTier, element, profile.rarity),
-    powerTier: profile.powerTier,
+    ...ladderStats(powerTier, element, profile.rarity),
+    powerTier,
   };
 }
 
@@ -875,6 +947,134 @@ const WANDERING_SAGE_CARD: ChronicleMonsterCard = {
   attack: 2_400,
   defense: 2_300,
   powerTier: "elite",
+};
+
+/**
+ * Summoning Calls (owner design, 2026-10-14). Each element has one Call Jutsu
+ * that brings one specific Level 8 Monster onto the field: no Tributes, but it
+ * spends the Normal Summon and 1,000 Health. The Monster cannot be Summoned any
+ * other way, so a player needs both halves of the pair from packs.
+ *
+ * Because the Call skips the board the Tributes would have needed, the bodies
+ * sit 200 ATK and 200 DEF under the plain Level 8 baseline, before element
+ * shaping: every one is weaker than a Common Level 8 of its element. They are
+ * Legendary for scarcity, not stats, so the rarity ladder test exempts them.
+ */
+const SUMMONING_CALLS: readonly {
+  element: ChronicleElement;
+  monsterId: string;
+  monsterName: string;
+  monsterLore: string;
+  callId: string;
+  callName: string;
+  callLore: string;
+  callImage: string;
+}[] = [
+  {
+    element: "Fire",
+    monsterId: "summon-cinderhorn-qilin",
+    monsterName: "Cinderhorn Qilin",
+    monsterLore:
+      "Ember-maned sovereign of the volcanic passes, whose hooves leave the stone burning wherever it chooses to walk.",
+    callId: "chronicle-call-of-the-cinderhorn",
+    callName: "Call of the Cinderhorn",
+    callLore:
+      "A scroll sealed in ember wax. Its seal breaks for one creature alone, and the ground answers in flame.",
+    callImage: "/chronicle/cards/chronicle-call-of-the-cinderhorn.webp",
+  },
+  {
+    element: "Water",
+    monsterId: "summon-rimetide-leviathan",
+    monsterName: "Rimetide Leviathan",
+    monsterLore:
+      "Glacier-scaled lord of the northern deep, who rises through a frozen sea as if the ice were mist.",
+    callId: "chronicle-call-of-the-rimetide",
+    callName: "Call of the Rimetide",
+    callLore:
+      "A scroll inked in seawater and frost. When it opens, the deep remembers its old promise.",
+    callImage: "/chronicle/cards/chronicle-call-of-the-rimetide.webp",
+  },
+  {
+    element: "Earth",
+    monsterId: "summon-ironroot-tortoise",
+    monsterName: "Ironroot Tortoise",
+    monsterLore:
+      "Mountain-backed elder of the deep stone, whose shell has outlasted every fortress ever raised upon it.",
+    callId: "chronicle-call-of-the-ironroot",
+    callName: "Call of the Ironroot",
+    callLore:
+      "A scroll pressed between two slabs of granite. The mountain itself must agree before it can be read.",
+    callImage: "/chronicle/cards/chronicle-call-of-the-ironroot.webp",
+  },
+  {
+    element: "Wind",
+    monsterId: "summon-galewing-tengu",
+    monsterName: "Galewing Tengu",
+    monsterLore:
+      "Storm-cloaked lord of the high passes, whose single wingbeat scatters an army like autumn leaves.",
+    callId: "chronicle-call-of-the-galewing",
+    callName: "Call of the Galewing",
+    callLore:
+      "A scroll bound with a black feather. Opened on a mountaintop, it is answered before the wind can turn.",
+    callImage: "/chronicle/cards/chronicle-call-of-the-galewing.webp",
+  },
+  {
+    element: "Lightning",
+    monsterId: "summon-stormcrown-raiju",
+    monsterName: "Stormcrown Raiju",
+    monsterLore:
+      "Thunder-maned beast of the storm front, whose every bound splits the sky from one horizon to the other.",
+    callId: "chronicle-call-of-the-stormcrown",
+    callName: "Call of the Stormcrown",
+    callLore:
+      "A scroll that crackles in the hand. It is read aloud once, and the storm completes the sentence.",
+    callImage: "/chronicle/cards/chronicle-call-of-the-stormcrown.webp",
+  },
+];
+
+const CALLED_MONSTER_CARDS: readonly ChronicleMonsterCard[] = SUMMONING_CALLS.map(
+  (call) => {
+    const base = TIER_PROFILE.mythic;
+    const shape = ELEMENT_PROFILE[call.element];
+    return {
+      id: call.monsterId,
+      name: call.monsterName,
+      image: `/chronicle/cards/${call.monsterId}.webp`,
+      lore: call.monsterLore,
+      element: call.element,
+      rarity: "legendary",
+      cardClass: "monster",
+      monsterType: "effect",
+      family: "Summoned Beast",
+      level: 8,
+      attack: base.attack - 200 + shape.attack,
+      defense: base.defense - 200 + shape.defense,
+      powerTier: "mythic",
+      effectText: `Can only be Summoned by ${call.callName}.`,
+      monsterEffect: { kind: "callSummonOnly", trigger: "whileFaceUp" },
+    };
+  },
+);
+
+/** The token Shadow Clone makes. Never owned, never in a Deck or a pack. */
+export const SHADOW_DOUBLE_ID = "chronicle-shadow-double";
+const SHADOW_DOUBLE_CARD: ChronicleMonsterCard = {
+  id: SHADOW_DOUBLE_ID,
+  name: "Shadow Double",
+  image: "/chronicle/cards/chronicle-shadow-double.webp",
+  lore: "A body of borrowed shadow that holds its shape just long enough to be given away.",
+  // Wind for the wheel and the board's colour, but it never meets a Snare's
+  // element requirement (meetsSnareElementRequirement).
+  element: "Wind",
+  rarity: "common",
+  cardClass: "monster",
+  monsterType: "normal",
+  family: "Shadow Double",
+  level: 1,
+  attack: 0,
+  defense: 0,
+  powerTier: "weak",
+  token: true,
 };
 
 interface ReviewedMonsterEffect {
@@ -1461,13 +1661,16 @@ const HIGH_RARITY_DEFAULT_EFFECTS: readonly {
       "The first time this card would be destroyed by battle each turn, it is not destroyed.",
   },
   {
+    // A fixed amount, unlike tc-63's authored "equal to the attacker's ATK".
+    // The engine reads `amount` when it is present (see resolveAttack), and
+    // the condition is the engine's own: face-up Attack Position, not flipped.
     effect: {
       kind: "reflectDamageWhenAttacked",
       trigger: "whenAttacked",
       amount: 400,
     },
     effectText:
-      "When this card is attacked: The attacking player takes 400 damage.",
+      "If this face-up Attack Position card is attacked: The attacking player takes 400 damage.",
   },
   {
     effect: {
@@ -1497,7 +1700,10 @@ const HIGH_RARITY_DEFAULT_EFFECTS: readonly {
   },
 ];
 
-/** Rarity does not just grant an effect, it sharpens it. */
+/**
+ * Rarity does not just grant an effect, it sharpens it — on a Tribute body.
+ * A free-summon body keeps the authored magnitude (see scaleEffectAmount).
+ */
 const EFFECT_AMOUNT_SCALE: Readonly<Record<ChronicleRarity, number>> = {
   common: 1,
   rare: 1,
@@ -1511,11 +1717,38 @@ function rarityGrantsDefaultEffect(rarity: ChronicleRarity): boolean {
   return rarity === "epic" || rarity === "legendary" || rarity === "mythic";
 }
 
+/**
+ * Effects that add ATK on a condition. On a free-summon body they topped the
+ * balance pass: Legendary 4-stars with "+1,000 vs a stronger Monster" and
+ * "+400 per opposing Monster" drew at +34 and +35 points, the two best
+ * Monsters in the game.
+ */
+const CONDITIONAL_ATTACK_EFFECTS: ReadonlySet<ChronicleMonsterEffectKind> = new Set([
+  "gainAttackWhenBattlingStronger",
+  "gainAttackPerOpponentMonster",
+  "gainAttackWhileOnlyMonster",
+]);
+/** What a free-summon body keeps of a conditional ATK effect's authored amount.
+ *  It is rounded to 50s like every scaled amount, so small figures land a little
+ *  off 60%: 1,000 keeps 600, but 400 keeps 250 and 200 keeps 100. */
+const FREE_BODY_CONDITIONAL_ATTACK_SCALE = 0.6;
+
+/**
+ * Balance pass 2026-10-14: rarity sharpens an effect only on a Tribute body,
+ * where the card already paid for its power. On a free-summon body the
+ * magnitude stays as authored, and a conditional ATK effect is trimmed further.
+ */
 function scaleEffectAmount(
   effect: ChronicleMonsterEffect,
   rarity: ChronicleRarity,
+  level: number,
 ): ChronicleMonsterEffect {
-  const scale = EFFECT_AMOUNT_SCALE[rarity] ?? 1;
+  const freeSummon = tributeCountForLevel(level) === 0;
+  const scale = freeSummon
+    ? CONDITIONAL_ATTACK_EFFECTS.has(effect.kind)
+      ? FREE_BODY_CONDITIONAL_ATTACK_SCALE
+      : 1
+    : (EFFECT_AMOUNT_SCALE[rarity] ?? 1);
   if (typeof effect.amount !== "number" || scale === 1) return effect;
   // ONLY magnitudes scale — damage, healing and ATK figures, which are the
   // numbers rarity should sharpen, rounded to 50s so the board stays readable.
@@ -1524,6 +1757,27 @@ function scaleEffectAmount(
   // doubled several effects when this scaled everything.
   if (effect.amount < 50) return effect;
   return { ...effect, amount: Math.round((effect.amount * scale) / 50) * 50 };
+}
+
+/**
+ * The printed number must be the number the engine applies. Effect text is
+ * authored once at the base amount, so when rarity sharpens the amount the
+ * text is restated to match: an Epic used to read "gains 500 ATK" while the
+ * engine applied 750. The amount is the first number in every such text.
+ */
+function restateEffectAmount(
+  effectText: string,
+  authored: ChronicleMonsterEffect,
+  applied: ChronicleMonsterEffect,
+): string {
+  if (
+    typeof authored.amount !== "number" ||
+    typeof applied.amount !== "number" ||
+    authored.amount === applied.amount
+  )
+    return effectText;
+  const printed = (value: number) => value.toLocaleString("en-US");
+  return effectText.replace(printed(authored.amount), printed(applied.amount));
 }
 
 function applyReviewedMonsterEffect(
@@ -1537,11 +1791,16 @@ function applyReviewedMonsterEffect(
       HIGH_RARITY_DEFAULT_EFFECTS[
         stableElementIndex(card.id, HIGH_RARITY_DEFAULT_EFFECTS.length)
       ];
+    const monsterEffect = scaleEffectAmount(fallback.effect, card.rarity, card.level);
     return {
       ...card,
       monsterType: "effect",
-      effectText: fallback.effectText,
-      monsterEffect: scaleEffectAmount(fallback.effect, card.rarity),
+      effectText: restateEffectAmount(
+        fallback.effectText,
+        fallback.effect,
+        monsterEffect,
+      ),
+      monsterEffect,
     };
   }
   // attackAdjustment/defenseAdjustment are deliberately NOT applied any more.
@@ -1553,11 +1812,12 @@ function applyReviewedMonsterEffect(
   // stats come from tier + element + RARITY_STAT_BONUS alone and the ladder
   // holds at every Level. The fields are retained as the record of the original
   // authored intent while effects are redistributed toward Epic/Legendary.
+  const monsterEffect = scaleEffectAmount(review.effect, card.rarity, card.level);
   return {
     ...card,
     monsterType: "effect",
-    effectText: review.effectText,
-    monsterEffect: scaleEffectAmount(review.effect, card.rarity),
+    effectText: restateEffectAmount(review.effectText, review.effect, monsterEffect),
+    monsterEffect,
     ...(review.deckLimit ? { deckLimit: review.deckLimit } : {}),
   };
 }
@@ -1616,6 +1876,11 @@ const TRAP_ELEMENT_REQUIREMENT_BY_ID: Readonly<
   "chronicle-heavenfall-verdict": "Lightning",
   "chronicle-grounding-rod-script": "Lightning",
   "chronicle-avalanche-seal": "Water",
+  // Balance pass 2026-10-14: the strongest card in the game when drawn (+27
+  // points, still +27 with a 2,000 Health cost, because its power is the
+  // multi-kill). The element requirement is the lever this table exists for:
+  // it keeps the formation wipe out of every generic Snare package.
+  "chronicle-mirror-shell-counter": "Water",
   "chronicle-moonshadow-slip": "Wind",
   "chronicle-scorpion-wire": "Earth",
   "chronicle-mirror-moon-rebuttal": "Lightning",
@@ -2932,12 +3197,16 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
     "Widespread Kunai Line",
     "/legacy/jutsu/duelists-riposte.webp",
     "Crossed wire and concealed blades punish the first attacker through the pass.",
-    "When an attack is declared: destroy that attacker.",
+    "When a Level 6 or lower Monster attacks: destroy that attacker.",
     {
       kind: "destroyOneMonster",
       legalController: "owner",
       targetScope: "triggerAttacker",
       trigger: "onAttackDeclared",
+      // Balance pass 2026-10-14: a Rare that erased any attacker drew at +24
+      // points and cost a two-Tribute boss three cards to one. Capped like
+      // Great-Maw Seal, so a two-Tribute Monster needs a rarer answer.
+      cap: 6,
       duration: "instant",
       originatingActionContinues: false,
       order: 5,
@@ -3617,6 +3886,51 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
     },
     { rarity: "mythic", effectTier: "advanced", deckLimit: 1 },
   ),
+  // Summoning Calls: see SUMMONING_CALLS. Legendary like their Monsters (owner
+  // ruling, 2026-10-14): both halves of a pair are separate Legendary pack
+  // pulls, so owning one takes luck.
+  ...SUMMONING_CALLS.map((call) =>
+    magic(
+      call.callId,
+      call.callName,
+      call.callImage,
+      call.callLore,
+      "normal",
+      `Pay 1,000 Health Points: Summon ${call.monsterName} from your hand in Attack Position. This uses your Normal Summon, and it cannot attack this turn.`,
+      {
+        kind: "callSummon",
+        legalController: "owner",
+        targetScope: "none",
+        healthCost: 1_000,
+        calledMonsterId: call.monsterId,
+        duration: "instant",
+        originatingActionContinues: true,
+        order: 10,
+      },
+      { rarity: "legendary", effectTier: "advanced" },
+    ),
+  ),
+  // Owner design, 2026-10-14: two bodies a two-Tribute Monster can be paid
+  // with next turn. Not the same turn, or one card plus a Level 8 would be a
+  // turn-one finisher. Legendary, from Legendary packs (owner ruling).
+  magic(
+    "chronicle-shadow-clone",
+    "Shadow Clone",
+    "/chronicle/cards/chronicle-shadow-clone.webp",
+    "One shinobi becomes three, and two of them were only ever meant to be spent.",
+    "normal",
+    "Summon 2 Shadow Doubles (Level 1, 0 ATK, 0 DEF) in Defense Position. They can be Tributed starting next turn, and they vanish when they leave the field.",
+    {
+      kind: "summonShadowDoubles",
+      legalController: "owner",
+      targetScope: "none",
+      amount: 2,
+      duration: "instant",
+      originatingActionContinues: true,
+      order: 10,
+    },
+    { rarity: "legendary", effectTier: "advanced", deckLimit: 2 },
+  ),
 ];
 
 export const CHRONICLE_SUPPORT_CARDS = Object.freeze(SUPPORT_CARDS.slice());
@@ -3671,13 +3985,60 @@ function ensureChronicleArt(card: ChronicleCard): ChronicleCard {
     ? card
     : { ...card, image: `/chronicle/cards/${card.id}.webp` };
 }
+/**
+ * Warded (owner design, 2026-10-14): half of the two-Tribute Monsters cannot be
+ * destroyed or returned by Snares during the turn they are Summoned. A
+ * two-Tribute Summon spends three cards, and 24 of the 52 Snares could answer
+ * it for one. The ward makes the summon worth it without making the Monster
+ * hard to remove: Jutsu still work, and so does every Snare from the next turn.
+ *
+ * The list was chosen as every other card within each rarity, so each rarity
+ * gets half, and is frozen by id: adding or re-levelling a card elsewhere must
+ * never flip the keyword on a card players already own. It is a keyword rather
+ * than an effect, so Epic and higher Monsters keep the effect they already
+ * have. Called Monsters are not in the list. The engine tests require every
+ * listed card to need two Tributes.
+ */
+export const WARDED_MONSTER_IDS: ReadonlySet<string> = new Set([
+  // common (8)
+  "tc-04", "tc-09", "tc-15", "tc-20", "tc-55", "tc-60", "tc-65", "tc-70",
+  // rare (8)
+  "tc-25", "tc-30", "tc-35", "tc-40", "tc-75", "tc-80", "tc-89", "tc-94",
+  // epic (7)
+  "tc-45", "tc-50", "tc-97", "tc-101", "tc-106", "tc-111", "tc-116",
+  // legendary (25)
+  "tc-41", "tc-124", "tc-129", "tc-134", "tc-139", "tc-144", "tc-149",
+  "legacy-thousand-seals", "legacy-void-whisper", "legacy-unbroken-body",
+  "legacy-thousand-cuts", "legacy-village-reaper", "legacy-gatebreaker",
+  "legacy-ancient-hunter", "legacy-storm-fang", "legacy-moonlit-oath",
+  "legacy-oathkeeper", "legacy-shrine-seeker", "legacy-silent-gambit",
+  "story-story-ai-stormveil-village-65", "story-story-ai-stormveil-village-85",
+  "story-story-ai-ashen-leaf-village-75", "story-story-ai-frostfang-village-65",
+  "story-story-ai-frostfang-village-85", "story-story-ai-moonshadow-village-75",
+  // mythic (7)
+  "legacy-first-flame", "legacy-hundred-storms", "legacy-silent-empire",
+  "legacy-founders-shadow", "legacy-horizons-end",
+  "story-story-ai-stormveil-village-100", "story-story-ai-frostfang-village-100",
+]);
+
+function wardHalfOfTheTwoTributeMonsters(
+  cards: readonly ChronicleMonsterCard[],
+): ChronicleMonsterCard[] {
+  return cards.map((card) =>
+    WARDED_MONSTER_IDS.has(card.id) ? { ...card, warded: true } : card,
+  );
+}
+
 export const CHRONICLE_CARD_CATALOG: readonly ChronicleCard[] = Object.freeze(
   [
-    ...MONSTER_CARDS,
-    ...LEGACY_MONSTER_CARDS,
-    ...STORY_MONSTER_CARDS,
-    ...PET_WITNESS_MONSTER_CARDS,
-    applyReviewedMonsterEffect(WANDERING_SAGE_CARD),
+    ...wardHalfOfTheTwoTributeMonsters([
+      ...MONSTER_CARDS,
+      ...LEGACY_MONSTER_CARDS,
+      ...STORY_MONSTER_CARDS,
+      ...PET_WITNESS_MONSTER_CARDS,
+      applyReviewedMonsterEffect(WANDERING_SAGE_CARD),
+    ]),
+    ...CALLED_MONSTER_CARDS,
     ...SUPPORT_CARDS,
   ].map(ensureChronicleArt),
 );
@@ -3687,9 +4048,23 @@ export const CHRONICLE_EFFECT_MONSTER_IDS = /* @__PURE__ */ Object.freeze(
       card.cardClass === "monster" && card.monsterType === "effect",
   ).map((card) => card.id),
 );
-const CARD_BY_ID = new Map(
-  CHRONICLE_CARD_CATALOG.map((card) => [card.id, card]),
+// Tokens resolve by id so the board can render and fight them, but they stay
+// out of CHRONICLE_CARD_CATALOG, which is what packs, storefronts and the card
+// library read. Ownership and Deck checks refuse them explicitly below.
+const CARD_BY_ID = new Map<string, ChronicleCard>(
+  [...CHRONICLE_CARD_CATALOG, SHADOW_DOUBLE_CARD].map((card) => [card.id, card]),
 );
+
+/** Field-only cards, for clients that resolve board cards by id. */
+export const CHRONICLE_TOKEN_CARDS: readonly ChronicleMonsterCard[] = Object.freeze([
+  SHADOW_DOUBLE_CARD,
+]);
+
+/** True for a token id: a card that exists only on the field. */
+export function isChronicleToken(id: string): boolean {
+  const card = CARD_BY_ID.get(id);
+  return card?.cardClass === "monster" && card.token === true;
+}
 export const CHRONICLE_FOUNDING_LIMITED_IDS = Object.freeze(
   CHRONICLE_CARD_CATALOG.filter((card) => card.deckLimit === 1).map(
     (card) => card.id,
@@ -3726,7 +4101,7 @@ export function countChronicleCards(
 ): Map<string, number> {
   const counts = new Map<string, number>();
   for (const id of ids) {
-    if (!getChronicleCard(id)) continue;
+    if (!getChronicleCard(id) || isChronicleToken(id)) continue;
     counts.set(id, (counts.get(id) ?? 0) + 1);
   }
   return counts;
@@ -3751,6 +4126,8 @@ export function validateDeckIds(
   const counts = new Map<string, number>();
   for (const id of ids) {
     if (!getChronicleCard(id)) errors.push(`Unknown card: ${id}`);
+    else if (isChronicleToken(id))
+      errors.push(`${id} is a token and cannot be put in a Deck.`);
     counts.set(id, (counts.get(id) ?? 0) + 1);
   }
   for (const [id, count] of counts) {
@@ -4128,7 +4505,8 @@ export function createMatch(
     Math.floor(Math.max(0, Math.min(0.9999999999999999, random())) * 0x1_0000_0000) >>>
     0;
   const firstSide = firstPlayer === "p1" ? p1 : p2;
-  firstSide.hand.push(firstSide.deck.shift()!);
+  if (CHRONICLE_FOUNDING_FORMAT.firstPlayerDrawsOnFirstTurn)
+    firstSide.hand.push(firstSide.deck.shift()!);
   const state: ChronicleMatch = {
     rulesVersion: CHRONICLE_RULES_VERSION,
     turnNumber: 1,
@@ -4145,7 +4523,9 @@ export function createMatch(
     winner: null,
     log: [
       `${p1Name} and ${p2Name} draw five cards.`,
-      `${firstSide.name} takes the first turn and draws in the Draw Phase.`,
+      CHRONICLE_FOUNDING_FORMAT.firstPlayerDrawsOnFirstTurn
+        ? `${firstSide.name} takes the first turn and draws in the Draw Phase.`
+        : `${firstSide.name} takes the first turn and skips its first draw.`,
     ],
     events: [],
     iidCounter: 1,
@@ -4292,8 +4672,136 @@ function sendMonsterToGrave(
   const monster = side.monsterZones[zoneIndex];
   if (!monster) return;
   detachEquip(state, owner, monster);
-  side.graveyard.push(monster.cardId);
+  // A token vanishes rather than reaching the Graveyard, so no revive or
+  // recovery effect can ever find one there.
+  if (!isChronicleToken(monster.cardId)) side.graveyard.push(monster.cardId);
   side.monsterZones[zoneIndex] = null;
+}
+
+/**
+ * Tokens never rest anywhere but the field. A few effects move a field Monster
+ * to the hand or Deck directly rather than through sendMonsterToGrave, so every
+ * action ends with this sweep (see applyAction) instead of each path checking.
+ */
+function vanishStrayTokens(state: ChronicleMatch): ChronicleMatch {
+  const stray = (["p1", "p2"] as const).some((key) =>
+    [state[key].hand, state[key].deck, state[key].graveyard].some((pile) =>
+      pile.some(isChronicleToken),
+    ),
+  );
+  if (!stray) return state;
+  const next = clone(state);
+  for (const key of ["p1", "p2"] as const) {
+    const side = next[key];
+    side.hand = side.hand.filter((id) => !isChronicleToken(id));
+    side.deck = side.deck.filter((id) => !isChronicleToken(id));
+    side.graveyard = side.graveyard.filter((id) => !isChronicleToken(id));
+  }
+  return next;
+}
+
+/**
+ * A Shadow Double cannot pay a Tribute on the turn it appears, or one Shadow
+ * Clone plus a Level 8 in hand would be a first-turn finisher.
+ */
+function tributeBlockedThisTurn(
+  state: ChronicleMatch,
+  monster: ChronicleFieldMonster | null | undefined,
+): boolean {
+  return Boolean(
+    monster &&
+      isChronicleToken(monster.cardId) &&
+      monster.summonedOnTurn === state.turnNumber,
+  );
+}
+
+/** Snares whose only effect is to remove the Monster that triggered them. */
+const SINGLE_TARGET_REMOVAL_SNARES: ReadonlySet<ChronicleEffectKind> = new Set([
+  "destroyOneMonster",
+  "returnOneMonsterToHand",
+  "destroyAttackerAndDamageBoth",
+  "destroyAttackerIfTargetDestroyed",
+]);
+
+/** Warded: Snares cannot destroy or return it during the turn it is Summoned. */
+function wardedThisTurn(
+  state: ChronicleMatch,
+  monster: ChronicleFieldMonster | null | undefined,
+): boolean {
+  if (!monster || monster.summonedOnTurn !== state.turnNumber) return false;
+  const card = getChronicleCard(monster.cardId);
+  return card?.cardClass === "monster" && card.warded === true;
+}
+
+/** Log the Monsters a board-wide Snare left standing because they are Warded,
+ *  so the board says why they are still there. */
+function logWardedSurvivors(
+  state: ChronicleMatch,
+  owners: readonly ChronicleSideKey[],
+  trapName: string,
+): void {
+  for (const owner of owners)
+    for (const monster of sideOf(state, owner).monsterZones) {
+      if (!wardedThisTurn(state, monster)) continue;
+      const card = getChronicleCard(monster!.cardId);
+      state.log.push(`${card?.name ?? "A Monster"} is Warded and survives ${trapName}.`);
+    }
+}
+
+/** Whether this field Monster meets a Snare's "Control a face-up X Monster"
+ *  requirement. A Shadow Double never does: element Snares ask for an
+ *  established specialist, and two free Wind bodies would otherwise switch on
+ *  every Wind Snare in any Deck that runs Shadow Clone. */
+export function meetsSnareElementRequirement(
+  monster: { cardId: string; faceUp: boolean } | null | undefined,
+  element: ChronicleElement,
+): boolean {
+  if (!monster?.faceUp || isChronicleToken(monster.cardId)) return false;
+  const card = getChronicleCard(monster.cardId);
+  return card?.cardClass === "monster" && card.element === element;
+}
+
+/** Why this Monster can never be Normal Summoned or Set, or null. A called
+ *  Monster enters only through its own Call. The duel board reads this too, so
+ *  it never offers a Summon the server will refuse. */
+export function callOnlySummonBlocker(card: ChronicleCard): string | null {
+  return card.cardClass === "monster" && card.monsterEffect?.kind === "callSummonOnly"
+    ? (card.effectText ?? `${card.name} can only be Summoned by its Call.`)
+    : null;
+}
+
+/** The caster's side as a Summoning Jutsu sees it. The engine passes the live
+ *  match; the duel board passes the viewer's own projection, which shows the
+ *  same facts. */
+export interface ChronicleSummoningJutsuContext {
+  normalSummonUsed: boolean;
+  hand: readonly string[];
+  monsterZones: readonly unknown[];
+  lifePoints: number;
+}
+
+/** Why a Call or Shadow Clone cannot be activated right now, or null. Every
+ *  other Jutsu returns null here. */
+export function summoningJutsuBlocker(
+  card: ChronicleCard,
+  context: ChronicleSummoningJutsuContext,
+): string | null {
+  if (card.cardClass !== "magic") return null;
+  const openMonsterZones = context.monsterZones.filter((zone) => zone === null).length;
+  if (card.effect.kind === "callSummon") {
+    const called = getChronicleCard(card.effect.calledMonsterId ?? "");
+    if (context.normalSummonUsed)
+      return "A Call uses your Normal Summon, and you already used it this turn.";
+    if (!called || !context.hand.includes(called.id))
+      return `${card.name} needs ${called?.name ?? "its Monster"} in your hand.`;
+    if (openMonsterZones === 0) return "You need an open Monster Zone.";
+    if (context.lifePoints <= (card.effect.healthCost ?? 0))
+      return `You need more than ${card.effect.healthCost ?? 0} Health Points to pay for ${card.name}.`;
+    return null;
+  }
+  if (card.effect.kind === "summonShadowDoubles" && openMonsterZones < (card.effect.amount ?? 2))
+    return `You need ${card.effect.amount ?? 2} open Monster Zones.`;
+  return null;
 }
 
 function sendMagicTrapToGrave(
@@ -4435,6 +4943,14 @@ function applyStandaloneFlipEffect(
       );
     }
   }
+}
+
+/** Damage a reflectDamageWhenAttacked card deals to the attacking player. */
+function reflectedDamage(
+  effect: ChronicleMonsterEffect,
+  attackerAttack: number,
+): number {
+  return typeof effect.amount === "number" ? effect.amount : attackerAttack;
 }
 
 function preventBattleDestruction(
@@ -4783,12 +5299,14 @@ function eligibleTrapZones(
           attacksDeclaredThisTurn(state) === 0)
       )
         return [];
+      // It destroys the lowest-ATK face-up Monster that is not Warded this
+      // turn, so with no such Monster it would be spent for nothing.
       if (
         card.effect.kind === "destroyLowestAttackWhenOutnumbered" &&
         (sideOf(state, other(responder)).monsterZones.filter(Boolean).length <=
           side.monsterZones.filter(Boolean).length ||
           !sideOf(state, other(responder)).monsterZones.some(
-            (candidate) => candidate?.faceUp,
+            (candidate) => candidate?.faceUp && !wardedThisTurn(state, candidate),
           ))
       )
         return [];
@@ -4798,16 +5316,12 @@ function eligibleTrapZones(
       )
         return [];
     }
+    const requiredElement = card.effect.requiresFaceUpElement;
     if (
-      card.effect.requiresFaceUpElement &&
-      !side.monsterZones.some((fieldMonster) => {
-        if (!fieldMonster?.faceUp) return false;
-        const fieldCard = getChronicleCard(fieldMonster.cardId);
-        return (
-          fieldCard?.cardClass === "monster" &&
-          fieldCard.element === card.effect.requiresFaceUpElement
-        );
-      })
+      requiredElement &&
+      !side.monsterZones.some((fieldMonster) =>
+        meetsSnareElementRequirement(fieldMonster, requiredElement),
+      )
     )
       return [];
     const triggerSide = other(responder);
@@ -4826,6 +5340,15 @@ function eligibleTrapZones(
       card.effect.kind !== "summonDefenderFromHand" &&
       monsterCard?.cardClass === "monster" &&
       monsterCard.level > card.effect.cap
+    )
+      return [];
+    // A Snare whose whole effect is to remove the triggering Monster has
+    // nothing to do against a Warded one on its first turn, so it is not
+    // offered at all rather than spent for nothing. Board-wide Snares still
+    // fire; resolveTrapEffect spares the Warded Monster there.
+    if (
+      SINGLE_TARGET_REMOVAL_SNARES.has(card.effect.kind) &&
+      wardedThisTurn(state, monster)
     )
       return [];
     return [index];
@@ -4897,6 +5420,10 @@ function resolveSummon(
     )
   )
     return failure(state, "Every Tribute must be one of your field Monsters.");
+  const callOnly = callOnlySummonBlocker(card);
+  if (callOnly) return failure(state, callOnly);
+  if (tributeIndexes.some((index) => tributeBlockedThisTurn(next, side.monsterZones[index])))
+    return failure(state, "A Shadow Double can be Tributed starting the turn after it appears.");
   if (side.monsterZones[zoneIndex] && !tributeIndexes.includes(zoneIndex))
     return failure(state, "That Monster Zone is occupied.");
   [...tributeIndexes]
@@ -4993,6 +5520,8 @@ function validateSummon(
   const card = cardInHand(state, actor, Number(intent.handIndex));
   if (!card || card.cardClass !== "monster")
     return "Select a Monster Card in your hand.";
+  const callOnly = callOnlySummonBlocker(card);
+  if (callOnly) return callOnly;
   const zoneIndex = Number(intent.zoneIndex);
   if (!validZone(zoneIndex, MONSTER_ZONE_COUNT))
     return "Choose a valid Monster Zone.";
@@ -5008,6 +5537,8 @@ function validateSummon(
     )
   )
     return "Every Tribute must be one of your field Monsters.";
+  if (tributes.some((index) => tributeBlockedThisTurn(state, side.monsterZones[index])))
+    return "A Shadow Double can be Tributed starting the turn after it appears.";
   if (side.monsterZones[zoneIndex] && !tributes.includes(zoneIndex))
     return "That Monster Zone is occupied.";
   return null;
@@ -5139,6 +5670,14 @@ function validateEffectTarget(
   intent: ChronicleActionIntent,
 ): string | null {
   const scope = card.effect.targetScope;
+  const side = sideOf(state, actor);
+  const summoningBlock = summoningJutsuBlocker(card, {
+    normalSummonUsed: state.normalSummonUsed,
+    hand: side.hand,
+    monsterZones: side.monsterZones,
+    lifePoints: side.lifePoints,
+  });
+  if (summoningBlock) return summoningBlock;
   if (scope === "none") return null;
   if (scope === "ownGraveyardFieldMagic") {
     const index = Number(intent.graveyardIndex);
@@ -5288,11 +5827,13 @@ function resolveMagic(
 function destroyEveryMonsterControlledBy(
   state: ChronicleMatch,
   owners: readonly ChronicleSideKey[],
+  spare: (monster: ChronicleFieldMonster) => boolean = () => false,
 ): void {
   for (const owner of owners)
-    for (let zoneIndex = 0; zoneIndex < MONSTER_ZONE_COUNT; zoneIndex += 1)
-      if (sideOf(state, owner).monsterZones[zoneIndex])
-        sendMonsterToGrave(state, owner, zoneIndex);
+    for (let zoneIndex = 0; zoneIndex < MONSTER_ZONE_COUNT; zoneIndex += 1) {
+      const monster = sideOf(state, owner).monsterZones[zoneIndex];
+      if (monster && !spare(monster)) sendMonsterToGrave(state, owner, zoneIndex);
+    }
 }
 
 function destroyEveryMagicTrapControlledBy(
@@ -5478,6 +6019,59 @@ function applyMagicEffect(
         temporaryDefense: 0,
       };
     }
+  } else if (effect.kind === "callSummon") {
+    // validateEffectTarget ran again inside resolveMagic, after any counter
+    // Snare had its chance, so the Monster, the zone and the Health are here.
+    const handIndex = side.hand.indexOf(effect.calledMonsterId ?? "");
+    const open = side.monsterZones.findIndex((zone) => zone === null);
+    const called = getChronicleCard(effect.calledMonsterId ?? "");
+    if (handIndex < 0 || open < 0 || called?.cardClass !== "monster") return;
+    side.lifePoints -= effect.healthCost ?? 0;
+    side.hand.splice(handIndex, 1);
+    side.monsterZones[open] = {
+      instanceId: nextIid(state, "monster"),
+      cardId: called.id,
+      owner: actor,
+      zoneIndex: open,
+      position: "attack",
+      faceUp: true,
+      summonedOnTurn: state.turnNumber,
+      lastPositionChangeTurn: state.turnNumber,
+      // It arrives ready for next turn: no attack on the turn it is Called.
+      lastAttackTurn: state.turnNumber,
+      temporaryAttack: 0,
+      temporaryDefense: 0,
+    };
+    state.normalSummonUsed = true;
+    state.log.push(
+      `${side.name} pays ${effect.healthCost ?? 0} Health Points and Summons ${called.name} with ${card.name}.`,
+    );
+  } else if (effect.kind === "summonShadowDoubles") {
+    let made = 0;
+    for (
+      let zoneIndex = 0;
+      zoneIndex < MONSTER_ZONE_COUNT && made < (effect.amount ?? 2);
+      zoneIndex += 1
+    ) {
+      if (side.monsterZones[zoneIndex]) continue;
+      side.monsterZones[zoneIndex] = {
+        instanceId: nextIid(state, "token"),
+        cardId: SHADOW_DOUBLE_ID,
+        owner: actor,
+        zoneIndex,
+        position: "defense",
+        faceUp: true,
+        summonedOnTurn: state.turnNumber,
+        lastPositionChangeTurn: state.turnNumber,
+        lastAttackTurn: 0,
+        temporaryAttack: 0,
+        temporaryDefense: 0,
+      };
+      made += 1;
+    }
+    state.log.push(
+      `${card.name} Summons ${made} Shadow Double${made === 1 ? "" : "s"} in Defense Position.`,
+    );
   }
 }
 
@@ -5709,10 +6303,13 @@ function resolveAttack(
     defender.position === "attack" &&
     defenderCard.monsterEffect?.kind === "reflectDamageWhenAttacked"
   ) {
+    // A printed amount is a fixed sum; without one (tc-63) the card reflects
+    // the attacker's ATK, as its own text says.
+    const reflected = reflectedDamage(defenderCard.monsterEffect, atk);
     const attackingSide = sideOf(next, actor);
-    attackingSide.lifePoints = Math.max(0, attackingSide.lifePoints - atk);
+    attackingSide.lifePoints = Math.max(0, attackingSide.lifePoints - reflected);
     next.log.push(
-      `${defenderCard.name}'s effect reflects ${atk} damage before damage calculation.`,
+      `${defenderCard.name}'s effect reflects ${reflected} damage before damage calculation.`,
     );
     if (attackingSide.lifePoints === 0) {
       finish(
@@ -6072,7 +6669,7 @@ function resolveTrapEffect(
   ) {
     const target = sideOf(next, actor).monsterZones
       .flatMap((monster, zoneIndex) =>
-        monster?.faceUp
+        monster?.faceUp && !wardedThisTurn(next, monster)
           ? [
               {
                 monster,
@@ -6208,9 +6805,12 @@ function resolveTrapEffect(
   ) {
     for (let index = 0; index < MONSTER_ZONE_COUNT; index += 1) {
       const monster = sideOf(next, actor).monsterZones[index];
-      if (monster?.faceUp && monster.position === "attack")
+      if (monster?.faceUp && monster.position === "attack" && !wardedThisTurn(next, monster))
         sendMonsterToGrave(next, actor, index);
     }
+    // A Warded attacker survives, but this Snare still ends its attack
+    // (originatingActionContinues: false).
+    logWardedSurvivors(next, [actor], trapCard.name);
     return { state: next, cancelPending: true };
   }
   if (
@@ -6289,9 +6889,12 @@ function resolveTrapEffect(
   // The Summon resolved before this window opened, so every summon-trigger
   // effect reads the Monster where it now stands on the field.
   if (window.trigger === "onMonsterSummoned") {
-    if (trapCard.effect.kind === "destroyAllMonsters")
-      destroyEveryMonsterControlledBy(next, ["p1", "p2"]);
-    else {
+    if (trapCard.effect.kind === "destroyAllMonsters") {
+      destroyEveryMonsterControlledBy(next, ["p1", "p2"], (monster) =>
+        wardedThisTurn(next, monster),
+      );
+      logWardedSurvivors(next, ["p1", "p2"], trapCard.name);
+    } else {
       const index = Number(triggerZone);
       const target = validZone(index, MONSTER_ZONE_COUNT)
         ? sideOf(next, actor).monsterZones[index]
@@ -6724,6 +7327,9 @@ export interface ChronicleProjectedMonster {
   canAttack?: boolean;
   canFlipSummon?: boolean;
   canChangePosition?: boolean;
+  /** False for a Shadow Double on the turn it appears. Absent from an older
+   *  server, which the board reads as "can Tribute". */
+  canTribute?: boolean;
 }
 
 export interface ChronicleProjectedZone {
@@ -6892,6 +7498,8 @@ export function previewChronicleBattle(
   )
     defenderValue += defenderCard.monsterEffect.amount ?? 0;
 
+  // resolveAttack reflects before the element edge is added.
+  const attackerValueBeforeElement = attackerValue;
   attackerValue += elementBattleBonus(
     attackerCard.element,
     defenderCard.element,
@@ -6909,7 +7517,7 @@ export function previewChronicleBattle(
   const reflectDamage =
     defenderPosition === "attack" &&
     defenderCard.monsterEffect?.kind === "reflectDamageWhenAttacked"
-      ? attackerValue
+      ? reflectedDamage(defenderCard.monsterEffect, attackerValueBeforeElement)
       : 0;
   const note = reflectDamage
     ? `Reflect effect deals ${reflectDamage.toLocaleString()} before calculation.`
@@ -7040,6 +7648,7 @@ export function projectMatchForViewer(
                   monster.lastPositionChangeTurn !== state.turnNumber &&
                   monster.lastAttackTurn !== state.turnNumber &&
                   (monster.positionLockedUntilTurn ?? 0) < state.turnNumber,
+                canTribute: !tributeBlockedThisTurn(state, monster),
               }
             : {}),
         };
@@ -7341,11 +7950,13 @@ function appendActionPresentationEvents(
           removedCard.monsterEffect?.kind === "returnToDeckWhenDestroyed" &&
           (newlyDecked.get(card.cardId) ?? 0) > 0,
       );
+      // A Shadow Double reaches no Graveyard: leaving the field is its end.
+      const vanishedToken = Boolean(card && isChronicleToken(card.cardId));
       if (
         !card ||
         remains?.instanceId === card.instanceId ||
         excludedInstances.has(card.instanceId) ||
-        (!enteredGraveyard && !recycledAfterBattle)
+        (!enteredGraveyard && !recycledAfterBattle && !vanishedToken)
       )
         continue;
       if (enteredGraveyard)
@@ -7353,7 +7964,7 @@ function appendActionPresentationEvents(
           card.cardId,
           (newlyGraved.get(card.cardId) ?? 0) - 1,
         );
-      else
+      else if (recycledAfterBattle)
         newlyDecked.set(
           card.cardId,
           (newlyDecked.get(card.cardId) ?? 0) - 1,
@@ -7488,6 +8099,7 @@ export function applyAction(
     if (clearsStrikes) after.afkStrikes = { ...after.afkStrikes, [actor]: 0 };
     if (marksTurn) after.actedThisTurn = true;
   }
+  after = vanishStrayTokens(after);
   appendActionPresentationEvents(state, after, actor, intent, now);
   return success(after);
 }

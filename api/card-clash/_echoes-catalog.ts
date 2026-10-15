@@ -157,7 +157,9 @@ export const ECHOES_ENCOUNTERS: readonly EchoesEncounterDef[] = Object.freeze([
             'chronicle-executioners-mandate': 1, 'chronicle-giant-felling-edict': 1, 'chronicle-war-camp-feast': 2,
             'chronicle-stacked-scrolls': 1, 'chronicle-forbidden-archive': 1, 'chronicle-deathless-recall': 1,
             'chronicle-hundred-shrine-benediction': 2, 'chronicle-sealbreak-verdict': 1,
-            'chronicle-torrential-tag-field': 1, 'chronicle-mirror-shell-counter': 1, 'chronicle-reapers-toll': 1,
+            // Sand-Coffin, not Mirror-Shell: Mirror-Shell needs a face-up Water
+            // Monster (2026-10-14), and his only Water bodies are two Level 7s.
+            'chronicle-torrential-tag-field': 1, 'chronicle-sand-coffin-counter': 1, 'chronicle-reapers-toll': 1,
             'chronicle-abyssal-pitfall': 1, 'chronicle-great-maw-seal': 1, 'chronicle-chakra-jammer': 2,
             'chronicle-counter-script-cache': 2, 'chronicle-widespread-kunai-line': 2, 'chronicle-smoke-bomb': 1,
         }),

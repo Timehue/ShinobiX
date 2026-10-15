@@ -1113,14 +1113,19 @@ function Rules() {
       <p>
         <strong>Turn:</strong> Draw, Standby, Main 1, Battle, Main 2, End. You
         advance Draw, Standby, End, and the turn handoff explicitly, so every
-        phase remains readable. The first player draws on turn one but cannot
-        Battle; skipping Battle also skips Main 2. You get one Normal Summon or
-        Set.
+        phase remains readable. The first player skips its turn-one draw and
+        cannot Battle that turn; skipping Battle also skips Main 2. You get one
+        Normal Summon or Set.
       </p>
       <p>
         <strong>Monsters:</strong> Levels 1–4 need no Tribute, 5–6 need one and
         7–8 need two. Sets enter face-down Defense and may Flip Summon later.
         Attack uses ATK; Defense uses DEF; direct attacks require an empty field.
+        Snares cannot destroy a Warded Monster or return it to the hand during
+        the turn it is Summoned. A Call Jutsu brings out its one matching
+        Level 8 Monster in place of your Normal Summon, and Shadow Doubles can
+        pay a Tribute starting the turn after they appear. A Shadow Double never
+        meets the element requirement of a Snare.
       </p>
       <p>
         <strong>Elements:</strong> Fire beats Wind, then Lightning, Earth, Water
