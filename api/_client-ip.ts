@@ -253,6 +253,35 @@ export function clientIp(req: IpRequestLike, platform: IpPlatform = ipPlatform()
     return fallback ? fallback.trim() : null;
 }
 
+let _realIpAgreementLogged = false;
+
+/**
+ * Once-per-process diagnostic: on the FIRST request carrying both `X-Real-IP`
+ * and `CF-Connecting-IP`, log only whether the two agree (a boolean). It tells
+ * an operator whether Railway's edge and Cloudflare name the same visitor —
+ * the assumption clientIp()'s Railway branch rests on — without ever writing
+ * either address to the log. Returns the logged boolean, or null when nothing
+ * was logged (already logged, or a header is missing).
+ */
+export function noteRealIpAgreementOnce(
+    req: IpRequestLike,
+    log: (line: string) => void = (line) => console.log(line),
+): boolean | null {
+    if (_realIpAgreementLogged) return null;
+    const realIp = firstHeader(req, 'x-real-ip');
+    const cfIp = firstHeader(req, 'cf-connecting-ip');
+    if (!realIp || !realIp.trim() || !cfIp || !cfIp.trim()) return null;
+    _realIpAgreementLogged = true;
+    const equal = normalizeIp(realIp) === normalizeIp(cfIp);
+    log(`[client-ip] x-real-ip and cf-connecting-ip agree on first dual-header request: ${equal}`);
+    return equal;
+}
+
+/** Test-only: re-arm the once-per-process diagnostic. */
+export function _resetRealIpAgreementLogForTests(): void {
+    _realIpAgreementLogged = false;
+}
+
 /** IP suitable for anti-alt evidence only when its provenance is trusted. */
 export function trustedVisitorIp(req: IpRequestLike, platform: IpPlatform = ipPlatform()): string | null {
     if (platform === 'railway') {

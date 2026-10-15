@@ -43,8 +43,16 @@ describe('_http-security', () => {
         assert.match(csp, /style-src 'self' 'unsafe-inline'/);
         assert.match(csp, /img-src 'self' data: blob: https:/);
         assert.match(csp, /media-src 'self' data: blob: https:/);
-        assert.match(csp, /connect-src 'self' https: wss: ws: blob:/);
         assert.match(csp, /worker-src 'self' blob:/);
+    });
+
+    it('drops plaintext ws: from connect-src in production only', () => {
+        const directive = (env: NodeJS.ProcessEnv) =>
+            contentSecurityPolicy(env).split('; ').find(value => value.startsWith('connect-src '));
+        assert.equal(directive({ NODE_ENV: 'production' }), "connect-src 'self' https: wss: blob:");
+        assert.equal(directive({ NODE_ENV: 'development' }), "connect-src 'self' https: wss: ws: blob:");
+        assert.equal(directive({}), "connect-src 'self' https: wss: ws: blob:");
+        assert.doesNotMatch(String(directive({ NODE_ENV: 'production' })), /\bws:/);
     });
 
     it('allows only the canonical and versioned Cloudflare beacon paths', () => {

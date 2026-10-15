@@ -1,5 +1,5 @@
-import { createHash } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { createCipheriv, createDecipheriv, createHash, randomBytes, scryptSync } from 'node:crypto';
+import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { gzip, gunzip } from 'node:zlib';
@@ -380,6 +380,103 @@ async function writeJson(path, value) {
     return absolute;
 }
 
+// ── Encryption at rest ──────────────────────────────────────────────────────
+//
+// A backup holds every kv_store row: password hashes, recovery digests,
+// session epochs, IP and fingerprint linkage. When KV_BACKUP_PASSPHRASE is set
+// the gzip bytes are sealed with AES-256-GCM under a key derived by scrypt.
+//
+//   bytes 0-7    magic "SJKVENC" + format version (0x01)
+//   bytes 8-23   scrypt salt (random, 16 bytes)
+//   bytes 24-35  GCM IV (random, 12 bytes)
+//   bytes 36-51  GCM auth tag (16 bytes)
+//   bytes 52-    ciphertext of the gzip stream
+//
+// The first 36 bytes (magic, salt, IV) are bound as additional authenticated
+// data, so a tampered header fails just like tampered ciphertext. A file that
+// starts with the gzip magic instead is a plaintext backup and still restores.
+const ENCRYPTED_MAGIC = Buffer.from([0x53, 0x4a, 0x4b, 0x56, 0x45, 0x4e, 0x43, 0x01]); // "SJKVENC" v1
+const SALT_BYTES = 16;
+const IV_BYTES = 12;
+const TAG_BYTES = 16;
+const HEADER_BYTES = ENCRYPTED_MAGIC.length + SALT_BYTES + IV_BYTES;
+// N=2^15, r=8: ~32 MiB and ~160 ms (measured on the dev machine), once per file.
+const SCRYPT_PARAMS = { N: 1 << 15, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
+
+export function backupPassphrase(env = process.env) {
+    return String(env.KV_BACKUP_PASSPHRASE ?? '');
+}
+
+export function isEncryptedBackup(bytes) {
+    return Buffer.isBuffer(bytes) && bytes.length >= ENCRYPTED_MAGIC.length
+        && bytes.subarray(0, ENCRYPTED_MAGIC.length).equals(ENCRYPTED_MAGIC);
+}
+
+function backupKey(passphrase, salt) {
+    return scryptSync(passphrase, salt, 32, SCRYPT_PARAMS);
+}
+
+export function encryptBackupBytes(plain, passphrase) {
+    if (!passphrase) throw new Error('A passphrase is required to encrypt a backup.');
+    const salt = randomBytes(SALT_BYTES);
+    const iv = randomBytes(IV_BYTES);
+    const header = Buffer.concat([ENCRYPTED_MAGIC, salt, iv]);
+    const cipher = createCipheriv('aes-256-gcm', backupKey(passphrase, salt), iv);
+    cipher.setAAD(header);
+    const body = Buffer.concat([cipher.update(plain), cipher.final()]);
+    return Buffer.concat([header, cipher.getAuthTag(), body]);
+}
+
+export function decryptBackupBytes(bytes, passphrase) {
+    if (!isEncryptedBackup(bytes)) throw new Error('Not an encrypted backup (unknown header or format version).');
+    if (!passphrase) throw new Error('This backup is encrypted; set KV_BACKUP_PASSPHRASE to read it.');
+    if (bytes.length < HEADER_BYTES + TAG_BYTES) throw new Error('Encrypted backup is truncated.');
+    const header = bytes.subarray(0, HEADER_BYTES);
+    const salt = bytes.subarray(ENCRYPTED_MAGIC.length, ENCRYPTED_MAGIC.length + SALT_BYTES);
+    const iv = bytes.subarray(ENCRYPTED_MAGIC.length + SALT_BYTES, HEADER_BYTES);
+    const tag = bytes.subarray(HEADER_BYTES, HEADER_BYTES + TAG_BYTES);
+    const decipher = createDecipheriv('aes-256-gcm', backupKey(passphrase, salt), iv);
+    decipher.setAAD(header);
+    decipher.setAuthTag(tag);
+    try {
+        return Buffer.concat([decipher.update(bytes.subarray(HEADER_BYTES + TAG_BYTES)), decipher.final()]);
+    } catch {
+        throw new Error('Could not decrypt the backup: wrong KV_BACKUP_PASSPHRASE, or the file is corrupt.');
+    }
+}
+
+/** The bytes a backup file holds for this payload: gzip, sealed when a passphrase is given. */
+export async function encodeBackupFile(payload, passphrase) {
+    const gz = await zip(Buffer.from(JSON.stringify(payload)), { level: 9 });
+    return passphrase ? encryptBackupBytes(gz, passphrase) : gz;
+}
+
+/** Parse a backup file's bytes, encrypted or plaintext (older backups). */
+export async function decodeBackupFile(bytes, passphrase) {
+    const gz = isEncryptedBackup(bytes) ? decryptBackupBytes(bytes, passphrase) : bytes;
+    return JSON.parse((await unzip(gz)).toString('utf8'));
+}
+
+/** Write a backup readable by its owner only (0600). */
+export async function writeBackupFile(file, bytes) {
+    await mkdir(dirname(file), { recursive: true });
+    await writeFile(file, bytes, { mode: 0o600 });
+    // `mode` only applies when the file is created; tighten a pre-existing one.
+    await chmod(file, 0o600).catch(() => undefined);
+}
+
+function warnPlaintextBackup() {
+    console.warn([
+        '',
+        '!!! ====================================================================== !!!',
+        '!!! WARNING: KV_BACKUP_PASSPHRASE is not set. This backup is written       !!!',
+        '!!! UNENCRYPTED. It contains password hashes, recovery digests and player  !!!',
+        '!!! IP addresses. Set KV_BACKUP_PASSPHRASE to encrypt it (AES-256-GCM).    !!!',
+        '!!! ====================================================================== !!!',
+        '',
+    ].join('\n'));
+}
+
 async function exportBackup(outPath) {
     if (!outPath) throw new Error('Pass --out <backup.json.gz>.');
     const started = Date.now();
@@ -403,17 +500,19 @@ async function exportBackup(outPath) {
         };
         validatePayload(payload);
         const file = resolve(outPath);
-        await mkdir(dirname(file), { recursive: true });
-        await writeFile(file, await zip(Buffer.from(JSON.stringify(payload)), { level: 9 }));
-        return { payload, file, durationMs: Date.now() - started };
+        const passphrase = backupPassphrase();
+        if (!passphrase) warnPlaintextBackup();
+        await writeBackupFile(file, await encodeBackupFile(payload, passphrase));
+        return { payload, file, encrypted: Boolean(passphrase), durationMs: Date.now() - started };
     } finally { await client.end(); }
 }
 
 async function readBackup(inPath) {
     if (!inPath) throw new Error('Pass --in <backup.json.gz>.');
     const file = resolve(inPath);
-    const payload = validatePayload(JSON.parse((await unzip(await readFile(file))).toString('utf8')));
-    return { payload, file };
+    const bytes = await readFile(file);
+    const payload = validatePayload(await decodeBackupFile(bytes, backupPassphrase()));
+    return { payload, file, encrypted: isEncryptedBackup(bytes) };
 }
 
 export async function verifyRestoreRepresentatives(target, payload, requestedKeys) {
@@ -493,13 +592,13 @@ async function run(argv = process.argv.slice(2)) {
         assertNoLegacyOverlayExport(args.has('--legacy-overlay'));
         const out = await exportBackup(args.one('--out'));
         const topology = backupStorageTopology(out.payload.base.rows, out.payload.overlay.entries);
-        console.log(JSON.stringify({ ok: true, mode, file: out.file, durationMs: out.durationMs, baseRowCount: out.payload.base.rowCount, overlayKeyCount: out.payload.overlay.keyCount, saveCount: topology.saveCount, baseSaveCount: topology.baseSaveCount, overlaySaveCount: topology.overlaySaveCount, expectedSaveStore: topology.expectedSaveStore, baseSha256: out.payload.base.sha256, overlaySha256: out.payload.overlay.sha256 }));
+        console.log(JSON.stringify({ ok: true, mode, file: out.file, encrypted: out.encrypted, durationMs: out.durationMs, baseRowCount: out.payload.base.rowCount, overlayKeyCount: out.payload.overlay.keyCount, saveCount: topology.saveCount, baseSaveCount: topology.baseSaveCount, overlaySaveCount: topology.overlaySaveCount, expectedSaveStore: topology.expectedSaveStore, baseSha256: out.payload.base.sha256, overlaySha256: out.payload.overlay.sha256 }));
         return;
     }
     if (mode === 'inspect') {
-        const { payload, file } = await readBackup(args.one('--in'));
+        const { payload, file, encrypted } = await readBackup(args.one('--in'));
         const topology = backupStorageTopology(payload.base.rows, payload.overlay.entries);
-        console.log(JSON.stringify({ ok: true, mode, file, createdAt: payload.createdAt, baseRowCount: payload.base.rowCount, overlayKeyCount: payload.overlay.keyCount, saveCount: topology.saveCount, baseSaveCount: topology.baseSaveCount, overlaySaveCount: topology.overlaySaveCount, expectedSaveStore: topology.expectedSaveStore, baseSha256: payload.base.sha256, overlaySha256: payload.overlay.sha256, representatives: representativeRecords(allRecords(payload), args.all('--representative-key')) }));
+        console.log(JSON.stringify({ ok: true, mode, file, encrypted, createdAt: payload.createdAt, baseRowCount: payload.base.rowCount, overlayKeyCount: payload.overlay.keyCount, saveCount: topology.saveCount, baseSaveCount: topology.baseSaveCount, overlaySaveCount: topology.overlaySaveCount, expectedSaveStore: topology.expectedSaveStore, baseSha256: payload.base.sha256, overlaySha256: payload.overlay.sha256, representatives: representativeRecords(allRecords(payload), args.all('--representative-key')) }));
         return;
     }
     if (mode === 'restore') {

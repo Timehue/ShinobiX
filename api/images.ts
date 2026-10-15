@@ -8,6 +8,7 @@ import { r2ReadEnabled, r2WriteEnabled, putImage, deleteImage } from './_r2.js';
 import { bumpImageVersion, readImageVersion } from './_image-version.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
 import { cachedFor, invalidateProcCache } from './_proc-cache.js';
+import { readKvProjection } from './_storage-projection.js';
 
 /*
  * Player upload budget. Every POST writes an image row of up to 3 MB, and a
@@ -98,6 +99,14 @@ export function isValidImageString(s: string): boolean {
     return false;
 }
 
+// An inline raster data URL: the only image form a PLAYER may upload. An
+// http(s) link is admin-only (2026-10-15 audit M4): /api/img redirects to a
+// stored link, so a player-stored one turned the image endpoint into a redirect
+// to any site and every viewer's browser into a request to it.
+export function isInlineRasterImage(s: string): boolean {
+    return /^data:image\/(png|jpe?g|webp|gif);base64,/i.test(s);
+}
+
 // ── Avatar-specific validation (audit #15) ──────────────────────────────────
 // Avatars are the only player-set image rendered at scale across rosters /
 // leaderboards / PvP, and animated ones bypass canvas compression (raw bytes
@@ -174,7 +183,7 @@ export async function copyImageToR2(id: string, image: string): Promise<void> {
 
 // Returns an error string if the avatar image is unacceptable, else null.
 export function avatarImageReject(image: string): string | null {
-    if (!/^data:image\/(png|jpe?g|webp|gif);base64,/i.test(image)) {
+    if (!isInlineRasterImage(image)) {
         return 'Avatars must be an uploaded image (data URL), not an external link.';
     }
     if (base64DecodedByteLength(image) > MAX_AVATAR_DECODED_BYTES) {
@@ -656,6 +665,14 @@ export function ownershipReject(
     }
     const prefix = id.slice(0, colon).toLowerCase();
     const rest = id.slice(colon + 1);
+    // Uncategorized ids ('misc': any unknown prefix, including a known prefix in
+    // the wrong case such as `JUTSU:<uuid>`) are admin-only. No player flow
+    // publishes one; the admin profession art (`profession:*`) is the only
+    // writer. A misc id had no owner at all, so any player could replace any
+    // other player's misc image (2026-10-15 audit M4).
+    if (categoryFromId(id) === 'misc') {
+        return { status: 403, error: 'Uncategorized images are admin-only.' };
+    }
     // Carve-out: a player may image their OWN forged named item even though the
     // 'item' prefix is otherwise admin-only. Ownership is intentionally fail-open
     // (matching the 'pet' precedent below): the client publishes optimistically
@@ -720,8 +737,8 @@ export function ownershipReject(
 // owner-gated save (api/save/[name].ts), never in this endpoint.
 
 // Exactly the player-created carve-outs above. avatar (already name-gated), misc
-// (per-player capped) and the admin-only prefixes are governed by ownershipReject
-// and don't take a claim.
+// and the admin-only prefixes are governed by ownershipReject and don't take a
+// claim.
 export function isPlayerClaimableImageId(id: string): boolean {
     const colon = id.indexOf(':');
     if (colon < 0) return false;
@@ -729,33 +746,142 @@ export function isPlayerClaimableImageId(id: string): boolean {
     const rest = id.slice(colon + 1);
     if (prefix === 'item') return PLAYER_NAMED_ITEM_RE.test(rest);
     if (prefix === 'bloodline' || prefix === 'jutsu') return PLAYER_UUID_RE.test(rest);
+    return isPetCatalogImageId(id);
+}
+
+/** Pet species/template art: catalog ids no player save can own. */
+export function isPetCatalogImageId(id: string): boolean {
+    const prefix = id.slice(0, Math.max(0, id.indexOf(':'))).toLowerCase();
     return prefix === 'pet' || prefix === 'petbody' || prefix === 'petsheet' || prefix === 'petlayers';
 }
 
-const imgOwnerKey = (id: string) => `img-owner:${id}`;
+/**
+ * Whether only an admin can write this id: an admin-only prefix outside the
+ * player carve-outs (`card:x`, `jutsu:fireball`, `item:<catalog id>`), the
+ * exact-case prefix included. /api/img follows an external link stored under
+ * such an id, because only admins can store one there.
+ */
+export function isAdminAuthoredImageId(id: string): boolean {
+    const colon = id.indexOf(':');
+    if (colon < 0) return false;
+    const prefix = id.slice(0, colon);
+    return ADMIN_ONLY_PREFIXES.has(prefix) && !isPlayerClaimableImageId(id);
+}
+
+export const IMG_OWNER_PREFIX = 'img-owner:';
+const imgOwnerKey = (id: string) => `${IMG_OWNER_PREFIX}${id}`;
+
+// The claim an admin write leaves on a claimable slot (2026-10-15 audit M4).
+// Admin catalog art lives under claimable prefixes too (`petbody:starter-fire`,
+// `pet:<id>:variant:…`), and an admin write used to leave the slot unclaimed, so
+// the first player to publish there claimed it and replaced the catalog art.
+// '@' is outside safeName's alphabet, so no player slug can ever equal it.
+export const ADMIN_IMAGE_OWNER = '@admin';
+
+/**
+ * Whether an image is stored under this id: its own row, or (for the few ids
+ * only they hold) the frozen legacy rows. Null when that could not be read.
+ */
+export async function storedImageExists(id: string): Promise<boolean | null> {
+    try {
+        const row = await kv.get<unknown>(perImageKey(id));
+        if (typeof row === 'string' && row.length > 0) return true;
+        const cat = categoryFromId(id);
+        const legacyIds = await legacyManifestIds(cat, readNow, await readCategoryVersions(cat));
+        return legacyIds === null ? null : legacyIds.includes(id);
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Whether the player's own save proves they created the asset this claimable
+ * id names: a forged named item in `creatorItems`, a custom bloodline in
+ * `savedBloodlines`, or one of that bloodline's jutsus. Pet art cannot be
+ * proven: its ids name catalog species and templates, not anything a save
+ * holds, and no player flow publishes it. So it is always false for pet ids.
+ */
+export async function saveProvesImageOwnership(id: string, name: string): Promise<boolean> {
+    const colon = id.indexOf(':');
+    if (colon < 0) return false;
+    const prefix = id.slice(0, colon).toLowerCase();
+    const rest = id.slice(colon + 1);
+    if (prefix !== 'item' && prefix !== 'bloodline' && prefix !== 'jutsu') return false;
+    try {
+        const [snap] = await readKvProjection(kv, [`save:${name}`], {
+            creatorItems: ['creatorItems'],
+            savedBloodlines: ['savedBloodlines'],
+        });
+        const list = (value: unknown): Record<string, unknown>[] =>
+            Array.isArray(value) ? value.filter((e): e is Record<string, unknown> => !!e && typeof e === 'object') : [];
+        const hasId = (entries: Record<string, unknown>[]) => entries.some((entry) => entry.id === rest);
+        if (prefix === 'item') return hasId(list(snap?.creatorItems));
+        const bloodlines = list(snap?.savedBloodlines);
+        if (prefix === 'bloodline') return hasId(bloodlines);
+        return bloodlines.some((bloodline) => hasId(list(bloodline.jutsus)));
+    } catch {
+        return false;
+    }
+}
 
 // Returns an HTTP reject if `identity` may NOT write/replace this player-owned
 // image slot, else null. On POST (claim !== false) it atomically claims an
-// unowned slot for the first writer; on DELETE (claim: false) it only checks an
-// existing claim. Admins, non-claimable ids, and still-unclaimed (legacy) slots
-// pass through — so a first-time creator is never blocked.
+// unowned slot; on DELETE (claim: false) it only checks.
+//
+// - An admin write reserves an unowned slot as ADMIN_IMAGE_OWNER. NX, so an
+//   admin editing a player's art never takes the player's claim.
+// - A player may write a slot they own. A slot another player or the admin
+//   owns is refused.
+// - An unowned slot with no image yet is claimed by its first writer, as
+//   before: the client publishes optimistically before the autosave lands, so a
+//   brand-new forge / bloodline / jutsu id is never blocked.
+// - An unowned slot that already HOLDS an image (admin catalog art, or art
+//   from before claims existed) is refused, unless the player's own save
+//   proves they created it. That always refuses pet art (see above).
 export async function imageClaimReject(
     id: string,
     identity: { admin: true } | { admin: false; name: string },
     opts?: { claim?: boolean },
 ): Promise<{ status: number; error: string } | null> {
-    if (identity.admin) return null;
     if (!isPlayerClaimableImageId(id)) return null;
     const key = imgOwnerKey(id);
-    if (opts?.claim !== false) {
-        // Atomic first-writer claim — succeeds only when the slot is unowned, so
-        // two racing first-writers can't both win. If we set it, we own it.
-        if ((await kv.set(key, identity.name, { nx: true })) === 'OK') return null;
+    const claim = opts?.claim !== false;
+    if (identity.admin) {
+        // Reserve only the pet catalog ids, which no player save can ever own.
+        // Item, bloodline and jutsu ids may be a PLAYER's creation that an admin
+        // re-publishes on approval or edit; reserving those would lock the
+        // creator out of their own art, and save proof already guards them.
+        if (claim && isPetCatalogImageId(id)) await kv.set(key, ADMIN_IMAGE_OWNER, { nx: true });
+        return null;
     }
+    const taken = { status: 403, error: 'This image belongs to another player.' };
     const owner = await kv.get<string>(key);
-    if (!owner) return null;                  // unclaimed legacy slot — allow
-    if (owner === identity.name) return null; // owner re-uploading / editing
-    return { status: 403, error: 'This image belongs to another player.' };
+    if (owner) return owner === identity.name ? null : taken;
+    // Unowned. An existing image needs proof; an unreadable answer counts as
+    // existing, so a storage blip can never hand a catalog slot to a player.
+    if ((await storedImageExists(id)) !== false && !(await saveProvesImageOwnership(id, identity.name))) {
+        return { status: 403, error: 'This image is shared game art and cannot be replaced.' };
+    }
+    if (!claim) return null;
+    // Atomic first-writer claim — succeeds only when the slot is unowned, so
+    // two racing first-writers can't both win. If we set it, we own it.
+    if ((await kv.set(key, identity.name, { nx: true })) === 'OK') return null;
+    return (await kv.get<string>(key)) === identity.name ? null : taken;
+}
+
+/**
+ * Remove images exactly as the admin batch DELETE does: storage copy first,
+ * then legacy fields, own row, claim and registry metadata, then a version bump
+ * per category. Used by account deletion for the departing player's avatar.
+ */
+export function removeStoredImages(ids: readonly string[], actor: string) {
+    return removeImagesBatch(ids, {
+        store: kv,
+        removeFromStorage: r2ReadEnabled() || r2WriteEnabled() ? (id) => deleteImage(id) : undefined,
+        bumpVersion: (cat) => bumpImageVersion(cat),
+        audit: (entry) => recordAudit(entry),
+        actor,
+    });
 }
 
 /** Admin bulk removal limit per request. */
@@ -941,8 +1067,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (req.method === 'POST') {
         // Uploads require a logged-in player. Stops random bots from replacing
-        // jutsu icons or kage portraits with arbitrary content.
-        const identity = await authedPlayerOrAdmin(req);
+        // jutsu icons or kage portraits with arbitrary content. Admin 2 curates
+        // art, so the content role counts as admin here.
+        const identity = await authedPlayerOrAdmin(req, undefined, { allowContentAdmin: true });
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         try {
             const parsed = parseJsonBody(req.body);
@@ -952,6 +1079,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (id.length > 256) return res.status(400).json({ error: 'Image id too long.' });
             if (!isValidImageString(image)) {
                 return res.status(400).json({ error: 'Image must be a valid data URL or http(s) URL under 3 MB.' });
+            }
+            // Players upload files, never links (audit M4, see isInlineRasterImage).
+            if (!identity.admin && !isInlineRasterImage(image)) {
+                return res.status(400).json({ error: 'Images must be an uploaded image file, not a link.' });
             }
             // Ownership: non-admins can't overwrite admin-prefixed images
             // (jutsu/item/event/etc) and can only write avatar:<their-name>.
@@ -984,18 +1115,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (avReject) return res.status(400).json({ error: avReject });
             }
 
-            // Per-player cap on "misc" (uncategorized) uploads — stops a single
-            // account filling the shared bucket. Tracked by uploader; admins exempt.
-            const MAX_MISC_PER_PLAYER = 50;
-            if (cat === 'misc' && !identity.admin) {
-                const counterKey = `upload:misc-count:${identity.name}`;
-                const current = Number((await kv.get<number>(counterKey)) ?? 0);
-                if (current >= MAX_MISC_PER_PLAYER) {
-                    return res.status(429).json({ error: `Per-player misc image cap reached (${MAX_MISC_PER_PLAYER}).` });
-                }
-                // Best-effort increment; counter resets only on admin tooling.
-                await kv.set(counterKey, current + 1).catch(() => undefined);
-            }
+            // "misc" (uncategorized) uploads are admin-only (ownershipReject), so
+            // the old per-player misc counter (`upload:misc-count:<name>`) is no
+            // longer written. Account deletion still removes old ones.
 
             if (legacyHashWriteEnabled()) {
                 // Rollback lever (plan §3.8): the pre-split path. It rewrites the
@@ -1055,7 +1177,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // image's own row (what lists and serves it since the shared-row
         // split) and its fields in the frozen legacy rows, so reloads no
         // longer resurrect cleared slots.
-        const identity = await authedPlayerOrAdmin(req);
+        const identity = await authedPlayerOrAdmin(req, undefined, { allowContentAdmin: true });
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         try {
             // Accept the id either as ?id= query param OR JSON body, for

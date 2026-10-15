@@ -104,8 +104,8 @@ test('content admin password/token cannot reset Weekly Boss state or leaderboard
             expectedSpawnId: 'authority-existing-spawn',
             requestedSpawnId: '30000000-0000-4000-8000-000000000001',
         }, headers);
-        assert.equal(rejected.statusCode, 403);
-        assert.match(String(rejected.body?.error), /full admin/i);
+        assert.equal(rejected.statusCode, 401);
+        // Admin 2 is refused at authentication now (2026-10-15 H1): the content role never earns the act-as-any-player identity here.
         const after = await kv.get<Json>(BOSS_KEY);
         assert.equal(JSON.stringify(after), beforeBytes, 'state and embedded leaderboard must remain byte-identical');
         assert.deepEqual(after?.damageByPlayer, original.damageByPlayer);
@@ -141,7 +141,7 @@ test('Weekly Boss override remains full-admin-only on /api/game-state', async ()
             { kind: 'weeklyBossOverride', aiId: 'ashen-dragon' },
             headers,
         );
-        assert.equal(rejected.statusCode, 403);
+        assert.equal(rejected.statusCode, 401, 'content admin is refused before the kind is even read');
         assert.equal(await kv.get(OVERRIDE_KEY), 'moonshadow-oni');
     }
 
@@ -180,7 +180,7 @@ test('Dojo Circuit launch control is full-admin-only and strictly boolean', asyn
         { kind: 'dojoCircuitEnabled', enabled: true },
         { 'x-admin-password': process.env.ADMIN_CONTENT_PASSWORD! },
     );
-    assert.equal(contentRejected.statusCode, 403);
+    assert.equal(contentRejected.statusCode, 401, 'content admin is refused at authentication');
     assert.equal(await kv.get(DOJO_CIRCUIT_KEY), null);
 
     const malformed = await post(

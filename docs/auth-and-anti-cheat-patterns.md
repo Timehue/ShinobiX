@@ -14,7 +14,16 @@ change the flows below.
 Two trust levels:
 
 - **player** — `x-player-token` (preferred) **or** `x-player-name` + `x-player-password`.
-- **admin** — `x-admin-password` (`ADMIN_PASSWORD` full, `ADMIN_CONTENT_PASSWORD` content-only).
+- **admin** — `x-admin-token`, or `x-admin-password` (`ADMIN_PASSWORD` full, `ADMIN_CONTENT_PASSWORD` content-only).
+  Wrong passwords spend a per-IP budget (10 per 15 min) inside `isAdmin`/`isFullAdmin`.
+  Once it is spent, even the correct password is refused from that address, so no
+  route works as a guessing oracle.
+  `authedPlayerOrAdmin` returns `{ admin: true }` ("may act as any player") for the
+  FULL admin only. A content-curation handler opts the content role back in with
+  `{ allowContentAdmin: true }` and keeps its own role checks. The opt-in covers the
+  images POST and DELETE, generate-image, bloodlines/list, the save route's
+  admin1/admin2 slots, the game-state `villageLeadershipImages` kind, reads of
+  tournaments, dojo and weekly-boss, and the socket (admin1/admin2 only).
 
 The **session token** is a stateless HMAC:
 `v2.<b64url(name)>.<expEpochMs>.<sessionEpoch>.<sig>`, signed with
@@ -175,8 +184,15 @@ ends at a moderator, and the UI says so on the form rather than after it.
 `api/_recovery-code.ts` owns the format and storage; `player-auth.ts` owns the
 two actions.
 
-- **`recovery-issue`** mints a code and returns the plaintext once, requiring a
-  session token for that name or the current password. It is the authenticated
+- **`recovery-issue`** mints a code and returns the plaintext once. A PASSWORD
+  account must send its current password even when it holds a valid token: a code
+  is a full credential, so a token lifted from a shared computer must not be able
+  to mint one, redeem it and lock the owner out. A passwordless account (Google,
+  guest) is proved by its session token. Linking Google (`auth/google/start`
+  link mode) and the new `google-unlink` action follow the same rule, and
+  `adminreset` takes `dropGoogle` to remove a link an attacker planted. The
+  `logout-others` action rotates the epoch and hands the calling device a fresh
+  token. It is the authenticated
   act of writing down a spare key, so it deliberately does **not** rotate the
   session epoch: nothing is revoked, and rotating would sign the player out of
   their other devices as the price of taking a safety measure. The epoch
@@ -479,7 +495,8 @@ another holder's lock.
 ### 5.4 Route-specific body limits (`server.ts`, `api/_body-limits.ts`)
 
 `classifyBodyLimit()` scopes the 50 MB JSON parser to the exact image/import
-routes — no longer the whole `/admin/*` tree, where an unauthenticated caller
+routes (`images` and three admin content routes; not `generate-image`, which takes
+only a prompt, nor the GET-only `img`). It is no longer the whole `/admin/*` tree, where an unauthenticated caller
 could force a 50 MB buffer + parse before a handler's auth check. Player saves get
 a dedicated 1 MB parser, so an oversized save is rejected at the parser boundary
 (matching the save handler's 1 MB cap) rather than after a 5 MB parse.
@@ -497,7 +514,7 @@ The admin panel used to keep the reusable `ADMIN_PASSWORD` in `sessionStorage` a
 attach it (`x-admin-password`) to **every** admin request. A short-lived signed
 session token replaces that:
 
-- `/api/admin-auth` mints `av1.<role>.<expMs>.<epoch>.<sig>` on login (`issueAdminToken`).
+- `/api/admin-auth` mints `av2.<role>.<expMs>.<epoch>.<sig>` on login (signed over `admin-v2|<role>.<expMs>.<epoch>`, so a player token can never double as one) (`issueAdminToken`).
   The client stores the token, drops the password from storage, and sends
   `x-admin-token`. `authFetch` **swaps** any `x-admin-password` for the token on
   the wire, so even the ~100 call sites that set the password header never send

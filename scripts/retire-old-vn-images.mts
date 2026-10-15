@@ -73,8 +73,8 @@ export function adminTokenProblem(token: string, now = Date.now()): string | und
     if (token === 'null' || token === 'undefined')
         return `ADMIN_TOKEN is "${token}". Run sessionStorage.getItem('admin:token') in the same browser tab where you are logged in to the Admin Panel. If it is null even there, the server is not issuing admin tokens: set ADMIN_PASSWORD instead of ADMIN_TOKEN.`;
     const parts = token.split('.');
-    if (parts.length !== 5 || parts[0] !== 'av1' || (parts[1] !== 'full' && parts[1] !== 'content'))
-        return 'ADMIN_TOKEN does not look like an admin session token. It should start with av1.full. (copy the value, the quotes do not matter).';
+    if (parts.length !== 5 || parts[0] !== 'av2' || (parts[1] !== 'full' && parts[1] !== 'content'))
+        return 'ADMIN_TOKEN does not look like an admin session token. It should start with av2.full. (copy the value, the quotes do not matter).';
     if (!(Number(parts[2]) > now)) return 'ADMIN_TOKEN has expired (they last 12 hours). Log in to the Admin Panel again and copy a fresh one.';
     return undefined;
 }

@@ -29,7 +29,7 @@ import {
 import { getActiveBan, recordClientIp, clientIpFrom, recordClientFingerprint, clientFpFrom } from './admin/moderation.js';
 import { recordBetaMetric } from './_beta-metrics.js';
 import { newRegistrationsDisabled } from './_launch-controls.js';
-import { isCleanPlayerName, TEXT_LIMITS } from './_text-moderation.js';
+import { hasStaffImpersonationName, isCleanPlayerName, TEXT_LIMITS } from './_text-moderation.js';
 import crypto from 'crypto';
 import { accountDeletionStatus } from './_account-deletion-wait.js';
 
@@ -65,7 +65,11 @@ export function isReservedUsername(name: string): boolean {
 // reserved for internal use. Reject these at the registration gate so the
 // situation never arises.
 const RESERVED_NAME_PREFIXES = ['clan-', 'admin-', 'system-', 'server-'];
-const RESERVED_NAME_LITERALS = new Set(['admin', 'admin1', 'admin2', 'system', 'server', 'kage', 'narrator', 'player']);
+// `full` and `content` are the two admin role names. Player and admin session
+// tokens are signed differently now (see signAdminToken), but an account named
+// after a role is still the one shape a future signing slip would turn into an
+// admin token, so neither name is handed out.
+const RESERVED_NAME_LITERALS = new Set(['admin', 'admin1', 'admin2', 'system', 'server', 'kage', 'narrator', 'player', 'full', 'content']);
 export function isReservedNameShape(name: string): boolean {
     // Check the safeName slug — that's the form the storage key actually uses,
     // so a display name like "clan - cheat" (slug "clan-cheat") is caught by
@@ -214,26 +218,80 @@ function headerValue(req: VercelRequest, key: string): string {
 }
 
 // ─── Password hashing ─────────────────────────────────────────────────────────
-// Old hashes: HMAC-SHA256 (fast, vulnerable to GPU brute force if leaked).
-// New hashes: scrypt with N=16384 r=8 p=1 — Node built-in, no deps,
-// ~100ms/hash on commodity hardware (vs ~10ns for HMAC).
+// Three stored formats, all verified here:
+//   - legacy:       bare HMAC-SHA256 hex (fast, vulnerable to GPU brute force if
+//                   leaked). Re-hashed on the next successful login.
+//   - scrypt:       `scrypt:N:r:p:hex`. The parameters live in the hash, so a
+//                   cost increase never breaks an existing password: it is
+//                   verified at the cost it was written with, then re-hashed
+//                   at the current cost on that same successful login.
+//   - scrypt-hmac:  `scrypt-hmac:N:r:p:hex` = scrypt(legacy HMAC hex). What
+//                   `scripts/wrap-legacy-password-hashes.mjs` turns a dormant
+//                   legacy row into, so the fast hash stops sitting in the
+//                   database and its backups without waiting for that player to
+//                   log in. Re-hashed to plain scrypt on their next login.
 //
-// On successful verify of a legacy hash, we transparently re-hash with scrypt
-// and write back the new format. Over time the legacy hashes disappear.
+// Verification runs on libuv's threadpool (crypto.scrypt), not the event loop:
+// scryptSync stalled every other player's heartbeat for the full derivation.
 
-const SCRYPT_N = 16384;
+const SCRYPT_N = 32768;
 const SCRYPT_R = 8;
 const SCRYPT_P = 1;
 const SCRYPT_KEYLEN = 64;
+// scrypt needs 128 * N * r bytes — exactly 32 MiB at the current cost, which is
+// Node's default ceiling, so give it explicit headroom.
+const SCRYPT_MAXMEM = 64 * 1024 * 1024;
+// A stored row naming absurd parameters (a corrupted or tampered value) must not
+// become a memory or CPU bomb at login.
+const SCRYPT_MAX_STORED_N = 1 << 16;
 const SCRYPT_PREFIX = 'scrypt:';
+const WRAPPED_LEGACY_PREFIX = 'scrypt-hmac:';
 
-function hashScrypt(password: string, salt: string): string {
-    const derived = crypto.scryptSync(password, salt, SCRYPT_KEYLEN, {
-        N: SCRYPT_N,
-        r: SCRYPT_R,
-        p: SCRYPT_P,
+type ScryptParams = { N: number; r: number; p: number };
+const CURRENT_SCRYPT: ScryptParams = { N: SCRYPT_N, r: SCRYPT_R, p: SCRYPT_P };
+
+function scryptOptions(params: ScryptParams): crypto.ScryptOptions {
+    return { N: params.N, r: params.r, p: params.p, maxmem: SCRYPT_MAXMEM };
+}
+
+function scryptAsync(input: string, salt: string, keylen: number, params: ScryptParams): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+        crypto.scrypt(input, salt, keylen, scryptOptions(params), (err, derived) => (err ? reject(err) : resolve(derived)));
     });
-    return `${SCRYPT_PREFIX}${SCRYPT_N}:${SCRYPT_R}:${SCRYPT_P}:${derived.toString('hex')}`;
+}
+
+function formatScrypt(prefix: string, params: ScryptParams, derived: Buffer): string {
+    return `${prefix}${params.N}:${params.r}:${params.p}:${derived.toString('hex')}`;
+}
+
+function parseStoredScrypt(hash: string): { wrappedLegacy: boolean; params: ScryptParams; hex: string } | null {
+    const wrappedLegacy = hash.startsWith(WRAPPED_LEGACY_PREFIX);
+    if (!wrappedLegacy && !hash.startsWith(SCRYPT_PREFIX)) return null;
+    const parts = hash.slice(wrappedLegacy ? WRAPPED_LEGACY_PREFIX.length : SCRYPT_PREFIX.length).split(':');
+    if (parts.length !== 4) return null;
+    const [N, r, p] = parts.slice(0, 3).map(Number);
+    const hex = parts[3];
+    if (!Number.isSafeInteger(N) || N < 2 || N > SCRYPT_MAX_STORED_N || (N & (N - 1)) !== 0) return null;
+    if (!Number.isSafeInteger(r) || r < 1 || r > 16 || !Number.isSafeInteger(p) || p < 1 || p > 4) return null;
+    if (!/^[0-9a-f]+$/.test(hex) || hex.length % 2 !== 0 || hex.length < 32 || hex.length > 256) return null;
+    return { wrappedLegacy, params: { N, r, p }, hex };
+}
+
+/** True when a stored hash should be rewritten at the current cost on the next successful login. */
+export function passwordHashNeedsUpgrade(hash: string | undefined): boolean {
+    if (!hash) return false;
+    const parsed = parseStoredScrypt(hash);
+    if (!parsed || parsed.wrappedLegacy) return true;
+    return parsed.params.N < SCRYPT_N || parsed.params.r < SCRYPT_R || parsed.params.p < SCRYPT_P;
+}
+
+/** Synchronous derivation. Only for the one-off dummy record and the legacy `hashPw` export. */
+function hashScryptSync(password: string, salt: string): string {
+    return formatScrypt(SCRYPT_PREFIX, CURRENT_SCRYPT, crypto.scryptSync(password, salt, SCRYPT_KEYLEN, scryptOptions(CURRENT_SCRYPT)));
+}
+
+async function hashScrypt(password: string, salt: string): Promise<string> {
+    return formatScrypt(SCRYPT_PREFIX, CURRENT_SCRYPT, await scryptAsync(password, salt, SCRYPT_KEYLEN, CURRENT_SCRYPT));
 }
 
 // Keep nonexistent-account verification on the same expensive password path
@@ -241,17 +299,27 @@ function hashScrypt(password: string, salt: string): string {
 // unused name both from the response body and from the missing scrypt work.
 const DUMMY_AUTH_RECORD: AuthRecord = {
     salt: 'player-auth-enumeration-guard-v1',
-    hash: hashScrypt('DummyAccountPassword1', 'player-auth-enumeration-guard-v1'),
+    hash: hashScryptSync('DummyAccountPassword1', 'player-auth-enumeration-guard-v1'),
 };
 
 function hashLegacy(password: string, salt: string): string {
     return crypto.createHmac('sha256', salt).update(password).digest('hex');
 }
 
+/**
+ * Wrap a legacy HMAC hash in scrypt without knowing the password. Used by the
+ * offline migration script; verification reproduces it from the password via
+ * hashLegacy, then scrypt.
+ */
+export async function wrapLegacyPasswordHash(legacyHash: string, salt: string): Promise<string> {
+    return formatScrypt(WRAPPED_LEGACY_PREFIX, CURRENT_SCRYPT, await scryptAsync(legacyHash, salt, SCRYPT_KEYLEN, CURRENT_SCRYPT));
+}
+
 // Public alias retained for backward compat with any other callers — always
-// uses the modern algorithm now.
+// uses the modern algorithm now. Synchronous for those callers (tests, seed
+// tooling); request paths use the async hashScrypt.
 export function hashPw(password: string, salt: string): string {
-    return hashScrypt(password, salt);
+    return hashScryptSync(password, salt);
 }
 
 function safeStringEqual(a: string, b: string): boolean {
@@ -268,15 +336,19 @@ function safeStringEqual(a: string, b: string): boolean {
  * Verify a password against a stored AuthRecord. Handles both legacy and
  * modern hash formats. Returns true if valid.
  */
-function verifyAgainst(record: AuthRecord, password: string): boolean {
+async function verifyAgainst(record: AuthRecord, password: string): Promise<boolean> {
     // Fail closed on a passwordless record (Google-only or guest). Without this
     // guard the comparisons below would throw on `undefined.startsWith`, and any
     // future refactor that swallowed the throw would turn "has no password" into
     // "matches every password". Those accounts authenticate by token only.
     const { hash, salt } = record;
     if (!hash || !salt) return false;
-    if (hash.startsWith(SCRYPT_PREFIX)) {
-        return safeStringEqual(hashScrypt(password, salt), hash);
+    if (hash.startsWith(SCRYPT_PREFIX) || hash.startsWith(WRAPPED_LEGACY_PREFIX)) {
+        const parsed = parseStoredScrypt(hash);
+        if (!parsed) return false;
+        const input = parsed.wrappedLegacy ? hashLegacy(password, salt) : password;
+        const derived = await scryptAsync(input, salt, parsed.hex.length / 2, parsed.params);
+        return safeStringEqual(derived.toString('hex'), parsed.hex);
     }
     return safeStringEqual(hashLegacy(password, salt), hash);
 }
@@ -368,6 +440,13 @@ export function newAccountNameError(req: VercelRequest, name: string): AuthFailu
     // use. Refuse these at the gate so the bad code path never runs.
     if (isReservedNameShape(name)) {
         return { status: 403, body: { ok: false, error: 'That username is reserved. Pick a different name.' } };
+    }
+
+    // Names that read as staff ("Admin", "OfficialModerator", "The Owner") are an
+    // impersonation surface in chat and whispers, exactly as custom titles are.
+    // Existing accounts keep their names; this gates new names and renames.
+    if (hasStaffImpersonationName(name)) {
+        return { status: 400, body: { ok: false, error: 'Names that look like staff or village leaders are not allowed. Pick a different name.' } };
     }
 
     // Reserved-username defense: the protected admin account can only be
@@ -498,18 +577,19 @@ export async function verifyPlayerPassword(name: string, password: string): Prom
     const key = authKey(name);
     const record = await kv.get<AuthRecord>(key);
     if (!record) return false;
-    const ok = verifyAgainst(record, password);
-    // Opportunistically migrate legacy hashes to scrypt on successful login.
-    if (ok && record.hash && !record.hash.startsWith(SCRYPT_PREFIX)) {
+    const ok = await verifyAgainst(record, password);
+    // Opportunistically migrate legacy and lower-cost hashes on successful login.
+    if (ok && passwordHashNeedsUpgrade(record.hash)) {
         try {
+            const salt = newSalt();
+            const upgradedHash = await hashScrypt(password, salt);
             // Serialize with credential mutations and re-check the observed
             // record. Otherwise a slow legacy migration can overwrite a newly
             // changed password with the old password's upgraded hash.
             await withKvLock(key, async () => {
                 const current = await kv.get<AuthRecord>(key);
                 if (!current || current.hash !== record.hash || current.salt !== record.salt) return;
-                const salt = newSalt();
-                await kv.set(key, { ...current, hash: hashScrypt(password, salt), salt });
+                await kv.set(key, { ...current, hash: upgradedHash, salt });
             }, { failClosed: true });
         } catch {
             // Migration is best-effort — auth itself already succeeded.
@@ -587,6 +667,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         recover: 10,
         'recovery-issue': 10,
         'admin-recovery': 20,
+        'logout-others': 10,
+        'google-unlink': 10,
     };
     const authAction = typeof action === 'string' ? action : 'unknown';
     const authBudget = AUTH_BUDGETS[authAction] ?? 20;
@@ -609,7 +691,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const { resolveAccountLogin } = await import('./_account-name.js');
             const resolved = await resolveAccountLogin(name);
             if (!resolved) {
-                if (typeof password === 'string') verifyAgainst(DUMMY_AUTH_RECORD, password);
+                if (typeof password === 'string') await verifyAgainst(DUMMY_AUTH_RECORD, password);
                 return res.status(action === 'verify' ? 200 : 400).json({ ok: false, error: 'Account name or credentials are incorrect.' });
             }
             name = resolved;
@@ -634,10 +716,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (nameError) return res.status(nameError.status).json(nameError.body);
 
         try {
-            const claim = await claimNewAccountSlug(name, (sessionEpoch) => {
-                const salt = newSalt();
-                return { hash: hashPw(password, salt), salt, sessionEpoch };
-            });
+            const salt = newSalt();
+            const hash = await hashScrypt(password, salt);
+            const claim = await claimNewAccountSlug(name, (sessionEpoch) => ({ hash, salt, sessionEpoch }));
             if ('error' in claim) {
                 return res.status(claim.error.status).json(claim.error.body);
             }
@@ -931,7 +1012,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Burn the same scrypt work as an existing-account failure before
             // consulting legacy-save recovery state. The result is deliberately
             // ignored: this record can never authenticate a caller.
-            verifyAgainst(DUMMY_AUTH_RECORD, verifiedPassword);
+            await verifyAgainst(DUMMY_AUTH_RECORD, verifiedPassword);
             // Only a real save qualifies as legacy. The client may surface the
             // recovery state, but only authenticated adminreset can claim it.
             try {
@@ -957,7 +1038,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // passwords forever. Player names are already public on the leaderboard,
         // so naming the sign-in method leaks nothing the Hall of Legends doesn't.
         if (isPasswordlessRecord(record)) {
-            verifyAgainst(DUMMY_AUTH_RECORD, verifiedPassword);
+            await verifyAgainst(DUMMY_AUTH_RECORD, verifiedPassword);
             return res.status(200).json({
                 ok: false,
                 passwordless: true,
@@ -968,8 +1049,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             });
         }
 
-        const valid = verifyAgainst(record, verifiedPassword);
+        const valid = await verifyAgainst(record, verifiedPassword);
         if (!valid) return res.status(200).json({ ok: false });
+
+        // Derived outside the lock: it is the slow part, and is thrown away if
+        // the record turns out to be current already.
+        let upgradedCredential: { hash: string; salt: string } | null = null;
+        if (passwordHashNeedsUpgrade(record.hash)) {
+            const salt = newSalt();
+            upgradedCredential = { hash: await hashScrypt(verifiedPassword, salt), salt };
+        }
 
         try {
             return await withKvLock(key, async () => {
@@ -993,9 +1082,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 current = await synchronizeVerifiedAuthRecordEpoch(name, current);
                 // A legacy upgrade remains best effort, while generation repair above
                 // must commit before this verified login can mint a usable token.
-                if (current.hash && !current.hash.startsWith(SCRYPT_PREFIX)) {
-                    const salt = newSalt();
-                    const upgraded = { ...current, hash: hashScrypt(verifiedPassword, salt), salt };
+                if (upgradedCredential && passwordHashNeedsUpgrade(current.hash)) {
+                    const upgraded = { ...current, ...upgradedCredential };
                     try {
                         await kv.set(key, upgraded);
                         current = upgraded;
@@ -1067,7 +1155,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             legacyNeedsAdmin: true,
                         });
                     }
-                    return res.status(404).json({ ok: false, error: 'Account does not exist.' });
+                    // Same answer as a wrong password: a distinct 404 here told
+                    // anyone which names have no account behind them.
+                    return res.status(401).json({ ok: false, error: 'Incorrect current password.' });
                 }
 
                 if (isPasswordlessRecord(record)) {
@@ -1092,19 +1182,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (typeof oldPassword !== 'string' || !oldPassword) {
                         return res.status(400).json({ ok: false, error: 'Missing oldPassword or newPassword.' });
                     }
-                    if (!verifyAgainst(record, oldPassword)) {
+                    if (!(await verifyAgainst(record, oldPassword))) {
                         return res.status(401).json({ ok: false, error: 'Incorrect current password.' });
                     }
                 }
 
+                const salt = newSalt();
+                const newHash = await hashScrypt(newPassword, salt);
                 // Rotate first: if the following hash write fails, old tokens
                 // are still revoked (safe failure) and the caller can retry.
                 const sessionEpoch = await rotatePlayerSessionEpoch(name);
-                const salt = newSalt();
                 // Spread the existing record: a password change must not drop the
                 // linked Google identity or the guest flag that lives beside it.
                 try {
-                    await kv.set(key, { ...withoutGuestResumeAuthority(record), hash: hashPw(newPassword, salt), salt, sessionEpoch });
+                    await kv.set(key, { ...withoutGuestResumeAuthority(record), hash: newHash, salt, sessionEpoch });
                 } catch (err) {
                     const committed = await kv.get<AuthRecord>(key);
                     // A failed first-password claim must not strand the guest's
@@ -1184,16 +1275,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // here, and rotating would sign the player out of their other devices as
     // the punishment for taking a safety measure. The epoch rotation lands on
     // `recover` below, which is the half that actually changes the password.
+    //
+    // A PASSWORD account must type its password here even when it holds a valid
+    // token. The code is a full credential — `recover` turns it into a new
+    // password and a fresh session — so a token alone (lifted from a shared
+    // computer's storage, say) used to be enough to mint one, redeem it, and
+    // lock the real owner out for good. Passwordless accounts (Google, guest)
+    // have nothing else to prove with, so for them the token still suffices.
     if (action === 'recovery-issue') {
         const suppliedToken = headerValue(req, 'x-player-token');
         const tokenOwner = suppliedToken ? await verifyPlayerToken(suppliedToken) : null;
         const tokenProvesOwnership = !!tokenOwner && tokenOwner === safeName(name);
+        const suppliedPassword = typeof password === 'string' && password ? password : '';
 
-        if (!tokenProvesOwnership) {
-            // Fall back to the password, so this still works when
-            // SESSION_SECRET is unset and no token was ever issued.
-            const verificationError = playerPasswordVerificationError(password);
-            if (verificationError) return res.status(401).json({ ok: false, error: 'Authentication required.' });
+        if (suppliedPassword && playerPasswordVerificationError(suppliedPassword)) {
+            return res.status(401).json({ ok: false, error: 'Authentication required.' });
+        }
+        if (!tokenProvesOwnership && !suppliedPassword) {
+            return res.status(401).json({ ok: false, error: 'Authentication required.' });
         }
         try {
             // Under the account lock, like every other credential mutation on
@@ -1204,12 +1303,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // has none.
             return await withKvLock(key, async () => {
                 const record = await kv.get<AuthRecord>(key);
-                if (!tokenProvesOwnership) {
+                const passwordRequired = !tokenProvesOwnership || (!!record && !isPasswordlessRecord(record));
+                if (passwordRequired) {
+                    if (!suppliedPassword) {
+                        // Only reachable with a valid token for this very account,
+                        // so naming what is missing leaks nothing.
+                        return res.status(401).json({ ok: false, error: 'Enter your current password to generate a code.', passwordRequired: true });
+                    }
                     // Burn the same scrypt work whether or not the account
                     // exists, exactly as `verify` does, so this cannot be used
                     // to probe for names — then answer with one message for
                     // every failure.
-                    const matched = verifyAgainst(record ?? DUMMY_AUTH_RECORD, password as string);
+                    const matched = await verifyAgainst(record ?? DUMMY_AUTH_RECORD, suppliedPassword);
                     if (!record || !matched) {
                         return res.status(401).json({ ok: false, error: 'Authentication required.' });
                     }
@@ -1285,11 +1390,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // below fails, every previously issued token is already dead —
                 // which is the safe direction for a path whose whole premise is
                 // that the account may be in the wrong hands.
-                const sessionEpoch = await rotatePlayerSessionEpoch(name);
                 const salt = newSalt();
+                const newHash = await hashScrypt(newPassword as string, salt);
+                const sessionEpoch = await rotatePlayerSessionEpoch(name);
                 // Spread, so recovering a password neither unlinks Google nor
                 // disturbs anything else living on the record.
-                await kv.set(key, { ...withoutGuestResumeAuthority(record), hash: hashPw(newPassword as string, salt), salt, sessionEpoch });
+                await kv.set(key, { ...withoutGuestResumeAuthority(record), hash: newHash, salt, sessionEpoch });
 
                 let nextCode: string | undefined;
                 try {
@@ -1359,12 +1465,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return await withKvLock(key, async () => {
                 const record = await kv.get<AuthRecord>(key);
                 if (!record) {
-                    return res.status(404).json({ ok: false, error: 'Account does not exist.' });
+                    // Burn the same work as a real wrong password and answer the
+                    // same way, so this cannot sort taken names from free ones.
+                    if (!deleteTokenProvesOwnership) await verifyAgainst(DUMMY_AUTH_RECORD, password as string);
+                    return res.status(401).json({ ok: false, error: 'Incorrect password.' });
                 }
                 if (deleteTokenProvesOwnership && await verifyPlayerToken(deleteToken) !== safeName(name)) {
                     return res.status(401).json({ ok: false, error: 'Authentication required.' });
                 }
-                if (!deleteTokenProvesOwnership && !verifyAgainst(record, password as string)) {
+                if (!deleteTokenProvesOwnership && !(await verifyAgainst(record, password as string))) {
                     return res.status(401).json({ ok: false, error: 'Incorrect password.' });
                 }
                 // The old auth-only route must not bypass the waiting period or
@@ -1454,14 +1563,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!newPassword) return res.status(400).json({ ok: false, error: 'Missing newPassword.' });
         const passwordPolicyError = playerPasswordPolicyError(newPassword);
         if (passwordPolicyError) return res.status(400).json({ ok: false, error: passwordPolicyError });
+        // A Google link survives password changes and resets by design, so an
+        // attacker who linked THEIR Google account to a stolen session keeps a
+        // door in after this reset. `dropGoogle` closes it: the operator ticks it
+        // for a compromised account, and the player re-links their own Google
+        // once they are back in.
+        const dropGoogle = (body as { dropGoogle?: unknown }).dropGoogle === true;
         try {
+            const salt = newSalt();
+            const newHash = await hashScrypt(newPassword, salt);
             await withKvLock(key, async () => {
                 const existing = await kv.get<AuthRecord>(key);
                 const sessionEpoch = await rotatePlayerSessionEpoch(name);
-                const salt = newSalt();
                 // Spread the existing record so an admin reset restores password
                 // access without silently unlinking Google or clearing the guest flag.
-                await kv.set(key, { ...withoutGuestResumeAuthority(existing ?? {}), hash: hashPw(newPassword, salt), salt, sessionEpoch });
+                const next: AuthRecord = { ...withoutGuestResumeAuthority(existing ?? {}), hash: newHash, salt, sessionEpoch };
+                const droppedSub = dropGoogle ? existing?.google?.sub : undefined;
+                if (droppedSub) delete next.google;
+                await kv.set(key, next);
+                if (droppedSub) await releaseGoogleIdentityForAccount(name, droppedSub);
                 // Drop any recovery code. An admin reset is what a player asks
                 // for when they have lost control of the account, so the
                 // outstanding spare key is exactly the thing to invalidate —
@@ -1475,6 +1595,91 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(503).json({ ok: false, error: 'Storage unavailable. Try again.' });
         }
         return res.status(200).json({ ok: true });
+    }
+
+    // Sign out every OTHER device. Rotating the epoch kills every outstanding
+    // token — the sliding refresh would otherwise keep a copied token alive for
+    // as long as someone kept using it — and this device is handed a fresh one,
+    // so the player who pressed the button stays signed in.
+    if (action === 'logout-others') {
+        if (!playerSessionsEnabled()) {
+            return res.status(409).json({ ok: false, error: 'Other devices sign in with your password; change it to sign them out.' });
+        }
+        const suppliedToken = headerValue(req, 'x-player-token');
+        const tokenOwner = suppliedToken ? await verifyPlayerToken(suppliedToken) : null;
+        if (!tokenOwner || tokenOwner !== safeName(name)) {
+            return res.status(401).json({ ok: false, error: 'Authentication required.' });
+        }
+        try {
+            return await withKvLock(key, async () => {
+                const record = await kv.get<AuthRecord>(key);
+                // Re-check under the lock: a credential change may have rotated
+                // the epoch while this request waited.
+                if (!record || await verifyPlayerToken(suppliedToken) !== safeName(name)) {
+                    return res.status(401).json({ ok: false, error: 'Authentication required.' });
+                }
+                const ban = await getActiveBan(name);
+                if (ban) {
+                    return res.status(403).json({
+                        ok: false,
+                        error: 'Account is banned.',
+                        ban: { until: ban.until, reason: ban.reason, permanent: ban.permanent ?? false },
+                    });
+                }
+                const sessionEpoch = await rotatePlayerSessionEpoch(name);
+                await kv.set(key, { ...record, sessionEpoch });
+                return res.status(200).json({ ok: true, token: issuePlayerToken(name, undefined, sessionEpoch) ?? undefined });
+            }, { failClosed: true });
+        } catch (err) {
+            console.error('[player-auth logout-others]', String(err));
+            return res.status(503).json({ ok: false, error: 'Storage unavailable. Try again.' });
+        }
+    }
+
+    // Detach Google from a password account. Requires the current password —
+    // never a token alone — for the same reason linking does: a Google link is a
+    // door that survives password changes, so only the person who can prove the
+    // password may open or close it. An account whose ONLY way in is Google is
+    // refused, since unlinking would leave it with no credential at all.
+    if (action === 'google-unlink') {
+        const suppliedPassword = typeof password === 'string' && password ? password : '';
+        if (!suppliedPassword || playerPasswordVerificationError(suppliedPassword)) {
+            return res.status(401).json({ ok: false, error: 'Enter your current password to unlink Google.' });
+        }
+        try {
+            return await withKvLock(key, async () => {
+                const record = await kv.get<AuthRecord>(key);
+                const matched = await verifyAgainst(record ?? DUMMY_AUTH_RECORD, suppliedPassword);
+                if (!record || !matched) {
+                    if (record && isPasswordlessRecord(record) && record.google) {
+                        return res.status(409).json({ ok: false, error: 'Google is your only way to sign in. Set a password before unlinking it.' });
+                    }
+                    return res.status(401).json({ ok: false, error: 'Incorrect current password.' });
+                }
+                const sub = record.google?.sub;
+                if (!sub) return res.status(409).json({ ok: false, error: 'No Google account is linked.' });
+                // This walks out with a fresh token, so it is gated like `verify`.
+                const ban = await getActiveBan(name);
+                if (ban) {
+                    return res.status(403).json({
+                        ok: false,
+                        error: 'Account is banned.',
+                        ban: { until: ban.until, reason: ban.reason, permanent: ban.permanent ?? false },
+                    });
+                }
+                // Credential mutation: rotate, as `change` does, so a session
+                // that rode in through the Google link ends with it.
+                const sessionEpoch = await rotatePlayerSessionEpoch(name);
+                const next: AuthRecord = { ...record, sessionEpoch };
+                delete next.google;
+                await kv.set(key, next);
+                await releaseGoogleIdentityForAccount(name, sub);
+                return res.status(200).json({ ok: true, token: issuePlayerToken(name, undefined, sessionEpoch) ?? undefined });
+            }, { failClosed: true });
+        } catch (err) {
+            console.error('[player-auth google-unlink]', String(err));
+            return res.status(503).json({ ok: false, error: 'Storage unavailable. Try again.' });
+        }
     }
 
     return res.status(400).json({ ok: false, error: 'Unknown action.' });

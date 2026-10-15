@@ -49,6 +49,15 @@ before(async () => {
         if (!h) return 0;
         return fields.reduce((n, f) => (f in h ? (delete h[f], n + 1) : n), 0);
     };
+    // Prefix-only patterns are all this module (and the image helpers) send.
+    kv.keys = async (pattern: string) => {
+        assertKvLockContext();
+        const prefix = pattern.replace(/\*$/, '');
+        return [...store.keys()].filter((k) => k.startsWith(prefix));
+    };
+    kv.mget = (async (...keys: string[]) => { assertKvLockContext(); return keys.map((k) => clone(store.get(k)) ?? null); }) as typeof kv.mget;
+    kv.hkeys = async (key: string) => { assertKvLockContext(); return Object.keys(hashes.get(key) ?? {}); };
+    kv.hgetall = (async (key: string) => { assertKvLockContext(); return clone(hashes.get(key) ?? null); }) as typeof kv.hgetall;
 
     const mod = await import('./_delete-player-account.js');
     detachPlayerReferences = mod.detachPlayerReferences;
@@ -230,6 +239,54 @@ describe('player deletion', () => {
             assert.equal(store.get('auth-session:wanderer'), 1);
         });
     }
+
+    it('releases the avatar, image claims and misc counter so a re-registered name inherits none of them', async () => {
+        const png = 'data:image/png;base64,AAAA';
+        store.set('save:wanderer', { character: { name: 'Wanderer', clan: 'Storm Petals' } });
+        store.set('shared:img:avatar:wanderer', png);
+        store.set('img-owner:avatar:wanderer', 'wanderer');
+        store.set('shared:img:avatar:kaze', png);
+        store.set('img-owner:bloodline:11111111-1111-4111-8111-111111111111', 'wanderer');
+        store.set('img-owner:item:named-weapon-x', 'wanderer');
+        store.set('img-owner:jutsu:22222222-2222-4222-8222-222222222222', 'kaze');
+        store.set('img-owner:petbody:starter-fire', '@admin');
+        store.set('shared:img:bloodline:11111111-1111-4111-8111-111111111111', png);
+        store.set('upload:misc-count:wanderer', 7);
+        store.set('upload:misc-count:kaze', 3);
+        store.set('save-snapshot:wanderer:1', { keep: true });
+
+        const result = await deletePlayerAccount('wanderer');
+
+        assert.deepEqual(result.failures, []);
+        assert.equal(store.has('shared:img:avatar:wanderer'), false, 'the avatar row goes');
+        assert.equal(store.has('img-owner:avatar:wanderer'), false);
+        assert.ok(Number(store.get('shared:imgver:avatar')) >= 1, 'cached avatar URLs are retired, as an admin delete does');
+        assert.equal(store.has('img-owner:bloodline:11111111-1111-4111-8111-111111111111'), false, 'claims held by the slug are released');
+        assert.equal(store.has('img-owner:item:named-weapon-x'), false);
+        assert.ok(result.detached.includes('img-owner:item:named-weapon-x'));
+        assert.equal(store.has('upload:misc-count:wanderer'), false);
+        // Everything that is not the departing player's stays.
+        assert.equal(store.get('shared:img:avatar:kaze'), png);
+        assert.equal(store.get('img-owner:jutsu:22222222-2222-4222-8222-222222222222'), 'kaze');
+        assert.equal(store.get('img-owner:petbody:starter-fire'), '@admin');
+        assert.equal(store.get('upload:misc-count:kaze'), 3);
+        assert.equal(store.get('shared:img:bloodline:11111111-1111-4111-8111-111111111111'), png, 'the art itself is not the slug\'s to delete');
+        assert.deepEqual(store.get('save-snapshot:wanderer:1'), { keep: true }, 'restore snapshots are kept on purpose');
+    });
+
+    it('removes an avatar published under a display name that differs from the slug', async () => {
+        store.set('save:wanderer', { character: { name: 'Wan Derer', clan: '' } });
+        store.set('shared:img:avatar:wan derer', 'data:image/png;base64,AAAA');
+        const result = await detachPlayerReferences('wan derer');
+        assert.equal(result.name, 'wanderer');
+        assert.equal(store.has('shared:img:avatar:wan derer'), false);
+    });
+
+    it('does not re-key every avatar when the departing player had none', async () => {
+        const result = await deletePlayerAccount('wanderer');
+        assert.deepEqual(result.failures, []);
+        assert.equal(store.has('shared:imgver:avatar'), false, 'no avatar, no version bump');
+    });
 
     it('holds auth and First Pact authority through every destructive account operation', async () => {
         const deletes: string[] = [];
