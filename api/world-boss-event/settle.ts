@@ -21,6 +21,7 @@ import {
 } from './_event.js';
 import { closeWorldBossQueue, removeWorldBossMatchFromQueue } from './_queue.js';
 import { settleWorldBossReward } from './_reward.js';
+import { settlePveFightOutcome } from '../pve/_fight-outcome-settlement.js';
 import { applyWorldBossRetreatPenalty } from './_retreat.js';
 import { rememberWorldBossTopCacheEvent, settleWorldBossTopCaches } from './_top-cache.js';
 import { announceWorldBossEventTransition } from './_announcements.js';
@@ -143,6 +144,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const settledMatch = await readWorldBossMatch(eventId, matchId);
             if (!settledMatch) return { ok: false as const, status: 404, error: 'World boss match receipt not found.' };
+            // Each raider leaves with the HP they finished on; a raider knocked
+            // out goes to the hospital. Written once per member under the shared
+            // pve-outcome receipt, so a retry or the lapse reconciler replays it.
+            // A raid sealed before raids seated current HP has no seal and keeps
+            // its old no-write behaviour.
+            const bodySession = await readSession(runId);
+            if (bodySession?.worldBossEvent?.matchId === matchId && bodySession.worldBossEvent.seededVitals) {
+                for (const member of settledMatch.members) {
+                    const body = await settlePveFightOutcome(bodySession, member.slug);
+                    if (!body.ok) throw new Error(`World boss HP settlement is pending: ${body.error}`);
+                }
+            }
             for (const member of settledMatch.members) {
                 if (!member.contribution?.active) continue;
                 const paid = await settleWorldBossReward({ eventId, eventStartedAt: (await readWorldBossEvent(eventId))?.startedAt ?? 0, playerSlug: member.slug });

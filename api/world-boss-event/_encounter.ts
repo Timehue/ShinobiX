@@ -1,7 +1,7 @@
 import { kv } from '../_storage.js';
 import { loadAdminCombatContent } from '../_admin-content.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
-import { isIncapacitated } from '../_elapsed-state.js';
+import { isIncapacitated, settleVitalsRegen } from '../_elapsed-state.js';
 import { applyAiMasteryToActor } from '../_pve-ai-mastery.js';
 import { sealTowerFighter, sealTowerItemCharges } from '../towers/_seal.js';
 import { buildTowerEncounter, type SquadMemberInput } from '../towers/_encounter.js';
@@ -144,15 +144,30 @@ export async function createWorldBossEncounter(input: {
             kv.mget<Record<string, unknown>[]>(...slugs.map(slug => `save:${slug}`)),
         ]);
         const squad: SquadMemberInput[] = [];
+        // Each raider enters with the HP they have, like every other PvE fight,
+        // and settlement writes back what they leave with (api/pve/_fight-outcome-settlement.ts).
+        // `entryHp` carries the idle recovery a read would settle; `storedHp` is
+        // what the save itself holds, which the seal records so the late
+        // settlement does not charge that unwritten recovery as a loss (the
+        // Sunscar caravan ambush does the same).
+        const entryHp = new Map<string, number>();
+        const storedHp = new Map<string, number>();
         for (let index = 0; index < members.length; index += 1) {
             const member = members[index]!;
-            const record = await augmentSaveWithForgedDefs(saves[index] ?? null);
+            const stored = saves[index] ?? null;
+            const record = await augmentSaveWithForgedDefs(stored);
             const character = record?.character as Record<string, unknown> | undefined;
             if (!record || !character) throw new Error(`${member.name}'s save is unavailable. The queue was released.`);
             if (Math.floor(Number(record.currentSector)) !== input.expectedSector) {
                 throw new Error(`${member.name} left the boss's sector before the team formed.`);
             }
             if (isIncapacitated(character)) throw new Error(`${member.name} needs to recover before joining the raid.`);
+            const regenerated = settleVitalsRegen(stored!, { now: input.now, battleLocked: false }).record.character as Record<string, unknown>;
+            const currentHp = Number(regenerated?.hp ?? character.hp);
+            if (Number.isFinite(currentHp) && currentHp <= 0) throw new Error(`${member.name} needs to recover before joining the raid.`);
+            if (Number.isFinite(currentHp)) entryHp.set(member.slug, Math.floor(currentHp));
+            const heldHp = Number((stored?.character as Record<string, unknown> | undefined)?.hp);
+            if (Number.isFinite(heldHp)) storedHp.set(member.slug, Math.max(0, Math.floor(heldHp)));
             const actorId = `sq-${squad.length}`;
             squad.push({
                 id: actorId,
@@ -169,6 +184,16 @@ export async function createWorldBossEncounter(input: {
             seed: Number.parseInt(input.match.matchId.slice(0, 8), 16) || input.now,
             now: input.now,
         });
+        const seededVitals: Record<string, { hp?: number }> = {};
+        for (const member of members) {
+            const actor = session.actors.find(candidate => candidate.side === 'squad' && candidate.ai === false && candidate.ownerSlug === member.slug);
+            if (!actor) continue;
+            const hp = entryHp.get(member.slug);
+            if (hp !== undefined) actor.hp = Math.max(1, Math.min(actor.maxHp, hp));
+            // A save with no readable HP is full, as the fighter was seated.
+            seededVitals[member.slug] = { hp: Math.min(actor.hp, storedHp.get(member.slug) ?? actor.hp) };
+        }
+        session.worldBossEvent!.seededVitals = seededVitals;
         const floor = session.encounterFloor!;
         startRound(session);
         runAiUntilHuman(session, floor, makeRng(session.seed));
