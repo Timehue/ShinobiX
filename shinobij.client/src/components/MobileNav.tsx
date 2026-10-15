@@ -15,7 +15,7 @@ import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 import type { Character } from "../types/character";
 import type { Biome, Screen } from "../types/core";
 import type { ActiveTraining, ActiveJutsuTraining } from "../types/combat";
-import { isProtectedAdminName } from "../constants/game";
+import { DISCORD_INVITE_URL, isProtectedAdminName } from "../constants/game";
 import { PROFESSION_LABEL } from "../data/professions";
 import { preloadScreen } from "../lib/screen-preload";
 import { useOwnAvatar } from "../lib/own-avatar";
@@ -206,7 +206,7 @@ export const MobileNav = memo(function MobileNav({
                             <h2 id="mobile-menu-support">Support</h2>
                             <div className="mobile-menu-grid">
                                 <button className="mobile-menu-btn" aria-current={screen === "guides" ? "page" : undefined} onClick={() => go("guides")} onPointerDown={() => preloadScreen("guides")}><GiOpenBook size={20} />Guides</button>
-                                <button className="mobile-menu-btn" onClick={() => { window.open("https://discord.gg/usr3vzykBh", "_blank", "noopener,noreferrer"); setOpen(false); }}><GiDiscord size={20} />Discord</button>
+                                <button className="mobile-menu-btn" onClick={() => { window.open(DISCORD_INVITE_URL, "_blank", "noopener,noreferrer"); setOpen(false); }}><GiDiscord size={20} />Discord</button>
                                 <button className="mobile-menu-btn" aria-current={screen === "premiumShop" ? "page" : undefined} onClick={() => go("premiumShop")} onPointerDown={() => preloadScreen("premiumShop")}><GiPremiumShop size={20} />Premium Shop</button>
                             </div>
                         </section>

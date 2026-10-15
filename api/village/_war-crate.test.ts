@@ -73,7 +73,7 @@ test('warCrateClaimDecision is idempotent — an already-claimed crate is not re
 test('warCrateClaimDecision gives a village crate only to members who fought for the winner', () => {
     const fighters = {
         contributions: {
-            kirauchiha: { damage: 40, side: 'Stormveil' },
+            kiraemberfall: { damage: 40, side: 'Stormveil' },
             turncoat: { damage: 90, side: 'Frostfang' },
             idler: { damage: 0, side: 'Stormveil' },
         },
@@ -81,10 +81,10 @@ test('warCrateClaimDecision gives a village crate only to members who fought for
     };
     const war = wonWar(VILLAGE_CRATE, { fighters });
     const decide = (slug: string, name: string) => warCrateClaimDecision(war, VILLAGE_CRATE, 'Stormveil', [], NOW, { slug, name });
-    assert.equal(decide('kirauchiha', 'Kira Uchiha').reason, 'granted', 'damage is found under the safeName slug');
+    assert.equal(decide('kiraemberfall', 'Kira Emberfall').reason, 'granted', 'damage is found under the safeName slug');
     assert.equal(decide('rin', 'Rin').reason, 'granted', 'the MVP fought by definition');
-    const slugMvp = wonWar(VILLAGE_CRATE, { fighters: { contributions: {}, mvpName: 'rinuchiha' } });
-    assert.equal(warCrateClaimDecision(slugMvp, VILLAGE_CRATE, 'Stormveil', [], NOW, { slug: 'rinuchiha', name: 'Rin Uchiha' }).reason, 'granted');
+    const slugMvp = wonWar(VILLAGE_CRATE, { fighters: { contributions: {}, mvpName: 'rinemberfall' } });
+    assert.equal(warCrateClaimDecision(slugMvp, VILLAGE_CRATE, 'Stormveil', [], NOW, { slug: 'rinemberfall', name: 'Rin Emberfall' }).reason, 'granted');
     assert.equal(warCrateClaimDecision(slugMvp, VILLAGE_CRATE, 'Stormveil', [], NOW, { slug: 'anotherplayer', name: 'Another Player' }).reason, 'did-not-fight');
     assert.equal(decide('bystander', 'Bystander').reason, 'did-not-fight', 'a member who never fought gets nothing');
     assert.equal(decide('idler', 'Idler').reason, 'did-not-fight', 'zero damage is not fighting');
