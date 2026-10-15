@@ -10,6 +10,7 @@ export type WeeklyBossAuthoritativeRun = {
     createdAt: number;
     startState?: 'prepared' | 'ready';
     settledAt?: number;
+    settledDamage?: number;
 };
 
 export const weeklyBossRunKey = (runId: string) => `weekly-boss-run:${runId}`;

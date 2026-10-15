@@ -494,6 +494,7 @@ import { loadHollowGateMovementDrain, loadHollowGateTileRuntime, warmHollowGateG
 import { buildHollowGateRunFromStart, HOLLOW_GATE_FLOOR_LOAD_FAILED } from "./lib/hollow-gate-run-build";
 import { hollowGateEncounterPresentation } from "./lib/hollow-gate-presentation";
 import { resumeHollowGateServerRun, settleHollowGateRunOnly, startHollowGateServerRun, attachStartedRun, clearHollowGateRunLocal, reportHollowGateRunError } from "./lib/hollow-gate-server";
+import { stageWorldBossEventReturn, worldBossTabStorageKey } from "./lib/world-boss-hub-navigation";
 import { startHollowGateCombat, settleHollowGateCombat, type HollowGateCombatKind, type HollowGateCombatSettleResult, type HollowGateServerFight } from "./lib/hollow-gate-combat-api";
 import { hollowGateRewardLines, hollowGateSealRunMarkers, resolveHollowGateServerEvent, sealHollowGateFloor } from "./lib/hollow-gate-event-api";
 import { hollowGateRunSummary } from "./lib/hollow-gate-summary";
@@ -5923,7 +5924,11 @@ export default function App() {
                     />
                 )}
                 {!activeTriggeredEvent && screen === "battleTowers" && character && (
-                    <BattleTowers character={character} creatorItems={creatorItems} savedBloodlines={savedBloodlines} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} sharedImages={sharedImages} onExit={goBack} onWorldBossExit={() => setScreen("weeklyBoss")} onRecordBattle={recordBattle} />
+                    <BattleTowers character={character} creatorItems={creatorItems} savedBloodlines={savedBloodlines} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} sharedImages={sharedImages} onExit={goBack} onWorldBossExit={() => {
+                        stageWorldBossEventReturn(character.name);
+                        try { sessionStorage.setItem(worldBossTabStorageKey(character.name), 'hollow-beast'); } catch { /* navigation still works without storage */ }
+                        setScreen("weeklyBoss");
+                    }} onRecordBattle={recordBattle} />
                 )}
                 {!activeTriggeredEvent && screen === "weeklyBoss" && character && (
                     <WorldBossesHub character={character} currentSector={currentSector}
