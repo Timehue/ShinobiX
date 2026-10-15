@@ -83,7 +83,14 @@ const forbiddenClientExtensions = new Set([
 // 56 KB per full card against 207 KB for the existing set) took the production
 // image build of PR #399 to 539.4 MiB, 0.4 MiB over. Reserve 541 MiB, about
 // 1.6 MiB of headroom.
-const maxClientArtifactBytes = 541 * 1024 * 1024;
+// 2026-10-15: all 404 faces now have individual painted art and 150 matching
+// two-view figures. The verified set is 142.59 MiB; 790 obsolete files removed
+// 89.98 MiB. Budget the intentional replacement separately: the rest of the
+// client is 449.35 MiB and keeps ~1.65 MiB headroom, rather than allowing this
+// art refresh to mask unrelated growth under a larger undifferentiated cap.
+const maxChronicleArtBytes = 144 * 1024 * 1024;
+const maxOtherClientBytes = 451 * 1024 * 1024;
+const maxClientArtifactBytes = maxChronicleArtBytes + maxOtherClientBytes;
 const maxRallyAtlasBytes = 4 * 1024 * 1024;
 
 function fail(msg) {
@@ -259,6 +266,17 @@ const leakedSourceFile = clientRelativeFiles.find((file) => {
 if (leakedSourceFile) fail(`client dist contains an authoring source file: ${leakedSourceFile}`);
 
 const clientArtifactBytes = clientFiles.reduce((total, file) => total + statSync(file).size, 0);
+const chronicleArtBytes = clientFiles
+    .filter((file) => /^chronicle\/(?:cards|figures)\//.test(relative(clientDist, file).replace(/\\/g, '/')))
+    .reduce((total, file) => total + statSync(file).size, 0);
+if (chronicleArtBytes > maxChronicleArtBytes) {
+    fail(`Chronicle art is ${(chronicleArtBytes / 1024 / 1024).toFixed(1)} MiB; ceiling is ${maxChronicleArtBytes / 1024 / 1024} MiB`);
+}
+const otherClientBytes = clientArtifactBytes - chronicleArtBytes;
+if (otherClientBytes > maxOtherClientBytes) {
+    fail(`client excluding Chronicle art is ${(otherClientBytes / 1024 / 1024).toFixed(1)} MiB; ceiling is ${maxOtherClientBytes / 1024 / 1024} MiB`);
+}
+console.log(`[verify:dist] Chronicle art ${(chronicleArtBytes / 1024 / 1024).toFixed(1)} / 144 MiB; other runtime assets ${(otherClientBytes / 1024 / 1024).toFixed(1)} / 451 MiB.`);
 if (clientArtifactBytes > maxClientArtifactBytes) {
     fail(`client dist is ${(clientArtifactBytes / 1024 / 1024).toFixed(1)} MB; runtime artifact ceiling is ${maxClientArtifactBytes / 1024 / 1024} MB`);
 }

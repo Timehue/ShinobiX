@@ -1,0 +1,220 @@
+{
+  "artSnapshot": {
+    "chronicle-skyhook-snare": {
+      "runtimePath": "/chronicle/cards/chronicle-skyhook-snare-painted-v2.webp",
+      "smallPath": "/chronicle/cards/chronicle-skyhook-snare-painted-v2-512.webp",
+      "runtimeSha256": "8f270356fbd2e562ad32220f121aa16841a334936b13d769191dc842134a1ab3",
+      "smallSha256": "2f478a3172226981332c4e4c60e10864f106ec6362b11a0cd9cbfb5e4f399870"
+    },
+    "chronicle-earthen-grave-array": {
+      "runtimePath": "/chronicle/cards/chronicle-earthen-grave-array-painted-v2.webp",
+      "smallPath": "/chronicle/cards/chronicle-earthen-grave-array-painted-v2-512.webp",
+      "runtimeSha256": "210ab3f7955920fc0927126812bf1f5202c1c38530c61ee9a0ab52fabc809d47",
+      "smallSha256": "0d7011f7991a179679b5bf710339372b4a2151a7476e68c808088a6c5e5613a8"
+    },
+    "chronicle-flash-burial-tag": {
+      "runtimePath": "/chronicle/cards/chronicle-flash-burial-tag-painted-v2.webp",
+      "smallPath": "/chronicle/cards/chronicle-flash-burial-tag-painted-v2-512.webp",
+      "runtimeSha256": "81d1f484421ea3be3e0fd24296e52279bd0281c798666f2f95f2e289fbfeaeb1",
+      "smallSha256": "43d284cbc34ef719d573d0a8a313ce731e7c2915ffad7b8e0b0afb746c13753d"
+    },
+    "chronicle-great-maw-seal": {
+      "runtimePath": "/chronicle/cards/chronicle-great-maw-seal-painted-v2.webp",
+      "smallPath": "/chronicle/cards/chronicle-great-maw-seal-painted-v2-512.webp",
+      "runtimeSha256": "24719dd06e19ceeb3a6ee83d0bd68d04a0fdf248e318961776b7cca7da26fbf1",
+      "smallSha256": "2489107bb9011b3998da0902ba11fda4117665ed20579061e0bf18ad22b87297"
+    },
+    "chronicle-undertow-gate": {
+      "runtimePath": "/chronicle/cards/chronicle-undertow-gate-painted-v2.webp",
+      "smallPath": "/chronicle/cards/chronicle-undertow-gate-painted-v2-512.webp",
+      "runtimeSha256": "9538d2c9b501f07fa7db5031fdfe72ca37db67e9d4091bf19170ff4dbc03b183",
+      "smallSha256": "10ac8ee447e07256ab827301d2cb9195cc0ec3a7e604a35ebc7591de12d4aec1"
+    },
+    "chronicle-dust-exile": {
+      "runtimePath": "/chronicle/cards/chronicle-dust-exile-painted-v2.webp",
+      "smallPath": "/chronicle/cards/chronicle-dust-exile-painted-v2-512.webp",
+      "runtimeSha256": "70a32017ef2514cd7d23b10984fc9bd69894b62f6aaf09e7462ae64c373e3bb3",
+      "smallSha256": "ca57c27a841f7eadb2ef46511527eb1fcd3025a4cca17349e2804b898c19c037"
+    },
+    "chronicle-ember-cipher": {
+      "runtimePath": "/chronicle/cards/chronicle-ember-cipher-painted-v2.webp",
+      "smallPath": "/chronicle/cards/chronicle-ember-cipher-painted-v2-512.webp",
+      "runtimeSha256": "ecdbe1d7e7a384af498ebff15dbeda26d211c332a50692515af64e24b1cdb6fc",
+      "smallSha256": "6579ee0525f8cd710d59e69b182631a56aa65ca9fe9a6d11b906e7c9c77dc8c9"
+    },
+    "chronicle-drowned-formula": {
+      "runtimePath": "/chronicle/cards/chronicle-drowned-formula-painted-v2.webp",
+      "smallPath": "/chronicle/cards/chronicle-drowned-formula-painted-v2-512.webp",
+      "runtimeSha256": "2391d713d389637724eea8980a37aa6481a082e49de0c38e518117975f26e1a7",
+      "smallSha256": "04a9f516493c92e63ba0afd5fb4aaeb79542058b1fe611a120178122fa7b5838"
+    },
+    "chronicle-grounding-rod-script": {
+      "runtimePath": "/chronicle/cards/chronicle-grounding-rod-script-painted-v2.webp",
+      "smallPath": "/chronicle/cards/chronicle-grounding-rod-script-painted-v2-512.webp",
+      "runtimeSha256": "ec497bd29ca7b76bb31e237800130fbbcc774aa3b5dcabb01b02fe673ac4bf4a",
+      "smallSha256": "2886e4c8e4ee0cb5c4c264b7eced7acb9fe2c9666dd17296ec6edecb5e3974d5"
+    }
+  },
+  "images": [
+    {
+      "src": "http://127.0.0.1:58191/chronicle/cards/chronicle-skyhook-snare-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58191/chronicle/cards/chronicle-earthen-grave-array-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58191/chronicle/cards/chronicle-flash-burial-tag-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58191/chronicle/cards/chronicle-great-maw-seal-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58191/chronicle/cards/chronicle-undertow-gate-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58191/chronicle/cards/chronicle-dust-exile-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58191/chronicle/cards/chronicle-ember-cipher-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58191/chronicle/cards/chronicle-drowned-formula-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58191/chronicle/cards/chronicle-grounding-rod-script-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58191/chronicle/cards/chronicle-skyhook-snare-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58191/chronicle/cards/chronicle-earthen-grave-array-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58191/chronicle/cards/chronicle-flash-burial-tag-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58191/chronicle/cards/chronicle-great-maw-seal-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58191/chronicle/cards/chronicle-undertow-gate-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58191/chronicle/cards/chronicle-dust-exile-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58191/chronicle/cards/chronicle-ember-cipher-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58191/chronicle/cards/chronicle-drowned-formula-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58191/chronicle/cards/chronicle-grounding-rod-script-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    }
+  ],
+  "cardIds": [
+    "chronicle-skyhook-snare",
+    "chronicle-earthen-grave-array",
+    "chronicle-flash-burial-tag",
+    "chronicle-great-maw-seal",
+    "chronicle-undertow-gate",
+    "chronicle-dust-exile",
+    "chronicle-ember-cipher",
+    "chronicle-drowned-formula",
+    "chronicle-grounding-rod-script"
+  ],
+  "renderedCardIds": [
+    "chronicle-skyhook-snare",
+    "chronicle-earthen-grave-array",
+    "chronicle-flash-burial-tag",
+    "chronicle-great-maw-seal",
+    "chronicle-undertow-gate",
+    "chronicle-dust-exile",
+    "chronicle-ember-cipher",
+    "chronicle-drowned-formula",
+    "chronicle-grounding-rod-script"
+  ],
+  "inspectorBackdrop": "fixed",
+  "inspectorFoil": {
+    "className": "chronicle-card__foil",
+    "animation": "none",
+    "mask": "none"
+  },
+  "reducedMotionAnimation": "none",
+  "mobileOverflow": false,
+  "mobileCards": [
+    {
+      "name": "SKYHOOK SNARE",
+      "visible": true
+    },
+    {
+      "name": "EARTHEN GRAVE ARRAY",
+      "visible": true
+    },
+    {
+      "name": "FLASH-BURIAL TAG",
+      "visible": true
+    },
+    {
+      "name": "GREAT-MAW SEAL",
+      "visible": true
+    },
+    {
+      "name": "UNDERTOW GATE",
+      "visible": true
+    },
+    {
+      "name": "DUST EXILE",
+      "visible": true
+    },
+    {
+      "name": "EMBER CIPHER",
+      "visible": true
+    },
+    {
+      "name": "DROWNED FORMULA",
+      "visible": true
+    },
+    {
+      "name": "GROUNDING-ROD SCRIPT",
+      "visible": true
+    }
+  ],
+  "failures": [],
+  "consoleErrors": []
+}

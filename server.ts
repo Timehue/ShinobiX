@@ -60,6 +60,7 @@ import { evaluateLaunchControl, presenceStateJobsDisabled } from './api/_launch-
 import { captureExpressException } from './api/_sentry-context.js';
 import { sanitizeSentryEvent } from './shared/observability-sanitize.js';
 import { LEGACY_ITEM_ART } from './shared/legacy-item-art.js';
+import { chronicleLegacyArtRedirect } from './shared/chronicle-legacy-art.js';
 import {
     canonicalRedirectLocation,
     isLegacyDuplicateHost,
@@ -968,6 +969,10 @@ app.get(/^\/items\/([^/]+)$/, (req, res, next) => {
     res.setHeader('Cache-Control', 'public, max-age=86400');
     res.redirect(302, `/items/${renamed}`);
 });
+
+// Old open tabs and saved image overrides keep working after the duplicate
+// Chronicle files are removed. Only known catalog identities can redirect.
+app.get(/^\/chronicle\/(?:cards|figures)\//, chronicleLegacyArtRedirect);
 
 app.use(express.static(staticDir, {
     setHeaders: (res, filePath) => {

@@ -1,6 +1,7 @@
 import type { Character } from "../types/character";
 import type { EchoesBattleBeat } from "../../../shared/echoes-witness";
 import type { TileCard } from "../data/tile-cards";
+import { CHRONICLE_PAINTED_ART } from "../../../shared/chronicle-painted-art";
 import {
     CHRONICLE_CARD_CATALOG,
     CHRONICLE_TOKEN_CARDS,
@@ -55,7 +56,33 @@ export type ChronicleAiResult = {
 
 export function displayCatalog(tileCards: readonly TileCard[]): ChronicleDisplayCard[] {
     const art = new Map(tileCards.filter((card) => card.image).map((card) => [card.id, card.image!]));
-    return CHRONICLE_CARD_CATALOG.map((card) => art.has(card.id) ? { ...card, image: art.get(card.id) } : { ...card });
+    return CHRONICLE_CARD_CATALOG.map((card) => CHRONICLE_PAINTED_ART[card.id]
+        ? { ...card, image: CHRONICLE_PAINTED_ART[card.id] }
+        : art.has(card.id) ? { ...card, image: art.get(card.id) } : { ...card });
+}
+
+export type ChronicleInventoryCard = {
+    id: string;
+    name: string;
+    rarity: ChronicleDisplayCard["rarity"];
+    element: string;
+    description: string;
+    image?: string;
+};
+
+/** The backpack includes story, legacy and companion cards as well as the
+ * original tile set. Reuse the same art precedence as the Card Hall. */
+export function chronicleInventoryCatalog(tileCards: readonly TileCard[]): ChronicleInventoryCard[] {
+    const catalog = displayCatalog(tileCards);
+    const ids = new Set(catalog.map(card => card.id));
+    return [
+        ...catalog.map(card => ({
+            id: card.id, name: card.name, rarity: card.rarity,
+            element: card.cardClass === "monster" ? card.element : card.cardClass === "magic" ? "Jutsu" : "Snare",
+            description: card.lore, image: card.image,
+        })),
+        ...tileCards.filter(card => !ids.has(card.id)),
+    ];
 }
 
 /** Every card the board can show by id: the catalog plus field-only tokens

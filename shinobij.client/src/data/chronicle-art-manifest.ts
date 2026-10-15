@@ -1,5 +1,6 @@
 import type { TileCard } from "./tile-cards";
 import { CHRONICLE_CARD_CATALOG } from "../../../shared/chronicle-duel";
+import { CHRONICLE_PAINTED_ART } from "../../../shared/chronicle-painted-art";
 
 export type ChronicleArtManifestRow = {
   cardId: string;
@@ -23,6 +24,13 @@ export function buildChronicleArtManifest(
       .map((card) => [card.id, card.image!]),
   );
   return CHRONICLE_CARD_CATALOG.map((card) => {
+    if (CHRONICLE_PAINTED_ART[card.id])
+      return {
+        cardId: card.id,
+        runtimePath: CHRONICLE_PAINTED_ART[card.id],
+        provenance: "generated-original",
+        treatment: "direct-reuse",
+      };
     const overlay = overlays.get(card.id);
     if (overlay)
       return {

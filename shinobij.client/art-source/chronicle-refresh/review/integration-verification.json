@@ -1,0 +1,27 @@
+{
+  "status": "passed",
+  "compiledCatalogFaces": 404,
+  "compiledFigurePairs": 150,
+  "hashVerifiedCurrentHTTPAssets": 1108,
+  "verifiedLegacyHTTPRedirects": 790,
+  "staleLiteralRuntimeReferences": 0,
+  "surfaces": [
+    "catalog",
+    "backpack inventory",
+    "duel lookup and departure figures",
+    "support and token cards",
+    "card inspector",
+    "eight-card pack opening"
+  ],
+  "browserViewports": [
+    "desktop",
+    "mobile",
+    "tablet",
+    "landscape"
+  ],
+  "holography": "passed",
+  "reducedMotion": "passed",
+  "browserConsoleErrors": 0,
+  "missingAssetsReturn404": true,
+  "environment": "Local compiled production server with isolated in-memory storage; no live deployment changed"
+}
