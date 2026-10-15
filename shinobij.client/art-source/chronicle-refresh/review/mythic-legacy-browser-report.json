@@ -1,0 +1,168 @@
+{
+  "images": [
+    {
+      "src": "http://127.0.0.1:51533/chronicle/cards/legacy-first-flame-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51533/chronicle/cards/legacy-gate-opener-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51533/chronicle/cards/legacy-hundred-storms-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51533/chronicle/cards/legacy-duel-sovereign-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51533/chronicle/cards/legacy-silent-empire-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51533/chronicle/cards/legacy-last-bastion-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51533/chronicle/cards/legacy-founders-shadow-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51533/chronicle/cards/legacy-world-awakener-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51533/chronicle/cards/legacy-horizons-end-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51533/chronicle/cards/legacy-deathless-ember-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51533/chronicle/cards/legacy-first-flame-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51533/chronicle/cards/legacy-gate-opener-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51533/chronicle/cards/legacy-hundred-storms-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51533/chronicle/cards/legacy-duel-sovereign-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51533/chronicle/cards/legacy-silent-empire-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51533/chronicle/cards/legacy-last-bastion-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51533/chronicle/cards/legacy-founders-shadow-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51533/chronicle/cards/legacy-world-awakener-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51533/chronicle/cards/legacy-horizons-end-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51533/chronicle/cards/legacy-deathless-ember-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    }
+  ],
+  "cardIds": [
+    "legacy-first-flame",
+    "legacy-gate-opener",
+    "legacy-hundred-storms",
+    "legacy-duel-sovereign",
+    "legacy-silent-empire",
+    "legacy-last-bastion",
+    "legacy-founders-shadow",
+    "legacy-world-awakener",
+    "legacy-horizons-end",
+    "legacy-deathless-ember"
+  ],
+  "inspectorBackdrop": "fixed",
+  "inspectorFoil": {
+    "className": "chronicle-card__foil chronicle-card__foil--holographic",
+    "animation": "chronicleFoilSweep",
+    "mask": "linear-gradient(rgba(0, 0, 0, 0) 12%, rgb(0, 0, 0) 23%, rgb(0, 0, 0) 57%, rgba(0, 0, 0, 0) 72%)"
+  },
+  "reducedMotionAnimation": "none",
+  "mobileOverflow": false,
+  "mobileCards": [
+    {
+      "name": "LEGACY OF THE FIRST FLAME",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE SUNDERED SEAL",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE HUNDRED STORMS",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE DUEL SOVEREIGN",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE SILENT EMPIRE",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE LAST BASTION",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE FOUNDER'S SHADOW",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE WORLD AWAKENER",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE HORIZON'S END",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE DEATHLESS EMBER",
+      "visible": true
+    }
+  ],
+  "failures": [],
+  "consoleErrors": []
+}

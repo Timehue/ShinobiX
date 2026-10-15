@@ -1,0 +1,1472 @@
+[
+  {
+    "id": "tc-10",
+    "runtimeSha256": "3aa91d297a3bc4385392b66570d1a69bb58b2010cef3abeb72f1071f5c0bedd6",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-01-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-01-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-01-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-12",
+    "runtimeSha256": "3c0cff081aa27391ba5ea398864ce26768bd8330cb17c4fc10f25d59c18dbacd",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-01-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-01-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-01-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-13",
+    "runtimeSha256": "8c713aa698e06305834b76768d93e80ad70b9775f22ff8fe1c290057b245621c",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-01-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-01-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-01-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-14",
+    "runtimeSha256": "34a5d22e1bf19f7c7ce9a72ea5641f77b1aa768f82d922f5f760a186177b97be",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-01-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-01-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-01-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-16",
+    "runtimeSha256": "48f39dade3118cf61e9820f1aa508eac99de272078e760a3eede36c1f7a29630",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-01-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-01-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-01-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-17",
+    "runtimeSha256": "ea6ef39a20a2abe0d66085bd266de9856c34f75edbba02d57a45aa8b8ec9cc41",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-01-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-01-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-01-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-18",
+    "runtimeSha256": "00eabeca330ae65140db4ade8a3296130a45fa67329c87ea79ff786e1a6fee78",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-01-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-01-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-01-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-20",
+    "runtimeSha256": "413724e4bffce6f3b5804f752a459a290d624eef38775e74789776605db4d827",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-01-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-01-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-01-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-22",
+    "runtimeSha256": "bfbec46ec1ee0945d4eee1ee55cfcea5a1f8d709ddbc20441655b473a16447f3",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-01-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-01-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-01-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-24",
+    "runtimeSha256": "c8a979d061ff36006a9eeba065e3366d119344ea26ff06a13d88a6abdc6c20c1",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-01-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-01-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-01-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-25",
+    "runtimeSha256": "9052e2b29a4570a1cc61ac3000e9be2bd03c5367267bd1d8881296a591cd0592",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-01-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-01-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-01-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-26",
+    "runtimeSha256": "739f77d4f4266582ea598faeccbfebdc10594e983f4611311f514f4cc559afcf",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-01-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-01-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-01-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-27",
+    "runtimeSha256": "0ceb7a5ac9df6e7a39376448af6d8a0908290de758ca5dd3e6f6d6e6bd70efe6",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-02-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-02-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-02-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-28",
+    "runtimeSha256": "8f6e10948d5538c8790111adf8726293ad5af921f7bcfcf819b2d580ca90561d",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-02-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-02-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-02-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-29",
+    "runtimeSha256": "d5d5938e74bd5339243719c8ffbfd942329d7bec5f26d2dd3dda703b50641da1",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-02-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-02-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-02-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-30",
+    "runtimeSha256": "01a5b1d4a3ddb6b983b5771bc830fe0a2df2e8ce8d3ba1b77c2c4ca72a4054de",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-02-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-02-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-02-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-32",
+    "runtimeSha256": "f5aac08a0d83d0c9c07dced1a886baa5817ea617119674f287678fd8e4c00cda",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-02-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-02-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-02-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-33",
+    "runtimeSha256": "460de4c7794f271ea6e35fd3aa8db37af46f1fe4016e155219a4b048e60a7356",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-02-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-02-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-02-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-34",
+    "runtimeSha256": "1be803a6a451870caae38215af7cabc7edd886e1fbb851e88dc25f07845c7182",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-02-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-02-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-02-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-35",
+    "runtimeSha256": "a678b6aafeea9bc607583d656825eb4081c6dcc752c78e4ad8850ce43d1bfba2",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-02-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-02-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-02-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-37",
+    "runtimeSha256": "56fbfe338d797d50c14cb448dfb17a59727489118d237208929c74d982e5f79c",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-02-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-02-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-02-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-39",
+    "runtimeSha256": "bded9df7a8d6f4fbd032b490b822e9af4ba1d80dba3e08b78559efc3452447ad",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-02-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-02-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-02-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-40",
+    "runtimeSha256": "2dd9feda9581597dc764c38f2b2d1ab9c3889a72dee5e9f9ddf3c860f84c8aec",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-02-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-02-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-02-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-42",
+    "runtimeSha256": "2e2d16f0cbeffede1679f57206d78d13fabce34af118ba5b46ef3d3c06373b4d",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-02-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-02-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-02-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-43",
+    "runtimeSha256": "87f50858b4e2dba1a70a272b2134b75de58ab646c279efa691bb1e5fc625cfe9",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-03-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-03-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-03-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-44",
+    "runtimeSha256": "0b25b80a0cca317d9a7436ea0caee8f7e195fc6e4b3f8f6914fbf1434360b1c1",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-03-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-03-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-03-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-45",
+    "runtimeSha256": "b411b789b5f1cf1d79c93a5da80b10ddc6958bc822dffd08441899c71e24e3b0",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-03-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-03-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-03-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-46",
+    "runtimeSha256": "cf1418b778aa6ac6253bb414bcc124b754c3ff91d01cab82428a0ee78ef3f634",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-03-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-03-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-03-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-47",
+    "runtimeSha256": "27529b400d9e71bd79009413d606cd94f579ba464bce58f2c5cfb8c7420bb626",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-03-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-03-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-03-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-48",
+    "runtimeSha256": "e801b8423a111012cced37b65f8cf6bcc58d2627ebe1d080a9a80df1c7e895f4",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-03-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-03-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-03-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-49",
+    "runtimeSha256": "5b6202e821bd2af387b2256f2a827fc389a8f0ecfef208a358c6ca3f71f8bb7d",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-03-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-03-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-03-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-50",
+    "runtimeSha256": "156d002ffc478c6bb8e3b3327ab8f3cd28485e13e15c60d63eb7b952d5395f6a",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-03-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-03-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-03-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-52",
+    "runtimeSha256": "ea8bcefade35151b05647b873a3ef3c8b0f816762e04d8f4150225b6769ca5c6",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-03-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-03-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-03-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-53",
+    "runtimeSha256": "0a8d832c82579efa0da7e729e2fc68c5f39cbaafc916d7c86bef87042726b8e3",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-03-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-03-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-03-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-55",
+    "runtimeSha256": "77bb708f1bedc57373e2cdfcf6565c8170099dfec9815b0055c7c890ee8d2ccf",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-03-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-03-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-03-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-56",
+    "runtimeSha256": "a5c57afefe293a02bd55e21b9a2a1dd83d1853a8a7131887f10479ab025b1ade",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-04-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-04-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-04-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-57",
+    "runtimeSha256": "09b69282771b94e09c0320a265339c3f366dbed85efad6395206ede3025f7758",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-04-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-04-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-04-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-58",
+    "runtimeSha256": "7bc3448405150b058796f88fb901c97c1526e1cbcc2500b852156f4e9a69d8ec",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-04-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-04-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-04-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-59",
+    "runtimeSha256": "49c1c0c11a75963c8f7ec764ebc670716f5213515bb58750c82f0c698525d61c",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-04-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-04-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-04-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-60",
+    "runtimeSha256": "1a4a9d4b2683a3607c9fc2f5c58fd1db27308d795920b93ef82a9a73fc68e73a",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-04-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-04-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-04-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-62",
+    "runtimeSha256": "b7dddd45de58099a995b31068794f15806b4411cfd2b38ec0dcbaf62677f0212",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-04-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-04-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-04-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-63",
+    "runtimeSha256": "7de22f7fa07b7f65db734d133666e2e470d9c18f2b6bc0041cb7856f899b12dc",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-04-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-04-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-04-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-64",
+    "runtimeSha256": "4b6bc90bf633d1c601e6de5dd5330b14b6b704eff98a0d98162aa0ac29db1c0a",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-04-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-04-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-04-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-65",
+    "runtimeSha256": "8dba6d542594d21aae75b766e7a3850b1b135a919da0c662fb5f13a012bd4a69",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-04-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-04-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-04-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-66",
+    "runtimeSha256": "5e1b8b32c0f9ed1bc4dead2135c2a0de3324c5d10ff13213efc3f7c6e9b48709",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-04-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-04-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-04-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-68",
+    "runtimeSha256": "80ba6cd9a9fbca6203b0a6d726f0c771dc3bc2144fee19903a443f66089ac568",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-04-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-04-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-04-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-69",
+    "runtimeSha256": "537ffcd881910fe7a9af16ed6b9dd3d620b522cd938a9ce7d40c8de867852abb",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-04-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-04-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-04-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-71",
+    "runtimeSha256": "43c57fe8f280073e07fe9ffcb79485efc6508d094d64301f55b2e51e233f4832",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-05-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-05-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-05-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-73",
+    "runtimeSha256": "ae42221dfbcd3e065931a681e012e3eaeac7dfed2d5068b1243791c73bd12d65",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-05-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-05-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-05-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-74",
+    "runtimeSha256": "49c3d29a9377bcee7eb86f89d154359d21597579202dba9771e9fdd8499d368b",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-05-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-05-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-05-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-75",
+    "runtimeSha256": "c28a85aec0beebefda8e49a590f4f11eb36412df386eafa1a617e1bd960b7a61",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-05-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-05-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-05-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-76",
+    "runtimeSha256": "f9c7bab3d2018172ca82de59dfd635c14649a68e8ee77972b15689f3ad8d6c9e",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-05-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-05-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-05-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-77",
+    "runtimeSha256": "dcb1364cf381489e06d6f1ef5b0953c74e283a4a59ef11468337e3a98042b52c",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-05-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-05-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-05-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-78",
+    "runtimeSha256": "2218709006701dbcb6333c5e51448f8429948f0c6f572deca34cbfcb9dd3b88a",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-05-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-05-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-05-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-79",
+    "runtimeSha256": "bea19cd773a48b283ef5bd2302a2f40a6cec9a8a23408d177bcef77af4b70bd3",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-05-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-05-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-05-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-80",
+    "runtimeSha256": "8e37b92502fd8cb7ff69495348c77afd7071fd76ed210c7e59b9ec6c43ebde19",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-05-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-05-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-05-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-81",
+    "runtimeSha256": "4859277d45842cf1d598172f757492c06d4beba6fcd954cc47d04495b65a9aa2",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-05-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-05-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-05-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-82",
+    "runtimeSha256": "9125fd42be94dc6bfb9a08b32a7a4c9a6b23de825a895de43ea2330155409042",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-05-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-05-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-05-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-83",
+    "runtimeSha256": "8a4cb723cfd4b295c68eda5d0ff2beaec9e4d6e6f4d86393386ebab28a46f2a0",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-06-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-06-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-06-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-84",
+    "runtimeSha256": "2531a4fa76296b86ed83da9d174e357f16660ca497ae3c6b490e8d3d6f192f23",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-06-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-06-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-06-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-85",
+    "runtimeSha256": "0058a68d9aaa09329876ad7b5f3c4a85d871bdb65e68d9b797941b4ccd9482cb",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-06-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-06-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-06-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-86",
+    "runtimeSha256": "06518d35e292b85bed905722a7797d82c4f6844589f83a7957cbb5f14f8815e3",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-06-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-06-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-06-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-87",
+    "runtimeSha256": "cb286760d1be063bc4960a192c16e346d032c69130799b97bf2b8c1f408c2f83",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-06-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-06-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-06-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-88",
+    "runtimeSha256": "d4d8442b35899101f4eb80b79276df3d00f2bcd4837d898be55d3446dcc9b80f",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-06-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-06-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-06-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-89",
+    "runtimeSha256": "1050fad6ac09a4965338a151775af1d8f4b8e8cb51334092adac4285fb7b2d68",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-06-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-06-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-06-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-90",
+    "runtimeSha256": "6bdea9d62e09b220cb960e21adbdf98175bf9d9b4ed883754360e0c7f09b4753",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-06-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-06-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-06-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-91",
+    "runtimeSha256": "bca491317161159782325716855963fec86e2efad124d32623e6c9c589455a86",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-06-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-06-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-06-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-92",
+    "runtimeSha256": "b66b26ecc3de51b785ee756014c0813dfdbfda43f52d0930a958533ab8fe0818",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-06-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-06-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-06-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-93",
+    "runtimeSha256": "ae92c0e6a5abcffc432f9083fd6984def006e9549fdb877c7b7edd60d4e644fc",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-06-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-06-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-06-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-94",
+    "runtimeSha256": "566dfa13021b729499b81424e76ecfaf9a834b605b887212ed7323d4ffd9b8b0",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-06-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-06-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-06-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-95",
+    "runtimeSha256": "72041d70f97a1c985625afeb566004be50093317a82a483cb6a72f16c1741fb0",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-07-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-07-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-07-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-96",
+    "runtimeSha256": "457fc5f1ae33d4eb274a6a3686796291db48c9c4c80bb68a6c1d74b3e0ff05c8",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-07-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-07-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-07-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-97",
+    "runtimeSha256": "0e2964ba9bb9e6c70d437cc4130bbdba899c275f97298e27ef686055d7c081de",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-07-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-07-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-07-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-98",
+    "runtimeSha256": "6892bb05174a603d81ba3e6ff061b7606ebdf75270a7979c6bab207ce54c23c0",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-07-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-07-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-07-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-99",
+    "runtimeSha256": "fbdad42b8eb93341df76b2862becca49cf028d1230861d8c4a3f1df25e1898af",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-07-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-07-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-07-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-100",
+    "runtimeSha256": "3b75730b2c452503118e802577d15f7951b1409b6c34278827f4a3343cb7db9d",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-07-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-07-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-07-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-101",
+    "runtimeSha256": "0ea9b34a81a764d67b39b6878ae144783502579c0f9b997d94c92ac115c277da",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-07-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-07-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-07-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-102",
+    "runtimeSha256": "8dfc26f6de46e6f4693558b80072d1fff58ccb3a71545f2cfef94357efa4f2f8",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-07-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-07-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-07-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-103",
+    "runtimeSha256": "52e4256bdf2b6db0af98a8a08e14efff9aa88303c1d6830d21d21018b236b57e",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-07-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-07-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-07-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-104",
+    "runtimeSha256": "a2fc064c1f435f51c1e02b6079a77032df2ca5c4947d33d0b930c9e5616ef87b",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-07-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-07-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-07-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-105",
+    "runtimeSha256": "489ccb93c8452ddaad9449a11f659385828f54f81cb256577775dd5ed6b22ba7",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-07-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-07-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-07-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-106",
+    "runtimeSha256": "288522028dfb53befef7c6ec325d870ac207f5c909597b82c914a24a56411ea9",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-07-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-07-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-07-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-107",
+    "runtimeSha256": "92d4d6cf6a8a61f0c7ece7206d5dc719d45cabababe8aaec12ba65b49eabf089",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-08-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-08-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-08-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-108",
+    "runtimeSha256": "93ea98ee7cb46773c3c1af27ddc1cfc7ec7ff4c385f78d0cc93ffce68b85a2d7",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-08-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-08-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-08-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-109",
+    "runtimeSha256": "64eb174698d2400511dc700dc5958ebcc31c52463c6e993227817a0628a6ce04",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-08-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-08-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-08-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-110",
+    "runtimeSha256": "c9168ad4e229af632454ceace1739e0e2d8a2036f06da5efb7f3ca92719afb3a",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-08-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-08-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-08-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-111",
+    "runtimeSha256": "877ae94fd2c5e57925db8859f0dde70ecb444c61a08043c59719a441ad688258",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-08-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-08-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-08-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-112",
+    "runtimeSha256": "04858b9274547f8b2a2a54446109d028b5f4a2a56e0070e60c6a44fec72ee1e8",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-08-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-08-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-08-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-113",
+    "runtimeSha256": "6c324632b6725937f23efb6ea2b750b156a005d380f2354844350817db33284d",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-08-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-08-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-08-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-114",
+    "runtimeSha256": "00247b1b4b551954cb4e6dc68c1f21d0e5fcab07842aeef0afab396527605809",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-08-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-08-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-08-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-115",
+    "runtimeSha256": "133c684a3a404cd528bac2d2a0128b04b85ea7d629ab771f79cbec72c0a25fbb",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-08-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-08-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-08-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-116",
+    "runtimeSha256": "97009be63fe13a39e434ddb6e49d333306ce0ebb565410afaf99568e761c8c9c",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-08-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-08-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-08-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-117",
+    "runtimeSha256": "d016d8541cd7cdd3acb43a1cb7448c82654443754d72191296da7088c770e0b0",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-08-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-08-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-08-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-118",
+    "runtimeSha256": "ac2c00202021ca895626129f2a48cca950f6c97dc35286aacfafa1a788886a4c",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-08-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-08-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-08-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-119",
+    "runtimeSha256": "f3b6d56932c996ce77d06b01494a67ca2ce5b9461da53a22d6905c7fe0ec855f",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-09-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-09-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-09-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-120",
+    "runtimeSha256": "1ee350e1362db656ae4bed156a4aeb1076395c4b0fe4ea806d869f1d2ec4b94c",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-09-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-09-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-remaining-09-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-51",
+    "runtimeSha256": "7b5f3e8ebba2811f64d0c262d27d2c4d96f5aeb349b8f8fca812120696af4282",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-corrections-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-corrections-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-corrections-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  },
+  {
+    "id": "tc-72",
+    "runtimeSha256": "da077fb2ec20270d7620ef78dce26a57ba331886b1df3fa84481bee6955c0cc3",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/trading-corrections-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/trading-corrections-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/trading-corrections-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  }
+]

@@ -1,0 +1,89 @@
+{
+  "figures": [
+    {
+      "src": "/chronicle/figures/tc-61-painted-v2.webp",
+      "loaded": true,
+      "row": "Opponent Monster Zones",
+      "mirrored": false
+    },
+    {
+      "src": "/chronicle/figures/tc-61-painted-v2-back.webp",
+      "loaded": true,
+      "row": "Your Monster Zones",
+      "mirrored": false
+    }
+  ],
+  "images": [
+    {
+      "src": "http://127.0.0.1:51615/chronicle/cards/tc-61-painted-v2-512.webp",
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51615/chronicle/figures/tc-61-painted-v2.webp",
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51615/chronicle/cards/tc-01-painted-v2-512.webp",
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51615/chronicle/cards/tc-131-painted-v2-512.webp",
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51615/chronicle/cards/tc-133-painted-v2-512.webp",
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51615/chronicle/cards/tc-143-painted-v2-512.webp",
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51615/chronicle/cards/tc-61-painted-v2-512.webp",
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51615/chronicle/figures/tc-61-painted-v2-back.webp",
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51615/chronicle/cards/tc-01-painted-v2-512.webp",
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51615/chronicle/cards/tc-131-painted-v2-512.webp",
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51615/chronicle/cards/tc-133-painted-v2-512.webp",
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51615/chronicle/cards/tc-143-painted-v2-512.webp",
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51615/chronicle/cards/tc-01-painted-v2-512.webp",
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51615/chronicle/cards/tc-02-painted-v2-512.webp",
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51615/chronicle/cards/tc-02-painted-v2-512.webp",
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51615/chronicle/cards/tc-03-painted-v2-512.webp",
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51615/chronicle/cards/tc-04-painted-v2-512.webp",
+      "loaded": true
+    }
+  ],
+  "mobileOverflow": false,
+  "failures": [],
+  "consoleErrors": []
+}

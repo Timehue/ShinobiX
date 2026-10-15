@@ -1,0 +1,168 @@
+{
+  "images": [
+    {
+      "src": "http://127.0.0.1:59749/chronicle/cards/tc-141-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:59749/chronicle/cards/tc-142-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:59749/chronicle/cards/tc-143-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:59749/chronicle/cards/tc-144-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:59749/chronicle/cards/tc-145-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:59749/chronicle/cards/tc-146-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:59749/chronicle/cards/tc-147-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:59749/chronicle/cards/tc-148-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:59749/chronicle/cards/tc-149-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:59749/chronicle/cards/tc-150-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:59749/chronicle/cards/tc-141-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:59749/chronicle/cards/tc-142-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:59749/chronicle/cards/tc-143-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:59749/chronicle/cards/tc-144-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:59749/chronicle/cards/tc-145-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:59749/chronicle/cards/tc-146-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:59749/chronicle/cards/tc-147-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:59749/chronicle/cards/tc-148-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:59749/chronicle/cards/tc-149-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:59749/chronicle/cards/tc-150-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    }
+  ],
+  "cardIds": [
+    "tc-141",
+    "tc-142",
+    "tc-143",
+    "tc-144",
+    "tc-145",
+    "tc-146",
+    "tc-147",
+    "tc-148",
+    "tc-149",
+    "tc-150"
+  ],
+  "inspectorBackdrop": "fixed",
+  "inspectorFoil": {
+    "className": "chronicle-card__foil chronicle-card__foil--holographic",
+    "animation": "chronicleFoilSweep",
+    "mask": "linear-gradient(rgba(0, 0, 0, 0) 12%, rgb(0, 0, 0) 23%, rgb(0, 0, 0) 57%, rgba(0, 0, 0, 0) 72%)"
+  },
+  "reducedMotionAnimation": "none",
+  "mobileOverflow": false,
+  "mobileCards": [
+    {
+      "name": "TIDAL GOD BEAST",
+      "visible": true
+    },
+    {
+      "name": "SOLAR GOD BEAST",
+      "visible": true
+    },
+    {
+      "name": "TEMPEST GOD BEAST",
+      "visible": true
+    },
+    {
+      "name": "SHADOW GOD BEAST",
+      "visible": true
+    },
+    {
+      "name": "FROST GOD BEAST",
+      "visible": true
+    },
+    {
+      "name": "EQUILIBRIUM GOD",
+      "visible": true
+    },
+    {
+      "name": "FINAL SHINOBI",
+      "visible": true
+    },
+    {
+      "name": "DEMON-KING SLAYER",
+      "visible": true
+    },
+    {
+      "name": "COSMIC PHOENIX",
+      "visible": true
+    },
+    {
+      "name": "WORLD-EATER NAGA",
+      "visible": true
+    }
+  ],
+  "failures": [],
+  "consoleErrors": []
+}

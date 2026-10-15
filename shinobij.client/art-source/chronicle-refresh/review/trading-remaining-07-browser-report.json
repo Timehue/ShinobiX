@@ -1,0 +1,212 @@
+{
+  "images": [
+    {
+      "src": "http://127.0.0.1:56205/chronicle/cards/tc-95-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:56205/chronicle/cards/tc-96-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:56205/chronicle/cards/tc-97-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:56205/chronicle/cards/tc-98-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:56205/chronicle/cards/tc-99-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:56205/chronicle/cards/tc-100-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:56205/chronicle/cards/tc-101-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:56205/chronicle/cards/tc-102-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:56205/chronicle/cards/tc-103-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:56205/chronicle/cards/tc-104-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:56205/chronicle/cards/tc-105-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:56205/chronicle/cards/tc-106-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:56205/chronicle/cards/tc-95-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:56205/chronicle/cards/tc-96-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:56205/chronicle/cards/tc-97-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:56205/chronicle/cards/tc-98-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:56205/chronicle/cards/tc-99-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:56205/chronicle/cards/tc-100-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:56205/chronicle/cards/tc-101-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:56205/chronicle/cards/tc-102-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:56205/chronicle/cards/tc-103-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:56205/chronicle/cards/tc-104-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:56205/chronicle/cards/tc-105-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:56205/chronicle/cards/tc-106-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    }
+  ],
+  "cardIds": [
+    "tc-95",
+    "tc-96",
+    "tc-97",
+    "tc-98",
+    "tc-99",
+    "tc-100",
+    "tc-101",
+    "tc-102",
+    "tc-103",
+    "tc-104",
+    "tc-105",
+    "tc-106"
+  ],
+  "renderedCardIds": [
+    "tc-95",
+    "tc-96",
+    "tc-97",
+    "tc-98",
+    "tc-99",
+    "tc-100",
+    "tc-101",
+    "tc-102",
+    "tc-103",
+    "tc-104",
+    "tc-105",
+    "tc-106"
+  ],
+  "inspectorBackdrop": "fixed",
+  "inspectorFoil": {
+    "className": "chronicle-card__foil",
+    "animation": "none",
+    "mask": "none"
+  },
+  "reducedMotionAnimation": "none",
+  "mobileOverflow": false,
+  "mobileCards": [
+    {
+      "name": "BLIZZARD OWL",
+      "visible": true
+    },
+    {
+      "name": "STONEHEART TITAN",
+      "visible": true
+    },
+    {
+      "name": "STORMBREAKER DRAKE",
+      "visible": true
+    },
+    {
+      "name": "TIDAL LORD MANTA",
+      "visible": true
+    },
+    {
+      "name": "PHOENIX WARLORD",
+      "visible": true
+    },
+    {
+      "name": "TEMPEST MARSHAL",
+      "visible": true
+    },
+    {
+      "name": "NIGHTVEIL ASSASSIN",
+      "visible": true
+    },
+    {
+      "name": "FROSTLORD BERSERKER",
+      "visible": true
+    },
+    {
+      "name": "MOUNTAIN SAGE",
+      "visible": true
+    },
+    {
+      "name": "WANDERING MASTER",
+      "visible": true
+    },
+    {
+      "name": "GEODE BEHEMOTH",
+      "visible": true
+    },
+    {
+      "name": "PLASMA HYDRA",
+      "visible": true
+    }
+  ],
+  "failures": [],
+  "consoleErrors": []
+}

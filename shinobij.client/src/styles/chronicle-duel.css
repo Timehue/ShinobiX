@@ -203,6 +203,64 @@ button.chronicle-card {
     0 0 0 3px #f5cc7f,
     0 10px 25px rgba(0, 0, 0, 0.55);
 }
+/* A physical foil finish over the illustration. Text panels retain their
+   higher stacking layer; the spectrum never changes the painting itself.
+   Collection grids are static unless one card is deliberately inspected. */
+.chronicle-card__foil--holographic {
+  overflow: hidden;
+  border-radius: inherit;
+  background:
+    linear-gradient(125deg, transparent 8%, #90f1dc48 24%, #a9b9ff60 38%, #edb0e552 52%, #f3dc9a50 67%, transparent 86%);
+  opacity: 0.72;
+  mask-image: linear-gradient(180deg, transparent 12%, #000 23%, #000 57%, transparent 72%);
+}
+.chronicle-card__foil--holographic::before,
+.chronicle-card__foil--holographic::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+.chronicle-card__foil--holographic::before {
+  inset: -35% -95%;
+  background: linear-gradient(112deg, transparent 37%, #74e4d52b 43%, #bba5ed55 47%, #fff4d877 50%, #f3b3e64b 53%, #83dcee32 58%, transparent 64%);
+  transform: translateX(-30%);
+  opacity: 0.38;
+}
+.chronicle-card__foil--holographic::after {
+  inset: 0;
+  background:
+    radial-gradient(circle, #fff5dfb0 0 0.55px, transparent 1px) 0 0 / 19px 23px,
+    radial-gradient(circle, #b7dcff88 0 0.45px, transparent 1px) 8px 13px / 31px 37px,
+    repeating-linear-gradient(135deg, transparent 0 5px, #e2d5ff0a 5px 6px);
+  opacity: 0.23;
+}
+.chronicle-card.rarity-mythic .chronicle-card__foil--holographic {
+  opacity: 0.92;
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .chronicle-card:hover .chronicle-card__foil--holographic::before,
+  .chronicle-card:focus-visible .chronicle-card__foil--holographic::before {
+    animation: chronicleFoilSweep 2.4s ease-in-out 1;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .chronicle-card-zoom .chronicle-card__foil--holographic::before,
+  .pack-reveal .pack-card__face.front .chronicle-card__foil--holographic::before,
+  .pack-inspect__card .chronicle-card__foil--holographic::before {
+    animation: chronicleFoilSweep 6s ease-in-out infinite;
+  }
+}
+@keyframes chronicleFoilSweep {
+  0%, 100% { transform: translateX(-30%); opacity: 0.25; }
+  45%, 55% { transform: translateX(30%); opacity: 0.85; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chronicle-card__foil--holographic::before {
+    animation: none !important;
+    transform: translateX(0);
+    opacity: 0.35;
+  }
+}
 .chronicle-card.compact {
   width: clamp(78px, 8vw, 112px);
   padding: 5px;
@@ -6255,3 +6313,21 @@ button.chronicle-card {
 .chronicle-card-ghost.resolved { animation: chronicle-seal-consumed .65s ease-out both; }
 @keyframes chronicle-return-to-hand { to { transform: translateY(var(--return-y)) scale(.35); opacity: 0; filter: brightness(1.3); } }
 @keyframes chronicle-seal-consumed { to { transform: scale(1.1); opacity: 0; filter: brightness(1.5); } }
+
+/* Reserve the standing figure's overhang below the live field-status strip. */
+.chronicle-playmat {
+  --chron-figure-row-clearance: calc(var(--chron-zone-w) * .75 + 8px);
+}
+.chronicle-playmat .chronicle-zone-row.player:not(.backrow):has(.chronicle-figure-wrap) {
+  margin-block-start: var(--chron-figure-row-clearance);
+}
+@media (min-width: 1024px) {
+  .chronicle-playmat {
+    --chron-figure-row-clearance: calc(var(--chron-zone-w) * 1.3 + 12px);
+  }
+}
+@media (max-width: 760px) {
+  .chronicle-shell--duel-active .chronicle-playmat:has(.player .chronicle-figure-wrap) {
+    min-height: calc(250px + var(--chron-figure-row-clearance));
+  }
+}
