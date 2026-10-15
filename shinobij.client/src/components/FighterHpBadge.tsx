@@ -32,6 +32,7 @@ export function FighterHpBadge({
     width,
     hp,
     maxHp,
+    unlimitedHealth = false,
     side,
     caption,
     showNumbers = true,
@@ -45,6 +46,7 @@ export function FighterHpBadge({
     width: number;
     hp: number;
     maxHp: number;
+    unlimitedHealth?: boolean;
     /** drives the border tint so a glance says whose bar it is. */
     side: "player" | "enemy" | "pet";
     /** optional caption line under the bar (e.g. the pet's name + turns-left). */
@@ -53,7 +55,7 @@ export function FighterHpBadge({
     showNumbers?: boolean;
     zIndex?: number;
 }) {
-    const pct = Math.max(0, Math.min(100, (hp / Math.max(1, maxHp)) * 100));
+    const pct = unlimitedHealth ? 100 : Math.max(0, Math.min(100, (hp / Math.max(1, maxHp)) * 100));
     const color = hpBarColor(pct);
     // Side-tinted border (blue player / red enemy / dark pet) + a hard shadow so
     // the bar survives busy biome backgrounds.
@@ -61,7 +63,7 @@ export function FighterHpBadge({
         side === "enemy" ? "rgba(239,68,68,0.9)" :
         side === "player" ? "rgba(96,165,250,0.9)" :
         "rgba(0,0,0,0.6)";
-    const label = caption ?? (showNumbers ? formatExact(Math.max(0, Math.round(hp))) : "");
+    const label = caption ?? (unlimitedHealth ? "∞ Unlimited" : showNumbers ? formatExact(Math.max(0, Math.round(hp))) : "");
     return (
         <div style={{ position: "absolute", left, top, width, zIndex, pointerEvents: "none", transition: BADGE_GLIDE }}>
             <div style={{ height: 6, borderRadius: 3, background: "rgba(2,6,18,0.72)", overflow: "hidden", border: `1px solid ${border}`, boxShadow: "0 1px 2px rgba(0,0,0,0.75)" }}>
