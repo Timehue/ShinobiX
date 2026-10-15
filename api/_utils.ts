@@ -89,6 +89,14 @@ const REPLACE_SUBTREE_KEYS = new Set<string>([
     // unrelated cached seal after a redemption.
     'activeStoryReckoning',
     'activeStoryReckoningSeal',
+    // Settlement receipts carry `requestId`, not `id`, and a new receipt is
+    // PREPENDED (api/_settlement-receipts.ts). Positional pairing merged every
+    // new receipt's `value` with the previous first receipt's, so a reward
+    // receipt inherited `kind`/`runId`/`applied` from a pve-outcome receipt.
+    // Every writer sends the complete list: settlements rebuild it from the
+    // stored one, and a client autosave gets the stored copy back from the
+    // ledger boundary (`always-ledger-char`) before this merge runs.
+    'serverSettlementReceipts',
 ]);
 const PROTOTYPE_POLLUTION_KEYS = new Set<string>(['__proto__', 'constructor', 'prototype']);
 
