@@ -3,6 +3,9 @@ import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave } from './helpers
 import { expectViewportSafe } from './helpers/adaptive-assertions';
 import { expectVisibleTouchTarget } from './helpers/visible-target';
 
+const legacyShrineWindows = (startsAt: number) => Array.from({ length: 5 }, (_, day) => ({ id: `shrine-${day}`,
+    opensAt: startsAt + (20 + 24 * day) * 3_600_000, closesAt: startsAt + (24 + 24 * day) * 3_600_000 }));
+
 test('ordinary village members can view every Town Hall section with unobstructed war menus', async ({ page }, testInfo) => {
     test.setTimeout(90_000);
     const save = uiAuditSave();
@@ -13,7 +16,7 @@ test('ordinary village members can view every Town Hall section with unobstructe
     await page.route('**/api/village/kage?*', route => route.fulfill({ json: { seatedKage: 'AnotherNinja' } }));
     await page.route('**/api/world-state', route => route.fulfill({ json: { territories: [], standings: [], wars: [{
         id: warId, villages: [village, enemy], startedAt: startsAt, updatedAt: startsAt,
-        campaignVersion: 2, campaignEndsAt: endsAt, warGroundSector: 47, warPoints: { [village]: 250, [enemy]: 100 }, hp: { [village]: 5000, [enemy]: 5000 }
+        campaignVersion: 2, campaignEndsAt: endsAt, shrineWindows: legacyShrineWindows(startsAt), warGroundSector: 47, warPoints: { [village]: 250, [enemy]: 100 }, hp: { [village]: 5000, [enemy]: 5000 }
     }] } }));
     await page.route('**/api/village/war-map', route => route.fulfill({ json: { ok: true, enabled: true, contests: [], villages: [{
         village, warResources: 1000, structures: { supplyDepot: 1, treasuryVault: 1 }, preparations: [{
@@ -146,7 +149,7 @@ test('Town Hall shows village campaign points, shrine schedule and a working def
         operationAllowance: { total: 0, categories: {}, players: {} } };
     await page.route('**/api/world-state', route => route.fulfill({ json: { territories: [], standings: [], wars: [{
         id: 'moonshadowvillage-vs-stormveilvillage', villages: [village, enemy], startedAt: startsAt,
-        updatedAt: startsAt, campaignVersion: 2, campaignEndsAt: endsAt, warGroundSector: 47,
+        updatedAt: startsAt, campaignVersion: 2, campaignEndsAt: endsAt, shrineWindows: legacyShrineWindows(startsAt), warGroundSector: 47,
         hp: { [village]: 5000, [enemy]: 5000 }, warPoints: { [village]: 250, [enemy]: 100 } }] } }));
     await page.route('**/api/village/war-map', route => route.fulfill({ json: { ok: true, enabled: true, villages: [], contests: [] } }));
     await page.route('**/api/village/war-campaign', route => route.fulfill({ json: { campaign, defense: null, run: null } }));

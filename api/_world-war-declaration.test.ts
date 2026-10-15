@@ -124,9 +124,13 @@ describe('world-state village-war declaration authority', { concurrency: false }
         assert.equal(declared.statusCode, 200, declared.body?.error);
         const stored = await kv.get<Record<string, any>>(PAIR_KEY);
         assert.equal(stored?.declarationFunding.status, 'active');
-        assert.equal(stored?.campaign.version, 2);
+        assert.equal(stored?.campaign.version, 3);
         assert.equal(stored?.campaign.endsAt - stored?.campaign.startsAt, 5 * 86_400_000);
         assert.equal(stored?.campaign.shrine.length, 5);
+        const windows = stored?.campaign.shrine.map(({ id, opensAt, closesAt }: any) => ({ id, opensAt, closesAt }));
+        assert.deepEqual(declared.body?.war.shrineWindows, windows, 'publish the full locked schedule at declaration commit');
+        assert.deepEqual(windows.map((o: any) => [(o.opensAt - stored!.campaign.startsAt) / 3_600_000,
+            (o.closesAt - stored!.campaign.startsAt) / 3_600_000]), [[2, 4], [31, 33], [60, 62], [89, 91], [118, 120]]);
         for (const village of [LEAF, MIST]) {
             assert.deepEqual(stored?.campaign.strongholds.filter((o: any) => o.village === village).map((o: any) => o.mode), ['combat', 'pet', 'card']);
         }
