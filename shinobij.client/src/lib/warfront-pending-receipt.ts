@@ -33,7 +33,7 @@ export async function sendQueuedWarfrontReceipt<T extends ReceiptResponse>(body:
     try {
         const response = await request;
         if (!response.character?.name || key(response.character.name) !== key(entry.body.playerName)) {
-            throw new Error("The arena did not return this player's recorded roster. Retry Settlement.");
+            throw new Error("The arena did not return this player's recorded roster. Press Try again.");
         }
         entry.response = response;
         return response;

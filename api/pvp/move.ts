@@ -1,3 +1,4 @@
+import { damageCombatHealth } from '../combat-core/health.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { randomInt, randomUUID } from 'crypto';
 import { kv } from '../_storage.js';
@@ -1030,7 +1031,7 @@ function resolvePostDamage(sIn: PvpFighter, oIn: PvpFighter, jutsu: Jutsu, round
     // Only damage actually absorbed by the shield may reduce it. Pierce reports
     // blocked=0 and bypasses the pool entirely; subtracting raw damage here made
     // true damage also erase the shield it was supposed to ignore.
-    o = { ...o, hp: Math.max(0, o.hp - finalDmg), shield: Math.max(0, o.shield - blocked) };
+    o = { ...damageCombatHealth(o, finalDmg), shield: Math.max(0, o.shield - blocked) };
     // A lethal hit ends the defender's participation immediately. Absorb is a
     // reactive heal, not a death-prevention effect, so it must not bring a
     // fighter back after their HP has reached zero.
@@ -1042,8 +1043,8 @@ function resolvePostDamage(sIn: PvpFighter, oIn: PvpFighter, jutsu: Jutsu, round
     if (finalDmg > 0) { lines.push(`${finalDmg} damage to ${o.name}.`); pushFx(fx, 'opp', finalDmg, 'damage'); }
     if (appliedAbsorb > 0) { lines.push(`${o.name} absorbs ${appliedAbsorb} HP.`); pushFx(fx, 'opp', appliedAbsorb, 'heal'); }
     if (appliedItemAbsorb > 0) { lines.push(`${o.name}'s armor absorbs ${appliedItemAbsorb} HP.`); pushFx(fx, 'opp', appliedItemAbsorb, 'heal'); }
-    if (reflectedDmg > 0) { s = { ...s, hp: Math.max(0, s.hp - reflectedDmg) }; lines.push(`${s.name} takes ${reflectedDmg} reflected damage.`); pushFx(fx, 'self', reflectedDmg, 'damage'); }
-    if (itemReflectedDmg > 0) { s = { ...s, hp: Math.max(0, s.hp - itemReflectedDmg) }; lines.push(`${s.name} takes ${itemReflectedDmg} damage reflected by ${o.name}'s armor.`); pushFx(fx, 'self', itemReflectedDmg, 'damage'); }
+    if (reflectedDmg > 0) { s = damageCombatHealth(s, reflectedDmg); lines.push(`${s.name} takes ${reflectedDmg} reflected damage.`); pushFx(fx, 'self', reflectedDmg, 'damage'); }
+    if (itemReflectedDmg > 0) { s = damageCombatHealth(s, itemReflectedDmg); lines.push(`${s.name} takes ${itemReflectedDmg} damage reflected by ${o.name}'s armor.`); pushFx(fx, 'self', itemReflectedDmg, 'damage'); }
     const appliedItemLifeSteal = Math.min(itemLifeStealHeal, Math.max(0, s.maxHp - s.hp));
     if (appliedItemLifeSteal > 0) { s = { ...s, hp: s.hp + appliedItemLifeSteal }; lines.push(`${s.name}'s armor steals ${appliedItemLifeSteal} HP.`); pushFx(fx, 'self', appliedItemLifeSteal, 'heal'); }
 
@@ -1082,7 +1083,7 @@ function resolvePostDamage(sIn: PvpFighter, oIn: PvpFighter, jutsu: Jutsu, round
         .filter((status) => nameMatches(status.name, 'Recoil'))
         .reduce<PvpStatus | undefined>((strongest, status) =>
             !strongest || (status.percent ?? 30) > (strongest.percent ?? 30) ? status : strongest, undefined);
-    if (recoilStatus && finalDmg > 0) { const rc = postDamagePercentAmount(finalDmg, recoilStatus.percent ?? 30); s = { ...s, hp: Math.max(0, s.hp - rc) }; lines.push(`Recoil: ${s.name} takes ${rc} recoil damage from their own attack.`); pushFx(fx, 'self', rc, 'damage'); }
+    if (recoilStatus && finalDmg > 0) { const rc = postDamagePercentAmount(finalDmg, recoilStatus.percent ?? 30); s = damageCombatHealth(s, rc); lines.push(`Recoil: ${s.name} takes ${rc} recoil damage from their own attack.`); pushFx(fx, 'self', rc, 'damage'); }
 
     // Sum all active Lifesteal stacks' percents (capped at 60% by
     // cappedPostDamage), matching PvE — was first-stack-only (.find).
@@ -1238,7 +1239,7 @@ export function applyDoTs(fighter: PvpFighter, round: number): { fighter: PvpFig
     for (const s of activeStatuses(f, round)) {
         if (s.name === 'Wound' && s.amount) {
             const dmg = Math.max(0, Math.floor(s.amount));
-            f = { ...f, hp: Math.max(0, f.hp - dmg) };
+            f = damageCombatHealth(f, dmg);
             lines.push(`${f.name} bleeds ${dmg} (Wound).`);
             pushFx(fx, 'self', dmg, 'damage');
             vfx.push(vfxEvent('self', 'wound', 'target', 'minor'));
@@ -1250,14 +1251,14 @@ export function applyDoTs(fighter: PvpFighter, round: number): { fighter: PvpFig
             // instead. Mirrors the PvE engine (Arena.tsx applyDoTs Poison branch).
             const poisonPct = s.percent && s.percent > 0 ? s.percent : 6;
             const dmg = mit(Math.floor(f.maxChakra * (poisonPct / 100)));
-            f = { ...f, hp: Math.max(0, f.hp - dmg) };
+            f = damageCombatHealth(f, dmg);
             lines.push(`${f.name} takes ${dmg} Poison damage.`);
             pushFx(fx, 'self', dmg, 'damage');
             vfx.push(vfxEvent('self', 'poisonCloud', 'target', 'minor'));
         }
         if (s.name === 'Drain') {
             const amt = Math.max(0, Math.floor(s.amount ?? DRAIN_BASE_TICK));
-            f = { ...f, hp: Math.max(0, f.hp - amt), chakra: Math.max(0, f.chakra - amt) };
+            f = { ...damageCombatHealth(f, amt), chakra: Math.max(0, f.chakra - amt) };
             lines.push(`${f.name} drained ${amt} HP+chakra.`);
             pushFx(fx, 'self', amt, 'damage');
             vfx.push(vfxEvent('self', 'drain', 'target', 'minor'));

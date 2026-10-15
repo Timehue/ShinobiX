@@ -9,8 +9,8 @@
  * failures may reject.
  *
  * That decision is load-bearing. The completion awaits every callback before it
- * may ACK, and a rejection lands on the result screen as "Battle settlement
- * callbacks did not finish. Please retry." with Retry as the forward control —
+ * may ACK, and a rejection lands on the result screen as "Your result is not
+ * recorded yet." with Retry as the forward control —
  * so rejecting on an answer that a retry cannot change is a permanent lockout,
  * not a timeout. Cf. the same rule in `pvp-bounty.ts`.
  */
@@ -72,7 +72,7 @@ export async function reportPvpWin(
     };
     if (!response.ok) {
         if (DECIDED_REFUSAL_STATUSES.has(response.status)) return [];
-        throw new Error(String(data?.error ?? `Mission settlement failed (HTTP ${response.status}).`));
+        throw new Error(String(data?.error ?? 'Mission credit for this battle could not be settled yet. Retry in a moment.'));
     }
     return Array.isArray(data?.missionsCompleted) ? data.missionsCompleted : [];
 }

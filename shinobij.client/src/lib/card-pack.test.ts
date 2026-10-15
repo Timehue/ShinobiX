@@ -45,7 +45,7 @@ test('an unconfirmed pack keeps its operation ID; confirmed next purchase uses a
     assert.equal(hasPendingCardPackRequest(player, 'standard'), false);
     const unconfirmed = await openCardPack(player, 'standard');
     assert.equal(unconfirmed.ok, false);
-    assert.match(String(unconfirmed.error), /Refresh before retrying to recover the same purchase\./);
+    assert.match(String(unconfirmed.error), /then refresh to recover the same purchase\./);
     assert.equal(hasPendingCardPackRequest(player, 'standard'), true);
     assert.equal((await openCardPack(player, 'standard')).ok, true);
     assert.equal(hasPendingCardPackRequest(player, 'standard'), false);

@@ -13,6 +13,7 @@ import {
 } from "../lib/legacy";
 import { PlayerNameplate } from "../components/PlayerNameplate";
 import { GameArtIcon } from "../components/GameArtIcon";
+import { gameConfirm } from "../components/GameAlert";
 import { LegacyMoment, type LegacyMomentData } from "../components/LegacyMoment";
 import { rollEmissarySpawn, emissaryForCategory } from "../lib/legacy-emissaries";
 import { rumorLog } from "../lib/legacy-rumors";
@@ -156,6 +157,8 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
 
     async function handleTrial(action: "start" | "complete" | "reroll") {
         if (busy) return;
+        // The reroll sits right under Check Progress and wipes the current proof's progress in one tap.
+        if (action === "reroll" && !await gameConfirm("Ask for a different proof? You'll lose all progress on the current proof.", { title: "Ask for a different proof", confirmLabel: "Reset progress", danger: true, initialFocus: "cancel" })) return;
         setBusy(true);
         if (action === "start" || action === "reroll") {
             const result = action === "start" ? await trialStart(character.name) : await trialReroll(character.name);
@@ -427,7 +430,7 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
                                 const left = hours >= 48 ? `${Math.floor(hours / 24)} days` : hours >= 1 ? `${hours}h` : "less than an hour";
                                 return (
                                     <> He is <b>waiting in sector {status.offer.sector}</b> right now.
-                                    {msLeft > 0 && <> He will not wait forever. <b style={{ color: "#fbbf24" }}>About {left}</b> remains.</>}</>
+                                    {msLeft > 0 && <> He will not wait forever. <b style={{ color: "#e6c477" }}>About {left}</b> remains.</>}</>
                                 );
                             })()}
                         </p>
@@ -501,9 +504,9 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
                             </div>
                         </div>
                     ))}
-                    {trialNote && <p role="status" aria-live="polite" aria-atomic="true" style={{ fontSize: ".74rem", color: "#fbbf24", margin: "0 0 6px" }}>{trialNote}</p>}
+                    {trialNote && <p role="status" aria-live="polite" aria-atomic="true" style={{ fontSize: ".74rem", color: "#e6c477", margin: "0 0 6px" }}>{trialNote}</p>}
                     <button disabled={busy} onClick={() => void handleTrial("complete")} style={{ width: "100%", marginTop: 4 }}>
-                        {status.trial.objectives.every((o) => o.done) ? "Complete the Trial" : "Check Progress"}
+                        {status.trial.objectives.every((o) => o.done) ? "Complete the trial" : "Check progress"}
                     </button>
                     {!status.trial.objectives.every((o) => o.done) && (
                         <button

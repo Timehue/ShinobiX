@@ -169,8 +169,8 @@
 .hg-boss-cinematic h2 {
     margin: 0 0 14px;
     color: #fff;
-    font: 800 clamp(34px, 5vw, 66px)/0.94 var(--font-display);
-    letter-spacing: -0.03em;
+    /* Marcellus ships one weight; 800 would be synthesized faux-bold. */
+    font: 400 clamp(34px, 5vw, 66px)/0.94 var(--font-display);
     text-wrap: balance;
 }
 
@@ -191,10 +191,11 @@
 }
 
 .hg-boss-cinematic__primary {
-    border-color: #e9d5ff !important;
-    color: #fff !important;
-    background: linear-gradient(135deg, #6d28d9, #c026d3) !important;
-    box-shadow: 0 0 24px rgba(192, 38, 211, 0.42);
+    border-color: var(--sj-gold-bright) !important;
+    color: var(--sj-void) !important;
+    background: linear-gradient(180deg, var(--sj-gold-bright), var(--sj-gold)) !important;
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--sj-gold-bright) 45%, transparent);
+    text-shadow: none;
 }
 
 :is(.hg-boss-cinematic-backdrop, .hg-boss-dialog)[data-mode="victory"] .hg-boss-cinematic__veil {

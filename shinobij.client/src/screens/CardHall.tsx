@@ -578,7 +578,7 @@ function CardHallInner({
             aria-pressed={tab === item}
             onClick={() => setTab(item)}
           >
-            {item === "pvp" ? "Free-Play PvP" : item === "packs" ? "Card Packs" : item[0].toUpperCase() + item.slice(1)}
+            {item === "pvp" ? "Free-play PvP" : item === "packs" ? "Card packs" : item[0].toUpperCase() + item.slice(1)}
           </button>
         ))}
       </nav>
@@ -655,7 +655,7 @@ function CardHallInner({
                   disabled={busy}
                   style={{ marginLeft: 8 }}
                 >
-                  Play Again
+                  Play again
                 </button>
               </div>
             ) : null}
@@ -717,7 +717,7 @@ function CardHallInner({
                   onClick={() => void resumeShowdown()}
                   disabled={busy}
                 >
-                  Resume Interrupted Showdown
+                  Resume interrupted Showdown
                 </button>
               </p>
             ) : null}
@@ -725,7 +725,7 @@ function CardHallInner({
               {busy ? "Preparing showdown…" : "Start Showdown vs AI"}
             </button>
             <button onClick={() => setTab("deck")} style={{ marginLeft: 8 }}>
-              Review Deck
+              Review deck
             </button>
           </div>
         )
@@ -1038,7 +1038,7 @@ function FreePlayQueue({
       // the player can retry and cleanup will send another leave on navigation.
       if (leaseIsCurrent(lease)) {
         setSearching(true);
-        setError(`${message} Your search remains active; retry Cancel Search.`);
+        setError(`${message} Your search is still active. Press “Cancel search” again.`);
       }
     } finally {
       if (leaseIsCurrent(lease)) setLeaving(false);
@@ -1060,7 +1060,7 @@ function FreePlayQueue({
       </button>
       {searching ? (
         <button onClick={() => void cancel()} disabled={leaving} style={{ marginLeft: 8 }}>
-          {leaving ? "Canceling…" : "Cancel Search"}
+          {leaving ? "Canceling…" : "Cancel search"}
         </button>
       ) : null}
       <div className="chronicle-spar-challenge">
@@ -1079,7 +1079,7 @@ function FreePlayQueue({
             />
           </label>
           <button type="submit" disabled={challengeBusy || !challengeName.trim()}>
-            {challengeBusy ? "Working…" : "Send Spar Challenge"}
+            {challengeBusy ? "Working…" : "Send spar challenge"}
           </button>
         </form>
         {outgoingChallenge ? <p role="status">Challenge sent to {outgoingChallenge.toName}. Waiting for their answer…</p> : null}
@@ -1113,14 +1113,19 @@ function Rules() {
       <p>
         <strong>Turn:</strong> Draw, Standby, Main 1, Battle, Main 2, End. You
         advance Draw, Standby, End, and the turn handoff explicitly, so every
-        phase remains readable. The first player draws on turn one but cannot
-        Battle; skipping Battle also skips Main 2. You get one Normal Summon or
-        Set.
+        phase remains readable. The first player skips its turn-one draw and
+        cannot Battle that turn; skipping Battle also skips Main 2. You get one
+        Normal Summon or Set.
       </p>
       <p>
         <strong>Monsters:</strong> Levels 1–4 need no Tribute, 5–6 need one and
         7–8 need two. Sets enter face-down Defense and may Flip Summon later.
         Attack uses ATK; Defense uses DEF; direct attacks require an empty field.
+        Snares cannot destroy a Warded Monster or return it to the hand during
+        the turn it is Summoned. A Call Jutsu brings out its one matching
+        Level 8 Monster in place of your Normal Summon, and Shadow Doubles can
+        pay a Tribute starting the turn after they appear. A Shadow Double never
+        meets the element requirement of a Snare.
       </p>
       <p>
         <strong>Elements:</strong> Fire beats Wind, then Lightning, Earth, Water

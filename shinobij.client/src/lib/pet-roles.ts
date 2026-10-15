@@ -36,7 +36,7 @@ export type PetSubRole = "tank" | "bruiser" | "striker" | "assassin" | "kite" | 
 // the kit-chip palette: defender blue, tracker amber, assassin red, sage green.
 export const ROLE_META: Record<PetRole, { label: string; icon: string; color: string }> = {
     defender: { label: "Defender", icon: "🛡", color: "#7dd3fc" },
-    tracker: { label: "Tracker", icon: "🎯", color: "#fbbf24" },
+    tracker: { label: "Tracker", icon: "🎯", color: "#e6c477" },
     assassin: { label: "Assassin", icon: "🗡", color: "#fca5a5" },
     sage: { label: "Sage", icon: "✚", color: "#4ade80" },
 };

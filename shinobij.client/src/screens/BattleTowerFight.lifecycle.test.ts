@@ -59,13 +59,20 @@ describe("Tower combat ownership and lifecycle", () => {
         assert.match(fightSource, /aria-modal="true" aria-labelledby="tower-story-result-title"/);
         assert.match(fightSource, /escapeAllowed: resultCanExit/);
         assert.match(fightSource, /aria-disabled=\{!resultCanExit\} disabled=\{!resultCanExit\}/);
-        assert.match(fightSource, /Retry settlement/);
+        assert.match(fightSource, /onClick=\{onRetry\}>Try again</);
         assert.match(css, /\.tower-settlement-status--error/);
         assert.match(css, /\.screen-battleTowerFight \[role="dialog"\]:focus-visible/);
     });
 });
 
 describe("Tower completed-run recovery", () => {
+    it("recovers world boss presentation and settlement from the sealed session without caller overrides", () => {
+        assert.match(fightSource, /settleFn = initialSession\.worldBossEvent \? settleWorldBossEvent : undefined/);
+        assert.match(fightSource, /settleOnAnyDone = !!initialSession\.worldBossEvent/);
+        assert.match(fightSource, /variant = initialSession\.worldBossEvent \? "world-boss" : "tower"/);
+        assert.match(hostSource, /onContinue=\{view\.session\.worldBossEvent \? undefined/);
+        assert.match(hostSource, /view\.session\.worldBossEvent \? onWorldBossExit \?\? onExit : onExit/);
+    });
     it("offers recovery-preserving exits during pending actions, settlement, and recovery failures", () => {
         assert.match(fightSource, /className="tower-fight-leave"\s+disabled=\{\(isTeamPvp \|\| isHunt \|\| isWorldBoss\) && busy\}/);
         assert.equal(fightSource.match(/onLeave=\{leaveUnsettled\}/g)?.length, 2, "both result presentations need the safe escape");

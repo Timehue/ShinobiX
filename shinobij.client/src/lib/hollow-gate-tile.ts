@@ -191,18 +191,18 @@ export function resolveHollowGateTile(
                 const damage = Math.max(0, Math.floor(result.damage ?? 0));
                 if (result.revived) {
                     pushHollowGateLog(`${flavor} The trap's killing blow lands, and then Second Wind restores half your HP.`);
-                    setHollowGateEvent({ title: "Second Wind", body: "The stored Hollow Shards burst into violet flame and restore half your HP.", kind: "trap", choices: [{ label: "Press On", tone: "primary", onSelect: () => setHollowGateEvent(null) }] });
+                    setHollowGateEvent({ title: "Second Wind", body: "The stored Hollow Shards burst into violet flame and restore half your HP.", kind: "trap", choices: [{ label: "Press on", tone: "primary", onSelect: () => setHollowGateEvent(null) }] });
                 } else if (result.ended) {
                     pushHollowGateLog(`${flavor} The seals tear ${damage} HP from you. You collapse and the server closes the run.`);
                     setHollowGateEvent({
                         title: "You Have Fallen",
                         body: `${flavor}\n\nThe trap drains your final breath. Your verified run ledger is reconciled and you are admitted to the village hospital.\n\nRUN SUMMARY\n${buildHollowGateRunSummary()}`,
                         kind: "trap",
-                        choices: [{ label: "Leave Shrine", tone: "danger", onSelect: () => { setHollowGateEvent(null); leaveHollowGateShrine({ death: true }); } }],
+                        choices: [{ label: "Leave shrine", tone: "danger", onSelect: () => { setHollowGateEvent(null); leaveHollowGateShrine({ death: true }); } }],
                     });
                 } else {
                     pushHollowGateLog(`${flavor} The seals tear ${damage} HP from you (33% of max).`);
-                    setHollowGateEvent({ title: "Ancient Seal Trap", body: `${flavor}\n\nYou take ${damage} HP damage (33% of max).`, kind: "trap", choices: [{ label: "Press On", onSelect: () => setHollowGateEvent(null), tone: "primary" }] });
+                    setHollowGateEvent({ title: "Ancient Seal Trap", body: `${flavor}\n\nYou take ${damage} HP damage (33% of max).`, kind: "trap", choices: [{ label: "Press on", onSelect: () => setHollowGateEvent(null), tone: "primary" }] });
                 }
             });
         }
@@ -271,7 +271,7 @@ export function resolveHollowGateTile(
                 title: floorProfile.storyTitle,
                 body: `${floorProfile.storyEcho}\n\nYou study the engraving. The shrine watches.`,
                 kind: "story",
-                choices: [{ label: "Move On", onSelect: () => setHollowGateEvent(null), tone: "primary" }],
+                choices: [{ label: "Move on", onSelect: () => setHollowGateEvent(null), tone: "primary" }],
             });
             markResolved();
             return;
@@ -304,7 +304,7 @@ export function resolveHollowGateTile(
                 kind: "descend",
                 choices: [
                     {
-                        label: "Descend Deeper",
+                        label: "Descend deeper",
                         tone: "primary",
                         onSelect: async () => {
                             if (!hollowGateRun.runToken) {
@@ -372,7 +372,7 @@ export function resolveHollowGateTile(
                             setHollowGateEvent(null);
                         },
                     },
-                    { label: "Hold Position", onSelect: () => setHollowGateEvent(null) },
+                    { label: "Hold position", onSelect: () => setHollowGateEvent(null) },
                 ],
             });
             // Don't markResolved — player can stay on the floor and come back to the staircase.
@@ -397,17 +397,17 @@ export function resolveHollowGateTile(
                     : `${flavor}\n\nThe broken torii on this tile opens back to the world map.\n\nRUN SUMMARY\n${buildHollowGateRunSummary()}\n\nLeaving ends this run. You lose your progress, and you'll need another Hollow Gate Key to return.`,
                 kind: "exit",
                 choices: noRetreat
-                    ? [{ label: "Press On", tone: "primary", onSelect: () => setHollowGateEvent(null) }]
+                    ? [{ label: "Press on", tone: "primary", onSelect: () => setHollowGateEvent(null) }]
                     : [
                         {
-                            label: "Leave Shrine",
+                            label: "Leave shrine",
                             tone: "danger",
                             onSelect: () => {
                                 setHollowGateEvent(null);
                                 leaveHollowGateShrine();
                             },
                         },
-                        { label: "Step Back", onSelect: () => setHollowGateEvent(null) },
+                        { label: "Step back", onSelect: () => setHollowGateEvent(null) },
                     ],
             });
             // Don't mark resolved — players can step back and approach later
@@ -444,7 +444,7 @@ export function resolveHollowGateTile(
                     if (result.outcome === "trap") {
                         const damage = Math.max(0, Math.floor(eventResult.damage ?? 0));
                         pushHollowGateLog(`Trap behind the door! You take ${damage} HP damage.`);
-                        setHollowGateEvent({ title: eventResult.ended ? "Cursed Trap Door" : eventResult.revived ? "Second Wind" : "Trap Door", body: eventResult.ended ? "The binding seal drains the last of your chakra. Your verified run ledger is reconciled and the run ends." : eventResult.revived ? "The cursed seal lands a killing blow, but Second Wind restores half your HP." : `Behind the chains, a cursed seal lashes out.\n\nYou take ${damage} HP damage.`, kind: "trap", choices: [{ label: eventResult.ended ? "Leave Shrine" : "Press On", tone: "danger", onSelect: () => { setHollowGateEvent(null); if (eventResult.ended) leaveHollowGateShrine({ death: true }); } }] });
+                        setHollowGateEvent({ title: eventResult.ended ? "Cursed Trap Door" : eventResult.revived ? "Second Wind" : "Trap Door", body: eventResult.ended ? "The binding seal drains the last of your chakra. Your verified run ledger is reconciled and the run ends." : eventResult.revived ? "The cursed seal lands a killing blow, but Second Wind restores half your HP." : `Behind the chains, a cursed seal lashes out.\n\nYou take ${damage} HP damage.`, kind: "trap", choices: [{ label: eventResult.ended ? "Leave shrine" : "Press on", tone: "danger", onSelect: () => { setHollowGateEvent(null); if (eventResult.ended) leaveHollowGateShrine({ death: true }); } }] });
                         return;
                     }
                     const encounter = result.pet;
@@ -477,7 +477,7 @@ export function resolveHollowGateTile(
                     title: "Sealed Door",
                     body: `${flavor}\n\nYou need a Shrine Key to open this door.`,
                     kind: "locked",
-                    choices: [{ label: "Step Back", onSelect: () => setHollowGateEvent(null) }],
+                    choices: [{ label: "Step back", onSelect: () => setHollowGateEvent(null) }],
                 });
                 // Don't mark resolved — player can try again with a key later.
             }

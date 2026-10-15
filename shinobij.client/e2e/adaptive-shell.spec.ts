@@ -23,6 +23,8 @@ const WANDERER_MAX_INDEX = 1;
 // The after-dark night ninja slot. Seeded too, so a run that lands on in-world
 // night still finds a quiet road.
 const WANDERER_NIGHT_INDEX = WANDERER_MAX_INDEX + 1;
+// The angler/miner and rift-creature slots sit above it (shared/wanderer-extra-slots.ts).
+const WANDERER_LAST_INDEX = WANDERER_NIGHT_INDEX + 2;
 
 /**
  * Keep the road empty for a sector-projection run.
@@ -47,7 +49,7 @@ function quietRoadCooldowns(sector: number, now = Date.now()): Record<string, nu
     const cooldowns: Record<string, number> = {};
     for (const offset of [-1, 0, 1]) {
         const bucket = Math.floor(now / WANDERER_BUCKET_MS) + offset;
-        for (let index = 0; index <= WANDERER_NIGHT_INDEX; index++) {
+        for (let index = 0; index <= WANDERER_LAST_INDEX; index++) {
             cooldowns[`w-${sector}-${bucket}-${index}`] = expiry;
         }
     }
@@ -355,14 +357,14 @@ async function expectLoadedSave(page: Page, api: AuthenticatedApiFixture, name =
 async function createAccount(page: Page) {
     await page.goto("/", { waitUntil: "networkidle" });
     await page.getByTestId("start-create").click();
-    await page.getByRole("button", { name: "Choose Village" }).click();
+    await page.getByRole("button", { name: "Choose village" }).click();
     await page.locator(".cc-village-card").first().click();
-    await page.getByRole("button", { name: "Choose Bloodline" }).click();
+    await page.getByRole("button", { name: "Choose bloodline" }).click();
     await page.locator(".cc-bloodline-card").first().click();
-    await page.getByRole("button", { name: "Choose Avatar" }).click();
+    await page.getByRole("button", { name: "Choose avatar" }).click();
     await page.locator(".cc-avatar-card").first().click();
     await page.getByRole("button", { name: "Preview Shinobi" }).click();
-    await page.getByRole("button", { name: "Name and Password" }).click();
+    await page.getByRole("button", { name: "Name and password" }).click();
     await page.getByLabel("Name").fill("AdaptiveNinja");
     await page.locator("#cc-password").fill("Adaptive!Pass1234");
     await page.locator("#cc-confirm-password").fill("Adaptive!Pass1234");
@@ -785,14 +787,14 @@ test("representative empty, loading, validation, long-content, and entitlement s
 
     await page.goto("/", { waitUntil: "networkidle" });
     await page.getByTestId("start-create").click();
-    await page.getByRole("button", { name: "Choose Village" }).click();
+    await page.getByRole("button", { name: "Choose village" }).click();
     await page.locator(".cc-village-card").first().click();
-    await page.getByRole("button", { name: "Choose Bloodline" }).click();
+    await page.getByRole("button", { name: "Choose bloodline" }).click();
     await page.locator(".cc-bloodline-card").first().click();
-    await page.getByRole("button", { name: "Choose Avatar" }).click();
+    await page.getByRole("button", { name: "Choose avatar" }).click();
     await page.locator(".cc-avatar-card").first().click();
     await page.getByRole("button", { name: "Preview Shinobi" }).click();
-    await page.getByRole("button", { name: "Name and Password" }).click();
+    await page.getByRole("button", { name: "Name and password" }).click();
     await page.getByRole("button", { name: "Enter the World" }).click();
     await expect(page.locator("#cc-name-error")).toBeVisible();
     await expect(page.locator("#cc-password-error")).toBeVisible();
@@ -941,14 +943,14 @@ test("capture adaptive shell and representative route evidence", async ({ page }
     await page.setViewportSize({ width: 1366, height: 768 });
     await page.goto("/", { waitUntil: "networkidle" });
     await page.getByTestId("start-create").click();
-    await page.getByRole("button", { name: "Choose Village" }).click();
+    await page.getByRole("button", { name: "Choose village" }).click();
     await page.locator(".cc-village-card").first().click();
-    await page.getByRole("button", { name: "Choose Bloodline" }).click();
+    await page.getByRole("button", { name: "Choose bloodline" }).click();
     await page.locator(".cc-bloodline-card").first().click();
-    await page.getByRole("button", { name: "Choose Avatar" }).click();
+    await page.getByRole("button", { name: "Choose avatar" }).click();
     await page.locator(".cc-avatar-card").first().click();
     await page.getByRole("button", { name: "Preview Shinobi" }).click();
-    await page.getByRole("button", { name: "Name and Password" }).click();
+    await page.getByRole("button", { name: "Name and password" }).click();
     await shot("after-creator-name-1366x768.png");
 
     await page.goto("/", { waitUntil: "networkidle" });
@@ -1282,12 +1284,10 @@ test("selected-sector projection keeps controls, receipts, traces, and responsiv
     await expect(stage.getByRole("button", { name: "Current tile row 2 column 10" })).toHaveCount(1);
     await page.keyboard.press('Escape');
 
-    const noticeDialog = page.getByRole("alertdialog", { name: "Notice" });
     await page.keyboard.press("e");
-    await expect(noticeDialog).toBeVisible();
-    await expect(noticeDialog).toContainText("Sector 44 explored. +35 ryo.");
-    await noticeDialog.getByRole("button", { name: "OK", exact: true }).click();
-    await expect(noticeDialog).toBeHidden();
+    // A routine explore result is a toast, not a Notice the player has to click through.
+    await expect(page.locator(".game-toast-stack")).toContainText("Sector 44 explored. +35 ryo.");
+    await expect(page.getByRole("alertdialog", { name: "Notice" })).toHaveCount(0);
 
     expect(sharedRequestId).toMatch(/^[A-Za-z0-9_-]{8,96}$/);
     expect(dungeonRequests).toEqual([{
@@ -1319,7 +1319,7 @@ test("selected-sector projection keeps controls, receipts, traces, and responsiv
 
     await expect.poll(() => traceRequests.length).toBe(1);
     expect(traceRequests).toEqual([{ method: "GET", sector: "44", player: "AdaptiveNinja" }]);
-    await hud.getByRole("button", { name: "Sector Info", exact: true }).click();
+    await hud.getByRole("button", { name: "Sector info", exact: true }).click();
     await expect(commandPanel).toBeVisible();
     const inlineSectorInfo = testInfo.project.name === "chromium-mobile";
     await expect(hud.locator(".sector-hud-inline-info")).toHaveCount(inlineSectorInfo ? 1 : 0);
@@ -1345,10 +1345,10 @@ test("selected-sector projection keeps controls, receipts, traces, and responsiv
     // The desktop popup retires when the modal takes over and must be reopened.
     if (inlineSectorInfo) {
         await expect(commandPanel).toBeVisible();
-        await expect(hud.getByRole("button", { name: "Sector Info", exact: true })).toHaveAttribute("aria-expanded", "true");
+        await expect(hud.getByRole("button", { name: "Sector info", exact: true })).toHaveAttribute("aria-expanded", "true");
     } else {
         await expect(commandPanel).toHaveCount(0);
-        await hud.getByRole("button", { name: "Sector Info", exact: true }).click();
+        await hud.getByRole("button", { name: "Sector info", exact: true }).click();
     }
     await shrineButton.click();
     const shrineDialog = page.getByRole("dialog", { name: "Shrine of the Ancients" });
@@ -1367,14 +1367,14 @@ test("selected-sector projection keeps controls, receipts, traces, and responsiv
         await hud.getByRole("button", { name: "Close Sector Info", exact: true }).click();
     }
     await expect(commandPanel).toHaveCount(0);
-    await expect(hud.getByRole("button", { name: "Sector Info", exact: true })).toHaveAttribute("aria-expanded", "false");
+    await expect(hud.getByRole("button", { name: "Sector info", exact: true })).toHaveAttribute("aria-expanded", "false");
     await expectNoLargeOverlap(stage.locator(".sector-image-map"), hud);
     await expectViewportSafe(page, { logicalStages: [".walkable-sector-map"] });
     const mobileNav = page.locator(".mobile-bottom-nav");
     if (testInfo.project.name === "chromium-mobile") {
         await expect(mobileNav).toBeVisible();
         await expectFinalActionableClearsFixedNavigation(page, page.locator(".map-instance"), mobileNav);
-        await expectNoLargeOverlap(hud.getByRole("button", { name: "Sector Info", exact: true }), mobileNav);
+        await expectNoLargeOverlap(hud.getByRole("button", { name: "Sector info", exact: true }), mobileNav);
     } else {
         await expect(mobileNav).toBeHidden();
     }

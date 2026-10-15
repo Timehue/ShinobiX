@@ -3,10 +3,12 @@ import { getSharedNow, subscribeSharedNow } from "../lib/shared-now-store";
 import {
   CHRONICLE_FOUNDING_FORMAT,
   CHRONICLE_ROOM_TITLE,
+  callOnlySummonBlocker,
   getChronicleCard,
   STARTING_LIFE_POINTS,
   TURN_TIMEOUT_MS,
   previewChronicleBattle,
+  summoningJutsuBlocker,
   tributeCountForLevel,
   type ChronicleActionIntent,
   type ChronicleDisplayCard,
@@ -408,6 +410,21 @@ export function ChronicleDuelBoard({
   // could legally enter, so the board answers "where does this go?" before a
   // slot is committed.
   const placements = chronicleLegalPlacements(state, selected);
+  // The server's own summon rules, read here so the dock explains a refusal
+  // before the player commits rather than after the server turns it away.
+  const callOnlyBlock = selected ? callOnlySummonBlocker(selected) : null;
+  const summoningBlock =
+    selected && me.hand
+      ? summoningJutsuBlocker(selected, {
+          normalSummonUsed: state.normalSummonUsed,
+          hand: me.hand,
+          monsterZones: me.monsterZones,
+          lifePoints: me.lifePoints,
+        })
+      : null;
+  const freshDoublesWaiting = me.monsterZones.some(
+    (monster) => monster?.canTribute === false,
+  );
   const placingMonster = placements.mode === "monster";
   const placingTrap = placements.mode === "trap";
   const magicTargetScope =
@@ -1599,6 +1616,10 @@ export function ChronicleDuelBoard({
               <span className="chronicle-placement-help">
                 {state.normalSummonUsed
                   ? "You already used your Normal Summon or Set this turn."
+                  : callOnlyBlock
+                    ? callOnlyBlock
+                  : requiredTributes > placements.tributeZones.length
+                    ? `Level ${selected.level} needs ${requiredTributes} Tribute${requiredTributes === 1 ? "" : "s"}, and only ${placements.tributeZones.length} of your Monsters can be Tributed now.${freshDoublesWaiting ? " Shadow Doubles can be Tributed starting next turn." : ""}`
                   : requiredTributes > 0 && tributes.length < requiredTributes
                     ? `Level ${selected.level} needs ${requiredTributes} Tribute${requiredTributes === 1 ? "" : "s"} — click your own Monsters to offer them (${tributes.length}/${requiredTributes}).`
                     : destination === null
@@ -1631,7 +1652,7 @@ export function ChronicleDuelBoard({
                   })
                 }
               >
-                Play Face-Up Attack
+                Play face-up Attack
               </button>
               <button
                 className="summon-defense secondary"
@@ -1650,7 +1671,7 @@ export function ChronicleDuelBoard({
                   })
                 }
               >
-                Set Face-Down Defense
+                Set face-down Defense
               </button>
             </>
           ) : null}
@@ -1659,6 +1680,8 @@ export function ChronicleDuelBoard({
               <span className="chronicle-placement-help">
                 {selectedIsFieldCard
                   ? "Activate this Field Card to take over the shared Field Zone."
+                  : summoningBlock
+                    ? summoningBlock
                   : magicTargetScope === "none"
                     ? "This Jutsu needs no target — activate it."
                     : selectedMagicTargetReady
@@ -1676,6 +1699,7 @@ export function ChronicleDuelBoard({
                 disabled={
                   busy ||
                   !selectedMagicTargetReady ||
+                  Boolean(summoningBlock) ||
                   (selectedMagicNeedsOpenMonsterZone &&
                     !me.monsterZones.some((zone) => zone === null))
                 }
@@ -1769,14 +1793,14 @@ export function ChronicleDuelBoard({
                 }
                 onClick={() => act({ action: "start-battle" })}
               >
-                Start Attacking
+                Start attacking
               </button>
               <button
                 className={`secondary ${selected ? "chronicle-phase-action-deferred" : ""}`}
                 disabled={busy}
                 onClick={() => act({ action: "enter-end-phase" })}
               >
-                End Turn
+                End turn
               </button>
             </>
           ) : null}
@@ -1810,15 +1834,15 @@ export function ChronicleDuelBoard({
                 }}
               >
                 {directAttackPower === null
-                  ? "Direct Attack"
-                  : `Direct Attack · ${directAttackPower.toLocaleString()}`}
+                  ? "Direct attack"
+                  : `Direct attack · ${directAttackPower.toLocaleString()}`}
               </button>
               <button
                 className="secondary"
                 disabled={busy}
                 onClick={() => act({ action: "enter-main-2" })}
               >
-                Finish Attacking
+                Finish attacking
               </button>
             </>
           ) : null}
@@ -1828,7 +1852,7 @@ export function ChronicleDuelBoard({
               disabled={busy}
               onClick={() => act({ action: "enter-end-phase" })}
             >
-              End Turn
+              End turn
             </button>
           ) : null}
           {/* Same recovery path as Continue above: End Turn already hands the
@@ -1839,7 +1863,7 @@ export function ChronicleDuelBoard({
               disabled={busy}
               onClick={() => act({ action: "end-turn" })}
             >
-              Finish Turn
+              Finish turn
             </button>
           ) : null}
         </div>

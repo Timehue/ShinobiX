@@ -253,6 +253,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }
                 }
             },
+            resultKeys: isCurrency ? ['currency', 'amount', 'burned'] : ['itemId'],
             creditRecipient: (character) => {
                 if (isCurrency) {
                     const key = currency as TransferCurrency;

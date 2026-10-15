@@ -12,7 +12,9 @@ import {
 } from "../lib/training-config";
 import { BATTLE_FLOOR_FEE, BATTLE_FREE_FLOORS } from "../../../api/towers/_entry-fee";
 import {
+    CHRONICLE_CARD_CATALOG,
     CHRONICLE_ELEMENT_BATTLE_BONUS,
+    CHRONICLE_FOUNDING_FORMAT,
     MAIN_DECK_SIZE,
     OPENING_HAND_SIZE,
     STARTING_LIFE_POINTS,
@@ -167,6 +169,14 @@ test("high-drift guide numbers stay aligned with current game constants", () => 
     assert.match(chronicle, new RegExp(`open with ${numberText(OPENING_HAND_SIZE)}`, "i"));
     assert.match(chronicle, new RegExp(`${STARTING_LIFE_POINTS.toLocaleString("en-US")} Health`, "i"));
     assert.match(chronicle, new RegExp(`advantage adds ${CHRONICLE_ELEMENT_BATTLE_BONUS}`, "i"));
+    assert.equal(CHRONICLE_FOUNDING_FORMAT.firstPlayerDrawsOnFirstTurn, false, "the guide says the first player skips its draw");
+    assert.match(chronicle, /player who takes the first turn skips that turn's draw/i);
+    const callCosts = new Set(
+        CHRONICLE_CARD_CATALOG.flatMap((card) =>
+            card.cardClass === "magic" && card.effect.kind === "callSummon" ? [card.effect.healthCost] : []),
+    );
+    assert.equal(callCosts.size, 1, "every Call Jutsu should share one Health cost for the guide to name");
+    assert.match(chronicle, new RegExp(`Level 8 beast for ${[...callCosts][0]?.toLocaleString("en-US")} Health`, "i"));
 
     assert.match(companions, new RegExp(`${numberText(SHOWDOWN_BENCH_SIZE)} reserves`, "i"));
     assert.match(companions, new RegExp(`round ${SHOWDOWN_TURN_CAP}`, "i"));

@@ -13,6 +13,9 @@ import {
 
 /* eslint-disable react-hooks/set-state-in-effect */
 
+/** The one notice for any attempt to navigate away from an unresolved fight. */
+export const BATTLE_LEAVE_NOTICE = "Finish this fight before you leave.";
+
 interface BattleNavigationGuardOptions extends Omit<BattleGuardSignals, "screen"> {
     screen: Screen;
     screenRef: { current: Screen };
@@ -128,7 +131,7 @@ export function useBattleNavigationGuard({
     const goBack = useCallback(() => {
         if (navigationBlocked?.()) return;
         if (inBattleRef.current) {
-            alert("You cannot leave during a battle. Finish the fight first!");
+            alert(BATTLE_LEAVE_NOTICE);
             return;
         }
         if (hospitalized && screen === "hospital") {

@@ -199,9 +199,9 @@ describe("ration donation gate + copy", () => {
         assert.equal(clanRationDonateBlock(donorWith(0), 5, NOW), null);
     });
     it("names the amount on the button", () => {
-        assert.equal(clanRationDonateLabel(0), "Donate Ration Packs");
-        assert.equal(clanRationDonateLabel(1), "Donate 1 Ration Pack");
-        assert.equal(clanRationDonateLabel(1_200), "Donate 1,200 Ration Packs");
+        assert.equal(clanRationDonateLabel(0), "Donate ration packs");
+        assert.equal(clanRationDonateLabel(1), "Donate 1 ration pack");
+        assert.equal(clanRationDonateLabel(1_200), "Donate 1,200 ration packs");
     });
     it("shows the running allowance and says it is shared", () => {
         assert.equal(

@@ -106,7 +106,7 @@ for (const { action, failure } of statCases) {
         if (action !== 'start') await page.getByRole('button', { name: 'Close', exact: true }).click();
         const control = page.getByRole('button', { name: action === 'start'
             ? /Start 15 Minutes/
-            : action === 'collect' ? 'Collect Training' : 'Cancel (keep prorated stats)', exact: action !== 'start' });
+            : action === 'collect' ? 'Collect training' : 'Cancel (keep prorated stats)', exact: action !== 'start' });
         await control.click();
         if (action === 'cancel') {
             const confirmation = page.getByRole('alertdialog', { name: 'Confirm', exact: true });
@@ -164,7 +164,7 @@ for (const screen of ['training', 'jutsuTraining'] as const) {
             } });
         });
         await expectUiAuditBoot(page, runtime, screen);
-        const control = page.getByRole('button', { name: screen === 'training' ? 'Collect Training' : 'Claim jutsu level', exact: true });
+        const control = page.getByRole('button', { name: screen === 'training' ? 'Collect training' : 'Claim jutsu level', exact: true });
         await expect(control).toBeEnabled();
         await control.click();
         if (screen === 'training') {

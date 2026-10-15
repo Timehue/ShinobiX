@@ -6,7 +6,7 @@
 body {
     color: #e8eef8;
     font-family: Verdana, Arial, sans-serif;
-    background: radial-gradient(circle at 20% 0%, rgba(56,189,248,.18), transparent 32%), radial-gradient(circle at 90% 15%, rgba(250,204,21,.10), transparent 30%), linear-gradient(135deg, #07111f, #101827 45%, #05070d);
+    background: radial-gradient(circle at 20% 0%, rgba(56,189,248,.18), transparent 32%), radial-gradient(circle at 90% 15%, rgba(230, 196, 119, .10), transparent 30%), linear-gradient(135deg, #07111f, #101827 45%, #05070d);
 }
 
 button,
@@ -33,13 +33,13 @@ h1 {
     font-size: 58px;
     color: var(--gold);
     letter-spacing: 2px;
-    text-shadow: 0 2px 0 #000, 0 0 18px rgba(250,204,21,.45);
+    text-shadow: 0 2px 0 #000, 0 0 18px rgba(230, 196, 119, .45);
 }
 
 h2 {
     margin: 0 0 14px;
     color: var(--gold);
-    border-bottom: 1px solid rgba(250,204,21,.35);
+    border-bottom: 1px solid rgba(230, 196, 119, .35);
     padding-bottom: 8px;
 }
 
@@ -84,8 +84,8 @@ h3 {
         .admin-panel-switcher button.active {
             color: #fef3c7;
             background: linear-gradient(135deg, rgba(180, 83, 9, .92), rgba(14, 116, 144, .72));
-            border-color: rgba(250, 204, 21, .7);
-            box-shadow: 0 0 22px rgba(250, 204, 21, .12);
+            border-color: rgba(230, 196, 119, .7);
+            box-shadow: 0 0 22px rgba(230, 196, 119, .12);
         }
 
 .admin-subpanel {
@@ -124,7 +124,7 @@ h3 {
         .admin-ap-toggle button.active {
             color: #fef3c7;
             background: linear-gradient(135deg, rgba(14, 116, 144, .88), rgba(21, 128, 61, .68));
-            border-color: rgba(250, 204, 21, .62);
+            border-color: rgba(230, 196, 119, .62);
         }
 
 .bloodline-damage-section {
@@ -139,7 +139,7 @@ h3 {
 .bloodline-element-lock {
     margin-top: 10px;
     color: #fef3c7;
-    border-color: rgba(250, 204, 21, .34);
+    border-color: rgba(230, 196, 119, .34);
 }
 
 .ai-preset-card {
@@ -267,9 +267,11 @@ button {
     /* This hover is for a mouse or trackpad only. A touch browser keeps :hover on
        whatever a tap last hit, so on a phone a tapped button stayed brightened,
        lifted and ringed until the next touch. Desktop hover is unchanged,
-       because a media query moves neither specificity nor order. */
+       because a media query moves neither specificity nor order. A disabled
+       button gets no hover at all; the exclusion sits inside :where() so it
+       adds no specificity and every per-screen :hover still wins as before. */
     @media (hover: hover) {
-        button:hover {
+        button:hover:where(:not(:disabled, [aria-disabled="true"])) {
             filter: brightness(1.12);
             transform: translateY(-1px);
             border-color: color-mix(in srgb, var(--sj-gold) 55%, var(--sj-border-strong));
@@ -347,7 +349,7 @@ button {
     height: 74px;
     border-radius: 10px;
     object-fit: cover;
-    border: 1px solid rgba(250, 204, 21, 0.45);
+    border: 1px solid rgba(230, 196, 119, 0.45);
     box-shadow: 0 10px 22px rgba(0, 0, 0, 0.28);
 }
 
@@ -357,7 +359,7 @@ button {
     height: 72px;
     border-radius: 12px;
     object-fit: cover;
-    border: 1px solid rgba(250, 204, 21, 0.45);
+    border: 1px solid rgba(230, 196, 119, 0.45);
     box-shadow: 0 12px 24px rgba(0, 0, 0, 0.28);
     flex: 0 0 auto;
 }
@@ -503,7 +505,7 @@ button {
 
     .technique-card.selected {
         border-color: var(--gold);
-        box-shadow: 0 0 0 2px rgba(250, 204, 21, .25), 0 0 20px rgba(250, 204, 21, .18);
+        box-shadow: 0 0 0 2px rgba(230, 196, 119, .25), 0 0 20px rgba(230, 196, 119, .18);
     }
 
 .technique-thumb {
@@ -639,8 +641,8 @@ button {
     }
 
 .stat-warning {
-    background: rgba(234, 179, 8, 0.15);
-    border: 1px solid rgba(234, 179, 8, 0.45);
+    background: rgba(209, 167, 88, 0.15);
+    border: 1px solid rgba(209, 167, 88, 0.45);
     color: #fde047;
     border-radius: 8px;
     padding: 6px 12px;

@@ -3,7 +3,7 @@
 
 .prog-panel {
     background: linear-gradient(180deg, #1a2238, #0a1020);
-    border: 1px solid rgba(250, 204, 21, .22);
+    border: 1px solid rgba(230, 196, 119, .22);
     border-radius: var(--r-md);
     padding: var(--sp-4);
     margin-bottom: var(--sp-4);
@@ -17,7 +17,7 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--sp-3);
-    border-bottom: 1px solid rgba(250, 204, 21, .14);
+    border-bottom: 1px solid rgba(230, 196, 119, .14);
     padding-bottom: var(--sp-2);
 }
 .prog-head h3 {
@@ -35,8 +35,8 @@
     text-transform: uppercase;
     letter-spacing: .06em;
     color: #fde047;
-    border: 1px solid rgba(250, 204, 21, .4);
-    background: rgba(250, 204, 21, .1);
+    border: 1px solid rgba(230, 196, 119, .4);
+    background: rgba(230, 196, 119, .1);
     border-radius: var(--r-pill);
     padding: 2px 10px;
     white-space: nowrap;
@@ -68,7 +68,7 @@
 .prog-bar-track {
     height: 8px;
     background: rgba(0, 0, 0, .5);
-    border: 1px solid rgba(250, 204, 21, .18);
+    border: 1px solid rgba(230, 196, 119, .18);
     border-radius: var(--r-pill);
     overflow: hidden;
 }

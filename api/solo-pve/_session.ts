@@ -91,6 +91,9 @@ export type SoloPveWeeklyBossGuard = {
 
 export type SoloPveFighterEventState = {
     hp: number;
+    /** Server-sealed unlimited-health score attack. */
+    unlimitedHealth?: boolean;
+    damageReceived?: number;
     maxHp: number;
     chakra: number;
     stamina: number;
@@ -253,6 +256,11 @@ export function createSoloPveSession(params: CreateSoloPveSessionParams): SoloPv
     const now = Math.max(0, Math.floor(params.now));
     const player = timeStartingShield(cloneFighter(params.player));
     const enemy = timeStartingShield(cloneFighter(params.enemy));
+    if (params.encounter.kind === 'weekly-boss') {
+        enemy.unlimitedHealth = true;
+        enemy.damageReceived = 0;
+        enemy.hp = enemy.maxHp;
+    }
     assertSoloPveLoadoutCompatible(player.character);
     assertSoloPveLoadoutCompatible(enemy.character);
     const difficultyLevel = Number(params.difficultyEnemyLevel);

@@ -130,7 +130,7 @@ export async function mutateWorldBossQueue(input: {
             body: JSON.stringify(input),
         });
         const body = await response.json().catch(() => ({})) as WorldBossQueueMutation;
-        if (!response.ok) return { ...body, ok: false, error: body.error ?? `Queue request failed (${response.status}).` };
+        if (!response.ok) return { ...body, ok: false, error: body.error ?? 'The world boss queue did not answer. Try again in a moment.' };
         return { ...body, ok: true };
     } catch {
         return { ok: false, error: 'The world boss queue is offline. Try again shortly.' };
@@ -171,10 +171,10 @@ export async function settleWorldBossEvent(runId: string, playerName: string): P
             body: JSON.stringify({ runId, playerName }),
         });
     } catch {
-        throw new Error('World boss settlement could not be confirmed. Retry settlement from the result screen.');
+        throw new Error('Your world boss result could not be confirmed. Press Try again on the result screen.');
     }
     const body = await response.json().catch(() => ({})) as Partial<WorldBossSettlement> & { error?: string };
-    if (!response.ok) throw new Error(body.error ?? 'World boss settlement could not be confirmed.');
+    if (!response.ok) throw new Error(body.error ?? 'Your world boss result could not be confirmed.');
     return body as WorldBossSettlement;
 }
 

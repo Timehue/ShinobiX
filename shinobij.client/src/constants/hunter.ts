@@ -29,7 +29,7 @@ export const HUNTER_RANK_COLORS: ReadonlyArray<string> = [
     "#a855f7",
     "#f97316",
     "#ef4444",
-    "#facc15",
+    "#e6c477",
 ];
 
 // Minimum hunter rank required to ACCEPT a hunt of a given mission rank.

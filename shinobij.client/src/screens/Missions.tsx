@@ -1,5 +1,6 @@
 import { gainXp } from "../lib/character-level-projection";
 import { gameToast } from "../components/GameToast";
+import { gameConfirm } from "../components/GameAlert";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import "../styles/hub-screens-skin.css";
 import type React from "react";
@@ -195,7 +196,8 @@ export function Missions({
             });
             const data = await response.json().catch(() => ({}));
             if (!response.ok || !data?.runId || !data?.session) {
-                alert(data?.error ?? "The mission fight could not be started.");
+                // The eligibility refusal's `error` is a machine code; its `reason` has the player copy.
+                alert(data?.error === "mission_not_eligible" ? claimReasonMessage(data.reason ?? "not-yet-unlocked", data) : data?.error ?? "The mission fight could not be started.");
                 return;
             }
             setAuthoritativeFight({ mission, runId: data.runId, session: data.session });
@@ -259,7 +261,7 @@ export function Missions({
                 catch { if (controller.signal.aborted) return; else continue; }
                 if (cancelled || fieldTrailScopeRef.current !== requestScope) return;
                 if (!adoptFieldTrailRef.current(result)) continue;
-                if (result.migrated) window.setTimeout(() => alert("The Mission Hall recalibrated an older field contract onto its verified ledger."), 40);
+                if (result.migrated) gameToast("An older field contract was updated to the current rules.", { kind: "info" });
             }
         })();
         return () => { cancelled = true; controller.abort(); };
@@ -363,7 +365,9 @@ export function Missions({
         try {
             const result = await postFieldTrail({ playerName: character.name, missionId: mission.id, action: "accept" });
             const adopted = adoptFieldTrail(result);
-            if (!result.ok) return alert(result.error ?? "The Mission Hall could not accept this contract.");
+            if (!result.ok) return alert(result.error === "mission_not_eligible"
+                ? claimReasonMessage(result.reason ?? "not-yet-unlocked", result as Parameters<typeof claimReasonMessage>[1])
+                : result.error ?? "The Mission Hall could not accept this contract.");
             if (!adopted) return alert("The Mission Hall accepted this contract, but its ledger is still syncing. Reopen the board to recover it.");
             if (result.reason === "already-claimed-today") {
                 return alert("That contract was already claimed today. The Mission Hall refreshed your ledger instead of accepting it again.");
@@ -378,8 +382,10 @@ export function Missions({
     async function abandonFetchMission(mission: CreatorMission) {
         if (fieldTrailPending) return;
         if (!builtinFetchMissions.some((entry) => entry.id === mission.id)) {
-            return alert("This unpublished mission cannot alter the server contract ledger.");
+            return alert("This assignment is not on the mission board any more, so it can't be abandoned.");
         }
+        // Same danger confirm as the Hunter Board: the server zeroes this run's explore and raid progress.
+        if (!await gameConfirm(`Abandon "${mission.name}"? You'll lose your progress on this contract.`, { title: "Abandon contract", confirmLabel: "Abandon", danger: true })) return;
         setFieldTrailPending(mission.id);
         try {
             const result = await postFieldTrail({ playerName: character.name, missionId: mission.id, action: "abandon" });
@@ -519,7 +525,7 @@ export function Missions({
                         disabled={claimingKey !== null || claimCooldownMs > 0}
                         onClick={() => { void runClaim("academy-trial", claimAcademyTrial); }}
                     >
-                        {claimingKey === "academy-trial" ? "Claiming…" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Academy Trial Reward"}
+                        {claimingKey === "academy-trial" ? "Claiming…" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Academy Trial reward"}
                     </button>
                 </section>
             )}
@@ -532,10 +538,10 @@ export function Missions({
                     </p>
                     <div className="rookie-orders-actions">
                         <button className="start-primary-btn" onClick={() => setActiveMissionTab("combat")}>
-                            Combat Missions
+                            Combat missions
                         </button>
                         <button onClick={() => setActiveMissionTab("field")}>
-                            Field Missions
+                            Field missions
                         </button>
                         <button onClick={() => setScreen("logbook")}>
                             Logbook
@@ -640,7 +646,7 @@ export function Missions({
                                         disabled={claimingKey !== null || claimCooldownMs > 0}
                                         onClick={() => { void runClaim(`combat:${mission.key}`, () => claimCombatMission(mission)); }}
                                     >
-                                        <span className="mh-combat-btn-label">{claimingKey === `combat:${mission.key}` ? "Claiming…" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : <><GameArtIcon kind="ryo" size={16} /> Claim Reward</>}</span>
+                                        <span className="mh-combat-btn-label">{claimingKey === `combat:${mission.key}` ? "Claiming…" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : <><GameArtIcon kind="ryo" size={16} /> Claim reward</>}</span>
                                         {/* The label is sr-only under 700px, where the button collapses to a
                                             44px glyph column. A check instead of the ordinary chevron is the
                                             only thing separating "collect" from "go" at that width. */}
@@ -651,7 +657,7 @@ export function Missions({
                                         disabled={locked || dailyMissionsCompleted(character) >= DAILY_MISSION_LIMIT || startingCombat !== null}
                                         onClick={() => startMissionBattle(mission)}
                                     >
-                                        <span className="mh-combat-btn-label">{locked ? `Lv ${mission.min} Required` : startingCombat === mission.key ? "Starting…" : "Begin Mission"}</span>
+                                        <span className="mh-combat-btn-label">{locked ? `Lv ${mission.min} required` : startingCombat === mission.key ? "Starting…" : "Begin mission"}</span>
                                         <span className="mh-combat-btn-arrow" aria-hidden="true">›</span>
                                     </button>}</SharedClockLeaf>
                             </div>
@@ -743,7 +749,7 @@ export function Missions({
                                         <div className="mh-fetch-actions">
                                             <SharedClockLeaf>{() => !accepted
                                                 ? <button className="mh-field-primary-action" disabled={fieldTrailPending !== null || locked || !hasDailyMissionSlot(character)} onClick={() => { void acceptFetchMission(mission); }}>
-                                                    <span className="mh-field-primary-label">{locked ? `Level ${mission.levelReq} required` : !hasDailyMissionSlot(character) ? "Daily Limit Reached" : "Accept Mission"}</span>
+                                                    <span className="mh-field-primary-label">{locked ? `Level ${mission.levelReq} required` : !hasDailyMissionSlot(character) ? "Daily limit reached" : "Accept mission"}</span>
                                                     <span className="mh-field-primary-arrow" aria-hidden="true">›</span>
                                                 </button>
                                                 : complete
@@ -752,7 +758,7 @@ export function Missions({
                                                         disabled={claimingKey !== null || claimCooldownMs > 0}
                                                         onClick={() => { void runClaim(`field:${mission.id}`, () => claimFetchMission(mission)); }}
                                                     >
-                                                        <span className="mh-field-primary-label">{claimingKey === `field:${mission.id}` ? "Claiming…" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Reward"}</span>
+                                                        <span className="mh-field-primary-label">{claimingKey === `field:${mission.id}` ? "Claiming…" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim reward"}</span>
                                                         {/* Same 44px mobile collapse as the combat card: the label and
                                                             the "Ready to claim" pill are both hidden under 700px, so the
                                                             glyph carries the difference between "collect" and "go". */}

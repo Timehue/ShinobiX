@@ -78,11 +78,11 @@ export async function readPvpOwnerSaveForContinuation(
         _saveVersion?: unknown;
     };
     if (!response.ok || !body.character) {
-        throw new Error(body.error || `Player save read failed (HTTP ${response.status}).`);
+        throw new Error(body.error || "Your save could not be loaded to finish this battle. Retry in a moment.");
     }
     requireContinuationCurrent(continuation);
     if (playerSlug(body.character.name) !== playerSlug(playerName)) {
-        throw new Error("PvP settlement returned a foreign save.");
+        throw new Error("The battle result came back with a different account's save. Press Retry.");
     }
     return { character: body.character, version: body._saveVersion };
 }
@@ -402,7 +402,7 @@ export async function postPvpRewardClaim(
             const serverError = typeof payload?.error === "string" ? payload.error.trim() : "";
             return {
                 status: "retry",
-                message: serverError || `Reward verification failed (HTTP ${response.status}). Please retry.`,
+                message: serverError || "Your battle rewards could not be verified yet. Your result is safe; retry to apply them.",
             };
         }
         const rating = cleanRating(payload.rating);
@@ -422,7 +422,7 @@ export async function postPvpRewardClaim(
         if (typeof payload.completionPending !== "boolean") {
             return {
                 status: "retry",
-                message: "Reward verification returned an incomplete completion receipt. Please retry.",
+                message: "Your battle rewards could not be fully confirmed yet. Your result is safe; retry to apply them.",
             };
         }
         return {
@@ -469,7 +469,7 @@ export async function postPvpRewardCompletionAck(
             const serverError = typeof payload?.error === "string" ? payload.error.trim() : "";
             return {
                 status: "retry",
-                message: serverError || `Reward completion acknowledgement failed (HTTP ${response.status}). Please retry.`,
+                message: serverError || "Battle completion could not be confirmed yet. Your result is safe; please retry.",
             };
         }
         return { status: "confirmed" };

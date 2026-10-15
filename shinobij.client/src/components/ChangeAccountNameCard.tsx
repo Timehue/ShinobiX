@@ -41,7 +41,7 @@ export function ChangeAccountNameCard({ character, onVersionedCharacter }: { cha
                 onChange={(event) => setNext(event.target.value)} required minLength={3} maxLength={32}
                 pattern="[a-zA-Z0-9][a-zA-Z0-9_\-]{2,31}" aria-describedby="account-name-help" />
             <p id="account-name-help">3–32 letters, numbers, underscores or hyphens. After saving, use the new name to sign in.</p>
-            <button type="submit" disabled={busy}>{busy ? 'Saving name…' : 'Save Account Name'}</button>
+            <button type="submit" disabled={busy}>{busy ? 'Saving name…' : 'Save account name'}</button>
         </form>
         {message && <p role="status">{message}</p>}
     </section>;

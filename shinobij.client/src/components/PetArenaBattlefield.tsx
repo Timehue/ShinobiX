@@ -845,7 +845,7 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
                             <p>{winnerOwner === "You" ? "You win the match." : `${winnerOwner} wins the match.`}</p>
                         </div>
                         <div className="pet-victory-actions">
-                            <button type="button" onClick={onFightAgain}>Fight Again</button>
+                            <button type="button" onClick={onFightAgain}>Fight again</button>
                             <button type="button" className="danger-button" onClick={onExit}>Exit</button>
                         </div>
                     </div>

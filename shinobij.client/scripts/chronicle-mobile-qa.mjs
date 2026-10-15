@@ -4,6 +4,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { resolve, extname, dirname } from 'node:path';
 import { build } from '../../node_modules/esbuild/lib/main.js';
+const outputRoot = resolve(process.env.CHRONICLE_QA_OUTPUT_DIR ?? '../docs/audits/chronicle-mobile');
 await build({entryPoints:['src/chroniclepreview.tsx'], bundle:true, external:['/chronicle/*','/fonts/*'], outdir:'.chronicle-qa-out', format:'esm', jsx:'automatic', define:{'import.meta.env.DEV':'true','import.meta.env.PROD':'false','import.meta.env.MODE':'"development"'}, loader:{'.webp':'file','.png':'file','.jpg':'file','.svg':'file','.mp3':'file'}, logLevel:'warning'});
 const server=createServer((req,res)=>{
   const url=decodeURIComponent(new URL(req.url,'http://localhost').pathname);
@@ -24,11 +25,11 @@ try {
 await page.goto(origin, {waitUntil:'domcontentloaded', timeout:120000});
 await page.locator('.chronicle-hand .chronicle-card').first().waitFor({timeout:120000});
 await page.addStyleTag({ content: '#demo-controls { display:none!important } body { margin:0 }' });
-await mkdir('../docs/audits/chronicle-mobile', { recursive: true });
+await mkdir(outputRoot, { recursive: true });
 const results = [];
 for (const [width, height] of [[320,568],[360,640],[375,667],[390,844],[412,915],[430,932],[768,1024],[844,390],[915,412],[1366,768]]) {
   await page.setViewportSize({width,height});
-  await page.screenshot({path:`../docs/audits/chronicle-mobile/${width}x${height}.png`, fullPage:true});
+  await page.screenshot({path:resolve(outputRoot,`${width}x${height}.png`), fullPage:true});
   results.push(await page.evaluate(() => ({ width:innerWidth,height:innerHeight,scrollWidth:document.documentElement.scrollWidth,
     handWidth:document.querySelector('.chronicle-hand .chronicle-card').getBoundingClientRect().width,
     dock:[...document.querySelectorAll('.chronicle-command-dock')].map(el => ({width:el.clientWidth,scroll:el.scrollWidth,top:el.getBoundingClientRect().top,bottom:el.getBoundingClientRect().bottom})),
@@ -94,13 +95,13 @@ for(const count of [5,6,8,10]) {
       expect(rect.y+rect.height).toBeLessThanOrEqual(dock.y+1);
     }).toPass();
   }
-  if(count===10) await page.screenshot({path:'../docs/audits/chronicle-mobile/selected-hand-320.png'});
+  if(count===10) await page.screenshot({path:resolve(outputRoot,'selected-hand-320.png')});
   await hand.last().click();
   await expect(page.getByRole('dialog')).toBeVisible();
   const dialog=await page.getByRole('dialog').boundingBox();
   expect(dialog.y).toBeGreaterThanOrEqual(0);
   expect(dialog.y+dialog.height).toBeLessThanOrEqual(568);
-  if(count===10) await page.screenshot({path:'../docs/audits/chronicle-mobile/inspector.png'});
+  if(count===10) await page.screenshot({path:resolve(outputRoot,'inspector.png')});
   await page.getByRole('button',{name:'Close card details',exact:true}).click();
   await expect(hand.last()).toBeFocused();
   flows.push({scenario:'hand-inspection',count});
@@ -132,7 +133,7 @@ await page.getByLabel('Class',{exact:true}).selectOption('trap');
 await expect(page.locator('.chronicle-card-filters summary')).toHaveText('Filters (1)');
 await page.getByRole('button',{name:'Clear filters',exact:true}).click();
 await page.locator('.chronicle-card-filters summary').click();
-await page.screenshot({path:'../docs/audits/chronicle-mobile/collection.png'});
+await page.screenshot({path:resolve(outputRoot,'collection.png')});
 flows.push({scenario:'collection-search-filter-inspect'});
 await page.goto(`${origin}/?library=deck`);
 await expect(page.locator('.chronicle-deck-status > button')).toBeDisabled();
@@ -156,14 +157,14 @@ await page.getByRole('button',{name:'Restore Migrated Deck',exact:true}).click()
 await expect(page.locator('.chronicle-deck-status strong')).toHaveText('DECK 40 / 40');
 await page.locator('.chronicle-deck-status > button').click();
 await expect(page.getByTestId('saved-deck')).toHaveText('40');
-await page.screenshot({path:'../docs/audits/chronicle-mobile/deck.png'});
+await page.screenshot({path:resolve(outputRoot,'deck.png')});
 flows.push({scenario:'deck-search-owned-limit-inspect-add-remove-complete-save'});
 await page.goto(`${origin}/?scenario=attack`);
 await page.locator('[aria-label="Opponent Monster Zones"] > button').first().click();
 await expect(page.getByRole('dialog')).toBeVisible();
 await page.keyboard.press('Escape');
 await page.locator('[aria-label="Your Monster Zones"] > button').first().click();
-await page.screenshot({path:'../docs/audits/chronicle-mobile/targeting.png'});
+await page.screenshot({path:resolve(outputRoot,'targeting.png')});
 await page.locator('[aria-label="Your Monster Zones"] > button').first().click();
 await expect(page.getByRole('dialog')).toBeVisible();
 await page.keyboard.press('Escape');
@@ -205,11 +206,11 @@ for(const host of ['clan','sector','pvp','ai','echoes']) {
   flows.push({scenario:`host-${host}-request-and-projection`});
 }
 expect(errors).toEqual([]);
-await writeFile('../docs/audits/chronicle-mobile/layout.json',JSON.stringify({results,errors,flows},null,2));
-await rm('../docs/audits/chronicle-mobile/failure.png',{force:true});
+await writeFile(resolve(outputRoot,'layout.json'),JSON.stringify({results,errors,flows},null,2));
+await rm(resolve(outputRoot,'failure.png'),{force:true});
 console.log(JSON.stringify({viewports:results.length,flows:flows.length,errors},null,2));
 } catch (error) {
-  await page.screenshot({path:'../docs/audits/chronicle-mobile/failure.png'});
+  await page.screenshot({path:resolve(outputRoot,'failure.png')});
   console.error(await page.locator('body').innerText());
   throw error;
 } finally {

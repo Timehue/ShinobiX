@@ -432,7 +432,7 @@ test('real built mission combat casts Flicker through a highlighted destination'
 
     const mission = page.locator('.mh-combat-card').filter({ hasText: 'E-Rank Drill' });
     const startResponse = page.waitForResponse((response) => response.url().includes('/api/missions/combat-start') && response.request().method() === 'POST');
-    await mission.getByRole('button', { name: /Begin Mission/ }).click();
+    await mission.getByRole('button', { name: /Begin mission/ }).click();
     const startedHttp = await startResponse;
     expect(startedHttp.status()).toBe(200);
     const started = await startedHttp.json();
@@ -526,7 +526,7 @@ test('real built client completes and recovers a server-owned combat mission', a
 
     const mission = page.locator('.mh-combat-card').filter({ hasText: 'E-Rank Drill' });
     const startResponse = page.waitForResponse((response) => response.url().includes('/api/missions/combat-start') && response.request().method() === 'POST');
-    await mission.getByRole('button', { name: /Begin Mission/ }).click();
+    await mission.getByRole('button', { name: /Begin mission/ }).click();
     const startedHttp = await startResponse;
     expect(startedHttp.status()).toBe(200);
     const started = await startedHttp.json();
@@ -577,7 +577,7 @@ test('real built client completes and recovers a server-owned combat mission', a
     await expect(page.getByRole('heading', { name: 'Mission Hall' })).toBeVisible();
     await dismissNotices();
     const resumedResponse = page.waitForResponse((response) => response.url().includes('/api/missions/combat-start') && response.request().method() === 'POST');
-    await page.locator('.mh-combat-card').filter({ hasText: 'E-Rank Drill' }).getByRole('button', { name: /Begin Mission/ }).click();
+    await page.locator('.mh-combat-card').filter({ hasText: 'E-Rank Drill' }).getByRole('button', { name: /Begin mission/ }).click();
     const resumed = await (await resumedResponse).json();
     expect(resumed.runId).toBe(initial.sessionId);
 
@@ -616,7 +616,7 @@ test('real built client completes and recovers a server-owned combat mission', a
         }
         await route.continue();
     });
-    await page.locator('.mh-combat-card').filter({ hasText: 'E-Rank Drill' }).getByRole('button', { name: /Begin Mission/ }).click();
+    await page.locator('.mh-combat-card').filter({ hasText: 'E-Rank Drill' }).getByRole('button', { name: /Begin mission/ }).click();
     const terminalResume = await (await terminalResponse).json();
     expect(terminalResume.runId).toBe(initial.sessionId);
     await expect(page.getByRole('heading', { name: 'Victory!' })).toBeVisible();
@@ -648,7 +648,7 @@ test('real built client completes and recovers a server-owned combat mission', a
     await page.getByRole('button', { name: /Return to Mission Hall/ }).click();
     await expect(page.getByRole('heading', { name: 'Mission Hall' })).toBeVisible();
     const claimableMission = page.locator('.mh-combat-card').filter({ hasText: 'E-Rank Drill' });
-    await expect(claimableMission.getByRole('button', { name: /Claim Reward/ })).toBeVisible();
+    await expect(claimableMission.getByRole('button', { name: /Claim reward/ })).toBeVisible();
     const claimResponse = page.waitForResponse((response) => response.url().includes('/api/missions/claim-mission') && response.request().method() === 'POST');
     // The claim records this fresh account's first AI kill, which makes the
     // server-owned "pve-first" achievement eligible. Once the App adopts the
@@ -667,7 +667,7 @@ test('real built client completes and recovers a server-owned combat mission', a
         const unlocked = reply?.character?.unlockedAchievements;
         return Array.isArray(unlocked) && unlocked.includes('pve-first');
     }, { timeout: 20_000 });
-    await claimableMission.getByRole('button', { name: /Claim Reward/ }).click();
+    await claimableMission.getByRole('button', { name: /Claim reward/ }).click();
     const claimed = await (await claimResponse).json() as Record<string, unknown>;
     expect(claimed.applied).toBe(true);
     const claimedCharacter = claimed.character as Record<string, unknown>;
@@ -761,7 +761,7 @@ test('real built client records a flee without queueing a mission reward', async
 
     const mission = page.locator('.mh-combat-card').filter({ hasText: 'E-Rank Drill' });
     const startResponse = page.waitForResponse((response) => response.url().includes('/api/missions/combat-start') && response.request().method() === 'POST');
-    await mission.getByRole('button', { name: /Begin Mission/ }).click();
+    await mission.getByRole('button', { name: /Begin mission/ }).click();
     const started = await (await startResponse).json() as { runId: string; session: Session };
     // The fight starts from exactly the stored HP: no refill, and nothing stale.
     expect(started.session.player.hp).toBe(storedHp);
@@ -872,7 +872,7 @@ test('real built client records a flee without queueing a mission reward', async
     // must retire that terminal authority and mint a fresh unpaid attempt; only
     // terminal WINS remain resumable so their claim can be queued exactly once.
     const retryResponse = page.waitForResponse((response) => response.url().includes('/api/missions/combat-start') && response.request().method() === 'POST');
-    await page.locator('.mh-combat-card').filter({ hasText: 'E-Rank Drill' }).getByRole('button', { name: /Begin Mission/ }).click();
+    await page.locator('.mh-combat-card').filter({ hasText: 'E-Rank Drill' }).getByRole('button', { name: /Begin mission/ }).click();
     const retry = await (await retryResponse).json() as { runId: string; resumed: boolean; session: Session };
     expect(retry.runId).not.toBe(started.runId);
     expect(retry.resumed).toBe(false);

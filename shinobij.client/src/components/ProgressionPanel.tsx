@@ -116,7 +116,7 @@ export function ProgressionPanel({ character }: { character: Character }) {
             </div>
 
             {/* Only when there is a note to open: PatchNotesModal renders nothing without one. */}
-            {LATEST_PATCH_NOTE && <button type="button" className="prog-whatsnew" onClick={openPatchNotes}>What's New →</button>}
+            {LATEST_PATCH_NOTE && <button type="button" className="prog-whatsnew" onClick={openPatchNotes}>What's new →</button>}
         </section>
     );
 }

@@ -117,6 +117,7 @@ export function CombatSideHud({
     avatar,
     hp,
     maxHp,
+    unlimitedHealth = false,
     chakra,
     maxChakra,
     stamina,
@@ -134,6 +135,7 @@ export function CombatSideHud({
     avatar: string;
     hp: number;
     maxHp: number;
+    unlimitedHealth?: boolean;
     chakra: number;
     maxChakra: number;
     stamina: number;
@@ -150,7 +152,7 @@ export function CombatSideHud({
     currentRound?: number;
 }) {
     const displayedStatuses = partitionCombatDisplayStatuses(statuses, currentRound);
-    const hpPct = Math.max(0, Math.min(100, (hp / Math.max(1, maxHp)) * 100));
+    const hpPct = unlimitedHealth ? 100 : Math.max(0, Math.min(100, (hp / Math.max(1, maxHp)) * 100));
     const chakraPct = Math.max(0, Math.min(100, (chakra / Math.max(1, maxChakra)) * 100));
     const staminaPct = Math.max(0, Math.min(100, (stamina / Math.max(1, maxStamina)) * 100));
     const shieldMax = 1500;
@@ -185,10 +187,10 @@ export function CombatSideHud({
                 (chakra/stamina share `.resource-line`) once HP is shown on the
                 board via FighterHpBadge — chakra/stamina/shield stay visible. */}
             <div className="resource-line resource-line--hp">
-                <span className="resource-label">HP <small>{hp} / {maxHp}</small></span>
+                <span className="resource-label">HP <small>{unlimitedHealth ? "∞ Unlimited" : `${hp} / ${maxHp}`}</small></span>
                 <div
                     className="hud-bar hp-bar"
-                    {...progressProps(`${name} health`, hp, maxHp)}
+                    {...(unlimitedHealth ? { role: "img", "aria-label": `${name} health: unlimited` } : progressProps(`${name} health`, hp, maxHp))}
                 >
                     <span style={{ width: `${hpPct}%`, background: hpColor }} />
                 </div>

@@ -148,7 +148,7 @@ export function StartScreen({ onCreate, onLogin, onAdmin, onContinueAs, initialN
     if (view === "leaderboard") {
         return (
             <div className="start-screen landing-subscreen">
-                <Suspense fallback={<div className="card start-leaderboard"><p className="start-leaderboard-empty">Loading leaderboard...</p></div>}>
+                <Suspense fallback={<div className="card start-leaderboard"><p className="start-leaderboard-empty">Loading leaderboard…</p></div>}>
                     <PublicLeaderboard onBack={() => setView("main")} />
                 </Suspense>
             </div>
@@ -158,7 +158,7 @@ export function StartScreen({ onCreate, onLogin, onAdmin, onContinueAs, initialN
     if (view === "guides") {
         return (
             <div className="start-screen landing-subscreen">
-                <Suspense fallback={<div className="guides-root"><p className="guides-intro">Loading guides...</p></div>}>
+                <Suspense fallback={<div className="guides-root"><p className="guides-intro">Loading guides…</p></div>}>
                     <GuidesLibrary onExit={() => setView("main")} />
                 </Suspense>
             </div>
@@ -172,14 +172,14 @@ export function StartScreen({ onCreate, onLogin, onAdmin, onContinueAs, initialN
                     <div className="start-card" role="status" aria-live="polite">
                         <h2 className="start-card-title">Character creation is paused</h2>
                         <p className="start-hint landing-auth-notice">{registrationMessage}</p>
-                        <button type="button" className="start-primary-btn" onClick={() => setView("login")}>Log In</button>
+                        <button type="button" className="start-primary-btn" onClick={() => setView("login")}>Log in</button>
                         <button type="button" className="landing-auth-secondary" onClick={() => setView("main")}>Back</button>
                     </div>
                 </div>
             );
         }
         return (
-            <Suspense fallback={<div className="start-screen"><div className="start-card">Loading creator...</div></div>}>
+            <Suspense fallback={<div className="start-screen"><div className="start-card">Loading creator…</div></div>}>
                 <CharacterCreator
                     onCreate={onCreate}
                     onBack={() => setView("main")}
@@ -198,17 +198,17 @@ export function StartScreen({ onCreate, onLogin, onAdmin, onContinueAs, initialN
                     <div className="landing-login-shell">
                         {/* "Your story is still moving" is a lie told to someone
                             who has never played, and this screen is reachable
-                            from the landing's Log In before any character
+                            from the landing's Log in before any character
                             exists. Both halves read the same remembered list so
                             the greeting matches who is actually standing here. */}
                         <section className="landing-login-copy" aria-label={knowsSomeone ? "Return briefing" : "Village briefing"}>
-                            <p className="landing-kicker">Village Gates Open</p>
+                            <p className="landing-kicker">Log in</p>
                             <h1 className="landing-login-title">
                                 {knowsSomeone ? "Your shinobi story is still moving." : "The village is expecting you."}
                             </h1>
                             <p className="landing-login-lead">
                                 {knowsSomeone
-                                    ? "Step back into missions, rival clans, pet battles, world records, and the next chapter of your shinobi legend."
+                                    ? "Step back into missions, rival clans, pet battles, world records, and the next chapter of your story."
                                     : "Sign in to pick up a shinobi you already have, or start a new one — missions, rival clans, pet battles, and world records are waiting either way."}
                             </p>
                             <div className="landing-login-highlights" aria-label="World activity">
@@ -291,22 +291,22 @@ function LandingMain({ onOpenCreate, onOpenLogin, onOpenGuides, onOpenLeaderboar
             }}>
                 <div className="landing-utility">
                     <span>A free browser RPG</span>
-                    <div><a href={DISCORD_URL} target="_blank" rel="noopener noreferrer">Community ↗</a><button type="button" onClick={onOpenLogin}>Account</button></div>
+                    <div><a href={DISCORD_URL} target="_blank" rel="noopener noreferrer">Community ↗</a></div>
                 </div>
                 <div className="landing-topbar-inner">
                     <button type="button" className="landing-brand" onClick={() => scrollTo('landing-home')} aria-label="Shinobi Journey home">
                         <BrandLockup variant="nav" />
                     </button>
                     <nav className={`landing-topnav${menuOpen ? ' is-open' : ''}`} id="landing-navigation" aria-label="Primary navigation">
-                        <button type="button" className="landing-navlink" onClick={() => scrollTo('landing-discover')}>The World</button>
+                        <button type="button" className="landing-navlink" onClick={() => scrollTo('landing-discover')}>The world</button>
                         <button type="button" className="landing-navlink" onClick={() => scrollTo('landing-gameplay')}>Gameplay</button>
                         <button type="button" className="landing-navlink" onClick={onOpenGuides}>Guides</button>
                         <button type="button" className="landing-navlink" onClick={onOpenLeaderboard}>Leaderboard</button>
-                        <button type="button" className="landing-navlink landing-mobile-login" onClick={onOpenLogin}>Log In</button>
+                        <button type="button" className="landing-navlink landing-mobile-login" onClick={onOpenLogin}>Log in</button>
                     </nav>
                     <div className="landing-nav-actions">
-                        <button type="button" className="landing-navlink landing-desktop-login" onClick={onOpenLogin}>Log In</button>
-                        <button type="button" className="landing-cta landing-cta--primary landing-nav-play" {...playProps}>Play Free</button>
+                        <button type="button" className="landing-navlink landing-desktop-login" onClick={onOpenLogin}>Log in</button>
+                        <button type="button" className="landing-cta landing-cta--primary landing-nav-play" {...playProps}>Play free</button>
                         <button type="button" ref={menuButtonRef} className="landing-menu-toggle" aria-label={menuOpen ? 'Close navigation' : 'Open navigation'} aria-expanded={menuOpen} aria-controls="landing-navigation" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? '✕' : '☰'}</button>
                     </div>
                 </div>
@@ -316,47 +316,47 @@ function LandingMain({ onOpenCreate, onOpenLogin, onOpenGuides, onOpenLeaderboar
                 <LandingAtmosphere />
                 <div className="landing-hero-inner">
                     <div className="landing-hero-copy">
-                        <p className="landing-eyebrow">Your village. Your path. Your legend.</p>
+                        <p className="landing-eyebrow">Four villages fight over one map</p>
                         <h1 className="landing-title"><BrandLockup variant="hero" /></h1>
-                        <p className="landing-hero-hook">Every legend begins with a choice.</p>
+                        <p className="landing-hero-hook">Your village needs one more shinobi.</p>
                         <p className="landing-tagline">
-                            Create your shinobi, master your jutsu, and find your place across {villages.length} rival villages. <strong>{APP_NAME}</strong> is a free role-playing game you play in your browser.
+                            Train a shinobi, learn their jutsu, and fight for one of {villages.length} rival villages. <strong>{APP_NAME}</strong> is a free role-playing game you play in your browser.
                         </p>
                         <div className="landing-hero-actions">
-                            <button type="button" className="landing-cta landing-cta--primary" data-testid="start-create" {...playProps}>Enter the World <span aria-hidden="true">→</span></button>
-                            <button type="button" className="landing-cta landing-cta--ghost" onClick={() => scrollTo('landing-gameplay')}><span className="landing-play-icon" aria-hidden="true">◇</span> Explore Gameplay</button>
+                            <button type="button" className="landing-cta landing-cta--primary" data-testid="start-create" {...playProps}>Play free <span aria-hidden="true">→</span></button>
+                            <button type="button" className="landing-cta landing-cta--ghost" onClick={() => scrollTo('landing-gameplay')}><span className="landing-play-icon" aria-hidden="true">◇</span> See gameplay</button>
                         </div>
                         <p className="landing-cta-note" role={!registrationOpen ? 'status' : undefined}>{registrationOpen ? 'Free to play  ·  No download required' : registrationMessage}</p>
                     </div>
                 </div>
-                <button type="button" className="landing-scroll-cue" onClick={() => scrollTo('landing-discover')}><span>Discover your journey</span><span aria-hidden="true">⌄</span></button>
-                <span className="landing-hero-caption">A world worth fighting for</span>
+                <button type="button" className="landing-scroll-cue" onClick={() => scrollTo('landing-discover')}><span>See the world</span><span aria-hidden="true">⌄</span></button>
+                <span className="landing-hero-caption">A hidden mountain village at sunset</span>
             </section>
 
             <div className="landing-world-strip" aria-label="Discover Shinobi Journey">
                 <span><GameIcon name="map" />{villages.length} rival villages</span><i aria-hidden="true">◆</i>
                 <span><GameIcon name="sword" />Tactical jutsu combat</span><i aria-hidden="true">◆</i>
-                <span><GameIcon name="paw" />Companions for life</span>
+                <span><GameIcon name="paw" />Pets that fight beside you</span>
             </div>
 
             <section className="landing-features" id="landing-discover" aria-labelledby="landing-world-title" tabIndex={-1}>
                 <div className="landing-section-head" data-landing-reveal>
                     <p className="landing-kicker">This is Shinobi Journey</p>
-                    <h2 id="landing-world-title" className="landing-section-title">A world to call your own.</h2>
-                    <p className="landing-section-sub">Beyond the village gates, a thousand paths unfold.<br className="landing-desktop-break" /> Decide what kind of shinobi you will become.</p>
+                    <h2 id="landing-world-title" className="landing-section-title">Villages win and lose sectors on one shared map.</h2>
+                    <p className="landing-section-sub">Missions, story chapters and clan wars all play out on that map.<br className="landing-desktop-break" /> You choose which ones your shinobi takes on.</p>
                 </div>
                 <div className="landing-feature-grid">
                     <button type="button" className="landing-feature-card landing-feature-card--world" data-landing-reveal="card" onClick={() => scrollTo('landing-story')}>
                         <img src="/landing-hero-village-v2.webp" alt="A hidden mountain village connected by bridges and waterfalls" loading="lazy" width="1829" height="860" />
-                        <div className="landing-feature-text"><span className="landing-kicker">01 / Discover</span><h3>Beyond the gates</h3><p>Rival villages. Hidden stories. A path that is yours to choose.</p><span className="landing-text-link">Explore the world <span aria-hidden="true">↗</span></span></div>
+                        <div className="landing-feature-text"><span className="landing-kicker">The world</span><h3>Choose a village</h3><p>Pick a village, take its missions, and help it hold its sectors.</p><span className="landing-text-link">Read the story <span aria-hidden="true">↗</span></span></div>
                     </button>
                     <button type="button" className="landing-feature-card" data-landing-reveal="card" onClick={() => scrollTo('landing-companions')}>
                         <img src="/landing/companion.webp" alt="A shinobi and his fox companion beneath golden autumn leaves" loading="lazy" width="1024" height="1536" />
-                        <div className="landing-feature-text"><span className="landing-kicker">02 / Connect</span><h3>Never walk alone</h3><p>Find your clan. Raise your companions. Grow stronger together.</p><span className="landing-text-link">Find your companions <span aria-hidden="true">↗</span></span></div>
+                        <div className="landing-feature-text"><span className="landing-kicker">Clans and companions</span><h3>Fight with a clan</h3><p>Join a clan and raise companions who fight beside you.</p><span className="landing-text-link">Meet the companions <span aria-hidden="true">↗</span></span></div>
                     </button>
                     <button type="button" className="landing-feature-card" data-landing-reveal="card" onClick={() => scrollTo('landing-gameplay')}>
                         <img src="/landing-clanwar-v2.webp" alt="Shinobi gather beneath crimson banners overlooking a mountain fortress" loading="lazy" width="1448" height="1086" />
-                        <div className="landing-feature-text"><span className="landing-kicker">03 / Rise</span><h3>Make your mark</h3><p>Master your jutsu. Meet your rivals. Earn your place among legends.</p><span className="landing-text-link">See the action <span aria-hidden="true">↗</span></span></div>
+                        <div className="landing-feature-text"><span className="landing-kicker">Combat</span><h3>Earn your rank</h3><p>Train your jutsu, climb the ranked ladder, and earn a place in the Hall of Legends.</p><span className="landing-text-link">See it in action <span aria-hidden="true">↗</span></span></div>
                     </button>
                 </div>
             </section>
@@ -365,26 +365,26 @@ function LandingMain({ onOpenCreate, onOpenLogin, onOpenGuides, onOpenLeaderboar
 
             <section className="landing-clan landing-story" id="landing-story" aria-labelledby="landing-story-title" tabIndex={-1}>
                 <div className="landing-clan-inner">
-                    <div className="landing-clan-copy" data-landing-reveal><p className="landing-kicker">More than a battle</p><h2 id="landing-story-title" className="landing-section-title">Your story.<br />Written in the shadows.</h2><p>Behind every mission is a village with something to protect. Follow cinematic stories, uncover what lies beneath the surface, and build a shinobi with a history of their own.</p><button type="button" className="landing-text-link" onClick={onOpenGuides}>Discover your first steps <span aria-hidden="true">→</span></button></div>
-                    <figure className="landing-clan-media" data-landing-reveal><img src="/landing/story.webp" alt="Actual gameplay: the What Came Back epilogue in a snow-dusted village" loading="lazy" width="1366" height="768" /><figcaption><span>Stories from the hidden villages</span><span>In-game capture</span></figcaption></figure>
+                    <div className="landing-clan-copy" data-landing-reveal><p className="landing-kicker">Story chapters</p><h2 id="landing-story-title" className="landing-section-title">Each village<br />tells its own story.</h2><p>Every village has its own chapters, told in illustrated scenes. The choices you make there are remembered, and later chapters answer them.</p><button type="button" className="landing-text-link" onClick={onOpenGuides}>Read the starter guide <span aria-hidden="true">→</span></button></div>
+                    <figure className="landing-clan-media" data-landing-reveal><img src="/landing/story.webp" alt="Actual gameplay: the What Came Back epilogue in a snow-dusted village" loading="lazy" width="1366" height="768" /><figcaption><span>The What Came Back epilogue</span><span>In-game capture</span></figcaption></figure>
                 </div>
             </section>
 
             <section className="landing-clan landing-clan--reverse" id="landing-companions" aria-labelledby="landing-companion-title" tabIndex={-1}>
                 <div className="landing-clan-inner">
                     <div className="landing-companion-art" data-landing-reveal><img src="/landing/companion.webp" alt="A fox companion leans into a shinobi's hand in the golden light of a mountain village" loading="lazy" width="1024" height="1536" /></div>
-                    <div className="landing-clan-copy" data-landing-reveal><p className="landing-kicker">A bond beyond battle</p><h2 id="landing-companion-title" className="landing-section-title">Some legends<br />have a companion.</h2><p>Raise a companion, send them on expeditions, and discover what they can do in the pet arena. Find a clan to share the journey, and turn individual strength into something greater.</p><div className="landing-companion-traits"><span><GameIcon name="paw" />Raise & train</span><span><GameIcon name="map" />Explore & discover</span><span><GameIcon name="sword" />Battle together</span></div><button type="button" className="landing-text-link" onClick={onOpenGuides}>Explore the guides <span aria-hidden="true">→</span></button></div>
+                    <div className="landing-clan-copy" data-landing-reveal><p className="landing-kicker">Companions</p><h2 id="landing-companion-title" className="landing-section-title">Your companion<br />fights beside you.</h2><p>Raise a companion, send it on expeditions, and test it against other players' pets in the arena.</p><div className="landing-companion-traits"><span><GameIcon name="map" />Expeditions</span><span><GameIcon name="paw" />Training</span><span><GameIcon name="sword" />Pet arena</span><span><GameIcon name="medal" />Ranked ladder</span></div><button type="button" className="landing-text-link" onClick={onOpenGuides}>Open the guides <span aria-hidden="true">→</span></button></div>
                 </div>
             </section>
 
             <section className="landing-begin" aria-labelledby="landing-begin-title">
-                <div className="landing-begin-inner" data-landing-reveal><p className="landing-kicker">The village gates are open</p><h2 id="landing-begin-title" className="landing-section-title">Your legend starts here.</h2><p>Choose your village. Create your shinobi. Take the first step.</p><button type="button" className="landing-cta landing-cta--primary" {...playProps}>Begin Your Journey <span aria-hidden="true">→</span></button><p className="landing-cta-note" role={!registrationOpen ? 'status' : undefined}>{registrationOpen ? 'Play free in your browser. Your next chapter is waiting.' : registrationMessage}</p></div>
+                <div className="landing-begin-inner" data-landing-reveal><p className="landing-kicker">No download needed</p><h2 id="landing-begin-title" className="landing-section-title">Start with a village.</h2><p>Pick a village and make your shinobi to begin.</p><button type="button" className="landing-cta landing-cta--primary" {...playProps}>Play free <span aria-hidden="true">→</span></button><p className="landing-cta-note" role={!registrationOpen ? 'status' : undefined}>{registrationOpen ? 'It runs in your browser on desktop and phone.' : registrationMessage}</p></div>
             </section>
 
             <footer className="landing-footer">
-                <div className="landing-community"><div><p className="landing-kicker">Find your people</p><h2>Every shinobi needs a clan.</h2></div><a className="landing-cta landing-cta--ghost" href={DISCORD_URL} target="_blank" rel="noopener noreferrer">Join the Discord <span aria-hidden="true">↗</span></a></div>
-                <div className="landing-footer-inner"><div className="landing-footer-brand"><BrandLockup variant="footer" /><p>A free browser-based shinobi RPG.</p></div><nav className="landing-footer-links" aria-label="Footer navigation"><button type="button" {...playProps}>Start Playing</button><button type="button" onClick={onOpenGuides}>Guides</button><button type="button" onClick={onOpenLeaderboard}>Leaderboard</button><button type="button" onClick={onOpenLogin}>Log In</button></nav></div>
-                <div className="landing-footer-legal"><p>© {year} Shinobi Journey. Forge your legend.</p><nav className="landing-footer-policy-links" aria-label="Legal and player policies">{LEGAL_PAGE_LINKS.map((link) => <a key={link.slug} href={`/${link.slug}`}>{link.label}</a>)}</nav></div>
+                <div className="landing-community"><div><p className="landing-kicker">Community</p><h2>Find a clan on Discord.</h2></div><a className="landing-cta landing-cta--ghost" href={DISCORD_URL} target="_blank" rel="noopener noreferrer">Join the Discord <span aria-hidden="true">↗</span></a></div>
+                <div className="landing-footer-inner"><div className="landing-footer-brand"><BrandLockup variant="footer" /><p>A free browser-based shinobi RPG.</p></div><nav className="landing-footer-links" aria-label="Footer navigation"><button type="button" {...playProps}>Play free</button><button type="button" onClick={onOpenGuides}>Guides</button><button type="button" onClick={onOpenLeaderboard}>Leaderboard</button><button type="button" onClick={onOpenLogin}>Log in</button></nav></div>
+                <div className="landing-footer-legal"><p>© {year} Shinobi Journey.</p><nav className="landing-footer-policy-links" aria-label="Legal and player policies">{LEGAL_PAGE_LINKS.map((link) => <a key={link.slug} href={`/${link.slug}`}>{link.label}</a>)}</nav></div>
             </footer>
         </div>
     );

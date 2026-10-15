@@ -81,6 +81,7 @@ import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { commitNamedForgeServer, forgeServer, rollNamedForgeServer } from "../lib/craft-api";
 import { forgeHollowGateKeyServer } from "../lib/hollow-gate-forge-api";
 import { gameToast } from "../components/GameToast";
+import { gameConfirm } from "../components/GameAlert";
 import { effectiveItemLevelReq } from "../../../shared/item-level-gate";
 import { VILLAGE_SUPPLY_GOODS } from "../../../shared/gathering-materials";
 import { namedForgeOreCount } from '../../../shared/resource-forging';
@@ -373,8 +374,9 @@ export function CentralHub({
             commitServerCharacter(result.character, result._saveVersion);
             setCreatorItems((current) => [...current.filter((entry) => entry.id !== item.id), item]);
             if (namedWeaponImage) {
+                // Stays a Notice: the player chose that image and needs to know it is gone.
                 void publishSharedImage(`item:${item.id}`, namedWeaponImage).then((ok) => {
-                    if (!ok) alert(`Heads up - ${item.name} was forged, but its image could not be saved.`);
+                    if (!ok) alert(`${item.name} was forged, but its image could not be saved.`);
                 });
             }
             setNamedWeaponRoll(null);
@@ -382,7 +384,7 @@ export function CentralHub({
             setNamedWeaponName("Unnamed Blade");
             setNamedWeaponImage("");
             setNamedWeaponFlavorText("");
-            alert(`${item.name} has been forged and added to your inventory!`);
+            gameToast(`${item.name} was forged and added to your inventory.`);
         } finally {
             endNamedForge();
         }
@@ -452,8 +454,9 @@ export function CentralHub({
             commitServerCharacter(result.character, result._saveVersion);
             setCreatorItems((current) => [...current.filter((entry) => entry.id !== item.id), item]);
             if (namedArmorImage) {
+                // Stays a Notice: the player chose that image and needs to know it is gone.
                 void publishSharedImage(`item:${item.id}`, namedArmorImage).then((ok) => {
-                    if (!ok) alert(`Heads up - ${item.name} was forged, but its image could not be saved.`);
+                    if (!ok) alert(`${item.name} was forged, but its image could not be saved.`);
                 });
             }
             setNamedArmorRoll(null);
@@ -461,7 +464,7 @@ export function CentralHub({
             setNamedArmorName("Unnamed Vestige");
             setNamedArmorImage("");
             setNamedArmorFlavorText("");
-            alert(`${item.name} has been forged and added to your inventory!`);
+            gameToast(`${item.name} was forged and added to your inventory.`);
         } finally {
             endNamedForge();
         }
@@ -514,16 +517,27 @@ export function CentralHub({
         if (freeAwakeningKind) void rollAwakening(freeAwakeningKind);
     }
 
-    function awakeningPaidRoll() {
+    // A paid reroll spends Fate Shards and replaces an element at random, which can
+    // leave element-bound gear and jutsu unusable, so it asks first.
+    async function awakeningPaidRoll() {
         if (character.fateShards < 10) {
             setAwakeningMsg("Error: Not enough Fate Shards — you need 10 to reroll your element.");
             return;
         }
+        if (awakeningRequestRef.current || ritualBusy) return;
+        const [primary, other] = getCharacterElements(character);
+        if (!(await gameConfirm(
+            primary
+                ? `Reroll your ${primary} element for 10 Fate Shards? The stone picks a random element to replace it${other ? `, and your ${other} element stays` : ""}. You cannot choose the result. Gear and jutsu that need ${primary} may stop working.`
+                : "Roll an element for 10 Fate Shards? The stone picks one at random. You cannot choose the result.",
+            { title: "Reroll element", confirmLabel: "Reroll", danger: true },
+        ))) return;
         void rollAwakening(AWAKENING_PAID_SINGLE_ID);
     }
 
-    function awakeningPaidBothRoll() {
-        if (getCharacterElements(character).length < 2) {
+    async function awakeningPaidBothRoll() {
+        const owned = getCharacterElements(character);
+        if (owned.length < 2) {
             setAwakeningMsg("Error: Awaken your second element before rerolling both elements.");
             return;
         }
@@ -531,6 +545,11 @@ export function CentralHub({
             setAwakeningMsg("Error: Not enough Fate Shards — you need 15 to reroll both elements.");
             return;
         }
+        if (awakeningRequestRef.current || ritualBusy) return;
+        if (!(await gameConfirm(
+            `Reroll your ${owned[0]} and ${owned[1]} elements for 15 Fate Shards? The stone picks two random elements to replace them. You cannot choose the result. Gear and jutsu that need ${owned[0]} or ${owned[1]} may stop working.`,
+            { title: "Reroll both elements", confirmLabel: "Reroll both", danger: true },
+        ))) return;
         void rollAwakening(AWAKENING_PAID_BOTH_ID);
     }
 
@@ -1192,7 +1211,8 @@ export function CentralHub({
 
                         {awakeningMsg && (
                             <div className={`aw-msg ${awakeningMsg.startsWith("Error:") ? "aw-msg-error" : "aw-msg-success"}`}>
-                                {awakeningMsg}
+                                {/* The prefix only picks the colour; the player reads the sentence. */}
+                                {awakeningMsg.replace(/^(Success|Error|Awakened):\s*/, "")}
                             </div>
                         )}
 
@@ -1211,7 +1231,7 @@ export function CentralHub({
                                     <button className="aw-free-btn" onClick={awakeningFreeRoll} disabled={ritualBusy}>
                                         <span className="aw-action-seal"><GiSparkles /></span>
                                         <span className="aw-action-copy">
-                                            <strong>{awakeningBusy ? "Awakening..." : "Awaken Element"}</strong>
+                                            <strong>{awakeningBusy ? "Awakening…" : "Awaken element"}</strong>
                                             <small>{freeAwakeningKind === AWAKENING_FREE_LV20_ID ? "Level 20 reward · No cost" : "Level 2 reward · No cost"}</small>
                                         </span>
                                         <span className="aw-action-arrow" aria-hidden="true">→</span>
@@ -1220,26 +1240,26 @@ export function CentralHub({
                                     <>
                                         <button
                                             className="aw-paid-btn"
-                                            onClick={awakeningPaidRoll}
+                                            onClick={() => void awakeningPaidRoll()}
                                             disabled={character.fateShards < 10 || ritualBusy}
                                             title={character.fateShards < 10 ? "Not enough Fate Shards" : "Reroll your primary element and preserve the other"}
                                         >
                                             <span className="aw-action-seal"><GameIcon name="dice" size={20} /></span>
                                             <span className="aw-action-copy">
-                                                <strong>{awakeningBusy ? "Attuning..." : "Reroll Element"}</strong>
+                                                <strong>{awakeningBusy ? "Attuning…" : "Reroll element"}</strong>
                                                 <small>1 element · 10 Fate Shards · {character.fateShards} available</small>
                                             </span>
                                             <span className="aw-action-arrow" aria-hidden="true">→</span>
                                         </button>
                                         <button
                                             className="aw-paid-btn aw-paid-btn--both"
-                                            onClick={awakeningPaidBothRoll}
+                                            onClick={() => void awakeningPaidBothRoll()}
                                             disabled={awakenedElements.length < 2 || character.fateShards < 15 || ritualBusy}
                                             title={awakenedElements.length < 2 ? "Awaken your second element first" : character.fateShards < 15 ? "Not enough Fate Shards" : "Reroll both elements"}
                                         >
                                             <span className="aw-action-seal"><GameIcon name="dice" size={20} /></span>
                                             <span className="aw-action-copy">
-                                                <strong>{awakeningBusy ? "Attuning..." : "Reroll Elements"}</strong>
+                                                <strong>{awakeningBusy ? "Attuning…" : "Reroll elements"}</strong>
                                                 <small>Both elements · 15 Fate Shards · {character.fateShards} available</small>
                                             </span>
                                             <span className="aw-action-arrow" aria-hidden="true">→</span>
@@ -1247,6 +1267,12 @@ export function CentralHub({
                                     </>
                                 )}
                             </div>
+                            {/* Why "Reroll Elements" is grey, in words a phone can show (no tooltip there). */}
+                            {!hasFreeRoll && (awakenedElements.length < 2 || character.fateShards < 15) && (
+                                <p className="aw-hint">{awakenedElements.length < 2
+                                    ? "Awaken your second element before you reroll both."
+                                    : `Rerolling both elements costs 15 Fate Shards. You have ${character.fateShards}.`}</p>
+                            )}
                         </div>
 
                         {/* Material balances */}
@@ -1320,7 +1346,7 @@ export function CentralHub({
                                                 onClick={() => awakeningCreateBloodline(tier.rank, tier.materialKey, 100, !isReady)}
                                                 disabled={ritualBusy}
                                             >
-                                                <span>{bloodlineForgeBusy ? "Attuning..." : isReady ? `Awaken ${tier.rank}` : "Resume paid ritual"}</span>
+                                                <span>{bloodlineForgeBusy ? "Attuning…" : isReady ? `Awaken ${tier.rank}` : "Resume paid ritual"}</span>
                                                 <small>{isReady ? "Enter Bloodline Awakening" : `Collect ${remaining} more to begin a new ritual`}</small>
                                                 <b aria-hidden="true">→</b>
                                             </button>
@@ -1450,20 +1476,27 @@ export function CentralHub({
                                         if (!result.character) return alert(result.error || "The Hollow Gate Key forge failed.");
                                         // Forged even if refused as stale (see completeCraft).
                                         commitServerCharacter(result.character, result._saveVersion);
-                                        alert(`Hollow Gate Key forged. Consumed ${HOLLOW_GATE_KEY_DUNGEON_KEY_COST} Dungeon Keys.`);
+                                        gameToast(`You forged a Hollow Gate Key from ${HOLLOW_GATE_KEY_DUNGEON_KEY_COST} Dungeon Keys.`);
                                     } finally {
                                         endCraft();
                                     }
                                 }
 
                                 async function craftHollowGateKeyWithFateShards() {
-                                    if (!requireServerSettlement("creatorItemCraft") || !beginCraft()) return;
+                                    if (!requireServerSettlement("creatorItemCraft")) return;
+                                    // Fate Shards are the premium currency, and this sits right under the
+                                    // Dungeon Keys forge, so the shard path asks before it spends.
+                                    if (!(await gameConfirm(
+                                        `Forge 1 Hollow Gate Key for ${HOLLOW_GATE_KEY_FATE_SHARD_COST} Fate Shards? The shards are spent immediately.`,
+                                        { title: "Forge Hollow Gate Key", confirmLabel: "Forge Key" },
+                                    ))) return;
+                                    if (!beginCraft()) return;
                                     try {
                                         const result = await forgeHollowGateKeyServer(character.name, "fateShards");
                                         if (!result.character) return alert(result.error || "The Hollow Gate Key forge failed.");
                                         // Forged even if refused as stale (see completeCraft).
                                         commitServerCharacter(result.character, result._saveVersion);
-                                        alert(`Hollow Gate Key forged. Consumed ${HOLLOW_GATE_KEY_FATE_SHARD_COST} Fate Shards.`);
+                                        gameToast(`You forged a Hollow Gate Key from ${HOLLOW_GATE_KEY_FATE_SHARD_COST} Fate Shards.`);
                                     } finally {
                                         endCraft();
                                     }
@@ -1476,13 +1509,17 @@ export function CentralHub({
                                         <small>Shrine pass. Bypasses village unlock + 2/day cap.</small>
                                         <small>You own: <strong>{ownedKeys}</strong></small>
                                         <div style={{ display: "flex", flexDirection: "column", gap: 5, marginTop: "auto" }}>
-                                            <button onClick={craftHollowGateKeyWithDungeonKeys} disabled={!canCraftWithKeys}>
-                                                {canCraftWithKeys
+                                            <button onClick={craftHollowGateKeyWithDungeonKeys} disabled={!canCraftWithKeys || craftBusy}>
+                                                {craftBusy
+                                                    ? "Forging…"
+                                                    : canCraftWithKeys
                                                     ? `Forge — ${HOLLOW_GATE_KEY_DUNGEON_KEY_COST} Dungeon Keys`
                                                     : `Need ${HOLLOW_GATE_KEY_DUNGEON_KEY_COST} Keys (have ${dungeonKeyCount})`}
                                             </button>
-                                            <button onClick={craftHollowGateKeyWithFateShards} disabled={!canCraftWithShards}>
-                                                {canCraftWithShards
+                                            <button onClick={() => void craftHollowGateKeyWithFateShards()} disabled={!canCraftWithShards || craftBusy}>
+                                                {craftBusy
+                                                    ? "Forging…"
+                                                    : canCraftWithShards
                                                     ? `Forge — ${HOLLOW_GATE_KEY_FATE_SHARD_COST} Fate Shards`
                                                     : `Need ${HOLLOW_GATE_KEY_FATE_SHARD_COST} Shards (have ${fateShardCount})`}
                                             </button>
@@ -1502,19 +1539,21 @@ export function CentralHub({
                                         if (!result.character) return alert(result.error || "The relic forge failed.");
                                         // Forged even if refused as stale (see completeCraft).
                                         commitServerCharacter(result.character, result._saveVersion);
-                                        alert(`Dungeon Legendary Relic forged. Consumed ${FRAGMENTS_PER_RELIC} Fragments.`);
+                                        gameToast(`You forged a Dungeon Legendary Relic from ${FRAGMENTS_PER_RELIC} Fragments.`);
                                     } finally {
                                         endCraft();
                                     }
                                 }
 
                                 return (
-                                    <div className="cf-card cf-special" style={{ borderColor: "var(--gold)", boxShadow: "0 0 10px rgba(250,204,21,0.22)" }}>
+                                    <div className="cf-card cf-special" style={{ borderColor: "var(--gold)", boxShadow: "0 0 10px rgba(230, 196, 119, 0.22)" }}>
                                         <strong><GameIcon name="shard" size={14} style={COST_ICON} />Dungeon Legendary Relic</strong>
                                         <small>Combine Hollow Hound Alpha fragments into a legendary relic.</small>
                                         <small>Fragments: <strong>{fragmentCount}</strong> · Relics: <strong>{relicCount}</strong></small>
-                                        <button style={{ marginTop: "auto" }} onClick={forgeRelicFromFragments} disabled={!canForge}>
-                                            {canForge
+                                        <button style={{ marginTop: "auto" }} onClick={forgeRelicFromFragments} disabled={!canForge || craftBusy}>
+                                            {craftBusy
+                                                ? "Forging…"
+                                                : canForge
                                                 ? `Forge — ${FRAGMENTS_PER_RELIC} Fragments`
                                                 : `Need ${FRAGMENTS_PER_RELIC} Fragments (have ${fragmentCount})`}
                                         </button>
@@ -1545,7 +1584,7 @@ export function CentralHub({
                                         }
                                         // Forged even if refused as stale (see completeCraft).
                                         commitServerCharacter(data.character, data._saveVersion);
-                                        alert(`Elemental Core forged. Consumed ${ELEMENTAL_SHARDS_PER_CORE} Elemental Shards.`);
+                                        gameToast(`You forged an Elemental Core from ${ELEMENTAL_SHARDS_PER_CORE} Elemental Shards.`);
                                     } catch {
                                         alert('The forge response was lost. Refresh before trying again.');
                                     } finally {
@@ -1666,6 +1705,10 @@ export function CentralHub({
                                     const fillPct = recipeProgress(item.id);
                                     const img = itemImage(item.id);
                                     const ingredientsLine = gatheredIngredientsLine(item.id);
+                                    // Same reason labels as the supply cards, so a grey Forge says which gate is closed.
+                                    const forgeLabel = character.level < effectiveItemLevelReq(item) ? `Level ${effectiveItemLevelReq(item)} required`
+                                        : character.ryo < ryo ? "Not enough ryo"
+                                            : !gatheredIngredientsReady(item.id) ? "Missing materials" : "Forge";
                                     return (
                                         <div key={item.id} className="cf-card" data-rarity={item.rarity}>
                                             <div className="cf-card-top">
@@ -1689,7 +1732,7 @@ export function CentralHub({
                                             </div>
                                             <small className="cf-points">Materials {fillPct}%</small>
                                             <button onClick={event => selectCraftMaterials('weapon', item.id, item.name, 1, event.currentTarget)} disabled={!ready || craftBusy}>
-                                                Forge
+                                                {forgeLabel}
                                             </button>
                                         </div>
                                     );
@@ -1707,6 +1750,9 @@ export function CentralHub({
                                         const fillPct = recipeProgress(item.id);
                                         const img = itemImage(item.id);
                                         const ingredientsLine = gatheredIngredientsLine(item.id);
+                                        const forgeLabel = character.level < effectiveItemLevelReq(item) ? `Level ${effectiveItemLevelReq(item)} required`
+                                            : character.ryo < ryo ? "Not enough ryo"
+                                                : !gatheredIngredientsReady(item.id) ? "Missing materials" : "Forge";
                                         return (
                                             <div key={item.id} className="cf-card" data-rarity={item.rarity}>
                                                 <div className="cf-card-top">
@@ -1727,7 +1773,7 @@ export function CentralHub({
                                                 </div>
                                                 <small className="cf-points">Materials {fillPct}%</small>
                                                 <button onClick={event => selectCraftMaterials('armor', item.id, item.name, 1, event.currentTarget)} disabled={!ready || craftBusy}>
-                                                    Forge
+                                                    {forgeLabel}
                                                 </button>
                                             </div>
                                         );
@@ -1833,8 +1879,8 @@ export function CentralHub({
                                         >
                                             <GameIcon name="dice" size={16} style={HDR_ICON} />
                                             {namedForgeAnimation?.kind === "armor"
-                                                ? namedForgeAnimation.phase === "rolling" ? "Rolling Armor…" : "Sealing Armor…"
-                                                : `Roll Named Armor · ${namedForgeOreCount('armor')} Pristine Ore`}
+                                                ? namedForgeAnimation.phase === "rolling" ? "Rolling armor…" : "Sealing armor…"
+                                                : `Roll named armor · ${namedForgeOreCount('armor')} Pristine Ore`}
                                         </button>
 
                                         {namedArmorRoll && !namedForgeAnimation && (
@@ -1890,10 +1936,10 @@ export function CentralHub({
 
                                                 <div>
                                                     <button className="nw-commit" onClick={forgeNamedArmor} disabled={namedForgeBusy}>
-                                                        <GiBlacksmith style={HDR_ICON} />{namedForgeBusy ? "Forging…" : "Forge Armor"}
+                                                        <GiBlacksmith style={HDR_ICON} />{namedForgeBusy ? "Forging…" : "Forge armor"}
                                                     </button>
                                                     <button className="danger-button" onClick={() => { setNamedArmorRoll(null); setNamedArmorToken(""); }} disabled={namedForgeBusy}>
-                                                        <GiTrashCan style={HDR_ICON} />Discard Roll
+                                                        <GiTrashCan style={HDR_ICON} />Discard roll
                                                     </button>
                                                 </div>
                                             </div>
@@ -2001,8 +2047,8 @@ export function CentralHub({
                                         >
                                             <GameIcon name="dice" size={16} style={HDR_ICON} />
                                             {namedForgeAnimation?.kind === "weapon"
-                                                ? namedForgeAnimation.phase === "rolling" ? "Rolling Weapon…" : "Sealing Weapon…"
-                                                : `Roll Named Weapon · ${namedForgeOreCount('weapon')} Pristine Ore`}
+                                                ? namedForgeAnimation.phase === "rolling" ? "Rolling weapon…" : "Sealing weapon…"
+                                                : `Roll named weapon · ${namedForgeOreCount('weapon')} Pristine Ore`}
                                         </button>
 
                                         {namedWeaponRoll && !namedForgeAnimation && (
@@ -2062,10 +2108,10 @@ export function CentralHub({
 
                                                 <div>
                                                     <button className="nw-commit" onClick={forgeNamedWeapon} disabled={namedForgeBusy}>
-                                                        <GiBlacksmith style={HDR_ICON} />{namedForgeBusy ? "Forging…" : "Forge Weapon"}
+                                                        <GiBlacksmith style={HDR_ICON} />{namedForgeBusy ? "Forging…" : "Forge weapon"}
                                                     </button>
                                                     <button className="danger-button" onClick={() => { setNamedWeaponRoll(null); setNamedWeaponToken(""); }} disabled={namedForgeBusy}>
-                                                        <GiTrashCan style={HDR_ICON} />Discard Roll
+                                                        <GiTrashCan style={HDR_ICON} />Discard roll
                                                     </button>
                                                 </div>
                                             </div>

@@ -40,7 +40,7 @@
 /* variants */
 .ui-btn--primary {
   color: var(--text-on-accent);
-  border-color: rgba(250, 204, 21, .55);
+  border-color: rgba(230, 196, 119, .55);
   background: linear-gradient(180deg, var(--gold-400), var(--gold-600));
   box-shadow: inset 0 1px 0 rgba(255,255,255,.35), var(--shadow-sm);
 }
@@ -50,7 +50,7 @@
 
 .ui-btn--secondary {
   color: var(--text);
-  border-color: rgba(250, 204, 21, .28);
+  border-color: rgba(230, 196, 119, .28);
   background: linear-gradient(180deg, rgba(255,255,255,.12), transparent 45%), linear-gradient(#244aa0, #142761);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.22), var(--shadow-sm);
 }
@@ -140,8 +140,9 @@
   box-sizing: border-box;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
   width: 100%;
-  max-height: calc(100dvh - (var(--dialog-viewport-margin) * 2));
+  max-height: calc(100dvh - max(var(--dialog-viewport-margin), env(safe-area-inset-top, 0px)) - max(var(--dialog-viewport-margin), env(safe-area-inset-bottom, 0px)));
   overflow: hidden;
   background: linear-gradient(180deg, rgba(255,255,255,.035), transparent 120px), linear-gradient(135deg, var(--panel), var(--panel-2));
   border: 1px solid var(--border-strong);
@@ -163,11 +164,17 @@
   min-width: 0;
 }
 .ui-modal-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.3;
   margin: 0;
   font-family: var(--font-display);
   font-size: var(--fs-lg);
   font-weight: var(--fw-bold);
   color: var(--gold);
+}
+.ui-modal-header > button {
+  flex-shrink: 0;
 }
 .ui-modal-body {
   min-width: 0;
@@ -256,5 +263,5 @@ body.ui-scroll-locked .onboarding-coach-banner {
 ::-webkit-scrollbar-thumb:hover { background: var(--slate-500); background-clip: padding-box; }
 
 /* Branded text selection. */
-::selection { background: rgba(250, 204, 21, .3); color: var(--text); }
+::selection { background: rgba(230, 196, 119, .3); color: var(--text); }
 

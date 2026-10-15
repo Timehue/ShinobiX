@@ -48,10 +48,10 @@
 .vwm-resources h3 { margin: 0 0 0.5rem; }
 .vwm-stats { display: flex; flex-wrap: wrap; gap: 0.5rem 1.2rem; margin: 0.4rem 0; font-size: 0.92rem; }
 .vwm-stats b { font-variant-numeric: tabular-nums; }
-.vwm-dormant { color: #fbbf24; font-style: italic; }
+.vwm-dormant { color: var(--sj-gold-bright); font-style: italic; }
 /* Village Stores: fed/unfed chip on contest cards + the garrison-feed row. */
 .vwm-fed-chip { display: inline-flex; align-items: center; gap: 0.22rem; margin-left: 0.4rem; padding: 0 0.4rem; border-radius: 999px; font-size: 0.72rem; font-weight: 600; color: var(--green-300); border: 1px solid rgba(134, 239, 172, 0.45); }
-.vwm-fed-chip.is-unfed { color: #fbbf24; border-color: rgba(251, 191, 36, 0.55); }
+.vwm-fed-chip.is-unfed { color: var(--sj-gold-bright); border-color: rgba(230, 196, 119, 0.55); }
 .vwm-garrison-feed { display: flex; flex-direction: column; gap: 0.2rem; margin-top: 0.3rem; }
 .vwm-garrison-feed .hint { display: flex; align-items: flex-start; gap: 0.3rem; line-height: 1.35; }
 .vwm-materials-need { font-size: 0.75rem; opacity: 0.85; }
@@ -127,7 +127,7 @@
     .vwm-merc-tier > button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.16); }
 }
 .vwm-merc-tier > button:disabled { opacity: 0.5; cursor: default; }
-.vwm-merc-band { font-size: 0.78rem; opacity: 0.9; margin: 0.35rem 0 0.2rem; color: #fbbf24; }
+.vwm-merc-band { font-size: 0.78rem; opacity: 0.9; margin: 0.35rem 0 0.2rem; color: var(--sj-gold-bright); }
 .vwm-merc-deploy { display: flex; flex-direction: column; gap: 0.25rem; margin-top: 0.3rem; }
 .vwm-merc-deploy select, .vwm-merc-deploy input { background: rgba(0, 0, 0, 0.3); color: inherit; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 6px; padding: 0.25rem; font-size: 0.78rem; }
 .vwm-merc-msg { margin-top: 0.5rem; font-size: 0.85rem; color: var(--green-300); }
@@ -237,4 +237,10 @@
 .vw-sector-claim.lite .vw-banner {
     filter: none;
     animation: none;
+}
+/* A siege is information, not decoration: without the pulse a contested sector
+   still needs a mark, so lite gets a solid danger ring that never moves. */
+.vw-sector-claim.lite.contested .vw-claim-ring {
+    opacity: 0.85;
+    box-shadow: 0 0 0 2px var(--sj-danger);
 }

@@ -481,7 +481,7 @@ export function StoryBossFightHost({
                                         completion marker does, and THEN add the exit — not to add the
                                         exit on its own. */}
                                     {won && settleState === "failed"
-                                        ? <button onClick={retry}>{result ? 'Retry Record Delivery' : 'Retry Reward'}</button>
+                                        ? <button onClick={retry}>{result ? 'Retry record delivery' : 'Retry reward'}</button>
                                         : <button disabled={won && (settleState !== "settled" || !result)} onClick={closeFight}>Continue</button>}
                                 </div>
                             </RequiredStoryResultDialog>
@@ -508,7 +508,7 @@ export function StoryBossFightHost({
                                         see that comment for why leaving is destructive here and what
                                         the real fix is. */}
                                     {settleState === "failed"
-                                        ? <button onClick={retry}>{result ? 'Retry Record Delivery' : 'Retry Reward'}</button>
+                                        ? <button onClick={retry}>{result ? 'Retry record delivery' : 'Retry reward'}</button>
                                         : <button disabled={settleState !== "settled" || !result} onClick={closeFight}>Continue</button>}
                                 </div>
                             </RequiredStoryResultDialog>
@@ -521,7 +521,7 @@ export function StoryBossFightHost({
                                 <p className="story-fight-complete-kicker">Chapter Held</p>
                                 <h2>{theme.chapterLabel ?? theme.bossName}</h2>
                                 <p className="story-fight-complete-boss">{theme.bossName} stands firm. No progress was made. Recover and try again.</p>
-                                <button onClick={closeFight}>Return to Story</button>
+                                <button onClick={closeFight}>Return to story</button>
                             </div>
                         </RequiredStoryResultDialog>
                     );

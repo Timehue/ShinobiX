@@ -325,8 +325,14 @@ export type TowerSession = {
         eventId: string;
         matchId: string;
         matchHpAtStart: number;
+        bossId?: string;
+        defenseHpBudget?: number;
         bossDamageDealtMultiplier?: number;
         bossDamageReceivedMultiplier?: number;
+        /** Per member slug: the HP their save STORED when the raid seated them at
+         *  their current HP (see missions/_ai-fight-outcome.ts `sessionSeededVitals`).
+         *  Absent on a raid sealed before raids carried HP in and out. */
+        seededVitals?: Record<string, { hp?: number }>;
     };
     worldBossContributions?: Record<string, WorldBossContribution>;
 };

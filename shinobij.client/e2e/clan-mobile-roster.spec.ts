@@ -37,7 +37,7 @@ test("mobile Clan roster reflows cleanly and owns the only Leave Clan action", a
 
     await page.getByRole("button", { name: "Roster", exact: true }).click();
     const roster = page.locator(".clan-roster");
-    await expect(roster.getByRole("button", { name: "Leave Clan", exact: true })).toBeVisible();
+    await expect(roster.getByRole("button", { name: "Leave clan", exact: true })).toBeVisible();
     await expect(page.getByText("Clan Exchange balance", { exact: true })).toHaveCount(0);
 
     const founderRow = page.locator(".clan-member-row-v2").first();
@@ -49,6 +49,6 @@ test("mobile Clan roster reflows cleanly and owns the only Leave Clan action", a
     await expectViewportSafe(page, { horizontalScrollers: [".clan-tabs"] });
 
     await page.getByRole("button", { name: "Treasury", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Leave Clan", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Leave clan", exact: true })).toHaveCount(0);
     await expect(page.getByText("Clan Exchange balance", { exact: true })).toHaveCount(0);
 });

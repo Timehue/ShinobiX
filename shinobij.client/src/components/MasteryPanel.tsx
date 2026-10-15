@@ -5,6 +5,7 @@
  * applied elsewhere (Phase 3); this panel only edits character.masterySpec.
  */
 import type React from "react";
+import { useRef, useState } from "react";
 import { gameConfirm } from "./GameAlert";
 import type { Character, VersionedCharacterCommit } from "../types/character";
 import {
@@ -27,6 +28,11 @@ const PATH_BLURBS: Record<string, string> = {
 };
 
 export function MasteryPanel({ character, onVersionedCharacter, headquarters = false }: { character: Character; onVersionedCharacter: VersionedCharacterCommit; headquarters?: boolean }) {
+    // One mastery request at a time: a double tap on "+1" spent two points, and
+    // undoing that costs a paid respec. The ref blocks the second tap before the
+    // disabled state renders; the node id labels the button in flight.
+    const [busyNode, setBusyNode] = useState<string | null>(null);
+    const busyRef = useRef(false);
     if (!character.profession) return null;
     const paths = MASTERY_TREES[character.profession] ?? [];
     const level = masteryLevel(character);
@@ -45,16 +51,22 @@ export function MasteryPanel({ character, onVersionedCharacter, headquarters = f
     }
 
     async function invest(nodeId: string) {
+        if (busyRef.current) return;
         const check = canIncrement(character, nodeId);
         if (check.ok === false) { alert(check.reason); return; }
-        try { await mutateMastery('invest', nodeId); } catch (error) { alert(error instanceof Error ? error.message : 'Mastery update failed.'); }
+        busyRef.current = true;
+        setBusyNode(nodeId);
+        try { await mutateMastery('invest', nodeId); } catch (error) { alert(error instanceof Error ? error.message : 'Mastery update failed.'); } finally { busyRef.current = false; setBusyNode(null); }
     }
 
     async function respec() {
-        if (spent <= 0) return;
+        if (spent <= 0 || busyRef.current) return;
         if (character.ryo < MASTERY_RESPEC_COST) { alert(`Respec costs ${MASTERY_RESPEC_COST.toLocaleString()} ryo.`); return; }
         if (!(await gameConfirm(`Refund all mastery points for ${MASTERY_RESPEC_COST.toLocaleString()} ryo?`))) return;
-        try { await mutateMastery('respec'); } catch (error) { alert(error instanceof Error ? error.message : 'Mastery respec failed.'); }
+        if (busyRef.current) return;
+        busyRef.current = true;
+        setBusyNode("respec");
+        try { await mutateMastery('respec'); } catch (error) { alert(error instanceof Error ? error.message : 'Mastery respec failed.'); } finally { busyRef.current = false; setBusyNode(null); }
     }
 
     return (
@@ -77,7 +89,7 @@ export function MasteryPanel({ character, onVersionedCharacter, headquarters = f
                 const active = activeMasteryEffects(character);
                 if (active.length === 0) return null;
                 return (
-                    <div className="summary-box" style={{ padding: 10, marginBottom: 4, borderColor: "rgba(250,204,21,0.4)" }}>
+                    <div className="summary-box" style={{ padding: 10, marginBottom: 4, borderColor: "rgba(230, 196, 119, 0.4)" }}>
                         <strong style={{ color: "var(--gold)" }}>Active bonuses</strong>
                         <ul style={{ margin: "6px 0 0", paddingLeft: 18, lineHeight: 1.5 }}>
                             {active.map((a) => <li key={a}>{a}</li>)}
@@ -105,6 +117,10 @@ export function MasteryPanel({ character, onVersionedCharacter, headquarters = f
                                     const gateLocked = !!n.capstone && inPath < CAPSTONE_PATH_GATE && !masteryHasCapstone(character, n.id);
                                     const check = canIncrement(character, n.id);
                                     const spendBlocked = check.ok === false;
+                                    // "Maxed", the capstone gate and "0 points to spend" already
+                                    // read on screen; a node that costs more than the points
+                                    // left says so under its description.
+                                    const visibleReason = check.ok === false && !maxed && !gateLocked && available > 0 ? check.reason : "";
                                     return (
                                         <div className="profession-mastery-node" key={n.id} style={{ display: "flex", alignItems: "center", gap: 8, opacity: gateLocked ? 0.6 : 1 }}>
                                             <div className="profession-mastery-node-copy" style={{ flex: 1, minWidth: 0 }}>
@@ -115,14 +131,16 @@ export function MasteryPanel({ character, onVersionedCharacter, headquarters = f
                                                     </span>
                                                 </div>
                                                 <div className="hint" style={{ margin: 0 }}>{n.desc}</div>
+                                                {visibleReason && <div className="hint" style={{ margin: "2px 0 0", color: "var(--text-dim)" }}>{visibleReason}</div>}
                                             </div>
                                             <button
                                                 onClick={() => invest(n.id)}
-                                                disabled={spendBlocked}
+                                                disabled={spendBlocked || busyNode !== null}
+                                                aria-busy={busyNode === n.id}
                                                 title={spendBlocked ? check.reason : ""}
                                                 style={{ minWidth: 64, padding: "4px 10px" }}
                                             >
-                                                {maxed ? "Maxed" : n.capstone ? `Unlock (${n.cost})` : `+1 (${n.cost})`}
+                                                {busyNode === n.id ? "Spending…" : maxed ? "Maxed" : n.capstone ? `Unlock (${n.cost})` : `+1 (${n.cost})`}
                                             </button>
                                         </div>
                                     );
@@ -135,8 +153,8 @@ export function MasteryPanel({ character, onVersionedCharacter, headquarters = f
             </details>
 
             {spent > 0 && (
-                <button onClick={respec} style={{ marginTop: 12, padding: "6px 14px" }}>
-                    Respec all ({MASTERY_RESPEC_COST.toLocaleString()} ryo)
+                <button onClick={respec} disabled={busyNode !== null} aria-busy={busyNode === "respec"} style={{ marginTop: 12, padding: "6px 14px" }}>
+                    {busyNode === "respec" ? "Refunding…" : `Respec all (${MASTERY_RESPEC_COST.toLocaleString()} ryo)`}
                 </button>
             )}
         </section>

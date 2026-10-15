@@ -69,7 +69,7 @@ async function postClanRecord(name: string, body: object): Promise<void> {
             body: JSON.stringify(body),
         });
     } catch {
-        throw new ClanSaveError(0, "Clan save unconfirmed. Refresh before retrying.");
+        throw new ClanSaveError(0, "Your clan change may not have gone through. Wait until the game has saved, then refresh to check before you try again.");
     }
     if (!res.ok) {
         let detail = "";
@@ -77,7 +77,7 @@ async function postClanRecord(name: string, body: object): Promise<void> {
         const fallback =
             res.status === 429 ? "The clan server is busy (rate limited). Wait a moment and retry." :
             res.status === 401 || res.status === 403 ? "You're not authorized to change this clan right now." :
-            `Clan save failed (HTTP ${res.status}).`;
+            "The clan change was not saved. Try again in a moment.";
         throw new ClanSaveError(res.status, detail || fallback);
     }
 }
@@ -90,10 +90,10 @@ export async function postGuardQueue(action: "queue" | "dequeue", payload: objec
             body: JSON.stringify(payload),
         });
     } catch {
-        throw new ClanSaveError(0, "Guard status unconfirmed. Refresh before retrying.");
+        throw new ClanSaveError(0, "Your guard status change may not have gone through. Wait until the game has saved, then refresh to check before you try again.");
     }
     if (!res.ok) {
         const data = await res.json().catch(() => ({})) as { error?: string };
-        throw new ClanSaveError(res.status, data.error || `Guard queue update failed (HTTP ${res.status}).`);
+        throw new ClanSaveError(res.status, data.error || "Your guard status did not change. Try again in a moment.");
     }
 }

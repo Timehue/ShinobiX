@@ -8,8 +8,8 @@ const TIER_META: Record<BlackMarketReward["tier"], { label: string; color: strin
     trinket: { label: "A Smuggled Trinket",   color: "#4ade80", glow: "rgba(74,222,128,0.5)" },
     haul:    { label: "A Tidy Haul",          color: "#60a5fa", glow: "rgba(96,165,250,0.6)" },
     relic:   { label: "A Relic Cache",        color: "#c084fc", glow: "rgba(192,132,252,0.65)" },
-    fortune: { label: "A Desert Fortune",     color: "#facc15", glow: "rgba(250,204,21,0.7)" },
-    jackpot: { label: "BLACK SUN JACKPOT",    color: "#fbbf24", glow: "rgba(251,191,36,0.95)" },
+    fortune: { label: "A Desert Fortune",     color: "#e6c477", glow: "rgba(230, 196, 119, 0.7)" },
+    jackpot: { label: "BLACK SUN JACKPOT",    color: "#e6c477", glow: "rgba(230, 196, 119, 0.95)" },
 };
 
 const CURRENCY_LABEL: Record<string, string> = {

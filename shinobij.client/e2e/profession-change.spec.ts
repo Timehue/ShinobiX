@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { expectViewportSafe } from './helpers/adaptive-assertions';
 
 const fixture = '/e2e/fixtures/profession-change.html';
 
@@ -22,6 +23,7 @@ test('profession scroll stays beside the village scroll and enforces purchase re
     if (info.project.name === 'desktop') expect(bounds[0].top).toBe(bounds[1].top);
     else expect(bounds[1].top).toBeGreaterThanOrEqual(bounds[0].bottom);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await expectViewportSafe(page);
     await scrolls.screenshot({ path: info.outputPath('marketplace-scrolls.png') });
 });
 
@@ -55,6 +57,13 @@ for (const from of ['healer', 'vanguard', 'petTamer']) {
         await expect(dialog).toBeVisible();
         await expect(dialog.getByRole('radio')).toHaveCount(2);
         await expect(dialog.locator(`input[value="${from}"]`)).toHaveCount(0);
+        await expectViewportSafe(page);
+        const regions = await dialog.evaluate(el => ({
+            details: el.querySelector('.village-transfer-details')!.getBoundingClientRect().bottom,
+            actions: el.querySelector('.village-transfer-actions')!.getBoundingClientRect().top,
+        }));
+        expect(regions.details).toBeLessThanOrEqual(regions.actions);
+        await expect(dialog.getByRole('button', { name: 'Cancel', exact: true })).toBeInViewport();
         await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
         expect(changes).toBe(0);
         await scroll.getByRole('button', { name: 'Use scroll · Choose profession' }).click();
@@ -152,7 +161,7 @@ test('an opened war crate reports its loot even when a newer save was adopted fi
         () => ({ ok: true, character: opened, rewards: { relic: true, ryo: 500, boneCharms: 0, honorSeals: 2, dungeonKey: false }, _saveVersion: 2 }));
     await page.getByRole('button', { name: /Legendary War Crate/ }).first().click();
     const details = page.getByRole('dialog', { name: 'Legendary War Crate item details' });
-    await details.getByRole('button', { name: 'Open Crate', exact: true }).click();
+    await details.getByRole('button', { name: 'Open crate', exact: true }).click();
     await expect.poll(reply.requests).toBe(1);
     expect(await page.evaluate(next => window.adoptNewerSave!(next, 3), { ...opened, unlockedAchievements: [] })).toBe(true);
     reply.release();
@@ -181,7 +190,7 @@ test('a settled sale reports its receipt even when a newer save was adopted firs
     expect(await page.evaluate(next => window.adoptNewerSave!(next, 3), { ...sold, unlockedAchievements: [] })).toBe(true);
     reply.release();
     await expect(details).toHaveCount(0);
-    await expect(page.getByText('Action unconfirmed. Refresh before retrying.')).toHaveCount(0);
+    await expect(page.getByText('That action may not have gone through. Wait until the game has saved, then refresh to check before you try again.')).toHaveCount(0);
     expect(reply.requests()).toBe(1);
 });
 

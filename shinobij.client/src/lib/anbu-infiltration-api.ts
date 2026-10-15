@@ -121,7 +121,7 @@ async function post<T>(body: Record<string, unknown>, signal?: AbortSignal): Pro
     });
     if (!res.ok) {
         const err = await res.json().catch(() => ({})) as { error?: string };
-        throw new InfiltrationRequestError(err.error || `Request failed (${res.status})`, res.status);
+        throw new InfiltrationRequestError(err.error || 'The infiltration did not answer. Try again in a moment.', res.status);
     }
     return res.json() as Promise<T>;
 }

@@ -71,7 +71,7 @@ async function openCurrentSectorForMobileFieldWork(page: Page) {
     const atlas = page.locator(".world-atlas-card");
     const returnToSector = atlas.getByRole("button", { name: /Return to Sector 1$/ });
     const journal = page.getByRole("complementary", { name: "Personal quest" });
-    const retry = page.getByRole("button", { name: "Retry Journey Load", exact: true });
+    const retry = page.getByRole("button", { name: "Retry journey load", exact: true });
     await expect.poll(async () => await returnToSector.isVisible()
         || await journal.isVisible() || await retry.isVisible()).toBe(true);
     if (await returnToSector.isVisible()) {
@@ -120,7 +120,7 @@ test("a road-story content outage keeps choices closed until an explicit retry s
     });
     await page.goto("/#/worldMap", { waitUntil: "domcontentloaded" });
     await openCurrentSectorForMobileFieldWork(page);
-    const retry = page.getByRole("button", { name: "Retry Journey Load", exact: true });
+    const retry = page.getByRole("button", { name: "Retry journey load", exact: true });
     await expect(retry).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole("complementary", { name: "Personal quest" })).toHaveCount(0);
     expect(attempts).toBe(3);
@@ -143,6 +143,8 @@ const WANDERER_MAX_INDEX = 1;
 // The after-dark night ninja slot. Seeded too, so a run that lands on in-world
 // night still finds a quiet road.
 const WANDERER_NIGHT_INDEX = WANDERER_MAX_INDEX + 1;
+// The angler/miner and rift-creature slots sit above it (shared/wanderer-extra-slots.ts).
+const WANDERER_LAST_INDEX = WANDERER_NIGHT_INDEX + 2;
 
 /**
  * Keep the road empty for a field-work run.
@@ -163,7 +165,7 @@ function quietRoadCooldowns(sector: number, now = Date.now()): Record<string, nu
     const cooldowns: Record<string, number> = {};
     for (const offset of [-1, 0, 1]) {
         const bucket = Math.floor(now / WANDERER_BUCKET_MS) + offset;
-        for (let index = 0; index <= WANDERER_NIGHT_INDEX; index++) {
+        for (let index = 0; index <= WANDERER_LAST_INDEX; index++) {
             cooldowns[`w-${sector}-${bucket}-${index}`] = expiry;
         }
     }
@@ -443,7 +445,7 @@ test("field work saves a route choice, resumes its next objective, and replays h
     await expectHeadingInView(page, novel.getByRole("heading", { level: 2, name: "Two Ways Up" }));
     await expect(novel.getByRole("button", { name: /Take the high line/ })).toHaveCount(0);
     await expect(novel.getByRole("button", { name: /^Battle in/ })).toHaveCount(0);
-    await expect(novel.getByRole("button", { name: /Claim Reward/ })).toHaveCount(0);
+    await expect(novel.getByRole("button", { name: /Claim reward/ })).toHaveCount(0);
     if ((page.viewportSize()?.width ?? 1000) <= 480) {
         const next = novel.getByRole("button", { name: "Next", exact: true });
         const hint = page.locator(".screen-hint-battle-trigger");

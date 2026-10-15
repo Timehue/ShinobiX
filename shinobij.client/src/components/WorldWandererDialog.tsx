@@ -27,6 +27,7 @@ import {
 } from "../lib/legacy-emissaries";
 import { isStoryReckoningId } from "../lib/story-reckonings";
 import { roadFleePriceLine } from "../lib/road-flee-api";
+import { wandererForcesChoice, wandererKindLabel } from "../lib/road-cast";
 
 type ActionResult = void | Promise<unknown>;
 type WandererAction = (wanderer: Wanderer) => ActionResult;
@@ -59,6 +60,7 @@ export type WorldWandererDialogProps = Readonly<{
     fleeWanderer: WandererAction;
     tradeWithWanderer: WandererAction;
     askRoadRumor: WandererAction;
+    askAngler: WandererAction;
     visitWandererMedic: WandererAction;
     startPatrolFight: WandererAction;
     followTracker: WandererAction;
@@ -107,6 +109,7 @@ export function WorldWandererDialog({
     fleeWanderer,
     tradeWithWanderer,
     askRoadRumor,
+    askAngler,
     visitWandererMedic,
     startPatrolFight,
     followTracker,
@@ -137,12 +140,12 @@ export function WorldWandererDialog({
                 alt={wandererDialog.w.name}
                 style={{ width: 96, height: 96, objectFit: "cover", borderRadius: "50%", border: `2px solid ${wandererDialog.w.tellTint}`, margin: "0 auto 8px" }}
             />
-            <h3 style={{ margin: "0 0 2px" }}>{wandererDialog.nemesis && character.wandererNemesis ? character.wandererNemesis.name : wandererDialog.w.name}</h3>
-            <p style={{ fontSize: ".75rem", color: "#9aa3b2", margin: "0 0 10px" }}>{wandererDialog.nemesis ? <><GameArtIcon kind="attack" size={15} /> Your rival · Lv {Math.min(100, character.level + (character.wandererNemesis?.tier ?? 1))}</> : wandererDialog.w.verb === "trackerTrail" ? "On the trail" : `${wandererDialog.w.verb === "petDuel" ? "Wild beast" : "Wandering shinobi"} · Lv ${wandererDialog.w.level}`}</p>
-            <p style={{ fontStyle: "italic", margin: "0 0 14px" }}>{wandererDialog.msg ?? (wandererDialog.nemesis ? `"You again, ${character.name}. You walked away last time. You won't this time."` : wandererDialog.w.greeting)}</p>
+            <h3 style={{ margin: "0 0 2px" }}>{wandererDialog.w.name}</h3>
+            <p style={{ fontSize: ".75rem", color: "#9aa3b2", margin: "0 0 10px" }}>{wandererDialog.nemesis ? <><GameArtIcon kind="attack" size={15} /> Your rival · Lv {Math.min(100, character.level + (character.wandererNemesis?.tier ?? 1))}</> : wandererDialog.w.verb === "trackerTrail" ? "On the trail" : `${wandererKindLabel(wandererDialog.w)} · Lv ${wandererDialog.w.level}`}</p>
+            <p style={{ fontStyle: "italic", margin: "0 0 14px" }}>{wandererDialog.msg ?? wandererDialog.w.greeting}</p>
             {!wandererDialog.msg && remembered && <p style={{ fontSize: ".72rem", color: "#a7f3d0", margin: "-8px 0 12px", fontStyle: "italic" }}>{remembered}</p>}
             {!wandererDialog.msg && wandererDialog.standingLine && <p style={{ fontStyle: "italic", fontSize: ".8rem", color: wandererDialog.peace ? "var(--green-300)" : "var(--slate-300)", margin: "-6px 0 14px" }}>{wandererDialog.standingLine}</p>}
-            {!wandererDialog.msg && (wandererDialog.w.verb === "attack" || wandererDialog.w.verb === "bountyHunter") ? (
+            {!wandererDialog.msg && wandererForcesChoice(wandererDialog.w) ? (
                 wandererDialog.peace ? (
                     <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
                         <button onClick={dismissWandererDialog}>Pass in peace</button>
@@ -155,50 +158,55 @@ export function WorldWandererDialog({
                         <p style={{ fontSize: ".74rem", color: "#9aa3b2", margin: "-6px 0 12px" }}>{roadFleePriceLine(character)}</p>
                         {wandererDialog.choiceError && <p role="alert" style={{ fontSize: ".76rem", color: "var(--red-300)", margin: "-6px 0 12px" }}>{wandererDialog.choiceError}</p>}
                         <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                            <button disabled={wandererDialog.busy} onClick={() => startWandererAttack(wandererDialog.w, !!wandererDialog.nemesis)}>Fight</button>
+                            <button disabled={wandererDialog.busy} onClick={() => wandererDialog.w.verb === "patrol" ? startPatrolFight(wandererDialog.w) : startWandererAttack(wandererDialog.w, !!wandererDialog.nemesis)}>Fight</button>
                             <button disabled={wandererDialog.busy} onClick={() => fleeWanderer(wandererDialog.w)}>Flee</button>
                         </div>
                     </>
                 )
             ) : !wandererDialog.msg && wandererDialog.w.verb === "merchant" ? (
                 <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-                    <button disabled={wandererDialog.busy} onClick={() => tradeWithWanderer(wandererDialog.w)}>{wandererDialog.busy ? "..." : "Trade"}</button>
+                    <button disabled={wandererDialog.busy} onClick={() => tradeWithWanderer(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Trade"}</button>
                     <button onClick={() => askRoadRumor(wandererDialog.w)}>Ask about the road</button>
                     <button onClick={closeWandererDialog}>Leave</button>
                 </div>
             ) : !wandererDialog.msg && wandererDialog.w.verb === "medic" ? (
                 <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-                    <button disabled={wandererDialog.busy} onClick={() => visitWandererMedic(wandererDialog.w)}>{wandererDialog.busy ? "..." : "Treat wounds"}</button>
+                    <button disabled={wandererDialog.busy} onClick={() => visitWandererMedic(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Treat wounds"}</button>
                     <button onClick={() => askRoadRumor(wandererDialog.w)}>Ask about the road</button>
                     <button onClick={closeWandererDialog}>Leave</button>
                 </div>
             ) : !wandererDialog.msg && wandererDialog.w.verb === "patrol" ? (
                 <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-                    <button onClick={() => startPatrolFight(wandererDialog.w)}>Stand your ground</button>
+                    {wandererDialog.w.patrolStance !== "home" && <button onClick={() => startPatrolFight(wandererDialog.w)}>Stand your ground</button>}{/* your own village's patrol never fights you */}
                     <button onClick={() => askRoadRumor(wandererDialog.w)}>Ask about the road</button>
                     <button onClick={closeWandererDialog}>Move along</button>
+                </div>
+            ) : !wandererDialog.msg && (wandererDialog.w.verb === "angler" || wandererDialog.w.verb === "contest") ? (
+                <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>{/* The miner's fight is optional: he never chases you off. */}
+                    {wandererDialog.w.verb === "angler" ? <><button onClick={() => askAngler(wandererDialog.w)}>Ask about the water</button><button onClick={() => askRoadRumor(wandererDialog.w)}>Ask about the road</button><button onClick={closeWandererDialog}>Leave</button></>
+                        : <><button disabled={wandererDialog.busy} onClick={() => startWandererAttack(wandererDialog.w, false)}>Contest the seam</button><button onClick={closeWandererDialog}>Leave him to it</button></>}
                 </div>
             ) : !wandererDialog.msg && wandererDialog.w.verb === "tracker" ? (
                 <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
                     {/* Follow tracks starts a two-sector trail that ends at a wild
                         pet you can capture. No pet needed: the capture battle lends
                         a Guild Fox to players who have none. */}
-                    <button disabled={wandererDialog.busy} onClick={() => followTracker(wandererDialog.w)}>{wandererDialog.busy ? "..." : "Follow tracks"}</button>
-                    <button disabled={wandererDialog.busy} onClick={() => startWandererFavor(wandererDialog.w)}>{wandererDialog.busy ? "..." : "Take a favor"}</button>
+                    <button disabled={wandererDialog.busy} onClick={() => followTracker(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Follow tracks"}</button>
+                    <button disabled={wandererDialog.busy} onClick={() => startWandererFavor(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Take a favor"}</button>
                     <button onClick={() => askRoadRumor(wandererDialog.w)}>Ask about the road</button>
                     <button onClick={closeWandererDialog}>Leave</button>
                 </div>
             ) : !wandererDialog.msg && wandererDialog.w.verb === "trackerTrail" ? (
                 <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
                     <button disabled={wandererDialog.busy} onClick={() => followTrackerTrail(wandererDialog.w)}>
-                        {wandererDialog.busy ? "..." : character.activeTrackerTrail?.step === 1 ? "Approach the beast" : "Keep following"}
+                        {wandererDialog.busy ? "…" : character.activeTrackerTrail?.step === 1 ? "Approach the beast" : "Keep following"}
                     </button>
                     <button disabled={wandererDialog.busy} onClick={() => abandonTrackerTrail(wandererDialog.w)} style={{ background: "transparent", borderColor: "#6b7280", color: "#9aa3b2" }}>Give up the trail</button>
                     <button onClick={closeWandererDialog}>Leave</button>
                 </div>
             ) : !wandererDialog.msg && wandererDialog.w.verb === "courier" ? (
                 <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-                    <button disabled={wandererDialog.busy} onClick={() => claimWandererFavor(wandererDialog.w)}>{wandererDialog.busy ? "..." : "Deliver favor"}</button>
+                    <button disabled={wandererDialog.busy} onClick={() => claimWandererFavor(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Deliver favor"}</button>
                     <button onClick={closeWandererDialog}>Leave</button>
                 </div>
             ) : !wandererDialog.msg && wandererDialog.w.verb === "gift" ? (

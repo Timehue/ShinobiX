@@ -13,6 +13,7 @@ import { memo } from "react";
 import { SECTOR_ROAD_PAIRS } from "../../../shared/sector-links";
 import { SECTOR_REGION_LABELS, type SectorRegionKey } from "../../../shared/sector-geo";
 import { ATLAS_SECTOR_POINTS } from "../data/sector-points";
+import { WorldMapPin } from "./WorldMapPin";
 
 export function isWorldRoadsEnabled(): boolean {
     if (typeof window === "undefined") return false;
@@ -100,18 +101,19 @@ const POI_PLATES: ReadonlyArray<{ key: string; name: string; tag: string; x: num
     // Threads a 3.9% band: the obelisk is the tallest crest (74px) and pin 64 is
     // just below, so this y has under 1% of slack at either end.
     { key: "hollowgate", name: "Hollow Gate", tag: "A Sunken Court intake still running below Central", x: 63, y: 71.3, tone: "violet" },
-    // icon (91, 84) — open ground below the sector cluster, clear of pin 24.
-    { key: "moonshadow", name: "Moonshadow Village", tag: "The Held Secret: every truth has a keeper", x: 91, y: 95, tone: "violet" },
+    // icon (84, 71) — the central court inside Moonshadow's sector ring.
+    { key: "moonshadow", name: "Moonshadow Village", tag: "The Held Secret: every truth has a keeper", x: 84, y: 78, tone: "violet" },
     // icon (47, 84.5) — sector 54's marker, which was nudged up off this plate
     { key: "sunscar", name: "Sunscar Festival", tag: "A caravan fair that never packed up", x: 47, y: 89, tone: "sand" },
 ];
 
-// Memoised: no props and only fixed tables, so a WorldMap re-render cannot change it.
+// Memoised: only the counter-scale mode and fixed tables affect this projection.
 // (WorldRoadsOverlay below is not: it reads its localStorage kill switch while rendering.)
-export const WorldPoiPlates = memo(function WorldPoiPlates() {
+export const WorldPoiPlates = memo(function WorldPoiPlates({ counterScalePins = false }: { counterScalePins?: boolean }) {
     return (
         <>
             {POI_PLATES.map((plate) => (
+                <WorldMapPin key={plate.key} active={counterScalePins} x={plate.x} y={plate.y} layer={4} anchorClass={`wpk-${plate.key}`}>
                 <span
                     key={plate.key}
                     // `wpk-<key>` is the per-place hook the small-board layout in
@@ -124,12 +126,13 @@ export const WorldPoiPlates = memo(function WorldPoiPlates() {
                     <span className="world-poi-plate-name">{plate.name}</span>
                     <span className="world-poi-plate-tag">{plate.tag}</span>
                 </span>
+                </WorldMapPin>
             ))}
         </>
     );
 });
 
-export function WorldRoadsOverlay() {
+export function WorldRoadsOverlay({ counterScalePins = false }: { counterScalePins?: boolean }) {
     if (!isWorldRoadsEnabled()) return null;
     return (
         <>
@@ -139,6 +142,7 @@ export function WorldRoadsOverlay() {
                 ))}
             </svg>
             {REGION_LABEL_POINTS.map((entry) => (
+                <WorldMapPin key={entry.key} active={counterScalePins} x={entry.x} y={entry.y} layer={3}>
                 <span
                     key={entry.key}
                     className="world-region-label"
@@ -147,6 +151,7 @@ export function WorldRoadsOverlay() {
                 >
                     {SECTOR_REGION_LABELS[entry.key]}
                 </span>
+                </WorldMapPin>
             ))}
         </>
     );

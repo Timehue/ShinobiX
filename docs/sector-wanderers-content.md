@@ -316,14 +316,44 @@ Demonstrates plan §8.4: the **same** Wanderer reads differently by world-state.
 ## 8b. Night ninjas — *after dark only* (`nightblade`, shipped)
 
 When the world clock turns to night (20:00–05:00 in-world, `shared/world-phase.ts`),
-about one wild sector in five gains a hostile night ninja in the reserved roster
-slot 2 (`shared/wanderer-roster.ts` `rollNightWanderer`). The same ninja holds its
+about one wild sector in twenty (5% since 2026-10-14, was 22%) gains a hostile
+night ninja in the reserved roster slot 2 (`shared/wanderer-roster.ts`
+`rollNightWanderer`). The same ninja holds its
 sector all night and is gone at dawn; the daytime cast never changes because of
 it. Since 2026-10-09 it hunts the player exactly like a road bandit: it closes
 in, stops you, and asks Fight / Flee (same level band and payout, and the same
 priced flee in `shared/road-flee.ts`), and it fights with the burst AI template. It is
 not one of the bandit gang: beating or losing to it never moves the robber
-streak (the ambush gauntlet) and never makes it your road nemesis.
+streak (the ambush gauntlet). Since 2026-10-14, losing to one does put you on
+Kagero's list (§8c), exactly as losing to a bandit does.
+
+---
+
+## 8c. The road cast added 2026-10-14
+
+Bandits now stand in 5% of wild sectors per six-hour window (weight 0.197, was 0.24).
+
+- **Kagero** (`shared/road-nemesis.ts`) is the one road rival. He replaced the old
+  rule that let a bandit who beat you return as your nemesis in 45% of later bandit
+  encounters. Losing to a bandit or a night ninja marks you. From then on he waits
+  in a quarter of the sectors you enter (a per-player presence gate the server
+  checks), hunts you, and stops you with Fight / Flee. Each win of his raises his
+  tier and title: Kagero, of the Cracked Mask, the Road-Taker, then Unbroken.
+  Beat him once and he leaves you alone until the road beats you again. His
+  fights never touch the robber streak. He wears his own cracked white mask
+  (`assets/wanderers/kagero.webp`).
+- **Village patrols** (`shared/village-patrol.ts`): the village that holds a sector
+  owns its patrol. Your own village's patrol warns you and never fights. A rival
+  village's patrol at peace offers a spar. A patrol of a village at war with yours
+  hunts you and stops you with Fight / Flee as a Captain.
+- **Rift-touched creature** (roster slot 4, `shared/wanderer-extra-slots.ts`): while
+  you hold a sealed rift quest, a creature hunts you in that rift's target sector.
+  The server reads the seal on the save record, never the client's display copy.
+- **Angler and rival miner** (roster slot 3): one of them stands beside a gathering
+  node in 12% of node sectors per window. The angler only talks: she names the
+  shoal in that sector that suits your fishing skill. The rival miner offers an
+  optional fight over his seam and never chases you. Neither pays anything beyond
+  an ordinary World fight under the daily AI-fight cap.
 
 **Names:** Sumi of the Unlit Road · Hollow-Moon Kaito · Nightjar Reiko ·
 Oboro Three-Shadows · Tsukika the Quiet Blade

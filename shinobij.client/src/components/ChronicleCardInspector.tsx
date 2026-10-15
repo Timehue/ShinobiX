@@ -7,6 +7,7 @@ import { Modal } from "./ui/Modal";
 import { ChronicleCardView } from "./ChronicleCardView";
 import { CARD_ART_SIZES_INSPECTOR } from "../lib/chronicle-card-art";
 import type { ChronicleDisplayCard } from "../lib/chronicle-duel";
+import { WARDED_RULE_TEXT } from "../../../shared/chronicle-keywords";
 
 function taxonomyLine(card: ChronicleDisplayCard): string {
   return card.cardClass === "monster"
@@ -52,10 +53,15 @@ export function ChronicleCardInspector({
 }) {
   if (!card) return null;
   // Normal monsters carry no rules text — their lore below is the whole body.
-  const rulesText =
+  // Warded is a keyword either kind of Monster can carry, so it leads.
+  const rulesText = [
+    card.cardClass === "monster" && card.warded ? WARDED_RULE_TEXT : "",
     card.cardClass === "monster" && card.monsterType !== "effect"
       ? ""
-      : card.effectText;
+      : card.effectText,
+  ]
+    .filter(Boolean)
+    .join(" ");
   return (
     <Modal
       open

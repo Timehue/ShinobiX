@@ -537,7 +537,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 await retireHollowGatePetChildLease(playerName, battleToken);
             } catch (error) {
                 console.error('[pet/battle-result] Hollow Gate child cleanup failed', error);
-                return res.status(503).json({ error: 'Your Hollow Gate pet result is recorded, but its battle lease could not be retired — please retry.' });
+                return res.status(503).json({ error: 'Your Hollow Gate pet result is saved, but the gate is still closing this fight. Try again in a moment.' });
             }
             return res.status(200).json({
                 ok: true,
@@ -630,11 +630,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         const activeKey = `pet:battle-active:${playerName}`;
                         const retired = await kv.delIfEqual(activeKey, battleToken);
                         if (!retired && await kv.get<string>(activeKey) === battleToken) {
-                            return res.status(503).json({ error: 'Your pet result is recorded, but its active battle lease could not be retired — please retry.' });
+                            return res.status(503).json({ error: 'Your result is saved, but the arena is still closing this fight. Try again in a moment.' });
                         }
                     } catch (error) {
                         console.error('[pet/battle-result] casual replay pointer cleanup failed', error);
-                        return res.status(503).json({ error: 'Your pet result is recorded, but its active battle lease could not be retired — please retry.' });
+                        return res.status(503).json({ error: 'Your result is saved, but the arena is still closing this fight. Try again in a moment.' });
                     }
                     const paidMarker = await kv.get<{ at?: number; legacyApplied?: boolean }>(
                         paidReceiptKey(playerName, battleToken),
@@ -676,7 +676,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         _saveVersion: Number(priorSave?._saveVersion ?? 0),
                     });
                 }
-                return res.status(200).json({ ok: true, reward: 0, reason: 'invalid-or-spent-pet-battle-token' });
+                // The proof expired (or its receipt aged out of the rolling
+                // window), so nothing more can be paid. Still hand back the
+                // current save: a client holding a queued result needs the
+                // roster to retire it, or every retry returns this same answer.
+                return res.status(200).json({
+                    ok: true,
+                    reward: 0,
+                    reason: 'invalid-or-spent-pet-battle-token',
+                    ...(priorCharacter ? { character: priorCharacter, _saveVersion: Number(priorSave?._saveVersion ?? 0) } : {}),
+                });
             }
             if (tokenData.reportKey !== reportKey) {
                 return res.status(403).json({ error: 'Pet battle token does not match this battle report.' });
@@ -1037,7 +1046,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 await retireHollowGatePetChildLease(playerName, battleToken);
             } catch (error) {
                 console.error('[pet/battle-result] Hollow Gate child cleanup failed', error);
-                return res.status(503).json({ error: 'Your Hollow Gate pet result is recorded, but its battle lease could not be retired — please retry.' });
+                return res.status(503).json({ error: 'Your Hollow Gate pet result is saved, but the gate is still closing this fight. Try again in a moment.' });
             }
             return res.status(200).json({
                 ok: true,

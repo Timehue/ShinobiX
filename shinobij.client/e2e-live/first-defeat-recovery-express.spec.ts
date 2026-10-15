@@ -389,7 +389,7 @@ test(`persistent world defeat and recovery: ${recovery}`, async ({ page, request
   await page.getByLabel('Name').fill(name);
   await page.getByPlaceholder('Enter your password').fill(password);
   const loginSave = page.waitForResponse(r => new URL(r.url()).pathname === `/api/save/${name}` && r.request().method() === 'GET' && r.status() === 200);
-  await page.getByRole('button', { name: 'Enter Village' }).click();
+  await page.getByRole('button', { name: 'Enter village' }).click();
   await loginSave;
   await expect(page.getByTestId('start-create')).toHaveCount(0);
   await expect(page.getByRole('button', { name: /^(?:Travel|World Map)$/ }).filter({ visible: true }).first()).toBeVisible();

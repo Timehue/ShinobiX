@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { RESOURCE_NODES, WORLD_BOSS_CRYSTAL_NODES, validResourceNodeTerrain, resourceNode } from '../../shared/resource-nodes.js';
 import { WORLD_BOSS_CRYSTAL_MAX_NODES, WORLD_BOSS_HOLLOW_SHARDS_PER_TIER, WORLD_BOSS_MAX_WEAKENING_TIERS } from '../../shared/world-boss-event.js';
 import { resourceActionsToday, readResourceGathering } from '../../shared/resource-gathering.js';
+import { isPlayableWildSector } from '../../shared/sector-geo.js';
 import { admitResourceAttempt, resolveResourceAttempt, mintResourceSeal, resourceAdmissionError, equipGatheringTool } from './_resource-gathering.js';
 import type { OnlinePlayer } from '../_realtime/types.js';
 import { countOwned, applyForge } from '../craft/_forge.js';
@@ -13,14 +14,31 @@ const now = Date.parse('2026-10-07T12:00:00Z');
 const node = resourceNode('resource-17')!;
 const player: OnlinePlayer = { name: 'miner', displayName: 'Miner', sector: node.sector, tile: node.approach, lastSeenAt: now, connectedAt: now, pendingAttacker: null, character: null, movementSeq: 4 };
 const base = () => ({ name: 'miner', level: 100, ryo: 999999, fateShards: 500, inventory: [] as string[], itemStacks: [] as { itemId: string; count: number }[], equipment: { pickaxe: 'tool-golden-pickaxe' } });
-test('all 24 nodes have valid water/rock targets and walkable adjacent approaches', () => {
-    assert.equal(RESOURCE_NODES.length, 24);
-    assert.equal(new Set(RESOURCE_NODES.map(n => n.id)).size, 24);
+test('all 91 nodes have valid water/rock targets and walkable adjacent approaches', () => {
+    assert.equal(RESOURCE_NODES.length, 91);
+    assert.equal(new Set(RESOURCE_NODES.map(n => n.id)).size, 91);
+    assert.equal(RESOURCE_NODES.filter(n => n.activity === 'fishing').length, 36, 'fishing tripled from 12');
     for (const n of RESOURCE_NODES) {
         assert.ok(validResourceNodeTerrain(n), n.id);
         const distance = Math.abs(n.target % 12 - n.approach % 12) + Math.abs(Math.floor(n.target / 12) - Math.floor(n.approach / 12));
         assert.equal(distance, 1, n.id);
     }
+});
+test('every playable sector has a node, and the original 24 keep their ids', () => {
+    // The node id is its index in the placement list, and saved gathering state
+    // is keyed by it, so the 2026-10-14 world-wide pass only APPENDED.
+    assert.deepEqual([1, 13, 17, 24].map(i => { const n = resourceNode(`resource-${i}`)!; return [n.sector, n.activity, n.name]; }), [
+        [2, 'fishing', 'Dockside shoal'], [2, 'mining', 'Harbor iron seam'], [29, 'mining', 'Highpass iron seam'], [60, 'mining', 'Obsidian heart'],
+    ]);
+    for (let sector = 1; sector <= 66; sector++) {
+        if (!isPlayableWildSector(sector)) continue;
+        assert.ok(RESOURCE_NODES.some(n => n.sector === sector), `sector ${sector} has no node`);
+    }
+    // Nothing shares a tile with another node or a world-boss crystal vein.
+    const all = [...RESOURCE_NODES, ...WORLD_BOSS_CRYSTAL_NODES];
+    const tiles = all.flatMap(n => [`${n.sector}:${n.target}`, `${n.sector}:${n.approach}`]);
+    const ordinaryNew = RESOURCE_NODES.slice(24).flatMap(n => [`${n.sector}:${n.target}`, `${n.sector}:${n.approach}`]);
+    for (const tile of ordinaryNew) assert.equal(tiles.filter(t => t === tile).length, 1, tile);
 });
 test('world-boss Hollow Shard veins can fill every weakening tier', () => {
     assert.equal(WORLD_BOSS_CRYSTAL_NODES.length, WORLD_BOSS_CRYSTAL_MAX_NODES);

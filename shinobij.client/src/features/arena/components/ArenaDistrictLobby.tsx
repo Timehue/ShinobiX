@@ -119,7 +119,7 @@ export function ArenaDistrictLobby({
                     disabled={!hasAvailablePet}
                     title={!hasAvailablePet ? "You need one available carried pet" : undefined}
                     onClick={() => onTabChange("petBattles")}
-                ><GiPawPrint style={ARENA_ICON} />Ranked Pet Battles</button>
+                ><GiPawPrint style={ARENA_ICON} />Ranked pet battles</button>
             </fieldset>
             <p className="arena-mode-scroll-hint" aria-hidden="true">Swipe to explore arena modes <span>→</span></p>
 
@@ -138,7 +138,7 @@ export function ArenaDistrictLobby({
                                             <div className="menu">
                                                 <button disabled={challengeBusy} onClick={() => onChallengePlayer(player, "clanWar1v1", 50)}>1v1 +50</button>
                                                 <button disabled={challengeBusy} onClick={() => onChallengePlayer(player, "clanWar2v2", 100)}>2v2 +100</button>
-                                                <button disabled={challengeBusy} onClick={() => onChallengePlayer(player, "clanWarPet", 25)}>Pet Battle +25</button>
+                                                <button disabled={challengeBusy} onClick={() => onChallengePlayer(player, "clanWarPet", 25)}>Pet battle +25</button>
                                             </div>
                                         </div>
                                     ))}
@@ -154,7 +154,7 @@ export function ArenaDistrictLobby({
                                 <strong>{challenge.fromName}</strong>
                                 <p>{challenge.mode ?? "standard"} challenge to {challenge.toName} | {challenge.clanWarPoints} clan points</p>
                                 <div className="menu">
-                                    <button onClick={() => onAcceptDistrictChallenge(challenge)}>{challenge.mode === "clanWarPet" ? "Open Pet Colosseum" : "Accept Duel"}</button>
+                                    <button onClick={() => onAcceptDistrictChallenge(challenge)}>{challenge.mode === "clanWarPet" ? "Open Pet Colosseum" : "Accept duel"}</button>
                                     <button className="danger-button" onClick={() => onDeclineChallenge(challenge)}>Decline</button>
                                 </div>
                             </div>
@@ -176,10 +176,10 @@ export function ArenaDistrictLobby({
                     <p>Players matchmaking: <strong>{rankedQueueSize}</strong></p>
                     <div style={{ display: "flex", gap: "8px", margin: "8px 0" }}>
                         {rankedQueueActive ? (
-                            <button className="danger-button" onClick={onLeaveRankedQueue}>Leave Queue</button>
+                            <button className="danger-button" onClick={onLeaveRankedQueue}>Leave queue</button>
                         ) : (
                             <button disabled={!playerRankedEnabled || !rankedLevelEligible(character.level)} onClick={onJoinRankedQueue}>
-                                {playerRankedEnabled ? "Queue Up for Ranked" : "Ranked Season Closed"}
+                                {playerRankedEnabled ? "Queue up for ranked" : "Ranked season closed"}
                             </button>
                         )}
                     </div>
@@ -194,11 +194,11 @@ export function ArenaDistrictLobby({
             {activeTab === "spectate" && (
                 <section className="summary-box">
                     <h3>Spectator Board</h3>
-                    <button onClick={onRefreshFights}>Refresh Fights</button>
+                    <button onClick={onRefreshFights}>Refresh fights</button>
                     {spectatorFights.length === 0 && pendingSpectatorChallenges.length === 0 ? <p className="hint">No active fights or open district challenges detected right now.</p> : (
                         <div className="jutsu-list">
                             {spectatorFights.map((fight) => <div className="summary-box" key={fight.id}><strong>{fight.title}</strong><p>{fight.mode}{fight.biome ? ` | ${fight.biome}` : ""} | Started {new Date(fight.startedAt).toLocaleTimeString()}</p><button onClick={() => onSpectateFight(fight)}>Spectate</button></div>)}
-                            {pendingSpectatorChallenges.map((challenge) => <div className="summary-box" key={`spectate-${challenge.id}`}><strong>{challenge.fromName} vs {challenge.toName}</strong><p>{challenge.mode ?? "standard"} challenge pending</p><button onClick={onViewPendingChallenge}>View Challenge</button></div>)}
+                            {pendingSpectatorChallenges.map((challenge) => <div className="summary-box" key={`spectate-${challenge.id}`}><strong>{challenge.fromName} vs {challenge.toName}</strong><p>{challenge.mode ?? "standard"} challenge pending</p><button onClick={onViewPendingChallenge}>View challenge</button></div>)}
                         </div>
                     )}
                 </section>

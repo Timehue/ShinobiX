@@ -45,7 +45,7 @@ export async function startClanBossAssault(hostName: string, partyId: string | u
             body: JSON.stringify({ hostName, partyId, expectedVersion, requestId, hostLoadout }),
         });
         const data = await r.json().catch(() => ({})) as Record<string, unknown>;
-        if (!r.ok) return { error: (data.error as string) ?? `HTTP ${r.status}`, status: r.status };
+        if (!r.ok) return { error: (data.error as string) ?? "The clan boss assault could not start. Try again in a moment.", status: r.status };
         return data as ClanBossStartResult;
     } catch (e) { return { error: String((e as Error).message) }; }
 }
@@ -83,14 +83,14 @@ export async function mutateClanBossParty(input: {
     }
 }
 
-const SETTLE_UNCONFIRMED = "The clan boss settlement could not be confirmed. Try again in a moment.";
+const SETTLE_UNCONFIRMED = "Your clan boss result could not be confirmed. Try again in a moment.";
 
 /**
  * Bank a finished assault (used as BattleTowerFight's settleFn). Idempotent
  * server-side, so a retry is always safe.
  *
  * A server error, a rate limit or a dropped connection means nothing was
- * confirmed. It throws, so the fight screen offers "Retry settlement" and does
+ * confirmed. It throws, so the fight screen offers "Try again" and does
  * not leave as settled with rewards (and any gear drop) it never saw. A refusal
  * that retrying cannot change, such as an expired assault, is still returned.
  */

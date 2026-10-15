@@ -90,7 +90,7 @@ test('landing and creator journey render without runtime, image, or responsive f
     await expect(page.getByRole('heading', { name: 'Begin as a Shinobi' })).toBeVisible();
     const creatorProgress = page.getByRole('list', { name: 'Character creation progress' });
     await expect(creatorProgress.locator('[aria-current="step"]')).toHaveText('Gate');
-    const chooseVillage = page.getByRole('button', { name: 'Choose Village' });
+    const chooseVillage = page.getByRole('button', { name: 'Choose village' });
     const chooseVillageBox = await chooseVillage.boundingBox();
     const viewport = page.viewportSize();
     expect(chooseVillageBox, 'the creator primary action must render').not.toBeNull();
@@ -101,12 +101,12 @@ test('landing and creator journey render without runtime, image, or responsive f
     await expect(creatorProgress.locator('[aria-current="step"]')).toHaveText('Village');
     await expect(creatorProgress.getByRole('listitem').filter({ hasText: 'Gate' })).toHaveClass(/is-complete/);
     await page.locator('.cc-village-card').first().click();
-    await page.getByRole('button', { name: 'Choose Bloodline' }).click();
+    await page.getByRole('button', { name: 'Choose bloodline' }).click();
     await page.locator('.cc-bloodline-card').first().click();
-    await page.getByRole('button', { name: 'Choose Avatar' }).click();
+    await page.getByRole('button', { name: 'Choose avatar' }).click();
     await page.locator('.cc-avatar-card').first().click();
     await page.getByRole('button', { name: 'Preview Shinobi' }).click();
-    await page.getByRole('button', { name: 'Name and Password' }).click();
+    await page.getByRole('button', { name: 'Name and password' }).click();
     await expect(page.getByLabel('Name')).toBeVisible();
     await expect(page.locator('#cc-password')).toBeVisible();
     await expect(page.locator('#cc-confirm-password')).toBeVisible();
@@ -195,9 +195,9 @@ for (const viewport of [{ width: 842, height: 641 }, { width: 844, height: 390 }
         await page.route('**/api/**', (route) => route.fulfill({ contentType: 'application/json', body: '{}' }));
         await page.goto('/');
         await startCreateButton(page).click();
-        await page.getByRole('button', { name: 'Choose Village', exact: true }).click();
+        await page.getByRole('button', { name: 'Choose village', exact: true }).click();
 
-        const nextStep = page.getByRole('button', { name: 'Choose Bloodline', exact: true });
+        const nextStep = page.getByRole('button', { name: 'Choose bloodline', exact: true });
         const notice = page.locator('.storage-notice');
         await expect(nextStep).toBeInViewport();
         await expect(notice).toBeVisible();
@@ -219,18 +219,18 @@ for (const viewport of [{ width: 842, height: 641 }, { width: 844, height: 390 }
         await page.route('**/api/**', (route) => route.fulfill({ contentType: 'application/json', body: '{}' }));
         await page.goto('/');
         await startCreateButton(page).click();
-        await page.getByRole('button', { name: 'Choose Village', exact: true }).click();
+        await page.getByRole('button', { name: 'Choose village', exact: true }).click();
         await page.locator('.cc-village-card').first().click();
-        await page.getByRole('button', { name: 'Choose Bloodline', exact: true }).click();
+        await page.getByRole('button', { name: 'Choose bloodline', exact: true }).click();
         await page.locator('.cc-bloodline-card').first().click();
-        await page.getByRole('button', { name: 'Choose Avatar', exact: true }).click();
+        await page.getByRole('button', { name: 'Choose avatar', exact: true }).click();
         await page.locator('.cc-avatar-card').first().click();
-        await page.getByRole('button', { name: 'Preview Shinobi', exact: true }).click();
-        await page.getByRole('button', { name: 'Name and Password', exact: true }).click();
+        await page.getByRole('button', { name: 'Preview shinobi', exact: true }).click();
+        await page.getByRole('button', { name: 'Name and password', exact: true }).click();
 
         const confirmation = page.locator('#cc-confirm-password');
         const consent = page.locator('.cc-legal-consent');
-        const enterWorld = page.getByRole('button', { name: 'Enter the World', exact: true });
+        const enterWorld = page.getByRole('button', { name: 'Enter the world', exact: true });
         await expect(confirmation).toBeVisible();
         await expect(consent).toBeVisible();
         const flow = await page.evaluate(() => {
@@ -341,21 +341,21 @@ test('a first-time Google user lands in the creator and registers without a pass
     await expect.poll(() => new URL(page.url()).search).toBe('');
     await expect(page.getByRole('heading', { name: 'Begin as a Shinobi' })).toBeVisible();
 
-    await page.getByRole('button', { name: 'Choose Village', exact: true }).click();
+    await page.getByRole('button', { name: 'Choose village', exact: true }).click();
     await page.locator('.cc-village-card').first().click();
-    await page.getByRole('button', { name: 'Choose Bloodline', exact: true }).click();
+    await page.getByRole('button', { name: 'Choose bloodline', exact: true }).click();
     await page.locator('.cc-bloodline-card').first().click();
-    await page.getByRole('button', { name: 'Choose Avatar', exact: true }).click();
+    await page.getByRole('button', { name: 'Choose avatar', exact: true }).click();
     await page.locator('.cc-avatar-card').first().click();
-    await page.getByRole('button', { name: 'Preview Shinobi', exact: true }).click();
+    await page.getByRole('button', { name: 'Preview shinobi', exact: true }).click();
 
     // The step must not promise a password it will never ask for.
-    await page.getByRole('button', { name: 'Name Your Shinobi', exact: true }).click();
+    await page.getByRole('button', { name: 'Name your shinobi', exact: true }).click();
     await expect(page.locator('#cc-name')).toHaveValue('Kaze');
     await expect(page.locator('#cc-password')).toHaveCount(0);
     await expect(page.locator('#cc-confirm-password')).toHaveCount(0);
 
-    await page.getByRole('button', { name: 'Enter the World', exact: true }).click();
+    await page.getByRole('button', { name: 'Enter the world', exact: true }).click();
     await expect.poll(() => registration).not.toBeNull();
     // The Google identity rides the server-side ticket, never the request body.
     expect(registration).toMatchObject({
@@ -383,7 +383,7 @@ test('footer policy links open public, responsive, accessible pages', async ({ p
     await expect(policyNav.getByRole('link', { name: 'Terms', exact: true })).toBeVisible();
     await expect(policyNav.getByRole('link', { name: 'Privacy', exact: true })).toBeVisible();
     await expect(policyNav.getByRole('link', { name: 'Rules', exact: true })).toBeVisible();
-    await expect(policyNav.getByRole('link', { name: 'Privacy Request', exact: true })).toBeVisible();
+    await expect(policyNav.getByRole('link', { name: 'Privacy request', exact: true })).toBeVisible();
 
     await policyNav.getByRole('link', { name: 'Terms', exact: true }).click();
     await expect(page).toHaveURL(/\/terms$/);

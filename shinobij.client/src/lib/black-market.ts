@@ -49,7 +49,7 @@ export async function pullBlackMarket(playerName: string): Promise<BlackMarketRe
         if (!res.ok || !data.ok) return { ok: false, error: data.error || 'The black market turns you away.', dailyUsed: data.dailyUsed, dailyCap: data.dailyCap };
         return data;
     } catch {
-        return { ok: false, error: 'Pull unconfirmed. Refresh before retrying.' };
+        return { ok: false, error: 'That pull may not have gone through. Wait until the game has saved, then refresh to check before you try again.' };
     }
 }
 

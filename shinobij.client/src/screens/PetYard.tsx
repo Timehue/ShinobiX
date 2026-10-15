@@ -148,10 +148,11 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
     const selectedPetHappiness = selectedPet ? petCurrentHappiness(selectedPet) : 0;
     const selectedPetFreePetting = selectedPet ? petFreePettingLeft(selectedPet) : 0;
     // The upkeep rules and any active penalty ride on the meter's tooltip and
-    // its accessible name — deliberately NOT as visible copy, so the happiness
-    // display stays the compact bar it has always been.
+    // its accessible name, so the happiness display stays the compact bar it
+    // has always been. The Care section spells them out as visible copy, next
+    // to the controls that raise happiness, because touch has no tooltips.
     const selectedPetHappinessSummary = [
-        `${PET_HAPPINESS_TIER_LABEL[petHappinessTier(selectedPetHappiness)]} — drops ${PET_HAPPINESS_DAILY_DECAY}% every daily reset.`,
+        `${selectedPet ? petDisplayName(selectedPet) : "This companion"} is ${PET_HAPPINESS_TIER_LABEL[petHappinessTier(selectedPetHappiness)].toLowerCase()}. Happiness drops ${PET_HAPPINESS_DAILY_DECAY}% at every daily reset.`,
         petHappinessPenaltyNote(selectedPetHappiness),
     ].filter(Boolean).join(" ");
     const releaseBlocker = selectedPetBreedingLocked
@@ -555,7 +556,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
             if (expeditionLaunchRef.current === launch) expeditionLaunchRef.current = null;
             // The authoritative character above already contains the sealed lease;
             // there is deliberately no local expedition fallback to save here.
-            alert(`${petDisplayName(selectedPet)} started ${option.label}. It cannot battle or join PvE until it returns.`);
+            gameToast(`${petDisplayName(selectedPet)} started ${option.label}. It stays out of battles and PvE until it returns.`);
         } finally {
             if (expeditionLaunchRequestRef.current === request) {
                 expeditionLaunchBusyRef.current = false;
@@ -701,7 +702,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
         let data: Awaited<ReturnType<typeof runPetProgress>>;
         try {
             data = await runPetProgress('complete-training');
-            alert(`${selectedPet.name} completed ${focus} training!${data.pet && data.pet.level > selectedPet.level ? ` Now Level ${data.pet.level}.` : ""}`);
+            gameToast(`${selectedPet.name} completed ${focus} training.${data.pet && data.pet.level > selectedPet.level ? ` Now Level ${data.pet.level}.` : ""}`);
         } catch (error) {
             alert(error instanceof Error ? error.message : 'Training could not be collected.');
             return;
@@ -762,6 +763,18 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
         const current = selectedPet.loadout?.pve;
         if (gearId === current) return; // no change
         if (gearId && !ownsItem(character, gearId)) return; // must own one to install
+        // The server discards the piece in the slot instead of returning it, so
+        // ask before its remaining summons are thrown away. A cancel leaves the
+        // controlled <select> on the current gear, since no state changed.
+        const remaining = selectedPet.loadout?.pveDurability ?? 0;
+        if (current && remaining > 0) {
+            const currentName = petPveGearById(current)?.name ?? "your PvE gear";
+            const lost = `The equipped piece is discarded with its ${remaining} remaining summon${remaining === 1 ? "" : "s"} and does not return to your inventory.`;
+            const message = gearId
+                ? `Replace ${currentName} with ${petPveGearById(gearId)?.name ?? "the new gear"}? ${lost}`
+                : `Unequip ${currentName}? ${lost}`;
+            if (!(await gameConfirm(message, { danger: true, confirmLabel: gearId ? "Replace" : "Discard" }))) return;
+        }
         try { await runPetProgress('equip', { slot: 'pve', itemId: gearId }); } catch (error) { alert(error instanceof Error ? error.message : 'Equip failed.'); }
     }
 
@@ -788,7 +801,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
 
         try {
             const data = await runPetProgress('feed', { itemId: treat.id });
-            alert(`${selectedPet.name} ate ${treat.name} and gained ${treat.xp} XP. Happiness +10%.${data.pet && data.pet.level > selectedPet.level ? ` Level ${data.pet.level}!` : ""}`);
+            gameToast(`${selectedPet.name} ate ${treat.name} and gained ${treat.xp} XP. Happiness +10%.${data.pet && data.pet.level > selectedPet.level ? ` Now Level ${data.pet.level}.` : ""}`);
         } catch (error) { alert(error instanceof Error ? error.message : 'Feeding failed.'); }
     }
 
@@ -801,7 +814,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
         try { await runPetProgress('nickname', { nickname: nick }); }
         catch (error) { setNicknameMsg(error instanceof Error ? error.message : 'Nickname update failed.'); return; }
         setNicknameInput("");
-        setNicknameMsg(`Success: Nickname set to "${nick}"`);
+        setNicknameMsg(`Success: The nickname is now "${nick}".`);
     }
 
     async function releasePet() {
@@ -904,7 +917,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                 startEvolutionPresentation(() => setEvolveCutscene({ pet: evolved, oldName, oldVisualId, oldImage }));
                 setEvolveMsg("");
             } else {
-                setEvolveMsg(`Success: Evolved into ${evolved.name}!`);
+                setEvolveMsg(`Success: ${oldName} evolved into ${evolved.name}.`);
             }
         } catch {
             if (isCurrentEvolution()) setEvolveMsg("Error: Evolution unconfirmed - refresh before retrying.");
@@ -1162,18 +1175,18 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                             {selectedPet.description && <p className="pet-description">{selectedPet.description}</p>}
                             <div className="menu">
                                 <button disabled={progressBusy || selectedPetBreedingLocked || selectedPetIsOverflow} aria-describedby={selectedPetBreedingLocked || selectedPetIsOverflow ? "pet-yard-roster-lock" : undefined} onClick={() => void assignRosterRole("active")}>
-                                    {character.activePetId === selectedPet.id ? "Field companion" : "Set as Active"}
+                                    {character.activePetId === selectedPet.id ? "Field companion" : "Set as active"}
                                 </button>
                                 <button
                                     disabled={progressBusy || selectedPetBreedingLocked || selectedPetIsOverflow}
                                     aria-describedby={selectedPetBreedingLocked || selectedPetIsOverflow ? "pet-yard-roster-lock" : undefined}
                                     onClick={() => void assignRosterRole("partner", character.activePetId2v2 !== selectedPet.id)}
-                                    title="The 2v2 partner pre-fills your reserve slot in the Pet Arena. It is never summoned into PvE."
                                 >
-                                    {character.activePetId2v2 === selectedPet.id ? " 2v2 Partner" : "Set as 2v2 Partner"}
+                                    {character.activePetId2v2 === selectedPet.id ? " 2v2 partner" : "Set as 2v2 partner"}
                                 </button>
                                 <details className="pet-yard-disclosure pet-yard-manage"><summary>Manage companion</summary><button className="danger-button" disabled={Boolean(releaseBlocker)} aria-describedby={releaseBlocker ? "pet-yard-roster-lock" : undefined} onClick={releasePet}>Release companion</button></details>
                             </div>
+                            <p className="hint">The 2v2 partner pre-fills your reserve slot in the Pet Arena. It is never summoned into PvE.</p>
                             {(releaseBlocker || selectedPetIsOverflow) && <p id="pet-yard-roster-lock" className="hint" role="status">{releaseBlocker || "This companion is preserved overflow. Move it through the Sanctuary before assigning active roles."}</p>}
                         </div>
 
@@ -1182,10 +1195,11 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                 <div className="pet-care-actions">
                                     <button onClick={petSelectedPet} disabled={selectedPetFreePetting <= 0} title={selectedPetHappinessSummary}>
                                         {selectedPetFreePetting > 0
-                                            ? `Pet +${PET_HAPPINESS_PET_GAIN}% Happiness`
+                                            ? `Pet +${PET_HAPPINESS_PET_GAIN}% happiness`
                                             : "Petted out for today"}
                                     </button>
                                 </div>
+                                <p className="hint" style={{ margin: "0 0 8px" }}>{selectedPetHappinessSummary}</p>
                                 {petMsg && <p className="hint" role="alert" style={{ margin: "0 0 8px", fontSize: "0.72rem", color: "#f87171" }}>{petMsg}</p>}
                                 <section className="pet-feed-panel">
                                     <h4>Feed</h4>
@@ -1222,7 +1236,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                             Rename
                                         </button>
                                     </div>
-                                    {nicknameMsg && <p className="hint" role="status" style={{ fontSize: "0.72rem", color: nicknameMsg.startsWith("Success:") ? "#4ade80" : "#f87171" }}>{nicknameMsg}</p>}
+                                    {nicknameMsg && <p className="hint" role="status" style={{ fontSize: "0.72rem", color: nicknameMsg.startsWith("Success:") ? "#4ade80" : "#f87171" }}>{nicknameMsg.replace(/^(Success|Error):\s*/, "")}</p>}
                                 </div>
                                 </details></>}
                             {yardSection === "growth" && <><div className="pet-yard-section-heading"><span className="pet-yard-kicker">Shape their potential</span><h3>Growth & training</h3><p>Town Hall bonus · +{petXpBonus.toFixed(2)}% pet XP</p></div>                            <section className="pet-evolve-panel" style={{ marginTop: 8, width: "100%", border: "1px solid rgba(56,189,248,.55)", borderRadius: 8, padding: 10, background: "rgba(14,116,144,.10)" }}>
@@ -1245,7 +1259,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                     </div>
                                 ))}
                                 <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                                    <button type="button" className="admin-button" onClick={() => void commitGrowth()} disabled={growthBusy || growthSpent === Object.values(committedGrowth).reduce((sum, value) => sum + value, 0)}>{growthBusy ? "Saving…" : "Commit Build"}</button>
+                                    <button type="button" className="admin-button" onClick={() => void commitGrowth()} disabled={growthBusy || growthSpent === Object.values(committedGrowth).reduce((sum, value) => sum + value, 0)}>{growthBusy ? "Saving…" : "Commit build"}</button>
                                     <button type="button" onClick={() => void resetGrowth()} disabled={growthBusy || Object.values(committedGrowth).every((value) => value <= 0)}>Respec</button>
                                 </div>
                                 <p className="hint" style={{ margin: "6px 0 0" }}>Respecs are free outside active battles and return every committed point.</p>
@@ -1268,7 +1282,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                                 disabled={escortBusy || escortOffered === null}
                                                 style={{ background: escortOffered ? "linear-gradient(#4d7c0f,#365314)" : "linear-gradient(#365314,#1a2e05)", borderColor: "#84cc16", fontSize: "0.8rem", padding: "4px 10px" }}
                                             >
-                                                {escortBusy ? "…" : escortOffered ? "Cancel escort offer" : "Offer escort (1h)"}
+                                                {escortBusy ? (escortOffered ? "Cancelling…" : "Offering…") : escortOffered ? "Cancel escort offer" : "Offer escort (1h)"}
                                             </button>
                                             {escortMsg && <p className="hint" role="alert" style={{ margin: "6px 0 0", fontSize: "0.72rem", color: "#f87171" }}>{escortMsg}</p>}
                                             {character.petEscortBonusReady && (
@@ -1286,12 +1300,12 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                     ) : selectedPet.training ? (
                                         <div className="training-complete">
                                             <p> {petTrainingOptions.find((o) => o.type === selectedPet.training?.type)?.label} complete!</p>
-                                            <button className="admin-button" onClick={collectTraining} disabled={petTrainingBusy}>{petTrainingBusy ? "Collecting…" : "Collect Results"}</button>
+                                            <button className="admin-button" onClick={collectTraining} disabled={petTrainingBusy}>{petTrainingBusy ? "Collecting…" : "Collect results"}</button>
                                         </div>
                                     ) : (
                                         <>
                                             <p className="hint">Earn XP while you are away. Each level unlocks a Growth Point.</p>
-                                            {!selectedPetCanTrain && <p className="hint" role="status" style={{ color: "#fbbf24" }}>{selectedPetIsOverflow ? "This companion is preserved overflow. Move it into your carried roster through the Sanctuary to start training." : "This companion is carried but outside your active five. Set it as Active or as your 2v2 Partner, or rest another companion in the Sanctuary, to start training."}</p>}
+                                            {!selectedPetCanTrain && <p className="hint" role="status" style={{ color: "#e6c477" }}>{selectedPetIsOverflow ? "This companion is preserved overflow. Move it into your carried roster through the Sanctuary to start training." : "This companion is carried but outside your active five. Set it as Active or as your 2v2 Partner, or rest another companion in the Sanctuary, to start training."}</p>}
                                             <label htmlFor="pet-training-duration">Duration</label>
                                             <select id="pet-training-duration" value={trainingDuration} onChange={(e) => setTrainingDuration(Number(e.target.value))}>
                                                 {petTrainingDurations.map((d) => (
@@ -1305,12 +1319,12 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                                 // server-side (e.g. the training that carried it to Level 100), this
                                                 // collects it instead of leaving the pet stuck.
                                                 <>
-                                                    <button className="admin-button" onClick={recoverFinishedTraining} disabled={petTrainingBusy}>{petTrainingBusy ? "Checking…" : "Collect Finished Training"}</button>
+                                                    <button className="admin-button" onClick={recoverFinishedTraining} disabled={petTrainingBusy}>{petTrainingBusy ? "Checking…" : "Collect finished training"}</button>
                                                     <p className="hint">Fully trained — training no longer raises stats. Use this if a previous session is still waiting to be collected.</p>
                                                 </>
                                             ) : (
                                                 <>
-                                                    <button className="admin-button" onClick={startTraining} disabled={petTrainingBusy || !selectedPetCanTrain || !!selectedPet.expedition || selectedPetBreedingLocked}>{petTrainingBusy ? "Starting…" : !selectedPetCanTrain ? (selectedPetIsOverflow ? "Move into carried roster" : "Move into active five") : "Start Training"}</button>
+                                                    <button className="admin-button" onClick={startTraining} disabled={petTrainingBusy || !selectedPetCanTrain || !!selectedPet.expedition || selectedPetBreedingLocked}>{petTrainingBusy ? "Starting…" : !selectedPetCanTrain ? (selectedPetIsOverflow ? "Move into carried roster" : "Move into active five") : "Start training"}</button>
                                                     {prodigyAvailable && selectedPetCanTrain && (
                                                         <>
                                                             <button className="admin-button" onClick={() => void startTraining(undefined, true)} disabled={petTrainingBusy || !!selectedPet.expedition || selectedPetBreedingLocked}
@@ -1347,7 +1361,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                             <button onPointerDown={warmEvolutionCutscene} onFocus={warmEvolutionCutscene} onClick={evolveSelectedPet} disabled={!ready || evolveBusy || evolvePresentationPending || Boolean(evolveCutscene)} style={{ width: "100%" }}>
                                                 {evolveBusy ? "Evolving…" : ready ? ` Evolve into ${next.name}` : !hasLevel ? `Reach Lv ${next.requiredLevel}` : `Need ${stoneName}`}
                                             </button>
-                                            {evolveMsg && <p className="hint" style={{ fontSize: "0.72rem", marginTop: 4, color: evolveMsg.startsWith("Success:") ? "#4ade80" : "#f87171" }}>{evolveMsg}</p>}
+                                            {evolveMsg && <p className="hint" style={{ fontSize: "0.72rem", marginTop: 4, color: evolveMsg.startsWith("Success:") ? "#4ade80" : "#f87171" }}>{evolveMsg.replace(/^(Success|Error):\s*/, "")}</p>}
                                         </section>
                                     );
                                 })()}

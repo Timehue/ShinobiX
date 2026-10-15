@@ -49,9 +49,9 @@ export class ScreenErrorBoundary extends Component<Props, State> {
         if (!this.state.error) return this.props.children;
         const chunk = isChunkLoadError(this.state.error);
         return (
-            <div role="alert" style={{ padding: "2rem 1.25rem", maxWidth: 520, margin: "1.5rem auto", textAlign: "center", background: "#0b1120", border: "1px solid rgba(250,204,21,0.35)", borderRadius: 14 }}>
+            <div role="alert" style={{ padding: "2rem 1.25rem", maxWidth: 520, margin: "1.5rem auto", textAlign: "center", background: "#0b1120", border: "1px solid rgba(230, 196, 119, 0.35)", borderRadius: 14 }}>
                 <div style={{ fontSize: 30, marginBottom: 8 }} aria-hidden>忍</div>
-                <h2 style={{ fontSize: 18, color: "#facc15", margin: "0 0 6px" }}>{chunk ? "A new version is available" : "This screen hit a snag"}</h2>
+                <h2 style={{ fontSize: 18, color: "#e6c477", margin: "0 0 6px" }}>{chunk ? "A new version is available" : "This screen hit a snag"}</h2>
                 <p style={{ fontSize: 14, lineHeight: 1.5, color: "#94a3b8", margin: "0 0 18px" }}>
                     {/* Never claim progress is saved — this boundary has no idea
                         whether the last autosave landed, and saying so has talked
@@ -64,10 +64,10 @@ export class ScreenErrorBoundary extends Component<Props, State> {
                     type="button"
                     onClick={() => window.location.reload()}
                     style={chunk
-                        ? { cursor: "pointer", marginTop: 4, background: "linear-gradient(180deg, var(--gold), #eab308)", color: "#1a1306", fontWeight: 900, fontSize: 14, border: "none", borderRadius: 10, padding: "11px 22px", boxShadow: "0 5px 18px rgba(234,179,8,0.24)" }
+                        ? { cursor: "pointer", marginTop: 4, background: "linear-gradient(180deg, var(--gold), #d1a758)", color: "#1a1306", fontWeight: 900, fontSize: 14, border: "none", borderRadius: 10, padding: "11px 22px", boxShadow: "0 5px 18px rgba(209, 167, 88, 0.24)" }
                         : { cursor: "pointer", marginTop: 10, background: "transparent", color: "#cbd5e1", fontWeight: 700, fontSize: 13, border: "1px solid rgba(148,163,184,0.35)", borderRadius: 10, padding: "9px 18px" }}
                 >
-                    {chunk ? "Reload to Continue" : "Reload Current Screen"}
+                    {chunk ? "Reload to continue" : "Reload the game"}
                 </button>
                 <div style={{ marginTop: 12 }}><RecoveryActions /></div>
             </div>

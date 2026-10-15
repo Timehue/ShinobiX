@@ -32,15 +32,10 @@ import {
     type WeeklyBossAuthoritativeRun,
 } from './_weekly-boss-authoritative-run.js';
 
-// One weekly boss state per ISO week. The boss is a SHARED world boss with ONE
-// server HP pool: hpRemaining = max(0, hpMax − Σ damageByPlayer), maintained
-// under the boss-state lock every time an attempt settles. Every attempt's
-// encounter starts at the shared remaining HP, so a player joins the fight
-// where the world left it. The boss never despawns from damage: when the pool
-// hits 0 it is "Broken" (staggered) — attempts still run against a fixed
-// small HP floor (WEEKLY_BOSS_BROKEN_HP_FRACTION) and still score leaderboard
-// damage — and it leaves only on its 72h timer. 72h after spawn the boss
-// despawns and rewards are auto-distributed:
+// Weekly Boss is an unlimited-health score attack. Damage only grows the
+// leaderboard; availability is governed by the 72h event and player attempts.
+// hpMax remains a legacy reward-budget baseline, never a damage ceiling.
+// At despawn rewards are auto-distributed:
 //   • Top 25 contributors    → 1 Dungeon Key each
 //   • Top 10 contributors    → 1 Weekly Boss Core each (stacks with key)
 //   • All contributors       → ryo + xp share proportional to damage
@@ -61,12 +56,6 @@ const WEEKLY_BOSS_LIFETIME_MS = 72 * 60 * 60 * 1000;
 // Maximum arena attempts a player can make per boss spawn. After this
 // they're locked out until the boss despawns and a new one spawns.
 const WEEKLY_BOSS_MAX_ATTEMPTS = 3;
-// Encounter HP floor for a Broken boss (shared pool at 0). A broken boss fights
-// at this fixed fraction of hpMax so an attempt is still a real fight and still
-// produces leaderboard damage, while the shared pool itself stays clamped at 0.
-// 10% of a 50k–150k pool is 5k–15k — a few rounds of work, never a free win.
-// TUNABLE. Not a reward constant: payouts key off hpMax + damage share only.
-export const WEEKLY_BOSS_BROKEN_HP_FRACTION = 0.10;
 // Reward tier cutoffs by damage rank (1-indexed in the natural reading).
 // Once-per-week stat-pool grant for every contributor (leveling-without-xp
 // map §4: weekly cadence, outside the daily checklist, exactly-once via the
@@ -198,12 +187,9 @@ export type WeeklyBossState = {
     weekKey: string;
     aiId: string;
     bossName?: string;
-    /** Single world value (defaultBossHp by ISO week) — NOT per-player scaled. */
+    /** Legacy reward-budget baseline. Not a health cap. */
     hpMax: number;
-    /** Shared world pool: max(0, hpMax − Σ damageByPlayer). Maintained under the
-     * boss-state lock at settle (applyWeeklyBossRunDamageReceipt) and always
-     * re-derived on read (weeklyBossSharedHpRemaining) so legacy states that
-     * pinned it to hpMax self-heal. 0 ⇒ the boss is Broken, not despawned. */
+    /** Legacy persisted field, ignored for gameplay and hidden by the public view. */
     hpRemaining: number;
     scaleFactor: number;
     damageByPlayer: Record<string, number>;
@@ -276,35 +262,12 @@ export function rollbackWeeklyBossAttemptReceipt(
     };
 }
 
-type WeeklyBossPoolFields = Pick<WeeklyBossState, 'hpMax' | 'damageByPlayer'>;
+type WeeklyBossPoolFields = Pick<WeeklyBossState, 'damageByPlayer'>;
 
 /** Total banked damage across every contributor this spawn. */
 export function weeklyBossTotalDamage(boss: WeeklyBossPoolFields): number {
     return Object.values(boss.damageByPlayer ?? {})
         .reduce((sum, dmg) => sum + Math.max(0, Math.floor(Number(dmg) || 0)), 0);
-}
-
-/** The shared world pool, derived from the damage ledger so it can never drift
- * from the leaderboard and never goes negative. */
-export function weeklyBossSharedHpRemaining(boss: WeeklyBossPoolFields): number {
-    const hpMax = Math.max(0, Math.floor(Number(boss.hpMax) || 0));
-    return Math.max(0, hpMax - weeklyBossTotalDamage(boss));
-}
-
-/** Broken = the shared pool is exhausted. The boss stays up (72h timer only);
- * attempts still run and still score. */
-export function isWeeklyBossBroken(boss: WeeklyBossPoolFields): boolean {
-    return weeklyBossSharedHpRemaining(boss) <= 0;
-}
-
-/** Enemy HP a NEW attempt's encounter opens with: the shared remaining pool, or
- * the fixed Broken floor once the pool is empty. Always ≥ 1 so the solo runtime
- * never opens on an already-dead enemy. */
-export function weeklyBossEncounterStartHp(boss: WeeklyBossPoolFields): number {
-    const remaining = weeklyBossSharedHpRemaining(boss);
-    if (remaining > 0) return remaining;
-    const hpMax = Math.max(0, Math.floor(Number(boss.hpMax) || 0));
-    return Math.max(1, Math.floor(hpMax * WEEKLY_BOSS_BROKEN_HP_FRACTION));
 }
 
 export function applyWeeklyBossRunDamageReceipt(
@@ -326,10 +289,7 @@ export function applyWeeklyBossRunDamageReceipt(
         boss: {
             ...boss,
             damageByPlayer,
-            // Shared pool decrements with every settled attempt and floors at 0.
-            // Leaderboard damage is NOT clamped to the pool: a Broken boss still
-            // scores, the pool just cannot go below zero.
-            hpRemaining: weeklyBossSharedHpRemaining({ hpMax: boss.hpMax, damageByPlayer }),
+            // Retained storage fields are reward metadata, not a depleting pool.
             bankedRunDamage: { ...(boss.bankedRunDamage ?? {}), [runId]: logged },
         },
         damage: logged,
@@ -337,50 +297,13 @@ export function applyWeeklyBossRunDamageReceipt(
     };
 }
 
-/** True exactly when a settled attempt took the shared pool from >0 to 0 — the
- * boss just BROKE. Pure; exported for the test. A replayed receipt never
- * transitions (the pool did not move). */
-export function weeklyBossNewlyBroken(before: WeeklyBossPoolFields, after: WeeklyBossPoolFields, replayed = false): boolean {
-    return !replayed && !isWeeklyBossBroken(before) && isWeeklyBossBroken(after);
-}
-
-/** World Herald for the breaking blow. Best-effort; exact-once per spawn via
- * the receipt (weekKey + startedAt identify the spawn, so an admin respawn in
- * the same week can break again and be heralded again). */
-export async function announceWeeklyBossBroken(
-    boss: Pick<WeeklyBossState, 'weekKey' | 'startedAt' | 'expiresAt' | 'aiId' | 'bossName'>,
-    playerName: string,
-    now = Date.now(),
-): Promise<void> {
-    try {
-        const bossName = boss.bossName || BUILTIN_WEEKLY_BOSSES.find(b => b.id === boss.aiId)?.name || 'the Weekly Boss';
-        const hoursLeft = Math.max(1, Math.round((Math.floor(Number(boss.expiresAt) || 0) - now) / 3_600_000));
-        await announce({
-            type: 'weekly_boss_broken',
-            importance: 'high',
-            title: 'The Weekly Boss Is Broken',
-            message: `${playerName} dealt the breaking blow to ${bossName} — it still roams, staggered, until it despawns in about ${hoursLeft}h.`,
-            player: playerName,
-            meta: { weekKey: boss.weekKey, aiId: boss.aiId, startedAt: boss.startedAt, expiresAt: boss.expiresAt },
-        }, { receiptId: `weekly-boss-broken:${boss.weekKey}:${boss.startedAt}` });
-    } catch { /* best-effort */ }
-}
-
-function publicWeeklyBossState(boss: WeeklyBossState | null): (Omit<WeeklyBossState, 'bankedRunDamage' | 'attemptRunReceipts'> & { spawnId: string; broken: boolean }) | null {
+/** Never publish finite health for the weekly score attack, including legacy spawns. */
+export function publicWeeklyBossState(boss: WeeklyBossState | null) {
     if (!boss) return null;
-    const {
-        bankedRunDamage: _privateSettlementReceipts,
-        attemptRunReceipts: _privateStartReceipts,
-        ...publicState
-    } = boss;
-    // Re-derive on every read so a legacy state (hpRemaining pinned to hpMax)
-    // shows the real bar without a migration.
-    return {
-        ...publicState,
-        hpRemaining: weeklyBossSharedHpRemaining(boss),
-        broken: isWeeklyBossBroken(boss),
-        spawnId: weeklyBossSpawnIdentity(boss),
-    };
+    const { bankedRunDamage: _privateSettlementReceipts, attemptRunReceipts: _privateStartReceipts,
+        hpMax: _rewardBudget, hpRemaining: _legacyRemaining, ...publicState } = boss;
+    return { ...publicState, healthMode: 'unlimited' as const, hpMax: null, hpRemaining: null,
+        broken: false, totalDamage: weeklyBossTotalDamage(boss), spawnId: weeklyBossSpawnIdentity(boss) };
 }
 
 const weeklyBossActiveRunKey = (playerName: string, bossStartedAt: number) =>
@@ -451,7 +374,7 @@ function isoWeekKey(d: Date = new Date()): string {
     return `${date.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
 }
 
-// The ONE world hpMax (shared pool ceiling) — also what the leaderboard
+// The legacy reward-budget baseline — used for leaderboard
 // formula scales ryo off. Single value per ISO week, never per-player.
 // Range: 50k → 150k.
 function defaultBossHp(weekKey: string): number {
@@ -1056,9 +979,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         } };
                     }
 
-                    let builtThisRequest = false;
                     if (!run || !session) {
-                        builtThisRequest = true;
                         // F2: a fight-committing entry point, so it needs the
                         // shared incapacitation gate. buildSoloPveAiEncounter
                         // seeds `hp: currentHp` with no floor of 1, so a
@@ -1110,14 +1031,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             weeklyBossRoundBudget: 20,
                             activeTtlSeconds: WEEKLY_BOSS_RUN_TTL_SECONDS,
                         });
-                        // The generic builder caps ordinary AI HP and the template
-                        // carries a 99,999,999 sentinel. Neither is the truth: the
-                        // encounter opens at the SHARED world pool (or the Broken
-                        // floor) and its bar is the world bar (maxHp = hpMax), so the
-                        // player joins the fight where the world left it. Refined
-                        // again under the boss-state lock below.
-                        session.enemy.hp = weeklyBossEncounterStartHp(boss!);
-                        session.enemy.maxHp = Math.max(session.enemy.hp, Math.floor(Number(boss!.hpMax) || 0));
+                        // Health is simulation metadata only; damage is tracked independently.
+                        // Keep the existing baseline for percentage-based mechanics and rewards.
+                        session.enemy.hp = session.enemy.maxHp = Math.max(1, Math.floor(Number(boss!.hpMax) || 1));
                         if (!weeklyBossGuardEnabled() && session.weeklyBossGuard) session.weeklyBossGuard.mechanicsEnabled = false;
                         run = {
                             runId,
@@ -1141,23 +1057,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         if (!fresh || fresh.weekKey !== run!.weekKey || fresh.startedAt !== run!.bossStartedAt) return null;
                         const applied = reserveWeeklyBossAttemptReceipt(fresh, run!.runId, actorName, !identity.admin);
                         if (applied && !applied.replayed) await kv.set(WEEKLY_BOSS_STATE_KEY, applied.boss);
-                        return applied ? { ...applied, startHp: weeklyBossEncounterStartHp(fresh), hpMax: Math.floor(Number(fresh.hpMax) || 0) } : null;
+                        return applied;
                     }, { failClosed: true });
                     if (!reserved) {
                         await kv.del(activeKey, soloPveSessionKey(run.runId), weeklyBossRunKey(run.runId)).catch(() => 0);
                         return { status: 409 as const, body: { error: 'The boss reset or your attempts were already used.' } };
                     }
-                    if (builtThisRequest && !reserved.replayed) {
-                        // First reservation for a session THIS request built: pin
-                        // the encounter to the pool as it stood under the lock
-                        // (other players may have settled since the unlocked read
-                        // above). A resumed prepared saga keeps the HP its
-                        // persisted session already has — never touched here.
-                        session.enemy.hp = reserved.startHp;
-                        session.enemy.maxHp = Math.max(reserved.startHp, reserved.hpMax);
-                        run = { ...run, initialBossHp: reserved.startHp };
-                    }
-
                     let updatedCharacter = actorChar;
                     let saveVersion = Number(actorSave._saveVersion ?? 0);
                     if (!identity.admin) {
@@ -1226,7 +1131,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (!identity.admin && run.playerName !== actorName) return { status: 403 as const, body: { error: 'That Weekly Boss run belongs to another player.' } };
                     if (run.settledAt) {
                         const current = await kv.get<WeeklyBossState>(WEEKLY_BOSS_STATE_KEY) ?? boss!;
-                        return { status: 200 as const, body: { ok: true, alreadySettled: true, boss: publicWeeklyBossState(current), dealt: 0, attemptsUsed: current.attemptsByPlayer?.[run.playerName] ?? 0 } };
+                        const session = await readSoloPveSession(runId);
+                        const dealt = Math.max(0, Math.floor(Number(run.settledDamage ?? session?.terminalEvidence?.receipt?.rewards?.damage ?? current.bankedRunDamage?.[runId]) || 0));
+                        const save = await kv.get<Record<string, unknown>>(`save:${run.playerName}`);
+                        return { status: 200 as const, body: { ok: true, alreadySettled: true, boss: publicWeeklyBossState(current), dealt, attemptsUsed: current.attemptsByPlayer?.[run.playerName] ?? 0,
+                            ...(save?.character ? { character: save.character, _saveVersion: save._saveVersion } : {}),
+                        } };
                     }
                     const session = await readSoloPveSession(runId);
                     const validation = validateAuthoritativeWeeklyBossRun({
@@ -1244,22 +1154,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             : 404;
                         return { status, body: { error: `Weekly Boss settlement rejected: ${validation.reason}.` } };
                     }
-                    // Clamp at settle: one attempt can never report more than the
-                    // HP its encounter opened with (the shared pool at start, or
-                    // the Broken floor), whatever the session claims.
-                    const logged = Math.max(0, Math.min(validation.damage, Math.floor(Number(run.initialBossHp) || 0)));
+                    const logged = validation.damage;
                     const banked = await withKvLock(WEEKLY_BOSS_STATE_KEY, async () => {
                         const fresh = await kv.get<WeeklyBossState>(WEEKLY_BOSS_STATE_KEY) ?? boss!;
                         if (fresh.weekKey !== run.weekKey || fresh.startedAt !== run.bossStartedAt) return null;
                         if (fresh.rewardsDistributed || Date.now() >= fresh.expiresAt) return null;
                         const applied = applyWeeklyBossRunDamageReceipt(fresh, runId, run.playerName, logged);
                         if (!applied.replayed) await kv.set(WEEKLY_BOSS_STATE_KEY, applied.boss);
-                        return { ...applied, newlyBroken: weeklyBossNewlyBroken(fresh, applied.boss, applied.replayed) };
+                        return applied;
                     }, { failClosed: true });
                     if (!banked) return { status: 409 as const, body: { error: 'Boss despawned or reset before settlement.' } };
-                    // World Herald for the breaking blow — after the pool write is
-                    // durable, outside the boss lock, never blocking the settlement.
-                    if (banked.newlyBroken) await announceWeeklyBossBroken(banked.boss, run.playerName);
                     const settlementId = `weeklyboss-${runId}`.slice(0, 80);
                     const fingerprint = `${run.weekKey}:${run.aiId}:${run.bossStartedAt}`;
                     // The attempt's HP lands ONCE across this settle and the
@@ -1300,7 +1204,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         settledAt: Date.now(),
                         rewards: { damage: banked.damage },
                     }));
-                    await kv.set(weeklyBossRunKey(runId), { ...run, settledAt: Date.now() }, { ex: WEEKLY_BOSS_RUN_TTL_SECONDS });
+                    await kv.set(weeklyBossRunKey(runId), { ...run, settledAt: Date.now(), settledDamage: banked.damage }, { ex: WEEKLY_BOSS_RUN_TTL_SECONDS });
                     const activeKey = weeklyBossActiveRunKey(run.playerName, run.bossStartedAt);
                     await withKvLock(activeKey, async () => {
                         if (await kv.get<string>(activeKey) === runId) await kv.del(activeKey);

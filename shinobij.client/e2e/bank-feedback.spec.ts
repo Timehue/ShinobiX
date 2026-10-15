@@ -201,7 +201,7 @@ test('Bank keeps its receipt ID through refresh and a temporary rate limit', asy
     const amount = page.locator('#bank-transfer-amount');
     await amount.fill('500');
     await page.getByRole('button', { name: 'Deposit to vault', exact: true }).click();
-    await expect(page.getByRole('alertdialog', { name: 'Notice', exact: true })).toContainText('Action unconfirmed. Refresh before retrying.');
+    await expect(page.getByRole('alertdialog', { name: 'Notice', exact: true })).toContainText('That action may not have gone through. Wait until the game has saved, then refresh to check before you try again.');
     await dismissNotice(page);
     await page.reload({ waitUntil: 'networkidle' });
     await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'bank');
@@ -242,7 +242,7 @@ test('Bank distinguishes server rejection from uncertain responses without repor
     for (const response of ['rejected', 'timeout', 'network', 'server', 'malformed']) {
         mode = response;
         await page.getByRole('button', { name: 'Withdraw to wallet', exact: true }).click();
-        await expect(page.locator('body')).toContainText(response === 'rejected' ? 'Not enough banked ryo.' : 'Action unconfirmed. Refresh before retrying.');
+        await expect(page.locator('body')).toContainText(response === 'rejected' ? 'Not enough banked ryo.' : 'That action may not have gone through. Wait until the game has saved, then refresh to check before you try again.');
         await expect(amount).toHaveValue('500');
         await expect(page.locator('.bank-balance-rail')).toContainText('20,000');
         await expect(page.locator('.game-toast-stack')).toHaveCount(0);
@@ -287,7 +287,7 @@ test('Bank keeps wire confirmation and retries an uncertain intent with the same
     expect(requests).toHaveLength(0);
     await review.click();
     await confirm.getByRole('button', { name: 'Confirm', exact: true }).click();
-    await expect(page.locator('body')).toContainText('Action unconfirmed. Refresh before retrying.');
+    await expect(page.locator('body')).toContainText('That action may not have gone through. Wait until the game has saved, then refresh to check before you try again.');
     await expect(page.getByLabel('Recipient', { exact: true })).toHaveValue('RivalNinja');
     await expect(page.getByLabel('Amount', { exact: true })).toHaveValue('1000');
     await expect(page.locator('.game-toast-stack')).toHaveCount(0);
@@ -370,7 +370,7 @@ test('Bank wire freezes the submitted fields until a pending response settles', 
         release!();
         await expect(page.getByRole('button', { name: 'Review & send', exact: true })).toBeEnabled();
         if (!accepted) {
-            await expect(page.getByRole('alertdialog', { name: 'Notice', exact: true })).toContainText('Action unconfirmed. Refresh before retrying.');
+            await expect(page.getByRole('alertdialog', { name: 'Notice', exact: true })).toContainText('That action may not have gone through. Wait until the game has saved, then refresh to check before you try again.');
             await dismissNotice(page);
             await expect(recipient).toHaveValue('RivalNinja');
             await expect(amount).toHaveValue('1000');

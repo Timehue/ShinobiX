@@ -55,8 +55,8 @@ export function ClanBossPartyLobby({
                     </div>
                 ) : <p className="operation-empty">No public clan party is waiting right now. This is the real current population.</p>}
                 <div className="operation-create-actions">
-                    <button type="button" disabled={busy} onClick={() => onAction("create", { visibility: "public" })}>Create Public Party</button>
-                    <button type="button" disabled={busy} onClick={() => onAction("create", { visibility: "private" })}>Create Private / Solo Party</button>
+                    <button type="button" disabled={busy} onClick={() => onAction("create", { visibility: "public" })}>Create public party</button>
+                    <button type="button" disabled={busy} onClick={() => onAction("create", { visibility: "private" })}>Create private / solo party</button>
                 </div>
             </section>
         );
@@ -109,21 +109,21 @@ export function ClanBossPartyLobby({
 
             {isPreStart ? (
                 <div className="operation-primary-actions">
-                    {!isLeader && leader?.connection === "stale" ? <button type="button" disabled={busy} onClick={() => onAction("claim-leadership")}>Recover Leadership</button> : null}
-                    {party.status === "forming" ? <button type="button" aria-pressed={self?.ready ?? false} disabled={busy} onClick={() => onAction(self?.ready ? "unready" : "ready")}>{self?.ready ? "Mark Not Ready" : "Seal Loadout & Ready"}</button> : null}
+                    {!isLeader && leader?.connection === "stale" ? <button type="button" disabled={busy} onClick={() => onAction("claim-leadership")}>Recover leadership</button> : null}
+                    {party.status === "forming" ? <button type="button" aria-pressed={self?.ready ?? false} disabled={busy} onClick={() => onAction(self?.ready ? "unready" : "ready")}>{self?.ready ? "Mark not ready" : "Seal loadout & ready"}</button> : null}
                     {isLeader && party.status === "forming" && party.allReady && party.members.length === 1 && party.visibility === "public" && !party.soloFallbackAccepted ? <button type="button" disabled={busy} onClick={() => onAction("queue")}>Enter Clan Finder</button> : null}
                     {isLeader && party.status === "queued" ? <button type="button" disabled={busy} onClick={() => onAction("cancel-queue")}>Cancel Finder</button> : null}
-                    {isLeader && party.fallbackAvailable ? <button type="button" disabled={busy} onClick={() => onAction("solo-fallback")}>Continue Solo</button> : null}
-                    {isLeader && party.status === "forming" && party.canStart ? <button type="button" className="operation-start" disabled={busy} onClick={onStart}>Start Operation</button> : null}
-                    <button type="button" disabled={busy} onClick={() => onAction("leave")}>{isLeader && party.members.length === 1 ? "Disband" : "Leave Party"}</button>
+                    {isLeader && party.fallbackAvailable ? <button type="button" disabled={busy} onClick={() => onAction("solo-fallback")}>Continue solo</button> : null}
+                    {isLeader && party.status === "forming" && party.canStart ? <button type="button" className="operation-start" disabled={busy} onClick={onStart}>Start operation</button> : null}
+                    <button type="button" disabled={busy} onClick={() => onAction("leave")}>{isLeader && party.members.length === 1 ? "Disband" : "Leave party"}</button>
                 </div>
             ) : null}
 
             {party.status === "queued" && party.members.length === 1 && !party.fallbackAvailable ? <p className="operation-wait-note">Waiting for a real clanmate. Solo fallback unlocks after a bounded two-minute wait; no population is fabricated.</p> : null}
-            {party.status === "starting" ? <p className="operation-state-message" role="status">Sealing the authoritative encounter…</p> : null}
+            {party.status === "starting" ? <p className="operation-state-message" role="status">Sealing the encounter…</p> : null}
             {party.status === "active" ? <p className="operation-state-message" role="status">Operation active. Rejoin through the combat banner if your browser refreshed.</p> : null}
             {party.status === "completed" ? <p className="operation-state-message is-complete" role="status">Operation complete. Contribution and sector results are sealed.</p> : null}
-            {party.status === "completed" && isLeader ? <button type="button" className="operation-new-party" onClick={() => onAction("disband")}>Close Summary & Form Again</button> : null}
+            {party.status === "completed" && isLeader ? <button type="button" className="operation-new-party" onClick={() => onAction("disband")}>Close summary & form again</button> : null}
         </section>
     );
 }

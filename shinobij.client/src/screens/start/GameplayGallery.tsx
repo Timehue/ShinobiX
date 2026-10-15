@@ -3,16 +3,16 @@ import { useEffect, useRef, useState } from "react";
 type GameplayScreenshot = { id: string; label: string; alt: string; width: number; height: number };
 
 const SCENES = [
-    { id: "combat", label: "Jutsu Combat", title: "Make every move matter.", description: "Read the battlefield, choose your jutsu, and turn a carefully timed move into victory.", alt: "Actual tactical battle gameplay with a hex battlefield, shinobi opponents, and jutsu actions", width: 2200, height: 1013 },
-    { id: "cards", label: "Card Battles", title: "Build a deck. Rewrite the battle.", description: "Bring your collection to the Codex Hall, set your strategy, and play your next move.", alt: "Actual Codex Hall card battle with a volcanic battlefield and a hand of illustrated cards", width: 2200, height: 1238 },
+    { id: "combat", label: "Jutsu combat", title: "Make every move matter.", description: "Read the battlefield, choose your jutsu, and turn a carefully timed move into victory.", alt: "Actual tactical battle gameplay with a hex battlefield, shinobi opponents, and jutsu actions", width: 2200, height: 1013 },
+    { id: "cards", label: "Card battles", title: "Build a deck. Rewrite the battle.", description: "Bring your collection to the Codex Hall, set your strategy, and play your next move.", alt: "Actual Codex Hall card battle with a volcanic battlefield and a hand of illustrated cards", width: 2200, height: 1238 },
     { id: "pet-arena", label: "Pet Arena", title: "Small companions. Legendary battles.", description: "Take your companions into the arena and discover the strength of your team.", alt: "Actual pet arena gameplay showing two teams of companions in a forest colosseum", width: 2200, height: 983 },
     { id: "story", label: "Story", title: "A world with stories to tell.", description: "Step into cinematic chapters and discover the lives beyond the village gates.", alt: "Actual story gameplay showing the epilogue What Came Back and its narration", width: 1366, height: 768 },
-    { id: "mobile-combat", label: "On Mobile", title: "Your journey goes with you.", description: "The same shinobi world, ready to play in your mobile browser.", alt: "Actual mobile tactical battle screenshot with jutsu cards and touch controls", width: 1080, height: 2340 },
+    { id: "mobile-combat", label: "On mobile", title: "Your journey goes with you.", description: "The same shinobi world, ready to play in your mobile browser.", alt: "Actual mobile tactical battle screenshot with jutsu cards and touch controls", width: 1080, height: 2340 },
 ] as const;
 
 const MOBILE_SCENES: readonly GameplayScreenshot[] = [
-    { ...SCENES[4], label: "Jutsu Combat" },
-    { id: "mobile-cards", label: "Card Battles", alt: "Mobile Codex Hall card battle with monster zones, illustrated cards, and touch actions", width: 1080, height: 2340 },
+    { ...SCENES[4], label: "Jutsu combat" },
+    { id: "mobile-cards", label: "Card battles", alt: "Mobile Codex Hall card battle with monster zones, illustrated cards, and touch actions", width: 1080, height: 2340 },
     { id: "mobile-pet-arena", label: "Pet Arena", alt: "Mobile pet arena battle showing companions attacking in an icy colosseum", width: 605, height: 730 },
     { id: "mobile-story", label: "Story", alt: "Mobile story scene Ridge Post Four, with Captain Yura at a snowy lantern post and cinematic dialogue", width: 1080, height: 2340 },
 ];

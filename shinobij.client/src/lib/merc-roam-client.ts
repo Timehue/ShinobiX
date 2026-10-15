@@ -93,7 +93,7 @@ export async function engageMerc(playerName: string, village: string, sector: nu
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "engage", playerName, village, sector, mercId }),
     });
-    return (await r.json().catch(() => ({ error: `HTTP ${r.status}` }))) as MercEngageResult;
+    return (await r.json().catch(() => ({ error: "The clash with the mercenary could not be settled. Try again in a moment." }))) as MercEngageResult;
 }
 
 // ── deterministic NPC synthesis ───────────────────────────────────────────────

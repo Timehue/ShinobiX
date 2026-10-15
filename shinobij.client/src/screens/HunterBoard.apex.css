@@ -73,8 +73,8 @@
     font-size: 0.82rem;
     font-weight: 700;
     color: #fde68a;
-    background: rgba(250, 204, 21, 0.12);
-    border: 1px solid rgba(250, 204, 21, 0.45);
+    background: rgba(230, 196, 119, 0.12);
+    border: 1px solid rgba(230, 196, 119, 0.45);
 }
 
 .apex-actions {
@@ -109,13 +109,13 @@
 }
 
 .apex-claim {
-    background: rgba(250, 204, 21, 0.10);
+    background: rgba(230, 196, 119, 0.10);
     color: #fde68a;
-    border: 1px solid rgba(250, 204, 21, 0.5);
+    border: 1px solid rgba(230, 196, 119, 0.5);
 }
 
 @media (hover: hover) {
-    .apex-claim:hover { border-color: rgba(250, 204, 21, 0.9); }
+    .apex-claim:hover { border-color: rgba(230, 196, 119, 0.9); }
 }
 
 .apex-done {

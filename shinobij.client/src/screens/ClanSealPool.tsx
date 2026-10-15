@@ -26,7 +26,8 @@ export function ClanSealPool({
     updateCharacter: (c: Character) => void;
 }) {
     const [pool, setPool] = useState<PoolResponse | null>(null);
-    const [busy, setBusy] = useState(false);
+    // Names the pool action in flight, so only its own button shows a busy verb.
+    const [busy, setBusy] = useState<"" | "donate" | "give">("");
     const busyRef = useRef(false);
     const [msg, setMsg] = useState<string | null>(null);
     const [donateAmount, setDonateAmount] = useState(10);
@@ -88,21 +89,21 @@ export function ClanSealPool({
                 body: JSON.stringify({ playerName: character.name }),
             });
             const data = await res.json().catch(() => ({}));
-            if (!res.ok) setMsg(`Error: ${data.error ?? 'Failed'}`);
+            if (!res.ok) setMsg(`Error: ${data.error ?? 'The escort offer could not be updated. Refresh the pool and try again.'}`);
             else setMsg(iAmEscorting ? 'Success: Escort offer canceled' : 'Success: Escort offer active for 1 hour');
             void fetchEscorters();
-        } catch { setMsg('Error: Network error'); }
+        } catch { setMsg('Error: The escort offer did not reach the server. Check your connection and try again.'); }
         finally { escortBusyRef.current = false; setEscortBusy(false); }
     }
 
     async function donate() {
         if (busyRef.current || !isVanguard) return;
         busyRef.current = true;
-        setBusy(true); setMsg(null);
+        setBusy("donate"); setMsg(null);
         try {
             const { ok, data } = await postSealDonation(character.name, character.clan ?? "", donateAmount);
             if (!ok) {
-                setMsg(`❌ ${data.error ?? 'Failed'}`);
+                setMsg(`Error: ${data.error ?? 'The Seal Pool refused that. Refresh the pool and try again.'}`);
             } else {
                 updateCharacter({
                     ...character,
@@ -114,30 +115,30 @@ export function ClanSealPool({
                 void fetchPool();
             }
         } catch { setMsg('Error: Donation unconfirmed — refresh before retrying.'); }
-        finally { busyRef.current = false; setBusy(false); }
+        finally { busyRef.current = false; setBusy(""); }
     }
 
     async function distribute() {
         if (busyRef.current || !isLeader || !recipient.trim()) return;
         busyRef.current = true;
-        setBusy(true); setMsg(null);
+        setBusy("give"); setMsg(null);
         try {
             const { ok, data } = await postSealDistribution(character.name, character.clan ?? "", recipient.trim(), distributeAmount);
             if (!ok) {
-                setMsg(`❌ ${data.error ?? 'Failed'}`);
+                setMsg(`Error: ${data.error ?? 'The Seal Pool refused that. Refresh the pool and try again.'}`);
             } else {
                 setMsg(`Success: Gave ${data.distributed} Seals to ${data.recipient}`);
                 setRecipient("");
                 void fetchPool();
             }
         } catch { setMsg('Error: Distribution unconfirmed — refresh before retrying.'); }
-        finally { busyRef.current = false; setBusy(false); }
+        finally { busyRef.current = false; setBusy(""); }
     }
 
     if (!character.clan) return null;
 
     return (
-        <div className="summary-box" style={{ background: "linear-gradient(180deg, rgba(250,204,21,0.10), rgba(8,10,22,0.4))", border: "1px solid rgba(250,204,21,0.45)", marginTop: "0.75rem" }}>
+        <div className="summary-box" style={{ background: "linear-gradient(180deg, rgba(230, 196, 119, 0.10), rgba(8,10,22,0.4))", border: "1px solid rgba(230, 196, 119, 0.45)", marginTop: "0.75rem" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
                 <strong style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "var(--gold)" }}><GameArtIcon kind="crown" size={20} /> Clan Honor Seal Pool</strong>
                 <span style={{ color: "var(--gold)", fontWeight: 600 }}>
@@ -145,7 +146,7 @@ export function ClanSealPool({
                 </span>
             </div>
             <p className="hint" style={{ margin: "6px 0 8px", fontSize: "0.78rem" }}>
-                Vanguards donate up to 50% of their balance per call. The clan founder distributes the pool to clan-mates,
+                Vanguards can donate up to half of the Honor Seals they started the day with, and at most 200 in one donation. The clan founder distributes the pool to clan-mates,
                 who can spend Seals on jutsu Seal training and timer speedups.
             </p>
 
@@ -162,10 +163,10 @@ export function ClanSealPool({
                     />
                     <button
                         onClick={() => void donate()}
-                        disabled={busy || (donateAmount > remainingToday && !donationPending) || donateAmount < 1}
+                        disabled={busy !== "" || (donateAmount > remainingToday && !donationPending) || donateAmount < 1}
                         style={{ background: "linear-gradient(#854d0e,#422006)", borderColor: "var(--gold)" }}
                     >
-                        {busy ? "…" : `Donate ${donateAmount} Seals`}
+                        {busy === "donate" ? "Donating…" : `Donate ${donateAmount} Seals`}
                     </button>
                     <span className="hint" style={{ fontSize: "0.75rem" }}>
                         Today: {donatedToday}/{dailyCap} (resets midnight UTC) · {remainingToday} left
@@ -198,10 +199,10 @@ export function ClanSealPool({
                     />
                     <button
                         onClick={() => void distribute()}
-                        disabled={busy || !recipient.trim() || distributeAmount < 1 || ((pool?.balance ?? 0) < distributeAmount && !distributionPending)}
+                        disabled={busy !== "" || !recipient.trim() || distributeAmount < 1 || ((pool?.balance ?? 0) < distributeAmount && !distributionPending)}
                         style={{ background: "linear-gradient(#854d0e,#422006)", borderColor: "var(--gold)" }}
                     >
-                        {busy ? "…" : "Give"}
+                        {busy === "give" ? "Giving…" : "Give"}
                     </button>
                 </div>
             )}
@@ -229,7 +230,7 @@ export function ClanSealPool({
                             disabled={escortBusy}
                             style={{ background: iAmEscorting ? "linear-gradient(#4d7c0f,#365314)" : "linear-gradient(#365314,#1a2e05)", borderColor: "#84cc16" }}
                         >
-                            {escortBusy ? "…" : iAmEscorting ? "Cancel escort offer" : "Offer escort (1h)"}
+                            {escortBusy ? (iAmEscorting ? "Cancelling…" : "Offering…") : iAmEscorting ? "Cancel escort offer" : "Offer escort (1h)"}
                         </button>
                     )}
                     {character.petEscortBonusReady && (

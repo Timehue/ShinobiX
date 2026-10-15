@@ -95,7 +95,7 @@ for (const profession of ['vanguard', 'petTamer', 'healer']) {
         await assertLayout(page);
         expect(errors).toEqual([]);
         const destinations = {
-            vanguard: [['Find a Target', 'userHub'], ['Raid a Village', 'villageWar'], ['Sector Map', 'villageWarMap'], ['Arena District', 'arenaDistrict']],
+            vanguard: [['Find a target', 'userHub'], ['Raid a village', 'villageWar'], ['Sector Map', 'villageWarMap'], ['Arena District', 'arenaDistrict']],
             petTamer: [['Pet Yard', 'pets'], ['Pet Arena', 'petArena']],
             healer: [['Village Hospital', 'hospital']],
         };
@@ -142,7 +142,7 @@ test('healer can treat a worldwide patient and receives a visible receipt', asyn
     });
     await expectUiAuditBoot(page, runtime, 'professions');
     await page.getByRole('button', { name: 'Heal ally', exact: true }).click();
-    await expect(page.getByRole('status').filter({ hasText: 'WoundedAlly: Healed!' })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'Healed WoundedAlly. +90 profession XP.' })).toBeVisible();
     expect(healBody).toMatchObject({ healerName: 'AuditNinja', targetName: 'WoundedAlly', requestId: expect.stringMatching(/^heal_/) });
     await expect(page.getByRole('button', { name: 'Heal ally', exact: true })).toHaveCount(0);
     await expect(page.locator('.ph-metric').filter({ hasText: 'Chakra available' }).locator('dd')).toHaveText('8,980');
@@ -191,7 +191,7 @@ test('Vanguard ignores yesterday’s earnings and respects Sector Map maintenanc
     const map = page.locator('.ph-hub').getByRole('button', { name: /Sector Map/ });
     await expect(map).toBeDisabled();
     await expect(map).toContainText('temporarily unavailable');
-    await expect(page.locator('.ph-hub').getByRole('button', { name: /Raid a Village/ })).toBeEnabled();
+    await expect(page.locator('.ph-hub').getByRole('button', { name: /Raid a village/ })).toBeEnabled();
 });
 
 test('Tamer loads published companion portraits and applies mastery bonuses immediately', async ({ page }) => {
@@ -240,7 +240,7 @@ test('healer retries a failed request with the same receipt ID and clears pendin
     await page.getByRole('button', { name: 'Heal ally', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Healing…', exact: true })).toBeDisabled();
     finishRequest();
-    await expect(page.getByRole('status').filter({ hasText: 'WoundedAlly: Healed!' })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'Healed WoundedAlly. +90 profession XP.' })).toBeVisible();
     expect(requests).toHaveLength(2);
     expect(requests[0]).toEqual(requests[1]);
     await expect(page.locator('.ph-metric').filter({ hasText: 'Chakra available' }).locator('dd')).toHaveText('8,980');

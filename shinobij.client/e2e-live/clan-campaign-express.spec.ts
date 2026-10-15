@@ -80,7 +80,7 @@ test('two clans declare, use every battle host, enter a physical bonus shrine, s
             // The server commits, but the buyer loses the reply before seeing it.
             await route.abort('failed');
         },{times:1});
-        await page.getByRole('dialog',{name:'Confirm purchase of Clan Banner Sigil'}).getByRole('button',{name:'Confirm Purchase',exact:true}).click();
+        await page.getByRole('dialog',{name:'Confirm purchase of Clan Banner Sigil'}).getByRole('button',{name:'Confirm purchase',exact:true}).click();
         await expect.poll(()=>delivered).toBe(true);
         await expect.poll(async()=> (await save(request,a[0])).character.clanPoints).toBe(500);
         await page.reload();await hall(page);await page.getByRole('button',{name:'Exchange',exact:true}).click();
@@ -156,7 +156,7 @@ test('two clans declare, use every battle host, enter a physical bonus shrine, s
         await expect(room.getByRole('heading',{name:'Shinobi Duel',exact:true})).toHaveCount(0);await capture(page,info,'shrine-room');
         const bonus=await pair('pet1v1',[a[0]],[b[0]],{scope:'shrine',windowIndex:0});
         for(const [client,interior] of [[page,room],[rival,enemyRoom]] as const){
-            const battle=client.getByRole('heading',{name:'Clan War Pet Battle',exact:true}),enter=interior.getByRole('button',{name:'Enter Battle',exact:true});
+            const battle=client.getByRole('heading',{name:'Clan War Pet Battle',exact:true}),enter=interior.getByRole('button',{name:'Enter battle',exact:true});
             // Existing accepted-match recovery can open either participant's battle.
             await expect(battle.or(enter)).toBeVisible();
             if(await enter.isVisible())await enter.click({timeout:3000}).catch(async error=>{try{await expect(battle).toBeVisible();}catch{throw error;}});
@@ -167,7 +167,7 @@ test('two clans declare, use every battle host, enter a physical bonus shrine, s
         expect((await list()).campaignView.normal.clanUsed).toBe(normalUses);
         for(const client of [page,rival])await client.getByRole('button',{name:'Return to Clan War',exact:true}).or(client.getByRole('button',{name:'Leave the Showdown',exact:true})).click();
         await expect(room).toBeVisible();await expect(enemyRoom).toBeVisible();
-        await room.getByRole('button',{name:'Leave Shrine',exact:true}).click();await enemyRoom.getByRole('button',{name:'Leave Shrine',exact:true}).click();
+        await room.getByRole('button',{name:'Leave shrine',exact:true}).click();await enemyRoom.getByRole('button',{name:'Leave shrine',exact:true}).click();
         await post(request,'/api/_qa/clan-campaign',admin,{action:'end-clock',warId,instanceId});
         const ended=await list();expect(ended.endedAt).toBeTruthy();expect(ended.campaignView.phase).toBe('ended');expect(ended.winnerClan).toBeTruthy();
         const paid=await save(request,a[0]);expect(paid.character.clanPoints).toBeGreaterThan(500);

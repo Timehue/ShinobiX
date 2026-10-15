@@ -93,7 +93,7 @@ export class ErrorBoundary extends Component<Props, State> {
                         width: "100%",
                         textAlign: "center",
                         background: "#0b1120",
-                        border: "1px solid rgba(250,204,21,0.35)",
+                        border: "1px solid rgba(230, 196, 119, 0.35)",
                         borderRadius: 14,
                         padding: "28px 24px",
                         boxShadow: "0 18px 60px rgba(0,0,0,0.6)",
@@ -106,9 +106,11 @@ export class ErrorBoundary extends Component<Props, State> {
                         {chunk ? "A new version is available" : "Something went wrong"}
                     </h1>
                     <p style={{ fontSize: 14, lineHeight: 1.5, color: "var(--text-dim)", margin: "0 0 20px" }}>
+                        {/* Never claim progress is saved: this boundary cannot know
+                            whether the last autosave landed (see ScreenErrorBoundary). */}
                         {chunk
-                            ? "The game was updated while you were playing. Reload to get the latest version — your progress is saved."
-                            : "An unexpected error interrupted the game. Reloading usually fixes it; your progress is saved."}
+                            ? "The game was updated while you were playing. Reload to get the latest version. Anything since your last autosave may not have been stored."
+                            : "An unexpected error interrupted the game. Reloading usually fixes it. Anything since your last autosave may not have been stored."}
                     </p>
                     <RecoveryActions compact />
                     <button
@@ -126,7 +128,7 @@ export class ErrorBoundary extends Component<Props, State> {
                             padding: "9px 18px",
                         }}
                     >
-                        Reload Current Screen
+                        Reload the game
                     </button>
                 </div>
             </div>

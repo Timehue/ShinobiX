@@ -159,7 +159,7 @@ export function NindoEditor({ value, onSave }: { value: NindoValue; onSave: (v: 
                 <p className="act-label">Preview</p>
                 <div
                     className="nindo-body"
-                    style={hasBg ? { ...previewBg, padding: "14px 16px", borderRadius: 8, border: "1px solid rgba(250,204,21,.22)" } : undefined}
+                    style={hasBg ? { ...previewBg, padding: "14px 16px", borderRadius: 8, border: "1px solid rgba(230, 196, 119, .22)" } : undefined}
                 >
                     {draft.trim() ? renderNindo(draft) : <span className="hint">Nothing yet — your creed will appear here.</span>}
                 </div>
