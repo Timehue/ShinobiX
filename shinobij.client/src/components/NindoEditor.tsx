@@ -23,7 +23,6 @@ const TOOLBAR: { label: ReactNode; open: string; close: string; title: string }[
     { label: "Center", open: "[center]", close: "[/center]", title: "Center" },
     { label: "Quote", open: "[quote]", close: "[/quote]", title: "Quote block" },
     { label: "Link", open: "[url=https://]", close: "[/url]", title: "Link" },
-    { label: "Image", open: "[img]https://", close: "[/img]", title: "Image (paste a direct image URL)" },
     { label: "List", open: "[list]\n[*] ", close: "\n[/list]", title: "Bullet list" },
 ];
 
@@ -90,8 +89,9 @@ export function NindoEditor({ value, onSave }: { value: NindoValue; onSave: (v: 
             <div className="profile-title-manager-body">
             <p className="hint" style={{ marginTop: 0 }}>
                 Your shinobi creed — shown on your profile to everyone who views it. Safe BBCode only:
-                {" "}<code>[b] [i] [u] [color=gold] [size=22] [center] [quote] [url] [img]</code>. Scripts and raw HTML
-                are stripped; images and links must be <code>https://</code> URLs.
+                {" "}<code>[b] [i] [u] [color=gold] [size=22] [center] [quote] [url]</code>. Scripts and raw HTML
+                are stripped; links must be <code>https://</code> URLs. Images from other websites are not shown,
+                because they would let that site see who views your profile.
             </p>
 
             <div className="nindo-toolbar" style={{ display: "flex", flexWrap: "wrap", gap: 6, margin: "0.5rem 0" }}>

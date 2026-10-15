@@ -4,8 +4,9 @@ import { before, beforeEach, describe, it, type TestContext } from 'node:test';
 /*
  * An image id whose prefix names an Object.prototype member (`constructor:x`,
  * `toString:x`, `__proto__:x`) is an unknown prefix like any other, so it
- * belongs to 'misc'. A plain-object lookup in categoryFromId resolved it to the
- * inherited member instead: the upload skipped the 50-per-player misc cap, sat
+ * belongs to 'misc' (admin-only since 2026-10-15). A plain-object lookup in
+ * categoryFromId resolved it to the inherited member instead: the upload skipped
+ * the then 50-per-player misc cap, sat
  * in no manifest, and bumped a version key named after the function's source.
  * Driven through the real handlers on the isolated in-memory store.
  */
@@ -99,22 +100,19 @@ describe('categoryFromId', () => {
 });
 
 describe('uploads of prototype-named ids (POST /api/images)', () => {
-    it('count against the misc cap', async () => {
+    it('are misc uploads, which players may not make', async () => {
         const headers = await playerHeaders('prankster');
-        await kv.set('upload:misc-count:prankster', 50);
         for (const name of ['constructor', 'toString', '__proto__', 'hasOwnProperty', 'valueOf']) {
             const out = await upload(headers, `${name}:x`, png(name));
-            assert.equal(out.statusCode, 429, `${name}:x is a misc upload`);
+            assert.equal(out.statusCode, 403, `${name}:x is a misc upload`);
             assert.equal(await kv.get(`shared:img:${name}:x`), null, `${name}:x was not stored`);
         }
     });
 
     it('are listed in the misc manifest, and a replace bumps only the misc version', async () => {
-        const headers = await playerHeaders('tester');
-        assert.equal((await upload(headers, 'toString:x', png('first'))).statusCode, 200);
-        assert.equal((await upload(headers, 'toString:x', png('second'))).statusCode, 200);
-        assert.equal((await upload(headers, '__proto__:y', png('proto'))).statusCode, 200);
-        assert.equal(await kv.get('upload:misc-count:tester'), 3, 'each upload was charged to the misc cap');
+        assert.equal((await upload(ADMIN, 'toString:x', png('first'))).statusCode, 200);
+        assert.equal((await upload(ADMIN, 'toString:x', png('second'))).statusCode, 200);
+        assert.equal((await upload(ADMIN, '__proto__:y', png('proto'))).statusCode, 200);
         const manifest = await call(imagesHandler, 'GET', { cat: 'misc', ids: '1' }, {});
         assert.deepEqual(manifest.body, ['__proto__:y', 'toString:x'], 'an admin can see and remove them');
         assert.deepEqual(await kv.keys('shared:imgver:*'), ['shared:imgver:misc'], 'no version key named after a function');

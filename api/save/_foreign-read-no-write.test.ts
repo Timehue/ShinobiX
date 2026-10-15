@@ -57,8 +57,8 @@ test('ownership is resolved before the settle that depends on it', () => {
 test('authorized admin visibility cannot grant elapsed-state write authority', () => {
     assert.match(
         handlerSource,
-        /const canReadFullSave = adminCanReadTarget \|\| isClanSave \|\| isPlayerSelfRead/,
-        'authorized admins and clan readers retain their full response projection',
+        /const canReadFullSave = adminCanReadTarget \|\| \(isClanSave && identity\.admin\) \|\| isClanMemberRead \|\| isPlayerSelfRead/,
+        'authorized admins and clan members retain their full response projection (non-members get the public clan view)',
     );
     assert.doesNotMatch(
         handlerSource,

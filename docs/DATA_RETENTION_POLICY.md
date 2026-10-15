@@ -2,7 +2,7 @@
 
 **Status:** Internal operational policy. Not user-facing legal advice.
 **Owner:** Tyler Rill — Operator, Shinobi Journey · support@shinobijourney.com; see [Security Program](SECURITY_PROGRAM.md).
-**Version:** 1.1 · **Last reviewed:** 2026-08-31 · **Review cadence:** at least annually and after any material change to what is collected.
+**Version:** 1.2 · **Last reviewed:** 2026-10-15 · **Review cadence:** at least annually and after any material change to what is collected.
 
 This policy satisfies the written data-retention-policy requirement of the amended
 US COPPA Rule (in full effect 22 Apr 2026) and supports GDPR/UK-GDPR storage-limitation
@@ -43,7 +43,7 @@ and is removed by the deletion process in §5.
 | Mission progress receipts | Anti-replay of reward claims | **14-day** TTL (`api/missions/record-progress.ts`) |
 | Server-authoritative flow tokens — raid / expedition / combat-claim / arena lobby / story session / trade nonce / Google OAuth state | Anti-cheat sealed-reward flows | Short TTL: 5 min → 7 days depending on flow (see each `*-start` handler) |
 | Player-trade settlement journals and recovery pointers (`economy-tx:player-trade:*`, `trade:pending:*`) — sender and recipient names, currency, amounts | Finishing an interrupted transfer exactly once; admin reconciliation | **90-day** TTL (`api/_economy-tx.ts`); a pointer is deleted as soon as its trade finishes (`api/player/_trade-settlement.ts`) |
-| Moderation records — bans, silences, IP/fingerprint linkage (`mod:*`) | Safety, ban enforcement, repeat-abuse detection | Bans/silences expire at their set `until`; linkage indexes retained as security data while the account exists |
+| Moderation records — bans, silences, IP/fingerprint linkage (`mod:*`) | Safety, ban enforcement, repeat-abuse detection | Bans/silences expire at their set `until`. IP/fingerprint linkage rows (`mod:ip-v2:*`, `mod:by-ip-v2:*`, `mod:fp:*`, `mod:by-fp:*`) carry a **90-day** TTL, renewed each time the account is seen on that IP/fingerprint, so linkage ages out 90 days after last use (`api/admin/moderation.ts`). Rows written before 2026-10-15 have no expiry until that account is next seen and the row is rewritten; a dormant account's older rows stay until a one-off, throttled expiry backfill is run (not yet done). Legacy `mod:ip:*` / `mod:by-ip:*` rows are no longer written or read for linkage; they are removed by account deletion and the guest sweep rather than a bulk delete |
 | Moderation audit log (`mod:audit`) | Staff accountability | Rolling **last 5,000** entries (`api/admin/moderation.ts`) |
 | Domain audit logs (`audit:<domain>`) | Integrity/accountability (content, reward, sector, combat, legacy) | Rolling **last 5,000** per domain (`api/_audit.ts`) |
 | Player abuse reports (`reports:queue`) | Safety triage (DSA/OSA) | Until resolved/removed by staff (`api/report.ts`); reporter identity retained with the report |
@@ -51,12 +51,13 @@ and is removed by the deletion process in §5.
 | Rate-limit counters (`ratelimit:*`) | Abuse/DoS prevention | ~2× the window (minutes), self-expiring (`api/_ratelimit.ts`) |
 | Follows list (`friends:*`) | Social follow | **365-day** TTL, refreshed on use |
 | Uploaded / AI-generated images (`shared:img:*`, `shared:imgfields:*`) | Display player/creator content | While referenced by a save/record; first-writer-wins ownership |
-| IP address + device fingerprint (security context) | Anti-sock-puppet, abuse investigation, rate-limit fairness | Treated as **security data**; retained while the account exists or an abuse investigation is open |
+| IP address + device fingerprint (security context) | Anti-sock-puppet, abuse investigation, rate-limit fairness | Treated as **security data**. Moderation linkage: **90 days** after last seen (see `mod:*` row). Per-player recent-IP stamps: **7-day** TTL (`api/_player-ips.ts`) |
 | Client error diagnostics (Sentry, only if enabled) | Reliability | Per Sentry project retention (default ~90 days); `sendDefaultPii: false` is set (`shinobij.client/src/lib/sentry.ts`) |
 
 ## 4. Backups
 
 - **Managed database backups:** provided by Supabase per the active plan (point-in-time / daily). These are Supabase's infrastructure backups; deletion requests are reconciled against them over the normal backup rotation rather than by reaching into a backup.
+- **Operator exports (`scripts/kv-backup.mjs`):** a full `kv_store` dump, so it holds credentials hashes and IP linkage. It is encrypted at rest (AES-256-GCM, scrypt-derived key) whenever `KV_BACKUP_PASSPHRASE` is set, written owner-only (0600), and prints a loud warning when written unencrypted. Keep the passphrase out of the backup's storage location.
 - **Application snapshot layer:** the 90-day `save-snapshot:*` copies above, for player-specific rollback.
 - A record deleted from live storage may persist in a backup until that backup naturally rotates out; this is disclosed to users in the Privacy/Privacy-Request pages ("backups" caveat).
 

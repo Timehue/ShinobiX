@@ -55,7 +55,7 @@ async function start(context: { mock: { timers: { tick(ms: number): void } } }, 
 test('admin authority, bounded configuration, stale events, and server identity', async () => {
     assert.equal((await request(undefined, {})).status, 401);
     assert.equal((await request(config, auth('akira'))).status, 403);
-    assert.equal((await request(config, { 'x-admin-password': 'tournament-content-test' })).status, 403);
+    assert.equal((await request(config, { 'x-admin-password': 'tournament-content-test' })).status, 401, 'Admin 2 may only read tournaments');
     for (const invalid of [{ signupMinutes: 0 }, { signupMinutes: Infinity }, { maxEntries: 100 }, { mode: 'fake' }, { readySeconds: 10 }, { notes: 'x'.repeat(1001) }]) {
         assert.equal((await request({ ...config, ...invalid })).status, 400);
     }

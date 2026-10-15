@@ -67,6 +67,16 @@ const FP_KEY_PREFIX = 'mod:fp:';
 const BY_FP_KEY_PREFIX = 'mod:by-fp:';
 const AUDIT_KEY = 'mod:audit';
 
+// IP / fingerprint linkage retention. Every write of a forward row
+// (`mod:ip-v2:<name>`, `mod:fp:<name>`) or a reverse index
+// (`mod:by-ip-v2:<ip>`, `mod:by-fp:<fp>`) re-stamps a 90-day expiry, so an
+// account that keeps playing keeps its linkage and one that stops playing has
+// its IP history age out (docs/DATA_RETENTION_POLICY.md). The legacy
+// `mod:ip:*` / `mod:by-ip:*` rows are no longer written or read here; they are
+// left to the account-deletion and guest-sweep cleanups rather than a bulk
+// DELETE, which has filled the prod disk before.
+export const MOD_LINKAGE_TTL_SECONDS = 90 * 24 * 60 * 60;
+
 // Audit log retention. Was 200 entries (≈ 1–2 weeks for a small live game),
 // which made post-incident forensic review impossible. 5000 covers months
 // of moderation activity at typical volumes and is still well under the KV
@@ -172,8 +182,8 @@ async function recordClientFingerprintCore(name: string, fp: string): Promise<vo
         const names = Array.isArray(ipList) ? ipList : [];
         const nextNames = [n, ...names.filter(x => x !== n)].slice(0, MAX_NAMES_PER_FP);
         await Promise.all([
-            kv.set(fpKey(n), forward),
-            kv.set(byFpKey(fp), nextNames),
+            kv.set(fpKey(n), forward, { ex: MOD_LINKAGE_TTL_SECONDS }),
+            kv.set(byFpKey(fp), nextNames, { ex: MOD_LINKAGE_TTL_SECONDS }),
         ]);
     } catch {
         // Best-effort — never break the calling handler.
@@ -214,8 +224,8 @@ async function recordClientIpCore(name: string, ip: string): Promise<void> {
         const names = Array.isArray(ipList) ? ipList : [];
         const nextNames = [n, ...names.filter(x => x !== n)].slice(0, MAX_NAMES_PER_IP);
         await Promise.all([
-            kv.set(ipKey(n), forward),
-            kv.set(byIpKey(ip), nextNames),
+            kv.set(ipKey(n), forward, { ex: MOD_LINKAGE_TTL_SECONDS }),
+            kv.set(byIpKey(ip), nextNames, { ex: MOD_LINKAGE_TTL_SECONDS }),
         ]);
     } catch {
         // IP tracking is best-effort — never break the calling handler.

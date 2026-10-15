@@ -1,5 +1,7 @@
+import { createHash } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { clientIp } from '../_client-ip.js';
+import { kv } from '../_storage.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { applyEntitlementToSave, SUBSCRIBER_TIER } from '../_subscription.js';
 import { tebexSubscriptionPackageId } from './_basket-core.js';
@@ -39,6 +41,30 @@ import {
  */
 
 const TEBEX_WEBHOOK_SECRET = (): string => String(process.env.TEBEX_WEBHOOK_SECRET ?? '').trim();
+
+/**
+ * The durable, uncapped receipt for one Tebex transaction. A transaction id
+ * that is not a plain token is hashed so it can never shape the key.
+ */
+export function tebexTransactionKey(transactionId: string): string {
+    const id = /^[A-Za-z0-9._-]{1,128}$/.test(transactionId)
+        ? transactionId
+        : createHash('sha256').update(transactionId, 'utf8').digest('hex');
+    return `tebex:txn:${id}`;
+}
+
+/**
+ * Write the durable receipt (NX: the first record wins). Never throws: the
+ * grant it follows has already committed, and the in-save receipt still
+ * covers a redelivery until the next attempt backfills this row.
+ */
+async function recordTebexTransaction(key: string, playerName: string, shards: number): Promise<void> {
+    try {
+        await kv.set(key, { playerName, shards, at: Date.now() }, { nx: true });
+    } catch (error) {
+        console.error('[tebex] durable transaction receipt write failed', key, (error as Error)?.message);
+    }
+}
 
 /** Receipt ledger on the character — same shape as redeemedNamedForges. */
 function receipts(character: Record<string, unknown>): string[] {
@@ -195,14 +221,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // 5. Grant, under the save lock, exactly once per Tebex transaction.
+    //
+    //    Two receipts guard the "once". The in-save `redeemedTebexPurchases`
+    //    list commits in the same write as the shards, but it keeps only the
+    //    last 200 ids, so on its own an old signed delivery re-sent after 200
+    //    newer purchases would pay again. The durable `tebex:txn:<id>` row has
+    //    no expiry and no cap. It is written AFTER the grant commits, still
+    //    under the save lock, so a crash can never leave a claimed-but-unpaid
+    //    purchase: a crash between the two leaves the in-save receipt, which
+    //    catches the retry and backfills the row. (`tebex:*` also survives a
+    //    server reset, api/admin/server-reset.ts.)
+    const txnKey = tebexTransactionKey(outcome.transactionId);
+    if (await kv.get(txnKey)) {
+        console.log('[tebex] granted', outcome.transactionId, outcome.playerName, 0, 'replay (durable receipt)');
+        return res.status(200).json({ ok: true, granted: false, shards: 0 });
+    }
     const result = await mutatePlayerSave<{ granted: boolean; shards: number }>(
         outcome.playerName,
-        ({ character }) => {
+        async ({ character }) => {
             const ledger = receipts(character as unknown as Record<string, unknown>);
-            if (ledger.includes(outcome.transactionId)) {
-                // A redelivered webhook. Idempotent by construction: the receipt
-                // is written in the same committed save as the shards, so there
-                // is no window where one exists without the other.
+            const durable = await kv.get(txnKey);
+            if (durable || ledger.includes(outcome.transactionId)) {
+                // A redelivered webhook. Idempotent by construction: the in-save
+                // receipt is written in the same committed save as the shards,
+                // and the durable row only ever follows a committed grant.
+                if (!durable) await recordTebexTransaction(txnKey, outcome.playerName, 0);
                 return { ok: true as const, character, write: false, value: { granted: false, shards: 0 } };
             }
             const balance = Math.max(0, Math.floor(Number((character as unknown as Record<string, unknown>).fateShards ?? 0)) || 0);
@@ -211,7 +254,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 fateShards: balance + outcome.totalShards,
                 redeemedTebexPurchases: [...ledger, outcome.transactionId].slice(-200),
             } as typeof character;
-            return { ok: true as const, character: next, value: { granted: true, shards: outcome.totalShards } };
+            return {
+                ok: true as const,
+                character: next,
+                value: { granted: true, shards: outcome.totalShards },
+                afterCommit: () => recordTebexTransaction(txnKey, outcome.playerName, outcome.totalShards),
+            };
         },
     );
 

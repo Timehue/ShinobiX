@@ -329,6 +329,27 @@ export function hasReservedTitleTerm(input: unknown): boolean {
     return false;
 }
 
+// Staff words a NAME may not open or close with. Names have no reliable word
+// boundaries ("AdminRill", "xXModeratorXx"), so the word-boundary title check
+// alone misses them; prefix/suffix on the compacted form catches the common
+// impersonation shapes without banning names that merely contain the letters
+// in the middle ("Badminton"). Short tokens ("mod", "gm", "dev") are left out
+// on purpose — too many ordinary names start with them.
+const STAFF_NAME_EDGE_TERMS = ['admin', 'administrator', 'moderator', 'gamemaster', 'developer', 'staff', 'official'];
+
+/**
+ * True when a player NAME would read as staff: any reserved title term as a
+ * word, or a staff word at either end of the compacted name. Names render in
+ * chat, whispers and leaderboards, so "Admin" or "OfficialModerator" is an
+ * impersonation surface just as a title is.
+ */
+export function hasStaffImpersonationName(input: unknown): boolean {
+    if (typeof input !== 'string' || !input.trim()) return false;
+    if (hasReservedTitleTerm(input)) return true;
+    const compact = leetCollapseStripSpace(input).replace(/[^a-z0-9]/g, '');
+    return STAFF_NAME_EDGE_TERMS.some((term) => compact.startsWith(term) || compact.endsWith(term));
+}
+
 /**
  * Full custom-title gate: clean (no profanity), no reserved terms, sane
  * length. Ownership of earned-title strings is checked separately by the

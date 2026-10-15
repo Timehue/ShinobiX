@@ -46,6 +46,13 @@ server telemetry after the 45–60 second expiry window.
 
 ## Safe read-only smoke
 
+Since 2026-10-15 the server no longer trusts every `*.up.railway.app` origin
+(anyone can host a page on that suffix). A staging service reached at its
+Railway URL must list that exact origin in its own `EXTRA_ALLOWED_ORIGINS`
+(e.g. `https://your-staging-host.up.railway.app`). Without it, browser
+Socket.IO handshakes from that page are refused. The load harness itself sends
+no Origin header, so it is unaffected.
+
 From the repository root in PowerShell:
 
 ```powershell

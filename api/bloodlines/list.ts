@@ -39,7 +39,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // and returns the full list of (ownerName, ownerKey,
     // bloodlines) — useful for stalking and player enumeration. Auth
     // required so the cost can't be triggered by anonymous traffic.
-    const identity = await authedPlayerOrAdmin(req);
+    // Read-only; Admin 2's bloodline review gallery loads from here.
+    const identity = await authedPlayerOrAdmin(req, undefined, { allowContentAdmin: true });
     if (!identity) return res.status(401).json({ error: 'Authentication required.' });
 
     try {
