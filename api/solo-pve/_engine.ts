@@ -1,3 +1,4 @@
+import { damageCombatHealth } from '../combat-core/health.js';
 import { pveSpecialistDamagePercent } from '../../shared/relics.js';
 import { COMBAT_RESOURCES_V2, v2ResourceRegen } from '../_combat-resources.js';
 import { applyHuntCombatAction } from './_hunt-combat.js';
@@ -106,6 +107,13 @@ export type SoloPveEngineOptions = {
 
 function cloneSession(session: SoloPveSession): SoloPveSession {
     const clone = structuredClone(session);
+    // Upgrade in-progress weekly attempts without resetting their earned damage.
+    if (clone.encounter.kind === 'weekly-boss' && clone.status === 'active' && !clone.enemy.unlimitedHealth) {
+        clone.enemy.finiteHpAtScoreAttackCutover = clone.enemy.hp;
+        clone.enemy.damageReceived = 0;
+        clone.enemy.unlimitedHealth = true;
+        clone.enemy.hp = clone.enemy.maxHp;
+    }
     clone.events ??= [];
     clone.eventSeq ??= 0;
     return clone;
@@ -179,6 +187,7 @@ function soloPveDamageMultiplier(session: SoloPveSession, side: SoloPveSide, att
 function fighterEventState(value: PvpFighter) {
     return {
         hp: value.hp,
+        ...(value.unlimitedHealth ? { unlimitedHealth: true, damageReceived: value.damageReceived ?? 0 } : {}),
         maxHp: value.maxHp,
         chakra: value.chakra,
         stamina: value.stamina,
@@ -642,7 +651,7 @@ function companionDealDamage(session: SoloPveSession, companion: SoloPveCompanio
     const blockedByDefensePill = activeStatuses(session.enemy, session.round)
         .some(status => status.source === 'item-defense-pill');
     const dealt = Math.floor(Math.min(uncapped, cap) * (blockedByDefensePill ? 0.85 : 1));
-    session.enemy.hp = Math.max(0, session.enemy.hp - dealt);
+    session.enemy = damageCombatHealth(session.enemy, dealt);
     const lifestealPct = companionOwnerLifestealPct(companion.pveGearId);
     if (dealt > 0 && lifestealPct > 0 && session.player.hp > 0) {
         const heal = Math.max(1, Math.floor(dealt * lifestealPct / 100));
@@ -938,7 +947,7 @@ function spendPoison(session: SoloPveSession, side: SoloPveSide, chakra: number,
     const value = fighter(session, side);
     const damage = poisonSpendDamage(value, chakra + stamina, session.round);
     if (damage <= 0) return;
-    setFighter(session, side, { ...value, hp: Math.max(0, value.hp - damage) });
+    setFighter(session, side, damageCombatHealth(value, damage));
     session.log.push(`${value.name} takes ${damage} Poison damage from exertion.`);
     checkWinner(session);
 }

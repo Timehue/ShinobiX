@@ -18,6 +18,9 @@ export type SoloPveStatus = {
 export type SoloPveFighter = {
     name: string;
     hp: number;
+    /** Server-sealed unlimited-health score attack. */
+    unlimitedHealth?: boolean;
+    damageReceived?: number;
     maxHp: number;
     chakra: number;
     maxChakra: number;
@@ -39,9 +42,9 @@ export type SoloPveGroundEffect = {
 };
 
 export type SoloPveEventSnapshot = {
-    player: Pick<SoloPveFighter, 'hp' | 'maxHp' | 'chakra' | 'stamina' | 'shield' | 'pos' | 'statuses'>;
-    enemy: Pick<SoloPveFighter, 'hp' | 'maxHp' | 'chakra' | 'stamina' | 'shield' | 'pos' | 'statuses'>;
-    companion?: Pick<SoloPveFighter, 'hp' | 'maxHp' | 'chakra' | 'stamina' | 'shield' | 'pos' | 'statuses'> & { roundsLeft: number; cooldowns: Record<string, number> };
+    player: Pick<SoloPveFighter, 'hp' | 'unlimitedHealth' | 'damageReceived' | 'maxHp' | 'chakra' | 'stamina' | 'shield' | 'pos' | 'statuses'>;
+    enemy: Pick<SoloPveFighter, 'hp' | 'unlimitedHealth' | 'damageReceived' | 'maxHp' | 'chakra' | 'stamina' | 'shield' | 'pos' | 'statuses'>;
+    companion?: Pick<SoloPveFighter, 'hp' | 'unlimitedHealth' | 'damageReceived' | 'maxHp' | 'chakra' | 'stamina' | 'shield' | 'pos' | 'statuses'> & { roundsLeft: number; cooldowns: Record<string, number> };
     ap: { player: number; enemy: number };
     cooldowns: { player: Record<string, number>; enemy: Record<string, number> };
     groundEffects: SoloPveGroundEffect[];

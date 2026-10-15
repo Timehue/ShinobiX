@@ -258,3 +258,35 @@ test('a prepared accepted run is discovered read-only, then finalized exactly on
     assert.deepEqual(await kv.get(BOSS_KEY), afterFirstBoss, 'resume replay cannot reserve another attempt');
     assert.deepEqual(await kv.get(SAVE_KEY), afterFirstSave, 'resume replay cannot debit stamina twice');
 });
+
+test('settlement banks uncapped weekly damage once without exhausting the active event', async () => {
+    const { createSoloPveSession } = await import('./solo-pve/_session.js');
+    const { damageCombatHealth } = await import('./combat-core/health.js');
+    const { executeSoloPveAction } = await import('./solo-pve/_action-service.js');
+    const fighter = { name: PLAYER, pos: 62, hp: 100, maxHp: 100, chakra: 100, maxChakra: 100,
+        stamina: 100, maxStamina: 100, shield: 0, statuses: [], character: { level: 50, jutsu: [], pvpItems: [] } };
+    const session = createSoloPveSession({ sessionId: RUN_ID, ownerSlug: PLAYER, now: Date.now(),
+        player: fighter, enemy: { ...fighter, name: 'Boss', pos: 63 }, weeklyBossRoundBudget: 20,
+        encounter: { kind: 'weekly-boss', id: WEEK_KEY, sourceId: 'ashen-dragon', bindingId: RUN_ID,
+            metadata: { weekKey: WEEK_KEY, bossStartedAt: STARTED_AT } } });
+    session.enemy = damageCombatHealth(session.enemy, 9_000_000);
+    await kv.set(SESSION_KEY, session);
+    await kv.set(RUN_KEY, { runId: RUN_ID, playerName: PLAYER, weekKey: WEEK_KEY, aiId: 'ashen-dragon',
+        bossStartedAt: STARTED_AT, initialBossHp: 100, createdAt: Date.now(), startState: 'ready' });
+    const ended = await executeSoloPveAction({ sessionId: RUN_ID, ownerSlug: PLAYER, expectedVersion: 1,
+        moveToken: 'weekly-unlimited-abandon', action: { type: 'abandon' } });
+    assert.equal(ended.status, 200);
+    const first = await invoke(request('POST', { body: { kind: 'logFight', runId: RUN_ID, damage: 1 } }));
+    assert.equal(first.statusCode, 200, JSON.stringify(first.body));
+    assert.equal(first.body?.dealt, 9_000_000, 'client damage and initial HP do not cap the sealed counter');
+    assert.equal((first.body?.boss as Record<string, unknown>).healthMode, 'unlimited');
+    const saved = await kv.get(SAVE_KEY);
+    const replay = await invoke(request('POST', { body: { kind: 'logFight', runId: RUN_ID } }));
+    assert.equal(replay.body?.dealt, 9_000_000);
+    assert.deepEqual(await kv.get(SAVE_KEY), saved);
+    const boss = await kv.get<{ damageByPlayer: Record<string, number>; attemptsByPlayer: Record<string, number> }>(BOSS_KEY);
+    assert.equal(boss?.damageByPlayer[PLAYER], 9_000_000);
+    assert.equal(boss?.attemptsByPlayer[PLAYER], 2);
+    const feed = await kv.get<Array<{ type: string }>>('game:announcements');
+    assert.ok(!feed?.some(post => post.type === 'weekly_boss_broken'));
+});
