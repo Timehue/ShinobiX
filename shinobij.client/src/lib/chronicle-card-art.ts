@@ -1,8 +1,8 @@
 /*
  * Chronicle card art delivery.
  *
- * Card art is authored at 768x1097 (~207 KB each; 47 MB across the 233-card
- * catalog), but that resolution only earns its bytes in the card inspector,
+ * Card art is delivered at 768x1097 (high-resolution production masters stay
+ * outside public/), but that resolution only earns its bytes in the inspector,
  * where `.chronicle-card-zoom .chronicle-card` is `width: min(390px, 74vw,
  * 45vh)` and so wants ~780 px on a 2x display. Every other surface is far
  * smaller, so a browsing player was downloading 3-7x the pixels they could see:

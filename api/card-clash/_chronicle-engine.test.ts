@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { CHRONICLE_PAINTED_ART } from "../../shared/chronicle-painted-art";
 import {
   CHRONICLE_CARD_CATALOG,
   CHRONICLE_FOUNDING_FORMAT,
@@ -1108,7 +1109,7 @@ test("every reviewed story boss plus the Wandering Sage maps without narrator/pl
   }
   const sage = getChronicleCard("story-wandering-sage");
   assert.equal(sage?.cardClass, "monster");
-  assert.equal(sage?.image, "/portraits/wandering-sage.webp");
+  assert.equal(sage?.image, CHRONICLE_PAINTED_ART["story-wandering-sage"] ?? "/portraits/wandering-sage.webp");
 });
 
 test("five Living Witness cards preserve fixed companion records outside packs", () => {

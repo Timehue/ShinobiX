@@ -39,7 +39,7 @@ test("Monster cards render the complete physical TCG information hierarchy", () 
   const expectedInOrder = [
     "Solar God Beast",
     `LEVEL ${solar.level}`,
-    "/chronicle/cards/tc-142.webp",
+    solar.image!,
     "BEAST / EFFECT MONSTER",
     "When this card overpowers a Defense Position Monster",
     "ATK",
@@ -89,7 +89,7 @@ test("Field Jutsu and Snare cards have explicit, distinct physical card identiti
   assert.match(field, /FIELD JUTSU/);
   assert.match(field, /JUTSU CARD/);
   assert.match(field, /Fire Monsters gain 300 ATK/);
-  assert.match(field, /chronicle\/fields\/volcano\.webp/);
+  assert.ok(field.includes(getChronicleCard("chronicle-field-volcano")!.image!));
 
   assert.match(trap, /NORMAL SNARE/);
   assert.match(trap, /SNARE CARD/);

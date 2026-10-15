@@ -8,7 +8,7 @@ export default defineConfig({
     workers: 1,
     reporter: 'line',
     outputDir: 'test-results/chronicle-packs',
-    use: { baseURL: 'http://127.0.0.1:5189', serviceWorkers: 'block', screenshot: 'only-on-failure' },
+    use: { baseURL: 'http://127.0.0.1:5189', serviceWorkers: 'block', screenshot: 'only-on-failure', trace: 'retain-on-failure' },
     webServer: {
         command: 'node node_modules/vite/bin/vite.js --config scripts/vite.world-map-qa.config.mjs --configLoader runner --host 127.0.0.1 --port 5189 --strictPort',
         url: 'http://127.0.0.1:5189',

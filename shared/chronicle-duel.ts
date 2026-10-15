@@ -6,6 +6,7 @@
  * receive projections and submit only action intent (indexes / targets).
  */
 import { shinobiTileCards, type TileCard } from "./tile-cards.js";
+import { CHRONICLE_PAINTED_ART } from "./chronicle-painted-art.js";
 import {
   CHRONICLE_LEGACY_SOURCES,
   type ChronicleLegacySource,
@@ -980,7 +981,7 @@ const SUMMONING_CALLS: readonly {
     callName: "Call of the Cinderhorn",
     callLore:
       "A scroll sealed in ember wax. Its seal breaks for one creature alone, and the ground answers in flame.",
-    callImage: "/chronicle/cards/chronicle-call-of-the-cinderhorn.webp",
+    callImage: CHRONICLE_PAINTED_ART["chronicle-call-of-the-cinderhorn"],
   },
   {
     element: "Water",
@@ -992,7 +993,7 @@ const SUMMONING_CALLS: readonly {
     callName: "Call of the Rimetide",
     callLore:
       "A scroll inked in seawater and frost. When it opens, the deep remembers its old promise.",
-    callImage: "/chronicle/cards/chronicle-call-of-the-rimetide.webp",
+    callImage: CHRONICLE_PAINTED_ART["chronicle-call-of-the-rimetide"],
   },
   {
     element: "Earth",
@@ -1004,7 +1005,7 @@ const SUMMONING_CALLS: readonly {
     callName: "Call of the Ironroot",
     callLore:
       "A scroll pressed between two slabs of granite. The mountain itself must agree before it can be read.",
-    callImage: "/chronicle/cards/chronicle-call-of-the-ironroot.webp",
+    callImage: CHRONICLE_PAINTED_ART["chronicle-call-of-the-ironroot"],
   },
   {
     element: "Wind",
@@ -1016,7 +1017,7 @@ const SUMMONING_CALLS: readonly {
     callName: "Call of the Galewing",
     callLore:
       "A scroll bound with a black feather. Opened on a mountaintop, it is answered before the wind can turn.",
-    callImage: "/chronicle/cards/chronicle-call-of-the-galewing.webp",
+    callImage: CHRONICLE_PAINTED_ART["chronicle-call-of-the-galewing"],
   },
   {
     element: "Lightning",
@@ -1028,7 +1029,7 @@ const SUMMONING_CALLS: readonly {
     callName: "Call of the Stormcrown",
     callLore:
       "A scroll that crackles in the hand. It is read aloud once, and the storm completes the sentence.",
-    callImage: "/chronicle/cards/chronicle-call-of-the-stormcrown.webp",
+    callImage: CHRONICLE_PAINTED_ART["chronicle-call-of-the-stormcrown"],
   },
 ];
 
@@ -1039,7 +1040,7 @@ const CALLED_MONSTER_CARDS: readonly ChronicleMonsterCard[] = SUMMONING_CALLS.ma
     return {
       id: call.monsterId,
       name: call.monsterName,
-      image: `/chronicle/cards/${call.monsterId}.webp`,
+      image: CHRONICLE_PAINTED_ART[call.monsterId],
       lore: call.monsterLore,
       element: call.element,
       rarity: "legendary",
@@ -1061,7 +1062,7 @@ export const SHADOW_DOUBLE_ID = "chronicle-shadow-double";
 const SHADOW_DOUBLE_CARD: ChronicleMonsterCard = {
   id: SHADOW_DOUBLE_ID,
   name: "Shadow Double",
-  image: "/chronicle/cards/chronicle-shadow-double.webp",
+  image: CHRONICLE_PAINTED_ART["chronicle-shadow-double"],
   lore: "A body of borrowed shadow that holds its shape just long enough to be given away.",
   // Wind for the wheel and the board's colour, but it never meets a Snare's
   // element requirement (meetsSnareElementRequirement).
@@ -2541,7 +2542,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   magic(
     "chronicle-chakra-ledger",
     "Chakra Ledger",
-    "/chronicle/cards/chronicle-chakra-ledger.webp",
+    CHRONICLE_PAINTED_ART["chronicle-chakra-ledger"],
     "A quartermaster's coded account reveals one prepared resource at the decisive moment.",
     "normal",
     "Return one Jutsu Card from your Graveyard to your hand.",
@@ -2561,7 +2562,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   magic(
     "chronicle-forbidden-archive",
     "Forbidden Archive",
-    "/chronicle/cards/chronicle-forbidden-archive.webp",
+    CHRONICLE_PAINTED_ART["chronicle-forbidden-archive"],
     "A sealed vault of battle records yields dangerous knowledge to the shinobi willing to open it.",
     "normal",
     "Draw 3 cards, then discard 2 random cards.",
@@ -2584,7 +2585,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   magic(
     "chronicle-healers-reserve",
     "Healer's Reserve",
-    "/chronicle/cards/chronicle-healers-reserve.webp",
+    CHRONICLE_PAINTED_ART["chronicle-healers-reserve"],
     "A hidden field kit restores a commander before the formation collapses.",
     "normal",
     "Gain 1,000 Health Points.",
@@ -2602,7 +2603,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   magic(
     "chronicle-war-camp-feast",
     "War-Camp Feast",
-    "/chronicle/cards/chronicle-war-camp-feast.webp",
+    CHRONICLE_PAINTED_ART["chronicle-war-camp-feast"],
     "A hard-earned meal rallies the whole command after a punishing march.",
     "normal",
     "Each player with cards discards 1 random card, then draws 1 card.",
@@ -2620,7 +2621,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   magic(
     "chronicle-flame-tempered-blade",
     "Flame-Tempered Blade",
-    "/chronicle/cards/chronicle-flame-tempered-blade.webp",
+    CHRONICLE_PAINTED_ART["chronicle-flame-tempered-blade"],
     "A blacksmith seals banked fire into a blade that burns brighter with every clash.",
     "equip",
     "The equipped Monster gains 500 ATK but loses 300 DEF.",
@@ -2639,7 +2640,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   magic(
     "chronicle-stormforged-senbon",
     "Stormforged Senbon",
-    "/chronicle/cards/chronicle-stormforged-senbon.webp",
+    CHRONICLE_PAINTED_ART["chronicle-stormforged-senbon"],
     "Lightning-forged needles turn one combatant's opening into a lethal advance.",
     "equip",
     "The equipped Monster gains 600 ATK.",
@@ -2657,7 +2658,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   magic(
     "chronicle-stoneplate-harness",
     "Stoneplate Harness",
-    "/chronicle/cards/chronicle-stoneplate-harness.webp",
+    CHRONICLE_PAINTED_ART["chronicle-stoneplate-harness"],
     "Interlocking earth plates settle around the wearer without slowing their seals.",
     "equip",
     "The equipped Monster gains 500 DEF. The first time it would be destroyed by battle, destroy this card instead.",
@@ -2675,7 +2676,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   magic(
     "chronicle-tideguard-mantle",
     "Tideguard Mantle",
-    "/chronicle/cards/chronicle-tideguard-mantle.webp",
+    CHRONICLE_PAINTED_ART["chronicle-tideguard-mantle"],
     "Layered water-script cloth hardens at the instant an enemy strike lands.",
     "equip",
     "The equipped Monster gains 700 DEF.",
@@ -2693,7 +2694,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   magic(
     "chronicle-foxfire-feint",
     "Foxfire Feint",
-    "/chronicle/cards/chronicle-foxfire-feint.webp",
+    CHRONICLE_PAINTED_ART["chronicle-foxfire-feint"],
     "A false ember trail conceals the angle of one sudden finishing rush.",
     "normal",
     "One face-up Monster gains 500 ATK until the End Phase.",
@@ -2711,7 +2712,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   magic(
     "chronicle-iron-root-stance",
     "Iron-Root Stance",
-    "/chronicle/cards/chronicle-iron-root-stance.webp",
+    CHRONICLE_PAINTED_ART["chronicle-iron-root-stance"],
     "A shinobi anchors their chakra through the ground and refuses to yield.",
     "normal",
     "One face-up Monster gains 600 DEF until the End Phase.",
@@ -2729,7 +2730,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   magic(
     "chronicle-whirlwind-dismissal",
     "Whirlwind Dismissal",
-    "/chronicle/cards/chronicle-whirlwind-dismissal.webp",
+    CHRONICLE_PAINTED_ART["chronicle-whirlwind-dismissal"],
     "A focused gale strips a junior enemy out of the battle line.",
     "normal",
     "Return one face-up opponent Level 4 or lower Monster to its owner's hand.",
@@ -2747,7 +2748,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   magic(
     "chronicle-kage-exile-command",
     "Kage Exile Command",
-    "/chronicle/cards/chronicle-kage-exile-command.webp",
+    CHRONICLE_PAINTED_ART["chronicle-kage-exile-command"],
     "A Kage's black-sealed writ removes even a veteran from the formation.",
     "normal",
     "Return one opponent Monster to its owner's hand.",
@@ -2764,7 +2765,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   magic(
     "chronicle-grave-lantern-rite",
     "Grave-Lantern Rite",
-    "/chronicle/cards/chronicle-grave-lantern-rite.webp",
+    CHRONICLE_PAINTED_ART["chronicle-grave-lantern-rite"],
     "Blue lanterns guide a lost landscape seal back from the Graveyard.",
     "normal",
     "Return one Field Jutsu Card from your Graveyard to your hand.",
@@ -2781,7 +2782,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   magic(
     "chronicle-ancestral-muster",
     "Ancestral Muster",
-    "/chronicle/cards/chronicle-ancestral-muster.webp",
+    CHRONICLE_PAINTED_ART["chronicle-ancestral-muster"],
     "The village drums call a fallen protector back to the line.",
     "normal",
     "Revive one Level 4 or lower Monster from your Graveyard in Defense Position.",
@@ -2799,7 +2800,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   magic(
     "chronicle-rift-cleaving-script",
     "Rift-Cleaving Script",
-    "/chronicle/cards/chronicle-rift-cleaving-script.webp",
+    CHRONICLE_PAINTED_ART["chronicle-rift-cleaving-script"],
     "A narrow dimensional cut erases one lesser enemy before the line closes.",
     "normal",
     "Destroy one face-up opponent Level 4 or lower Monster.",
@@ -2817,7 +2818,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   magic(
     "chronicle-executioners-mandate",
     "Executioner's Mandate",
-    "/chronicle/cards/chronicle-executioners-mandate.webp",
+    CHRONICLE_PAINTED_ART["chronicle-executioners-mandate"],
     "A crimson decree marks every combatant on the battlefield for immediate removal.",
     "normal",
     "Destroy all Monsters on the field.",
@@ -2838,7 +2839,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   magic(
     "chronicle-shrine-purge",
     "Shrine Purge",
-    "/chronicle/cards/chronicle-shrine-purge.webp",
+    CHRONICLE_PAINTED_ART["chronicle-shrine-purge"],
     "A ring of white flame consumes one hostile script without harming the shrine.",
     "normal",
     "Destroy the active Field Jutsu Card.",
@@ -2855,7 +2856,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   magic(
     "chronicle-storm-shear",
     "Storm Shear",
-    "/chronicle/cards/chronicle-storm-shear.webp",
+    CHRONICLE_PAINTED_ART["chronicle-storm-shear"],
     "A razor cyclone strips every prepared technique from both formations.",
     "normal",
     "Destroy all Jutsu and Snare Cards on the field.",
@@ -2876,7 +2877,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   magic(
     "chronicle-hall-of-mirrors",
     "Hall of Mirrors",
-    "/chronicle/cards/chronicle-hall-of-mirrors.webp",
+    CHRONICLE_PAINTED_ART["chronicle-hall-of-mirrors"],
     "A corridor of reflected movements forces one enemy into the wrong stance.",
     "normal",
     "Change one face-up opponent Monster's battle position.",
@@ -3023,7 +3024,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   trap(
     "chronicle-abyssal-pitfall",
     "Abyssal Pitfall",
-    "/chronicle/cards/chronicle-abyssal-pitfall.webp",
+    CHRONICLE_PAINTED_ART["chronicle-abyssal-pitfall"],
     "A deeper prepared breach can swallow even a one-Tribute combatant.",
     "When a Level 6 or lower Monster is Summoned: destroy it.",
     {
@@ -3088,7 +3089,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   trap(
     "chronicle-chakra-jammer",
     "Chakra Jammer",
-    "/chronicle/cards/chronicle-chakra-jammer.webp",
+    CHRONICLE_PAINTED_ART["chronicle-chakra-jammer"],
     "A disruptive tag scrambles the shaping pattern of an enemy technique.",
     "When an opponent activates a Jutsu Card: discard 1 random card; negate it and send it to the Graveyard.",
     {
@@ -3220,7 +3221,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   trap(
     "chronicle-wall-of-smoke",
     "Wall of Smoke",
-    "/chronicle/cards/chronicle-wall-of-smoke.webp",
+    CHRONICLE_PAINTED_ART["chronicle-wall-of-smoke"],
     "A prepared smoke curtain steals the attacker's line of sight.",
     "When an attack is declared: that attacker loses 500 ATK until the end of the turn.",
     {
@@ -3305,7 +3306,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   trap(
     "chronicle-ringed-detonation",
     "Ringed Detonation",
-    "/chronicle/cards/chronicle-ringed-detonation.webp",
+    CHRONICLE_PAINTED_ART["chronicle-ringed-detonation"],
     "Concentric explosive tags close around the first committed attacker and burn both commanders through the link.",
     "When an attack is declared: destroy that attacker, then both players take damage equal to its ATK.",
     {
@@ -3431,7 +3432,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   trap(
     "chronicle-ashen-veil",
     "Ashen Veil",
-    "/chronicle/cards/chronicle-ashen-veil.webp",
+    CHRONICLE_PAINTED_ART["chronicle-ashen-veil"],
     "A curtain of hot ash blinds the enemy at the instant of commitment.",
     "When an attack is declared: negate that attack.",
     {
@@ -3448,7 +3449,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   trap(
     "chronicle-floodgate-mist",
     "Floodgate Mist",
-    "/chronicle/cards/chronicle-floodgate-mist.webp",
+    CHRONICLE_PAINTED_ART["chronicle-floodgate-mist"],
     "A bank of chakra-thick mist erases the attacker's line of sight.",
     "When your opponent declares their second or later attack this Battle Phase while you control at least 2 Defense Position Monsters: end the Battle Phase.",
     {
@@ -3465,7 +3466,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   trap(
     "chronicle-sand-coffin-counter",
     "Sand-Coffin Counter",
-    "/chronicle/cards/chronicle-sand-coffin-counter.webp",
+    CHRONICLE_PAINTED_ART["chronicle-sand-coffin-counter"],
     "Compressed desert sand closes around an attacker before the strike lands.",
     "When an opponent declares an attack while they control more Monsters than you: destroy their face-up Monster with the lowest ATK.",
     {
@@ -3482,7 +3483,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   trap(
     "chronicle-gale-reversal",
     "Gale Reversal",
-    "/chronicle/cards/chronicle-gale-reversal.webp",
+    CHRONICLE_PAINTED_ART["chronicle-gale-reversal"],
     "A reversed pressure wave hurls the advancing enemy out of formation.",
     "When an attack is declared: return that attacker to its owner's hand.",
     {
@@ -3499,7 +3500,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   trap(
     "chronicle-thunder-cage",
     "Thunder Cage",
-    "/chronicle/cards/chronicle-thunder-cage.webp",
+    CHRONICLE_PAINTED_ART["chronicle-thunder-cage"],
     "Four charged pylons close a lightning prison around the first aggressor.",
     "When an attack is declared: the attacker loses 700 ATK until the End Phase. The attack continues.",
     {
@@ -3517,7 +3518,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   trap(
     "chronicle-moonshadow-slip",
     "Moonshadow Slip",
-    "/chronicle/cards/chronicle-moonshadow-slip.webp",
+    CHRONICLE_PAINTED_ART["chronicle-moonshadow-slip"],
     "A false silhouette lures an attacker through a gate and away from battle.",
     "When your Monster is attacked: redirect the attack to your other Monster with the highest DEF.",
     {
@@ -3534,7 +3535,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   trap(
     "chronicle-ironwood-bulwark",
     "Ironwood Bulwark",
-    "/chronicle/cards/chronicle-ironwood-bulwark.webp",
+    CHRONICLE_PAINTED_ART["chronicle-ironwood-bulwark"],
     "A prepared forest wall erupts between the formation and the incoming blade.",
     "When your face-up Attack Position Monster is attacked: change it to Defense Position, and the attacker loses 300 ATK until the End Phase.",
     {
@@ -3552,7 +3553,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   trap(
     "chronicle-tidal-deflection",
     "Tidal Deflection",
-    "/chronicle/cards/chronicle-tidal-deflection.webp",
+    CHRONICLE_PAINTED_ART["chronicle-tidal-deflection"],
     "A concealed water seal bends the attacking path safely around its target.",
     "When your Monster is attacked: it gains 500 DEF until the end of the turn.",
     {
@@ -3570,7 +3571,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   trap(
     "chronicle-cinder-minefield",
     "Cinder Minefield",
-    "/chronicle/cards/chronicle-cinder-minefield.webp",
+    CHRONICLE_PAINTED_ART["chronicle-cinder-minefield"],
     "A junior attacker crosses a buried seam of ember tags and vanishes in the blast.",
     "When a Level 4 or lower Monster attacks: destroy that attacker.",
     {
@@ -3588,7 +3589,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   trap(
     "chronicle-avalanche-seal",
     "Avalanche Seal",
-    "/chronicle/cards/chronicle-avalanche-seal.webp",
+    CHRONICLE_PAINTED_ART["chronicle-avalanche-seal"],
     "A mountain mark releases a crushing wall of ice above the advancing enemy.",
     "During an attack on your Defense Position Monster: it gains DEF equal to half the attacker's current ATK until the End Phase.",
     {
@@ -3605,7 +3606,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   trap(
     "chronicle-scorpion-wire",
     "Scorpion Wire",
-    "/chronicle/cards/chronicle-scorpion-wire.webp",
+    CHRONICLE_PAINTED_ART["chronicle-scorpion-wire"],
     "Barbed chakra wire catches the attacker and snaps it back across the line.",
     "When your face-up Attack Position Monster is attacked: change it to Defense Position, and the attacker loses 300 ATK until the End Phase.",
     {
@@ -3623,7 +3624,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   trap(
     "chronicle-skyhook-snare",
     "Skyhook Snare",
-    "/chronicle/cards/chronicle-skyhook-snare.webp",
+    CHRONICLE_PAINTED_ART["chronicle-skyhook-snare"],
     "A wind-rigged hook catches the aggressor and carries it beyond the battlefield.",
     "When your Monster is attacked: redirect the attack to your other Monster with the highest DEF.",
     {
@@ -3640,7 +3641,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   trap(
     "chronicle-earthen-grave-array",
     "Earthen Grave Array",
-    "/chronicle/cards/chronicle-earthen-grave-array.webp",
+    CHRONICLE_PAINTED_ART["chronicle-earthen-grave-array"],
     "Stone jaws rise beneath a newly summoned junior combatant.",
     "When a Level 4 or lower Monster is Summoned: it loses 800 ATK and cannot change its battle position until the End Phase.",
     {
@@ -3659,7 +3660,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   trap(
     "chronicle-flash-burial-tag",
     "Flash-Burial Tag",
-    "/chronicle/cards/chronicle-flash-burial-tag.webp",
+    CHRONICLE_PAINTED_ART["chronicle-flash-burial-tag"],
     "A flash seal detonates under a lesser arrival before it finds its stance.",
     "When a Level 4 or lower Monster is Summoned: change it to face-down Defense Position. It cannot be Flip Summoned or change its battle position through its controller's next turn.",
     {
@@ -3677,7 +3678,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   trap(
     "chronicle-great-maw-seal",
     "Great-Maw Seal",
-    "/chronicle/cards/chronicle-great-maw-seal.webp",
+    CHRONICLE_PAINTED_ART["chronicle-great-maw-seal"],
     "A forbidden beast-script opens beneath even a one-Tribute combatant.",
     "When a Level 6 or lower Monster is Summoned: destroy it.",
     {
@@ -3695,7 +3696,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   trap(
     "chronicle-heavenfall-verdict",
     "Heavenfall Verdict",
-    "/chronicle/cards/chronicle-heavenfall-verdict.webp",
+    CHRONICLE_PAINTED_ART["chronicle-heavenfall-verdict"],
     "A pillar of judgment descends on any enemy bold enough to enter the field.",
     "When a Monster is Summoned: destroy it.",
     {
@@ -3712,7 +3713,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   trap(
     "chronicle-undertow-gate",
     "Undertow Gate",
-    "/chronicle/cards/chronicle-undertow-gate.webp",
+    CHRONICLE_PAINTED_ART["chronicle-undertow-gate"],
     "A hidden current drags a newly summoned junior back beyond the formation.",
     "When a Level 4 or lower Monster is Summoned: return it to its owner's hand.",
     {
@@ -3730,7 +3731,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   trap(
     "chronicle-dust-exile",
     "Dust Exile",
-    "/chronicle/cards/chronicle-dust-exile.webp",
+    CHRONICLE_PAINTED_ART["chronicle-dust-exile"],
     "A spiraling desert seal ejects even a one-Tribute arrival from the arena.",
     "When a Level 6 or lower Monster is Summoned: return it to its owner's hand.",
     {
@@ -3748,7 +3749,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   trap(
     "chronicle-vacuum-prison",
     "Vacuum Prison",
-    "/chronicle/cards/chronicle-vacuum-prison.webp",
+    CHRONICLE_PAINTED_ART["chronicle-vacuum-prison"],
     "A sphere of empty air captures any new arrival and removes it from the line.",
     "When a Monster is Summoned: return it to its owner's hand.",
     {
@@ -3765,7 +3766,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   trap(
     "chronicle-ember-cipher",
     "Ember Cipher",
-    "/chronicle/cards/chronicle-ember-cipher.webp",
+    CHRONICLE_PAINTED_ART["chronicle-ember-cipher"],
     "A burning counter-script consumes an enemy technique while it is still being shaped.",
     "When an opponent activates a Normal Jutsu Card: negate it and send it to the Graveyard.",
     {
@@ -3783,7 +3784,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   trap(
     "chronicle-drowned-formula",
     "Drowned Formula",
-    "/chronicle/cards/chronicle-drowned-formula.webp",
+    CHRONICLE_PAINTED_ART["chronicle-drowned-formula"],
     "A waterlogged seal dissolves the pattern of an activated technique.",
     "When an opponent activates an Equip Jutsu Card: negate it and send it to the Graveyard.",
     {
@@ -3801,7 +3802,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   trap(
     "chronicle-grounding-rod-script",
     "Grounding-Rod Script",
-    "/chronicle/cards/chronicle-grounding-rod-script.webp",
+    CHRONICLE_PAINTED_ART["chronicle-grounding-rod-script"],
     "A buried iron seal grounds hostile chakra before the technique resolves.",
     "When an opponent activates a Field Jutsu Card: negate it and send it to the Graveyard.",
     {
@@ -3819,7 +3820,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   trap(
     "chronicle-windless-edict",
     "Windless Edict",
-    "/chronicle/cards/chronicle-windless-edict.webp",
+    CHRONICLE_PAINTED_ART["chronicle-windless-edict"],
     "A still-air decree denies the motion an enemy technique needs to form.",
     "When an opponent activates a Jutsu Card that changes ATK: negate it and send it to the Graveyard.",
     {
@@ -3837,7 +3838,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   trap(
     "chronicle-mirror-moon-rebuttal",
     "Mirror-Moon Rebuttal",
-    "/chronicle/cards/chronicle-mirror-moon-rebuttal.webp",
+    CHRONICLE_PAINTED_ART["chronicle-mirror-moon-rebuttal"],
     "A reflected moon seal turns an enemy technique back into inert ink.",
     "When an opponent activates a Jutsu Card: negate it and send it to the Graveyard.",
     {
@@ -3854,7 +3855,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   trap(
     "chronicle-kage-archive-lock",
     "Kage Archive Lock",
-    "/chronicle/cards/chronicle-kage-archive-lock.webp",
+    CHRONICLE_PAINTED_ART["chronicle-kage-archive-lock"],
     "A classified prohibition closes around one forbidden technique at activation.",
     "When an opponent activates a Jutsu Card that would draw cards: negate it and send it to the Graveyard.",
     {
@@ -3872,7 +3873,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   trap(
     "chronicle-five-seal-denial",
     "Five-Seal Denial",
-    "/chronicle/cards/chronicle-five-seal-denial.webp",
+    CHRONICLE_PAINTED_ART["chronicle-five-seal-denial"],
     "Five village scripts converge to erase an activated technique from the field.",
     "When an opponent activates a Jutsu Card: negate it and send it to the Graveyard.",
     {
@@ -3916,7 +3917,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   magic(
     "chronicle-shadow-clone",
     "Shadow Clone",
-    "/chronicle/cards/chronicle-shadow-clone.webp",
+    CHRONICLE_PAINTED_ART["chronicle-shadow-clone"],
     "One shinobi becomes three, and two of them were only ever meant to be spent.",
     "normal",
     "Summon 2 Shadow Doubles (Level 1, 0 ATK, 0 DEF) in Defense Position. They can be Tributed starting next turn, and they vanish when they leave the field.",
@@ -3933,7 +3934,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   ),
 ];
 
-export const CHRONICLE_SUPPORT_CARDS = Object.freeze(SUPPORT_CARDS.slice());
+export const CHRONICLE_SUPPORT_CARDS = Object.freeze(SUPPORT_CARDS.map(ensureChronicleArt));
 // Unique starter-card ids remain exported for catalog/filter compatibility.
 // The exact quantity-aware grant is CHRONICLE_STARTER_GRANT_IDS below.
 export const CHRONICLE_STARTER_MONSTER_IDS = Object.freeze([
@@ -3980,7 +3981,10 @@ const STORY_MONSTER_CARDS = CHRONICLE_STORY_SOURCES.map(monsterFromStory).map(
 const PET_WITNESS_MONSTER_CARDS = CHRONICLE_PET_WITNESS_SOURCES.map(monsterFromPetWitness).map(
   applyReviewedMonsterEffect,
 );
-function ensureChronicleArt(card: ChronicleCard): ChronicleCard {
+function ensureChronicleArt<T extends ChronicleCard>(card: T): T {
+  if (CHRONICLE_PAINTED_ART[card.id]) {
+    return { ...card, image: CHRONICLE_PAINTED_ART[card.id] };
+  }
   return card.image
     ? card
     : { ...card, image: `/chronicle/cards/${card.id}.webp` };
@@ -4052,12 +4056,12 @@ export const CHRONICLE_EFFECT_MONSTER_IDS = /* @__PURE__ */ Object.freeze(
 // out of CHRONICLE_CARD_CATALOG, which is what packs, storefronts and the card
 // library read. Ownership and Deck checks refuse them explicitly below.
 const CARD_BY_ID = new Map<string, ChronicleCard>(
-  [...CHRONICLE_CARD_CATALOG, SHADOW_DOUBLE_CARD].map((card) => [card.id, card]),
+  [...CHRONICLE_CARD_CATALOG, ensureChronicleArt(SHADOW_DOUBLE_CARD)].map((card) => [card.id, card]),
 );
 
 /** Field-only cards, for clients that resolve board cards by id. */
 export const CHRONICLE_TOKEN_CARDS: readonly ChronicleMonsterCard[] = Object.freeze([
-  SHADOW_DOUBLE_CARD,
+  ensureChronicleArt(SHADOW_DOUBLE_CARD) as ChronicleMonsterCard,
 ]);
 
 /** True for a token id: a card that exists only on the field. */

@@ -26,6 +26,7 @@ import { isImageAvatar } from "../lib/avatar";
 import { ChronicleCardView } from "./ChronicleCardView";
 import { ELEMENT } from "../lib/chronicle-card-art";
 import { figureFlip } from "../lib/chronicle-figure-facing";
+import { chronicleFigureSources } from "../lib/chronicle-figure-art";
 import { prefersLiteCombatFx } from "../lib/device-tier";
 import { ChronicleCardInspector } from "./ChronicleCardInspector";
 import { Modal } from "./ui/Modal";
@@ -135,9 +136,7 @@ function ChronicleFigure({ cardId, elementColor, flip, back }: { cardId: string;
   // The player's own summons prefer the back-view render (they face
   // up-field at the enemy, the stage convention); the front cut-out is
   // the fallback, and a missing figure falls through to the card standee.
-  const sources = back
-    ? [`/chronicle/figures/${cardId}-back.webp`, `/chronicle/figures/${cardId}.webp`]
-    : [`/chronicle/figures/${cardId}.webp`];
+  const sources = chronicleFigureSources(cardId, back);
   const [sourceIndex, setSourceIndex] = useState(0);
   const [loaded, setLoaded] = useState(false);
   if (sourceIndex >= sources.length) return null;
@@ -746,7 +745,7 @@ export function ChronicleDuelBoard({
           // the card image the standee showed).
           const figureGhost =
             was.faceUp && was.position === "attack" && was.cardId?.startsWith("tc-")
-              ? `/chronicle/figures/${was.cardId}${prefix === "me" ? "-back" : ""}.webp`
+              ? chronicleFigureSources(was.cardId, prefix === "me")[0]
               : undefined;
           const returned = newEvents.some(event => event.affectedZones?.some(zone => zone.side === sideKey && zone.row === "monster" && zone.zoneIndex === index && zone.change === "returned"));
           spawnCardGhost(el, figureGhost ?? card?.image, prefix, Boolean(figureGhost), returned ? "returned" : "destroyed");

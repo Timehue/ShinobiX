@@ -1,0 +1,285 @@
+{
+  "artSnapshot": {
+    "tc-01": {
+      "runtimePath": "/chronicle/cards/tc-01-painted-v2.webp",
+      "smallPath": "/chronicle/cards/tc-01-painted-v2-512.webp",
+      "runtimeSha256": "c50e589eee47fb39be53843a985d03afbde4212bd03cf5d5171a44b06aeb9449",
+      "smallSha256": "97a56fbbe16e0cb46330010fb5d0797fd909272b1c9ab0115c84f7e63c539f05"
+    },
+    "tc-02": {
+      "runtimePath": "/chronicle/cards/tc-02-painted-v2.webp",
+      "smallPath": "/chronicle/cards/tc-02-painted-v2-512.webp",
+      "runtimeSha256": "b26948372e947269bf9222c52c14e9d386eb8537fb5cecbd8bf3b9c27593fd45",
+      "smallSha256": "85cf5b7b71144d6765d0db1612529b52d41f1dc65d3fd37ea640b875bcebc785"
+    },
+    "tc-16": {
+      "runtimePath": "/chronicle/cards/tc-16-painted-v2.webp",
+      "smallPath": "/chronicle/cards/tc-16-painted-v2-512.webp",
+      "runtimeSha256": "48f39dade3118cf61e9820f1aa508eac99de272078e760a3eede36c1f7a29630",
+      "smallSha256": "963adc263d6f2117d4a994490660650e1e109866d3fff5135c58787d7007018e"
+    },
+    "tc-23": {
+      "runtimePath": "/chronicle/cards/tc-23-painted-v2.webp",
+      "smallPath": "/chronicle/cards/tc-23-painted-v2-512.webp",
+      "runtimeSha256": "c00041d3237f20e98ec78618b456c9070ba0e6dc489905367c7a82d6696fe642",
+      "smallSha256": "558b1a752510d3b551f55c5ae76dd7abc88f790a4b164dbeccd26e85b9531f7d"
+    },
+    "tc-48": {
+      "runtimePath": "/chronicle/cards/tc-48-painted-v2.webp",
+      "smallPath": "/chronicle/cards/tc-48-painted-v2-512.webp",
+      "runtimeSha256": "e801b8423a111012cced37b65f8cf6bcc58d2627ebe1d080a9a80df1c7e895f4",
+      "smallSha256": "6f7d77a9b986eb71288e6290239411f8d88f63a6bd1ca451caf5e9ead8a421f4"
+    }
+  },
+  "figures": [
+    {
+      "src": "/chronicle/figures/tc-01-painted-v2.webp",
+      "loaded": true,
+      "row": "Opponent Monster Zones",
+      "mirrored": false
+    },
+    {
+      "src": "/chronicle/figures/tc-02-painted-v2.webp",
+      "loaded": true,
+      "row": "Opponent Monster Zones",
+      "mirrored": false
+    },
+    {
+      "src": "/chronicle/figures/tc-16-painted-v2.webp",
+      "loaded": true,
+      "row": "Opponent Monster Zones",
+      "mirrored": false
+    },
+    {
+      "src": "/chronicle/figures/tc-23-painted-v2.webp",
+      "loaded": true,
+      "row": "Opponent Monster Zones",
+      "mirrored": false
+    },
+    {
+      "src": "/chronicle/figures/tc-48-painted-v2.webp",
+      "loaded": true,
+      "row": "Opponent Monster Zones",
+      "mirrored": false
+    },
+    {
+      "src": "/chronicle/figures/tc-01-painted-v2-back.webp",
+      "loaded": true,
+      "row": "Your Monster Zones",
+      "mirrored": false
+    },
+    {
+      "src": "/chronicle/figures/tc-02-painted-v2-back.webp",
+      "loaded": true,
+      "row": "Your Monster Zones",
+      "mirrored": false
+    },
+    {
+      "src": "/chronicle/figures/tc-16-painted-v2-back.webp",
+      "loaded": true,
+      "row": "Your Monster Zones",
+      "mirrored": false
+    },
+    {
+      "src": "/chronicle/figures/tc-23-painted-v2-back.webp",
+      "loaded": true,
+      "row": "Your Monster Zones",
+      "mirrored": false
+    },
+    {
+      "src": "/chronicle/figures/tc-48-painted-v2-back.webp",
+      "loaded": true,
+      "row": "Your Monster Zones",
+      "mirrored": false
+    }
+  ],
+  "images": [
+    {
+      "src": "http://127.0.0.1:60854/chronicle/cards/tc-01-painted-v2-512.webp",
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:60854/chronicle/figures/tc-01-painted-v2.webp",
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:60854/chronicle/cards/tc-02-painted-v2-512.webp",
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:60854/chronicle/figures/tc-02-painted-v2.webp",
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:60854/chronicle/cards/tc-16-painted-v2-512.webp",
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:60854/chronicle/figures/tc-16-painted-v2.webp",
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:60854/chronicle/cards/tc-23-painted-v2-512.webp",
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:60854/chronicle/figures/tc-23-painted-v2.webp",
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:60854/chronicle/cards/tc-48-painted-v2-512.webp",
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:60854/chronicle/figures/tc-48-painted-v2.webp",
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:60854/chronicle/cards/tc-01-painted-v2-512.webp",
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:60854/chronicle/figures/tc-01-painted-v2-back.webp",
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:60854/chronicle/cards/tc-02-painted-v2-512.webp",
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:60854/chronicle/figures/tc-02-painted-v2-back.webp",
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:60854/chronicle/cards/tc-16-painted-v2-512.webp",
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:60854/chronicle/figures/tc-16-painted-v2-back.webp",
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:60854/chronicle/cards/tc-23-painted-v2-512.webp",
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:60854/chronicle/figures/tc-23-painted-v2-back.webp",
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:60854/chronicle/cards/tc-48-painted-v2-512.webp",
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:60854/chronicle/figures/tc-48-painted-v2-back.webp",
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:60854/chronicle/cards/tc-01-painted-v2-512.webp",
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:60854/chronicle/cards/tc-02-painted-v2-512.webp",
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:60854/chronicle/cards/tc-02-painted-v2-512.webp",
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:60854/chronicle/cards/tc-03-painted-v2-512.webp",
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:60854/chronicle/cards/tc-04-painted-v2-512.webp",
+      "loaded": true
+    }
+  ],
+  "desktopFigureClearance": [
+    {
+      "src": "/chronicle/figures/tc-01-painted-v2.webp",
+      "overlap": 0
+    },
+    {
+      "src": "/chronicle/figures/tc-02-painted-v2.webp",
+      "overlap": 0
+    },
+    {
+      "src": "/chronicle/figures/tc-16-painted-v2.webp",
+      "overlap": 0
+    },
+    {
+      "src": "/chronicle/figures/tc-23-painted-v2.webp",
+      "overlap": 0
+    },
+    {
+      "src": "/chronicle/figures/tc-48-painted-v2.webp",
+      "overlap": 0
+    },
+    {
+      "src": "/chronicle/figures/tc-01-painted-v2-back.webp",
+      "overlap": 0
+    },
+    {
+      "src": "/chronicle/figures/tc-02-painted-v2-back.webp",
+      "overlap": 0
+    },
+    {
+      "src": "/chronicle/figures/tc-16-painted-v2-back.webp",
+      "overlap": 0
+    },
+    {
+      "src": "/chronicle/figures/tc-23-painted-v2-back.webp",
+      "overlap": 0
+    },
+    {
+      "src": "/chronicle/figures/tc-48-painted-v2-back.webp",
+      "overlap": 0
+    }
+  ],
+  "mobileFigureClearance": [
+    {
+      "src": "/chronicle/figures/tc-01-painted-v2.webp",
+      "overlap": 0
+    },
+    {
+      "src": "/chronicle/figures/tc-02-painted-v2.webp",
+      "overlap": 0
+    },
+    {
+      "src": "/chronicle/figures/tc-16-painted-v2.webp",
+      "overlap": 0
+    },
+    {
+      "src": "/chronicle/figures/tc-23-painted-v2.webp",
+      "overlap": 0
+    },
+    {
+      "src": "/chronicle/figures/tc-48-painted-v2.webp",
+      "overlap": 0
+    },
+    {
+      "src": "/chronicle/figures/tc-01-painted-v2-back.webp",
+      "overlap": 0
+    },
+    {
+      "src": "/chronicle/figures/tc-02-painted-v2-back.webp",
+      "overlap": 0
+    },
+    {
+      "src": "/chronicle/figures/tc-16-painted-v2-back.webp",
+      "overlap": 0
+    },
+    {
+      "src": "/chronicle/figures/tc-23-painted-v2-back.webp",
+      "overlap": 0
+    },
+    {
+      "src": "/chronicle/figures/tc-48-painted-v2-back.webp",
+      "overlap": 0
+    }
+  ],
+  "mobileOverflow": false,
+  "failures": [],
+  "consoleErrors": []
+}

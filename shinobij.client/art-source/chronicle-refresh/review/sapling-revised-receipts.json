@@ -1,0 +1,18 @@
+[
+  {
+    "id": "tc-51",
+    "runtimeSha256": "ed8d507d2df5054d7ac1345a957620c2e86db126ffc84211155d0c0134da635d",
+    "result": "accepted",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/sapling-revised-desktop.png",
+    "mobileEvidence": "shinobij.client/art-source/chronicle-refresh/review/sapling-revised-mobile-cards.png",
+    "browserReport": "shinobij.client/art-source/chronicle-refresh/review/sapling-revised-browser-report.json",
+    "checks": [
+      "Named creature or character identity matches its individual art brief",
+      "Coherent subject anatomy and consistent painted finish",
+      "Desktop, compact and mobile actual card frames visually inspected",
+      "Capture served exact hash-bound replacement artwork",
+      "Primary identifying features clear of title and rules overlays",
+      "Rarity presentation appropriate"
+    ]
+  }
+]

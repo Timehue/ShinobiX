@@ -1,0 +1,220 @@
+{
+  "artSnapshot": {
+    "story-story-ai-stormveil-village-4": {
+      "runtimePath": "/chronicle/cards/story-story-ai-stormveil-village-4-painted-v2.webp",
+      "smallPath": "/chronicle/cards/story-story-ai-stormveil-village-4-painted-v2-512.webp",
+      "runtimeSha256": "ad4fd4fa3658ea18568cf044365ff786f542627b51df0b8ad08f358d3dbf1e3c",
+      "smallSha256": "24c22593a9424adeda9f04be68b447b43c3960d554b2ad3a65ef45b161f38719"
+    },
+    "story-story-ai-stormveil-village-15": {
+      "runtimePath": "/chronicle/cards/story-story-ai-stormveil-village-15-painted-v2.webp",
+      "smallPath": "/chronicle/cards/story-story-ai-stormveil-village-15-painted-v2-512.webp",
+      "runtimeSha256": "2ccbb976277e1884e4ecde837135a1e89061869f526251b75daa2e5cbf101438",
+      "smallSha256": "6db01f58406e5106d95f1535bcd7d3a63ee613da97d3b4b6d03a79c54c072aae"
+    },
+    "story-story-ai-stormveil-village-25": {
+      "runtimePath": "/chronicle/cards/story-story-ai-stormveil-village-25-painted-v2.webp",
+      "smallPath": "/chronicle/cards/story-story-ai-stormveil-village-25-painted-v2-512.webp",
+      "runtimeSha256": "1bc9cb2aad8f23fbaf35675bcb3a5d67258a2cb84e88d99fb403a248c3982b6a",
+      "smallSha256": "be3d02c2500295fe482851080ca446219bc18c1a113eaa8584613ec70234ed86"
+    },
+    "story-story-ai-stormveil-village-35": {
+      "runtimePath": "/chronicle/cards/story-story-ai-stormveil-village-35-painted-v2.webp",
+      "smallPath": "/chronicle/cards/story-story-ai-stormveil-village-35-painted-v2-512.webp",
+      "runtimeSha256": "37deefd5318de6f78524f960f30d7d4050a289c154b6ae257de3762020967e8f",
+      "smallSha256": "a04f48990e5a45a0f5f9a40f175e4755f402b567cd13ae851f6e67a26951e005"
+    },
+    "story-story-ai-stormveil-village-50": {
+      "runtimePath": "/chronicle/cards/story-story-ai-stormveil-village-50-painted-v2.webp",
+      "smallPath": "/chronicle/cards/story-story-ai-stormveil-village-50-painted-v2-512.webp",
+      "runtimeSha256": "62643af1aa1b409468438af4b5426e6108ca44335c482bfb1813810e21fbec5c",
+      "smallSha256": "2620aef0c99b9bb201735f2a24d01d0513630a209fe04c6f37f952c7480deed6"
+    },
+    "story-story-ai-ashen-leaf-village-4": {
+      "runtimePath": "/chronicle/cards/story-story-ai-ashen-leaf-village-4-painted-v2.webp",
+      "smallPath": "/chronicle/cards/story-story-ai-ashen-leaf-village-4-painted-v2-512.webp",
+      "runtimeSha256": "68c7e82f694ced244ce06456f1e62a2db0a75dc1cce796bb03acfba94cb56f9a",
+      "smallSha256": "7e4debe8d43b2fbd2941f0bbf948ef48a330735ff3cd722572c59e9aba59b4bb"
+    },
+    "story-story-ai-ashen-leaf-village-15": {
+      "runtimePath": "/chronicle/cards/story-story-ai-ashen-leaf-village-15-painted-v2.webp",
+      "smallPath": "/chronicle/cards/story-story-ai-ashen-leaf-village-15-painted-v2-512.webp",
+      "runtimeSha256": "be5615a9419dad6dee313c20eaaff5ae83fc79d2eea2f365be84396aa8413563",
+      "smallSha256": "52d7bb277d2c3adb679867bd719ea3d658ff4b4ba710d079f6c158cbaf94183b"
+    },
+    "story-story-ai-ashen-leaf-village-25": {
+      "runtimePath": "/chronicle/cards/story-story-ai-ashen-leaf-village-25-painted-v2.webp",
+      "smallPath": "/chronicle/cards/story-story-ai-ashen-leaf-village-25-painted-v2-512.webp",
+      "runtimeSha256": "cb0d53e505e9e59464c51eb660a59e6464427e60a43cba9bd33ac89db7945f89",
+      "smallSha256": "43ef65925b8fab201f6378ecb130b2f008b47c6b13446b034d5b0679b8f63c40"
+    },
+    "story-story-ai-ashen-leaf-village-35": {
+      "runtimePath": "/chronicle/cards/story-story-ai-ashen-leaf-village-35-painted-v2.webp",
+      "smallPath": "/chronicle/cards/story-story-ai-ashen-leaf-village-35-painted-v2-512.webp",
+      "runtimeSha256": "817d569a829c82c4c608c8455c3e2b000d6a9760c586ffa6e385c9d6fd3fd4cf",
+      "smallSha256": "755981e030abdd51cc22f0327af74e6b17af5c2738a614cef7f18f701e615817"
+    }
+  },
+  "images": [
+    {
+      "src": "http://127.0.0.1:57993/chronicle/cards/story-story-ai-stormveil-village-4-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:57993/chronicle/cards/story-story-ai-stormveil-village-15-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:57993/chronicle/cards/story-story-ai-stormveil-village-25-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:57993/chronicle/cards/story-story-ai-stormveil-village-35-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:57993/chronicle/cards/story-story-ai-stormveil-village-50-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:57993/chronicle/cards/story-story-ai-ashen-leaf-village-4-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:57993/chronicle/cards/story-story-ai-ashen-leaf-village-15-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:57993/chronicle/cards/story-story-ai-ashen-leaf-village-25-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:57993/chronicle/cards/story-story-ai-ashen-leaf-village-35-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:57993/chronicle/cards/story-story-ai-stormveil-village-4-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:57993/chronicle/cards/story-story-ai-stormveil-village-15-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:57993/chronicle/cards/story-story-ai-stormveil-village-25-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:57993/chronicle/cards/story-story-ai-stormveil-village-35-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:57993/chronicle/cards/story-story-ai-stormveil-village-50-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:57993/chronicle/cards/story-story-ai-ashen-leaf-village-4-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:57993/chronicle/cards/story-story-ai-ashen-leaf-village-15-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:57993/chronicle/cards/story-story-ai-ashen-leaf-village-25-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:57993/chronicle/cards/story-story-ai-ashen-leaf-village-35-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    }
+  ],
+  "cardIds": [
+    "story-story-ai-stormveil-village-4",
+    "story-story-ai-stormveil-village-15",
+    "story-story-ai-stormveil-village-25",
+    "story-story-ai-stormveil-village-35",
+    "story-story-ai-stormveil-village-50",
+    "story-story-ai-ashen-leaf-village-4",
+    "story-story-ai-ashen-leaf-village-15",
+    "story-story-ai-ashen-leaf-village-25",
+    "story-story-ai-ashen-leaf-village-35"
+  ],
+  "renderedCardIds": [
+    "story-story-ai-stormveil-village-4",
+    "story-story-ai-stormveil-village-15",
+    "story-story-ai-stormveil-village-25",
+    "story-story-ai-stormveil-village-35",
+    "story-story-ai-stormveil-village-50",
+    "story-story-ai-ashen-leaf-village-4",
+    "story-story-ai-ashen-leaf-village-15",
+    "story-story-ai-ashen-leaf-village-25",
+    "story-story-ai-ashen-leaf-village-35"
+  ],
+  "inspectorBackdrop": "fixed",
+  "inspectorFoil": {
+    "className": "chronicle-card__foil",
+    "animation": "none",
+    "mask": "none"
+  },
+  "reducedMotionAnimation": "none",
+  "mobileOverflow": false,
+  "mobileCards": [
+    {
+      "name": "STORMVEIL TRAINING SCOUT",
+      "visible": true
+    },
+    {
+      "name": "TEMPEST GUARD CAPTAIN",
+      "visible": true
+    },
+    {
+      "name": "LIGHTNING-SEALED INFORMANT",
+      "visible": true
+    },
+    {
+      "name": "STORM ENGINE WARDEN",
+      "visible": true
+    },
+    {
+      "name": "JONIN RANK TRIAL: TWIN TEMPEST DUELISTS",
+      "visible": true
+    },
+    {
+      "name": "WOODEN ROOT GUARDIAN",
+      "visible": true
+    },
+    {
+      "name": "ROOTBOUND GUARD INITIATE",
+      "visible": true
+    },
+    {
+      "name": "ARCHIVE SPIRIT OF THE ROOT",
+      "visible": true
+    },
+    {
+      "name": "FIRST FLAME SENTINEL",
+      "visible": true
+    }
+  ],
+  "failures": [],
+  "consoleErrors": []
+}

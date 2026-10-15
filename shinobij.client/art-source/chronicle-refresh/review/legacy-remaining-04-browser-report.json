@@ -1,0 +1,212 @@
+{
+  "images": [
+    {
+      "src": "http://127.0.0.1:55569/chronicle/cards/legacy-rumor-chaser-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:55569/chronicle/cards/legacy-strangers-friend-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:55569/chronicle/cards/legacy-shielding-palm-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:55569/chronicle/cards/legacy-field-medic-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:55569/chronicle/cards/legacy-purifying-light-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:55569/chronicle/cards/legacy-pack-leader-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:55569/chronicle/cards/legacy-wild-heart-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:55569/chronicle/cards/legacy-coliseum-tamer-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:55569/chronicle/cards/legacy-card-sharp-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:55569/chronicle/cards/legacy-tables-shadow-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:55569/chronicle/cards/legacy-sector-warden-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:55569/chronicle/cards/legacy-banner-taker-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:55569/chronicle/cards/legacy-rumor-chaser-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:55569/chronicle/cards/legacy-strangers-friend-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:55569/chronicle/cards/legacy-shielding-palm-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:55569/chronicle/cards/legacy-field-medic-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:55569/chronicle/cards/legacy-purifying-light-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:55569/chronicle/cards/legacy-pack-leader-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:55569/chronicle/cards/legacy-wild-heart-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:55569/chronicle/cards/legacy-coliseum-tamer-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:55569/chronicle/cards/legacy-card-sharp-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:55569/chronicle/cards/legacy-tables-shadow-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:55569/chronicle/cards/legacy-sector-warden-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:55569/chronicle/cards/legacy-banner-taker-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    }
+  ],
+  "cardIds": [
+    "legacy-rumor-chaser",
+    "legacy-strangers-friend",
+    "legacy-shielding-palm",
+    "legacy-field-medic",
+    "legacy-purifying-light",
+    "legacy-pack-leader",
+    "legacy-wild-heart",
+    "legacy-coliseum-tamer",
+    "legacy-card-sharp",
+    "legacy-tables-shadow",
+    "legacy-sector-warden",
+    "legacy-banner-taker"
+  ],
+  "renderedCardIds": [
+    "legacy-rumor-chaser",
+    "legacy-strangers-friend",
+    "legacy-shielding-palm",
+    "legacy-field-medic",
+    "legacy-purifying-light",
+    "legacy-pack-leader",
+    "legacy-wild-heart",
+    "legacy-coliseum-tamer",
+    "legacy-card-sharp",
+    "legacy-tables-shadow",
+    "legacy-sector-warden",
+    "legacy-banner-taker"
+  ],
+  "inspectorBackdrop": "fixed",
+  "inspectorFoil": {
+    "className": "chronicle-card__foil",
+    "animation": "none",
+    "mask": "none"
+  },
+  "reducedMotionAnimation": "none",
+  "mobileOverflow": false,
+  "mobileCards": [
+    {
+      "name": "LEGACY OF THE RUMOR CHASER",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE STRANGER'S FRIEND",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE SHIELDING PALM",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE FIELD MEDIC",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE PURIFYING LIGHT",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE PACK LEADER",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE WILD HEART",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE COLOSSEUM TAMER",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE CARD SHARP",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE TABLE'S SHADOW",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE SECTOR WARDEN",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE BANNER TAKER",
+      "visible": true
+    }
+  ],
+  "failures": [],
+  "consoleErrors": []
+}

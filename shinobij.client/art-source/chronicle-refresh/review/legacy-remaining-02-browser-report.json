@@ -1,0 +1,212 @@
+{
+  "images": [
+    {
+      "src": "http://127.0.0.1:50995/chronicle/cards/legacy-warborn-blade-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:50995/chronicle/cards/legacy-crimson-duelist-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:50995/chronicle/cards/legacy-quiet-scabbard-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:50995/chronicle/cards/legacy-hunters-edge-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:50995/chronicle/cards/legacy-proving-grounds-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:50995/chronicle/cards/legacy-ranked-ascendant-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:50995/chronicle/cards/legacy-giant-slayer-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:50995/chronicle/cards/legacy-wall-of-defiance-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:50995/chronicle/cards/legacy-hollow-seeker-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:50995/chronicle/cards/legacy-tower-climber-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:50995/chronicle/cards/legacy-mission-hound-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:50995/chronicle/cards/legacy-beast-tracker-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:50995/chronicle/cards/legacy-warborn-blade-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:50995/chronicle/cards/legacy-crimson-duelist-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:50995/chronicle/cards/legacy-quiet-scabbard-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:50995/chronicle/cards/legacy-hunters-edge-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:50995/chronicle/cards/legacy-proving-grounds-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:50995/chronicle/cards/legacy-ranked-ascendant-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:50995/chronicle/cards/legacy-giant-slayer-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:50995/chronicle/cards/legacy-wall-of-defiance-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:50995/chronicle/cards/legacy-hollow-seeker-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:50995/chronicle/cards/legacy-tower-climber-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:50995/chronicle/cards/legacy-mission-hound-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:50995/chronicle/cards/legacy-beast-tracker-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    }
+  ],
+  "cardIds": [
+    "legacy-warborn-blade",
+    "legacy-crimson-duelist",
+    "legacy-quiet-scabbard",
+    "legacy-hunters-edge",
+    "legacy-proving-grounds",
+    "legacy-ranked-ascendant",
+    "legacy-giant-slayer",
+    "legacy-wall-of-defiance",
+    "legacy-hollow-seeker",
+    "legacy-tower-climber",
+    "legacy-mission-hound",
+    "legacy-beast-tracker"
+  ],
+  "renderedCardIds": [
+    "legacy-warborn-blade",
+    "legacy-crimson-duelist",
+    "legacy-quiet-scabbard",
+    "legacy-hunters-edge",
+    "legacy-proving-grounds",
+    "legacy-ranked-ascendant",
+    "legacy-giant-slayer",
+    "legacy-wall-of-defiance",
+    "legacy-hollow-seeker",
+    "legacy-tower-climber",
+    "legacy-mission-hound",
+    "legacy-beast-tracker"
+  ],
+  "inspectorBackdrop": "fixed",
+  "inspectorFoil": {
+    "className": "chronicle-card__foil",
+    "animation": "none",
+    "mask": "none"
+  },
+  "reducedMotionAnimation": "none",
+  "mobileOverflow": false,
+  "mobileCards": [
+    {
+      "name": "LEGACY OF THE WARBORN BLADE",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE CRIMSON DUELIST",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE QUIET SCABBARD",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE HUNTER'S EDGE",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE PROVING GROUNDS",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE RANKED ASCENDANT",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE GIANT SLAYER",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE WALL OF DEFIANCE",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE HOLLOW SEEKER",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE ENDLESS ASCENT",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE MISSION HOUND",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE BEAST TRACKER",
+      "visible": true
+    }
+  ],
+  "failures": [],
+  "consoleErrors": []
+}

@@ -1,0 +1,220 @@
+{
+  "artSnapshot": {
+    "story-story-ai-ashen-leaf-village-50": {
+      "runtimePath": "/chronicle/cards/story-story-ai-ashen-leaf-village-50-painted-v2.webp",
+      "smallPath": "/chronicle/cards/story-story-ai-ashen-leaf-village-50-painted-v2-512.webp",
+      "runtimeSha256": "18aeb3d8b3b2bb0c6cd116f1ad5331ffcc17d47bff9e40dd45a37927546e6201",
+      "smallSha256": "e7fa2498c94ae7eabbcc187596598bb881902a83b41315079a95fc51a4fc9f03"
+    },
+    "story-story-ai-frostfang-village-15": {
+      "runtimePath": "/chronicle/cards/story-story-ai-frostfang-village-15-painted-v2.webp",
+      "smallPath": "/chronicle/cards/story-story-ai-frostfang-village-15-painted-v2-512.webp",
+      "runtimeSha256": "92958da86b7461a87e7545509e900d48482221598243a0bc51f002d816a9dea3",
+      "smallSha256": "1dfc13222d70c93218f4ec50280d7055c5d4b1b482b256fea462119da49a89c1"
+    },
+    "story-story-ai-frostfang-village-35": {
+      "runtimePath": "/chronicle/cards/story-story-ai-frostfang-village-35-painted-v2.webp",
+      "smallPath": "/chronicle/cards/story-story-ai-frostfang-village-35-painted-v2-512.webp",
+      "runtimeSha256": "21481fe7d8d06ace725b6078615d9dfa3a4f7a053d177839f4e2bef05f4dffff",
+      "smallSha256": "fd29cbdfdce3d16c2b953e7a631f254c2ffc1e7bebacbc75292b88b2a98572f3"
+    },
+    "story-story-ai-frostfang-village-50": {
+      "runtimePath": "/chronicle/cards/story-story-ai-frostfang-village-50-painted-v2.webp",
+      "smallPath": "/chronicle/cards/story-story-ai-frostfang-village-50-painted-v2-512.webp",
+      "runtimeSha256": "6ddd0716eb0797c6cdffb8794078eeaa33042690fd446a532ef9e955e55c9e0d",
+      "smallSha256": "b3ad330d9d94b44584fe95b7d9e3c99391cf7ce487975d0f904db4b0c46b5c7b"
+    },
+    "story-story-ai-moonshadow-village-4": {
+      "runtimePath": "/chronicle/cards/story-story-ai-moonshadow-village-4-painted-v2.webp",
+      "smallPath": "/chronicle/cards/story-story-ai-moonshadow-village-4-painted-v2-512.webp",
+      "runtimeSha256": "5951d6c84fa94cb053b3b4c3ec7ea9bd3acaeaf5fd4c126411b473dd81d66d18",
+      "smallSha256": "0f9e6c2b8dc4f83c8b6b9429d36b01d3a05eba6196d5e3fbe1cf6661fbd40841"
+    },
+    "story-story-ai-moonshadow-village-15": {
+      "runtimePath": "/chronicle/cards/story-story-ai-moonshadow-village-15-painted-v2.webp",
+      "smallPath": "/chronicle/cards/story-story-ai-moonshadow-village-15-painted-v2-512.webp",
+      "runtimeSha256": "2a32a31ab57fdb467bbee6275327df9559e646a917040c7d9a43f5908e902305",
+      "smallSha256": "738958aa7212a915929fcde1d6d3583376b7359fc99db89dbad5e64c1af6e0a1"
+    },
+    "story-story-ai-moonshadow-village-25": {
+      "runtimePath": "/chronicle/cards/story-story-ai-moonshadow-village-25-painted-v2.webp",
+      "smallPath": "/chronicle/cards/story-story-ai-moonshadow-village-25-painted-v2-512.webp",
+      "runtimeSha256": "38a367ea7104e2bd38715662ce67487ef4e12dce2e02784cd2d89a09d1c7dbf0",
+      "smallSha256": "2f219180b98d2062deaf54ed389e8ab86f482bf5f399a6f8be437f6ff8010e20"
+    },
+    "story-story-ai-moonshadow-village-35": {
+      "runtimePath": "/chronicle/cards/story-story-ai-moonshadow-village-35-painted-v2.webp",
+      "smallPath": "/chronicle/cards/story-story-ai-moonshadow-village-35-painted-v2-512.webp",
+      "runtimeSha256": "64f4c7b2ca1a3e54ca21a7651cfa023ae62d56746d2d1c62356016071966d393",
+      "smallSha256": "c8c63f7c5388e55ba805aff7a4aa7ce757a1c89b9863e6d74e5406c548e26876"
+    },
+    "story-story-ai-moonshadow-village-50": {
+      "runtimePath": "/chronicle/cards/story-story-ai-moonshadow-village-50-painted-v2.webp",
+      "smallPath": "/chronicle/cards/story-story-ai-moonshadow-village-50-painted-v2-512.webp",
+      "runtimeSha256": "8dcd1274ba058e7e29957266e1a9ddab3810042cc7c371b5573d1c2606548f1f",
+      "smallSha256": "71c553c8fc2873234dcf71ed787a5a5334f1f96d378871fcd173525f9b04b652"
+    }
+  },
+  "images": [
+    {
+      "src": "http://127.0.0.1:51117/chronicle/cards/story-story-ai-ashen-leaf-village-50-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51117/chronicle/cards/story-story-ai-frostfang-village-15-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51117/chronicle/cards/story-story-ai-frostfang-village-35-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51117/chronicle/cards/story-story-ai-frostfang-village-50-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51117/chronicle/cards/story-story-ai-moonshadow-village-4-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51117/chronicle/cards/story-story-ai-moonshadow-village-15-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51117/chronicle/cards/story-story-ai-moonshadow-village-25-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51117/chronicle/cards/story-story-ai-moonshadow-village-35-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51117/chronicle/cards/story-story-ai-moonshadow-village-50-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51117/chronicle/cards/story-story-ai-ashen-leaf-village-50-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51117/chronicle/cards/story-story-ai-frostfang-village-15-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51117/chronicle/cards/story-story-ai-frostfang-village-35-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51117/chronicle/cards/story-story-ai-frostfang-village-50-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51117/chronicle/cards/story-story-ai-moonshadow-village-4-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51117/chronicle/cards/story-story-ai-moonshadow-village-15-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51117/chronicle/cards/story-story-ai-moonshadow-village-25-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51117/chronicle/cards/story-story-ai-moonshadow-village-35-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:51117/chronicle/cards/story-story-ai-moonshadow-village-50-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    }
+  ],
+  "cardIds": [
+    "story-story-ai-ashen-leaf-village-50",
+    "story-story-ai-frostfang-village-15",
+    "story-story-ai-frostfang-village-35",
+    "story-story-ai-frostfang-village-50",
+    "story-story-ai-moonshadow-village-4",
+    "story-story-ai-moonshadow-village-15",
+    "story-story-ai-moonshadow-village-25",
+    "story-story-ai-moonshadow-village-35",
+    "story-story-ai-moonshadow-village-50"
+  ],
+  "renderedCardIds": [
+    "story-story-ai-ashen-leaf-village-50",
+    "story-story-ai-frostfang-village-15",
+    "story-story-ai-frostfang-village-35",
+    "story-story-ai-frostfang-village-50",
+    "story-story-ai-moonshadow-village-4",
+    "story-story-ai-moonshadow-village-15",
+    "story-story-ai-moonshadow-village-25",
+    "story-story-ai-moonshadow-village-35",
+    "story-story-ai-moonshadow-village-50"
+  ],
+  "inspectorBackdrop": "fixed",
+  "inspectorFoil": {
+    "className": "chronicle-card__foil",
+    "animation": "none",
+    "mask": "none"
+  },
+  "reducedMotionAnimation": "none",
+  "mobileOverflow": false,
+  "mobileCards": [
+    {
+      "name": "JONIN TRIAL: ROOTBOUND MASTER",
+      "visible": true
+    },
+    {
+      "name": "OATHBOUND SOLDIER",
+      "visible": true
+    },
+    {
+      "name": "OATHBOUND ICE CAPTAIN",
+      "visible": true
+    },
+    {
+      "name": "JONIN RANK TRIAL: GLACIER TWINS",
+      "visible": true
+    },
+    {
+      "name": "HIDDEN BLADE TRAINEE",
+      "visible": true
+    },
+    {
+      "name": "VEILED HAND COLLECTOR",
+      "visible": true
+    },
+    {
+      "name": "MASKED AUCTION ENFORCER",
+      "visible": true
+    },
+    {
+      "name": "CONTRACT-BOUND SHADOW",
+      "visible": true
+    },
+    {
+      "name": "JONIN TRIAL: MIRROR ASSASSIN",
+      "visible": true
+    }
+  ],
+  "failures": [],
+  "consoleErrors": []
+}

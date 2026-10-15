@@ -1,0 +1,212 @@
+{
+  "images": [
+    {
+      "src": "http://127.0.0.1:58131/chronicle/cards/legacy-boss-breaker-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58131/chronicle/cards/legacy-dungeon-delver-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58131/chronicle/cards/legacy-ashen-hearth-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58131/chronicle/cards/legacy-embers-discipline-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58131/chronicle/cards/legacy-tidebreaker-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58131/chronicle/cards/legacy-thunder-raider-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58131/chronicle/cards/legacy-northern-fang-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58131/chronicle/cards/legacy-winter-sentinel-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58131/chronicle/cards/legacy-veiled-lantern-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58131/chronicle/cards/legacy-midnight-errand-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58131/chronicle/cards/legacy-hidden-path-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58131/chronicle/cards/legacy-wayfarers-mark-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58131/chronicle/cards/legacy-boss-breaker-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58131/chronicle/cards/legacy-dungeon-delver-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58131/chronicle/cards/legacy-ashen-hearth-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58131/chronicle/cards/legacy-embers-discipline-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58131/chronicle/cards/legacy-tidebreaker-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58131/chronicle/cards/legacy-thunder-raider-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58131/chronicle/cards/legacy-northern-fang-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58131/chronicle/cards/legacy-winter-sentinel-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58131/chronicle/cards/legacy-veiled-lantern-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58131/chronicle/cards/legacy-midnight-errand-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58131/chronicle/cards/legacy-hidden-path-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:58131/chronicle/cards/legacy-wayfarers-mark-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    }
+  ],
+  "cardIds": [
+    "legacy-boss-breaker",
+    "legacy-dungeon-delver",
+    "legacy-ashen-hearth",
+    "legacy-embers-discipline",
+    "legacy-tidebreaker",
+    "legacy-thunder-raider",
+    "legacy-northern-fang",
+    "legacy-winter-sentinel",
+    "legacy-veiled-lantern",
+    "legacy-midnight-errand",
+    "legacy-hidden-path",
+    "legacy-wayfarers-mark"
+  ],
+  "renderedCardIds": [
+    "legacy-boss-breaker",
+    "legacy-dungeon-delver",
+    "legacy-ashen-hearth",
+    "legacy-embers-discipline",
+    "legacy-tidebreaker",
+    "legacy-thunder-raider",
+    "legacy-northern-fang",
+    "legacy-winter-sentinel",
+    "legacy-veiled-lantern",
+    "legacy-midnight-errand",
+    "legacy-hidden-path",
+    "legacy-wayfarers-mark"
+  ],
+  "inspectorBackdrop": "fixed",
+  "inspectorFoil": {
+    "className": "chronicle-card__foil",
+    "animation": "none",
+    "mask": "none"
+  },
+  "reducedMotionAnimation": "none",
+  "mobileOverflow": false,
+  "mobileCards": [
+    {
+      "name": "LEGACY OF THE BOSS BREAKER",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE DUNGEON DELVER",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE ASHEN HEARTH",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE EMBER'S DISCIPLINE",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE TIDEBREAKER",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE THUNDER RAIDER",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE NORTHERN FANG",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE WINTER SENTINEL",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE VEILED LANTERN",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE MIDNIGHT ERRAND",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE HIDDEN PATH",
+      "visible": true
+    },
+    {
+      "name": "LEGACY OF THE WAYFARER'S MARK",
+      "visible": true
+    }
+  ],
+  "failures": [],
+  "consoleErrors": []
+}
