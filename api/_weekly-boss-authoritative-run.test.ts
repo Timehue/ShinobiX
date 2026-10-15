@@ -46,3 +46,10 @@ describe('authoritative Weekly Boss run validation', () => {
         assert.equal(reasonOf(validateAuthoritativeWeeklyBossRun({ run, session: { ...session, enemy: null } as unknown as SoloPveSession, playerName: 'player', boss })), 'missing-boss');
     });
 });
+
+it('banks server-sealed unlimited damage beyond initial HP and preserves pre-cutover progress', () => {
+    const infinite: SoloPveSession = { ...session, enemy: { ...session.enemy, hp: 100, unlimitedHealth: true, damageReceived: 900_000_000 } };
+    assert.deepEqual(validateAuthoritativeWeeklyBossRun({ run, session: infinite, playerName: 'player', boss }), { ok: true, damage: 900_000_000 });
+    infinite.enemy.finiteHpAtScoreAttackCutover = run.initialBossHp - 1234;
+    assert.deepEqual(validateAuthoritativeWeeklyBossRun({ run, session: infinite, playerName: 'player', boss }), { ok: true, damage: 900_001_234 });
+});

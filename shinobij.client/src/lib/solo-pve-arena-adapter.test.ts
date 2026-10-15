@@ -256,3 +256,13 @@ test("the shared PvE Flee control submits the server-owned probabilistic action"
         globalThis.fetch = originalFetch;
     }
 });
+
+test('unlimited weekly health reaches the Arena actor without losing its score', () => {
+    const source = session();
+    source.encounter.kind = 'weekly-boss';
+    source.enemy.unlimitedHealth = true;
+    source.enemy.damageReceived = 9000000;
+    const enemy = soloPveSessionForArena(source).actors.find(a => a.id === 'enemy')!;
+    assert.equal(enemy.unlimitedHealth, true);
+    assert.equal(enemy.damageReceived, 9000000);
+});

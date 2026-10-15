@@ -29,6 +29,8 @@ function fighterActor(id: "player" | "enemy", session: SoloPveSession): ServerAr
         ownerSlug: isPlayer ? session.ownerSlug : null,
         ai: !isPlayer,
         hp: fighter.hp,
+        unlimitedHealth: fighter.unlimitedHealth,
+        damageReceived: fighter.damageReceived,
         maxHp: fighter.maxHp,
         chakra: fighter.chakra,
         maxChakra: fighter.maxChakra,

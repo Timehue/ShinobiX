@@ -27,6 +27,8 @@ export type CombatHitEvent = {
 /** A fighter's presentation-relevant vitals, before or after one event. */
 export type CombatVitalsSnapshot = {
     hp: number;
+    unlimitedHealth?: boolean;
+    damageReceived?: number;
     maxHp?: number;
     shield?: number;
     statuses?: ReadonlyArray<{ name: string }>;
@@ -51,7 +53,9 @@ export function diffCombatVitals(
 ): CombatHitEvent[] {
     if (!before || !after) return [];
     const out: CombatHitEvent[] = [];
-    const hpDelta = Math.round(Number(after.hp) - Number(before.hp));
+    const hpDelta = after.unlimitedHealth
+        ? -Math.max(0, Math.round((after.damageReceived ?? 0) - (before.damageReceived ?? 0)))
+        : Math.round(Number(after.hp) - Number(before.hp));
     if (Number.isFinite(hpDelta) && hpDelta < 0) out.push({ target, amount: -hpDelta, kind: "damage" });
     else if (Number.isFinite(hpDelta) && hpDelta > 0) out.push({ target, amount: hpDelta, kind: "heal", label: `+${hpDelta}` });
     const shieldDelta = Math.round(Number(after.shield ?? 0) - Number(before.shield ?? 0));
