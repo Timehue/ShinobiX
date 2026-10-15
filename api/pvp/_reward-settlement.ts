@@ -118,6 +118,29 @@ function durableReceiptsOf(character: Record<string, unknown>): DurablePvpReward
     return out;
 }
 
+/**
+ * For the admin save path (`?signal=1`), which writes the posted body over
+ * the stored save without the player-save sanitizer. The generic merge now
+ * takes this map verbatim (REPLACE_SUBTREE_KEYS), so a body carrying an older
+ * copy would drop entries settled since it was read, and a dropped entry is a
+ * battle that can be paid again. Keep every stored entry, with the posted
+ * ones on top, exactly as the key-union merge did before. The next PvP
+ * settlement prunes expired entries as usual.
+ */
+export function keepStoredPvpRewardReceipts(
+    merged: Record<string, unknown>,
+    stored: Record<string, unknown> | null | undefined,
+): Record<string, unknown> {
+    const storedMap = stored?.[PVP_REWARD_RECEIPTS_FIELD];
+    if (!storedMap || typeof storedMap !== 'object' || Array.isArray(storedMap)) return merged;
+    const posted = merged[PVP_REWARD_RECEIPTS_FIELD];
+    if (posted !== undefined && (!posted || typeof posted !== 'object' || Array.isArray(posted))) return merged;
+    return {
+        ...merged,
+        [PVP_REWARD_RECEIPTS_FIELD]: { ...(storedMap as Record<string, unknown>), ...((posted as Record<string, unknown> | undefined) ?? {}) },
+    };
+}
+
 export type PvpCreditDecision = {
     fresh: boolean;
     needsBackfill: boolean;
