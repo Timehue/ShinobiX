@@ -1,0 +1,4728 @@
+{
+  "id": "starter-water-r",
+  "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
+  "metrics": {
+    "source": {
+      "sha256": "7bcf0566cd90cf265dc9d6ee104c7b0dc4107bd32d063d17b64e467c52192244",
+      "skull": {
+        "id": "starter-water-r",
+        "name": "Tidal Selkie",
+        "sha256": "7bcf0566cd90cf265dc9d6ee104c7b0dc4107bd32d063d17b64e467c52192244",
+        "region": {
+          "y": [
+            0.08,
+            0.18
+          ],
+          "z": [
+            0.35,
+            0.55
+          ],
+          "cameraPadding": 1.4,
+          "status": "repair",
+          "finding": "Selkie lower muzzle and cheeks flatten during turned death; preserve foreflippers."
+        },
+        "vertices": 1286,
+        "edges": 3105,
+        "clips": [
+          {
+            "clip": "idle",
+            "poses": 59,
+            "maxDrift": 7.359876947005097e-16,
+            "minRatio": 0.9999999999999284,
+            "maxRatio": 1.0000000000000728,
+            "worldMinRatio": 0.9999999999999565,
+            "worldMaxRatio": 1.000000000086576,
+            "maximumVertex": 5472,
+            "maximumTime": 0.8142790683480197,
+            "maximumBindPoint": [
+              0.11816778143444778,
+              0.5786920275043674,
+              0.6382639970481141
+            ]
+          },
+          {
+            "clip": "idle_2",
+            "poses": 44,
+            "maxDrift": 8.093335869305418e-16,
+            "minRatio": 0.9999999999999236,
+            "maxRatio": 1.0000000000001001,
+            "worldMinRatio": 0.9999999999999554,
+            "worldMaxRatio": 1.0000000002237088,
+            "maximumVertex": 5472,
+            "maximumTime": 1.0519293967415304,
+            "maximumBindPoint": [
+              0.11816778143444778,
+              0.5786920275043674,
+              0.6382639970481141
+            ]
+          },
+          {
+            "clip": "walk",
+            "poses": 55,
+            "maxDrift": 7.378242233067652e-16,
+            "minRatio": 0.9999999999999223,
+            "maxRatio": 1.0000000000000826,
+            "worldMinRatio": 0.9999999996909165,
+            "worldMaxRatio": 1.0000000000000548,
+            "maximumVertex": 4688,
+            "maximumTime": 0.5731250047683716,
+            "maximumBindPoint": [
+              0.11609252211739043,
+              0.26004824678893274,
+              0.8746299667127537
+            ]
+          },
+          {
+            "clip": "gallop",
+            "poses": 49,
+            "maxDrift": 7.503286823208864e-16,
+            "minRatio": 0.9999999999999325,
+            "maxRatio": 1.0000000000000884,
+            "worldMinRatio": 0.9999999999995071,
+            "worldMaxRatio": 1.000000000000073,
+            "maximumVertex": 4179,
+            "maximumTime": 0.14588437229394913,
+            "maximumBindPoint": [
+              -0.23120822829603074,
+              0.28055669044100345,
+              0.7410503940215895
+            ]
+          },
+          {
+            "clip": "gallop_jump",
+            "poses": 25,
+            "maxDrift": 7.681537014100781e-16,
+            "minRatio": 0.9999999999999192,
+            "maxRatio": 1.0000000000000906,
+            "worldMinRatio": 0.9999999999999509,
+            "worldMaxRatio": 1.0000000000109923,
+            "maximumVertex": 5016,
+            "maximumTime": 0.2500999867916107,
+            "maximumBindPoint": [
+              0.15100570827494347,
+              0.32779934313912057,
+              0.8129825486274037
+            ]
+          },
+          {
+            "clip": "attack",
+            "poses": 40,
+            "maxDrift": 9.085938658369165e-16,
+            "minRatio": 0.9999999999999004,
+            "maxRatio": 1.0000000000001013,
+            "worldMinRatio": 0.9999999999999494,
+            "worldMaxRatio": 1.0000000001414218,
+            "maximumVertex": 4967,
+            "maximumTime": 0.40080767411452073,
+            "maximumBindPoint": [
+              -0.09765918753951658,
+              0.2703024654282698,
+              0.9074678961242684
+            ]
+          },
+          {
+            "clip": "idle_hitreact1",
+            "poses": 23,
+            "maxDrift": 6.286317452678019e-16,
+            "minRatio": 0.9999999999999329,
+            "maxRatio": 1.0000000000000642,
+            "worldMinRatio": 0.9999999999999603,
+            "worldMaxRatio": 1.0000000000584115,
+            "maximumVertex": 5460,
+            "maximumTime": 0.5835999846458435,
+            "maximumBindPoint": [
+              0.09143355846765015,
+              0.4799036009480671,
+              0.8417920263662998
+            ]
+          },
+          {
+            "clip": "death",
+            "poses": 45,
+            "maxDrift": 8.863515223986921e-16,
+            "minRatio": 0.9999999999999263,
+            "maxRatio": 1.000000000000098,
+            "worldMinRatio": 0.9999999611469295,
+            "worldMaxRatio": 1.0000000015706225,
+            "maximumVertex": 4121,
+            "maximumTime": 0.7280727299776945,
+            "maximumBindPoint": [
+              -0.09558392822245923,
+              0.18189033786615338,
+              0.9465316087554642
+            ]
+          },
+          {
+            "clip": "entrance",
+            "poses": 32,
+            "maxDrift": 7.396561919202001e-16,
+            "minRatio": 0.9999999999999223,
+            "maxRatio": 1.0000000000000642,
+            "worldMinRatio": 0.9999999999999466,
+            "worldMaxRatio": 1.0000000000109923,
+            "maximumVertex": 4141,
+            "maximumTime": 0.27095000445842743,
+            "maximumBindPoint": [
+              0.09558407710176486,
+              0.18189033786615338,
+              0.9465316087554642
+            ]
+          },
+          {
+            "clip": "cast",
+            "poses": 42,
+            "maxDrift": 7.40342011438811e-16,
+            "minRatio": 0.999999999999906,
+            "maxRatio": 1.0000000000000826,
+            "worldMinRatio": 0.9999999999999437,
+            "worldMaxRatio": 1.0000000000871447,
+            "maximumVertex": 5961,
+            "maximumTime": 0.1251000016927719,
+            "maximumBindPoint": [
+              -0.11816763255514215,
+              0.5786920275043674,
+              0.6382639970481141
+            ]
+          },
+          {
+            "clip": "guard",
+            "poses": 37,
+            "maxDrift": 6.783975246173225e-16,
+            "minRatio": 0.9999999999999275,
+            "maxRatio": 1.000000000000083,
+            "worldMinRatio": 0.9999999997209574,
+            "worldMaxRatio": 1.000000000000045,
+            "maximumVertex": 5628,
+            "maximumTime": 0.04024482595509496,
+            "maximumBindPoint": [
+              0.04004037185111227,
+              0.5334025521467951,
+              0.796502536863199
+            ]
+          },
+          {
+            "clip": "rest",
+            "poses": 63,
+            "maxDrift": 7.396025854878523e-16,
+            "minRatio": 0.9999999999999132,
+            "maxRatio": 1.000000000000075,
+            "worldMinRatio": 0.9999999999841456,
+            "worldMaxRatio": 1.000000000009679,
+            "maximumVertex": 6008,
+            "maximumTime": 0.288682980740324,
+            "maximumBindPoint": [
+              0.0009766670594445073,
+              0.48612937705938386,
+              0.8458204710022706
+            ]
+          },
+          {
+            "clip": "victory",
+            "poses": 55,
+            "maxDrift": 6.59109238669525e-16,
+            "minRatio": 0.9999999999999275,
+            "maxRatio": 1.0000000000000826,
+            "worldMinRatio": 0.9999999986832651,
+            "worldMaxRatio": 1.000000000000068,
+            "maximumVertex": 6396,
+            "maximumTime": 0.5355697648469792,
+            "maximumBindPoint": [
+              0.09973459573587956,
+              0.4717246402042357,
+              0.8355662482239694
+            ]
+          }
+        ],
+        "blendDrift": 7.592935007305809e-16,
+        "blendPoses": 468,
+        "blendWorldMinRatio": 0.9999999999999465,
+        "blendWorldMaxRatio": 1.0000000000000697,
+        "failed": false
+      },
+      "geometry": {
+        "id": "starter-water-r",
+        "name": "Tidal Selkie",
+        "assetId": "starter-water-r",
+        "runtimeUrl": "/pet-models/starter-water-r.glb?v=20261012-connected-weight-v2-20261013-studio-v1-20261013-articulation-v1-20261014-contact-performance-v1",
+        "source": "identity",
+        "rig": "biped",
+        "family": "amphibious",
+        "sampledVertices": 6411,
+        "sampledEdges": 17715,
+        "geometryCoverage": "all vertices, triangle edges above numerical degeneracy tolerance, and connected UV seam copies",
+        "assetSha256": "7bcf0566cd90cf265dc9d6ee104c7b0dc4107bd32d063d17b64e467c52192244",
+        "clips": [
+          {
+            "name": "idle",
+            "duration": 1.7507,
+            "samples": [
+              {
+                "edgeStretchP99": 1.2109,
+                "maximumEdgeStretch": 2.19586,
+                "severeEdges": 0,
+                "progress": 0,
+                "rmsDisplacement": 0.01208,
+                "maxDisplacement": 0.02935,
+                "sizeRatio": 0.99864,
+                "centerShift": 0.0016
+              },
+              {
+                "edgeStretchP99": 1.18399,
+                "maximumEdgeStretch": 2.34896,
+                "severeEdges": 0,
+                "progress": 0.0625,
+                "rmsDisplacement": 0.00971,
+                "maxDisplacement": 0.02683,
+                "sizeRatio": 0.99856,
+                "centerShift": 0.00208
+              },
+              {
+                "edgeStretchP99": 1.17698,
+                "maximumEdgeStretch": 2.53214,
+                "severeEdges": 0,
+                "progress": 0.125,
+                "rmsDisplacement": 0.00704,
+                "maxDisplacement": 0.03132,
+                "sizeRatio": 0.99833,
+                "centerShift": 0.00346
+              },
+              {
+                "edgeStretchP99": 1.1972,
+                "maximumEdgeStretch": 2.70199,
+                "severeEdges": 0,
+                "progress": 0.1875,
+                "rmsDisplacement": 0.00825,
+                "maxDisplacement": 0.03572,
+                "sizeRatio": 0.99771,
+                "centerShift": 0.00507
+              },
+              {
+                "edgeStretchP99": 1.22301,
+                "maximumEdgeStretch": 2.79817,
+                "severeEdges": 0,
+                "progress": 0.25,
+                "rmsDisplacement": 0.01183,
+                "maxDisplacement": 0.03828,
+                "sizeRatio": 0.99696,
+                "centerShift": 0.00621
+              },
+              {
+                "edgeStretchP99": 1.23913,
+                "maximumEdgeStretch": 2.70049,
+                "severeEdges": 0,
+                "progress": 0.3125,
+                "rmsDisplacement": 0.01323,
+                "maxDisplacement": 0.03572,
+                "sizeRatio": 0.99718,
+                "centerShift": 0.00569
+              },
+              {
+                "edgeStretchP99": 1.25534,
+                "maximumEdgeStretch": 2.52919,
+                "severeEdges": 0,
+                "progress": 0.375,
+                "rmsDisplacement": 0.01383,
+                "maxDisplacement": 0.03275,
+                "sizeRatio": 0.99787,
+                "centerShift": 0.00467
+              },
+              {
+                "edgeStretchP99": 1.26466,
+                "maximumEdgeStretch": 2.34671,
+                "severeEdges": 0,
+                "progress": 0.4375,
+                "rmsDisplacement": 0.01433,
+                "maxDisplacement": 0.03533,
+                "sizeRatio": 0.99867,
+                "centerShift": 0.00369
+              },
+              {
+                "edgeStretchP99": 1.2751,
+                "maximumEdgeStretch": 2.19434,
+                "severeEdges": 0,
+                "progress": 0.5,
+                "rmsDisplacement": 0.01438,
+                "maxDisplacement": 0.03592,
+                "sizeRatio": 0.99922,
+                "centerShift": 0.00308
+              },
+              {
+                "edgeStretchP99": 1.21931,
+                "maximumEdgeStretch": 2.14436,
+                "severeEdges": 0,
+                "progress": 0.5625,
+                "rmsDisplacement": 0.01151,
+                "maxDisplacement": 0.02732,
+                "sizeRatio": 0.99923,
+                "centerShift": 0.00307
+              },
+              {
+                "edgeStretchP99": 1.16121,
+                "maximumEdgeStretch": 2.13476,
+                "severeEdges": 0,
+                "progress": 0.625,
+                "rmsDisplacement": 0.00748,
+                "maxDisplacement": 0.02362,
+                "sizeRatio": 0.99896,
+                "centerShift": 0.00332
+              },
+              {
+                "edgeStretchP99": 1.1664,
+                "maximumEdgeStretch": 2.13742,
+                "severeEdges": 0,
+                "progress": 0.6875,
+                "rmsDisplacement": 0.00635,
+                "maxDisplacement": 0.02438,
+                "sizeRatio": 0.99842,
+                "centerShift": 0.00389
+              },
+              {
+                "edgeStretchP99": 1.17485,
+                "maximumEdgeStretch": 2.14413,
+                "severeEdges": 0,
+                "progress": 0.75,
+                "rmsDisplacement": 0.00911,
+                "maxDisplacement": 0.02492,
+                "sizeRatio": 0.99783,
+                "centerShift": 0.00439
+              },
+              {
+                "edgeStretchP99": 1.18455,
+                "maximumEdgeStretch": 2.13765,
+                "severeEdges": 0,
+                "progress": 0.8125,
+                "rmsDisplacement": 0.01049,
+                "maxDisplacement": 0.02438,
+                "sizeRatio": 0.9979,
+                "centerShift": 0.00387
+              },
+              {
+                "edgeStretchP99": 1.18973,
+                "maximumEdgeStretch": 2.13452,
+                "severeEdges": 0,
+                "progress": 0.875,
+                "rmsDisplacement": 0.0112,
+                "maxDisplacement": 0.02679,
+                "sizeRatio": 0.99815,
+                "centerShift": 0.00293
+              },
+              {
+                "edgeStretchP99": 1.20617,
+                "maximumEdgeStretch": 2.14508,
+                "severeEdges": 0,
+                "progress": 0.9375,
+                "rmsDisplacement": 0.01181,
+                "maxDisplacement": 0.0288,
+                "sizeRatio": 0.99845,
+                "centerShift": 0.00207
+              },
+              {
+                "edgeStretchP99": 1.2109,
+                "maximumEdgeStretch": 2.19586,
+                "severeEdges": 0,
+                "progress": 1,
+                "rmsDisplacement": 0.01208,
+                "maxDisplacement": 0.02935,
+                "sizeRatio": 0.99864,
+                "centerShift": 0.0016
+              }
+            ]
+          },
+          {
+            "name": "idle_2",
+            "duration": 1.3756,
+            "samples": [
+              {
+                "edgeStretchP99": 1.23337,
+                "maximumEdgeStretch": 1.95588,
+                "severeEdges": 0,
+                "progress": 0,
+                "rmsDisplacement": 0.01353,
+                "maxDisplacement": 0.03379,
+                "sizeRatio": 0.99922,
+                "centerShift": 0.00063
+              },
+              {
+                "edgeStretchP99": 1.40483,
+                "maximumEdgeStretch": 2.52934,
+                "severeEdges": 0,
+                "progress": 0.0682,
+                "rmsDisplacement": 0.0268,
+                "maxDisplacement": 0.05733,
+                "sizeRatio": 0.99918,
+                "centerShift": 0.01079
+              },
+              {
+                "edgeStretchP99": 1.61073,
+                "maximumEdgeStretch": 3.10621,
+                "severeEdges": 0,
+                "progress": 0.1364,
+                "rmsDisplacement": 0.04528,
+                "maxDisplacement": 0.08814,
+                "sizeRatio": 1.00967,
+                "centerShift": 0.01579
+              },
+              {
+                "edgeStretchP99": 1.13826,
+                "maximumEdgeStretch": 1.99001,
+                "severeEdges": 0,
+                "progress": 0.2273,
+                "rmsDisplacement": 0.0071,
+                "maxDisplacement": 0.0225,
+                "sizeRatio": 0.99718,
+                "centerShift": 0.0033
+              },
+              {
+                "edgeStretchP99": 1.35291,
+                "maximumEdgeStretch": 3.28359,
+                "severeEdges": 0,
+                "progress": 0.3182,
+                "rmsDisplacement": 0.0471,
+                "maxDisplacement": 0.09399,
+                "sizeRatio": 1.00269,
+                "centerShift": 0.02837
+              },
+              {
+                "edgeStretchP99": 1.48336,
+                "maximumEdgeStretch": 3.70282,
+                "severeEdges": 0,
+                "progress": 0.4243,
+                "rmsDisplacement": 0.0385,
+                "maxDisplacement": 0.08611,
+                "sizeRatio": 1.00141,
+                "centerShift": 0.015
+              },
+              {
+                "edgeStretchP99": 1.58309,
+                "maximumEdgeStretch": 3.89688,
+                "severeEdges": 0,
+                "progress": 0.5303,
+                "rmsDisplacement": 0.03123,
+                "maxDisplacement": 0.07838,
+                "sizeRatio": 0.99624,
+                "centerShift": 0.00411
+              },
+              {
+                "edgeStretchP99": 1.22129,
+                "maximumEdgeStretch": 1.95332,
+                "severeEdges": 0,
+                "progress": 0.6439,
+                "rmsDisplacement": 0.01311,
+                "maxDisplacement": 0.03194,
+                "sizeRatio": 0.99762,
+                "centerShift": 0.00197
+              },
+              {
+                "edgeStretchP99": 1.15367,
+                "maximumEdgeStretch": 1.7345,
+                "severeEdges": 0,
+                "progress": 0.7576,
+                "rmsDisplacement": 0.01118,
+                "maxDisplacement": 0.02282,
+                "sizeRatio": 0.99879,
+                "centerShift": 0.00118
+              },
+              {
+                "edgeStretchP99": 1.21192,
+                "maximumEdgeStretch": 1.83952,
+                "severeEdges": 0,
+                "progress": 0.8788,
+                "rmsDisplacement": 0.01251,
+                "maxDisplacement": 0.03036,
+                "sizeRatio": 0.99815,
+                "centerShift": 0.00085
+              },
+              {
+                "edgeStretchP99": 1.23337,
+                "maximumEdgeStretch": 1.95588,
+                "severeEdges": 0,
+                "progress": 1,
+                "rmsDisplacement": 0.01353,
+                "maxDisplacement": 0.03379,
+                "sizeRatio": 0.99922,
+                "centerShift": 0.00063
+              }
+            ]
+          },
+          {
+            "name": "walk",
+            "duration": 0.917,
+            "samples": [
+              {
+                "edgeStretchP99": 1.8519,
+                "maximumEdgeStretch": 4.53773,
+                "severeEdges": 0,
+                "progress": 0,
+                "rmsDisplacement": 0.05147,
+                "maxDisplacement": 0.15567,
+                "sizeRatio": 1.06013,
+                "centerShift": 0.06282
+              },
+              {
+                "edgeStretchP99": 1.81041,
+                "maximumEdgeStretch": 4.42136,
+                "severeEdges": 0,
+                "progress": 0.0313,
+                "rmsDisplacement": 0.04962,
+                "maxDisplacement": 0.15023,
+                "sizeRatio": 1.05844,
+                "centerShift": 0.06012
+              },
+              {
+                "edgeStretchP99": 1.74109,
+                "maximumEdgeStretch": 4.17553,
+                "severeEdges": 0,
+                "progress": 0.0625,
+                "rmsDisplacement": 0.04576,
+                "maxDisplacement": 0.13842,
+                "sizeRatio": 1.05456,
+                "centerShift": 0.05426
+              },
+              {
+                "edgeStretchP99": 1.62513,
+                "maximumEdgeStretch": 3.78695,
+                "severeEdges": 0,
+                "progress": 0.0938,
+                "rmsDisplacement": 0.03996,
+                "maxDisplacement": 0.11991,
+                "sizeRatio": 1.04794,
+                "centerShift": 0.0451
+              },
+              {
+                "edgeStretchP99": 1.49367,
+                "maximumEdgeStretch": 3.27514,
+                "severeEdges": 0,
+                "progress": 0.125,
+                "rmsDisplacement": 0.03301,
+                "maxDisplacement": 0.09594,
+                "sizeRatio": 1.03962,
+                "centerShift": 0.03316
+              },
+              {
+                "edgeStretchP99": 1.35942,
+                "maximumEdgeStretch": 2.71732,
+                "severeEdges": 0,
+                "progress": 0.1562,
+                "rmsDisplacement": 0.02662,
+                "maxDisplacement": 0.07028,
+                "sizeRatio": 1.03061,
+                "centerShift": 0.02038
+              },
+              {
+                "edgeStretchP99": 1.23944,
+                "maximumEdgeStretch": 2.14192,
+                "severeEdges": 0,
+                "progress": 0.1875,
+                "rmsDisplacement": 0.02189,
+                "maxDisplacement": 0.05029,
+                "sizeRatio": 1.0211,
+                "centerShift": 0.00981
+              },
+              {
+                "edgeStretchP99": 1.13874,
+                "maximumEdgeStretch": 1.71783,
+                "severeEdges": 0,
+                "progress": 0.2187,
+                "rmsDisplacement": 0.01985,
+                "maxDisplacement": 0.03368,
+                "sizeRatio": 1.01266,
+                "centerShift": 0.01049
+              },
+              {
+                "edgeStretchP99": 1.09488,
+                "maximumEdgeStretch": 1.71367,
+                "severeEdges": 0,
+                "progress": 0.25,
+                "rmsDisplacement": 0.01996,
+                "maxDisplacement": 0.02726,
+                "sizeRatio": 1.00472,
+                "centerShift": 0.01858
+              },
+              {
+                "edgeStretchP99": 1.13721,
+                "maximumEdgeStretch": 1.73368,
+                "severeEdges": 0,
+                "progress": 0.2813,
+                "rmsDisplacement": 0.02141,
+                "maxDisplacement": 0.03282,
+                "sizeRatio": 1.00456,
+                "centerShift": 0.02143
+              },
+              {
+                "edgeStretchP99": 1.21034,
+                "maximumEdgeStretch": 2.01461,
+                "severeEdges": 0,
+                "progress": 0.3125,
+                "rmsDisplacement": 0.02505,
+                "maxDisplacement": 0.04286,
+                "sizeRatio": 1.01061,
+                "centerShift": 0.02363
+              },
+              {
+                "edgeStretchP99": 1.30513,
+                "maximumEdgeStretch": 2.45572,
+                "severeEdges": 0,
+                "progress": 0.3437,
+                "rmsDisplacement": 0.03122,
+                "maxDisplacement": 0.06457,
+                "sizeRatio": 1.01738,
+                "centerShift": 0.03126
+              },
+              {
+                "edgeStretchP99": 1.42149,
+                "maximumEdgeStretch": 3.15426,
+                "severeEdges": 0,
+                "progress": 0.375,
+                "rmsDisplacement": 0.03869,
+                "maxDisplacement": 0.08569,
+                "sizeRatio": 1.02829,
+                "centerShift": 0.03968
+              },
+              {
+                "edgeStretchP99": 1.55362,
+                "maximumEdgeStretch": 3.81138,
+                "severeEdges": 0,
+                "progress": 0.4063,
+                "rmsDisplacement": 0.04646,
+                "maxDisplacement": 0.10522,
+                "sizeRatio": 1.0379,
+                "centerShift": 0.04922
+              },
+              {
+                "edgeStretchP99": 1.67182,
+                "maximumEdgeStretch": 4.31763,
+                "severeEdges": 0,
+                "progress": 0.4375,
+                "rmsDisplacement": 0.05285,
+                "maxDisplacement": 0.12022,
+                "sizeRatio": 1.04587,
+                "centerShift": 0.05784
+              },
+              {
+                "edgeStretchP99": 1.73847,
+                "maximumEdgeStretch": 4.64079,
+                "severeEdges": 0,
+                "progress": 0.4688,
+                "rmsDisplacement": 0.05711,
+                "maxDisplacement": 0.12985,
+                "sizeRatio": 1.05051,
+                "centerShift": 0.06354
+              },
+              {
+                "edgeStretchP99": 1.76786,
+                "maximumEdgeStretch": 4.79444,
+                "severeEdges": 0,
+                "progress": 0.5,
+                "rmsDisplacement": 0.05924,
+                "maxDisplacement": 0.13466,
+                "sizeRatio": 1.05261,
+                "centerShift": 0.06636
+              },
+              {
+                "edgeStretchP99": 1.73825,
+                "maximumEdgeStretch": 4.64095,
+                "severeEdges": 0,
+                "progress": 0.5313,
+                "rmsDisplacement": 0.05744,
+                "maxDisplacement": 0.13107,
+                "sizeRatio": 1.05073,
+                "centerShift": 0.06393
+              },
+              {
+                "edgeStretchP99": 1.65301,
+                "maximumEdgeStretch": 4.31812,
+                "severeEdges": 0,
+                "progress": 0.5625,
+                "rmsDisplacement": 0.05358,
+                "maxDisplacement": 0.12294,
+                "sizeRatio": 1.04648,
+                "centerShift": 0.05866
+              },
+              {
+                "edgeStretchP99": 1.54275,
+                "maximumEdgeStretch": 3.8123,
+                "severeEdges": 0,
+                "progress": 0.5938,
+                "rmsDisplacement": 0.04768,
+                "maxDisplacement": 0.10987,
+                "sizeRatio": 1.03925,
+                "centerShift": 0.0505
+              },
+              {
+                "edgeStretchP99": 1.41441,
+                "maximumEdgeStretch": 3.15566,
+                "severeEdges": 0,
+                "progress": 0.625,
+                "rmsDisplacement": 0.04036,
+                "maxDisplacement": 0.09237,
+                "sizeRatio": 1.0301,
+                "centerShift": 0.04084
+              },
+              {
+                "edgeStretchP99": 1.28799,
+                "maximumEdgeStretch": 2.45752,
+                "severeEdges": 0,
+                "progress": 0.6563,
+                "rmsDisplacement": 0.03318,
+                "maxDisplacement": 0.07315,
+                "sizeRatio": 1.01997,
+                "centerShift": 0.03195
+              },
+              {
+                "edgeStretchP99": 1.18239,
+                "maximumEdgeStretch": 1.9194,
+                "severeEdges": 0,
+                "progress": 0.6875,
+                "rmsDisplacement": 0.02695,
+                "maxDisplacement": 0.05303,
+                "sizeRatio": 1.0143,
+                "centerShift": 0.02264
+              },
+              {
+                "edgeStretchP99": 1.11143,
+                "maximumEdgeStretch": 1.66843,
+                "severeEdges": 0,
+                "progress": 0.7187,
+                "rmsDisplacement": 0.02282,
+                "maxDisplacement": 0.03481,
+                "sizeRatio": 1.00924,
+                "centerShift": 0.01822
+              },
+              {
+                "edgeStretchP99": 1.10937,
+                "maximumEdgeStretch": 1.43593,
+                "severeEdges": 0,
+                "progress": 0.75,
+                "rmsDisplacement": 0.02057,
+                "maxDisplacement": 0.03255,
+                "sizeRatio": 1.00461,
+                "centerShift": 0.01884
+              },
+              {
+                "edgeStretchP99": 1.18739,
+                "maximumEdgeStretch": 1.79271,
+                "severeEdges": 0,
+                "progress": 0.7812,
+                "rmsDisplacement": 0.01972,
+                "maxDisplacement": 0.04014,
+                "sizeRatio": 1.00791,
+                "centerShift": 0.01551
+              },
+              {
+                "edgeStretchP99": 1.2872,
+                "maximumEdgeStretch": 2.16818,
+                "severeEdges": 0,
+                "progress": 0.8125,
+                "rmsDisplacement": 0.02126,
+                "maxDisplacement": 0.05589,
+                "sizeRatio": 1.01728,
+                "centerShift": 0.0117
+              },
+              {
+                "edgeStretchP99": 1.41522,
+                "maximumEdgeStretch": 2.71585,
+                "severeEdges": 0,
+                "progress": 0.8437,
+                "rmsDisplacement": 0.02582,
+                "maxDisplacement": 0.07476,
+                "sizeRatio": 1.02782,
+                "centerShift": 0.01903
+              },
+              {
+                "edgeStretchP99": 1.54448,
+                "maximumEdgeStretch": 3.27403,
+                "severeEdges": 0,
+                "progress": 0.875,
+                "rmsDisplacement": 0.03232,
+                "maxDisplacement": 0.09365,
+                "sizeRatio": 1.03786,
+                "centerShift": 0.03138
+              },
+              {
+                "edgeStretchP99": 1.66568,
+                "maximumEdgeStretch": 3.78624,
+                "severeEdges": 0,
+                "progress": 0.9063,
+                "rmsDisplacement": 0.03948,
+                "maxDisplacement": 0.1156,
+                "sizeRatio": 1.04659,
+                "centerShift": 0.04365
+              },
+              {
+                "edgeStretchP99": 1.76287,
+                "maximumEdgeStretch": 4.17515,
+                "severeEdges": 0,
+                "progress": 0.9375,
+                "rmsDisplacement": 0.04547,
+                "maxDisplacement": 0.13591,
+                "sizeRatio": 1.0539,
+                "centerShift": 0.05338
+              },
+              {
+                "edgeStretchP99": 1.82286,
+                "maximumEdgeStretch": 4.42123,
+                "severeEdges": 0,
+                "progress": 0.9688,
+                "rmsDisplacement": 0.04949,
+                "maxDisplacement": 0.14912,
+                "sizeRatio": 1.05817,
+                "centerShift": 0.05972
+              },
+              {
+                "edgeStretchP99": 1.8519,
+                "maximumEdgeStretch": 4.53773,
+                "severeEdges": 0,
+                "progress": 1,
+                "rmsDisplacement": 0.05147,
+                "maxDisplacement": 0.15567,
+                "sizeRatio": 1.06013,
+                "centerShift": 0.06282
+              }
+            ]
+          },
+          {
+            "name": "gallop",
+            "duration": 0.6669,
+            "samples": [
+              {
+                "edgeStretchP99": 2.45176,
+                "maximumEdgeStretch": 5.94751,
+                "severeEdges": 0,
+                "progress": 0,
+                "rmsDisplacement": 0.06992,
+                "maxDisplacement": 0.19029,
+                "sizeRatio": 1.09305,
+                "centerShift": 0.05578
+              },
+              {
+                "edgeStretchP99": 2.32718,
+                "maximumEdgeStretch": 5.65209,
+                "severeEdges": 0,
+                "progress": 0.0313,
+                "rmsDisplacement": 0.06578,
+                "maxDisplacement": 0.17742,
+                "sizeRatio": 1.08739,
+                "centerShift": 0.05261
+              },
+              {
+                "edgeStretchP99": 2.10885,
+                "maximumEdgeStretch": 5.04944,
+                "severeEdges": 0,
+                "progress": 0.0625,
+                "rmsDisplacement": 0.05747,
+                "maxDisplacement": 0.15067,
+                "sizeRatio": 1.07455,
+                "centerShift": 0.04575
+              },
+              {
+                "edgeStretchP99": 1.76283,
+                "maximumEdgeStretch": 4.18328,
+                "severeEdges": 0,
+                "progress": 0.0938,
+                "rmsDisplacement": 0.04583,
+                "maxDisplacement": 0.12615,
+                "sizeRatio": 1.05438,
+                "centerShift": 0.03476
+              },
+              {
+                "edgeStretchP99": 1.41651,
+                "maximumEdgeStretch": 3.06125,
+                "severeEdges": 0,
+                "progress": 0.125,
+                "rmsDisplacement": 0.03492,
+                "maxDisplacement": 0.10115,
+                "sizeRatio": 1.02562,
+                "centerShift": 0.02218
+              },
+              {
+                "edgeStretchP99": 1.16348,
+                "maximumEdgeStretch": 1.91785,
+                "severeEdges": 0,
+                "progress": 0.1563,
+                "rmsDisplacement": 0.0323,
+                "maxDisplacement": 0.07501,
+                "sizeRatio": 1.0002,
+                "centerShift": 0.02238
+              },
+              {
+                "edgeStretchP99": 1.15265,
+                "maximumEdgeStretch": 2.01544,
+                "severeEdges": 0,
+                "progress": 0.1875,
+                "rmsDisplacement": 0.03932,
+                "maxDisplacement": 0.05353,
+                "sizeRatio": 0.98818,
+                "centerShift": 0.03342
+              },
+              {
+                "edgeStretchP99": 1.28765,
+                "maximumEdgeStretch": 2.90755,
+                "severeEdges": 0,
+                "progress": 0.2188,
+                "rmsDisplacement": 0.04907,
+                "maxDisplacement": 0.08621,
+                "sizeRatio": 0.99165,
+                "centerShift": 0.04325
+              },
+              {
+                "edgeStretchP99": 1.45305,
+                "maximumEdgeStretch": 3.55926,
+                "severeEdges": 0,
+                "progress": 0.25,
+                "rmsDisplacement": 0.05823,
+                "maxDisplacement": 0.11618,
+                "sizeRatio": 0.99695,
+                "centerShift": 0.05322
+              },
+              {
+                "edgeStretchP99": 1.58529,
+                "maximumEdgeStretch": 3.87213,
+                "severeEdges": 0,
+                "progress": 0.2812,
+                "rmsDisplacement": 0.06457,
+                "maxDisplacement": 0.13643,
+                "sizeRatio": 1.00721,
+                "centerShift": 0.05881
+              },
+              {
+                "edgeStretchP99": 1.68633,
+                "maximumEdgeStretch": 4.04895,
+                "severeEdges": 0,
+                "progress": 0.3125,
+                "rmsDisplacement": 0.07023,
+                "maxDisplacement": 0.15344,
+                "sizeRatio": 1.01734,
+                "centerShift": 0.06379
+              },
+              {
+                "edgeStretchP99": 1.80678,
+                "maximumEdgeStretch": 4.31926,
+                "severeEdges": 0,
+                "progress": 0.3438,
+                "rmsDisplacement": 0.07654,
+                "maxDisplacement": 0.17061,
+                "sizeRatio": 1.03106,
+                "centerShift": 0.0704
+              },
+              {
+                "edgeStretchP99": 1.9481,
+                "maximumEdgeStretch": 4.92927,
+                "severeEdges": 0,
+                "progress": 0.375,
+                "rmsDisplacement": 0.08294,
+                "maxDisplacement": 0.18564,
+                "sizeRatio": 1.04601,
+                "centerShift": 0.07716
+              },
+              {
+                "edgeStretchP99": 2.04379,
+                "maximumEdgeStretch": 5.47153,
+                "severeEdges": 0,
+                "progress": 0.4062,
+                "rmsDisplacement": 0.0894,
+                "maxDisplacement": 0.19867,
+                "sizeRatio": 1.0614,
+                "centerShift": 0.08406
+              },
+              {
+                "edgeStretchP99": 2.15943,
+                "maximumEdgeStretch": 5.8736,
+                "severeEdges": 0,
+                "progress": 0.4375,
+                "rmsDisplacement": 0.09467,
+                "maxDisplacement": 0.20812,
+                "sizeRatio": 1.07282,
+                "centerShift": 0.08929
+              },
+              {
+                "edgeStretchP99": 2.20744,
+                "maximumEdgeStretch": 6.12371,
+                "severeEdges": 0,
+                "progress": 0.4687,
+                "rmsDisplacement": 0.09818,
+                "maxDisplacement": 0.2139,
+                "sizeRatio": 1.08014,
+                "centerShift": 0.09256
+              },
+              {
+                "edgeStretchP99": 2.23171,
+                "maximumEdgeStretch": 6.24124,
+                "severeEdges": 0,
+                "progress": 0.5,
+                "rmsDisplacement": 0.0999,
+                "maxDisplacement": 0.2166,
+                "sizeRatio": 1.08356,
+                "centerShift": 0.09412
+              },
+              {
+                "edgeStretchP99": 2.14541,
+                "maximumEdgeStretch": 5.94761,
+                "severeEdges": 0,
+                "progress": 0.5313,
+                "rmsDisplacement": 0.09705,
+                "maxDisplacement": 0.20958,
+                "sizeRatio": 1.07786,
+                "centerShift": 0.0918
+              },
+              {
+                "edgeStretchP99": 1.97016,
+                "maximumEdgeStretch": 5.32801,
+                "severeEdges": 0,
+                "progress": 0.5625,
+                "rmsDisplacement": 0.09127,
+                "maxDisplacement": 0.19475,
+                "sizeRatio": 1.06513,
+                "centerShift": 0.08692
+              },
+              {
+                "edgeStretchP99": 1.72094,
+                "maximumEdgeStretch": 4.35303,
+                "severeEdges": 0,
+                "progress": 0.5938,
+                "rmsDisplacement": 0.08291,
+                "maxDisplacement": 0.17123,
+                "sizeRatio": 1.04403,
+                "centerShift": 0.07946
+              },
+              {
+                "edgeStretchP99": 1.42891,
+                "maximumEdgeStretch": 3.11049,
+                "severeEdges": 0,
+                "progress": 0.625,
+                "rmsDisplacement": 0.07364,
+                "maxDisplacement": 0.14026,
+                "sizeRatio": 1.01916,
+                "centerShift": 0.07091
+              },
+              {
+                "edgeStretchP99": 1.21518,
+                "maximumEdgeStretch": 2.12217,
+                "severeEdges": 0,
+                "progress": 0.6562,
+                "rmsDisplacement": 0.0663,
+                "maxDisplacement": 0.10658,
+                "sizeRatio": 1.00093,
+                "centerShift": 0.06537
+              },
+              {
+                "edgeStretchP99": 1.13493,
+                "maximumEdgeStretch": 2.46685,
+                "severeEdges": 0,
+                "progress": 0.6875,
+                "rmsDisplacement": 0.06181,
+                "maxDisplacement": 0.07895,
+                "sizeRatio": 0.99191,
+                "centerShift": 0.05683
+              },
+              {
+                "edgeStretchP99": 1.21625,
+                "maximumEdgeStretch": 2.99461,
+                "severeEdges": 0,
+                "progress": 0.7188,
+                "rmsDisplacement": 0.06001,
+                "maxDisplacement": 0.09659,
+                "sizeRatio": 0.99472,
+                "centerShift": 0.04866
+              },
+              {
+                "edgeStretchP99": 1.33054,
+                "maximumEdgeStretch": 3.41353,
+                "severeEdges": 0,
+                "progress": 0.75,
+                "rmsDisplacement": 0.05904,
+                "maxDisplacement": 0.11734,
+                "sizeRatio": 1.00042,
+                "centerShift": 0.04206
+              },
+              {
+                "edgeStretchP99": 1.45965,
+                "maximumEdgeStretch": 3.64962,
+                "severeEdges": 0,
+                "progress": 0.7813,
+                "rmsDisplacement": 0.05628,
+                "maxDisplacement": 0.12958,
+                "sizeRatio": 1.01131,
+                "centerShift": 0.03815
+              },
+              {
+                "edgeStretchP99": 1.59952,
+                "maximumEdgeStretch": 3.68262,
+                "severeEdges": 0,
+                "progress": 0.8125,
+                "rmsDisplacement": 0.05357,
+                "maxDisplacement": 0.13842,
+                "sizeRatio": 1.02305,
+                "centerShift": 0.03699
+              },
+              {
+                "edgeStretchP99": 1.77709,
+                "maximumEdgeStretch": 4.03528,
+                "severeEdges": 0,
+                "progress": 0.8437,
+                "rmsDisplacement": 0.0523,
+                "maxDisplacement": 0.14661,
+                "sizeRatio": 1.03872,
+                "centerShift": 0.03961
+              },
+              {
+                "edgeStretchP99": 1.98584,
+                "maximumEdgeStretch": 4.63933,
+                "severeEdges": 0,
+                "progress": 0.875,
+                "rmsDisplacement": 0.05375,
+                "maxDisplacement": 0.15293,
+                "sizeRatio": 1.05526,
+                "centerShift": 0.04362
+              },
+              {
+                "edgeStretchP99": 2.16735,
+                "maximumEdgeStretch": 5.17881,
+                "severeEdges": 0,
+                "progress": 0.9062,
+                "rmsDisplacement": 0.05818,
+                "maxDisplacement": 0.15809,
+                "sizeRatio": 1.0703,
+                "centerShift": 0.0483
+              },
+              {
+                "edgeStretchP99": 2.30601,
+                "maximumEdgeStretch": 5.58021,
+                "severeEdges": 0,
+                "progress": 0.9375,
+                "rmsDisplacement": 0.06351,
+                "maxDisplacement": 0.16901,
+                "sizeRatio": 1.08191,
+                "centerShift": 0.05215
+              },
+              {
+                "edgeStretchP99": 2.39991,
+                "maximumEdgeStretch": 5.83002,
+                "severeEdges": 0,
+                "progress": 0.9688,
+                "rmsDisplacement": 0.06772,
+                "maxDisplacement": 0.18342,
+                "sizeRatio": 1.08947,
+                "centerShift": 0.05462
+              },
+              {
+                "edgeStretchP99": 2.45176,
+                "maximumEdgeStretch": 5.94751,
+                "severeEdges": 0,
+                "progress": 1,
+                "rmsDisplacement": 0.06992,
+                "maxDisplacement": 0.19029,
+                "sizeRatio": 1.09305,
+                "centerShift": 0.05578
+              }
+            ]
+          },
+          {
+            "name": "gallop_jump",
+            "duration": 0.6669,
+            "samples": [
+              {
+                "edgeStretchP99": 1,
+                "maximumEdgeStretch": 1.00001,
+                "severeEdges": 0,
+                "progress": 0,
+                "rmsDisplacement": 0,
+                "maxDisplacement": 0,
+                "sizeRatio": 1,
+                "centerShift": 0
+              },
+              {
+                "edgeStretchP99": 1.40731,
+                "maximumEdgeStretch": 2.66132,
+                "severeEdges": 0,
+                "progress": 0.0781,
+                "rmsDisplacement": 0.03557,
+                "maxDisplacement": 0.06275,
+                "sizeRatio": 1.0083,
+                "centerShift": 0.02549
+              },
+              {
+                "edgeStretchP99": 2.11381,
+                "maximumEdgeStretch": 4.94373,
+                "severeEdges": 0,
+                "progress": 0.1562,
+                "rmsDisplacement": 0.08355,
+                "maxDisplacement": 0.15081,
+                "sizeRatio": 1.0376,
+                "centerShift": 0.05153
+              },
+              {
+                "edgeStretchP99": 2.65562,
+                "maximumEdgeStretch": 6.60524,
+                "severeEdges": 0,
+                "progress": 0.2656,
+                "rmsDisplacement": 0.128,
+                "maxDisplacement": 0.27682,
+                "sizeRatio": 1.09768,
+                "centerShift": 0.03318
+              },
+              {
+                "edgeStretchP99": 2.924,
+                "maximumEdgeStretch": 7.38269,
+                "severeEdges": 0,
+                "progress": 0.375,
+                "rmsDisplacement": 0.17474,
+                "maxDisplacement": 0.38362,
+                "sizeRatio": 1.11058,
+                "centerShift": 0.06964
+              },
+              {
+                "edgeStretchP99": 1.59906,
+                "maximumEdgeStretch": 3.32369,
+                "severeEdges": 0,
+                "progress": 0.5157,
+                "rmsDisplacement": 0.11545,
+                "maxDisplacement": 0.21625,
+                "sizeRatio": 1.06744,
+                "centerShift": 0.07778
+              },
+              {
+                "edgeStretchP99": 1.36226,
+                "maximumEdgeStretch": 2.96247,
+                "severeEdges": 0,
+                "progress": 0.6563,
+                "rmsDisplacement": 0.09537,
+                "maxDisplacement": 0.1746,
+                "sizeRatio": 0.99508,
+                "centerShift": 0.08055
+              },
+              {
+                "edgeStretchP99": 1.16104,
+                "maximumEdgeStretch": 1.97313,
+                "severeEdges": 0,
+                "progress": 0.8282,
+                "rmsDisplacement": 0.04473,
+                "maxDisplacement": 0.08768,
+                "sizeRatio": 0.99746,
+                "centerShift": 0.03822
+              },
+              {
+                "edgeStretchP99": 1,
+                "maximumEdgeStretch": 1.00001,
+                "severeEdges": 0,
+                "progress": 1,
+                "rmsDisplacement": 0,
+                "maxDisplacement": 0,
+                "sizeRatio": 1,
+                "centerShift": 0
+              }
+            ]
+          },
+          {
+            "name": "attack",
+            "duration": 1.0421,
+            "samples": [
+              {
+                "edgeStretchP99": 1.16317,
+                "maximumEdgeStretch": 1.83233,
+                "severeEdges": 0,
+                "progress": 0,
+                "rmsDisplacement": 0.00845,
+                "maxDisplacement": 0.02028,
+                "sizeRatio": 0.99948,
+                "centerShift": 0.00043
+              },
+              {
+                "edgeStretchP99": 1.3511,
+                "maximumEdgeStretch": 3.17874,
+                "severeEdges": 0,
+                "progress": 0.07,
+                "rmsDisplacement": 0.02072,
+                "maxDisplacement": 0.04352,
+                "sizeRatio": 1.00182,
+                "centerShift": 0.0195
+              },
+              {
+                "edgeStretchP99": 1.84398,
+                "maximumEdgeStretch": 5.20728,
+                "severeEdges": 0,
+                "progress": 0.14,
+                "rmsDisplacement": 0.05468,
+                "maxDisplacement": 0.0893,
+                "sizeRatio": 1.01073,
+                "centerShift": 0.0523
+              },
+              {
+                "edgeStretchP99": 2.3444,
+                "maximumEdgeStretch": 6.82683,
+                "severeEdges": 0,
+                "progress": 0.22,
+                "rmsDisplacement": 0.08819,
+                "maxDisplacement": 0.13605,
+                "sizeRatio": 1.03592,
+                "centerShift": 0.078
+              },
+              {
+                "edgeStretchP99": 2.59188,
+                "maximumEdgeStretch": 7.67669,
+                "severeEdges": 0,
+                "progress": 0.3,
+                "rmsDisplacement": 0.10764,
+                "maxDisplacement": 0.16341,
+                "sizeRatio": 1.05166,
+                "centerShift": 0.09241
+              },
+              {
+                "edgeStretchP99": 1.44097,
+                "maximumEdgeStretch": 2.53029,
+                "severeEdges": 0,
+                "progress": 0.35,
+                "rmsDisplacement": 0.0285,
+                "maxDisplacement": 0.05857,
+                "sizeRatio": 1.00744,
+                "centerShift": 0.00913
+              },
+              {
+                "edgeStretchP99": 1.70431,
+                "maximumEdgeStretch": 5.89767,
+                "severeEdges": 0,
+                "progress": 0.4,
+                "rmsDisplacement": 0.11463,
+                "maxDisplacement": 0.14613,
+                "sizeRatio": 0.99986,
+                "centerShift": 0.11139
+              },
+              {
+                "edgeStretchP99": 1.68384,
+                "maximumEdgeStretch": 4.29554,
+                "severeEdges": 0,
+                "progress": 0.465,
+                "rmsDisplacement": 0.14878,
+                "maxDisplacement": 0.18405,
+                "sizeRatio": 1.00526,
+                "centerShift": 0.15158
+              },
+              {
+                "edgeStretchP99": 1.72659,
+                "maximumEdgeStretch": 4.2247,
+                "severeEdges": 0,
+                "progress": 0.53,
+                "rmsDisplacement": 0.16583,
+                "maxDisplacement": 0.20482,
+                "sizeRatio": 0.99868,
+                "centerShift": 0.1642
+              },
+              {
+                "edgeStretchP99": 1.28238,
+                "maximumEdgeStretch": 2.79206,
+                "severeEdges": 0,
+                "progress": 0.605,
+                "rmsDisplacement": 0.13834,
+                "maxDisplacement": 0.17149,
+                "sizeRatio": 0.99032,
+                "centerShift": 0.13485
+              },
+              {
+                "edgeStretchP99": 1.29007,
+                "maximumEdgeStretch": 3.93108,
+                "severeEdges": 0,
+                "progress": 0.68,
+                "rmsDisplacement": 0.09878,
+                "maxDisplacement": 0.13605,
+                "sizeRatio": 0.99178,
+                "centerShift": 0.09187
+              },
+              {
+                "edgeStretchP99": 1.1976,
+                "maximumEdgeStretch": 2.42047,
+                "severeEdges": 0,
+                "progress": 0.76,
+                "rmsDisplacement": 0.05369,
+                "maxDisplacement": 0.06585,
+                "sizeRatio": 0.99717,
+                "centerShift": 0.05186
+              },
+              {
+                "edgeStretchP99": 1.15902,
+                "maximumEdgeStretch": 2.12892,
+                "severeEdges": 0,
+                "progress": 0.84,
+                "rmsDisplacement": 0.02063,
+                "maxDisplacement": 0.03519,
+                "sizeRatio": 0.99912,
+                "centerShift": 0.01908
+              },
+              {
+                "edgeStretchP99": 1.12762,
+                "maximumEdgeStretch": 1.97695,
+                "severeEdges": 0,
+                "progress": 0.92,
+                "rmsDisplacement": 0.00842,
+                "maxDisplacement": 0.02405,
+                "sizeRatio": 0.99971,
+                "centerShift": 0.0054
+              },
+              {
+                "edgeStretchP99": 1.16317,
+                "maximumEdgeStretch": 1.83233,
+                "severeEdges": 0,
+                "progress": 1,
+                "rmsDisplacement": 0.00845,
+                "maxDisplacement": 0.02028,
+                "sizeRatio": 0.99948,
+                "centerShift": 0.00043
+              }
+            ]
+          },
+          {
+            "name": "idle_hitreact1",
+            "duration": 0.5836,
+            "samples": [
+              {
+                "edgeStretchP99": 1.1137,
+                "maximumEdgeStretch": 1.83233,
+                "severeEdges": 0,
+                "progress": 0,
+                "rmsDisplacement": 0.00275,
+                "maxDisplacement": 0.01959,
+                "sizeRatio": 1,
+                "centerShift": 0
+              },
+              {
+                "edgeStretchP99": 1.51362,
+                "maximumEdgeStretch": 3.85152,
+                "severeEdges": 0,
+                "progress": 0.0715,
+                "rmsDisplacement": 0.05795,
+                "maxDisplacement": 0.0758,
+                "sizeRatio": 0.98445,
+                "centerShift": 0.05825
+              },
+              {
+                "edgeStretchP99": 2.13764,
+                "maximumEdgeStretch": 5.9843,
+                "severeEdges": 0,
+                "progress": 0.1429,
+                "rmsDisplacement": 0.11814,
+                "maxDisplacement": 0.15618,
+                "sizeRatio": 0.97948,
+                "centerShift": 0.10933
+              },
+              {
+                "edgeStretchP99": 1.23531,
+                "maximumEdgeStretch": 2.42502,
+                "severeEdges": 0,
+                "progress": 0.25,
+                "rmsDisplacement": 0.07194,
+                "maxDisplacement": 0.08337,
+                "sizeRatio": 0.99034,
+                "centerShift": 0.07386
+              },
+              {
+                "edgeStretchP99": 1.49673,
+                "maximumEdgeStretch": 3.19094,
+                "severeEdges": 0,
+                "progress": 0.3571,
+                "rmsDisplacement": 0.03793,
+                "maxDisplacement": 0.06637,
+                "sizeRatio": 1.0069,
+                "centerShift": 0.02952
+              },
+              {
+                "edgeStretchP99": 1.13883,
+                "maximumEdgeStretch": 1.61593,
+                "severeEdges": 0,
+                "progress": 0.5178,
+                "rmsDisplacement": 0.01975,
+                "maxDisplacement": 0.02586,
+                "sizeRatio": 1.0025,
+                "centerShift": 0.01717
+              },
+              {
+                "edgeStretchP99": 1.2086,
+                "maximumEdgeStretch": 2.38877,
+                "severeEdges": 0,
+                "progress": 0.6785,
+                "rmsDisplacement": 0.01501,
+                "maxDisplacement": 0.03205,
+                "sizeRatio": 0.9959,
+                "centerShift": 0.01439
+              },
+              {
+                "edgeStretchP99": 1.15998,
+                "maximumEdgeStretch": 2.10588,
+                "severeEdges": 0,
+                "progress": 0.8393,
+                "rmsDisplacement": 0.00662,
+                "maxDisplacement": 0.0254,
+                "sizeRatio": 0.99799,
+                "centerShift": 0.00549
+              },
+              {
+                "edgeStretchP99": 1.1137,
+                "maximumEdgeStretch": 1.83233,
+                "severeEdges": 0,
+                "progress": 1,
+                "rmsDisplacement": 0.00275,
+                "maxDisplacement": 0.01959,
+                "sizeRatio": 1,
+                "centerShift": 0
+              }
+            ]
+          },
+          {
+            "name": "death",
+            "duration": 1.3348,
+            "samples": [
+              {
+                "edgeStretchP99": 1.16317,
+                "maximumEdgeStretch": 1.83232,
+                "severeEdges": 0,
+                "progress": 0,
+                "rmsDisplacement": 0.00845,
+                "maxDisplacement": 0.02028,
+                "sizeRatio": 0.99948,
+                "centerShift": 0.00043
+              },
+              {
+                "edgeStretchP99": 1.22509,
+                "maximumEdgeStretch": 2.21858,
+                "severeEdges": 0,
+                "progress": 0.0352,
+                "rmsDisplacement": 0.02765,
+                "maxDisplacement": 0.05367,
+                "sizeRatio": 1.00118,
+                "centerShift": 0.02094
+              },
+              {
+                "edgeStretchP99": 1.42883,
+                "maximumEdgeStretch": 2.604,
+                "severeEdges": 0,
+                "progress": 0.0704,
+                "rmsDisplacement": 0.06183,
+                "maxDisplacement": 0.0949,
+                "sizeRatio": 1.0023,
+                "centerShift": 0.04785
+              },
+              {
+                "edgeStretchP99": 1.07956,
+                "maximumEdgeStretch": 1.76481,
+                "severeEdges": 0,
+                "progress": 0.1338,
+                "rmsDisplacement": 0.07393,
+                "maxDisplacement": 0.07963,
+                "sizeRatio": 0.99829,
+                "centerShift": 0.07385
+              },
+              {
+                "edgeStretchP99": 1.26927,
+                "maximumEdgeStretch": 3.35569,
+                "severeEdges": 0,
+                "progress": 0.1972,
+                "rmsDisplacement": 0.10625,
+                "maxDisplacement": 0.15302,
+                "sizeRatio": 1.00996,
+                "centerShift": 0.11243
+              },
+              {
+                "edgeStretchP99": 1.49225,
+                "maximumEdgeStretch": 4.97458,
+                "severeEdges": 0,
+                "progress": 0.2817,
+                "rmsDisplacement": 0.13639,
+                "maxDisplacement": 0.22563,
+                "sizeRatio": 0.99964,
+                "centerShift": 0.16245
+              },
+              {
+                "edgeStretchP99": 1.7352,
+                "maximumEdgeStretch": 5.75105,
+                "severeEdges": 0,
+                "progress": 0.3662,
+                "rmsDisplacement": 0.17148,
+                "maxDisplacement": 0.29676,
+                "sizeRatio": 1.01641,
+                "centerShift": 0.20511
+              },
+              {
+                "edgeStretchP99": 1.93169,
+                "maximumEdgeStretch": 5.20679,
+                "severeEdges": 0,
+                "progress": 0.4577,
+                "rmsDisplacement": 0.21802,
+                "maxDisplacement": 0.37779,
+                "sizeRatio": 1.0295,
+                "centerShift": 0.25744
+              },
+              {
+                "edgeStretchP99": 2.12162,
+                "maximumEdgeStretch": 5.68797,
+                "severeEdges": 0,
+                "progress": 0.5493,
+                "rmsDisplacement": 0.25749,
+                "maxDisplacement": 0.43873,
+                "sizeRatio": 1.023,
+                "centerShift": 0.30169
+              },
+              {
+                "edgeStretchP99": 2.26568,
+                "maximumEdgeStretch": 6.20178,
+                "severeEdges": 0,
+                "progress": 0.6549,
+                "rmsDisplacement": 0.27989,
+                "maxDisplacement": 0.46842,
+                "sizeRatio": 1.01535,
+                "centerShift": 0.31962
+              },
+              {
+                "edgeStretchP99": 2.36612,
+                "maximumEdgeStretch": 6.47071,
+                "severeEdges": 0,
+                "progress": 0.7606,
+                "rmsDisplacement": 0.29106,
+                "maxDisplacement": 0.48229,
+                "sizeRatio": 1.01364,
+                "centerShift": 0.32258
+              },
+              {
+                "edgeStretchP99": 2.38013,
+                "maximumEdgeStretch": 6.24001,
+                "severeEdges": 0,
+                "progress": 0.8803,
+                "rmsDisplacement": 0.29459,
+                "maxDisplacement": 0.48745,
+                "sizeRatio": 1.01525,
+                "centerShift": 0.32436
+              },
+              {
+                "edgeStretchP99": 2.34809,
+                "maximumEdgeStretch": 5.93542,
+                "severeEdges": 0,
+                "progress": 1,
+                "rmsDisplacement": 0.29564,
+                "maxDisplacement": 0.48941,
+                "sizeRatio": 1.01676,
+                "centerShift": 0.32507
+              }
+            ]
+          },
+          {
+            "name": "entrance",
+            "duration": 0.9587,
+            "samples": [
+              {
+                "edgeStretchP99": 2.45388,
+                "maximumEdgeStretch": 6.00916,
+                "severeEdges": 0,
+                "progress": 0,
+                "rmsDisplacement": 0.09271,
+                "maxDisplacement": 0.22882,
+                "sizeRatio": 1.09851,
+                "centerShift": 0.08329
+              },
+              {
+                "edgeStretchP99": 2.25876,
+                "maximumEdgeStretch": 5.36953,
+                "severeEdges": 0,
+                "progress": 0.0869,
+                "rmsDisplacement": 0.08653,
+                "maxDisplacement": 0.20636,
+                "sizeRatio": 1.09071,
+                "centerShift": 0.07384
+              },
+              {
+                "edgeStretchP99": 1.83847,
+                "maximumEdgeStretch": 4.10965,
+                "severeEdges": 0,
+                "progress": 0.1739,
+                "rmsDisplacement": 0.07174,
+                "maxDisplacement": 0.17012,
+                "sizeRatio": 1.07117,
+                "centerShift": 0.05337
+              },
+              {
+                "edgeStretchP99": 1.0844,
+                "maximumEdgeStretch": 1.39559,
+                "severeEdges": 0,
+                "progress": 0.2826,
+                "rmsDisplacement": 0.03233,
+                "maxDisplacement": 0.06348,
+                "sizeRatio": 1.02376,
+                "centerShift": 0.01591
+              },
+              {
+                "edgeStretchP99": 1.33362,
+                "maximumEdgeStretch": 2.73426,
+                "severeEdges": 0,
+                "progress": 0.3914,
+                "rmsDisplacement": 0.04191,
+                "maxDisplacement": 0.12472,
+                "sizeRatio": 1.00029,
+                "centerShift": 0.01936
+              },
+              {
+                "edgeStretchP99": 1.22518,
+                "maximumEdgeStretch": 2.25125,
+                "severeEdges": 0,
+                "progress": 0.5326,
+                "rmsDisplacement": 0.03124,
+                "maxDisplacement": 0.09187,
+                "sizeRatio": 0.999,
+                "centerShift": 0.01371
+              },
+              {
+                "edgeStretchP99": 1.09808,
+                "maximumEdgeStretch": 1.62025,
+                "severeEdges": 0,
+                "progress": 0.6739,
+                "rmsDisplacement": 0.01591,
+                "maxDisplacement": 0.04139,
+                "sizeRatio": 0.99798,
+                "centerShift": 0.00986
+              },
+              {
+                "edgeStretchP99": 1.03144,
+                "maximumEdgeStretch": 1.20408,
+                "severeEdges": 0,
+                "progress": 0.837,
+                "rmsDisplacement": 0.00556,
+                "maxDisplacement": 0.01391,
+                "sizeRatio": 0.99952,
+                "centerShift": 0.00374
+              },
+              {
+                "edgeStretchP99": 1,
+                "maximumEdgeStretch": 1.00001,
+                "severeEdges": 0,
+                "progress": 1,
+                "rmsDisplacement": 0,
+                "maxDisplacement": 0,
+                "sizeRatio": 1,
+                "centerShift": 0
+              }
+            ]
+          },
+          {
+            "name": "cast",
+            "duration": 1.1255,
+            "samples": [
+              {
+                "edgeStretchP99": 1.09891,
+                "maximumEdgeStretch": 1.5259,
+                "severeEdges": 0,
+                "progress": 0,
+                "rmsDisplacement": 0.00541,
+                "maxDisplacement": 0.01298,
+                "sizeRatio": 0.99976,
+                "centerShift": 0.00021
+              },
+              {
+                "edgeStretchP99": 1.16883,
+                "maximumEdgeStretch": 2.16104,
+                "severeEdges": 0,
+                "progress": 0.0556,
+                "rmsDisplacement": 0.00777,
+                "maxDisplacement": 0.02638,
+                "sizeRatio": 1.00092,
+                "centerShift": 0.00517
+              },
+              {
+                "edgeStretchP99": 1.36626,
+                "maximumEdgeStretch": 3.17365,
+                "severeEdges": 0,
+                "progress": 0.1112,
+                "rmsDisplacement": 0.01735,
+                "maxDisplacement": 0.04939,
+                "sizeRatio": 1.00262,
+                "centerShift": 0.01331
+              },
+              {
+                "edgeStretchP99": 1.61967,
+                "maximumEdgeStretch": 4.2623,
+                "severeEdges": 0,
+                "progress": 0.1852,
+                "rmsDisplacement": 0.03056,
+                "maxDisplacement": 0.0763,
+                "sizeRatio": 1.01009,
+                "centerShift": 0.02256
+              },
+              {
+                "edgeStretchP99": 1.78681,
+                "maximumEdgeStretch": 4.87916,
+                "severeEdges": 0,
+                "progress": 0.2593,
+                "rmsDisplacement": 0.03855,
+                "maxDisplacement": 0.09226,
+                "sizeRatio": 1.01595,
+                "centerShift": 0.02765
+              },
+              {
+                "edgeStretchP99": 1.42764,
+                "maximumEdgeStretch": 2.89822,
+                "severeEdges": 0,
+                "progress": 0.3241,
+                "rmsDisplacement": 0.0218,
+                "maxDisplacement": 0.05038,
+                "sizeRatio": 1.00699,
+                "centerShift": 0.01377
+              },
+              {
+                "edgeStretchP99": 1.12517,
+                "maximumEdgeStretch": 2.04356,
+                "severeEdges": 0,
+                "progress": 0.3889,
+                "rmsDisplacement": 0.01527,
+                "maxDisplacement": 0.02774,
+                "sizeRatio": 1.00134,
+                "centerShift": 0.01098
+              },
+              {
+                "edgeStretchP99": 1.26383,
+                "maximumEdgeStretch": 2.47959,
+                "severeEdges": 0,
+                "progress": 0.4629,
+                "rmsDisplacement": 0.03306,
+                "maxDisplacement": 0.05046,
+                "sizeRatio": 1.00099,
+                "centerShift": 0.03127
+              },
+              {
+                "edgeStretchP99": 1.40503,
+                "maximumEdgeStretch": 2.62799,
+                "severeEdges": 0,
+                "progress": 0.537,
+                "rmsDisplacement": 0.04644,
+                "maxDisplacement": 0.06946,
+                "sizeRatio": 0.99931,
+                "centerShift": 0.04247
+              },
+              {
+                "edgeStretchP99": 1.26648,
+                "maximumEdgeStretch": 2.08986,
+                "severeEdges": 0,
+                "progress": 0.6111,
+                "rmsDisplacement": 0.04241,
+                "maxDisplacement": 0.06618,
+                "sizeRatio": 0.99458,
+                "centerShift": 0.03703
+              },
+              {
+                "edgeStretchP99": 1.19787,
+                "maximumEdgeStretch": 1.97277,
+                "severeEdges": 0,
+                "progress": 0.6851,
+                "rmsDisplacement": 0.03668,
+                "maxDisplacement": 0.06313,
+                "sizeRatio": 0.99366,
+                "centerShift": 0.02981
+              },
+              {
+                "edgeStretchP99": 1.10184,
+                "maximumEdgeStretch": 1.52813,
+                "severeEdges": 0,
+                "progress": 0.7592,
+                "rmsDisplacement": 0.01971,
+                "maxDisplacement": 0.03326,
+                "sizeRatio": 0.99742,
+                "centerShift": 0.01655
+              },
+              {
+                "edgeStretchP99": 1.10221,
+                "maximumEdgeStretch": 1.69524,
+                "severeEdges": 0,
+                "progress": 0.8333,
+                "rmsDisplacement": 0.00848,
+                "maxDisplacement": 0.01854,
+                "sizeRatio": 0.99937,
+                "centerShift": 0.00549
+              },
+              {
+                "edgeStretchP99": 1.09075,
+                "maximumEdgeStretch": 1.60909,
+                "severeEdges": 0,
+                "progress": 0.9167,
+                "rmsDisplacement": 0.00579,
+                "maxDisplacement": 0.01482,
+                "sizeRatio": 0.99957,
+                "centerShift": 0.00175
+              },
+              {
+                "edgeStretchP99": 1.09891,
+                "maximumEdgeStretch": 1.5259,
+                "severeEdges": 0,
+                "progress": 1,
+                "rmsDisplacement": 0.00541,
+                "maxDisplacement": 0.01298,
+                "sizeRatio": 0.99976,
+                "centerShift": 0.00021
+              }
+            ]
+          },
+          {
+            "name": "guard",
+            "duration": 1.1671,
+            "samples": [
+              {
+                "edgeStretchP99": 1.52255,
+                "maximumEdgeStretch": 3.33813,
+                "severeEdges": 0,
+                "progress": 0,
+                "rmsDisplacement": 0.02772,
+                "maxDisplacement": 0.0606,
+                "sizeRatio": 1.00691,
+                "centerShift": 0.01852
+              },
+              {
+                "edgeStretchP99": 1.51515,
+                "maximumEdgeStretch": 3.29678,
+                "severeEdges": 0,
+                "progress": 0.125,
+                "rmsDisplacement": 0.0274,
+                "maxDisplacement": 0.05977,
+                "sizeRatio": 1.00666,
+                "centerShift": 0.01818
+              },
+              {
+                "edgeStretchP99": 1.51058,
+                "maximumEdgeStretch": 3.27509,
+                "severeEdges": 0,
+                "progress": 0.25,
+                "rmsDisplacement": 0.02727,
+                "maxDisplacement": 0.05934,
+                "sizeRatio": 1.0065,
+                "centerShift": 0.01801
+              },
+              {
+                "edgeStretchP99": 1.5154,
+                "maximumEdgeStretch": 3.29636,
+                "severeEdges": 0,
+                "progress": 0.375,
+                "rmsDisplacement": 0.0275,
+                "maxDisplacement": 0.05977,
+                "sizeRatio": 1.0066,
+                "centerShift": 0.0182
+              },
+              {
+                "edgeStretchP99": 1.5247,
+                "maximumEdgeStretch": 3.33714,
+                "severeEdges": 0,
+                "progress": 0.5,
+                "rmsDisplacement": 0.02789,
+                "maxDisplacement": 0.0606,
+                "sizeRatio": 1.00679,
+                "centerShift": 0.01855
+              },
+              {
+                "edgeStretchP99": 1.53744,
+                "maximumEdgeStretch": 3.40064,
+                "severeEdges": 0,
+                "progress": 0.625,
+                "rmsDisplacement": 0.02839,
+                "maxDisplacement": 0.06193,
+                "sizeRatio": 1.00708,
+                "centerShift": 0.01908
+              },
+              {
+                "edgeStretchP99": 1.54746,
+                "maximumEdgeStretch": 3.44452,
+                "severeEdges": 0,
+                "progress": 0.75,
+                "rmsDisplacement": 0.02872,
+                "maxDisplacement": 0.06286,
+                "sizeRatio": 1.00728,
+                "centerShift": 0.01944
+              },
+              {
+                "edgeStretchP99": 1.53744,
+                "maximumEdgeStretch": 3.40109,
+                "severeEdges": 0,
+                "progress": 0.875,
+                "rmsDisplacement": 0.02829,
+                "maxDisplacement": 0.06193,
+                "sizeRatio": 1.00714,
+                "centerShift": 0.01906
+              },
+              {
+                "edgeStretchP99": 1.52255,
+                "maximumEdgeStretch": 3.33813,
+                "severeEdges": 0,
+                "progress": 1,
+                "rmsDisplacement": 0.02772,
+                "maxDisplacement": 0.0606,
+                "sizeRatio": 1.00691,
+                "centerShift": 0.01852
+              }
+            ]
+          },
+          {
+            "name": "rest",
+            "duration": 1.9383,
+            "samples": [
+              {
+                "edgeStretchP99": 1.04843,
+                "maximumEdgeStretch": 1.23888,
+                "severeEdges": 0,
+                "progress": 0,
+                "rmsDisplacement": 0.00392,
+                "maxDisplacement": 0.0099,
+                "sizeRatio": 1,
+                "centerShift": 0.00002
+              },
+              {
+                "edgeStretchP99": 1.07677,
+                "maximumEdgeStretch": 1.3333,
+                "severeEdges": 0,
+                "progress": 0.0625,
+                "rmsDisplacement": 0.00611,
+                "maxDisplacement": 0.014,
+                "sizeRatio": 0.99935,
+                "centerShift": 0.00211
+              },
+              {
+                "edgeStretchP99": 1.09987,
+                "maximumEdgeStretch": 1.4509,
+                "severeEdges": 0,
+                "progress": 0.125,
+                "rmsDisplacement": 0.00932,
+                "maxDisplacement": 0.01916,
+                "sizeRatio": 0.99956,
+                "centerShift": 0.00334
+              },
+              {
+                "edgeStretchP99": 1.08491,
+                "maximumEdgeStretch": 1.4368,
+                "severeEdges": 0,
+                "progress": 0.1875,
+                "rmsDisplacement": 0.00827,
+                "maxDisplacement": 0.01663,
+                "sizeRatio": 0.99939,
+                "centerShift": 0.00345
+              },
+              {
+                "edgeStretchP99": 1.05171,
+                "maximumEdgeStretch": 1.40032,
+                "severeEdges": 0,
+                "progress": 0.25,
+                "rmsDisplacement": 0.00588,
+                "maxDisplacement": 0.01072,
+                "sizeRatio": 0.99894,
+                "centerShift": 0.00359
+              },
+              {
+                "edgeStretchP99": 1.02988,
+                "maximumEdgeStretch": 1.19992,
+                "severeEdges": 0,
+                "progress": 0.3125,
+                "rmsDisplacement": 0.0048,
+                "maxDisplacement": 0.00967,
+                "sizeRatio": 0.99949,
+                "centerShift": 0.00085
+              },
+              {
+                "edgeStretchP99": 1.05813,
+                "maximumEdgeStretch": 1.38056,
+                "severeEdges": 0,
+                "progress": 0.375,
+                "rmsDisplacement": 0.0123,
+                "maxDisplacement": 0.02618,
+                "sizeRatio": 0.99942,
+                "centerShift": 0.0024
+              },
+              {
+                "edgeStretchP99": 1.06165,
+                "maximumEdgeStretch": 1.43322,
+                "severeEdges": 0,
+                "progress": 0.4375,
+                "rmsDisplacement": 0.01154,
+                "maxDisplacement": 0.02518,
+                "sizeRatio": 0.99955,
+                "centerShift": 0.00159
+              },
+              {
+                "edgeStretchP99": 1.07601,
+                "maximumEdgeStretch": 1.48703,
+                "severeEdges": 0,
+                "progress": 0.5,
+                "rmsDisplacement": 0.01022,
+                "maxDisplacement": 0.02315,
+                "sizeRatio": 0.99972,
+                "centerShift": 0.00068
+              },
+              {
+                "edgeStretchP99": 1.08803,
+                "maximumEdgeStretch": 1.52174,
+                "severeEdges": 0,
+                "progress": 0.5625,
+                "rmsDisplacement": 0.00911,
+                "maxDisplacement": 0.02131,
+                "sizeRatio": 0.99977,
+                "centerShift": 0.00156
+              },
+              {
+                "edgeStretchP99": 1.0908,
+                "maximumEdgeStretch": 1.52878,
+                "severeEdges": 0,
+                "progress": 0.625,
+                "rmsDisplacement": 0.00845,
+                "maxDisplacement": 0.01991,
+                "sizeRatio": 0.99962,
+                "centerShift": 0.00255
+              },
+              {
+                "edgeStretchP99": 1.05072,
+                "maximumEdgeStretch": 1.27581,
+                "severeEdges": 0,
+                "progress": 0.6875,
+                "rmsDisplacement": 0.00562,
+                "maxDisplacement": 0.01177,
+                "sizeRatio": 0.99943,
+                "centerShift": 0.00286
+              },
+              {
+                "edgeStretchP99": 1.01976,
+                "maximumEdgeStretch": 1.19954,
+                "severeEdges": 0,
+                "progress": 0.75,
+                "rmsDisplacement": 0.00336,
+                "maxDisplacement": 0.00656,
+                "sizeRatio": 0.99939,
+                "centerShift": 0.00268
+              },
+              {
+                "edgeStretchP99": 1.02791,
+                "maximumEdgeStretch": 1.19573,
+                "severeEdges": 0,
+                "progress": 0.8125,
+                "rmsDisplacement": 0.00293,
+                "maxDisplacement": 0.00567,
+                "sizeRatio": 0.99949,
+                "centerShift": 0.00199
+              },
+              {
+                "edgeStretchP99": 1.03694,
+                "maximumEdgeStretch": 1.19433,
+                "severeEdges": 0,
+                "progress": 0.875,
+                "rmsDisplacement": 0.00316,
+                "maxDisplacement": 0.00737,
+                "sizeRatio": 0.99958,
+                "centerShift": 0.00135
+              },
+              {
+                "edgeStretchP99": 1.04178,
+                "maximumEdgeStretch": 1.19784,
+                "severeEdges": 0,
+                "progress": 0.9375,
+                "rmsDisplacement": 0.00335,
+                "maxDisplacement": 0.00845,
+                "sizeRatio": 0.99982,
+                "centerShift": 0.00055
+              },
+              {
+                "edgeStretchP99": 1.04843,
+                "maximumEdgeStretch": 1.23888,
+                "severeEdges": 0,
+                "progress": 1,
+                "rmsDisplacement": 0.00392,
+                "maxDisplacement": 0.0099,
+                "sizeRatio": 1,
+                "centerShift": 0.00002
+              }
+            ]
+          },
+          {
+            "name": "victory",
+            "duration": 1.7715,
+            "samples": [
+              {
+                "edgeStretchP99": 1.18654,
+                "maximumEdgeStretch": 1.77914,
+                "severeEdges": 0,
+                "progress": 0,
+                "rmsDisplacement": 0.01129,
+                "maxDisplacement": 0.0282,
+                "sizeRatio": 0.9995,
+                "centerShift": 0.00041
+              },
+              {
+                "edgeStretchP99": 1.26132,
+                "maximumEdgeStretch": 2.1503,
+                "severeEdges": 0,
+                "progress": 0.0471,
+                "rmsDisplacement": 0.0205,
+                "maxDisplacement": 0.04005,
+                "sizeRatio": 1.00032,
+                "centerShift": 0.00453
+              },
+              {
+                "edgeStretchP99": 1.36077,
+                "maximumEdgeStretch": 2.69448,
+                "severeEdges": 0,
+                "progress": 0.0941,
+                "rmsDisplacement": 0.036,
+                "maxDisplacement": 0.06424,
+                "sizeRatio": 1.00638,
+                "centerShift": 0.00608
+              },
+              {
+                "edgeStretchP99": 1.2671,
+                "maximumEdgeStretch": 2.11456,
+                "severeEdges": 0,
+                "progress": 0.1588,
+                "rmsDisplacement": 0.0152,
+                "maxDisplacement": 0.03439,
+                "sizeRatio": 0.99634,
+                "centerShift": 0.00426
+              },
+              {
+                "edgeStretchP99": 1.76586,
+                "maximumEdgeStretch": 5.08917,
+                "severeEdges": 0,
+                "progress": 0.2235,
+                "rmsDisplacement": 0.04238,
+                "maxDisplacement": 0.10864,
+                "sizeRatio": 0.98974,
+                "centerShift": 0.00899
+              },
+              {
+                "edgeStretchP99": 1.69553,
+                "maximumEdgeStretch": 4.69188,
+                "severeEdges": 0,
+                "progress": 0.3059,
+                "rmsDisplacement": 0.03489,
+                "maxDisplacement": 0.09282,
+                "sizeRatio": 0.99134,
+                "centerShift": 0.00347
+              },
+              {
+                "edgeStretchP99": 1.65435,
+                "maximumEdgeStretch": 4.34216,
+                "severeEdges": 0,
+                "progress": 0.3883,
+                "rmsDisplacement": 0.03235,
+                "maxDisplacement": 0.08268,
+                "sizeRatio": 0.99286,
+                "centerShift": 0.00909
+              },
+              {
+                "edgeStretchP99": 1.77354,
+                "maximumEdgeStretch": 4.89343,
+                "severeEdges": 0,
+                "progress": 0.4824,
+                "rmsDisplacement": 0.03605,
+                "maxDisplacement": 0.09496,
+                "sizeRatio": 0.9918,
+                "centerShift": 0.00848
+              },
+              {
+                "edgeStretchP99": 1.90528,
+                "maximumEdgeStretch": 5.44748,
+                "severeEdges": 0,
+                "progress": 0.5765,
+                "rmsDisplacement": 0.04069,
+                "maxDisplacement": 0.1079,
+                "sizeRatio": 0.99041,
+                "centerShift": 0.00794
+              },
+              {
+                "edgeStretchP99": 1.8015,
+                "maximumEdgeStretch": 5.06718,
+                "severeEdges": 0,
+                "progress": 0.6824,
+                "rmsDisplacement": 0.03919,
+                "maxDisplacement": 0.10253,
+                "sizeRatio": 0.99366,
+                "centerShift": 0.00676
+              },
+              {
+                "edgeStretchP99": 1.62144,
+                "maximumEdgeStretch": 4.37637,
+                "severeEdges": 0,
+                "progress": 0.7883,
+                "rmsDisplacement": 0.03698,
+                "maxDisplacement": 0.09288,
+                "sizeRatio": 0.99743,
+                "centerShift": 0.01193
+              },
+              {
+                "edgeStretchP99": 1.40901,
+                "maximumEdgeStretch": 3.41029,
+                "severeEdges": 0,
+                "progress": 0.8941,
+                "rmsDisplacement": 0.03449,
+                "maxDisplacement": 0.08007,
+                "sizeRatio": 1.00069,
+                "centerShift": 0.01788
+              },
+              {
+                "edgeStretchP99": 1.2743,
+                "maximumEdgeStretch": 2.75057,
+                "severeEdges": 0,
+                "progress": 1,
+                "rmsDisplacement": 0.03349,
+                "maxDisplacement": 0.07248,
+                "sizeRatio": 1.00258,
+                "centerShift": 0.02126
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "battle": {
+      "sha256": "61a4fa98d6b059f0b06e46f8225e0d5106f855944f83b483f69cd0fd3076b980",
+      "skull": {
+        "id": "starter-water-r",
+        "name": "Tidal Selkie",
+        "sha256": "61a4fa98d6b059f0b06e46f8225e0d5106f855944f83b483f69cd0fd3076b980",
+        "region": {
+          "y": [
+            0.08,
+            0.18
+          ],
+          "z": [
+            0.35,
+            0.55
+          ],
+          "cameraPadding": 1.4,
+          "status": "repair",
+          "finding": "Selkie lower muzzle and cheeks flatten during turned death; preserve foreflippers."
+        },
+        "vertices": 844,
+        "edges": 1875,
+        "clips": [
+          {
+            "clip": "idle",
+            "poses": 59,
+            "maxDrift": 7.370087398275671e-16,
+            "minRatio": 0.9999999999999378,
+            "maxRatio": 1.0000000000000728,
+            "worldMinRatio": 0.9999999999999604,
+            "worldMaxRatio": 1.0000000000865048,
+            "maximumVertex": 4093,
+            "maximumTime": 0.8142790683480197,
+            "maximumBindPoint": [
+              0.11816778143444778,
+              0.5786920275043674,
+              0.6382639970481141
+            ]
+          },
+          {
+            "clip": "idle_2",
+            "poses": 44,
+            "maxDrift": 8.104563857504808e-16,
+            "minRatio": 0.9999999999999378,
+            "maxRatio": 1.0000000000001001,
+            "worldMinRatio": 0.9999999999999554,
+            "worldMaxRatio": 1.0000000002237082,
+            "maximumVertex": 4093,
+            "maximumTime": 1.0519293967415304,
+            "maximumBindPoint": [
+              0.11816778143444778,
+              0.5786920275043674,
+              0.6382639970481141
+            ]
+          },
+          {
+            "clip": "walk",
+            "poses": 55,
+            "maxDrift": 7.388478162734096e-16,
+            "minRatio": 0.9999999999999223,
+            "maxRatio": 1.0000000000000826,
+            "worldMinRatio": 0.9999999996909182,
+            "worldMaxRatio": 1.0000000000000548,
+            "maximumVertex": 3616,
+            "maximumTime": 0.5731250047683716,
+            "maximumBindPoint": [
+              0.11609252211739043,
+              0.26004824678893274,
+              0.8746299667127537
+            ]
+          },
+          {
+            "clip": "gallop",
+            "poses": 49,
+            "maxDrift": 7.404568408829485e-16,
+            "minRatio": 0.9999999999999389,
+            "maxRatio": 1.0000000000000884,
+            "worldMinRatio": 0.9999999999995071,
+            "worldMaxRatio": 1.000000000000073,
+            "maximumVertex": 4379,
+            "maximumTime": 0.29176872968673706,
+            "maximumBindPoint": [
+              0.0009766670594445073,
+              0.481978859171565,
+              0.8581499541726615
+            ]
+          },
+          {
+            "clip": "gallop_jump",
+            "poses": 25,
+            "maxDrift": 7.601376871995291e-16,
+            "minRatio": 0.9999999999999192,
+            "maxRatio": 1.0000000000000906,
+            "worldMinRatio": 0.9999999999999509,
+            "worldMaxRatio": 1.0000000000109923,
+            "maximumVertex": 3261,
+            "maximumTime": 0.47075292643378763,
+            "maximumBindPoint": [
+              0.0009766670594445073,
+              0.22913299135398982,
+              0.993774278892756
+            ]
+          },
+          {
+            "clip": "attack",
+            "poses": 40,
+            "maxDrift": 7.937485115165747e-16,
+            "minRatio": 0.9999999999999128,
+            "maxRatio": 1.0000000000001013,
+            "worldMinRatio": 0.9999999999999539,
+            "worldMaxRatio": 1.0000000001413591,
+            "maximumVertex": 3267,
+            "maximumTime": 0.6012115111717811,
+            "maximumBindPoint": [
+              0.09558407710176486,
+              0.18189033786615338,
+              0.9465316087554642
+            ]
+          },
+          {
+            "clip": "idle_hitreact1",
+            "poses": 23,
+            "maxDrift": 6.295038541153288e-16,
+            "minRatio": 0.9999999999999332,
+            "maxRatio": 1.0000000000000642,
+            "worldMinRatio": 0.9999999999999688,
+            "worldMaxRatio": 1.0000000000584113,
+            "maximumVertex": 4108,
+            "maximumTime": 0.5835999846458435,
+            "maximumBindPoint": [
+              0.17163622736804302,
+              0.479903603975162,
+              0.7471540889906657
+            ]
+          },
+          {
+            "clip": "death",
+            "poses": 45,
+            "maxDrift": 8.87581169183987e-16,
+            "minRatio": 0.9999999999999316,
+            "maxRatio": 1.000000000000098,
+            "worldMinRatio": 0.9999999611500721,
+            "worldMaxRatio": 1.0000000015706225,
+            "maximumVertex": 3238,
+            "maximumTime": 0.7280727299776945,
+            "maximumBindPoint": [
+              -0.09558392822245923,
+              0.18189033786615338,
+              0.9465316087554642
+            ]
+          },
+          {
+            "clip": "entrance",
+            "poses": 32,
+            "maxDrift": 7.406823264002953e-16,
+            "minRatio": 0.9999999999999223,
+            "maxRatio": 1.0000000000000642,
+            "worldMinRatio": 0.9999999999999466,
+            "worldMaxRatio": 1.0000000000109923,
+            "maximumVertex": 3267,
+            "maximumTime": 0.27095000445842743,
+            "maximumBindPoint": [
+              0.09558407710176486,
+              0.18189033786615338,
+              0.9465316087554642
+            ]
+          },
+          {
+            "clip": "cast",
+            "poses": 42,
+            "maxDrift": 7.413690973650819e-16,
+            "minRatio": 0.9999999999999275,
+            "maxRatio": 1.0000000000000826,
+            "worldMinRatio": 0.9999999999999516,
+            "worldMaxRatio": 1.0000000000871447,
+            "maximumVertex": 4303,
+            "maximumTime": 0.1251000016927719,
+            "maximumBindPoint": [
+              -0.11816763255514215,
+              0.5786920275043674,
+              0.6382639970481141
+            ]
+          },
+          {
+            "clip": "guard",
+            "poses": 37,
+            "maxDrift": 6.793386741660254e-16,
+            "minRatio": 0.9999999999999275,
+            "maxRatio": 1.000000000000083,
+            "worldMinRatio": 0.9999999997209568,
+            "worldMaxRatio": 1.000000000000045,
+            "maximumVertex": 4354,
+            "maximumTime": 0.04024482595509496,
+            "maximumBindPoint": [
+              0.04004037185111227,
+              0.5334025521467951,
+              0.796502536863199
+            ]
+          },
+          {
+            "clip": "rest",
+            "poses": 63,
+            "maxDrift": 7.406286455990594e-16,
+            "minRatio": 0.9999999999999285,
+            "maxRatio": 1.000000000000075,
+            "worldMinRatio": 0.9999999999841456,
+            "worldMaxRatio": 1.0000000000096765,
+            "maximumVertex": 4463,
+            "maximumTime": 0.288682980740324,
+            "maximumBindPoint": [
+              0.0009766670594445073,
+              0.48612937705938386,
+              0.8458204710022706
+            ]
+          },
+          {
+            "clip": "victory",
+            "poses": 55,
+            "maxDrift": 6.600236293328306e-16,
+            "minRatio": 0.9999999999999275,
+            "maxRatio": 1.0000000000000826,
+            "worldMinRatio": 0.9999999986813692,
+            "worldMaxRatio": 1.000000000000068,
+            "maximumVertex": 4808,
+            "maximumTime": 0.5355697648469792,
+            "maximumBindPoint": [
+              0.09973459573587956,
+              0.4717246402042357,
+              0.8355662482239694
+            ]
+          }
+        ],
+        "blendDrift": 7.603468782999473e-16,
+        "blendPoses": 468,
+        "blendWorldMinRatio": 0.9999999999999528,
+        "blendWorldMaxRatio": 1.0000000000000697,
+        "failed": false
+      },
+      "geometry": {
+        "id": "starter-water-r",
+        "name": "Tidal Selkie",
+        "assetId": "starter-water-r",
+        "runtimeUrl": "/pet-models/starter-water-r.glb?v=20261012-connected-weight-v2-20261013-studio-v1-20261013-articulation-v1-20261014-contact-performance-v1",
+        "source": "identity",
+        "rig": "biped",
+        "family": "amphibious",
+        "sampledVertices": 4820,
+        "sampledEdges": 13080,
+        "geometryCoverage": "all vertices, triangle edges above numerical degeneracy tolerance, and connected UV seam copies",
+        "assetSha256": "61a4fa98d6b059f0b06e46f8225e0d5106f855944f83b483f69cd0fd3076b980",
+        "clips": [
+          {
+            "name": "idle",
+            "duration": 1.7507,
+            "samples": [
+              {
+                "edgeStretchP99": 1.2109,
+                "maximumEdgeStretch": 2.19586,
+                "severeEdges": 0,
+                "progress": 0,
+                "rmsDisplacement": 0.01168,
+                "maxDisplacement": 0.02935,
+                "sizeRatio": 0.99852,
+                "centerShift": 0.00154
+              },
+              {
+                "edgeStretchP99": 1.18002,
+                "maximumEdgeStretch": 2.34896,
+                "severeEdges": 0,
+                "progress": 0.0625,
+                "rmsDisplacement": 0.00938,
+                "maxDisplacement": 0.02683,
+                "sizeRatio": 0.99855,
+                "centerShift": 0.00207
+              },
+              {
+                "edgeStretchP99": 1.16243,
+                "maximumEdgeStretch": 2.53214,
+                "severeEdges": 0,
+                "progress": 0.125,
+                "rmsDisplacement": 0.00687,
+                "maxDisplacement": 0.03132,
+                "sizeRatio": 0.99833,
+                "centerShift": 0.00346
+              },
+              {
+                "edgeStretchP99": 1.18685,
+                "maximumEdgeStretch": 2.70199,
+                "severeEdges": 0,
+                "progress": 0.1875,
+                "rmsDisplacement": 0.00818,
+                "maxDisplacement": 0.03572,
+                "sizeRatio": 0.99771,
+                "centerShift": 0.00507
+              },
+              {
+                "edgeStretchP99": 1.21409,
+                "maximumEdgeStretch": 2.79817,
+                "severeEdges": 0,
+                "progress": 0.25,
+                "rmsDisplacement": 0.01168,
+                "maxDisplacement": 0.03828,
+                "sizeRatio": 0.99696,
+                "centerShift": 0.00621
+              },
+              {
+                "edgeStretchP99": 1.23368,
+                "maximumEdgeStretch": 2.70049,
+                "severeEdges": 0,
+                "progress": 0.3125,
+                "rmsDisplacement": 0.013,
+                "maxDisplacement": 0.03572,
+                "sizeRatio": 0.99718,
+                "centerShift": 0.00569
+              },
+              {
+                "edgeStretchP99": 1.26097,
+                "maximumEdgeStretch": 2.52919,
+                "severeEdges": 0,
+                "progress": 0.375,
+                "rmsDisplacement": 0.01353,
+                "maxDisplacement": 0.03275,
+                "sizeRatio": 0.99787,
+                "centerShift": 0.00467
+              },
+              {
+                "edgeStretchP99": 1.27369,
+                "maximumEdgeStretch": 2.34671,
+                "severeEdges": 0,
+                "progress": 0.4375,
+                "rmsDisplacement": 0.01397,
+                "maxDisplacement": 0.03533,
+                "sizeRatio": 0.99867,
+                "centerShift": 0.00369
+              },
+              {
+                "edgeStretchP99": 1.28424,
+                "maximumEdgeStretch": 2.19434,
+                "severeEdges": 0,
+                "progress": 0.5,
+                "rmsDisplacement": 0.01401,
+                "maxDisplacement": 0.03592,
+                "sizeRatio": 0.99922,
+                "centerShift": 0.00308
+              },
+              {
+                "edgeStretchP99": 1.22471,
+                "maximumEdgeStretch": 2.14436,
+                "severeEdges": 0,
+                "progress": 0.5625,
+                "rmsDisplacement": 0.0112,
+                "maxDisplacement": 0.02732,
+                "sizeRatio": 0.99923,
+                "centerShift": 0.00307
+              },
+              {
+                "edgeStretchP99": 1.151,
+                "maximumEdgeStretch": 2.13476,
+                "severeEdges": 0,
+                "progress": 0.625,
+                "rmsDisplacement": 0.00728,
+                "maxDisplacement": 0.02362,
+                "sizeRatio": 0.99896,
+                "centerShift": 0.00332
+              },
+              {
+                "edgeStretchP99": 1.15316,
+                "maximumEdgeStretch": 2.13742,
+                "severeEdges": 0,
+                "progress": 0.6875,
+                "rmsDisplacement": 0.0062,
+                "maxDisplacement": 0.02438,
+                "sizeRatio": 0.99825,
+                "centerShift": 0.00372
+              },
+              {
+                "edgeStretchP99": 1.16375,
+                "maximumEdgeStretch": 2.14413,
+                "severeEdges": 0,
+                "progress": 0.75,
+                "rmsDisplacement": 0.00888,
+                "maxDisplacement": 0.02492,
+                "sizeRatio": 0.99763,
+                "centerShift": 0.00419
+              },
+              {
+                "edgeStretchP99": 1.17792,
+                "maximumEdgeStretch": 2.13765,
+                "severeEdges": 0,
+                "progress": 0.8125,
+                "rmsDisplacement": 0.01019,
+                "maxDisplacement": 0.02438,
+                "sizeRatio": 0.9977,
+                "centerShift": 0.00368
+              },
+              {
+                "edgeStretchP99": 1.19058,
+                "maximumEdgeStretch": 2.13452,
+                "severeEdges": 0,
+                "progress": 0.875,
+                "rmsDisplacement": 0.01086,
+                "maxDisplacement": 0.02679,
+                "sizeRatio": 0.99794,
+                "centerShift": 0.00274
+              },
+              {
+                "edgeStretchP99": 1.20262,
+                "maximumEdgeStretch": 2.14508,
+                "severeEdges": 0,
+                "progress": 0.9375,
+                "rmsDisplacement": 0.01143,
+                "maxDisplacement": 0.0288,
+                "sizeRatio": 0.99825,
+                "centerShift": 0.00193
+              },
+              {
+                "edgeStretchP99": 1.2109,
+                "maximumEdgeStretch": 2.19586,
+                "severeEdges": 0,
+                "progress": 1,
+                "rmsDisplacement": 0.01168,
+                "maxDisplacement": 0.02935,
+                "sizeRatio": 0.99852,
+                "centerShift": 0.00154
+              }
+            ]
+          },
+          {
+            "name": "idle_2",
+            "duration": 1.3756,
+            "samples": [
+              {
+                "edgeStretchP99": 1.22449,
+                "maximumEdgeStretch": 1.95588,
+                "severeEdges": 0,
+                "progress": 0,
+                "rmsDisplacement": 0.01309,
+                "maxDisplacement": 0.03379,
+                "sizeRatio": 0.99907,
+                "centerShift": 0.00062
+              },
+              {
+                "edgeStretchP99": 1.39803,
+                "maximumEdgeStretch": 2.52934,
+                "severeEdges": 0,
+                "progress": 0.0682,
+                "rmsDisplacement": 0.02609,
+                "maxDisplacement": 0.05733,
+                "sizeRatio": 0.9991,
+                "centerShift": 0.0108
+              },
+              {
+                "edgeStretchP99": 1.60763,
+                "maximumEdgeStretch": 3.10621,
+                "severeEdges": 0,
+                "progress": 0.1364,
+                "rmsDisplacement": 0.04428,
+                "maxDisplacement": 0.08814,
+                "sizeRatio": 1.00967,
+                "centerShift": 0.01579
+              },
+              {
+                "edgeStretchP99": 1.12392,
+                "maximumEdgeStretch": 1.99001,
+                "severeEdges": 0,
+                "progress": 0.2273,
+                "rmsDisplacement": 0.00684,
+                "maxDisplacement": 0.0225,
+                "sizeRatio": 0.99718,
+                "centerShift": 0.0033
+              },
+              {
+                "edgeStretchP99": 1.38576,
+                "maximumEdgeStretch": 3.28359,
+                "severeEdges": 0,
+                "progress": 0.3182,
+                "rmsDisplacement": 0.04611,
+                "maxDisplacement": 0.09399,
+                "sizeRatio": 1.00269,
+                "centerShift": 0.02837
+              },
+              {
+                "edgeStretchP99": 1.52469,
+                "maximumEdgeStretch": 3.70282,
+                "severeEdges": 0,
+                "progress": 0.4243,
+                "rmsDisplacement": 0.03764,
+                "maxDisplacement": 0.08611,
+                "sizeRatio": 1.00141,
+                "centerShift": 0.015
+              },
+              {
+                "edgeStretchP99": 1.6116,
+                "maximumEdgeStretch": 3.89688,
+                "severeEdges": 0,
+                "progress": 0.5303,
+                "rmsDisplacement": 0.03043,
+                "maxDisplacement": 0.07838,
+                "sizeRatio": 0.9962,
+                "centerShift": 0.00412
+              },
+              {
+                "edgeStretchP99": 1.22406,
+                "maximumEdgeStretch": 1.95332,
+                "severeEdges": 0,
+                "progress": 0.6439,
+                "rmsDisplacement": 0.01272,
+                "maxDisplacement": 0.03194,
+                "sizeRatio": 0.99762,
+                "centerShift": 0.00197
+              },
+              {
+                "edgeStretchP99": 1.15114,
+                "maximumEdgeStretch": 1.7345,
+                "severeEdges": 0,
+                "progress": 0.7576,
+                "rmsDisplacement": 0.01104,
+                "maxDisplacement": 0.02282,
+                "sizeRatio": 0.99844,
+                "centerShift": 0.00129
+              },
+              {
+                "edgeStretchP99": 1.20988,
+                "maximumEdgeStretch": 1.83952,
+                "severeEdges": 0,
+                "progress": 0.8788,
+                "rmsDisplacement": 0.01215,
+                "maxDisplacement": 0.03036,
+                "sizeRatio": 0.99784,
+                "centerShift": 0.00079
+              },
+              {
+                "edgeStretchP99": 1.22449,
+                "maximumEdgeStretch": 1.95588,
+                "severeEdges": 0,
+                "progress": 1,
+                "rmsDisplacement": 0.01309,
+                "maxDisplacement": 0.03379,
+                "sizeRatio": 0.99907,
+                "centerShift": 0.00062
+              }
+            ]
+          },
+          {
+            "name": "walk",
+            "duration": 0.917,
+            "samples": [
+              {
+                "edgeStretchP99": 1.8773,
+                "maximumEdgeStretch": 4.68228,
+                "severeEdges": 0,
+                "progress": 0,
+                "rmsDisplacement": 0.05463,
+                "maxDisplacement": 0.15567,
+                "sizeRatio": 1.06013,
+                "centerShift": 0.06282
+              },
+              {
+                "edgeStretchP99": 1.84147,
+                "maximumEdgeStretch": 4.55321,
+                "severeEdges": 0,
+                "progress": 0.0313,
+                "rmsDisplacement": 0.05269,
+                "maxDisplacement": 0.15023,
+                "sizeRatio": 1.05844,
+                "centerShift": 0.06012
+              },
+              {
+                "edgeStretchP99": 1.76567,
+                "maximumEdgeStretch": 4.28107,
+                "severeEdges": 0,
+                "progress": 0.0625,
+                "rmsDisplacement": 0.04864,
+                "maxDisplacement": 0.13842,
+                "sizeRatio": 1.05456,
+                "centerShift": 0.05426
+              },
+              {
+                "edgeStretchP99": 1.64612,
+                "maximumEdgeStretch": 3.85248,
+                "severeEdges": 0,
+                "progress": 0.0938,
+                "rmsDisplacement": 0.04253,
+                "maxDisplacement": 0.11991,
+                "sizeRatio": 1.04794,
+                "centerShift": 0.0451
+              },
+              {
+                "edgeStretchP99": 1.53492,
+                "maximumEdgeStretch": 3.29202,
+                "severeEdges": 0,
+                "progress": 0.125,
+                "rmsDisplacement": 0.03509,
+                "maxDisplacement": 0.09594,
+                "sizeRatio": 1.03957,
+                "centerShift": 0.03322
+              },
+              {
+                "edgeStretchP99": 1.40097,
+                "maximumEdgeStretch": 2.68958,
+                "severeEdges": 0,
+                "progress": 0.1562,
+                "rmsDisplacement": 0.0281,
+                "maxDisplacement": 0.07028,
+                "sizeRatio": 1.03048,
+                "centerShift": 0.02051
+              },
+              {
+                "edgeStretchP99": 1.25548,
+                "maximumEdgeStretch": 2.08507,
+                "severeEdges": 0,
+                "progress": 0.1875,
+                "rmsDisplacement": 0.02266,
+                "maxDisplacement": 0.05029,
+                "sizeRatio": 1.02091,
+                "centerShift": 0.00996
+              },
+              {
+                "edgeStretchP99": 1.13874,
+                "maximumEdgeStretch": 1.68387,
+                "severeEdges": 0,
+                "progress": 0.2187,
+                "rmsDisplacement": 0.02005,
+                "maxDisplacement": 0.03368,
+                "sizeRatio": 1.01243,
+                "centerShift": 0.0104
+              },
+              {
+                "edgeStretchP99": 1.0941,
+                "maximumEdgeStretch": 1.71367,
+                "severeEdges": 0,
+                "progress": 0.25,
+                "rmsDisplacement": 0.01987,
+                "maxDisplacement": 0.02722,
+                "sizeRatio": 1.00448,
+                "centerShift": 0.0184
+              },
+              {
+                "edgeStretchP99": 1.139,
+                "maximumEdgeStretch": 1.73368,
+                "severeEdges": 0,
+                "progress": 0.2813,
+                "rmsDisplacement": 0.02143,
+                "maxDisplacement": 0.03282,
+                "sizeRatio": 1.00421,
+                "centerShift": 0.02138
+              },
+              {
+                "edgeStretchP99": 1.21247,
+                "maximumEdgeStretch": 1.92484,
+                "severeEdges": 0,
+                "progress": 0.3125,
+                "rmsDisplacement": 0.02547,
+                "maxDisplacement": 0.04286,
+                "sizeRatio": 1.01042,
+                "centerShift": 0.02362
+              },
+              {
+                "edgeStretchP99": 1.32436,
+                "maximumEdgeStretch": 2.45572,
+                "severeEdges": 0,
+                "progress": 0.3437,
+                "rmsDisplacement": 0.03216,
+                "maxDisplacement": 0.06457,
+                "sizeRatio": 1.01725,
+                "centerShift": 0.03131
+              },
+              {
+                "edgeStretchP99": 1.45653,
+                "maximumEdgeStretch": 3.15426,
+                "severeEdges": 0,
+                "progress": 0.375,
+                "rmsDisplacement": 0.04014,
+                "maxDisplacement": 0.08569,
+                "sizeRatio": 1.02824,
+                "centerShift": 0.03972
+              },
+              {
+                "edgeStretchP99": 1.58088,
+                "maximumEdgeStretch": 3.81138,
+                "severeEdges": 0,
+                "progress": 0.4063,
+                "rmsDisplacement": 0.04834,
+                "maxDisplacement": 0.10522,
+                "sizeRatio": 1.0379,
+                "centerShift": 0.04922
+              },
+              {
+                "edgeStretchP99": 1.70404,
+                "maximumEdgeStretch": 4.31763,
+                "severeEdges": 0,
+                "progress": 0.4375,
+                "rmsDisplacement": 0.05504,
+                "maxDisplacement": 0.12022,
+                "sizeRatio": 1.04587,
+                "centerShift": 0.05784
+              },
+              {
+                "edgeStretchP99": 1.78335,
+                "maximumEdgeStretch": 4.64079,
+                "severeEdges": 0,
+                "progress": 0.4688,
+                "rmsDisplacement": 0.05949,
+                "maxDisplacement": 0.12985,
+                "sizeRatio": 1.05051,
+                "centerShift": 0.06354
+              },
+              {
+                "edgeStretchP99": 1.81453,
+                "maximumEdgeStretch": 4.79444,
+                "severeEdges": 0,
+                "progress": 0.5,
+                "rmsDisplacement": 0.06171,
+                "maxDisplacement": 0.13466,
+                "sizeRatio": 1.05261,
+                "centerShift": 0.06636
+              },
+              {
+                "edgeStretchP99": 1.77522,
+                "maximumEdgeStretch": 4.64095,
+                "severeEdges": 0,
+                "progress": 0.5313,
+                "rmsDisplacement": 0.05982,
+                "maxDisplacement": 0.13107,
+                "sizeRatio": 1.05073,
+                "centerShift": 0.06393
+              },
+              {
+                "edgeStretchP99": 1.69239,
+                "maximumEdgeStretch": 4.31812,
+                "severeEdges": 0,
+                "progress": 0.5625,
+                "rmsDisplacement": 0.05576,
+                "maxDisplacement": 0.12294,
+                "sizeRatio": 1.04648,
+                "centerShift": 0.05866
+              },
+              {
+                "edgeStretchP99": 1.5671,
+                "maximumEdgeStretch": 3.8123,
+                "severeEdges": 0,
+                "progress": 0.5938,
+                "rmsDisplacement": 0.04954,
+                "maxDisplacement": 0.10987,
+                "sizeRatio": 1.03925,
+                "centerShift": 0.0505
+              },
+              {
+                "edgeStretchP99": 1.4334,
+                "maximumEdgeStretch": 3.15566,
+                "severeEdges": 0,
+                "progress": 0.625,
+                "rmsDisplacement": 0.0418,
+                "maxDisplacement": 0.09237,
+                "sizeRatio": 1.0301,
+                "centerShift": 0.04084
+              },
+              {
+                "edgeStretchP99": 1.30352,
+                "maximumEdgeStretch": 2.45752,
+                "severeEdges": 0,
+                "progress": 0.6563,
+                "rmsDisplacement": 0.03414,
+                "maxDisplacement": 0.07315,
+                "sizeRatio": 1.01997,
+                "centerShift": 0.03195
+              },
+              {
+                "edgeStretchP99": 1.18526,
+                "maximumEdgeStretch": 1.85761,
+                "severeEdges": 0,
+                "progress": 0.6875,
+                "rmsDisplacement": 0.02742,
+                "maxDisplacement": 0.05303,
+                "sizeRatio": 1.0143,
+                "centerShift": 0.02264
+              },
+              {
+                "edgeStretchP99": 1.11338,
+                "maximumEdgeStretch": 1.61998,
+                "severeEdges": 0,
+                "progress": 0.7187,
+                "rmsDisplacement": 0.02294,
+                "maxDisplacement": 0.03481,
+                "sizeRatio": 1.00924,
+                "centerShift": 0.01822
+              },
+              {
+                "edgeStretchP99": 1.10661,
+                "maximumEdgeStretch": 1.43593,
+                "severeEdges": 0,
+                "progress": 0.75,
+                "rmsDisplacement": 0.02056,
+                "maxDisplacement": 0.03255,
+                "sizeRatio": 1.00461,
+                "centerShift": 0.01884
+              },
+              {
+                "edgeStretchP99": 1.18103,
+                "maximumEdgeStretch": 1.79271,
+                "severeEdges": 0,
+                "progress": 0.7812,
+                "rmsDisplacement": 0.01996,
+                "maxDisplacement": 0.04014,
+                "sizeRatio": 1.00781,
+                "centerShift": 0.01558
+              },
+              {
+                "edgeStretchP99": 1.28267,
+                "maximumEdgeStretch": 2.16818,
+                "severeEdges": 0,
+                "progress": 0.8125,
+                "rmsDisplacement": 0.02205,
+                "maxDisplacement": 0.05589,
+                "sizeRatio": 1.01728,
+                "centerShift": 0.0117
+              },
+              {
+                "edgeStretchP99": 1.41741,
+                "maximumEdgeStretch": 2.68801,
+                "severeEdges": 0,
+                "progress": 0.8437,
+                "rmsDisplacement": 0.02731,
+                "maxDisplacement": 0.07476,
+                "sizeRatio": 1.02782,
+                "centerShift": 0.01903
+              },
+              {
+                "edgeStretchP99": 1.54783,
+                "maximumEdgeStretch": 3.29082,
+                "severeEdges": 0,
+                "progress": 0.875,
+                "rmsDisplacement": 0.03441,
+                "maxDisplacement": 0.09365,
+                "sizeRatio": 1.03786,
+                "centerShift": 0.03138
+              },
+              {
+                "edgeStretchP99": 1.69002,
+                "maximumEdgeStretch": 3.85169,
+                "severeEdges": 0,
+                "progress": 0.9063,
+                "rmsDisplacement": 0.04203,
+                "maxDisplacement": 0.1156,
+                "sizeRatio": 1.04659,
+                "centerShift": 0.04365
+              },
+              {
+                "edgeStretchP99": 1.78052,
+                "maximumEdgeStretch": 4.28065,
+                "severeEdges": 0,
+                "progress": 0.9375,
+                "rmsDisplacement": 0.04835,
+                "maxDisplacement": 0.13591,
+                "sizeRatio": 1.0539,
+                "centerShift": 0.05338
+              },
+              {
+                "edgeStretchP99": 1.8424,
+                "maximumEdgeStretch": 4.55307,
+                "severeEdges": 0,
+                "progress": 0.9688,
+                "rmsDisplacement": 0.05256,
+                "maxDisplacement": 0.14912,
+                "sizeRatio": 1.05817,
+                "centerShift": 0.05972
+              },
+              {
+                "edgeStretchP99": 1.8773,
+                "maximumEdgeStretch": 4.68228,
+                "severeEdges": 0,
+                "progress": 1,
+                "rmsDisplacement": 0.05463,
+                "maxDisplacement": 0.15567,
+                "sizeRatio": 1.06013,
+                "centerShift": 0.06282
+              }
+            ]
+          },
+          {
+            "name": "gallop",
+            "duration": 0.6669,
+            "samples": [
+              {
+                "edgeStretchP99": 2.4945,
+                "maximumEdgeStretch": 6.26586,
+                "severeEdges": 0,
+                "progress": 0,
+                "rmsDisplacement": 0.0738,
+                "maxDisplacement": 0.19029,
+                "sizeRatio": 1.09305,
+                "centerShift": 0.05578
+              },
+              {
+                "edgeStretchP99": 2.37776,
+                "maximumEdgeStretch": 5.95378,
+                "severeEdges": 0,
+                "progress": 0.0313,
+                "rmsDisplacement": 0.06951,
+                "maxDisplacement": 0.17742,
+                "sizeRatio": 1.08739,
+                "centerShift": 0.05261
+              },
+              {
+                "edgeStretchP99": 2.14605,
+                "maximumEdgeStretch": 5.29713,
+                "severeEdges": 0,
+                "progress": 0.0625,
+                "rmsDisplacement": 0.06086,
+                "maxDisplacement": 0.15067,
+                "sizeRatio": 1.07452,
+                "centerShift": 0.04577
+              },
+              {
+                "edgeStretchP99": 1.79699,
+                "maximumEdgeStretch": 4.2685,
+                "severeEdges": 0,
+                "progress": 0.0938,
+                "rmsDisplacement": 0.04859,
+                "maxDisplacement": 0.12615,
+                "sizeRatio": 1.05436,
+                "centerShift": 0.03477
+              },
+              {
+                "edgeStretchP99": 1.44369,
+                "maximumEdgeStretch": 2.95786,
+                "severeEdges": 0,
+                "progress": 0.125,
+                "rmsDisplacement": 0.03663,
+                "maxDisplacement": 0.10115,
+                "sizeRatio": 1.02562,
+                "centerShift": 0.02218
+              },
+              {
+                "edgeStretchP99": 1.17724,
+                "maximumEdgeStretch": 1.91785,
+                "severeEdges": 0,
+                "progress": 0.1563,
+                "rmsDisplacement": 0.03274,
+                "maxDisplacement": 0.07501,
+                "sizeRatio": 1.0002,
+                "centerShift": 0.02238
+              },
+              {
+                "edgeStretchP99": 1.15343,
+                "maximumEdgeStretch": 2.01544,
+                "severeEdges": 0,
+                "progress": 0.1875,
+                "rmsDisplacement": 0.03922,
+                "maxDisplacement": 0.05353,
+                "sizeRatio": 0.98818,
+                "centerShift": 0.03342
+              },
+              {
+                "edgeStretchP99": 1.28996,
+                "maximumEdgeStretch": 2.90755,
+                "severeEdges": 0,
+                "progress": 0.2188,
+                "rmsDisplacement": 0.04911,
+                "maxDisplacement": 0.08621,
+                "sizeRatio": 0.99165,
+                "centerShift": 0.04325
+              },
+              {
+                "edgeStretchP99": 1.47208,
+                "maximumEdgeStretch": 3.55926,
+                "severeEdges": 0,
+                "progress": 0.25,
+                "rmsDisplacement": 0.05862,
+                "maxDisplacement": 0.11618,
+                "sizeRatio": 0.99695,
+                "centerShift": 0.05322
+              },
+              {
+                "edgeStretchP99": 1.622,
+                "maximumEdgeStretch": 3.87213,
+                "severeEdges": 0,
+                "progress": 0.2812,
+                "rmsDisplacement": 0.0654,
+                "maxDisplacement": 0.13643,
+                "sizeRatio": 1.00721,
+                "centerShift": 0.05881
+              },
+              {
+                "edgeStretchP99": 1.7264,
+                "maximumEdgeStretch": 4.04895,
+                "severeEdges": 0,
+                "progress": 0.3125,
+                "rmsDisplacement": 0.07153,
+                "maxDisplacement": 0.15344,
+                "sizeRatio": 1.01734,
+                "centerShift": 0.06379
+              },
+              {
+                "edgeStretchP99": 1.84316,
+                "maximumEdgeStretch": 4.31926,
+                "severeEdges": 0,
+                "progress": 0.3438,
+                "rmsDisplacement": 0.07837,
+                "maxDisplacement": 0.17061,
+                "sizeRatio": 1.03106,
+                "centerShift": 0.0704
+              },
+              {
+                "edgeStretchP99": 1.972,
+                "maximumEdgeStretch": 4.92927,
+                "severeEdges": 0,
+                "progress": 0.375,
+                "rmsDisplacement": 0.08525,
+                "maxDisplacement": 0.18564,
+                "sizeRatio": 1.04601,
+                "centerShift": 0.07716
+              },
+              {
+                "edgeStretchP99": 2.10248,
+                "maximumEdgeStretch": 5.47153,
+                "severeEdges": 0,
+                "progress": 0.4062,
+                "rmsDisplacement": 0.0921,
+                "maxDisplacement": 0.19867,
+                "sizeRatio": 1.06138,
+                "centerShift": 0.08406
+              },
+              {
+                "edgeStretchP99": 2.20408,
+                "maximumEdgeStretch": 5.8736,
+                "severeEdges": 0,
+                "progress": 0.4375,
+                "rmsDisplacement": 0.09762,
+                "maxDisplacement": 0.20812,
+                "sizeRatio": 1.07282,
+                "centerShift": 0.08929
+              },
+              {
+                "edgeStretchP99": 2.24164,
+                "maximumEdgeStretch": 6.12371,
+                "severeEdges": 0,
+                "progress": 0.4687,
+                "rmsDisplacement": 0.10127,
+                "maxDisplacement": 0.2139,
+                "sizeRatio": 1.08014,
+                "centerShift": 0.09256
+              },
+              {
+                "edgeStretchP99": 2.27517,
+                "maximumEdgeStretch": 6.24124,
+                "severeEdges": 0,
+                "progress": 0.5,
+                "rmsDisplacement": 0.10305,
+                "maxDisplacement": 0.2166,
+                "sizeRatio": 1.08356,
+                "centerShift": 0.09412
+              },
+              {
+                "edgeStretchP99": 2.17818,
+                "maximumEdgeStretch": 5.94761,
+                "severeEdges": 0,
+                "progress": 0.5313,
+                "rmsDisplacement": 0.09999,
+                "maxDisplacement": 0.20958,
+                "sizeRatio": 1.07786,
+                "centerShift": 0.0918
+              },
+              {
+                "edgeStretchP99": 2.00383,
+                "maximumEdgeStretch": 5.32801,
+                "severeEdges": 0,
+                "progress": 0.5625,
+                "rmsDisplacement": 0.09377,
+                "maxDisplacement": 0.19475,
+                "sizeRatio": 1.06513,
+                "centerShift": 0.08692
+              },
+              {
+                "edgeStretchP99": 1.75921,
+                "maximumEdgeStretch": 4.35303,
+                "severeEdges": 0,
+                "progress": 0.5938,
+                "rmsDisplacement": 0.08474,
+                "maxDisplacement": 0.17123,
+                "sizeRatio": 1.04402,
+                "centerShift": 0.07946
+              },
+              {
+                "edgeStretchP99": 1.44659,
+                "maximumEdgeStretch": 3.11049,
+                "severeEdges": 0,
+                "progress": 0.625,
+                "rmsDisplacement": 0.07466,
+                "maxDisplacement": 0.14026,
+                "sizeRatio": 1.01916,
+                "centerShift": 0.07091
+              },
+              {
+                "edgeStretchP99": 1.22399,
+                "maximumEdgeStretch": 2.12217,
+                "severeEdges": 0,
+                "progress": 0.6562,
+                "rmsDisplacement": 0.06662,
+                "maxDisplacement": 0.10658,
+                "sizeRatio": 1.00093,
+                "centerShift": 0.06537
+              },
+              {
+                "edgeStretchP99": 1.13962,
+                "maximumEdgeStretch": 2.46685,
+                "severeEdges": 0,
+                "progress": 0.6875,
+                "rmsDisplacement": 0.06175,
+                "maxDisplacement": 0.07895,
+                "sizeRatio": 0.99191,
+                "centerShift": 0.05683
+              },
+              {
+                "edgeStretchP99": 1.23338,
+                "maximumEdgeStretch": 2.99461,
+                "severeEdges": 0,
+                "progress": 0.7188,
+                "rmsDisplacement": 0.05995,
+                "maxDisplacement": 0.09659,
+                "sizeRatio": 0.99472,
+                "centerShift": 0.04866
+              },
+              {
+                "edgeStretchP99": 1.37404,
+                "maximumEdgeStretch": 3.34077,
+                "severeEdges": 0,
+                "progress": 0.75,
+                "rmsDisplacement": 0.05927,
+                "maxDisplacement": 0.11734,
+                "sizeRatio": 1.00042,
+                "centerShift": 0.04206
+              },
+              {
+                "edgeStretchP99": 1.49629,
+                "maximumEdgeStretch": 3.46154,
+                "severeEdges": 0,
+                "progress": 0.7813,
+                "rmsDisplacement": 0.05705,
+                "maxDisplacement": 0.12958,
+                "sizeRatio": 1.01131,
+                "centerShift": 0.03815
+              },
+              {
+                "edgeStretchP99": 1.62258,
+                "maximumEdgeStretch": 3.49389,
+                "severeEdges": 0,
+                "progress": 0.8125,
+                "rmsDisplacement": 0.05508,
+                "maxDisplacement": 0.13842,
+                "sizeRatio": 1.02305,
+                "centerShift": 0.03699
+              },
+              {
+                "edgeStretchP99": 1.81132,
+                "maximumEdgeStretch": 4.03528,
+                "severeEdges": 0,
+                "progress": 0.8437,
+                "rmsDisplacement": 0.05474,
+                "maxDisplacement": 0.14661,
+                "sizeRatio": 1.03872,
+                "centerShift": 0.03961
+              },
+              {
+                "edgeStretchP99": 1.99888,
+                "maximumEdgeStretch": 4.642,
+                "severeEdges": 0,
+                "progress": 0.875,
+                "rmsDisplacement": 0.05698,
+                "maxDisplacement": 0.15293,
+                "sizeRatio": 1.05526,
+                "centerShift": 0.04362
+              },
+              {
+                "edgeStretchP99": 2.19675,
+                "maximumEdgeStretch": 5.30003,
+                "severeEdges": 0,
+                "progress": 0.9062,
+                "rmsDisplacement": 0.06189,
+                "maxDisplacement": 0.15809,
+                "sizeRatio": 1.07029,
+                "centerShift": 0.04831
+              },
+              {
+                "edgeStretchP99": 2.32738,
+                "maximumEdgeStretch": 5.79991,
+                "severeEdges": 0,
+                "progress": 0.9375,
+                "rmsDisplacement": 0.06738,
+                "maxDisplacement": 0.16901,
+                "sizeRatio": 1.08188,
+                "centerShift": 0.05218
+              },
+              {
+                "edgeStretchP99": 2.45346,
+                "maximumEdgeStretch": 6.11605,
+                "severeEdges": 0,
+                "progress": 0.9688,
+                "rmsDisplacement": 0.07161,
+                "maxDisplacement": 0.18342,
+                "sizeRatio": 1.08947,
+                "centerShift": 0.05462
+              },
+              {
+                "edgeStretchP99": 2.4945,
+                "maximumEdgeStretch": 6.26586,
+                "severeEdges": 0,
+                "progress": 1,
+                "rmsDisplacement": 0.0738,
+                "maxDisplacement": 0.19029,
+                "sizeRatio": 1.09305,
+                "centerShift": 0.05578
+              }
+            ]
+          },
+          {
+            "name": "gallop_jump",
+            "duration": 0.6669,
+            "samples": [
+              {
+                "edgeStretchP99": 1,
+                "maximumEdgeStretch": 1.00001,
+                "severeEdges": 0,
+                "progress": 0,
+                "rmsDisplacement": 0,
+                "maxDisplacement": 0,
+                "sizeRatio": 1,
+                "centerShift": 0
+              },
+              {
+                "edgeStretchP99": 1.37976,
+                "maximumEdgeStretch": 2.66132,
+                "severeEdges": 0,
+                "progress": 0.0781,
+                "rmsDisplacement": 0.03542,
+                "maxDisplacement": 0.06275,
+                "sizeRatio": 1.0083,
+                "centerShift": 0.02549
+              },
+              {
+                "edgeStretchP99": 1.97863,
+                "maximumEdgeStretch": 4.94373,
+                "severeEdges": 0,
+                "progress": 0.1562,
+                "rmsDisplacement": 0.08368,
+                "maxDisplacement": 0.15081,
+                "sizeRatio": 1.03728,
+                "centerShift": 0.05139
+              },
+              {
+                "edgeStretchP99": 2.54001,
+                "maximumEdgeStretch": 6.60524,
+                "severeEdges": 0,
+                "progress": 0.2656,
+                "rmsDisplacement": 0.13155,
+                "maxDisplacement": 0.27682,
+                "sizeRatio": 1.09768,
+                "centerShift": 0.03318
+              },
+              {
+                "edgeStretchP99": 2.84027,
+                "maximumEdgeStretch": 7.38269,
+                "severeEdges": 0,
+                "progress": 0.375,
+                "rmsDisplacement": 0.17998,
+                "maxDisplacement": 0.38362,
+                "sizeRatio": 1.11058,
+                "centerShift": 0.06964
+              },
+              {
+                "edgeStretchP99": 1.54155,
+                "maximumEdgeStretch": 3.32369,
+                "severeEdges": 0,
+                "progress": 0.5157,
+                "rmsDisplacement": 0.1169,
+                "maxDisplacement": 0.21625,
+                "sizeRatio": 1.06744,
+                "centerShift": 0.07778
+              },
+              {
+                "edgeStretchP99": 1.3934,
+                "maximumEdgeStretch": 2.96247,
+                "severeEdges": 0,
+                "progress": 0.6563,
+                "rmsDisplacement": 0.09657,
+                "maxDisplacement": 0.1746,
+                "sizeRatio": 0.99508,
+                "centerShift": 0.08055
+              },
+              {
+                "edgeStretchP99": 1.17107,
+                "maximumEdgeStretch": 1.97313,
+                "severeEdges": 0,
+                "progress": 0.8282,
+                "rmsDisplacement": 0.04532,
+                "maxDisplacement": 0.08768,
+                "sizeRatio": 0.99723,
+                "centerShift": 0.03818
+              },
+              {
+                "edgeStretchP99": 1,
+                "maximumEdgeStretch": 1.00001,
+                "severeEdges": 0,
+                "progress": 1,
+                "rmsDisplacement": 0,
+                "maxDisplacement": 0,
+                "sizeRatio": 1,
+                "centerShift": 0
+              }
+            ]
+          },
+          {
+            "name": "attack",
+            "duration": 1.0421,
+            "samples": [
+              {
+                "edgeStretchP99": 1.16433,
+                "maximumEdgeStretch": 1.83233,
+                "severeEdges": 0,
+                "progress": 0,
+                "rmsDisplacement": 0.00817,
+                "maxDisplacement": 0.02028,
+                "sizeRatio": 0.99948,
+                "centerShift": 0.00043
+              },
+              {
+                "edgeStretchP99": 1.33741,
+                "maximumEdgeStretch": 3.17874,
+                "severeEdges": 0,
+                "progress": 0.07,
+                "rmsDisplacement": 0.02069,
+                "maxDisplacement": 0.04352,
+                "sizeRatio": 1.00181,
+                "centerShift": 0.0195
+              },
+              {
+                "edgeStretchP99": 1.79448,
+                "maximumEdgeStretch": 5.20728,
+                "severeEdges": 0,
+                "progress": 0.14,
+                "rmsDisplacement": 0.05441,
+                "maxDisplacement": 0.0893,
+                "sizeRatio": 1.01073,
+                "centerShift": 0.0523
+              },
+              {
+                "edgeStretchP99": 2.26073,
+                "maximumEdgeStretch": 6.82683,
+                "severeEdges": 0,
+                "progress": 0.22,
+                "rmsDisplacement": 0.0878,
+                "maxDisplacement": 0.13605,
+                "sizeRatio": 1.03592,
+                "centerShift": 0.078
+              },
+              {
+                "edgeStretchP99": 2.56054,
+                "maximumEdgeStretch": 7.67669,
+                "severeEdges": 0,
+                "progress": 0.3,
+                "rmsDisplacement": 0.1072,
+                "maxDisplacement": 0.16341,
+                "sizeRatio": 1.05166,
+                "centerShift": 0.09241
+              },
+              {
+                "edgeStretchP99": 1.45541,
+                "maximumEdgeStretch": 2.53029,
+                "severeEdges": 0,
+                "progress": 0.35,
+                "rmsDisplacement": 0.02775,
+                "maxDisplacement": 0.05857,
+                "sizeRatio": 1.00744,
+                "centerShift": 0.00913
+              },
+              {
+                "edgeStretchP99": 1.70825,
+                "maximumEdgeStretch": 5.89767,
+                "severeEdges": 0,
+                "progress": 0.4,
+                "rmsDisplacement": 0.11464,
+                "maxDisplacement": 0.14613,
+                "sizeRatio": 0.99986,
+                "centerShift": 0.11139
+              },
+              {
+                "edgeStretchP99": 1.70654,
+                "maximumEdgeStretch": 4.29554,
+                "severeEdges": 0,
+                "progress": 0.465,
+                "rmsDisplacement": 0.149,
+                "maxDisplacement": 0.18405,
+                "sizeRatio": 1.00526,
+                "centerShift": 0.15158
+              },
+              {
+                "edgeStretchP99": 1.74982,
+                "maximumEdgeStretch": 4.2247,
+                "severeEdges": 0,
+                "progress": 0.53,
+                "rmsDisplacement": 0.16571,
+                "maxDisplacement": 0.20482,
+                "sizeRatio": 0.9985,
+                "centerShift": 0.16423
+              },
+              {
+                "edgeStretchP99": 1.2969,
+                "maximumEdgeStretch": 2.79206,
+                "severeEdges": 0,
+                "progress": 0.605,
+                "rmsDisplacement": 0.13782,
+                "maxDisplacement": 0.17149,
+                "sizeRatio": 0.99032,
+                "centerShift": 0.13485
+              },
+              {
+                "edgeStretchP99": 1.27969,
+                "maximumEdgeStretch": 3.78158,
+                "severeEdges": 0,
+                "progress": 0.68,
+                "rmsDisplacement": 0.09794,
+                "maxDisplacement": 0.13605,
+                "sizeRatio": 0.99174,
+                "centerShift": 0.09186
+              },
+              {
+                "edgeStretchP99": 1.1976,
+                "maximumEdgeStretch": 2.42047,
+                "severeEdges": 0,
+                "progress": 0.76,
+                "rmsDisplacement": 0.05342,
+                "maxDisplacement": 0.06585,
+                "sizeRatio": 0.99717,
+                "centerShift": 0.05186
+              },
+              {
+                "edgeStretchP99": 1.14741,
+                "maximumEdgeStretch": 2.12892,
+                "severeEdges": 0,
+                "progress": 0.84,
+                "rmsDisplacement": 0.02069,
+                "maxDisplacement": 0.03519,
+                "sizeRatio": 0.99911,
+                "centerShift": 0.01907
+              },
+              {
+                "edgeStretchP99": 1.12218,
+                "maximumEdgeStretch": 1.97695,
+                "severeEdges": 0,
+                "progress": 0.92,
+                "rmsDisplacement": 0.00831,
+                "maxDisplacement": 0.02405,
+                "sizeRatio": 0.99971,
+                "centerShift": 0.0054
+              },
+              {
+                "edgeStretchP99": 1.16433,
+                "maximumEdgeStretch": 1.83233,
+                "severeEdges": 0,
+                "progress": 1,
+                "rmsDisplacement": 0.00817,
+                "maxDisplacement": 0.02028,
+                "sizeRatio": 0.99948,
+                "centerShift": 0.00043
+              }
+            ]
+          },
+          {
+            "name": "idle_hitreact1",
+            "duration": 0.5836,
+            "samples": [
+              {
+                "edgeStretchP99": 1.10035,
+                "maximumEdgeStretch": 1.83233,
+                "severeEdges": 0,
+                "progress": 0,
+                "rmsDisplacement": 0.00265,
+                "maxDisplacement": 0.01959,
+                "sizeRatio": 1,
+                "centerShift": 0
+              },
+              {
+                "edgeStretchP99": 1.49259,
+                "maximumEdgeStretch": 3.85152,
+                "severeEdges": 0,
+                "progress": 0.0715,
+                "rmsDisplacement": 0.05781,
+                "maxDisplacement": 0.0758,
+                "sizeRatio": 0.98428,
+                "centerShift": 0.05821
+              },
+              {
+                "edgeStretchP99": 2.13282,
+                "maximumEdgeStretch": 5.9843,
+                "severeEdges": 0,
+                "progress": 0.1429,
+                "rmsDisplacement": 0.11774,
+                "maxDisplacement": 0.15618,
+                "sizeRatio": 0.97948,
+                "centerShift": 0.10933
+              },
+              {
+                "edgeStretchP99": 1.22505,
+                "maximumEdgeStretch": 2.42502,
+                "severeEdges": 0,
+                "progress": 0.25,
+                "rmsDisplacement": 0.07187,
+                "maxDisplacement": 0.08337,
+                "sizeRatio": 0.99019,
+                "centerShift": 0.07382
+              },
+              {
+                "edgeStretchP99": 1.51655,
+                "maximumEdgeStretch": 3.19094,
+                "severeEdges": 0,
+                "progress": 0.3571,
+                "rmsDisplacement": 0.03776,
+                "maxDisplacement": 0.06637,
+                "sizeRatio": 1.00685,
+                "centerShift": 0.02954
+              },
+              {
+                "edgeStretchP99": 1.13488,
+                "maximumEdgeStretch": 1.61593,
+                "severeEdges": 0,
+                "progress": 0.5178,
+                "rmsDisplacement": 0.01969,
+                "maxDisplacement": 0.02586,
+                "sizeRatio": 1.00228,
+                "centerShift": 0.01721
+              },
+              {
+                "edgeStretchP99": 1.18985,
+                "maximumEdgeStretch": 2.38877,
+                "severeEdges": 0,
+                "progress": 0.6785,
+                "rmsDisplacement": 0.01494,
+                "maxDisplacement": 0.03205,
+                "sizeRatio": 0.9959,
+                "centerShift": 0.01439
+              },
+              {
+                "edgeStretchP99": 1.14696,
+                "maximumEdgeStretch": 2.10588,
+                "severeEdges": 0,
+                "progress": 0.8393,
+                "rmsDisplacement": 0.00655,
+                "maxDisplacement": 0.0254,
+                "sizeRatio": 0.99799,
+                "centerShift": 0.00549
+              },
+              {
+                "edgeStretchP99": 1.10035,
+                "maximumEdgeStretch": 1.83233,
+                "severeEdges": 0,
+                "progress": 1,
+                "rmsDisplacement": 0.00265,
+                "maxDisplacement": 0.01959,
+                "sizeRatio": 1,
+                "centerShift": 0
+              }
+            ]
+          },
+          {
+            "name": "death",
+            "duration": 1.3348,
+            "samples": [
+              {
+                "edgeStretchP99": 1.16433,
+                "maximumEdgeStretch": 1.83232,
+                "severeEdges": 0,
+                "progress": 0,
+                "rmsDisplacement": 0.00817,
+                "maxDisplacement": 0.02028,
+                "sizeRatio": 0.99948,
+                "centerShift": 0.00043
+              },
+              {
+                "edgeStretchP99": 1.21256,
+                "maximumEdgeStretch": 2.21858,
+                "severeEdges": 0,
+                "progress": 0.0352,
+                "rmsDisplacement": 0.02727,
+                "maxDisplacement": 0.05367,
+                "sizeRatio": 1.00113,
+                "centerShift": 0.02097
+              },
+              {
+                "edgeStretchP99": 1.3954,
+                "maximumEdgeStretch": 2.604,
+                "severeEdges": 0,
+                "progress": 0.0704,
+                "rmsDisplacement": 0.06096,
+                "maxDisplacement": 0.0949,
+                "sizeRatio": 1.00219,
+                "centerShift": 0.04781
+              },
+              {
+                "edgeStretchP99": 1.07196,
+                "maximumEdgeStretch": 1.76481,
+                "severeEdges": 0,
+                "progress": 0.1338,
+                "rmsDisplacement": 0.07403,
+                "maxDisplacement": 0.07963,
+                "sizeRatio": 0.99829,
+                "centerShift": 0.07385
+              },
+              {
+                "edgeStretchP99": 1.28168,
+                "maximumEdgeStretch": 3.35569,
+                "severeEdges": 0,
+                "progress": 0.1972,
+                "rmsDisplacement": 0.10694,
+                "maxDisplacement": 0.15302,
+                "sizeRatio": 1.00996,
+                "centerShift": 0.11243
+              },
+              {
+                "edgeStretchP99": 1.4977,
+                "maximumEdgeStretch": 4.97458,
+                "severeEdges": 0,
+                "progress": 0.2817,
+                "rmsDisplacement": 0.13701,
+                "maxDisplacement": 0.22563,
+                "sizeRatio": 0.99956,
+                "centerShift": 0.16252
+              },
+              {
+                "edgeStretchP99": 1.73758,
+                "maximumEdgeStretch": 5.75105,
+                "severeEdges": 0,
+                "progress": 0.3662,
+                "rmsDisplacement": 0.1719,
+                "maxDisplacement": 0.29676,
+                "sizeRatio": 1.01641,
+                "centerShift": 0.20511
+              },
+              {
+                "edgeStretchP99": 1.92837,
+                "maximumEdgeStretch": 5.20679,
+                "severeEdges": 0,
+                "progress": 0.4577,
+                "rmsDisplacement": 0.21813,
+                "maxDisplacement": 0.37779,
+                "sizeRatio": 1.02949,
+                "centerShift": 0.25746
+              },
+              {
+                "edgeStretchP99": 2.1002,
+                "maximumEdgeStretch": 5.68797,
+                "severeEdges": 0,
+                "progress": 0.5493,
+                "rmsDisplacement": 0.25719,
+                "maxDisplacement": 0.43873,
+                "sizeRatio": 1.023,
+                "centerShift": 0.30169
+              },
+              {
+                "edgeStretchP99": 2.25883,
+                "maximumEdgeStretch": 6.20178,
+                "severeEdges": 0,
+                "progress": 0.6549,
+                "rmsDisplacement": 0.27924,
+                "maxDisplacement": 0.46842,
+                "sizeRatio": 1.01535,
+                "centerShift": 0.31962
+              },
+              {
+                "edgeStretchP99": 2.35896,
+                "maximumEdgeStretch": 6.47071,
+                "severeEdges": 0,
+                "progress": 0.7606,
+                "rmsDisplacement": 0.29023,
+                "maxDisplacement": 0.48229,
+                "sizeRatio": 1.01364,
+                "centerShift": 0.32258
+              },
+              {
+                "edgeStretchP99": 2.3516,
+                "maximumEdgeStretch": 6.24001,
+                "severeEdges": 0,
+                "progress": 0.8803,
+                "rmsDisplacement": 0.29372,
+                "maxDisplacement": 0.48745,
+                "sizeRatio": 1.01525,
+                "centerShift": 0.32436
+              },
+              {
+                "edgeStretchP99": 2.32042,
+                "maximumEdgeStretch": 5.93542,
+                "severeEdges": 0,
+                "progress": 1,
+                "rmsDisplacement": 0.29476,
+                "maxDisplacement": 0.48941,
+                "sizeRatio": 1.01676,
+                "centerShift": 0.32507
+              }
+            ]
+          },
+          {
+            "name": "entrance",
+            "duration": 0.9587,
+            "samples": [
+              {
+                "edgeStretchP99": 2.34735,
+                "maximumEdgeStretch": 6.00916,
+                "severeEdges": 0,
+                "progress": 0,
+                "rmsDisplacement": 0.09756,
+                "maxDisplacement": 0.22882,
+                "sizeRatio": 1.09851,
+                "centerShift": 0.08329
+              },
+              {
+                "edgeStretchP99": 2.16065,
+                "maximumEdgeStretch": 5.36953,
+                "severeEdges": 0,
+                "progress": 0.0869,
+                "rmsDisplacement": 0.09091,
+                "maxDisplacement": 0.20636,
+                "sizeRatio": 1.09071,
+                "centerShift": 0.07384
+              },
+              {
+                "edgeStretchP99": 1.7962,
+                "maximumEdgeStretch": 4.10965,
+                "severeEdges": 0,
+                "progress": 0.1739,
+                "rmsDisplacement": 0.07497,
+                "maxDisplacement": 0.17012,
+                "sizeRatio": 1.07117,
+                "centerShift": 0.05337
+              },
+              {
+                "edgeStretchP99": 1.08405,
+                "maximumEdgeStretch": 1.39559,
+                "severeEdges": 0,
+                "progress": 0.2826,
+                "rmsDisplacement": 0.03279,
+                "maxDisplacement": 0.06348,
+                "sizeRatio": 1.02376,
+                "centerShift": 0.01591
+              },
+              {
+                "edgeStretchP99": 1.34215,
+                "maximumEdgeStretch": 2.7015,
+                "severeEdges": 0,
+                "progress": 0.3914,
+                "rmsDisplacement": 0.04308,
+                "maxDisplacement": 0.12472,
+                "sizeRatio": 1.00029,
+                "centerShift": 0.01936
+              },
+              {
+                "edgeStretchP99": 1.2294,
+                "maximumEdgeStretch": 2.25125,
+                "severeEdges": 0,
+                "progress": 0.5326,
+                "rmsDisplacement": 0.03205,
+                "maxDisplacement": 0.09187,
+                "sizeRatio": 0.99889,
+                "centerShift": 0.01369
+              },
+              {
+                "edgeStretchP99": 1.10524,
+                "maximumEdgeStretch": 1.62025,
+                "severeEdges": 0,
+                "progress": 0.6739,
+                "rmsDisplacement": 0.01619,
+                "maxDisplacement": 0.04139,
+                "sizeRatio": 0.99777,
+                "centerShift": 0.00968
+              },
+              {
+                "edgeStretchP99": 1.03336,
+                "maximumEdgeStretch": 1.20408,
+                "severeEdges": 0,
+                "progress": 0.837,
+                "rmsDisplacement": 0.00565,
+                "maxDisplacement": 0.01391,
+                "sizeRatio": 0.99945,
+                "centerShift": 0.00368
+              },
+              {
+                "edgeStretchP99": 1,
+                "maximumEdgeStretch": 1.00001,
+                "severeEdges": 0,
+                "progress": 1,
+                "rmsDisplacement": 0,
+                "maxDisplacement": 0,
+                "sizeRatio": 1,
+                "centerShift": 0
+              }
+            ]
+          },
+          {
+            "name": "cast",
+            "duration": 1.1255,
+            "samples": [
+              {
+                "edgeStretchP99": 1.09912,
+                "maximumEdgeStretch": 1.5259,
+                "severeEdges": 0,
+                "progress": 0,
+                "rmsDisplacement": 0.00523,
+                "maxDisplacement": 0.01298,
+                "sizeRatio": 0.99976,
+                "centerShift": 0.00021
+              },
+              {
+                "edgeStretchP99": 1.1646,
+                "maximumEdgeStretch": 2.16104,
+                "severeEdges": 0,
+                "progress": 0.0556,
+                "rmsDisplacement": 0.00769,
+                "maxDisplacement": 0.02638,
+                "sizeRatio": 1.00092,
+                "centerShift": 0.00517
+              },
+              {
+                "edgeStretchP99": 1.34747,
+                "maximumEdgeStretch": 3.17365,
+                "severeEdges": 0,
+                "progress": 0.1112,
+                "rmsDisplacement": 0.01723,
+                "maxDisplacement": 0.04939,
+                "sizeRatio": 1.00252,
+                "centerShift": 0.01335
+              },
+              {
+                "edgeStretchP99": 1.60151,
+                "maximumEdgeStretch": 4.2623,
+                "severeEdges": 0,
+                "progress": 0.1852,
+                "rmsDisplacement": 0.03038,
+                "maxDisplacement": 0.0763,
+                "sizeRatio": 1.01009,
+                "centerShift": 0.02256
+              },
+              {
+                "edgeStretchP99": 1.74815,
+                "maximumEdgeStretch": 4.87916,
+                "severeEdges": 0,
+                "progress": 0.2593,
+                "rmsDisplacement": 0.03835,
+                "maxDisplacement": 0.09226,
+                "sizeRatio": 1.01582,
+                "centerShift": 0.02764
+              },
+              {
+                "edgeStretchP99": 1.38697,
+                "maximumEdgeStretch": 2.89822,
+                "severeEdges": 0,
+                "progress": 0.3241,
+                "rmsDisplacement": 0.02169,
+                "maxDisplacement": 0.05038,
+                "sizeRatio": 1.00697,
+                "centerShift": 0.01378
+              },
+              {
+                "edgeStretchP99": 1.12832,
+                "maximumEdgeStretch": 2.04356,
+                "severeEdges": 0,
+                "progress": 0.3889,
+                "rmsDisplacement": 0.01517,
+                "maxDisplacement": 0.02774,
+                "sizeRatio": 1.00134,
+                "centerShift": 0.01098
+              },
+              {
+                "edgeStretchP99": 1.27379,
+                "maximumEdgeStretch": 2.47959,
+                "severeEdges": 0,
+                "progress": 0.4629,
+                "rmsDisplacement": 0.03305,
+                "maxDisplacement": 0.05046,
+                "sizeRatio": 1.00099,
+                "centerShift": 0.03127
+              },
+              {
+                "edgeStretchP99": 1.436,
+                "maximumEdgeStretch": 2.62799,
+                "severeEdges": 0,
+                "progress": 0.537,
+                "rmsDisplacement": 0.04626,
+                "maxDisplacement": 0.06946,
+                "sizeRatio": 0.99931,
+                "centerShift": 0.04247
+              },
+              {
+                "edgeStretchP99": 1.28036,
+                "maximumEdgeStretch": 2.08986,
+                "severeEdges": 0,
+                "progress": 0.6111,
+                "rmsDisplacement": 0.04194,
+                "maxDisplacement": 0.06618,
+                "sizeRatio": 0.99458,
+                "centerShift": 0.03703
+              },
+              {
+                "edgeStretchP99": 1.20486,
+                "maximumEdgeStretch": 1.97277,
+                "severeEdges": 0,
+                "progress": 0.6851,
+                "rmsDisplacement": 0.03596,
+                "maxDisplacement": 0.06313,
+                "sizeRatio": 0.99366,
+                "centerShift": 0.02981
+              },
+              {
+                "edgeStretchP99": 1.10936,
+                "maximumEdgeStretch": 1.52813,
+                "severeEdges": 0,
+                "progress": 0.7592,
+                "rmsDisplacement": 0.01938,
+                "maxDisplacement": 0.03321,
+                "sizeRatio": 0.99742,
+                "centerShift": 0.01655
+              },
+              {
+                "edgeStretchP99": 1.09747,
+                "maximumEdgeStretch": 1.69524,
+                "severeEdges": 0,
+                "progress": 0.8333,
+                "rmsDisplacement": 0.00842,
+                "maxDisplacement": 0.01854,
+                "sizeRatio": 0.99937,
+                "centerShift": 0.00549
+              },
+              {
+                "edgeStretchP99": 1.08996,
+                "maximumEdgeStretch": 1.60909,
+                "severeEdges": 0,
+                "progress": 0.9167,
+                "rmsDisplacement": 0.00566,
+                "maxDisplacement": 0.01482,
+                "sizeRatio": 0.99957,
+                "centerShift": 0.00175
+              },
+              {
+                "edgeStretchP99": 1.09912,
+                "maximumEdgeStretch": 1.5259,
+                "severeEdges": 0,
+                "progress": 1,
+                "rmsDisplacement": 0.00523,
+                "maxDisplacement": 0.01298,
+                "sizeRatio": 0.99976,
+                "centerShift": 0.00021
+              }
+            ]
+          },
+          {
+            "name": "guard",
+            "duration": 1.1671,
+            "samples": [
+              {
+                "edgeStretchP99": 1.49942,
+                "maximumEdgeStretch": 3.33813,
+                "severeEdges": 0,
+                "progress": 0,
+                "rmsDisplacement": 0.02727,
+                "maxDisplacement": 0.0606,
+                "sizeRatio": 1.00684,
+                "centerShift": 0.01851
+              },
+              {
+                "edgeStretchP99": 1.5005,
+                "maximumEdgeStretch": 3.29678,
+                "severeEdges": 0,
+                "progress": 0.125,
+                "rmsDisplacement": 0.02694,
+                "maxDisplacement": 0.05977,
+                "sizeRatio": 1.00658,
+                "centerShift": 0.01817
+              },
+              {
+                "edgeStretchP99": 1.49553,
+                "maximumEdgeStretch": 3.27509,
+                "severeEdges": 0,
+                "progress": 0.25,
+                "rmsDisplacement": 0.02681,
+                "maxDisplacement": 0.05934,
+                "sizeRatio": 1.00642,
+                "centerShift": 0.018
+              },
+              {
+                "edgeStretchP99": 1.5005,
+                "maximumEdgeStretch": 3.29636,
+                "severeEdges": 0,
+                "progress": 0.375,
+                "rmsDisplacement": 0.02704,
+                "maxDisplacement": 0.05977,
+                "sizeRatio": 1.00652,
+                "centerShift": 0.01819
+              },
+              {
+                "edgeStretchP99": 1.51021,
+                "maximumEdgeStretch": 3.33714,
+                "severeEdges": 0,
+                "progress": 0.5,
+                "rmsDisplacement": 0.02742,
+                "maxDisplacement": 0.0606,
+                "sizeRatio": 1.00673,
+                "centerShift": 0.01855
+              },
+              {
+                "edgeStretchP99": 1.51572,
+                "maximumEdgeStretch": 3.40064,
+                "severeEdges": 0,
+                "progress": 0.625,
+                "rmsDisplacement": 0.02793,
+                "maxDisplacement": 0.06193,
+                "sizeRatio": 1.00703,
+                "centerShift": 0.01907
+              },
+              {
+                "edgeStretchP99": 1.52046,
+                "maximumEdgeStretch": 3.44452,
+                "severeEdges": 0,
+                "progress": 0.75,
+                "rmsDisplacement": 0.02825,
+                "maxDisplacement": 0.06286,
+                "sizeRatio": 1.00723,
+                "centerShift": 0.01943
+              },
+              {
+                "edgeStretchP99": 1.50858,
+                "maximumEdgeStretch": 3.40109,
+                "severeEdges": 0,
+                "progress": 0.875,
+                "rmsDisplacement": 0.02784,
+                "maxDisplacement": 0.06193,
+                "sizeRatio": 1.00709,
+                "centerShift": 0.01905
+              },
+              {
+                "edgeStretchP99": 1.49942,
+                "maximumEdgeStretch": 3.33813,
+                "severeEdges": 0,
+                "progress": 1,
+                "rmsDisplacement": 0.02727,
+                "maxDisplacement": 0.0606,
+                "sizeRatio": 1.00684,
+                "centerShift": 0.01851
+              }
+            ]
+          },
+          {
+            "name": "rest",
+            "duration": 1.9383,
+            "samples": [
+              {
+                "edgeStretchP99": 1.0505,
+                "maximumEdgeStretch": 1.23888,
+                "severeEdges": 0,
+                "progress": 0,
+                "rmsDisplacement": 0.00379,
+                "maxDisplacement": 0.0099,
+                "sizeRatio": 0.99996,
+                "centerShift": 0.00003
+              },
+              {
+                "edgeStretchP99": 1.07607,
+                "maximumEdgeStretch": 1.3333,
+                "severeEdges": 0,
+                "progress": 0.0625,
+                "rmsDisplacement": 0.00594,
+                "maxDisplacement": 0.014,
+                "sizeRatio": 0.99925,
+                "centerShift": 0.00202
+              },
+              {
+                "edgeStretchP99": 1.09773,
+                "maximumEdgeStretch": 1.4509,
+                "severeEdges": 0,
+                "progress": 0.125,
+                "rmsDisplacement": 0.0091,
+                "maxDisplacement": 0.01916,
+                "sizeRatio": 0.99926,
+                "centerShift": 0.00336
+              },
+              {
+                "edgeStretchP99": 1.08295,
+                "maximumEdgeStretch": 1.4368,
+                "severeEdges": 0,
+                "progress": 0.1875,
+                "rmsDisplacement": 0.00808,
+                "maxDisplacement": 0.01663,
+                "sizeRatio": 0.99912,
+                "centerShift": 0.00345
+              },
+              {
+                "edgeStretchP99": 1.05204,
+                "maximumEdgeStretch": 1.40032,
+                "severeEdges": 0,
+                "progress": 0.25,
+                "rmsDisplacement": 0.00575,
+                "maxDisplacement": 0.01072,
+                "sizeRatio": 0.99883,
+                "centerShift": 0.00348
+              },
+              {
+                "edgeStretchP99": 1.03295,
+                "maximumEdgeStretch": 1.19992,
+                "severeEdges": 0,
+                "progress": 0.3125,
+                "rmsDisplacement": 0.00472,
+                "maxDisplacement": 0.00967,
+                "sizeRatio": 0.99949,
+                "centerShift": 0.00085
+              },
+              {
+                "edgeStretchP99": 1.07455,
+                "maximumEdgeStretch": 1.38056,
+                "severeEdges": 0,
+                "progress": 0.375,
+                "rmsDisplacement": 0.01204,
+                "maxDisplacement": 0.02618,
+                "sizeRatio": 0.99942,
+                "centerShift": 0.0024
+              },
+              {
+                "edgeStretchP99": 1.08042,
+                "maximumEdgeStretch": 1.43322,
+                "severeEdges": 0,
+                "progress": 0.4375,
+                "rmsDisplacement": 0.0113,
+                "maxDisplacement": 0.02518,
+                "sizeRatio": 0.99955,
+                "centerShift": 0.00159
+              },
+              {
+                "edgeStretchP99": 1.08506,
+                "maximumEdgeStretch": 1.48703,
+                "severeEdges": 0,
+                "progress": 0.5,
+                "rmsDisplacement": 0.01,
+                "maxDisplacement": 0.02315,
+                "sizeRatio": 0.99972,
+                "centerShift": 0.00068
+              },
+              {
+                "edgeStretchP99": 1.09424,
+                "maximumEdgeStretch": 1.52174,
+                "severeEdges": 0,
+                "progress": 0.5625,
+                "rmsDisplacement": 0.00889,
+                "maxDisplacement": 0.02131,
+                "sizeRatio": 0.99977,
+                "centerShift": 0.00156
+              },
+              {
+                "edgeStretchP99": 1.10031,
+                "maximumEdgeStretch": 1.52878,
+                "severeEdges": 0,
+                "progress": 0.625,
+                "rmsDisplacement": 0.00822,
+                "maxDisplacement": 0.01991,
+                "sizeRatio": 0.99962,
+                "centerShift": 0.00255
+              },
+              {
+                "edgeStretchP99": 1.05673,
+                "maximumEdgeStretch": 1.27581,
+                "severeEdges": 0,
+                "progress": 0.6875,
+                "rmsDisplacement": 0.00547,
+                "maxDisplacement": 0.01177,
+                "sizeRatio": 0.99942,
+                "centerShift": 0.00285
+              },
+              {
+                "edgeStretchP99": 1.01909,
+                "maximumEdgeStretch": 1.19954,
+                "severeEdges": 0,
+                "progress": 0.75,
+                "rmsDisplacement": 0.00331,
+                "maxDisplacement": 0.00656,
+                "sizeRatio": 0.99932,
+                "centerShift": 0.00259
+              },
+              {
+                "edgeStretchP99": 1.02759,
+                "maximumEdgeStretch": 1.19573,
+                "severeEdges": 0,
+                "progress": 0.8125,
+                "rmsDisplacement": 0.00288,
+                "maxDisplacement": 0.00567,
+                "sizeRatio": 0.9994,
+                "centerShift": 0.00189
+              },
+              {
+                "edgeStretchP99": 1.03849,
+                "maximumEdgeStretch": 1.19433,
+                "severeEdges": 0,
+                "progress": 0.875,
+                "rmsDisplacement": 0.00309,
+                "maxDisplacement": 0.00737,
+                "sizeRatio": 0.99949,
+                "centerShift": 0.00125
+              },
+              {
+                "edgeStretchP99": 1.04406,
+                "maximumEdgeStretch": 1.19784,
+                "severeEdges": 0,
+                "progress": 0.9375,
+                "rmsDisplacement": 0.00325,
+                "maxDisplacement": 0.00845,
+                "sizeRatio": 0.99975,
+                "centerShift": 0.00047
+              },
+              {
+                "edgeStretchP99": 1.0505,
+                "maximumEdgeStretch": 1.23888,
+                "severeEdges": 0,
+                "progress": 1,
+                "rmsDisplacement": 0.00379,
+                "maxDisplacement": 0.0099,
+                "sizeRatio": 0.99996,
+                "centerShift": 0.00003
+              }
+            ]
+          },
+          {
+            "name": "victory",
+            "duration": 1.7715,
+            "samples": [
+              {
+                "edgeStretchP99": 1.18057,
+                "maximumEdgeStretch": 1.77914,
+                "severeEdges": 0,
+                "progress": 0,
+                "rmsDisplacement": 0.01093,
+                "maxDisplacement": 0.0282,
+                "sizeRatio": 0.99938,
+                "centerShift": 0.0004
+              },
+              {
+                "edgeStretchP99": 1.25812,
+                "maximumEdgeStretch": 2.1503,
+                "severeEdges": 0,
+                "progress": 0.0471,
+                "rmsDisplacement": 0.02003,
+                "maxDisplacement": 0.04005,
+                "sizeRatio": 1.00028,
+                "centerShift": 0.0045
+              },
+              {
+                "edgeStretchP99": 1.33893,
+                "maximumEdgeStretch": 2.69448,
+                "severeEdges": 0,
+                "progress": 0.0941,
+                "rmsDisplacement": 0.03542,
+                "maxDisplacement": 0.06424,
+                "sizeRatio": 1.00634,
+                "centerShift": 0.00604
+              },
+              {
+                "edgeStretchP99": 1.27871,
+                "maximumEdgeStretch": 2.11456,
+                "severeEdges": 0,
+                "progress": 0.1588,
+                "rmsDisplacement": 0.01511,
+                "maxDisplacement": 0.03439,
+                "sizeRatio": 0.99611,
+                "centerShift": 0.00451
+              },
+              {
+                "edgeStretchP99": 1.82457,
+                "maximumEdgeStretch": 5.08917,
+                "severeEdges": 0,
+                "progress": 0.2235,
+                "rmsDisplacement": 0.04114,
+                "maxDisplacement": 0.10864,
+                "sizeRatio": 0.98974,
+                "centerShift": 0.00899
+              },
+              {
+                "edgeStretchP99": 1.76613,
+                "maximumEdgeStretch": 4.69188,
+                "severeEdges": 0,
+                "progress": 0.3059,
+                "rmsDisplacement": 0.03395,
+                "maxDisplacement": 0.09282,
+                "sizeRatio": 0.99134,
+                "centerShift": 0.00347
+              },
+              {
+                "edgeStretchP99": 1.70557,
+                "maximumEdgeStretch": 4.34216,
+                "severeEdges": 0,
+                "progress": 0.3883,
+                "rmsDisplacement": 0.03172,
+                "maxDisplacement": 0.08247,
+                "sizeRatio": 0.99279,
+                "centerShift": 0.00916
+              },
+              {
+                "edgeStretchP99": 1.85488,
+                "maximumEdgeStretch": 4.89343,
+                "severeEdges": 0,
+                "progress": 0.4824,
+                "rmsDisplacement": 0.0352,
+                "maxDisplacement": 0.09475,
+                "sizeRatio": 0.9918,
+                "centerShift": 0.00848
+              },
+              {
+                "edgeStretchP99": 1.98005,
+                "maximumEdgeStretch": 5.44748,
+                "severeEdges": 0,
+                "progress": 0.5765,
+                "rmsDisplacement": 0.03965,
+                "maxDisplacement": 0.1079,
+                "sizeRatio": 0.99041,
+                "centerShift": 0.00794
+              },
+              {
+                "edgeStretchP99": 1.87769,
+                "maximumEdgeStretch": 5.06718,
+                "severeEdges": 0,
+                "progress": 0.6824,
+                "rmsDisplacement": 0.0382,
+                "maxDisplacement": 0.10253,
+                "sizeRatio": 0.99366,
+                "centerShift": 0.00676
+              },
+              {
+                "edgeStretchP99": 1.66933,
+                "maximumEdgeStretch": 4.37637,
+                "severeEdges": 0,
+                "progress": 0.7883,
+                "rmsDisplacement": 0.03605,
+                "maxDisplacement": 0.09288,
+                "sizeRatio": 0.99743,
+                "centerShift": 0.01193
+              },
+              {
+                "edgeStretchP99": 1.44841,
+                "maximumEdgeStretch": 3.41029,
+                "severeEdges": 0,
+                "progress": 0.8941,
+                "rmsDisplacement": 0.03365,
+                "maxDisplacement": 0.08007,
+                "sizeRatio": 1.00069,
+                "centerShift": 0.01788
+              },
+              {
+                "edgeStretchP99": 1.2989,
+                "maximumEdgeStretch": 2.75057,
+                "severeEdges": 0,
+                "progress": 1,
+                "rmsDisplacement": 0.03272,
+                "maxDisplacement": 0.07248,
+                "sizeRatio": 1.00258,
+                "centerShift": 0.02126
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}
