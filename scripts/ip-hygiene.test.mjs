@@ -23,9 +23,10 @@ const skipDirectories = new Set(['node_modules', 'dist']);
 // the repo for the name finds nothing, and this guard still matches it.
 const rot13 = (s) => s.replace(/[a-z]/g, (ch) => String.fromCharCode(((ch.charCodeAt(0) - 97 + 13) % 26) + 97));
 
-// The direct competitor, and the org slug that identifies their codebase just
-// as surely as the name does.
-const competitorTokens = ['guravawnect', 'fghqvr-grpu'].map(rot13);
+// The direct competitor, the org slug that identifies their codebase just as
+// surely as the name does, and a second shinobi browser game that a design doc
+// named outright (2026-10-15 release cleanup).
+const competitorTokens = ['guravawnect', 'fghqvr-grpu', 'avawnznantre'].map(rot13);
 
 // The TCG whose format/set/card names Chronicle Showdown was scrubbed of.
 // Generic mechanics words ("Monster", "Deck", "Graveyard") are deliberately NOT
@@ -42,6 +43,9 @@ const tcgTokens = ['yu-gi-oh', 'yugioh', 'duel monsters', 'exodia', 'time wizard
 const franchiseTokens = [
     'naruto', 'sasuke', 'chidori', 'konoha', 'hokage', 'sharingan', 'rasengan',
     'kakashi', 'obito', 'minato', 'hinata', 'tsunade',
+    // Clan and character names that slipped into war-reward fixtures as
+    // player surnames before the 2026-10-15 cleanup.
+    'uchiha', 'itachi', 'orochimaru', 'jiraiya', 'boruto', 'byakugan',
 ];
 
 // The generic genre phrase this game's name is a deliberate departure from
