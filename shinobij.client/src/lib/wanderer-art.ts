@@ -19,9 +19,12 @@ import trackerImg from "../assets/wanderers/tracker.webp";
 import courierImg from "../assets/wanderers/courier.webp";
 import bountyHunterImg from "../assets/wanderers/bounty-hunter.webp";
 import nightbladeImg from "../assets/village-war/merc-shadow.webp";
-import riftspawnImg from "../assets/combat-actors/bosses/rift-boss-hollow-stalker-idle.webp";
-import anglerImg from "../assets/first-pact/portraits/stable-hand-pell.webp";
-import rivalMinerImg from "../assets/first-pact/portraits/old-kaio.webp";
+// The road cast added 2026-10-14 (gpt-image-1 via scripts/gen-asset.mjs at high
+// quality, matching the painterly bust style of the portraits above).
+import riftspawnImg from "../assets/wanderers/riftspawn.webp";
+import anglerImg from "../assets/wanderers/angler.webp";
+import rivalMinerImg from "../assets/wanderers/rival-miner.webp";
+import kageroImg from "../assets/wanderers/kagero.webp";
 import wanderingSageImg from "../assets/wanderers/legacy/wandering-sage.webp";
 // The eight Legacy Emissaries (gpt-image-1, docs/legacy-assets.md §1).
 import stormCallerRynImg from "../assets/wanderers/legacy/storm-caller-ryn.webp";
@@ -70,8 +73,10 @@ export function questBossPortrait(bossId: string | null | undefined): string | n
         : null;
 }
 
-/** The recurring rival's own scarred face — distinct from a common bandit. */
+/** The scarred face Quest Book bosses fall back on (portraitKey "nemesis"). */
 export const WANDERER_NEMESIS_PORTRAIT = nemesisImg;
+/** Kagero, the road rival (shared/road-nemesis.ts), in his cracked mask. */
+export const WANDERER_KAGERO_PORTRAIT = kageroImg;
 
 // The three ambush robbers wear three different faces so the gang doesn't look
 // like one man cloned. Indexed by ambush stage (0,1,2); the boss is separate.
@@ -98,12 +103,12 @@ const ART: Record<WandererArchetypeId, string> = {
     wanderingSage: wanderingSageImg,
     // Night ninjas share the hooded shadow mercenary's face (village war).
     nightblade: nightbladeImg,
-    // Reused faces: the Hollow Stalker rift boss, Pell with his coiled line,
-    // Old Kaio with his trowels, and the rival's own scarred portrait.
+    // Bespoke faces for the rift creature, the angler, the rival miner and
+    // Kagero in his cracked white mask.
     riftspawn: riftspawnImg,
     angler: anglerImg,
     rivalMiner: rivalMinerImg,
-    nemesis: nemesisImg,
+    nemesis: kageroImg,
     // The eight Legacy Emissaries — bespoke faces, one per served category.
     "storm-caller-ryn": stormCallerRynImg,
     "veil-mother-suzu": veilMotherSuzuImg,
