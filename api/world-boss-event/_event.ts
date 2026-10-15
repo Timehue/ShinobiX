@@ -5,7 +5,8 @@ import { kv } from '../_storage.js';
 export const WORLD_BOSS_ACTIVE_KEY = 'world-boss-event:active';
 export const WORLD_BOSS_EVENT_TTL_SECONDS = 90 * 24 * 60 * 60;
 export const WORLD_BOSS_QUEUE_TTL_SECONDS = 8 * 24 * 60 * 60;
-export const WORLD_BOSS_MATCH_HP_PER_PLAYER = 28_000;
+/** Combat budget for regeneration and phase shields; boss HP uses the shared event pool. */
+export const WORLD_BOSS_DEFENSE_HP_PER_PLAYER = 28_000;
 
 export const worldBossEventKey = (eventId: string) => `world-boss-event:${eventId}`;
 export const worldBossQueueKey = (eventId: string) => `world-boss-event:${eventId}:queue`;
@@ -49,6 +50,7 @@ export type WorldBossEventRecord = {
     hp: number;
     participants: Record<string, WorldBossParticipant>;
     settledMatchIds: string[];
+    bankedDamageByMatch?: Record<string, number>;
     movementPausedAt?: number | null;
     movementPausedTotalMs?: number;
     minedCrystalNodeIds?: string[];

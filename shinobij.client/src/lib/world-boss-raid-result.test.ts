@@ -5,7 +5,7 @@ import { worldBossRaidResult, worldBossRewardLine } from './world-boss-raid-resu
 test('clearing a team HP budget does not claim the roaming boss was defeated', () => {
     const result = worldBossRaidResult('squad', { bankedDamage: 28_000, hpRemaining: 547_545 });
     assert.equal(result.title, 'Boss driven back');
-    assert.equal(result.objective, 'Raid damage target reached');
+    assert.equal(result.objective, 'Raid damage contributed');
     assert.match(result.detail, /shared health remaining/);
     assert.doesNotMatch(worldBossRaidResult('squad').title, /defeated/);
 });

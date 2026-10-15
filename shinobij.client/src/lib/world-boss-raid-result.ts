@@ -14,7 +14,7 @@ export function worldBossRaidResult(winner: string | null, receipt?: WorldBossRa
     const defeated = receipt?.hpRemaining === 0;
     return {
         title: defeated ? "World boss defeated" : winner === "squad" ? "Boss driven back" : "The raid has ended",
-        objective: winner === "squad" ? "Raid damage target reached" : "Raid damage contributed",
+        objective: defeated ? "Shared boss health depleted" : "Raid damage contributed",
         detail: receipt
             ? defeated
                 ? "Your team contribution is banked. The shared boss health is depleted. Return to the World Boss event for your reward receipt."

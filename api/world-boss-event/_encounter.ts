@@ -14,16 +14,9 @@ import { stampTurnClock } from '../towers/_tower-mp.js';
 import { claimTowerBattleLeases, releaseTowerBattleLeases } from '../towers/_battle-lease.js';
 import { findTowerBattleStartConflict } from '../_tower-battle-guard.js';
 import { worldBossBattleVisual, worldBossGuardVisual, worldBossCrystalEffects, worldBossDefinition, type WorldBossId } from '../../shared/world-boss-event.js';
-import { WORLD_BOSS_MATCH_HP_PER_PLAYER, type WorldBossEventRecord, type WorldBossMatchRecord } from './_event.js';
+import { WORLD_BOSS_DEFENSE_HP_PER_PLAYER, type WorldBossEventRecord, type WorldBossMatchRecord } from './_event.js';
 
 const WORLD_BOSS_FLOOR_ID = 9_800;
-
-/** Shared-health budget for one sealed fight, scaled to the actual queue size. */
-export function worldBossMatchHpForParty(eventHp: number, partySize: number): number {
-    const teamSize = Math.max(1, Math.min(3, Math.floor(Number(partySize) || 1)));
-    const remainingHp = Math.max(0, Math.floor(Number(eventHp) || 0));
-    return Math.max(1, Math.min(remainingHp, 0x7fffffff, WORLD_BOSS_MATCH_HP_PER_PLAYER * teamSize));
-}
 
 export function worldBossFloor(bossId: WorldBossId, bossName: string): TowerFloor {
     const source = CLAN_BOSS_FLOORS[3];
@@ -61,16 +54,16 @@ export function worldBossFloor(bossId: WorldBossId, bossName: string): TowerFloo
         chapterSubtitle: 'World Threat · Cooperative Raid',
         chapterSummary: `${bossName} has crossed the highland roads. Hold the line together.`,
         briefing: {
-            situation: `${bossName} is cutting a path through the borderlands. Reach your team's raid damage target to drive it back. It is defeated only when its shared world health reaches zero.`,
+            situation: `${bossName} is cutting a path through the borderlands. Fight for up to 20 rounds. Your team's damage is banked against its shared world health when the raid ends. It is defeated only when that health reaches zero.`,
             tactics: [definition.traitDescription, 'Keep allies standing; verified healing and shielding count toward event contribution.', 'The boss marks the ground before its heavy strike. Reposition before the next round.'],
-            warnings: ['The roaming event tracks damage in a separate shared-health pool.', 'The party will contain one, two, or three players depending on the queue.'],
+            warnings: ['Boss health is the shared event health at raid entry; other teams may also be fighting it.', 'The party will contain one, two, or three players depending on the queue.'],
         },
     };
 }
 
-/** Sealed event-specific roster. HP scales with the team; attacks retain their threat. */
+/** Sealed event-specific roster using the authoritative shared boss health. */
 export function buildWorldBossTeamEncounter(input: {
-    event: Pick<WorldBossEventRecord, 'eventId' | 'bossId' | 'bossName' | 'hp' | 'hollowShardsDeposited'>;
+    event: Pick<WorldBossEventRecord, 'eventId' | 'bossId' | 'bossName' | 'hp' | 'hpMax' | 'hollowShardsDeposited'>;
     matchId: string;
     squad: SquadMemberInput[];
     runId: string;
@@ -107,17 +100,20 @@ export function buildWorldBossTeamEncounter(input: {
     const boss = session.actors.find(actor => actor.id === session.phaseState.bossId);
     if (!boss) throw new Error('World boss encounter did not create its boss actor.');
     const crystalEffects = worldBossCrystalEffects(input.event.hollowShardsDeposited ?? 0);
-    // The shared HP budget already scales for smaller teams. Tower's additional
-    // outgoing-damage discount made solo world bosses harmless.
+    // Tower's outgoing-damage discount made solo world bosses harmless.
     boss.character.towerDmgScale = crystalEffects.bossDamageDealtMultiplier;
-    const matchHp = worldBossMatchHpForParty(input.event.hp, input.squad.length);
+    const matchHp = Math.max(1, Math.floor(input.event.hp));
     boss.hp = matchHp;
-    boss.maxHp = matchHp;
-    if (worldBossDefinition(input.event.bossId).combatTrait === 'regen') session.regenFlatCap = Math.max(1, Math.floor(matchHp * 0.01));
+    boss.maxHp = Math.max(matchHp, Math.floor(input.event.hpMax));
+    // Defensive mechanics keep their team-sized combat budget rather than
+    // becoming unbreakable as a consequence of displaying the shared HP pool.
+    if (worldBossDefinition(input.event.bossId).combatTrait === 'regen') session.regenFlatCap = WORLD_BOSS_DEFENSE_HP_PER_PLAYER * input.squad.length * 0.01;
     boss.character.name = input.event.bossName;
     session.roundCap = 20;
     session.worldBossEvent = {
         eventId: input.event.eventId, matchId: input.matchId, matchHpAtStart: matchHp,
+        bossId: input.event.bossId,
+        defenseHpBudget: Math.min(matchHp, WORLD_BOSS_DEFENSE_HP_PER_PLAYER * input.squad.length),
         bossDamageDealtMultiplier: crystalEffects.bossDamageDealtMultiplier,
         bossDamageReceivedMultiplier: crystalEffects.bossDamageReceivedMultiplier,
     };

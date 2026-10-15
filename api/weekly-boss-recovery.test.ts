@@ -106,6 +106,27 @@ test('the read-only recovery probe cannot mint a run, reserve an attempt, or deb
     assert.equal(await kv.get(SESSION_KEY), null);
 });
 
+test('settlement replay returns original damage and the saved character without another debit',async()=>{
+    await kv.set(RUN_KEY,{runId:RUN_ID,playerName:PLAYER,weekKey:WEEK_KEY,aiId:'ashen-dragon',bossStartedAt:STARTED_AT,initialBossHp:100_000,createdAt:STARTED_AT+1,settledAt:Date.now(),settledDamage:17127});
+    const beforeSave=await kv.get(SAVE_KEY);
+    const beforeBoss=await kv.get(BOSS_KEY);
+    const replay=await invoke(request('POST',{body:{kind:'logFight',runId:RUN_ID}}));
+    assert.equal(replay.statusCode,200);
+    assert.equal(replay.body?.dealt,17127);
+    assert.equal(replay.body?.alreadySettled,true);
+    assert.equal(replay.body?._saveVersion,7);
+    assert.deepEqual(await kv.get(SAVE_KEY),beforeSave);
+    assert.deepEqual(await kv.get(BOSS_KEY),beforeBoss);
+});
+
+test('legacy weekly settlement replays recover damage from the terminal receipt',async()=>{
+    await kv.set(RUN_KEY,{runId:RUN_ID,playerName:PLAYER,weekKey:WEEK_KEY,aiId:'ashen-dragon',bossStartedAt:STARTED_AT,initialBossHp:100_000,createdAt:STARTED_AT+1,settledAt:Date.now()});
+    await kv.set(SESSION_KEY,{runtime:'solo-pve',schemaVersion:1,version:1,sessionId:RUN_ID,ownerSlug:PLAYER,status:'done',terminalEvidence:{receipt:{rewards:{damage:4321}}}});
+    const replay=await invoke(request('POST',{body:{kind:'logFight',runId:RUN_ID}}));
+    assert.equal(replay.statusCode,200);
+    assert.equal(replay.body?.dealt,4321);
+});
+
 test('resumeFight refuses a missing accepted run without falling through to creation', async () => {
     const beforeBoss = await kv.get(BOSS_KEY);
     const beforeSave = await kv.get(SAVE_KEY);

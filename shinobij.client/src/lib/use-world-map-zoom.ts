@@ -322,6 +322,8 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
         if (!activeRef.current) {
             el.style.transform = "";
             el.style.transition = "";
+            el.removeAttribute("data-wm-compact-overview");
+            el.querySelector<HTMLElement>("[data-map-clearance-art]")?.style.removeProperty("--wm-marker-scale");
             for (const marker of markers) marker.style.removeProperty("scale");
             appliedMarkerScaleRef.current = Number.NaN;
             return;
@@ -329,9 +331,16 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
         const v = viewRef.current;
         const writeMarkerScale = (zoom: number) => {
             const markerScale = worldMapMarkerScaleForZoom(zoom);
+            const compact = sizeRef.current.w * zoom < 600;
+            if (el.hasAttribute("data-wm-compact-overview") !== compact) {
+                el.toggleAttribute("data-wm-compact-overview", compact);
+            }
             if (markerScale !== appliedMarkerScaleRef.current) {
                 appliedMarkerScaleRef.current = markerScale;
                 for (const marker of markers) marker.style.scale = String(markerScale);
+                // Only the tightly packed crest needs zoom-aware artwork sizing.
+                // Keep its variable on the image so roads and other pins never inherit it.
+                el.querySelector<HTMLElement>("[data-map-clearance-art]")?.style.setProperty("--wm-marker-scale", String(markerScale));
             }
         };
         let finishMotion: (() => void) | null = null;

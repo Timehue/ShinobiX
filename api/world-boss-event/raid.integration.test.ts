@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { before, test } from 'node:test';
 import actionHandler from '../towers/action.js';
 import settleHandler from './settle.js';
+import stateHandler from '../towers/state.js';
 import type { WorldBossEventRecord, WorldBossMatchRecord } from './_event';
 import type { WorldBossId } from '../../shared/world-boss-event';
 
@@ -22,7 +23,7 @@ before(async () => {
     world = await import('../../shared/world-boss-event.js');
 });
 
-async function post(handler: typeof settleHandler, body: Record<string, unknown>) {
+async function post(handler: typeof settleHandler, body: Record<string, unknown>, method = 'POST') {
     let status = 200;
     let result: any;
     const res = {
@@ -31,7 +32,7 @@ async function post(handler: typeof settleHandler, body: Record<string, unknown>
         json(value: unknown) { result = value; return res; },
         end() { return res; },
     };
-    await handler({ method: 'POST', body, query: {}, headers: { 'x-admin-password': process.env.ADMIN_PASSWORD }, socket: { remoteAddress: '127.0.0.91' } } as never, res as never);
+    await handler({ method, body, query: method === 'GET' ? body : {}, headers: { 'x-admin-password': process.env.ADMIN_PASSWORD }, socket: { remoteAddress: '127.0.0.91' } } as never, res as never);
     return { status, body: result };
 }
 
@@ -69,7 +70,7 @@ async function startRaid(id: string, bossId: WorldBossId, hp = 600_000, finish =
     assert.equal(session.actors.find(actor => actor.id === 'en-0')?.character.visual, world.worldBossGuardVisual(bossId));
     // Put a sealed, deterministic finishing attack in range. The real action
     // endpoint must resolve it, record contribution and persist the terminal raid.
-    player.character.jutsu = [{ id: 'integration-finish', name: 'Finishing blow', type: 'Taijutsu', ap: 60, range: 1, effectPower: finish ? 3000 : 20 }];
+    player.character.jutsu = [{ id: 'integration-finish', name: 'Finishing blow', type: 'Taijutsu', ap: 60, range: 1, effectPower: finish ? 100_000 : 20 }];
     player.character.jutsuMastery = [{ jutsuId: 'integration-finish', level: 50 }];
     boss.pos = player.pos + (player.pos % session.map.width === session.map.width - 1 ? -1 : 1);
     // Expose Murogane only after his guards have been cleared.
@@ -109,7 +110,7 @@ test('each boss is wired from queue start through action, shared HP, reward and 
         const event = (await eventStore.readWorldBossEvent(raid.event.eventId))!;
         assert.equal(event.participants[raid.slug].matches, 1);
         assert.equal(event.hp, first.body.hpRemaining);
-        assert.equal(eventStore.publicWorldBossEvent(event, event.status, world.worldBossEventPosition(event, Date.now())).active, true);
+        assert.equal(eventStore.publicWorldBossEvent(event, event.status, world.worldBossEventPosition(event, Date.now())).active, false);
         const returnedQueue = await queue.worldBossQueueView(event, raid.slug);
         assert.equal(returnedQueue.match?.status, 'settled');
         assert.deepEqual(returnedQueue.match?.reward, first.body.reward);
@@ -150,4 +151,75 @@ test('a wiped team still banks its verified partial damage without declaring wor
     assert.equal(settled.body.bankedDamage, damage);
     assert.equal(settled.body.hpRemaining, 600_000 - damage);
     assert.equal((await eventStore.readWorldBossEvent(raid.event.eventId))!.status, 'roaming');
+});
+
+test('a completed legacy raid survives generic recovery and pays its original contribution exactly once', async () => {
+    const raid = await startRaid('legacy-recovery', 'hollow-maze-minotaur', 600_000, false);
+    const session = (await towerStore.readSession(raid.match.runId))!;
+    const damage = session.worldBossContributions![raid.slug].damage;
+    session.worldBossEvent!.matchHpAtStart = 28_000;
+    delete session.worldBossEvent!.bossId;
+    const boss = session.actors.find(actor => actor.id === session.phaseState.bossId)!;
+    boss.maxHp = 28_000;
+    boss.hp = 10_873;
+    session.status = 'done';
+    session.winner = 'enemy';
+    session.actors.find(actor => actor.side === 'squad')!.hp = 0;
+    await towerStore.writeSession(session);
+    const body = { runId: raid.match.runId, playerName: raid.slug };
+    const recovered = await post(stateHandler, body, 'GET');
+    assert.equal(recovered.status, 200, JSON.stringify(recovered.body));
+    assert.deepEqual(recovered.body.session.worldBossEvent, session.worldBossEvent);
+    const paid = await post(settleHandler, body);
+    assert.equal(paid.status, 200, JSON.stringify(paid.body));
+    assert.equal(paid.body.bankedDamage, damage);
+    assert.equal(paid.body.hpRemaining, 600_000 - damage);
+    assert.equal(await kv.get(`battle-lock:${raid.slug}`), null);
+    const save = await kv.get(`save:${raid.slug}`);
+    const retry = await post(settleHandler, body);
+    assert.equal(retry.status, 200);
+    assert.deepEqual(await kv.get(`save:${raid.slug}`), save);
+});
+
+test('a lost match write after the killing blow retains banked damage and pays only once',async t=>{
+    const raid=await startRaid('banked-crash','hollow-maze-minotaur',1000);
+    const matchKey=eventStore.worldBossMatchKey(raid.event.eventId,raid.match.matchId);
+    const originalSet=kv.set.bind(kv);
+    let fail=true;
+    t.mock.method(console,'error',()=>{});
+    t.mock.method(kv,'set',async(...args:any[])=>{
+        if(args[0]===matchKey && fail){fail=false;throw new Error('Lost match write');}
+        return originalSet(...args as Parameters<typeof kv.set>);
+    });
+    const body={runId:raid.match.runId,playerName:raid.slug};
+    assert.equal((await post(settleHandler,body)).status,503);
+    assert.equal((await eventStore.readWorldBossEvent(raid.event.eventId))!.hp,0);
+    const recovered=await post(settleHandler,body);
+    assert.equal(recovered.status,200,JSON.stringify(recovered.body));
+    assert.equal(recovered.body.bankedDamage,1000);
+    assert.equal(recovered.body.hpRemaining,0);
+    const save=await kv.get(`save:${raid.slug}`);
+    assert.equal((await post(settleHandler,body)).body.bankedDamage,1000);
+    assert.deepEqual(await kv.get(`save:${raid.slug}`),save);
+});
+
+test('a wiped raid deducts recorded potions and thrown ammunition exactly once',async()=>{
+    const raid=await startRaid('spent-items','hollow-maze-minotaur',600_000,false);
+    const saveKey=`save:${raid.slug}`;
+    const save=await kv.get<any>(saveKey);
+    save.character.inventory=['healing-potion','healing-potion','kunai','kunai','kunai'];
+    await kv.set(saveKey,save);
+    const session=(await towerStore.readSession(raid.match.runId))!;
+    session.actors.find(actor=>actor.side==='squad')!.itemsUsed={'healing-potion':1,'kunai':2};
+    session.status='done';session.winner='enemy';
+    await towerStore.writeSession(session);
+    const body={runId:raid.match.runId,playerName:raid.slug};
+    const paid=await post(settleHandler,body);
+    assert.equal(paid.status,200,JSON.stringify(paid.body));
+    const inventory=paid.body.character.inventory as string[];
+    assert.equal(inventory.filter(id=>id==='healing-potion').length,1);
+    assert.equal(inventory.filter(id=>id==='kunai').length,1);
+    const after=await kv.get(saveKey);
+    await post(settleHandler,body);
+    assert.deepEqual(await kv.get(saveKey),after);
 });
