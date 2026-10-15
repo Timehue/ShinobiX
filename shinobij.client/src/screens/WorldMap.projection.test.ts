@@ -286,18 +286,23 @@ test("WorldWandererDialog makes every hostile that stops you a priced Fight/Flee
     // ⚖ OWNER RULING (2026-10-08): a hostile that catches you in a sector stops
     // you with Fight/Flee, bounty hunters included, and fleeing costs half your
     // HP plus part of the ryo you carry (shared/road-flee.ts). Only a bandit
-    // that lets you "Pass in peace" is free.
+    // that lets you "Pass in peace" is free. Which hostiles stop you is
+    // lib/road-cast wandererForcesChoice, shared with WorldMap's dismissal guard:
+    // a patrol of a village at war with yours stops you too, and its Fight is
+    // the patrol fight.
     const hostileChoices = sliceBetween(dialogSource,
-        '(wandererDialog.w.verb === "attack" || wandererDialog.w.verb === "bountyHunter")',
+        "wandererForcesChoice(wandererDialog.w) ? (",
         ') : !wandererDialog.msg && wandererDialog.w.verb === "merchant"');
     assertOrdered(hostileChoices, [
         'onClick={dismissWandererDialog}>Pass in peace</button>',
         'onClick={() => startWandererAttack(wandererDialog.w, false)}',
         '>Fight anyway</button>',
         '{roadFleePriceLine(character)}',
-        'onClick={() => startWandererAttack(wandererDialog.w, !!wandererDialog.nemesis)}>Fight</button>',
+        'onClick={() => wandererDialog.w.verb === "patrol" ? startPatrolFight(wandererDialog.w) : startWandererAttack(wandererDialog.w, !!wandererDialog.nemesis)}>Fight</button>',
         'onClick={() => fleeWanderer(wandererDialog.w)}>Flee</button>',
     ], "hostile encounter choice order");
+    assert.match(worldMapSource, /function requiresWandererChoice\(d: WorldWandererDialogState \| null\) \{\s*return !!d && !d\.msg && wandererForcesChoice\(d\.w\);/u,
+        "the dialog's Fight/Flee and WorldMap's no-free-Escape guard read the same rule");
     assert.doesNotMatch(hostileChoices, /onClick=\{dismissWandererDialog\}>Flee/u, "the paid flee must not route through the free dismissal");
     assert.doesNotMatch(dialogSource, /Combat is starting/u, "a contract hunter no longer starts its fight on contact");
     assert.match(dialogSource, /wandererDialog\.w\.verb === "merchant"[\s\S]*onClick=\{closeWandererDialog\}>Leave<\/button>/u);
@@ -338,9 +343,10 @@ test("WorldMap charges a flee on the server and never lets Escape or the backdro
     // server refuse the whole team's raid (api/world-boss-event/_encounter.ts).
     // Movement is held too while the queue owns the screen.
     assert.match(worldMapSource, /worldMovementBlocked=\{\(\) => [^}]*\|\| worldBossQueueOpen\}/u);
-    // The robber streak's gang gauntlet belongs to the bandits (the server never
-    // counts a night ninja toward it): Fight on a night ninja is that ninja.
-    assert.match(fight, /if \(!nemesis && w\.archetype !== "nightblade" && \(character\.robberStreak \?\? 0\) >= 5\)/u);
+    // The robber streak's gang gauntlet belongs to the bandits (the server counts
+    // only the daytime roll toward it): Fight on a night ninja, a rift creature,
+    // a rival miner or Kagero is that one opponent.
+    assert.match(fight, /if \(!nemesis && w\.archetype === "bandit" && \(character\.robberStreak \?\? 0\) >= 5\)/u);
     // Every exploration result path presents the ambush; only Fight starts it.
     assert.doesNotMatch(worldMapSource, /launchResolvedExploreBattle/u);
     assert.equal(worldMapSource.split("startExploreAmbushFight(").length - 1, 3, "declared once, used by Fight and the non-wild fallback");
