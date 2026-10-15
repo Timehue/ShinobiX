@@ -14,6 +14,8 @@ import { loadAiFightProfile, type AiFightProfile } from './_ai-fight-encounter.j
 import { MAX_WILD_SECTOR, sectorBiomeOf } from '../../shared/sector-geo.js';
 import { parseWandererId, WANDERER_MAX_INDEX, WANDERER_NIGHT_INDEX } from '../../shared/wanderer-roster.js';
 import { ROAD_NEMESIS_NAME, roadNemesisPresentAt, roadNemesisTier, roadNemesisTitle } from '../../shared/road-nemesis.js';
+import { riftSealOf, type RiftSealView } from '../../shared/wanderer-extra-slots.js';
+import { parseRiftQuestSeal } from '../sector/_rift-quest.js';
 import { patrolNameFor, patrolStance } from '../../shared/village-patrol.js';
 import { getSectorOwnerVillage } from '../_sector-war-store.js';
 import { activeVillageWarEnemiesOf } from '../world-state.js';
@@ -417,8 +419,8 @@ export async function settleWorldAiChainStage(
  * server entrypoints import this rather than accepting the client's
  * preview/name/verb as encounter authority. Returns `{ id: archetype, verb,
  * name, level }` — `id` is the ARCHETYPE id (callers store it as archetypeId). */
-export function resolveNaturalWorldWanderer(sourceId: string, character: Record<string, unknown>, requestedSector: number, now: number) {
-    const w = resolveNaturalWanderer(sourceId, now, character, requestedSector);
+export function resolveNaturalWorldWanderer(sourceId: string, character: Record<string, unknown>, requestedSector: number, now: number, riftSeal: RiftSealView | null = null) {
+    const w = resolveNaturalWanderer(sourceId, now, character, requestedSector, riftSeal);
     if (!w) return null;
     return { id: w.archetype, verb: w.verb, name: w.name, level: w.level };
 }
@@ -539,10 +541,15 @@ export async function buildWorldAiFightSpec(params: {
             if (!roadNemesisPresentAt(String(character.name ?? params.playerName), request.sector, now)) throw new Error('world-nemesis-not-here');
             const tier = roadNemesisTier(nemesis);
             const name = roadNemesisTitle(tier);
-            return { profile: runtimeProfile('world-wanderer-nemesis', name, level + tier, Math.min(12, tier * 2), 'bruiser'), environment,
+            // Capped at 100 like the level the map and dialog show for him.
+            return { profile: runtimeProfile('world-wanderer-nemesis', name, Math.min(100, level + tier), Math.min(12, tier * 2), 'bruiser'), environment,
                 context: { kind: request.kind, sourceId: request.sourceId, sector: request.sector, stage: 0, displayName: name, finalStage: true } };
         }
-        const wanderer = resolveNaturalWorldWanderer(request.sourceId, character, request.sector, now);
+        // The rift creature answers only to the SEALED rift on the save record,
+        // never to the client-writable character.activeRiftQuest mirror.
+        // riftSealOf applies the same festival-sector fallback the map draws from.
+        const riftSeal = riftSealOf({ activeRiftQuest: parseRiftQuestSeal(params.save.activeRiftQuestSeal) });
+        const wanderer = resolveNaturalWorldWanderer(request.sourceId, character, request.sector, now, riftSeal);
         // 'contest' is the rival miner's optional fight over his seam.
         if (!wanderer || (wanderer.verb !== 'attack' && wanderer.verb !== 'contest')) throw new Error('world-wanderer-not-attackable');
         // A night ninja and a rift creature fight with the burst template and a
@@ -564,7 +571,10 @@ export async function buildWorldAiFightSpec(params: {
         const owner = await getSectorOwnerVillage(request.sector);
         const stance = patrolStance(owner, village, enemies);
         if (stance === 'home') throw new Error('world-patrol-own-village');
-        const hostile = stance === 'rivalWar' || enemies.length > 0;
+        // A warring holder's patrol fights as a Captain. A rival at peace is the
+        // spar its dialog offers; only an unclaimed road keeps the old rule that
+        // any war of yours hardens the patrol.
+        const hostile = stance === 'rivalWar' || (stance === null && enemies.length > 0);
         const base = patrolNameFor(owner, stance, wanderer.name);
         const name = hostile ? `${base} Captain` : base;
         return { profile: runtimeProfile(`world-patrol-${request.sourceId}`, name, level + (hostile ? 3 : 1), hostile ? 7 : 3, hostile ? 'defender' : 'bruiser'), environment,
@@ -747,8 +757,8 @@ export function applyWorldAiFightSettlement(
     // The robber streak (-> bandit ambush gauntlet) belongs to the bandit gang:
     // the daytime roll (slots 0..WANDERER_MAX_INDEX), whose only hostile is the
     // bandit. Losing to a bandit OR a night ninja puts the player on Kagero's
-    // list (shared/road-nemesis.ts). The angler/miner and rift-creature slots
-    // move neither.
+    // list (shared/road-nemesis.ts). Kagero's own fights move only his tier;
+    // the angler/miner and rift-creature slots move neither.
     const slot = context.kind === 'wanderer' ? parseWandererId(context.sourceId)?.index : undefined;
     const roadGang = slot !== undefined && slot <= WANDERER_MAX_INDEX;
     const nightNinja = slot === WANDERER_NIGHT_INDEX;
@@ -763,8 +773,8 @@ export function applyWorldAiFightSettlement(
     if (context.kind === 'wanderer' && context.sourceId === 'nemesis') {
         const nemesis = character.wandererNemesis as Record<string, unknown> | undefined;
         next = won
-            ? { ...next, wandererNemesis: null, robberStreak: streak + 1 }
-            : { ...next, robberStreak: 0, ...(nemesis ? { wandererNemesis: { ...nemesis, name: ROAD_NEMESIS_NAME, tier: roadNemesisTier(nemesis) + 1 } } : {}) };
+            ? { ...next, wandererNemesis: null }
+            : { ...next, ...(nemesis ? { wandererNemesis: { ...nemesis, name: ROAD_NEMESIS_NAME, tier: roadNemesisTier(nemesis) + 1 } } : {}) };
     } else if (roadGang) {
         next = won ? { ...next, robberStreak: streak + 1 } : { ...next, robberStreak: 0, ...markedByKagero() };
     } else if (nightNinja && !won) {

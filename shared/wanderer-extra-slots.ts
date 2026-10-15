@@ -35,8 +35,11 @@ import {
     type WandererArchetypeId,
 } from "./wanderer-roster.js";
 
-/** Share of resource-node sectors that hold an angler or a miner in a window. */
-export const TRADE_WANDERER_CHANCE = 0.5;
+/** Share of resource-node sectors that hold an angler or a miner in a window.
+ *  Every playable sector has a node since the 2026-10-14 world-wide pass, so
+ *  this is 12% (about 8 of 65 sectors per window), not the 50% it was when only
+ *  ten sectors had nodes. */
+export const TRADE_WANDERER_CHANCE = 0.12;
 
 /** The rift a player holds a seal for, as the save stores it. */
 export type RiftSealView = { id: string; targetSector: number };
@@ -80,7 +83,9 @@ export function rollTradeWanderer(sector: number, dayBucket: number): Wanderer |
     return placeWanderer(slotWanderer(archetype, `w-${sector}-${dayBucket}-${WANDERER_TRADE_INDEX}`, sector, home, [home], rng), sector);
 }
 
-/** Read the rift seal a save carries, or null. */
+/** Read a rift quest's id and target sector, or null. The client reads its
+ *  display mirror (character.activeRiftQuest) with this; the server passes the
+ *  record's sealed activeRiftQuestSeal, which has the same two fields. */
 export function riftSealOf(character: { activeRiftQuest?: unknown } | null | undefined): RiftSealView | null {
     const raw = character?.activeRiftQuest;
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
@@ -113,16 +118,21 @@ export function extraSlotWanderersAt(sector: number, dayBucket: number, rift: Ri
  * Server authority for the two extra slots: the wanderer an id names IF the id
  * is for the current window and the slot really holds someone for this player.
  * Slots 0..2 go through resolveWandererById instead; this returns null for them.
+ *
+ * `rift` must come from server-owned state (the save record's
+ * activeRiftQuestSeal), never from character.activeRiftQuest: that field is a
+ * display mirror the client's own save writes can set, so trusting it would let
+ * a forged save summon a rift creature in any sector.
  */
 export function resolveExtraSlotWanderer(
     id: string,
     nowMs: number,
-    character: { activeRiftQuest?: unknown } | null | undefined,
+    rift: RiftSealView | null,
 ): Wanderer | null {
     const parsed = parseWandererId(id);
     if (!parsed || !Number.isSafeInteger(parsed.sector) || !Number.isSafeInteger(parsed.dayBucket)
         || parsed.dayBucket !== wandererDayBucketFromMs(nowMs)) return null;
     if (parsed.index === WANDERER_TRADE_INDEX) return rollTradeWanderer(parsed.sector, parsed.dayBucket);
-    if (parsed.index === WANDERER_RIFT_INDEX) return rollRiftSpawn(parsed.sector, parsed.dayBucket, riftSealOf(character));
+    if (parsed.index === WANDERER_RIFT_INDEX) return rollRiftSpawn(parsed.sector, parsed.dayBucket, rift);
     return null;
 }

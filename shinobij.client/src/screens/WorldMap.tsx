@@ -1491,7 +1491,7 @@ function WorldMapContent({
     }
     function startPatrolFight(w: Wanderer) {
         if (selectedSector == null) return;
-        const hostile = w.patrolStance === "rivalWar" || activeVillageWarsFor(character.village).length > 0;
+        const hostile = w.patrolStance === "rivalWar" || (!w.patrolStance && activeVillageWarsFor(character.village).length > 0);
         const lvl = Math.max(1, Math.min(100, character.level + (hostile ? 3 : 1)));
         const ai = makeBuiltinAi(`wanderer-patrol-${w.id}`, hostile ? `${w.name} Captain` : w.name, "PT", lvl, "Road Patrol", [], hostile ? 7 : 3, undefined, hostile ? "defender" : "balanced");
         ai.image = w.avatarImage || wandererAvatar(w.avatarKey);

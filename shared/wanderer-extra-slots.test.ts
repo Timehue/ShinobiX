@@ -61,11 +61,11 @@ test('a rift creature hunts only in the target sector of the seal its player hol
 });
 
 test('the server resolves the extra slots for the current window and this player only', () => {
-    const character = { activeRiftQuest: { id: 'rift-a', targetSector: 12 } };
-    assert.ok(resolveExtraSlotWanderer(`w-12-${BUCKET}-${WANDERER_RIFT_INDEX}`, NOW, character));
-    assert.equal(resolveExtraSlotWanderer(`w-12-${BUCKET}-${WANDERER_RIFT_INDEX}`, NOW, {}), null, 'another player has no creature');
-    assert.equal(resolveExtraSlotWanderer(`w-12-${BUCKET - 1}-${WANDERER_RIFT_INDEX}`, NOW, character), null, 'stale window');
-    assert.equal(resolveExtraSlotWanderer(`w-12-${BUCKET}-0`, NOW, character), null, 'slots 0..2 resolve elsewhere');
+    const seal = { id: 'rift-a', targetSector: 12 };
+    assert.ok(resolveExtraSlotWanderer(`w-12-${BUCKET}-${WANDERER_RIFT_INDEX}`, NOW, seal));
+    assert.equal(resolveExtraSlotWanderer(`w-12-${BUCKET}-${WANDERER_RIFT_INDEX}`, NOW, null), null, 'another player has no creature');
+    assert.equal(resolveExtraSlotWanderer(`w-12-${BUCKET - 1}-${WANDERER_RIFT_INDEX}`, NOW, seal), null, 'stale window');
+    assert.equal(resolveExtraSlotWanderer(`w-12-${BUCKET}-0`, NOW, seal), null, 'slots 0..2 resolve elsewhere');
     for (let sector = 1; sector <= WANDERER_SECTOR_COUNT; sector++) {
         assert.deepEqual(resolveExtraSlotWanderer(`w-${sector}-${BUCKET}-${WANDERER_TRADE_INDEX}`, NOW, null), rollTradeWanderer(sector, BUCKET));
     }
