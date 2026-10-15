@@ -1,7 +1,7 @@
 import { withKvLock } from './_lock.js';
 import { kv } from './_storage.js';
 import { beginDurableSettlement, cancelDurableSettlement, completeDurableSettlement, inspectSettlementReceipt as inspectSourceReceipt, settlementTransactionId, updateDurableSettlement, type DurableSettlementRecord } from './_durable-settlement.js';
-import { appendSettlementReceipt as appendPlayerReceipt, inspectSettlementReceipt as inspectPlayerReceipt, SERVER_SETTLEMENT_RECEIPT_LIMIT, type ServerSettlementReceipt } from './_settlement-receipts.js';
+import { appendSettlementReceipt as appendPlayerReceipt, inspectSettlementReceipt as inspectPlayerReceipt, ownReceiptValue, SERVER_SETTLEMENT_RECEIPT_LIMIT, type ServerSettlementReceipt } from './_settlement-receipts.js';
 import { receiptAbsenceProvable } from './_save-debit-saga.js';
 import { carriedRegenCursor, settleIdleRecovery, writeVersionedPlayerSave } from './save/_mutate-player-save.js';
 
@@ -76,6 +76,12 @@ export type CrossKeySettlementOptions<S extends Record<string, unknown>> = {
     loadRecipient: () => Promise<{ record: Record<string, unknown>; character: Record<string, unknown> } | null>;
     validateRecipient: (recipient: { record: Record<string, unknown>; character: Record<string, unknown> }) => void | Promise<void>;
     creditRecipient: (character: Record<string, unknown>) => { character: Record<string, unknown>; result: Record<string, unknown> };
+    /**
+     * The keys creditRecipient's result has. A replay returns only these from
+     * the recipient's receipt: one stored before 2026-10 can also hold keys
+     * from the receipt before it (see ownReceiptValue). Unset returns it whole.
+     */
+    resultKeys?: readonly string[];
     /**
      * Replaces the recipient's save write; tests inject a failing one. Leave it
      * unset: the default is the versioned compare-and-set write, and it carries
@@ -220,7 +226,7 @@ export async function settleCrossKeyTransfer<S extends Record<string, unknown>>(
             let result: Record<string, unknown>;
             if (receiptState.status === 'replay') {
                 result = {
-                    ...receiptState.receipt.value,
+                    ...(options.resultKeys ? ownReceiptValue(receiptState.receipt.value, options.resultKeys) : receiptState.receipt.value),
                     ...(recipient.record._saveVersion !== undefined ? { _saveVersion: recipient.record._saveVersion } : {}),
                 };
             } else {

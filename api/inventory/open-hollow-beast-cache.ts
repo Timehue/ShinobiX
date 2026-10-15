@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
-import { appendSettlementReceipt, inspectSettlementReceipt } from '../_settlement-receipts.js';
+import { appendSettlementReceipt, inspectSettlementReceipt, ownReceiptValue } from '../_settlement-receipts.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { recordEconomyTxn } from '../_economy.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
@@ -86,7 +86,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const result = await retryOnSaveVersionConflict(() => mutatePlayerSave<CacheRewards>(playerSlug, ({ character }) => {
             const inspected = inspectSettlementReceipt(character, receiptId, fingerprint);
             if (inspected.status === 'replay') {
-                return { ok: true, write: false, character, value: inspected.receipt.value as unknown as CacheRewards };
+                return { ok: true, write: false, character, value: ownReceiptValue(inspected.receipt.value, ['ryo', 'boneCharms', 'materialId', 'dungeonKey']) as unknown as CacheRewards };
             }
             if (inspected.status !== 'fresh') return { ok: false, status: 409, error: 'This cache request is not safe to replay.' };
             const rewards = cacheRewards(rollSeed);

@@ -10,7 +10,7 @@ import {
     settlementTransactionId,
     updateDurableSettlement,
 } from '../_durable-settlement.js';
-import { appendSettlementReceipt, inspectSettlementReceipt } from '../_settlement-receipts.js';
+import { appendSettlementReceipt, inspectSettlementReceipt, ownReceiptValue } from '../_settlement-receipts.js';
 import { professionRankForXp } from '../missions/_progress.js';
 
 export type CrossHealCore = {
@@ -178,7 +178,7 @@ export async function settleCrossPlayerHeal(options: {
                     },
                 };
             } else {
-                coreResult = healerReceipt.receipt.value as Omit<CrossHealResult, '_saveVersion'>;
+                coreResult = ownReceiptValue(healerReceipt.receipt.value, ['xpGained', 'raidAssist', 'chakraCost', 'targetHospitalized', 'professionXp', 'professionRank']) as Omit<CrossHealResult, '_saveVersion'>;
             }
 
             let targetSide: PlayerSavesSide = untouched[options.targetName]!;
