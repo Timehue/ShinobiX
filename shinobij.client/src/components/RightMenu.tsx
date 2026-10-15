@@ -17,7 +17,7 @@ import { memo, useRef, useState } from "react";
 import rightMenuBg from "../assets/rightmenu.webp";
 import type { Profession, Screen } from "../types/core";
 import { PROFESSION_LABEL } from "../data/professions";
-import { isProtectedAdminName } from "../constants/game";
+import { DISCORD_INVITE_URL, isProtectedAdminName } from "../constants/game";
 import { preloadScreen } from "../lib/screen-preload";
 import { MailUnreadBadge } from "./MailUnreadBadge";
 import { NotificationBar } from "./NotificationBar";
@@ -127,7 +127,7 @@ export const RightMenu = memo(function RightMenu({
                             <h4 id="right-menu-support"><span>Support</span><small aria-hidden="true">03</small></h4>
                             <div className="right-menu-section-grid">
                                 <button aria-current={screen === "guides" ? "page" : undefined} onClick={() => guardedNavigate("guides")} onPointerDown={() => preloadScreen("guides")}><span className="right-menu-action-icon"><GiOpenBook size={16} /></span><span className="right-menu-action-label">Guides</span></button>
-                                <button onClick={() => window.open("https://discord.gg/usr3vzykBh", "_blank", "noopener,noreferrer")}><span className="right-menu-action-icon"><GiDiscord size={16} /></span><span className="right-menu-action-label">Discord</span></button>
+                                <button onClick={() => window.open(DISCORD_INVITE_URL, "_blank", "noopener,noreferrer")}><span className="right-menu-action-icon"><GiDiscord size={16} /></span><span className="right-menu-action-label">Discord</span></button>
                                 <button aria-current={screen === "premiumShop" ? "page" : undefined} onClick={() => guardedNavigate("premiumShop")} onPointerDown={() => preloadScreen("premiumShop")} title="Buy Fate Shards and Shinobi Supporter with real money — the village Shop trades in ryo"><span className="right-menu-action-icon"><GiPremiumShop size={16} /></span><span className="right-menu-action-label">Premium Shop</span></button>
                             </div>
                         </section>

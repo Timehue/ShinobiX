@@ -16,6 +16,11 @@ import { HOLLOW_BEAST_CACHE_ID } from "../../../shared/world-boss-cache";
 export const WORLD_STATE_API = "/api/world-state";
 export const GAME_STATE_API = "/api/game-state";
 
+// ── Community ────────────────────────────────────────────────────────────
+// The one community invite. Every Discord link and help hint reads this, so a
+// new invite is a one-line change instead of a hunt across six files.
+export const DISCORD_INVITE_URL = "https://discord.gg/usr3vzykBh";
+
 // ── Territory / sector war ───────────────────────────────────────────────
 export const TERRITORY_CONTROL_SCROLL_ID = "territory-control-scroll";
 export const TERRITORY_CONTROL_MAX = 75000;

@@ -66,7 +66,7 @@ describe('authoritative war reward settlement', () => {
             winnerVillage: 'Leaf', warCrateId: 'war-crate-leaf-vs-sand', loserCrateId: 'loser-crate-leaf-vs-sand',
             mvpByVillage: { Leaf: 'Rin', Sand: 'Gaara' },
             contributions: {
-                kirauchiha: { name: 'Kira Uchiha', side: 'Leaf', damage: 30 },
+                kiraemberfall: { name: 'Kira Emberfall', side: 'Leaf', damage: 30 },
                 sandmiko: { name: 'Sand Miko', side: 'Sand', damage: 60 },
             },
         };
@@ -74,7 +74,7 @@ describe('authoritative war reward settlement', () => {
         assert.equal(bystander.granted, false, 'a winning member who never fought gets no crate');
         assert.equal(bystander.crates, 0);
 
-        const fighter = settleVillageWarRewards({ name: 'Kira Uchiha', village: 'Leaf', inventory: [], claimedWarCrateIds: [] }, war, now);
+        const fighter = settleVillageWarRewards({ name: 'Kira Emberfall', village: 'Leaf', inventory: [], claimedWarCrateIds: [] }, war, now);
         assert.equal(fighter.crates, 1, 'a fighter whose display name differs from the slug still gets the crate');
         assert.equal(fighter.lifetimeDamage, 30, 'and their damage stat');
 

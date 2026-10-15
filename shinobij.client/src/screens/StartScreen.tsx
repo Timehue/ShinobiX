@@ -11,6 +11,7 @@ import { LEGAL_PAGE_LINKS, legalPageForPath, type LegalPageSlug } from "../data/
 import { LegalPage } from "./LegalPage";
 import { LoginGate } from "./start/LoginGate";
 import { rememberedShinobi } from "../lib/player-accounts";
+import { DISCORD_INVITE_URL } from "../constants/game";
 import { captureProductEvent } from "../lib/analytics";
 import type { SignupCredential } from "../lib/guest-play";
 import {
@@ -29,10 +30,6 @@ const CharacterCreator = lazyWithRetry(() => import("./CharacterCreator").then(m
 const PublicLeaderboard = lazyWithRetry(() => import("./PublicLeaderboard").then(m => ({ default: m.PublicLeaderboard })));
 
 const GuidesLibrary = lazyWithRetry(() => import("../components/GuidesLibrary").then(m => ({ default: m.GuidesLibrary })));
-
-// The real community invite, matching RightMenu / MobileNav. The old
-// "discord.gg/shinobi-journey" vanity link did not resolve.
-const DISCORD_URL = "https://discord.gg/usr3vzykBh";
 
 type StartView = "main" | "create" | "login" | "leaderboard" | "guides" | `legal:${LegalPageSlug}`;
 
@@ -291,7 +288,7 @@ function LandingMain({ onOpenCreate, onOpenLogin, onOpenGuides, onOpenLeaderboar
             }}>
                 <div className="landing-utility">
                     <span>A free browser RPG</span>
-                    <div><a href={DISCORD_URL} target="_blank" rel="noopener noreferrer">Community ↗</a></div>
+                    <div><a href={DISCORD_INVITE_URL} target="_blank" rel="noopener noreferrer">Community ↗</a></div>
                 </div>
                 <div className="landing-topbar-inner">
                     <button type="button" className="landing-brand" onClick={() => scrollTo('landing-home')} aria-label="Shinobi Journey home">
@@ -382,7 +379,7 @@ function LandingMain({ onOpenCreate, onOpenLogin, onOpenGuides, onOpenLeaderboar
             </section>
 
             <footer className="landing-footer">
-                <div className="landing-community"><div><p className="landing-kicker">Community</p><h2>Find a clan on Discord.</h2></div><a className="landing-cta landing-cta--ghost" href={DISCORD_URL} target="_blank" rel="noopener noreferrer">Join the Discord <span aria-hidden="true">↗</span></a></div>
+                <div className="landing-community"><div><p className="landing-kicker">Community</p><h2>Find a clan on Discord.</h2></div><a className="landing-cta landing-cta--ghost" href={DISCORD_INVITE_URL} target="_blank" rel="noopener noreferrer">Join the Discord <span aria-hidden="true">↗</span></a></div>
                 <div className="landing-footer-inner"><div className="landing-footer-brand"><BrandLockup variant="footer" /><p>A free browser-based shinobi RPG.</p></div><nav className="landing-footer-links" aria-label="Footer navigation"><button type="button" {...playProps}>Play free</button><button type="button" onClick={onOpenGuides}>Guides</button><button type="button" onClick={onOpenLeaderboard}>Leaderboard</button><button type="button" onClick={onOpenLogin}>Log in</button></nav></div>
                 <div className="landing-footer-legal"><p>© {year} Shinobi Journey.</p><nav className="landing-footer-policy-links" aria-label="Legal and player policies">{LEGAL_PAGE_LINKS.map((link) => <a key={link.slug} href={`/${link.slug}`}>{link.label}</a>)}</nav></div>
             </footer>

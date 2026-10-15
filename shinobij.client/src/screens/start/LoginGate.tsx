@@ -5,6 +5,7 @@ import { useLiveCapabilities } from "../../lib/live-capabilities-context";
 import { startGoogleSignIn } from "../../lib/google-signin";
 import { useBfcacheRestore } from "../../lib/use-bfcache-restore";
 import { AccountRecoveryForm } from "../../components/AccountRecoveryForm";
+import { DISCORD_INVITE_URL } from "../../constants/game";
 
 /*
  * The gate: the screen a returning player actually meets.
@@ -15,8 +16,6 @@ import { AccountRecoveryForm } from "../../components/AccountRecoveryForm";
  * knows come first, then the two doors that need nothing typed at all, and the
  * password form last, because by then it is the least likely thing you need.
  */
-
-const DISCORD_URL = "https://discord.gg/usr3vzykBh";
 
 /** Google's mark, drawn inline: the CSP blocks their hosted button script. */
 function GoogleMark() {
@@ -157,7 +156,7 @@ export function LoginGate({
             <div className="landing-auth-card landing-login-card start-card login-gate">
                 <AccountRecoveryForm
                     initialName={loginName.trim() || initialName}
-                    helpUrl={DISCORD_URL}
+                    helpUrl={DISCORD_INVITE_URL}
                     onCancel={() => setRecovering(false)}
                     onRecovered={(name, password) => {
                         setRecovering(false);

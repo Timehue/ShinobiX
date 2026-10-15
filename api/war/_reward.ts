@@ -106,8 +106,8 @@ export function settleVillageWarRewards(
 
     // The war's contribution ledger is keyed by the player's safeName SLUG (every
     // server writer keys it by the authenticated name). It used to be read by the
-    // lowercased DISPLAY name, so a player called "Kira Uchiha" (slug
-    // "kirauchiha") never found their own damage and lost the consolation and the
+    // lowercased DISPLAY name, so a player called "Kira Emberfall" (slug
+    // "kiraemberfall") never found their own damage and lost the consolation and the
     // lifetime-damage stat. The display-name key is kept as a fallback for rows
     // written before every writer used the slug.
     const contribution = war.contributions?.[safeName(playerName)]

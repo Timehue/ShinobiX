@@ -9,6 +9,7 @@ import { sessionLoadFetch } from "./session-load-authority";
 import { isTokenExpired } from "../authFetch";
 import { accountKey, forgetAccountToken, loadPlayerAccounts } from "./player-accounts";
 import { resumeGuestFor } from "./guest-play";
+import { DISCORD_INVITE_URL } from "../constants/game";
 import {
     authRateLimitMessage,
     requiresLegacyAdminRecovery,
@@ -16,7 +17,7 @@ import {
 } from "./player-auth-policy";
 
 export const FORGOT_PASSWORD_HINT =
-    "Player name or password is incorrect.\n\nCheck for typos and capitals in your name. If you've forgotten your password, ask a moderator on Discord (discord.gg/usr3vzykBh) to verify your character and reset it.";
+    `Player name or password is incorrect.\n\nCheck for typos and capitals in your name. If you've forgotten your password, ask a moderator on Discord (${DISCORD_INVITE_URL.replace(/^https:\/\//, "")}) to verify your character and reset it.`;
 
 export type PlayerLoginResult =
     /** Credentials accepted. `token` is absent when SESSION_SECRET is unset server-side. */
