@@ -152,9 +152,11 @@ test('every pack connects its listing to the server draw, foil, duplicate summar
         // The initial display has two Basic purchases; replenish on each settled response.
         character.chroniclePoints = 200;
         character.fateShards = 200;
+        // The click can resolve before the asynchronous route increments version.
+        const expectedVersion = version + 1;
         await listing.getByRole('button', { name: new RegExp(`^Open ${label}`) }).click();
         const opening = page.getByRole('dialog', { name: `${label} opening` });
-        await expect(page.getByTestId('adopted-version')).toHaveText(String(version));
+        await expect(page.getByTestId('adopted-version')).toHaveText(String(expectedVersion));
         await expect(opening).toHaveCSS('--pack-art', `url("${packArtUrl(type)}")`);
         const count = type === 'epic' || type === 'legendary' ? 1 : 5;
         await expect(opening.locator('.pack-foil__ribbon')).toHaveText(`${label} · ${count} ${count === 1 ? 'card' : 'cards'}`);

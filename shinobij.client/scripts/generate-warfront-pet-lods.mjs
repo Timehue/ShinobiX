@@ -56,6 +56,17 @@ const MAX_BOUNDS_DELTA = 0.02;
 const MIN_SILHOUETTE_IOU = 0.975;
 const SILHOUETTE_SIZE = 96;
 const LOW_POLY_SOURCE_LIMIT = 25_000;
+// Full animated-edge inspection found new stretched forearm edges in these
+// reduced meshes. Preserve the authored topology around those skin seams;
+// their sources pass the same inspection. Bounds use source mesh coordinates.
+const REVIEWED_DEFORMATION_LOCKS = {
+    'roster/standard-4.glb': [[0.18, 0.29, -0.12, 0.025, 0.54, 0.68]],
+    'roster/rare-15.glb': [[0.31, 0.41, -0.29, -0.17, 0.44, 0.55]],
+    'roster/rare-23.glb': [[0.59, 0.71, -0.32, -0.19, 0.20, 0.31]],
+    'roster/rare-34.glb': [[-0.20, -0.10, -0.80, -0.70, 0.72, 0.79]],
+    'roster/legendary-11.glb': [[-0.12, -0.02, -0.86, -0.75, 0.80, 0.90]],
+    'roster/mythic-15.glb': [[-0.21, -0.12, -0.03, 0.08, 0.23, 0.30]],
+};
 const EXPECTED_RUNTIME_SOURCE_COUNT = 160;
 const CRITICAL_BUILT_IN_FILES = new Set([
     "pet-models/roster/mythic-0.glb",
@@ -189,7 +200,7 @@ function accessorFloatArray(accessor) {
  * error metric. Sparse joint IDs are categorical, so expand the four weights
  * into one dense channel per joint before simplifying. The original compact
  * JOINTS_0/WEIGHTS_0 streams are still the streams copied to the final GLB. */
-function skinAwareSimplifyDocument(document, ratio, featureSamples = 32, silhouetteBands = 0) {
+function skinAwareSimplifyDocument(document, ratio, featureSamples = 32, silhouetteBands = 0, deformationLocks = []) {
     const root = document.getRoot();
     const jointCount = Math.max(...root.listSkins().map((skin) => skin.listJoints().length));
     invariant(jointCount > 0 && jointCount <= 29, `unsupported Warfront joint count ${jointCount}`);
@@ -238,6 +249,11 @@ function skinAwareSimplifyDocument(document, ratio, featureSamples = 32, silhoue
         // guaranteeing ears, horns, tails, and paws cannot shrink the rig's
         // presentation bounds during an aggressive low-poly-source reduction.
         const vertexLock = new Uint8Array(positions.getCount());
+        for (const vertex of usedVertices) {
+            const x = positionArray[vertex * 3], y = positionArray[vertex * 3 + 1], z = positionArray[vertex * 3 + 2];
+            if (deformationLocks.some(([xmin, xmax, ymin, ymax, zmin, zmax]) =>
+                x >= xmin && x <= xmax && y >= ymin && y <= ymax && z >= zmin && z <= zmax)) vertexLock[vertex] = 1;
+        }
         for (let axis = 0; axis < 3; axis++) {
             let minIndex = usedVertices[0];
             let maxIndex = usedVertices[0];
@@ -596,7 +612,8 @@ async function processAsset(sourcePath) {
             document = await readDocument(sourcePath);
             mergeAccessorBuffers(document);
             skinAwareSimplifyDocument(document, ratio,
-                detailedHound ? 64 : 32, detailedHound ? 48 : 0);
+                detailedHound ? 64 : 32, detailedHound ? 48 : 0,
+                REVIEWED_DEFORMATION_LOCKS[slash(relative(modelRoot, sourcePath))] ?? []);
             // Optimize the post-transform vertex cache for repeated animated
             // draw performance, not merely transmission size.
             await document.transform(reorder({ encoder: MeshoptEncoder, target: "performance" }));

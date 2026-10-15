@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
+import {createHash} from 'node:crypto';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'meshoptimizer';
@@ -8,25 +9,15 @@ import { MeshoptDecoder } from 'meshoptimizer';
 globalThis.self = globalThis;
 await MeshoptDecoder.ready;
 async function load(original = false, lod = false) {
-    const bytes = await readFile(new URL(`../public/pet-models/${lod ? 'warfront-lod/' : ''}roster/legendary-9.glb`, import.meta.url));
+    const bytes = await readFile(new URL(original ? './fixtures/pet-bind-20261014/legendary-9.glb' : `../public/pet-models/${lod ? 'warfront-lod/' : ''}roster/legendary-9.glb`, import.meta.url));
+    if(original){const baseline=JSON.parse(await readFile(new URL('./fixtures/pet-bind-20261014/manifest.json',import.meta.url)));assert.equal(createHash('sha256').update(bytes).digest('hex'),baseline.fixtures['legendary-9'].sha256);}
     const jsonLength = bytes.readUInt32LE(12);
     const json = JSON.parse(bytes.subarray(20, 20 + jsonLength).toString());
     const binary = bytes.subarray(28 + jsonLength);
     // Geometry/animation tests do not need a browser texture decoder.
     json.materials = [{ pbrMetallicRoughness: {} }];
     json.meshes.forEach(mesh => mesh.primitives.forEach(primitive => { primitive.material = 0; }));
-    if (original) {
-        const source = json.extras.crystalBearArmRepair;
-        json.nodes.forEach((node, i) => {
-            for (const key of ['translation', 'rotation', 'scale']) {
-                if (source.nodes[i][key]) node[key] = source.nodes[i][key];
-                else delete node[key];
-            }
-        });
-        json.meshes[0].primitives[0].attributes = source.attributes;
-        json.skins[0].inverseBindMatrices = source.inverseBindMatrices;
-        json.animations = [];
-    }
+    // The independent pre-repair fixture survives production accessor compaction.
     const text = Buffer.from(JSON.stringify(json));
     const padded = (text.length + 3) & ~3;
     const output = Buffer.alloc(28 + padded + binary.length);
