@@ -1,0 +1,2534 @@
+{
+  "pets": {
+    "standard-0": {
+      "y": [
+        0.1,
+        0.28
+      ],
+      "z": [
+        -0.3,
+        -0.05
+      ],
+      "status": "repair",
+      "finding": "Muzzle compression and cheek shear in attack, hit reaction and death. All thirteen front/side body and skull clips reviewed; neck and raised tail excluded."
+    },
+    "standard-1": {
+      "y": [
+        0.08,
+        0.24
+      ],
+      "status": "repair",
+      "finding": "Lower face and cheek width change in attack/hit reaction; upper ears and brow remain cohesive. All thirteen front/side body and skull clips reviewed; fade below the jaw."
+    },
+    "standard-2": {
+      "y": [
+        0.12,
+        0.32
+      ],
+      "z": [
+        -0.23,
+        -0.08
+      ],
+      "status": "repair",
+      "finding": "Muzzle/eye mask shears during attack and hit reaction. All thirteen front/side body and skull clips reviewed; rear shoulder sword excluded."
+    },
+    "standard-3": {
+      "y": [
+        0.2,
+        0.38
+      ],
+      "x": [
+        0.25,
+        0.42
+      ],
+      "status": "repair",
+      "finding": "Beak, cheek and brow compress across the neck/head boundary in attack and hit reaction. All thirteen front/side body and skull clips inspected; upper wings excluded from the rigid skull core; rigid region extends through the complete lower beak."
+    },
+    "standard-4": {
+      "y": [
+        0.16,
+        0.38
+      ],
+      "z": [
+        -0.26,
+        -0.08
+      ],
+      "status": "repair",
+      "finding": "Muzzle and cheek width changes in attack/hit reaction; lower jaw slips on head turns. All thirteen front/side body and skull clips inspected; sword and torso excluded."
+    },
+    "standard-5": {
+      "y": [
+        0.22,
+        0.42
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "x": [
+        0.35,
+        0.55
+      ],
+      "status": "repair",
+      "finding": "Lower muzzle and brow edges skew on strike and hit-reaction poses. All thirteen front/side body and skull clips inspected; shoulder armor, back shell and sword excluded."
+    },
+    "standard-6": {
+      "y": [
+        0.28,
+        0.5
+      ],
+      "status": "repair",
+      "finding": "Nose tip, lower cheek and brow shape change under strike and hit-reaction turns. All thirteen front/side body and skull clips inspected; shoulders and tail remain outside the rigid core."
+    },
+    "standard-7": {
+      "y": [
+        0.3,
+        0.5
+      ],
+      "z": [
+        -0.28,
+        -0.08
+      ],
+      "x": [
+        0.35,
+        0.55
+      ],
+      "status": "reviewed-no-repair",
+      "finding": "All thirteen front/side body and skull clips inspected. Existing bird skull binding keeps brow, eyes and beak coherent; every dense sampled clip passes. Final gameplay, LOD and second visual pass pending."
+    },
+    "standard-8": {
+      "y": [
+        0.1,
+        0.3
+      ],
+      "z": [
+        -0.26,
+        -0.08
+      ],
+      "status": "repair",
+      "finding": "Eye rim, upper lip and lower jaw compress in strike and recoil poses. All thirteen front/side body and skull clips inspected; mask extends through the complete mouth and fades into the scarf/neck."
+    },
+    "standard-9": {
+      "y": [
+        0.2,
+        0.4
+      ],
+      "z": [
+        -0.26,
+        -0.08
+      ],
+      "status": "repair",
+      "finding": "All thirteen original full-body and skull clips inspected from front and side. Lower muzzle/cheek/eye-boundary shear confirmed in strike, recoil and death; dense anatomical probe confirms head-local and world edge distortion. Skull repair required."
+    },
+    "standard-10": {
+      "y": [
+        0.2,
+        0.4
+      ],
+      "z": [
+        -0.26,
+        -0.08
+      ],
+      "x": [
+        0.35,
+        0.55
+      ],
+      "status": "reviewed-no-repair",
+      "finding": "All thirteen original body and skull clips inspected front/side. Existing bird binding holds eyes, beak and brow coherent; dense skull and blend probes pass. Second pass pending."
+    },
+    "standard-11": {
+      "y": [
+        0.2,
+        0.4
+      ],
+      "z": [
+        -0.26,
+        -0.08
+      ],
+      "status": "repair",
+      "finding": "All thirteen original full-body and skull clips inspected from front and side. Lower muzzle/cheek/eye-boundary shear confirmed in strike, recoil and death; dense anatomical probe confirms head-local and world edge distortion. Skull repair required."
+    },
+    "standard-12": {
+      "y": [
+        0.2,
+        0.4
+      ],
+      "z": [
+        -0.26,
+        -0.08
+      ],
+      "status": "repair",
+      "finding": "All thirteen original full-body and skull clips inspected from front and side. Lower muzzle/cheek/eye-boundary shear confirmed in strike, recoil and death; dense anatomical probe confirms head-local and world edge distortion. Skull repair required."
+    },
+    "standard-13": {
+      "y": [
+        -0.65,
+        -0.4
+      ],
+      "z": [
+        0.2,
+        0.45
+      ],
+      "x": [
+        0.33,
+        0.6
+      ],
+      "status": "repair",
+      "finding": "Horn and fore-head shell deform independently during strike/cast. All 13 original body and head clips inspected; dense world edge ratios reach 3.59."
+    },
+    "standard-14": {
+      "y": [
+        0.5,
+        0.73
+      ],
+      "z": [
+        -0.08,
+        0.02
+      ],
+      "status": "repair",
+      "finding": "Beak/skull shape compresses under blended head/neck weights during strike. All 13 original body and head clips inspected; dense world shape compression confirmed. Separate forward beak region includes the complete tip while preserving neck articulation.",
+      "union": [
+        {
+          "y": [
+            0.42,
+            0.6
+          ],
+          "z": [
+            0.15,
+            0.3
+          ]
+        }
+      ]
+    },
+    "standard-15": {
+      "y": [
+        0.24,
+        0.44
+      ],
+      "z": [
+        -0.18,
+        -0.05
+      ],
+      "x": [
+        0.22,
+        0.35
+      ],
+      "status": "repair",
+      "finding": "All original clips reviewed; muzzle shear confirmed. Fade head binding smoothly before the hand flame, preserving all excluded accessory vertices and avoiding the abrupt weight boundary found in candidate v3. Current candidate needs complete reinspection.",
+      "exclude": [
+        [
+          -1.1,
+          -0.4,
+          -1.1,
+          1.1,
+          -1.1,
+          1.1
+        ],
+        [
+          0.35,
+          1.1,
+          -1.1,
+          1.1,
+          -1.1,
+          1.1
+        ]
+      ],
+      "cameraPadding": 1.25
+    },
+    "standard-16": {
+      "y": [
+        -0.03,
+        0.18
+      ],
+      "z": [
+        0.25,
+        0.5
+      ],
+      "status": "repair",
+      "finding": "Muzzle compresses and antler tips move independently of skull on strike/death. All 13 original body and head clips inspected; dense world distortion confirmed."
+    },
+    "standard-17": {
+      "y": [
+        0.2,
+        0.4
+      ],
+      "z": [
+        -0.26,
+        -0.08
+      ],
+      "x": [
+        0.32,
+        0.55
+      ],
+      "status": "reviewed-no-repair",
+      "finding": "All 13 original body and skull clips inspected front and side. Existing bird repair holds eyes, beak and brow coherent; dense skull and blend tests pass. Second pass pending."
+    },
+    "standard-18": {
+      "y": [
+        -0.03,
+        0.16
+      ],
+      "z": [
+        -0.08,
+        0.12
+      ],
+      "x": [
+        0.35,
+        0.55
+      ],
+      "status": "repair",
+      "finding": "Cheek and lower jaw shear during strike. All 13 original body clips and expanded complete head views inspected. Raycast bind-coordinate evidence places lower jaw below initial mask; expanded facial and upper ear regions preserve rear wing roots.",
+      "cameraPadding": 1.15,
+      "union": [
+        {
+          "y": [
+            0.35,
+            0.52
+          ],
+          "x": [
+            0.35,
+            0.55
+          ]
+        }
+      ]
+    },
+    "standard-19": {
+      "y": [
+        0.1,
+        0.3
+      ],
+      "z": [
+        -0.35,
+        -0.08
+      ],
+      "status": "repair",
+      "finding": "Broad lower lip/cheek and hood boundary compress during strike/recoil. All 13 original body and head clips inspected; lower mask includes complete mouth."
+    },
+    "standard-20": {
+      "y": [
+        0.18,
+        0.4
+      ],
+      "z": [
+        -0.26,
+        -0.08
+      ],
+      "status": "repair",
+      "finding": "All 13 original body and skull clips visually inspected front/side. Cheek and muzzle compress under cap in strike/recoil. Dense anatomical probe corroborates shape distortion. Candidate visual verification pending."
+    },
+    "standard-21": {
+      "y": [
+        0.06,
+        0.26
+      ],
+      "z": [
+        0.3,
+        0.52
+      ],
+      "status": "repair",
+      "finding": "All 13 original body and skull clips visually inspected front/side. Lower white muzzle and cheek/fur boundary shear during strike. Dense anatomical probe corroborates shape distortion. Candidate visual verification pending."
+    },
+    "standard-22": {
+      "y": [
+        0.15,
+        0.34
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "status": "repair",
+      "finding": "All 13 original body and skull clips visually inspected front/side. Lower lip and central-eye surround change shape on strike/recoil. Dense anatomical probe corroborates shape distortion. Candidate visual verification pending."
+    },
+    "standard-23": {
+      "y": [
+        0.18,
+        0.4
+      ],
+      "z": [
+        -0.26,
+        -0.08
+      ],
+      "status": "repair",
+      "finding": "All 13 original body and skull clips visually inspected front/side. White muzzle stripe and lower cheek distort in strike/death. Dense anatomical probe corroborates shape distortion. Candidate visual verification pending."
+    },
+    "standard-24": {
+      "y": [
+        0.16,
+        0.38
+      ],
+      "z": [
+        -0.26,
+        -0.08
+      ],
+      "status": "repair",
+      "finding": "All 13 original body and skull clips visually inspected front/side. Eye rims and lower masked snout squash during strike/death. Dense anatomical probe corroborates shape distortion. Candidate visual verification pending."
+    },
+    "standard-25": {
+      "y": [
+        0.07,
+        0.27
+      ],
+      "z": [
+        0.32,
+        0.54
+      ],
+      "status": "repair",
+      "finding": "All 13 original body and skull clips visually inspected front/side. White muzzle band shears against orange cheek on strike/death. Dense anatomical probe corroborates shape distortion. Candidate visual verification pending."
+    },
+    "standard-26": {
+      "y": [
+        0.05,
+        0.25
+      ],
+      "z": [
+        -0.2,
+        -0.02
+      ],
+      "status": "repair",
+      "finding": "All 13 original body and skull clips visually inspected front/side. Pink nose stretches vertically on strike; rear flame tail excluded. Dense anatomical probe corroborates shape distortion. Candidate visual verification pending."
+    },
+    "standard-27": {
+      "y": [
+        -0.65,
+        -0.4
+      ],
+      "z": [
+        0.12,
+        0.3
+      ],
+      "x": [
+        0.2,
+        0.3
+      ],
+      "status": "repair",
+      "finding": "All 13 original body and skull clips visually inspected front/side. Head orb and antennae change shape under head/neck blending on strike; wing regions excluded. Dense anatomical probe corroborates shape distortion. Candidate visual verification pending.",
+      "union": [
+        {
+          "y": [
+            0.1,
+            0.3
+          ],
+          "x": [
+            0.18,
+            0.28
+          ]
+        }
+      ]
+    },
+    "standard-28": {
+      "y": [
+        0.1,
+        0.3
+      ],
+      "z": [
+        -0.22,
+        -0.04
+      ],
+      "status": "repair",
+      "finding": "All 13 original body and skull clips visually inspected front/side. Eye-mask/lower snout boundary skews during strike/recoil; flame tail excluded. Dense anatomical probe corroborates shape distortion. Candidate visual verification pending."
+    },
+    "standard-29": {
+      "y": [
+        0.07,
+        0.26
+      ],
+      "z": [
+        0.32,
+        0.55
+      ],
+      "status": "repair",
+      "finding": "All 13 original body and skull clips visually inspected front/side. Muzzle/cheek contour and orange crack markings shear during strike. Dense anatomical probe corroborates shape distortion. Candidate visual verification pending."
+    },
+    "standard-30": {
+      "y": [
+        0.18,
+        0.38
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "status": "repair",
+      "finding": "All 13 original body and skull clips visually inspected front/side. Rounded orange cheek and lower mouth distort during strike/death. Dense anatomical probe corroborates shape distortion. Candidate visual verification pending."
+    },
+    "standard-31": {
+      "y": [
+        -0.6,
+        -0.35
+      ],
+      "x": [
+        0.33,
+        0.43
+      ],
+      "status": "repair",
+      "finding": "All 13 original body and skull clips visually inspected front/side. Front eye-mask and rounded carapace deform on strike/death; central carapace and attached back prop require coherent movement, claws/legs outside core. Dense anatomical probe corroborates shape distortion. Candidate visual verification pending."
+    },
+    "standard-32": {
+      "y": [
+        0.1,
+        0.3
+      ],
+      "z": [
+        -0.35,
+        -0.08
+      ],
+      "status": "repair",
+      "finding": "All 13 original body/head animations visually inspected. Muzzle, lower face, skull or beak deformation confirmed by the dense anatomical probe; repair and final verification pending."
+    },
+    "standard-33": {
+      "y": [
+        0.46,
+        0.66
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "union": [
+        {
+          "y": [
+            0.4,
+            0.54
+          ],
+          "z": [
+            0.14,
+            0.3
+          ]
+        }
+      ],
+      "status": "repair",
+      "finding": "All 13 original body/head animations visually inspected. Muzzle, lower face, skull or beak deformation confirmed by the dense anatomical probe; repair and final verification pending."
+    },
+    "standard-34": {
+      "y": [
+        0.12,
+        0.35
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "status": "repair",
+      "finding": "All 13 original body/head animations visually inspected. Muzzle, lower face, skull or beak deformation confirmed by the dense anatomical probe; repair and final verification pending."
+    },
+    "standard-35": {
+      "y": [
+        0.15,
+        0.35
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "x": [
+        0.3,
+        0.5
+      ],
+      "status": "reviewed-no-repair",
+      "finding": "Original head looks coherent in all clips. Initial numeric envelope includes flexible lower neck/feather vertices; anatomical coverage under investigation before any repair.",
+      "union": [
+        {
+          "y": [
+            -0.18,
+            0.035
+          ],
+          "z": [
+            0.14,
+            0.3
+          ],
+          "x": [
+            0.18,
+            0.3
+          ]
+        }
+      ]
+    },
+    "standard-36": {
+      "y": [
+        0.2,
+        0.4
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "x": [
+        0.3,
+        0.5
+      ],
+      "status": "reviewed-no-repair",
+      "finding": "All 13 body and head clips visually inspected. Eyes, beak and skull keep their shape; original dense anatomical check passes. No source repair needed; final double check pending."
+    },
+    "standard-37": {
+      "y": [
+        0.16,
+        0.36
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "x": [
+        0.25,
+        0.42
+      ],
+      "status": "reviewed-no-repair",
+      "finding": "All 13 body and head clips visually inspected. Eyes, beak and skull keep their shape; original dense anatomical check passes. No source repair needed; final double check pending."
+    },
+    "standard-38": {
+      "y": [
+        0.45,
+        0.66
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "x": [
+        0.25,
+        0.45
+      ],
+      "status": "repair",
+      "finding": "All 13 original body/head animations visually inspected. Muzzle, lower face, skull or beak deformation confirmed by the dense anatomical probe; repair and final verification pending."
+    },
+    "standard-39": {
+      "y": [
+        0.14,
+        0.34
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "x": [
+        0.35,
+        0.55
+      ],
+      "status": "reviewed-no-repair",
+      "finding": "All 13 body and head clips visually inspected. Eyes, beak and skull keep their shape; original dense anatomical check passes. No source repair needed; final double check pending."
+    },
+    "standard-40": {
+      "y": [
+        0.16,
+        0.36
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "status": "repair",
+      "finding": "All 13 original body/head animations visually inspected. Muzzle, lower face, skull or beak deformation confirmed by the dense anatomical probe; repair and final verification pending."
+    },
+    "standard-41": {
+      "y": [
+        0.16,
+        0.36
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "status": "repair",
+      "finding": "All 13 original body/head animations visually inspected. Muzzle, lower face, skull or beak deformation confirmed by the dense anatomical probe; repair and final verification pending."
+    },
+    "standard-42": {
+      "y": [
+        0.12,
+        0.32
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "status": "repair",
+      "finding": "All 13 original body/head animations visually inspected. Muzzle, lower face, skull or beak deformation confirmed by the dense anatomical probe; repair and final verification pending."
+    },
+    "standard-43": {
+      "y": [
+        0.3,
+        0.5
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "x": [
+        0.25,
+        0.42
+      ],
+      "status": "repair",
+      "finding": "All 13 original body/head animations visually inspected. Muzzle, lower face, skull or beak deformation confirmed by the dense anatomical probe; repair and final verification pending."
+    },
+    "standard-44": {
+      "y": [
+        0.15,
+        0.35
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "x": [
+        0.32,
+        0.5
+      ],
+      "status": "reviewed-no-repair",
+      "finding": "Original head looks coherent in all clips. Initial numeric envelope includes flexible lower neck/feather vertices; anatomical coverage under investigation before any repair.",
+      "union": [
+        {
+          "y": [
+            -0.18,
+            0.035
+          ],
+          "z": [
+            0.14,
+            0.3
+          ],
+          "x": [
+            0.16,
+            0.3
+          ]
+        }
+      ]
+    },
+    "standard-45": {
+      "y": [
+        -0.1,
+        0.1
+      ],
+      "z": [
+        0.25,
+        0.5
+      ],
+      "status": "repair",
+      "finding": "All 13 original body/head animations visually inspected. Muzzle, lower face, skull or beak deformation confirmed by the dense anatomical probe; repair and final verification pending."
+    },
+    "standard-46": {
+      "y": [
+        0.12,
+        0.34
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "status": "repair",
+      "finding": "All 13 original body/head animations visually inspected. Muzzle, lower face, skull or beak deformation confirmed by the dense anatomical probe; repair and final verification pending."
+    },
+    "standard-47": {
+      "y": [
+        -0.1,
+        0.1
+      ],
+      "z": [
+        0.25,
+        0.5
+      ],
+      "status": "repair",
+      "finding": "All 13 original body/head animations visually inspected. Muzzle, lower face, skull or beak deformation confirmed by the dense anatomical probe; repair and final verification pending."
+    },
+    "standard-48": {
+      "y": [
+        0.14,
+        0.36
+      ],
+      "z": [
+        -0.28,
+        -0.08
+      ],
+      "status": "repair",
+      "finding": "All 13 original body/head animations visually inspected. Muzzle, lower face, skull or beak deformation confirmed by the dense anatomical probe; repair and final verification pending."
+    },
+    "standard-49": {
+      "y": [
+        0.16,
+        0.38
+      ],
+      "z": [
+        -0.28,
+        -0.08
+      ],
+      "status": "repair",
+      "finding": "All 13 original body/head animations visually inspected. Muzzle, lower face, skull or beak deformation confirmed by the dense anatomical probe; repair and final verification pending."
+    },
+    "rare-0": {
+      "y": [
+        0.1,
+        0.3
+      ],
+      "z": [
+        -0.3,
+        -0.05
+      ],
+      "status": "repair",
+      "finding": "All 13 original full-body and complete head clips inspected front/side. Lower white muzzle/cheek shear during strike and defeat. Lateral mask avoids the curled tail. Dense anatomical probe corroborates distortion. Candidate review and complete second pass pending.",
+      "x": [
+        0.35,
+        0.55
+      ]
+    },
+    "rare-1": {
+      "y": [
+        0.08,
+        0.28
+      ],
+      "z": [
+        -0.3,
+        -0.05
+      ],
+      "status": "repair",
+      "finding": "All 13 original full-body and complete head clips inspected front/side. Lower white muzzle and cheek shear during recoil/strike. Expanded capture includes the whole face and ears. Dense anatomical probe corroborates distortion. Candidate review and complete second pass pending.",
+      "cameraPadding": 1.25
+    },
+    "rare-2": {
+      "y": [
+        0.2,
+        0.4
+      ],
+      "z": [
+        -0.3,
+        -0.05
+      ],
+      "status": "repair",
+      "finding": "All 13 original full-body and complete head clips inspected front/side. Eye rims and lower face flatten independently of the headband during strike/recoil. Dense anatomical probe corroborates distortion. Candidate review and complete second pass pending."
+    },
+    "rare-3": {
+      "y": [
+        0.22,
+        0.42
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "x": [
+        0.35,
+        0.55
+      ],
+      "status": "reviewed-no-repair",
+      "finding": "All 13 original full-body and complete head clips inspected front/side. Eyes, beak and skull coherent; original dense geometric/blend check passes. No repair needed; complete second pass pending."
+    },
+    "rare-4": {
+      "y": [
+        0.18,
+        0.38
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "status": "repair",
+      "finding": "All 13 original full-body and complete head clips inspected front/side. Whisker pad and muzzle pull against the cheek in strike/defeat. Dense anatomical probe corroborates distortion. Candidate review and complete second pass pending."
+    },
+    "rare-5": {
+      "y": [
+        0.24,
+        0.44
+      ],
+      "z": [
+        -0.3,
+        -0.05
+      ],
+      "status": "repair",
+      "finding": "All 13 original full-body and complete head clips inspected front/side. Lower green muzzle and cheek deform on strike/defeat; lateral mask excludes shoulders/shell. Dense anatomical probe corroborates distortion. Candidate review and complete second pass pending.",
+      "x": [
+        0.32,
+        0.5
+      ]
+    },
+    "rare-6": {
+      "y": [
+        0.35,
+        0.55
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "status": "repair",
+      "finding": "All 13 original full-body and complete head clips inspected front/side. Lower nose/jaw scales shear during strike/defeat; complete tongue and head inspected. Dense anatomical probe corroborates distortion. Candidate review and complete second pass pending.",
+      "cameraPadding": 1.2
+    },
+    "rare-7": {
+      "y": [
+        0.24,
+        0.44
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "x": [
+        0.35,
+        0.55
+      ],
+      "status": "reviewed-no-repair",
+      "finding": "All 13 original full-body and complete head clips inspected front/side. Eyes, beak and skull coherent; original dense geometric/blend check passes. No repair needed; complete second pass pending."
+    },
+    "rare-8": {
+      "y": [
+        0.18,
+        0.38
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "status": "repair",
+      "finding": "All 13 original full-body and complete head clips inspected front/side. Lower mouth and eye surround squash during recoil/strike. Dense anatomical probe corroborates distortion. Candidate review and complete second pass pending."
+    },
+    "rare-9": {
+      "y": [
+        0,
+        0.2
+      ],
+      "z": [
+        0.1,
+        0.3
+      ],
+      "status": "repair",
+      "finding": "All 13 original full-body and complete head clips inspected front/side. Snout and tusk/cheek shape distort during strike/defeat; expanded capture includes full snout and mane. Dense anatomical probe corroborates distortion. Candidate review and complete second pass pending.",
+      "x": [
+        0.35,
+        0.55
+      ],
+      "union": [
+        {
+          "y": [
+            0.45,
+            0.65
+          ],
+          "z": [
+            -0.4,
+            -0.1
+          ]
+        }
+      ],
+      "cameraPadding": 1.2
+    },
+    "rare-10": {
+      "y": [
+        0.22,
+        0.42
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "x": [
+        0.35,
+        0.55
+      ],
+      "status": "reviewed-no-repair",
+      "finding": "All 13 original full-body and complete head clips inspected front/side. Eyes, beak and skull coherent; original dense geometric/blend check passes. No repair needed; complete second pass pending.",
+      "cameraPadding": 1.2
+    },
+    "rare-11": {
+      "y": [
+        0.25,
+        0.45
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "status": "repair",
+      "finding": "All 13 original full-body and complete head clips inspected front/side. Head crest, cheek and nose bend during strike/defeat; expanded mask/capture includes the full face. Dense anatomical probe corroborates distortion. Candidate review and complete second pass pending.",
+      "cameraPadding": 1.2
+    },
+    "rare-12": {
+      "y": [
+        0.1,
+        0.3
+      ],
+      "z": [
+        -0.3,
+        -0.05
+      ],
+      "status": "repair",
+      "finding": "All 13 original body and complete head clips inspected front/side. Lower lynx muzzle and eye surround distort in strike/defeat. Lateral fade excludes the raised tail. Candidate review and complete second pass pending.",
+      "x": [
+        0.3,
+        0.46
+      ],
+      "cameraPadding": 1.25
+    },
+    "rare-13": {
+      "y": [
+        -0.65,
+        -0.4
+      ],
+      "z": [
+        0.2,
+        0.45
+      ],
+      "x": [
+        0.33,
+        0.6
+      ],
+      "status": "repair",
+      "finding": "All 13 original body and complete head clips inspected front/side. Beetle head and horn bend independently during strike and defeat. Candidate review and complete second pass pending."
+    },
+    "rare-14": {
+      "y": [
+        0.5,
+        0.72
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "union": [
+        {
+          "y": [
+            0.42,
+            0.6
+          ],
+          "z": [
+            0.12,
+            0.3
+          ]
+        }
+      ],
+      "status": "repair",
+      "finding": "All 13 original body and complete head clips inspected front/side. Crane head and upper beak shear on strike/defeat; long neck remains flexible. Candidate review and complete second pass pending."
+    },
+    "rare-15": {
+      "y": [
+        0.2,
+        0.4
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "status": "repair",
+      "finding": "All 13 original body and complete head clips inspected front/side. Fox muzzle and eye surround deform during strike/defeat. Candidate review and complete second pass pending."
+    },
+    "rare-16": {
+      "y": [
+        -0.03,
+        0.18
+      ],
+      "z": [
+        0.25,
+        0.5
+      ],
+      "status": "repair",
+      "finding": "All 13 original body and complete head clips inspected front/side. Stag cheek and muzzle deform during strike/defeat; antlers and complete dark face also inspected with an exposure-adjusted inspection copy. Candidate review and complete second pass pending."
+    },
+    "rare-17": {
+      "y": [
+        0.18,
+        0.38
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "x": [
+        0.4,
+        0.6
+      ],
+      "status": "reviewed-no-repair",
+      "finding": "All 13 original body and complete head clips inspected front/side. Complete face, eyes, skull and beak coherent; dense geometric/blend probe passes. No repair required; complete second pass pending."
+    },
+    "rare-18": {
+      "y": [
+        0.18,
+        0.38
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "x": [
+        0.35,
+        0.55
+      ],
+      "status": "reviewed-no-repair",
+      "finding": "All 13 original body and complete head clips inspected front/side. Complete face, eyes, skull and beak coherent; dense geometric/blend probe passes. No repair required; complete second pass pending.",
+      "cameraPadding": 1.2
+    },
+    "rare-19": {
+      "y": [
+        0.18,
+        0.38
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "status": "repair",
+      "finding": "All 13 original body and complete head clips inspected front/side. Goblin eye rim and mouth shear during strike/defeat. Candidate review and complete second pass pending."
+    },
+    "rare-20": {
+      "y": [
+        0.2,
+        0.4
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "status": "repair",
+      "finding": "All 13 original body and complete head clips inspected front/side. Monkey cheek and lower mouth shear during strike/defeat. Candidate review and complete second pass pending."
+    },
+    "rare-21": {
+      "y": [
+        0.2,
+        0.4
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "status": "repair",
+      "finding": "All 13 original body and complete head clips inspected front/side. White fox lower muzzle shears during strike/defeat. Candidate review and complete second pass pending."
+    },
+    "rare-22": {
+      "y": [
+        -0.25,
+        -0.05
+      ],
+      "z": [
+        0.2,
+        0.42
+      ],
+      "status": "repair",
+      "finding": "All 13 original body and complete head clips inspected front/side. Gecko cheeks and snout distort during strike/defeat; expanded capture includes the complete jaw. Forward mask excludes the rear flame prop. Candidate review and complete second pass pending.",
+      "cameraPadding": 1.25
+    },
+    "rare-23": {
+      "y": [
+        0.18,
+        0.38
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "status": "repair",
+      "finding": "All 13 original body and complete head clips inspected front/side. Raccoon lower cheek and snout shear during strike/defeat. Candidate review and complete second pass pending."
+    },
+    "rare-24": {
+      "y": [
+        0.12,
+        0.32
+      ],
+      "z": [
+        -0.3,
+        -0.05
+      ],
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front and side body and head sheets. Direwolf lower cheek and jaw deform in the turned defeat pose."
+    },
+    "rare-25": {
+      "y": [
+        0.1,
+        0.3
+      ],
+      "z": [
+        -0.3,
+        -0.05
+      ],
+      "cameraPadding": 1.1,
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front and side body and head sheets. Hyena muzzle and lower mouth shear during the strike and turned defeat poses."
+    },
+    "rare-26": {
+      "y": [
+        0.15,
+        0.35
+      ],
+      "z": [
+        -0.3,
+        -0.05
+      ],
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front and side body and head sheets. Ocelot lower muzzle changes shape during strike and defeat."
+    },
+    "rare-27": {
+      "y": [
+        0.18,
+        0.38
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "x": [
+        0.35,
+        0.55
+      ],
+      "status": "reviewed-no-repair",
+      "finding": "All 13 original animations visually inspected in complete front and side body and head sheets. Bird face, beak, eye surround and skull remain coherent throughout; dense anatomical and blend checks pass. No repair required; second pass pending."
+    },
+    "rare-28": {
+      "y": [
+        0.12,
+        0.32
+      ],
+      "z": [
+        -0.3,
+        -0.05
+      ],
+      "x": [
+        0.33,
+        0.5
+      ],
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front and side body and head sheets. Mongoose cheek and lower jaw shear on the turned defeat pose; lateral fade keeps the raised tail separate.",
+      "cameraPadding": 1.3
+    },
+    "rare-29": {
+      "y": [
+        0.15,
+        0.35
+      ],
+      "z": [
+        -0.3,
+        -0.05
+      ],
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front and side body and head sheets. Caracal cheek, whisker attachment and lower muzzle deform during strike and defeat.",
+      "cameraPadding": 1.3
+    },
+    "rare-30": {
+      "y": [
+        0.18,
+        0.38
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front and side body and head sheets. Mink cheeks and muzzle shear during the strike and tilted defeat pose."
+    },
+    "rare-31": {
+      "y": [
+        0.14,
+        0.34
+      ],
+      "z": [
+        -0.3,
+        -0.05
+      ],
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front and side body and head sheets. Icy face and lower jaw/tusks distort during the strike and turned defeat pose; expanded captures include all tusks.",
+      "cameraPadding": 1.3
+    },
+    "rare-32": {
+      "y": [
+        0.14,
+        0.34
+      ],
+      "z": [
+        0.42,
+        0.55
+      ],
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front and side body and head sheets. Serval cheeks and lower muzzle shear during strike and defeat. Candidate inspection caught pulled back crystals in defeat. Bind-coordinate raycasts locate the crystals behind z=.37; repair now fades in only beyond z=.42 to preserve all back crystals and their original weights.",
+      "cameraPadding": 1.2
+    },
+    "rare-33": {
+      "y": [
+        0.18,
+        0.38
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "x": [
+        0.35,
+        0.55
+      ],
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front and side body and head sheets. Cormorant beak base and eye surround deform during strike and tilted defeat."
+    },
+    "rare-34": {
+      "y": [
+        0.1,
+        0.3
+      ],
+      "z": [
+        -0.3,
+        -0.05
+      ],
+      "x": [
+        0.3,
+        0.48
+      ],
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front and side body and head sheets. White marten lower jaw and cheek flatten during the turned defeat pose; lateral fade excludes raised tail.",
+      "cameraPadding": 1.3
+    },
+    "rare-35": {
+      "y": [
+        0.18,
+        0.38
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "x": [
+        0.35,
+        0.55
+      ],
+      "status": "reviewed-no-repair",
+      "finding": "All 13 original animations visually inspected in complete front and side body and head sheets. Bird face, beak, eye surround and skull remain coherent throughout; dense anatomical and blend checks pass. No repair required; second pass pending."
+    },
+    "rare-36": {
+      "y": [
+        0.18,
+        0.38
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "cameraPadding": 1.2,
+      "x": [
+        0.35,
+        0.55
+      ],
+      "status": "reviewed-no-repair",
+      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Bird face, beak, eye surround and skull stay coherent throughout. No repair required; second pass pending."
+    },
+    "rare-37": {
+      "y": [
+        0.18,
+        0.5
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "cameraPadding": 1.2,
+      "x": [
+        0.35,
+        0.55
+      ],
+      "status": "reviewed-no-repair",
+      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Bird face, beak, eye surround and skull stay coherent throughout. No repair required; second pass pending. All 13 front/side head and complete body sheets inspected. Face and orange beak remain coherent. Probe refined to include the lower beak while excluding the white flexible throat below it; dense confirmation pending.",
+      "union": [
+        {
+          "y": [
+            0.15,
+            0.33
+          ],
+          "z": [
+            0.55,
+            0.75
+          ],
+          "x": [
+            0.4,
+            0.55
+          ]
+        }
+      ]
+    },
+    "rare-38": {
+      "y": [
+        0.18,
+        0.38
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "cameraPadding": 1.2,
+      "x": [
+        0.35,
+        0.55
+      ],
+      "status": "reviewed-no-repair",
+      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Bird face, beak, eye surround and skull stay coherent throughout. No repair required; second pass pending."
+    },
+    "rare-39": {
+      "y": [
+        0.18,
+        0.46
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "cameraPadding": 1.2,
+      "x": [
+        0.28,
+        0.42
+      ],
+      "status": "reviewed-no-repair",
+      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Bird face, beak, eye surround and skull stay coherent throughout. No repair required; second pass pending. All 13 front/side head and complete body sheets inspected. Beak and eyes remain coherent. Probe refined to exclude lateral neck feathers while including the long central beak; dense confirmation pending.",
+      "union": [
+        {
+          "y": [
+            0.18,
+            0.35
+          ],
+          "z": [
+            0.45,
+            0.55
+          ],
+          "x": [
+            0.15,
+            0.23
+          ]
+        }
+      ]
+    },
+    "rare-40": {
+      "y": [
+        0.5,
+        0.6
+      ],
+      "z": [
+        0.2,
+        0.25
+      ],
+      "x": [
+        0.18,
+        0.25
+      ],
+      "cameraPadding": 1.1
+    },
+    "rare-41": {
+      "y": [
+        0.18,
+        0.38
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "cameraPadding": 1.2,
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Stoat lower eye surround and masked cheek shear during the raised attack and turned defeat poses; lateral fade preserves the raised tail.",
+      "x": [
+        0.55,
+        0.68
+      ]
+    },
+    "rare-42": {
+      "y": [
+        0.18,
+        0.35
+      ],
+      "z": [
+        0,
+        0.2
+      ],
+      "cameraPadding": 1.3,
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Jerboa lower muzzle changes shape during the strike and tilted defeat poses; include the complete long ears. Initial candidate introduced stretch at a raised hand edge below the chin. Raised the fade start to exclude those vertices while preserving complete jaw and ear coverage; refined verification pending."
+    },
+    "rare-43": {
+      "y": [
+        0.18,
+        0.38
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "cameraPadding": 1.2,
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Meerkat cheek and lower muzzle flatten during turned defeat; lateral fade excludes raised hands.",
+      "x": [
+        0.4,
+        0.55
+      ]
+    },
+    "rare-44": {
+      "y": [
+        0.18,
+        0.38
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "cameraPadding": 1.2,
+      "x": [
+        0.35,
+        0.55
+      ],
+      "status": "reviewed-no-repair",
+      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Bird face, beak, eye surround and skull stay coherent throughout. No repair required; second pass pending."
+    },
+    "rare-45": {
+      "y": [
+        0.18,
+        0.38
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "cameraPadding": 1.2,
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Wombat lower cheeks and muzzle shear during the strike and turned defeat."
+    },
+    "rare-46": {
+      "y": [
+        0.18,
+        0.38
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "cameraPadding": 1.2,
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Tapir lower snout and jaw distort during strike and tilted defeat."
+    },
+    "rare-47": {
+      "y": [
+        -0.1,
+        0.1
+      ],
+      "z": [
+        0.2,
+        0.35
+      ],
+      "cameraPadding": 1.3,
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Aardvark lower elongated snout and cheek shear during turned defeat; forward mask preserves back and shoulder skinning."
+    },
+    "rare-48": {
+      "y": [
+        0.18,
+        0.38
+      ],
+      "z": [
+        0.05,
+        0.18
+      ],
+      "cameraPadding": 1.2,
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Porcupine lower cheek and muzzle compress during tilted defeat; forward fade preserves rear quills."
+    },
+    "rare-49": {
+      "y": [
+        0.18,
+        0.38
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "cameraPadding": 1.2,
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Capybara cheeks and lower mouth shear during the strike and tilted defeat."
+    },
+    "legendary-0": {
+      "y": [
+        0.03,
+        0.23
+      ],
+      "z": [
+        0.25,
+        0.4
+      ],
+      "cameraPadding": 1.3,
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Wolf lower cheek and jaw shear during strike and turned defeat."
+    },
+    "legendary-1": {
+      "y": [
+        0.18,
+        0.38
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "x": [
+        0.35,
+        0.55
+      ],
+      "cameraPadding": 1.3,
+      "status": "reviewed-no-repair",
+      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Bird eyes, beak and skull stay coherent across all clips; preserve original weights. Second pass remains pending."
+    },
+    "legendary-2": {
+      "y": [
+        0.03,
+        0.23
+      ],
+      "z": [
+        0.25,
+        0.4
+      ],
+      "cameraPadding": 1.3,
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Fox lower cheek and muzzle change shape during strike and turned defeat; preserve the raised flame tail."
+    },
+    "legendary-3": {
+      "y": [
+        0.2,
+        0.4
+      ],
+      "z": [
+        -0.15,
+        0.05
+      ],
+      "cameraPadding": 1.3,
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Deer lower muzzle and angular cheek flatten during strike and turned defeat; preserve the antlers."
+    },
+    "legendary-4": {
+      "y": [
+        0.18,
+        0.38
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "cameraPadding": 1.3,
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Tiger lower mouth and jaw narrow during strike and tilted defeat; preserve the arms and hands."
+    },
+    "legendary-5": {
+      "y": [
+        0.05,
+        0.25
+      ],
+      "z": [
+        0.25,
+        0.4
+      ],
+      "cameraPadding": 1.3,
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Kirin lower muzzle and cheek shear during raised attack and turned defeat; preserve mane and raised tail."
+    },
+    "legendary-6": {
+      "y": [
+        0.18,
+        0.38
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "x": [
+        0.35,
+        0.55
+      ],
+      "cameraPadding": 1.3,
+      "status": "reviewed-no-repair",
+      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Bird eyes, beak and skull stay coherent across all clips; preserve original weights. Second pass remains pending."
+    },
+    "legendary-7": {
+      "y": [
+        -0.05,
+        0.15
+      ],
+      "z": [
+        0.25,
+        0.4
+      ],
+      "cameraPadding": 1.3,
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Serpent lower jaw and cheek shear during raised strike and turned defeat; preserve long whiskers and horns."
+    },
+    "legendary-8": {
+      "y": [
+        -0.03,
+        0.17
+      ],
+      "z": [
+        0.25,
+        0.4
+      ],
+      "cameraPadding": 1.3,
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Lion lower jaw and cheek shear during raised strike and turned defeat; preserve mane, scarf and tail."
+    },
+    "legendary-9": {
+      "y": [
+        0.18,
+        0.38
+      ],
+      "z": [
+        0.05,
+        0.18
+      ],
+      "cameraPadding": 1.3,
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Bear lower cheek and muzzle compress during tilted defeat; forward fade must preserve the back crystals."
+    },
+    "legendary-10": {
+      "y": [
+        0.18,
+        0.38
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "x": [
+        0.35,
+        0.55
+      ],
+      "cameraPadding": 1.3,
+      "status": "reviewed-no-repair",
+      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Bird eyes, beak and skull stay coherent across all clips; preserve original weights. Second pass remains pending."
+    },
+    "legendary-11": {
+      "y": [
+        0.18,
+        0.38
+      ],
+      "z": [
+        0.1,
+        0.25
+      ],
+      "cameraPadding": 1.3,
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets. Drake lower cheek and muzzle shear during tilted defeat; forward fade must preserve the wings and tail."
+    },
+    "legendary-12": {
+      "y": [
+        0.25,
+        0.45
+      ],
+      "z": [
+        -0.1,
+        0.05
+      ],
+      "cameraPadding": 1.3,
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets, with refined close-ups and exposure copies where needed. Lynx lower jaw and cheek shear during strike and turned defeat; preserve raised tail.",
+      "x": [
+        0.33,
+        0.45
+      ]
+    },
+    "legendary-13": {
+      "y": [
+        0,
+        0.14
+      ],
+      "z": [
+        0.55,
+        0.72
+      ],
+      "cameraPadding": 1.3,
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets, with refined close-ups and exposure copies where needed. Polar bear lower muzzle shears during strike and turned defeat; preserve forelimb armor.",
+      "union": [
+        {
+          "y": [
+            0.26,
+            0.36
+          ],
+          "z": [
+            0.2,
+            0.35
+          ],
+          "x": [
+            0.45,
+            0.55
+          ]
+        }
+      ]
+    },
+    "legendary-14": {
+      "y": [
+        0.4,
+        0.55
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "x": [
+        0.35,
+        0.55
+      ],
+      "cameraPadding": 1.3,
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets, with refined close-ups and exposure copies where needed. Separate close-up confirms beak base collapses and bends during idle_2, run, jump, strike and defeat; preserve lower neck motion.",
+      "union": [
+        {
+          "y": [
+            0.1,
+            0.2
+          ],
+          "z": [
+            0.25,
+            0.4
+          ],
+          "x": [
+            0.35,
+            0.55
+          ]
+        }
+      ]
+    },
+    "legendary-15": {
+      "y": [
+        0.1,
+        0.2
+      ],
+      "z": [
+        0.45,
+        0.6
+      ],
+      "cameraPadding": 1.5,
+      "status": "inspection",
+      "finding": "All 13 original uncropped full-body animation sheets inspected front/side. Full face anatomy and dark surfaces require closeups before classification. No approval issued.",
+      "exclude": [
+        [
+          -0.15,
+          2,
+          -2,
+          2,
+          -2,
+          2
+        ]
+      ]
+    },
+    "legendary-16": {
+      "y": [
+        0.18,
+        0.38
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "x": [
+        0.35,
+        0.55
+      ],
+      "cameraPadding": 1.3,
+      "status": "reviewed-no-repair",
+      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets, with refined close-ups and exposure copies where needed. Bird eyes, beak and skull stay coherent across all clips; preserve original weights. Second pass remains pending."
+    },
+    "legendary-17": {
+      "y": [
+        -0.1,
+        0.02
+      ],
+      "z": [
+        0.5,
+        0.65
+      ],
+      "cameraPadding": 1.3,
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets, with refined close-ups and exposure copies where needed. Lower jaw shears during strike and defeat. Four body angles also confirm a detached rock fragment beside the shoulder; a separate geometry correction remains required."
+    },
+    "legendary-18": {
+      "y": [
+        0.18,
+        0.38
+      ],
+      "z": [
+        -0.1,
+        0.08
+      ],
+      "cameraPadding": 1.3,
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets, with refined close-ups and exposure copies where needed. Leviathan lower jaw and cheek shear during strike and defeat; preserve long whiskers and tail."
+    },
+    "legendary-19": {
+      "y": [
+        0.18,
+        0.38
+      ],
+      "z": [
+        -0.1,
+        0.08
+      ],
+      "cameraPadding": 1.3,
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets, with refined close-ups and exposure copies where needed. Wyrm lower jaw shears during strike and defeat; preserve crest and back spines."
+    },
+    "legendary-20": {
+      "y": [
+        0.18,
+        0.38
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "cameraPadding": 1.3,
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets, with refined close-ups and exposure copies where needed. Kraken central face and lower brow shear during strike and defeat; preserve lateral curled tentacles.",
+      "x": [
+        0.38,
+        0.48
+      ]
+    },
+    "legendary-21": {
+      "y": [
+        0.18,
+        0.38
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "x": [
+        0.35,
+        0.55
+      ],
+      "cameraPadding": 1.3,
+      "status": "reviewed-no-repair",
+      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets, with refined close-ups and exposure copies where needed. Bird eyes, beak and skull stay coherent across all clips; preserve original weights. Second pass remains pending."
+    },
+    "legendary-22": {
+      "y": [
+        0.05,
+        0.25
+      ],
+      "z": [
+        0.25,
+        0.4
+      ],
+      "cameraPadding": 1.3,
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets, with refined close-ups and exposure copies where needed. Pegasus lower muzzle shears during strike and turned defeat; preserve folded wings."
+    },
+    "legendary-23": {
+      "y": [
+        -0.15,
+        0.05
+      ],
+      "z": [
+        0.45,
+        0.6
+      ],
+      "cameraPadding": 1.3,
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front/side head and body sheets, with refined close-ups and exposure copies where needed. Sphinx lower jaw and cheek shear during strike and turned defeat; preserve gold wings and tail."
+    },
+    "legendary-24": {
+      "y": [
+        0.03,
+        0.2
+      ],
+      "z": [
+        0.55,
+        0.7
+      ],
+      "cameraPadding": 1.3,
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front and side head and body sheets, brighter copies and separate anatomy closeups. Blue wolf lower white cheek and muzzle shear during strike and turned death; preserve rear mane, legs and tail."
+    },
+    "legendary-25": {
+      "y": [
+        0.18,
+        0.38
+      ],
+      "z": [
+        0.1,
+        0.25
+      ],
+      "cameraPadding": 1.3,
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front and side head and body sheets, brighter copies and separate anatomy closeups. Blue dragon lower muzzle and jaw deform during attack and turned death; preserve folded wings and tail."
+    },
+    "legendary-26": {
+      "y": [
+        0.05,
+        0.2
+      ],
+      "z": [
+        0.6,
+        0.75
+      ],
+      "cameraPadding": 1.3,
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front and side head and body sheets, brighter copies and separate anatomy closeups. Dark feline lower jaw and cheek change shape during strike and turned death; preserve gold collar and limbs."
+    },
+    "legendary-27": {
+      "y": [
+        0.4,
+        0.58
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "cameraPadding": 1.3,
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front and side head and body sheets, brighter copies and separate anatomy closeups. Stone golem lower mouth and cheek pull with torso during tilt and death; preserve shoulder stones and fists.",
+      "x": [
+        0.38,
+        0.52
+      ]
+    },
+    "legendary-28": {
+      "y": [
+        0.4,
+        0.55
+      ],
+      "z": [
+        0,
+        0.12
+      ],
+      "cameraPadding": 1.3,
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front and side head and body sheets, brighter copies and separate anatomy closeups. Gargoyle red lower muzzle and cheek compress during turned death and attack; preserve wings and shoulder armor.",
+      "x": [
+        0.35,
+        0.45
+      ]
+    },
+    "legendary-29": {
+      "y": [
+        0.4,
+        0.58
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "cameraPadding": 1.3,
+      "status": "repair",
+      "finding": "All 13 original animations visually inspected in complete front and side head and body sheets, brighter copies and separate anatomy closeups. Tree head branch silhouette shears during turned death; preserve shoulder foliage, hands and trailing blue wraps."
+    },
+    "mythic-0": {
+      "y": [
+        -0.03,
+        0.1
+      ],
+      "z": [
+        0.4,
+        0.55
+      ],
+      "cameraPadding": 1.4,
+      "status": "repair",
+      "finding": "Kitsune cheeks and muzzle shear during attack and turned death; preserve all nine tails."
+    },
+    "mythic-1": {
+      "y": [
+        0.12,
+        0.27
+      ],
+      "z": [
+        0.65,
+        0.8
+      ],
+      "cameraPadding": 1.6
+    },
+    "mythic-2": {
+      "y": [
+        0.28,
+        0.42
+      ],
+      "z": [
+        0.08,
+        0.2
+      ],
+      "x": [
+        0.28,
+        0.4
+      ],
+      "cameraPadding": 1.4,
+      "status": "repair",
+      "finding": "Frost titan facial crystal crest changes shape during hit reaction and collapse; preserve shoulder muscles and forearm crystals.",
+      "union": [
+        {
+          "y": [
+            0.62,
+            0.75
+          ],
+          "z": [
+            -0.3,
+            -0.08
+          ],
+          "x": [
+            0.3,
+            0.42
+          ]
+        }
+      ]
+    },
+    "mythic-3": {
+      "y": [
+        0.2,
+        0.4
+      ],
+      "z": [
+        -0.15,
+        0.05
+      ],
+      "cameraPadding": 1.3,
+      "status": "repair",
+      "finding": "Stag face and antlers shear strongly in attack and death; preserve scarf, hooves and neck movement."
+    },
+    "mythic-4": {
+      "y": [
+        0.05,
+        0.25
+      ],
+      "z": [
+        0.25,
+        0.4
+      ],
+      "cameraPadding": 1.3,
+      "status": "no-repair",
+      "finding": "Previously repaired Oni face remains coherent; no additional source repair required."
+    },
+    "mythic-5": {
+      "y": [
+        0.18,
+        0.38
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "x": [
+        0.35,
+        0.55
+      ],
+      "cameraPadding": 1.3,
+      "status": "no-repair",
+      "finding": "Suzaku face, eyes, beak and crest remain coherent; no source repair required."
+    },
+    "mythic-6": {
+      "y": [
+        0.3,
+        0.45
+      ],
+      "z": [
+        0.65,
+        0.8
+      ],
+      "cameraPadding": 1.7
+    },
+    "mythic-7": {
+      "y": [
+        0.12,
+        0.28
+      ],
+      "z": [
+        0.1,
+        0.25
+      ],
+      "cameraPadding": 1.4,
+      "status": "repair",
+      "finding": "Duck lower face and beak deform in hit reaction and collapse; preserve shell and flippers.",
+      "x": [
+        0.4,
+        0.55
+      ]
+    },
+    "mythic-8": {
+      "y": [
+        0.18,
+        0.38
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "cameraPadding": 1.3,
+      "status": "repair",
+      "finding": "Raijin cheek, eyes and lower face shear in hit reaction and death; preserve scarf tails and hands."
+    },
+    "mythic-9": {
+      "y": [
+        0.2,
+        0.35
+      ],
+      "z": [
+        0.25,
+        0.3
+      ],
+      "x": [
+        0.15,
+        0.25
+      ],
+      "cameraPadding": 1.8
+    },
+    "mythic-10": {
+      "y": [
+        0.15,
+        0.28
+      ],
+      "z": [
+        0.35,
+        0.5
+      ],
+      "x": [
+        0.2,
+        0.35
+      ],
+      "cameraPadding": 1.4,
+      "status": "repair",
+      "finding": "Phoenix beak and face stretch severely during attack; preserve neck flexion, wings and long flame tail.",
+      "union": [
+        {
+          "y": [
+            0.6,
+            0.75
+          ],
+          "z": [
+            0.25,
+            0.4
+          ],
+          "x": [
+            0.2,
+            0.35
+          ]
+        }
+      ],
+      "weightPrecision": "float32",
+      "anchorBone": "neck"
+    },
+    "mythic-11": {
+      "y": [
+        0.35,
+        0.5
+      ],
+      "z": [
+        0,
+        0.15
+      ],
+      "cameraPadding": 1.4,
+      "status": "repair",
+      "finding": "Leviathan face and head filaments distort during attack and death; preserve serpentine neck and coiled body.",
+      "union": [
+        {
+          "y": [
+            0.72,
+            0.8
+          ],
+          "z": [
+            -0.05,
+            0.03
+          ]
+        }
+      ]
+    },
+    "mythic-12": {
+      "y": [
+        0.3,
+        0.5
+      ],
+      "z": [
+        0.25,
+        0.4
+      ],
+      "cameraPadding": 1.3,
+      "status": "repair",
+      "finding": "Skyglass kirin muzzle and mane shear during gallop and collapse; preserve shoulder plates and ornate tail."
+    },
+    "mythic-13": {
+      "y": [
+        0.1,
+        0.27
+      ],
+      "z": [
+        0.45,
+        0.6
+      ],
+      "cameraPadding": 1.4,
+      "status": "repair",
+      "finding": "Thunderbloom kirin lower muzzle and curled head mane shear during attack and death; preserve four hooves, body ornaments and tail curls.",
+      "union": [
+        {
+          "y": [
+            0.6,
+            0.75
+          ],
+          "z": [
+            0.25,
+            0.4
+          ]
+        }
+      ]
+    },
+    "mythic-14": {
+      "y": [
+        -0.3,
+        -0.2
+      ],
+      "z": [
+        0.8,
+        0.85
+      ],
+      "x": [
+        0.3,
+        0.4
+      ],
+      "cameraPadding": 0.85
+    },
+    "mythic-15": {
+      "y": [
+        -0.05,
+        0.14
+      ],
+      "z": [
+        0.4,
+        0.55
+      ],
+      "cameraPadding": 1.4,
+      "status": "repair",
+      "finding": "Celestial lion cheeks and muzzle change shape in hit reaction and turned death; preserve both feathered wings and curled tail."
+    },
+    "starter-fire": {
+      "y": [
+        0.08,
+        0.25
+      ],
+      "z": [
+        0.4,
+        0.6
+      ],
+      "cameraPadding": 1.4
+    },
+    "starter-water": {
+      "y": [
+        0.12,
+        0.24
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "x": [
+        0.35,
+        0.5
+      ],
+      "cameraPadding": 1.4,
+      "status": "repair",
+      "finding": "Seal muzzle and cheek shape change through attack and collapse."
+    },
+    "starter-wind": {
+      "y": [
+        0.02,
+        0.15
+      ],
+      "z": [
+        0.05,
+        0.2
+      ],
+      "cameraPadding": 1.4,
+      "status": "repair",
+      "finding": "Chick cheeks and beak shear during attack and death; preserve wings and scarf.",
+      "x": [
+        0.3,
+        0.45
+      ]
+    },
+    "starter-lightning": {
+      "y": [
+        0.05,
+        0.25
+      ],
+      "z": [
+        0.4,
+        0.6
+      ],
+      "cameraPadding": 1.4
+    },
+    "starter-earth": {
+      "y": [
+        0.22,
+        0.42
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "x": [
+        0.35,
+        0.55
+      ],
+      "status": "no-repair",
+      "finding": "Existing face binding remains coherent through all 13 original clips; no additional source repair required.",
+      "cameraPadding": 1.3
+    },
+    "starter-fire-r": {
+      "y": [
+        0.1,
+        0.25
+      ],
+      "z": [
+        0.4,
+        0.6
+      ],
+      "cameraPadding": 1.4
+    },
+    "starter-fire-l": {
+      "y": [
+        0.15,
+        0.3
+      ],
+      "z": [
+        0.5,
+        0.65
+      ],
+      "cameraPadding": 1.4
+    },
+    "starter-water-r": {
+      "y": [
+        0.08,
+        0.18
+      ],
+      "z": [
+        0.35,
+        0.55
+      ],
+      "cameraPadding": 1.4,
+      "status": "repair",
+      "finding": "Selkie lower muzzle and cheeks flatten during turned death; preserve foreflippers."
+    },
+    "starter-water-l": {
+      "y": [
+        0.4,
+        0.6
+      ],
+      "z": [
+        0.45,
+        0.65
+      ],
+      "cameraPadding": 1.4,
+      "status": "repair",
+      "finding": "Leviathan muzzle and cheek shape shear during attack and death; preserve whisker curls, flippers and coiled tail."
+    },
+    "starter-wind-r": {
+      "y": [
+        0.15,
+        0.27
+      ],
+      "z": [
+        0.25,
+        0.4
+      ],
+      "x": [
+        0.3,
+        0.45
+      ],
+      "cameraPadding": 2.1
+    },
+    "starter-wind-l": {
+      "y": [
+        0.2,
+        0.3
+      ],
+      "z": [
+        0.6,
+        0.75
+      ],
+      "x": [
+        0.15,
+        0.25
+      ],
+      "cameraPadding": 1.8
+    },
+    "starter-lightning-r": {
+      "y": [
+        0.1,
+        0.25
+      ],
+      "z": [
+        0.4,
+        0.6
+      ],
+      "cameraPadding": 1.4
+    },
+    "starter-lightning-l": {
+      "y": [
+        0.03,
+        0.23
+      ],
+      "z": [
+        0.4,
+        0.55
+      ],
+      "cameraPadding": 1.3,
+      "status": "no-repair",
+      "finding": "Existing face binding remains coherent through all 13 original clips; no additional source repair required."
+    },
+    "starter-earth-r": {
+      "y": [
+        0.3,
+        0.45
+      ],
+      "z": [
+        0.45,
+        0.6
+      ],
+      "x": [
+        0.3,
+        0.45
+      ],
+      "cameraPadding": 1.6
+    },
+    "starter-earth-l": {
+      "y": [
+        -0.25,
+        -0.12
+      ],
+      "z": [
+        0.85,
+        0.9
+      ],
+      "x": [
+        0.25,
+        0.35
+      ],
+      "exclude": [
+        [
+          -2,
+          2,
+          0.25,
+          2,
+          -2,
+          2
+        ]
+      ],
+      "cameraPadding": 1.5
+    }
+  },
+  "extraHeads": {
+    "legendary-15": [
+      {
+        "y": [
+          -0.1,
+          0.05
+        ],
+        "z": [
+          0.45,
+          0.6
+        ],
+        "cameraPadding": 1.5,
+        "status": "inspection",
+        "finding": "All 13 original uncropped full-body animation sheets inspected front/side. Full face anatomy and dark surfaces require closeups before classification. No approval issued.",
+        "exclude": [
+          [
+            -2,
+            -0.18,
+            -2,
+            2,
+            -2,
+            2
+          ],
+          [
+            0.6,
+            2,
+            -2,
+            2,
+            -2,
+            2
+          ]
+        ]
+      }
+    ]
+  }
+}

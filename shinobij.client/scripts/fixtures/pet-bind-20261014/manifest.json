@@ -1,0 +1,35 @@
+{
+  "sourceCommit": "2793a30a1312970fbad66a0186ed846a94c84b7a",
+  "fixtures": {
+    "legendary-14": {
+      "source": "shinobij.client/public/pet-models/roster/legendary-14.glb",
+      "sourceSha256": "778ba16a7a0729fa5f9e270d9be54afa717dbc46e8c5286ce0b7d29f3f16f523",
+      "sha256": "7a1cc86b5c870ecc987a12681fa2f0bcabe5a9db8be1e1adfe8327f18d1d71e1",
+      "bytes": 376020
+    },
+    "starter-wind": {
+      "source": "shinobij.client/public/pet-models/starter-wind.glb",
+      "sourceSha256": "1416802ce898388978aeda88f93404382e8b63411de1328e9c98dbe9848100f9",
+      "sha256": "b581a2feed2422afe129959d257dac9318eb4d481081eefee1367ef0512fd2bb",
+      "bytes": 143796
+    },
+    "starter-wind-r": {
+      "source": "shinobij.client/public/pet-models/starter-wind-r.glb",
+      "sourceSha256": "d8825482881f4de7ebea8e9d903f60bee44d6f7a878789e86d61a46a704c0e28",
+      "sha256": "c1ce188a84bed132cbef4c26cbb533b778c227f790bd12479f8348c13fa960fc",
+      "bytes": 242908
+    },
+    "starter-wind-l": {
+      "source": "shinobij.client/public/pet-models/starter-wind-l.glb",
+      "sourceSha256": "94ed9159e265e5d5b2b805fb08dbbf32fc9b4dd750c0634fedd8a2c1291623a8",
+      "sha256": "bab631fcc0428f09bfc00c61ea6aff2aa71ed0ddaf11003d30bca598f45c7923",
+      "bytes": 166764
+    },
+    "legendary-9": {
+      "source": "shinobij.client/public/pet-models/roster/legendary-9.glb",
+      "sourceSha256": "7bf2b7c3afee4091fd560e5d612879a7bf20511d8745eb7b93db0c19eb5d18a8",
+      "sha256": "d4bb8e4e80a7b3a75315bd0e1a1bb7c6637506fc34b1316c2445ca15ad58493a",
+      "bytes": 298736
+    }
+  }
+}
