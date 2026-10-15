@@ -83,7 +83,13 @@ const forbiddenClientExtensions = new Set([
 // 56 KB per full card against 207 KB for the existing set) took the production
 // image build of PR #399 to 539.4 MiB, 0.4 MiB over. Reserve 541 MiB, about
 // 1.6 MiB of headroom.
-const maxClientArtifactBytes = 541 * 1024 * 1024;
+// 2026-10-15: the completed whole-roster deformation review repairs skull
+// bindings and normalizes 13 starter rigs. Exact certified delivery data grows
+// by 4,015,440 B (3.83 MiB); the merged client measures 543.1 MiB. Reserve
+// 545 MiB, leaving about 1.9 MiB of headroom. The selected 480-file inventory,
+// exact delivery bytes, authoring exclusions and independent JS/CSS budgets
+// remain enforced.
+const maxClientArtifactBytes = 545 * 1024 * 1024;
 const maxRallyAtlasBytes = 4 * 1024 * 1024;
 
 function fail(msg) {
