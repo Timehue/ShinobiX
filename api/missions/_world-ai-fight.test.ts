@@ -17,6 +17,7 @@ import { kv } from '../_storage.js';
 import { rollWanderers, WANDERER_BUCKET_MS, WANDERER_RIFT_INDEX } from '../../shared/wanderer-roster.js';
 import { rollTradeWanderer } from '../../shared/wanderer-extra-slots.js';
 import { roadNemesisPresentAt } from '../../shared/road-nemesis.js';
+import { RIFT_QUESTS } from '../sector/_rift-quest.js';
 import { HUNT_MISSION_IDS, huntMissionById } from './_mission-catalog.js';
 import {
     ALWAYS_SERVER_LEDGER_CHARACTER_FIELDS,
@@ -267,9 +268,14 @@ describe('World AI fight authority', () => {
 
     it('beating Kagero clears him, and losing to him raises his tier under his own name', () => {
         const context: WorldAiFightContext = { kind: 'wanderer', sourceId: 'nemesis', sector: 12, stage: 0, displayName: 'Kagero', finalStage: true };
-        const marked = { level: 20, robberStreak: 0, wandererNemesis: { name: 'Genta Red-Sash', level: 21, tier: 2 } };
-        assert.equal(applyWorldAiFightSettlement(marked, context, 'win', 'k-win').wandererNemesis, null);
-        assert.deepEqual(applyWorldAiFightSettlement(marked, context, 'loss', 'k-loss').wandererNemesis, { name: 'Kagero', level: 21, tier: 3 });
+        const marked = { level: 20, robberStreak: 3, wandererNemesis: { name: 'Genta Red-Sash', level: 21, tier: 2 } };
+        const won = applyWorldAiFightSettlement(marked, context, 'win', 'k-win');
+        const lost = applyWorldAiFightSettlement(marked, context, 'loss', 'k-loss');
+        assert.equal(won.wandererNemesis, null);
+        assert.deepEqual(lost.wandererNemesis, { name: 'Kagero', level: 21, tier: 3 });
+        // He is not a bandit: his fights leave the gang's robber streak alone.
+        assert.equal(won.robberStreak, 3);
+        assert.equal(lost.robberStreak, 3);
     });
 
     it('allows a hunt rematch after loss but rejects another target after the sealed win', async () => {
@@ -379,10 +385,16 @@ describe('World AI fight authority for the road cast', () => {
         const spec = await buildWorldAiFightSpec({ playerName: 'Roadwalker', request: { kind: 'wanderer', sourceId: miner.id, sector: miner.sector }, save: save(miner.sector, {}), now: miner.now });
         assert.equal(spec.context.sourceId, miner.id);
         const now = 5000 * WANDERER_BUCKET_MS + 60_000;
-        const rift = { activeRiftQuest: { id: 'rift-test', targetSector: 12, stage: 'travel', baseline: 0, bossName: 'X' } };
+        const riftId = Object.keys(RIFT_QUESTS)[0]!;
+        // The SEALED quest lives on the save record; activeRiftQuest is a display
+        // mirror the client's own save writes can set.
+        const sealed = (sector: number) => ({ ...save(sector, {}), activeRiftQuestSeal: { id: riftId, targetSector: 12, baseline: 0, at: 1, geoV: 99 } });
+        const mirrorOnly = (sector: number) => save(sector, { activeRiftQuest: { id: riftId, targetSector: sector, stage: 'travel', baseline: 0, bossName: 'X' } });
         const request = { kind: 'wanderer' as const, sourceId: `w-12-5000-${WANDERER_RIFT_INDEX}`, sector: 12 };
-        assert.ok((await buildWorldAiFightSpec({ playerName: 'Roadwalker', request, save: save(12, rift), now })).context.displayName);
+        assert.ok((await buildWorldAiFightSpec({ playerName: 'Roadwalker', request, save: sealed(12), now })).context.displayName);
         await assert.rejects(buildWorldAiFightSpec({ playerName: 'Roadwalker', request, save: save(12, {}), now }), /world-wanderer-not-attackable/);
-        await assert.rejects(buildWorldAiFightSpec({ playerName: 'Roadwalker', request: { ...request, sector: 13, sourceId: `w-13-5000-${WANDERER_RIFT_INDEX}` }, save: save(13, rift), now }), /world-wanderer-not-attackable/);
+        await assert.rejects(buildWorldAiFightSpec({ playerName: 'Roadwalker', request, save: mirrorOnly(12), now }), /world-wanderer-not-attackable/,
+            'a forged display mirror cannot summon a rift creature');
+        await assert.rejects(buildWorldAiFightSpec({ playerName: 'Roadwalker', request: { ...request, sector: 13, sourceId: `w-13-5000-${WANDERER_RIFT_INDEX}` }, save: sealed(13), now }), /world-wanderer-not-attackable/);
     });
 });

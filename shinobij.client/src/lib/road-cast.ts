@@ -171,7 +171,7 @@ export function roadFightAftermath(input: {
         ? `${name ?? "The miner"} spits, shoulders his pick, and leaves the seam to you.`
         : `${name ?? "The miner"} goes back to his seam without another look at you.`;
     if (slot === WANDERER_RIFT_INDEX) return won
-        ? "The creature comes apart in ash and violet sparks. The rift's pull is weaker here now."
+        ? "The creature comes apart in ash and violet sparks. The rift will spit out another before long."
         : "It drags itself back toward the rift and leaves you bleeding in the dust.";
     if (won) return null;
     if (slot === WANDERER_NIGHT_INDEX) return `${name ?? "The night ninja"} melts back into the dark. Somewhere on the road, ${ROAD_NEMESIS_NAME} hears that you lost.`;

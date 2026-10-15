@@ -84,7 +84,9 @@ test("buildReputationProfile surfaces only real bounty and rivalry data", () => 
 
     assert.equal(profile.displayTitle, "Stormblade");
     assert.equal(profile.rivalry.kind, "npc");
-    assert.match(profile.rivalry.detail, /Ash Bandit/);
+    // An older save still names the bandit who first beat the player; the rival
+    // shown is always Kagero, titled by the tier he has earned.
+    assert.match(profile.rivalry.detail, /^Kagero of the Cracked Mask - Lv 40, tier 2$/);
     assert.equal(profile.identityChips.some((chip) => chip.label === "Lightning"), true);
     assert.deepEqual(
         profile.metrics.filter((metric) => metric.id === "bounty").map((metric) => [metric.value, metric.detail]),
