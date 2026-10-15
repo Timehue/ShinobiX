@@ -60,6 +60,16 @@ function recordFetch(reply: (sent: Sent, call: number) => Response | Promise<Res
 const kaya = { name: "Kaya", village: MOON, clan: "", claimedWarCrateIds: [] } as unknown as Character;
 
 describe("village-war rows keep the server's Ramparts max, peace offers and pre-war window", () => {
+    for (const version of [2, 3] as const) it(`preserves v${version} and its complete stored schedule through hydration`, () => {
+        const shrineWindows = Array.from({ length: 5 }, (_, day) => ({ id: `shrine-${day}`,
+            opensAt: 1000 + day * 123_456_789, closesAt: 2000 + day * 123_456_789 }));
+        hydrateSharedWorldState({ wars: [liveWar({ campaignVersion: version, shrineWindows, campaignEndsAt: 999_999_999,
+            warPoints: { [MOON]: 100, [STORM]: 200 } })] });
+        const war = loadVillageWar(MOON, STORM)!;
+        assert.equal(war.campaignVersion, version);
+        assert.deepEqual(war.shrineWindows, shrineWindows, 'never reconstruct or shift persisted timestamps');
+        assert.deepEqual(war.warPoints, { [MOON]: 100, [STORM]: 200 });
+    });
     it("does not clamp a village's war HP to 5,000 when Ramparts raised its max", () => {
         hydrateSharedWorldState({ wars: [liveWar({ hp: { [MOON]: 5_600, [STORM]: 5_000 }, hpMax: { [MOON]: 5_750 } })] });
         const war = loadVillageWar(MOON, STORM)!;

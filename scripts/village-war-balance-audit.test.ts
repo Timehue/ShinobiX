@@ -21,11 +21,16 @@ test('personal budgets scale with participation and 72-intel discovery still can
     assert.deepEqual(report.participation.map(s => s.rawSupportBudget), [350, 700, 1050, 3500, 17500]);
     assert.deepEqual(report.participation[2].days[0], { day: 1, attempts: 12, rawSupport: 210, intel: 18, cumulativeIntel: 18, revealed: 0 });
 });
-test('pet and card objective pools have equal value to combat and shrine control remains the largest bounded objective pool', () => {
+test('a perfect shrine window’s extra pool equals one completely won stronghold; six strongholds offer 1,800 points', () => {
     const report = analyzeCampaignBalance(createVillageCampaign(villages, 1000, 47), villages[0]);
     assert.deepEqual(report.objectivePools.strongholdsByMode, { combat: 600, pet: 600, card: 600 });
-    assert.equal(report.objectivePools.shrine, 12500); assert.equal(report.objectivePools.allStrongholds, 1800);
-    assert.equal(report.worldWinsToExceedEntireShrinePool, 626);
+    assert.equal(report.objectivePools.shrine, 1500); assert.equal(report.objectivePools.allStrongholds, 1800);
+    assert.equal(report.objectivePools.shrinePerWindow, 300);
+    assert.equal(report.campaignVersion, 3);
+    assert.deepEqual(report.shrineElapsedHours, [[2, 4], [31, 33], [60, 62], [89, 91], [118, 120]]);
+    assert.deepEqual(report.shrineWindowHours, [2, 2, 2, 2, 2]);
+    assert.equal(report.objectivePools.shrine / 5, report.objectivePools.allStrongholds / 6);
+    assert.equal(report.worldWinsToExceedEntireShrinePool, 76);
 });
 test('the support ceiling is monotonic and never exceeds one fifth of the final score across PvP budgets', () => {
     const c = createVillageCampaign(villages, 1000, 47); c.pve[villages[0]] = 1200;

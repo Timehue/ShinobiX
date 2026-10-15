@@ -27,6 +27,6 @@ export async function currentVillageCampaign(name: string, village: string): Pro
     const response = await fetch('/api/world-state');
     if (!response.ok) throw new Error('Could not load village wars.');
     const data = await response.json() as { wars?: { id: string; villages: string[]; endedAt?: number; campaignVersion?: number }[] };
-    const war = data.wars?.find(w => !w.endedAt && w.campaignVersion === 2 && w.villages.includes(village));
+    const war = data.wars?.find(w => !w.endedAt && (w.campaignVersion === 2 || w.campaignVersion === 3) && w.villages.includes(village));
     return war ? { warId: war.id, response: await campaignRequest(name, war.id, 'view') } : null;
 }

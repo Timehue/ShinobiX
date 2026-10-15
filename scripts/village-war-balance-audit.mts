@@ -39,19 +39,24 @@ function objectivePool(source: VillageCampaign, village: string, mode?: WarBattl
         if (!objective.village) { objective.controlTimeMs = { [village]: objective.closesAt - objective.opensAt }; }
     }
     advanceCampaign(c, c.endsAt);
-    return campaignScore(c, village).pvp;
+    // The shrine pool is its extra rewards only; ordinary role rewards are uncapped.
+    const normalShrinePoints = c.version === 3 ? c.shrine.reduce((sum, o) => sum + o.limit * 5, 0) : 0;
+    return campaignScore(c, village).pvp - normalShrinePoints;
 }
 export function analyzeCampaignBalance(source: VillageCampaign, village: string) {
     const world = fresh(source);
     const worldWin = scoreCampaignBattle(world, { receipt: 'world-win', village, player: 'audit-winner', createdAt: world.startsAt + 1, at: world.startsAt + 2 });
     const shrinePool = objectivePool(source, village);
     const modePools = Object.fromEntries((['combat', 'pet', 'card'] as const).map(mode => [mode, objectivePool(source, village, mode)]));
-    return { evidenceTier: 'configured-formula scenarios; not production telemetry',
+    return { evidenceTier: 'configured-formula scenarios; not production telemetry', campaignVersion: source.version,
         assumptions: ['Every admitted mission succeeds within its admission day.', 'Players coordinate round-robin admissions, prioritize intel, and complete their orders sequentially.',
-            'Objective maxima assume one village wins every scored bout and leads every window in accumulated uncontested time.', 'Legitimate world PvP stays uncapped as requested.'],
+            'Objective maxima assume one village wins every scored bout and leads every window in accumulated uncontested time.',
+            'Shrine pools include extra rewards only; ordinary role victory points and enemy deductions continue after the shared cap.', 'Legitimate world PvP stays uncapped as requested.'],
         durationDays: (source.endsAt - source.startsAt) / WAR_DAY_MS,
         shrineWindowHours: source.shrine.map(o => (o.closesAt - o.opensAt) / 3_600_000),
-        objectivePools: { shrine: shrinePool, strongholdsByMode: modePools, allStrongholds: Object.values(modePools).reduce((a, b) => a + b, 0) },
+        shrineElapsedHours: source.shrine.map(o => [(o.opensAt - source.startsAt) / 3_600_000, (o.closesAt - source.startsAt) / 3_600_000]),
+        objectivePools: { shrine: shrinePool, shrinePerWindow: shrinePool / source.shrine.length,
+            strongholdsByMode: modePools, allStrongholds: Object.values(modePools).reduce((a, b) => a + b, 0) },
         worldWinPoints: worldWin, worldWinsToExceedEntireShrinePool: Math.floor(shrinePool / worldWin) + 1,
         participation: [1, 2, 3, 10, 50].map(players => participationScenario(source, village, players)) };
 }

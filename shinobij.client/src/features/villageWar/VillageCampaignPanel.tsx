@@ -3,6 +3,8 @@ import type { Character, VersionedCharacterCommit } from '../../types/character'
 import type { CampaignView, CampaignObjective, CampaignFieldMissionView } from '../../../../shared/village-war-campaign';
 import { WarFieldOrders } from './WarFieldOrders';
 import { ShrineControlTimes } from './ShrineControlTimes';
+import { ShrineSchedule } from './ShrineSchedule';
+import { shrineRules } from '../../../../shared/village-war-campaign';
 import { campaignRequest, currentVillageCampaign, type CampaignBattle } from '../../lib/village-war-campaign';
 import { visiblePoll } from '../../lib/poll';
 import './village-campaign.css';
@@ -56,6 +58,7 @@ export function VillageCampaignPanel({ character, warId: initialWarId, sharedIma
     const live = now >= campaign.startsAt && now < campaign.endsAt;
     const ended = now >= campaign.endsAt;
     const currentShrine = campaign.shrine.find(o => now < o.closesAt);
+    const rules = shrineRules(campaign);
     function objectiveCard(objective: CampaignObjective) {
         const own = objective.village === character.village;
         const locked = now < objective.opensAt;
@@ -71,11 +74,12 @@ export function VillageCampaignPanel({ character, warId: initialWarId, sharedIma
                 <img className='village-campaign-art village-campaign-shrine-art' src='/ui/village-war/war-shrine-landmark-gold-v1.webp'
                     width={512} height={384} alt='Golden war shrine' loading='lazy' decoding='async' />
                 <div className='village-campaign-shrine-stats'>
-                    <p>{objective.bouts}/{objective.limit} scored live battles</p>
-                    <small>100 points per win · First 15 shared wins</small>
+                    <p>{objective.bouts}/{objective.limit} {campaign!.version === 3 ? 'extra-point victories' : 'scored live battles'}</p>
+                    <small>{rules.winPoints} {campaign!.version === 3 ? 'extra points' : 'points'} per win · First {objective.limit} shared wins</small>
+                    {campaign!.version === 3 && <small>Normal role victory points and enemy score deductions continue after the extra-point cap.</small>}
                     <h5>Uncontested control time</h5>
                     <ShrineControlTimes objective={objective} villages={Object.keys(campaign!.scores)} />
-                    <small>1,000 points for the most uncontested time at closing. Tied or zero totals award no bonus.</small>
+                    <small>{rules.controlBonus.toLocaleString()} points for the most uncontested time at closing. Tied or zero totals award no bonus.</small>
                 </div>
             </div>
         </article>;
@@ -108,7 +112,8 @@ export function VillageCampaignPanel({ character, warId: initialWarId, sharedIma
             <p>Enemy player victories anywhere in the world count. Spars and ranked matches are excluded. PvE can provide up to 20% of your total score.</p>
         </>}
         {sector === undefined && currentShrine && <><h4>The central War Shrine</h4>{objectiveCard(currentShrine)}
-            {!defenseOnly && <p>Five daily windows · First 15 wins award 100 points each · Combat continues until closing · 1,000 points for the village with the most uncontested time. Next windows: {campaign.shrine.filter(o => o.opensAt > now).map(o => new Date(o.opensAt).toLocaleString()).join(' · ')}</p>}</>}
+            {!defenseOnly && <p>Five daily windows · First {currentShrine.limit} wins award {rules.winPoints} {campaign.version === 3 ? 'extra points' : 'points'} each · Combat continues until closing · {rules.controlBonus.toLocaleString()} points for the village with the most uncontested time.</p>}</>}
+        {sector === undefined && !defenseOnly && <ShrineSchedule windows={campaign.shrine} />}
         <h4>{defenseOnly ? 'Choose a stronghold to defend' : 'Sector strongholds'}</h4>
         <div className='village-campaign-grid'>{campaign.strongholds.filter(o => (sector === undefined || o.sector === sector) && (!defenseOnly || o.village === character.village)).map(objectiveCard)}</div>
         {!defenseOnly && sector === undefined && <>

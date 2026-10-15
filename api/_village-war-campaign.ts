@@ -6,7 +6,7 @@ import { commitWarBattleSettlement } from './_war-battle-settlement.js';
 import { HOME_SECTORS, isWarVillage } from './_war-map-sectors.js';
 import { applyShrineClosingControl } from './_village-war-shrine-closing.js';
 import {
-    advanceCampaign, campaignScore, scoreCampaignBattle, WAR_DAY_MS, WAR_MODES,
+    advanceCampaign, campaignScore, scoreCampaignBattle, rotatingShrineWindows, WAR_MODES,
     VILLAGE_CAMPAIGN_DURATION_MS, SHRINE_WIN_LIMIT, type VillageCampaign,
 } from '../shared/village-war-campaign.js';
 
@@ -26,10 +26,9 @@ export function createVillageCampaign(villages: readonly string[], startsAt: num
         return WAR_MODES.map((mode, i) => ({ id: `stronghold-${side}-${i}`, sector: candidates[i], village, mode,
             opensAt: startsAt, closesAt: endsAt, limit: 3, bouts: 0, wins: {} }));
     });
-    return { version: 2, startsAt, endsAt, strongholds,
-        shrine: Array.from({ length: 5 }, (_, day) => ({ id: `shrine-${day}`, sector: shrineSector,
-            mode: 'combat' as const, opensAt: startsAt + day * WAR_DAY_MS + 20 * 3_600_000,
-            closesAt: startsAt + (day + 1) * WAR_DAY_MS, limit: SHRINE_WIN_LIMIT, bouts: 0, wins: {}, controlTimeMs: Object.fromEntries(villages.map(v => [v, 0])) })),
+    return { version: 3, startsAt, endsAt, strongholds,
+        shrine: rotatingShrineWindows(startsAt).map(window => ({ ...window, sector: shrineSector,
+            mode: 'combat' as const, limit: SHRINE_WIN_LIMIT, bouts: 0, wins: {}, controlTimeMs: Object.fromEntries(villages.map(v => [v, 0])) })),
         intel: {}, pvp: {}, pve: {}, usage: {}, admissions: {}, receipts: {} };
 }
 export function campaignWarPlayable(war: CampaignWarRow, now = Date.now()): boolean {

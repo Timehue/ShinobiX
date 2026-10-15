@@ -252,7 +252,8 @@ function endZeroHpVillageWar(war: VillageWar, now: number): VillageWar | null {
 function publicVillageWar(war: VillageWar): VillageWar {
     if (war.campaign) {
         const { campaign, ...publicRow } = war;
-        war = { ...publicRow, campaignVersion: 2, campaignEndsAt: campaign.endsAt,
+        war = { ...publicRow, campaignVersion: campaign.version, campaignEndsAt: campaign.endsAt,
+            shrineWindows: campaign.shrine.map(({ id, opensAt, closesAt }) => ({ id, opensAt, closesAt })),
             warPoints: Object.fromEntries(war.villages.map(v => [v, campaignScore(campaign, v).total])) };
     }
     const receipts = war.mercenaryHireReceipts;
@@ -362,7 +363,8 @@ type SectorTerritory = {
 
 type VillageWar = {
     campaign?: VillageCampaign;
-    campaignVersion?: 2;
+    campaignVersion?: 2 | 3;
+    shrineWindows?: { id: string; opensAt: number; closesAt: number }[];
     campaignEndsAt?: number;
     warPoints?: Record<string, number>;
     id: string;
@@ -1685,7 +1687,8 @@ export async function settlePvpVillageWarContinuation(
                 if (binding && (binding.warId !== raw.id || binding.generation !== raw.declarationGeneration
                     || !raw.campaign.admissions[binding.runId])) return writeNoop();
                 const result = awardCampaignBattle(raw, { receipt: `combat:${battleId}`, village: actorVillage,
-                    player: actor, at: settledAt, createdAt, objectiveId: binding?.objectiveId }, String(winnerFighter?.name ?? actor));
+                    player: actor, at: settledAt, createdAt, objectiveId: binding?.objectiveId,
+                    shrineVictory: { enemyVillage: loserVillage, winPoints: actorRole.win, lossPenalty: loserRole.loss } }, String(winnerFighter?.name ?? actor));
                 if (binding) result.row.campaign!.admissions[binding.runId].finished = true;
                 if (!binding && session.rewardAuthority === 'world') result.row = applyEspionageBattleEvidence(result.row,
                     session.villageWarEspionage?.find(e => e.player === actor), actor, createdAt, settledAt);

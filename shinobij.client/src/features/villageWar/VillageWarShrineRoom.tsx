@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import type { CampaignObjective } from '../../../../shared/village-war-campaign';
+import { shrineRules, type CampaignObjective, type VillageCampaignVersion } from '../../../../shared/village-war-campaign';
 import { ShrineControlTimes } from './ShrineControlTimes';
 import type { Character, VersionedCharacterCommit } from '../../types/character';
 import { campaignRequest, type CampaignBattle, type CampaignResponse } from '../../lib/village-war-campaign';
@@ -9,8 +9,9 @@ import './war-shrine-room.css';
 const Battle = lazy(() => import('./VillageCampaignBattle'));
 const slug = (name: string) => name.toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 32);
 
-export function VillageWarShrineRoom({ character, warId, objective, sharedImages, onVersionedCharacter, onExit }: {
+export function VillageWarShrineRoom({ character, warId, objective, sharedImages, onVersionedCharacter, onExit, campaignVersion = 2 }: {
     character: Character; warId: string; objective: CampaignObjective; sharedImages: Record<string, string>;
+    campaignVersion?: VillageCampaignVersion;
     onVersionedCharacter: VersionedCharacterCommit; onExit: () => void;
 }) {
     const [room, setRoom] = useState<CampaignResponse['room']>();
@@ -45,6 +46,7 @@ export function VillageWarShrineRoom({ character, warId, objective, sharedImages
     }, [character.name, warId, objective.id, adopt]);
     const me = room?.players.find(p => p.name === slug(character.name));
     const target = room?.objective ?? objective;
+    const rules = shrineRules({ version: campaignVersion });
     const closed = now >= target.closesAt;
     const enemies = room?.players.filter(p => p.village !== character.village) ?? [];
     const avatar = resolveOwnAvatar(character, sharedImages);
@@ -77,7 +79,7 @@ export function VillageWarShrineRoom({ character, warId, objective, sharedImages
         <section className='war-shrine-room' aria-label='Golden war shrine room'>
         <header className='war-shrine-header'><h2>Golden War Shrine</h2>
             <button className='war-shrine-leave' aria-label='Leave shrine' disabled={busy || !!me?.inBattle} onClick={() => void leave()}>Leave</button>
-            <p className='war-shrine-meta'>Sector {objective.sector} · Shinobi PvP · {target.bouts}/{target.limit} scored wins</p></header>
+            <p className='war-shrine-meta'>Sector {objective.sector} · Shinobi PvP · {target.bouts}/{target.limit} {campaignVersion === 3 ? 'extra-point wins' : 'scored wins'}</p></header>
         <p className='war-shrine-window' role='status'>{closed ? 'This scoring window is complete.' : `Window closes in ${Math.max(0, Math.ceil((target.closesAt - now) / 60_000))} minutes.`}</p>
         {error && <div><p role='alert'>{error}</p><button disabled={busy || closed}
             onClick={async () => { const response = await act('shrine-enter'); if (response) entered.current = true; }}>Re-enter shrine</button></div>}
@@ -101,7 +103,7 @@ export function VillageWarShrineRoom({ character, warId, objective, sharedImages
         </div>
         <aside aria-label='Shrine control'><p className='war-shrine-input-hint'>Choose a tile or use arrow keys to move.</p>
         <p className='war-shrine-control' role='status'>{target.bonusSettled ? target.bonusWinner
-            ? `${target.bonusWinner} held the most uncontested time and earned 1,000 War Points.` : 'Uncontested time was tied or zero. No window bonus was awarded.'
+            ? `${target.bonusWinner} held the most uncontested time and earned ${rules.controlBonus.toLocaleString()} War Points.` : 'Uncontested time was tied or zero. No window bonus was awarded.'
             : enemies.length ? 'Both villages are inside. The shrine is contested.'
                 : me && target.controlVillage === character.village ? 'Your village controls the shrine and is adding uncontested time.' : 'Hold the shrine uncontested to add time for your village.'}</p>
         <ShrineControlTimes objective={target} villages={[...new Set([character.village, ...Object.keys(target.controlTimeMs ?? {}), ...(room?.players.map(p => p.village) ?? [])])]} />
@@ -109,8 +111,9 @@ export function VillageWarShrineRoom({ character, warId, objective, sharedImages
             onClick={async () => { const response = await act('start', { target: player.name }); if (response?.runId) setBattle(response); }}>
             {player.inBattle ? `${player.displayName} is fighting` : `Fight ${player.displayName}`}</button>)}</div>}
         <details className='war-shrine-rules'><summary>Controls and scoring</summary>
-            <p>Choose a floor tile or use arrow keys to move. The first 15 enemy-player victories inside earn 100 War Points each, shared across both villages. Combat stays open until the window closes.</p>
-            <p>The village with the most uncontested time across the window earns 1,000 points at closing, even if it has left. Empty and contested time does not count. Tied or zero totals award no bonus.</p>
+            <p>Choose a floor tile or use arrow keys to move. The first {target.limit} enemy-player victories inside earn {rules.winPoints} {campaignVersion === 3 ? 'extra War Points' : 'War Points'} each, shared across both villages. Combat stays open until the window closes.</p>
+            {campaignVersion === 3 && <p>Every victory also awards normal role points and deducts the defeated player's role penalty from the enemy score, down to zero. These continue after the extra-point cap: Kage wins earn 30, Elder 20, ANBU 15 and villager 5 points; losing a Kage costs 50 and an Elder 20.</p>}
+            <p>The village with the most uncontested time across the window earns {rules.controlBonus.toLocaleString()} points at closing, even if it has left. Empty and contested time does not count. Tied or zero totals award no bonus.</p>
         </details></aside></div>
     </section></dialog>;
 }

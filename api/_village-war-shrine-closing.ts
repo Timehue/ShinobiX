@@ -1,6 +1,6 @@
 import type { CampaignWarRow } from './_village-war-campaign.js';
 import { eligibleShrineRoomVillage, shrineRoomPlayers } from './_village-war-shrine-presence.js';
-import { advanceCampaign, shrineTimeLeader, SHRINE_CONTROL_BONUS, SHRINE_ROOM_PRESENCE_TTL_MS, type CampaignObjective } from '../shared/village-war-campaign.js';
+import { advanceCampaign, shrineTimeLeader, shrineRules, SHRINE_ROOM_PRESENCE_TTL_MS, type CampaignObjective } from '../shared/village-war-campaign.js';
 import { OFFLINE_AFTER_MS, subscribeBeforeOnlinePresenceMutation, subscribeAfterOnlinePresenceMutation } from './_realtime/online-store.js';
 
 type Occupant = { name: string; village: string; expiresAt: number };
@@ -66,9 +66,10 @@ export function applyShrineClosingControl(war: CampaignWarRow, now: number): voi
         const players = Object.entries(objective.controlParticipantMs ?? {}).filter(([, p]) => p.village === winner && p.ms > 0);
         const total = players.reduce((sum, [, p]) => sum + p.ms, 0);
         if (!winner || !total) continue;
-        const shares = players.map(([name, p]) => ({ name, points: Math.floor(SHRINE_CONTROL_BONUS * p.ms / total), fraction: SHRINE_CONTROL_BONUS * p.ms % total }))
+        const bonus = shrineRules(war.campaign!).controlBonus;
+        const shares = players.map(([name, p]) => ({ name, points: Math.floor(bonus * p.ms / total), fraction: bonus * p.ms % total }))
             .sort((a, b) => b.fraction - a.fraction || a.name.localeCompare(b.name));
-        let remainder = SHRINE_CONTROL_BONUS - shares.reduce((sum, p) => sum + p.points, 0);
+        let remainder = bonus - shares.reduce((sum, p) => sum + p.points, 0);
         war.contributions ??= {};
         for (const player of shares) {
             const points = player.points + (remainder-- > 0 ? 1 : 0);
