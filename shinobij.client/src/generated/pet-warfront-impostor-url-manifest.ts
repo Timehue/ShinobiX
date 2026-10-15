@@ -147,24 +147,24 @@ declare const _revisionRows: readonly [
     readonly ["roster/standard-9.glb","52b7a2882a44"],
     readonly ["showdown-v2/rare-1.glb","48b5faabf249"],
     readonly ["showdown-v2/standard-7.glb","d7eb1e6265c8"],
-    readonly ["showdown-v2/starter-fire-l.glb","cd8e35bc0964"],
+    readonly ["showdown-v2/starter-fire-l.glb","04d827f13802"],
     readonly ["showdown-v2/starter-lightning-l.glb","1309fcd0ef35"],
-    readonly ["starter-earth-l.glb","ea1b4c209b10"],
-    readonly ["starter-earth-r.glb","62411b4a8886"],
-    readonly ["starter-fire-r.glb","3258ad85c397"],
+    readonly ["starter-earth-l.glb","1a84bcbcdbb3"],
+    readonly ["starter-earth-r.glb","20d8613dc19e"],
+    readonly ["starter-fire-r.glb","4992f624862a"],
     readonly ["starter-fire.glb","028686524ec8"],
     readonly ["starter-lightning-r.glb","445a60b32c3e"],
-    readonly ["starter-lightning.glb","d7a96e44a231"],
+    readonly ["starter-lightning.glb","65923d615e44"],
     readonly ["starter-water-l.glb","420a841e8d65"],
     readonly ["starter-water-r.glb","adda24740df2"],
     readonly ["starter-water.glb","9517615f6b0f"],
-    readonly ["starter-wind-l.glb","6404f64e73cf"],
+    readonly ["starter-wind-l.glb","67acd41e4db7"],
     readonly ["starter-wind-r.glb","3c178d131687"],
-    readonly ["starter-wind.glb","0d92c634c9a6"]
+    readonly ["starter-wind.glb","bd3faa514bb1"]
 ];
 const sources = ([["legendary",30],["mythic",16],["rare",50],["standard",50]] as const).flatMap(([rarity, count]) => Array.from({ length: count }, (_, index) => `roster/${rarity}-${index}.glb`).sort().filter(source => source !== "roster/rare-1.glb" && source !== "roster/standard-7.glb"));
 const extras = ["showdown-v2/rare-1.glb","showdown-v2/standard-7.glb","showdown-v2/starter-fire-l.glb","showdown-v2/starter-lightning-l.glb","starter-earth-l.glb","starter-earth-r.glb","starter-fire-r.glb","starter-fire.glb","starter-lightning-r.glb","starter-lightning.glb","starter-water-l.glb","starter-water-r.glb","starter-water.glb","starter-wind-l.glb","starter-wind-r.glb","starter-wind.glb"];
-const revisions = "70dd5a3cb9718c34b46a2be59e958e482549e879b91be7998c6519a1446f0a93288abf0ef2a62898da120eca5048ae2d3c3fd03e6a8e194c607465b6a958c7ec1b3d108df5f7e795a86e52e7aaa8d8a743d655dd3248336ada755d0277f2a8d512710e737770d4b865dc71d9dc54b1b2bae4bea93fecf42e911c21ad38ed92f47188a46edc0d85e7cb199055d8f5a4b7df91ab9f63970db0e4b218723c745ef2602b759be5c2ec2a2c66a5af690a45cb9a3d8cd0294a5a56a53e32ad8fe4c3b63d73359d935f3b3e9ca6a20b6173f5744b6ee5844248106eaf1dd8dba50389c8d7978555eb0a9e7f35454bbe7aa8999cd4e84da0ab0541b3c21ade1793350ef36d97d330c08cc2690dfe6d236b286bc472e8591d73d50d2d2aff35059f70eb62b1cf7fc57a567d94967d3c4be230f5bc9bc0ebf727432b43abf7514312015820985a798f982fb4540efa8b286101308cf76511fbd091c1f6d3ffe7562e484d56a0bfcecea21b167676372e8c37016e0bfcede1cf0cba30bad3e701a3c3b6c9ebfecf9db567bcb0ebd712e4d48720c563daef848307230048274f49508f443aa89c6dcc26dbeac6155c33e4e02e22b7599f4c21ceebf9bba668be0ff1ef3e000e33f646d53194efc95dcce085c4e9c08cfae84707de579ddcb6f9af5a31af6add65a842af1a2764e7f831511017b0e17f53f5f4f4c08937bfe8ffcba6c8d2066706db30243cea3e699046bb932c53596a89ca30e9b33d6f53441d373a09a12aaea038c5c5920a4b4e5ea5ae9171987c4918fd5033835c19f66ebadcb689c6c0a431edeae4e337742a12eea80dfb7ce2da06b22599c069cdd5e1348e0b8f4ff08b3aac59dc415cc868789bd58ec1060481670b6733b43a0b3d55f1ad10564a8c326fe08af4ffc23f4c8909eb057b73f95b7801bba7f75e0fad7e18ee783c8f1edf2bae751331d8471aa38270a0e81c4e7ac6d50cf38e543b6238289a66a00376d1017203ff74ad8b3f68ead8f4e57091cae22f4d835729e458a520e5cb43953237a9ef83c918c15a263bee42a4eddd6b43d8ee08efc1778079e73587147c93c397dc4ec4a3ed154674f5bfacafc0ca67cadefef61b09b176cfebdddea2cb13d7701763b2754c261c4c134d1381eadb45056bd97bee06de9d08734a28c7b7cb597d9100b3b66cb26fc1997383313720fab51497dd32f8689425ff4252b7a2882a4448b5faabf249d7eb1e6265c8cd8e35bc09641309fcd0ef35ea1b4c209b1062411b4a88863258ad85c397028686524ec8445a60b32c3ed7a96e44a231420a841e8d65adda24740df29517615f6b0f6404f64e73cf3c178d1316870d92c634c9a6".match(/.{12}/g)!;
+const revisions = "70dd5a3cb9718c34b46a2be59e958e482549e879b91be7998c6519a1446f0a93288abf0ef2a62898da120eca5048ae2d3c3fd03e6a8e194c607465b6a958c7ec1b3d108df5f7e795a86e52e7aaa8d8a743d655dd3248336ada755d0277f2a8d512710e737770d4b865dc71d9dc54b1b2bae4bea93fecf42e911c21ad38ed92f47188a46edc0d85e7cb199055d8f5a4b7df91ab9f63970db0e4b218723c745ef2602b759be5c2ec2a2c66a5af690a45cb9a3d8cd0294a5a56a53e32ad8fe4c3b63d73359d935f3b3e9ca6a20b6173f5744b6ee5844248106eaf1dd8dba50389c8d7978555eb0a9e7f35454bbe7aa8999cd4e84da0ab0541b3c21ade1793350ef36d97d330c08cc2690dfe6d236b286bc472e8591d73d50d2d2aff35059f70eb62b1cf7fc57a567d94967d3c4be230f5bc9bc0ebf727432b43abf7514312015820985a798f982fb4540efa8b286101308cf76511fbd091c1f6d3ffe7562e484d56a0bfcecea21b167676372e8c37016e0bfcede1cf0cba30bad3e701a3c3b6c9ebfecf9db567bcb0ebd712e4d48720c563daef848307230048274f49508f443aa89c6dcc26dbeac6155c33e4e02e22b7599f4c21ceebf9bba668be0ff1ef3e000e33f646d53194efc95dcce085c4e9c08cfae84707de579ddcb6f9af5a31af6add65a842af1a2764e7f831511017b0e17f53f5f4f4c08937bfe8ffcba6c8d2066706db30243cea3e699046bb932c53596a89ca30e9b33d6f53441d373a09a12aaea038c5c5920a4b4e5ea5ae9171987c4918fd5033835c19f66ebadcb689c6c0a431edeae4e337742a12eea80dfb7ce2da06b22599c069cdd5e1348e0b8f4ff08b3aac59dc415cc868789bd58ec1060481670b6733b43a0b3d55f1ad10564a8c326fe08af4ffc23f4c8909eb057b73f95b7801bba7f75e0fad7e18ee783c8f1edf2bae751331d8471aa38270a0e81c4e7ac6d50cf38e543b6238289a66a00376d1017203ff74ad8b3f68ead8f4e57091cae22f4d835729e458a520e5cb43953237a9ef83c918c15a263bee42a4eddd6b43d8ee08efc1778079e73587147c93c397dc4ec4a3ed154674f5bfacafc0ca67cadefef61b09b176cfebdddea2cb13d7701763b2754c261c4c134d1381eadb45056bd97bee06de9d08734a28c7b7cb597d9100b3b66cb26fc1997383313720fab51497dd32f8689425ff4252b7a2882a4448b5faabf249d7eb1e6265c804d827f138021309fcd0ef351a84bcbcdbb320d8613dc19e4992f624862a028686524ec8445a60b32c3e65923d615e44420a841e8d65adda24740df29517615f6b0f67acd41e4db73c178d131687bd3faa514bb1".match(/.{12}/g)!;
 export const WARFRONT_IMPOSTOR_ATLAS_REVISIONS = Object.fromEntries([...sources, ...extras].map((source, index) => [
     `/pet-models/${source}`, revisions[index],
 ])) as { readonly [Row in typeof _revisionRows[number] as `/pet-models/${Row[0]}`]: Row[1] };

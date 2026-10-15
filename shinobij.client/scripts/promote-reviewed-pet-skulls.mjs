@@ -84,7 +84,7 @@ for(const id of ids) {
         else await copyFile(row.path,backup);
         await copyFile(candidate,row.path);
     }
-    if(manifest.entries[row.model.visualId]){const entry=manifest.entries[row.model.visualId];entry.sha256=createHash('sha256').update(newBytes).digest('hex').toUpperCase();entry.validation.bytes=newBytes.length;entry.reviewedSkullRepair=after.json.extras.reviewedSkullRepair;}
+    if(manifest.entries[row.model.visualId]&&resolve(row.path)===resolve(modelRoot,'roster',`${row.model.visualId}.glb`)){const entry=manifest.entries[row.model.visualId];entry.sha256=createHash('sha256').update(newBytes).digest('hex').toUpperCase();entry.validation.bytes=newBytes.length;entry.reviewedSkullRepair=after.json.extras.reviewedSkullRepair;}
     review.firstPass='promoted-pending-double-check';review.promotedSha256=after.sha256;review.conservation=review.rigNormalization?'geometry, topology, atlas, clip names/times preserved; rig scale, rest frames and animation deltas deterministically retargeted; localized seam and skull binding repaired':'geometry, topology, atlas, bone nodes and all animation curves unchanged';
     console.log(`Promoted ${id} after exact conservation checks`);
 }

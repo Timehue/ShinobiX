@@ -8118,11 +8118,11 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "93CAE0F283782BAC6ECCF756241544093662A4E823C8CEE9539CEA13504B8B17",
+      "sha256": "8872E7BBA6D4B09F88535ADE7F14C382EAB012CDB0B2564C952C02506CB9DB32",
       "validation": {
         "ok": true,
         "reason": null,
-        "bytes": 612508,
+        "bytes": 655992,
         "triangles": 40000,
         "vertices": 25493,
         "materials": 1,
@@ -8130,44 +8130,6 @@
         "images": 1,
         "skins": 1,
         "animations": 8
-      },
-      "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
-        "id": "rare-1",
-        "sourceSha256": "6d71dd13176ee366852c92363c74ff9ff12ca7c5684e21f98e516864c40def83",
-        "region": {
-          "y": [
-            0.08,
-            0.28
-          ],
-          "z": [
-            -0.3,
-            -0.05
-          ],
-          "status": "repair",
-          "finding": "All 13 original full-body and complete head clips inspected front/side. Lower white muzzle and cheek shear during recoil/strike. Expanded capture includes the whole face and ears. Dense anatomical probe corroborates distortion. Candidate review and complete second pass pending.",
-          "cameraPadding": 1.25
-        },
-        "envelopeMatrix": [
-          1.0000002351475634,
-          0,
-          0,
-          0,
-          0,
-          0.9999999922397131,
-          -3.941187287637149e-8,
-          0,
-          0,
-          -1.2795469267468107e-8,
-          1.0000002285711513,
-          0,
-          3.6069767626357996e-7,
-          8.925564398687413e-9,
-          5.2204772449382375e-9,
-          1
-        ],
-        "changedVertices": 11789,
-        "rigidVertices": 5832
       }
     },
     "rare-2": {

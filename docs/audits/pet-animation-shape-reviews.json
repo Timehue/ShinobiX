@@ -8539,122 +8539,6 @@
       },
       "limits": "All 13 raw clips inspected twice with front and side head/body views; final pass uses six alternate phases. Production renderer inspected through 16 continuous state/transition rows at six phases in both assets. Dense skull/world-edge and all-geometry probes supplement visual review; this does not claim exhaustive coverage of every possible gameplay state."
     },
-    "starter-earth-r": {
-      "sha256": "1333d43a6f36cc08ab58f0de6c7ce8ef01ebc859fb34debd26878d2368db3322",
-      "lodSha256": "b0f20cc2772f3b794a0a67a43551cd25141b47c1cd25b5ff43db89fd090a749f",
-      "atlasSha256": "62411b4a888612ec6c976f994e9fd5993e3f3d7cbd5711df24878cc576c38efb",
-      "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
-      "reviewer": "Codex visual inspection",
-      "reviewedAt": "2026-10-15T08:06:03.524Z",
-      "clips": [
-        "idle",
-        "idle_2",
-        "walk",
-        "gallop",
-        "gallop_jump",
-        "attack",
-        "idle_hitreact1",
-        "death",
-        "entrance",
-        "cast",
-        "guard",
-        "rest",
-        "victory"
-      ],
-      "views": [
-        "front",
-        "side"
-      ],
-      "fullBodyReviewed": true,
-      "skullShapeReviewed": true,
-      "transitionsReviewed": true,
-      "evidence": [
-        "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-source-clips-head-1.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-source-clips-body-1.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-battle-clips-head-1.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-battle-clips-body-1.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-runtime-source-head.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-runtime-source-body.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-runtime-battle-head.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-runtime-battle-body.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-numeric-evidence.json"
-      ],
-      "evidenceSha256": {
-        "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-source-clips-head-1.webp": "3ca52b17cb523b168d3cb51b7af3127ca7bc864c1e27d7fb23734e41e359e9fd",
-        "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-source-clips-body-1.webp": "6a3073d96f08a0b3ab23a458216713082970893c952e9baa89f5b6de1fea5ca2",
-        "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-battle-clips-head-1.webp": "0d70e5f7ef54b8141f76d4fecc7d2fe1ba8a1e7ff4c5f89e1a1d5c27a3e9f6e4",
-        "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-battle-clips-body-1.webp": "22b576c13be436e6bead369143598c01d3be656ba1c6f10a5d853224857f7c10",
-        "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-runtime-source-head.webp": "23d5a9019983b68ebcc38a4bc2dcdd77286f58608a7cbf8e28a3595df04921b8",
-        "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-runtime-source-body.webp": "f9ece8f51da5a3e483a718401f4a1fdd1a12853477c934747395c6a1fe2113d5",
-        "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-runtime-battle-head.webp": "bdc9fa4c2c91d9db606c4eb8f66d6746c2cb2685d1361efc39e16f2789235abb",
-        "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-runtime-battle-body.webp": "9d5711cfe354c8d5937679a572e48c42516f2a1d6d3764be90c2f4ded6efa037",
-        "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-numeric-evidence.json": "410758bd2bf538270a2a5c60f0769c544de713fd5e811df217f68433fd2dd73e"
-      },
-      "findings": {
-        "runtime": "All sixteen production rows inspected in both versions, front and side head and body, after shoulder sliver removal. Muzzle, eyes, blue headband, complete stone shell, chest straps and sword, wrapped arms, hands, feet and tail remain coherent; no floating shoulder sliver remains.",
-        "source": "All thirteen clips inspected at six phases in front and side head and body sheets after isolated shoulder sliver removal. Muzzle, eyes, headband, shell, sword, straps, limbs, claws and tail remain coherent and no floating sliver remains.",
-        "battle": "All thirteen clips inspected at six phases in front and side head and body sheets after isolated shoulder sliver removal. Muzzle, eyes, headband, shell, sword, straps, limbs, claws and tail remain coherent and no floating sliver remains."
-      },
-      "limits": "All 13 raw clips inspected twice with front and side head/body views; final pass uses six alternate phases. Production renderer inspected through 16 continuous state/transition rows at six phases in both assets. Dense skull/world-edge and all-geometry probes supplement visual review; this does not claim exhaustive coverage of every possible gameplay state."
-    },
-    "starter-earth-l": {
-      "sha256": "b2554daa8eac4daebff3f12fd25b2bd0dc3483974ed33512414a2867b89f9758",
-      "lodSha256": "34d7d4f10e520a21214a9369e80a7d5eec4b4d4361a93dc2718b4916980509ca",
-      "atlasSha256": "ea1b4c209b108e887f4cdf5bff4e0e5788fdc8908b85c94732b7ff60db2bbf54",
-      "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
-      "reviewer": "Codex visual inspection",
-      "reviewedAt": "2026-10-15T08:00:11.455Z",
-      "clips": [
-        "idle",
-        "idle_2",
-        "walk",
-        "gallop",
-        "gallop_jump",
-        "attack",
-        "idle_hitreact1",
-        "death",
-        "entrance",
-        "cast",
-        "guard",
-        "rest",
-        "victory"
-      ],
-      "views": [
-        "front",
-        "side"
-      ],
-      "fullBodyReviewed": true,
-      "skullShapeReviewed": true,
-      "transitionsReviewed": true,
-      "evidence": [
-        "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-source-clips-head-1.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-source-clips-body-1.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-battle-clips-head-1.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-battle-clips-body-1.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-runtime-source-head.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-runtime-source-body.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-runtime-battle-head.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-runtime-battle-body.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-numeric-evidence.json"
-      ],
-      "evidenceSha256": {
-        "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-source-clips-head-1.webp": "2e1eafec2ec08ebf19648659972e7fc7b683254c0405b281538f71caf3f126b0",
-        "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-source-clips-body-1.webp": "87678362e4d3caf4322cd57ad2870db64e6e28aa65b0a45d4a23e70a28d43295",
-        "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-battle-clips-head-1.webp": "a9d80658b0e47af86522fd5740fd73dab99b37e06624551ec9f3e55e9d289a6b",
-        "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-battle-clips-body-1.webp": "d9868c9a22d740392098db5816638cf48e337e466dcad11234faf2c835b05a1c",
-        "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-runtime-source-head.webp": "b7c015534ea7bb7db7fc11c34f69751eb6b278b650a60854ebee8f2e17c15aa4",
-        "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-runtime-source-body.webp": "1b1d043b71c521dd8c26cff50d9582312bf76bcdc4f5a8e2e119ac1c4a156d23",
-        "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-runtime-battle-head.webp": "333a50ca9f07e739756b560cbd8930d64d33fc462429fb0688f25fa9b32c3bb6",
-        "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-runtime-battle-body.webp": "293b935b5433597dc753dc42bc982994b5d0bba763ada70f65e3c3ee0deafc0c",
-        "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-numeric-evidence.json": "8ca9ff3cef0de87d5039f8d4d14774ec89475e75072435afc7431dd640ead5dd"
-      },
-      "findings": {
-        "runtime": "All sixteen production rows inspected in both versions, front and side, head and body. Green armored turtle angular muzzle, eyes, blue headband and ties, chest plates, spiked shell, wrapped wrists, hands and four clawed limbs remain coherent through every runtime row in both versions.",
-        "source": "All 13 clips inspected at six alternate phases in front and side head and full-body views for this source asset. Both versions preserve the broad plated turtle muzzle, eyes, nose, headband and jaw across all thirteen clips. The pointed shell, shoulder plates, wrapped forelegs, four feet and tail remain coherent through the leap, attack and sideways death pose.",
-        "battle": "All 13 clips inspected at six alternate phases in front and side head and full-body views for this battle asset. Both versions preserve the broad plated turtle muzzle, eyes, nose, headband and jaw across all thirteen clips. The pointed shell, shoulder plates, wrapped forelegs, four feet and tail remain coherent through the leap, attack and sideways death pose."
-      },
-      "limits": "All 13 raw clips inspected twice with front and side head/body views; final pass uses six alternate phases. Production renderer inspected through 16 continuous state/transition rows at six phases in both assets. Dense skull/world-edge and all-geometry probes supplement visual review; this does not claim exhaustive coverage of every possible gameplay state."
-    },
     "starter-fire": {
       "sha256": "44d056d2461d54b04fbcb59a84553a4bfcbfa020c67dd61c68041f5d1090266f",
       "lodSha256": "f05f407204d4e523b0a639be7d7651c9ac8a06ada9c3c1c3933a991d5e5ee9d1",
@@ -8710,180 +8594,6 @@
         "runtime": "All sixteen production rows inspected in both versions, front and side, head and body. Black kitten muzzle, golden eyes, pointed ears, blue headband and scarf, four paws and flame-tipped tail remain coherent through all runtime rows in both versions. Normal and brighter sheets inspected, including red hit and cast tint and death/revive movement.",
         "source": "All 13 clips inspected at six alternate phases in front and side head and full-body views for this source asset. Cinder Cub golden eyes, cheek mask, muzzle, pointed ears and blue headband retain their shapes through both idles, strike and turned death; four paws, scarf and orange tail flame remain intact after rig scale correction.",
         "battle": "All 13 clips inspected at six alternate phases in front and side head and full-body views for this battle asset. Cinder Cub golden eyes, cheek mask, muzzle, pointed ears and blue headband retain their shapes through both idles, strike and turned death; four paws, scarf and orange tail flame remain intact after rig scale correction."
-      },
-      "limits": "All 13 raw clips inspected twice with front and side head/body views; final pass uses six alternate phases. Production renderer inspected through 16 continuous state/transition rows at six phases in both assets. Dense skull/world-edge and all-geometry probes supplement visual review; this does not claim exhaustive coverage of every possible gameplay state."
-    },
-    "starter-fire-r": {
-      "sha256": "a5e58af3b4bbc8f4fd8380b6d8aa8b91acc2504524681349f0afec883663b53b",
-      "lodSha256": "4bb03caaccfd7ed255c61dce5bcb244d56b8d5a0b83f14b8bd74d3dd1f31d263",
-      "atlasSha256": "3258ad85c397c938b2ed371e96ee91bc5dfa0ccfb282f986cba9793471f8fda1",
-      "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
-      "reviewer": "Codex visual inspection",
-      "reviewedAt": "2026-10-15T08:04:46.979Z",
-      "clips": [
-        "idle",
-        "idle_2",
-        "walk",
-        "gallop",
-        "gallop_jump",
-        "attack",
-        "idle_hitreact1",
-        "death",
-        "entrance",
-        "cast",
-        "guard",
-        "rest",
-        "victory"
-      ],
-      "views": [
-        "front",
-        "side"
-      ],
-      "fullBodyReviewed": true,
-      "skullShapeReviewed": true,
-      "transitionsReviewed": true,
-      "evidence": [
-        "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-source-clips-head-1.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-source-clips-body-1.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-battle-clips-head-1.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-battle-clips-body-1.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-runtime-source-head.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-runtime-source-body.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-runtime-battle-head.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-runtime-battle-body.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-numeric-evidence.json"
-      ],
-      "evidenceSha256": {
-        "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-source-clips-head-1.webp": "f256eb2a033bd420eebcbe7a0b228899a4381156d0946fbac52b9e85ef1f8fca",
-        "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-source-clips-body-1.webp": "a0fbea8f126d0fb8116a0c76e3b22506a2876d156032ba2146e24b3b6495ed90",
-        "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-battle-clips-head-1.webp": "8f2ae4a22105dacc97085f197cd494f88e967b774381c13deff378d1554c9ed7",
-        "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-battle-clips-body-1.webp": "f39aa0a4d4ebd86a6ddf59ec10aa1aa5771821c56c754c99cec7158904a3ef1f",
-        "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-runtime-source-head.webp": "619bd474fbd8cc2faf8ca5fdb0b9eeea99df351f6830d856c9e9fdf462d5d95d",
-        "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-runtime-source-body.webp": "d3bce805cad6bd0a2d7b64d84c5beb789129181985c1cf093bdcb422c4dee5e8",
-        "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-runtime-battle-head.webp": "06318f2ee38382307ba6515e3edeb8930119cca529a2040024593d6e96d6fd1c",
-        "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-runtime-battle-body.webp": "3d5eb214df1bcd0f770e20e47b4f93173ea73a490a9f86016a1c826d8d891413",
-        "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-numeric-evidence.json": "f4cf6160b1607a461715e57e059f0fe53a55a8dc7dfa82cf0d1816b31910b572"
-      },
-      "findings": {
-        "runtime": "All sixteen production rows inspected in both versions, front and side, head and body. Dark evolved cat muzzle, golden eyes, red facial markings, pointed ears, blue headband and scarf, magma-patterned limbs, paws and flame tail remain coherent through all runtime rows in both versions. Normal and brighter sheets inspected.",
-        "source": "All 13 clips inspected at six alternate phases in front and side head and full-body views for this source asset. Ember Wolf orange eyes, black muzzle, tall ears and blue headband retain their shapes through attack and turned death without prior sideways flattening; scarf, magma-patterned limbs, four paws and large flame tail remain intact after rig scale correction.",
-        "battle": "All 13 clips inspected at six alternate phases in front and side head and full-body views for this battle asset. Ember Wolf orange eyes, black muzzle, tall ears and blue headband retain their shapes through attack and turned death without prior sideways flattening; scarf, magma-patterned limbs, four paws and large flame tail remain intact after rig scale correction."
-      },
-      "limits": "All 13 raw clips inspected twice with front and side head/body views; final pass uses six alternate phases. Production renderer inspected through 16 continuous state/transition rows at six phases in both assets. Dense skull/world-edge and all-geometry probes supplement visual review; this does not claim exhaustive coverage of every possible gameplay state."
-    },
-    "starter-fire-l": {
-      "sha256": "f1ae454043f6a1d4a75ea8fb9201a5659db5f7f150fa9ef58c1c75f89d8c866f",
-      "lodSha256": "dfb13022932692542a26f54dd20c387ac66e31e4c24f43010a4486a779726624",
-      "atlasSha256": "cd8e35bc09645800441ed76b2ce6ce22fe747adabe15eec1a87e80ca0e514b3b",
-      "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
-      "reviewer": "Codex visual inspection",
-      "reviewedAt": "2026-10-15T08:07:39.527Z",
-      "clips": [
-        "idle",
-        "idle_2",
-        "walk",
-        "gallop",
-        "gallop_jump",
-        "attack",
-        "idle_hitreact1",
-        "death",
-        "entrance",
-        "cast",
-        "guard",
-        "rest",
-        "victory"
-      ],
-      "views": [
-        "front",
-        "side"
-      ],
-      "fullBodyReviewed": true,
-      "skullShapeReviewed": true,
-      "transitionsReviewed": true,
-      "evidence": [
-        "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-source-clips-head-1.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-source-clips-body-1.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-battle-clips-head-1.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-battle-clips-body-1.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-runtime-source-head.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-runtime-source-body.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-runtime-battle-head.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-runtime-battle-body.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-numeric-evidence.json"
-      ],
-      "evidenceSha256": {
-        "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-source-clips-head-1.webp": "27b398d8f2c2d6601b17cb6fd1329a59a4ff25945e7eb0876be72c104a2b7d76",
-        "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-source-clips-body-1.webp": "560c67241fae518c12c4311a3bdd54830b71ffc83d26bf5353df77041dddfad5",
-        "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-battle-clips-head-1.webp": "e227ce6937a2837ffa0d563f675de34a6cc9c80b50df697100dd95b22a00007f",
-        "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-battle-clips-body-1.webp": "762abeba565a88defe573958c7a1ae99c167d1dd058bad8767ed59461ae12293",
-        "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-runtime-source-head.webp": "4243753fc75d4554c84cfc4b928dcbd5888a5251e4297caf27d6fe397149100c",
-        "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-runtime-source-body.webp": "e6cc9713c28446dfdff68135a62fb2c30952c93436293e06e287f3d45cb36655",
-        "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-runtime-battle-head.webp": "7c795afb2c12de40dda974d9847740cd57c450399bccd98655c7db9b88092a0f",
-        "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-runtime-battle-body.webp": "6db5046242452520c3502c0d941d138182c8a6cd01c64ba7351e303228fccb22",
-        "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-numeric-evidence.json": "425f27cf15f3caacdb638d34992714ee0d915e26fec0d47218b30decd16d8595"
-      },
-      "findings": {
-        "runtime": "All sixteen production rows inspected in both versions, front and side, head and body. Dark flame-crowned cat muzzle, eyes, pointed ears, blue headband, swept blue mane and scarf, magma-patterned torso and four legs, paws and long flaming tail remain coherent throughout all runtime rows in both versions. Normal and brighter sheets inspected.",
-        "source": "All 13 clips inspected at six alternate phases in front and side head and full-body views for this source asset. Inferno Fenrir black muzzle, glowing eyes, ears and flame crown retain their shapes through attack and turned death; blue wrapped mane, orange back ornaments, magma body, four paws and large flame tail remain intact after rig scale correction.",
-        "battle": "All 13 clips inspected at six alternate phases in front and side head and full-body views for this battle asset. Inferno Fenrir black muzzle, glowing eyes, ears and flame crown retain their shapes through attack and turned death; blue wrapped mane, orange back ornaments, magma body, four paws and large flame tail remain intact after rig scale correction."
-      },
-      "limits": "All 13 raw clips inspected twice with front and side head/body views; final pass uses six alternate phases. Production renderer inspected through 16 continuous state/transition rows at six phases in both assets. Dense skull/world-edge and all-geometry probes supplement visual review; this does not claim exhaustive coverage of every possible gameplay state."
-    },
-    "starter-lightning": {
-      "sha256": "66705ccab784a5926e4fd2a083a0234212540960d51daf61e4af5db8f849d308",
-      "lodSha256": "435845b5fbcc78f279d82257f959ea84a3c67bb05ef18ce8bd000aac5e16a8e1",
-      "atlasSha256": "d7a96e44a231b98d77c210e9cf7d4ce2d9af63299c78495784bb7ec4b6b52d20",
-      "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
-      "reviewer": "Codex visual inspection",
-      "reviewedAt": "2026-10-15T08:08:18.357Z",
-      "clips": [
-        "idle",
-        "idle_2",
-        "walk",
-        "gallop",
-        "gallop_jump",
-        "attack",
-        "idle_hitreact1",
-        "death",
-        "entrance",
-        "cast",
-        "guard",
-        "rest",
-        "victory"
-      ],
-      "views": [
-        "front",
-        "side"
-      ],
-      "fullBodyReviewed": true,
-      "skullShapeReviewed": true,
-      "transitionsReviewed": true,
-      "evidence": [
-        "docs/screenshots/pet-shape-2026-10-15/starter-lightning-source-clips-head-1.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-lightning-source-clips-body-1.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-lightning-battle-clips-head-1.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-lightning-battle-clips-body-1.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-lightning-runtime-source-head.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-lightning-runtime-source-body.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-lightning-runtime-battle-head.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-lightning-runtime-battle-body.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-lightning-numeric-evidence.json"
-      ],
-      "evidenceSha256": {
-        "docs/screenshots/pet-shape-2026-10-15/starter-lightning-source-clips-head-1.webp": "63344c5238936f5724ab7530a4207c6af8b6d51cd00393abcdf7bebab7cd394c",
-        "docs/screenshots/pet-shape-2026-10-15/starter-lightning-source-clips-body-1.webp": "70a6716271e5fa3a8c944daa88806192f862161569baa819a4d3dedca8978ad1",
-        "docs/screenshots/pet-shape-2026-10-15/starter-lightning-battle-clips-head-1.webp": "e18c3ddee806a6fb84b3e206549bbbe4885859aa0b9477be3115a447a0c981c5",
-        "docs/screenshots/pet-shape-2026-10-15/starter-lightning-battle-clips-body-1.webp": "a42c3bc9f115bb3e4d9b33e9b59c7070bbffcb73a36cfcd6ff0b694343a9a045",
-        "docs/screenshots/pet-shape-2026-10-15/starter-lightning-runtime-source-head.webp": "9de9cace4467900ea4ff87cbfe1a17a4943314b7837e42d8f57153de8a65320d",
-        "docs/screenshots/pet-shape-2026-10-15/starter-lightning-runtime-source-body.webp": "d25f806e601d9f4adf213da0f2c2dafa6fd87651f2cbf1e7253e09e1d3f6b2cc",
-        "docs/screenshots/pet-shape-2026-10-15/starter-lightning-runtime-battle-head.webp": "a16ade969b61a650c58a1700fe82c46c2e6c324eccfcb336a46cd8b64b5dcc85",
-        "docs/screenshots/pet-shape-2026-10-15/starter-lightning-runtime-battle-body.webp": "6683f5d9f5e2c72b835c7eb708bb0af064df6c0fb465ccdfde8bd42b95c31490",
-        "docs/screenshots/pet-shape-2026-10-15/starter-lightning-numeric-evidence.json": "edf611feb445e2fd130768d108a9bc6e2d242705679bdade69bed563949824ef"
-      },
-      "findings": {
-        "runtime": "All sixteen production rows inspected in both versions, front and side, head and body. Golden fox short muzzle, eyes, tall ears, metal forehead plate, red scarf, blue torso, four golden paws and white-tipped tail remain coherent throughout all runtime rows in both versions, including hit tint, attack and death/revive.",
-        "source": "All 13 clips inspected at six alternate phases in front and side head and full-body views for this source asset. Spark Pup eyes, narrow muzzle mask, forehead plate and tall orange ears remain coherent through attack, recoil and turned death; red scarf, four paws, blue outfit and pale-tipped tail remain intact after rig scale correction.",
-        "battle": "All 13 clips inspected at six alternate phases in front and side head and full-body views for this battle asset. Spark Pup eyes, narrow muzzle mask, forehead plate and tall orange ears remain coherent through attack, recoil and turned death; red scarf, four paws, blue outfit and pale-tipped tail remain intact after rig scale correction."
       },
       "limits": "All 13 raw clips inspected twice with front and side head/body views; final pass uses six alternate phases. Production renderer inspected through 16 continuous state/transition rows at six phases in both assets. Dense skull/world-edge and all-geometry probes supplement visual review; this does not claim exhaustive coverage of every possible gameplay state."
     },
@@ -9177,64 +8887,6 @@
       },
       "limits": "All 13 raw clips inspected twice with front and side head/body views; final pass uses six alternate phases. Production renderer inspected through 16 continuous state/transition rows at six phases in both assets. Dense skull/world-edge and all-geometry probes supplement visual review; this does not claim exhaustive coverage of every possible gameplay state."
     },
-    "starter-wind": {
-      "sha256": "88b1ae6adec0ec9ff2060e76b3e15b9bf1f17f73242d18c31b026e1f3fab10a1",
-      "lodSha256": "37461fa112b9f3ccfdf0650db492413d467442f7ab07748c8bd1d4e486f20e86",
-      "atlasSha256": "0d92c634c9a6ffee3c712fbcbc77450c6ddf7056fd8b1b70607600a0355c03de",
-      "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
-      "reviewer": "Codex visual inspection",
-      "reviewedAt": "2026-10-15T08:15:11.833Z",
-      "clips": [
-        "idle",
-        "idle_2",
-        "walk",
-        "gallop",
-        "gallop_jump",
-        "attack",
-        "idle_hitreact1",
-        "death",
-        "entrance",
-        "cast",
-        "guard",
-        "rest",
-        "victory"
-      ],
-      "views": [
-        "front",
-        "side"
-      ],
-      "fullBodyReviewed": true,
-      "skullShapeReviewed": true,
-      "transitionsReviewed": true,
-      "evidence": [
-        "docs/screenshots/pet-shape-2026-10-15/starter-wind-source-clips-head-1.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-wind-source-clips-body-1.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-wind-battle-clips-head-1.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-wind-battle-clips-body-1.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-wind-runtime-source-head.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-wind-runtime-source-body.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-wind-runtime-battle-head.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-wind-runtime-battle-body.webp",
-        "docs/screenshots/pet-shape-2026-10-15/starter-wind-numeric-evidence.json"
-      ],
-      "evidenceSha256": {
-        "docs/screenshots/pet-shape-2026-10-15/starter-wind-source-clips-head-1.webp": "a6ad015445c5c262f374e602351871de379ea882098da36ba497aa7e183ce3e2",
-        "docs/screenshots/pet-shape-2026-10-15/starter-wind-source-clips-body-1.webp": "68cc902652843753d71e527b3f01524c663588ed98d83711482f88702231aa45",
-        "docs/screenshots/pet-shape-2026-10-15/starter-wind-battle-clips-head-1.webp": "5e34e5104ad722bc66f78d6bd6ab68492051fc5b6eeb0aef9bf83a50c4940e6c",
-        "docs/screenshots/pet-shape-2026-10-15/starter-wind-battle-clips-body-1.webp": "b72410b3758b88ca01af43b7c8265d1df808027ba4748d006a8570ac82f12686",
-        "docs/screenshots/pet-shape-2026-10-15/starter-wind-runtime-source-head.webp": "6e3bd0ef492cc8594ab5cc2e43b9628dde6544e92709d4e074291d4778dc2e51",
-        "docs/screenshots/pet-shape-2026-10-15/starter-wind-runtime-source-body.webp": "3c8907b55abf8958574d419f9c3427f74cb66c382283f8e3b1d53e9c56010012",
-        "docs/screenshots/pet-shape-2026-10-15/starter-wind-runtime-battle-head.webp": "cb7b37970ab355c2553bef913d1bbce853ad0d884c2b03acbc538de98309386d",
-        "docs/screenshots/pet-shape-2026-10-15/starter-wind-runtime-battle-body.webp": "0c82c931de3e1dffe5bdd102095571b10cb5751cefe424996b6de88650eccbd8",
-        "docs/screenshots/pet-shape-2026-10-15/starter-wind-numeric-evidence.json": "ab6c38f18f3afb5b83a5a2db491e03d58bb252ee6c6a2ddefb1eade3bb8125ac"
-      },
-      "findings": {
-        "runtime": "All sixteen production rows inspected in both versions, front and side, head and body. Yellow chick beak, blue eyes, crest, blue headband and ties, scarf, layered wings, belly, orange feet and feathered tail remain coherent through all sixteen runtime states and attack transitions in both asset versions. Previously repaired body seam stays closed.",
-        "source": "All 13 clips inspected at six alternate phases in front and side head and full-body views for this source asset. Gale Chick orange beak, blue eyes, round cheeks and yellow crest remain coherent through attack and turned death; scarf, long blue headband ties, both wings, tail feathers and orange talons remain intact including repaired local seams.",
-        "battle": "All 13 clips inspected at six alternate phases in front and side head and full-body views for this battle asset. Gale Chick orange beak, blue eyes, round cheeks and yellow crest remain coherent through attack and turned death; scarf, long blue headband ties, both wings, tail feathers and orange talons remain intact including repaired local seams."
-      },
-      "limits": "All 13 raw clips inspected twice with front and side head/body views; final pass uses six alternate phases. Production renderer inspected through 16 continuous state/transition rows at six phases in both assets. Dense skull/world-edge and all-geometry probes supplement visual review; this does not claim exhaustive coverage of every possible gameplay state."
-    },
     "starter-wind-r": {
       "sha256": "e01087a5773175900e8a99c054b1406abbc742210cd5efd4f824ca2aa6a180ca",
       "lodSha256": "5d3860becf2a9fa86dc907014e4a9e5bf17a85af8aab77383877d06260a792b7",
@@ -9293,13 +8945,187 @@
       },
       "limits": "All 13 raw clips inspected twice with front and side head/body views; final pass uses six alternate phases. Production renderer inspected through 16 continuous state/transition rows at six phases in both assets. Dense skull/world-edge and all-geometry probes supplement visual review; this does not claim exhaustive coverage of every possible gameplay state."
     },
-    "starter-wind-l": {
-      "sha256": "e87ef7c07028f28f135015ba27bb7041283c25cd35941483d6f11265baad902c",
-      "lodSha256": "912aa8af08da006457601330cbd59a8bc39e4d54093b35b6a7ba2074e80f9a5c",
-      "atlasSha256": "6404f64e73cff91fb28aaed4186f0b5de64f01edad84e0f0d7642b4d71988108",
+    "starter-fire-r": {
+      "sha256": "c0db7fb6a6918df612a8be6d7ae869ec370b8288f6a1a0b5be0579443ed4f6b8",
+      "lodSha256": "496393ff0190e3b99dd6e00d745640e8ff99f14c29740d9a4876f854ae68ad21",
+      "atlasSha256": "4992f624862a9c585b51fdcbe82727e33b377e0bb80cd2e32a3b572a349c5c5e",
       "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
       "reviewer": "Codex visual inspection",
-      "reviewedAt": "2026-10-15T08:15:54.986Z",
+      "reviewedAt": "2026-10-15T15:25:10.283Z",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "views": [
+        "front",
+        "side"
+      ],
+      "fullBodyReviewed": true,
+      "skullShapeReviewed": true,
+      "transitionsReviewed": true,
+      "evidence": [
+        "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-source-clips-head-1.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-source-clips-body-1.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-battle-clips-head-1.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-battle-clips-body-1.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-runtime-source-head.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-runtime-source-body.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-runtime-battle-head.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-runtime-battle-body.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-numeric-evidence.json"
+      ],
+      "evidenceSha256": {
+        "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-source-clips-head-1.webp": "12bedadd3767399526020d359ed1e9cb9de6f5572d1c42900a6b929ed2c2fc1f",
+        "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-source-clips-body-1.webp": "5f1d825b37cc42a626f55109eaa8cc3a11e3b2de7dbe8465ab0e1ca86d467381",
+        "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-battle-clips-head-1.webp": "43aecb01088f0e20757ff5ea7522b22b3fb7bf83593d2367945ddd8a3661341d",
+        "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-battle-clips-body-1.webp": "e31f6543931222d9433228f996334ddd7e2ebca0871e161d9793c77a7292ce06",
+        "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-runtime-source-head.webp": "199588032e133e463c62c20caf07b79e9ec7d2ea9bfb49de73b24bb6d2bdeb0b",
+        "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-runtime-source-body.webp": "1059219ba6344081d428df0a461314c3fc4f3331dc4a1b3e034d508a682da71e",
+        "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-runtime-battle-head.webp": "535189c2ba221b175e66462de28f699b6ad4e797795a2e0ec095d6caee6d3c69",
+        "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-runtime-battle-body.webp": "9df0b3d21e19fefc60d9d8fe5bf10b5b945889b5b03392e0b34c117a10bf18b0",
+        "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-numeric-evidence.json": "c48da76dd74e51bdbc37b0aea1bcc9d387588c262863662803eadd656bd838b7"
+      },
+      "findings": {
+        "runtime": "All 16 continuous production transition rows at six phases, front/side head and body, source and battle, actually inspected. Faces, body joins and support remain coherent through idle, movement, attack sequence, death and revive. All 13 clips, all six phases, front/side head and body sheets actually inspected. Black cat muzzle, red eye markings, pointed ears, blue headband/scarf, magma limbs, four paws and flame tail stay coherent; support gait is grounded. Normal and brighter head/body sheets inspected.",
+        "source": "Final shipping source asset: all 13 clips and six alternate phases actually inspected in front/side head and body sheets. All 13 clips, all six phases, front/side head and body sheets actually inspected. Black cat muzzle, red eye markings, pointed ears, blue headband/scarf, magma limbs, four paws and flame tail stay coherent; support gait is grounded. Normal and brighter head/body sheets inspected.",
+        "battle": "Final shipping battle asset: all 13 clips and six alternate phases actually inspected in front/side head and body sheets. All 13 clips, all six phases, front/side head and body sheets actually inspected. Black cat muzzle, red eye markings, pointed ears, blue headband/scarf, magma limbs, four paws and flame tail stay coherent; support gait is grounded. Normal and brighter head/body sheets inspected."
+      },
+      "limits": "All 13 raw clips inspected twice with front and side head/body views; final pass uses six alternate phases. Production renderer inspected through 16 continuous state/transition rows at six phases in both assets. Dense skull/world-edge and all-geometry probes supplement visual review; this does not claim exhaustive coverage of every possible gameplay state."
+    },
+    "starter-fire-l": {
+      "sha256": "e6ac156a45dd37fbcfa6ac1919d3dd21d6c88214a5bfd572b47fe2b57b27848c",
+      "lodSha256": "2bc8fac9fb8f0d0ca24f8d486a04e39472daa8a8dbd8f9f41e50b87b55512d46",
+      "atlasSha256": "04d827f13802eb859d8fdb1a8fda0576aa8416250f7d05f6c7df1947c3622b5e",
+      "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
+      "reviewer": "Codex visual inspection",
+      "reviewedAt": "2026-10-15T15:25:10.667Z",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "views": [
+        "front",
+        "side"
+      ],
+      "fullBodyReviewed": true,
+      "skullShapeReviewed": true,
+      "transitionsReviewed": true,
+      "evidence": [
+        "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-source-clips-head-1.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-source-clips-body-1.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-battle-clips-head-1.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-battle-clips-body-1.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-runtime-source-head.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-runtime-source-body.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-runtime-battle-head.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-runtime-battle-body.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-numeric-evidence.json"
+      ],
+      "evidenceSha256": {
+        "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-source-clips-head-1.webp": "56d2ae1f4a5b8ffc1c385841e1943e9954dd08b0cf21caf7c1f47f8aa43f8bd9",
+        "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-source-clips-body-1.webp": "c6fbd89decc22cdfb3ab9fca0689a5f2b3751b03fc112a1bcb224897f9d3aa7c",
+        "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-battle-clips-head-1.webp": "4a2e18260da5ab867e1249dafbd064c83f3d5039fc1e1b3f002e2a51cd17ed8c",
+        "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-battle-clips-body-1.webp": "6e745fca4b3a14d7b32e06f851ad23fb70932e5a1637728dc01dfffa32478973",
+        "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-runtime-source-head.webp": "db1a1e191e8d098f84488edf80377c06501b31d481a3fe012b6e7747862826d6",
+        "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-runtime-source-body.webp": "e5ce3d2f1402ce1e4f22560395fde24b4d5c45535ad3e41eb5c0f8bb9ec71511",
+        "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-runtime-battle-head.webp": "6d798865e8178b4655ca40d5a6e8dc906dd26e10fe206c629697f1cc84f622ad",
+        "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-runtime-battle-body.webp": "73dccb0d26d2307a5879033ab1b608a0d407746e19b32511889b09c2ba690a13",
+        "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-numeric-evidence.json": "e25da492eafbfc6fbea743983fb0c905db774cf695840956b973e21ecaa2b324"
+      },
+      "findings": {
+        "runtime": "All 16 continuous production transition rows at six phases, front/side head and body, source and battle, actually inspected. Faces, body joins and support remain coherent through idle, movement, attack sequence, death and revive. All 13 clips, all six phases, front/side head and body sheets actually inspected. Flame crown, gold eyes, dark feline muzzle, blue mane/scarf, magma torso, four legs and long flame tail remain intact; support and wrist/ankle joins stay closed. Normal and brighter head/body sheets inspected.",
+        "source": "Final shipping source asset: all 13 clips and six alternate phases actually inspected in front/side head and body sheets. All 13 clips, all six phases, front/side head and body sheets actually inspected. Flame crown, gold eyes, dark feline muzzle, blue mane/scarf, magma torso, four legs and long flame tail remain intact; support and wrist/ankle joins stay closed. Normal and brighter head/body sheets inspected.",
+        "battle": "Final shipping battle asset: all 13 clips and six alternate phases actually inspected in front/side head and body sheets. All 13 clips, all six phases, front/side head and body sheets actually inspected. Flame crown, gold eyes, dark feline muzzle, blue mane/scarf, magma torso, four legs and long flame tail remain intact; support and wrist/ankle joins stay closed. Normal and brighter head/body sheets inspected."
+      },
+      "limits": "All 13 raw clips inspected twice with front and side head/body views; final pass uses six alternate phases. Production renderer inspected through 16 continuous state/transition rows at six phases in both assets. Dense skull/world-edge and all-geometry probes supplement visual review; this does not claim exhaustive coverage of every possible gameplay state."
+    },
+    "starter-wind": {
+      "sha256": "7db0c699890741263cddd7f65e6ccc2fe7cf8d62fe56fc5b210ae40333ef55d9",
+      "lodSha256": "601e725c6fbb01ef2395dfcca5088c82ff044eb04118f8e06cc9330b43151a90",
+      "atlasSha256": "bd3faa514bb194e240f61c9a404e1216b421c04a0cc0384fd6d151510e9fb267",
+      "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
+      "reviewer": "Codex visual inspection",
+      "reviewedAt": "2026-10-15T15:25:10.964Z",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "views": [
+        "front",
+        "side"
+      ],
+      "fullBodyReviewed": true,
+      "skullShapeReviewed": true,
+      "transitionsReviewed": true,
+      "evidence": [
+        "docs/screenshots/pet-shape-2026-10-15/starter-wind-source-clips-head-1.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-wind-source-clips-body-1.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-wind-battle-clips-head-1.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-wind-battle-clips-body-1.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-wind-runtime-source-head.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-wind-runtime-source-body.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-wind-runtime-battle-head.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-wind-runtime-battle-body.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-wind-numeric-evidence.json"
+      ],
+      "evidenceSha256": {
+        "docs/screenshots/pet-shape-2026-10-15/starter-wind-source-clips-head-1.webp": "8a072e94f5c3508ca162f05fd558ba0f102dcdd49fd36d0003aa13013db0bb06",
+        "docs/screenshots/pet-shape-2026-10-15/starter-wind-source-clips-body-1.webp": "e63654a6d24042bf42e632fd69b937bcc60867e076caead3fb120f0bf98aa656",
+        "docs/screenshots/pet-shape-2026-10-15/starter-wind-battle-clips-head-1.webp": "ca16ad649c35f5c908f8a8db347fe9007394711145ec8d2430b3813d835b0102",
+        "docs/screenshots/pet-shape-2026-10-15/starter-wind-battle-clips-body-1.webp": "5b08dab45b848ac9cc80c5f47bb8d26c82666b5cf471661609eaf29591195d32",
+        "docs/screenshots/pet-shape-2026-10-15/starter-wind-runtime-source-head.webp": "756db864af060df0a04e2f253ac42155867d481c9d28f72fd1db5a813973e87b",
+        "docs/screenshots/pet-shape-2026-10-15/starter-wind-runtime-source-body.webp": "7bbdf53f8dda3d98392be88a63f0b963f3510c5168af9a1729341c28b9c7fb85",
+        "docs/screenshots/pet-shape-2026-10-15/starter-wind-runtime-battle-head.webp": "7e541e4dc454edd97ff6cbfa7e728a945812c318396f310e8daa49e62f488593",
+        "docs/screenshots/pet-shape-2026-10-15/starter-wind-runtime-battle-body.webp": "46e3e3ceca823a456ba5a79c723920a9f503f53787a08915cdb343bdd38360cc",
+        "docs/screenshots/pet-shape-2026-10-15/starter-wind-numeric-evidence.json": "7a7bf345c1f863e54255f181b8b1e8c27fe44729b9431860eb19b3521d4605e9"
+      },
+      "findings": {
+        "runtime": "All 16 continuous production transition rows at six phases, front/side head and body, source and battle, actually inspected. Faces, body joins and support remain coherent through idle, movement, attack sequence, death and revive. All 13 clips, all six phases, front/side head and body sheets actually inspected. Yellow chick beak, blue eyes, headband, scarf, wings, orange feet and feathered tail remain intact with stable grounded support.",
+        "source": "Final shipping source asset: all 13 clips and six alternate phases actually inspected in front/side head and body sheets. All 13 clips, all six phases, front/side head and body sheets actually inspected. Yellow chick beak, blue eyes, headband, scarf, wings, orange feet and feathered tail remain intact with stable grounded support.",
+        "battle": "Final shipping battle asset: all 13 clips and six alternate phases actually inspected in front/side head and body sheets. All 13 clips, all six phases, front/side head and body sheets actually inspected. Yellow chick beak, blue eyes, headband, scarf, wings, orange feet and feathered tail remain intact with stable grounded support."
+      },
+      "limits": "All 13 raw clips inspected twice with front and side head/body views; final pass uses six alternate phases. Production renderer inspected through 16 continuous state/transition rows at six phases in both assets. Dense skull/world-edge and all-geometry probes supplement visual review; this does not claim exhaustive coverage of every possible gameplay state."
+    },
+    "starter-wind-l": {
+      "sha256": "2b04bfe8ef5c7f83cea3887a7c617aeba701470ec9d89a186fe60d4f3929884e",
+      "lodSha256": "30714eb45c4a502576c4d8a0654d32c61f64dc587aa6a51f34fbe7a64f281e2b",
+      "atlasSha256": "67acd41e4db778bc4cfc14ada282549a6b4189fc35c65a1af310024077bab83d",
+      "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
+      "reviewer": "Codex visual inspection",
+      "reviewedAt": "2026-10-15T15:25:11.282Z",
       "clips": [
         "idle",
         "idle_2",
@@ -9334,20 +9160,194 @@
         "docs/screenshots/pet-shape-2026-10-15/starter-wind-l-numeric-evidence.json"
       ],
       "evidenceSha256": {
-        "docs/screenshots/pet-shape-2026-10-15/starter-wind-l-source-clips-head-1.webp": "939c7e951c393b18f1db28871366ec4e267b9ab8038073d4fab52f1c63759d72",
-        "docs/screenshots/pet-shape-2026-10-15/starter-wind-l-source-clips-body-1.webp": "a121c134c9090e45655e9db9711df16b9b1e4029e998fa231b138efc3b3252bd",
-        "docs/screenshots/pet-shape-2026-10-15/starter-wind-l-battle-clips-head-1.webp": "04f2edb9e2e946ea5ca7fb461f2083c1cf3f3e2569efdd673d5e6bad0088de64",
-        "docs/screenshots/pet-shape-2026-10-15/starter-wind-l-battle-clips-body-1.webp": "5043404003b38ef904627aada51ae23fd0576926688a68b2a47e39ba07ed1c77",
-        "docs/screenshots/pet-shape-2026-10-15/starter-wind-l-runtime-source-head.webp": "4808293acd7b0bd426a6dff760926fa97c964657888d900fb25cc2763a7ea2ec",
-        "docs/screenshots/pet-shape-2026-10-15/starter-wind-l-runtime-source-body.webp": "785005331d2f92dd565b83b61adddf7e145188f57f3f4148df63d7a6055ae387",
-        "docs/screenshots/pet-shape-2026-10-15/starter-wind-l-runtime-battle-head.webp": "30c3500ccc0c65b022dc29d02364ac8b9a870464e8c96ca0954ddcd3d6098dc9",
-        "docs/screenshots/pet-shape-2026-10-15/starter-wind-l-runtime-battle-body.webp": "368a7aa0ccd9357f731eaefb83d3af0798eed6b7043b7ee11497715e50f761d1",
-        "docs/screenshots/pet-shape-2026-10-15/starter-wind-l-numeric-evidence.json": "77d1a049b0487d843245db6bf0ecb4a3786d399c7685b2082b050ec2fc325375"
+        "docs/screenshots/pet-shape-2026-10-15/starter-wind-l-source-clips-head-1.webp": "8e751c74343d3731dfea80ad499a670f1802de8203c562d348a71524addb0f39",
+        "docs/screenshots/pet-shape-2026-10-15/starter-wind-l-source-clips-body-1.webp": "7b2315a6474eb69872616c571d35574fb029f02504ee83cf54cb0078b08801b7",
+        "docs/screenshots/pet-shape-2026-10-15/starter-wind-l-battle-clips-head-1.webp": "68e50d2fc0ae4861f303d54f4efdd1435048214412be8fa8413ab0e9d93115ea",
+        "docs/screenshots/pet-shape-2026-10-15/starter-wind-l-battle-clips-body-1.webp": "9b5b6291ce419f1ac50890e721f030983b1add604f04d3c94720b52ed7ae4313",
+        "docs/screenshots/pet-shape-2026-10-15/starter-wind-l-runtime-source-head.webp": "8670d059c43775a7def96293324d5ba6d0461b2cac8d0be09638ede2db8f56b7",
+        "docs/screenshots/pet-shape-2026-10-15/starter-wind-l-runtime-source-body.webp": "3ce96aff680478ec161fd59de621a36c61e323a19bf64b7f132749d4ccc8efc6",
+        "docs/screenshots/pet-shape-2026-10-15/starter-wind-l-runtime-battle-head.webp": "56780dd78b3be108480e5d35a6f736ebff057ac59be14f528d399fa27780727f",
+        "docs/screenshots/pet-shape-2026-10-15/starter-wind-l-runtime-battle-body.webp": "f5b8b2a5c80d49e6eb7d81121372761ea050acfba3a9616636e0a0cc24f3147e",
+        "docs/screenshots/pet-shape-2026-10-15/starter-wind-l-numeric-evidence.json": "cfe11964cbbb95f79afd9db41666c3aeab511b5b90890eb5209f66042a3a6faa"
       },
       "findings": {
-        "runtime": "All sixteen production rows inspected in both versions, front and side, head and body. Gold and teal roc hooked beak, eyes, angular brow, crest, headband, feathered neck, two tall wings, torso, talons and long teal tail stay intact through all sixteen runtime rows and attack transitions in source and battle. Normal and brighter sheets checked; repaired torso and limb seams stay closed.",
-        "source": "All 13 clips inspected at six alternate phases in front and side head and full-body views for this source asset. Tempest Roc eyes, open hooked beak, gold cheek feathers and tall gold-green crown retain their shapes through attack and turned death; wings, long green tail feathers, chest wrap and both clawed feet remain intact including repaired local seams.",
-        "battle": "All 13 clips inspected at six alternate phases in front and side head and full-body views for this battle asset. Tempest Roc eyes, open hooked beak, gold cheek feathers and tall gold-green crown retain their shapes through attack and turned death; wings, long green tail feathers, chest wrap and both clawed feet remain intact including repaired local seams."
+        "runtime": "All 16 continuous production transition rows at six phases, front/side head and body, source and battle, actually inspected. Faces, body joins and support remain coherent through idle, movement, attack sequence, death and revive. All 13 clips, all six phases, front/side head and body sheets actually inspected. Gold hooked beak, eyes, crest, teal headband, feathered neck, tall wings, talons and teal tail remain coherent; no open torso or limb seams.",
+        "source": "Final shipping source asset: all 13 clips and six alternate phases actually inspected in front/side head and body sheets. All 13 clips, all six phases, front/side head and body sheets actually inspected. Gold hooked beak, eyes, crest, teal headband, feathered neck, tall wings, talons and teal tail remain coherent; no open torso or limb seams.",
+        "battle": "Final shipping battle asset: all 13 clips and six alternate phases actually inspected in front/side head and body sheets. All 13 clips, all six phases, front/side head and body sheets actually inspected. Gold hooked beak, eyes, crest, teal headband, feathered neck, tall wings, talons and teal tail remain coherent; no open torso or limb seams."
+      },
+      "limits": "All 13 raw clips inspected twice with front and side head/body views; final pass uses six alternate phases. Production renderer inspected through 16 continuous state/transition rows at six phases in both assets. Dense skull/world-edge and all-geometry probes supplement visual review; this does not claim exhaustive coverage of every possible gameplay state."
+    },
+    "starter-lightning": {
+      "sha256": "5b96adb25eca071c6b1df6c020cd19def0a37d4b779c41eade34114f4089406f",
+      "lodSha256": "6125a968fa0163c556163c6756e7434577f5c16c8c91fbd454b927fc08b527b4",
+      "atlasSha256": "65923d615e4438c5ab313b5912600183bd735608ac833fdcb5ec1d75e7b9aabf",
+      "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
+      "reviewer": "Codex visual inspection",
+      "reviewedAt": "2026-10-15T15:25:11.561Z",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "views": [
+        "front",
+        "side"
+      ],
+      "fullBodyReviewed": true,
+      "skullShapeReviewed": true,
+      "transitionsReviewed": true,
+      "evidence": [
+        "docs/screenshots/pet-shape-2026-10-15/starter-lightning-source-clips-head-1.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-lightning-source-clips-body-1.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-lightning-battle-clips-head-1.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-lightning-battle-clips-body-1.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-lightning-runtime-source-head.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-lightning-runtime-source-body.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-lightning-runtime-battle-head.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-lightning-runtime-battle-body.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-lightning-numeric-evidence.json"
+      ],
+      "evidenceSha256": {
+        "docs/screenshots/pet-shape-2026-10-15/starter-lightning-source-clips-head-1.webp": "1a244245dbedcac0a3ec01763122f5e7621072cde0c234b3d525e6c20965681c",
+        "docs/screenshots/pet-shape-2026-10-15/starter-lightning-source-clips-body-1.webp": "8fad6219b51b0d2d05915baf139bf74c26b05af4ef9d77d015d8aec3d69f0023",
+        "docs/screenshots/pet-shape-2026-10-15/starter-lightning-battle-clips-head-1.webp": "c2b54ec7bc343cd3aeea6261650facd9508c66f0812fa6144e7912cd25adfaf4",
+        "docs/screenshots/pet-shape-2026-10-15/starter-lightning-battle-clips-body-1.webp": "5341954ff5333ffae2a95cff1c8c73a071e813d9713cd926f152a7fca2d02b96",
+        "docs/screenshots/pet-shape-2026-10-15/starter-lightning-runtime-source-head.webp": "e38af9a4876259185deff125a00b5833ab17c91ad592ae030e359f7af9d11c01",
+        "docs/screenshots/pet-shape-2026-10-15/starter-lightning-runtime-source-body.webp": "6d4f409d2e160ff2723fef4376766e3bf55f549050d9c4010ddb642356916137",
+        "docs/screenshots/pet-shape-2026-10-15/starter-lightning-runtime-battle-head.webp": "f17f17c4888d652e68dbf6ca432d4fb323b08b89c6bd3c2b8c9adb9a1c7f59de",
+        "docs/screenshots/pet-shape-2026-10-15/starter-lightning-runtime-battle-body.webp": "b5f6125144bfd8b46aea7d6854398299a9b7bce3fac9c8e1458ef7da2fb9a6d6",
+        "docs/screenshots/pet-shape-2026-10-15/starter-lightning-numeric-evidence.json": "a798080b9a817b38daae2dbafa41273768e85ac4293693d37a390e404091f654"
+      },
+      "findings": {
+        "runtime": "All 16 continuous production transition rows at six phases, front/side head and body, source and battle, actually inspected. Faces, body joins and support remain coherent through idle, movement, attack sequence, death and revive. All 13 clips, all six phases, front/side head and body sheets actually inspected. Golden fox muzzle, eyes, tall ears, metal headband, red scarf, blue torso, four gold paws and white tail tip retain their shapes and grounded support.",
+        "source": "Final shipping source asset: all 13 clips and six alternate phases actually inspected in front/side head and body sheets. All 13 clips, all six phases, front/side head and body sheets actually inspected. Golden fox muzzle, eyes, tall ears, metal headband, red scarf, blue torso, four gold paws and white tail tip retain their shapes and grounded support.",
+        "battle": "Final shipping battle asset: all 13 clips and six alternate phases actually inspected in front/side head and body sheets. All 13 clips, all six phases, front/side head and body sheets actually inspected. Golden fox muzzle, eyes, tall ears, metal headband, red scarf, blue torso, four gold paws and white tail tip retain their shapes and grounded support."
+      },
+      "limits": "All 13 raw clips inspected twice with front and side head/body views; final pass uses six alternate phases. Production renderer inspected through 16 continuous state/transition rows at six phases in both assets. Dense skull/world-edge and all-geometry probes supplement visual review; this does not claim exhaustive coverage of every possible gameplay state."
+    },
+    "starter-earth-r": {
+      "sha256": "0a5245954cdf15e302165ed00cf8fee0a64f3fe735eb4dc6470c717eedb4b6cf",
+      "lodSha256": "bc881dd5538d59419f83e33e679d6bc8be606939082ce767628990c74fce162b",
+      "atlasSha256": "20d8613dc19ecaa14c409e22fe1e5679095bed9f57b334ad6834151a9502d47f",
+      "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
+      "reviewer": "Codex visual inspection",
+      "reviewedAt": "2026-10-15T15:25:11.811Z",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "views": [
+        "front",
+        "side"
+      ],
+      "fullBodyReviewed": true,
+      "skullShapeReviewed": true,
+      "transitionsReviewed": true,
+      "evidence": [
+        "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-source-clips-head-1.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-source-clips-body-1.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-battle-clips-head-1.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-battle-clips-body-1.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-runtime-source-head.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-runtime-source-body.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-runtime-battle-head.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-runtime-battle-body.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-numeric-evidence.json"
+      ],
+      "evidenceSha256": {
+        "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-source-clips-head-1.webp": "8f03c4f83799a4c4b3c78f74f0959e59ed135f18511492791f0e219c3a278e76",
+        "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-source-clips-body-1.webp": "c93e9fa6d2a3efd4221d6d90027de0162b472299e488ca9f535c5517cc4fae2e",
+        "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-battle-clips-head-1.webp": "515a250c6446a8b3418e3fa79b41ae4c031568b376dc5fc500274aed3ac69af3",
+        "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-battle-clips-body-1.webp": "da4ebafe906e6840cb0ae07b389392ccf2490bcc20bda062909d7bfd1b3ddb1b",
+        "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-runtime-source-head.webp": "b254958dec06bded041f094134f0fe22967208d8443a5a8fa617645cee34cbc4",
+        "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-runtime-source-body.webp": "d438c785c516c5362277d2926735d088327606b0752c94aba7b2411997c71667",
+        "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-runtime-battle-head.webp": "5711d96f944e5ff8d3c4372fdade8ab5df8c4114b961150e1000087145541fdc",
+        "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-runtime-battle-body.webp": "6926c2bdcf094d12ad49c21a021481d7879e727d812d50b80c3ced7df22c9212",
+        "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-numeric-evidence.json": "9a6a5ee132785de2e19350b89454f8e26c8f8bf2819e59690f591776aadc9bb7"
+      },
+      "findings": {
+        "runtime": "All 16 continuous production transition rows at six phases, front/side head and body, source and battle, actually inspected. Faces, body joins and support remain coherent through idle, movement, attack sequence, death and revive. All 13 clips, all six phases, front/side head and body sheets actually inspected. Turtle muzzle, eyes, headband, segmented shell, chest straps, sword, wrapped arms, hands, legs, toes and tail remain intact; detached shoulder sliver stays absent.",
+        "source": "Final shipping source asset: all 13 clips and six alternate phases actually inspected in front/side head and body sheets. All 13 clips, all six phases, front/side head and body sheets actually inspected. Turtle muzzle, eyes, headband, segmented shell, chest straps, sword, wrapped arms, hands, legs, toes and tail remain intact; detached shoulder sliver stays absent.",
+        "battle": "Final shipping battle asset: all 13 clips and six alternate phases actually inspected in front/side head and body sheets. All 13 clips, all six phases, front/side head and body sheets actually inspected. Turtle muzzle, eyes, headband, segmented shell, chest straps, sword, wrapped arms, hands, legs, toes and tail remain intact; detached shoulder sliver stays absent."
+      },
+      "limits": "All 13 raw clips inspected twice with front and side head/body views; final pass uses six alternate phases. Production renderer inspected through 16 continuous state/transition rows at six phases in both assets. Dense skull/world-edge and all-geometry probes supplement visual review; this does not claim exhaustive coverage of every possible gameplay state."
+    },
+    "starter-earth-l": {
+      "sha256": "f73c65852cf9426515443d516cb757cf2dec92a12b3658221c675743f9156912",
+      "lodSha256": "20c781a4e181b2c6be8353451fa739d6deb6f7c8583ebf5ea01658514f64f2ee",
+      "atlasSha256": "1a84bcbcdbb33a613602bd3f9b09166745e81b89f1103668658875ac8344eb55",
+      "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
+      "reviewer": "Codex visual inspection",
+      "reviewedAt": "2026-10-15T15:25:12.032Z",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "views": [
+        "front",
+        "side"
+      ],
+      "fullBodyReviewed": true,
+      "skullShapeReviewed": true,
+      "transitionsReviewed": true,
+      "evidence": [
+        "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-source-clips-head-1.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-source-clips-body-1.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-battle-clips-head-1.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-battle-clips-body-1.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-runtime-source-head.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-runtime-source-body.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-runtime-battle-head.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-runtime-battle-body.webp",
+        "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-numeric-evidence.json"
+      ],
+      "evidenceSha256": {
+        "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-source-clips-head-1.webp": "48b875bc606fbaf9d459ddf8253f1dbd2836dcda5a747f0798a2419afc3e0749",
+        "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-source-clips-body-1.webp": "be9090f64657f09d34096e5b564ea8bb8e30e482d310e742ef452c6dfe8edb93",
+        "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-battle-clips-head-1.webp": "03f19dc9a682528db5d9e03a0dfab3182e25d751109553748adb09d35084c0ac",
+        "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-battle-clips-body-1.webp": "e7080e54c848c36158cbfebfe395d465328855833bc2425a8bc03533f6742ff6",
+        "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-runtime-source-head.webp": "71abb2308761ad7b09a51714d09ba9085680f95469c02d91210f1927f4075507",
+        "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-runtime-source-body.webp": "29b5f24dc3fc3e12a5871fa08a5266a90bb17a514f678505850ea3071e5941ee",
+        "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-runtime-battle-head.webp": "548f25fa314696b8c97bc245fe54f33848ceb481ae4d1349a8bdda7fe7224234",
+        "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-runtime-battle-body.webp": "adb844871e7ebc601ead5e394e2cc59d9908c21e456ef172923f62f31101f239",
+        "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-numeric-evidence.json": "83ec91c7b0f2252b76dd9fbe9e16820dacea8cc5ad01f2b2ebe6d2c7b73198a1"
+      },
+      "findings": {
+        "runtime": "All 16 continuous production transition rows at six phases, front/side head and body, source and battle, actually inspected. Faces, body joins and support remain coherent through idle, movement, attack sequence, death and revive. All 13 clips, all six phases, front/side head and body sheets actually inspected. Green turtle muzzle, eyes, headband, chest plates, spiked shell, wrapped wrists, four limbs, claws and tail remain intact with coherent grounded gait.",
+        "source": "Final shipping source asset: all 13 clips and six alternate phases actually inspected in front/side head and body sheets. All 13 clips, all six phases, front/side head and body sheets actually inspected. Green turtle muzzle, eyes, headband, chest plates, spiked shell, wrapped wrists, four limbs, claws and tail remain intact with coherent grounded gait.",
+        "battle": "Final shipping battle asset: all 13 clips and six alternate phases actually inspected in front/side head and body sheets. All 13 clips, all six phases, front/side head and body sheets actually inspected. Green turtle muzzle, eyes, headband, chest plates, spiked shell, wrapped wrists, four limbs, claws and tail remain intact with coherent grounded gait."
       },
       "limits": "All 13 raw clips inspected twice with front and side head/body views; final pass uses six alternate phases. Production renderer inspected through 16 continuous state/transition rows at six phases in both assets. Dense skull/world-edge and all-geometry probes supplement visual review; this does not claim exhaustive coverage of every possible gameplay state."
     }

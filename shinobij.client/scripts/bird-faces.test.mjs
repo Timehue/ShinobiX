@@ -8,6 +8,7 @@ import { BIRD_FACE_REPAIRS, BIRD_FACE_REPAIR_REVISION, birdSkullShare, birdEnvel
 
 const BEAK_SURFACES = JSON.parse(await readFile(new URL('./fixtures/bird-beak-vertices.json', import.meta.url), 'utf8')).models;
 const RUNTIME_MODELS = JSON.parse(await readFile(new URL('../public/pet-models/warfront-lod/manifest.json', import.meta.url), 'utf8')).entries;
+const BIND_BASELINES=JSON.parse(await readFile(new URL('./fixtures/pet-bind-20261014/manifest.json',import.meta.url))).fixtures;
 
 // Authored beak edges identified independently from the repair envelope using
 // the source atlas and bind coordinates. These caught lateral jaw holes that
@@ -40,7 +41,14 @@ async function load(id) {
     const original = structuredClone(json);
     original.meshes[0].primitives[0].attributes = json.extras.birdFaceRepair.original.attributes;
     original.animations = [];
-    return { before: await loadBird(original, binary), after: await loadBird(json, binary), bodyRepair };
+    let before;
+    if(BIND_BASELINES[id]){
+        const bytes=await readFile(new URL(`./fixtures/pet-bind-20261014/${id}.glb`,import.meta.url));
+        assert.equal(createHash('sha256').update(bytes).digest('hex'),BIND_BASELINES[id].sha256);
+        const length=bytes.readUInt32LE(12);
+        before=await loadBird(JSON.parse(bytes.subarray(20,20+length)),bytes.subarray(28+length));
+    }else before=await loadBird(original,binary);
+    return { before, after: await loadBird(json, binary), bodyRepair };
 }
 
 for (const [id, envelope] of Object.entries(BIRD_FACE_REPAIRS)) {
@@ -52,7 +60,9 @@ for (const [id, envelope] of Object.entries(BIRD_FACE_REPAIRS)) {
         const joints = geometry.attributes.skinIndex, weights = geometry.attributes.skinWeight;
         const oldJoints = oldMesh.geometry.attributes.skinIndex, oldWeights = oldMesh.geometry.attributes.skinWeight;
         const head = mesh.skeleton.bones.findIndex(bone => bone.name === 'head');
-        const correction = birdEnvelopeMatrix(mesh);
+        // The anatomical fixture is defined before the starter rig's scale
+        // normalization; select the same vertices in that original bind frame.
+        const correction = birdEnvelopeMatrix(oldMesh);
         const points = [], skull = new Set();
         const beakFixture = BEAK_SURFACES[id], beakVertices = new Set(beakFixture?.vertices ?? []);
         if (beakFixture) {

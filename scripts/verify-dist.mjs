@@ -85,8 +85,9 @@ const forbiddenClientExtensions = new Set([
 // 1.6 MiB of headroom.
 // 2026-10-15: the completed whole-roster deformation review repairs skull
 // bindings and normalizes 13 starter rigs. Exact certified delivery data grows
-// by 4,015,440 B (3.83 MiB); the merged client measures 543.1 MiB. Reserve
-// 545 MiB, leaving about 1.9 MiB of headroom. The selected 480-file inventory,
+// by 5,745,888 B (5.48 MiB), including seven restored starter contact banks.
+// The merged client measures 544.8 MiB, within the 545 MiB allowance.
+// The selected 480-file inventory,
 // exact delivery bytes, authoring exclusions and independent JS/CSS budgets
 // remain enforced.
 const maxClientArtifactBytes = 545 * 1024 * 1024;
