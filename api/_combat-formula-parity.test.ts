@@ -22,6 +22,7 @@ import { join } from 'node:path';
 const ROOT = process.cwd();
 const SERVER = readFileSync(join(ROOT, 'api', 'pvp', 'move.ts'), 'utf8');
 const SERVER_FORMULAS = readFileSync(join(ROOT, 'api', 'combat-core', 'formulas.ts'), 'utf8');
+const HEALTH = readFileSync(join(ROOT, 'api', 'combat-core', 'health.ts'), 'utf8');
 // The canonical tag registries (STACKABLE_STATUS etc.) were centralized into
 // api/pvp/_tags.ts; move.ts imports them. Read the set literals from there.
 const SERVER_TAGS = readFileSync(join(ROOT, 'api', 'pvp', '_tags.ts'), 'utf8');
@@ -261,7 +262,10 @@ describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
         assert.match(SERVER_FORMULAS, /export function drainTick\(masteryLevel: number\)/, 'shared Drain mastery helper is missing');
         // A forged Named Weapon drains by tag count instead (owner ruling 2026-10-06).
         assert.match(SERVER, /const drainTickAmount = namedBladeSwing \? weaponDrainTick\(tagTotals\.size\) : drainTick\(masteryLevel\)/, 'move.ts no longer consumes the mastery-scaled Drain helper');
-        assert.match(SERVER, /hp: Math\.max\(0, f\.hp - amt\), chakra: Math\.max\(0, f\.chakra - amt\)/, 'Drain tick no longer affects HP+chakra');
+        // HP goes through damageCombatHealth, which floors finite health at 0 and
+        // banks the hit as damageReceived on an unlimited-health score attack.
+        assert.match(SERVER, /\.\.\.damageCombatHealth\(f, amt\), chakra: Math\.max\(0, f\.chakra - amt\)/, 'Drain tick no longer affects HP+chakra');
+        assert.match(HEALTH, /: \{ \.\.\.fighter, hp: Math\.max\(0, fighter\.hp - damage\) \}/, 'damageCombatHealth no longer reduces finite HP');
         assert.doesNotMatch(SERVER, /drainStamina/, 'Drain should not touch stamina');
         assertSoloUsesSharedMove('applyJutsu');
         assertSoloUsesSharedMove('applyDoTs');
