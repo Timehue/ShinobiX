@@ -15,6 +15,7 @@ import {
     CHRONICLE_AI_DIFFICULTIES,
     MAIN_DECK_SIZE,
     getChronicleCard,
+    tributeCountForLevel,
     validateDeckIds,
 } from '../../shared/chronicle-duel.js';
 
@@ -77,6 +78,29 @@ test('every opponent deck is a legal 40-card Chronicle Showdown deck from the ob
             assert.ok(
                 !id.startsWith('story-') && !id.startsWith('legacy-') && !id.startsWith('pet-witness-'),
                 `${def.id} avoids progression-unlock cards the player cannot pack (${id})`,
+            );
+        }
+    }
+});
+
+// The Keeper holds an element Snare until a face-up Monster of that element
+// stands, so a deck that can rarely field one carries a dead slot. Halden's
+// Mirror-Shell went dead this way when it gained its Water requirement
+// (2026-10-14): his only Water Monsters were two Level 7s.
+test('every element Snare in an opponent deck has Monsters of its element the deck can field', () => {
+    for (const def of ECHOES_ENCOUNTERS) {
+        for (const id of new Set(def.deck)) {
+            const snare = getChronicleCard(id);
+            if (snare?.cardClass !== 'trap' || !snare.effect.requiresFaceUpElement) continue;
+            const element = snare.effect.requiresFaceUpElement;
+            const anchors = def.deck.filter((cardId) => {
+                const card = getChronicleCard(cardId);
+                return card?.cardClass === 'monster' && card.element === element
+                    && tributeCountForLevel(card.level) < 2;
+            });
+            assert.ok(
+                anchors.length >= 2,
+                `${def.id} runs ${snare.name} with only ${anchors.length} ${element} Monsters it can field without two Tributes`,
             );
         }
     }

@@ -17,7 +17,13 @@ import {
   CHRONICLE_SUPPORT_CARDS,
   MAIN_DECK_SIZE,
   OPENING_HAND_SIZE,
+  SHADOW_DOUBLE_ID,
   STARTING_LIFE_POINTS,
+  WARDED_MONSTER_IDS,
+  WARDED_RULE_TEXT,
+  callOnlySummonBlocker,
+  isChronicleToken,
+  summoningJutsuBlocker,
   CHRONICLE_AFK_STRIKE_LIMIT,
   TURN_TIMEOUT_MS,
   advanceExpiredChronicleTurn,
@@ -349,14 +355,18 @@ test("Chronicle constants and opening rules are locked", () => {
   );
   assert.equal(state.p1.lifePoints, STARTING_LIFE_POINTS);
   assert.equal(state.p2.lifePoints, STARTING_LIFE_POINTS);
+  // Balance pass 2026-10-14: going first won 60% of starter mirrors with the
+  // turn-one draw and 49% without it, so the first player no longer draws.
+  assert.equal(CHRONICLE_FOUNDING_FORMAT.firstPlayerDrawsOnFirstTurn, false);
   assert.equal(
     state.p1.hand.length,
-    OPENING_HAND_SIZE + 1,
-    "the founding rule: first player draws on turn one",
+    OPENING_HAND_SIZE,
+    "the first player skips its turn-one draw",
   );
   assert.equal(state.p2.hand.length, OPENING_HAND_SIZE);
-  assert.equal(state.p1.deck.length, MAIN_DECK_SIZE - OPENING_HAND_SIZE - 1);
+  assert.equal(state.p1.deck.length, MAIN_DECK_SIZE - OPENING_HAND_SIZE);
   assert.equal(state.p2.deck.length, MAIN_DECK_SIZE - OPENING_HAND_SIZE);
+  assert.match(state.log.join(" "), /takes the first turn and skips its first draw/);
   assert.equal(state.phase, "main1");
   assert.ok(Number.isInteger(state.rngState));
   assert.equal(startBattlePhase(state, state.activePlayer).ok, false);
@@ -441,7 +451,10 @@ test("deck validation enforces the number of physical copies owned", () => {
 });
 
 test("all cards carry art while Smoke Bomb is the locked Trap", () => {
-  assert.equal(CHRONICLE_CARD_CATALOG.length, 392);
+  // 2026-10-14: +5 Summoning Calls, +5 called Monsters, +1 Shadow Clone. The
+  // Shadow Double token is deliberately not in the catalog.
+  assert.equal(CHRONICLE_CARD_CATALOG.length, 403);
+  assert.equal(CHRONICLE_CARD_CATALOG.some((card) => card.id === SHADOW_DOUBLE_ID), false);
   for (const card of CHRONICLE_CARD_CATALOG) {
     assert.ok(
       card.image?.startsWith("/"),
@@ -475,10 +488,11 @@ test("Effects are an Epic-and-up perk, with complete typed metadata", () => {
     (card) => card.monsterType === "effect",
   );
 
-  assert.equal(monsters.length, 292);
-  assert.equal(effectMonsters.length, 157);
-  assert.equal(CHRONICLE_EFFECT_MONSTER_IDS.length, 157);
-  assert.equal(new Set(CHRONICLE_EFFECT_MONSTER_IDS).size, 157);
+  // 2026-10-14: +5 called Monsters, each an Effect Monster (callSummonOnly).
+  assert.equal(monsters.length, 297);
+  assert.equal(effectMonsters.length, 162);
+  assert.equal(CHRONICLE_EFFECT_MONSTER_IDS.length, 162);
+  assert.equal(new Set(CHRONICLE_EFFECT_MONSTER_IDS).size, 162);
 
   // This replaces a flat "20-25% of all Monsters" band. Rarity no longer buys a
   // bigger Level, so what it buys instead is the effect: every Epic, Legendary
@@ -519,6 +533,7 @@ test("Effects are an Epic-and-up perk, with complete typed metadata", () => {
     [...new Set(effectMonsters.map((card) => card.monsterEffect?.kind))].sort(),
     [
       "alliedElementAttackBoost",
+      "callSummonOnly",
       "changeStrongestOpponentPositionOnFlip",
       "changeToDefenseWhenAttacked",
       "cycleHandsOnFlip",
@@ -566,12 +581,13 @@ test("the Monster pool uses exactly five nearly-even elements and no neutral Mon
       monsters.filter((card) => card.element === element).length,
     ]),
   );
+  // One called Monster per element (2026-10-14) keeps the spread even.
   assert.deepEqual(counts, {
-    Fire: 58,
-    Water: 58,
-    Earth: 58,
-    Wind: 58,
-    Lightning: 60,
+    Fire: 59,
+    Water: 59,
+    Earth: 59,
+    Wind: 59,
+    Lightning: 61,
   });
   assert.equal(
     monsters.some((card) => !CHRONICLE_ELEMENTS.includes(card.element)),
@@ -611,11 +627,18 @@ test("rarity buys power at a Level, never the Level itself", () => {
   }
 
   // 2. At any given Level, a higher rarity is strictly stronger.
+  // Called Monsters are exempt: they never compete for a Tribute slot, since
+  // only their Call can Summon them, and they are Legendary for scarcity (both
+  // halves of the pair are pack pulls), not for power. Their own rule is
+  // pinned in "a called Monster is weaker than every plain Level 8 of its
+  // element" below.
   const RANK = { common: 0, rare: 1, epic: 2, legendary: 3, mythic: 4 };
   const total = (card: { attack: number; defense: number }) =>
     card.attack + card.defense;
   for (let level = 1; level <= 8; level++) {
-    const at = monsters.filter((card) => card.level === level);
+    const at = monsters.filter(
+      (card) => card.level === level && card.monsterEffect?.kind !== "callSummonOnly",
+    );
     for (const a of at) {
       for (const b of at) {
         if (RANK[a.rarity] < RANK[b.rarity]) {
@@ -642,6 +665,82 @@ test("an on-Tribute-Summon effect never lands on a Monster that summons for free
       : [],
   );
   assert.deepEqual(stranded, []);
+});
+
+test("a FLIP effect never lands on a Monster that needs a Tribute to Set", () => {
+  // The mirror of the rule above. A FLIP fires when a Set card turns face-up,
+  // and a Set pays the same Tribute a Summon does, so on a Level 5+ body the
+  // effect cost a whole card first. FLIP_TRIGGER_TIERS in chronicle-duel.ts
+  // keeps these cards on free-summon Levels.
+  const stranded = CHRONICLE_CARD_CATALOG.flatMap((card) =>
+    card.cardClass === "monster" &&
+    card.monsterEffect?.trigger === "onFlip" &&
+    tributeCountForLevel(card.level) > 0
+      ? [`${card.id} (${card.name}) is Level ${card.level}`]
+      : [],
+  );
+  assert.deepEqual(stranded, []);
+});
+
+test("every printed Monster effect amount is the amount the engine applies", () => {
+  // Rarity sharpens effect magnitudes, and the card text is authored once at
+  // the base amount. An Epic used to print "gains 500 ATK" while the engine
+  // applied 750. Counts below 50 (draw 1, discard 1) are never scaled.
+  const misprinted = CHRONICLE_CARD_CATALOG.flatMap((card) => {
+    if (card.cardClass !== "monster" || !card.monsterEffect) return [];
+    const amount = card.monsterEffect.amount;
+    if (typeof amount !== "number" || amount < 50) return [];
+    return card.effectText?.includes(amount.toLocaleString("en-US"))
+      ? []
+      : [`${card.id} applies ${amount} but prints "${card.effectText}"`];
+  });
+  assert.deepEqual(misprinted, []);
+});
+
+test("a reflect effect with a printed amount deals that amount, not the attacker's ATK", () => {
+  // Only tc-63 reflects "damage equal to the attacker's ATK" (no amount). Every
+  // other reflect card prints a fixed sum, and used to deal the full ATK anyway.
+  const reflector = CHRONICLE_CARD_CATALOG.find(
+    (card) =>
+      card.cardClass === "monster" &&
+      card.monsterEffect?.kind === "reflectDamageWhenAttacked" &&
+      typeof card.monsterEffect.amount === "number",
+  );
+  assert.ok(reflector && reflector.cardClass === "monster");
+  const amount = reflector.monsterEffect?.amount ?? 0;
+  assert.match(reflector.effectText ?? "", new RegExp(amount.toLocaleString("en-US")));
+  // Clear the reflector even through a defending element edge, so the attacker
+  // wins the battle and the only damage it takes is the reflect.
+  const attacker = monsterWithAttackAbove(
+    reflector.attack + CHRONICLE_ELEMENT_BATTLE_BONUS,
+  );
+  const attackerCard = getChronicleCard(attacker);
+  assert.ok(attackerCard?.cardClass === "monster");
+  assert.ok(attackerCard.attack > amount, "the fixture must tell the two rules apart");
+
+  const state = match();
+  state.turnNumber = 2;
+  state.phase = "battle";
+  const actor = state.activePlayer;
+  const opponent = actor === "p1" ? "p2" : "p1";
+  placeMonster(state, actor, 0, attacker);
+  placeMonster(state, opponent, 0, reflector.id);
+
+  const preview = previewChronicleBattle(projectMatchForViewer(state, actor), 0, 0);
+  assert.match(
+    preview?.note ?? "",
+    new RegExp(`Reflect effect deals ${amount.toLocaleString()} before calculation`),
+  );
+
+  const battle = declareAttack(state, actor, {
+    action: "attack",
+    attackerZoneIndex: 0,
+    targetZoneIndex: 0,
+  });
+  assert.equal(battle.ok, true);
+  if (!battle.ok) return;
+  assert.equal(battle.state[actor].lifePoints, STARTING_LIFE_POINTS - amount);
+  assert.equal(battle.state[opponent].monsterZones[0], null, "the attacker still wins the battle");
 });
 
 test("classic starter spans low, medium, one-Tribute, and two-Tribute Monster bands", () => {
@@ -719,7 +818,8 @@ test("founding role pass provides deep Jutsu and Snare pools without copied iden
   const trapCards = CHRONICLE_SUPPORT_CARDS.filter(
     (card) => card.cardClass === "trap",
   );
-  assert.equal(magicCards.length, 48);
+  // 2026-10-14: +5 Summoning Calls and Shadow Clone.
+  assert.equal(magicCards.length, 54);
   assert.equal(trapCards.length, 52);
   assert.ok(
     magicCards.filter((card) => card.effectTier === "advanced").length >= 16,
@@ -777,7 +877,9 @@ test("founding role pass provides deep Jutsu and Snare pools without copied iden
         ).length,
       ]),
     ),
-    { Fire: 5, Water: 5, Earth: 5, Wind: 5, Lightning: 5 },
+    // Water's sixth is Mirror-Shell Counter, given a requirement by the
+    // 2026-10-14 balance pass because it was the strongest card in the game.
+    { Fire: 5, Water: 6, Earth: 5, Wind: 5, Lightning: 5 },
   );
   for (const card of trapCards.filter(
     (candidate) => candidate.effect.trigger === "onMonsterSummoned",
@@ -2136,29 +2238,30 @@ test("optional monster guidelines add position locks, tactical scaling, recovery
   actor = state.activePlayer;
   opponent = actor === "p1" ? "p2" : "p1";
   // The underdog only wins if the target is stronger than it, but by LESS than
-  // the ATK its effect grants — otherwise nothing is being measured.
-  const underdogCard = getChronicleCard("tc-81");
-  assert.equal(underdogCard?.cardClass, "monster");
-  const underdogAttack =
-    underdogCard?.cardClass === "monster" ? underdogCard.attack : 0;
-  const underdogBonus =
-    underdogCard?.cardClass === "monster"
-      ? (underdogCard.monsterEffect?.amount ?? 0)
-      : 0;
-  placeMonster(state, actor, 0, "tc-81");
-  placeMonster(
-    state,
-    opponent,
-    0,
-    monsterWhere(
-      (card) =>
-        card.element ===
-          (underdogCard?.cardClass === "monster" ? underdogCard.element : "") &&
-        card.attack > underdogAttack &&
-        card.attack < underdogAttack + underdogBonus,
-      "stronger than the underdog but inside its bonus, same element",
-    ),
+  // the ATK its effect grants — otherwise nothing is being measured. Both are
+  // searched by shape: the bonus is trimmed on free-summon bodies (balance
+  // pass 2026-10-14), so a named card's window moves with balance.
+  const vanilla = CHRONICLE_CARD_CATALOG.flatMap((card) =>
+    card.cardClass === "monster" && card.monsterType === "normal" ? [card] : [],
   );
+  const underdogPair = CHRONICLE_CARD_CATALOG.flatMap((card) => {
+    if (
+      card.cardClass !== "monster" ||
+      card.monsterEffect?.kind !== "gainAttackWhenBattlingStronger"
+    )
+      return [];
+    const bonus = card.monsterEffect.amount ?? 0;
+    const target = vanilla.find(
+      (candidate) =>
+        candidate.element === card.element &&
+        candidate.attack > card.attack &&
+        candidate.attack < card.attack + bonus,
+    );
+    return target ? [{ underdog: card.id, target: target.id }] : [];
+  })[0];
+  assert.ok(underdogPair, "no vanilla Monster stronger than an underdog but inside its bonus, same element");
+  placeMonster(state, actor, 0, underdogPair.underdog);
+  placeMonster(state, opponent, 0, underdogPair.target);
   const underdog = declareAttack(state, actor, {
     action: "attack",
     attackerZoneIndex: 0,
@@ -3173,7 +3276,11 @@ test("Normal Magic resolves to Graveyard and Equip remains attached", () => {
   });
   assert.equal(healed.ok, true);
   if (!healed.ok) return;
-  assert.equal(healed.state[actor].lifePoints, 8_700);
+  // Healing is uncapped, so it can lift Health above the starting 8,000.
+  const salve = getChronicleCard("chronicle-medical-salve");
+  assert.ok(salve?.cardClass === "magic");
+  assert.equal(healed.state[actor].lifePoints, 7_900 + (salve.effect.amount ?? 0));
+  assert.ok(healed.state[actor].lifePoints > STARTING_LIFE_POINTS);
   assert.equal(healed.state[actor].graveyard.at(-1), "chronicle-medical-salve");
   healed.state[actor].hand[0] = "chronicle-tempered-kunai";
   const equipped = activateMagic(healed.state, actor, {
@@ -3629,6 +3736,451 @@ test("summon and attack Traps resolve their destroy and return responses", () =>
   assert.equal(reflected.state[responder].lifePoints, STARTING_LIFE_POINTS);
 });
 
+test("Widespread Kunai Line answers a one-Tribute attacker but not a two-Tribute boss", () => {
+  // Balance pass 2026-10-14: an uncapped Rare destroy-the-attacker Snare turned
+  // every two-Tribute boss into a three-for-one trade.
+  const attackWith = (attackerId: string) => {
+    const state = match();
+    state.turnNumber = 3;
+    state.phase = "battle";
+    const attacker = state.activePlayer;
+    const responder: ChronicleSideKey = attacker === "p1" ? "p2" : "p1";
+    placeMonster(state, attacker, 0, attackerId);
+    state[responder].magicTrapZones[0] = {
+      instanceId: "kunai-line",
+      cardId: "chronicle-widespread-kunai-line",
+      owner: responder,
+      zoneIndex: 0,
+      faceUp: false,
+      setOnTurn: 1,
+    };
+    const declared = declareAttack(state, attacker, {
+      action: "attack",
+      attackerZoneIndex: 0,
+      targetZoneIndex: null,
+    });
+    assert.equal(declared.ok, true);
+    return declared.ok ? declared.state : state;
+  };
+  const oneTribute = attackWith(monsterCostingTributes(1));
+  assert.deepEqual(oneTribute.responseWindow?.eligibleZoneIndexes, [0]);
+  const twoTribute = attackWith(monsterCostingTributes(2));
+  assert.equal(twoTribute.responseWindow, null, "no Snare window opens for a Level 7+ attacker");
+});
+
+// ---------------------------------------------------------------------------
+// Summoning Calls, Shadow Clone and Warded (owner design, 2026-10-14).
+// ---------------------------------------------------------------------------
+
+const calls = CHRONICLE_SUPPORT_CARDS.flatMap((card) =>
+  card.cardClass === "magic" && card.effect.kind === "callSummon" ? [card] : [],
+);
+
+/** A board in the actor's Main Phase 1 on turn 3, with empty Monster Zones. */
+function mainPhaseBoard(hand: string[]): { state: ChronicleMatch; actor: ChronicleSideKey; opponent: ChronicleSideKey } {
+  const state = match();
+  state.turnNumber = 3;
+  state.phase = "main1";
+  const actor = state.activePlayer;
+  const opponent: ChronicleSideKey = actor === "p1" ? "p2" : "p1";
+  state[actor].hand = hand;
+  state[actor].monsterZones = state[actor].monsterZones.map(() => null);
+  state[opponent].monsterZones = state[opponent].monsterZones.map(() => null);
+  state[opponent].magicTrapZones = state[opponent].magicTrapZones.map(() => null);
+  return { state, actor, opponent };
+}
+
+test("each element has one Call, and its Monster is weaker than every plain Level 8 of that element", () => {
+  assert.deepEqual(
+    calls.map((call) => getChronicleCard(call.effect.calledMonsterId ?? "")?.cardClass === "monster"
+      ? (getChronicleCard(call.effect.calledMonsterId ?? "") as { element: string }).element
+      : "missing").sort(),
+    [...CHRONICLE_ELEMENTS].sort(),
+  );
+  for (const call of calls) {
+    assert.equal(call.rarity, "legendary", `${call.id} is a Legendary pack pull`);
+    assert.equal(call.effect.healthCost, 1_000);
+    const called = getChronicleCard(call.effect.calledMonsterId ?? "");
+    assert.ok(called?.cardClass === "monster", `${call.id} must call a Monster`);
+    assert.equal(called.level, 8);
+    assert.equal(called.rarity, "legendary", `${called.id} is a Legendary pack pull`);
+    assert.equal(called.monsterEffect?.kind, "callSummonOnly");
+    assert.match(called.effectText ?? "", new RegExp(call.name));
+    assert.match(call.effectText, new RegExp(called.name));
+    assert.equal(called.warded, undefined, "Warded is for Tribute Summons");
+    const plainEights = CHRONICLE_CARD_CATALOG.filter(
+      (card) =>
+        card.cardClass === "monster" &&
+        card.level === 8 &&
+        card.element === called.element &&
+        card.monsterEffect?.kind !== "callSummonOnly",
+    );
+    assert.ok(plainEights.length > 0);
+    for (const plain of plainEights)
+      if (plain.cardClass === "monster")
+        assert.ok(
+          called.attack + called.defense < plain.attack + plain.defense,
+          `${called.name} must be weaker than ${plain.name}`,
+        );
+  }
+});
+
+test("a called Monster can only enter through its Call", () => {
+  const call = calls[0];
+  const calledId = call.effect.calledMonsterId ?? "";
+  const state = summonReady(calledId);
+  const summoned = normalSummon(state, state.activePlayer, {
+    action: "normal-summon",
+    handIndex: 0,
+    zoneIndex: 0,
+  });
+  assert.equal(summoned.ok, false);
+  if (!summoned.ok) assert.match(summoned.error, new RegExp(call.name));
+  const set = normalSet(state, state.activePlayer, {
+    action: "set-monster",
+    handIndex: 0,
+    zoneIndex: 0,
+  });
+  assert.equal(set.ok, false);
+});
+
+test("a Call pays 1,000 Health, spends the Normal Summon, and its Monster waits a turn to attack", () => {
+  const call = calls[0];
+  const calledId = call.effect.calledMonsterId ?? "";
+  const filler = monsterCostingTributes(0);
+  const { state, actor } = mainPhaseBoard([call.id, calledId, filler]);
+
+  const called = applyAction(state, actor, { action: "activate-magic", handIndex: 0 }, 1_000);
+  assert.equal(called.ok, true);
+  if (!called.ok) return;
+  const board = called.state;
+  assert.equal(board[actor].lifePoints, STARTING_LIFE_POINTS - 1_000);
+  assert.equal(board.normalSummonUsed, true);
+  assert.deepEqual(board[actor].hand, [filler]);
+  assert.ok(board[actor].graveyard.includes(call.id));
+  const onField = board[actor].monsterZones.find((monster) => monster?.cardId === calledId);
+  assert.ok(onField, "the called Monster is on the field");
+  assert.equal(onField.position, "attack");
+  assert.equal(onField.faceUp, true);
+
+  const secondSummon = applyAction(board, actor, { action: "normal-summon", handIndex: 0, zoneIndex: 4 }, 1_000);
+  assert.equal(secondSummon.ok, false, "the Call used this turn's Normal Summon");
+
+  const battle = applyAction(board, actor, { action: "start-battle" }, 1_000);
+  assert.equal(battle.ok, true);
+  if (!battle.ok) return;
+  const swing = applyAction(
+    battle.state,
+    actor,
+    { action: "attack", attackerZoneIndex: onField.zoneIndex, targetZoneIndex: null },
+    1_000,
+  );
+  assert.equal(swing.ok, false, "a called Monster cannot attack the turn it arrives");
+});
+
+test("a Call refuses without its Monster, after a Normal Summon, or without the Health to pay", () => {
+  const call = calls[0];
+  const calledId = call.effect.calledMonsterId ?? "";
+  const activate = (state: ChronicleMatch, actor: ChronicleSideKey) =>
+    applyAction(state, actor, { action: "activate-magic", handIndex: 0 }, 1_000);
+
+  let { state, actor } = mainPhaseBoard([call.id]);
+  assert.equal(activate(state, actor).ok, false, "no called Monster in hand");
+
+  ({ state, actor } = mainPhaseBoard([call.id, calledId]));
+  state.normalSummonUsed = true;
+  assert.equal(activate(state, actor).ok, false, "the Normal Summon is spent");
+
+  ({ state, actor } = mainPhaseBoard([call.id, calledId]));
+  state[actor].lifePoints = 1_000;
+  assert.equal(activate(state, actor).ok, false, "1,000 Health cannot pay 1,000");
+});
+
+test("Shadow Clone makes two Shadow Doubles that can be Tributed from the next turn", () => {
+  const boss = monsterCostingTributes(2);
+  const { state, actor } = mainPhaseBoard(["chronicle-shadow-clone", boss]);
+  const cloned = applyAction(state, actor, { action: "activate-magic", handIndex: 0 }, 1_000);
+  assert.equal(cloned.ok, true);
+  if (!cloned.ok) return;
+  const doubles = cloned.state[actor].monsterZones.flatMap((monster, zoneIndex) =>
+    monster?.cardId === SHADOW_DOUBLE_ID ? [{ monster, zoneIndex }] : [],
+  );
+  assert.equal(doubles.length, 2);
+  for (const { monster } of doubles) {
+    assert.equal(monster.position, "defense");
+    assert.equal(monster.faceUp, true);
+  }
+  assert.equal(cloned.state.normalSummonUsed, false, "Shadow Clone is not a Normal Summon");
+  // The board reads canTribute, so it never offers a fresh Double as a Tribute.
+  const ownView = projectMatchForViewer(cloned.state, actor);
+  for (const { zoneIndex } of doubles) {
+    assert.equal(ownView[actor].monsterZones[zoneIndex]?.canTribute, false);
+    const foeView = projectMatchForViewer(cloned.state, actor === "p1" ? "p2" : "p1");
+    assert.equal(foeView[actor].monsterZones[zoneIndex]?.canTribute, undefined, "only the owner sees it");
+  }
+  const tributeIntent = {
+    action: "normal-summon",
+    handIndex: 0,
+    zoneIndex: doubles[0].zoneIndex,
+    tributeZoneIndexes: doubles.map(({ zoneIndex }) => zoneIndex),
+  };
+  const tooSoon = applyAction(cloned.state, actor, tributeIntent, 1_000);
+  assert.equal(tooSoon.ok, false);
+  if (!tooSoon.ok) assert.match(tooSoon.error, /turn after it appears/);
+
+  const nextTurn = structuredClone(cloned.state);
+  nextTurn.turnNumber += 2;
+  for (const { zoneIndex } of doubles)
+    assert.equal(projectMatchForViewer(nextTurn, actor)[actor].monsterZones[zoneIndex]?.canTribute, true);
+  const tributed = applyAction(nextTurn, actor, tributeIntent, 1_000);
+  assert.equal(tributed.ok, true);
+  if (!tributed.ok) return;
+  assert.ok(tributed.state[actor].monsterZones.some((monster) => monster?.cardId === boss));
+  assert.equal(tributed.state[actor].graveyard.includes(SHADOW_DOUBLE_ID), false, "Tributed Doubles vanish");
+});
+
+test("Shadow Clone needs two open Monster Zones", () => {
+  const { state, actor } = mainPhaseBoard(["chronicle-shadow-clone"]);
+  for (const zoneIndex of [0, 1, 2, 3]) placeMonster(state, actor, zoneIndex, "tc-01");
+  const refused = applyAction(state, actor, { action: "activate-magic", handIndex: 0 }, 1_000);
+  assert.equal(refused.ok, false);
+});
+
+test("a Shadow Double can never be owned, put in a Deck, or found off the field", () => {
+  assert.equal(isChronicleToken(SHADOW_DOUBLE_ID), true);
+  assert.equal(getChronicleCard(SHADOW_DOUBLE_ID)?.cardClass, "monster");
+  assert.equal(countChronicleCards([SHADOW_DOUBLE_ID, SHADOW_DOUBLE_ID]).size, 0);
+  const deckWithToken = [...CHRONICLE_FIXED_FALLBACK_DECK];
+  deckWithToken[0] = SHADOW_DOUBLE_ID;
+  const check = validateDeckIds(deckWithToken);
+  assert.equal(check.valid, false);
+  assert.ok(check.errors.some((error) => /token/.test(error)));
+
+  // Bounced by a Jutsu: the hand push happens inline, and the sweep removes it.
+  const { state, actor, opponent } = mainPhaseBoard(["chronicle-mirage-displacement"]);
+  placeMonster(state, opponent, 0, SHADOW_DOUBLE_ID);
+  const bounced = applyAction(
+    state,
+    actor,
+    { action: "activate-magic", handIndex: 0, targetZoneIndex: 0, targetSide: opponent },
+    1_000,
+  );
+  assert.equal(bounced.ok, true);
+  if (!bounced.ok) return;
+  assert.equal(bounced.state[opponent].monsterZones[0], null);
+  assert.equal(bounced.state[opponent].hand.includes(SHADOW_DOUBLE_ID), false);
+
+  // Destroyed in battle: never reaches the Graveyard.
+  const battle = mainPhaseBoard([]);
+  battle.state.phase = "battle";
+  placeMonster(battle.state, battle.actor, 0, monsterWithAttackAbove(0));
+  placeMonster(battle.state, battle.opponent, 0, SHADOW_DOUBLE_ID, { position: "defense" });
+  const struck = applyAction(
+    battle.state,
+    battle.actor,
+    { action: "attack", attackerZoneIndex: 0, targetZoneIndex: 0 },
+    1_000,
+  );
+  assert.equal(struck.ok, true);
+  if (!struck.ok) return;
+  assert.equal(struck.state[battle.opponent].monsterZones[0], null);
+  assert.equal(struck.state[battle.opponent].graveyard.includes(SHADOW_DOUBLE_ID), false);
+  assert.ok(
+    struck.state.events?.some(
+      (event) => event.kind === "card-destroyed" && event.cardId === SHADOW_DOUBLE_ID && event.side === battle.opponent,
+    ),
+    "the board is told the Double left, though no Graveyard received it",
+  );
+});
+
+test("half of the two-Tribute Monsters in each rarity are Warded, and nothing else is", () => {
+  const monsters = CHRONICLE_CARD_CATALOG.flatMap((card) =>
+    card.cardClass === "monster" ? [card] : [],
+  );
+  for (const card of monsters)
+    if (card.warded)
+      assert.equal(tributeCountForLevel(card.level), 2, `${card.id} is Warded off a two-Tribute Level`);
+  // The list is frozen by id, so a re-levelled or removed card shows up here
+  // instead of silently changing which Monsters players own as Warded.
+  for (const id of WARDED_MONSTER_IDS) {
+    const card = getChronicleCard(id);
+    assert.ok(card?.cardClass === "monster", `${id} in WARDED_MONSTER_IDS is a catalog Monster`);
+    assert.equal(card.warded, true, `${id} carries the keyword`);
+  }
+  assert.equal(monsters.filter((card) => card.warded).length, WARDED_MONSTER_IDS.size);
+  const pool = monsters.filter(
+    (card) => tributeCountForLevel(card.level) === 2 && card.monsterEffect?.kind !== "callSummonOnly",
+  );
+  for (const rarity of ["common", "rare", "epic", "legendary", "mythic"]) {
+    const at = pool.filter((card) => card.rarity === rarity);
+    assert.equal(
+      at.filter((card) => card.warded).length,
+      Math.ceil(at.length / 2),
+      `${rarity}: every other two-Tribute Monster is Warded`,
+    );
+  }
+  assert.match(WARDED_RULE_TEXT, /Snares cannot destroy this card or return it to the hand during the turn it is Summoned/);
+});
+
+test("a Warded Monster survives Snares on the turn it is Summoned, and only that turn", () => {
+  const warded = CHRONICLE_CARD_CATALOG.find(
+    (card) => card.cardClass === "monster" && card.warded && card.monsterType === "normal",
+  );
+  assert.ok(warded && warded.cardClass === "monster");
+
+  // Summon wipe: Torrential Tag Field fires, and spares only the Warded Monster.
+  let state = summonReady(warded.id);
+  state.turnNumber = 3;
+  let actor = state.activePlayer;
+  let opponent: ChronicleSideKey = actor === "p1" ? "p2" : "p1";
+  placeMonster(state, actor, 1, "tc-02", { instanceId: "unwarded-ally" });
+  state[opponent].magicTrapZones[0] = {
+    instanceId: "torrential",
+    cardId: "chronicle-torrential-tag-field",
+    owner: opponent,
+    zoneIndex: 0,
+    faceUp: false,
+    setOnTurn: 1,
+  };
+  const summoned = normalSummon(state, actor, { action: "normal-summon", handIndex: 0, zoneIndex: 0 });
+  assert.equal(summoned.ok, true);
+  if (!summoned.ok) return;
+  assert.ok(summoned.state.responseWindow, "Torrential is offered: it still wipes everything else");
+  const wiped = activateTrap(summoned.state, opponent, 0);
+  assert.equal(wiped.ok, true);
+  if (!wiped.ok) return;
+  assert.equal(wiped.state[actor].monsterZones[0]?.cardId, warded.id);
+  assert.equal(wiped.state[actor].monsterZones[1], null);
+  assert.ok(
+    wiped.state.log.includes(`${warded.name} is Warded and survives ${getChronicleCard("chronicle-torrential-tag-field")?.name}.`),
+    "the log says why the Monster is still standing",
+  );
+
+  // Attack the same turn: a single-target Snare is not even offered.
+  const board = structuredClone(wiped.state);
+  board.phase = "battle";
+  board[opponent].magicTrapZones[1] = {
+    instanceId: "mirror",
+    cardId: "chronicle-substitution-mirror",
+    owner: opponent,
+    zoneIndex: 1,
+    faceUp: false,
+    setOnTurn: 1,
+  };
+  const sameTurn = declareAttack(board, actor, { action: "attack", attackerZoneIndex: 0, targetZoneIndex: null });
+  assert.equal(sameTurn.ok, true);
+  if (!sameTurn.ok) return;
+  assert.equal(sameTurn.state.responseWindow, null);
+
+  // A later turn: the ward is gone and the Snare is offered again.
+  const later = structuredClone(board);
+  later.turnNumber += 2;
+  const laterSwing = declareAttack(later, actor, { action: "attack", attackerZoneIndex: 0, targetZoneIndex: null });
+  assert.equal(laterSwing.ok, true);
+  if (!laterSwing.ok) return;
+  assert.deepEqual(laterSwing.state.responseWindow?.eligibleZoneIndexes, [1]);
+});
+
+test("Sand-Coffin is not offered when every face-up Monster it could destroy is Warded", () => {
+  const warded = CHRONICLE_CARD_CATALOG.find(
+    (card) => card.cardClass === "monster" && card.warded && card.monsterType === "normal",
+  );
+  assert.ok(warded && warded.cardClass === "monster");
+  const state = match();
+  state.turnNumber = 3;
+  state.phase = "battle";
+  const actor = state.activePlayer;
+  const responder: ChronicleSideKey = actor === "p1" ? "p2" : "p1";
+  // The attacker outnumbers the responder, and its only face-up Monster is
+  // the Warded one: Sand-Coffin would flip and destroy nothing.
+  placeMonster(state, actor, 0, warded.id);
+  placeMonster(state, actor, 1, "tc-01", { position: "defense", faceUp: false });
+  placeMonster(state, responder, 0, monsterWhere((card) => card.element === "Earth", "of Earth"), {
+    position: "defense",
+  });
+  state[responder].magicTrapZones[0] = {
+    instanceId: "sand-coffin",
+    cardId: "chronicle-sand-coffin-counter",
+    owner: responder,
+    zoneIndex: 0,
+    faceUp: false,
+    setOnTurn: 1,
+  };
+  const swing = (board: ChronicleMatch) =>
+    declareAttack(board, actor, { action: "attack", attackerZoneIndex: 0, targetZoneIndex: 0 });
+
+  const summonTurn = structuredClone(state);
+  summonTurn[actor].monsterZones[0]!.summonedOnTurn = summonTurn.turnNumber;
+  const wardedSwing = swing(summonTurn);
+  assert.equal(wardedSwing.ok, true);
+  if (!wardedSwing.ok) return;
+  assert.equal(wardedSwing.state.responseWindow, null);
+
+  // Summoned on an earlier turn, the same Monster is no longer Warded.
+  const laterSwing = swing(state);
+  assert.equal(laterSwing.ok, true);
+  if (!laterSwing.ok) return;
+  assert.deepEqual(laterSwing.state.responseWindow?.eligibleZoneIndexes, [0]);
+});
+
+test("Shadow Doubles do not meet a Snare's element requirement", () => {
+  const state = match();
+  state.turnNumber = 3;
+  state.phase = "battle";
+  const actor = state.activePlayer;
+  const responder: ChronicleSideKey = actor === "p1" ? "p2" : "p1";
+  placeMonster(state, actor, 0, monsterWithAttackAbove(0));
+  placeMonster(state, responder, 0, SHADOW_DOUBLE_ID, { position: "defense" });
+  placeMonster(state, responder, 1, SHADOW_DOUBLE_ID, { position: "defense" });
+  const galeReversal = getChronicleCard("chronicle-gale-reversal");
+  const double = getChronicleCard(SHADOW_DOUBLE_ID);
+  assert.ok(galeReversal?.cardClass === "trap" && double?.cardClass === "monster");
+  assert.equal(galeReversal.effect.requiresFaceUpElement, double.element, "the Snare asks for the Doubles' own element");
+  state[responder].magicTrapZones[0] = {
+    instanceId: "gale",
+    cardId: galeReversal.id,
+    owner: responder,
+    zoneIndex: 0,
+    faceUp: false,
+    setOnTurn: 1,
+  };
+  const swing = (board: ChronicleMatch) =>
+    declareAttack(board, actor, { action: "attack", attackerZoneIndex: 0, targetZoneIndex: 0 });
+  const doublesOnly = swing(state);
+  assert.equal(doublesOnly.ok, true);
+  if (!doublesOnly.ok) return;
+  assert.equal(doublesOnly.state.responseWindow, null, "two Doubles are not a Wind specialist");
+
+  placeMonster(state, responder, 2, monsterWhere((card) => card.element === "Wind", "of Wind"), {
+    position: "defense",
+  });
+  const withSpecialist = swing(state);
+  assert.equal(withSpecialist.ok, true);
+  if (!withSpecialist.ok) return;
+  assert.deepEqual(withSpecialist.state.responseWindow?.eligibleZoneIndexes, [0]);
+});
+
+test("the duel board's Summon and Summoning Jutsu checks are the server's own", () => {
+  const call = calls[0];
+  const calledId = call.effect.calledMonsterId ?? "";
+  const called = getChronicleCard(calledId);
+  assert.ok(called);
+  assert.match(callOnlySummonBlocker(called) ?? "", new RegExp(call.name));
+  assert.equal(callOnlySummonBlocker(getChronicleCard("tc-01")!), null);
+
+  const open = { normalSummonUsed: false, hand: [call.id, calledId], monsterZones: [null, null, null, null, null], lifePoints: STARTING_LIFE_POINTS };
+  assert.equal(summoningJutsuBlocker(call, open), null);
+  assert.match(summoningJutsuBlocker(call, { ...open, normalSummonUsed: true }) ?? "", /Normal Summon/);
+  assert.match(summoningJutsuBlocker(call, { ...open, hand: [call.id] }) ?? "", /in your hand/);
+  assert.match(summoningJutsuBlocker(call, { ...open, monsterZones: [{}, {}, {}, {}, {}] }) ?? "", /open Monster Zone/);
+  assert.match(summoningJutsuBlocker(call, { ...open, lifePoints: 1_000 }) ?? "", /Health Points/);
+
+  const shadowClone = getChronicleCard("chronicle-shadow-clone")!;
+  assert.equal(summoningJutsuBlocker(shadowClone, { ...open, monsterZones: [{}, {}, {}, null, null] }), null);
+  assert.match(summoningJutsuBlocker(shadowClone, { ...open, monsterZones: [{}, {}, {}, {}, null] }) ?? "", /2 open Monster Zones/);
+  assert.equal(summoningJutsuBlocker(getChronicleCard("chronicle-soldier-pill")!, open), null, "other Jutsu pass through");
+});
+
 test("period staple Traps resolve formation wipe, summon wipe, reflection, and shared burn", () => {
   let state = match();
   state.turnNumber = 3;
@@ -3649,11 +4201,29 @@ test("period staple Traps resolve formation wipe, summon wipe, reflection, and s
     faceUp: false,
     setOnTurn: 1,
   };
-  const mirrorWindow = declareAttack(state, attacker, {
-    action: "attack",
-    attackerZoneIndex: 0,
-    targetZoneIndex: null,
+  // Balance pass 2026-10-14: the formation wipe needs a face-up Water Monster.
+  const mirrorShell = getChronicleCard("chronicle-mirror-shell-counter");
+  assert.ok(mirrorShell?.cardClass === "trap");
+  assert.equal(mirrorShell.effect.requiresFaceUpElement, "Water");
+  const attackFirst = (board: ChronicleMatch) =>
+    declareAttack(board, attacker, {
+      action: "attack",
+      attackerZoneIndex: 0,
+      targetZoneIndex: 0,
+    });
+  placeMonster(state, responder, 0, monsterWhere((card) => card.element === "Earth", "of Earth"), {
+    position: "defense",
+    instanceId: "earth-wall",
   });
+  const unanswered = attackFirst(state);
+  assert.equal(unanswered.ok, true);
+  if (!unanswered.ok) return;
+  assert.equal(unanswered.state.responseWindow, null, "no Water Monster, no formation wipe");
+  placeMonster(state, responder, 0, monsterWhere((card) => card.element === "Water", "of Water"), {
+    position: "defense",
+    instanceId: "water-wall",
+  });
+  const mirrorWindow = attackFirst(state);
   assert.equal(mirrorWindow.ok, true);
   if (!mirrorWindow.ok) return;
   const mirrored = activateTrap(mirrorWindow.state, responder, 0);
