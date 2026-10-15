@@ -8,7 +8,7 @@ import { onlineStore } from '../_realtime/online-store.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { applyCafeteriaMeal, cafeteriaMeal, cookRecipe, applyCookRecipe } from './_cafeteria.js';
 import { villageStoresEnabled } from '../_release-flags.js';
-import { parseSettlementRequestId, inspectSettlementReceipt, appendSettlementReceipt } from '../_settlement-receipts.js';
+import { parseSettlementRequestId, inspectSettlementReceipt, appendSettlementReceipt, ownReceiptValue } from '../_settlement-receipts.js';
 
 /*
  * /api/player/cafeteria - POST
@@ -56,7 +56,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const cooked = await mutatePlayerSave(playerName, ({ character }) => {
                 const fingerprint = `cook:${recipe.id}`;
                 const prior = requestId ? inspectSettlementReceipt(character, requestId, fingerprint) : null;
-                if (prior?.status === 'replay') return { ok: true, character, write: false, value: prior.receipt.value };
+                if (prior?.status === 'replay') return { ok: true, character, write: false, value: ownReceiptValue(prior.receipt.value, ['cooked', 'dailyCooked', 'dailyCap']) };
                 if (prior && prior.status !== 'fresh') return { ok: false, status: 409, error: 'This cooking request ID belongs to another action.' };
                 const applied = applyCookRecipe(character, recipe);
                 if (!applied.ok) return { ok: false, status: 400, error: applied.error };

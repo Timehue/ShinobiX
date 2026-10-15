@@ -89,6 +89,24 @@ const REPLACE_SUBTREE_KEYS = new Set<string>([
     // unrelated cached seal after a redemption.
     'activeStoryReckoning',
     'activeStoryReckoningSeal',
+    // Settlement receipts carry `requestId`, not `id`, and a new receipt is
+    // PREPENDED (api/_settlement-receipts.ts). Positional pairing merged every
+    // new receipt's `value` with the previous first receipt's, so a reward
+    // receipt inherited `kind`/`runId`/`applied` from a pve-outcome receipt.
+    // Every writer sends the complete list: settlements rebuild it from the
+    // stored one, and a client autosave gets the stored copy back from the
+    // ledger boundary (`always-ledger-char`) before this merge runs.
+    'serverSettlementReceipts',
+    // Same shape problem: mentor receipts are keyed by `settlementId` + `role`
+    // and prepended by their one writer (api/clan/_mentor-settlement.ts), which
+    // sends the complete compacted list. A save holding both roles used to
+    // blend a teacher receipt's seals/contrib/clanPoints into a student one.
+    'mentorRewardReceipts',
+    // A keyed map its one writer (embedPvpSettlementReceipt) rebuilds whole,
+    // dropping entries past their 2-day retention. The key-union merge used to
+    // put every expired entry back, so the map only grew, and past 2,048
+    // entries its reader fails closed and the player's PvP rewards stop.
+    'pvpRewardSettlementReceipts',
 ]);
 const PROTOTYPE_POLLUTION_KEYS = new Set<string>(['__proto__', 'constructor', 'prototype']);
 

@@ -136,6 +136,32 @@ test('unauthenticated forged names cannot consume a victim settlement budget', a
     assert.equal(valid.out.body?.ok, true);
 });
 
+test('an expired battle token still hands back the roster so a queued result can retire', async () => {
+    const player = 'petexpiredtokenprobe';
+    const auth = await import('../_auth.js');
+    const playerToken = auth.issuePlayerToken(player)!;
+    await kv.set(`save:${player}`, {
+        _saveVersion: 7,
+        character: { name: player, level: 1, ryo: 40, professionRank: 0, pets: [] },
+    });
+    // No pet:battle-token row and no save receipt: the 30-minute Warfront
+    // proof lapsed while the client still held the queued report in memory.
+    const expired = response();
+    await resultHandler(request({
+        playerName: player,
+        outcome: 'win',
+        reportKey: '123:tactical',
+        battleToken: 'ExpiredWarfrontSeal01',
+        warfrontPlan: { formation: [0, 1, 2, 3] },
+    }, playerToken), expired.res);
+    assert.equal(expired.out.statusCode, 200);
+    assert.equal(expired.out.body?.reason, 'invalid-or-spent-pet-battle-token');
+    assert.equal(expired.out.body?.reward, 0);
+    assert.equal((expired.out.body?.character as Record<string, unknown> | undefined)?.name, player);
+    assert.equal((expired.out.body?.character as Record<string, unknown> | undefined)?.ryo, 40, 'nothing is paid');
+    assert.equal(expired.out.body?._saveVersion, 7);
+});
+
 test('new user-picked AI starts fail closed while an already-issued receipt can resume and settle', async () => {
     const body = {
         playerName: PLAYER,

@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test';
+import { before, describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import {
     applyWorldAiFightSettlement,
@@ -13,6 +13,11 @@ import {
 import { SOLO_PVE_SESSION_TTL_SECONDS } from '../solo-pve/_session.js';
 import type { WorldAiFightContext } from '../../shared/world-ai-fight.js';
 import { serverHuntTrailSector } from './_hunt-trail.js';
+import { kv } from '../_storage.js';
+import { rollWanderers, WANDERER_BUCKET_MS, WANDERER_RIFT_INDEX } from '../../shared/wanderer-roster.js';
+import { rollTradeWanderer } from '../../shared/wanderer-extra-slots.js';
+import { roadNemesisPresentAt } from '../../shared/road-nemesis.js';
+import { RIFT_QUESTS } from '../sector/_rift-quest.js';
 import { HUNT_MISSION_IDS, huntMissionById } from './_mission-catalog.js';
 import {
     ALWAYS_SERVER_LEDGER_CHARACTER_FIELDS,
@@ -232,20 +237,45 @@ describe('World AI fight authority', () => {
         assert.deepEqual(applyWorldAiFightSettlement(won, context, 'win', 'win-proof'), won);
     });
 
-    it('a night ninja fight never moves the bandit streak or creates a road nemesis', () => {
+    it('a night ninja never moves the bandit streak, but losing to one marks you for Kagero', () => {
         const night: WorldAiFightContext = { kind: 'wanderer', sourceId: 'w-12-5000-2', sector: 12, stage: 0, displayName: 'Nightjar Reiko', finalStage: true };
         const bandit: WorldAiFightContext = { ...night, sourceId: 'w-12-5000-0', displayName: 'Kano Two-Blades' };
         const start = { level: 20, robberStreak: 3 };
         const nightWin = applyWorldAiFightSettlement(start, night, 'win', 'night-win');
         const nightLoss = applyWorldAiFightSettlement(start, night, 'loss', 'night-loss');
         assert.equal(nightWin.robberStreak, 3);
+        assert.equal(nightWin.wandererNemesis ?? null, null);
         assert.equal(nightLoss.robberStreak, 3);
-        assert.equal(nightLoss.wandererNemesis ?? null, null);
-        // Bandits keep the existing rules.
+        assert.deepEqual(nightLoss.wandererNemesis, { name: 'Kagero', level: 21, tier: 1 });
+        // Bandits keep the streak rules, and the rival they leave is always Kagero.
         assert.equal(applyWorldAiFightSettlement(start, bandit, 'win', 'bandit-win').robberStreak, 4);
         const banditLoss = applyWorldAiFightSettlement(start, bandit, 'loss', 'bandit-loss');
         assert.equal(banditLoss.robberStreak, 0);
-        assert.equal((banditLoss.wandererNemesis as { name?: string })?.name, 'Kano Two-Blades');
+        assert.equal((banditLoss.wandererNemesis as { name?: string })?.name, 'Kagero');
+    });
+
+    it('the angler/miner and rift-creature slots move neither the streak nor the rival', () => {
+        const start = { level: 20, robberStreak: 3 };
+        for (const sourceId of ['w-38-5000-3', 'w-38-5000-4']) {
+            const context: WorldAiFightContext = { kind: 'wanderer', sourceId, sector: 38, stage: 0, displayName: 'Opponent', finalStage: true };
+            for (const outcome of ['win', 'loss'] as const) {
+                const after = applyWorldAiFightSettlement(start, context, outcome, `${sourceId}-${outcome}`);
+                assert.equal(after.robberStreak, 3, `${sourceId} ${outcome}`);
+                assert.equal(after.wandererNemesis ?? null, null, `${sourceId} ${outcome}`);
+            }
+        }
+    });
+
+    it('beating Kagero clears him, and losing to him raises his tier under his own name', () => {
+        const context: WorldAiFightContext = { kind: 'wanderer', sourceId: 'nemesis', sector: 12, stage: 0, displayName: 'Kagero', finalStage: true };
+        const marked = { level: 20, robberStreak: 3, wandererNemesis: { name: 'Genta Red-Sash', level: 21, tier: 2 } };
+        const won = applyWorldAiFightSettlement(marked, context, 'win', 'k-win');
+        const lost = applyWorldAiFightSettlement(marked, context, 'loss', 'k-loss');
+        assert.equal(won.wandererNemesis, null);
+        assert.deepEqual(lost.wandererNemesis, { name: 'Kagero', level: 21, tier: 3 });
+        // He is not a bandit: his fights leave the gang's robber streak alone.
+        assert.equal(won.robberStreak, 3);
+        assert.equal(lost.robberStreak, 3);
     });
 
     it('allows a hunt rematch after loss but rejects another target after the sealed win', async () => {
@@ -301,5 +331,70 @@ describe('World AI fight authority', () => {
         await assert.rejects(reserveWorldAiChainStage('Hunter', stage1, store), /world-chain-cursor-mismatch/);
         await settleWorldAiChainStage('Hunter', stage1, 'loss', 'proof1', store);
         await assert.rejects(reserveWorldAiChainStage('Hunter', { ...stage1, stage: 2 }, store), /world-chain-cursor-mismatch/);
+    });
+});
+
+describe('World AI fight authority for the road cast', () => {
+    before(() => {
+        process.env.NODE_ENV = 'test';
+        process.env.SHINOBIX_QA_MEMORY_KV = '1';
+    });
+
+    /** The first (sector, window) from bucket 5000 whose slot `index` holds `verb`. */
+    function find(verb: string, roll: (sector: number, bucket: number) => Array<{ id: string; verb: string }>) {
+        for (let bucket = 5000; bucket < 5400; bucket++) {
+            for (let sector = 1; sector <= 66; sector++) {
+                const hit = roll(sector, bucket).find((w) => w.verb === verb);
+                if (hit) return { sector, bucket, id: hit.id, now: bucket * WANDERER_BUCKET_MS + 60_000 };
+            }
+        }
+        throw new Error(`no ${verb} in 400 windows`);
+    }
+    const save = (sector: number, character: Record<string, unknown>) => ({ currentSector: sector, character: { name: 'Roadwalker', level: 30, village: 'Leaf', ...character } });
+
+    it("refuses your own village's patrol and names a rival village's patrol for its holder", async () => {
+        const patrol = find('patrol', rollWanderers);
+        const request = { kind: 'patrol' as const, sourceId: patrol.id, sector: patrol.sector };
+        await kv.set(`world:territory:${patrol.sector}`, { ownerVillage: 'Leaf' });
+        await assert.rejects(buildWorldAiFightSpec({ playerName: 'Roadwalker', request, save: save(patrol.sector, {}), now: patrol.now }), /world-patrol-own-village/);
+        await kv.set(`world:territory:${patrol.sector}`, { ownerVillage: 'Mist' });
+        const rival = await buildWorldAiFightSpec({ playerName: 'Roadwalker', request, save: save(patrol.sector, {}), now: patrol.now });
+        assert.equal(rival.context.displayName, 'Mist Patrol');
+        await kv.del(`world:territory:${patrol.sector}`);
+        const neutral = await buildWorldAiFightSpec({ playerName: 'Roadwalker', request, save: save(patrol.sector, {}), now: patrol.now });
+        assert.doesNotMatch(neutral.context.displayName, /^Mist|^Leaf/u);
+    });
+
+    it('fights Kagero only in a sector his presence gate opens, under his earned title', async () => {
+        const now = 5000 * WANDERER_BUCKET_MS + 60_000;
+        let here = 0, away = 0;
+        for (let sector = 1; sector <= 66 && (!here || !away); sector++) {
+            if (roadNemesisPresentAt('Roadwalker', sector, now)) here ||= sector;
+            else away ||= sector;
+        }
+        assert.ok(here && away);
+        const rival = { wandererNemesis: { name: 'Kano Two-Blades', level: 31, tier: 3 } };
+        const spec = await buildWorldAiFightSpec({ playerName: 'Roadwalker', request: { kind: 'wanderer', sourceId: 'nemesis', sector: here }, save: save(here, rival), now });
+        assert.equal(spec.context.displayName, 'Kagero the Road-Taker');
+        await assert.rejects(buildWorldAiFightSpec({ playerName: 'Roadwalker', request: { kind: 'wanderer', sourceId: 'nemesis', sector: away }, save: save(away, rival), now }), /world-nemesis-not-here/);
+        await assert.rejects(buildWorldAiFightSpec({ playerName: 'Roadwalker', request: { kind: 'wanderer', sourceId: 'nemesis', sector: here }, save: save(here, {}), now }), /world-nemesis-missing/);
+    });
+
+    it('contests a rival miner, and fights a rift creature only for the seal holder', async () => {
+        const miner = find('contest', (sector, bucket) => [rollTradeWanderer(sector, bucket)].filter((w) => w !== null));
+        const spec = await buildWorldAiFightSpec({ playerName: 'Roadwalker', request: { kind: 'wanderer', sourceId: miner.id, sector: miner.sector }, save: save(miner.sector, {}), now: miner.now });
+        assert.equal(spec.context.sourceId, miner.id);
+        const now = 5000 * WANDERER_BUCKET_MS + 60_000;
+        const riftId = Object.keys(RIFT_QUESTS)[0]!;
+        // The SEALED quest lives on the save record; activeRiftQuest is a display
+        // mirror the client's own save writes can set.
+        const sealed = (sector: number) => ({ ...save(sector, {}), activeRiftQuestSeal: { id: riftId, targetSector: 12, baseline: 0, at: 1, geoV: 99 } });
+        const mirrorOnly = (sector: number) => save(sector, { activeRiftQuest: { id: riftId, targetSector: sector, stage: 'travel', baseline: 0, bossName: 'X' } });
+        const request = { kind: 'wanderer' as const, sourceId: `w-12-5000-${WANDERER_RIFT_INDEX}`, sector: 12 };
+        assert.ok((await buildWorldAiFightSpec({ playerName: 'Roadwalker', request, save: sealed(12), now })).context.displayName);
+        await assert.rejects(buildWorldAiFightSpec({ playerName: 'Roadwalker', request, save: save(12, {}), now }), /world-wanderer-not-attackable/);
+        await assert.rejects(buildWorldAiFightSpec({ playerName: 'Roadwalker', request, save: mirrorOnly(12), now }), /world-wanderer-not-attackable/,
+            'a forged display mirror cannot summon a rift creature');
+        await assert.rejects(buildWorldAiFightSpec({ playerName: 'Roadwalker', request: { ...request, sector: 13, sourceId: `w-13-5000-${WANDERER_RIFT_INDEX}` }, save: sealed(13), now }), /world-wanderer-not-attackable/);
     });
 });
