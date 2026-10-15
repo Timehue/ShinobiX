@@ -63,7 +63,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const pendingVillages = new Set<string>();
             for (const receipt of Array.isArray(priorReceipts) ? priorReceipts : []) {
                 const oldVillage = receipt?.value?.fromVillage;
-                if (receipt?.value?.kind === 'village-transfer' && isTransferVillage(oldVillage) && oldVillage !== snapshot?.character?.village) pendingVillages.add(oldVillage);
+                // The fingerprint names the receipt's own action. `value.kind`
+                // alone could be one inherited by an older receipt.
+                if (receipt?.value?.kind === 'village-transfer' && String(receipt?.fingerprint ?? '').startsWith('village-transfer:')
+                    && isTransferVillage(oldVillage) && oldVillage !== snapshot?.character?.village) pendingVillages.add(oldVillage);
             }
             for (const oldVillage of pendingVillages) await clearAppointments(oldVillage, playerName);
             return await withKvLock(key, async () => {

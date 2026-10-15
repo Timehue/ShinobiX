@@ -272,7 +272,13 @@ function parseReceipt(raw: unknown): MentorRewardReceipt | null {
     if (typeof raw.pairingId !== 'string' || !raw.pairingId) return null;
     if (!Array.isArray(raw.milestones) || raw.milestones.some((m) => typeof m !== 'string')) return null;
     if (!Number.isFinite(raw.appliedAt)) return null;
-    return raw as unknown as MentorRewardReceipt;
+    // Before 2026-10 the save merge paired these by position, so a stored
+    // receipt can also hold the other role's amounts from the receipt before
+    // it. A receipt's role says which amounts are its own.
+    const { seals, contrib, clanPoints, ryo, ...rest } = raw;
+    return (raw.role === 'teacher'
+        ? { ...rest, ...(seals !== undefined ? { seals } : {}), ...(contrib !== undefined ? { contrib } : {}), ...(clanPoints !== undefined ? { clanPoints } : {}) }
+        : { ...rest, ...(ryo !== undefined ? { ryo } : {}) }) as unknown as MentorRewardReceipt;
 }
 
 type ReceiptLookup =
