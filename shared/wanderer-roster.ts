@@ -288,7 +288,7 @@ export const WANDERER_ARCHETYPES: Record<WandererArchetypeId, WandererArchetypeM
         verb: "angler",
         weight: 0,
         tellTint: "#38bdf8",
-        names: ["Pell of the Long Line", "Reed-Hat Sora", "Old Net Kaji", "Tide-Reader Mio"],
+        names: ["Nao of the Long Line", "Reed-Hat Sora", "Old Net Kiyo", "Tide-Reader Mio"],
         greetings: [
             "Quiet feet, please. They can hear you through the bank.",
             "The fish are biting today, but only for someone patient.",
@@ -300,7 +300,7 @@ export const WANDERER_ARCHETYPES: Record<WandererArchetypeId, WandererArchetypeM
         verb: "contest",
         weight: 0,
         tellTint: "#d97706",
-        names: ["Old Kaio Ironhand", "Gravel-Tooth Benzo", "Seam-Boss Tetsu", "Pickaxe Hiru"],
+        names: ["Old Ganzo Ironhand", "Gravel-Tooth Benzo", "Seam-Boss Tetsu", "Pickaxe Hiru"],
         greetings: [
             "This seam is mine. I staked it before you could walk.",
             "Find your own rock. This one already has a name on it.",

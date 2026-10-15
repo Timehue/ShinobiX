@@ -90,7 +90,7 @@ import { useLiveActionDeadline } from "../lib/use-action-deadline";
 import { sameJsonValue } from "../lib/pvp-session-runtime";
 import type { WorldAiFightContext, WorldAiFightRequest } from "../../../shared/world-ai-fight";
 import { WORLD_FIGHT_KIND_BY_MODE } from "../lib/world-ai-presentation-modes";
-import { wandererAvatar, wandererRobberPortrait, questBossPortrait, WANDERER_BOSS_PORTRAIT, WANDERER_NEMESIS_PORTRAIT } from "../lib/wanderer-art";
+import { wandererAvatar, wandererRobberPortrait, questBossPortrait, WANDERER_BOSS_PORTRAIT, WANDERER_KAGERO_PORTRAIT, WANDERER_NEMESIS_PORTRAIT } from "../lib/wanderer-art";
 import { anglerTip, roadFightAftermath, roadNemesisActorId, roadNemesisTier, roadNemesisTitle, useRoadCast, wandererForcesChoice } from "../lib/road-cast";
 import { makeBuiltinAi } from "../lib/combat-ai";
 import { genericPetArenaOpponents, type PetArenaOpponent } from "../data/pet-arena-opponents";
@@ -1378,7 +1378,7 @@ function WorldMapContent({
         const name = nem ? roadNemesisTitle(roadNemesisTier(nem)) : w.name;
         const statBonus = nem ? Math.min(12, Math.max(1, nem.tier) * 2) : 0;
         const ai = makeBuiltinAi(`wanderer-${nem ? "nemesis" : w.id}`, name, nem ? "😡" : "🥷", lvl, "Wandering Road", [], statBonus, undefined, "bruiser");
-        ai.image = nem ? WANDERER_NEMESIS_PORTRAIT : wandererAvatar(w.avatarKey);
+        ai.image = nem ? WANDERER_KAGERO_PORTRAIT : wandererAvatar(w.avatarKey);
         launchWorldMapFight(
             ai,
             selectedSector,
