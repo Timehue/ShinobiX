@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFile } from 'node:fs/promises';
-import { createHash } from 'node:crypto';
 import { resolve } from 'node:path';
 import { runtimePetModels } from './lib/pet-runtime-audit.mjs';
+import {assertPayloadPreservedOrReviewed} from './lib/pet-reviewed-payload.mjs';
 import { PET_STUDIO_ASSET_REVISION, PET_PERFORMANCE_ASSET_REVISION } from '../src/lib/pet-proper-animation-assets.ts';
 
 test('every live pet and battle LOD keeps its reviewed mesh payload and polished curves', async () => {
@@ -16,10 +16,10 @@ test('every live pet and battle LOD keeps its reviewed mesh payload and polished
         const json = JSON.parse(bytes.subarray(20, 20 + length)), binary = bytes.subarray(28 + length);
         const proof = json.extras.studioPolish;
         assert.equal(proof?.revision, PET_STUDIO_ASSET_REVISION, path);
-        assert.equal(createHash('sha256').update(binary.subarray(0, proof.preservedPayloadBytes)).digest('hex'), proof.preservedPayloadSha256, path);
+        assertPayloadPreservedOrReviewed(path,bytes,json,binary,proof);
         const performance = json.extras.performanceRefinement;
         assert.equal(performance?.revision, PET_PERFORMANCE_ASSET_REVISION, path);
-        assert.equal(createHash('sha256').update(binary.subarray(0, performance.preservedPayloadBytes)).digest('hex'), performance.preservedPayloadSha256, path);
+        assertPayloadPreservedOrReviewed(path,bytes,json,binary,performance);
         assert.ok(performance.addedTracks > 0, path);
         for (const [i, clip] of json.animations.entries()) {
             assert.ok(clip.channels.length >= performance.sourceBoundary.channels[i], path);

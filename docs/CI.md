@@ -44,7 +44,7 @@ same commit as the workflow.
 | `CI / client-quality` | `client_quality` | 35 min | Locked root/client installs; shipped pet rig/animation, Warfront/Rally LOD, and Warfront impostor certification ahead of the build; lint, story-content/TypeScript/production build, build-size and visual-baseline-size gates, client audit (with the same retry rule as the root audit), and checksum-backed client artifact production. |
 | `CI / release-certification` | `release_certification` | 15 min | Downloads and verifies the exact compiled release artifacts, then runs the fresh-account/combat certification against them. |
 | `CI / concurrency-smoke` | `concurrency_smoke` | 15 min | Downloads and verifies the release artifacts, then runs the short real-server concurrent-player smoke. It is not a database capacity test. |
-| `CI / e2e-responsive` | `e2e_responsive` | 5 min | Fail-closed aggregate requiring all five responsive browser shards, including their CSP, Stronghold, and dedicated suites, to succeed. |
+| `CI / e2e-responsive` | `e2e_responsive` | 5 min | Fail-closed aggregate requiring every responsive smoke slice (`e2e_responsive_matrix`) and both flow jobs with the CSP, Stronghold, and dedicated suites (`e2e_responsive_flows`) to succeed. |
 | `CI / e2e-combat` | `e2e_combat` | 5 min | Fail-closed stable aggregate requiring all three combat browser shards to succeed. |
 | `CI / e2e-warfront` | `e2e_warfront` | 29 min | Warfront positional-mode browser coverage on seven Chromium viewport projects, including renders of eight real skinned rigs, and adaptive-layout evidence. |
 | `CI / e2e-village-stores` | `e2e_village_stores` | 35 min | Ten live Express player-journey steps in Chromium, each against its own real server started from the release artifact (see below). |
@@ -75,27 +75,34 @@ aggregate rather than individual shards.
 
 Responsive coverage runs as five `e2e_responsive_matrix` shards, named
 `CI / e2e-responsive / 1-of-5` through `CI / e2e-responsive / 5-of-5`. Each has a
-35-minute ceiling, because hosted Playwright browser downloads alone can take
-more than 15 minutes on a slow runner. The complete Playwright suite is
-partitioned with `--shard=N/5`. Before its slice, shard 1 checks the built CSP in
-Chromium and WebKit, and shard 2 runs all three Stronghold modes sequentially.
-After their slices, shards 1, 3, 4, and 5 run dedicated suites:
+35-minute ceiling and runs only its slice of the complete Playwright suite,
+partitioned with `--shard=N/5`. The smoke step has its own 31-minute limit, so a
+hung slice fails while there is still time to upload its evidence. On main in
+October 2026 a slice took 12 to 26 minutes and setup about 2.
 
-- Shard 1: Pet Gauntlet playback and renderer recovery.
-- Shard 3: sector controls and spectator integration; era campaigns and
-  admission refresh; the profession scroll purchase and change flow.
-- Shard 4: village transfer purchase and recovery; named forge purchase and
-  recovery; Rally renderer recovery.
-- Shard 5: the Dojo Circuit gamepad flow; fishing and the Fracture Chain;
-  Chronicle pack purchase and recovery.
+The CSP check, the Stronghold modes and the dedicated suites run beside the
+slices in two `e2e_responsive_flows` jobs, named `CI / e2e-responsive-flows / 1`
+and `CI / e2e-responsive-flows / 2`, each with a 29-minute ceiling:
 
-A failed step skips every later check on its shard, so a red shard says nothing
-about the suites after the failure. The suite moved from two shards to three
-when run `35326317976` exhausted shard 2's budget at test entry 824 of 875, after
-its Stronghold checks had passed. It moved to five when three-shard run
-`36622735387` exhausted shards 1 and 2 before every browser case ran. Each split
-kept the whole suite. Require the stable `CI / e2e-responsive` aggregate rather
-than individual matrix children.
+- Flow 1: the built CSP in Chromium and WebKit; all three Stronghold modes,
+  in order, because they build into the same disposable fixture directory;
+  sector controls and spectator integration; era campaigns and admission
+  refresh; the profession scroll purchase and change flow; village transfer
+  purchase and recovery.
+- Flow 2: fishing and the Fracture Chain; Chronicle pack purchase and recovery;
+  Pet Gauntlet playback and renderer recovery; named forge purchase and
+  recovery; Rally renderer recovery; the Dojo Circuit gamepad flow.
+
+Each flow job measured 11 to 15 minutes of suite time on main. A failed step
+skips every later check in its job, so a red flow job says nothing about the
+suites after the failure. The suite moved from two shards to three when run
+`35326317976` exhausted shard 2's budget at test entry 824 of 875, after its
+Stronghold checks had passed. It moved to five when three-shard run
+`36622735387` exhausted shards 1 and 2 before every browser case ran. The flow
+suites left the slices after shards 2 and 5 reached 32 to 34 of their 35 minutes
+on main, and PR #407's shard 2 was cancelled at the ceiling with every test
+passing. Each change kept the whole suite. Require the stable
+`CI / e2e-responsive` aggregate rather than individual matrix children.
 
 The actual combat work runs as the `e2e_combat_matrix` job with the emitted names
 `CI / e2e-combat / chromium`, `CI / e2e-combat / firefox`, and

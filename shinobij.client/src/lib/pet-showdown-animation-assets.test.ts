@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
-import { MeshoptDecoder } from "meshoptimizer";
-import { createHash } from "node:crypto";
+import { Vector3 } from 'three';
+import {loadPetDeformationProbe} from '../../scripts/lib/pet-deformation-probe.mjs';
+import {petMeshContent} from '../../scripts/lib/pet-mesh-content.mjs';
 import { resolve } from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -22,40 +23,17 @@ function parseGlb(path: string) {
     assert.equal(file.subarray(0, 4).toString("ascii"), "glTF");
     const jsonLength = file.readUInt32LE(12);
     const json = JSON.parse(file.subarray(20, 20 + jsonLength).toString("utf8").replace(/[\0\s]+$/u, ""));
-    return { file, json };
+    return { file, json, path };
 }
 
-// A repair appends identical binding streams after each asset's own animation
-// bank. Accessor indices can differ while the actual reviewed mesh stays equal.
-async function meshContent({ file, json }: ReturnType<typeof parseGlb>, repairedBindings = false) {
-    await MeshoptDecoder.ready;
-    const meshes = structuredClone(json.meshes);
-    if (repairedBindings) {
-        for (const mesh of meshes) for (const primitive of mesh.primitives) { delete primitive.attributes.JOINTS_0; delete primitive.attributes.WEIGHTS_0; }
-        return meshes;
-    }
-    if (!json.extras?.birdFaceRepair) return meshes;
-    const binStart = 28 + file.readUInt32LE(12);
-    for (const mesh of meshes) for (const primitive of mesh.primitives) {
-        for (const name of ["JOINTS_0", "WEIGHTS_0"]) {
-            const accessor = json.accessors[primitive.attributes[name]];
-            const view = json.bufferViews[accessor.bufferView];
-            assert.equal(accessor.type, "VEC4");
-            assert.equal(view.byteStride, undefined);
-            const componentBytes = accessor.componentType === 5123 ? 2 : accessor.componentType === 5126 ? 4 : 0;
-            assert.ok(componentBytes, "unexpected repaired binding component type");
-            const start = binStart + (view.byteOffset ?? 0) + (accessor.byteOffset ?? 0);
-            const compression = view.extensions?.EXT_meshopt_compression;
-            const bytes = compression ? Buffer.alloc(view.byteLength) : file.subarray(start, start + accessor.count * 4 * componentBytes);
-            if (compression) MeshoptDecoder.decodeGltfBuffer(bytes, compression.count, compression.byteStride,
-                file.subarray(binStart + compression.byteOffset, binStart + compression.byteOffset + compression.byteLength), compression.mode);
-            primitive.attributes[name] = {
-                type: accessor.type, componentType: accessor.componentType, count: accessor.count,
-                sha256: createHash("sha256").update(bytes).digest("hex"),
-            };
-        }
-    }
-    return meshes;
+// Compare resolved live data: accessor IDs legitimately change on compaction.
+const models=new Map();
+async function modelFor(asset:ReturnType<typeof parseGlb>){
+    if(!models.has(asset.path))models.set(asset.path,loadPetDeformationProbe(asset.path));
+    return models.get(asset.path);
+}
+async function meshContent({ file }: ReturnType<typeof parseGlb>, repairedBindings = false) {
+    return petMeshContent(file,repairedBindings);
 }
 
 test("the screenshot lineup uses four versioned species-authored GLBs", () => {
@@ -87,7 +65,13 @@ test("each replacement preserves its reviewed model but carries a full identity 
         assert.deepEqual(await meshContent(authored, repairedBindings), await meshContent(source, repairedBindings), `${id}: reviewed topology/UV/normals changed during animation authoring`);
         if (repairedBindings) assert.match(authored.json.extras.skinSeamRepair.sourceSha256, /^[a-f0-9]{64}$/);
         assert.deepEqual(authored.json.materials, source.json.materials, `${id}: materials changed during animation authoring`);
-        assert.deepEqual(authored.json.skins, source.json.skins, `${id}: reviewed skin changed during animation authoring`);
+        const [originalModel,currentModel]=await Promise.all([modelFor(source),modelFor(authored)]);
+        assert.deepEqual(authored.json.skins[0].joints,source.json.skins[0].joints,`${id}: joint hierarchy changed`);
+        if(authored.json.extras.reviewedRigScaleRepair){
+            const before=originalModel.meshes[0],after=currentModel.meshes[0];
+            assert.equal(before.geometry.attributes.position.count,after.geometry.attributes.position.count);
+            for(let vertex=0;vertex<before.geometry.attributes.position.count;vertex++)assert.ok(before.getVertexPosition(vertex,new Vector3()).applyMatrix4(before.matrixWorld).distanceTo(after.getVertexPosition(vertex,new Vector3()).applyMatrix4(after.matrixWorld))<1e-5,`${id}: normalized rig changed bind appearance`);
+        }else assert.deepEqual(currentModel.meshes[0].skeleton.boneInverses.map((m:{elements:number[]})=>m.elements),originalModel.meshes[0].skeleton.boneInverses.map((m:{elements:number[]})=>m.elements),`${id}: inverse binds changed`);
         assert.equal(authored.json.extras?.showdownAnimationBank, PET_SHOWDOWN_ANIMATION_ASSET_REVISION);
         assert.equal(authored.json.extras?.animationAuthoring, "bespoke-species-performance-v3");
         assert.equal(authored.json.extras?.showdownAnimationIdentity?.key, id);
