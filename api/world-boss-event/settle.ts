@@ -3,7 +3,8 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { cors, safeName } from '../_utils.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
-import { readSession, writeSession } from '../towers/_tower-store.js';
+import { readSession, writeSession, settleConsumedItemsForMember } from '../towers/_tower-store.js';
+import { kv } from '../_storage.js';
 import { releaseTowerBattleLeases, towerBattleLeaseMembers } from '../towers/_battle-lease.js';
 import { WORLD_BOSS_TOP_CACHE_SETTLEMENT_GRACE_MS, worldBossEventStatus } from '../../shared/world-boss-event.js';
 import { scoreWorldBossContribution } from './_contribution.js';
@@ -69,6 +70,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return { ok: false as const, status: 409, error: 'The server has not sealed a terminal result for this match.' };
                 }
                 for (const member of match.members) {
+                    const usage = await settleConsumedItemsForMember({ session: freshSession, slug: member.slug });
+                    if (!usage.consumed && !['none', 'already-consumed'].includes(usage.reason ?? '')) {
+                        throw new Error('World boss item usage settlement is pending.');
+                    }
                     const contribution = scoreWorldBossContribution(freshSession.worldBossContributions?.[member.slug]);
                     member.contribution = contribution;
                 }
@@ -79,6 +84,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const hpBefore = Math.max(0, Number(current.hp) || 0);
                     const wasStoppedByAdmin = current.status === 'stopped';
                     const firstSettlement = !current.settledMatchIds.includes(matchId);
+                    const banked = firstSettlement ? wasStoppedByAdmin ? 0 : Math.min(hpBefore, teamDamage)
+                        : cleanDamage(current.bankedDamageByMatch?.[matchId] ?? match.bankedDamage ?? Math.min(hpBefore, teamDamage));
                     if (firstSettlement) {
                         if (!wasStoppedByAdmin) current.hp = Math.max(0, current.hp - teamDamage);
                         for (const member of match.members) {
@@ -100,6 +107,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             };
                         }
                         current.settledMatchIds = [...current.settledMatchIds, matchId].slice(-5_000);
+                        const damageReceipts = { ...current.bankedDamageByMatch, [matchId]: banked };
+                        current.bankedDamageByMatch = Object.fromEntries(current.settledMatchIds.map(id => [id, damageReceipts[id] ?? 0]));
                         current.status = wasStoppedByAdmin
                             ? 'stopped'
                             : current.hp <= 0
@@ -117,7 +126,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         current.updatedAt = Date.now();
                         await writeWorldBossEvent(current);
                     }
-                    return { event: current, bankedDamage: wasStoppedByAdmin ? 0 : Math.min(hpBefore, teamDamage) };
+                    return { event: current, bankedDamage: banked };
                 }, { failClosed: true });
                 match.teamDamage = teamDamage;
                 match.bankedDamage = applied.bankedDamage;
@@ -194,6 +203,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             response.character = callerCache.character;
             response._saveVersion = callerCache.saveVersion;
             response.hollowBeastCache = { itemId: 'hollow-beast-cache', rank: callerCache.rank };
+        }
+        // Even a non-qualifying contribution can spend a potion or ammunition.
+        const callerSave = await kv.get<Record<string, unknown>>(`save:${playerSlug}`);
+        if (callerSave?.character) {
+            response.character = callerSave.character;
+            response._saveVersion = callerSave._saveVersion;
         }
         return res.status(200).json(response);
     } catch (error) {

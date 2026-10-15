@@ -50,6 +50,7 @@ export type WorldBossEventRecord = {
     hp: number;
     participants: Record<string, WorldBossParticipant>;
     settledMatchIds: string[];
+    bankedDamageByMatch?: Record<string, number>;
     movementPausedAt?: number | null;
     movementPausedTotalMs?: number;
     minedCrystalNodeIds?: string[];

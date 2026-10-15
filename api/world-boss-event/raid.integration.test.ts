@@ -180,3 +180,46 @@ test('a completed legacy raid survives generic recovery and pays its original co
     assert.equal(retry.status, 200);
     assert.deepEqual(await kv.get(`save:${raid.slug}`), save);
 });
+
+test('a lost match write after the killing blow retains banked damage and pays only once',async t=>{
+    const raid=await startRaid('banked-crash','hollow-maze-minotaur',1000);
+    const matchKey=eventStore.worldBossMatchKey(raid.event.eventId,raid.match.matchId);
+    const originalSet=kv.set.bind(kv);
+    let fail=true;
+    t.mock.method(console,'error',()=>{});
+    t.mock.method(kv,'set',async(...args:any[])=>{
+        if(args[0]===matchKey && fail){fail=false;throw new Error('Lost match write');}
+        return originalSet(...args as Parameters<typeof kv.set>);
+    });
+    const body={runId:raid.match.runId,playerName:raid.slug};
+    assert.equal((await post(settleHandler,body)).status,503);
+    assert.equal((await eventStore.readWorldBossEvent(raid.event.eventId))!.hp,0);
+    const recovered=await post(settleHandler,body);
+    assert.equal(recovered.status,200,JSON.stringify(recovered.body));
+    assert.equal(recovered.body.bankedDamage,1000);
+    assert.equal(recovered.body.hpRemaining,0);
+    const save=await kv.get(`save:${raid.slug}`);
+    assert.equal((await post(settleHandler,body)).body.bankedDamage,1000);
+    assert.deepEqual(await kv.get(`save:${raid.slug}`),save);
+});
+
+test('a wiped raid deducts recorded potions and thrown ammunition exactly once',async()=>{
+    const raid=await startRaid('spent-items','hollow-maze-minotaur',600_000,false);
+    const saveKey=`save:${raid.slug}`;
+    const save=await kv.get<any>(saveKey);
+    save.character.inventory=['healing-potion','healing-potion','kunai','kunai','kunai'];
+    await kv.set(saveKey,save);
+    const session=(await towerStore.readSession(raid.match.runId))!;
+    session.actors.find(actor=>actor.side==='squad')!.itemsUsed={'healing-potion':1,'kunai':2};
+    session.status='done';session.winner='enemy';
+    await towerStore.writeSession(session);
+    const body={runId:raid.match.runId,playerName:raid.slug};
+    const paid=await post(settleHandler,body);
+    assert.equal(paid.status,200,JSON.stringify(paid.body));
+    const inventory=paid.body.character.inventory as string[];
+    assert.equal(inventory.filter(id=>id==='healing-potion').length,1);
+    assert.equal(inventory.filter(id=>id==='kunai').length,1);
+    const after=await kv.get(saveKey);
+    await post(settleHandler,body);
+    assert.deepEqual(await kv.get(saveKey),after);
+});

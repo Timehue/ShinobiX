@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Character, PlayerRecord, VersionedCharacterCommit, BattleHistoryEntry } from '../types/character';
 import type { GameItem, SavedBloodline } from '../types/combat';
 import type { CreatorAi } from '../types/creator-ai';
@@ -10,6 +10,8 @@ import { getCharacterArmorFactor, getCharacterArmorRawDR, getEquippedItemBonus, 
 import { WeeklyBossArena } from './WeeklyBossArena';
 import { WorldBossEvent } from './WorldBossEvent';
 import { WorldBossTabs, type WorldBossTab } from '../components/WorldBossTabs';
+import { peekWeeklyBossLaunch } from '../lib/weekly-boss-launch';
+import { clearWorldBossEventReturn, peekWorldBossEventReturn, worldBossEntryTab, worldBossTabStorageKey } from '../lib/world-boss-hub-navigation';
 
 export function WorldBossesHub({
     character,
@@ -37,14 +39,16 @@ export function WorldBossesHub({
     onBack: () => void;
     bossBackLabel?: string;
 }) {
-    const tabStorageKey = 'worldBosses.activeTab.' + character.name.toLowerCase();
+    const tabStorageKey = worldBossTabStorageKey(character.name);
+    const [worldReturn] = useState(() => peekWorldBossEventReturn(character.name));
     const [activeTab, setActiveTab] = useState<WorldBossTab>(() => {
         try {
-            return sessionStorage.getItem(tabStorageKey) === 'hollow-beast' ? 'hollow-beast' : 'weekly';
+            return worldBossEntryTab(sessionStorage.getItem(tabStorageKey), !!peekWeeklyBossLaunch(), !!worldReturn);
         } catch {
-            return 'weekly';
+            return worldBossEntryTab(null, !!peekWeeklyBossLaunch(), !!worldReturn);
         }
     });
+    useEffect(() => { clearWorldBossEventReturn(worldReturn); }, [worldReturn]);
     const selectTab = useCallback((tab: WorldBossTab) => {
         setActiveTab(tab);
         try { sessionStorage.setItem(tabStorageKey, tab); } catch { /* keep the tab switch available */ }

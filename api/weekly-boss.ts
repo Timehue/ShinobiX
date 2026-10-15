@@ -1226,7 +1226,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (!identity.admin && run.playerName !== actorName) return { status: 403 as const, body: { error: 'That Weekly Boss run belongs to another player.' } };
                     if (run.settledAt) {
                         const current = await kv.get<WeeklyBossState>(WEEKLY_BOSS_STATE_KEY) ?? boss!;
-                        return { status: 200 as const, body: { ok: true, alreadySettled: true, boss: publicWeeklyBossState(current), dealt: 0, attemptsUsed: current.attemptsByPlayer?.[run.playerName] ?? 0 } };
+                        const session = await readSoloPveSession(runId);
+                        const dealt = Math.max(0, Math.floor(Number(run.settledDamage ?? session?.terminalEvidence?.receipt?.rewards?.damage ?? current.bankedRunDamage?.[runId]) || 0));
+                        const save = await kv.get<Record<string, unknown>>(`save:${run.playerName}`);
+                        return { status: 200 as const, body: { ok: true, alreadySettled: true, boss: publicWeeklyBossState(current), dealt, attemptsUsed: current.attemptsByPlayer?.[run.playerName] ?? 0,
+                            ...(save?.character ? { character: save.character, _saveVersion: save._saveVersion } : {}),
+                        } };
                     }
                     const session = await readSoloPveSession(runId);
                     const validation = validateAuthoritativeWeeklyBossRun({
@@ -1300,7 +1305,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         settledAt: Date.now(),
                         rewards: { damage: banked.damage },
                     }));
-                    await kv.set(weeklyBossRunKey(runId), { ...run, settledAt: Date.now() }, { ex: WEEKLY_BOSS_RUN_TTL_SECONDS });
+                    await kv.set(weeklyBossRunKey(runId), { ...run, settledAt: Date.now(), settledDamage: banked.damage }, { ex: WEEKLY_BOSS_RUN_TTL_SECONDS });
                     const activeKey = weeklyBossActiveRunKey(run.playerName, run.bossStartedAt);
                     await withKvLock(activeKey, async () => {
                         if (await kv.get<string>(activeKey) === runId) await kv.del(activeKey);
