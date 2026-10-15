@@ -57,6 +57,10 @@ before(async () => {
         return [...store.keys()].filter((key) => key.startsWith(prefix));
     };
     kv.hgetall = async <T,>(key: string) => (clone(hashes.get(key)) ?? null) as T | null;
+    // Account deletion releases the departing guest's shared images (avatar
+    // lookup reads the legacy image rows' keys; claim lookup batch-reads).
+    kv.hkeys = async (key: string) => Object.keys(hashes.get(key) ?? {});
+    kv.mget = (async (...keys: string[]) => keys.map((key) => clone(store.get(key)) ?? null)) as typeof kv.mget;
     kv.hset = async (key: string, fields: Record<string, unknown>) => {
         hashes.set(key, { ...(hashes.get(key) ?? {}), ...clone(fields) });
         return Object.keys(fields).length;

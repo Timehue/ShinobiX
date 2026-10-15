@@ -22,7 +22,8 @@ import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { WORLD_CRISIS_TRIGGER_LEVEL } from '../../shared/world-crisis.js';
 import { WORLD_CRISIS_80_TRIGGER_LEVEL } from '../../shared/world-crisis-80.js';
-import { safeName, mergePreservingImages, cors, parseJsonBody } from '../_utils.js';
+import { safeName, mergePreservingImages, cors, parseJsonBody, clanBareSlug } from '../_utils.js';
+import { clanPublicView, playerClanSlug } from '../clans/_clan-public-view.js';
 import { authedPlayerOrAdmin, isAdmin, isFullAdmin, verifyPlayerPasswordBudgeted } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { validateClanSaveWrite } from '../_clan-save-validate.js';
@@ -614,9 +615,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!name) return res.status(400).json({ error: 'Invalid name.' });
 
     const key = `save:${name}`;
-    // Clan saves use `save:clan-<slug>` keys — they're shared per-clan, so any
-    // logged-in player may read/write them. Admin actions still flow through
-    // ?signal=1 which requires admin auth.
+    // Clan saves use `save:clan-<slug>` keys — they're shared per-clan. Members
+    // read them whole; other logged-in players get the public clan view (GET
+    // below) and may only send a join request (POST gate below). Admin actions
+    // still flow through ?signal=1 which requires admin auth.
     const isClanSave = name.startsWith('clan-');
 
     if (req.method === 'GET') {
@@ -625,7 +627,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // other players' saves (needed for PvP opponent loading, clan record
         // lookups, etc.) but at least we know who's doing it.
         // Sensitive economy fields (ryo, inventory, etc.) are stripped for non-owners.
-        const identity = await authedPlayerOrAdmin(req, name);
+        const identity = await authedPlayerOrAdmin(req, name, { allowContentAdmin: true });
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         // Only owner reads advance the version stream. A client loading-mask
         // descriptor is never consulted for arrival; the durable lease is.
@@ -658,7 +660,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const adminCanReadTarget = identity.admin
             && adminSaveTargetAllowed(name, isFullAdmin(req), isAdmin(req));
         const isPlayerSelfRead = !identity.admin && identity.name === name;
-        const canReadFullSave = adminCanReadTarget || isClanSave || isPlayerSelfRead;
+        // A shared clan record is read whole only by its own members (the
+        // player's save names this clan, the same rule as the clan-write gate
+        // below and clan chat) and by admins. Anyone else gets the public clan
+        // view: no treasury, settlement receipts, role appointments, notices or
+        // war state (api/clans/_clan-public-view.ts).
+        const targetClanSlug = isClanSave ? clanBareSlug(name.slice('clan-'.length)) : '';
+        const isClanMemberRead = isClanSave && !identity.admin && !!targetClanSlug
+            && (await playerClanSlug(identity.name)) === targetClanSlug;
+        const isClanPublicRead = isClanSave && !identity.admin && !isClanMemberRead;
+        const canReadFullSave = adminCanReadTarget || (isClanSave && identity.admin) || isClanMemberRead || isPlayerSelfRead;
 
         // Settling projects elapsed time (vitals regen, travel leases, an expired
         // Hollow Gate run) and persisting it BUMPS `_saveVersion`.
@@ -695,7 +706,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         // Project the save by reader.
-        // - Owners + authorized admins + clan saves: full save (combatOnly just
+        // - Clan saves read by a non-member: the public clan view only.
+        // - Owners + authorized admins + clan members: full save (combatOnly just
         //   trims combat-irrelevant fields for bandwidth).
         // - Anyone else: an explicit ROOT + CHARACTER allowlist DTO
         //   (buildPublicSaveDTO). Nothing leaks unless it is named there —
@@ -721,6 +733,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     pendingTravel: { destinationSector: ownerTravel.destinationSector, arrivalAt: ownerTravel.arrivalAt,
                         remainingMs: ownerTravel.arrivalAt - positionNow } };
             }
+        } else if (isClanPublicRead) {
+            payload = clanPublicView(data) ?? {};
         } else {
             // Admin content slots additionally expose the shared authored-content
             // root fields, which every client needs to hydrate custom jutsu /
@@ -767,7 +781,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const adminLockKey = `admin-lock:${name.toLowerCase()}`;
             if (req.query.ack === '1') {
                 // Ack just clears two short-lived keys for this player.
-                const ackIdentity = await authedPlayerOrAdmin(req, name);
+                const ackIdentity = await authedPlayerOrAdmin(req, name, { allowContentAdmin: true });
                 if (!ackIdentity) return res.status(401).json({ error: 'Authentication required.' });
                 if (ackIdentity.admin && !adminSaveTargetAllowed(name, isFullAdmin(req), isAdmin(req))) {
                     return res.status(403).json({ error: 'Full admin authentication required for that save.' });
@@ -805,7 +819,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // Non-admin saves: player can save their own; clan saves are
                 // gated by clan membership (the actor's character.clan must
                 // match the clan-<slug> being written).
-                const identity = await authedPlayerOrAdmin(req, name);
+                const identity = await authedPlayerOrAdmin(req, name, { allowContentAdmin: true });
                 if (!identity) return res.status(401).json({ error: 'Authentication required.' });
                 if (identity.admin && !adminSaveTargetAllowed(name, isFullAdmin(req), isAdmin(req))) {
                     return res.status(403).json({ error: 'Full admin authentication required for that save.' });

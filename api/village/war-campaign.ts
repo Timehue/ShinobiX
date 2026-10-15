@@ -61,7 +61,27 @@ interface Defense { player: string; village: string; objectiveId: string; seenAt
 const runKey = (id: string) => `village-campaign-run:${id}`;
 const defensePrefix = (war: CampaignWarRow) => `village-campaign-defense:${war.id}:g${war.declarationGeneration}:`;
 const activeKey = (war: CampaignWarRow, player: string) => `village-campaign-active:${war.id}:g${war.declarationGeneration}:${player}`;
-function refuse(message: string): never { throw new Error(message); }
+/** A player-facing refusal: its message is safe to return verbatim. */
+export class WarCampaignRefusal extends Error {
+    constructor(message: string) { super(message); this.name = 'WarCampaignRefusal'; }
+}
+function refuse(message: string): never { throw new WarCampaignRefusal(message); }
+
+export const WAR_CAMPAIGN_BUSY_MESSAGE = 'Village war is busy. Please retry.';
+// The shared war helpers (_village-war-campaign.ts, _village-war-field-
+// operations.ts) refuse with a plain `new Error('One player-facing sentence.')`.
+// Only that exact shape is echoed; anything else (a lock-contention error that
+// names its KV key, a storage/driver/runtime error, a TypeError) is logged and
+// answered with the generic busy message so internals never reach the client.
+const PLAYER_SENTENCE = /^[A-Z][A-Za-z0-9 ,.'’!?()-]{2,159}[.!?]$/;
+export function warCampaignErrorMessage(error: unknown): { message: string; internal: boolean } {
+    if (error instanceof WarCampaignRefusal) return { message: error.message, internal: false };
+    if (error instanceof Error && Object.getPrototypeOf(error) === Error.prototype
+        && !('code' in error) && PLAYER_SENTENCE.test(error.message)) {
+        return { message: error.message, internal: false };
+    }
+    return { message: WAR_CAMPAIGN_BUSY_MESSAGE, internal: true };
+}
 async function notify(to: string, notice: Record<string, unknown>) {
     const key = `challenges:${to}`;
     await withKvLock(key, async () => {
@@ -191,7 +211,7 @@ export async function settleTerminalCampaignSession(session: SoloPveSession): Pr
         const run = await kv.get<CampaignRun>(runKey(session.sessionId));
         if (!run?.npc || run.attacker !== session.ownerSlug || session.encounter.bindingId !== run.id) return;
         const physical = await settlePveFightOutcome(session, run.attacker);
-        if (!physical.ok) throw new Error(physical.error);
+        if (!physical.ok) refuse(physical.error);
         await scoreRun(run, session.winner === 'player' ? 'p1' : session.winner === 'enemy' ? 'p2' : 'draw', session.terminalEvidence!.finishedAt);
     }, { failClosed: true });
 }
@@ -581,6 +601,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }, { failClosed: true });
         return res.status(200).json(result);
     } catch (error) {
-        return res.status(409).json({ error: error instanceof Error ? error.message : 'Village war is busy. Please retry.' });
+        const { message, internal } = warCampaignErrorMessage(error);
+        if (internal) console.error('[village/war-campaign]', safeLogValue(error instanceof Error ? (error.stack ?? error.message) : String(error), 2000));
+        return res.status(409).json({ error: message });
     }
 }

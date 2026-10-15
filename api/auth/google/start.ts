@@ -1,10 +1,11 @@
 import type { VercelRequest, VercelResponse } from '../../_vercel.js';
 import { cors, safeName } from '../../_utils.js';
 import { enforceRateLimit } from '../../_ratelimit.js';
-import { authedPlayer, playerSessionsEnabled, readPlayerSessionEpoch } from '../../_auth.js';
+import { authedPlayer, playerSessionsEnabled, readPlayerSessionEpoch, verifyPlayerPasswordBudgeted } from '../../_auth.js';
 import { buildAuthorizeUrl, googleAuthEnabled, signState } from '../../_google-auth.js';
 import { withKvLock } from '../../_lock.js';
-import { authKey } from '../../player-auth.js';
+import { kv } from '../../_storage.js';
+import { authKey, isPasswordlessRecord, type AuthRecord } from '../../player-auth.js';
 
 /*
  * POST /api/auth/google/start  { nonce, mode?: 'login' | 'link', client?: 'android-app' }
@@ -41,7 +42,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(503).json({ ok: false, error: 'Google sign-in is unavailable.' });
     }
 
-    const body = (req.body ?? {}) as { nonce?: unknown; mode?: unknown; client?: unknown };
+    const body = (req.body ?? {}) as { nonce?: unknown; mode?: unknown; client?: unknown; password?: unknown };
     const nonce = String(body.nonce ?? '');
     if (nonce.length < 16 || nonce.length > 128) {
         return res.status(400).json({ ok: false, error: 'Missing nonce.' });
@@ -58,6 +59,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const player = await authedPlayer(req);
         if (!player) return res.status(401).json({ ok: false, error: 'Sign in before linking Google.' });
         const name = safeName(player);
+        // A Google link is a door that survives every password change and admin
+        // reset, so a PASSWORD account must type its password to open one — a
+        // token lifted from a shared computer must not be enough to plant the
+        // thief's own Google account. Google and guest accounts have no password
+        // to prove; for them the session stays the proof, as before.
+        try {
+            const record = await kv.get<AuthRecord>(authKey(name));
+            if (record && !isPasswordlessRecord(record)) {
+                const password = typeof body.password === 'string' ? body.password : '';
+                if (!password || password.length > 128) {
+                    return res.status(401).json({ ok: false, error: 'Enter your current password to link Google.', passwordRequired: true });
+                }
+                if (!(await verifyPlayerPasswordBudgeted(req, name, password))) {
+                    return res.status(401).json({ ok: false, error: 'Incorrect current password.', passwordRequired: true });
+                }
+            }
+        } catch (err) {
+            console.error('[auth/google/start link password]', String(err));
+            return res.status(503).json({ ok: false, error: 'Account is busy or storage is unavailable. Try again.' });
+        }
         try {
             return await withKvLock(authKey(name), async () => {
                 // Credentials may rotate between the first verification and

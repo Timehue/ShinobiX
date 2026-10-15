@@ -77,8 +77,19 @@ export function shouldRedirectToCanonical(hostHeader: string | string[] | undefi
 }
 
 export function canonicalRedirectLocation(originalUrl: string, env: NodeJS.ProcessEnv = process.env): string {
-    const pathAndQuery = originalUrl.startsWith('/') ? originalUrl : `/${originalUrl}`;
-    return new URL(pathAndQuery, canonicalOrigin(env)).toString();
+    const origin = canonicalOrigin(env);
+    // Collapse every leading slash/backslash (and stray whitespace) into ONE
+    // slash: `//evil.example/x` and `/\evil.example/x` are protocol-relative
+    // URLs that `new URL(…, origin)` would resolve OFF-site (open redirect).
+    const pathAndQuery = `/${String(originalUrl ?? '').replace(/^[\s/\\]+/, '')}`;
+    try {
+        const resolved = new URL(pathAndQuery, origin);
+        // Belt and braces: whatever the parser did, never leave the canonical origin.
+        if (resolved.origin === origin) return resolved.toString();
+    } catch {
+        // fall through to the canonical root
+    }
+    return `${origin}/`;
 }
 
 export function robotsTxt(env: NodeJS.ProcessEnv = process.env): string {

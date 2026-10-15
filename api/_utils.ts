@@ -205,11 +205,17 @@ export const ALLOWED_ORIGINS: readonly string[] = [
     // cPanel backend tier (KV-proxy + image bulk storage; not front-facing).
     'https://theravensark.com',
     'https://www.theravensark.com',
-    // Local dev — Vite default ports
+];
+// Local dev — Vite default ports. Trusted ONLY outside production: in
+// production a page on a visitor's own localhost (any local app or malware
+// listening on :5173/:3000) must not get credentialed CORS approval.
+// NODE_ENV is read per call, not at import, so a test can flip it.
+export const DEV_ALLOWED_ORIGINS: readonly string[] = [
     'http://localhost:5173',
     'http://localhost:3000',
     'http://127.0.0.1:5173',
 ];
+const DEV_ALLOWED_ORIGIN_SET = new Set<string>(DEV_ALLOWED_ORIGINS);
 // Operators can add the deployment's OWN origin without a code change via the
 // EXTRA_ALLOWED_ORIGINS env var (comma-separated) — e.g. a Railway custom
 // domain, or a transient preview URL during the migration. Every CORS surface
@@ -222,26 +228,18 @@ const EXTRA_ALLOWED_ORIGINS: readonly string[] = (process.env.EXTRA_ALLOWED_ORIG
     .filter(Boolean);
 const ALLOWED_ORIGIN_SET = new Set<string>([...ALLOWED_ORIGINS, ...EXTRA_ALLOWED_ORIGINS]);
 
-// Railway gives every service a stable `<service>.up.railway.app` origin (and
-// `<branch>-<service>.up.railway.app` for PR previews). Allow any HTTPS origin
-// on that exact suffix so the API + Socket.IO handshake keep working when the
-// app is reached at its Railway URL before a custom domain is attached. Matched
-// on the PARSED hostname (not a substring) so a lookalike like
-// `up.railway.app.attacker.com` can't slip through.
-function isRailwayOrigin(origin: string): boolean {
-    try {
-        const u = new URL(origin);
-        return u.protocol === 'https:' && (u.hostname === 'up.railway.app' || u.hostname.endsWith('.up.railway.app'));
-    } catch {
-        return false;
-    }
-}
+// There is deliberately NO `*.up.railway.app` wildcard any more: that suffix is
+// shared by every Railway customer, so anyone could deploy a page there and
+// make credentialed cross-origin calls to this API. If the service's own
+// `<service>.up.railway.app` URL must work, add that EXACT origin to
+// EXTRA_ALLOWED_ORIGINS on the Railway service.
 
 // The single predicate every CORS surface uses to decide if an Origin is
 // trusted. Exported so server.ts + socket.ts share the exact same logic.
 export function isAllowedOrigin(origin: string | undefined | null): boolean {
     if (!origin) return false;
-    return ALLOWED_ORIGIN_SET.has(origin) || isRailwayOrigin(origin);
+    if (ALLOWED_ORIGIN_SET.has(origin)) return true;
+    return process.env.NODE_ENV !== 'production' && DEV_ALLOWED_ORIGIN_SET.has(origin);
 }
 
 export type JsonBodyResult =

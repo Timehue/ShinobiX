@@ -46,6 +46,34 @@ describe('Sentry privacy sanitization', () => {
         assert.match(serialized, /battle/);
     });
 
+    it('omits operator tokens, recovery codes, Google id tokens and guest resume keys in any key casing', () => {
+        const event = sanitizeSentryEvent({
+            extra: {
+                headers: {
+                    'x-kv-token': 'kv-token-value',
+                    'X-Restart-Token': 'restart-token-value',
+                    'x-health-token': 'health-token-value',
+                    'x-admin-token': 'admin-token-value',
+                    'x-player-token': 'player-token-value',
+                },
+                recoveryCode: 'recovery-code-value',
+                recovery_codes: ['recovery-codes-value'],
+                idToken: 'id-token-camel',
+                id_token: 'id-token-snake',
+                resumeKey: 'resume-key-value',
+                resume_key: 'resume-key-snake',
+                safe: 'kept-value',
+            },
+        });
+        const serialized = JSON.stringify(event);
+        for (const secret of [
+            'kv-token-value', 'restart-token-value', 'health-token-value', 'admin-token-value',
+            'player-token-value', 'recovery-code-value', 'recovery-codes-value', 'id-token-camel',
+            'id-token-snake', 'resume-key-value', 'resume-key-snake',
+        ]) assert.equal(serialized.includes(secret), false, secret);
+        assert.match(serialized, /kept-value/);
+    });
+
     it('allowlists caught-error context and scrubs secret-like string fragments', () => {
         assert.deepEqual(safeDiagnosticContext({
             screen: 'missions',

@@ -41,6 +41,7 @@ import { startTournamentClock } from './api/tournaments/_store.js';
 import { enforceRateLimit, flushRefusalLog } from './api/_ratelimit.js';
 import { readRequestMetrics, recordRequestMetric, requestSloAlert } from './api/_request-metrics.js';
 import { safeLogValue } from './api/_safe-log.js';
+import { clientIp, noteRealIpAgreementOnce } from './api/_client-ip.js';
 
 // ─── Handler imports ─────────────────────────────────────────────────────────
 // Handlers import their req/res types from the local shim api/_vercel.d.ts
@@ -49,10 +50,11 @@ import { safeLogValue } from './api/_safe-log.js';
 import { registerApiRoutes, type AnyHandler, villageWarMapEnabled, googleRedirectUriProblem } from './server-api-routes.js';
 
 // Shared auth helper — constant-time compare for the restart endpoint.
-import { safeEqual, maybeRefreshPlayerToken, PLAYER_TOKEN_REFRESH_HEADER } from './api/_auth.js';
+import { isAdmin, safeEqual, maybeRefreshPlayerToken, PLAYER_TOKEN_REFRESH_HEADER, weakSecretWarnings } from './api/_auth.js';
 // CORS origin predicate — single source of truth, shared with cors() and the
 // Socket.IO layer so the three CORS surfaces can't drift (CLAUDE.md). Handles
-// the static allowlist, EXTRA_ALLOWED_ORIGINS env additions, and *.up.railway.app.
+// the static allowlist, EXTRA_ALLOWED_ORIGINS env additions, and the localhost
+// dev origins (non-production only). No *.up.railway.app wildcard.
 import { isAllowedOrigin, isMalformedJsonBodyError, MALFORMED_JSON_BODY_ERROR } from './api/_utils.js';
 import { classifyBodyLimit } from './api/_body-limits.js';
 import { publicErrorPayload, securityHeaders } from './api/_http-security.js';
@@ -265,12 +267,21 @@ function isBillingWebhookPath(path: string): boolean {
 app.use((req: Request, res: Response, next: NextFunction) => {
     if (isBillingWebhookPath(req.path)) return jsonWebhook(req, res, next);
     switch (classifyBodyLimit(req.path)) {
-        case 'big':  return jsonBig(req, res, next);
+        // The 50 MB parser only for a request that already carries admin
+        // credentials (a synchronous HMAC/compare, no storage). Everyone else on
+        // a big-body route gets the 5 MB default, which a player's largest
+        // legitimate body (one image, capped at 3 MB by images.ts) fits inside,
+        // so an anonymous caller can no longer make the server buffer and
+        // parse 50 MB before any auth check runs.
+        case 'big':  return isAdmin(req) ? jsonBig(req, res, next) : jsonDefault(req, res, next);
         case 'save': return jsonSave(req, res, next);
         default:     return jsonDefault(req, res, next);
     }
 });
-app.use(express.urlencoded({ extended: true, limit: '5mb' }));
+// Every client call posts JSON; the only form-encoded inbound bodies are small
+// (an OAuth-style callback's handful of fields). 100 kb is generous for those
+// and keeps a pre-auth form body from buffering megabytes on any route.
+app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 
 // Per-request correlation id — a short, greppable token on every request,
 // echoed in the x-request-id response header (visible in the browser network
@@ -285,6 +296,9 @@ app.use((req: Request, res: Response, next: NextFunction) => {
         : randomUUID().slice(0, 8);
     (req as Request & { id?: string }).id = id;
     res.setHeader('x-request-id', id);
+    // Once per process: does Railway's X-Real-IP agree with Cloudflare's
+    // CF-Connecting-IP? Logs a boolean only — never either address.
+    noteRealIpAgreementOnce(req);
     next();
 });
 
@@ -713,6 +727,11 @@ function headerValue(h: string | string[] | undefined): string {
 //   • Array-header safe (headerValue) — repeated headers no longer bypass the
 //     `!==` check by arriving as an array.
 //   • Small in-memory throttle + audit logging blunt brute-force guessing.
+//     The throttle counts FAILED attempts per client IP (clientIp(), the same
+//     Cloudflare/Railway-aware resolver as the rate limiter), so a guesser
+//     cannot lock the operator out by burning a single global budget, and a
+//     successful call is never counted. A spoofed X-Forwarded-For first entry
+//     no longer picks the logged/throttled address either.
 //
 // The token is still sent in the existing `x-kv-token` header (also accepts
 // `x-restart-token`) so no CORS change is needed — restart is an operational
@@ -720,25 +739,41 @@ function headerValue(h: string | string[] | undefined): string {
 const OPERATOR_RESTART_EXIT_CODE = 75;
 const RESTART_MAX_ATTEMPTS = 5;
 const RESTART_WINDOW_MS = 60_000;
-let restartAttempts: number[] = [];   // epoch-ms of recent attempts
+// Bound on distinct IPs tracked, so a spray of spoofed/rotating sources cannot
+// grow this map without limit. Past the bound, the oldest entry is evicted.
+const RESTART_MAX_TRACKED_IPS = 1_000;
+const restartFailures = new Map<string, number[]>();   // ip -> epoch-ms of recent FAILED attempts
 let warnedRestartFallback = false;
+
+function recentRestartFailures(ipKey: string, now: number): number[] {
+    const recent = (restartFailures.get(ipKey) ?? []).filter((t) => now - t < RESTART_WINDOW_MS);
+    if (recent.length) restartFailures.set(ipKey, recent);
+    else restartFailures.delete(ipKey);
+    return recent;
+}
+
+function recordRestartFailure(ipKey: string, now: number): void {
+    const recent = recentRestartFailures(ipKey, now);
+    restartFailures.delete(ipKey);   // re-insert so Map order tracks recency
+    restartFailures.set(ipKey, [...recent, now]);
+    while (restartFailures.size > RESTART_MAX_TRACKED_IPS) {
+        const oldest = restartFailures.keys().next().value;
+        if (oldest === undefined) break;
+        restartFailures.delete(oldest);
+    }
+}
 
 app.post(['/restart', '/api/restart'], (req, res) => {
     const now = Date.now();
-    restartAttempts = restartAttempts.filter((t) => now - t < RESTART_WINDOW_MS);
-    const ip = safeLogValue(
-        headerValue(req.headers['x-forwarded-for']).split(',')[0].trim()
-            || req.socket.remoteAddress
-            || 'unknown',
-        96,
-    );
+    const ipKey = clientIp(req) || 'unknown';
+    const ip = safeLogValue(ipKey, 96);
 
-    if (restartAttempts.length >= RESTART_MAX_ATTEMPTS) {
-        console.warn(`[restart] RATE-LIMITED — ${restartAttempts.length} attempts in ${RESTART_WINDOW_MS}ms from ${ip}`); // lgtm[js/log-injection]
+    const failures = recentRestartFailures(ipKey, now);
+    if (failures.length >= RESTART_MAX_ATTEMPTS) {
+        console.warn(`[restart] RATE-LIMITED — ${failures.length} failed attempts in ${RESTART_WINDOW_MS}ms from ${ip}`); // lgtm[js/log-injection]
         res.status(429).json({ error: 'too many restart attempts' });
         return;
     }
-    restartAttempts.push(now);
 
     const dedicated = process.env.RESTART_TOKEN;
     const expected = dedicated || process.env.KV_PROXY_TOKEN;
@@ -749,6 +784,7 @@ app.post(['/restart', '/api/restart'], (req, res) => {
 
     const provided = headerValue(req.headers['x-restart-token']) || headerValue(req.headers['x-kv-token']);
     if (!expected || !provided || !safeEqual(provided, expected)) {
+        recordRestartFailure(ipKey, now);
         console.warn(`[restart] DENIED from ${ip} at ${new Date(now).toISOString()}`); // lgtm[js/log-injection]
         res.status(401).json({ error: 'invalid restart token' });
         return;
@@ -1103,6 +1139,9 @@ server.listen(PORT, () => {
             + 'Railway environment and redeploy.',
         );
     }
+    // A secret that is set but weak (short, still the .env.example placeholder,
+    // or shared between roles) is just as invisible. Names only, never values.
+    for (const warning of weakSecretWarnings()) console.error(`[startup] ${warning}`);
     // Google sign-in fails in ways the operator never sees: a redirect URI that
     // does not match the Cloud Console entry exactly produces a
     // `redirect_uri_mismatch` on GOOGLE's page, in front of the player. Say so

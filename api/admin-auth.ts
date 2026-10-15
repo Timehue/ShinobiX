@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from './_vercel.js';
 import { cors } from './_utils.js';
-import { safeEqual, issueAdminToken } from './_auth.js';
+import { safeEqual, issueAdminToken, isPlaceholderSecret } from './_auth.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
 
 // Login endpoint for the admin panel.
@@ -27,11 +27,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     const { password } = body as { password?: string };
 
-    const adminPassword = process.env.ADMIN_PASSWORD;
+    // A password still set to the .env.example placeholder is treated as unset
+    // here exactly as isAdmin/isFullAdmin treat it, so login cannot mint a
+    // token from a password anyone can read in the repository.
+    const configuredFull = process.env.ADMIN_PASSWORD;
+    const adminPassword = configuredFull && !isPlaceholderSecret(configuredFull) ? configuredFull : '';
     if (!adminPassword) {
         return res.status(500).json({ success: false, error: 'ADMIN_PASSWORD not configured on server.' });
     }
-    const adminContentPassword = process.env.ADMIN_CONTENT_PASSWORD;
+    const configuredContent = process.env.ADMIN_CONTENT_PASSWORD;
+    const adminContentPassword = configuredContent && !isPlaceholderSecret(configuredContent) ? configuredContent : '';
 
     if (!password) {
         return res.status(401).json({ success: false, error: 'Incorrect password.' });
