@@ -426,7 +426,7 @@ Decide the territory↔village structural question first.
 ## Appendix — peers referenced
 
 Seasons/ladders: League ranked seasons, Apex ranked & decay, Hero Wars/Wild Rift
-guild seasons, a major MMO WvW, Tacticus Guild War leagues. Combat depth: NinjaManager &
+guild seasons, a major MMO WvW, Tacticus Guild War leagues. Combat depth: a shinobi manager sim &
 a live-service shooter (elemental triangles), a sibling shinobi RPG (bloodline-as-trained-stat). PvE: a leading action RPG
 3/4 elite affixes, a deep action RPG map modifiers, a leading idle RPG King's Tower, New World
 phased bosses, Terraria/a leading action RPG Immortal bestiaries. Missions/dispatch: Torn Duke

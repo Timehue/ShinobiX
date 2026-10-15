@@ -34,8 +34,8 @@ import professionsHero from "../assets/professions/overview.webp";
 import towersHero from "../assets/towers/battle-towers-key-art-v1.webp";
 import gameHero from "../assets/background-image.webp";
 import "../styles/guides-skin.css";
+import { DISCORD_INVITE_URL } from "../constants/game";
 
-const DISCORD_URL = "https://discord.gg/usr3vzykBh";
 const GUIDE_ASSETS = {
     fieldManual: fieldManualHero,
     combat: combatHero,
@@ -589,7 +589,7 @@ export function GuidesLibrary({ onExit }: { onExit: () => void }) {
                             <h2>Still need help?</h2>
                             <p>Include the exact screen, your rank, and what you already tried so other players have enough context to help.</p>
                         </div>
-                        <a href={DISCORD_URL} target="_blank" rel="noopener noreferrer">Join the Discord <span aria-hidden="true">↗</span></a>
+                        <a href={DISCORD_INVITE_URL} target="_blank" rel="noopener noreferrer">Join the Discord <span aria-hidden="true">↗</span></a>
                     </footer>
                 </>
             )}

@@ -10,7 +10,8 @@
  *     gets gamed within hours and produces more noise than signal; this list
  *     covers the categories most likely to draw player complaints (slurs,
  *     hate terms, sexual content) and leaves grey-area words (swears, mild
- *     insults) alone.
+ *     insults) alone in chat. Player NAMES are stricter: they also refuse
+ *     NAME_PROFANITY (swears and crude words), see isCleanPlayerName.
  *   • Matches are bounded by word boundaries when possible to avoid the
  *     Scunthorpe problem ("ass" in "assassin", "tit" in "title", etc.).
  *   • We REPLACE matches with asterisks rather than rejecting the whole
@@ -74,6 +75,30 @@ const BLOCKLIST: ReadonlyArray<string> = [
     'killyourself', 'kys',
 ];
 
+// Swears and crude words a player NAME may not contain (owner ruling
+// 2026-10-15: "no bad names like fuck and shit"). Names only — chat keeps the
+// conservative BLOCKLIST above, so ordinary swearing in conversation is not
+// masked. Names have no word boundaries, so these are SUBSTRING-matched on the
+// compacted name: every entry must be distinctive enough not to sit inside an
+// ordinary fantasy name. Left out for that reason: "ass" (Assassin), "cock"
+// (Peacock), "arse" (Arsenal), "anal" (Canal), "piss" (repeat-collapses to
+// "pis": Pistol), "boob" ("bob"), "twat" ("Eastwatch" once spaces are gone).
+// `_text-moderation.test.ts` checks this against the game's own content names.
+const NAME_PROFANITY: ReadonlyArray<string> = [
+    'fuck', 'fvck', 'phuck', 'fcuk', 'shit', 'bitch', 'bastard', 'asshole',
+    'dick', 'cocksucker', 'pussy', 'wank', 'bollock', 'bellend',
+    'penis', 'vagina', 'dildo', 'porn', 'tits', 'jizz', 'horny',
+    'retard', 'nazi', 'hitler',
+];
+
+// Real words and surnames that contain a NAME_PROFANITY entry. They are cut out
+// of the name before the scan, so whatever is left is still checked:
+// "Yamashita" passes, "YamashitaShit" does not.
+const NAME_PROFANITY_EXEMPT: ReadonlyArray<string> = [
+    'yamashita', 'kinoshita', 'morishita', 'matsushita', 'takeshita', 'miyashita',
+    'kishita', 'oshita', 'shitake', 'thorny', 'swank',
+];
+
 // Leetspeak normalization — common substitutions players try when bypassing
 // filters. The matcher normalizes BEFORE comparing, so `n!gger`/`n1gger`
 // both collapse to `nigger` and hit the blocklist.
@@ -133,6 +158,16 @@ function leetCollapseStripSpace(text: string): string {
 // We don't store a non-collapsed copy — every blocklist check goes through
 // the same normalizer that the input does.
 const COLLAPSED_BLOCKLIST: ReadonlyArray<string> = BLOCKLIST.map(w => leetCollapse(w));
+const COLLAPSED_NAME_PROFANITY: ReadonlyArray<string> = NAME_PROFANITY.map(w => leetCollapse(w));
+const COLLAPSED_NAME_PROFANITY_EXEMPT: ReadonlyArray<string> = NAME_PROFANITY_EXEMPT.map(w => leetCollapse(w));
+
+/** True when a name, compacted the way isCleanPlayerName compacts it, holds a swear. */
+export function hasNameProfanity(input: unknown): boolean {
+    if (typeof input !== 'string') return false;
+    let compact = leetCollapseStripSpace(input).replace(/[^a-z0-9]/g, '');
+    for (const safe of COLLAPSED_NAME_PROFANITY_EXEMPT) compact = compact.split(safe).join(' ');
+    return COLLAPSED_NAME_PROFANITY.some((term) => compact.includes(term));
+}
 
 const PHONE_RE = /(\+?\d[\d\s().-]{7,}\d)/g;
 const EMAIL_RE = /[\w.+-]+@[\w-]+\.[\w.-]+/g;
@@ -226,9 +261,10 @@ export function isCleanPlayerName(input: unknown): boolean {
     if (typeof input !== 'string') return false;
     const canonical = leetCollapseStripSpace(input).replace(/[^a-z0-9]/g, '');
     if (!canonical) return false;
-    // Third-party IP is refused here too: a monster-collecting game does not
-    // want a shinobi called "Pikachu" on its leaderboards.
-    if (hasReservedIpTerm(input)) return false;
+    // The language filter is the ONLY thing that limits a name (owner ruling
+    // 2026-10-15). No franchise/trademark list: players may name themselves
+    // anything that is not offensive.
+    if (hasNameProfanity(input)) return false;
     return !COLLAPSED_BLOCKLIST
         .filter((term) => term.length >= 4)
         .some((term) => canonical.includes(term));
@@ -258,64 +294,7 @@ export const RESERVED_TITLE_TERMS: readonly string[] = [
     'anthropic', 'system message', 'game master',
 ];
 
-/**
- * Third-party IP that must not become a player IDENTITY.
- *
- * Deliberately NOT in BLOCKLIST. That list masks matches with asterisks
- * everywhere sanitizeUserText runs, including chat — turning "this plays a bit
- * like pokemon" into "this plays a bit like *******", which censors ordinary
- * conversation and teaches players the filter is broken. The risk being managed
- * here is a player NAME, clan, title, or pet carrying someone else's trademark
- * in a monster-collecting game, so it gates identity surfaces only.
- *
- * Entries are chosen to be unmistakable marks. Real-language words that happen
- * to belong to a franchise are excluded on purpose: "sakura" is cherry blossom,
- * "konoha" is tree-leaf, and both are legitimate choices in a shinobi setting.
- * Village-leader titles (hokage, kazekage, …) are already covered above as
- * impersonation terms, since this game has its own Kages.
- *
- * These are substring-matched on names (see isCleanPlayerName), so every entry
- * MUST be long and distinctive enough not to sit inside an ordinary fantasy
- * name — `_text-moderation.ip-terms.test.ts` asserts that against the game's
- * own shipped pet, jutsu, item, village, and NPC names.
- */
-/** Lowercase ROT13 — used only to keep the competitor's name out of the source. */
-function rot13(s: string): string {
-    return s.replace(/[a-z]/g, (ch) => String.fromCharCode(((ch.charCodeAt(0) - 97 + 13) % 26) + 97));
-}
-
-export const RESERVED_IP_TERMS: readonly string[] = [
-    // Monster-collecting franchises — the closest genre neighbours, and the
-    // ones a pet-collection game is most likely to draw a complaint over.
-    'pokemon', 'pokémon', 'temtem', 'digimon', 'pikachu', 'charizard',
-    'nexomon', 'coromon', 'palworld',
-    // Shonen/anime marks this setting sits nearest to.
-    'naruto', 'uzumaki', 'uchiha', 'sharingan', 'byakugan', 'rinnegan',
-    'akatsuki', 'jinchuriki', 'kyuubi', 'susanoo',
-    'bleach anime', 'shippuden', 'boruto',
-    // Card/collectible marks.
-    'yugioh', 'yu-gi-oh', 'duel monsters', 'magic the gathering', 'hearthstone',
-    // Direct competitor (see the project rule against naming it). Stored
-    // ROT13-encoded so the source never spells the name; decoded here, so the
-    // filter matches exactly as before.
-    ...['avawnect', 'gur avawn ect', 'guravawnect'].map(rot13),
-];
-
 const COLLAPSED_RESERVED = RESERVED_TITLE_TERMS.map((t) => leetCollapseStripSpace(t));
-const COLLAPSED_IP = RESERVED_IP_TERMS.map((t) => leetCollapseStripSpace(t));
-
-/** True when the text carries third-party IP that may not be worn as identity. */
-export function hasReservedIpTerm(input: unknown): boolean {
-    if (typeof input !== 'string' || !input.trim()) return false;
-    // Names have no reliable word boundaries ("XxNarutoxX"), so match the
-    // compacted form as a substring — the same shape isCleanPlayerName uses.
-    const compact = leetCollapseStripSpace(input).replace(/[^a-z0-9]/g, '');
-    if (!compact) return false;
-    return COLLAPSED_IP.some((term) => {
-        const needle = term.replace(/[^a-z0-9]/g, '');
-        return needle.length >= 4 && compact.includes(needle);
-    });
-}
 
 /** True when the text contains a reserved authority/impersonation term. */
 export function hasReservedTitleTerm(input: unknown): boolean {
@@ -362,6 +341,5 @@ export function isAllowedCustomTitle(input: unknown): boolean {
     if (text.length > TEXT_LIMITS.customTitle) return false;
     if (!isCleanText(text)) return false;
     if (hasReservedTitleTerm(text)) return false;
-    if (hasReservedIpTerm(text)) return false;
     return true;
 }
