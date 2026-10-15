@@ -1,10 +1,21 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { gzipSync } from 'node:zlib';
 import {
     assertBaseOnlyRestore,
     assertNoLegacyOverlayExport,
+    backupPassphrase,
     backupStorageTopology,
     captureBracketedStores,
+    decodeBackupFile,
+    decryptBackupBytes,
+    encodeBackupFile,
+    encryptBackupBytes,
+    isEncryptedBackup,
+    writeBackupFile,
     digestOverlay,
     digestRows,
     representativeRecords,
@@ -313,5 +324,73 @@ describe('hybrid KV backup evidence helpers', () => {
         assert.throws(() => validateTargetSchemaEvidence({ ...good, anonCanSelect: true }), /RLS|privileges/i);
         assert.throws(() => validateTargetSchemaEvidence({ ...good, anonCanInsert: true }), /RLS|privileges/i);
         assert.throws(() => validateTargetSchemaEvidence({ ...good, indexes: ['kv_store_pkey'] }), /missing index/i);
+    });
+});
+
+describe('backup encryption at rest (L14)', () => {
+    const PASS = 'correct horse battery staple';
+
+    it('round-trips an encrypted backup and the file carries no plaintext', async () => {
+        const good = baseOnlyPayload();
+        const bytes = await encodeBackupFile(good, PASS);
+        assert.equal(isEncryptedBackup(bytes), true);
+        assert.equal(bytes.subarray(0, 7).toString('latin1'), 'SJKVENC');
+        assert.equal(bytes[7], 1, 'format version byte');
+        assert.equal(bytes.includes(Buffer.from('save:alice')), false);
+        assert.deepEqual(await decodeBackupFile(bytes, PASS), good);
+        // Fresh salt + IV every time.
+        assert.notDeepEqual(await encodeBackupFile(good, PASS), bytes);
+    });
+
+    it('requires the right passphrase and detects tampering anywhere', async () => {
+        const bytes = await encodeBackupFile(baseOnlyPayload(), PASS);
+        await assert.rejects(decodeBackupFile(bytes, ''), /encrypted; set KV_BACKUP_PASSPHRASE/);
+        await assert.rejects(decodeBackupFile(bytes, 'wrong'), /wrong KV_BACKUP_PASSPHRASE|corrupt/);
+        for (const offset of [10, 30, 40, bytes.length - 1]) {
+            const tampered = Buffer.from(bytes);
+            tampered[offset] ^= 0xff;
+            assert.throws(() => decryptBackupBytes(tampered, PASS), /wrong KV_BACKUP_PASSPHRASE|corrupt/, `byte ${offset}`);
+        }
+        assert.throws(() => decryptBackupBytes(bytes.subarray(0, 40), PASS), /truncated/);
+        const futureVersion = Buffer.from(bytes);
+        futureVersion[7] = 2;
+        assert.throws(() => decryptBackupBytes(futureVersion, PASS), /unknown header or format version/);
+    });
+
+    it('still reads a plaintext gzip backup, with or without a passphrase', async () => {
+        const good = baseOnlyPayload();
+        const legacy = gzipSync(Buffer.from(JSON.stringify(good)));
+        assert.equal(isEncryptedBackup(legacy), false);
+        assert.deepEqual(await decodeBackupFile(legacy, ''), good);
+        assert.deepEqual(await decodeBackupFile(legacy, PASS), good);
+        // An unset passphrase writes plaintext, so the existing workflow keeps working.
+        assert.deepEqual(await encodeBackupFile(good, ''), gzipSync(Buffer.from(JSON.stringify(good)), { level: 9 }));
+    });
+
+    it('encryption does not touch the pre-cutover restore refusal', async () => {
+        const decoded = validatePayload(await decodeBackupFile(await encodeBackupFile(payload(), PASS), PASS));
+        assert.throws(() => assertBaseOnlyRestore(decoded.overlay.entries), /retired cPanel overlay/);
+    });
+
+    it('reads the passphrase from KV_BACKUP_PASSPHRASE', () => {
+        assert.equal(backupPassphrase({ KV_BACKUP_PASSPHRASE: 'x' }), 'x');
+        assert.equal(backupPassphrase({}), '');
+        assert.throws(() => encryptBackupBytes(Buffer.from('x'), ''), /passphrase is required/);
+    });
+
+    it('writes backup files owner-only (0600), tightening an existing file', { skip: process.platform === 'win32' && 'POSIX modes only' }, async () => {
+        const dir = await mkdtemp(join(tmpdir(), 'kv-backup-mode-'));
+        try {
+            const fresh = join(dir, 'nested', 'a.json.gz');
+            await writeBackupFile(fresh, Buffer.from('x'));
+            assert.equal((await stat(fresh)).mode & 0o777, 0o600);
+            const existing = join(dir, 'b.json.gz');
+            await writeFile(existing, 'old', { mode: 0o644 });
+            await writeBackupFile(existing, Buffer.from('new'));
+            assert.equal((await stat(existing)).mode & 0o777, 0o600);
+            assert.equal((await readFile(existing)).toString(), 'new');
+        } finally {
+            await rm(dir, { recursive: true, force: true });
+        }
     });
 });

@@ -60,13 +60,32 @@ describe('isAllowedOrigin (CORS predicate, #12)', () => {
         assert.equal(isAllowedOrigin('https://www.shinobijourney.com'), true);
         assert.equal(isAllowedOrigin('https://theravensark.com'), true);
         assert.equal(isAllowedOrigin('https://www.theravensark.com'), true);
-        assert.equal(isAllowedOrigin('http://localhost:5173'), true);
+        assert.equal(isAllowedOrigin('http://localhost:5173'), process.env.NODE_ENV !== 'production');
     });
 
-    it('allows any https *.up.railway.app origin (service + PR-preview subdomains)', () => {
-        assert.equal(isAllowedOrigin('https://shinobix.up.railway.app'), true);
-        assert.equal(isAllowedOrigin('https://pr-12-shinobix.up.railway.app'), true);
-        assert.equal(isAllowedOrigin('https://up.railway.app'), true);
+    it('trusts the localhost dev origins only outside production', () => {
+        const prev = process.env.NODE_ENV;
+        try {
+            process.env.NODE_ENV = 'development';
+            for (const o of ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173']) {
+                assert.equal(isAllowedOrigin(o), true, o);
+            }
+            process.env.NODE_ENV = 'production';
+            for (const o of ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173']) {
+                assert.equal(isAllowedOrigin(o), false, o);
+            }
+            assert.equal(isAllowedOrigin('https://shinobijourney.com'), true);
+        } finally {
+            if (prev === undefined) delete process.env.NODE_ENV;
+            else process.env.NODE_ENV = prev;
+        }
+    });
+
+    it('no longer trusts arbitrary *.up.railway.app origins (shared suffix)', () => {
+        assert.equal(isAllowedOrigin('https://shinobix.up.railway.app'), false);
+        assert.equal(isAllowedOrigin('https://pr-12-shinobix.up.railway.app'), false);
+        assert.equal(isAllowedOrigin('https://attacker.up.railway.app'), false);
+        assert.equal(isAllowedOrigin('https://up.railway.app'), false);
     });
 
     it('rejects http (non-TLS) railway + lookalike suffix attacks', () => {

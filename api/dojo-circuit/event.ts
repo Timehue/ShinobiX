@@ -16,7 +16,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).end();
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body ?? {};
-        const identity = await authedPlayerOrAdmin(req);
+        // Admin 2 may look; only a player or the full admin may act.
+        const identity = await authedPlayerOrAdmin(req, undefined, { allowContentAdmin: req.method === 'GET' });
         if (!identity) return res.status(401).json({ error: 'Sign in to enter the Dojo Circuit.' });
         const fullAdmin = isFullAdmin(req);
         const playerId = identity.admin ? '' : identity.name;

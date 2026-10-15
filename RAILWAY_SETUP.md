@@ -49,7 +49,11 @@ durable data) with its managed backups. Connect via `DATABASE_URL`.
 3. Open the service → **Variables** → add the env vars from the list below
    (Railway injects `PORT` itself — don't add it).
 4. **Settings → Networking → Generate Domain** to get a public
-   `*.up.railway.app` URL (or attach a custom domain — see below).
+   `*.up.railway.app` URL (or attach a custom domain — see below). If players
+   will open the game at that Railway URL, add its exact origin (for example
+   `https://<service>.up.railway.app`) to `EXTRA_ALLOWED_ORIGINS`. The server
+   no longer trusts every `*.up.railway.app` origin, so without it that page's
+   realtime connection is refused.
 5. Deploy. Watch the build logs; once live, hit `https://<domain>/health` →
    expect `ok`.
 

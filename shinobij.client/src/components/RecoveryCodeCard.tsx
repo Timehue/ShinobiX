@@ -95,10 +95,11 @@ export function RecoveryCodeCard({ playerName }: { playerName: string }) {
             const r = await fetch("/api/player-auth", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                // authFetch attaches the session token for us. The typed
-                // password is the fallback for a server running without
-                // SESSION_SECRET, where no token is ever minted — the same
-                // fallback ChangePasswordCard relies on.
+                // authFetch attaches the session token for us. A password
+                // account must also send its password: the code is a full
+                // credential, so the server will not mint one for a token
+                // alone. Google and guest accounts have no password and are
+                // proved by the token.
                 body: JSON.stringify({
                     action: "recovery-issue",
                     name: playerName,
@@ -111,9 +112,13 @@ export function RecoveryCodeCard({ playerName }: { playerName: string }) {
                 setPassword("");
                 setConfirming(false);
             } else if (r.status === 401) {
+                // A typed password that was wrong reads differently from one that
+                // was never entered.
                 setMsg({
                     kind: "err",
-                    text: "Enter your current password to generate a code.",
+                    text: password
+                        ? "That password is not right. Check it and try again."
+                        : "Enter your current password to generate a code.",
                 });
             } else if (r.status === 429) {
                 setMsg({ kind: "err", text: "Too many attempts — wait a few minutes and try again." });
@@ -144,7 +149,7 @@ export function RecoveryCodeCard({ playerName }: { playerName: string }) {
                         aria-label="Current password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        placeholder="Current password (only if asked)"
+                        placeholder="Current password (if you have one)"
                         autoComplete="current-password"
                     />
                     {confirming ? (

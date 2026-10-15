@@ -558,7 +558,9 @@ describe('player auth hardening', () => {
             oldPassword: 'Anything1',
             newPassword: 'NewSecure2',
         });
-        assert.equal(result.statusCode, 404);
+        // The same answer as a wrong password, so `change` cannot sort taken
+        // names from free ones.
+        assert.equal(result.statusCode, 401);
         assert.equal(result.body?.ok, false);
         assert.equal(store.has('auth:unused'), false);
     });
@@ -653,7 +655,7 @@ describe('player auth hardening', () => {
         assert.equal(store.get('auth-session:deleteme'), 1);
 
         const missing = await post({ action: 'delete', name: 'ghost', password: 'Whatever1' });
-        assert.equal(missing.statusCode, 404);
+        assert.equal(missing.statusCode, 401, 'answered like a wrong password, not as "no such account"');
     });
 
     it('uses NX so concurrent registrations cannot both claim an account', async () => {
@@ -683,10 +685,10 @@ describe('player auth hardening', () => {
 
     it('serializes registration against admin recovery without leaving a stale valid token', async () => {
         const [registration, reset] = await Promise.all([
-            register('adminrace', 'Registrant1'),
+            register('resetrace', 'Registrant1'),
             post({
                 action: 'adminreset',
-                name: 'adminrace',
+                name: 'resetrace',
                 newPassword: 'AdminWins2',
             }, { 'x-admin-password': process.env.ADMIN_PASSWORD! }),
         ]);
@@ -696,7 +698,7 @@ describe('player auth hardening', () => {
         if (registration.statusCode === 200) {
             assert.equal(await verifyPlayerToken(String(registration.body?.token)), null);
         }
-        assert.equal(await verifyPlayerPassword('adminrace', 'AdminWins2'), true);
+        assert.equal(await verifyPlayerPassword('resetrace', 'AdminWins2'), true);
     });
 
     it('fails safely when epoch rotation succeeds but the password write fails', async () => {
@@ -840,7 +842,7 @@ describe('player auth hardening', () => {
         async function issueFor(name: string, password: string): Promise<string> {
             const created = await register(name, password);
             const issued = await post(
-                { action: 'recovery-issue', name },
+                { action: 'recovery-issue', name, password },
                 { 'x-player-token': String(created.body?.token) },
             );
             assert.equal(issued.statusCode, 200);
@@ -854,6 +856,30 @@ describe('player auth hardening', () => {
             const stored = store.get('auth-recovery:lockedout') as Record<string, unknown>;
             assert.ok(stored, 'the code is stored server-side');
             assert.equal(JSON.stringify(stored).includes(code.replace(/-/g, '')), false, 'hashed, never the code itself');
+        });
+
+        it('makes a password account type its password even with a valid token', async () => {
+            // A code is a full credential: `recover` turns it into a new password
+            // and locks everyone else out. A token lifted from a shared computer
+            // must not be enough to mint one.
+            const created = await register('tokenonly', 'Original1');
+            const token = { 'x-player-token': String(created.body?.token) };
+            const bare = await post({ action: 'recovery-issue', name: 'tokenonly' }, token);
+            assert.equal(bare.statusCode, 401);
+            assert.equal(bare.body?.passwordRequired, true);
+            const wrong = await post({ action: 'recovery-issue', name: 'tokenonly', password: 'WrongGuess1' }, token);
+            assert.equal(wrong.statusCode, 401);
+            assert.equal(store.has('auth-recovery:tokenonly'), false);
+        });
+
+        it('still lets a passwordless account mint a code on its session alone', async () => {
+            const guest = await post({ action: 'guest', name: 'Drifter' });
+            const issued = await post(
+                { action: 'recovery-issue', name: 'Drifter' },
+                { 'x-player-token': String(guest.body?.token) },
+            );
+            assert.equal(issued.statusCode, 200);
+            assert.ok(issued.body?.recoveryCode);
         });
 
         it('accepts the current password when no session token is available', async () => {
@@ -1136,6 +1162,90 @@ describe('player auth hardening', () => {
             const reclaimed = await register('recycled', 'BrandNew1');
             assert.equal(reclaimed.statusCode, 200);
             assert.equal(store.has('auth-recovery:recycled'), false, 'the stale row must not survive re-registration');
+        });
+    });
+
+    // ─── Security audit 2026-10-15 ────────────────────────────────────────────
+    describe('session and link hardening', () => {
+        it('signs out every other device and keeps this one signed in', async () => {
+            const created = await register('manydevices', 'Original1');
+            const other = String(created.body?.token);
+            const here = String((await post({ action: 'verify', name: 'manydevices', password: 'Original1' })).body?.token);
+            const out = await post({ action: 'logout-others', name: 'manydevices' }, { 'x-player-token': here });
+            assert.equal(out.statusCode, 200);
+            assert.equal(await verifyPlayerToken(other), null, 'the copied token is dead');
+            assert.equal(await verifyPlayerToken(here), null, 'the old token on this device is replaced too');
+            assert.equal(await verifyPlayerToken(String(out.body?.token)), 'manydevices', 'this device carries on with the fresh one');
+            assert.equal(await verifyPlayerPassword('manydevices', 'Original1'), true, 'the password is untouched');
+        });
+
+        it('refuses to sign out devices without this account\'s own session', async () => {
+            await register('victimdevices', 'Original1');
+            const attacker = await register('otherdevices', 'Original1');
+            const out = await post({ action: 'logout-others', name: 'victimdevices' }, { 'x-player-token': String(attacker.body?.token) });
+            assert.equal(out.statusCode, 401);
+            assert.equal(store.get('auth-session:victimdevices') ?? 0, 0);
+        });
+
+        it('unlinks Google only with the current password, and never strands a Google-only account', async () => {
+            await register('linked', 'Original1');
+            store.set('auth:linked', { ...(store.get('auth:linked') as object), google: { sub: 'sub-linked', linkedAt: 1 } });
+            store.set('auth-google:sub-linked', { name: 'linked' });
+
+            const wrong = await post({ action: 'google-unlink', name: 'linked', password: 'WrongGuess1' });
+            assert.equal(wrong.statusCode, 401);
+            assert.ok((store.get('auth:linked') as { google?: unknown }).google, 'still linked after a wrong password');
+
+            const ok = await post({ action: 'google-unlink', name: 'linked', password: 'Original1' });
+            assert.equal(ok.statusCode, 200);
+            assert.equal((store.get('auth:linked') as { google?: unknown }).google, undefined);
+            assert.equal(store.has('auth-google:sub-linked'), false, 'the subject index is released');
+            assert.equal(await verifyPlayerToken(String(ok.body?.token)), 'linked');
+
+            store.set('auth:googleonly', { google: { sub: 'sub-only', linkedAt: 1 } });
+            const stranded = await post({ action: 'google-unlink', name: 'googleonly', password: 'Anything12' });
+            assert.equal(stranded.statusCode, 409);
+            assert.ok((store.get('auth:googleonly') as { google?: unknown }).google);
+        });
+
+        it('lets an admin reset drop a planted Google link', async () => {
+            await register('compromised', 'Original1');
+            store.set('auth:compromised', { ...(store.get('auth:compromised') as object), google: { sub: 'sub-thief', linkedAt: 1 } });
+            store.set('auth-google:sub-thief', { name: 'compromised' });
+            const kept = await post(
+                { action: 'adminreset', name: 'compromised', newPassword: 'AdminSet1' },
+                { 'x-admin-password': process.env.ADMIN_PASSWORD! },
+            );
+            assert.equal(kept.statusCode, 200);
+            assert.ok((store.get('auth:compromised') as { google?: unknown }).google, 'kept by default, as before');
+            const dropped = await post(
+                { action: 'adminreset', name: 'compromised', newPassword: 'AdminSet2', dropGoogle: true },
+                { 'x-admin-password': process.env.ADMIN_PASSWORD! },
+            );
+            assert.equal(dropped.statusCode, 200);
+            assert.equal((store.get('auth:compromised') as { google?: unknown }).google, undefined);
+            assert.equal(store.has('auth-google:sub-thief'), false);
+        });
+
+        it('verifies older-cost and wrapped-legacy hashes, then upgrades them on login', async () => {
+            const crypto = await import('node:crypto');
+            const salt = 'upgrade-salt';
+            const oldCost = crypto.scryptSync('Original1', salt, 64, { N: 16384, r: 8, p: 1 }).toString('hex');
+            store.set('auth:oldcost', { hash: `scrypt:16384:8:1:${oldCost}`, salt });
+            assert.equal(await verifyPlayerPassword('oldcost', 'Original1'), true);
+            assert.match(String((store.get('auth:oldcost') as { hash: string }).hash), /^scrypt:32768:8:1:/);
+
+            const { wrapLegacyPasswordHash } = await import('./player-auth.js');
+            const legacy = crypto.createHmac('sha256', salt).update('Original1').digest('hex');
+            store.set('auth:wrapped', { hash: await wrapLegacyPasswordHash(legacy, salt), salt });
+            assert.equal(await verifyPlayerPassword('wrapped', 'WrongGuess1'), false);
+            assert.equal(await verifyPlayerPassword('wrapped', 'Original1'), true);
+            assert.match(String((store.get('auth:wrapped') as { hash: string }).hash), /^scrypt:32768:/, 'unwrapped to plain scrypt');
+        });
+
+        it('fails closed on a stored hash with absurd parameters instead of running them', async () => {
+            store.set('auth:bomb', { hash: `scrypt:1048576:8:1:${'ab'.repeat(64)}`, salt: 's' });
+            assert.equal(await verifyPlayerPassword('bomb', 'Original1'), false);
         });
     });
 });

@@ -4,6 +4,7 @@ import { ChangePasswordCard } from '../components/ChangePasswordCard';
 import { ChangeAccountNameCard } from '../components/ChangeAccountNameCard';
 import { RecoveryCodeCard } from '../components/RecoveryCodeCard';
 import { GoogleLinkCard } from '../components/GoogleLinkCard';
+import { SignOutOtherDevicesCard } from '../components/SignOutOtherDevicesCard';
 import { AccountDeletionCard } from '../components/AccountDeletionCard';
 import { getReaderMode, setReaderMode, type ReaderMode } from '../lib/reader-preference';
 import { getAudioVolume, isAudioMuted, setAudioMuted, setAudioVolume, subscribeAudioMute } from '../lib/pet-music';
@@ -41,6 +42,7 @@ export function Settings({ character, onVersionedCharacter, onDelete }: {
             <ChangeAccountNameCard character={character} onVersionedCharacter={onVersionedCharacter} />
             <ChangePasswordCard playerName={character.name} />
             <RecoveryCodeCard playerName={character.name} />
+            <SignOutOtherDevicesCard playerName={character.name} />
         </section>
         <AccountDeletionCard playerName={character.name} onDelete={onDelete} />
     </div>;

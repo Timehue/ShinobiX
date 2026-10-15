@@ -3,9 +3,12 @@
  *
  * Two trust levels:
  *   - player:  x-player-token, or x-player-name + x-player-password, must verify
- *   - admin:   x-admin-password header must equal process.env.ADMIN_PASSWORD
+ *   - admin:   a signed x-admin-token, or x-admin-password matching
+ *              ADMIN_PASSWORD (full) or ADMIN_CONTENT_PASSWORD (content), under
+ *              a per-IP failed-guess budget
  *
- * Most game-mutating endpoints accept either. Personal-economy endpoints may
+ * Most game-mutating endpoints accept either a player or the FULL admin; the
+ * content role is admitted only where a handler opts in (authedPlayerOrAdmin). Personal-economy endpoints may
  * intentionally require the player's own credential instead of an admin shortcut.
  */
 
@@ -316,9 +319,9 @@ export async function maybeRefreshPlayerToken(token: string): Promise<string | n
 // replaces that: the login endpoint mints it once, the client sends
 // `x-admin-token`, and isAdmin/isFullAdmin verify it statelessly.
 //
-// Token: av1.<role>.<expMs>.<epoch>.<sig>
+// Token: av2.<role>.<expMs>.<epoch>.<sig>
 //   role  = 'full' (ADMIN_PASSWORD) | 'content' (ADMIN_CONTENT_PASSWORD)
-//   sig   = HMAC-SHA256(ADMIN_SESSION_SECRET, "<role>.<expMs>.<epoch>")
+//   sig   = HMAC-SHA256(ADMIN_SESSION_SECRET, "admin-v2|<role>.<expMs>.<epoch>")
 //   epoch = process.env.ADMIN_SESSION_EPOCH (default '0') — bump it (redeploy)
 //           to revoke every outstanding admin token at once; rotating
 //           ADMIN_SESSION_SECRET also revokes all tokens immediately.
@@ -328,20 +331,79 @@ export async function maybeRefreshPlayerToken(token: string): Promise<string | n
 // change until an operator configures the secret. Verification is stateless (no
 // KV) so isFullAdmin/isAdmin stay synchronous for their many call sites.
 export type AdminRole = 'full' | 'content';
-const ADMIN_TOKEN_VERSION = 'av1';
+// av2: the signed message gained a domain prefix (see signAdminToken). Bumping
+// the version means every av1 token is refused outright — the operator signs
+// into the admin panel once more after this deploy, and nothing else changes.
+const ADMIN_TOKEN_VERSION = 'av2';
 // 12h — shorter than the 24h player token because admin is more sensitive.
 const ADMIN_TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
 
+/**
+ * Values that ship in `.env.example`. A deployment still holding one of these
+ * has no secret at all, so they are treated exactly like an unset variable:
+ * the credential fails closed instead of accepting a password anyone can read
+ * in the repository.
+ */
+export function isPlaceholderSecret(value: string | undefined | null): boolean {
+    if (!value) return false;
+    const v = value.trim().toLowerCase();
+    return v.startsWith('change-me') || v === 'changeme' || v === 'password' || v === 'admin';
+}
+
+/**
+ * Boot-time report of secrets that are set but weak. Logged by server.ts, never
+ * fatal: refusing to boot over a short SESSION_SECRET would turn a hardening
+ * nudge into an outage. The two cases that ARE dangerous fail closed where the
+ * secret is used instead — placeholder admin passwords (adminPasswordRole) and a
+ * shared admin/player session secret (adminSessionSecret).
+ */
+export function weakSecretWarnings(env: NodeJS.ProcessEnv = process.env): string[] {
+    const warnings: string[] = [];
+    const checks: Array<[string, number]> = [
+        ['SESSION_SECRET', 32],
+        ['ADMIN_SESSION_SECRET', 32],
+        ['ADMIN_PASSWORD', 16],
+        ['ADMIN_CONTENT_PASSWORD', 16],
+    ];
+    for (const [key, minLength] of checks) {
+        const value = env[key];
+        if (!value) continue;
+        if (isPlaceholderSecret(value)) warnings.push(`${key} is still the .env.example placeholder; it is refused until replaced.`);
+        else if (value.length < minLength) warnings.push(`${key} is shorter than ${minLength} characters; use a long random value.`);
+    }
+    if (env.ADMIN_SESSION_SECRET && env.ADMIN_SESSION_SECRET === env.SESSION_SECRET) {
+        warnings.push('ADMIN_SESSION_SECRET equals SESSION_SECRET; admin session tokens are disabled until it is changed.');
+    }
+    if (env.ADMIN_PASSWORD && env.ADMIN_PASSWORD === env.ADMIN_CONTENT_PASSWORD) {
+        warnings.push('ADMIN_CONTENT_PASSWORD equals ADMIN_PASSWORD, so the content role is indistinguishable from full admin.');
+    }
+    return warnings;
+}
+
+let warnedSharedAdminSecret = false;
 function adminSessionSecret(): string | null {
     const s = process.env.ADMIN_SESSION_SECRET;
-    return s && s.length > 0 ? s : null;
+    if (!s || s.length === 0 || isPlaceholderSecret(s)) return null;
+    // A player token signs "<name>.<exp>.<epoch>", and before av2 an admin token
+    // signed "<role>.<exp>.<epoch>" — the same shape. With one shared secret, a
+    // player who registered the name `full` held a valid full-admin signature.
+    // The domain prefix closes that, and refusing the shared secret outright
+    // keeps a future format change from quietly reopening it.
+    if (s === process.env.SESSION_SECRET) {
+        if (!warnedSharedAdminSecret) {
+            warnedSharedAdminSecret = true;
+            console.error('[auth] ADMIN_SESSION_SECRET equals SESSION_SECRET — admin session tokens are DISABLED until it is changed.');
+        }
+        return null;
+    }
+    return s;
 }
 function adminSessionEpoch(): string {
     const e = process.env.ADMIN_SESSION_EPOCH;
     return e && e.length > 0 ? e : '0';
 }
 function signAdminToken(role: AdminRole, expMs: number, epoch: string, secret: string): string {
-    return createHmac('sha256', secret).update(`${role}.${expMs}.${epoch}`).digest('base64url');
+    return createHmac('sha256', secret).update(`admin-v2|${role}.${expMs}.${epoch}`).digest('base64url');
 }
 
 /** Mint a short-lived admin session token. null when ADMIN_SESSION_SECRET is unset. */
@@ -391,12 +453,50 @@ function strictAdminTokenOnly(): boolean {
  */
 export function isFullAdmin(req: ReqLike): boolean {
     if (verifyAdminToken(headerString(req, 'x-admin-token')) === 'full') return true;
-    if (strictAdminTokenOnly()) return false;
-    const expected = process.env.ADMIN_PASSWORD;
-    if (!expected) return false;
+    return adminPasswordRole(req) === 'full';
+}
+
+/**
+ * Failed `x-admin-password` guesses allowed per IP per window.
+ *
+ * The admin password used to be checked on EVERY route — any gameplay endpoint
+ * that falls back to admin, and several admin routes with no limiter — so the
+ * login route's 20-per-15-minutes budget was bypassed by simply not using the
+ * login route: thousands of guesses a second, answered 401 or 200. The budget is
+ * charged here, at the one place the header is compared, so no route can forget
+ * it. Once spent, even the CORRECT password is refused from that address until
+ * the window rolls over, which is what makes guessing pointless. An operator who
+ * mistypes a dozen times waits a quarter of an hour; nobody else notices.
+ *
+ * In-memory and per-instance, like the player password budget above: Railway
+ * runs a single replica, and this check must stay synchronous for its many
+ * call sites.
+ */
+export const ADMIN_PASSWORD_FAIL_LIMIT = 10;
+const ADMIN_PASSWORD_FAIL_WINDOW_MS = 15 * 60_000;
+// One request can reach isAdmin/isFullAdmin several times (adminRole calls both,
+// save handlers check each). Charge a wrong header once per request, not per call.
+const chargedAdminFailures = new WeakSet<object>();
+
+function adminPasswordRole(req: ReqLike): AdminRole | null {
+    if (strictAdminTokenOnly()) return null;
     const provided = headerString(req, 'x-admin-password');
-    if (!provided) return false;
-    return safeEqual(provided, expected);
+    if (!provided) return null;
+    const adminFailKey = `adminpw-fail:${clientIp(req) ?? 'unknown'}`;
+    if (!hasBudget(adminFailKey, ADMIN_PASSWORD_FAIL_LIMIT)) return null;
+    const full = process.env.ADMIN_PASSWORD;
+    const content = process.env.ADMIN_CONTENT_PASSWORD;
+    // Compare against both before branching, so the answer's timing does not
+    // reveal which password (if either) is configured.
+    const fullMatch = !!full && !isPlaceholderSecret(full) && safeEqual(provided, full);
+    const contentMatch = !!content && !isPlaceholderSecret(content) && safeEqual(provided, content);
+    if (fullMatch) return 'full';
+    if (contentMatch) return 'content';
+    if (!chargedAdminFailures.has(req)) {
+        chargedAdminFailures.add(req);
+        allow(adminFailKey, ADMIN_PASSWORD_FAIL_LIMIT, ADMIN_PASSWORD_FAIL_WINDOW_MS);
+    }
+    return null;
 }
 
 /**
@@ -406,14 +506,9 @@ export function isFullAdmin(req: ReqLike): boolean {
  * roles may call (content curation). For the restricted set use `isFullAdmin()`.
  */
 export function isAdmin(req: ReqLike): boolean {
-    if (isFullAdmin(req)) return true;
-    if (verifyAdminToken(headerString(req, 'x-admin-token')) === 'content') return true;
-    if (strictAdminTokenOnly()) return false;
-    const expectedContent = process.env.ADMIN_CONTENT_PASSWORD;
-    if (!expectedContent) return false;
-    const provided = headerString(req, 'x-admin-password');
-    if (!provided) return false;
-    return safeEqual(provided, expectedContent);
+    const tokenRole = verifyAdminToken(headerString(req, 'x-admin-token'));
+    if (tokenRole === 'full' || tokenRole === 'content') return true;
+    return adminPasswordRole(req) !== null;
 }
 
 /**
@@ -541,12 +636,22 @@ export async function verifyPlayerPasswordBudgeted(req: ReqLike, name: string, p
 }
 
 /**
- * Convenience: require *either* a valid player auth or admin auth.
+ * Convenience: require *either* a valid player auth or FULL admin auth.
  * Returns { admin: true } or { admin: false, name } on success, null on failure.
+ *
+ * `{ admin: true }` means "may act as any player" — almost every gameplay
+ * handler follows it with `!identity.admin && identity.name !== body.playerName`
+ * — so by default only the FULL admin earns it. The content admin (Admin 2) used
+ * to pass here too, which let ADMIN_CONTENT_PASSWORD move any player's currency,
+ * drain clan treasuries and open a realtime socket as anyone, all while the save
+ * route carefully held that role to the admin1/admin2 slots. The few handlers
+ * that serve content curation opt back in with `allowContentAdmin` and keep
+ * their own role checks (isFullAdmin / adminSaveTargetAllowed).
  */
 export async function authedPlayerOrAdmin(
     req: ReqLike,
     nameFromRoute?: string,
+    opts: { allowContentAdmin?: boolean } = {},
 ): Promise<{ admin: true } | { admin: false; name: string } | null> {
     // Player identity takes PRECEDENCE over admin. A request that carries BOTH a
     // valid player login AND admin credentials (e.g. an admin-build client that
@@ -559,7 +664,7 @@ export async function authedPlayerOrAdmin(
     // only when there is no valid player login on the request.
     const name = await authedPlayer(req, nameFromRoute);
     if (name) return { admin: false, name };
-    if (isAdmin(req)) return { admin: true };
+    if (opts.allowContentAdmin ? isAdmin(req) : isFullAdmin(req)) return { admin: true };
     return null;
 }
 
@@ -568,7 +673,8 @@ export async function authedPlayerOrAdmin(
  * a player from acting as someone else even when they have a valid login.
  *
  * Returns true if:
- *   - identity is admin (admins can act as anyone), OR
+ *   - identity is admin (the full admin, or the content admin on a handler
+ *     that opted it in — see authedPlayerOrAdmin), OR
  *   - the authed player name (canonicalized) matches `bodyName` (canonicalized)
  */
 export function bodyNameMatchesAuth(

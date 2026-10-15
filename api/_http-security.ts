@@ -56,7 +56,20 @@ export function contentSecurityPolicy(env: NodeJS.ProcessEnv = process.env): str
         // that broke the Hollow Warfront / 3D pet stages in prod. Blob URLs are
         // app-created and same-origin, so this adds negligible surface (connect-src
         // already allows the far broader https:/wss:).
-        `connect-src 'self' https: wss: ws: blob:${extraConnect.length ? ` ${extraConnect.join(' ')}` : ''}`,
+        //
+        // Plaintext `ws:` is dropped in production: the live site is HTTPS-only,
+        // so its realtime socket is always `wss:` and a `ws:` connection could
+        // only ever carry data off the page unencrypted. Local dev / e2e servers
+        // run over http://127.0.0.1 and keep it.
+        //
+        // `https:`/`wss:` stay broad on purpose. The set of hosts the client
+        // reaches is not derivable from this repo at runtime: the Supabase
+        // project URL and Sentry/PostHog hosts are Vite BUILD args, the R2
+        // public image domain is configured per deployment, and Google/Tebex/
+        // Cloudflare endpoints change outside our control. Pinning them here
+        // would break a feature silently on the next config change. Use
+        // CSP_CONNECT_SRC_EXTRA for additions only.
+        `connect-src 'self' https: wss:${isProductionEnv(env) ? '' : ' ws:'} blob:${extraConnect.length ? ` ${extraConnect.join(' ')}` : ''}`,
         "worker-src 'self' blob:",
     ];
     return directives.join('; ');

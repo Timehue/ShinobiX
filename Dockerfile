@@ -148,5 +148,13 @@ COPY --from=builder /runtime-client/06/ ./
 # and falls back to 3000 for local `docker run`.
 EXPOSE 3000
 
+# Drop root for the running process. The official image ships an unprivileged
+# `node` user (uid 1000). Everything under /app stays root-owned and read-only
+# to it, which is the point: the server only READS dist/, the client bundle and
+# node_modules (no runtime writes to the app dir — the disk KV overlay is
+# retired), and it binds the platform's PORT (>1024), so it needs no privilege.
+# A compromise of the process can no longer rewrite the code it is serving.
+USER node
+
 # Run the compiled Express server directly (bypassing the cPanel-only app.js).
 CMD ["node", "dist/server.js"]

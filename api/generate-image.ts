@@ -3,6 +3,7 @@ import { cors, parseJsonBody, safeName } from './_utils.js';
 import { authedPlayerOrAdmin } from './_auth.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
 import { kv } from './_storage.js';
+import { GUEST_SOCIAL_ERROR_CODE, isUnclaimedGuest } from './_guest-gate.js';
 import { PLAYER_AI_IMAGE_GENERATION_DISABLED_REASON, playerAiImageGenerationEnabled } from './_release-flags.js';
 
 // Hard ceiling on user-provided prompt + label lengths. Anything past 1000
@@ -63,7 +64,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Require a logged-in player or admin — this endpoint burns OpenAI credits
     // and would be trivially abused if left open.
-    const identity = await authedPlayerOrAdmin(req);
+    const identity = await authedPlayerOrAdmin(req, undefined, { allowContentAdmin: true });
     if (!identity) return res.status(401).json({ error: 'Authentication required.' });
 
     // Public beta default: content admins can fill missing assets, but ordinary
@@ -84,16 +85,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const authedName = identity.admin ? null : (identity as { name: string }).name;
     if (!(await enforceRateLimitKv(req, res, 'generate-image', 2, 60_000, authedName, { strict: true }))) return;
 
-    // Daily cap (non-admin only) on top of the per-minute limit. At low quality
-    // this works out to ≈ $1.60 / player / day worst case.
     if (authedName) {
-        const dk = dailyKey(authedName);
-        const used = Number((await kv.get<number>(dk)) ?? 0);
-        if (used >= DAILY_CAP_NON_ADMIN) {
-            return res.status(429).json({ error: `Daily image cap reached (${DAILY_CAP_NON_ADMIN}). Resets at UTC midnight.` });
+        // A credential-less guest is minted anonymously (cheaply, in bulk), so
+        // it must not be able to spend paid OpenAI credits. Fail CLOSED on a
+        // storage error: this is a spend path, not a social surface.
+        let guest: boolean;
+        try {
+            guest = await isUnclaimedGuest(authedName);
+        } catch (err) {
+            console.error('[generate-image] guest check failed; refusing:', String(err));
+            return res.status(503).json({ error: 'Image generation is temporarily unavailable; try again.' });
         }
-        // Best-effort increment with 26h TTL so the key naturally rolls over.
-        await kv.set(dk, used + 1, { ex: 26 * 60 * 60 }).catch(() => undefined);
+        if (guest) {
+            return res.status(403).json({
+                error: 'Guest characters cannot generate images. Link a Google account or set a password first.',
+                errorCode: GUEST_SOCIAL_ERROR_CODE,
+                guestLocked: true,
+            });
+        }
     }
 
     const apiKey = process.env.OPENAI_API_KEY;
@@ -116,6 +125,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const block = flagged(`${promptStr}\n${labelStr}`);
         if (block) {
             return res.status(400).json({ error: `Request rejected: ${block.reason}.` });
+        }
+
+        if (authedName) {
+            // Daily cap (non-admin only) on top of the per-minute limit. At low
+            // quality this works out to ≈ $1.60 / player / day worst case.
+            // Charged only once the request is known to be well-formed and
+            // allowed, so a typo or a flagged prompt never spends a daily image.
+            // ATOMIC increment: the old get-then-set let N concurrent requests
+            // all read the same `used`, all pass the check, and all spend.
+            // kv.incr returns the post-increment count, so the Nth call this
+            // day sees N. 26h TTL so the key naturally rolls over. Fail closed
+            // if KV is down.
+            let used: number;
+            try {
+                used = await kv.incr(dailyKey(authedName), { ex: 26 * 60 * 60 });
+            } catch (err) {
+                console.error('[generate-image] daily cap increment failed; refusing:', String(err));
+                return res.status(503).json({ error: 'Image generation is temporarily unavailable; try again.' });
+            }
+            if (used > DAILY_CAP_NON_ADMIN) {
+                return res.status(429).json({ error: `Daily image cap reached (${DAILY_CAP_NON_ADMIN}). Resets at UTC midnight.` });
+            }
         }
 
         // XML-style delimiters around user input so the model treats it as data,

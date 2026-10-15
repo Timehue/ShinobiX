@@ -691,7 +691,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // no-store read. Keep it ahead of loadOrInitBoss()/expiry distribution:
         // even those otherwise-helpful writes would violate probe semantics.
         if (req.query.recoverFight === '1') {
-            const identity = await authedPlayerOrAdmin(req);
+            const identity = await authedPlayerOrAdmin(req, undefined, { allowContentAdmin: true });
             if (!identity) return res.status(401).json({ error: 'Authentication required.' });
             const boss = await kv.get<WeeklyBossState>(WEEKLY_BOSS_STATE_KEY);
             res.setHeader('Cache-Control', 'private, no-store');
