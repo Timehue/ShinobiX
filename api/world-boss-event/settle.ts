@@ -108,7 +108,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         }
                         current.settledMatchIds = [...current.settledMatchIds, matchId].slice(-5_000);
                         const damageReceipts = { ...current.bankedDamageByMatch, [matchId]: banked };
-                        current.bankedDamageByMatch = Object.fromEntries(current.settledMatchIds.map(id => [id, damageReceipts[id] ?? 0]));
+                        const retainedMatches = new Set(current.settledMatchIds);
+                        current.bankedDamageByMatch = Object.fromEntries(Object.entries(damageReceipts).filter(([id]) => retainedMatches.has(id)));
                         current.status = wasStoppedByAdmin
                             ? 'stopped'
                             : current.hp <= 0

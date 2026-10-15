@@ -223,3 +223,15 @@ test('a wiped raid deducts recorded potions and thrown ammunition exactly once',
     await post(settleHandler,body);
     assert.deepEqual(await kv.get(saveKey),after);
 });
+
+test('new banking receipts never fabricate zero-damage facts for older settled matches',async()=>{
+    const raid=await startRaid('legacy-bank-facts','hollow-maze-minotaur',1000);
+    const event=(await eventStore.readWorldBossEvent(raid.event.eventId))!;
+    event.settledMatchIds=['legacy-with-match-only-receipt'];
+    await eventStore.writeWorldBossEvent(event);
+    const paid=await post(settleHandler,{runId:raid.match.runId,playerName:raid.slug});
+    assert.equal(paid.status,200,JSON.stringify(paid.body));
+    const stored=(await eventStore.readWorldBossEvent(raid.event.eventId))!;
+    assert.equal(stored.bankedDamageByMatch?.[raid.match.matchId],1000);
+    assert.equal(Object.hasOwn(stored.bankedDamageByMatch!,'legacy-with-match-only-receipt'),false);
+});
