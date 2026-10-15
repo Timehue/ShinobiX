@@ -30600,10 +30600,10 @@
         "shinobij.client/.tmp/pet-shape-review/body-starter-seams-final/starter-wind-front.webp",
         "shinobij.client/.tmp/pet-shape-review/body-starter-seams-final/starter-wind-side.webp"
       ],
-      "promotedSha256": "88b1ae6adec0ec9ff2060e76b3e15b9bf1f17f73242d18c31b026e1f3fab10a1",
+      "promotedSha256": "7db0c699890741263cddd7f65e6ccc2fe7cf8d62fe56fc5b210ae40333ef55d9",
       "conservation": "geometry, topology, atlas, clip names/times preserved; rig scale, rest frames and animation deltas deterministically retargeted; localized seam and skull binding repaired",
       "secondPassSource": {
-        "sha256": "88b1ae6adec0ec9ff2060e76b3e15b9bf1f17f73242d18c31b026e1f3fab10a1",
+        "sha256": "7db0c699890741263cddd7f65e6ccc2fe7cf8d62fe56fc5b210ae40333ef55d9",
         "clips": [
           "idle",
           "idle_2",
@@ -30636,23 +30636,23 @@
           "side"
         ],
         "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-head/starter-wind-head-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-head/starter-wind-head-side.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-body/starter-wind-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-body/starter-wind-side.webp"
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-head/starter-wind-head-front.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-head/starter-wind-head-side.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-body/starter-wind-front.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-body/starter-wind-side.webp"
         ],
         "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-head/starter-wind-head-front.webp": "deb6f205dbcf1f17b1746ac4dcc89ced1b2e5ed1af2ac603513ab1a695e64e54",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-head/starter-wind-head-side.webp": "d0a0dc4c598630593f3163963eb6b8f6b44cae93c9881d5171fda4fbc8103887",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-body/starter-wind-front.webp": "66fec3ea6ae2e9e6b87fe8462bafed0fcf8444bf1dcb92470cdec6936d78168d",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-body/starter-wind-side.webp": "5bf7b4c8ea536f9b40b9d0bed13a2fd94e219c934c14b4654598bc1f71389cc5"
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-head/starter-wind-head-front.webp": "0e26c7d0d06ef2e967702e0250fdc8866d818b2aeca6e10167221f86dab30305",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-head/starter-wind-head-side.webp": "575c0f5525d22d6a3c70a48bdf5d82bf1c680137bb8db10ae54d61cf4d97aba8",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-body/starter-wind-front.webp": "1140f183d410938ee96eea3ae2cba65b428bf9cdc908600d14b9f704ba94f39d",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-body/starter-wind-side.webp": "c2a6464ede4bc2374c4a91e75e029dee13aba469a51b5f0ae35d86f076a1b435"
         },
-        "finding": "All 13 clips inspected at six alternate phases in front and side head and full-body views for this source asset. Gale Chick orange beak, blue eyes, round cheeks and yellow crest remain coherent through attack and turned death; scarf, long blue headband ties, both wings, tail feathers and orange talons remain intact including repaired local seams.",
-        "reviewedAt": "2026-10-15T05:42:00.934Z",
+        "finding": "Final shipping source asset: all 13 clips and six alternate phases actually inspected in front/side head and body sheets. All 13 clips, all six phases, front/side head and body sheets actually inspected. Yellow chick beak, blue eyes, headband, scarf, wings, orange feet and feathered tail remain intact with stable grounded support.",
+        "reviewedAt": "2026-10-15T15:23:41.888Z",
         "reviewer": "Codex visual inspection"
       },
       "secondPassBattle": {
-        "sha256": "37461fa112b9f3ccfdf0650db492413d467442f7ab07748c8bd1d4e486f20e86",
+        "sha256": "601e725c6fbb01ef2395dfcca5088c82ff044eb04118f8e06cc9330b43151a90",
         "clips": [
           "idle",
           "idle_2",
@@ -30685,24 +30685,91 @@
           "side"
         ],
         "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-head/starter-wind-head-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-head/starter-wind-head-side.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-body/starter-wind-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-body/starter-wind-side.webp"
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-head/starter-wind-head-front.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-head/starter-wind-head-side.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-body/starter-wind-front.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-body/starter-wind-side.webp"
         ],
         "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-head/starter-wind-head-front.webp": "6ba6f2f95ae634301be0bad09f003953f87b585b2014d4ecf0907babb405cc5a",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-head/starter-wind-head-side.webp": "4b36a7a5f8eba4e756713d9cf736f34e1b1328c5df3c2578a9ae57ec2aaa7302",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-body/starter-wind-front.webp": "0ba407194938bd710e81e632db28ef02945a1f3cdeb47bbd35226cecb14e2ade",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-body/starter-wind-side.webp": "615841c868e9ce0b8acf134ebde028da21b4e24c81d10e7158122dce18524a03"
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-head/starter-wind-head-front.webp": "0daf876a3aef21981bb58624f2f49bc1cc953700b9d77fc6a6c557b36e67c160",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-head/starter-wind-head-side.webp": "474cba76a598ddc42772ee57d7b17a2ea7beae62e14565202c866e713d945407",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-body/starter-wind-front.webp": "863b6fe7441b603e41f8f7d66dc671dea42d20a396445a2caa168dbabcfa7279",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-body/starter-wind-side.webp": "fef3ccd0d909402bb36e2b2b64b456fb485764be5d285ce52d9ec1ee7a410917"
         },
-        "finding": "All 13 clips inspected at six alternate phases in front and side head and full-body views for this battle asset. Gale Chick orange beak, blue eyes, round cheeks and yellow crest remain coherent through attack and turned death; scarf, long blue headband ties, both wings, tail feathers and orange talons remain intact including repaired local seams.",
-        "reviewedAt": "2026-10-15T05:42:01.117Z",
+        "finding": "Final shipping battle asset: all 13 clips and six alternate phases actually inspected in front/side head and body sheets. All 13 clips, all six phases, front/side head and body sheets actually inspected. Yellow chick beak, blue eyes, headband, scarf, wings, orange feet and feathered tail remain intact with stable grounded support.",
+        "reviewedAt": "2026-10-15T15:23:42.274Z",
         "reviewer": "Codex visual inspection"
       },
-      "runtimeVisualPass": {
+      "footContactCorrection": {
+        "status": "complete-final-source-battle-and-runtime-rechecked",
+        "finding": "Rig orthogonalization introduced small support-foot lift; restore authored vertical foot trajectories without changing horizontal gait or skull shape.",
+        "id": "starter-wind",
+        "local": "starter-wind.glb",
         "sourceSha256": "88b1ae6adec0ec9ff2060e76b3e15b9bf1f17f73242d18c31b026e1f3fab10a1",
-        "battleSha256": "37461fa112b9f3ccfdf0650db492413d467442f7ab07748c8bd1d4e486f20e86",
+        "sha256": "7db0c699890741263cddd7f65e6ccc2fe7cf8d62fe56fc5b210ae40333ef55d9",
+        "clips": [
+          {
+            "name": "idle",
+            "keys": 74,
+            "tracks": 7,
+            "maxContactErrorNormalized": 1.954561157792975e-15
+          },
+          {
+            "name": "walk",
+            "keys": 37,
+            "tracks": 7,
+            "maxContactErrorNormalized": 1.5811285893862206e-15
+          },
+          {
+            "name": "gallop",
+            "keys": 33,
+            "tracks": 7,
+            "maxContactErrorNormalized": 1.3192786665150583e-15
+          },
+          {
+            "name": "guard",
+            "keys": 47,
+            "tracks": 7,
+            "maxContactErrorNormalized": 1.397968439874721e-15
+          },
+          {
+            "name": "rest",
+            "keys": 76,
+            "tracks": 7,
+            "maxContactErrorNormalized": 1.5764666973886345e-15
+          }
+        ],
+        "priorFinalReceipt": {
+          "sourceSha256": "88b1ae6adec0ec9ff2060e76b3e15b9bf1f17f73242d18c31b026e1f3fab10a1",
+          "battleSha256": "37461fa112b9f3ccfdf0650db492413d467442f7ab07748c8bd1d4e486f20e86",
+          "atlasSha256": "0d92c634c9a6ffee3c712fbcbc77450c6ddf7056fd8b1b70607600a0355c03de",
+          "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
+          "evidence": [
+            "docs/screenshots/pet-shape-2026-10-15/starter-wind-source-clips-head-1.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-wind-source-clips-body-1.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-wind-battle-clips-head-1.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-wind-battle-clips-body-1.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-wind-runtime-source-head.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-wind-runtime-source-body.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-wind-runtime-battle-head.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-wind-runtime-battle-body.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-wind-numeric-evidence.json"
+          ],
+          "packagedAt": "2026-10-15T08:15:55.902Z"
+        },
+        "candidateVisualReview": {
+          "sha256": "7db0c699890741263cddd7f65e6ccc2fe7cf8d62fe56fc5b210ae40333ef55d9",
+          "reviewer": "Codex visual inspection",
+          "reviewedAt": "2026-10-15T15:11:30.044Z",
+          "finding": "All 13 clips, all six phases, front/side head and body sheets actually inspected. Yellow chick beak, blue eyes, headband, scarf, wings, orange feet and feathered tail remain intact with stable grounded support.",
+          "headLabel": "starter-contact-candidate-head",
+          "bodyLabel": "starter-contact-candidate-body"
+        }
+      },
+      "preContactPromotedSha256": "88b1ae6adec0ec9ff2060e76b3e15b9bf1f17f73242d18c31b026e1f3fab10a1",
+      "runtimeVisualPass": {
+        "sourceSha256": "7db0c699890741263cddd7f65e6ccc2fe7cf8d62fe56fc5b210ae40333ef55d9",
+        "battleSha256": "601e725c6fbb01ef2395dfcca5088c82ff044eb04118f8e06cc9330b43151a90",
         "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
         "rows": [
           "idle",
@@ -30735,25 +30802,25 @@
           "side"
         ],
         "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-wind-source-head.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-wind-source-body.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-wind-battle-head.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-wind-battle-body.webp"
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-wind-source-head.webp",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-wind-source-body.webp",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-wind-battle-head.webp",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-wind-battle-body.webp"
         ],
         "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-wind-source-head.webp": "6e3bd0ef492cc8594ab5cc2e43b9628dde6544e92709d4e074291d4778dc2e51",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-wind-source-body.webp": "3c8907b55abf8958574d419f9c3427f74cb66c382283f8e3b1d53e9c56010012",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-wind-battle-head.webp": "cb7b37970ab355c2553bef913d1bbce853ad0d884c2b03acbc538de98309386d",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-wind-battle-body.webp": "0c82c931de3e1dffe5bdd102095571b10cb5751cefe424996b6de88650eccbd8"
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-wind-source-head.webp": "756db864af060df0a04e2f253ac42155867d481c9d28f72fd1db5a813973e87b",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-wind-source-body.webp": "7bbdf53f8dda3d98392be88a63f0b963f3510c5168af9a1729341c28b9c7fb85",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-wind-battle-head.webp": "7e541e4dc454edd97ff6cbfa7e728a945812c318396f310e8daa49e62f488593",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-wind-battle-body.webp": "46e3e3ceca823a456ba5a79c723920a9f503f53787a08915cdb343bdd38360cc"
         },
-        "finding": "All sixteen production rows inspected in both versions, front and side, head and body. Yellow chick beak, blue eyes, crest, blue headband and ties, scarf, layered wings, belly, orange feet and feathered tail remain coherent through all sixteen runtime states and attack transitions in both asset versions. Previously repaired body seam stays closed.",
+        "finding": "All 16 continuous production transition rows at six phases, front/side head and body, source and battle, actually inspected. Faces, body joins and support remain coherent through idle, movement, attack sequence, death and revive. All 13 clips, all six phases, front/side head and body sheets actually inspected. Yellow chick beak, blue eyes, headband, scarf, wings, orange feet and feathered tail remain intact with stable grounded support.",
         "reviewer": "Codex visual inspection",
-        "reviewedAt": "2026-10-15T08:15:11.833Z"
+        "reviewedAt": "2026-10-15T15:25:10.964Z"
       },
       "finalReceipt": {
-        "sourceSha256": "88b1ae6adec0ec9ff2060e76b3e15b9bf1f17f73242d18c31b026e1f3fab10a1",
-        "battleSha256": "37461fa112b9f3ccfdf0650db492413d467442f7ab07748c8bd1d4e486f20e86",
-        "atlasSha256": "0d92c634c9a6ffee3c712fbcbc77450c6ddf7056fd8b1b70607600a0355c03de",
+        "sourceSha256": "7db0c699890741263cddd7f65e6ccc2fe7cf8d62fe56fc5b210ae40333ef55d9",
+        "battleSha256": "601e725c6fbb01ef2395dfcca5088c82ff044eb04118f8e06cc9330b43151a90",
+        "atlasSha256": "bd3faa514bb194e240f61c9a404e1216b421c04a0cc0384fd6d151510e9fb267",
         "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
         "evidence": [
           "docs/screenshots/pet-shape-2026-10-15/starter-wind-source-clips-head-1.webp",
@@ -30766,7 +30833,7 @@
           "docs/screenshots/pet-shape-2026-10-15/starter-wind-runtime-battle-body.webp",
           "docs/screenshots/pet-shape-2026-10-15/starter-wind-numeric-evidence.json"
         ],
-        "packagedAt": "2026-10-15T08:15:55.902Z"
+        "packagedAt": "2026-10-15T15:25:15.569Z"
       }
     },
     "starter-lightning": {
@@ -30815,10 +30882,10 @@
         "shinobij.client/.tmp/pet-shape-review/body-starter-orthogonal-candidates/starter-lightning-front.webp",
         "shinobij.client/.tmp/pet-shape-review/body-starter-orthogonal-candidates/starter-lightning-side.webp"
       ],
-      "promotedSha256": "66705ccab784a5926e4fd2a083a0234212540960d51daf61e4af5db8f849d308",
+      "promotedSha256": "5b96adb25eca071c6b1df6c020cd19def0a37d4b779c41eade34114f4089406f",
       "conservation": "geometry, topology, atlas, clip names/times preserved; rig scale, rest frames and animation deltas deterministically retargeted; localized seam and skull binding repaired",
       "secondPassSource": {
-        "sha256": "66705ccab784a5926e4fd2a083a0234212540960d51daf61e4af5db8f849d308",
+        "sha256": "5b96adb25eca071c6b1df6c020cd19def0a37d4b779c41eade34114f4089406f",
         "clips": [
           "idle",
           "idle_2",
@@ -30851,23 +30918,23 @@
           "side"
         ],
         "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-head/starter-lightning-head-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-head/starter-lightning-head-side.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-body/starter-lightning-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-body/starter-lightning-side.webp"
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-head/starter-lightning-head-front.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-head/starter-lightning-head-side.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-body/starter-lightning-front.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-body/starter-lightning-side.webp"
         ],
         "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-head/starter-lightning-head-front.webp": "20512b89a0ce5d1f6c92e08f085baeb1542847668322714b33df751dcf5adcb0",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-head/starter-lightning-head-side.webp": "3cb65fd126d1c2f75c305edb8d7769a8d90a889b6a44e25b070a7d098de49147",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-body/starter-lightning-front.webp": "06497f9872b436094047067a1c68aef6b27a9fa8fb46f98ce843f0965763310e",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-body/starter-lightning-side.webp": "c0746d3180c77024be77be2e7159db3f73f4955ceb7cebf1207614a94388543e"
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-head/starter-lightning-head-front.webp": "12faa8f92d294e004b5b6969eb86635abec9d0e262d215d2f276dcb69c5e7f71",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-head/starter-lightning-head-side.webp": "2693218763c07c6eb537c7f3124bcd9c4ea039f3325f8874b6f13dd433c4835b",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-body/starter-lightning-front.webp": "9eaaac492639cb98a6952450e82c12864ca04b2fb91e7c73df33ace7c07c8987",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-body/starter-lightning-side.webp": "2ac9ac4ba05da078538237bb06bacfbb7ae52ff810cb7aeb7ea6c916f8ab70b7"
         },
-        "finding": "All 13 clips inspected at six alternate phases in front and side head and full-body views for this source asset. Spark Pup eyes, narrow muzzle mask, forehead plate and tall orange ears remain coherent through attack, recoil and turned death; red scarf, four paws, blue outfit and pale-tipped tail remain intact after rig scale correction.",
-        "reviewedAt": "2026-10-15T05:43:23.167Z",
+        "finding": "Final shipping source asset: all 13 clips and six alternate phases actually inspected in front/side head and body sheets. All 13 clips, all six phases, front/side head and body sheets actually inspected. Golden fox muzzle, eyes, tall ears, metal headband, red scarf, blue torso, four gold paws and white tail tip retain their shapes and grounded support.",
+        "reviewedAt": "2026-10-15T15:23:43.596Z",
         "reviewer": "Codex visual inspection"
       },
       "secondPassBattle": {
-        "sha256": "435845b5fbcc78f279d82257f959ea84a3c67bb05ef18ce8bd000aac5e16a8e1",
+        "sha256": "6125a968fa0163c556163c6756e7434577f5c16c8c91fbd454b927fc08b527b4",
         "clips": [
           "idle",
           "idle_2",
@@ -30900,24 +30967,91 @@
           "side"
         ],
         "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-head/starter-lightning-head-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-head/starter-lightning-head-side.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-body/starter-lightning-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-body/starter-lightning-side.webp"
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-head/starter-lightning-head-front.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-head/starter-lightning-head-side.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-body/starter-lightning-front.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-body/starter-lightning-side.webp"
         ],
         "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-head/starter-lightning-head-front.webp": "d7ce33629fcc5a5e81a5634483f73ac2a8b27dacbef00bf6d6f889fc86d23da6",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-head/starter-lightning-head-side.webp": "946d046f98f191a6e81dbc3b77032e0cb41fe7c6eee1bc9bac04af5f7c06584a",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-body/starter-lightning-front.webp": "9b07b906fbf586aaf162fdc2b94c6c533de4555185607948765530082d29bbbc",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-body/starter-lightning-side.webp": "ae92336248432a2bec9e4126c0a7f9387ee40e82a24803f1cc7bbfaf4f0b3adc"
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-head/starter-lightning-head-front.webp": "d95916a10dd9da9867b7ac057d6024994e607c7f1252629393a35e9a41124d28",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-head/starter-lightning-head-side.webp": "9f039b212555dd26686e4bc73ff252d4c5673249c8c687b4c49b6ff869b59066",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-body/starter-lightning-front.webp": "27a39d26801785cb22a23b8cb369946531b52f3deacaad0efd69dad2a6472849",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-body/starter-lightning-side.webp": "b06e053f70193af7f0920778eef1cdf3184a094062a910fd46d44ad3b98fdb63"
         },
-        "finding": "All 13 clips inspected at six alternate phases in front and side head and full-body views for this battle asset. Spark Pup eyes, narrow muzzle mask, forehead plate and tall orange ears remain coherent through attack, recoil and turned death; red scarf, four paws, blue outfit and pale-tipped tail remain intact after rig scale correction.",
-        "reviewedAt": "2026-10-15T05:43:23.350Z",
+        "finding": "Final shipping battle asset: all 13 clips and six alternate phases actually inspected in front/side head and body sheets. All 13 clips, all six phases, front/side head and body sheets actually inspected. Golden fox muzzle, eyes, tall ears, metal headband, red scarf, blue torso, four gold paws and white tail tip retain their shapes and grounded support.",
+        "reviewedAt": "2026-10-15T15:23:43.910Z",
         "reviewer": "Codex visual inspection"
       },
-      "runtimeVisualPass": {
+      "footContactCorrection": {
+        "status": "complete-final-source-battle-and-runtime-rechecked",
+        "finding": "Rig orthogonalization introduced small support-foot lift; restore authored vertical foot trajectories without changing horizontal gait or skull shape.",
+        "id": "starter-lightning",
+        "local": "starter-lightning.glb",
         "sourceSha256": "66705ccab784a5926e4fd2a083a0234212540960d51daf61e4af5db8f849d308",
-        "battleSha256": "435845b5fbcc78f279d82257f959ea84a3c67bb05ef18ce8bd000aac5e16a8e1",
+        "sha256": "5b96adb25eca071c6b1df6c020cd19def0a37d4b779c41eade34114f4089406f",
+        "clips": [
+          {
+            "name": "idle",
+            "keys": 65,
+            "tracks": 13,
+            "maxContactErrorNormalized": 1.4559025796065503e-15
+          },
+          {
+            "name": "walk",
+            "keys": 35,
+            "tracks": 13,
+            "maxContactErrorNormalized": 1.203230039889025e-15
+          },
+          {
+            "name": "gallop",
+            "keys": 33,
+            "tracks": 13,
+            "maxContactErrorNormalized": 1.7887076904765133e-15
+          },
+          {
+            "name": "guard",
+            "keys": 41,
+            "tracks": 13,
+            "maxContactErrorNormalized": 1.2648073374964722e-15
+          },
+          {
+            "name": "rest",
+            "keys": 67,
+            "tracks": 13,
+            "maxContactErrorNormalized": 1.6865850261976626e-15
+          }
+        ],
+        "priorFinalReceipt": {
+          "sourceSha256": "66705ccab784a5926e4fd2a083a0234212540960d51daf61e4af5db8f849d308",
+          "battleSha256": "435845b5fbcc78f279d82257f959ea84a3c67bb05ef18ce8bd000aac5e16a8e1",
+          "atlasSha256": "d7a96e44a231b98d77c210e9cf7d4ce2d9af63299c78495784bb7ec4b6b52d20",
+          "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
+          "evidence": [
+            "docs/screenshots/pet-shape-2026-10-15/starter-lightning-source-clips-head-1.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-lightning-source-clips-body-1.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-lightning-battle-clips-head-1.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-lightning-battle-clips-body-1.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-lightning-runtime-source-head.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-lightning-runtime-source-body.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-lightning-runtime-battle-head.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-lightning-runtime-battle-body.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-lightning-numeric-evidence.json"
+          ],
+          "packagedAt": "2026-10-15T08:09:47.331Z"
+        },
+        "candidateVisualReview": {
+          "sha256": "5b96adb25eca071c6b1df6c020cd19def0a37d4b779c41eade34114f4089406f",
+          "reviewer": "Codex visual inspection",
+          "reviewedAt": "2026-10-15T15:11:30.347Z",
+          "finding": "All 13 clips, all six phases, front/side head and body sheets actually inspected. Golden fox muzzle, eyes, tall ears, metal headband, red scarf, blue torso, four gold paws and white tail tip retain their shapes and grounded support.",
+          "headLabel": "starter-contact-candidate-head",
+          "bodyLabel": "starter-contact-candidate-body"
+        }
+      },
+      "preContactPromotedSha256": "66705ccab784a5926e4fd2a083a0234212540960d51daf61e4af5db8f849d308",
+      "runtimeVisualPass": {
+        "sourceSha256": "5b96adb25eca071c6b1df6c020cd19def0a37d4b779c41eade34114f4089406f",
+        "battleSha256": "6125a968fa0163c556163c6756e7434577f5c16c8c91fbd454b927fc08b527b4",
         "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
         "rows": [
           "idle",
@@ -30950,25 +31084,25 @@
           "side"
         ],
         "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-lightning-source-head.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-lightning-source-body.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-lightning-battle-head.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-lightning-battle-body.webp"
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-lightning-source-head.webp",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-lightning-source-body.webp",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-lightning-battle-head.webp",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-lightning-battle-body.webp"
         ],
         "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-lightning-source-head.webp": "9de9cace4467900ea4ff87cbfe1a17a4943314b7837e42d8f57153de8a65320d",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-lightning-source-body.webp": "d25f806e601d9f4adf213da0f2c2dafa6fd87651f2cbf1e7253e09e1d3f6b2cc",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-lightning-battle-head.webp": "a16ade969b61a650c58a1700fe82c46c2e6c324eccfcb336a46cd8b64b5dcc85",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-lightning-battle-body.webp": "6683f5d9f5e2c72b835c7eb708bb0af064df6c0fb465ccdfde8bd42b95c31490"
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-lightning-source-head.webp": "e38af9a4876259185deff125a00b5833ab17c91ad592ae030e359f7af9d11c01",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-lightning-source-body.webp": "6d4f409d2e160ff2723fef4376766e3bf55f549050d9c4010ddb642356916137",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-lightning-battle-head.webp": "f17f17c4888d652e68dbf6ca432d4fb323b08b89c6bd3c2b8c9adb9a1c7f59de",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-lightning-battle-body.webp": "b5f6125144bfd8b46aea7d6854398299a9b7bce3fac9c8e1458ef7da2fb9a6d6"
         },
-        "finding": "All sixteen production rows inspected in both versions, front and side, head and body. Golden fox short muzzle, eyes, tall ears, metal forehead plate, red scarf, blue torso, four golden paws and white-tipped tail remain coherent throughout all runtime rows in both versions, including hit tint, attack and death/revive.",
+        "finding": "All 16 continuous production transition rows at six phases, front/side head and body, source and battle, actually inspected. Faces, body joins and support remain coherent through idle, movement, attack sequence, death and revive. All 13 clips, all six phases, front/side head and body sheets actually inspected. Golden fox muzzle, eyes, tall ears, metal headband, red scarf, blue torso, four gold paws and white tail tip retain their shapes and grounded support.",
         "reviewer": "Codex visual inspection",
-        "reviewedAt": "2026-10-15T08:08:18.357Z"
+        "reviewedAt": "2026-10-15T15:25:11.561Z"
       },
       "finalReceipt": {
-        "sourceSha256": "66705ccab784a5926e4fd2a083a0234212540960d51daf61e4af5db8f849d308",
-        "battleSha256": "435845b5fbcc78f279d82257f959ea84a3c67bb05ef18ce8bd000aac5e16a8e1",
-        "atlasSha256": "d7a96e44a231b98d77c210e9cf7d4ce2d9af63299c78495784bb7ec4b6b52d20",
+        "sourceSha256": "5b96adb25eca071c6b1df6c020cd19def0a37d4b779c41eade34114f4089406f",
+        "battleSha256": "6125a968fa0163c556163c6756e7434577f5c16c8c91fbd454b927fc08b527b4",
+        "atlasSha256": "65923d615e4438c5ab313b5912600183bd735608ac833fdcb5ec1d75e7b9aabf",
         "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
         "evidence": [
           "docs/screenshots/pet-shape-2026-10-15/starter-lightning-source-clips-head-1.webp",
@@ -30981,7 +31115,7 @@
           "docs/screenshots/pet-shape-2026-10-15/starter-lightning-runtime-battle-body.webp",
           "docs/screenshots/pet-shape-2026-10-15/starter-lightning-numeric-evidence.json"
         ],
-        "packagedAt": "2026-10-15T08:09:47.331Z"
+        "packagedAt": "2026-10-15T15:25:15.687Z"
       }
     },
     "starter-earth": {
@@ -31227,10 +31361,10 @@
         "shinobij.client/.tmp/pet-shape-review/body-starter-orthogonal-candidates/starter-fire-r-front.webp",
         "shinobij.client/.tmp/pet-shape-review/body-starter-orthogonal-candidates/starter-fire-r-side.webp"
       ],
-      "promotedSha256": "a5e58af3b4bbc8f4fd8380b6d8aa8b91acc2504524681349f0afec883663b53b",
+      "promotedSha256": "c0db7fb6a6918df612a8be6d7ae869ec370b8288f6a1a0b5be0579443ed4f6b8",
       "conservation": "geometry, topology, atlas, clip names/times preserved; rig scale, rest frames and animation deltas deterministically retargeted; localized seam and skull binding repaired",
       "secondPassSource": {
-        "sha256": "a5e58af3b4bbc8f4fd8380b6d8aa8b91acc2504524681349f0afec883663b53b",
+        "sha256": "c0db7fb6a6918df612a8be6d7ae869ec370b8288f6a1a0b5be0579443ed4f6b8",
         "clips": [
           "idle",
           "idle_2",
@@ -31263,23 +31397,23 @@
           "side"
         ],
         "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-head/starter-fire-r-head-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-head/starter-fire-r-head-side.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-body/starter-fire-r-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-body/starter-fire-r-side.webp"
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-head/starter-fire-r-head-front.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-head/starter-fire-r-head-side.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-body/starter-fire-r-front.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-body/starter-fire-r-side.webp"
         ],
         "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-head/starter-fire-r-head-front.webp": "153ce3759987edce9b182970b5f987434b529b4cf0e2fdfd585f0f061b6b1d3b",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-head/starter-fire-r-head-side.webp": "df710c2e80524ab07bb5eae7d167037c02ac8e3c641805d4e0335848ec830b8b",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-body/starter-fire-r-front.webp": "2b698d98039acb88c59fafa841a9e5af9cb3ae7807cdbf6634b641e974979526",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-body/starter-fire-r-side.webp": "5603acabbeb841cdc9823be88703694b9ef7037f327f7ef1380a2d430732ae9a"
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-head/starter-fire-r-head-front.webp": "17c171a53af0cfa263d7f0a354f31edaa8f702913696754090441618f02a08e2",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-head/starter-fire-r-head-side.webp": "8e980321d433a2b3bdc0e3b18dd154894c3252ad08c4d8eb453eb8222f39877b",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-body/starter-fire-r-front.webp": "308b2ca8e3d3788830be732c819a463c3662d89acd19bca797e19ceb2a89bab4",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-body/starter-fire-r-side.webp": "b80ca0d6e908b722146fea14332cdd0a86a125b0ba5cc7a7309ec03cc26a4e09"
         },
-        "finding": "All 13 clips inspected at six alternate phases in front and side head and full-body views for this source asset. Ember Wolf orange eyes, black muzzle, tall ears and blue headband retain their shapes through attack and turned death without prior sideways flattening; scarf, magma-patterned limbs, four paws and large flame tail remain intact after rig scale correction.",
-        "reviewedAt": "2026-10-15T05:44:42.338Z",
+        "finding": "Final shipping source asset: all 13 clips and six alternate phases actually inspected in front/side head and body sheets. All 13 clips, all six phases, front/side head and body sheets actually inspected. Black cat muzzle, red eye markings, pointed ears, blue headband/scarf, magma limbs, four paws and flame tail stay coherent; support gait is grounded. Normal and brighter head/body sheets inspected.",
+        "reviewedAt": "2026-10-15T15:23:40.096Z",
         "reviewer": "Codex visual inspection"
       },
       "secondPassBattle": {
-        "sha256": "4bb03caaccfd7ed255c61dce5bcb244d56b8d5a0b83f14b8bd74d3dd1f31d263",
+        "sha256": "496393ff0190e3b99dd6e00d745640e8ff99f14c29740d9a4876f854ae68ad21",
         "clips": [
           "idle",
           "idle_2",
@@ -31312,24 +31446,91 @@
           "side"
         ],
         "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-head/starter-fire-r-head-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-head/starter-fire-r-head-side.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-body/starter-fire-r-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-body/starter-fire-r-side.webp"
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-head/starter-fire-r-head-front.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-head/starter-fire-r-head-side.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-body/starter-fire-r-front.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-body/starter-fire-r-side.webp"
         ],
         "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-head/starter-fire-r-head-front.webp": "28487ee274a3dc4c09d293c8aa076fb67197b99d601541da81b623a471e7e12b",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-head/starter-fire-r-head-side.webp": "565a54d6b2faa41089b91f75bd119b3024f6a3b403c135e234429d71da7b3204",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-body/starter-fire-r-front.webp": "07a726b1b8b91bc4bd3074d7d2849dcb3cf1489721c0ad9d3bb025f824ddc6ef",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-body/starter-fire-r-side.webp": "86da715834075724cef3b810372b0f977c1397f9c6247b3a5c9feff762bf7652"
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-head/starter-fire-r-head-front.webp": "3d9b0454fe89ddd526e97ea98150e6369fe9370beb3f7505265001c2f7ac6979",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-head/starter-fire-r-head-side.webp": "96744689211d74ed6b5cb689cbfdd98dc1a66116d182c76f4a9a707a33e3d72a",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-body/starter-fire-r-front.webp": "367c7883d6cab2cd928895d3dd1aad12126a2c16a97a58605c33fc6ef743cd19",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-body/starter-fire-r-side.webp": "1fb36138a8f226029c219657989dcfd33b862dbe4f939dfb34c7e1b9c32af4d3"
         },
-        "finding": "All 13 clips inspected at six alternate phases in front and side head and full-body views for this battle asset. Ember Wolf orange eyes, black muzzle, tall ears and blue headband retain their shapes through attack and turned death without prior sideways flattening; scarf, magma-patterned limbs, four paws and large flame tail remain intact after rig scale correction.",
-        "reviewedAt": "2026-10-15T05:44:42.518Z",
+        "finding": "Final shipping battle asset: all 13 clips and six alternate phases actually inspected in front/side head and body sheets. All 13 clips, all six phases, front/side head and body sheets actually inspected. Black cat muzzle, red eye markings, pointed ears, blue headband/scarf, magma limbs, four paws and flame tail stay coherent; support gait is grounded. Normal and brighter head/body sheets inspected.",
+        "reviewedAt": "2026-10-15T15:23:40.556Z",
         "reviewer": "Codex visual inspection"
       },
-      "runtimeVisualPass": {
+      "footContactCorrection": {
+        "status": "complete-final-source-battle-and-runtime-rechecked",
+        "finding": "Rig orthogonalization introduced small support-foot lift; restore authored vertical foot trajectories without changing horizontal gait or skull shape.",
+        "id": "starter-fire-r",
+        "local": "starter-fire-r.glb",
         "sourceSha256": "a5e58af3b4bbc8f4fd8380b6d8aa8b91acc2504524681349f0afec883663b53b",
-        "battleSha256": "4bb03caaccfd7ed255c61dce5bcb244d56b8d5a0b83f14b8bd74d3dd1f31d263",
+        "sha256": "c0db7fb6a6918df612a8be6d7ae869ec370b8288f6a1a0b5be0579443ed4f6b8",
+        "clips": [
+          {
+            "name": "idle",
+            "keys": 82,
+            "tracks": 13,
+            "maxContactErrorNormalized": 1.5201646307101188e-15
+          },
+          {
+            "name": "walk",
+            "keys": 44,
+            "tracks": 13,
+            "maxContactErrorNormalized": 1.3663020694180805e-15
+          },
+          {
+            "name": "gallop",
+            "keys": 33,
+            "tracks": 13,
+            "maxContactErrorNormalized": 1.6664122584159633e-15
+          },
+          {
+            "name": "guard",
+            "keys": 51,
+            "tracks": 13,
+            "maxContactErrorNormalized": 1.6729988938078087e-15
+          },
+          {
+            "name": "rest",
+            "keys": 85,
+            "tracks": 13,
+            "maxContactErrorNormalized": 1.6909798576005695e-15
+          }
+        ],
+        "priorFinalReceipt": {
+          "sourceSha256": "a5e58af3b4bbc8f4fd8380b6d8aa8b91acc2504524681349f0afec883663b53b",
+          "battleSha256": "4bb03caaccfd7ed255c61dce5bcb244d56b8d5a0b83f14b8bd74d3dd1f31d263",
+          "atlasSha256": "3258ad85c397c938b2ed371e96ee91bc5dfa0ccfb282f986cba9793471f8fda1",
+          "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
+          "evidence": [
+            "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-source-clips-head-1.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-source-clips-body-1.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-battle-clips-head-1.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-battle-clips-body-1.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-runtime-source-head.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-runtime-source-body.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-runtime-battle-head.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-runtime-battle-body.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-numeric-evidence.json"
+          ],
+          "packagedAt": "2026-10-15T08:06:06.038Z"
+        },
+        "candidateVisualReview": {
+          "sha256": "c0db7fb6a6918df612a8be6d7ae869ec370b8288f6a1a0b5be0579443ed4f6b8",
+          "reviewer": "Codex visual inspection",
+          "reviewedAt": "2026-10-15T15:11:29.767Z",
+          "finding": "All 13 clips, all six phases, front/side head and body sheets actually inspected. Black cat muzzle, red eye markings, pointed ears, blue headband/scarf, magma limbs, four paws and flame tail stay coherent; support gait is grounded. Normal and brighter head/body sheets inspected.",
+          "headLabel": "starter-contact-candidate-head",
+          "bodyLabel": "starter-contact-candidate-body"
+        }
+      },
+      "preContactPromotedSha256": "a5e58af3b4bbc8f4fd8380b6d8aa8b91acc2504524681349f0afec883663b53b",
+      "runtimeVisualPass": {
+        "sourceSha256": "c0db7fb6a6918df612a8be6d7ae869ec370b8288f6a1a0b5be0579443ed4f6b8",
+        "battleSha256": "496393ff0190e3b99dd6e00d745640e8ff99f14c29740d9a4876f854ae68ad21",
         "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
         "rows": [
           "idle",
@@ -31362,25 +31563,25 @@
           "side"
         ],
         "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-fire-r-source-head.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-fire-r-source-body.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-fire-r-battle-head.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-fire-r-battle-body.webp"
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-fire-r-source-head.webp",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-fire-r-source-body.webp",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-fire-r-battle-head.webp",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-fire-r-battle-body.webp"
         ],
         "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-fire-r-source-head.webp": "619bd474fbd8cc2faf8ca5fdb0b9eeea99df351f6830d856c9e9fdf462d5d95d",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-fire-r-source-body.webp": "d3bce805cad6bd0a2d7b64d84c5beb789129181985c1cf093bdcb422c4dee5e8",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-fire-r-battle-head.webp": "06318f2ee38382307ba6515e3edeb8930119cca529a2040024593d6e96d6fd1c",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-fire-r-battle-body.webp": "3d5eb214df1bcd0f770e20e47b4f93173ea73a490a9f86016a1c826d8d891413"
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-fire-r-source-head.webp": "199588032e133e463c62c20caf07b79e9ec7d2ea9bfb49de73b24bb6d2bdeb0b",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-fire-r-source-body.webp": "1059219ba6344081d428df0a461314c3fc4f3331dc4a1b3e034d508a682da71e",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-fire-r-battle-head.webp": "535189c2ba221b175e66462de28f699b6ad4e797795a2e0ec095d6caee6d3c69",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-fire-r-battle-body.webp": "9df0b3d21e19fefc60d9d8fe5bf10b5b945889b5b03392e0b34c117a10bf18b0"
         },
-        "finding": "All sixteen production rows inspected in both versions, front and side, head and body. Dark evolved cat muzzle, golden eyes, red facial markings, pointed ears, blue headband and scarf, magma-patterned limbs, paws and flame tail remain coherent through all runtime rows in both versions. Normal and brighter sheets inspected.",
+        "finding": "All 16 continuous production transition rows at six phases, front/side head and body, source and battle, actually inspected. Faces, body joins and support remain coherent through idle, movement, attack sequence, death and revive. All 13 clips, all six phases, front/side head and body sheets actually inspected. Black cat muzzle, red eye markings, pointed ears, blue headband/scarf, magma limbs, four paws and flame tail stay coherent; support gait is grounded. Normal and brighter head/body sheets inspected.",
         "reviewer": "Codex visual inspection",
-        "reviewedAt": "2026-10-15T08:04:46.979Z"
+        "reviewedAt": "2026-10-15T15:25:10.283Z"
       },
       "finalReceipt": {
-        "sourceSha256": "a5e58af3b4bbc8f4fd8380b6d8aa8b91acc2504524681349f0afec883663b53b",
-        "battleSha256": "4bb03caaccfd7ed255c61dce5bcb244d56b8d5a0b83f14b8bd74d3dd1f31d263",
-        "atlasSha256": "3258ad85c397c938b2ed371e96ee91bc5dfa0ccfb282f986cba9793471f8fda1",
+        "sourceSha256": "c0db7fb6a6918df612a8be6d7ae869ec370b8288f6a1a0b5be0579443ed4f6b8",
+        "battleSha256": "496393ff0190e3b99dd6e00d745640e8ff99f14c29740d9a4876f854ae68ad21",
+        "atlasSha256": "4992f624862a9c585b51fdcbe82727e33b377e0bb80cd2e32a3b572a349c5c5e",
         "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
         "evidence": [
           "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-source-clips-head-1.webp",
@@ -31393,7 +31594,7 @@
           "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-runtime-battle-body.webp",
           "docs/screenshots/pet-shape-2026-10-15/starter-fire-r-numeric-evidence.json"
         ],
-        "packagedAt": "2026-10-15T08:06:06.038Z"
+        "packagedAt": "2026-10-15T15:25:15.386Z"
       }
     },
     "starter-fire-l": {
@@ -31442,10 +31643,10 @@
         "shinobij.client/.tmp/pet-shape-review/body-starter-orthogonal-candidates/starter-fire-l-front.webp",
         "shinobij.client/.tmp/pet-shape-review/body-starter-orthogonal-candidates/starter-fire-l-side.webp"
       ],
-      "promotedSha256": "f1ae454043f6a1d4a75ea8fb9201a5659db5f7f150fa9ef58c1c75f89d8c866f",
+      "promotedSha256": "e6ac156a45dd37fbcfa6ac1919d3dd21d6c88214a5bfd572b47fe2b57b27848c",
       "conservation": "geometry, topology, atlas, clip names/times preserved; rig scale, rest frames and animation deltas deterministically retargeted; localized seam and skull binding repaired",
       "secondPassSource": {
-        "sha256": "f1ae454043f6a1d4a75ea8fb9201a5659db5f7f150fa9ef58c1c75f89d8c866f",
+        "sha256": "e6ac156a45dd37fbcfa6ac1919d3dd21d6c88214a5bfd572b47fe2b57b27848c",
         "clips": [
           "idle",
           "idle_2",
@@ -31478,23 +31679,23 @@
           "side"
         ],
         "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-head/starter-fire-l-head-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-head/starter-fire-l-head-side.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-body/starter-fire-l-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-body/starter-fire-l-side.webp"
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-head/starter-fire-l-head-front.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-head/starter-fire-l-head-side.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-body/starter-fire-l-front.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-body/starter-fire-l-side.webp"
         ],
         "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-head/starter-fire-l-head-front.webp": "6f387309b57dd1de5547439505cf2a9e33ebfba13f79ed823260ebef8f68c413",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-head/starter-fire-l-head-side.webp": "f8eca87ab1638d170d5d1053a65d0d999b3fe5ca4886e8ee34761b20a51b4b03",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-body/starter-fire-l-front.webp": "f145195f8e633923b3566f5f9cf93af07f008fbf80ee9c3e86ff6176ce4e4dae",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-body/starter-fire-l-side.webp": "2b942f7e0875691ad943e11a14c6094488ae9229e79dcff2313e9721107d1882"
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-head/starter-fire-l-head-front.webp": "96f00579b88131d903430ac7d8a612dd63262786dda99ca2f33c91f5687df9a1",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-head/starter-fire-l-head-side.webp": "0e22b9dee46e266767ae8e36d4be867821d9a47306ce2a80635eacd0780fbb88",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-body/starter-fire-l-front.webp": "12f69f55afb2a1c86983da64203a7df00948806fe69f4568c790455af9eed0b2",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-body/starter-fire-l-side.webp": "842830e4a50df81b28cf5f7a46136773cc9b8304c8327a2f604bcc76837b6f02"
         },
-        "finding": "All 13 clips inspected at six alternate phases in front and side head and full-body views for this source asset. Inferno Fenrir black muzzle, glowing eyes, ears and flame crown retain their shapes through attack and turned death; blue wrapped mane, orange back ornaments, magma body, four paws and large flame tail remain intact after rig scale correction.",
-        "reviewedAt": "2026-10-15T05:45:34.660Z",
+        "finding": "Final shipping source asset: all 13 clips and six alternate phases actually inspected in front/side head and body sheets. All 13 clips, all six phases, front/side head and body sheets actually inspected. Flame crown, gold eyes, dark feline muzzle, blue mane/scarf, magma torso, four legs and long flame tail remain intact; support and wrist/ankle joins stay closed. Normal and brighter head/body sheets inspected.",
+        "reviewedAt": "2026-10-15T15:23:41.072Z",
         "reviewer": "Codex visual inspection"
       },
       "secondPassBattle": {
-        "sha256": "dfb13022932692542a26f54dd20c387ac66e31e4c24f43010a4486a779726624",
+        "sha256": "2bc8fac9fb8f0d0ca24f8d486a04e39472daa8a8dbd8f9f41e50b87b55512d46",
         "clips": [
           "idle",
           "idle_2",
@@ -31527,24 +31728,91 @@
           "side"
         ],
         "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-head/starter-fire-l-head-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-head/starter-fire-l-head-side.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-body/starter-fire-l-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-body/starter-fire-l-side.webp"
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-head/starter-fire-l-head-front.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-head/starter-fire-l-head-side.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-body/starter-fire-l-front.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-body/starter-fire-l-side.webp"
         ],
         "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-head/starter-fire-l-head-front.webp": "9dd39a10e91fdb2f2efaddf259e7682225236b42cab3c0a1d52b0918f97c9631",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-head/starter-fire-l-head-side.webp": "5f872b5dc1f75d65e70905c5641d9bed81e674b829fe8ab9be0ad27267aa5555",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-body/starter-fire-l-front.webp": "735087902945878c45f4407034a59ecba6fd63f07bd4935a1befaf5ce9828101",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-body/starter-fire-l-side.webp": "e72fc3eba91eda1ca1e9e8079ed64c36d6552694e22b6253df839e57ac459c77"
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-head/starter-fire-l-head-front.webp": "3cce95253055c3207e1ce3d3059ef4d45ffe9db45380ef20f1242c5298f7b5b7",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-head/starter-fire-l-head-side.webp": "256676ec7cda2e605d00bb171e22a3528d328422ee858fbc63c65548a7cd7848",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-body/starter-fire-l-front.webp": "e65f8821d508822b25e692fbf1a83093a1981f28735374764f153b6d811459d7",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-body/starter-fire-l-side.webp": "7883e324478902f348cf3a66d2d2d6bb3fb56a58c86b44143789771264c03229"
         },
-        "finding": "All 13 clips inspected at six alternate phases in front and side head and full-body views for this battle asset. Inferno Fenrir black muzzle, glowing eyes, ears and flame crown retain their shapes through attack and turned death; blue wrapped mane, orange back ornaments, magma body, four paws and large flame tail remain intact after rig scale correction.",
-        "reviewedAt": "2026-10-15T05:45:34.855Z",
+        "finding": "Final shipping battle asset: all 13 clips and six alternate phases actually inspected in front/side head and body sheets. All 13 clips, all six phases, front/side head and body sheets actually inspected. Flame crown, gold eyes, dark feline muzzle, blue mane/scarf, magma torso, four legs and long flame tail remain intact; support and wrist/ankle joins stay closed. Normal and brighter head/body sheets inspected.",
+        "reviewedAt": "2026-10-15T15:23:41.460Z",
         "reviewer": "Codex visual inspection"
       },
-      "runtimeVisualPass": {
+      "footContactCorrection": {
+        "status": "complete-final-source-battle-and-runtime-rechecked",
+        "finding": "Rig orthogonalization introduced small support-foot lift; restore authored vertical foot trajectories without changing horizontal gait or skull shape.",
+        "id": "starter-fire-l",
+        "local": "showdown-v2\\starter-fire-l.glb",
         "sourceSha256": "f1ae454043f6a1d4a75ea8fb9201a5659db5f7f150fa9ef58c1c75f89d8c866f",
-        "battleSha256": "dfb13022932692542a26f54dd20c387ac66e31e4c24f43010a4486a779726624",
+        "sha256": "e6ac156a45dd37fbcfa6ac1919d3dd21d6c88214a5bfd572b47fe2b57b27848c",
+        "clips": [
+          {
+            "name": "idle",
+            "keys": 93,
+            "tracks": 13,
+            "maxContactErrorNormalized": 1.8504200326148666e-15
+          },
+          {
+            "name": "walk",
+            "keys": 44,
+            "tracks": 13,
+            "maxContactErrorNormalized": 1.7788954306756667e-15
+          },
+          {
+            "name": "gallop",
+            "keys": 33,
+            "tracks": 13,
+            "maxContactErrorNormalized": 1.1933193323563665e-15
+          },
+          {
+            "name": "guard",
+            "keys": 59,
+            "tracks": 13,
+            "maxContactErrorNormalized": 1.6757381215667255e-15
+          },
+          {
+            "name": "rest",
+            "keys": 86,
+            "tracks": 13,
+            "maxContactErrorNormalized": 1.4843052895041805e-15
+          }
+        ],
+        "priorFinalReceipt": {
+          "sourceSha256": "f1ae454043f6a1d4a75ea8fb9201a5659db5f7f150fa9ef58c1c75f89d8c866f",
+          "battleSha256": "dfb13022932692542a26f54dd20c387ac66e31e4c24f43010a4486a779726624",
+          "atlasSha256": "cd8e35bc09645800441ed76b2ce6ce22fe747adabe15eec1a87e80ca0e514b3b",
+          "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
+          "evidence": [
+            "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-source-clips-head-1.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-source-clips-body-1.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-battle-clips-head-1.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-battle-clips-body-1.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-runtime-source-head.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-runtime-source-body.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-runtime-battle-head.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-runtime-battle-body.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-numeric-evidence.json"
+          ],
+          "packagedAt": "2026-10-15T08:09:47.293Z"
+        },
+        "candidateVisualReview": {
+          "sha256": "e6ac156a45dd37fbcfa6ac1919d3dd21d6c88214a5bfd572b47fe2b57b27848c",
+          "reviewer": "Codex visual inspection",
+          "reviewedAt": "2026-10-15T15:11:29.827Z",
+          "finding": "All 13 clips, all six phases, front/side head and body sheets actually inspected. Flame crown, gold eyes, dark feline muzzle, blue mane/scarf, magma torso, four legs and long flame tail remain intact; support and wrist/ankle joins stay closed. Normal and brighter head/body sheets inspected.",
+          "headLabel": "starter-contact-candidate-head",
+          "bodyLabel": "starter-contact-candidate-body"
+        }
+      },
+      "preContactPromotedSha256": "f1ae454043f6a1d4a75ea8fb9201a5659db5f7f150fa9ef58c1c75f89d8c866f",
+      "runtimeVisualPass": {
+        "sourceSha256": "e6ac156a45dd37fbcfa6ac1919d3dd21d6c88214a5bfd572b47fe2b57b27848c",
+        "battleSha256": "2bc8fac9fb8f0d0ca24f8d486a04e39472daa8a8dbd8f9f41e50b87b55512d46",
         "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
         "rows": [
           "idle",
@@ -31577,25 +31845,25 @@
           "side"
         ],
         "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-fire-l-source-head.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-fire-l-source-body.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-fire-l-battle-head.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-fire-l-battle-body.webp"
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-fire-l-source-head.webp",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-fire-l-source-body.webp",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-fire-l-battle-head.webp",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-fire-l-battle-body.webp"
         ],
         "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-fire-l-source-head.webp": "4243753fc75d4554c84cfc4b928dcbd5888a5251e4297caf27d6fe397149100c",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-fire-l-source-body.webp": "e6cc9713c28446dfdff68135a62fb2c30952c93436293e06e287f3d45cb36655",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-fire-l-battle-head.webp": "7c795afb2c12de40dda974d9847740cd57c450399bccd98655c7db9b88092a0f",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-fire-l-battle-body.webp": "6db5046242452520c3502c0d941d138182c8a6cd01c64ba7351e303228fccb22"
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-fire-l-source-head.webp": "db1a1e191e8d098f84488edf80377c06501b31d481a3fe012b6e7747862826d6",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-fire-l-source-body.webp": "e5ce3d2f1402ce1e4f22560395fde24b4d5c45535ad3e41eb5c0f8bb9ec71511",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-fire-l-battle-head.webp": "6d798865e8178b4655ca40d5a6e8dc906dd26e10fe206c629697f1cc84f622ad",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-fire-l-battle-body.webp": "73dccb0d26d2307a5879033ab1b608a0d407746e19b32511889b09c2ba690a13"
         },
-        "finding": "All sixteen production rows inspected in both versions, front and side, head and body. Dark flame-crowned cat muzzle, eyes, pointed ears, blue headband, swept blue mane and scarf, magma-patterned torso and four legs, paws and long flaming tail remain coherent throughout all runtime rows in both versions. Normal and brighter sheets inspected.",
+        "finding": "All 16 continuous production transition rows at six phases, front/side head and body, source and battle, actually inspected. Faces, body joins and support remain coherent through idle, movement, attack sequence, death and revive. All 13 clips, all six phases, front/side head and body sheets actually inspected. Flame crown, gold eyes, dark feline muzzle, blue mane/scarf, magma torso, four legs and long flame tail remain intact; support and wrist/ankle joins stay closed. Normal and brighter head/body sheets inspected.",
         "reviewer": "Codex visual inspection",
-        "reviewedAt": "2026-10-15T08:07:39.527Z"
+        "reviewedAt": "2026-10-15T15:25:10.667Z"
       },
       "finalReceipt": {
-        "sourceSha256": "f1ae454043f6a1d4a75ea8fb9201a5659db5f7f150fa9ef58c1c75f89d8c866f",
-        "battleSha256": "dfb13022932692542a26f54dd20c387ac66e31e4c24f43010a4486a779726624",
-        "atlasSha256": "cd8e35bc09645800441ed76b2ce6ce22fe747adabe15eec1a87e80ca0e514b3b",
+        "sourceSha256": "e6ac156a45dd37fbcfa6ac1919d3dd21d6c88214a5bfd572b47fe2b57b27848c",
+        "battleSha256": "2bc8fac9fb8f0d0ca24f8d486a04e39472daa8a8dbd8f9f41e50b87b55512d46",
+        "atlasSha256": "04d827f13802eb859d8fdb1a8fda0576aa8416250f7d05f6c7df1947c3622b5e",
         "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
         "evidence": [
           "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-source-clips-head-1.webp",
@@ -31608,7 +31876,7 @@
           "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-runtime-battle-body.webp",
           "docs/screenshots/pet-shape-2026-10-15/starter-fire-l-numeric-evidence.json"
         ],
-        "packagedAt": "2026-10-15T08:09:47.293Z"
+        "packagedAt": "2026-10-15T15:25:15.470Z"
       }
     },
     "starter-water-r": {
@@ -32508,10 +32776,10 @@
         "shinobij.client/.tmp/pet-shape-review/body-starter-seams-final/starter-wind-l-front.webp",
         "shinobij.client/.tmp/pet-shape-review/body-starter-seams-final/starter-wind-l-side.webp"
       ],
-      "promotedSha256": "e87ef7c07028f28f135015ba27bb7041283c25cd35941483d6f11265baad902c",
+      "promotedSha256": "2b04bfe8ef5c7f83cea3887a7c617aeba701470ec9d89a186fe60d4f3929884e",
       "conservation": "geometry, topology, atlas, clip names/times preserved; rig scale, rest frames and animation deltas deterministically retargeted; localized seam and skull binding repaired",
       "secondPassSource": {
-        "sha256": "e87ef7c07028f28f135015ba27bb7041283c25cd35941483d6f11265baad902c",
+        "sha256": "2b04bfe8ef5c7f83cea3887a7c617aeba701470ec9d89a186fe60d4f3929884e",
         "clips": [
           "idle",
           "idle_2",
@@ -32544,23 +32812,23 @@
           "side"
         ],
         "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-head/starter-wind-l-head-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-head/starter-wind-l-head-side.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-body/starter-wind-l-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-body/starter-wind-l-side.webp"
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-head/starter-wind-l-head-front.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-head/starter-wind-l-head-side.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-body/starter-wind-l-front.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-body/starter-wind-l-side.webp"
         ],
         "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-head/starter-wind-l-head-front.webp": "aa7e4e6a24f0411e02debf14201bf1db8548abacdde54ef311414391049a34d0",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-head/starter-wind-l-head-side.webp": "fe3cae67b3e3e87640da8424fc72979ddcc9f1375e455cbd7352788a617dad08",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-body/starter-wind-l-front.webp": "866fe28d848dc2dbf25cb70c76f4942247fdd5394693b1f96781d80c4e6322d8",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-body/starter-wind-l-side.webp": "b4795bcf3c5dec3e502e2c2a5e8037d500f458d396142fb4e6af6cc4703fab91"
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-head/starter-wind-l-head-front.webp": "60b19c3b1a1992f856ebc20b43a2937d86ad239620dbeba5e078b53697920e8c",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-head/starter-wind-l-head-side.webp": "e6f11e3ac8d8d179f0a24f3f6fa8dab06d40bbcaad1dc548658df808edb21b68",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-body/starter-wind-l-front.webp": "c9d4c87e43c403f17203b77ef24aab5fafc556e2b4e4c319a6ddd3cc476840cc",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-body/starter-wind-l-side.webp": "db00db3ddefa2a2d68f948d90661c05baab818d77962f3b47eb03c3e3ee3d99d"
         },
-        "finding": "All 13 clips inspected at six alternate phases in front and side head and full-body views for this source asset. Tempest Roc eyes, open hooked beak, gold cheek feathers and tall gold-green crown retain their shapes through attack and turned death; wings, long green tail feathers, chest wrap and both clawed feet remain intact including repaired local seams.",
-        "reviewedAt": "2026-10-15T05:48:37.836Z",
+        "finding": "Final shipping source asset: all 13 clips and six alternate phases actually inspected in front/side head and body sheets. All 13 clips, all six phases, front/side head and body sheets actually inspected. Gold hooked beak, eyes, crest, teal headband, feathered neck, tall wings, talons and teal tail remain coherent; no open torso or limb seams.",
+        "reviewedAt": "2026-10-15T15:23:42.834Z",
         "reviewer": "Codex visual inspection"
       },
       "secondPassBattle": {
-        "sha256": "912aa8af08da006457601330cbd59a8bc39e4d54093b35b6a7ba2074e80f9a5c",
+        "sha256": "30714eb45c4a502576c4d8a0654d32c61f64dc587aa6a51f34fbe7a64f281e2b",
         "clips": [
           "idle",
           "idle_2",
@@ -32593,24 +32861,91 @@
           "side"
         ],
         "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-head/starter-wind-l-head-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-head/starter-wind-l-head-side.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-body/starter-wind-l-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-body/starter-wind-l-side.webp"
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-head/starter-wind-l-head-front.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-head/starter-wind-l-head-side.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-body/starter-wind-l-front.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-body/starter-wind-l-side.webp"
         ],
         "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-head/starter-wind-l-head-front.webp": "26d349f78ce103189f64ab90e35e72545283e34f99a76cc06e461e04ef7b78e5",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-head/starter-wind-l-head-side.webp": "7018a25b8ad631d14ba9c349c3e97ec489d0c959dabe425f217a1cc74bd89225",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-body/starter-wind-l-front.webp": "81fb397031991474f63f5539b900e67b051e1e90208d424eb8cd53abe1acdd8f",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-body/starter-wind-l-side.webp": "372b2a8893208c6cfcf72c2f5ef2718fade7f002fcb2c9148deb9cc064f9e1bd"
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-head/starter-wind-l-head-front.webp": "8ce24520027e50f14902014c675ae7161008b8e852569af5f5858e0c95363244",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-head/starter-wind-l-head-side.webp": "23d7450f1d36a4701dd6858f7f2cc96318dac43dc6f3307a49aff5649b6b9e60",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-body/starter-wind-l-front.webp": "e483f1ed96df0908dbd33641adaadb7afea1fbb7bbc77116547af721962f119e",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-body/starter-wind-l-side.webp": "b5baab1377d9eeaab6cb95aed2a25c27f114979e98a66a7c6c2109ea26d072d3"
         },
-        "finding": "All 13 clips inspected at six alternate phases in front and side head and full-body views for this battle asset. Tempest Roc eyes, open hooked beak, gold cheek feathers and tall gold-green crown retain their shapes through attack and turned death; wings, long green tail feathers, chest wrap and both clawed feet remain intact including repaired local seams.",
-        "reviewedAt": "2026-10-15T05:48:38.020Z",
+        "finding": "Final shipping battle asset: all 13 clips and six alternate phases actually inspected in front/side head and body sheets. All 13 clips, all six phases, front/side head and body sheets actually inspected. Gold hooked beak, eyes, crest, teal headband, feathered neck, tall wings, talons and teal tail remain coherent; no open torso or limb seams.",
+        "reviewedAt": "2026-10-15T15:23:43.245Z",
         "reviewer": "Codex visual inspection"
       },
-      "runtimeVisualPass": {
+      "footContactCorrection": {
+        "status": "complete-final-source-battle-and-runtime-rechecked",
+        "finding": "Rig orthogonalization introduced small support-foot lift; restore authored vertical foot trajectories without changing horizontal gait or skull shape.",
+        "id": "starter-wind-l",
+        "local": "starter-wind-l.glb",
         "sourceSha256": "e87ef7c07028f28f135015ba27bb7041283c25cd35941483d6f11265baad902c",
-        "battleSha256": "912aa8af08da006457601330cbd59a8bc39e4d54093b35b6a7ba2074e80f9a5c",
+        "sha256": "2b04bfe8ef5c7f83cea3887a7c617aeba701470ec9d89a186fe60d4f3929884e",
+        "clips": [
+          {
+            "name": "idle",
+            "keys": 73,
+            "tracks": 7,
+            "maxContactErrorNormalized": 2.1709168960101036e-15
+          },
+          {
+            "name": "walk",
+            "keys": 36,
+            "tracks": 7,
+            "maxContactErrorNormalized": 1.9435385507658576e-15
+          },
+          {
+            "name": "gallop",
+            "keys": 33,
+            "tracks": 7,
+            "maxContactErrorNormalized": 1.6378126675310951e-15
+          },
+          {
+            "name": "guard",
+            "keys": 46,
+            "tracks": 7,
+            "maxContactErrorNormalized": 1.3960306390191838e-15
+          },
+          {
+            "name": "rest",
+            "keys": 75,
+            "tracks": 7,
+            "maxContactErrorNormalized": 2.4642058097678456e-15
+          }
+        ],
+        "priorFinalReceipt": {
+          "sourceSha256": "e87ef7c07028f28f135015ba27bb7041283c25cd35941483d6f11265baad902c",
+          "battleSha256": "912aa8af08da006457601330cbd59a8bc39e4d54093b35b6a7ba2074e80f9a5c",
+          "atlasSha256": "6404f64e73cff91fb28aaed4186f0b5de64f01edad84e0f0d7642b4d71988108",
+          "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
+          "evidence": [
+            "docs/screenshots/pet-shape-2026-10-15/starter-wind-l-source-clips-head-1.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-wind-l-source-clips-body-1.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-wind-l-battle-clips-head-1.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-wind-l-battle-clips-body-1.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-wind-l-runtime-source-head.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-wind-l-runtime-source-body.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-wind-l-runtime-battle-head.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-wind-l-runtime-battle-body.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-wind-l-numeric-evidence.json"
+          ],
+          "packagedAt": "2026-10-15T08:15:55.978Z"
+        },
+        "candidateVisualReview": {
+          "sha256": "2b04bfe8ef5c7f83cea3887a7c617aeba701470ec9d89a186fe60d4f3929884e",
+          "reviewer": "Codex visual inspection",
+          "reviewedAt": "2026-10-15T15:11:30.295Z",
+          "finding": "All 13 clips, all six phases, front/side head and body sheets actually inspected. Gold hooked beak, eyes, crest, teal headband, feathered neck, tall wings, talons and teal tail remain coherent; no open torso or limb seams.",
+          "headLabel": "starter-contact-candidate-head",
+          "bodyLabel": "starter-contact-candidate-body"
+        }
+      },
+      "preContactPromotedSha256": "e87ef7c07028f28f135015ba27bb7041283c25cd35941483d6f11265baad902c",
+      "runtimeVisualPass": {
+        "sourceSha256": "2b04bfe8ef5c7f83cea3887a7c617aeba701470ec9d89a186fe60d4f3929884e",
+        "battleSha256": "30714eb45c4a502576c4d8a0654d32c61f64dc587aa6a51f34fbe7a64f281e2b",
         "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
         "rows": [
           "idle",
@@ -32643,25 +32978,25 @@
           "side"
         ],
         "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-wind-l-source-head.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-wind-l-source-body.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-wind-l-battle-head.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-wind-l-battle-body.webp"
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-wind-l-source-head.webp",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-wind-l-source-body.webp",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-wind-l-battle-head.webp",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-wind-l-battle-body.webp"
         ],
         "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-wind-l-source-head.webp": "4808293acd7b0bd426a6dff760926fa97c964657888d900fb25cc2763a7ea2ec",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-wind-l-source-body.webp": "785005331d2f92dd565b83b61adddf7e145188f57f3f4148df63d7a6055ae387",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-wind-l-battle-head.webp": "30c3500ccc0c65b022dc29d02364ac8b9a870464e8c96ca0954ddcd3d6098dc9",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-wind-l-battle-body.webp": "368a7aa0ccd9357f731eaefb83d3af0798eed6b7043b7ee11497715e50f761d1"
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-wind-l-source-head.webp": "8670d059c43775a7def96293324d5ba6d0461b2cac8d0be09638ede2db8f56b7",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-wind-l-source-body.webp": "3ce96aff680478ec161fd59de621a36c61e323a19bf64b7f132749d4ccc8efc6",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-wind-l-battle-head.webp": "56780dd78b3be108480e5d35a6f736ebff057ac59be14f528d399fa27780727f",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-wind-l-battle-body.webp": "f5b8b2a5c80d49e6eb7d81121372761ea050acfba3a9616636e0a0cc24f3147e"
         },
-        "finding": "All sixteen production rows inspected in both versions, front and side, head and body. Gold and teal roc hooked beak, eyes, angular brow, crest, headband, feathered neck, two tall wings, torso, talons and long teal tail stay intact through all sixteen runtime rows and attack transitions in source and battle. Normal and brighter sheets checked; repaired torso and limb seams stay closed.",
+        "finding": "All 16 continuous production transition rows at six phases, front/side head and body, source and battle, actually inspected. Faces, body joins and support remain coherent through idle, movement, attack sequence, death and revive. All 13 clips, all six phases, front/side head and body sheets actually inspected. Gold hooked beak, eyes, crest, teal headband, feathered neck, tall wings, talons and teal tail remain coherent; no open torso or limb seams.",
         "reviewer": "Codex visual inspection",
-        "reviewedAt": "2026-10-15T08:15:54.986Z"
+        "reviewedAt": "2026-10-15T15:25:11.282Z"
       },
       "finalReceipt": {
-        "sourceSha256": "e87ef7c07028f28f135015ba27bb7041283c25cd35941483d6f11265baad902c",
-        "battleSha256": "912aa8af08da006457601330cbd59a8bc39e4d54093b35b6a7ba2074e80f9a5c",
-        "atlasSha256": "6404f64e73cff91fb28aaed4186f0b5de64f01edad84e0f0d7642b4d71988108",
+        "sourceSha256": "2b04bfe8ef5c7f83cea3887a7c617aeba701470ec9d89a186fe60d4f3929884e",
+        "battleSha256": "30714eb45c4a502576c4d8a0654d32c61f64dc587aa6a51f34fbe7a64f281e2b",
+        "atlasSha256": "67acd41e4db778bc4cfc14ada282549a6b4189fc35c65a1af310024077bab83d",
         "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
         "evidence": [
           "docs/screenshots/pet-shape-2026-10-15/starter-wind-l-source-clips-head-1.webp",
@@ -32674,7 +33009,7 @@
           "docs/screenshots/pet-shape-2026-10-15/starter-wind-l-runtime-battle-body.webp",
           "docs/screenshots/pet-shape-2026-10-15/starter-wind-l-numeric-evidence.json"
         ],
-        "packagedAt": "2026-10-15T08:15:55.978Z"
+        "packagedAt": "2026-10-15T15:25:15.643Z"
       }
     },
     "starter-lightning-r": {
@@ -33135,10 +33470,10 @@
         "shinobij.client/.tmp/pet-shape-review/body-starter-orthogonal-candidates/starter-earth-r-front.webp",
         "shinobij.client/.tmp/pet-shape-review/body-starter-orthogonal-candidates/starter-earth-r-side.webp"
       ],
-      "promotedSha256": "18ae0430f0dde97d51c38757018f8d41875ddc71c9f27353b71aea19d5becdf2",
+      "promotedSha256": "0a5245954cdf15e302165ed00cf8fee0a64f3fe735eb4dc6470c717eedb4b6cf",
       "conservation": "geometry, topology, atlas, clip names/times preserved; rig scale, rest frames and animation deltas deterministically retargeted; localized seam and skull binding repaired",
       "secondPassSource": {
-        "sha256": "1333d43a6f36cc08ab58f0de6c7ce8ef01ebc859fb34debd26878d2368db3322",
+        "sha256": "0a5245954cdf15e302165ed00cf8fee0a64f3fe735eb4dc6470c717eedb4b6cf",
         "clips": [
           "idle",
           "idle_2",
@@ -33171,23 +33506,23 @@
           "side"
         ],
         "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/earth-r-cleanup-source-head/starter-earth-r-head-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/earth-r-cleanup-source-head/starter-earth-r-head-side.webp",
-          "shinobij.client/.tmp/pet-shape-review/earth-r-cleanup-source-body/starter-earth-r-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/earth-r-cleanup-source-body/starter-earth-r-side.webp"
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-head/starter-earth-r-head-front.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-head/starter-earth-r-head-side.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-body/starter-earth-r-front.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-body/starter-earth-r-side.webp"
         ],
         "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/earth-r-cleanup-source-head/starter-earth-r-head-front.webp": "3dcda6364b9ebfa84c01182a89ebffa18d5e90ed056a4ffae2f75aca25eb37e9",
-          "shinobij.client/.tmp/pet-shape-review/earth-r-cleanup-source-head/starter-earth-r-head-side.webp": "ac8f389ac393b2f7dd7a6108ac3fc02ba602f65c53dfbdf1b324b3e64689cf69",
-          "shinobij.client/.tmp/pet-shape-review/earth-r-cleanup-source-body/starter-earth-r-front.webp": "084e9735c24b29e49005a847e109b9287de121d3e7485b3e40bfb7e74a4f8f1f",
-          "shinobij.client/.tmp/pet-shape-review/earth-r-cleanup-source-body/starter-earth-r-side.webp": "cef4fc9954448be99ab6e71f66154e2aa7c4ab1a27befdaeed42543ece34a70d"
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-head/starter-earth-r-head-front.webp": "9502b23c55c89d40bfd5f3b1a2bb37500d7979504fa3995e6bd8936326c8259f",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-head/starter-earth-r-head-side.webp": "06819db8289a4bcb66fd9db73844e2613ce9d469810ec4403b082ac15404143c",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-body/starter-earth-r-front.webp": "6057281d34e86dfc00a5939fe0440bf87f85c6729be3f4ac01452f48ed2de481",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-body/starter-earth-r-side.webp": "6d738fafa941cf5b585ea5bf20148a5617752d0d51e6f3d2ce881784d3678cb6"
         },
-        "finding": "All thirteen clips inspected at six phases in front and side head and body sheets after isolated shoulder sliver removal. Muzzle, eyes, headband, shell, sword, straps, limbs, claws and tail remain coherent and no floating sliver remains.",
-        "reviewedAt": "2026-10-15T08:05:21.632Z",
+        "finding": "Final shipping source asset: all 13 clips and six alternate phases actually inspected in front/side head and body sheets. All 13 clips, all six phases, front/side head and body sheets actually inspected. Turtle muzzle, eyes, headband, segmented shell, chest straps, sword, wrapped arms, hands, legs, toes and tail remain intact; detached shoulder sliver stays absent.",
+        "reviewedAt": "2026-10-15T15:23:44.237Z",
         "reviewer": "Codex visual inspection"
       },
       "secondPassBattle": {
-        "sha256": "b0f20cc2772f3b794a0a67a43551cd25141b47c1cd25b5ff43db89fd090a749f",
+        "sha256": "bc881dd5538d59419f83e33e679d6bc8be606939082ce767628990c74fce162b",
         "clips": [
           "idle",
           "idle_2",
@@ -33220,19 +33555,19 @@
           "side"
         ],
         "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/earth-r-cleanup-battle-head/starter-earth-r-head-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/earth-r-cleanup-battle-head/starter-earth-r-head-side.webp",
-          "shinobij.client/.tmp/pet-shape-review/earth-r-cleanup-battle-body/starter-earth-r-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/earth-r-cleanup-battle-body/starter-earth-r-side.webp"
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-head/starter-earth-r-head-front.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-head/starter-earth-r-head-side.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-body/starter-earth-r-front.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-body/starter-earth-r-side.webp"
         ],
         "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/earth-r-cleanup-battle-head/starter-earth-r-head-front.webp": "c0f810b85e46e48553c983797e10efa813de51cfbed0cbb4e1ff0c8dca8901cb",
-          "shinobij.client/.tmp/pet-shape-review/earth-r-cleanup-battle-head/starter-earth-r-head-side.webp": "64a557d8a7e146636486ded186002457d9c06bd4e16a38510cd0e1cb91e7ab9b",
-          "shinobij.client/.tmp/pet-shape-review/earth-r-cleanup-battle-body/starter-earth-r-front.webp": "8d15ba251a61868fece36073ffd8c61aa3fa178acc40143172d8a2df0f9379d6",
-          "shinobij.client/.tmp/pet-shape-review/earth-r-cleanup-battle-body/starter-earth-r-side.webp": "8db8268fa0e3249876a90dff7d1238793ba72808b9752e54aa8ed2dfa260a1a6"
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-head/starter-earth-r-head-front.webp": "8e5bdf3a6d2b71aa7b32b4b07014d5a2021488b2c9093bc554da945e89fd89e9",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-head/starter-earth-r-head-side.webp": "49cbc4a4e8d755c9c28edcbac52235743d2a15e81b05348fc0fafc8b9a46fc5e",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-body/starter-earth-r-front.webp": "f9630214d7f0ea960b6afaaf6e571c800289b72a00f876a12b4e95806ccc2d41",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-body/starter-earth-r-side.webp": "fb06b0288fd1799fdb7b812498652d1b7342254740d32073e7264a36b04f9e26"
         },
-        "finding": "All thirteen clips inspected at six phases in front and side head and body sheets after isolated shoulder sliver removal. Muzzle, eyes, headband, shell, sword, straps, limbs, claws and tail remain coherent and no floating sliver remains.",
-        "reviewedAt": "2026-10-15T08:05:22.377Z",
+        "finding": "Final shipping battle asset: all 13 clips and six alternate phases actually inspected in front/side head and body sheets. All 13 clips, all six phases, front/side head and body sheets actually inspected. Turtle muzzle, eyes, headband, segmented shell, chest straps, sword, wrapped arms, hands, legs, toes and tail remain intact; detached shoulder sliver stays absent.",
+        "reviewedAt": "2026-10-15T15:23:44.593Z",
         "reviewer": "Codex visual inspection"
       },
       "geometryRepair": {
@@ -33245,9 +33580,76 @@
         "finding": "One disconnected floating shoulder sliver removed after enlarged source and battle runtime confirmation. All thirteen candidate clips inspected at six phases in front and side head and body sheets. Muzzle, eyes, headband, shell, sword, chest straps, arms, feet and tail remain intact. All retained attributes, triangles, bones and animation tracks are exact. Dense skull plus 468 blends and full geometry pass; final source, battle and runtime rechecks pending."
       },
       "status": "geometry-repaired-final-rechecks-pending",
-      "runtimeVisualPass": {
+      "footContactCorrection": {
+        "status": "complete-final-source-battle-and-runtime-rechecked",
+        "finding": "Rig orthogonalization introduced small support-foot lift; restore authored vertical foot trajectories without changing horizontal gait or skull shape.",
+        "id": "starter-earth-r",
+        "local": "starter-earth-r.glb",
         "sourceSha256": "1333d43a6f36cc08ab58f0de6c7ce8ef01ebc859fb34debd26878d2368db3322",
-        "battleSha256": "b0f20cc2772f3b794a0a67a43551cd25141b47c1cd25b5ff43db89fd090a749f",
+        "sha256": "0a5245954cdf15e302165ed00cf8fee0a64f3fe735eb4dc6470c717eedb4b6cf",
+        "clips": [
+          {
+            "name": "idle",
+            "keys": 111,
+            "tracks": 7,
+            "maxContactErrorNormalized": 2.1059956850372255e-15
+          },
+          {
+            "name": "walk",
+            "keys": 59,
+            "tracks": 7,
+            "maxContactErrorNormalized": 1.997000236309859e-15
+          },
+          {
+            "name": "gallop",
+            "keys": 43,
+            "tracks": 7,
+            "maxContactErrorNormalized": 1.4711940510653983e-15
+          },
+          {
+            "name": "guard",
+            "keys": 74,
+            "tracks": 7,
+            "maxContactErrorNormalized": 1.9182188813379563e-15
+          },
+          {
+            "name": "rest",
+            "keys": 122,
+            "tracks": 7,
+            "maxContactErrorNormalized": 2.313600117010542e-15
+          }
+        ],
+        "priorFinalReceipt": {
+          "sourceSha256": "1333d43a6f36cc08ab58f0de6c7ce8ef01ebc859fb34debd26878d2368db3322",
+          "battleSha256": "b0f20cc2772f3b794a0a67a43551cd25141b47c1cd25b5ff43db89fd090a749f",
+          "atlasSha256": "62411b4a888612ec6c976f994e9fd5993e3f3d7cbd5711df24878cc576c38efb",
+          "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
+          "evidence": [
+            "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-source-clips-head-1.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-source-clips-body-1.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-battle-clips-head-1.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-battle-clips-body-1.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-runtime-source-head.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-runtime-source-body.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-runtime-battle-head.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-runtime-battle-body.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-numeric-evidence.json"
+          ],
+          "packagedAt": "2026-10-15T08:06:05.939Z"
+        },
+        "candidateVisualReview": {
+          "sha256": "0a5245954cdf15e302165ed00cf8fee0a64f3fe735eb4dc6470c717eedb4b6cf",
+          "reviewer": "Codex visual inspection",
+          "reviewedAt": "2026-10-15T15:11:30.512Z",
+          "finding": "All 13 clips, all six phases, front/side head and body sheets actually inspected. Turtle muzzle, eyes, headband, segmented shell, chest straps, sword, wrapped arms, hands, legs, toes and tail remain intact; detached shoulder sliver stays absent.",
+          "headLabel": "starter-contact-candidate-head",
+          "bodyLabel": "starter-contact-candidate-body"
+        }
+      },
+      "preContactPromotedSha256": "18ae0430f0dde97d51c38757018f8d41875ddc71c9f27353b71aea19d5becdf2",
+      "runtimeVisualPass": {
+        "sourceSha256": "0a5245954cdf15e302165ed00cf8fee0a64f3fe735eb4dc6470c717eedb4b6cf",
+        "battleSha256": "bc881dd5538d59419f83e33e679d6bc8be606939082ce767628990c74fce162b",
         "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
         "rows": [
           "idle",
@@ -33280,25 +33682,25 @@
           "side"
         ],
         "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/runtime-earth-cleanup-final/starter-earth-r-source-head.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-earth-cleanup-final/starter-earth-r-source-body.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-earth-cleanup-final/starter-earth-r-battle-head.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-earth-cleanup-final/starter-earth-r-battle-body.webp"
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-earth-r-source-head.webp",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-earth-r-source-body.webp",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-earth-r-battle-head.webp",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-earth-r-battle-body.webp"
         ],
         "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/runtime-earth-cleanup-final/starter-earth-r-source-head.webp": "23d5a9019983b68ebcc38a4bc2dcdd77286f58608a7cbf8e28a3595df04921b8",
-          "shinobij.client/.tmp/pet-shape-review/runtime-earth-cleanup-final/starter-earth-r-source-body.webp": "f9ece8f51da5a3e483a718401f4a1fdd1a12853477c934747395c6a1fe2113d5",
-          "shinobij.client/.tmp/pet-shape-review/runtime-earth-cleanup-final/starter-earth-r-battle-head.webp": "bdc9fa4c2c91d9db606c4eb8f66d6746c2cb2685d1361efc39e16f2789235abb",
-          "shinobij.client/.tmp/pet-shape-review/runtime-earth-cleanup-final/starter-earth-r-battle-body.webp": "9d5711cfe354c8d5937679a572e48c42516f2a1d6d3764be90c2f4ded6efa037"
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-earth-r-source-head.webp": "b254958dec06bded041f094134f0fe22967208d8443a5a8fa617645cee34cbc4",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-earth-r-source-body.webp": "d438c785c516c5362277d2926735d088327606b0752c94aba7b2411997c71667",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-earth-r-battle-head.webp": "5711d96f944e5ff8d3c4372fdade8ab5df8c4114b961150e1000087145541fdc",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-earth-r-battle-body.webp": "6926c2bdcf094d12ad49c21a021481d7879e727d812d50b80c3ced7df22c9212"
         },
-        "finding": "All sixteen production rows inspected in both versions, front and side head and body, after shoulder sliver removal. Muzzle, eyes, blue headband, complete stone shell, chest straps and sword, wrapped arms, hands, feet and tail remain coherent; no floating shoulder sliver remains.",
+        "finding": "All 16 continuous production transition rows at six phases, front/side head and body, source and battle, actually inspected. Faces, body joins and support remain coherent through idle, movement, attack sequence, death and revive. All 13 clips, all six phases, front/side head and body sheets actually inspected. Turtle muzzle, eyes, headband, segmented shell, chest straps, sword, wrapped arms, hands, legs, toes and tail remain intact; detached shoulder sliver stays absent.",
         "reviewer": "Codex visual inspection",
-        "reviewedAt": "2026-10-15T08:06:03.524Z"
+        "reviewedAt": "2026-10-15T15:25:11.811Z"
       },
       "finalReceipt": {
-        "sourceSha256": "1333d43a6f36cc08ab58f0de6c7ce8ef01ebc859fb34debd26878d2368db3322",
-        "battleSha256": "b0f20cc2772f3b794a0a67a43551cd25141b47c1cd25b5ff43db89fd090a749f",
-        "atlasSha256": "62411b4a888612ec6c976f994e9fd5993e3f3d7cbd5711df24878cc576c38efb",
+        "sourceSha256": "0a5245954cdf15e302165ed00cf8fee0a64f3fe735eb4dc6470c717eedb4b6cf",
+        "battleSha256": "bc881dd5538d59419f83e33e679d6bc8be606939082ce767628990c74fce162b",
+        "atlasSha256": "20d8613dc19ecaa14c409e22fe1e5679095bed9f57b334ad6834151a9502d47f",
         "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
         "evidence": [
           "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-source-clips-head-1.webp",
@@ -33311,7 +33713,7 @@
           "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-runtime-battle-body.webp",
           "docs/screenshots/pet-shape-2026-10-15/starter-earth-r-numeric-evidence.json"
         ],
-        "packagedAt": "2026-10-15T08:06:05.939Z"
+        "packagedAt": "2026-10-15T15:25:15.741Z"
       }
     },
     "starter-earth-l": {
@@ -33360,10 +33762,10 @@
         "shinobij.client/.tmp/pet-shape-review/body-starter-orthogonal-candidates/starter-earth-l-front.webp",
         "shinobij.client/.tmp/pet-shape-review/body-starter-orthogonal-candidates/starter-earth-l-side.webp"
       ],
-      "promotedSha256": "b2554daa8eac4daebff3f12fd25b2bd0dc3483974ed33512414a2867b89f9758",
+      "promotedSha256": "f73c65852cf9426515443d516cb757cf2dec92a12b3658221c675743f9156912",
       "conservation": "geometry, topology, atlas, clip names/times preserved; rig scale, rest frames and animation deltas deterministically retargeted; localized seam and skull binding repaired",
       "secondPassSource": {
-        "sha256": "b2554daa8eac4daebff3f12fd25b2bd0dc3483974ed33512414a2867b89f9758",
+        "sha256": "f73c65852cf9426515443d516cb757cf2dec92a12b3658221c675743f9156912",
         "clips": [
           "idle",
           "idle_2",
@@ -33396,23 +33798,23 @@
           "side"
         ],
         "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-head/starter-earth-l-head-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-head/starter-earth-l-head-side.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-body/starter-earth-l-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-body/starter-earth-l-side.webp"
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-head/starter-earth-l-head-front.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-head/starter-earth-l-head-side.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-body/starter-earth-l-front.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-body/starter-earth-l-side.webp"
         ],
         "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-head/starter-earth-l-head-front.webp": "034abeada61a8e787b1bc89f626e75270c80fca6254cbe614c9165e7955fe989",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-head/starter-earth-l-head-side.webp": "153bc4f92884509da9a45c7f3efa5258a9b1e6a8c3b376b9930563d67464c2f7",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-body/starter-earth-l-front.webp": "cbf50446b193ec34853dcd5cf43e0283d2cf30140b5cdd2e0347bff8b3a8b13a",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-body/starter-earth-l-side.webp": "4abe4b1421616481839fe39b2b69bb1f70df57f969a40d9a71a6665214f03fca"
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-head/starter-earth-l-head-front.webp": "d436036f10bffac2a6cf6cd794e7a553123033ff1039a45471c45304f9ea81e3",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-head/starter-earth-l-head-side.webp": "3a67093720cfb73609cfe39b54667bdb12030aa1f91525ff782d7b99c13ef98c",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-body/starter-earth-l-front.webp": "8a00b29691639d9869469b0a6cf96e79e32f410aaae4c56ca88d2bc00a3ad501",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-body/starter-earth-l-side.webp": "037316bf47363e1bf1f52dc54fa29e201b0819eec9b8d01a511020e67ffeae63"
         },
-        "finding": "All 13 clips inspected at six alternate phases in front and side head and full-body views for this source asset. Both versions preserve the broad plated turtle muzzle, eyes, nose, headband and jaw across all thirteen clips. The pointed shell, shoulder plates, wrapped forelegs, four feet and tail remain coherent through the leap, attack and sideways death pose.",
-        "reviewedAt": "2026-10-15T05:55:13.848Z",
+        "finding": "Final shipping source asset: all 13 clips and six alternate phases actually inspected in front/side head and body sheets. All 13 clips, all six phases, front/side head and body sheets actually inspected. Green turtle muzzle, eyes, headband, chest plates, spiked shell, wrapped wrists, four limbs, claws and tail remain intact with coherent grounded gait.",
+        "reviewedAt": "2026-10-15T15:23:44.934Z",
         "reviewer": "Codex visual inspection"
       },
       "secondPassBattle": {
-        "sha256": "34d7d4f10e520a21214a9369e80a7d5eec4b4d4361a93dc2718b4916980509ca",
+        "sha256": "20c781a4e181b2c6be8353451fa739d6deb6f7c8583ebf5ea01658514f64f2ee",
         "clips": [
           "idle",
           "idle_2",
@@ -33445,24 +33847,91 @@
           "side"
         ],
         "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-head/starter-earth-l-head-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-head/starter-earth-l-head-side.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-body/starter-earth-l-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-body/starter-earth-l-side.webp"
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-head/starter-earth-l-head-front.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-head/starter-earth-l-head-side.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-body/starter-earth-l-front.webp",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-body/starter-earth-l-side.webp"
         ],
         "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-head/starter-earth-l-head-front.webp": "db126632516e8c118fa2f347c46d97b96cf4e153d6138e487c2bac720f855127",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-head/starter-earth-l-head-side.webp": "39bb169bd855b39365fe87a5ee61e698ead55828594b4f39b83be4e273d8b49d",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-body/starter-earth-l-front.webp": "15c9eb5aafda6aafed75d2a94185e9f046016363e91f75fc14e82cbf555a4f98",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-body/starter-earth-l-side.webp": "0b06b806ff0eef3ad3b1cc3bc58c386ac8535e410677b9d274416e3a89f0c427"
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-head/starter-earth-l-head-front.webp": "2f1f34eb140ba4409ab6fb012bb5725cd20244227d9d94a2048882cbd6a78232",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-head/starter-earth-l-head-side.webp": "24f607edb529a4b05f7cdb35a878c148ca639f4a3451b8bd863abd28e0b6db02",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-body/starter-earth-l-front.webp": "120490d279155f60cc745f8faa3915357318a8ac88926152221d872c8df64de3",
+          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-body/starter-earth-l-side.webp": "1a3078099a99affa80276d5c2d8ed10300bf00fa17c0e5eae648181725064438"
         },
-        "finding": "All 13 clips inspected at six alternate phases in front and side head and full-body views for this battle asset. Both versions preserve the broad plated turtle muzzle, eyes, nose, headband and jaw across all thirteen clips. The pointed shell, shoulder plates, wrapped forelegs, four feet and tail remain coherent through the leap, attack and sideways death pose.",
-        "reviewedAt": "2026-10-15T05:55:14.034Z",
+        "finding": "Final shipping battle asset: all 13 clips and six alternate phases actually inspected in front/side head and body sheets. All 13 clips, all six phases, front/side head and body sheets actually inspected. Green turtle muzzle, eyes, headband, chest plates, spiked shell, wrapped wrists, four limbs, claws and tail remain intact with coherent grounded gait.",
+        "reviewedAt": "2026-10-15T15:23:45.352Z",
         "reviewer": "Codex visual inspection"
       },
-      "runtimeVisualPass": {
+      "footContactCorrection": {
+        "status": "complete-final-source-battle-and-runtime-rechecked",
+        "finding": "Rig orthogonalization introduced small support-foot lift; restore authored vertical foot trajectories without changing horizontal gait or skull shape.",
+        "id": "starter-earth-l",
+        "local": "starter-earth-l.glb",
         "sourceSha256": "b2554daa8eac4daebff3f12fd25b2bd0dc3483974ed33512414a2867b89f9758",
-        "battleSha256": "34d7d4f10e520a21214a9369e80a7d5eec4b4d4361a93dc2718b4916980509ca",
+        "sha256": "f73c65852cf9426515443d516cb757cf2dec92a12b3658221c675743f9156912",
+        "clips": [
+          {
+            "name": "idle",
+            "keys": 111,
+            "tracks": 13,
+            "maxContactErrorNormalized": 1.6252945868839623e-15
+          },
+          {
+            "name": "walk",
+            "keys": 60,
+            "tracks": 13,
+            "maxContactErrorNormalized": 1.5845970183270095e-15
+          },
+          {
+            "name": "gallop",
+            "keys": 38,
+            "tracks": 13,
+            "maxContactErrorNormalized": 1.4281381113884426e-15
+          },
+          {
+            "name": "guard",
+            "keys": 69,
+            "tracks": 13,
+            "maxContactErrorNormalized": 1.5959971438588222e-15
+          },
+          {
+            "name": "rest",
+            "keys": 114,
+            "tracks": 13,
+            "maxContactErrorNormalized": 1.5498936067830076e-15
+          }
+        ],
+        "priorFinalReceipt": {
+          "sourceSha256": "b2554daa8eac4daebff3f12fd25b2bd0dc3483974ed33512414a2867b89f9758",
+          "battleSha256": "34d7d4f10e520a21214a9369e80a7d5eec4b4d4361a93dc2718b4916980509ca",
+          "atlasSha256": "ea1b4c209b108e887f4cdf5bff4e0e5788fdc8908b85c94732b7ff60db2bbf54",
+          "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
+          "evidence": [
+            "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-source-clips-head-1.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-source-clips-body-1.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-battle-clips-head-1.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-battle-clips-body-1.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-runtime-source-head.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-runtime-source-body.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-runtime-battle-head.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-runtime-battle-body.webp",
+            "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-numeric-evidence.json"
+          ],
+          "packagedAt": "2026-10-15T08:06:05.981Z"
+        },
+        "candidateVisualReview": {
+          "sha256": "f73c65852cf9426515443d516cb757cf2dec92a12b3658221c675743f9156912",
+          "reviewer": "Codex visual inspection",
+          "reviewedAt": "2026-10-15T15:11:30.668Z",
+          "finding": "All 13 clips, all six phases, front/side head and body sheets actually inspected. Green turtle muzzle, eyes, headband, chest plates, spiked shell, wrapped wrists, four limbs, claws and tail remain intact with coherent grounded gait.",
+          "headLabel": "starter-contact-candidate-head",
+          "bodyLabel": "starter-contact-candidate-body"
+        }
+      },
+      "preContactPromotedSha256": "b2554daa8eac4daebff3f12fd25b2bd0dc3483974ed33512414a2867b89f9758",
+      "runtimeVisualPass": {
+        "sourceSha256": "f73c65852cf9426515443d516cb757cf2dec92a12b3658221c675743f9156912",
+        "battleSha256": "20c781a4e181b2c6be8353451fa739d6deb6f7c8583ebf5ea01658514f64f2ee",
         "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
         "rows": [
           "idle",
@@ -33495,25 +33964,25 @@
           "side"
         ],
         "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-earth-l-source-head.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-earth-l-source-body.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-earth-l-battle-head.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-earth-l-battle-body.webp"
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-earth-l-source-head.webp",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-earth-l-source-body.webp",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-earth-l-battle-head.webp",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-earth-l-battle-body.webp"
         ],
         "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-earth-l-source-head.webp": "b7c015534ea7bb7db7fc11c34f69751eb6b278b650a60854ebee8f2e17c15aa4",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-earth-l-source-body.webp": "1b1d043b71c521dd8c26cff50d9582312bf76bcdc4f5a8e2e119ac1c4a156d23",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-earth-l-battle-head.webp": "333a50ca9f07e739756b560cbd8930d64d33fc462429fb0688f25fa9b32c3bb6",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-earth-l-battle-body.webp": "293b935b5433597dc753dc42bc982994b5d0bba763ada70f65e3c3ee0deafc0c"
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-earth-l-source-head.webp": "71abb2308761ad7b09a51714d09ba9085680f95469c02d91210f1927f4075507",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-earth-l-source-body.webp": "29b5f24dc3fc3e12a5871fa08a5266a90bb17a514f678505850ea3071e5941ee",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-earth-l-battle-head.webp": "548f25fa314696b8c97bc245fe54f33848ceb481ae4d1349a8bdda7fe7224234",
+          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-earth-l-battle-body.webp": "adb844871e7ebc601ead5e394e2cc59d9908c21e456ef172923f62f31101f239"
         },
-        "finding": "All sixteen production rows inspected in both versions, front and side, head and body. Green armored turtle angular muzzle, eyes, blue headband and ties, chest plates, spiked shell, wrapped wrists, hands and four clawed limbs remain coherent through every runtime row in both versions.",
+        "finding": "All 16 continuous production transition rows at six phases, front/side head and body, source and battle, actually inspected. Faces, body joins and support remain coherent through idle, movement, attack sequence, death and revive. All 13 clips, all six phases, front/side head and body sheets actually inspected. Green turtle muzzle, eyes, headband, chest plates, spiked shell, wrapped wrists, four limbs, claws and tail remain intact with coherent grounded gait.",
         "reviewer": "Codex visual inspection",
-        "reviewedAt": "2026-10-15T08:00:11.455Z"
+        "reviewedAt": "2026-10-15T15:25:12.032Z"
       },
       "finalReceipt": {
-        "sourceSha256": "b2554daa8eac4daebff3f12fd25b2bd0dc3483974ed33512414a2867b89f9758",
-        "battleSha256": "34d7d4f10e520a21214a9369e80a7d5eec4b4d4361a93dc2718b4916980509ca",
-        "atlasSha256": "ea1b4c209b108e887f4cdf5bff4e0e5788fdc8908b85c94732b7ff60db2bbf54",
+        "sourceSha256": "f73c65852cf9426515443d516cb757cf2dec92a12b3658221c675743f9156912",
+        "battleSha256": "20c781a4e181b2c6be8353451fa739d6deb6f7c8583ebf5ea01658514f64f2ee",
+        "atlasSha256": "1a84bcbcdbb33a613602bd3f9b09166745e81b89f1103668658875ac8344eb55",
         "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
         "evidence": [
           "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-source-clips-head-1.webp",
@@ -33526,12 +33995,12 @@
           "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-runtime-battle-body.webp",
           "docs/screenshots/pet-shape-2026-10-15/starter-earth-l-numeric-evidence.json"
         ],
-        "packagedAt": "2026-10-15T08:06:05.981Z"
+        "packagedAt": "2026-10-15T15:25:15.816Z"
       }
     }
   },
   "status": "complete",
-  "completedAt": "2026-10-15T08:22:05.689Z",
+  "completedAt": "2026-10-15T15:27:52.761Z",
   "finalSummary": {
     "reviewedIdentities": 161,
     "distinctSourceAssets": 160,
@@ -33543,13 +34012,22 @@
       "legendary-15",
       "starter-earth-r"
     ],
-    "skullClipPoses": 173088,
+    "skullClipPoses": 181058,
     "skullBlendPoses": 150696,
-    "geometryPoses": 65422,
+    "geometryPoses": 73414,
     "evidenceFiles": 1455,
     "openConfirmedDistortions": 0,
     "report": "docs/audits/pet-animation-shape-audit-2026-10-14.md",
     "gallery": "docs/screenshots/pet-shape-2026-10-15/index.html",
-    "scope": "All 13 clips inspected twice; final source and battle assets plus 16 production state/transition rows. Applies to the exact assets and renderer in the final receipts."
+    "scope": "All 13 clips inspected twice; final source and battle assets plus 16 production state/transition rows. Applies to the exact assets and renderer in the final receipts.",
+    "starterFootContactCorrections": [
+      "starter-fire-r",
+      "starter-fire-l",
+      "starter-wind",
+      "starter-wind-l",
+      "starter-lightning",
+      "starter-earth-r",
+      "starter-earth-l"
+    ]
   }
 }

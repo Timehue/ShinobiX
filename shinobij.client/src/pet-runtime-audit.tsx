@@ -6,6 +6,7 @@ import { flushSync } from 'react-dom';
 import { Canvas, useThree, type RootState } from '@react-three/fiber';
 import * as THREE from 'three';
 import { PetModel3D, DEFAULT_PET_MODEL_FRAME, type PetModelFrame } from './components/PetModel3D';
+import { RendererRetirement } from './components/RendererRetirement';
 import { petCombatModel } from './lib/pet-3d-models';
 import { PET_VISUAL_QUALITY_PRESETS } from './lib/pet-visual-quality';
 import { rawPetPool } from './data/pet-pool';
@@ -62,6 +63,7 @@ function Fighter({request}:{request:Request}) {
 function Control() {const current=useThree();useLayoutEffect(()=>{state=current;},[current]);return null;}
 function App(){const [request,update]=useState<Request|null>(null);useLayoutEffect(()=>{setRequest=update;},[]);
     return <div style={{width:320,height:320}}><Canvas frameloop="never" dpr={1} gl={{antialias:true,preserveDrawingBuffer:true}} camera={{fov:35,near:.001,far:1000}}>
+        <RendererRetirement />
         <color attach="background" args={['#101726']}/><ambientLight intensity={1.4}/>
         <directionalLight position={[3,5,4]} intensity={2.2}/><directionalLight position={[-3,2,-3]} color="#8bc5ff" intensity={1.2}/>
         <Control/><Suspense fallback={null}>{request&&<Fighter key={request.generation} request={request}/>}</Suspense>

@@ -2,7 +2,7 @@
 
 All 160 pets requested after Oni Hound have been visually inspected, repaired where needed, and checked again. Oni was included in the final verification: **161 of 161 identities have current completed reviews**, covering 160 distinct source assets and their battle models. Stone Turtle and the earth starter share an asset.
 
-The final whole-roster review gate passes with zero failures. No confirmed distortion remains open in the inspected coverage. Changes are local; they have not been deployed.
+The final whole-roster review gate passes with zero failures. No confirmed distortion remains open in the inspected coverage. Release checks are in progress in PR #404; deployment is not yet confirmed.
 
 ## Inspect the results
 
@@ -18,6 +18,7 @@ Final evidence is durable under `docs/screenshots/pet-shape-2026-10-15/`: 1,455 
 | --- | --- |
 | Anatomically reviewed skull bindings beyond Oni | 132 pets: 42 standard, 38 rare, 25 legendary, 14 mythic, 13 starter |
 | Starter rig scale normalization | 13 starter models |
+| Grounded contact restoration after normalization | Seven starters; all grounded starter support clips covered by the unchanged contact-error limit |
 | Detached geometry removal | Mountain Behemoth (`legendary-17`), Chimera (`legendary-15`), evolved earth starter (`starter-earth-r`) |
 | Skinning seams exposed by repair or simplification | Corrected on affected source and battle models; regenerated and re-inspected |
 | Generated assets | Matching battle LODs, animated impostors, manifests and runtime cache revisions updated |
@@ -27,6 +28,10 @@ The Oni repair was retained and independently rechecked. Remaining pets were ins
 Skull repairs make the reviewed facial region follow its chosen skull/neck anchor, with a transition into the surrounding body. Geometry, UVs, textures, bone nodes and animation tracks were conserved for binding-only repairs. The crane and phoenix required separately reviewed beak/neck regions; Chimera required both heads to be inspected independently. Additional close cameras covered small or obscured faces.
 
 The 13 starter rigs had nonuniform scale above animated rotations. A locally rigid skull could still stretch in world space. Normalization preserves the bind geometry, removes that scale and retargets the animation transforms. LINEAR, STEP and CUBICSPLINE handling have focused regression tests. These repairs intentionally change rig transforms and animation values; their conservation checks cover bind shape and retargeting rather than claiming unchanged tracks.
+
+Release regression checks found small support-height errors on seven normalized starters: fire-r, fire-l, wind, wind-l, lightning, earth-r and earth-l. Their five support clips restore the authored vertical foot trajectories while preserving horizontal gait, foot orientation, mesh attributes, bindings, rig rest shape and 907 other animation tracks. Source, battle LOD, atlas, dense geometry probes and both final visual passes were regenerated and inspected again. The unchanged contact regression now covers every grounded starter.
+
+Independent pre-repair bind fixtures preserve meaningful bird and crystal-bear anatomy comparisons after accessor compaction. Geometry comparisons decode the actual mesh data rather than comparing accessor numbers. The unchanged canonical rare hare manifest was restored independently of its runtime showcase variant.
 
 Detached-fragment repairs removed isolated components while conserving retained vertices, attributes and triangles. They removed 1,162 vertices / 1,814 triangles from Mountain Behemoth, 337 vertices / 280 triangles from Chimera, and 20 vertices / 12 triangles from the evolved earth starter. Newly exposed seams were repaired and checked before regeneration. The final earth starter sliver was found during the last runtime inspection, so its source, battle model, atlas and all final evidence were refreshed afterward.
 
@@ -50,16 +55,18 @@ Dark materials were additionally viewed with brighter inspection sheets when nee
 | --- | --- |
 | Completed first and second visual reviews | 161 / 161 identities |
 | Current source and battle numeric evidence | 322 / 322 identity/version pairs |
-| Dense skull clip samples | 173,088 poses, zero failed reviewed skulls |
+| Dense skull clip samples | 181,058 poses, zero failed reviewed skulls |
 | Cross-clip skull blends | 150,696 states: 468 per identity/version pair, zero failures |
-| Full geometry / edge / connected seam checks | 65,422 poses, zero severe geometry edges |
+| Full geometry / edge / connected seam checks | 73,414 poses, zero severe geometry edges |
 | Hash-bound visual review gate | 161 models; zero missing, stale or changed evidence failures |
 | Structure, materials, skin bindings and animation inventory | 161 / 161 pass; no unexpected duplicate anatomy or missing tail bindings |
 | Battle LOD manifest / geometry certification | Pass, all 160 distinct assets |
 | Animated impostor certification | Pass, all 160 distinct assets |
 | Focused deformation, normalization and receipt regressions | 13 tests pass |
-| Client production build after final earth cleanup | Pass |
-| Full client lint and changed QA tooling lint | Pass |
+| Complete repository regression suite | 15,526 pass; zero failures or cancellations; 27 skipped |
+| Integrated production build, exact 480-asset delivery and startup budgets after final contact correction | Pass; 544.8 MiB client, within 545 MiB |
+| Full client lint and changed QA tooling lint | Pass (zero errors) |
+| Production WebKit evolution controls | Two pass; one inapplicable CDP safe-area check skipped |
 
 Numeric checks supplement the visual review. They do not substitute for anatomy checks. The original broad tear/seam audit passed Oni because its thresholds missed facial compression and smaller shears. The original heuristic head scan in `pet-animation-shape-scan-2026-10-14.json` is retained as historical triage, **not current certification**.
 

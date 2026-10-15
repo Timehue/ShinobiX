@@ -147,20 +147,20 @@ const modelRows = [
     ["roster/standard-9.glb","-f256089ce317-665583358390",40000,10000],
     ["showdown-v2/rare-1.glb","-93cae0f28378-06a58fb2cf02",40000,10000],
     ["showdown-v2/standard-7.glb","-d788580657ff-b137ad29bb81",40000,10000],
-    ["showdown-v2/starter-fire-l.glb","-f1ae454043f6-dfb130229326",13701,9590],
+    ["showdown-v2/starter-fire-l.glb","-e6ac156a45dd-2bc8fac9fb8f",13701,9590],
     ["showdown-v2/starter-lightning-l.glb","-7e17429e0f22-168738a3690d",39677,16870],
-    ["starter-earth-l.glb","-b2554daa8eac-34d7d4f10e52",14206,9944],
-    ["starter-earth-r.glb","-1333d43a6f36-b0f20cc2772f",18489,12000],
-    ["starter-fire-r.glb","-a5e58af3b4bb-4bb03caaccfd",13704,9592],
+    ["starter-earth-l.glb","-f73c65852cf9-20c781a4e181",14206,9944],
+    ["starter-earth-r.glb","-0a5245954cdf-bc881dd5538d",18489,12000],
+    ["starter-fire-r.glb","-c0db7fb6a691-496393ff0190",13704,9592],
     ["starter-fire.glb","-44d056d2461d-f05f407204d4",15042,10528],
     ["starter-lightning-r.glb","-74cd2d1668cf-939fbb095a13",26000,10000],
-    ["starter-lightning.glb","-66705ccab784-435845b5fbcc",14722,10304],
+    ["starter-lightning.glb","-5b96adb25eca-6125a968fa01",14722,10304],
     ["starter-water-l.glb","-1261702473a4-74d34a2e47d1",15798,11058],
     ["starter-water-r.glb","-7bcf0566cd90-61a4fa98d6b0",9686,6780],
     ["starter-water.glb","-d4b09247b2ad-d1c6d69bf8d8",15958,11170],
-    ["starter-wind-l.glb","-e87ef7c07028-912aa8af08da",12822,8974],
+    ["starter-wind-l.glb","-2b04bfe8ef5c-30714eb45c4a",12822,8974],
     ["starter-wind-r.glb","-e01087a57731-5d3860becf2a",26000,10000],
-    ["starter-wind.glb","-88b1ae6adec0-37461fa112b9",15396,10776]
+    ["starter-wind.glb","-7db0c6998907-601e725c6fbb",15396,10776]
 ] as const;
 export const WARFRONT_PET_LOD_MANIFEST = Object.fromEntries(modelRows.map(([source, revision, sourceTriangles, lodTriangles]) => [
     `/pet-models/${source}`,
