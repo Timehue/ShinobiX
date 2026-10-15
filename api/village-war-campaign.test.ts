@@ -8,6 +8,7 @@ process.env.SESSION_SECRET = 'campaign-tests-secret';
 const A = 'Ashen Leaf Village', B = 'Moonshadow Village';
 const id = 'ashenleafvillage-vs-moonshadowvillage';
 let create: typeof import('./_village-war-campaign.js').createVillageCampaign;
+let createCurrent: typeof create;
 let advance: typeof import('./_village-war-campaign.js').advanceCampaignWar;
 let kv: typeof import('./_storage.js').kv;
 let endpoint: typeof import('./village/war-campaign.js').default;
@@ -15,7 +16,14 @@ let world: typeof import('./world-state.js');
 let token: typeof import('./_auth.js').issuePlayerToken;
 let presence: typeof import('./_realtime/online-store.js').onlineStore;
 before(async () => {
-    ({ createVillageCampaign: create, advanceCampaignWar: advance } = await import('./_village-war-campaign.js'));
+    ({ createVillageCampaign: createCurrent, advanceCampaignWar: advance } = await import('./_village-war-campaign.js'));
+    // Retained v2 rows: exercise the original persisted rules after the rollout.
+    create = (...args) => {
+        const c = createCurrent(...args); c.version = 2;
+        c.shrine.forEach((o, day) => { o.limit = 15; o.opensAt = c.startsAt + day * WAR_DAY_MS + 20 * 3_600_000;
+            o.closesAt = c.startsAt + (day + 1) * WAR_DAY_MS; });
+        return c;
+    };
     ({ kv } = await import('./_storage.js'));
     endpoint = (await import('./village/war-campaign.js')).default as unknown as typeof endpoint;
     world = (await import('./world-state.js')) as unknown as typeof world;
@@ -35,8 +43,8 @@ async function call(handler: typeof endpoint, player: string | null, body: Recor
     await handler({ method, body, headers: { ...(player ? { 'x-player-token': token(player) } : {}), 'x-forwarded-for': ip }, query: {}, socket: { remoteAddress: ip } } as never, res as never);
     return { status, data };
 }
-async function seed(startsAt = Date.now() - 3_600_000) {
-    const campaign = create([A, B], startsAt, 47);
+async function seed(startsAt = Date.now() - 3_600_000, version: 2 | 3 = 2) {
+    const campaign = (version === 2 ? create : createCurrent)([A, B], startsAt, 47);
     const row = { id, villages: [A, B] as [string, string], startedAt: startsAt, updatedAt: startsAt, declarationGeneration: 1,
         hp: { [A]: 5000, [B]: 5000 }, warGroundSector: 47, warGroundHp: 1000, campaign, contributions: {} };
     await kv.set(`world:war:${id}`, row);
@@ -46,6 +54,73 @@ async function seed(startsAt = Date.now() - 3_600_000) {
     return row;
 }
 describe('five-day village campaigns', { concurrency: false }, () => {
+    it('caps only v3 shrine extras while normal role rewards and deductions survive restart and retries', async () => {
+        const { ROLE_KAGE, ROLE_ELDER, ROLE_ANBU, ROLE_VILLAGER } = await import('./_war-role.js');
+        for (const version of [2, 3] as const) for (const winner of [ROLE_KAGE, ROLE_ELDER, ROLE_ANBU, ROLE_VILLAGER]) {
+            let c = (version === 2 ? create : createCurrent)([A, B], 1000, 47);
+            const o = c.shrine[0]; c.pvp[B] = 1000;
+            for (let i = 0; i < o.limit + 3; i++) {
+                const scored = i < o.limit;
+                const args = { receipt: `role-${i}`, village: A, player: 'alice', objectiveId: o.id,
+                    createdAt: o.opensAt, at: o.opensAt + 1,
+                    shrineVictory: { enemyVillage: B, winPoints: winner.win, lossPenalty: ROLE_ELDER.loss } };
+                const points = version === 2 ? (scored ? 100 : 0) : winner.win + (scored ? 20 : 0);
+                assert.equal(scoreCampaignBattle(c, args), points);
+                c = JSON.parse(JSON.stringify(c));
+                const snapshot = structuredClone(c);
+                assert.equal(scoreCampaignBattle(c, args), points);
+                assert.deepEqual(c, snapshot, 'a replay must not deduct enemy points or grant normal rewards twice');
+            }
+            assert.equal(c.shrine[0].bouts, o.limit);
+            assert.equal(c.shrine[0].wins[A], o.limit);
+            assert.equal(c.pvp[A], version === 2 ? 1500 : 200 + 13 * winner.win);
+            assert.equal(c.pvp[B], version === 2 ? 1000 : 740);
+        }
+    });
+    it('does not let normal shrine deductions make enemy scores negative or bypass window/deadline bounds', () => {
+        const c = createCurrent([A, B], 1000, 47), o = c.shrine[4];
+        o.bouts = o.limit; c.pvp[B] = 10;
+        const args = { village: A, player: 'alice', objectiveId: o.id, createdAt: o.opensAt,
+            shrineVictory: { enemyVillage: B, winPoints: 30, lossPenalty: 50 } };
+        assert.equal(scoreCampaignBattle(c, { ...args, receipt: 'last-valid', at: c.endsAt - 1 }), 30);
+        assert.equal(c.pvp[B], 0);
+        assert.equal(scoreCampaignBattle(c, { ...args, receipt: 'deadline', at: c.endsAt }), 0);
+        assert.equal(c.pvp[A], 30);
+        assert.equal(scoreCampaignBattle(c, { ...args, receipt: 'before-open', createdAt: o.opensAt - 1, at: o.opensAt }), 0);
+        assert.equal(scoreCampaignBattle(c, { ...args, objectiveId: undefined, receipt: 'world', at: o.opensAt + 1 }), 20);
+        assert.equal(c.pvp[A], 50, 'ordinary worldwide scoring stays unchanged');
+    });
+    for (const version of [2, 3] as const) it(`v${version}: retains rules and all five exact boundaries after JSON recovery, including the campaign deadline`, () => {
+        // Both US DST transitions and a non-hour UTC offset must leave elapsed hours intact.
+        for (const start of ['2026-03-07T12:00:00-06:00', '2026-10-31T12:00:00-05:00', '2026-10-14T12:00:00+05:45']) {
+            const original = (version === 2 ? create : createCurrent)([A, B], Date.parse(start), 47);
+            const c = JSON.parse(JSON.stringify(original)) as typeof original;
+            const points = version === 2 ? 100 : 25, bonus = version === 2 ? 1000 : 100;
+            assert.equal(c.version, version);
+            assert.equal(c.endsAt - c.startsAt, 120 * 3_600_000);
+            for (const [day, o] of c.shrine.entries()) {
+                assert.equal((o.opensAt - c.startsAt) / 3_600_000, version === 2 ? 20 + day * 24 : 2 + day * 29);
+                assert.equal((o.closesAt - c.startsAt) / 3_600_000, version === 2 ? 24 + day * 24 : 4 + day * 29);
+                assert.equal(o.limit, version === 2 ? 15 : 10);
+                for (const [at, available] of [[o.opensAt - 1, false], [o.opensAt, true], [o.closesAt - 1, true], [o.closesAt, false]] as const)
+                    assert.equal(campaignObjectiveAvailable(c, o, A, at), available);
+                const win = { village: A, player: 'alice', objectiveId: o.id, createdAt: o.opensAt };
+                assert.equal(scoreCampaignBattle(c, { ...win, receipt: `${o.id}-early`, createdAt: o.opensAt - 1, at: o.opensAt }), 0);
+                assert.equal(scoreCampaignBattle(c, { ...win, receipt: `${o.id}-open`, at: o.opensAt }), points);
+                assert.equal(scoreCampaignBattle(c, { ...win, receipt: `${o.id}-last`, at: o.closesAt - 1 }), points);
+                assert.equal(scoreCampaignBattle(c, { ...win, receipt: `${o.id}-closed`, at: o.closesAt }), 0);
+                o.controlTimeMs = { [A]: 1000 };
+            }
+            const row: import('./_village-war-campaign.js').CampaignWarRow = { id, villages: [A, B], startedAt: c.startsAt, updatedAt: c.startsAt, campaign: c };
+            const ended = advance(row, c.endsAt);
+            assert.equal(ended.endedAt, c.endsAt);
+            assert.equal(ended.winnerVillage, A);
+            assert.equal(ended.campaign!.pvp[A], 5 * (2 * points + bonus));
+            assert.deepEqual(advance(JSON.parse(JSON.stringify(ended)), c.endsAt + WAR_DAY_MS), ended);
+            assert.deepEqual(c.shrine.map(o => [o.opensAt, o.closesAt, o.limit]), original.shrine.map(o => [o.opensAt, o.closesAt, o.limit]));
+            assert.equal(campaignView(c, [A, B], A, c.startsAt - 1).version, version);
+        }
+    });
     it('seals exactly one objective per battle type on three distinct sectors per village', () => {
         const c = create([A, B], 1000, 47);
         assert.equal(c.endsAt - c.startsAt, 5 * WAR_DAY_MS);
@@ -231,10 +306,10 @@ describe('five-day village campaigns', { concurrency: false }, () => {
         assert.equal(claimed.character.warsWon, 1, 'a shrine controller can claim the earned victory reward');
         assert.equal(settleVillageWarRewards(claimed.character, ended, now).granted, false);
     });
-    it('splits closing contribution once among the verified controlling players without multiplying village points', async () => {
+    for (const version of [2, 3] as const) it(`v${version}: splits the closing bonus among verified players exactly once`, async () => {
         const clock = Date.now(); let now = clock;
         mock.method(Date, 'now', () => now); mock.timers.enable({ apis: ['setTimeout'] });
-        const row = await seed(clock - WAR_DAY_MS + 10_000), objectiveId = row.campaign.shrine[0].id;
+        const row = await seed(clock - (version === 2 ? 24 : 4) * 3_600_000 + 10_000, version), objectiveId = row.campaign.shrine[0].id;
         const alice = await kv.get<any>('save:alice');
         for (const player of ['alice', 'ally', 'zed']) {
             if (player !== 'alice') await kv.set(`save:${player}`, { ...alice, character: { ...alice.character, name: player, village: A } });
@@ -245,18 +320,18 @@ describe('five-day village campaigns', { concurrency: false }, () => {
         let settled: any;
         for (let i = 0; i < 100; i++) { await new Promise(resolve => setImmediate(resolve));
             settled = await kv.get<any>(`world:war:${id}`); if (settled.campaign.shrine[0].bonusSettled) break; }
-        assert.equal(settled.campaign.pvp[A], 1000);
-        assert.deepEqual(Object.fromEntries(Object.entries(settled.contributions).map(([p, v]: [string, any]) => [p, v.damage])), { alice: 334, ally: 333, zed: 333 });
-        assert.equal(Object.values(settled.contributions).reduce((sum: number, v: any) => sum + v.damage, 0), 1000);
+        assert.equal(settled.campaign.pvp[A], version === 2 ? 1000 : 100);
+        assert.deepEqual(Object.fromEntries(Object.entries(settled.contributions).map(([p, v]: [string, any]) => [p, v.damage])), version === 2 ? { alice: 334, ally: 333, zed: 333 } : { alice: 34, ally: 33, zed: 33 });
+        assert.equal(Object.values(settled.contributions).reduce((sum: number, v: any) => sum + v.damage, 0), version === 2 ? 1000 : 100);
         await call(endpoint, 'alice', { warId: id, action: 'shrine-state', objectiveId });
         const repeated = await kv.get<any>(`world:war:${id}`);
         assert.deepEqual(repeated.contributions, settled.contributions);
         presence.remove('ally'); presence.remove('zed');
     });
-    for (const ending of ['empty', 'enemy', 'contested', 'tie'] as const) it(`settles total uncontested time with a ${ending} closing room`, async () => {
+    for (const version of [2, 3] as const) for (const ending of ['empty', 'enemy', 'contested', 'tie'] as const) it(`v${version}: settles total uncontested time with a ${ending} closing room`, async () => {
         const clock = Date.now(); let now = clock;
         mock.method(Date, 'now', () => now); mock.timers.enable({ apis: ['setTimeout'] });
-        const row = await seed(clock - WAR_DAY_MS + 30_000), objectiveId = row.campaign.shrine[0].id;
+        const row = await seed(clock - (version === 2 ? 24 : 4) * 3_600_000 + 30_000, version), objectiveId = row.campaign.shrine[0].id;
         for (const [player, village] of [['alice', A], ['bob', B]]) presence.upsert({ name: player, sector: 47, character: { level: 100, village } });
         const action = async (player: string, command: string) => {
             const result = await call(endpoint, player, { warId: id, action: command, objectiveId });
@@ -290,16 +365,16 @@ describe('five-day village campaigns', { concurrency: false }, () => {
         assert.equal(final.data.room.objective.controlTimeMs[A], 15_000);
         assert.equal(final.data.room.objective.controlTimeMs[B], ending === 'tie' ? 15_000 : ending === 'enemy' ? 6000 : 5000);
         assert.equal(final.data.room.objective.bonusWinner, ending === 'tie' ? undefined : A);
-        assert.equal(final.data.campaign.scores[A].pvp, ending === 'tie' ? 0 : 1000);
+        assert.equal(final.data.campaign.scores[A].pvp, ending === 'tie' ? 0 : version === 2 ? 1000 : 100);
         assert.equal(final.data.room.objective.controlParticipantMs, undefined);
         const retry = await action('alice', 'shrine-state');
         assert.deepEqual(retry.data.campaign.scores, final.data.campaign.scores);
-        if (ending !== 'tie') assert.equal((await kv.get<any>(`world:war:${id}`)).contributions.alice.damage, 1000);
+        if (ending !== 'tie') assert.equal((await kv.get<any>(`world:war:${id}`)).contributions.alice.damage, version === 2 ? 1000 : 100);
     });
-    it('counts village time once regardless of headcount and attributes contribution by actual uncontested participation', async () => {
+    for (const version of [2, 3] as const) it(`v${version}: counts control once and weights contribution by actual participation`, async () => {
         const clock = Date.now(); let now = clock;
         mock.method(Date, 'now', () => now); mock.timers.enable({ apis: ['setTimeout'] });
-        const row = await seed(clock - WAR_DAY_MS + 15_000), objectiveId = row.campaign.shrine[0].id;
+        const row = await seed(clock - (version === 2 ? 24 : 4) * 3_600_000 + 15_000, version), objectiveId = row.campaign.shrine[0].id;
         const alice = await kv.get<any>('save:alice');
         await kv.set('save:ally', { ...alice, character: { ...alice.character, name: 'Ally' } });
         presence.upsert({ name: 'alice', sector: 47, character: { level: 100, village: A } });
@@ -312,13 +387,13 @@ describe('five-day village campaigns', { concurrency: false }, () => {
         for (let i = 0; i < 100; i++) { await new Promise(resolve => setImmediate(resolve));
             settled = await kv.get<any>(`world:war:${id}`); if (settled.campaign.shrine[0].bonusSettled) break; }
         assert.equal(settled.campaign.shrine[0].controlTimeMs[A], 15_000, 'headcount cannot multiply village control');
-        assert.equal(settled.campaign.pvp[A], 1000);
-        assert.equal(settled.contributions.alice.damage, 750);
-        assert.equal(settled.contributions.ally.damage, 250);
+        assert.equal(settled.campaign.pvp[A], version === 2 ? 1000 : 100);
+        assert.equal(settled.contributions.alice.damage, version === 2 ? 750 : 75);
+        assert.equal(settled.contributions.ally.damage, version === 2 ? 250 : 25);
         presence.remove('ally');
     });
-    it('shares exactly 15 shrine win slots between both sides even under concurrent claims', async () => {
-        const row = await seed(Date.now() - 21 * 3_600_000), objective = row.campaign.shrine[0];
+    for (const version of [2, 3] as const) it(`v${version}: shares the declaration's shrine win slots under concurrent claims`, async () => {
+        const row = await seed(Date.now() - (version === 2 ? 21 : 3) * 3_600_000, version), objective = row.campaign.shrine[0];
         const { mutateCampaignWar, awardCampaignBattle } = await import('./_village-war-campaign.js');
         await Promise.all(Array.from({ length: 18 }, (_, i) => mutateCampaignWar(id, async current => {
             const village = i % 2 ? B : A;
@@ -327,15 +402,15 @@ describe('five-day village campaigns', { concurrency: false }, () => {
             return { row: result.row, value: result.points };
         })));
         const settled = await kv.get<any>(`world:war:${id}`);
-        assert.equal(settled.campaign.shrine[0].bouts, 15);
-        assert.equal((settled.campaign.pvp[A] ?? 0) + (settled.campaign.pvp[B] ?? 0), 1500);
-        assert.equal(Object.values(settled.campaign.receipts).filter((r: any) => r.points === 100).length, 15);
-        assert.equal(Object.values(settled.campaign.receipts).filter((r: any) => r.points === 0).length, 3);
+        assert.equal(settled.campaign.shrine[0].bouts, version === 2 ? 15 : 10);
+        assert.equal((settled.campaign.pvp[A] ?? 0) + (settled.campaign.pvp[B] ?? 0), version === 2 ? 1500 : 290);
+        assert.equal(Object.values(settled.campaign.receipts).filter((r: any) => r.points === (version === 2 ? 100 : 25)).length, version === 2 ? 15 : 10);
+        assert.equal(Object.values(settled.campaign.receipts).filter((r: any) => r.points === (version === 2 ? 0 : 5)).length, version === 2 ? 3 : 8);
     });
-    it('preserves checkpointed time across a restart without awarding time for the offline gap', async () => {
+    for (const version of [2, 3] as const) it(`v${version}: preserves checkpointed time and rewards across a restart without extrapolating the offline gap`, async () => {
         const clock = Date.now(); let now = clock;
         mock.method(Date, 'now', () => now); mock.timers.enable({ apis: ['setTimeout'] });
-        const row = await seed(clock - WAR_DAY_MS + 30_000), objectiveId = row.campaign.shrine[0].id;
+        const row = await seed(clock - (version === 2 ? 24 : 4) * 3_600_000 + 30_000, version), objectiveId = row.campaign.shrine[0].id;
         presence.upsert({ name: 'alice', sector: 47, character: { level: 100, village: A } });
         await call(endpoint, 'alice', { warId: id, action: 'shrine-enter', objectiveId });
         now += 10_000;
@@ -346,8 +421,8 @@ describe('five-day village campaigns', { concurrency: false }, () => {
         const final = await call(endpoint, 'alice', { warId: id, action: 'shrine-state', objectiveId });
         assert.equal(final.status, 200);
         assert.deepEqual(final.data.room.objective.controlTimeMs, { [A]: 10_000, [B]: 0 });
-        assert.equal(final.data.campaign.scores[A].pvp, 1000);
-        assert.equal((await kv.get<any>(`world:war:${id}`)).contributions.alice.damage, 1000);
+        assert.equal(final.data.campaign.scores[A].pvp, version === 2 ? 1000 : 100);
+        assert.equal((await kv.get<any>(`world:war:${id}`)).contributions.alice.damage, version === 2 ? 1000 : 100);
     });
     it('expires disconnected shrine members and never carries entry into a later scoring window', async () => {
         const row = await seed(Date.now() - 21 * 3_600_000), objective = row.campaign.shrine[0];
@@ -460,9 +535,9 @@ describe('five-day village campaigns', { concurrency: false }, () => {
         assert.equal((ended as any).endedAt, row.campaign.endsAt);
         assert.equal((advance(row as never, row.campaign.endsAt - 1) as any).endedAt, undefined);
     });
-    it('keeps closing control fixed through eligible late battle claims and finalized-war retries', async () => {
+    for (const version of [2, 3] as const) it(`v${version}: retains closing control and sealed rewards through delayed battle settlement and retries`, async () => {
         const { awardCampaignBattle } = await import('./_village-war-campaign.js');
-        let row = await seed(Date.now() - 25 * 3_600_000);
+        let row = await seed(Date.now() - 25 * 3_600_000, version);
         const objective = row.campaign.shrine[0];
         const win = (receipt: string, village: string, at: number) => ({ receipt, village,
             player: village === A ? 'alice' : 'bob', objectiveId: objective.id, createdAt: objective.opensAt, at });
@@ -471,17 +546,17 @@ describe('five-day village campaigns', { concurrency: false }, () => {
         }
         row.campaign.shrine[0].controlTimeMs = { [B]: 1000 };
         row = advance(row, objective.closesAt);
-        assert.equal(row.campaign.pvp[A], 200); assert.equal(row.campaign.pvp[B], 1100);
+        assert.equal(row.campaign.pvp[A], version === 2 ? 200 : 50); assert.equal(row.campaign.pvp[B], version === 2 ? 1100 : 125);
         row = awardCampaignBattle(row, win('late-b2', B, objective.closesAt - 1000), 'Bob').row;
-        assert.equal(row.campaign.pvp[A], 200, 'late kill leadership cannot transfer the closing-control bonus');
-        assert.equal(row.campaign.pvp[B], 1200);
+        assert.equal(row.campaign.pvp[A], version === 2 ? 200 : 50, 'late kill leadership cannot transfer the closing-control bonus');
+        assert.equal(row.campaign.pvp[B], version === 2 ? 1200 : 150);
         row = awardCampaignBattle(row, win('late-b2', B, objective.closesAt - 1000), 'Bob').row;
         row = awardCampaignBattle(row, win('late-b3', B, objective.closesAt - 500), 'Bob').row;
-        assert.equal(row.campaign.pvp[B], 1300);
+        assert.equal(row.campaign.pvp[B], version === 2 ? 1300 : 175);
         row = advance(row, row.campaign.endsAt);
         assert.equal((row as any).winnerVillage, B);
         const finalized = awardCampaignBattle(row, win('too-late-a', A, objective.closesAt - 1), 'Alice');
-        assert.equal(finalized.points, 0); assert.equal(finalized.row.campaign.pvp[B], 1300);
+        assert.equal(finalized.points, 0); assert.equal(finalized.row.campaign.pvp[B], version === 2 ? 1300 : 175);
         assert.equal((finalized.row as any).winnerVillage, B);
     });
     it('does not offer paid HP-damage mercenary bands for score-based campaigns', async () => {
@@ -560,9 +635,43 @@ describe('five-day village campaigns', { concurrency: false }, () => {
         assert.equal(retry.status, 200, JSON.stringify(retry.data)); assert.equal(retry.data.battleId, start.data.battleId);
         assert.equal(Object.keys((await kv.get<any>(`world:war:${id}`)).campaign.admissions).length, 1);
     });
-    it('keeps real shrine PvP available after its point cap and removes a committed loser without ejecting a later visit', async () => {
-        const row = await seed(Date.now() - 21 * 3_600_000), objectiveId = row.campaign.shrine[0].id;
-        row.campaign.shrine[0].bouts = 15; row.campaign.shrine[0].wins[A] = 15; row.campaign.pvp[A] = 1500;
+    for (const version of [2, 3] as const) for (const capped of [false, true]) it(`v${version}: sealed Kage shrine rewards ${capped ? 'after' : 'before'} the cap settle once despite changed seats`, async () => {
+        const row = await seed(Date.now() - (version === 2 ? 21 : 3) * 3_600_000, version), objective = row.campaign.shrine[0];
+        objective.bouts = capped ? objective.limit : 0;
+        row.campaign.pvp[A] = 100; row.campaign.pvp[B] = 200;
+        await kv.set(`world:war:${id}`, row);
+        await kv.set('village:kage:ashen-leaf-village', { seatedKage: 'alice' });
+        await kv.set('village:kage:moonshadow-village', { seatedKage: 'bob' });
+        for (const player of ['alice', 'bob']) {
+            presence.upsert({ name: player, sector: 47, character: { level: 100, village: player === 'alice' ? A : B } });
+            assert.equal((await call(endpoint, player, { warId: id, action: 'shrine-enter', objectiveId: objective.id })).status, 200);
+        }
+        const start = await call(endpoint, 'alice', { warId: id, action: 'start', objectiveId: objective.id });
+        assert.equal(start.status, 200, JSON.stringify(start.data));
+        const session = await kv.get<any>(`pvp:${start.data.battleId}`);
+        assert.deepEqual(session.warRoleEvidence.p1.role, { win: 30, loss: 50 });
+        assert.deepEqual(session.warRoleEvidence.p2.role, { win: 30, loss: 50 });
+        await kv.del('village:kage:ashen-leaf-village', 'village:kage:moonshadow-village');
+        await kv.set(`pvp:${session.battleId}`, { ...session, status: 'done', winner: 'p1', endedAt: Date.now() });
+        const results = await Promise.all(Array.from({ length: 4 }, () => world.settlePvpVillageWarContinuation(session.battleId, 'alice')));
+        const points = version === 2 ? (capped ? 0 : 100) : capped ? 30 : 50;
+        for (const result of results) { assert.equal(result.status, 200); if ('points' in result.body) assert.equal(result.body.points, points); }
+        const settled = await kv.get<any>(`world:war:${id}`);
+        assert.equal(settled.campaign.pvp[A], 100 + points);
+        assert.equal(settled.campaign.pvp[B], version === 2 ? 200 : 150);
+        assert.equal(settled.campaign.shrine[0].bouts, capped ? objective.limit : 1);
+        assert.equal(settled.contributions.alice?.damage ?? 0, points);
+        assert.equal(settled.contributions.alice?.pvpKills ?? 0, points ? 1 : 0);
+        (await import('./_village-war-shrine-closing.js')).resetShrineClosingTimersForTests();
+        await kv.set(`world:war:${id}`, JSON.parse(JSON.stringify(settled)));
+        await kv.del(`pvp:war-continuation:alice:${session.battleId}`);
+        const recovered = await world.settlePvpVillageWarContinuation(session.battleId, 'alice');
+        assert.equal(recovered.status, 200); assert.equal(recovered.body.points, points);
+        assert.deepEqual((await kv.get<any>(`world:war:${id}`)).campaign.pvp, settled.campaign.pvp);
+    });
+    for (const version of [2, 3] as const) it(`v${version}: keeps real shrine PvP after its cap and binds defeat to the correct visit`, async () => {
+        const row = await seed(Date.now() - (version === 2 ? 21 : 3) * 3_600_000, version), objectiveId = row.campaign.shrine[0].id;
+        row.campaign.shrine[0].bouts = row.campaign.shrine[0].limit; row.campaign.shrine[0].wins[A] = row.campaign.shrine[0].limit; row.campaign.pvp[A] = version === 2 ? 1500 : 200;
         await kv.set(`world:war:${id}`, row);
         for (const player of ['alice', 'bob']) {
             presence.upsert({ name: player, sector: 47, character: { level: 100, village: player === 'alice' ? A : B } });
@@ -579,8 +688,14 @@ describe('five-day village campaigns', { concurrency: false }, () => {
         assert.equal(shrineRoomLocation('bob', row, 47), null);
         assert.ok(shrineRoomLocation('alice', row, 47));
         const paid = await world.settlePvpVillageWarContinuation(session.battleId, 'alice');
-        assert.equal(paid.status, 200); assert.equal(paid.body.points, 0);
-        assert.equal((await kv.get<any>(`world:war:${id}`)).campaign.pvp[A], 1500);
+        assert.equal(paid.status, 200); assert.equal(paid.body.points, version === 2 ? 0 : 5);
+        assert.equal((await kv.get<any>(`world:war:${id}`)).campaign.pvp[A], version === 2 ? 1500 : 205);
+        const later = Date.now() + 5000;
+        mock.method(Date, 'now', () => later);
+        const control = await call(endpoint, 'alice', { warId: id, action: 'shrine-state', objectiveId });
+        assert.equal(control.status, 200);
+        assert.equal(control.data.room.objective.controlVillage, A);
+        assert.ok(control.data.room.objective.controlTimeMs[A] >= 5000, 'verified control keeps accumulating after the win cap');
         // A delayed terminal replay is bound to the defeated visit's battle ID.
         touchShrineRoom('bob', row, 47, objectiveId, 126, Date.now(), B);
         releaseDefeatedShrinePlayer(terminal);

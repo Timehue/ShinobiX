@@ -35,7 +35,8 @@ import { villageLeadership } from "../data/village-leadership";
 import { villageUpgradeDefinitions, VILLAGE_UPGRADE_MAX_LEVEL } from "./village-upgrades";
 
 export type VillageWarRecord = {
-    campaignVersion?: 2;
+    campaignVersion?: 2 | 3;
+    shrineWindows?: { id: string; opensAt: number; closesAt: number }[];
     campaignEndsAt?: number;
     warPoints?: Record<string, number>;
     id: string;
@@ -444,7 +445,8 @@ type VillageWarContribution = {
     name: string;       // display name (for rendering leaderboard)
 };
 export type VillageWar = {
-    campaignVersion?: 2;
+    campaignVersion?: 2 | 3;
+    shrineWindows?: { id: string; opensAt: number; closesAt: number }[];
     campaignEndsAt?: number;
     warPoints?: Record<string, number>;
     id: string;
@@ -514,7 +516,8 @@ function normalizeVillageWar(data: Partial<VillageWar> & { villages: [string, st
             ? { declarationGeneration: Math.floor(Number(data.declarationGeneration)) }
             : {}),
         villages: [first, second],
-        ...(data.campaignVersion === 2 ? { campaignVersion: 2 as const, campaignEndsAt: data.campaignEndsAt, warPoints: data.warPoints } : {}),
+        ...(data.campaignVersion === 2 || data.campaignVersion === 3 ? { campaignVersion: data.campaignVersion,
+            campaignEndsAt: data.campaignEndsAt, shrineWindows: data.shrineWindows, warPoints: data.warPoints } : {}),
         hp: { [first]: hpOf(first), [second]: hpOf(second) },
         ...(hpMax ? { hpMax } : {}),
         ...(peaceProposals ? { peaceProposals } : {}),

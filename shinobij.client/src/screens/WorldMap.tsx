@@ -4355,7 +4355,7 @@ function WorldMapContent({
                     enemyVillageHp: villageWarEnemy ? villageWar.hp[villageWarEnemy] : 0,
                     enemyVillageHpMax: villageWarEnemy ? villageWarHpMax(villageWar, villageWarEnemy) : VILLAGE_WAR_HP_MAX,
                     ended: Boolean(villageWar.endedAt),
-                    ...(villageWar.campaignVersion === 2 ? { campaign: { ourPoints: villageWar.warPoints?.[character.village] ?? 0, enemyPoints: villageWar.warPoints?.[villageWarEnemy ?? ''] ?? 0 } } : {}),
+                    ...((villageWar.campaignVersion === 2 || villageWar.campaignVersion === 3) ? { campaign: { ourPoints: villageWar.warPoints?.[character.village] ?? 0, enemyPoints: villageWar.warPoints?.[villageWarEnemy ?? ''] ?? 0 } } : {}),
                 },
             } : {}),
         } : null;
