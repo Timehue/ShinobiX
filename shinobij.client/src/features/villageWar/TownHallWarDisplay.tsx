@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { VILLAGE_CAMPAIGN_DURATION_MS, WAR_DAY_MS } from '../../../../shared/village-war-campaign';
+import { VILLAGE_CAMPAIGN_DURATION_MS, shrineRules } from '../../../../shared/village-war-campaign';
 import { GameArtIcon } from '../../components/GameArtIcon';
 import { WAR_CREST } from '../../data/war-ui-images';
 import { visiblePoll } from '../../lib/poll';
@@ -7,6 +7,7 @@ import { activeVillageWarsFor, villageWarHpMax } from '../../lib/world-state';
 import { contestVillageUnfed, fetchWarMap, type SectorWarContest } from '../../lib/village-war-map';
 import type { Screen } from '../../types/core';
 import { VillageCampaignScoreSummary } from './VillageCampaignScoreSummary';
+import { ShrineSchedule } from './ShrineSchedule';
 import './town-hall-war-display.css';
 
 const remaining = (ms: number) => {
@@ -49,14 +50,12 @@ export function TownHallWarDisplay({ village, sectorMapOpen, sectorMapStatus, se
     const preparing = !!startsAt && now < startsAt;
     const settling = !!endsAt && now >= endsAt;
     const activeContests = (contests ?? []).filter(c => !c.flipped && c.endsAt > now).sort((a, b) => a.endsAt - b.endsAt);
-    let shrineStatus = 'Five announced shrine windows · final four hours of each day';
-    if (primaryVillageWar?.campaignVersion === 2 && startsAt && endsAt && !settling) {
-        const day = Math.max(0, Math.floor((now - startsAt) / WAR_DAY_MS));
-        const opensAt = startsAt + day * WAR_DAY_MS + 20 * 3_600_000;
-        const closesAt = startsAt + (day + 1) * WAR_DAY_MS;
-        shrineStatus = now < opensAt ? `Shrine window opens in ${remaining(opensAt - now)}`
-            : `Shrine window closes in ${remaining(closesAt - now)}`;
-    }
+    const isCampaign = primaryVillageWar?.campaignVersion === 2 || primaryVillageWar?.campaignVersion === 3;
+    const rules = shrineRules({ version: primaryVillageWar?.campaignVersion ?? 3 });
+    const limit = primaryVillageWar?.campaignVersion === 2 ? 15 : 10;
+    const window = primaryVillageWar?.shrineWindows?.find(o => now < o.closesAt);
+    const shrineStatus = window ? now < window.opensAt ? `Shrine window opens in ${remaining(window.opensAt - now)}`
+        : `Shrine window closes in ${remaining(window.closesAt - now)}` : 'No remaining shrine windows';
     return <section className='town-war-display' aria-label='War operations'>
         <div className='town-section-heading'><p className='act-label'>Village war room</p><h3>War operations</h3>
             <p>Choose a campaign, learn its rules, and find your next contribution.</p></div>
@@ -66,16 +65,17 @@ export function TownHallWarDisplay({ village, sectorMapOpen, sectorMapStatus, se
                     width={512} height={384} alt='Golden war shrine' loading='lazy' decoding='async' /><span>The Shrine</span></div>
                 <div className='town-war-display-copy'><h4>Village War</h4><p className='town-war-display-status'>
                     {!primaryVillageWar ? 'No active village war' : preparing ? `Preparing against ${enemy}` : settling ? 'Final results settling' : `At war with ${enemy}`}</p>
-                    {primaryVillageWar?.campaignVersion === 2 ? <>
+                    {isCampaign ? <>
                         <p>{preparing ? `Starts in ${remaining(startsAt! - now)}` : settling ? 'Five-day campaign complete' : endsAt ? `Ends in ${remaining(endsAt - now)}` : 'Five-day campaign'}</p>
-                        <VillageCampaignScoreSummary war={primaryVillageWar} />
+                        <VillageCampaignScoreSummary war={primaryVillageWar!} />
                         {!settling && <p className='town-war-display-schedule'>{shrineStatus}</p>}
+                        {primaryVillageWar?.shrineWindows && <ShrineSchedule windows={primaryVillageWar.shrineWindows} />}
                     </> : primaryVillageWar ? <p>{village} · {primaryVillageWar.hp[village].toLocaleString()} / {villageWarHpMax(primaryVillageWar, village).toLocaleString()} HP</p>
                         : <p>A five-day clash between villages, won by War Points. The timed shrine is the main objective.</p>}
                     <div className='town-war-actions'><button type='button' className='town-war-control' onClick={() => setScreen('villageWar')}><GameArtIcon kind='attack' size={18} /> War Hall</button>
-                        {primaryVillageWar?.campaignVersion === 2 && !settling && <button type='button' className='town-war-control' aria-label='Choose war defense' onClick={onDefend}><GameArtIcon kind='roleDefender' size={18} /> War defense</button>}</div>
+                        {isCampaign && !settling && <button type='button' className='town-war-control' aria-label='Choose war defense' onClick={onDefend}><GameArtIcon kind='roleDefender' size={18} /> War defense</button>}</div>
                     <details><summary>How village war works</summary><ol>
-                        <li>Travel to the shrine’s sector during a scoring window and enter its golden shrine. The first 15 victories award 100 points each, shared across both villages. The village with the most uncontested time earns 1,000 points at closing. Empty and contested time does not count; tied or zero totals award no bonus.</li>
+                        <li>Travel to the shrine’s sector during a scoring window and enter its golden shrine. The first {limit} victories award {rules.winPoints} {primaryVillageWar?.campaignVersion === 2 ? 'points' : 'extra points'} each, shared across both villages. Combat continues until closing. {primaryVillageWar?.campaignVersion !== 2 && 'Normal role victory points and enemy score deductions continue after the extra-point cap. '}The village with the most uncontested time earns {rules.controlBonus.toLocaleString()} points at closing. Empty and contested time does not count; tied or zero totals award no bonus. New declarations have one two-hour window per campaign day, five hours later each day. The locked schedule shows all opening and closing times in your local time.</li>
                         <li>Find the enemy’s three strongholds through Supply, Sabotage and Espionage. Each stronghold permits only its assigned combat, pet or card battle type.</li>
                         <li>From level 15, queue from Town Hall’s Guard tab to defend a matching stronghold and stay online and available. Attacking its ANBU calls a queued defender; strongholds use ANBU fallback when nobody can defend. Shrine fighters must physically enter the shrine.</li>
                         <li>Enemy player wins anywhere in the world count. Spars and ranked matches do not. PvE missions have personal daily caps and contribute at most 20% of the final score.</li>

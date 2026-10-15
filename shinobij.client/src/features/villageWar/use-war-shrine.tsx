@@ -13,14 +13,14 @@ export function useWarShrine({ character, state, sharedImages, onVersionedCharac
     sector: number | null; currentSector: number; blocked: boolean;
     onEnterStronghold: (target: { sector: number; village: string }) => void;
 }) {
-    const [room, setRoom] = useState<{ warId: string; objective: CampaignObjective } | null>(null);
+    const [room, setRoom] = useState<{ warId: string; objective: CampaignObjective; version: CampaignView['version'] } | null>(null);
     // The landmark follows the terrain; the order tracker belongs to the fixed HUD.
     return { open: !!room, entrance: state && sector !== null ? <VillageWarShrineEntrance campaign={state.campaign}
         sector={sector} present={sector === currentSector} blocked={blocked || !!room}
-        onEnter={objective => setRoom({ warId: state.warId, objective })} /> : null,
+        onEnter={objective => setRoom({ warId: state.warId, objective, version: state.campaign.version })} /> : null,
         tracker: !room ? <WarFieldMissionHud name={character.name} warId={state?.warId} mission={state?.mission} currentSector={currentSector} onEnter={onEnterStronghold} /> : null,
         overlay: room ? createPortal(<div className='stronghold-overlay'>
             <Suspense fallback={<p>Entering the golden shrine…</p>}><Room character={character} warId={room.warId}
-                objective={room.objective} sharedImages={sharedImages} onVersionedCharacter={onVersionedCharacter} onExit={() => setRoom(null)} />
+                objective={room.objective} campaignVersion={room.version} sharedImages={sharedImages} onVersionedCharacter={onVersionedCharacter} onExit={() => setRoom(null)} />
             </Suspense></div>, document.body) : null };
 }
