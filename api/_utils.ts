@@ -97,6 +97,11 @@ const REPLACE_SUBTREE_KEYS = new Set<string>([
     // stored one, and a client autosave gets the stored copy back from the
     // ledger boundary (`always-ledger-char`) before this merge runs.
     'serverSettlementReceipts',
+    // Same shape problem: mentor receipts are keyed by `settlementId` + `role`
+    // and prepended by their one writer (api/clan/_mentor-settlement.ts), which
+    // sends the complete compacted list. A save holding both roles used to
+    // blend a teacher receipt's seals/contrib/clanPoints into a student one.
+    'mentorRewardReceipts',
 ]);
 const PROTOTYPE_POLLUTION_KEYS = new Set<string>(['__proto__', 'constructor', 'prototype']);
 

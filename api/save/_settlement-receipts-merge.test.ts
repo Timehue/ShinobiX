@@ -86,6 +86,32 @@ describe('serverSettlementReceipts through the save merge', { concurrency: false
         ]);
     });
 
+    it('a mentor student receipt keeps none of the teacher receipt before it, and vice versa', async () => {
+        // A player can be one sensei's student and another student's sensei.
+        // Mentor receipts carry `settlementId`, not `id`, and are prepended
+        // (api/clan/_mentor-settlement.ts), so the merge used to pair them by
+        // position: the student receipt gained the teacher's seals/contrib/
+        // clanPoints, and the next teacher receipt the student's ryo.
+        const name = `${PREFIX}mentor`;
+        await kv.set(`save:${name}`, { _saveVersion: 1, _saveAt: Date.now(), character: settledCharacter(name) });
+        const base = (settlementId: string, role: 'teacher' | 'student') => ({
+            v: 1, settlementId, role, fingerprint: `fp-${settlementId}`, senseiSlug: 'sensei',
+            pairingId: 'pairing', milestones: ['academy'], appliedAt: Date.now(),
+        });
+        const teacher = { ...base('s1', 'teacher'), seals: 10, contrib: 2, clanPoints: { requested: 25, awarded: 25, weekKey: '2026-W42', reason: null } };
+        const student = { ...base('s2', 'student'), ryo: 100 };
+        const teacher2 = { ...base('s3', 'teacher'), seals: 10, contrib: 2, clanPoints: { requested: 25, awarded: 0, weekKey: '2026-W42', reason: 'cap' } };
+        for (const receipt of [teacher, student, teacher2]) {
+            const out = await mutatePlayerSave(name, ({ character }) => {
+                const list = Array.isArray(character.mentorRewardReceipts) ? character.mentorRewardReceipts as Json[] : [];
+                return { ok: true, character: { ...character, mentorRewardReceipts: [receipt, ...list] }, value: null };
+            });
+            assert.equal(out.ok, true);
+        }
+        const stored = ((await kv.get<Json>(`save:${name}`))!.character as Json).mentorRewardReceipts;
+        assert.deepEqual(stored, [teacher2, student, teacher]);
+    });
+
     it('a client autosave can neither shrink, reorder nor rewrite the stored receipts', () => {
         const stored = [
             { requestId: 'world-boss-reward-req-0001', fingerprint: 'fp-b', value: { ryo: 120 }, settledAt: 2 },
