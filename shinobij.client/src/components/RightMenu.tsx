@@ -98,7 +98,7 @@ export const RightMenu = memo(function RightMenu({
 
             <div className="right-menu-header-row">
                 <button onClick={() => setMenuOpen((open) => !open)}>
-                    {menuOpen ? "Hide Menu" : "Menu"}
+                    {menuOpen ? "Hide menu" : "Menu"}
                 </button>
             </div>
 

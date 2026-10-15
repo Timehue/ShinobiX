@@ -352,14 +352,14 @@ export function CharacterCreatorFlow({ onCreate, onBack, compact = false, google
     }
 
     const primaryLabelByStep: Partial<Record<CreatorStep, string>> = {
-        welcome: "Choose Village",
-        village: "Choose Bloodline",
-        bloodline: "Choose Avatar",
-        avatar: "Preview Shinobi",
+        welcome: "Choose village",
+        village: "Choose bloodline",
+        bloodline: "Choose avatar",
+        avatar: "Preview shinobi",
         // A Google or guest signup collects no password, so promising one here
         // would be the button lying about the step it opens.
-        preview: wantsPassword ? "Name and Password" : "Name Your Shinobi",
-        identity: submitting ? "Creating..." : "Enter the World",
+        preview: wantsPassword ? "Name and password" : "Name your shinobi",
+        identity: submitting ? "Creating…" : "Enter the world",
     };
 
     function handlePrimaryAction() {
@@ -375,7 +375,7 @@ export function CharacterCreatorFlow({ onCreate, onBack, compact = false, google
             <div className="cc-shell">
                 <div className="cc-topline">
                     <button type="button" className="cc-back-link" onClick={previousStep} disabled={submitting}>
-                        {stepIndex === 0 ? "Back to Landing" : "Back"}
+                        {stepIndex === 0 ? "Back to landing" : "Back"}
                     </button>
                     <div className="cc-progress" role="list" aria-label="Character creation progress">
                         {CREATOR_STEPS.map((progressStep, index) => (

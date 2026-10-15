@@ -18,7 +18,7 @@
 }
 
 .patch-notes-section {
-    border-left: 2px solid rgba(250, 204, 21, .4);
+    border-left: 2px solid rgba(230, 196, 119, .4);
     padding-left: var(--sp-3);
 }
 .patch-notes-section h4 {

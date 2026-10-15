@@ -99,7 +99,7 @@ test("a pending ending recovers on load, finishes without another battle, and st
     await expect(novel.locator(".act-label")).toHaveText("EPILOGUE", { timeout: 20_000 });
     expect(contentAttempts).toBeGreaterThanOrEqual(4);
     await expect(novel.getByRole("button", { name: /^Battle in/ })).toHaveCount(0);
-    await expect(novel.getByRole("button", { name: /Claim Reward/ })).toHaveCount(0);
+    await expect(novel.getByRole("button", { name: /Claim reward/ })).toHaveCount(0);
     const versionBeforeCompletion = runtime.currentVersion();
     for (let index = 0; index < 40 && await novel.isVisible(); index += 1) {
         const next = novel.getByRole("button", { name: "Next", exact: true });
@@ -111,7 +111,7 @@ test("a pending ending recovers on load, finishes without another battle, and st
     }
     await expect(novel).toHaveCount(0);
     const complete = page.locator(".vn-finale-panel");
-    await expect(complete.getByRole("button", { name: /Enter Battle|Claim Reward/ })).toHaveCount(0);
+    await expect(complete.getByRole("button", { name: /Enter battle|Claim reward/ })).toHaveCount(0);
     if (await complete.isVisible()) {
         await complete.getByRole("button", { name: /^Continue(?: to Story Hall)?$/ }).click();
     }

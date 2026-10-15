@@ -54,7 +54,7 @@ export const SPIRE_BOSS_META: Record<SpireBossKey, SpireBossMeta> = {
     sovereign: {
         key: "sovereign", name: "Spire Sovereign", mechanic: "enrage", mechanicLabel: "Enrage",
         blurb: "Hits harder as its HP drops. Finish it before it peaks.",
-        accent: "#fbbf24", glow: "rgba(251,191,36,0.5)", emoji: "👑",
+        accent: "#e6c477", glow: "rgba(230, 196, 119, 0.5)", emoji: "👑",
         targetMode: "lowest-hp", strike: { kind: "nova", pct: 8, radius: 1, everyRounds: 3, firstRound: 3 },
     },
     stormcaller: {
@@ -97,7 +97,7 @@ export const SPIRE_BANDS: readonly SpireBand[] = [
     { label: "Proving Grounds", min: 1, max: 5, color: "#4ade80" },   // green
     { label: "Challenger", min: 6, max: 10, color: "#38bdf8" },       // cyan
     { label: "Ascendant", min: 11, max: 15, color: "#a78bfa" },       // violet
-    { label: "Infinite", min: 16, max: 20, color: "#fbbf24" },        // gold
+    { label: "Infinite", min: 16, max: 20, color: "#e6c477" },        // gold
 ];
 export function spireBand(tier: number): SpireBand {
     return SPIRE_BANDS.find(b => tier >= b.min && tier <= b.max) ?? SPIRE_BANDS[SPIRE_BANDS.length - 1]!;

@@ -79,7 +79,7 @@ for (const viewport of [{ width: 1366, height: 768 }, { width: 390, height: 844 
         await expect(card).toContainText('Explore 3/3');
         await expect(card).toContainText('Raid 0/1');
         await expect(card).toContainText('Next: Travel to one of the other three villages and raid its village guard from the outskirts.');
-        await card.getByRole('button', { name: 'Go to an Enemy Village' }).click();
+        await card.getByRole('button', { name: 'Go to an enemy village' }).click();
         await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'worldMap');
     });
 }

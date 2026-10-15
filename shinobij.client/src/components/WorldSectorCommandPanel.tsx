@@ -109,7 +109,7 @@ export function WorldSectorCommandPanel({
                     {territory.enemyControlled && (
                         <button type="button" className="danger-button sector-action-btn is-danger" disabled={!present || !villageWarAdmissionOpen} onClick={onRaidControlledSector}>
                             <span className="sector-action-icon" aria-hidden="true"><GiCrossedSwords /></span>
-                            <span>Raid Controlled Sector</span>
+                            <span>Raid controlled sector</span>
                         </button>
                     )}
                 </section>
@@ -158,7 +158,7 @@ export function WorldSectorCommandPanel({
                                 onClick={onFightSectorGarrison}
                             >
                                 <span className="sector-action-icon" aria-hidden="true"><GiShield /></span>
-                                <span>Fight Garrison</span>
+                                <span>Fight garrison</span>
                             </button>
                         </>
                     )}

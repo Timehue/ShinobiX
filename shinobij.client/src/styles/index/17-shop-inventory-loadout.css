@@ -315,7 +315,7 @@ html[data-vp="xl"] .app-shell:is([data-screen="shop"], [data-screen="grandMarket
         margin: 14px -14px 0 !important;
         padding: 12px 14px max(12px, env(safe-area-inset-bottom, 12px)) !important;
         background: rgba(30, 41, 59, 0.6) !important;
-        border-top: 1px solid rgba(250, 204, 21, 0.3) !important;
+        border-top: 1px solid rgba(230, 196, 119, 0.3) !important;
         flex-direction: column !important;
         gap: 8px !important;
     }
@@ -383,7 +383,7 @@ html[data-vp="xl"] .app-shell:is([data-screen="shop"], [data-screen="grandMarket
             background: linear-gradient(135deg, #92400e, #172554);
             color: #fef3c7;
             border-color: var(--gold);
-            box-shadow: 0 0 14px rgba(250, 204, 21, 0.2);
+            box-shadow: 0 0 14px rgba(230, 196, 119, 0.2);
         }
 
 .tile-card-collection-summary {
@@ -437,7 +437,7 @@ html[data-vp="xl"] .app-shell:is([data-screen="shop"], [data-screen="grandMarket
     place-items: center;
     overflow: hidden;
     border-radius: 6px;
-    background: radial-gradient(circle at 50% 35%, rgba(250, 204, 21, 0.25), transparent 38%), rgba(2, 6, 23, 0.5);
+    background: radial-gradient(circle at 50% 35%, rgba(230, 196, 119, 0.25), transparent 38%), rgba(2, 6, 23, 0.5);
 }
 
     .tile-card-inventory-art img {
@@ -513,9 +513,9 @@ html[data-vp="xl"] .app-shell:is([data-screen="shop"], [data-screen="grandMarket
 .item-popup-stores-note {
     margin: 8px 0 0;
     padding: 8px 10px;
-    border-left: 3px solid rgba(250, 204, 21, .55);
+    border-left: 3px solid rgba(230, 196, 119, .55);
     border-radius: 8px;
-    background: rgba(250, 204, 21, .09);
+    background: rgba(230, 196, 119, .09);
     color: #fde68a;
     font-size: .84rem;
     line-height: 1.45;

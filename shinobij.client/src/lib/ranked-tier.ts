@@ -31,7 +31,7 @@ export const RANK_TIERS: readonly RankTier[] = [
     { key: 'veteran',     name: 'Veteran',     min: 1150, color: '#38bdf8' },
     { key: 'expert',      name: 'Expert',      min: 1300, color: '#a78bfa' },
     { key: 'master',      name: 'Master',      min: 1450, color: '#f87171' },
-    { key: 'grandmaster', name: 'Grandmaster', min: 1650, color: '#fbbf24' },
+    { key: 'grandmaster', name: 'Grandmaster', min: 1650, color: '#e6c477' },
     { key: 'legend',      name: 'Legend',      min: 1850, color: '#fb923c' },
 ] as const;
 

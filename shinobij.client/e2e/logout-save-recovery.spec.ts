@@ -100,7 +100,7 @@ for (const retryAfterMs of [2501, undefined]) {
         await page.getByRole('button', { name: 'Use a name and password' }).click();
         await page.getByLabel('Name').fill('AuditNinja');
         await page.getByPlaceholder('Enter your password').fill('fixture-password');
-        await page.getByRole('button', { name: 'Enter Village' }).click();
+        await page.getByRole('button', { name: 'Enter village' }).click();
         await page.locator('.fc-ribbon').getByRole('button', { name: 'Read your entry' }).click();
         await expect(page.getByRole('dialog', { name: 'First Contract field journal' })).toContainText('Field record: Sector 4.');
     });

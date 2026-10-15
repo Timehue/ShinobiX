@@ -89,7 +89,7 @@ export function MasteryPanel({ character, onVersionedCharacter, headquarters = f
                 const active = activeMasteryEffects(character);
                 if (active.length === 0) return null;
                 return (
-                    <div className="summary-box" style={{ padding: 10, marginBottom: 4, borderColor: "rgba(250,204,21,0.4)" }}>
+                    <div className="summary-box" style={{ padding: 10, marginBottom: 4, borderColor: "rgba(230, 196, 119, 0.4)" }}>
                         <strong style={{ color: "var(--gold)" }}>Active bonuses</strong>
                         <ul style={{ margin: "6px 0 0", paddingLeft: 18, lineHeight: 1.5 }}>
                             {active.map((a) => <li key={a}>{a}</li>)}

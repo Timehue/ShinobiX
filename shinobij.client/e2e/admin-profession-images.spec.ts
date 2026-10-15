@@ -34,7 +34,7 @@ for (const role of ['full', 'content'] as const) {
         await page.getByRole('button', { name: 'Use a name and password' }).click();
         await page.getByLabel('Name', { exact: true }).fill('Admin 2');
         await page.getByPlaceholder('Enter your password').fill('qa-profession-password');
-        await page.getByRole('button', { name: /Enter Village/ }).click();
+        await page.getByRole('button', { name: /Enter village/ }).click();
         await expect(page.getByRole('heading', { name: 'Admin Login', exact: true })).toBeVisible();
         await page.getByLabel('Password', { exact: true }).fill('qa-profession-password');
         await page.getByRole('button', { name: 'Login', exact: true }).click();

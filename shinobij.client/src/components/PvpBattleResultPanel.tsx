@@ -64,7 +64,7 @@ export function PvpBattleResultPanel(p: Props) {
 
                 <div className="menu pvp-result-actions">
                     <button type="button" onClick={p.onReturnToBattlefield} disabled={!exitsEnabled}>{p.returnLabel}</button>
-                    <button type="button" onClick={p.onViewBattleLog}>Battle Log</button>
+                    <button type="button" onClick={p.onViewBattleLog}>Battle log</button>
                 </div>
             </article>
         </div>

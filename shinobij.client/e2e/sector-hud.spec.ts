@@ -8,7 +8,7 @@ const evidence = process.env.SECTOR_HUD_EVIDENCE_DIR || '../docs/sector-hud-layo
 mkdirSync(evidence, { recursive: true });
 
 const sectorInfo = (page: Page) => page.locator('.sector-hud-inline-info, .sector-hud-panel[aria-labelledby$="-info-title"]');
-const infoTrigger = (page: Page) => page.getByRole('button', {name:/^Sector Info(?: · Claim ready)?$/});
+const infoTrigger = (page: Page) => page.getByRole('button', {name:/^Sector info(?: · Claim ready)?$/});
 
 test('optional map notices reopen for new content, sector changes and visible re-entry', async ({ page }) => {
     await page.goto('/e2e/fixtures/map-notification.html');
@@ -79,7 +79,7 @@ for (const [width,height] of [[360,560],[412,800],[390,664]]) test(`mobile scrol
     expect((await last.boundingBox())!.y + (await last.boundingBox())!.height).toBeLessThan(nav.y);
     await expect(page.locator('.sector-player-tile')).toHaveAttribute('aria-label',original!);
     await page.screenshot({path:testInfo.outputPath(`scroll-roster-${width}x${height}.png`)});
-    await page.getByRole('button',{name:'Sector Info',exact:true}).click();
+    await page.getByRole('button',{name:'Sector info',exact:true}).click();
     await expect(page.locator('.sector-hud-inline-info')).toBeVisible();
     await expect(page.getByRole('dialog',{name:'Sector Info',exact:true})).toHaveCount(0);
     await page.locator('.sector-hud-inline-info').scrollIntoViewIfNeeded();
@@ -161,7 +161,7 @@ test('mobile rotation preserves the Info surface, chat draft and current tile', 
     await page.setViewportSize({width:390,height:664});
     await boot(page,8,async()=>{await chatServer(page);});
     const original = await page.locator('.sector-player-tile').getAttribute('aria-label');
-    await page.getByRole('button',{name:'Sector Info',exact:true}).click();
+    await page.getByRole('button',{name:'Sector info',exact:true}).click();
     await expect(page.locator('.sector-hud-inline-info')).toBeVisible();
     await page.setViewportSize({width:844,height:390});
     await expect(page.locator('.sector-hud-inline-info')).toBeVisible();
@@ -196,13 +196,13 @@ for (const [width,height] of [[360,560],[412,800],[390,664],[844,390],[568,320]]
     await expect(page.locator('.sector-hud')).toBeVisible();
     await page.evaluate(()=>window.sectorFixture.configure({sector:99}));
     await expect(page.locator('.sector-hud-heading')).toContainText('The Lavafront Gate');
-    await page.getByRole('button',{name:'Sector Info · Claim ready'}).click();
+    await page.getByRole('button',{name:'Sector info · Claim ready'}).click();
     await expect(page.locator('.sector-hud-inline-info')).toBeVisible();
     for (const control of await page.locator('.sector-hud button').all()) await expectUncoveredControl(page,control);
     expect(await page.locator('.sector-hud').evaluate(element=>element.scrollWidth<=element.clientWidth+1)).toBe(true);
     await page.getByRole('button',{name:'Claim 288 ryo'}).click();
-    await page.getByRole('button',{name:'Fight Garrison'}).click();
-    await page.getByRole('button',{name:'Raid Controlled Sector'}).click();
+    await page.getByRole('button',{name:'Fight garrison'}).click();
+    await page.getByRole('button',{name:'Raid controlled sector'}).click();
     expect(await page.evaluate(()=>window.sectorFixture.events)).toEqual(['claim','garrison','raid-sector']);
     await page.screenshot({path:info.outputPath(`lavafront-${width}x${height}.png`)});
 });
@@ -525,11 +525,11 @@ test('sector info, hunt and depleted exploration preserve their callbacks',async
     await page.getByRole('button',{name:'Explore',exact:true}).click();
     await page.getByRole('button',{name:'Track Trail Beast'}).click();
     await page.getByRole('button',{name:'Contested · Card Battle'}).click();
-    await page.getByRole('button',{name:'Sector Info · Claim ready'}).click();
+    await page.getByRole('button',{name:'Sector info · Claim ready'}).click();
     await expect(page.getByText('River Guard',{exact:true})).toBeVisible();
     await page.getByRole('button',{name:'Claim 288 ryo'}).click();
-    await page.getByRole('button',{name:'Fight Garrison'}).click();
-    await page.getByRole('button',{name:'Raid Controlled Sector'}).click();
+    await page.getByRole('button',{name:'Fight garrison'}).click();
+    await page.getByRole('button',{name:'Raid controlled sector'}).click();
     await page.screenshot({path:`${evidence}/details-fixture.png`});
     await page.getByRole('button',{name:'Close Sector Info'}).click();
     await page.evaluate(()=>window.sectorFixture.configure({depleted:true}));
@@ -633,7 +633,7 @@ test('ten sector and menu cycles release listeners and renderers',async({page,br
     const cdp=await page.context().newCDPSession(page);
     const samples=[];
     for(let i=0;i<11;i++) {
-        await page.getByRole('button',{name:'Sector Info · Claim ready'}).click();
+        await page.getByRole('button',{name:'Sector info · Claim ready'}).click();
         await page.getByRole('button',{name:'Close Sector Info'}).click();
         // Let frame-scheduled appends, observer callbacks and passive cleanup
         // finish before counting retained resources, rather than pending work.
@@ -674,7 +674,7 @@ test('nearby roster touch scrolling stays inside its own area',async({page},test
 test('sector information follows mobile page scrolling without moving the player',async({page},testInfo)=>{
     test.skip(testInfo.project.name!=='chromium-touch');
     await boot(page);
-    await page.getByRole('button',{name:'Sector Info',exact:true}).tap();
+    await page.getByRole('button',{name:'Sector info',exact:true}).tap();
     const info=page.locator('.sector-hud-inline-info');
     await info.scrollIntoViewIfNeeded();
     const original=await page.locator('.sector-player-tile').getAttribute('aria-label');
@@ -983,6 +983,6 @@ test('Explore clearly uses the shared fishing and mining allowance at the daily 
     await expect(explore).toBeDisabled();
     await expect(explore).toContainText('Shared 100/100');
     await expect(explore).toHaveAttribute('aria-description', /Explore, fishing and mining: 100\/100 shared daily actions/);
-    await page.getByRole('button', { name: 'Sector Info · Claim ready', exact: true }).click();
+    await page.getByRole('button', { name: 'Sector info · Claim ready', exact: true }).click();
     await expect(page.getByText(/Explore, fishing and mining: 100\/100 shared daily actions/)).toBeVisible();
 });

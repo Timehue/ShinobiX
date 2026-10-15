@@ -8,8 +8,8 @@ test('advancement requirements are visible before the hold without enabling a pa
     const exam = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Chunin Advancement Exam', exact: true }) });
     await expect(exam.getByText('Upcoming — prepare now', { exact: true })).toBeVisible();
     await expect(exam.getByRole('button', { name: 'Opens at level 39' })).toBeDisabled();
-    await expect(exam.getByRole('button', { name: 'Go Clan' })).toBeVisible();
-    await exam.getByRole('button', { name: 'Go Clan' }).click();
+    await expect(exam.getByRole('button', { name: 'Go clan' })).toBeVisible();
+    await exam.getByRole('button', { name: 'Go clan' }).click();
     await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'clan');
 });
 
@@ -64,7 +64,7 @@ test('a completed first assignment offers a concrete next goal and follows its d
     const journal = page.getByRole('dialog', { name: 'First Contract field journal' });
     await expect(journal.getByText('Next goal: First Steps as a Shinobi', { exact: true })).toBeVisible();
     await expect(journal.getByText(/Win 3 AI battles: 1\/3/)).toBeVisible();
-    await journal.getByRole('button', { name: 'Go Combat', exact: true }).click();
+    await journal.getByRole('button', { name: 'Go combat', exact: true }).click();
     await expect(journal).toHaveCount(0);
     await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'missions');
     await expect(page.getByRole('tab', { name: 'Combat', exact: true })).toHaveAttribute('aria-selected', 'true');
@@ -87,7 +87,7 @@ test('the return journal opens its saved next goal on the right Mission Hall tab
     await page.locator('.fc-ribbon').getByRole('button', { name: 'Continue' }).click();
     const journal = page.getByRole('dialog', { name: 'First Contract field journal' });
     await expect(journal.getByText(/Win 3 AI battles: 1\/3/)).toBeVisible();
-    await journal.getByRole('button', { name: 'Go Combat' }).click();
+    await journal.getByRole('button', { name: 'Go combat' }).click();
     await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'missions');
     await expect(page.getByRole('tab', { name: 'Combat', exact: true })).toHaveAttribute('aria-selected', 'true');
 });

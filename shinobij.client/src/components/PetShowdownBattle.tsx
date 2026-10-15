@@ -1720,7 +1720,7 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
             {highlight !== "none" && (
                 <mesh ref={selRing} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}>
                     <ringGeometry args={[0.95, 1.12, 32]} />
-                    <meshBasicMaterial color={highlight === "commander" ? "#fbbf24" : "#f87171"} {...TRANSPARENT_UNLIT_PROPS} opacity={0.85} />
+                    <meshBasicMaterial color={highlight === "commander" ? "#e6c477" : "#f87171"} {...TRANSPARENT_UNLIT_PROPS} opacity={0.85} />
                 </mesh>
             )}
             {/* Floating reticle: the "this is clickable" affordance. */}
@@ -4074,7 +4074,7 @@ function PetShowdownBattleView({ initialState, playerPets, sharedImages, submitT
                             <div className="showdown-result-reward capped">Daily arena reward cap reached</div>
                         )}
                         <div className="showdown-result-buttons">
-                            {!hideRematch && <button type="button" className="showdown-cta" autoFocus onClick={onRematch}>{spectator ? "Watch Again" : "Battle Again"}</button>}
+                            {!hideRematch && <button type="button" className="showdown-cta" autoFocus onClick={onRematch}>{spectator ? "Watch again" : "Battle again"}</button>}
                             <button type="button" className="showdown-chip" onClick={onExit}>{exitLabel}</button>
                         </div>
                     </div>

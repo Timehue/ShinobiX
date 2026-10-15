@@ -8,13 +8,13 @@
     background:
         radial-gradient(135% 90% at 50% -10%, rgba(124,45,18,.30), transparent 55%),
         linear-gradient(150deg, #14100c 0%, var(--slate-900) 45%, var(--slate-800) 100%);
-    border: 1px solid rgba(234,179,8,.34);
+    border: 1px solid rgba(209, 167, 88, .34);
     border-radius: 16px;
     padding: 24px;
     display: flex;
     flex-direction: column;
     gap: 12px;
-    box-shadow: 0 24px 60px rgba(0,0,0,.6), inset 0 1px 0 rgba(250,204,21,.12);
+    box-shadow: 0 24px 60px rgba(0,0,0,.6), inset 0 1px 0 rgba(230, 196, 119, .12);
 }
 
     .cf-panel > * { position: relative; z-index: 1; }
@@ -72,7 +72,7 @@
 
         @media (hover: hover) {
             .cf-tabs button:hover {
-                border-color: rgba(250,204,21,.5);
+                border-color: rgba(230, 196, 119, .5);
                 color: #fef3c7;
             }
         }
@@ -81,7 +81,7 @@
             background: linear-gradient(135deg, #b45309, #7c2d12 55%, #172554);
             color: #fff7e6;
             border-color: var(--gold);
-            box-shadow: 0 0 16px rgba(250,204,21,.28), inset 0 1px 0 rgba(255,255,255,.12);
+            box-shadow: 0 0 16px rgba(230, 196, 119, .28), inset 0 1px 0 rgba(255,255,255,.12);
         }
 
         .cf-tabs button.active svg { opacity: 1; color: var(--gold-300); }
@@ -241,7 +241,7 @@
 /* Rarity accents — tint the card border + thumbnail to match the item grade. */
 .cf-card[data-rarity="rare"]      { border-color: rgba(59,130,246,.42); }
 .cf-card[data-rarity="epic"]      { border-color: rgba(168,85,247,.42); }
-.cf-card[data-rarity="legendary"] { border-color: rgba(234,179,8,.48); box-shadow: 0 0 16px rgba(234,179,8,.10); }
+.cf-card[data-rarity="legendary"] { border-color: rgba(209, 167, 88, .48); box-shadow: 0 0 16px rgba(209, 167, 88, .10); }
 
 /* Compact side-by-side cards for the two special forges (Hollow Gate Key +
    Dungeon Legendary Relic). Smaller padding/fonts than a normal recipe card
@@ -283,7 +283,7 @@
 .nw-forge {
     margin-top: 18px;
     padding: 18px;
-    border: 1px solid rgba(234, 179, 8, 0.45);
+    border: 1px solid rgba(209, 167, 88, 0.45);
     border-radius: 14px;
     background: linear-gradient(160deg, rgba(30, 18, 4, 0.85), rgba(10, 10, 20, 0.90));
     display: grid;
@@ -294,7 +294,7 @@
     display: grid;
     gap: 4px;
     background: rgba(0, 0, 0, 0.25);
-    border: 1px solid rgba(250, 204, 21, 0.15);
+    border: 1px solid rgba(230, 196, 119, 0.15);
     border-radius: 8px;
     padding: 10px 14px;
 }
@@ -310,14 +310,14 @@
 .nw-total {
     margin-top: 6px;
     padding-top: 6px;
-    border-top: 1px solid rgba(250, 204, 21, 0.18);
+    border-top: 1px solid rgba(230, 196, 119, 0.18);
     font-size: 0.84rem;
     color: var(--slate-300);
     text-align: right;
 }
 
 .nw-total strong {
-    color: #fbbf24;
+    color: var(--sj-gold-bright);
 }
 
 .nw-head {
@@ -328,7 +328,7 @@
 .nw-title {
     font-size: 1.05rem;
     font-weight: 700;
-    color: #fbbf24;
+    color: var(--sj-gold-bright);
     letter-spacing: 0.03em;
 }
 
@@ -362,7 +362,7 @@
     display: grid;
     gap: 10px;
     padding: 14px;
-    border: 1px solid rgba(251, 191, 36, 0.30);
+    border: 1px solid rgba(230, 196, 119, 0.30);
     border-radius: 10px;
     background: rgba(0, 0, 0, 0.30);
 }
@@ -370,8 +370,8 @@
 .nw-stats {
     display: grid;
     gap: 4px;
-    background: rgba(250, 204, 21, 0.06);
-    border: 1px solid rgba(250, 204, 21, 0.18);
+    background: rgba(230, 196, 119, 0.06);
+    border: 1px solid rgba(230, 196, 119, 0.18);
     border-radius: 8px;
     padding: 10px 14px;
 }
@@ -512,7 +512,7 @@
     background: radial-gradient(ellipse at center, #44251466, #020617ed 75%);
     perspective: 900px;
 }
-.nf-modal.ui-modal-card { max-width: 720px; border-color: #fbbf2466; animation: nf-modal-in .4s cubic-bezier(.16,1,.3,1) both; }
+.nf-modal.ui-modal-card { max-width: 720px; border-color: rgba(230, 196, 119, 0.4); animation: nf-modal-in .4s cubic-bezier(.16,1,.3,1) both; }
 .nf-modal .ui-modal-body { scrollbar-gutter: auto; }
 .nf-modal .nf { border-radius: 0; border: 0; min-width: 0; }
 .nf-actions { display: grid; gap: 12px; padding: 16px 24px 22px; background: #080b16; }

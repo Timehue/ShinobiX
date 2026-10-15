@@ -31,11 +31,11 @@
     border-radius: 16px;
     color: var(--slate-200);
     background: linear-gradient(160deg, #0b1224 0%, #131e3a 55%, #0b1224 100%);
-    border: 2px solid rgba(250, 204, 21, 0.75);
+    border: 2px solid rgba(230, 196, 119, 0.75);
     box-shadow:
         0 24px 60px rgba(0, 0, 0, 0.65),
-        0 0 0 1px rgba(250, 204, 21, 0.18) inset,
-        0 0 34px rgba(250, 204, 21, 0.22);
+        0 0 0 1px rgba(230, 196, 119, 0.18) inset,
+        0 0 34px rgba(230, 196, 119, 0.22);
     /* Rise-in, then a slow, soft attention glow — NOT the old 0.4s red strobe. */
     animation:
         ic-rise 200ms cubic-bezier(0.16, 1, 0.3, 1),
@@ -51,14 +51,14 @@
     0%, 100% {
         box-shadow:
             0 24px 60px rgba(0, 0, 0, 0.65),
-            0 0 0 1px rgba(250, 204, 21, 0.18) inset,
-            0 0 20px rgba(250, 204, 21, 0.18);
+            0 0 0 1px rgba(230, 196, 119, 0.18) inset,
+            0 0 20px rgba(230, 196, 119, 0.18);
     }
     50% {
         box-shadow:
             0 24px 60px rgba(0, 0, 0, 0.65),
-            0 0 0 1px rgba(250, 204, 21, 0.32) inset,
-            0 0 42px rgba(250, 204, 21, 0.42);
+            0 0 0 1px rgba(230, 196, 119, 0.32) inset,
+            0 0 42px rgba(230, 196, 119, 0.42);
     }
 }
 
@@ -93,9 +93,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(250, 204, 21, 0.10);
-    border: 2px solid rgba(250, 204, 21, 0.6);
-    box-shadow: 0 0 18px rgba(250, 204, 21, 0.25);
+    background: rgba(230, 196, 119, 0.10);
+    border: 2px solid rgba(230, 196, 119, 0.6);
+    box-shadow: 0 0 18px rgba(230, 196, 119, 0.25);
     flex: none;
 }
 

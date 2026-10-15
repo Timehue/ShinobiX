@@ -84,10 +84,10 @@ export function launchClanWarBattle(context:LaunchContext,ch:CwChallenge,warId?:
                     setPvpRole(onFromSide ? "p1" : "p2");
                     setPvpBattleContext({ mode: "clanWar1v1", clanWarChallengeId: ch.id, clanWarReturnScreen: origin.returnScreen });
                     setScreen("pvpBattle");
-                    if (result.kind === "ambiguous") alert("The battle response was interrupted. Reconnecting to the authoritative session…");
+                    if (result.kind === "ambiguous") alert("The battle response was interrupted. Reconnecting to your battle…");
                 } catch (error) {
                     if (createScope.isCurrent() && !(error instanceof DOMException && error.name === "AbortError")) {
-                        alert("Could not create the authoritative Clan War battle."); onLaunchFailed?.();
+                        alert("Could not start the Clan War battle. Try again."); onLaunchFailed?.();
                     }
                 }
             })();

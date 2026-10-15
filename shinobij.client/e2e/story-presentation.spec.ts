@@ -40,7 +40,7 @@ async function step(page: Page, choose = 0) {
     if (await choice.isVisible()) { await expect(choice).toBeEnabled(); await choice.click(); return; }
     const conclusion = reader.locator('.vn-conclusion');
     if (await conclusion.isVisible()) { await conclusion.getByRole('button', { name: 'Continue', exact: true }).click(); return; }
-    const next = reader.locator('.vn-controls').getByRole('button', { name: /^(Next|Continue|Begin Battle|Continue to Story Hall)$/ });
+    const next = reader.locator('.vn-controls').getByRole('button', { name: /^(Next|Continue|Begin battle|Continue to Story Hall)$/ });
     // Completion can unmount the reader between the loop's count and this
     // step. Await that transition instead of looking for a vanished button.
     await expect.poll(async () => !(await reader.count()) || await next.isVisible()).toBe(true);
@@ -278,7 +278,7 @@ for (const [index, content] of contents.entries()) {
         await expect.poll(() => starts).toBe(1);
         const result = page.locator('.story-fight-complete-card');
         await expect(result).toBeVisible();
-        const retry = result.getByRole('button', { name: before ? 'Retry Reward' : 'Retry Record Delivery' });
+        const retry = result.getByRole('button', { name: before ? 'Retry reward' : 'Retry record delivery' });
         await expect(retry).toBeEnabled();
         if (!before) {
             await expect(result).toContainText('75 ryo');

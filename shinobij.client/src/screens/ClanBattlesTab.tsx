@@ -311,7 +311,7 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                                 ))}
                             </select>
                             <button onClick={handleSend} disabled={busy || atSlotCap} style={{ padding: "0.4rem 0.8rem", background: atSlotCap ? "#1f2937" : "linear-gradient(#7f1d1d,#450a0a)", borderColor: atSlotCap ? "var(--slate-600)" : "var(--red-400)" }}>
-                                {busy ? "Sending…" : atSlotCap ? "Slot cap reached" : composeMode === "pet2v2" ? "Open 2v2 Queue" : "Send Challenge"}
+                                {busy ? "Sending…" : atSlotCap ? "Slot cap reached" : composeMode === "pet2v2" ? "Open 2v2 queue" : "Send challenge"}
                             </button>
                         </div>
                         <p style={{ fontSize: "0.78rem", color: "var(--text-muted)", margin: "6px 0 0" }}>
@@ -321,7 +321,7 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                             <p style={{ fontSize: "0.78rem", color: "var(--red-400)", marginTop: 6 }}>You're at the {CW_MAX_PER_PLAYER}-slot cap. Cancel one of your active challenges or wait for them to resolve / expire.</p>
                         )}
                         {!atSlotCap && myClanmates.length === 0 && composeMode === "pet2v2" && (
-                            <p style={{ fontSize: "0.78rem", color: "#fbbf24", marginTop: 6 }}>You can still open a queue but no clanmates are online to fill the partner slot yet.</p>
+                            <p style={{ fontSize: "0.78rem", color: "#e6c477", marginTop: 6 }}>You can still open a queue but no clanmates are online to fill the partner slot yet.</p>
                         )}
                     </div>
 
@@ -346,12 +346,12 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                                             </strong>
                                             {!isSeed && (
                                                 <button onClick={() => handleJoinSend(ch.id)} disabled={busy} style={{ padding: "0.3rem 0.6rem", background: "#15803d", borderColor: "var(--green-400)", fontSize: "0.85rem" }}>
-                                                    <GameArtIcon kind="roleSage" size={17} /> Join as Partner
+                                                    <GameArtIcon kind="roleSage" size={17} /> Join as partner
                                                 </button>
                                             )}
                                             {isSeed && (
                                                 <button onClick={() => handleLeaveSend(ch.id)} disabled={busy} className="danger-button" style={{ padding: "0.3rem 0.6rem", fontSize: "0.8rem" }}>
-                                                    ✕ Cancel Queue
+                                                    ✕ Cancel queue
                                                 </button>
                                             )}
                                         </div>
@@ -392,17 +392,17 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                                             )}
                                             {isTwoV && !meQueued && !ch.acceptedPlayer && (
                                                 <button onClick={() => handleAccept(ch)} disabled={busy} style={{ padding: "0.3rem 0.6rem", background: "#15803d", borderColor: "var(--green-400)", fontSize: "0.85rem" }}>
-                                                    <GameArtIcon kind="roleDefender" size={17} /> Queue to Accept (1st)
+                                                    <GameArtIcon kind="roleDefender" size={17} /> Queue to accept (1st)
                                                 </button>
                                             )}
                                             {isTwoV && !meQueued && ch.acceptedPlayer && !ch.acceptedPlayer2 && (
                                                 <button onClick={() => handleJoinAccept(ch.id)} disabled={busy} style={{ padding: "0.3rem 0.6rem", background: "#15803d", borderColor: "var(--green-400)", fontSize: "0.85rem" }}>
-                                                    <GameArtIcon kind="roleSage" size={17} /> Join Accept Queue (2nd)
+                                                    <GameArtIcon kind="roleSage" size={17} /> Join accept queue (2nd)
                                                 </button>
                                             )}
                                             {isTwoV && meQueued && (
                                                 <button onClick={() => handleLeaveAccept(ch.id)} disabled={busy} className="danger-button" style={{ padding: "0.3rem 0.6rem", fontSize: "0.8rem" }}>
-                                                    ✕ Leave Accept Queue
+                                                    ✕ Leave accept queue
                                                 </button>
                                             )}
                                             {!meQueued && (
@@ -439,7 +439,7 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                                             </strong>
                                             {isTwoV && mine && (
                                                 <button onClick={() => handleLeaveSend(ch.id)} disabled={busy} style={{ padding: "0.3rem 0.6rem", fontSize: "0.8rem" }}>
-                                                    <GameArtIcon kind="speed" size={17} /> Leave Send Queue
+                                                    <GameArtIcon kind="speed" size={17} /> Leave send queue
                                                 </button>
                                             )}
                                             {mine && (
@@ -464,8 +464,8 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                         ));
                         if (myActive.length === 0) return null;
                         return (
-                            <div style={{ background: "#1f1606", border: "1px solid #fbbf24", borderRadius: 6, padding: "0.8rem", marginBottom: "1rem" }}>
-                            <strong style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "#fbbf24" }}><GameArtIcon kind="attack" size={20} /> Your Active Battles ({myActive.length})</strong>
+                            <div style={{ background: "#1f1606", border: "1px solid #e6c477", borderRadius: 6, padding: "0.8rem", marginBottom: "1rem" }}>
+                            <strong style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "#e6c477" }}><GameArtIcon kind="attack" size={20} /> Your Active Battles ({myActive.length})</strong>
                                 <p style={{ fontSize: "0.78rem", color: "#fef3c7", margin: "4px 0 8px" }}>
                                     When a challenge is accepted, both clients are <strong>auto-pulled</strong> into the matching battle screen — no buttons to click. The win &amp; loss handlers post the result to the server when the fight ends, the opposing client's report confirms it, and damage applies. If you navigated away, use <em>Re-launch</em> below to jump back in.
                                 </p>
@@ -505,7 +505,7 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                                             {hasTentative && (
                                                 <div style={{ background: "#0f1a2a", border: "1px solid var(--blue-400)", borderRadius: 4, padding: "0.4rem 0.6rem", marginBottom: 6, fontSize: "0.82rem" }}>
                                                     {iAmTentative
-                                                        ? <span style={{ color: "#fbbf24" }}><GameArtIcon kind="mission" size={16} /> Your tentative report (<strong>{tentativeLabel}</strong>) is awaiting opposing-side confirmation. {tentativeStale ? "Window elapsed — click any button below to auto-confirm." : `${tentativeMins}m remaining.`}</span>
+                                                        ? <span style={{ color: "#e6c477" }}><GameArtIcon kind="mission" size={16} /> Your tentative report (<strong>{tentativeLabel}</strong>) is awaiting opposing-side confirmation. {tentativeStale ? "Window elapsed — click any button below to auto-confirm." : `${tentativeMins}m remaining.`}</span>
                                                         : <span style={{ color: "#a7f3d0" }}><GameArtIcon kind="mission" size={16} /> Opposing side reported <strong>{tentativeLabel}</strong>. {tentativeStale ? "Window elapsed — clicking below will auto-confirm." : `Confirm to apply damage, or dispute to record a draw. ${tentativeMins}m remaining.`}</span>}
                                                 </div>
                                             )}
@@ -554,7 +554,7 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
                     <p style={{ marginTop: 0 }}>Your clan ({myClan}) is not currently in a clan war.</p>
                     {canLead ? (
                         <>
-                            <p style={{ fontSize: "0.82rem", color: "#fbbf24" }}>100 Honor Seals · 24-hour preparation · 72-hour campaign. Win through the four battle queues and golden-shrine bonus fights. Three-day recovery; seven-day rematch cooldown.</p>
+                            <p style={{ fontSize: "0.82rem", color: "#e6c477" }}>100 Honor Seals · 24-hour preparation · 72-hour campaign. Win through the four battle queues and golden-shrine bonus fights. Three-day recovery; seven-day rematch cooldown.</p>
                             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                                 <select value={declareTarget} onChange={e => setDeclareTarget(e.target.value)} style={{ padding: "0.35rem" }} disabled={busy}>
                                     <option value="">Pick enemy clan…</option>

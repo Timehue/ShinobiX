@@ -124,8 +124,8 @@ export function WeeklyBoard({ character, updateCharacter }: { character: Charact
                                             {m.claimed
                                                 ? <button disabled>✓ Claimed</button>
                                                 : m.complete
-                                                    ? <button className="mh-claim-btn" disabled={busy === m.id} onClick={() => { void claim(m.id); }}>{busy === m.id ? "Claiming…" : <><GameArtIcon kind="ryo" size={16} /> Claim Reward</>}</button>
-                                                    : <button disabled>In Progress</button>}
+                                                    ? <button className="mh-claim-btn" disabled={busy === m.id} onClick={() => { void claim(m.id); }}>{busy === m.id ? "Claiming…" : <><GameArtIcon kind="ryo" size={16} /> Claim reward</>}</button>
+                                                    : <button disabled>In progress</button>}
                                         </div>
                                     </div>
                                 );

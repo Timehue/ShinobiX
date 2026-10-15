@@ -51,7 +51,7 @@ test('Fate Shards gate both named forge kinds when the mineral requirement is me
         await expect(wallet).toContainText('Fate Shards');
         await expect(wallet).toContainText('200 Fate Shards');
         await expect(wallet).not.toContainText(/Bone Charms|Aura Stones|Mythic Seals|forge pts/);
-        await expect(page.getByRole('button', { name: /^Roll Named/ })).toBeDisabled();
+        await expect(page.getByRole('button', { name: /^Roll named/ })).toBeDisabled();
     }
     expect(requests).toEqual([]);
 });
@@ -64,7 +64,7 @@ test('weapon pop-out shows the sealed roll, stays open, and restores the Crafter
     await expect(odds).toContainText('24.5');
     await expect(odds).toContainText('14.3%');
     await expect(odds).toContainText('12.5% to appear per roll');
-    const opener = page.getByRole('button', { name: 'Roll Named Weapon · 20 Pristine Ore', exact: true });
+    const opener = page.getByRole('button', { name: 'Roll named weapon · 20 Pristine Ore', exact: true });
     await opener.click();
     const reveal = page.getByRole('dialog', { name: 'Named Weapon Roll', exact: true });
     await expect(reveal).toBeVisible();
@@ -89,7 +89,7 @@ test('weapon pop-out shows the sealed roll, stays open, and restores the Crafter
     await expect(reveal).toBeHidden();
     await expect(opener).toBeFocused();
     await expect(page.locator('.nw-result')).toContainText('26');
-    await expect(page.getByRole('button', { name: 'Forge Weapon', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Forge weapon', exact: true })).toBeVisible();
 });
 
 test('armor reveals the selected slot and omits damage reduction for gloves', async ({ page }, testInfo) => {
@@ -98,7 +98,7 @@ test('armor reveals the selected slot and omits damage reduction for gloves', as
     await page.locator('.cf-tabs').getByRole('button', { name: 'Armor', exact: true }).click();
     for (const [slot, label] of [['body', 'Chest'], ['hand', 'Gloves']]) {
         await page.locator('select.nw-input').selectOption(slot);
-        await page.getByRole('button', { name: 'Roll Named Armor · 16 Pristine Ore', exact: true }).click();
+        await page.getByRole('button', { name: 'Roll named armor · 16 Pristine Ore', exact: true }).click();
         const reveal = page.getByRole('dialog', { name: 'Named Armor Roll', exact: true });
         await expect(reveal).toContainText('Named Armor Awakened');
         await expect(reveal).toContainText(label);
@@ -117,9 +117,9 @@ test('failed rolls close the pop-out and permit a retry', async ({ page }) => {
     page.on('dialog', dialog => dialog.accept());
     await setup(page, { fail: true });
     await page.locator('.cf-tabs').getByRole('button', { name: 'Weapons', exact: true }).click();
-    await page.getByRole('button', { name: 'Roll Named Weapon · 20 Pristine Ore', exact: true }).click();
+    await page.getByRole('button', { name: 'Roll named weapon · 20 Pristine Ore', exact: true }).click();
     await expect(page.getByRole('dialog', { name: 'Named Weapon Roll', exact: true })).toBeHidden();
-    await expect(page.getByRole('button', { name: 'Roll Named Weapon · 20 Pristine Ore', exact: true })).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Roll named weapon · 20 Pristine Ore', exact: true })).toBeEnabled();
 });
 
 for (const [kind, tab, slot] of [['Weapon', 'Weapons', 'hand'], ['Armor', 'Armor', 'body'], ['Armor', 'Armor', 'hand']] as const) {
@@ -128,12 +128,12 @@ for (const [kind, tab, slot] of [['Weapon', 'Weapons', 'hand'], ['Armor', 'Armor
         const requests = await setup(page);
         await page.locator('.cf-tabs').getByRole('button', { name: tab, exact: true }).click();
         if (kind === 'Armor') await page.locator('select.nw-input').selectOption(slot);
-        await page.getByRole('button', { name: `Roll Named ${kind} · ${kind === 'Weapon' ? 20 : 16} Pristine Ore`, exact: true }).click();
+        await page.getByRole('button', { name: `Roll named ${kind.toLowerCase()} · ${kind === 'Weapon' ? 20 : 16} Pristine Ore`, exact: true }).click();
         const reveal = page.getByRole('dialog', { name: `Named ${kind} Roll`, exact: true });
         await reveal.getByRole('button', { name: 'Continue to Forge' }).click();
         await page.locator('.nw-result input[type="text"], .nw-result input:not([type])').fill('Integration Relic');
         await page.locator('.nw-result textarea').fill('Sealed by the forge.');
-        await page.getByRole('button', { name: `Forge ${kind}`, exact: true }).click();
+        await page.getByRole('button', { name: `Forge ${kind.toLowerCase()}`, exact: true }).click();
         await expect.poll(async () => JSON.parse((await page.getByTestId('forge-state').textContent())!).character.fateShards).toBe(0);
         const { character, creatorItems, saveVersion } = JSON.parse((await page.getByTestId('forge-state').textContent())!);
         expect(saveVersion).toBe(2);
@@ -156,6 +156,6 @@ for (const [kind, tab, slot] of [['Weapon', 'Weapons', 'hand'], ['Armor', 'Armor
         expect(requests[1]).toMatchObject({ token: 'namedForgeTestToken1234560', name: 'Integration Relic', flavorText: 'Sealed by the forge.' });
         expect(requests[1]).not.toHaveProperty('roll');
         await expect(page.locator('.nw-result')).toBeHidden();
-        await expect(page.getByRole('button', { name: `Roll Named ${kind} · ${kind === 'Weapon' ? 20 : 16} Pristine Ore`, exact: true })).toBeDisabled();
+        await expect(page.getByRole('button', { name: `Roll named ${kind.toLowerCase()} · ${kind === 'Weapon' ? 20 : 16} Pristine Ore`, exact: true })).toBeDisabled();
     });
 }

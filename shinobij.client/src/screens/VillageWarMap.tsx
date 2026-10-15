@@ -208,7 +208,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
             // Affordability against the LIVE pool, matching the merc tiers: a Kage
             // who cannot pay reads "Need … WR", not a button that only fails after
             // the round-trip.
-            declareAfford: wrAffordability(declareCost, myView?.warResources ?? 0, { verb: "Declare War", estimate: true }),
+            declareAfford: wrAffordability(declareCost, myView?.warResources ?? 0, { verb: "Declare war", estimate: true }),
             declareCost,
             participant,
             // A feed is worth the same to either side, in opposite directions.
@@ -474,14 +474,14 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                                         void act(`aband-${sec.sector}`, () => abandonSectorWar(character.name, sec.sector));
                                                     }}
                                                 >
-                                                    {busyLabel(busy, `aband-${sec.sector}`, "Conceding…", "Concede War")}
+                                                    {busyLabel(busy, `aband-${sec.sector}`, "Conceding…", "Concede war")}
                                                 </button>
                                             )}
                                             {contest && contest.winCondition === "card" && (myVillage === contest.attackerVillage || myVillage === contest.defenderVillage) && (
-                                                <button className="vwm-declare" disabled={!!busy} onClick={() => launchCardBattle(contest.id)}><GameArtIcon kind="cardHall" size={17} /> Card Battle</button>
+                                                <button className="vwm-declare" disabled={!!busy} onClick={() => launchCardBattle(contest.id)}><GameArtIcon kind="cardHall" size={17} /> Card battle</button>
                                             )}
                                             {contest && contest.winCondition === "pet" && (myVillage === contest.attackerVillage || myVillage === contest.defenderVillage) && (
-                                                <button className="vwm-declare" disabled={!!busy} onClick={() => launchPetBattle(contest.id)}><GameArtIcon kind="petTamer" size={17} /> Pet Battle</button>
+                                                <button className="vwm-declare" disabled={!!busy} onClick={() => launchPetBattle(contest.id)}><GameArtIcon kind="petTamer" size={17} /> Pet battle</button>
                                             )}
                                             {contest && contest.winCondition === "combat" && contest.attackerVillage === myVillage && garrisonAssaultable(contest) && (
                                                 <button
@@ -490,7 +490,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                                     title="No defender has fought here for hours — assault the sector's ANBU garrison instead. A real Solo PvE fight against the defending village's sealed ANBU; worth less than beating a real defender."
                                                     onClick={() => launchGarrisonAssault(sec.sector)}
                                                 >
-                                                    <GameArtIcon kind="guard" size={17} /> Assault Garrison
+                                                    <GameArtIcon kind="guard" size={17} /> Assault garrison
                                                 </button>
                                             )}
                                             {(mine || (v.village === myVillage && isElder)) && (

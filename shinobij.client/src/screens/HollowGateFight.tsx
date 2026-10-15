@@ -81,7 +81,7 @@ export function HollowGateFight({
                             <p className="story-fight-complete-kicker">Hollow Gate</p>
                             <h2>{title}</h2>
                             {settleState === "failed"
-                                ? <button onClick={retry}>Retry settlement</button>
+                                ? <button onClick={retry}>Try again</button>
                                 : settleState !== "settled" || !result
                                     ? <p>Verifying the sealed encounter…</p>
                                     : <><p className="story-fight-complete-rewards">{detail}</p><button onClick={finish}>Continue</button></>}

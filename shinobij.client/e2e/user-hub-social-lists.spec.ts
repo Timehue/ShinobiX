@@ -27,7 +27,7 @@ test("User Hub exposes manageable Friends and Blocked lists", async ({ page }) =
 
     await tabs.getByRole("button", { name: /Friends/ }).click();
     const friendName = page.getByLabel("Add a friend by player name");
-    const addFriend = page.getByRole("button", { name: "Add Friend" });
+    const addFriend = page.getByRole("button", { name: "Add friend" });
     await expect(friendName).toHaveAttribute("placeholder", "Enter exact player name…");
     await expect(addFriend).toBeDisabled();
     await friendName.fill("RivalNinja");
@@ -35,7 +35,7 @@ test("User Hub exposes manageable Friends and Blocked lists", async ({ page }) =
 
     await tabs.getByRole("button", { name: /Blocked/ }).click();
     const blockedName = page.getByLabel("Block a player by name");
-    const blockPlayer = page.getByRole("button", { name: "Block Player" });
+    const blockPlayer = page.getByRole("button", { name: "Block player" });
     await expect(blockedName).toHaveAttribute("placeholder", "Enter exact player name…");
     await expect(blockPlayer).toBeDisabled();
     await blockedName.fill("RivalNinja");

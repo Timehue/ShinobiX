@@ -9,8 +9,8 @@
  * failures may reject.
  *
  * That decision is load-bearing. The completion awaits every callback before it
- * may ACK, and a rejection lands on the result screen as "Battle settlement
- * callbacks did not finish. Please retry." with Retry as the forward control —
+ * may ACK, and a rejection lands on the result screen as "Your result is not
+ * recorded yet." with Retry as the forward control —
  * so rejecting on an answer that a retry cannot change is a permanent lockout,
  * not a timeout. Cf. the same rule in `pvp-bounty.ts`.
  */

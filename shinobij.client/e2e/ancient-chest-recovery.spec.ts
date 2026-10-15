@@ -85,7 +85,7 @@ for (const replayed of [false, true]) {
                 if (skip) await reader.getByRole('button', { name: /^Skip$|Skip visual novel scene/ }).click();
                 else {
                     for (let line = 0; line < 15 && await reader.count(); line++) {
-                        const open = reader.getByRole('button', { name: 'Open Chest', exact: true });
+                        const open = reader.getByRole('button', { name: 'Open chest', exact: true });
                         if (await open.isVisible()) { await open.click(); break; }
                         const next = reader.locator('.vn-controls').getByRole('button', { name: /^(Next|Continue)$/ });
                         await expect(next).toBeVisible();

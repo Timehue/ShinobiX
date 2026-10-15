@@ -100,7 +100,7 @@ test("a forge save keeps the regen earned while the save was in flight", async (
     await expect(page.locator('.app-shell[data-screen="bloodlineMaker"]')).toBeVisible();
     await openReviewStep(page);
 
-    const awaken = page.getByRole("button", { name: "Awaken Bloodline" });
+    const awaken = page.getByRole("button", { name: "Awaken bloodline" });
     await expect(awaken).toBeEnabled();
     await awaken.click();
     await expect.poll(() => held).toBe(1);

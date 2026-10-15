@@ -5,7 +5,7 @@
  * early, skipping, or refreshing loses nothing but the show.
  *
  * Flow: foil pack floats in → the player swipes across the perforation (or
- * taps the Tear Open fallback) → the strip flies off and the face-down stack
+ * taps the Tear open fallback) → the strip flies off and the face-down stack
  * pops out → each tap flips a card with a rarity-scaled flourish → summary fan
  * with NEW badges and an "open another" shortcut.
  *
@@ -505,7 +505,7 @@ export function CardPackOpening({
                                     className="pack-open-tearbtn"
                                     onClick={() => completeTear(1)}
                                 >
-                                    ✂ Tear Open
+                                    ✂ Tear open
                                 </button>
                             </>
                         )}
@@ -556,7 +556,7 @@ export function CardPackOpening({
                                     disabled={openAnotherDisabled}
                                     onClick={onOpenAnother}
                                 >
-                                    {openAnotherLabel ?? "Open Another"}
+                                    {openAnotherLabel ?? "Open another"}
                                 </button>
                             )}
                             <button type="button" className="pack-btn primary" onClick={onClose}>

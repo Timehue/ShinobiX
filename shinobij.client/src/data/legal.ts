@@ -19,8 +19,8 @@ export const LEGAL_PAGE_LINKS: ReadonlyArray<{ slug: LegalPageSlug; label: strin
     { slug: "purchases-and-refunds", label: "Purchases" },
     { slug: "cookies", label: "Cookies" },
     { slug: "copyright", label: "Copyright" },
-    { slug: "privacy-request", label: "Privacy Request" },
-    { slug: "delete-account", label: "Delete Account" },
+    { slug: "privacy-request", label: "Privacy request" },
+    { slug: "delete-account", label: "Delete account" },
     { slug: "notices", label: "Notices" },
 ];
 

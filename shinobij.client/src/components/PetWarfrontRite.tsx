@@ -666,7 +666,7 @@ function Interlude({ clash, blueBand, redBand, sharedImages }: {
                 </h3>
                 <p>{clash.blueStanding} standing · {clash.redStanding} of theirs</p>
                 <div className="wfr-interlude-edge">
-                    <span>Authoritative result</span>
+                    <span>Final result</span>
                     <strong>{won ? "Your band won the final clash" : clash.winner === "red" ? "Their band won the final clash" : "The final clash was drawn"}</strong>
                     <p>{firstKo ? `First KO: ${firstKo.name} at tick ${report.firstKo?.tick}` : "No knockout was recorded before the verdict."}</p>
                 </div>
@@ -782,7 +782,7 @@ function ReformPanel({ clash, band, enemyBand, formation, deployment, sharedImag
                     </ul>
                 </section>
                 <p className="wfr-reform-copy">Move any pet to any open cell, or hold this formation. Occupied cells select that pet; they never move a second pet for you.</p>
-                <p className="wfr-no-prediction">No outcome prediction. Locking seals your formation; the authoritative rematch decides the result.</p>
+                <p className="wfr-no-prediction">No outcome prediction. Locking seals your formation; the rematch decides the result.</p>
                 {!automatic ? (
                     <button type="button" className="wfr-report-ack" aria-label="Report read, re-form band" onClick={closeInitialReport}>
                         <span>Report read</span>
@@ -1329,7 +1329,7 @@ function WarfrontRiteMatch({
                     {settlementPending ? (
                         <div className="wfr-settling" role={onRetrySettlement ? "alert" : "status"}>
                             <p>{settlementDetail || "Recording the result…"}</p>
-                            {onRetrySettlement ? <button type="button" className="wfr-btn-ghost" onClick={onRetrySettlement}>Retry Settlement</button> : null}
+                            {onRetrySettlement ? <button type="button" className="wfr-btn-ghost" onClick={onRetrySettlement}>Try again</button> : null}
                         </div>
                     ) : null}
                     <div className="wfr-deploy-actions">

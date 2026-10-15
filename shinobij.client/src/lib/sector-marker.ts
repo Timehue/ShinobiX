@@ -61,6 +61,6 @@ export function sectorMarkerBox(tilePx: number, scale = 1): { w: number; h: numb
  * deliberate action in the Players Here panel) and made them paint 1.55x the
  * player's footprint. A ring COLOUR costs no extra pixels.
  */
-export const SECTOR_RING_SELF = "rgba(250, 204, 21, 0.95)";   // gold — matches your gold tile
+export const SECTOR_RING_SELF = "rgba(230, 196, 119, 0.95)";   // gold — matches your gold tile
 export const SECTOR_RING_PEER = "rgba(125, 211, 252, 0.95)";  // sky — another real person
 export const SECTOR_RING_AI = "rgba(255, 255, 255, 0.9)";     // white — the default; AI adds its own tell ring

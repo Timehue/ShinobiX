@@ -26,7 +26,7 @@
     transform: translate(-50%, -50%);
     background: repeating-conic-gradient(
         from 0deg at 50% 50%,
-        rgba(250, 204, 21, .12) 0deg 6deg,
+        rgba(230, 196, 119, .12) 0deg 6deg,
         transparent 6deg 18deg
     );
     opacity: .55;
@@ -48,9 +48,9 @@
     overscroll-behavior: contain;
     text-align: center;
     background: linear-gradient(180deg, rgba(26, 34, 56, .96), rgba(10, 16, 32, .98));
-    border: 1px solid rgba(250, 204, 21, .45);
+    border: 1px solid rgba(230, 196, 119, .45);
     border-radius: var(--r-lg);
-    box-shadow: 0 0 60px rgba(250, 204, 21, .25), var(--shadow-lg);
+    box-shadow: 0 0 60px rgba(230, 196, 119, .25), var(--shadow-lg);
     cursor: default;
     animation: rankup-pop .42s cubic-bezier(.2, .9, .3, 1.25);
 }
@@ -106,7 +106,7 @@
     font-size: 64px;
     line-height: 1;
     color: var(--gold);
-    text-shadow: 0 0 24px rgba(250, 204, 21, .7);
+    text-shadow: 0 0 24px rgba(230, 196, 119, .7);
     animation: rankup-emblem-in .5s cubic-bezier(.2, .9, .3, 1.4) .08s both;
 }
 
@@ -123,7 +123,7 @@
     font-size: var(--fs-2xl);
     font-weight: var(--fw-black);
     color: #fef3c7;
-    text-shadow: 0 2px 18px rgba(250, 204, 21, .45);
+    text-shadow: 0 2px 18px rgba(230, 196, 119, .45);
 }
 
 .rankup-cap {
@@ -144,7 +144,7 @@
 .rankup-continue {
     margin-top: var(--sp-3);
     color: var(--text-on-accent);
-    border: 1px solid rgba(250, 204, 21, .55);
+    border: 1px solid rgba(230, 196, 119, .55);
     background: linear-gradient(180deg, var(--gold-400), var(--gold-600));
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), var(--shadow-sm);
     font-family: var(--font-body);

@@ -157,7 +157,7 @@ async function logoutAndRelogin(page: Page, name: string) {
     await page.getByRole('button', { name: 'Use a name and password' }).click();
     await page.getByLabel('Name').fill(name);
     await page.getByPlaceholder('Enter your password').fill(PASSWORD);
-    await page.getByRole('button', { name: 'Enter Village' }).click();
+    await page.getByRole('button', { name: 'Enter village' }).click();
     await expect(loggedOut).toHaveCount(0);
 }
 

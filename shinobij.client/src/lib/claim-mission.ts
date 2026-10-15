@@ -212,7 +212,7 @@ export function claimReasonMessage(reason: string, result?: Extract<ClaimMission
         case "missing-pet": return "Requires a pet.";
         case "feature-disabled": return "This mission's feature is not enabled right now.";
         case "not-yet-unlocked": return "This mission is not unlocked for your character yet.";
-        case "unknown-mission": return "This mission is not available for server-authoritative rewards.";
+        case "unknown-mission": return "The server does not recognize this mission, so it cannot pay a reward.";
         case "already-claimed": return "You've already claimed this.";
         case "already-claimed-today": return "You've already claimed this today. Resets at midnight UTC.";
         case "no-save": return "Could not load your save. Try again.";

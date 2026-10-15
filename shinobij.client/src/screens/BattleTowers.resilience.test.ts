@@ -31,7 +31,7 @@ test("completed Tower sessions retain their recovery breadcrumb and reopen resul
 
 test("Tower settlement is explicit, retryable, and blocks accidental receipt loss", () => {
     assert.match(fight, /phase: "error",\s*message:/);
-    assert.match(fight, /Retry settlement/);
+    assert.match(fight, /onClick=\{onRetry\}>Try again</);
     assert.match(fight, /response\.settled !== true/);
     assert.match(fight, /aria-disabled=\{!resultCanExit\}/);
     assert.equal(fight.match(/\sdisabled=\{!resultCanExit\}/g)?.length, 4, "all result exits must be natively disabled before settlement is confirmed");
