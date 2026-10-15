@@ -8,6 +8,8 @@ const riteSpec = readFileSync(new URL('../shinobij.client/e2e-warfront/rite.spec
 const modelLifecycleSpec = readFileSync(new URL('../shinobij.client/e2e-warfront/model-resource-lifecycle.spec.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 
 const occurrences = (needle) => workflow.split(needle).length - 1;
+const responsiveShards = () => workflow.split('  e2e_responsive_matrix:\n')[1]?.split('\n  e2e_responsive_flows:\n')[0];
+const responsiveFlows = () => workflow.split('  e2e_responsive_flows:\n')[1]?.split('\n  e2e_responsive:\n')[0];
 
 test('split CI exposes stable required check names with bounded jobs', () => {
     const requiredNames = [
@@ -90,13 +92,17 @@ test('client release artifact requires the complete pet asset chain', () => {
 test('responsive browser discovery installs runtime and direct QA build dependencies', () => {
     // A client-only install passes locally when an earlier root install exists,
     // but fails while discovering the ranked replay fixture on a fresh runner.
-    const responsive = workflow.split('  e2e_responsive_matrix:\n')[1]?.split('\n  e2e_responsive:\n')[0];
-    assert.match(responsive, /shard: \[1, 2, 3, 4, 5\]/, 'every responsive shard must be scheduled');
+    const responsive = responsiveShards();
     assert.ok(responsive, 'the responsive shard job must exist');
+    assert.match(responsive, /shard: \[1, 2, 3, 4, 5\]/, 'every responsive shard must be scheduled');
     const rootInstall = responsive.search(/run: npm ci 2>&1/);
     const browserRun = responsive.indexOf('run: npm run test:e2e --prefix shinobij.client');
     assert.ok(rootInstall >= 0 && browserRun > rootInstall,
         'fresh responsive shards must install root runtime and dev tooling before loading browser specs');
+    const flows = responsiveFlows();
+    assert.ok(flows, 'the responsive flow job must exist');
+    assert.ok(flows.search(/run: npm ci 2>&1/) >= 0 && flows.search(/run: npm ci 2>&1/) < flows.indexOf('scripts/stronghold-browser-qa.mjs'),
+        'Stronghold QA builds its fixture with the root tsx/esbuild tooling');
     const rootPackage = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
     for (const tool of ['tsx', 'esbuild']) assert.ok(rootPackage.devDependencies[tool], `${tool} must be a direct QA dependency`);
 });
@@ -105,10 +111,10 @@ test('Pet Gauntlet renderer regression runs as a dedicated source fixture in CI'
     const playwrightConfig = readFileSync(new URL('../shinobij.client/playwright.config.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
     assert.match(playwrightConfig, /SOURCE_FIXTURE_SPECS\s*=\s*\[[^\]]*pet-gauntlet-board\.spec\.ts/,
         'the immutable production-preview suite must leave the Vite source fixture to its dedicated config');
-    const responsive = workflow.split('  e2e_responsive_matrix:\n')[1]?.split('\n  e2e_responsive:\n')[0];
-    const step = responsive?.split(/\n(?=      - name: )/).find((value) => value.startsWith('      - name: Pet Gauntlet playback and renderer recovery\n'));
+    const flows = responsiveFlows();
+    const step = flows?.split(/\n(?=      - name: )/).find((value) => value.startsWith('      - name: Pet Gauntlet playback and renderer recovery\n'));
     assert.ok(step, 'the required responsive job must execute the renderer recovery check');
-    assert.match(step, /if: \$\{\{ matrix\.shard == 1 \}\}/, 'the expensive source fixture must run once');
+    assert.match(step, /if: \$\{\{ matrix\.shard == 2 \}\}/, 'the expensive source fixture must run once');
     assert.match(step, /xvfb-run -a npm run test:e2e:gauntlet-render --prefix shinobij\.client/,
         'the headful WebGL regression needs a virtual display on the Linux CI runner');
     assert.match(step, /2>&1 \| tee \.ci-evidence\/e2e-responsive-.*\/gauntlet-render\.log/,
@@ -116,24 +122,38 @@ test('Pet Gauntlet renderer regression runs as a dedicated source fixture in CI'
 });
 
 test('built CSP and every Stronghold audit feed the required responsive gate with retained evidence', () => {
-    const responsive = workflow.split('  e2e_responsive_matrix:\n')[1]?.split('\n  e2e_responsive:\n')[0];
+    const responsive = responsiveShards();
+    const flows = responsiveFlows();
     // GitHub's implicit Bash shell does not enable pipefail. All these gates
     // pipe into tee, so preserving the explicit shell is part of enforcement.
     assert.match(workflow, /defaults:\n  run:\n    shell: bash\n/);
     assert.doesNotMatch(responsive, /^\s+shell:/m, 'responsive gates must inherit the explicit Bash shell');
-    const steps = responsive.split('      - name: ');
+    assert.doesNotMatch(flows, /^\s+shell:/m, 'responsive flow gates must inherit the explicit Bash shell');
+    // The smoke shards run only their slice. Every other responsive gate runs
+    // beside them in the flow job, so a slow slice cannot starve it of time.
+    assert.deepEqual(
+        responsive.split('\n').filter(line => /^      - name: /.test(line)).map(line => line.slice(14)),
+        ['Initialize evidence', 'Require successful release artifact', 'Install server runtime and QA dependencies',
+            'Install client dependencies', 'Download joined release artifact', 'Verify and extract exact release artifact',
+            'Install release browsers', 'Cross-browser responsive and accessibility smoke', 'Retain responsive browser evidence'],
+        'responsive smoke shards must not regain trailing suites',
+    );
+    const smoke = responsive.split('      - name: ').find(value => value.startsWith('Cross-browser responsive and accessibility smoke\n'));
+    const stepTimeout = Number(smoke?.match(/timeout-minutes: (\d+)/)?.[1]);
+    const jobTimeout = Number(responsive.match(/^    timeout-minutes: (\d+)/m)?.[1]);
+    assert.ok(stepTimeout > 0 && stepTimeout < jobTimeout,
+        'a hung smoke slice must fail before the job ceiling so its evidence still uploads');
+    const steps = flows.split('      - name: ');
     const gates = [
         ['node --test scripts/check-http-security-browser.mjs', 1],
-        ['node scripts/stronghold-browser-qa.mjs --output=', 2],
-        ['node scripts/stronghold-browser-qa.mjs --dismissal --output=', 2],
-        ['node scripts/stronghold-browser-qa.mjs --resources --output=', 2],
+        ['node scripts/stronghold-browser-qa.mjs --output=', 1],
+        ['node scripts/stronghold-browser-qa.mjs --dismissal --output=', 1],
+        ['node scripts/stronghold-browser-qa.mjs --resources --output=', 1],
     ];
     for (const [command, shard] of gates) {
         const step = steps.find(value => value.includes(`run: ${command}`));
         assert.ok(step, `missing responsive gate: ${command}`);
-        assert.ok(responsive.indexOf(`run: ${command}`) < responsive.indexOf('run: npm run test:e2e --prefix shinobij.client'),
-            `${command} must surface focused failures before the long browser matrix`);
-        assert.ok(step.includes(`if: \${{ matrix.shard == ${shard} }}`), `${command} must run once on its assigned shard`);
+        assert.ok(step.includes(`if: \${{ matrix.shard == ${shard} }}`), `${command} must run once on its assigned flow shard`);
         assert.doesNotMatch(step, /continue-on-error|--baseline/, `${command} must enforce its assertions`);
         assert.match(step, /2>&1 \| tee .*\.ci-evidence\/e2e-responsive-.*\.log/);
         if (command.includes('stronghold-browser')) {
@@ -142,10 +162,19 @@ test('built CSP and every Stronghold audit feed the required responsive gate wit
             assert.match(step, /SHINOBIX_QA_MEMORY_KV: '1'/);
         }
     }
+    // Stronghold modes share one disposable fixture directory, so they must stay
+    // sequential on one flow shard, in this order.
+    const strongholdOrder = ['--output=', '--dismissal --output=', '--resources --output=']
+        .map(flag => flows.indexOf(`run: node scripts/stronghold-browser-qa.mjs ${flag}`));
+    assert.deepEqual([...strongholdOrder].sort((a, b) => a - b), strongholdOrder);
     assert.match(responsive, /name: Retain responsive browser evidence\n\s+if: always\(\)/);
+    assert.match(flows, /name: Retain responsive flow evidence\n\s+if: always\(\)/);
+    assert.match(flows, /shard: \[1, 2\]/, 'every responsive flow shard must be scheduled');
+    assert.match(flows, /needs: release_artifact\n\s+if: \$\{\{ always\(\) \}\}/);
     const aggregate = workflow.split('  e2e_responsive:\n')[1]?.split('\n  e2e_combat_matrix:\n')[0];
-    assert.match(aggregate, /needs: e2e_responsive_matrix/);
+    assert.match(aggregate, /needs: \[e2e_responsive_matrix, e2e_responsive_flows\]/);
     assert.ok(aggregate.includes('test "$RESPONSIVE_MATRIX" = success'));
+    assert.ok(aggregate.includes('test "$RESPONSIVE_FLOWS" = success'), 'the required aggregate must fail when a flow shard fails');
 });
 
 test('artifact consumers verify immutable provenance and failure evidence stays reachable', () => {
@@ -354,13 +383,13 @@ test('every workflow takes its Node version from .nvmrc', () => {
 });
 
 test('named forge and Chronicle packs run every dedicated project in required CI', () => {
-    const responsive = workflow.split('  e2e_responsive_matrix:\n')[1]?.split('\n  e2e_responsive:\n')[0];
+    const flows = responsiveFlows();
     for (const [label, config, shard, log] of [
-        ['Named forge purchase and recovery', 'playwright.named-forge.config.ts', 4, 'named-forge.log'],
-        ['Chronicle pack purchase and recovery', 'playwright.chronicle-packs.config.ts', 5, 'chronicle-packs.log'],
-        ['Rally renderer recovery', 'playwright.rally-recovery.config.ts', 4, 'rally-recovery.log'],
+        ['Named forge purchase and recovery', 'playwright.named-forge.config.ts', 2, 'named-forge.log'],
+        ['Chronicle pack purchase and recovery', 'playwright.chronicle-packs.config.ts', 2, 'chronicle-packs.log'],
+        ['Rally renderer recovery', 'playwright.rally-recovery.config.ts', 2, 'rally-recovery.log'],
     ]) {
-        const step = responsive?.split('      - name: ').find(value => value.startsWith(`${label}\n`));
+        const step = flows?.split('      - name: ').find(value => value.startsWith(`${label}\n`));
         assert.ok(step, `${label} must run in the required responsive job`);
         assert.ok(step.includes(`matrix.shard == ${shard}`));
         assert.ok(step.includes(`--config ${config} --retries=0 --forbid-only`));
