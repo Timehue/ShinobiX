@@ -1,6 +1,19 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator } from '@playwright/test';
 import type { CardPackOpen, CardPackType } from '../../api/card-clash/_pack';
 import { packArtUrl, packTheme } from '../src/lib/card-pack-reveal';
+
+async function tearOpenPack(opening: Locator) {
+    // The tear button travels with the bouncing wrapper entrance. A momentary
+    // pause near its turning point can look stable to pointer actionability;
+    // wait for the entrance to finish before placing the tear click.
+    await opening.evaluate(async (element) => {
+        await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+        await Promise.all(element.getAnimations({ subtree: true })
+            .filter((animation) => Number.isFinite(animation.effect?.getComputedTiming().iterations))
+            .map((animation) => animation.finished.catch(() => undefined)));
+    });
+    await opening.getByRole('button', { name: /Tear open/ }).click();
+}
 
 test('elemental purchase adopts the save, uses its wrapper art, and opens the existing reveal', async ({ page }) => {
     const requests: Array<{ packType: string; requestId: string }> = [];
@@ -81,7 +94,7 @@ for (const [packType, rarity, label, cost] of [
         await expect(opening).toHaveCSS('--pack-art', `url("/chronicle/packs/${packType}.webp")`);
         await expect(opening.locator('.pack-foil__ribbon')).toHaveText(`${label} · 5 cards`);
         await opening.screenshot({ path: testInfo.outputPath(`${packType}-foil.png`), animations: 'disabled' });
-        await opening.getByRole('button', { name: /Tear open/ }).click();
+        await tearOpenPack(opening);
         for (let i = 0; i < 5; i++) {
             await opening.getByRole('button', { name: 'Flip the top card', exact: true }).click();
             const revealed = opening.getByRole('button', { name: /revealed — continue/ });
@@ -145,7 +158,7 @@ test('every pack connects its listing to the server draw, foil, duplicate summar
         await expect(opening).toHaveCSS('--pack-art', `url("${packArtUrl(type)}")`);
         const count = type === 'epic' || type === 'legendary' ? 1 : 5;
         await expect(opening.locator('.pack-foil__ribbon')).toHaveText(`${label} · ${count} ${count === 1 ? 'card' : 'cards'}`);
-        await opening.getByRole('button', { name: /Tear open/ }).click();
+        await tearOpenPack(opening);
         await expect(opening.getByRole('button', { name: 'Flip the top card', exact: true })).toBeVisible();
         await opening.getByRole('button', { name: /Skip/ }).click();
         await expect(opening.locator('.pack-summary__card')).toHaveCount(count);
