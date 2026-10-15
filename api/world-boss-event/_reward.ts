@@ -28,6 +28,20 @@ function rewardReceiptId(eventId: string, slug: string): string {
     return `wbe_${createHash('sha256').update(`${eventId}:${slug}`).digest('hex').slice(0, 32)}`;
 }
 
+/** The reward a stored receipt records, and nothing else. The save merge pairs
+ *  receipts by position (they carry no `id`), so a stored value can also hold
+ *  keys from the receipt that preceded it, such as the raid's pve-outcome. */
+function replayedReward(value: Record<string, unknown>): WorldBossRewardReceipt {
+    const whole = (raw: unknown) => Math.max(0, Math.floor(Number(raw) || 0));
+    return {
+        ryo: whole(value.ryo),
+        statPoints: whole(value.statPoints),
+        boneCharms: whole(value.boneCharms),
+        itemIds: Array.isArray(value.itemIds) ? value.itemIds.filter((item): item is string => typeof item === 'string') : [],
+        ...(typeof value.gearDrop === 'string' ? { gearDrop: value.gearDrop } : {}),
+    };
+}
+
 /** Once-per-event account-bound package; every item and currency is saved under one receipt. */
 export async function settleWorldBossReward(input: {
     eventId: string;
@@ -40,7 +54,7 @@ export async function settleWorldBossReward(input: {
     const result = await retryOnSaveVersionConflict(() => mutatePlayerSave<WorldBossRewardReceipt>(input.playerSlug, ({ character }) => {
         const inspected = inspectSettlementReceipt(character, requestId, fingerprint);
         if (inspected.status === 'replay') {
-            return { ok: true, write: false, character, value: inspected.receipt.value as WorldBossRewardReceipt };
+            return { ok: true, write: false, character, value: replayedReward(inspected.receipt.value) };
         }
         if (inspected.status !== 'fresh') throw new Error('World boss reward receipt is not safe to replay.');
         if (!receiptAbsenceProvable(inspected.receipts, SERVER_SETTLEMENT_RECEIPT_LIMIT, 'settledAt', input.eventStartedAt)) {
