@@ -134,6 +134,33 @@ describe('serverSettlementReceipts through the save merge', { concurrency: false
         assert.deepEqual(Object.keys(map), ['pvp-settlement-new-0001']);
     });
 
+    it('the admin save path keeps PvP receipts an older posted body lacks', async () => {
+        const { keepStoredPvpRewardReceipts } = await import('../pvp/_reward-settlement.js');
+        const stored = { name: 'admin-edit', pvpRewardSettlementReceipts: {
+            'battle-settled-before-0001': { fingerprint: 'fp-a', settledAt: 1 },
+            'battle-settled-since-00001': { fingerprint: 'fp-b', settledAt: 2 },
+        } };
+        // The admin posts a copy read before the second battle settled.
+        const posted = { name: 'admin-edit', pvpRewardSettlementReceipts: { 'battle-settled-before-0001': { fingerprint: 'fp-a', settledAt: 1 } } };
+        const merged = mergePreservingImages({ character: posted }, { character: stored }) as Json;
+        assert.deepEqual(Object.keys((merged.character as Json).pvpRewardSettlementReceipts as Json), ['battle-settled-before-0001'],
+            'the generic merge alone now takes the posted map verbatim');
+        const kept = keepStoredPvpRewardReceipts(merged.character as Json, stored);
+        assert.deepEqual(kept.pvpRewardSettlementReceipts, stored.pvpRewardSettlementReceipts);
+        // Nothing stored, or a body with no map: unchanged.
+        assert.equal(keepStoredPvpRewardReceipts(posted, {}), posted);
+        assert.deepEqual(keepStoredPvpRewardReceipts({ name: 'x' }, stored).pvpRewardSettlementReceipts, stored.pvpRewardSettlementReceipts);
+
+        const { readFileSync } = await import('node:fs');
+        const { join } = await import('node:path');
+        const src = readFileSync(join(process.cwd(), 'api', 'save', '[name].ts'), 'utf8');
+        const start = src.indexOf('// ── Admin save path (?signal=1)');
+        const end = src.indexOf("if (req.method === 'DELETE')");
+        assert.ok(start >= 0 && end > start, 'admin branch located');
+        const adminBranch = src.slice(start, end);
+        assert.match(adminBranch, /keepStoredPvpRewardReceipts\(/, 'the admin write keeps the stored PvP receipt journal');
+    });
+
     it('ownReceiptValue keeps only the keys a replay asks for', () => {
         // A receipt stored before the fix: its own keys plus inherited ones.
         const blended = { cooked: 2, dailyCooked: 3, dailyCap: 10, kind: 'pve-outcome', runId: 'run-1', recipe: 'other' };
