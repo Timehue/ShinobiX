@@ -990,7 +990,7 @@
     "blurb": "Deck rules, Tribute summons, Snares, elemental matchups, target previews, packs, practice, and Legacy progress.",
     "audience": "Collectors and tacticians",
     "readMinutes": 8,
-    "reviewedAt": "August 2026",
+    "reviewedAt": "October 2026",
     "hero": "chronicle",
     "heroAlt": "A Shinobi Chronicle Showdown board with opposing fields and card zones.",
     "heroPosition": "center center",
@@ -1038,11 +1038,11 @@
         "blocks": [
           {
             "type": "p",
-            "text": "Draw, Standby, and End resolve automatically. In Main, you may Summon or Set once for the turn, play support, and arrange the field. In Battle, choose attacks and targets. Smart Phase Assist advances routine phases, but you still choose every summon, set, and attack."
+            "text": "Draw, Standby, and End resolve automatically. The player who takes the first turn skips that turn's draw. In Main, you may Summon or Set once for the turn, play support, and arrange the field. In Battle, choose attacks and targets. Smart Phase Assist advances routine phases, but you still choose every summon, set, and attack."
           },
           {
             "type": "p",
-            "text": "Level 1–4 Monsters need no Tribute, level 5–6 need one, and level 7–8 need two. Snares must be Set for a turn before they can respond, and only one matching Snare response can fire. Target badges show the expected result before you confirm."
+            "text": "Level 1–4 Monsters need no Tribute, level 5–6 need one, and level 7–8 need two. Legendary Jutsu open two other routes: Shadow Clone Summons two Shadow Doubles you can Tribute from the next turn, and each Call Jutsu Summons its own Level 8 beast for 1,000 Health. Every other level 7–8 Monster is Warded: Snares cannot destroy it or return it to the hand during the turn it is Summoned. Snares must be Set for a turn before they can respond, and only one matching Snare response can fire. Target badges show the expected result before you confirm."
           },
           {
             "type": "callout",

@@ -1,6 +1,7 @@
 import { memo } from "react";
 import type { CSSProperties, ReactElement } from "react";
 import type { ChronicleDisplayCard } from "../lib/chronicle-duel";
+import { WARDED_KEYWORD, WARDED_RULE_TEXT } from "../../../shared/chronicle-keywords";
 import { chronicleCardArtSrcSet, CARD_ART_SIZES_DEFAULT, ELEMENT } from "../lib/chronicle-card-art";
 
 
@@ -127,9 +128,14 @@ export const ChronicleCardView = memo(function ChronicleCardView({
     "--chronicle-rarity": RARITY[card.rarity],
     "--chronicle-element": element.color,
   } as CSSProperties;
+  // Warded is a keyword, not the card's effect, so it leads the rules text on
+  // Normal and Effect Monsters alike. The face prints the keyword alone (its
+  // text box is fixed-height); the label and the inspector carry the full rule.
+  const warded = card.cardClass === "monster" && card.warded === true;
+  const wardedLine = warded ? `${WARDED_KEYWORD} ` : "";
   const details =
     card.cardClass === "monster"
-      ? `Level ${card.level} ${card.element} ${card.monsterType} Monster. ATK ${card.attack}, DEF ${card.defense}. ${card.monsterType === "effect" ? card.effectText : card.lore}`
+      ? `Level ${card.level} ${card.element} ${card.monsterType} Monster. ATK ${card.attack}, DEF ${card.defense}. ${warded ? `${WARDED_RULE_TEXT} ` : ""}${card.monsterType === "effect" ? card.effectText : card.lore}`
       : `${card.cardClass === "magic" ? `${card.magicType} Jutsu` : `${card.trapType} Snare`}. ${card.effectText} ${card.lore}`;
   const classLabel =
     card.cardClass === "monster"
@@ -146,11 +152,12 @@ export const ChronicleCardView = memo(function ChronicleCardView({
         ? `${card.magicType.toUpperCase()} JUTSU`
         : `${card.trapType.toUpperCase()} SNARE`;
   const rulesText =
-    card.cardClass === "monster"
+    wardedLine +
+    (card.cardClass === "monster"
       ? card.monsterType === "effect"
         ? card.effectText
         : card.lore
-      : card.effectText;
+      : card.effectText);
   const taxonomy =
     card.cardClass === "monster"
       ? `${card.family.toUpperCase()} / ${card.monsterType === "effect" ? "EFFECT" : "NORMAL"} MONSTER`

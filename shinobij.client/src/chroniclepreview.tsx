@@ -10,6 +10,7 @@ import {
   CHRONICLE_RULES_VERSION,
   createMatch,
   displayCardsById,
+  displayCatalog,
   projectMatchForViewer,
 } from "./lib/chronicle-duel";
 import { getAllTileCards } from "./data/tile-cards";
@@ -41,6 +42,8 @@ import "./styles/layout/adaptive-stages.css";
 // emblem/field/scene art for support) so visual reviews here match
 // what players actually see.
 const cardsById = displayCardsById(getAllTileCards([]));
+// Collection and deck views list collectible cards only: no field tokens.
+const collectibleCards = displayCatalog(getAllTileCards([]));
 
 const monsters = CHRONICLE_CARD_CATALOG.filter(
   (card) => card.cardClass === "monster",
@@ -278,8 +281,8 @@ function LibraryHarness() {
   const owned = new Map(CHRONICLE_CARD_CATALOG.map(card=>[card.id,card.id === "tc-03" ? 1 : 3]));
   return <main className="chronicle-shell">
     {new URLSearchParams(location.search).get("library") === "collection"
-      ? <Collection cards={Object.values(cardsById)} owned={owned} catalogSize={CHRONICLE_CARD_CATALOG.length}/>
-      : <DeckBuilder cards={Object.values(cardsById)} cardsById={cardsById} owned={owned} deck={deck} setDeck={setDeck} validation={validateOwnedChronicleDeck(deck,owned)} dirty={JSON.stringify(deck)!==JSON.stringify(saved)} onSave={()=>setSaved([...deck])} onMigrate={()=>setDeck([...CHRONICLE_FIXED_FALLBACK_DECK])}/>}
+      ? <Collection cards={collectibleCards} owned={owned} catalogSize={CHRONICLE_CARD_CATALOG.length}/>
+      : <DeckBuilder cards={collectibleCards} cardsById={cardsById} owned={owned} deck={deck} setDeck={setDeck} validation={validateOwnedChronicleDeck(deck,owned)} dirty={JSON.stringify(deck)!==JSON.stringify(saved)} onSave={()=>setSaved([...deck])} onMigrate={()=>setDeck([...CHRONICLE_FIXED_FALLBACK_DECK])}/>}
     <output hidden data-testid="saved-deck">{saved.length}</output>
   </main>;
 }

@@ -27,6 +27,38 @@ test('each elemental Basic pack draws five matching Monsters for 100 Chronicle P
     }
 });
 
+test('Summoning Calls, their Monsters and Shadow Clone come from the Legendary packs', () => {
+    // Owner ruling 2026-10-14: all eleven are Legendary and Legendary-pack-only.
+    const added = [
+        'chronicle-call-of-the-cinderhorn', 'summon-cinderhorn-qilin',
+        'chronicle-call-of-the-rimetide', 'summon-rimetide-leviathan',
+        'chronicle-call-of-the-ironroot', 'summon-ironroot-tortoise',
+        'chronicle-call-of-the-galewing', 'summon-galewing-tengu',
+        'chronicle-call-of-the-stormcrown', 'summon-stormcrown-raiju',
+        'chronicle-shadow-clone',
+    ];
+    const legendaryPool = new Set<string>();
+    let poolSize = 1;
+    for (let index = 0; index < poolSize; index++) {
+        const opened = applyCardPackOpen({ fateShards: 30, tileCards: [] }, 'legendary', (max) => {
+            poolSize = max;
+            return index;
+        });
+        assert.equal(opened.ok, true);
+        if (opened.ok) legendaryPool.add(opened.cards[0]);
+    }
+    for (const id of added) {
+        assert.equal(getChronicleCard(id)?.rarity, 'legendary', id);
+        assert.equal(isMarketplaceCard(id), true, `${id} sells in the Grand Marketplace`);
+        assert.ok(legendaryPool.has(id), `${id} drops from the Legendary pack`);
+    }
+    // And never from the Basic (Chronicle Point) packs.
+    const basicPool = Object.entries(BUILTIN_CLASH)
+        .filter(([id, card]) => ['common', 'rare'].includes(card.rarity) && !isMarketplaceCard(id))
+        .map(([id]) => id);
+    for (const id of added) assert.equal(basicPool.includes(id), false, id);
+});
+
 test('the Random Pack keeps neutral Jutsu and Snares in its mixed Basic pool', () => {
     const pool = Object.entries(BUILTIN_CLASH)
         .filter(([id, card]) => ['common', 'rare'].includes(card.rarity) && !isMarketplaceCard(id))

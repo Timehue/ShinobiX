@@ -5,6 +5,7 @@ import {
   CHRONICLE_CARD_CATALOG,
   CHRONICLE_FIXED_FALLBACK_DECK,
   MAIN_DECK_SIZE,
+  elementBattleBonus,
   getChronicleCard,
   tributeCountForLevel,
   validateDeckIds,
@@ -15,12 +16,18 @@ import {
  * A Flip-effect Monster the AI can Set for free. Power tier is independent of
  * rarity now, so a card's Level moves with balance — naming one and assuming it
  * Sets without Tributes is exactly the assumption that breaks.
+ *
+ * Its effect must be one the AI reveals on an EMPTY opposing board (draw,
+ * cycle, heal). "Destroy their strongest" is held until there is a target, so
+ * a fixture that happened to pick it would not flip — correctly.
  */
+const UNCONDITIONAL_FLIPS = new Set(["drawOnFlip", "cycleHandsOnFlip", "healOnFlip"]);
 function freeFlipMonster(): string {
   const found = CHRONICLE_CARD_CATALOG.find(
     (card) =>
       card.cardClass === "monster" &&
       card.monsterEffect?.trigger === "onFlip" &&
+      UNCONDITIONAL_FLIPS.has(card.monsterEffect.kind) &&
       tributeCountForLevel(card.level) === 0,
   );
   assert.ok(found, "no Flip Monster summons without Tributes");
@@ -51,6 +58,28 @@ test("AI deck is a legal 40-card Chronicle deck at every difficulty band", () =>
       .length,
     2,
   );
+});
+
+test("Keeper decks keep a curve they can actually summon", () => {
+  // A deck's curve is not stored anywhere: it falls out of each card's Level,
+  // and Levels are a balance decision that moves. Crimson Tempest was written
+  // as 19 free bodies, 3 one-Tribute and 2 two-Tribute Monsters; a re-tier in
+  // 2026-08 silently turned it into 5 / 11 / 8, and "Hard" stopped being hard.
+  // The 2026-10-14 balance pass tuned it to 16 / 5 / 3 against the simulator.
+  const curve = (deck: readonly string[]) => {
+    const bands = [0, 0, 0];
+    for (const id of deck) {
+      const card = getChronicleCard(id);
+      if (card?.cardClass === "monster") bands[tributeCountForLevel(card.level)]++;
+    }
+    return bands;
+  };
+  assert.deepEqual(curve(CHRONICLE_AI_DECKS.hard), [16, 5, 3]);
+  for (const difficulty of CHRONICLE_AI_DIFFICULTIES) {
+    const [free, one, two] = curve(CHRONICLE_AI_DECKS[difficulty]);
+    assert.ok(free >= 12, `${difficulty} fields only ${free} free-summon Monsters`);
+    assert.ok(one + two <= free, `${difficulty} holds ${one + two} Tribute Monsters for ${free} free bodies`);
+  }
 });
 
 test("AI resumes after a player's Smoke Bomb without retrying its stopped attacker", () => {
@@ -145,10 +174,76 @@ test("AI Sets concealed Flip Monsters and later reveals useful Flip effects", ()
   session.state.phase = "main1";
   session.state.normalSummonUsed = false;
   advanceAi(session, 4_000);
-  const revealedLookout = session.state.p2.monsterZones.find(
-    (monster) => monster?.cardId === lookoutId,
+  // Assert the reveal itself. Once flipped, the card may legitimately leave the
+  // board in the same turn: a "draw 1" can hand the AI a Tribute Monster, and
+  // the flipped body is its only Tribute.
+  assert.ok(
+    session.state.events?.some(
+      (event) => event.kind === "monster-flipped" && event.cardId === lookoutId,
+    ),
+    "the AI Flip Summons its useful Flip Monster",
   );
-  assert.equal(revealedLookout?.faceUp, true);
+});
+
+/** A Keeper session on its own Main Phase 1, hand and board set by the test. */
+function keeperTurn(hand: string[], turnNumber = 2) {
+  const session = createAiMatch("match-new-jutsu", "Tester", [...CHRONICLE_FIXED_FALLBACK_DECK], "medium", 1_000, () => 0);
+  const state = session.state;
+  state.activePlayer = "p2";
+  state.turnNumber = turnNumber;
+  state.phase = "main1";
+  state.normalSummonUsed = false;
+  state.p2.hand = hand;
+  state.p2.monsterZones = state.p2.monsterZones.map(() => null);
+  state.p2.magicTrapZones = state.p2.magicTrapZones.map(() => null);
+  state.p1.magicTrapZones = state.p1.magicTrapZones.map(() => null);
+  return session;
+}
+
+test("the Keeper casts a Summoning Call when it holds both halves", () => {
+  const call = CHRONICLE_CARD_CATALOG.find(
+    (card) => card.cardClass === "magic" && card.effect.kind === "callSummon",
+  );
+  assert.ok(call?.cardClass === "magic");
+  const calledId = call.effect.calledMonsterId ?? "";
+  const session = keeperTurn([call.id, calledId]);
+  advanceAi(session, 2_000);
+  assert.ok(
+    session.state.p2.monsterZones.some((monster) => monster?.cardId === calledId),
+    "the called Monster is on the Keeper's field",
+  );
+  assert.ok(session.state.p2.graveyard.includes(call.id));
+});
+
+test("the Keeper casts Shadow Clone for a waiting two-Tribute Monster and spends the Doubles next turn", () => {
+  const boss = CHRONICLE_CARD_CATALOG.find(
+    (card) =>
+      card.cardClass === "monster" &&
+      tributeCountForLevel(card.level) === 2 &&
+      card.monsterEffect?.kind !== "callSummonOnly",
+  );
+  assert.ok(boss);
+  const session = keeperTurn(["chronicle-shadow-clone", boss.id], 2);
+  advanceAi(session, 2_000);
+  const doubles = session.state.p2.monsterZones.filter(
+    (monster) => monster?.cardId === "chronicle-shadow-double",
+  );
+  assert.equal(doubles.length, 2, "two Shadow Doubles wait on the field");
+  assert.ok(session.state.p2.hand.includes(boss.id), "the boss waits a turn");
+
+  session.state.activePlayer = "p2";
+  session.state.turnNumber = 4;
+  session.state.phase = "main1";
+  session.state.normalSummonUsed = false;
+  advanceAi(session, 4_000);
+  assert.ok(
+    session.state.p2.monsterZones.some((monster) => monster?.cardId === boss.id),
+    "the Keeper Tributes both Doubles for its Level 7-8 Monster",
+  );
+  assert.equal(
+    session.state.p2.monsterZones.some((monster) => monster?.cardId === "chronicle-shadow-double"),
+    false,
+  );
 });
 
 test("AI avoids a self-defeating Ring response when a safe attack negate is set", () => {
@@ -216,6 +311,68 @@ test("AI avoids a self-defeating Ring response when a safe attack negate is set"
   assert.equal(session.state.p2.magicTrapZones[1], null);
   assert.ok(session.state.p2.graveyard.includes("chronicle-smoke-bomb"));
   assert.equal(session.state.p2.lifePoints, 1_000);
+});
+
+test("Hard AI does not attack into a face-up Monster that gains ATK against stronger attackers", () => {
+  // The battle preview shows the defender's "+X vs a stronger Monster", and the
+  // engine applies it. The Keeper's own margin used to leave it out, so it
+  // attacked these cards and lost the battle. Searched by shape: a defender
+  // with the effect, and a vanilla attacker that out-ATKs it by less than X,
+  // with no element edge either way.
+  const monsters = CHRONICLE_CARD_CATALOG.flatMap((card) =>
+    card.cardClass === "monster" ? [card] : [],
+  );
+  let pair: { attacker: string; defender: string } | null = null;
+  for (const defender of monsters) {
+    const effect = defender.monsterEffect;
+    if (effect?.kind !== "gainAttackWhenBattlingStronger") continue;
+    const bonus = effect.amount ?? 0;
+    const attacker = monsters.find(
+      (card) =>
+        card.monsterType === "normal" &&
+        card.attack > defender.attack &&
+        card.attack < defender.attack + bonus &&
+        elementBattleBonus(card.element, defender.element) === 0 &&
+        elementBattleBonus(defender.element, card.element) === 0,
+    );
+    if (attacker) {
+      pair = { attacker: attacker.id, defender: defender.id };
+      break;
+    }
+  }
+  assert.ok(pair, "no attacker sits inside a battling-stronger bonus");
+
+  const session = createAiMatch("match-stronger-bonus", "Tester", [...CHRONICLE_FIXED_FALLBACK_DECK], "hard", 1_000, () => 0);
+  const state = session.state;
+  state.activePlayer = "p2";
+  state.turnNumber = 3;
+  state.phase = "battle";
+  state.p2.hand = [];
+  state.p2.monsterZones = state.p2.monsterZones.map(() => null);
+  state.p1.monsterZones = state.p1.monsterZones.map(() => null);
+  state.p1.magicTrapZones = state.p1.magicTrapZones.map(() => null);
+  const body = (cardId: string, owner: "p1" | "p2") => ({
+    instanceId: `${owner}-${cardId}`,
+    cardId,
+    owner,
+    zoneIndex: 0,
+    position: "attack" as const,
+    faceUp: true,
+    summonedOnTurn: 1,
+    lastPositionChangeTurn: 1,
+    lastAttackTurn: 0,
+    temporaryAttack: 0,
+    temporaryDefense: 0,
+  });
+  state.p2.monsterZones[0] = body(pair.attacker, "p2");
+  state.p1.monsterZones[0] = body(pair.defender, "p1");
+  advanceAi(session, 2_000);
+  assert.equal(
+    session.state.p2.monsterZones[0]?.lastAttackTurn,
+    0,
+    "the Keeper holds back instead of losing its Monster",
+  );
+  assert.equal(session.state.p1.monsterZones[0]?.cardId, pair.defender);
 });
 
 test("Hard AI removes the strongest visible legal target", () => {
