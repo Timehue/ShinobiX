@@ -356,7 +356,7 @@ function LandingMain({ onOpenCreate, onOpenLogin, onOpenGuides, onOpenLeaderboar
                     </button>
                     <button type="button" className="landing-feature-card" data-landing-reveal="card" onClick={() => scrollTo('landing-gameplay')}>
                         <img src="/landing-clanwar-v2.webp" alt="Shinobi gather beneath crimson banners overlooking a mountain fortress" loading="lazy" width="1448" height="1086" />
-                        <div className="landing-feature-text"><span className="landing-kicker">Combat</span><h3>Earn your rank</h3><p>Train your jutsu, climb the ranked ladder, and earn a place in the Hall of Legends.</p><span className="landing-text-link">See gameplay <span aria-hidden="true">↗</span></span></div>
+                        <div className="landing-feature-text"><span className="landing-kicker">Combat</span><h3>Earn your rank</h3><p>Train your jutsu, climb the ranked ladder, and earn a place in the Hall of Legends.</p><span className="landing-text-link">See it in action <span aria-hidden="true">↗</span></span></div>
                     </button>
                 </div>
             </section>

@@ -614,11 +614,11 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     await expect(readiness).toContainText("Aegis Pendant");
     await expect(readiness).toContainText("27 victories");
     await expect(readiness.getByRole("button", { name: /Deploy Sumi/ })).toBeEnabled();
-    await expect(readiness.getByRole("button", { name: /Add Sumi to Squad/ })).toBeEnabled();
+    await expect(readiness.getByRole("button", { name: /Add Sumi to squad/ })).toBeEnabled();
     await shot(page, testInfo, "14-existing-pet-yard-tab");
     await readiness.screenshot({ path: testInfo.outputPath("14a-battle-deployment-console.png"), animations: "disabled" });
 
-    await readiness.getByRole("button", { name: /Add Sumi to Squad/ }).click();
+    await readiness.getByRole("button", { name: /Add Sumi to squad/ }).click();
     await expect(page.getByRole("heading", { name: "Beastbound Warfront", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: /Beastbound Warfront/ })).toHaveAttribute("aria-current", "page");
     const deployedWarfrontPet = page.locator(".pet-pick", { hasText: "Sumi" });
@@ -711,7 +711,7 @@ test("Pet battle readiness mirrors server admission and lineage rules", async ({
     let warfront = readiness.locator('[data-circuit="warfront"]');
     let colosseum = readiness.locator('[data-circuit="colosseum"]');
     await expect(warfront).not.toContainText("Training results unclaimed");
-    await expect(warfront.getByRole("button", { name: /Add Sumi to Squad/ })).toBeEnabled();
+    await expect(warfront.getByRole("button", { name: /Add Sumi to squad/ })).toBeEnabled();
     await expect(colosseum.getByRole("button", { name: /Deploy Sumi/ })).toBeEnabled();
 
     delete selectedPet.training;
@@ -756,7 +756,7 @@ test("Pet battle readiness mirrors server admission and lineage rules", async ({
     await page.getByRole("navigation", { name: "Pet Yard activities" }).getByRole("button", { name: "Battle & techniques" }).click();
     readiness = page.locator(".pet-battle-readiness");
     await expect(readiness.getByRole("button", { name: /Deploy Sumi/ })).toBeEnabled();
-    await expect(readiness.getByRole("button", { name: /Add Sumi to Squad/ })).toBeEnabled();
+    await expect(readiness.getByRole("button", { name: /Add Sumi to squad/ })).toBeEnabled();
     await readiness.getByRole("button", { name: /Deploy Sumi/ }).click();
     await expect(page.getByRole("heading", { name: "The Colosseum", exact: true })).toBeVisible();
     const bredColosseumPet = page.locator(".showdown-roster-card", { hasText: "Sumi" });

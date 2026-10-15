@@ -139,7 +139,7 @@ test("Clan Hall territory and dissolution controls preserve authoritative player
     await expect(page.getByText(/Clan Banner:\s*No clan banner planted/)).toBeVisible();
     await expect(page.getByText(/Claim Status:\s*Eligible — leadership may spend 75 scrolls/)).toBeVisible();
 
-    await page.getByRole("button", { name: "Capture Sector (75 Scrolls)", exact: true }).click();
+    await page.getByRole("button", { name: "Capture sector (75 scrolls)", exact: true }).click();
     let captureConfirmation = page.getByRole("alertdialog", { name: "Capture Sector 40" });
     await expect(captureConfirmation).toContainText("Village control: Stormveil Village");
     await expect(captureConfirmation).toContainText("Clan banner: Shadow Cell");
@@ -149,9 +149,9 @@ test("Clan Hall territory and dissolution controls preserve authoritative player
     await captureConfirmation.getByRole("button", { name: "Cancel" }).click();
     expect(assignmentBodies).toHaveLength(0);
 
-    await page.getByRole("button", { name: "Capture Sector (75 Scrolls)", exact: true }).click();
+    await page.getByRole("button", { name: "Capture sector (75 scrolls)", exact: true }).click();
     captureConfirmation = page.getByRole("alertdialog", { name: "Capture Sector 40" });
-    await captureConfirmation.getByRole("button", { name: "Spend 75 Scrolls" }).click();
+    await captureConfirmation.getByRole("button", { name: "Spend 75 scrolls" }).click();
     const notice = page.getByRole("alertdialog", { name: "Notice" });
     await expect(notice).toContainText("Only clan leadership can assign Territory Control Scrolls.");
     expect(assignmentBodies).toHaveLength(1);
@@ -160,14 +160,14 @@ test("Clan Hall territory and dissolution controls preserve authoritative player
     await notice.getByRole("button", { name: "OK" }).click();
 
     assignmentMode = "success";
-    await page.getByRole("button", { name: "Capture Sector (75 Scrolls)", exact: true }).evaluate((button) => {
+    await page.getByRole("button", { name: "Capture sector (75 scrolls)", exact: true }).evaluate((button) => {
         (button as HTMLButtonElement).click();
         (button as HTMLButtonElement).click();
     });
     captureConfirmation = page.getByRole("alertdialog", { name: "Capture Sector 40" });
     await expect(captureConfirmation).toHaveCount(1);
     expect(assignmentBodies).toHaveLength(1);
-    await captureConfirmation.getByRole("button", { name: "Spend 75 Scrolls" }).click();
+    await captureConfirmation.getByRole("button", { name: "Spend 75 scrolls" }).click();
     // The claim is held open by `assignmentHeld`, so this window cannot close
     // before the assertion runs no matter how loaded the machine is.
     const busyButtons = page.getByRole("button", { name: "Claiming…" });
