@@ -2070,16 +2070,16 @@
     },
     "mythic-4": {
       "y": [
-        0.05,
-        0.25
+        -0.32,
+        -0.18
       ],
       "z": [
-        0.25,
-        0.4
+        0.65,
+        0.75
       ],
-      "cameraPadding": 1.3,
-      "status": "no-repair",
-      "finding": "Previously repaired Oni face remains coherent; no additional source repair required."
+      "x": [0.25, 0.4],
+      "cameraPadding": 1.1,
+      "finding": "Independent close camera includes the muzzle, teeth, tongue and lower jaw that the former upper-skull camera and check missed. Full-body views retain horn, neck and scarf coverage."
     },
     "mythic-5": {
       "y": [

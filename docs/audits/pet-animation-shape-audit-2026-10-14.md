@@ -2,7 +2,17 @@
 
 All 160 pets requested after Oni Hound have been visually inspected, repaired where needed, and checked again. Oni was included in the final verification: **161 of 161 identities have current completed reviews**, covering 160 distinct source assets and their battle models. Stone Turtle and the earth starter share an asset.
 
-The final whole-roster review gate passes with zero failures. No confirmed distortion remains open in the inspected coverage. Release checks are in progress in PR #404; deployment is not yet confirmed.
+The whole-roster receipt gate passes with zero stale or missing evidence failures. The first release reached production at `74163467`, but the owner then demonstrated remaining Oni muzzle and jaw collapse. The earlier visual approval and upper-skull checks missed that defect. Oni was reopened and its evidence replaced after the complete-face correction below; that correction has not yet been confirmed deployed.
+
+## Oni complete-face correction after the production report
+
+The defect reproduced in the exact `PetYardModelStage` companion preview with the released battle LOD. The original repair and its test stopped above most of the muzzle, lips, teeth, tongue and lower jaw. Their old weights still followed the neck, chest and forelegs while the brow followed the head. This rig has no articulated jaw joint: the apparent mouth opening/closing was unwanted skin deformation.
+
+`20261015-oni-full-face-v2` includes the complete face and smooths the measured connected scarf/neck transition. It preserves the sculpt, topology, embedded texture, bone nodes, every animation curve, and all paw/ankle bindings below the protected boundary. Source, battle model, animated atlas and cache revisions are regenerated. Independent fixed muzzle and jaw landmarks now test the anatomy outside the repair's mask. A pinned copy of the actual released v1 asset proves that the former upper-skull check passes while those landmarks deform during idle. A separate pre-repair fixture replays the final repair byte for byte.
+
+The final source and battle assets were inspected across all 13 clips at six alternate phases in enlarged front/side whole-face and body views, then through all 16 continuous production state/transition rows at six phases. An additional 24-frame capture uses the exact companion preview and its final LOD. Independent production-renderer probes pass in both assets at desktop and mobile quality, with no browser errors. Dense skull/blend checks and full-geometry checks pass with zero severe-edge warnings. These measurements support the inspected coverage; a hash-bound receipt alone cannot establish that every anatomical part was reviewed correctly.
+
+[Companion preview before/after](../screenshots/pet-shape-2026-10-15/mythic-4-companion-before-after.png) retains two idle poses from each version with their actual capture times. [Independent production-renderer results](../screenshots/pet-shape-2026-10-15/mythic-4-independent-runtime.json) cover both assets and quality settings. The follow-up passes all 16 focused regressions, 22 asset contracts, full client lint (zero errors; 22 existing warnings), the local production build, exact distribution verification and startup budgets. Production deployment is tracked separately from these local results.
 
 ## Inspect the results
 
@@ -62,9 +72,9 @@ Dark materials were additionally viewed with brighter inspection sheets when nee
 | Structure, materials, skin bindings and animation inventory | 161 / 161 pass; no unexpected duplicate anatomy or missing tail bindings |
 | Battle LOD manifest / geometry certification | Pass, all 160 distinct assets |
 | Animated impostor certification | Pass, all 160 distinct assets |
-| Focused deformation, normalization and receipt regressions | 13 tests pass |
+| Focused deformation, normalization and receipt regressions | Passed; Oni coverage now also retains the released defect, independent muzzle/jaw checks, conservation and deterministic replay |
 | Complete repository regression suite | 15,526 pass; zero failures or cancellations; 27 skipped |
-| Integrated production build, exact 480-asset delivery and startup budgets after final contact correction | Pass; 544.8 MiB client, within 545 MiB |
+| Integrated production build, exact 480-asset delivery and startup budgets after main's Chronicle integration | Complete-face follow-up passes locally; 597.4 MiB client within the separate Chronicle and other-runtime partitions. Production release checks pending. |
 | Full client lint and changed QA tooling lint | Pass (zero errors) |
 | Production WebKit evolution controls | Two pass; one inapplicable CDP safe-area check skipped |
 

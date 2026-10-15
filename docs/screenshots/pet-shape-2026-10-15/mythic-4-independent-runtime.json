@@ -1,0 +1,30 @@
+{
+  "original": false,
+  "results": [
+    {
+      "stage": "source",
+      "mobile": false,
+      "peak": 7.088547964785382e-16,
+      "quality": "medium"
+    },
+    {
+      "stage": "source",
+      "mobile": true,
+      "peak": 6.243462346678937e-16,
+      "quality": "low"
+    },
+    {
+      "stage": "battle",
+      "mobile": false,
+      "peak": 6.977643512971218e-16,
+      "quality": "medium"
+    },
+    {
+      "stage": "battle",
+      "mobile": true,
+      "peak": 6.473657049138938e-16,
+      "quality": "low"
+    }
+  ],
+  "errors": []
+}

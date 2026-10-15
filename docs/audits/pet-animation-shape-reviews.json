@@ -1,64 +1,6 @@
 {
   "schema": 2,
   "pets": {
-    "mythic-4": {
-      "sha256": "6a030f2152ff5de290d157d5bb41e392634a3899ea9c1f8b91bae979bcd92f64",
-      "lodSha256": "e9acfec3a4ad2a9f4760e871235426b497f74ee129154f304b32e588fd9da1df",
-      "atlasSha256": "d4e84da0ab05d65e02a488ffd1593eaf375900d838978caa705d2927a695c092",
-      "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
-      "reviewer": "Codex visual inspection",
-      "reviewedAt": "2026-10-15T07:48:17.310Z",
-      "clips": [
-        "idle",
-        "idle_2",
-        "walk",
-        "gallop",
-        "gallop_jump",
-        "attack",
-        "idle_hitreact1",
-        "death",
-        "entrance",
-        "cast",
-        "guard",
-        "rest",
-        "victory"
-      ],
-      "views": [
-        "front",
-        "side"
-      ],
-      "fullBodyReviewed": true,
-      "skullShapeReviewed": true,
-      "transitionsReviewed": true,
-      "evidence": [
-        "docs/screenshots/pet-shape-2026-10-15/mythic-4-source-clips-head-1.webp",
-        "docs/screenshots/pet-shape-2026-10-15/mythic-4-source-clips-body-1.webp",
-        "docs/screenshots/pet-shape-2026-10-15/mythic-4-battle-clips-head-1.webp",
-        "docs/screenshots/pet-shape-2026-10-15/mythic-4-battle-clips-body-1.webp",
-        "docs/screenshots/pet-shape-2026-10-15/mythic-4-runtime-source-head.webp",
-        "docs/screenshots/pet-shape-2026-10-15/mythic-4-runtime-source-body.webp",
-        "docs/screenshots/pet-shape-2026-10-15/mythic-4-runtime-battle-head.webp",
-        "docs/screenshots/pet-shape-2026-10-15/mythic-4-runtime-battle-body.webp",
-        "docs/screenshots/pet-shape-2026-10-15/mythic-4-numeric-evidence.json"
-      ],
-      "evidenceSha256": {
-        "docs/screenshots/pet-shape-2026-10-15/mythic-4-source-clips-head-1.webp": "1ebd34557a9b086a30e6cec84f9c33a9a94e92986616ffaf2f53b99bc82a3634",
-        "docs/screenshots/pet-shape-2026-10-15/mythic-4-source-clips-body-1.webp": "aad5122d341a9e81f9082c1caf66da529de9efbdd365e758cfb985b34775f3d3",
-        "docs/screenshots/pet-shape-2026-10-15/mythic-4-battle-clips-head-1.webp": "adb4d639d17faed68f9a928a24954295d3ff8d0e53f39f957196ac613addbe69",
-        "docs/screenshots/pet-shape-2026-10-15/mythic-4-battle-clips-body-1.webp": "ba59a9a99b2c7c0f61e0b174591f0c7511a09f9c28f881922b55745337b6470d",
-        "docs/screenshots/pet-shape-2026-10-15/mythic-4-runtime-source-head.webp": "3267c4fa6ad9e90e367c5e8cddb4b2d710d9c33c5a8c11c5be33a80d42fdfa6a",
-        "docs/screenshots/pet-shape-2026-10-15/mythic-4-runtime-source-body.webp": "d144349262196a283ee5f9be3e44bed2de5198868a5eac8e1cd0e6be1eff09b4",
-        "docs/screenshots/pet-shape-2026-10-15/mythic-4-runtime-battle-head.webp": "c217577f480b74f46bcf7051a63c8b7eb5653abc98bfa9b68d0bf7654c2d71de",
-        "docs/screenshots/pet-shape-2026-10-15/mythic-4-runtime-battle-body.webp": "d57a5fd61190644e119ca833190c5ecc0204f0d737e9ca1de90cde0f2b333572",
-        "docs/screenshots/pet-shape-2026-10-15/mythic-4-numeric-evidence.json": "9b32205b379dab5b1ad0145494a6a28d0a15a0b30ac2d07b4360386f59655e59"
-      },
-      "findings": {
-        "runtime": "All sixteen production rows inspected in both versions, front and side, head and body. Reviewed all sixteen runtime rows in both source and battle versions, with normal and brighter front and side head and body sheets. Oni Hound muzzle, lower jaw, teeth, yellow eyes, red horns, swept fur, blue bandanna, four clawed legs, red flank markings and tail remain stable throughout the sampled motions and transitions.",
-        "source": "All 13 clips inspected at six alternate phases in front and side head and full-body views for this source asset. Oni hound yellow eyes, open red mouth, muzzle and red horns retain their shapes through both idles, strike, recoil and turned death; scarf, four paws and raised tail stay intact.",
-        "battle": "All 13 clips inspected at six alternate phases in front and side head and full-body views for this battle asset. Oni hound yellow eyes, open red mouth, muzzle and red horns retain their shapes through both idles, strike, recoil and turned death; scarf, four paws and raised tail stay intact."
-      },
-      "limits": "All 13 raw clips inspected twice with front and side head/body views; final pass uses six alternate phases. Production renderer inspected through 16 continuous state/transition rows at six phases in both assets. Dense skull/world-edge and all-geometry probes supplement visual review; this does not claim exhaustive coverage of every possible gameplay state."
-    },
     "standard-0": {
       "sha256": "aebe4f02c12d38ffac4f0d2f5594a4458a2d63f3f1227b312aa9919f873ad314",
       "lodSha256": "64e2386c91f19de79bf9c3f0cc943d2ffed02063fd16a684b413cb95062732f3",
@@ -9350,6 +9292,75 @@
         "battle": "Final shipping battle asset: all 13 clips and six alternate phases actually inspected in front/side head and body sheets. All 13 clips, all six phases, front/side head and body sheets actually inspected. Green turtle muzzle, eyes, headband, chest plates, spiked shell, wrapped wrists, four limbs, claws and tail remain intact with coherent grounded gait."
       },
       "limits": "All 13 raw clips inspected twice with front and side head/body views; final pass uses six alternate phases. Production renderer inspected through 16 continuous state/transition rows at six phases in both assets. Dense skull/world-edge and all-geometry probes supplement visual review; this does not claim exhaustive coverage of every possible gameplay state."
+    },
+    "mythic-4": {
+      "sha256": "10fc738a32473fb682bbbcea70fdb66feef4aac9189366367a515b2167708aea",
+      "lodSha256": "65f31b06986faa35e2c3e3377d45154a9cacc022b6ba2d0e5cc99e07006443e4",
+      "atlasSha256": "b1fc77ffc72c4250341c1eb1a5ee6df4f7ebd7a5c92e4910e95cf671283249fd",
+      "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
+      "reviewer": "Codex visual inspection",
+      "reviewedAt": "2026-10-15T22:45:38.583Z",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "views": [
+        "front",
+        "side"
+      ],
+      "fullBodyReviewed": true,
+      "skullShapeReviewed": true,
+      "transitionsReviewed": true,
+      "evidence": [
+        "docs/screenshots/pet-shape-2026-10-15/mythic-4-source-clips-head-1.webp",
+        "docs/screenshots/pet-shape-2026-10-15/mythic-4-source-clips-body-1.webp",
+        "docs/screenshots/pet-shape-2026-10-15/mythic-4-battle-clips-head-1.webp",
+        "docs/screenshots/pet-shape-2026-10-15/mythic-4-battle-clips-body-1.webp",
+        "docs/screenshots/pet-shape-2026-10-15/mythic-4-runtime-source-head.webp",
+        "docs/screenshots/pet-shape-2026-10-15/mythic-4-runtime-source-body.webp",
+        "docs/screenshots/pet-shape-2026-10-15/mythic-4-runtime-battle-head.webp",
+        "docs/screenshots/pet-shape-2026-10-15/mythic-4-runtime-battle-body.webp",
+        "docs/screenshots/pet-shape-2026-10-15/mythic-4-numeric-evidence.json",
+        "docs/screenshots/pet-shape-2026-10-15/mythic-4-companion-before-after.png",
+        "docs/screenshots/pet-shape-2026-10-15/mythic-4-independent-runtime.json"
+      ],
+      "evidenceSha256": {
+        "docs/screenshots/pet-shape-2026-10-15/mythic-4-source-clips-head-1.webp": "f81def2a9fc6071951e841ade268ac5b9ee11e41e85e3e20c5e2dd1fc52f62f0",
+        "docs/screenshots/pet-shape-2026-10-15/mythic-4-source-clips-body-1.webp": "64d170e97dba15dedd30bc40543c3558265b4683032188f0677abdeafd6e2cc1",
+        "docs/screenshots/pet-shape-2026-10-15/mythic-4-battle-clips-head-1.webp": "9d0ff8beae20b2ac328831b7d848e9756b893d3cfd921bdb61bbe35098981afd",
+        "docs/screenshots/pet-shape-2026-10-15/mythic-4-battle-clips-body-1.webp": "945fcf03ca22c2fb34ab5a26bd8bc26423b7194d0de4933eebed5229d30bfd38",
+        "docs/screenshots/pet-shape-2026-10-15/mythic-4-runtime-source-head.webp": "e489a8621f2d08c34f207e7f5f65c0ca191c8f1b1dbb5a4c72b919c9aa52b690",
+        "docs/screenshots/pet-shape-2026-10-15/mythic-4-runtime-source-body.webp": "6ea636cb5c8956754dca955a9666b8352e882bd12c3df0236d51868012fea3d9",
+        "docs/screenshots/pet-shape-2026-10-15/mythic-4-runtime-battle-head.webp": "8d10e82989ebffda0e2caf0ead2bc7871867e505ad58ff977bf77c8438767dd5",
+        "docs/screenshots/pet-shape-2026-10-15/mythic-4-runtime-battle-body.webp": "fe30403650ef30865bf966eb9b3ee4ec6796c7fa574606f4f0d0da429d388d9b",
+        "docs/screenshots/pet-shape-2026-10-15/mythic-4-numeric-evidence.json": "a2a3bb9eb1c94ecc47a0b4a42363dd16cf62fa523aa33c45f0ccca99ca5e2e87",
+        "docs/screenshots/pet-shape-2026-10-15/mythic-4-companion-before-after.png": "15a5a5adcf9d7153c05db86073f07ae4db9ae7c54bacb37a7d807aa02a47e88f",
+        "docs/screenshots/pet-shape-2026-10-15/mythic-4-independent-runtime.json": "14ae9aa5eb7583fff07936a54e10c152c52197cc61d2d5292ae1bd5a8035c6ae"
+      },
+      "findings": {
+        "runtime": "All 16 continuous production state/transition rows at six phases, front/side whole-face and full-body views, source and battle, actually inspected at low quality. Complete face and connected scarf/neck transition remain coherent during idle, locomotion, attack sequence, stagger, death and revive. Independently inspected 24 frames of the actual companion preview with its regenerated certified LOD; no collapse. Independent desktop/mobile production probes cover the muzzle and lower jaw that the former upper-skull probe missed.",
+        "source": "All 13 clips, all six alternate phases, front/side enlarged whole-face and full body actually inspected. Muzzle, lips, teeth, tongue and jaw retain the authored shape during head motion. Scarf/neck transition, body joins, horns, paws and tail remain coherent. The former lower-face collapse is absent; preserve open-mouth sculpt rather than treating malformed skinning as jaw animation.",
+        "battle": "All 13 clips, all six alternate phases, front/side enlarged whole-face and full body actually inspected. Muzzle, lips, teeth, tongue and jaw retain the authored shape during head motion. Scarf/neck transition, body joins, horns, paws and tail remain coherent. The former lower-face collapse is absent; preserve open-mouth sculpt rather than treating malformed skinning as jaw animation."
+      },
+      "limits": "Reopened after the released upper-skull-only approval missed muzzle and jaw collapse. Final source and battle assets inspected across all 13 raw clips, six alternate phases, enlarged front/side face and body views; production renderer inspected through 16 continuous transition rows at six phases. Exact companion preview additionally inspected over 24 idle frames. Independent fixed muzzle/jaw landmarks, released regression fixture, full-geometry checks and desktop/mobile production probes supplement this coverage; this does not certify every possible gameplay state.",
+      "anatomicalCoverage": [
+        "upper skull",
+        "muzzle",
+        "lips and teeth",
+        "tongue and lower jaw",
+        "connected scarf/neck transition"
+      ]
     }
   }
 }
