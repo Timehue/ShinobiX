@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildWorldBossTeamEncounter, worldBossFloor, worldBossMatchHpForParty } from './_encounter';
+import { buildWorldBossTeamEncounter, worldBossFloor } from './_encounter';
 import { WORLD_BOSS_DEFINITIONS, worldBossGuardVisual } from '../../shared/world-boss-event';
 import { computeDamage, applyAction, startRound } from '../towers/_engine';
 import { makeRng } from '../towers/_sim';
@@ -23,7 +23,7 @@ test('each world boss is sealed with its own defensive Tower mechanic', () => {
 
 function encounter(bossId: typeof WORLD_BOSS_DEFINITIONS[number]['id'], partySize = 1, hollowShardsDeposited = 0) {
     return buildWorldBossTeamEncounter({
-        event: { eventId: 'test-event', bossId, bossName: 'Test Boss', hp: 600_000, hollowShardsDeposited },
+        event: { eventId: 'test-event', bossId, bossName: 'Test Boss', hp: 547_545, hpMax: 600_000, hollowShardsDeposited },
         matchId: 'test-match', runId: 'test-run', seed: 42, now: 1000,
         squad: Array.from({ length: partySize }, (_, i) => ({
             id: `sq-${i}`, name: `Player ${i}`, ownerSlug: `player-${i}`, ai: false,
@@ -38,7 +38,9 @@ test('all raids seal matching broodguards with smaller HP and real attack kits',
         const session = encounter(definition.id, size);
         const boss = session.actors.find(actor => actor.id === session.phaseState.bossId)!;
         const guards = session.actors.filter(actor => actor.side === 'enemy' && actor.id !== boss.id);
-        assert.equal(boss.maxHp, 28_000 * size);
+        assert.equal(boss.hp, 547_545);
+        assert.equal(boss.maxHp, 600_000);
+        assert.equal(session.worldBossEvent?.matchHpAtStart, 547_545);
         assert.equal(boss.character.towerDmgScale, 1, 'solo/duo bosses must not inherit Tower damage discounts');
         assert.equal(guards.length, 2);
         for (const guard of guards) {
@@ -82,9 +84,27 @@ test('crystal weakening still reduces boss damage for solo, duo and trio raids',
     }
 });
 
-test('world boss match HP budget scales to solo, duo, and trio size without exceeding shared HP', () => {
-    assert.equal(worldBossMatchHpForParty(200_000, 1), 28_000);
-    assert.equal(worldBossMatchHpForParty(200_000, 2), 56_000);
-    assert.equal(worldBossMatchHpForParty(200_000, 3), 84_000);
-    assert.equal(worldBossMatchHpForParty(42_000, 3), 42_000);
+test('shared HP does not inflate defensive mechanics beyond a team-sized budget', () => {
+    for (const size of [1, 2, 3]) {
+        const session = encounter('hollow-beast', size);
+        assert.equal(session.regenFlatCap, 280 * size);
+        assert.equal(session.worldBossEvent?.defenseHpBudget, 28_000 * size);
+    }
+});
+
+test('Donkaku phase shields stay breakable with the full shared HP pool', () => {
+    const session = encounter('hollow-maze-minotaur');
+    const boss = session.actors.find(actor => actor.id === session.phaseState.bossId)!;
+    const player = session.actors.find(actor => actor.side === 'squad')!;
+    session.actors = [boss, player];
+    boss.pos = 144;
+    player.pos = 143;
+    boss.hp = 449_000;
+    startRound(session);
+    session.activeIndex = session.turnQueue.indexOf(player.id);
+    session.activeAp = 100;
+    const action = applyAction(session, session.encounterFloor!, {actorId:player.id,type:'attack',targetId:boss.id}, makeRng(42));
+    assert.equal(action.applied, true);
+    assert.equal(boss.maxHp, 600_000);
+    assert.equal(boss.shield, 2800, 'shared-health display must not create a 60,000-HP solo shield');
 });

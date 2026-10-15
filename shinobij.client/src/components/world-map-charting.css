@@ -153,8 +153,8 @@
        to clear the DESKTOP plate, and on a short board its %-footprint then
        reached the old spot (up to 51% of this name covered). */
     .wpk-hollowgate { left: 63% !important; top: 80.5% !important; }
-    /* Moonshadow's crest now occupies this open southern column too. */
-    .wpk-moonshadow { left: 91% !important; top: 95% !important; }
+    /* Keep the central court's caption beneath its crest on small boards. */
+    .wpk-moonshadow { left: 84% !important; top: 78% !important; }
     .wpk-sunscar    { left: 40% !important; top: 92% !important; }
 }
 

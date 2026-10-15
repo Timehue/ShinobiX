@@ -212,8 +212,8 @@ export function WeeklyBossArena({
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ kind: "logFight", runId }),
         });
-        const data = await response.json().catch(() => ({})) as { boss?: WeeklyBossState; character?: Character; _saveVersion?: number; error?: string };
-        if (!response.ok) throw new Error(data?.error ?? "Your Weekly Boss result could not be saved. Try again.");
+        const data = await response.json().catch(() => ({})) as { ok?: boolean; dealt?: number; boss?: WeeklyBossState; character?: Character; _saveVersion?: number; error?: string };
+        if (!response.ok || data.ok !== true || !Number.isFinite(data.dealt)) throw new Error(data?.error ?? "Your Weekly Boss result is not confirmed yet. Try again to finish saving this attempt.");
         if (data?.boss) setBossState(data.boss);
         // Logged even if refused as stale; throwing reported a paid fight as failed.
         if (data.character) onVersionedCharacter(data.character, data._saveVersion);

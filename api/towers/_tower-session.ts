@@ -325,6 +325,8 @@ export type TowerSession = {
         eventId: string;
         matchId: string;
         matchHpAtStart: number;
+        bossId?: string;
+        defenseHpBudget?: number;
         bossDamageDealtMultiplier?: number;
         bossDamageReceivedMultiplier?: number;
     };
