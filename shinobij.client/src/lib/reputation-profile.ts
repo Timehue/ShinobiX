@@ -1,5 +1,6 @@
 import type { Character } from "../types/character";
 import type { BountyEntry } from "./pvp-bounty";
+import { roadNemesisTier, roadNemesisTitle } from "../../../shared/road-nemesis";
 
 export type ReputationTone = "neutral" | "gold" | "danger" | "legacy" | "village";
 
@@ -200,7 +201,10 @@ export function buildReputationProfile(
         ? {
             kind: "npc",
             label: "Sector nemesis",
-            detail: `${nemesis.name} - Lv ${formatReputationNumber(nemesis.level)}, tier ${formatReputationNumber(nemesis.tier)}`,
+            // The rival is always Kagero (shared/road-nemesis.ts). An older save
+            // still stores the bandit who first beat the player, so the name
+            // comes from the tier, not from the record.
+            detail: `${roadNemesisTitle(roadNemesisTier(nemesis))} - Lv ${formatReputationNumber(nemesis.level)}, tier ${formatReputationNumber(nemesis.tier)}`,
         }
         : {
             kind: "none",

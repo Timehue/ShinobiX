@@ -30,6 +30,7 @@ import {
     type Wanderer,
     type WandererVerb,
 } from '../../shared/wanderer-roster.js';
+import { resolveExtraSlotWanderer, type RiftSealView } from '../../shared/wanderer-extra-slots.js';
 
 export { rollWanderers, wandererDayBucketFromMs, WANDERER_SECTOR_COUNT };
 export type { Wanderer };
@@ -55,8 +56,13 @@ export function resolveNaturalWanderer(
     nowMs: number,
     character?: Record<string, unknown> | null,
     requestedSector?: number,
+    riftSeal: RiftSealView | null = null,
 ): Wanderer | null {
-    const w = resolveWandererById(id, nowMs);
+    // The angler/miner and rift-creature slots sit above the night slot. The
+    // rift creature exists only for the player holding that rift's SEALED quest
+    // (the save record's activeRiftQuestSeal, passed in by the caller); with no
+    // seal the slot never resolves.
+    const w = resolveWandererById(id, nowMs) ?? resolveExtraSlotWanderer(id, nowMs, riftSeal);
     if (!w) return null;
     const parsed = parseWandererId(id)!;
     const movesRaw = character?.wandererMoves;
