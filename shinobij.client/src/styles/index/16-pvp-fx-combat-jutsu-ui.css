@@ -246,7 +246,7 @@
 
 .combat-jutsu-bar {
     background: linear-gradient(180deg, rgba(8, 12, 24, 0.96), rgba(14, 20, 38, 0.96)) !important;
-    border: 1px solid rgba(250, 204, 21, 0.25) !important;
+    border: 1px solid rgba(230, 196, 119, 0.25) !important;
     border-radius: 8px !important;
     padding: 8px !important;
 }
@@ -275,7 +275,7 @@
 .combat-jutsu-button.selected-action {
     background: linear-gradient(180deg, #3b2a09, #24180a) !important;
     border-color: var(--gold) !important;
-    box-shadow: 0 0 10px rgba(250, 204, 21, 0.4) !important;
+    box-shadow: 0 0 10px rgba(230, 196, 119, 0.4) !important;
 }
 
 .combat-jutsu-button.jutsu-on-cooldown {
@@ -394,7 +394,7 @@
 .combat-item-button.rarity-epic,
 .combat-item-button.rarity-legendary,
 .combat-item-button.rarity-mythic {
-    border-color: rgba(250, 204, 21, 0.82) !important;
+    border-color: rgba(230, 196, 119, 0.82) !important;
 }
 
 .combat-item-thumb {
@@ -574,7 +574,7 @@
     box-shadow: inset 3px 0 rgb(var(--effect-rgb)) !important;
 }
 
-.jutsu-effect-card--power { --effect-rgb: 250, 204, 21; }
+.jutsu-effect-card--power { --effect-rgb: 230, 196, 119; }
 .jutsu-effect-card--recovery { --effect-rgb: 74, 222, 128; }
 .jutsu-effect-card--guard { --effect-rgb: 34, 211, 238; }
 .jutsu-effect-card--harm { --effect-rgb: 251, 113, 133; }

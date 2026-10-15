@@ -62,8 +62,8 @@ export function liveServiceNotice(
     }
     if (capabilities.gameplayMutations.state !== "available") {
         return {
-            title: "Progress-changing web requests are temporarily paused",
-            body: "New save, purchase, claim, and combat requests are being rejected. Existing timers, background settlement, and realtime sessions may still advance.",
+            title: "Progress saving is paused for a moment",
+            body: "Saving, buying, claiming, and starting fights are paused right now. Your saved progress is safe, and timers and battles already under way may still finish.",
             state: "actions-paused",
         };
     }

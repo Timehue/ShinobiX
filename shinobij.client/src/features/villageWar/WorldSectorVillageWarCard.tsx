@@ -19,7 +19,7 @@ export function WorldSectorVillageWarCard({ war, present, admissionOpen, onRaid 
             <strong>{war.enemyVillageHp.toLocaleString()} / {war.enemyVillageHpMax.toLocaleString()}</strong></div>
             <div className='sector-meter sector-meter-hp'><span style={{ width: `${(war.enemyVillageHp / war.enemyVillageHpMax) * 100}%` }} /></div></div>
         <button type='button' className='danger-button sector-action-btn is-danger' disabled={!present || !admissionOpen || war.warGroundHp <= 0 || war.ended} onClick={onRaid}>
-            <span className='sector-action-icon' aria-hidden='true'><GiCrossedSwords /></span><span>Raid Enemy Village</span>
+            <span className='sector-action-icon' aria-hidden='true'><GiCrossedSwords /></span><span>Raid enemy village</span>
         </button>
     </div>;
 }

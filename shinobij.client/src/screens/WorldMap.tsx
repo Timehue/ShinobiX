@@ -700,7 +700,7 @@ function WorldMapContent({
         if (createResult.kind === "ambiguous") {
             setPvpBattleId(battleId);
             setScreen("pvpBattle");
-            alert("The battle response was interrupted. Reconnecting to the authoritative session…");
+            alert("The battle response was interrupted. Reconnecting to your battle…");
             return;
         }
         try {
@@ -3088,7 +3088,7 @@ function WorldMapContent({
         // operation parked until every matching mission explicitly ACKs
         // `recorded:true`; a dropped 200 response then replays one evidence id.
         if (!(await recordMissionExplore(sector, operation.id, settled.fieldProgress))) {
-            notifyFailure("The tile is safely recorded, but its mission receipt is still syncing. Reopen the map to recover it before exploring again.");
+            notifyFailure("The tile is safely recorded, but its mission progress is still syncing. Reopen the map to recover it before exploring again.");
             return null;
         }
         return { operation, outcome: settled.outcome?.kind === "gather" && !pendingGatherFinds(settled.character).map(f => f.id).includes(settled.outcome.find.id) ? undefined : settled.outcome, reward: settled.reward };
@@ -4591,7 +4591,7 @@ function WorldMapContent({
                                         <div style={{ display: "grid", placeItems: "center", minHeight: "100dvh", padding: 24 }}>
                                             <div className="card" role="status" style={{ maxWidth: 460, textAlign: "center", padding: 20 }}>
                                                 <h3>ANBU operation paused</h3>
-                                                <p>The vault run remains recoverable, but traversal, combat, and settlement requests are paused until live admission returns.</p>
+                                                <p>The vault run remains recoverable, but moving, fighting, and saving results are paused until live actions return.</p>
                                                 <button type="button" onClick={() => setVaultRaid(null)}>Leave operation view</button>
                                             </div>
                                         </div>
@@ -4613,7 +4613,7 @@ function WorldMapContent({
                                         <p style={{ fontSize: ".74rem", color: "#9aa3b2", margin: "0 0 12px" }}>{roadFleePriceLine(character)}</p>
                                         {bossDialog.error && <p role="alert" style={{ fontSize: ".76rem", color: "var(--red-300)", margin: "-6px 0 12px" }}>{bossDialog.error}</p>}
                                         <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                                            <button disabled={!globalMutationsOpen || bossDialog.busy} onClick={standBossFight} style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "var(--red-400)", fontWeight: 700, opacity: globalMutationsOpen ? 1 : 0.55 }}>{globalMutationsOpen ? "Stand & Fight" : "Fight paused"}</button>
+                                            <button disabled={!globalMutationsOpen || bossDialog.busy} onClick={standBossFight} style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "var(--red-400)", fontWeight: 700, opacity: globalMutationsOpen ? 1 : 0.55 }}>{globalMutationsOpen ? "Stand & fight" : "Fight paused"}</button>
                                             <button disabled={bossDialog.busy} onClick={() => void fleeBoss()}>Flee</button>
                                         </div>
                                     </div>
@@ -4864,7 +4864,7 @@ function WorldMapContent({
                         <h3>{loc.name}</h3>
                         <p className="territory-hostile-tag"><GameArtIcon kind="warning" size={17} /> Hostile Territory</p>
                         <p>{weatherEffects[weather].effect}</p>
-                        <button disabled={resourceActionsToday(character) >= 100 || explorePresentationInFlight} onClick={() => runWhenSectorConfirmed(virtualSector, () => { void exploreSector(virtualSector); })}>{resourceActionsToday(character) >= 100 ? 'Shared daily actions used (100/100)' : 'Explore Territory'}</button>
+                        <button disabled={resourceActionsToday(character) >= 100 || explorePresentationInFlight} onClick={() => runWhenSectorConfirmed(virtualSector, () => { void exploreSector(virtualSector); })}>{resourceActionsToday(character) >= 100 ? 'Shared daily actions used (100/100)' : 'Explore territory'}</button>
                         <button onClick={() => runWhenSectorConfirmed(virtualSector, () => restInSector(virtualSector))}>Recover</button>
 
                         <div className="territory-guard-section">
@@ -4942,7 +4942,7 @@ function WorldMapContent({
                                                 setPvpBattleId(battleId);
                                                 if (createResult.kind === "ambiguous") {
                                                     setScreen("pvpBattle");
-                                                    alert("The guard battle response was interrupted. Reconnecting to the authoritative session…");
+                                                    alert("The guard battle response was interrupted. Reconnecting to your battle…");
                                                     return;
                                                 }
                                                 try {
@@ -4987,7 +4987,7 @@ function WorldMapContent({
                                             setCurrentWeather(weather);
                                         });
                                     })}>
-                                        Raid Village Garrison
+                                        Raid village garrison
                                     </button>
                                 </>
                             )}

@@ -197,8 +197,8 @@ test("turn countdown renders only for timed PvP duels; forfeit requires arming",
   assert.match(untimed, /chronicle-command-context/);
   // The rail reports phase state; players no longer select phases from it.
   assert.doesNotMatch(untimed, /chronicle-phase-jump/);
-  assert.match(untimed, />Start Attacking</);
-  assert.match(untimed, />End Turn</);
+  assert.match(untimed, />Start attacking</);
+  assert.match(untimed, />End turn</);
   const timed = render(true);
   assert.match(timed, /\|\s*\d+s/);
 });
@@ -243,7 +243,7 @@ test("Smart Phase Assist never removes the manual battle-phase escape hatch", ()
     assert.match(html, /Smart Phase Assist is opening Main Phase 2/);
     assert.match(
       html,
-      /<button class="secondary">Finish Attacking<\/button>/,
+      /<button class="secondary">Finish attacking<\/button>/,
     );
   } finally {
     if (originalWindow === undefined) delete browserGlobal.window;

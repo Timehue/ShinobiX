@@ -394,7 +394,7 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
         </header>
         {obsidian && <div className="stronghold-reward-banner"><strong>4× PvP rewards</strong><span>Ryo · Stat growth · Jutsu XP</span></div>}
         {contest && <div className="stronghold-war-banner" role="status"><span><b>Sector {sector} war · {sectorContestLabel(contest.winCondition)}</b><small>{contest.attackerVillage} vs {contest.defenderVillage} · Eligible battles inside count toward this sector.</small></span>
-            {onOpenSectorContest && <button disabled={movementBlocked || !state || threat >= 100} onClick={() => { stopWalk(); onOpenSectorContest(); }}>Open {sectorContestLabel(contest.winCondition)}</button>}
+            {onOpenSectorContest && <button disabled={movementBlocked || !state || threat >= 100} onClick={() => { stopWalk(); onOpenSectorContest(); }}>Open {sectorContestLabel(contest.winCondition).toLowerCase()}</button>}
             {onFightSectorGarrison && sectorContestGarrisonReady(contest, presenceTime) && <button disabled={movementBlocked || !state || threat >= 100} onClick={() => { stopWalk(); onFightSectorGarrison(); }}>Fight garrison</button>}
         </div>}
         <div className="stronghold-body">
@@ -437,7 +437,7 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
             {intelOpen && <StrongholdDialog title="Dungeon intel" onClose={() => setIntelOpen(false)}><aside className="stronghold-sidebar">
                 <div className="stronghold-intel"><h3>Stronghold map</h3>
                     <svg className="stronghold-minimap" viewBox={`0 0 ${base.width} ${base.height}`} role="img" aria-label={`${discovered.size} of 12 chambers discovered. Your position is white; the ${obsidian ? 'Blood Altar' : 'vault'} is gold.`}>
-                        {run.tiles.map((tile, idx) => tile.kind === 'wall' ? null : <rect key={idx} x={idx % base.width} y={Math.floor(idx / base.width)} width={1} height={1} fill={idx === STRONGHOLD_VAULT ? '#fbbf24' : seen.has(idx) ? (obsidian ? '#aa7865' : '#647c98') : '#1f2c3b'} />)}
+                        {run.tiles.map((tile, idx) => tile.kind === 'wall' ? null : <rect key={idx} x={idx % base.width} y={Math.floor(idx / base.width)} width={1} height={1} fill={idx === STRONGHOLD_VAULT ? '#e6c477' : seen.has(idx) ? (obsidian ? '#aa7865' : '#647c98') : '#1f2c3b'} />)}
                         {peers.filter(peer => peer.stronghold && visible.has(peer.stronghold.tile)).map(peer => <circle key={peer.name} cx={peer.stronghold!.tile % base.width + 0.5} cy={Math.floor(peer.stronghold!.tile / base.width) + 0.5} r={0.65} fill="#fb7185" />)}
                         <circle cx={run.playerX + 0.5} cy={run.playerY + 0.5} r={0.8} fill="white" />
                     </svg><p>White: you · Red: players · Gold: {obsidian ? 'Blood Altar' : 'vault'}</p>
@@ -464,7 +464,7 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
         {playersOpen && <StrongholdDialog title="Shinobi in the stronghold" onClose={() => setPlayersOpen(false)}>{playerList}</StrongholdDialog>}
         {selectedPeer && <StrongholdDialog title={selectedPeer.name} busy={!!pending} onClose={() => setSelectedPeer(null)}>
             <p>Level {selectedPeer.level} · {selectedPeer.village}</p>
-            <p>{selectedEngagement?.kind === 'contest' ? `Challenge this shinobi to a ${sectorContestLabel(selectedEngagement.winCondition)}. The result counts toward the active sector war.` : 'Challenge this shinobi to a sector battle. Your current health and supplies carry into the fight.'}</p>
+            <p>{selectedEngagement?.kind === 'contest' ? `Challenge this shinobi to a ${sectorContestLabel(selectedEngagement.winCondition).toLowerCase()}. The result counts toward the active sector war.` : 'Challenge this shinobi to a sector battle. Your current health and supplies carry into the fight.'}</p>
             {obsidian && <p className="stronghold-reward-detail"><b>4× normal rewards on a PvP win.</b> Both fighters must be inside when the battle starts. Ryo, stat growth and XP for jutsu you cast receive the bonus; normal limits and repeat-opponent reductions apply.</p>}
             <div className="stronghold-dialog-actions"><button className="stronghold-attack" disabled={blocked || !!pending || threat >= 100 || !availablePeers.some(p => p.name === selectedPeer.name)} onClick={() => void attack(selectedPeer)}>{pending === 'attack' ? 'Connecting…' : 'Attack player'}</button><button onClick={() => setSelectedPeer(null)}>Cancel</button></div>
         </StrongholdDialog>}

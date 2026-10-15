@@ -38,7 +38,7 @@ const ELEMENT_COLORS: Record<string, string> = {
 };
 const RARITY_COLORS: Record<string, string> = {
     common: "var(--text-dim)", uncommon: "var(--green-300)", rare: "var(--blue-400)",
-    epic: "var(--purple-400)", legendary: "#fbbf24", mythic: "#f472b6",
+    epic: "var(--purple-400)", legendary: "#e6c477", mythic: "#f472b6",
 };
 const PROFESSION_LABEL: Record<string, string> = {
     healer: "Healer", vanguard: "Vanguard", petTamer: "Pet Tamer",
@@ -202,7 +202,7 @@ export function UserView({
                 <section className="profile-build-panel" style={{ display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap" }}>
                     <div
                         className={(viewedCharacter.legacy?.stage ?? 0) >= 2 ? `legacy-aura-s${Math.min(5, viewedCharacter.legacy!.stage)}` : undefined}
-                        style={{ width: 110, height: 110, borderRadius: "50%", border: "3px solid var(--gold)", boxShadow: "0 0 0 3px rgba(250,204,21,0.15)", overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.3)" }}
+                        style={{ width: 110, height: 110, borderRadius: "50%", border: "3px solid var(--gold)", boxShadow: "0 0 0 3px rgba(230, 196, 119, 0.15)", overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.3)" }}
                     >
                         {avatar
                             ? <img src={avatar} alt={viewedCharacter.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
@@ -264,7 +264,7 @@ export function UserView({
 
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 10, marginTop: 12 }}>
                     {metrics.map((m) => (
-                        <div key={m.label} style={{ background: "rgba(15,23,42,0.7)", border: "1px solid rgba(250,204,21,0.18)", borderRadius: 10, padding: "12px 14px" }}>
+                        <div key={m.label} style={{ background: "rgba(15,23,42,0.7)", border: "1px solid rgba(230, 196, 119, 0.18)", borderRadius: 10, padding: "12px 14px" }}>
                             <div style={{ color: "var(--text-dim)", fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>{m.label}</div>
                             <div style={{ color: "#f8fafc", fontSize: "1.3rem", fontWeight: 700, marginTop: 2 }}>{m.value}</div>
                         </div>

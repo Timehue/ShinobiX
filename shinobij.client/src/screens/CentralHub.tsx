@@ -1231,7 +1231,7 @@ export function CentralHub({
                                     <button className="aw-free-btn" onClick={awakeningFreeRoll} disabled={ritualBusy}>
                                         <span className="aw-action-seal"><GiSparkles /></span>
                                         <span className="aw-action-copy">
-                                            <strong>{awakeningBusy ? "Awakening…" : "Awaken Element"}</strong>
+                                            <strong>{awakeningBusy ? "Awakening…" : "Awaken element"}</strong>
                                             <small>{freeAwakeningKind === AWAKENING_FREE_LV20_ID ? "Level 20 reward · No cost" : "Level 2 reward · No cost"}</small>
                                         </span>
                                         <span className="aw-action-arrow" aria-hidden="true">→</span>
@@ -1246,7 +1246,7 @@ export function CentralHub({
                                         >
                                             <span className="aw-action-seal"><GameIcon name="dice" size={20} /></span>
                                             <span className="aw-action-copy">
-                                                <strong>{awakeningBusy ? "Attuning…" : "Reroll Element"}</strong>
+                                                <strong>{awakeningBusy ? "Attuning…" : "Reroll element"}</strong>
                                                 <small>1 element · 10 Fate Shards · {character.fateShards} available</small>
                                             </span>
                                             <span className="aw-action-arrow" aria-hidden="true">→</span>
@@ -1259,7 +1259,7 @@ export function CentralHub({
                                         >
                                             <span className="aw-action-seal"><GameIcon name="dice" size={20} /></span>
                                             <span className="aw-action-copy">
-                                                <strong>{awakeningBusy ? "Attuning…" : "Reroll Elements"}</strong>
+                                                <strong>{awakeningBusy ? "Attuning…" : "Reroll elements"}</strong>
                                                 <small>Both elements · 15 Fate Shards · {character.fateShards} available</small>
                                             </span>
                                             <span className="aw-action-arrow" aria-hidden="true">→</span>
@@ -1546,7 +1546,7 @@ export function CentralHub({
                                 }
 
                                 return (
-                                    <div className="cf-card cf-special" style={{ borderColor: "var(--gold)", boxShadow: "0 0 10px rgba(250,204,21,0.22)" }}>
+                                    <div className="cf-card cf-special" style={{ borderColor: "var(--gold)", boxShadow: "0 0 10px rgba(230, 196, 119, 0.22)" }}>
                                         <strong><GameIcon name="shard" size={14} style={COST_ICON} />Dungeon Legendary Relic</strong>
                                         <small>Combine Hollow Hound Alpha fragments into a legendary relic.</small>
                                         <small>Fragments: <strong>{fragmentCount}</strong> · Relics: <strong>{relicCount}</strong></small>
@@ -1879,8 +1879,8 @@ export function CentralHub({
                                         >
                                             <GameIcon name="dice" size={16} style={HDR_ICON} />
                                             {namedForgeAnimation?.kind === "armor"
-                                                ? namedForgeAnimation.phase === "rolling" ? "Rolling Armor…" : "Sealing Armor…"
-                                                : `Roll Named Armor · ${namedForgeOreCount('armor')} Pristine Ore`}
+                                                ? namedForgeAnimation.phase === "rolling" ? "Rolling armor…" : "Sealing armor…"
+                                                : `Roll named armor · ${namedForgeOreCount('armor')} Pristine Ore`}
                                         </button>
 
                                         {namedArmorRoll && !namedForgeAnimation && (
@@ -1936,10 +1936,10 @@ export function CentralHub({
 
                                                 <div>
                                                     <button className="nw-commit" onClick={forgeNamedArmor} disabled={namedForgeBusy}>
-                                                        <GiBlacksmith style={HDR_ICON} />{namedForgeBusy ? "Forging…" : "Forge Armor"}
+                                                        <GiBlacksmith style={HDR_ICON} />{namedForgeBusy ? "Forging…" : "Forge armor"}
                                                     </button>
                                                     <button className="danger-button" onClick={() => { setNamedArmorRoll(null); setNamedArmorToken(""); }} disabled={namedForgeBusy}>
-                                                        <GiTrashCan style={HDR_ICON} />Discard Roll
+                                                        <GiTrashCan style={HDR_ICON} />Discard roll
                                                     </button>
                                                 </div>
                                             </div>
@@ -2047,8 +2047,8 @@ export function CentralHub({
                                         >
                                             <GameIcon name="dice" size={16} style={HDR_ICON} />
                                             {namedForgeAnimation?.kind === "weapon"
-                                                ? namedForgeAnimation.phase === "rolling" ? "Rolling Weapon…" : "Sealing Weapon…"
-                                                : `Roll Named Weapon · ${namedForgeOreCount('weapon')} Pristine Ore`}
+                                                ? namedForgeAnimation.phase === "rolling" ? "Rolling weapon…" : "Sealing weapon…"
+                                                : `Roll named weapon · ${namedForgeOreCount('weapon')} Pristine Ore`}
                                         </button>
 
                                         {namedWeaponRoll && !namedForgeAnimation && (
@@ -2108,10 +2108,10 @@ export function CentralHub({
 
                                                 <div>
                                                     <button className="nw-commit" onClick={forgeNamedWeapon} disabled={namedForgeBusy}>
-                                                        <GiBlacksmith style={HDR_ICON} />{namedForgeBusy ? "Forging…" : "Forge Weapon"}
+                                                        <GiBlacksmith style={HDR_ICON} />{namedForgeBusy ? "Forging…" : "Forge weapon"}
                                                     </button>
                                                     <button className="danger-button" onClick={() => { setNamedWeaponRoll(null); setNamedWeaponToken(""); }} disabled={namedForgeBusy}>
-                                                        <GiTrashCan style={HDR_ICON} />Discard Roll
+                                                        <GiTrashCan style={HDR_ICON} />Discard roll
                                                     </button>
                                                 </div>
                                             </div>

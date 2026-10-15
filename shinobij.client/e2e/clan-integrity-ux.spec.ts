@@ -139,7 +139,7 @@ test("Clan Hall territory and dissolution controls preserve authoritative player
     await expect(page.getByText(/Clan Banner:\s*No clan banner planted/)).toBeVisible();
     await expect(page.getByText(/Claim Status:\s*Eligible — leadership may spend 75 scrolls/)).toBeVisible();
 
-    await page.getByRole("button", { name: "Capture Sector (75 Scrolls)", exact: true }).click();
+    await page.getByRole("button", { name: "Capture sector (75 scrolls)", exact: true }).click();
     let captureConfirmation = page.getByRole("alertdialog", { name: "Capture Sector 40" });
     await expect(captureConfirmation).toContainText("Village control: Stormveil Village");
     await expect(captureConfirmation).toContainText("Clan banner: Shadow Cell");
@@ -149,9 +149,9 @@ test("Clan Hall territory and dissolution controls preserve authoritative player
     await captureConfirmation.getByRole("button", { name: "Cancel" }).click();
     expect(assignmentBodies).toHaveLength(0);
 
-    await page.getByRole("button", { name: "Capture Sector (75 Scrolls)", exact: true }).click();
+    await page.getByRole("button", { name: "Capture sector (75 scrolls)", exact: true }).click();
     captureConfirmation = page.getByRole("alertdialog", { name: "Capture Sector 40" });
-    await captureConfirmation.getByRole("button", { name: "Spend 75 Scrolls" }).click();
+    await captureConfirmation.getByRole("button", { name: "Spend 75 scrolls" }).click();
     const notice = page.getByRole("alertdialog", { name: "Notice" });
     await expect(notice).toContainText("Only clan leadership can assign Territory Control Scrolls.");
     expect(assignmentBodies).toHaveLength(1);
@@ -160,14 +160,14 @@ test("Clan Hall territory and dissolution controls preserve authoritative player
     await notice.getByRole("button", { name: "OK" }).click();
 
     assignmentMode = "success";
-    await page.getByRole("button", { name: "Capture Sector (75 Scrolls)", exact: true }).evaluate((button) => {
+    await page.getByRole("button", { name: "Capture sector (75 scrolls)", exact: true }).evaluate((button) => {
         (button as HTMLButtonElement).click();
         (button as HTMLButtonElement).click();
     });
     captureConfirmation = page.getByRole("alertdialog", { name: "Capture Sector 40" });
     await expect(captureConfirmation).toHaveCount(1);
     expect(assignmentBodies).toHaveLength(1);
-    await captureConfirmation.getByRole("button", { name: "Spend 75 Scrolls" }).click();
+    await captureConfirmation.getByRole("button", { name: "Spend 75 scrolls" }).click();
     // The claim is held open by `assignmentHeld`, so this window cannot close
     // before the assertion runs no matter how loaded the machine is.
     const busyButtons = page.getByRole("button", { name: "Claiming…" });
@@ -179,7 +179,7 @@ test("Clan Hall territory and dissolution controls preserve authoritative player
     await expect(page.getByText(/Village Control:\s*Stormveil Village/)).toBeVisible();
     await expect(page.getByText(/Clan Banner:\s*Shadow Cell/)).toBeVisible();
     await expect(page.getByText(/Claim Status:\s*Owned by your clan/)).toBeVisible();
-    await expect(page.getByRole("button", { name: "Reinforce with 1 Scroll", exact: true })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Reinforce with 1 scroll", exact: true })).toBeDisabled();
     expect(assignmentBodies[1]).toMatchObject({
         playerName: "AuditNinja",
         clan: "Shadow Cell",
@@ -208,7 +208,7 @@ test("Clan Hall territory and dissolution controls preserve authoritative player
     await expect(page.getByText(/BREACHED:.*restore HP before/i)).toBeVisible();
     if (await contextualTipDismiss.isVisible()) await contextualTipDismiss.click();
 
-    const deleteButton = page.getByRole("button", { name: "Delete Clan", exact: true });
+    const deleteButton = page.getByRole("button", { name: "Delete clan", exact: true });
     await deleteButton.evaluate((button) => button.scrollIntoView({ block: "center" }));
     await expect(deleteButton).toBeInViewport();
     await deleteButton.click();
@@ -229,10 +229,10 @@ test("Clan Hall territory and dissolution controls preserve authoritative player
         (button as HTMLButtonElement).click();
     });
     await page.getByRole("alertdialog", { name: "Confirm" }).getByRole("button", { name: "Delete" }).click();
-    await expect(page.getByRole("button", { name: "Deleting Clan..." })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Deleting clan…" })).toBeDisabled();
     await expect.poll(() => deleteRequests).toBe(1);
     await expect(page.getByRole("heading", { name: "Create Clan" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Delete Clan", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Delete clan", exact: true })).toHaveCount(0);
     expect(runtimeErrors.filter((message) => !/Failed to load resource:.*403 \(Forbidden\)/.test(message))).toEqual([]);
 });
 
@@ -292,7 +292,7 @@ test("a Clan Hall change lands on the clan as it stands now, not the copy the ha
     await expect(page.getByRole("heading", { name: "Clan Notice Board" })).toBeVisible();
     await page.getByPlaceholder("Example: Prepare Sector 33 raid team").fill("Rally at the gate");
     await page.getByPlaceholder("Post clan plans, resource needs, guard rotations, or war instructions.").fill("Everyone to the east gate at dusk.");
-    await page.getByRole("button", { name: "Post Clan Notice", exact: true }).click();
+    await page.getByRole("button", { name: "Post clan notice", exact: true }).click();
 
     await expect.poll(() => writes.length).toBe(writesBeforeNotice + 1);
     const posted = writes[writes.length - 1] as { treasury?: unknown; joinRequests: Array<{ name: string }>; notices: Array<{ id: string; title: string }> };

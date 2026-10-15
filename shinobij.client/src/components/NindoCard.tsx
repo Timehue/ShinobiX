@@ -21,7 +21,7 @@ export function NindoCard({ nindo, nindoBg, ownerName }: { nindo?: string; nindo
             {trimmed ? (
                 <div
                     className="nindo-body"
-                    style={hasBg ? { ...bg, padding: "14px 16px", borderRadius: 8, border: "1px solid rgba(250,204,21,.22)" } : undefined}
+                    style={hasBg ? { ...bg, padding: "14px 16px", borderRadius: 8, border: "1px solid rgba(230, 196, 119, .22)" } : undefined}
                 >
                     {renderNindo(trimmed)}
                 </div>

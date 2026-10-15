@@ -23,7 +23,7 @@ function techniqueRole(move: Technique): { label: string; art: GameArtIconKind; 
     if (["stun", "freeze", "confuse", "movelock", "slow", "debuff", "crush", "push", "pull", "mark", "taunt"].includes(move.kind)) {
         return { label: "Counter", art: "guard", color: "#60a5fa", effect: "Interrupt + Stagger" };
     }
-    return { label: "Punish", art: "attack", color: "#fbbf24", effect: "Critical + Armor Break" };
+    return { label: "Punish", art: "attack", color: "#e6c477", effect: "Critical + Armor Break" };
 }
 
 export function PetDuelCommandDeck({
@@ -237,7 +237,7 @@ export function PetDuelCommandDeck({
                             overflow: "hidden",
                             minWidth: 0,
                             borderRadius: 16,
-                            border: `2px solid ${bondReady ? "#fbbf24" : "rgba(148,163,184,.32)"}`,
+                            border: `2px solid ${bondReady ? "#e6c477" : "rgba(148,163,184,.32)"}`,
                             background: "rgba(4,8,18,.94)",
                             color: bondReady ? "#fff7e6" : "#718096",
                             boxShadow: bondReady ? `0 0 26px ${glow}66,inset 0 0 18px rgba(245,158,11,.24)` : "0 8px 26px rgba(0,0,0,.5)",

@@ -58,8 +58,8 @@
 
 @media (hover: hover) {
     .map-instance .sector-image-map .transparent-sector-tile:hover {
-        background: rgba(250, 204, 21, 0.10) !important;
-        box-shadow: inset 0 0 0 1px rgba(250, 204, 21, 0.35) !important;
+        background: rgba(230, 196, 119, 0.10) !important;
+        box-shadow: inset 0 0 0 1px rgba(230, 196, 119, 0.35) !important;
     }
 }
 
@@ -72,7 +72,7 @@
 }
 
 .map-instance .sector-image-map .sector-player-tile {
-    box-shadow: inset 0 0 0 2px rgba(250, 204, 21, 0.62), 0 0 14px rgba(250, 204, 21, 0.34) !important;
+    box-shadow: inset 0 0 0 2px rgba(230, 196, 119, 0.62), 0 0 14px rgba(230, 196, 119, 0.34) !important;
 }
 
 /* Painted road mouths carry the route. Keep their hit targets accessible
@@ -97,9 +97,9 @@
 .sector-intel-payoff {
     margin-top: 8px;
     padding: 8px 10px;
-    border-left: 3px solid rgba(250, 204, 21, .55);
+    border-left: 3px solid rgba(230, 196, 119, .55);
     border-radius: 8px;
-    background: rgba(250, 204, 21, .08);
+    background: rgba(230, 196, 119, .08);
 }
 
     .sector-intel-payoff h5 {

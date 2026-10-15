@@ -182,7 +182,7 @@ function HollowGatePetFightView({ character, fight, sharedImages, onSettled, onU
                     ? `${message} Your run is intact.`
                     : phase === "settling" ? "Sealing the result with the Gate…" : "The seal is opening…"}</p>
                 {phase === "error" && decidedReceipt && (
-                    <button type="button" className="admin-button" onClick={() => { void settleSession(decidedReceipt); }}>Try Again</button>
+                    <button type="button" className="admin-button" onClick={() => { void settleSession(decidedReceipt); }}>Try again</button>
                 )}
             </div>
         );

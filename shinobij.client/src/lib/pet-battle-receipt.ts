@@ -32,6 +32,6 @@ export async function postPetBattleReceipt<T extends Receipt>(
         throw new PetSettlementRetryError(data?.error || "Beastbound Warfront is still in progress.", retryAfterMs);
     }
     if (!response.ok) throw new Error(data?.error || "The arena could not record this pet battle.");
-    if (!data) throw new Error("The arena returned an unreadable pet battle receipt.");
+    if (!data) throw new Error("The arena returned an unreadable pet battle result. Press Try again.");
     return data;
 }

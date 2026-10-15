@@ -198,7 +198,7 @@ export function buildJourneyGuide(character: Character): JourneyGuideState {
                 : startedTraining
                     ? "Training started. Collect it when the timer finishes; you can keep learning meanwhile."
                 : `Try ${trainingRecommendation(character).label}. ${trainingRecommendation(character).reason} Start with 15m while learning.`,
-            actionLabel: startedTraining ? "View Training" : "Begin Training",
+            actionLabel: startedTraining ? "View training" : "Begin training",
             screen: "training",
             complete: startedTraining,
         },
@@ -220,7 +220,7 @@ export function buildJourneyGuide(character: Character): JourneyGuideState {
                 : wonFirstFight
                     ? "First combat cleared. The battle log shows what happened each turn."
                     : "Use the E-Rank Drill when you are ready: Attack or jutsu, then Wait when AP runs low.",
-            actionLabel: pendingCombatClaim ? "Claim Mission" : "Find First Fight",
+            actionLabel: pendingCombatClaim ? "Claim mission" : "Find first fight",
             screen: "missions",
             complete: wonFirstFight,
         },

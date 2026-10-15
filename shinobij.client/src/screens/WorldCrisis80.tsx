@@ -230,7 +230,7 @@ export function WorldCrisis80({
             <header className="reckoning__header">
                 <button type="button" className="reckoning__back" onClick={() => setScreen("village")}>← Village</button>
                 <div><span>Server-wide reckoning · Four witness ledgers</span><h1 id="reckoning-title">{WORLD_CRISIS_80_TITLE}</h1><p>Harrow traced four village bargains to one Sunken Court lattice. The first new level-80 record made those reports agree—and Hollow Gate’s human agents moved to collect the evidence.</p></div>
-                <button type="button" className="reckoning__news" onClick={() => openWorldNews(setScreen)}>Watch World News</button>
+                <button type="button" className="reckoning__news" onClick={() => openWorldNews(setScreen)}>Watch world news</button>
             </header>
             <div className="reckoning__status" role="status" aria-live="polite">
                 <span>{crisis ? worldCrisis80PhaseLabel(crisis.phase) : "Reconciling witnesses"}</span>

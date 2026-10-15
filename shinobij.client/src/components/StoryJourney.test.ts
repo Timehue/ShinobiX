@@ -228,7 +228,7 @@ test("Story Hall guidance reveals only the next level gate", () => {
 test("Story Hall guidance explains ready, recovery, and completed states", () => {
     const ready = storyArchiveGuidance({ ...character(1), level: 15 }, content);
     assert.equal(ready.state, "ready");
-    assert.equal(ready.actionLabel, "Return to Village");
+    assert.equal(ready.actionLabel, "Return to village");
 
     const complete = storyArchiveGuidance({ ...character(storylines["Stormveil Village"].length), level: 100 }, content);
     assert.equal(complete.state, "complete");
@@ -246,7 +246,7 @@ test("Story Hall resume selects the exact current chapter while older interludes
 
 test("Story Hall separates completed stories from the Living Chronicle", () => {
     assert.match(storyHallSource, /aria-label="Story Hall sections"/);
-    assert.match(storyHallSource, />\s*Completed Stories\s*</);
+    assert.match(storyHallSource, />\s*Completed stories\s*</);
     assert.match(storyHallSource, />\s*Living Chronicle\s*</);
     assert.match(storyHallSource, /aria-pressed=\{section === "stories"\}/);
     assert.match(storyHallSource, /aria-pressed=\{section === "chronicle"\}/);

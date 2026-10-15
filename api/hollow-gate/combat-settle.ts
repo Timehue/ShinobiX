@@ -489,7 +489,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     await retireHollowGatePetChildLease(playerName, initialBinding.petAuthority.proofId);
                 } catch (error) {
                     console.error('[hollow-gate/combat-settle] Pet child cleanup failed', error);
-                    return res.status(503).json({ error: 'The Hollow Gate result is settled, but its pet battle lease could not be retired — please retry.' });
+                    return res.status(503).json({ error: 'Your Hollow Gate result is saved, but the gate is still closing this pet fight. Try again in a moment.' });
                 }
             }
             if (initialBinding.combatMode === 'solo-pve') {

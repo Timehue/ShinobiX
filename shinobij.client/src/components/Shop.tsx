@@ -502,7 +502,7 @@ function ShopBase({
                                                             : purchaseBusy
                                                                 ? "Buying…"
                                                                 : wallet < unit
-                                                                    ? `Need More ${currencyLabel}`
+                                                                    ? `Need more ${currencyLabel}`
                                                                     : <>Buy for {currencyIcon} {unit} {currencyLabel}</>}
                                                 </button>
                                             );
@@ -526,7 +526,7 @@ function ShopBase({
                                                 ) : capLeft <= 0 ? (
                                                     <button type="button" disabled>At carry limit ({cap})</button>
                                                 ) : maxBuyable < 1 ? (
-                                                    <button type="button" disabled>Need More {currencyLabel}</button>
+                                                    <button type="button" disabled>Need more {currencyLabel}</button>
                                                 ) : (
                                                     <>
                                                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>

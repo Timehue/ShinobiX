@@ -113,6 +113,6 @@ export async function sendCurrency(playerName: string, toPlayer: string, currenc
         };
         return data;
     } catch {
-        return { ok: false, error: 'Transfer unconfirmed. Refresh before retrying.' };
+        return { ok: false, error: 'That transfer may not have gone through. Wait until the game has saved, then refresh to check before you try again.' };
     }
 }

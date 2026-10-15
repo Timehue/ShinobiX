@@ -18,7 +18,7 @@ const garrisonScreen = readFileSync(new URL('./SectorWarGarrisonAssault.tsx', im
 
 describe('Village War Map garrison UI contract', () => {
     it('exposes the Assault Garrison button, gated on garrisonAssaultable, only for the attacking Kage\'s own village', () => {
-        assert.match(screen, /Assault Garrison/);
+        assert.match(screen, /Assault garrison/);
         assert.match(screen, /garrisonAssaultable\(contest\)/);
         assert.match(screen, /contest\.attackerVillage === myVillage/);
         assert.match(screen, /launchGarrisonAssault\(sec\.sector\)/);

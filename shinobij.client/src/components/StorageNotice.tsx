@@ -31,7 +31,7 @@ const wrap: CSSProperties = {
     right: 0,
     padding: "8px 12px",
     background: "rgba(2, 6, 23, 0.95)",
-    borderTop: "1px solid rgba(250, 204, 21, 0.28)",
+    borderTop: "1px solid rgba(230, 196, 119, 0.28)",
     boxShadow: "0 -8px 30px rgba(0, 0, 0, 0.45)",
     backdropFilter: "blur(6px)",
     WebkitBackdropFilter: "blur(6px)",
@@ -58,7 +58,7 @@ const text: CSSProperties = {
 };
 
 const link: CSSProperties = {
-    color: "#fbbf24",
+    color: "#e6c477",
     fontWeight: 700,
     textDecoration: "underline",
     textUnderlineOffset: 2,
@@ -69,7 +69,7 @@ const button: CSSProperties = {
     minHeight: 34,
     padding: "6px 15px",
     borderRadius: 8,
-    border: "1px solid rgba(250, 204, 21, 0.6)",
+    border: "1px solid rgba(230, 196, 119, 0.6)",
     background: "linear-gradient(180deg, #d98a12, #7a350f)",
     color: "#fff7d6",
     fontWeight: 800,

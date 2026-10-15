@@ -119,7 +119,7 @@ describe("permanent action interaction safety", () => {
     });
 
     test("ambiguous paid-action failures direct players to refresh", () => {
-        assert.match(source("./ambiguous-action.ts"), /AMBIGUOUS_ACTION_MESSAGE = "Action unconfirmed\. Refresh before retrying\."/);
+        assert.match(source("./ambiguous-action.ts"), /AMBIGUOUS_ACTION_MESSAGE = "That action may not have gone through\. Wait until the game has saved, then refresh to check before you try again\."/);
         const profileSettlement = source("./profile-settlement.ts");
         assert.match(profileSettlement, /AMBIGUOUS_ACTION_MESSAGE/);
 
@@ -130,8 +130,8 @@ describe("permanent action interaction safety", () => {
         assert.match(training, /AMBIGUOUS_ACTION_MESSAGE/);
 
         for (const relative of ["./player-trade.ts", "./card-pack.ts", "./black-market.ts", "./player-api.ts"]) {
-            assert.match(source(relative), /unconfirmed|response lost|AMBIGUOUS_ACTION_MESSAGE/i, `${relative} must label an ambiguous response`);
-            if (relative !== "./player-api.ts") assert.match(source(relative), /Refresh before retrying/i, `${relative} must not encourage a blind retry`);
+            assert.match(source(relative), /unconfirmed|response lost|may not have gone through|AMBIGUOUS_ACTION_MESSAGE/i, `${relative} must label an ambiguous response`);
+            if (relative !== "./player-api.ts") assert.match(source(relative), /Wait until the game has saved, then refresh to (check|recover)/i, `${relative} must not encourage a blind retry, nor a refresh that drops an unsaved tab`);
         }
     });
 

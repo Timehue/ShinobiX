@@ -58,13 +58,13 @@ test('world toast expires despite 10 parent renders per second and has a keyboar
 test('Guild gates level 30 contracts at level 16 and explains independent rank and quota', async ({ page }, info) => {
     await page.goto('/e2e/fixtures/player-friction.html');
     await expect(page.getByRole('button', { name: 'Requires level 30' }).first()).toBeDisabled();
-    await expect(page.getByRole('button', { name: 'Accept Hunt' }).first()).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Accept hunt' }).first()).toBeEnabled();
     await expect(page.getByText('23 / 23', { exact: true })).toBeVisible();
     await expect(page.getByRole('status')).toContainText('still accept and track');
     await page.screenshot({ path: info.outputPath('guild.png'), fullPage: true });
     await page.goto('/e2e/fixtures/player-friction.html?level=30');
     await expect(page.getByText('Hunt the Shadow Panther', { exact: true })).toBeVisible();
-    await expect(page.locator('.hunt-contract-card').filter({ hasText: 'Hunt the Shadow Panther' }).getByRole('button', { name: 'Accept Hunt' })).toBeEnabled();
+    await expect(page.locator('.hunt-contract-card').filter({ hasText: 'Hunt the Shadow Panther' }).getByRole('button', { name: 'Accept hunt' })).toBeEnabled();
     await page.goto('/e2e/fixtures/player-friction.html?rank=0');
     await expect(page.getByText('Requires Beast Slayer', { exact: false })).toBeVisible();
     await expect(page.getByText('Hunt the Shadow Panther', { exact: true })).toHaveCount(0);
@@ -80,7 +80,7 @@ test('hunt claim uses readable busy label and recovers after an unsuccessful res
     page.on('dialog', dialog => void dialog.dismiss());
     await page.goto('/e2e/fixtures/player-friction.html?claim');
     await page.getByRole('button', { name: 'Claim Reward' }).click();
-    const busy = page.getByRole('button', { name: 'Claiming...', exact: true });
+    const busy = page.getByRole('button', { name: 'Claiming…', exact: true });
     await expect(busy).toBeDisabled();
     await expect(busy).toHaveAttribute('aria-busy', 'true');
     release();
@@ -96,7 +96,7 @@ test('daily cap is readable at 320x568 with the complete reset explanation', asy
     await expect(explore).toContainText('Daily 100/100');
     await expect(explore).toHaveAccessibleDescription('Your daily exploration: 100/100 · Resets at midnight UTC');
     await expect(page.getByText('Shared sector pool: 1,475 explores left', { exact: true })).toBeVisible();
-    await page.getByRole('button', { name: /^Sector Info/ }).click();
+    await page.getByRole('button', { name: /^Sector info/ }).click();
     await expect(page.getByText('Your daily exploration: 100/100 · Resets at midnight UTC', { exact: true })).toBeVisible();
     expect((await new AxeBuilder({ page }).include('.sector-hud').analyze()).violations).toEqual([]);
     await page.screenshot({ path: info.outputPath('daily-cap-320.png') });
@@ -111,7 +111,7 @@ test('daily explore cap keeps Hunt and richer-ground navigation available', asyn
     await page.getByRole('button', { name: 'Track Trail Beast' }).click();
     expect(await page.evaluate(() => window.sectorFixture.events)).toContain('hunt');
     expect(await page.evaluate(() => window.sectorFixture.events)).not.toContain('explore');
-    await page.getByRole('button', { name: /^Sector Info/ }).click();
+    await page.getByRole('button', { name: /^Sector info/ }).click();
     await expect(page.getByText('Your daily exploration: 100/100 · Resets at midnight UTC', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Close Sector Info', exact: true }).click();
     await page.screenshot({ path: info.outputPath('daily-cap.png') });

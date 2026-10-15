@@ -12,7 +12,7 @@
     align-items: center;
     gap: 14px;
     padding: 14px;
-    border: 1px solid rgba(250, 204, 21, .32);
+    border: 1px solid rgba(230, 196, 119, .32);
     border-radius: 14px;
     background: linear-gradient(135deg, rgba(2,6,23,.78), rgba(30,41,59,.72));
 }
@@ -20,7 +20,7 @@
 .clan-hall-big-icon,
 .clan-hall-tier-icon {
     font-size: 56px;
-    filter: drop-shadow(0 0 18px rgba(250,204,21,.25));
+    filter: drop-shadow(0 0 18px rgba(230, 196, 119, .25));
 }
 
 .clan-title-block {
@@ -203,8 +203,8 @@
     align-items: center;
     gap: 18px;
     min-height: 180px;
-    border-color: rgba(250, 204, 21, .4);
-    background: radial-gradient(circle at 10% 20%, rgba(250,204,21,.12), transparent 28%), rgba(2, 6, 23, .58);
+    border-color: rgba(230, 196, 119, .4);
+    background: radial-gradient(circle at 10% 20%, rgba(230, 196, 119, .12), transparent 28%), rgba(2, 6, 23, .58);
 }
 
 .town-notice-board p {

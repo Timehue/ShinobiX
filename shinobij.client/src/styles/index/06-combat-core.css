@@ -47,7 +47,7 @@
     border-radius: 10px;
     background: #020617;
     color: var(--gold-300);
-    border: 1px solid rgba(250,204,21,.45);
+    border: 1px solid rgba(230, 196, 119, .45);
 }
 
 .arena-fullscreen {
@@ -216,8 +216,8 @@
 }
 
 .combat-side-hud--active {
-    border-color: #fbbf24;
-    box-shadow: 0 0 18px rgba(251,191,36,.35);
+    border-color: var(--sj-gold-bright);
+    box-shadow: 0 0 18px rgba(230, 196, 119, .35);
 }
 
 .combat-hud-header {
@@ -250,7 +250,7 @@
 }
 
 .turn-badge-active {
-    background: #fbbf24;
+    background: var(--sj-gold-bright);
     color: #1c1917;
 }
 
@@ -490,14 +490,14 @@
 .spire-progress { position: relative; height: 6px; margin: 12px 16px 4px; border-radius: 4px; background: #241812; overflow: visible; }
 .spire-progress-fill {
     height: 100%; border-radius: 4px; transition: width 0.6s cubic-bezier(0.22,1,0.36,1);
-    background: linear-gradient(90deg, var(--green-400) 0%, var(--cyan) 33%, #a78bfa 66%, #fbbf24 100%);
+    background: linear-gradient(90deg, var(--green-400) 0%, var(--cyan) 33%, #a78bfa 66%, var(--sj-gold-bright) 100%);
     box-shadow: 0 0 12px rgba(240,161,90,0.5);
 }
 .spire-progress-tick {
     position: absolute; top: 50%; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 50%;
     background: #14100c; border: 1.5px solid #57493a;
 }
-.spire-progress-tick.lit { background: #fbbf24; border-color: var(--gold-300); box-shadow: 0 0 8px rgba(251,191,36,0.8); }
+.spire-progress-tick.lit { background: var(--sj-gold-bright); border-color: var(--gold-300); box-shadow: 0 0 8px rgba(230, 196, 119, 0.8); }
 
 /* Weekly Blessing strip — a positive, teal-tinted banner (distinct from the amber chassis). */
 .spire-blessing {
@@ -527,7 +527,7 @@
     display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.8rem;
     color: #12100f; background: var(--boss-accent, #f0a15a); box-shadow: 0 1px 4px rgba(0,0,0,0.6);
 }
-.spire-hero-milestone { position: absolute; right: 6px; top: 4px; font-size: 1rem; color: var(--gold-300); text-shadow: 0 0 8px rgba(251,191,36,0.9); }
+.spire-hero-milestone { position: absolute; right: 6px; top: 4px; font-size: 1rem; color: var(--gold-300); text-shadow: 0 0 8px rgba(230, 196, 119, 0.9); }
 .spire-hero-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
 .spire-hero-band { font-size: 0.72rem; letter-spacing: 1.2px; text-transform: uppercase; font-weight: 700; }
 .spire-hero-name { font-family: var(--font-display, inherit); font-size: 1.55rem; line-height: 1; font-weight: 800; text-shadow: 0 2px 10px rgba(0,0,0,0.7); }
@@ -536,7 +536,7 @@
     font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 999px;
     border: 1px solid #57493a; color: #c9bdad; background: rgba(0,0,0,0.25); white-space: nowrap;
 }
-.spire-tag.milestone { border-color: rgba(251,191,36,0.6); color: var(--gold-300); background: rgba(251,191,36,0.1); }
+.spire-tag.milestone { border-color: rgba(230, 196, 119, 0.6); color: var(--gold-300); background: rgba(230, 196, 119, 0.1); }
 .spire-tag.reward { border-color: rgba(125,211,252,0.5); color: #7dd3fc; background: rgba(56,189,248,0.08); }
 .spire-hero-blurb { margin: 3px 0 2px; color: #b9ab98; font-size: 0.82rem; line-height: 1.45; }
 
@@ -600,7 +600,7 @@
 .spire-rung-info { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
 .spire-rung-boss { font-size: 0.74rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .spire-rung-mech { font-size: 0.66rem; color: #8a7c68; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.spire-rung-star { position: absolute; right: 6px; top: 4px; font-size: 0.72rem; color: var(--gold-300); text-shadow: 0 0 6px rgba(251,191,36,0.8); }
+.spire-rung-star { position: absolute; right: 6px; top: 4px; font-size: 0.72rem; color: var(--gold-300); text-shadow: 0 0 6px rgba(230, 196, 119, 0.8); }
 .spire-rung-check { position: absolute; right: 6px; bottom: 4px; font-size: 0.72rem; font-weight: 800; color: var(--green-400); }
 .spire-rung-next { position: absolute; right: 6px; bottom: 4px; font-size: 0.7rem; color: var(--boss-accent, #f0a15a); }
 @keyframes spireNextPulse {
@@ -695,11 +695,11 @@
 .spire-result-card.loss .spire-result-portrait { filter: grayscale(0.6) brightness(0.7); border-color: #6b3b3b; box-shadow: none; }
 .spire-result-kicker { font-size: 0.72rem; letter-spacing: 1.4px; text-transform: uppercase; color: #a99e8d; font-weight: 700; }
 .spire-result-title { font-family: var(--font-display, inherit); font-size: 1.7rem; margin: 4px 0 2px; line-height: 1.05; }
-.spire-result-title.win { color: var(--gold-300); text-shadow: 0 2px 16px rgba(251,191,36,0.5); }
+.spire-result-title.win { color: var(--gold-300); text-shadow: 0 2px 16px rgba(230, 196, 119, 0.5); }
 .spire-result-title.loss { color: var(--red-400); }
 .spire-result-milestone {
     display: inline-block; margin: 8px auto 2px; padding: 5px 14px; border-radius: 999px; font-size: 0.86rem;
-    color: var(--gold-300); background: rgba(251,191,36,0.12); border: 1px solid rgba(251,191,36,0.5);
+    color: var(--gold-300); background: rgba(230, 196, 119, 0.12); border: 1px solid rgba(230, 196, 119, 0.5);
     animation: spireMilestonePulse 1.4s ease-in-out infinite;
 }
 .spire-result-milestone b { color: #fff7cc; }
@@ -720,7 +720,7 @@
 }
 .spire-result-card.loss .spire-result-btn { color: var(--red-300); background: transparent; border-color: #6b3b3b; box-shadow: none; }
 @keyframes spireShardReveal { 0% { opacity: 0; transform: scale(0.6) translateY(8px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
-@keyframes spireMilestonePulse { 0%,100% { box-shadow: 0 0 0 rgba(251,191,36,0); } 50% { box-shadow: 0 0 16px rgba(251,191,36,0.5); } }
+@keyframes spireMilestonePulse { 0%,100% { box-shadow: 0 0 0 rgba(230, 196, 119, 0); } 50% { box-shadow: 0 0 16px rgba(230, 196, 119, 0.5); } }
 
 @media (prefers-reduced-motion: reduce) {
     .spire-intro, .spire-intro-portrait, .spire-intro-band, .spire-intro-name, .spire-intro-mech,
@@ -970,7 +970,7 @@
     max-width: 260px;
     aspect-ratio: 16 / 9;
     overflow: hidden;
-    border: 2px solid rgba(250,204,21,.45);
+    border: 2px solid rgba(230, 196, 119, .45);
     border-radius: 8px;
     background: #020617;
 }

@@ -1175,14 +1175,14 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                             {selectedPet.description && <p className="pet-description">{selectedPet.description}</p>}
                             <div className="menu">
                                 <button disabled={progressBusy || selectedPetBreedingLocked || selectedPetIsOverflow} aria-describedby={selectedPetBreedingLocked || selectedPetIsOverflow ? "pet-yard-roster-lock" : undefined} onClick={() => void assignRosterRole("active")}>
-                                    {character.activePetId === selectedPet.id ? "Field companion" : "Set as Active"}
+                                    {character.activePetId === selectedPet.id ? "Field companion" : "Set as active"}
                                 </button>
                                 <button
                                     disabled={progressBusy || selectedPetBreedingLocked || selectedPetIsOverflow}
                                     aria-describedby={selectedPetBreedingLocked || selectedPetIsOverflow ? "pet-yard-roster-lock" : undefined}
                                     onClick={() => void assignRosterRole("partner", character.activePetId2v2 !== selectedPet.id)}
                                 >
-                                    {character.activePetId2v2 === selectedPet.id ? " 2v2 Partner" : "Set as 2v2 Partner"}
+                                    {character.activePetId2v2 === selectedPet.id ? " 2v2 partner" : "Set as 2v2 partner"}
                                 </button>
                                 <details className="pet-yard-disclosure pet-yard-manage"><summary>Manage companion</summary><button className="danger-button" disabled={Boolean(releaseBlocker)} aria-describedby={releaseBlocker ? "pet-yard-roster-lock" : undefined} onClick={releasePet}>Release companion</button></details>
                             </div>
@@ -1195,7 +1195,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                 <div className="pet-care-actions">
                                     <button onClick={petSelectedPet} disabled={selectedPetFreePetting <= 0} title={selectedPetHappinessSummary}>
                                         {selectedPetFreePetting > 0
-                                            ? `Pet +${PET_HAPPINESS_PET_GAIN}% Happiness`
+                                            ? `Pet +${PET_HAPPINESS_PET_GAIN}% happiness`
                                             : "Petted out for today"}
                                     </button>
                                 </div>
@@ -1259,7 +1259,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                     </div>
                                 ))}
                                 <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                                    <button type="button" className="admin-button" onClick={() => void commitGrowth()} disabled={growthBusy || growthSpent === Object.values(committedGrowth).reduce((sum, value) => sum + value, 0)}>{growthBusy ? "Saving…" : "Commit Build"}</button>
+                                    <button type="button" className="admin-button" onClick={() => void commitGrowth()} disabled={growthBusy || growthSpent === Object.values(committedGrowth).reduce((sum, value) => sum + value, 0)}>{growthBusy ? "Saving…" : "Commit build"}</button>
                                     <button type="button" onClick={() => void resetGrowth()} disabled={growthBusy || Object.values(committedGrowth).every((value) => value <= 0)}>Respec</button>
                                 </div>
                                 <p className="hint" style={{ margin: "6px 0 0" }}>Respecs are free outside active battles and return every committed point.</p>
@@ -1300,12 +1300,12 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                     ) : selectedPet.training ? (
                                         <div className="training-complete">
                                             <p> {petTrainingOptions.find((o) => o.type === selectedPet.training?.type)?.label} complete!</p>
-                                            <button className="admin-button" onClick={collectTraining} disabled={petTrainingBusy}>{petTrainingBusy ? "Collecting…" : "Collect Results"}</button>
+                                            <button className="admin-button" onClick={collectTraining} disabled={petTrainingBusy}>{petTrainingBusy ? "Collecting…" : "Collect results"}</button>
                                         </div>
                                     ) : (
                                         <>
                                             <p className="hint">Earn XP while you are away. Each level unlocks a Growth Point.</p>
-                                            {!selectedPetCanTrain && <p className="hint" role="status" style={{ color: "#fbbf24" }}>{selectedPetIsOverflow ? "This companion is preserved overflow. Move it into your carried roster through the Sanctuary to start training." : "This companion is carried but outside your active five. Set it as Active or as your 2v2 Partner, or rest another companion in the Sanctuary, to start training."}</p>}
+                                            {!selectedPetCanTrain && <p className="hint" role="status" style={{ color: "#e6c477" }}>{selectedPetIsOverflow ? "This companion is preserved overflow. Move it into your carried roster through the Sanctuary to start training." : "This companion is carried but outside your active five. Set it as Active or as your 2v2 Partner, or rest another companion in the Sanctuary, to start training."}</p>}
                                             <label htmlFor="pet-training-duration">Duration</label>
                                             <select id="pet-training-duration" value={trainingDuration} onChange={(e) => setTrainingDuration(Number(e.target.value))}>
                                                 {petTrainingDurations.map((d) => (
@@ -1319,12 +1319,12 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                                 // server-side (e.g. the training that carried it to Level 100), this
                                                 // collects it instead of leaving the pet stuck.
                                                 <>
-                                                    <button className="admin-button" onClick={recoverFinishedTraining} disabled={petTrainingBusy}>{petTrainingBusy ? "Checking…" : "Collect Finished Training"}</button>
+                                                    <button className="admin-button" onClick={recoverFinishedTraining} disabled={petTrainingBusy}>{petTrainingBusy ? "Checking…" : "Collect finished training"}</button>
                                                     <p className="hint">Fully trained — training no longer raises stats. Use this if a previous session is still waiting to be collected.</p>
                                                 </>
                                             ) : (
                                                 <>
-                                                    <button className="admin-button" onClick={startTraining} disabled={petTrainingBusy || !selectedPetCanTrain || !!selectedPet.expedition || selectedPetBreedingLocked}>{petTrainingBusy ? "Starting…" : !selectedPetCanTrain ? (selectedPetIsOverflow ? "Move into carried roster" : "Move into active five") : "Start Training"}</button>
+                                                    <button className="admin-button" onClick={startTraining} disabled={petTrainingBusy || !selectedPetCanTrain || !!selectedPet.expedition || selectedPetBreedingLocked}>{petTrainingBusy ? "Starting…" : !selectedPetCanTrain ? (selectedPetIsOverflow ? "Move into carried roster" : "Move into active five") : "Start training"}</button>
                                                     {prodigyAvailable && selectedPetCanTrain && (
                                                         <>
                                                             <button className="admin-button" onClick={() => void startTraining(undefined, true)} disabled={petTrainingBusy || !!selectedPet.expedition || selectedPetBreedingLocked}

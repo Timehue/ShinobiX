@@ -656,7 +656,7 @@
     background: linear-gradient(90deg, #854d0e, #ca8a04);
     color: #fef9c3;
     border-color: #fde047;
-    text-shadow: 0 0 4px rgba(250,204,21,0.6);
+    text-shadow: 0 0 4px rgba(230, 196, 119, 0.6);
 }
 
 /* ── Obstacle blocks — more dramatic 3-D look ── */
@@ -938,7 +938,7 @@
     gap: 6px;
 }
 .notice-post.pinned {
-    border-color: #fbbf24;
+    border-color: var(--sj-gold-bright);
     background: #1c1a0e;
 }
 .notice-post-head {

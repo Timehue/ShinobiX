@@ -311,7 +311,7 @@ function Fighter3D({ result, clock, id, pet, config }: {
                             <span ref={abilityRef} style={{ opacity: 0.18, marginLeft: 3, color: "#fde047", fontSize: 9 }}>◆</span>
                         </div>
                         <div style={{ position: "relative", width: 58, height: 5, margin: "0 auto", background: "#0b1020", borderRadius: 4, border: "1px solid #000", overflow: "hidden" }}>
-                            <div ref={hpChip} style={{ position: "absolute", left: 0, top: 0, height: "100%", width: "100%", background: "#fbbf24", opacity: 0.75 }} />
+                            <div ref={hpChip} style={{ position: "absolute", left: 0, top: 0, height: "100%", width: "100%", background: "#e6c477", opacity: 0.75 }} />
                             <div ref={hpFill} style={{ position: "absolute", left: 0, top: 0, height: "100%", width: "100%", background: TEAM_COLOR[team] }} />
                         </div>
                         <div style={{ display: "flex", justifyContent: "center", gap: 4, marginTop: 1 }}>

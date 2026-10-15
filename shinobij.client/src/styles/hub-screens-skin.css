@@ -6,8 +6,8 @@
 .logbook-screen,
 .jutsu-training-screen,
 .mission-hall {
-    --bsv2-gold:        #c4a25a;
-    --bsv2-gold-bright: #e8d496;
+    --bsv2-gold:        var(--sj-gold);
+    --bsv2-gold-bright: var(--sj-gold-bright);
     --bsv2-gold-soft:   rgba(196,162,90,0.45);
     --bsv2-gold-faint:  rgba(196,162,90,0.22);
     --bsv2-ink:         #050a18;

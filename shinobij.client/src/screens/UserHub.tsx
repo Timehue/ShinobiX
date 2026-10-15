@@ -277,7 +277,7 @@ export function UserHub({
                             maxLength={40}
                         />
                         <button type="submit" disabled={listBusy || !(tab === 'friends' ? friendName : blockName).trim()}>
-                            {listBusy ? 'Saving…' : tab === 'friends' ? 'Add Friend' : 'Block Player'}
+                            {listBusy ? 'Saving…' : tab === 'friends' ? 'Add friend' : 'Block player'}
                         </button>
                     </div>
                     {listNotice && <p className={`user-hub-list-notice ${listNotice.tone}`} role="status">{listNotice.text}</p>}

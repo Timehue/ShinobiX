@@ -51,7 +51,7 @@ export function HollowGateAttunement({ character, onClose, onVersionedCharacter 
         setForgeBusy(true);
         const confirmed = await gameConfirm(
             `Forge 1 Hollow Gate Key for ${KEY_FORGE_COST} Hollow Shards? The shards are spent immediately and cannot be refunded.`,
-            { title: "Forge Hollow Gate Key", confirmLabel: "Forge Key" },
+            { title: "Forge Hollow Gate Key", confirmLabel: "Forge key" },
         );
         if (!confirmed) {
             forgeBusyRef.current = false;

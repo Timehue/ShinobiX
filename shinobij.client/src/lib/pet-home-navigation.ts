@@ -41,5 +41,5 @@ export function petHomeReturnLabel(screen: Screen): string {
         village: "Village",
         worldMap: "World Map",
     };
-    return labels[screen] ?? "Previous Location";
+    return labels[screen] ?? "Previous location";
 }

@@ -104,7 +104,7 @@ test('cancel an unjoined world duel, refresh both players, and travel again', as
         isMobile: info.project.use.isMobile, hasTouch: info.project.use.hasTouch, reducedMotion: 'reduce' });
     try {
         await boot(page, p1, battleId);
-        await page.getByRole('button', { name: /Cancel Duel/ }).click();
+        await page.getByRole('button', { name: /Cancel duel/ }).click();
         await expect(page.getByRole('heading', { name: 'Duel Cancelled' })).toBeVisible();
         await expect(page.getByText('Cancellation confirmed.')).toBeVisible();
         await expect(page.getByRole('button', { name: 'Retry', exact: true })).toHaveCount(0);

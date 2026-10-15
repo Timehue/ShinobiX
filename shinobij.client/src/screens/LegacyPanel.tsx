@@ -430,7 +430,7 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
                                 const left = hours >= 48 ? `${Math.floor(hours / 24)} days` : hours >= 1 ? `${hours}h` : "less than an hour";
                                 return (
                                     <> He is <b>waiting in sector {status.offer.sector}</b> right now.
-                                    {msLeft > 0 && <> He will not wait forever. <b style={{ color: "#fbbf24" }}>About {left}</b> remains.</>}</>
+                                    {msLeft > 0 && <> He will not wait forever. <b style={{ color: "#e6c477" }}>About {left}</b> remains.</>}</>
                                 );
                             })()}
                         </p>
@@ -504,9 +504,9 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
                             </div>
                         </div>
                     ))}
-                    {trialNote && <p role="status" aria-live="polite" aria-atomic="true" style={{ fontSize: ".74rem", color: "#fbbf24", margin: "0 0 6px" }}>{trialNote}</p>}
+                    {trialNote && <p role="status" aria-live="polite" aria-atomic="true" style={{ fontSize: ".74rem", color: "#e6c477", margin: "0 0 6px" }}>{trialNote}</p>}
                     <button disabled={busy} onClick={() => void handleTrial("complete")} style={{ width: "100%", marginTop: 4 }}>
-                        {status.trial.objectives.every((o) => o.done) ? "Complete the Trial" : "Check Progress"}
+                        {status.trial.objectives.every((o) => o.done) ? "Complete the trial" : "Check progress"}
                     </button>
                     {!status.trial.objectives.every((o) => o.done) && (
                         <button

@@ -120,8 +120,8 @@ test("the sector's own entry needs no co-located opponent, only a participant vi
 });
 
 test("labels name the game the button opens", () => {
-    assert.equal(sectorContestLabel("card"), "Card Battle");
-    assert.equal(sectorContestLabel("pet"), "Pet Battle");
+    assert.equal(sectorContestLabel("card"), "Card battle");
+    assert.equal(sectorContestLabel("pet"), "Pet battle");
 });
 
 test("the contest stash keeps the War Map's exact shape — the back target rides beside it", () => {
