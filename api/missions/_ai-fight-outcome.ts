@@ -185,14 +185,16 @@ export function settlementOwnsHpOnWin(session: AiFightSession | null | undefined
  * held, so writing it back can only ever COST HP (see the HP note in
  * applyAiFightOutcomeToCharacter).
  *
- * The Sunscar caravan ambush is the one Tower run re-seeded from the save
- * (api/festival/_caravan-combat.ts), so its remaining HP is a real cost.
- * Solo-PvE sessions are not Tower runs; buildSoloPveAiEncounter seeds HP from
- * the save.
+ * The Sunscar caravan ambush and the world boss raid are the Tower runs
+ * re-seeded from the save (api/festival/_caravan-combat.ts,
+ * api/world-boss-event/_encounter.ts), so their remaining HP is a real cost.
+ * A raid sealed before raids carried HP in and out has no seal and keeps the
+ * full-pool rule. Solo-PvE sessions are not Tower runs;
+ * buildSoloPveAiEncounter seeds HP from the save.
  */
 export function sessionSeedsFullHp(session: AiFightSession | null | undefined): boolean {
     if (!session || isSoloPveSession(session)) return false;
-    return !session.caravanAmbush;
+    return !session.caravanAmbush && !session.worldBossEvent?.seededVitals;
 }
 
 /**
@@ -211,8 +213,10 @@ const VITAL_POOL: Record<SeededVital, 'maxHp' | 'maxChakra' | 'maxStamina'> = {
 
 /**
  * What this session sealed of the save it was seeded from: every Solo-PvE
- * encounter built by buildSoloPveAiEncounter, and the Sunscar caravan ambush
- * (api/festival/_caravan-combat.ts). `undefined` for a session sealed before
+ * encounter built by buildSoloPveAiEncounter, the Sunscar caravan ambush
+ * (api/festival/_caravan-combat.ts), and each member of a world boss raid
+ * (api/world-boss-event/_encounter.ts; a raid seats up to three players, so
+ * its seal is read for `playerName`). `undefined` for a session sealed before
  * the field existed, and for a run that seats a full pool instead
  * (`sessionSeedsFullHp`).
  *
@@ -224,9 +228,12 @@ const VITAL_POOL: Record<SeededVital, 'maxHp' | 'maxChakra' | 'maxStamina'> = {
  * write now subtracts whatever the save has lost since (`vitalLostSinceSeal`),
  * and a continuous fight's chakra and stamina are settled the same way.
  */
-export function sessionSeededVitals(session: AiFightSession | null | undefined): SeededVitals | undefined {
+export function sessionSeededVitals(session: AiFightSession | null | undefined, playerName?: string): SeededVitals | undefined {
     if (!session) return undefined;
-    const sealed: unknown = isSoloPveSession(session) ? session.seededVitals : session.caravanAmbush?.seededVitals;
+    const sealed: unknown = isSoloPveSession(session)
+        ? session.seededVitals
+        : session.caravanAmbush?.seededVitals
+            ?? (playerName ? session.worldBossEvent?.seededVitals?.[playerName.toLowerCase()] : undefined);
     if (!sealed || typeof sealed !== 'object') return undefined;
     const vitals: SeededVitals = {};
     for (const field of ['hp', 'chakra', 'stamina'] as const) {
