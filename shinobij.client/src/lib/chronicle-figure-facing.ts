@@ -5,6 +5,7 @@
  * the center of the battle instead of gazing off the stage. A figure
  * missing from this map is treated as frontal (never mirrored). */
 export type FigureFacing = "L" | "R" | "F";
+import { CHRONICLE_PAINTED_FIGURES } from "../../../shared/chronicle-painted-art";
 
 export const FIGURE_FACING: Readonly<Record<string, FigureFacing>> = {
     "tc-01": "F", "tc-02": "L", "tc-03": "L", "tc-04": "L", "tc-05": "L",
@@ -47,6 +48,7 @@ export const FIGURE_FACING: Readonly<Record<string, FigureFacing>> = {
  * zones right of center want it facing left, the middle zone and all
  * frontal figures stay as painted. */
 export function figureFlip(cardId: string, zoneIndex: number): boolean {
+    if (CHRONICLE_PAINTED_FIGURES[cardId]) return false;
     const facing = FIGURE_FACING[cardId];
     if (!facing || facing === "F" || zoneIndex === 2) return false;
     const want: FigureFacing = zoneIndex < 2 ? "R" : "L";

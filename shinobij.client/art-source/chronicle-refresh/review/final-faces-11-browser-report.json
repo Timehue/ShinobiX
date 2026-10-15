@@ -1,0 +1,44 @@
+{
+  "artSnapshot": {
+    "chronicle-windless-edict": {
+      "runtimePath": "/chronicle/cards/chronicle-windless-edict-painted-v2.webp",
+      "smallPath": "/chronicle/cards/chronicle-windless-edict-painted-v2-512.webp",
+      "runtimeSha256": "df9e288d94f622e5b93307f091dbbbefbadd7c692116af0666c52d48c399bf66",
+      "smallSha256": "7dd3ff60c26e42f574c60d8cb4b1c4540f3c01bc678d24cb9ad4a47b15882770"
+    }
+  },
+  "images": [
+    {
+      "src": "http://127.0.0.1:62299/chronicle/cards/chronicle-windless-edict-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:62299/chronicle/cards/chronicle-windless-edict-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    }
+  ],
+  "cardIds": [
+    "chronicle-windless-edict"
+  ],
+  "renderedCardIds": [
+    "chronicle-windless-edict"
+  ],
+  "inspectorBackdrop": "fixed",
+  "inspectorFoil": {
+    "className": "chronicle-card__foil",
+    "animation": "none",
+    "mask": "none"
+  },
+  "reducedMotionAnimation": "none",
+  "mobileOverflow": false,
+  "mobileCards": [
+    {
+      "name": "WINDLESS EDICT",
+      "visible": true
+    }
+  ],
+  "failures": [],
+  "consoleErrors": []
+}

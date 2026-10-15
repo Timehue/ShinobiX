@@ -1,0 +1,212 @@
+{
+  "images": [
+    {
+      "src": "http://127.0.0.1:64313/chronicle/cards/tc-56-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:64313/chronicle/cards/tc-57-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:64313/chronicle/cards/tc-58-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:64313/chronicle/cards/tc-59-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:64313/chronicle/cards/tc-60-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:64313/chronicle/cards/tc-62-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:64313/chronicle/cards/tc-63-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:64313/chronicle/cards/tc-64-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:64313/chronicle/cards/tc-65-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:64313/chronicle/cards/tc-66-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:64313/chronicle/cards/tc-68-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:64313/chronicle/cards/tc-69-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:64313/chronicle/cards/tc-56-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:64313/chronicle/cards/tc-57-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:64313/chronicle/cards/tc-58-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:64313/chronicle/cards/tc-59-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:64313/chronicle/cards/tc-60-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:64313/chronicle/cards/tc-62-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:64313/chronicle/cards/tc-63-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:64313/chronicle/cards/tc-64-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:64313/chronicle/cards/tc-65-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:64313/chronicle/cards/tc-66-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:64313/chronicle/cards/tc-68-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:64313/chronicle/cards/tc-69-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    }
+  ],
+  "cardIds": [
+    "tc-56",
+    "tc-57",
+    "tc-58",
+    "tc-59",
+    "tc-60",
+    "tc-62",
+    "tc-63",
+    "tc-64",
+    "tc-65",
+    "tc-66",
+    "tc-68",
+    "tc-69"
+  ],
+  "renderedCardIds": [
+    "tc-56",
+    "tc-57",
+    "tc-58",
+    "tc-59",
+    "tc-60",
+    "tc-62",
+    "tc-63",
+    "tc-64",
+    "tc-65",
+    "tc-66",
+    "tc-68",
+    "tc-69"
+  ],
+  "inspectorBackdrop": "fixed",
+  "inspectorFoil": {
+    "className": "chronicle-card__foil",
+    "animation": "none",
+    "mask": "none"
+  },
+  "reducedMotionAnimation": "none",
+  "mobileOverflow": false,
+  "mobileCards": [
+    {
+      "name": "TWILIGHT MOTH",
+      "visible": true
+    },
+    {
+      "name": "SNOWFLAKE WISP",
+      "visible": true
+    },
+    {
+      "name": "CALM STONE PEBBLE",
+      "visible": true
+    },
+    {
+      "name": "APPRENTICE GENIN",
+      "visible": true
+    },
+    {
+      "name": "PEBBLE CRAB",
+      "visible": true
+    },
+    {
+      "name": "MIST NEWT",
+      "visible": true
+    },
+    {
+      "name": "STATIC BEETLE",
+      "visible": true
+    },
+    {
+      "name": "WHISPER BAT",
+      "visible": true
+    },
+    {
+      "name": "HOLLOW IMP",
+      "visible": true
+    },
+    {
+      "name": "FROST MOUSE",
+      "visible": true
+    },
+    {
+      "name": "BANDIT RECRUIT",
+      "visible": true
+    },
+    {
+      "name": "CLAY HATCHLING",
+      "visible": true
+    }
+  ],
+  "failures": [],
+  "consoleErrors": []
+}

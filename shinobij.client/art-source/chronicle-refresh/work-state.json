@@ -1,0 +1,87 @@
+{
+  "goal": "Replace all card faces consistently and add legendary holography, including matching existing duel figures",
+  "status": "complete",
+  "scope": {
+    "faces": 404,
+    "figurePairs": 150
+  },
+  "completed": {
+    "faces": 404,
+    "figurePairs": 150,
+    "visuallyReviewedFaces": 404,
+    "visuallyReviewedFigurePairs": 150
+  },
+  "remaining": {
+    "faces": 0,
+    "figurePairs": 0
+  },
+  "next": "Complete. All replacement artwork and matching duel figures are integrated in the local checkout and have hash-bound visual reviews.",
+  "verification": {
+    "typescript": "npx tsc -b passed",
+    "engineTests": 79,
+    "cardAndDuelTests": 22,
+    "assetDecodeAndVariantTests": 7,
+    "browserPilot": "desktop, mobile, inspector, reduced motion, full pack tear/flip/reveal/summary passed",
+    "completionAudit": "Passed: all 404 faces and all 150 front/back figure pairs; no missing assets, stale review hashes, duplicate card illustrations, delivery dimension errors or transparency failures.",
+    "browserLegendary": "All 31 original trading legendaries, 25 legendary legacy bearers, 12 legendary story cards, five legendary summons reviewed in actual desktop/compact/mobile frames; Naga and Tengu crops corrected and rechecked.",
+    "figureReview": "All 150 packaged pairs visually inspected beside their matching new card, with coherent rear anatomy and complete silhouettes. Alpha edge audit passed for all 298 newly generated figure sources; the original approved two-view pilot is included in the complete packaged audit.",
+    "assetDecodeAndVariantTestsNote": "Seven test results overlap four of the card-and-duel tests; do not sum as unique tests.",
+    "latestBatchTests": "106 focused card, duel, engine, asset and redirect tests passed after obsolete-file removal.",
+    "latestCompletionAudit": "404 packaged and visually reviewed faces; 150 packaged and visually reviewed figure pairs; zero remaining assets and zero audit failures.",
+    "browserLegacy": "All 100 legacy faces individually reviewed in desktop, compact and mobile frames. Six remaining-legacy batches have hash-bound visual receipts.",
+    "browserPremium": "Legendary and mythic holography passed inspector, eight-card pack reveal and summary review. Reduced motion disables foil animation. Settled capture evidence preserves readable card text.",
+    "browserTrading": "All 150 trading-card faces reviewed in actual desktop, compact and mobile frames. Volt Hawk uses hawk anatomy. Sapling Spirit uses a distinct masked bonsai identity consistently across card, front and back.",
+    "browserDuel": "Final mixed-creature duel inspected on desktop, mobile, tablet and landscape. All matching front/back figures load without mirroring, field-status overlap or horizontal overflow. Short landscape screens use the existing scrollable shell; all five player figures were verified fully visible with their row centered.",
+    "auditEvidence": "shinobij.client/art-source/chronicle-refresh/review/full-audit.json",
+    "premiumEvidence": "shinobij.client/art-source/chronicle-refresh/review/final-premium-browser-report.json",
+    "duelEvidence": "shinobij.client/art-source/chronicle-refresh/review/final-duel-browser-report.json",
+    "testsEvidence": "shinobij.client/art-source/chronicle-refresh/review/final-tests.log",
+    "integrationRecheck": {
+      "status": "passed",
+      "compiledCatalogFaces": 404,
+      "compiledFigurePairs": 150,
+      "hashVerifiedCurrentHTTPAssets": 1108,
+      "verifiedLegacyHTTPRedirects": 790,
+      "staleLiteralRuntimeReferences": 0,
+      "surfaces": [
+        "catalog",
+        "backpack inventory",
+        "duel lookup and departure figures",
+        "support and token cards",
+        "card inspector",
+        "eight-card pack opening"
+      ],
+      "browserViewports": [
+        "desktop",
+        "mobile",
+        "tablet",
+        "landscape"
+      ],
+      "holography": "passed",
+      "reducedMotion": "passed",
+      "browserConsoleErrors": 0,
+      "missingAssetsReturn404": true,
+      "environment": "Local compiled production server with isolated in-memory storage; no live deployment changed"
+    }
+  },
+  "provider": "built-in image_gen",
+  "promptSet": "shinobij.client/art-source/chronicle-refresh/manifest.json",
+  "completedAt": "2026-10-15T13:58:25.225Z",
+  "cleanup": {
+    "status": "complete",
+    "removedFiles": 790,
+    "bytesFreed": 94350958,
+    "cardsAndThumbnails": 490,
+    "figureFiles": 300,
+    "compatibility": "Known old card, 512px and front/back figure URLs return 302 redirects to current artwork; shared portraits, badges, scenery and field backgrounds retained.",
+    "deployment": "Built output contains exactly 1108 current card and figure assets and zero obsolete assets. Authoring and review files already excluded from Docker context.",
+    "sizeBudgets": {
+      "chronicleArtMiB": 144,
+      "otherClientMiB": 451,
+      "measuredChronicleArtMiB": 142.5868,
+      "measuredOtherClientMiB": 449.3464
+    },
+    "verification": "106 focused tests passed, including HTTP redirect integration; server/client production compilation, deployment artifact verification, obsolete-file guard and sizecheck passed. Reintroduced old-file rejection was exercised.",
+    "evidence": "shinobij.client/art-source/chronicle-refresh/review/obsolete-art-removal.json"
+  }
+}

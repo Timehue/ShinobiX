@@ -1,0 +1,36 @@
+{
+  "images": [
+    {
+      "src": "http://127.0.0.1:64817/chronicle/cards/chronicle-five-seal-denial-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:64817/chronicle/cards/chronicle-five-seal-denial-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    }
+  ],
+  "cardIds": [
+    "chronicle-five-seal-denial"
+  ],
+  "renderedCardIds": [
+    "chronicle-five-seal-denial"
+  ],
+  "inspectorBackdrop": "fixed",
+  "inspectorFoil": {
+    "className": "chronicle-card__foil chronicle-card__foil--holographic",
+    "animation": "chronicleFoilSweep",
+    "mask": "linear-gradient(rgba(0, 0, 0, 0) 12%, rgb(0, 0, 0) 23%, rgb(0, 0, 0) 57%, rgba(0, 0, 0, 0) 72%)"
+  },
+  "reducedMotionAnimation": "none",
+  "mobileOverflow": false,
+  "mobileCards": [
+    {
+      "name": "FIVE-SEAL DENIAL",
+      "visible": true
+    }
+  ],
+  "failures": [],
+  "consoleErrors": []
+}

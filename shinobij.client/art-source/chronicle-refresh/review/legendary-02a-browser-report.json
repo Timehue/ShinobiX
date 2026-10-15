@@ -1,0 +1,183 @@
+{
+  "images": [
+    {
+      "src": "http://127.0.0.1:54279/chronicle/cards/tc-129-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:54279/chronicle/cards/tc-130-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:54279/chronicle/cards/tc-132-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:54279/chronicle/cards/tc-133-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:54279/chronicle/cards/tc-134-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:54279/chronicle/cards/tc-135-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:54279/chronicle/cards/tc-136-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:54279/chronicle/cards/tc-137-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:54279/chronicle/cards/tc-138-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:54279/chronicle/cards/tc-139-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:54279/chronicle/cards/tc-140-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:54279/chronicle/cards/tc-129-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:54279/chronicle/cards/tc-130-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:54279/chronicle/cards/tc-132-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:54279/chronicle/cards/tc-133-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:54279/chronicle/cards/tc-134-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:54279/chronicle/cards/tc-135-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:54279/chronicle/cards/tc-136-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:54279/chronicle/cards/tc-137-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:54279/chronicle/cards/tc-138-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:54279/chronicle/cards/tc-139-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    },
+    {
+      "src": "http://127.0.0.1:54279/chronicle/cards/tc-140-painted-v2-512.webp",
+      "width": 251,
+      "loaded": true
+    }
+  ],
+  "cardIds": [
+    "tc-129",
+    "tc-130",
+    "tc-132",
+    "tc-133",
+    "tc-134",
+    "tc-135",
+    "tc-136",
+    "tc-137",
+    "tc-138",
+    "tc-139",
+    "tc-140"
+  ],
+  "inspectorBackdrop": "fixed",
+  "inspectorFoil": {
+    "className": "chronicle-card__foil chronicle-card__foil--holographic",
+    "animation": "chronicleFoilSweep",
+    "mask": "linear-gradient(rgba(0, 0, 0, 0) 12%, rgb(0, 0, 0) 23%, rgb(0, 0, 0) 57%, rgba(0, 0, 0, 0) 72%)"
+  },
+  "reducedMotionAnimation": "none",
+  "mobileOverflow": false,
+  "mobileCards": [
+    {
+      "name": "FORGOTTEN KAGE",
+      "visible": true
+    },
+    {
+      "name": "WORLD-ENDER TITAN",
+      "visible": true
+    },
+    {
+      "name": "ABYSSAL LEVIATHAN",
+      "visible": true
+    },
+    {
+      "name": "PHOENIX EMPEROR",
+      "visible": true
+    },
+    {
+      "name": "STORM EMPRESS",
+      "visible": true
+    },
+    {
+      "name": "VOID DEVOURER",
+      "visible": true
+    },
+    {
+      "name": "FROSTFALL EMPRESS",
+      "visible": true
+    },
+    {
+      "name": "ZEN MASTER ETERNAL",
+      "visible": true
+    },
+    {
+      "name": "LEGENDARY WANDERER",
+      "visible": true
+    },
+    {
+      "name": "PRIMORDIAL DRAGON",
+      "visible": true
+    },
+    {
+      "name": "PLASMA GOD BEAST",
+      "visible": true
+    }
+  ],
+  "failures": [],
+  "consoleErrors": []
+}
