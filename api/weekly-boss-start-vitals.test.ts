@@ -72,9 +72,9 @@ test('a challenger who has regained the stamina since their last save can start'
         aiId: 'ashen-dragon',
         bossName: 'Ashen Dragon',
         hpMax: 100_000,
-        hpRemaining: 100_000,
+        hpRemaining: 0,
         scaleFactor: 1,
-        damageByPlayer: {},
+        damageByPlayer: { veteran: 1_000_000 },
         attemptsByPlayer: {},
         startedAt: now - 60_000,
         expiresAt: now + 60 * 60_000,
@@ -99,6 +99,10 @@ test('a challenger who has regained the stamina since their last save can start'
     const out = await startFight();
     assert.equal(out.statusCode, 200, JSON.stringify(out.body));
 
+    const scoreEnemy = (out.body?.session as { enemy: { unlimitedHealth?: boolean; damageReceived?: number; hp: number } }).enemy;
+    assert.equal(scoreEnemy.unlimitedHealth, true);
+    assert.equal(scoreEnemy.damageReceived, 0);
+    assert.ok(scoreEnemy.hp > 0, 'old depleted state cannot start a dead boss');
     const stored = (await kv.get<Json>(SAVE_KEY))!;
     const character = stored.character as Json;
     // 5 + 60 recovered - 20 for the start.

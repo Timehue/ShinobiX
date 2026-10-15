@@ -28,6 +28,9 @@ export type CombatEventStatus = {
 
 export type CombatEventFighterState = {
     hp: number;
+    /** Server-sealed unlimited-health score attack. */
+    unlimitedHealth?: boolean;
+    damageReceived?: number;
     maxHp: number;
     chakra: number;
     stamina: number;
@@ -207,6 +210,7 @@ function statuses(value: unknown): CombatEventStatus[] {
 function fighterState(value: CombatEventFighterState): CombatEventFighterState {
     return {
         hp: number(value.hp),
+        ...(value.unlimitedHealth ? { unlimitedHealth: true, damageReceived: number(value.damageReceived) } : {}),
         maxHp: number(value.maxHp),
         chakra: number(value.chakra),
         stamina: number(value.stamina),
@@ -269,7 +273,7 @@ function actorDelta(role: CombatEventActor, before: CombatEventFighterState | un
         before: publicFighterState(before),
         after: publicFighterState(after),
         hpDelta,
-        damageToHp: Math.max(0, -hpDelta),
+        damageToHp: after.unlimitedHealth ? Math.max(0, (after.damageReceived ?? 0) - (before.damageReceived ?? 0)) : Math.max(0, -hpDelta),
         healing: Math.max(0, hpDelta),
         shieldDelta,
         damageToShield: Math.max(0, -shieldDelta),

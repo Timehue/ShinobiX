@@ -8,7 +8,7 @@ const WB_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
 const WEEKLY_BOSS_UNREACHABLE = "The Weekly Boss could not be reached. Check your connection and try again.";
 import { visiblePoll } from "../lib/poll";
 import { isWeeklyBossRoamEnabled, weeklyBossRoamState } from "../lib/weekly-boss-roam";
-import { weeklyBossHpView } from "../lib/weekly-boss-hp";
+import { weeklyBossScoreView } from "../lib/weekly-boss-hp";
 import type { Character, PlayerRecord, VersionedCharacterCommit } from "../types/character";
 import type { CreatorAi } from "../types/creator-ai";
 import type { Screen } from "../types/core";
@@ -26,8 +26,7 @@ import { clearWeeklyBossLaunch, peekWeeklyBossLaunch } from "../lib/weekly-boss-
 import { setScreenFightActive } from "../lib/screen-guards";
 
 // ─── Weekly Boss Arena ────────────────────────────────────────────────────────
-// Shared WORLD boss (one server HP pool; never dies — "Broken" at 0 HP, gone
-// only on its 72h timer) fought through the authoritative Solo PvE runtime.
+// Unlimited-health score attack available during its 72h event.
 // The server derives each contribution from the terminal sealed session and
 // distributes the weekly leaderboard rewards after the spawn expires.
 export function WeeklyBossArena({
@@ -319,11 +318,7 @@ export function WeeklyBossArena({
     const expired = bossState.rewardsDistributed || msToDespawn <= 0;
     const myKey = character.name.toLowerCase();
     const myDamage = bossState.damageByPlayer?.[myKey] ?? 0;
-    // ONE shared world HP pool (server: hpRemaining = max(0, hpMax − Σ damage)).
-    // Derived locally too so a stale/legacy payload still reads correctly — and
-    // so that a payload with NO pool draws no bar and claims no kill. See
-    // lib/weekly-boss-hp.ts.
-    const { hpMax, hpRemaining, hpPct, hpPctLabel, broken, showBar: showHpBar } = weeklyBossHpView(bossState);
+    const { totalDamage } = weeklyBossScoreView(bossState);
     const sortedEntries = Object.entries(bossState.damageByPlayer ?? {})
         .sort(([, a], [, b]) => (b as number) - (a as number));
     const top25 = sortedEntries.slice(0, 25);
@@ -403,43 +398,10 @@ export function WeeklyBossArena({
                                 {expired ? <><GiTombstone style={WB_ICON} />Despawned</> : <><GameArtIcon kind="mission" size={15} /> {countdown}</>}
                             </span>
                         </div>
-                        {/* A stale or partial payload can arrive with hpMax 0. That used to
-                            render a triumphant gold "BROKEN · staggered" bar reading 0 / 0 —
-                            announcing a world-first kill that never happened. With no pool
-                            there is nothing to draw, so draw nothing. */}
-                        {showHpBar && (
-                            <div style={{ margin: "0 0 6px" }}>
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontSize: "0.78rem", marginBottom: 3 }}>
-                                    <span style={{ color: broken ? "var(--gold)" : "var(--red-400)", fontWeight: 700, letterSpacing: "0.04em" }}>
-                                        {broken ? "Broken — staggered" : "World HP"}
-                                    </span>
-                                    <span style={{ fontFamily: "monospace", color: "var(--text-dim)" }}>
-                                        {hpRemaining.toLocaleString()} / {hpMax.toLocaleString()} · {hpPctLabel}%
-                                    </span>
-                                </div>
-                                {/* role="progressbar" belongs on the TRACK, not on a wrapper
-                                    that also contains the label text — a progressbar's
-                                    accessible name comes from aria-label, and its contents
-                                    are not announced. */}
-                                <div
-                                    role="progressbar"
-                                    aria-label="Shared boss HP"
-                                    aria-valuemin={0}
-                                    aria-valuemax={hpMax}
-                                    aria-valuenow={hpRemaining}
-                                    aria-valuetext={`${hpRemaining.toLocaleString()} of ${hpMax.toLocaleString()} HP remaining — ${hpPctLabel}%${broken ? ", broken and staggered" : ""}`}
-                                    style={{ height: 10, background: "#0a0a1a", border: "1px solid rgba(248,113,113,0.45)", borderRadius: 5, overflow: "hidden" }}
-                                >
-                                    <div style={{ width: `${hpPct}%`, height: "100%", background: broken ? "linear-gradient(90deg, #e6c477, #f59e0b)" : "linear-gradient(90deg, #dc2626, #f87171)", transition: "width 0.4s ease" }} />
-                                </div>
-                            </div>
-                        )}
+                        <p style={{ margin: "0 0 6px", fontWeight: 700 }}>∞ Unlimited health</p>
                         <p className="hint" style={{ margin: 0, fontSize: "0.78rem" }}>
-                            {broken
-                                ? "The realm's shinobi have broken it together. It is staggered, not slain. It fights on at a fraction of its strength until its seventy-two hours run out, and every blow landed still counts on the ledger."
-                                : roaming
-                                    ? "One boss, one shared HP pool. It roams the world map for 72 hours — track it down and challenge it where it's rampaging. Your fight picks up exactly where the last shinobi left its HP."
-                                    : "One boss, one shared HP pool. Every shinobi on the server chips at the same bar — your fight picks up exactly where the last one left its HP. It leaves only when its 72-hour timer hits zero."}
+                            Total damage: {totalDamage.toLocaleString()}. Every hit adds to the leaderboard.
+                            The boss remains active until its event timer ends. Each player has 3 attempts per spawn.
                         </p>
                     </div>
                 </div>
@@ -468,7 +430,7 @@ export function WeeklyBossArena({
                 <div style={{ marginTop: 4, color: "var(--text-dim)" }}>
                     {roaming
                         ? "Find the boss roaming the World Map and challenge it where it stands — each fight adds your damage to the leaderboard. "
-                        : "Each attack launches a full arena fight vs the boss at its CURRENT shared HP. Whatever damage you deal comes off the world bar and is added to the leaderboard — even once it's Broken. "}
+                        : "Each attack launches a damage challenge against an unlimited-health boss. All damage you deal is added to the leaderboard. "}
                     <strong>3 attempts per spawn.</strong>
                 </div>
             </div>
@@ -619,10 +581,11 @@ type WeeklyBossState = {
     weekKey: string;
     aiId: string;
     bossName?: string;
-    hpMax: number;
-    /** Shared world pool — max(0, hpMax − Σ damageByPlayer), server-derived. */
-    hpRemaining: number;
-    /** Server-derived: pool exhausted. Also derived locally as a fallback. */
+    healthMode?: "unlimited";
+    hpMax: number | null;
+    /** Legacy API fields are null for unlimited health. */
+    hpRemaining: number | null;
+    /** Legacy compatibility only; weekly bosses no longer break. */
     broken?: boolean;
     scaleFactor?: number;
     damageByPlayer: Record<string, number>;

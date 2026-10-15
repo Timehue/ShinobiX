@@ -1512,7 +1512,7 @@ export function MissionArenaFight({
                                     // actors put the badge squarely on the enemy's face. Clear the
                                     // sprite box as well, and the bar floats over the head instead.
                                     const headroom = battlefieldSpriteHeadroom(ORB, enemyBattleSprite);
-                                    return <FighterHpBadge key="enemy-hp" left={left + HEX_W / 2 - ORB / 2} top={top + HEX_H * 0.85 - ORB - 16 - headroom} width={ORB} hp={enemy.hp} maxHp={enemy.maxHp} side="enemy" />;
+                                    return <FighterHpBadge key="enemy-hp" left={left + HEX_W / 2 - ORB / 2} top={top + HEX_H * 0.85 - ORB - 16 - headroom} width={ORB} hp={enemy.hp} maxHp={enemy.maxHp} unlimitedHealth={enemy.unlimitedHealth} side="enemy" />;
                                 })()}
 
                                 {/* Server-authored combat VFX (cosmetic; see the stream above). */}
@@ -1905,6 +1905,7 @@ export function MissionArenaFight({
                 <CombatSideHud
                     name={enemyName}
                     avatar={enemyAvatar}
+                    unlimitedHealth={enemy?.unlimitedHealth}
                     hp={enemy?.hp ?? 0}
                     maxHp={enemy?.maxHp ?? 1}
                     chakra={enemy?.chakra ?? 0}

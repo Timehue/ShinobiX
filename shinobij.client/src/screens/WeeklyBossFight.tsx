@@ -8,8 +8,7 @@ import { useLiveCapabilities } from "../lib/live-capabilities-context";
 import { capabilityAdmissionAllowed } from "../lib/live-capability-admission";
 import { WeeklyBossResult } from "../components/WeeklyBossResult";
 
-// Weekly Boss = a SOLO fight against the server-shared WORLD boss (one HP pool;
-// the encounter opens at the shared remaining HP, or a fixed floor once Broken),
+// Weekly Boss is a solo unlimited-health score attack,
 // rendered on the normal Arena shell (MissionArenaFight) — the same format as
 // PvE / missions / story. It replaced BattleTowerFight (the tower rail), so the
 // fight no longer looks like a tower floor ("Floor 9200 …"). The fight is a
@@ -75,7 +74,7 @@ export function WeeklyBossFight({
             // explicit leave/forfeit path wait for that durable settlement.
             outcomeFn={settleOnce}
             onExit={onExit}
-            renderResult={({ won, settleState, settleResult, retry }) => <WeeklyBossResult won={won} settleState={settleState} settleResult={settleResult} onRetry={retry} onExit={onExit} exitLabel={exitLabel} />}
+            renderResult={({ settleState, settleResult, retry }) => <WeeklyBossResult settleState={settleState} settleResult={settleResult} onRetry={retry} onExit={onExit} exitLabel={exitLabel} />}
         />
     );
 }
