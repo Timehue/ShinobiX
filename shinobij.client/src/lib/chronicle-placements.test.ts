@@ -7,7 +7,12 @@ import {
   projectMatchForViewer,
   type ChronicleDisplayCard,
 } from "./chronicle-duel";
-import { normalSummon, setTrap } from "../../../shared/chronicle-duel";
+import {
+  CHRONICLE_TOKEN_CARDS,
+  SHADOW_DOUBLE_ID,
+  normalSummon,
+  setTrap,
+} from "../../../shared/chronicle-duel";
 import { chronicleLegalPlacements } from "./chronicle-placements";
 
 test("picking a card in hand lights exactly the zones the server accepts", () => {
@@ -147,4 +152,61 @@ test("picking a card in hand lights exactly the zones the server accepts", () =>
     ).mode,
     "none",
   );
+});
+
+test("a called Monster and a fresh Shadow Double light nothing the server would refuse", () => {
+  const cardsById = Object.fromEntries(
+    [...CHRONICLE_CARD_CATALOG, ...CHRONICLE_TOKEN_CARDS].map((card) => [card.id, card]),
+  ) as Record<string, ChronicleDisplayCard>;
+  const called = CHRONICLE_CARD_CATALOG.find(
+    (card) => card.cardClass === "monster" && card.monsterEffect?.kind === "callSummonOnly",
+  )!;
+  const bigMonster = CHRONICLE_CARD_CATALOG.find(
+    (card) => card.cardClass === "monster" && card.level >= 5 && card.level <= 6,
+  )!;
+  const build = (handCardId: string, doublesOnTurn: number) => {
+    const state = createMatch("Akari", CHRONICLE_FIXED_FALLBACK_DECK, "Ren", CHRONICLE_FIXED_FALLBACK_DECK, () => 0, 1_000);
+    state.turnNumber = 3;
+    state.phase = "main1";
+    state.activePlayer = "p1";
+    state.p1.hand = [handCardId];
+    for (const zoneIndex of [1, 3])
+      state.p1.monsterZones[zoneIndex] = {
+        instanceId: `double-${zoneIndex}`,
+        cardId: SHADOW_DOUBLE_ID,
+        owner: "p1",
+        zoneIndex,
+        position: "defense",
+        faceUp: true,
+        summonedOnTurn: doublesOnTurn,
+        lastPositionChangeTurn: doublesOnTurn,
+        lastAttackTurn: 0,
+        temporaryAttack: 0,
+        temporaryDefense: 0,
+      };
+    return state;
+  };
+
+  // Only its Call can Summon it: no zone lights, and the server agrees.
+  const calledState = build(called.id, 1);
+  assert.equal(
+    chronicleLegalPlacements(projectMatchForViewer(calledState, "p1"), cardsById[called.id]).mode,
+    "none",
+  );
+  assert.equal(
+    normalSummon(calledState, "p1", { action: "normal-summon", handIndex: 0, zoneIndex: 0, tributeZoneIndexes: [1, 3] }).ok,
+    false,
+  );
+
+  // Doubles made this turn are no Tribute; made on an earlier turn, they are.
+  for (const [doublesOnTurn, expected] of [[3, []], [1, [1, 3]]] as const) {
+    const state = build(bigMonster.id, doublesOnTurn);
+    const placements = chronicleLegalPlacements(projectMatchForViewer(state, "p1"), cardsById[bigMonster.id]);
+    assert.deepEqual(placements.tributeZones, expected);
+    assert.equal(
+      normalSummon(state, "p1", { action: "normal-summon", handIndex: 0, zoneIndex: 0, tributeZoneIndexes: [1] }).ok,
+      expected.length > 0,
+      `a Double made on turn ${doublesOnTurn} agrees with the server`,
+    );
+  }
 });

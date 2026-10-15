@@ -1,4 +1,4 @@
-import { tributeCountForLevel } from "./chronicle-duel";
+import { callOnlySummonBlocker, tributeCountForLevel } from "./chronicle-duel";
 import type {
   ChronicleDisplayCard,
   ChronicleProjection,
@@ -38,13 +38,15 @@ export function chronicleLegalPlacements(
   const main = state.phase === "main1" || state.phase === "main2";
   if (!myTurn || !main || !selected) return none;
   if (selected.cardClass === "monster") {
-    if (state.normalSummonUsed) return none;
+    // A called Monster enters only through its Call, never from here.
+    if (state.normalSummonUsed || callOnlySummonBlocker(selected)) return none;
     const needsTributes = tributeCountForLevel(selected.level) > 0;
     const monsterZones: number[] = [];
     const tributeZones: number[] = [];
     me.monsterZones.forEach((monster, index) => {
       if (!monster) monsterZones.push(index);
-      else if (needsTributes) tributeZones.push(index);
+      // A Shadow Double cannot pay a Tribute on the turn it appears.
+      else if (needsTributes && monster.canTribute !== false) tributeZones.push(index);
     });
     return { mode: "monster", monsterZones, tributeZones, trapZones: [] };
   }
