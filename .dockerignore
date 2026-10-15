@@ -9,6 +9,11 @@ shinobij.client/dist
 # Secrets — never bake into the image; set env vars in the platform dashboard
 .env
 shinobij.client/.env
+# Every local variant too (.env.local, .env.production, …). Vite reads
+# shinobij.client/.env.production* at build time, so a stray local one would be
+# baked into the public bundle. Only the committed, secret-free example ships.
+**/.env.*
+!.env.example
 
 # VCS / tooling / editor
 .git

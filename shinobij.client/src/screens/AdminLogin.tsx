@@ -98,6 +98,7 @@ export function AdminPasswordReset({ adminPw }: { adminPw: string }) {
     const [msg, setMsg] = useState("");
     const [issuedCode, setIssuedCode] = useState("");
     const [showDirectReset, setShowDirectReset] = useState(false);
+    const [dropGoogle, setDropGoogle] = useState(false);
 
     async function post(body: Record<string, unknown>, pending: string) {
         setMsg(pending);
@@ -145,12 +146,12 @@ export function AdminPasswordReset({ adminPw }: { adminPw: string }) {
         if (!adminPw) { setMsg("❌ Admin password missing. Log out and back into admin."); return; }
         setIssuedCode("");
         const data = await post(
-            { action: 'adminreset', name: targetName.trim().toLowerCase(), newPassword: newPw },
+            { action: 'adminreset', name: targetName.trim().toLowerCase(), newPassword: newPw, ...(dropGoogle ? { dropGoogle: true } : {}) },
             "Resetting…",
         );
         if (!data) return;
-        setMsg(data.ok ? `✅ Password reset for ${targetName.trim()}. Tell them to change it.` : `❌ ${data.error ?? "Failed."}`);
-        if (data.ok) { setTargetName(""); setNewPw(""); }
+        setMsg(data.ok ? `✅ Password reset for ${targetName.trim()}${dropGoogle ? " and any Google link removed" : ""}. Tell them to change it.` : `❌ ${data.error ?? "Failed."}`);
+        if (data.ok) { setTargetName(""); setNewPw(""); setDropGoogle(false); }
     }
 
     return (
@@ -193,8 +194,12 @@ export function AdminPasswordReset({ adminPw }: { adminPw: string }) {
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                         <input type="password" aria-label="New password" placeholder="New password (8-128, letter + number)" value={newPw} maxLength={PLAYER_PASSWORD_MAX_LENGTH} onChange={e => setNewPw(e.target.value)} style={{ flex: 1, minWidth: 160 }} />
                         <button onClick={directReset}>Reset password</button>
-                        <button type="button" className="recovery-code-dismiss" onClick={() => { setShowDirectReset(false); setNewPw(""); }}>Cancel</button>
+                        <button type="button" className="recovery-code-dismiss" onClick={() => { setShowDirectReset(false); setNewPw(""); setDropGoogle(false); }}>Cancel</button>
                     </div>
+                    <label className="hint" style={{ display: "flex", gap: 6, alignItems: "center", margin: 0 }}>
+                        <input type="checkbox" checked={dropGoogle} onChange={e => setDropGoogle(e.target.checked)} />
+                        Also remove any linked Google account (an attacker may have linked their own)
+                    </label>
                 </div>
             )}
         </div>

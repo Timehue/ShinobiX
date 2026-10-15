@@ -17,7 +17,12 @@
  *   [center] [quote]                layout
  *   [url=https://…]label[/url]      link — http(s) only, opens in a new tab
  *   [url]https://…[/url]
- *   [img]https://…[/img] / [img=…]  image — http(s) only, no-referrer, size-capped
+ *   [img]/api/img?…[/img] / [img=…] image — SAME-ORIGIN only (a relative path or
+ *                                   this site's own origin), no-referrer, size-capped.
+ *                                   A third-party image is a tracking pixel: it
+ *                                   logged the IP of every player who opened the
+ *                                   profile (2026-10-15 audit L11). Anything else
+ *                                   renders as plain text.
  *   [list] … [*] … [/list]          bullet list
  */
 import type { CSSProperties, ReactNode } from "react";
@@ -53,6 +58,30 @@ export function safeUrl(v: string | undefined): string | undefined {
     if (!v) return undefined;
     const u = v.trim();
     return HTTP_URL_RE.test(u) ? u : undefined;
+}
+// A root-relative path: one leading `/`, never `//` or `/\` (which a browser
+// reads as another host), and no whitespace, quotes, parens or backslashes.
+const SAME_ORIGIN_PATH_RE = /^\/(?![/\\])[^\s<>"'()\\]*$/;
+
+function pageOrigin(): string | undefined {
+    return typeof window !== "undefined" && window.location ? window.location.origin : undefined;
+}
+
+/** An [img] source this page itself serves: a root-relative path, or an
+ *  absolute http(s) URL on the page's own origin. Anything else is undefined. */
+export function safeImageSrc(v: string | undefined, origin: string | undefined = pageOrigin()): string | undefined {
+    if (!v) return undefined;
+    const u = v.trim();
+    if (SAME_ORIGIN_PATH_RE.test(u)) return u;
+    const abs = safeUrl(u);
+    if (!abs || !origin) return undefined;
+    try {
+        const parsed = new URL(abs);
+        if (parsed.username || parsed.password) return undefined;
+        return parsed.origin === origin ? abs : undefined;
+    } catch {
+        return undefined;
+    }
 }
 export function clampSize(v: string | undefined): number | undefined {
     if (!v) return undefined;
@@ -215,8 +244,13 @@ function render(nodes: TreeNode[], keyBase: string, budget: { n: number }): Reac
                 break;
             }
             case "img": {
-                const src = safeUrl(textOf(node.children));
-                if (src) {
+                const raw = textOf(node.children);
+                const src = safeImageSrc(raw);
+                if (!src) {
+                    // A third-party (or malformed) source shows as its text,
+                    // never as an image or a link.
+                    if (raw) out.push(<span key={key}>{raw}</span>);
+                } else {
                     out.push(
                         <img
                             key={key}

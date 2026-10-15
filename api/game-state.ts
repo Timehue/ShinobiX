@@ -176,16 +176,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // write or delete the pet-battle slot for any clan (since the
             // body provides the clanName) — blocking legit battles or
             // injecting fake records.
-            const identity = await authedPlayerOrAdmin(req);
+            // Admin 2 (content role) only curates village leadership portraits
+            // here. Every other kind writes shared world state on a player's or
+            // village's behalf, where `identity.admin` means "act as anyone", so
+            // the content role is admitted for that one kind and no other.
+            const identity = await authedPlayerOrAdmin(req, undefined, { allowContentAdmin: kind === 'villageLeadershipImages' });
             if (!identity) return res.status(401).json({ error: 'Authentication required.' });
 
-            // Admin-only kinds — wholesale state writes.
-            //
-            // Admin 2 (content role) is treated as `identity.admin === true`
-            // by authedPlayerOrAdmin (the new isAdmin accepts either password),
-            // so they pass the basic admin check. But for the kinds Admin 2
-            // shouldn't touch (arenaTournament, weeklyBossOverride — neither
-            // is exposed by their UI), require the full admin password.
+            // Admin-only kinds — wholesale state writes. The full-admin set is
+            // still checked explicitly, so widening the content opt-in above
+            // can never reach them.
             const adminOnlyKinds = new Set(['villageLeadershipImages', 'arenaTournament', 'arenaTournamentWinner', 'weeklyBossOverride', 'dojoCircuitEnabled']);
             const fullAdminOnlyKinds = new Set(['arenaTournament', 'arenaTournamentWinner', 'weeklyBossOverride', 'dojoCircuitEnabled']);
             if (adminOnlyKinds.has(String(kind)) && !identity.admin) {

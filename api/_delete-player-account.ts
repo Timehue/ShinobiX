@@ -34,6 +34,7 @@ import { currencyLedgerKey } from './_currency-ledger.js';
 import { REGISTRY_KEY } from './player/_public-index.js';
 import { clanSlugBare } from './clan/_kick-core.js';
 import { cancelSubscriptionForDeletedAccount } from './tebex/_cancel-subscription.js';
+import { IMG_OWNER_PREFIX, removeStoredImages, storedImageExists } from './images.js';
 
 export type DeletePlayerAccountResult = {
     name: string;
@@ -135,6 +136,68 @@ async function detachFromModerationIndexes(slug: string, result: DeletePlayerAcc
     }
 }
 
+/** Values read per batch while looking for the player's image claims. */
+const IMAGE_CLAIM_READ_CHUNK = 200;
+
+/**
+ * Release the shared-image rows that name the player (2026-10-15 audit M7).
+ * Slugs are reusable, so whoever registers this name next would otherwise
+ * inherit them: the avatar `avatar:<name>` (still served, by name, to everyone),
+ * every `img-owner:` claim held by the slug (which let the newcomer replace the
+ * departed player's bloodline / jutsu / gear art), and the old misc upload
+ * counter.
+ *
+ * The avatar goes through the admin delete path (removeStoredImages): its R2
+ * copy, legacy fields, own row, claim, metadata and a version bump, so no
+ * cached immutable URL keeps serving it. Only an avatar that exists is
+ * removed, so an account without one does not re-key every player's avatar.
+ *
+ * The claims are found by a keys-only scan of `img-owner:*` plus batched reads
+ * of those small values. That is one read of every claim per deletion, which
+ * is acceptable because deletion is rare and the claim count is bounded by
+ * uploads; it is never on a request path. Each claim is removed with a
+ * compare-and-delete, so a claim another player took meanwhile survives.
+ */
+async function releasePlayerImages(slug: string, save: unknown, result: DeletePlayerAccountResult): Promise<void> {
+    // The client publishes `avatar:<display name, lowercased>`, which can differ
+    // from the slug (a name with a space); the server accepts both forms.
+    const avatarIds = new Set([`avatar:${slug}`]);
+    const displayName = (save as { character?: { name?: unknown } } | null)?.character?.name;
+    if (typeof displayName === 'string' && safeName(displayName) === slug) avatarIds.add(`avatar:${displayName.toLowerCase()}`);
+    try {
+        const present: string[] = [];
+        for (const id of avatarIds) if (await storedImageExists(id) !== false) present.push(id);
+        if (present.length) {
+            const { removed, failed } = await removeStoredImages(present, 'account-deletion');
+            result.removed.push(...removed.map((id) => `shared:img:${id}`));
+            result.failures.push(...failed.map(({ id, reason }) => `${id}: ${reason}`));
+        }
+    } catch (err) {
+        result.failures.push(`avatar:${slug}: ${(err as Error).message}`);
+    }
+
+    const miscCounterKey = `upload:misc-count:${slug}`;
+    try {
+        if (await kv.del(miscCounterKey)) result.removed.push(miscCounterKey);
+    } catch (err) {
+        result.failures.push(`${miscCounterKey}: ${(err as Error).message}`);
+    }
+
+    try {
+        const claimKeys = (await kv.keys(`${IMG_OWNER_PREFIX}*`)).filter((key) => key.startsWith(IMG_OWNER_PREFIX));
+        for (let i = 0; i < claimKeys.length; i += IMAGE_CLAIM_READ_CHUNK) {
+            const chunk = claimKeys.slice(i, i + IMAGE_CLAIM_READ_CHUNK);
+            const owners = await kv.mget<unknown[]>(...chunk);
+            for (const [index, key] of chunk.entries()) {
+                if (owners[index] !== slug) continue;
+                if (await kv.delIfEqual(key, slug)) result.detached.push(key);
+            }
+        }
+    } catch (err) {
+        result.failures.push(`${IMG_OWNER_PREFIX}* claims: ${(err as Error).message}`);
+    }
+}
+
 /**
  * Detach every row that POINTS AT a player, without touching the player's own
  * `auth:` / `save:` records.
@@ -188,6 +251,7 @@ export async function detachPlayerReferences(rawName: string): Promise<DeletePla
 
     if (clanName) await detachFromClan(slug, clanName, result);
     await detachFromModerationIndexes(slug, result);
+    await releasePlayerImages(slug, save, result);
     return result;
 }
 

@@ -10,7 +10,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { safeUrl, safeColor, clampSize, renderNindo } from "./nindo-bbcode";
+import React, { type ReactElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { safeUrl, safeColor, clampSize, safeImageSrc, renderNindo } from "./nindo-bbcode";
+
+// The root tsx run compiles JSX with the classic runtime.
+(globalThis as typeof globalThis & { React: typeof React }).React = React;
 
 test("safeUrl accepts only http(s); rejects javascript:/data:/relative/protocol-relative", () => {
     assert.equal(safeUrl("https://example.com/a.png"), "https://example.com/a.png");
@@ -41,6 +46,35 @@ test("clampSize clamps to a sane px range and rejects junk", () => {
     assert.equal(clampSize("1"), 11); // clamped to MIN
     assert.equal(clampSize("abc"), undefined);
     assert.equal(clampSize(undefined), undefined);
+});
+
+test("safeImageSrc allows only same-origin images (no third-party tracking pixels)", () => {
+    const origin = "https://shinobijourney.com";
+    assert.equal(safeImageSrc("/api/img?id=avatar:kaze", origin), "/api/img?id=avatar:kaze");
+    assert.equal(safeImageSrc("/api/img?id=avatar:kaze", undefined), "/api/img?id=avatar:kaze", "relative works with no window");
+    assert.equal(safeImageSrc("https://shinobijourney.com/api/img?id=pet:fox", origin), "https://shinobijourney.com/api/img?id=pet:fox");
+    assert.equal(safeImageSrc("https://evil.test/pixel.gif", origin), undefined);
+    assert.equal(safeImageSrc("https://shinobijourney.com.evil.test/p.gif", origin), undefined);
+    assert.equal(safeImageSrc("https://shinobijourney.com@evil.test/p.gif", origin), undefined);
+    assert.equal(safeImageSrc("http://shinobijourney.com/p.gif", origin), undefined, "another scheme is another origin");
+    assert.equal(safeImageSrc("https://shinobijourney.com/p.gif", undefined), undefined, "no known origin, no absolute URL");
+    assert.equal(safeImageSrc("//evil.test/p.gif", origin), undefined);
+    assert.equal(safeImageSrc("/\\evil.test/p.gif", origin), undefined);
+    assert.equal(safeImageSrc("/api/img?id=x y", origin), undefined);
+    assert.equal(safeImageSrc("javascript:alert(1)", origin), undefined);
+    assert.equal(safeImageSrc("data:image/png;base64,AAAA", origin), undefined);
+});
+
+test("a third-party [img] renders as plain text, never as an <img> or a link", () => {
+    const html = (src: string) => renderToStaticMarkup(renderNindo(src) as ReactElement);
+    for (const src of ["[img]https://evil.test/pixel.gif[/img]", "[img=https://evil.test/pixel.gif]"]) {
+        const out = html(src);
+        assert.doesNotMatch(out, /<img|<a /, src);
+        assert.match(out, /https:\/\/evil\.test\/pixel\.gif/, `${src}: the source shows as text`);
+    }
+    const own = html("[img]/api/img?id=avatar:kaze[/img]");
+    assert.match(own, /<img[^>]+src="\/api\/img\?id=avatar:kaze"/);
+    assert.match(own, /referrerPolicy="no-referrer"|referrerpolicy="no-referrer"/i);
 });
 
 test("renderNindo returns null for empty input", () => {

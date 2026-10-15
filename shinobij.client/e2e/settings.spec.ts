@@ -131,9 +131,14 @@ test('moved account controls still start Google linking, change passwords, and r
             : { ok: true, token: 'settings-test-session-token' } });
     });
     await expectUiAuditBoot(page, runtime, 'settings');
-    await page.getByRole('button', { name: 'Link Google account', exact: true }).click();
+    // A password account proves its password to link Google (2026-10-15 audit
+    // H3): a session token alone must not be able to plant a Google door.
+    const google = page.locator('.google-link-card');
+    await google.getByLabel('Current password', { exact: true }).fill('OldTestPassword47');
+    await google.getByRole('button', { name: 'Link Google account', exact: true }).click();
     await expect(page.getByText('Google test service unavailable.')).toBeVisible();
     expect(actions[0]?.mode).toBe('link');
+    expect(actions[0]?.password).toBe('OldTestPassword47');
     const password = page.locator('.change-password-card').filter({ has: page.getByRole('heading', { name: 'Change Password', exact: true }) });
     await password.getByLabel('Current password', { exact: true }).fill('OldTestPassword47');
     await password.getByLabel('New password', { exact: true }).fill('NewTestPassword47');

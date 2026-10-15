@@ -33,6 +33,24 @@ test('canonical www duplicate redirects normal SPA pages to the apex canonical s
     assert.equal(canonicalRedirectLocation('/profile?tab=pvp'), 'https://shinobijourney.com/profile?tab=pvp');
 });
 
+test('canonical redirect never leaves the canonical origin (open-redirect regression)', () => {
+    for (const raw of [
+        '//evil.example/login',
+        '/\\evil.example/x',
+        '\\\\evil.example/x',
+        '///evil.example',
+        '/\t/evil.example/x',
+        ' //evil.example',
+    ]) {
+        const location = canonicalRedirectLocation(raw, {});
+        assert.equal(new URL(location).origin, 'https://shinobijourney.com', `${JSON.stringify(raw)} -> ${location}`);
+        assert.doesNotMatch(new URL(location).host, /evil/);
+    }
+    assert.equal(canonicalRedirectLocation('//evil.example/login', {}), 'https://shinobijourney.com/evil.example/login');
+    assert.equal(canonicalRedirectLocation('', {}), 'https://shinobijourney.com/');
+    assert.equal(canonicalRedirectLocation('profile', {}), 'https://shinobijourney.com/profile');
+});
+
 test('API, storage, health, robots, sitemap, and static paths are not redirected', () => {
     for (const pathname of [
         '/api/pvp/session',

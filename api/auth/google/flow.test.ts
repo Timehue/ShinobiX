@@ -27,6 +27,7 @@ let verifyState: typeof import('../../_google-auth.js').verifyState;
 let parseIdToken: typeof import("../../_google-auth.js").parseIdToken;
 let googleRedirectUriProblem: typeof import("../../_google-auth.js").googleRedirectUriProblem;
 let issuePlayerToken: typeof import('../../_auth.js').issuePlayerToken;
+let hashPw: typeof import('../../player-auth.js').hashPw;
 let verifyPlayerToken: typeof import('../../_auth.js').verifyPlayerToken;
 
 let requestNumber = 0;
@@ -103,7 +104,9 @@ before(async () => {
     startHandler = (await import('./start.js')).default as unknown as Handler;
     callbackHandler = (await import('./callback.js')).default as unknown as Handler;
     claimHandler = (await import('./claim.js')).default as unknown as Handler;
-    playerAuthHandler = (await import('../../player-auth.js')).default as unknown as Handler;
+    const playerAuth = await import('../../player-auth.js');
+    playerAuthHandler = playerAuth.default as unknown as Handler;
+    hashPw = playerAuth.hashPw;
 
     const google = await import('../../_google-auth.js');
     signState = google.signState;
@@ -285,10 +288,10 @@ describe('google sign-in', () => {
         });
 
         it('binds an authenticated link start to the current credential generation', async () => {
-            store.set('auth:kaze', { hash: 'scrypt:x', salt: 's', sessionEpoch: 3 });
+            store.set('auth:kaze', { hash: hashPw('KazePass1', 's'), salt: 's', sessionEpoch: 3 });
             store.set('auth-session:kaze', 3);
             const out = await call(startHandler, 'POST', {
-                body: { nonce: NONCE, mode: 'link' },
+                body: { nonce: NONCE, mode: 'link', password: 'KazePass1' },
                 headers: { 'x-player-token': issuePlayerToken('kaze', undefined, 3)! },
             });
             assert.equal(out.statusCode, 200);
@@ -315,15 +318,37 @@ describe('google sign-in', () => {
         });
 
         it('fails closed when a link start cannot acquire the account lock', async () => {
-            store.set('auth:kaze', { hash: 'scrypt:x', salt: 's', sessionEpoch: 0 });
+            store.set('auth:kaze', { hash: hashPw('KazePass1', 's'), salt: 's', sessionEpoch: 0 });
             store.set('lock:auth:kaze', 'another-credential-mutation');
             const out = await call(startHandler, 'POST', {
-                body: { nonce: NONCE, mode: 'link' },
+                body: { nonce: NONCE, mode: 'link', password: 'KazePass1' },
                 headers: { 'x-player-token': issuePlayerToken('kaze')! },
             });
             assert.equal(out.statusCode, 503);
             assert.equal(out.body?.url, undefined);
             assert.equal(store.get('lock:auth:kaze'), 'another-credential-mutation');
+        });
+
+        it('makes a password account prove its password to link, so a lifted token cannot plant a Google door', async () => {
+            store.set('auth:kaze', { hash: hashPw('KazePass1', 's'), salt: 's', sessionEpoch: 0 });
+            const headers = { 'x-player-token': issuePlayerToken('kaze')! };
+            const bare = await call(startHandler, 'POST', { body: { nonce: NONCE, mode: 'link' }, headers });
+            assert.equal(bare.statusCode, 401);
+            assert.equal(bare.body?.passwordRequired, true);
+            assert.equal(bare.body?.url, undefined);
+            const wrong = await call(startHandler, 'POST', { body: { nonce: NONCE, mode: 'link', password: 'NotIt1234' }, headers });
+            assert.equal(wrong.statusCode, 401);
+            assert.equal(wrong.body?.url, undefined);
+        });
+
+        it('still lets a passwordless account link on its session alone', async () => {
+            store.set('auth:kaze', { guest: true, sessionEpoch: 0 });
+            const out = await call(startHandler, 'POST', {
+                body: { nonce: NONCE, mode: 'link' },
+                headers: { 'x-player-token': issuePlayerToken('kaze')! },
+            });
+            assert.equal(out.statusCode, 200);
+            assert.equal(verifyState(new URL(String(out.body?.url)).searchParams.get('state')!)?.name, 'kaze');
         });
 
         it('is unavailable while the kill switch is on', async () => {

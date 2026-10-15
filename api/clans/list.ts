@@ -3,6 +3,7 @@ import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { cachedFor } from '../_proc-cache.js';
+import { clanPublicView, clanRecordSlug, playerClanSlug } from './_clan-public-view.js';
 
 // Process-local cache for the clan list build. `kv.keys('save:clan-*')` routes
 // to the DISK overlay, and the disk/proxy keys() implementation walks the
@@ -50,6 +51,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!keys.length) return [] as unknown[];
             return (await kv.mget(...keys)).filter(Boolean);
         });
+        // Per-reader projection (the cache above holds full rows; it is never
+        // returned as-is). Admins see every row whole; a player sees their own
+        // clan whole and every other clan as the public view only — no
+        // treasury, receipts, role appointments, notices or war state
+        // (api/clans/_clan-public-view.ts).
+        const ownSlug = identity.admin ? '' : await playerClanSlug(identity.name);
+        const visible = identity.admin
+            ? clans
+            : clans.map((clan) => (ownSlug && clanRecordSlug(clan) === ownSlug ? clan : clanPublicView(clan)))
+                .filter(Boolean);
         // 30s browser-private cache. Now that the list is auth-gated it must
         // NOT sit in a shared/edge cache (that could re-serve the authed list to
         // an unauthenticated client and defeat the gate); `private` keeps the
@@ -57,7 +68,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // without that risk. The list changes only on create/disband/edit, so
         // 30s latency is fine.
         res.setHeader('Cache-Control', 'private, max-age=30');
-        return res.status(200).json(clans);
+        // The body now differs per reader (own clan whole, others projected),
+        // so a browser that switches accounts must not reuse the previous
+        // account's cached copy.
+        res.setHeader('Vary', 'x-player-token, x-player-name, x-admin-token, x-admin-password');
+        return res.status(200).json(visible);
     } catch (err) {
         console.error('[clans/list]', err);
         return res.status(500).json({ error: 'Internal server error.' });
