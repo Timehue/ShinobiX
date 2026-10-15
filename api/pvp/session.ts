@@ -2298,7 +2298,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // jutsu / pvpItems / armor / bloodlineMult / itemDamagePct from
             // there. The client's character body is only consulted as a
             // fallback for fighters who don't have a save record (NPCs).
-            // Admins keep their override path (admin acts as anyone for tests).
+            // The full admin keeps its override path (it acts as anyone for tests).
             let finalP1Character: Record<string, unknown>;
             let finalP2Character: Record<string, unknown>;
 

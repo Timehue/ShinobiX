@@ -10,7 +10,7 @@ import { classifyBodyLimit } from './_body-limits.js';
 describe('classifyBodyLimit', () => {
     it('grants the big parser ONLY to image/import + specific admin content routes', () => {
         for (const p of [
-            '/api/images', '/images', '/api/img/upload', '/api/generate-image',
+            '/api/images', '/images',
             '/api/admin/bloodline-review', '/api/admin/item-review',
             '/api/admin/save-snapshot',
         ]) {
@@ -24,6 +24,12 @@ describe('classifyBodyLimit', () => {
             '/api/admin/audit-log', '/api/admin/moderation', '/api/admin/migrate-images-to-r2',
             '/admin/server-reset', '/api/admin-auth', '/api/kv-proxy', '/kv/get',
         ]) {
+            assert.equal(classifyBodyLimit(p), 'default', `${p} must NOT get the 50 MB parser`);
+        }
+    });
+
+    it('does NOT grant the big parser to generate-image (small prompt body) or img (GET-only)', () => {
+        for (const p of ['/api/generate-image', '/generate-image', '/api/img', '/img', '/api/img/x']) {
             assert.equal(classifyBodyLimit(p), 'default', `${p} must NOT get the 50 MB parser`);
         }
     });

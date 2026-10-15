@@ -92,6 +92,23 @@ export function clearAccountStatus(): void {
     publish(null);
 }
 
+/**
+ * The signed-in account's standing, or null until the server answers. For the
+ * account cards that change shape with it (Google linked or not, password set
+ * or not); the tavern lock has its own, stricter hook below.
+ */
+export function useAccountStatus(): AccountStatus | null {
+    const [status, setStatus] = useState<AccountStatus | null>(cached);
+    useEffect(() => {
+        let cancelled = false;
+        const listener: Listener = (next) => { if (!cancelled) setStatus(next); };
+        listeners.add(listener);
+        void loadAccountStatus().then((next) => { if (!cancelled && next) setStatus(next); });
+        return () => { cancelled = true; listeners.delete(listener); };
+    }, []);
+    return status;
+}
+
 export type SocialLock = {
     /** The tavern and the message channels are shut for this account. */
     locked: boolean;

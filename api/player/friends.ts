@@ -57,7 +57,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const playerName = safeName(String(rawName ?? ''));
     if (!playerName) return res.status(400).json({ error: 'Invalid player name.' });
 
-    // Act only as yourself (admins may act as anyone for support).
+    // Act only as yourself (the full admin may act as anyone for support).
     const identity = await authedPlayerOrAdmin(req, playerName);
     if (!identity) return res.status(401).json({ error: 'Authentication required.' });
     if (!identity.admin && identity.name !== playerName) {

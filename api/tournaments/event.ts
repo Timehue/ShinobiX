@@ -50,7 +50,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.setHeader('Cache-Control', 'private, no-store');
     if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).end();
     try {
-        const identity = await authedPlayerOrAdmin(req);
+        // Admin 2 may look; only a player or the full admin may act.
+        const identity = await authedPlayerOrAdmin(req, undefined, { allowContentAdmin: req.method === 'GET' });
         if (!identity) return res.status(401).json({ error: 'Sign in to view tournaments.' });
         const playerId = identity.admin ? '' : identity.name;
         if (!(await enforceRateLimitKv(req, res, 'tournaments', 90, 60_000, playerId || 'admin'))) return;

@@ -1,7 +1,8 @@
 import type { VercelRequest, VercelResponse } from './_vercel.js';
 import { kv } from './_storage.js';
 import { cors } from './_utils.js';
-import { categoryFromId, legacyBlobKey, legacyHashKey, legacyImageValue, perImageKey } from './images.js';
+import { canonicalHost } from './_canonical-domain.js';
+import { categoryFromId, isAdminAuthoredImageId, legacyBlobKey, legacyHashKey, legacyImageValue, perImageKey } from './images.js';
 import { r2ReadEnabled, r2ObjectExists, r2PublicUrl } from './_r2.js';
 import { isPublishedImageVersion, isValidImageVersion, readImageVersion } from './_image-version.js';
 
@@ -56,6 +57,36 @@ export function decodeImageDataUrl(s: string): { mime: string; buf: Buffer } | n
     } catch {
         return null;
     }
+}
+
+/**
+ * Hosts a stored link may redirect to whatever id holds it: the site's own
+ * canonical host (and its www twin), from the same CANONICAL_ORIGIN config the
+ * host redirect uses, plus the R2 public bucket host from env.
+ */
+export function safeImageRedirectHosts(): Set<string> {
+    const canonical = canonicalHost().toLowerCase();
+    const bare = canonical.startsWith('www.') ? canonical.slice(4) : canonical;
+    const hosts = new Set([bare, `www.${bare}`]);
+    const r2Base = process.env.R2_PUBLIC_BASE?.trim();
+    if (r2Base) {
+        try { hosts.add(new URL(r2Base).hostname.toLowerCase()); } catch { /* malformed env: no R2 host */ }
+    }
+    return hosts;
+}
+
+/**
+ * Whether /api/img may redirect to the link stored under `id`. Admin-authored
+ * ids (only an admin can store anything there) follow any public http(s) link,
+ * as before. Every other id follows an https link to one of our own hosts only.
+ */
+export function isSafeImageRedirect(id: string, raw: string): boolean {
+    let url: URL;
+    try { url = new URL(raw); } catch { return false; }
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') return false;
+    if (url.username || url.password) return false;
+    if (isAdminAuthoredImageId(id)) return true;
+    return url.protocol === 'https:' && safeImageRedirectHosts().has(url.hostname.toLowerCase());
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -143,9 +174,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(404).end();
         }
 
-        // Some non-avatar categories allow a remote http(s) URL instead of an
-        // inline data URL — redirect to it (the browser fetches it directly).
+        // An admin may store a remote http(s) URL instead of an inline data URL
+        // — redirect to it (the browser fetches it directly). A link stored
+        // under a player-writable id (left from before players were refused
+        // links) is followed only to our own hosts: anything else made this a
+        // redirect to any site a player chose (2026-10-15 audit M4).
         if (/^https?:\/\//i.test(raw)) {
+            if (!isSafeImageRedirect(id, raw)) {
+                res.setHeader('Cache-Control', 'no-store');
+                return res.status(404).end();
+            }
             res.setHeader('Cache-Control', versioned ? IMMUTABLE_CACHE : 'public, max-age=300');
             return res.redirect(302, raw);
         }

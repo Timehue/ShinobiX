@@ -34,7 +34,8 @@ jobs:
         working-directory: mobile
     steps:
       - uses: actions/checkout@v7
-      - uses: subosito/flutter-action@v2
+      # Third-party action pinned to a full commit SHA (a tag can be moved).
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           # Keep in step with the Flutter the release is built with (mobile/README.md).
           flutter-version: 3.47.5

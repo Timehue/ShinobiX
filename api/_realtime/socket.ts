@@ -33,7 +33,7 @@ import type { Server as HttpServer } from 'node:http';
 // the socket.io package. If it isn't installed, realtime simply stays off and the
 // rest of the server (the HTTP API and the SPA) boots normally.
 import type { Server as IOServer, Socket } from 'socket.io';
-import { authedPlayerOrAdmin } from '../_auth.js';
+import { authedPlayerOrAdmin, isFullAdmin } from '../_auth.js';
 import { kv } from '../_storage.js';
 import { onlineStore } from './online-store.js';
 import { stampPresenceBeat } from './_presence-beat.js';
@@ -54,8 +54,10 @@ import { applyWorldMovement } from './world-movement-service.js';
 // socket from the SAME origin (Railway), the browser still sends an Origin
 // header on the Socket.IO polling handshake, so that origin must pass the
 // predicate or the handshake fails while the page itself loads fine. The shared
-// isAllowedOrigin() covers the static allowlist + EXTRA_ALLOWED_ORIGINS +
-// *.up.railway.app, so the Railway URL works out of the box.
+// isAllowedOrigin() covers the static allowlist + EXTRA_ALLOWED_ORIGINS (plus
+// localhost outside production). There is no *.up.railway.app wildcard any
+// more: a deploy opened at its Railway URL needs that exact origin listed in
+// EXTRA_ALLOWED_ORIGINS, or its socket handshake is refused.
 import { isAllowedOrigin, safeName } from '../_utils.js';
 
 let _io: IOServer | null = null;
@@ -117,8 +119,7 @@ export function attachSocketServer(httpServer: HttpServer): void {
         const io = new IOServerCtor(httpServer, {
             cors: {
                 // Function form so the same isAllowedOrigin() predicate gates the
-                // handshake (static allowlist + EXTRA_ALLOWED_ORIGINS +
-                // *.up.railway.app). A missing Origin (native/server clients) is
+                // handshake (static allowlist + EXTRA_ALLOWED_ORIGINS). A missing Origin (native/server clients) is
                 // allowed — CORS only governs browsers, which always send one.
                 // Params typed explicitly (compatible with @types/cors
                 // CustomOrigin) so this compiles even when socket.io's own types
@@ -186,19 +187,32 @@ function wireRealtime(io: IOServer): void {
     io.use(async (socket, next) => {
         try {
             const auth = (socket.handshake.auth ?? {}) as HandshakeAuth;
-            const headers: Record<string, string | undefined> = {
+            const headers: Record<string, string | string[] | undefined> = {
+                // The upgrade request's own transport headers (x-real-ip and
+                // friends), so the admin and password failure budgets charge the
+                // caller's address rather than one shared 'unknown' bucket.
+                // Credentials come ONLY from the handshake auth payload below,
+                // which overwrites any same-named transport header.
+                ...socket.handshake.headers,
                 'x-player-token': authStr(auth, 'x-player-token'),
                 'x-player-name': authStr(auth, 'x-player-name'),
                 'x-player-password': authStr(auth, 'x-player-password'),
+                'x-admin-token': authStr(auth, 'x-admin-token'),
                 'x-admin-password': authStr(auth, 'x-admin-password'),
                 'x-client-fp': authStr(auth, 'x-client-fp'),
             };
-            const identity = await authedPlayerOrAdmin({ headers });
+            const req = { headers, socket: { remoteAddress: socket.handshake.address } };
+            const identity = await authedPlayerOrAdmin(req, undefined, { allowContentAdmin: true });
             if (!identity) return next(new Error('unauthorized'));
 
             // Presence is keyed by the safeName slug. An admin-only connection has
-            // no name — derive it from the claimed x-player-name (admins trusted).
-            const claimed = safeName(headers['x-player-name'] ?? '');
+            // no name — derive it from the claimed x-player-name. Only the full
+            // admin may claim any name; the content admin is held to its own two
+            // admin slots, as the save route holds it (adminSaveTargetAllowed).
+            const claimed = safeName(authStr(auth, 'x-player-name') ?? '');
+            if (identity.admin && !isFullAdmin(req) && claimed !== 'admin1' && claimed !== 'admin2') {
+                return next(new Error('unauthorized'));
+            }
             const canonicalName = identity.admin ? claimed : identity.name;
             if (!canonicalName) return next(new Error('no player name'));
 

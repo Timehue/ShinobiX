@@ -1,4 +1,4 @@
-import { isCleanPlayerName, TEXT_LIMITS } from '../../../api/_text-moderation';
+import { hasStaffImpersonationName, isCleanPlayerName, TEXT_LIMITS } from '../../../api/_text-moderation';
 
 // Throwaway player names that registration is certain to accept.
 //
@@ -19,9 +19,9 @@ import { isCleanPlayerName, TEXT_LIMITS } from '../../../api/_text-moderation';
 const STAMP_REROLLS = 8;
 const REROLL_RANGE = 10 ** 13;
 
-/** Whether registration's name gate passes `name` on the checks a stamp can trip: length and blocked terms. */
+/** Whether registration's name gate passes `name` on the checks a stamp can trip: length, blocked terms and staff words. */
 export function nameGateAccepts(name: string): boolean {
-    return name.trim().length <= TEXT_LIMITS.playerName && isCleanPlayerName(name);
+    return name.trim().length <= TEXT_LIMITS.playerName && isCleanPlayerName(name) && !hasStaffImpersonationName(name);
 }
 
 /**

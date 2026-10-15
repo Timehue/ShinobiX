@@ -43,7 +43,7 @@ async function create() {
 }
 test('authentication, full-admin controls, input validation and upcoming admission', async () => {
     assert.equal((await request(undefined, {})).status, 401);
-    assert.equal((await request({ action: 'toggle', enabled: true }, { 'x-admin-password': 'dojo-test-content' })).status, 403);
+    assert.equal((await request({ action: 'toggle', enabled: true }, { 'x-admin-password': 'dojo-test-content' })).status, 401, 'Admin 2 may only read the Circuit');
     assert.equal((await request({ action: 'toggle', enabled: true }, player())).status, 403);
     assert.equal((await request({ action: 'toggle', enabled: 'true' })).status, 400);
     assert.equal((await request({ action: 'schedule', name: 'bad', startsAt: Date.now(), days: 99, featured: 'combat' })).status, 400);

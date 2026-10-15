@@ -15,13 +15,13 @@ test('removal goes out in batches the server accepts, covering every slot exactl
 
 test('a token pasted from the browser console works with or without its quotes; unusable values stop the run first', () => {
     const now = Date.UTC(2026, 8, 19, 12);
-    const valid = `av1.full.${now + 3_600_000}.0.c2lnbmF0dXJl`;
+    const valid = `av2.full.${now + 3_600_000}.0.c2lnbmF0dXJl`;
     for (const pasted of [valid, `'${valid}'`, `"${valid}"`, `  '${valid}'  `]) assert.equal(cleanAdminToken(pasted), valid);
     assert.equal(adminTokenProblem(valid, now), undefined);
-    assert.equal(adminTokenProblem(`av1.content.${now + 1}.0.sig`, now), undefined);
+    assert.equal(adminTokenProblem(`av2.content.${now + 1}.0.sig`, now), undefined);
     assert.match(adminTokenProblem(cleanAdminToken("'null'")!, now)!, /same browser tab/);
-    assert.match(adminTokenProblem('my-admin-password', now)!, /av1\.full\./);
-    assert.match(adminTokenProblem(`av1.full.${now - 1}.0.sig`, now)!, /expired/);
+    assert.match(adminTokenProblem('my-admin-password', now)!, /av2\.full\./);
+    assert.match(adminTokenProblem(`av2.full.${now - 1}.0.sig`, now)!, /expired/);
     assert.equal(cleanAdminToken('   '), undefined);
 });
 import { RETIRED_VN_ART } from '../shinobij.client/src/lib/vn-retired-artwork.ts';

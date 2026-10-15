@@ -53,8 +53,12 @@ export function forgetGoogleNonce(): void {
  * app can catch the return and load it back into this WebView — where the nonce
  * lives.
  */
-export function googleStartBody(nonce: string, mode: "login" | "link"): { nonce: string; mode: "login" | "link"; client?: "android-app" } {
-    return isAppShell() ? { nonce, mode, client: "android-app" } : { nonce, mode };
+export function googleStartBody(nonce: string, mode: "login" | "link", password?: string): { nonce: string; mode: "login" | "link"; client?: "android-app"; password?: string } {
+    // A password account proves its password to LINK (the server refuses a
+    // token alone, since a link outlives every password change). Only ever sent
+    // in link mode, and only when the player typed one.
+    const proof = mode === "link" && password ? { password } : {};
+    return isAppShell() ? { nonce, mode, client: "android-app", ...proof } : { nonce, mode, ...proof };
 }
 
 /**
@@ -63,14 +67,14 @@ export function googleStartBody(nonce: string, mode: "login" | "link"): { nonce:
  * needs the request to carry auth headers — which is why this is a POST through
  * the patched fetch rather than a plain link.
  */
-export async function startGoogleSignIn(mode: "login" | "link" = "login"): Promise<string | null> {
+export async function startGoogleSignIn(mode: "login" | "link" = "login", password?: string): Promise<string | null> {
     const nonce = randomNonce();
     rememberNonce(nonce);
     try {
         const response = await sessionLoadFetch("/api/auth/google/start", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(googleStartBody(nonce, mode)),
+            body: JSON.stringify(googleStartBody(nonce, mode, password)),
         });
         const data = await response.json().catch(() => null) as { url?: string; error?: string } | null;
         if (!response.ok || !data?.url) {
