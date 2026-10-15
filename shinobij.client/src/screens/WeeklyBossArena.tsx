@@ -204,7 +204,7 @@ export function WeeklyBossArena({
 
     async function settleAuthoritativeFight(runId: string): Promise<unknown> {
         if (!capabilityAdmissionAllowed(mutationAvailability())) {
-            throw new Error("Weekly Boss settlement is paused. Keep this fight open and retry when live actions return.");
+            throw new Error("Saving Weekly Boss results is paused. Keep this fight open and try again when live actions return.");
         }
         const response = await fetch("/api/weekly-boss", {
             method: "POST",
@@ -212,7 +212,7 @@ export function WeeklyBossArena({
             body: JSON.stringify({ kind: "logFight", runId }),
         });
         const data = await response.json().catch(() => ({})) as { ok?: boolean; dealt?: number; boss?: WeeklyBossState; character?: Character; _saveVersion?: number; error?: string };
-        if (!response.ok || data.ok !== true || !Number.isFinite(data.dealt)) throw new Error(data?.error ?? "Weekly Boss settlement was not confirmed. Retry this saved attempt.");
+        if (!response.ok || data.ok !== true || !Number.isFinite(data.dealt)) throw new Error(data?.error ?? "Your Weekly Boss result is not confirmed yet. Try again to finish saving this attempt.");
         if (data?.boss) setBossState(data.boss);
         // Logged even if refused as stale; throwing reported a paid fight as failed.
         if (data.character) onVersionedCharacter(data.character, data._saveVersion);
@@ -296,7 +296,7 @@ export function WeeklyBossArena({
                 {worldBossTabs}
                 {/* A failed first read is not "no boss": say so until the poll recovers. */}
                 {loadError ? (
-                    <div role="status" style={{ color: "#fbbf24", margin: "0.8rem 0" }}><GameArtIcon kind="warning" size={16} /> The Weekly Boss status could not be loaded. It will try again automatically.</div>
+                    <div role="status" style={{ color: "#e6c477", margin: "0.8rem 0" }}><GameArtIcon kind="warning" size={16} /> The Weekly Boss status could not be loaded. It will try again automatically.</div>
                 ) : (
                     <section className="weekly-boss-empty-state" aria-label="Weekly Boss status">
                         <span aria-hidden="true"><GiTombstone /></span>
@@ -339,7 +339,7 @@ export function WeeklyBossArena({
     const acceptedFightRecoveryNeeded = lockedOut || staminaBlocked || !weeklyBossActionsAvailable;
     const contributionDisabled = !fightEnabled;
     const contributionDisabledCopy = fightDisabledReason === "weekly_boss_server_authority_required"
-        ? "Weekly Boss contribution is paused for public beta until server-authoritative settlement is live."
+        ? "Weekly Boss fights are paused for now. You can still check the leaderboard here, or switch to the Roaming Boss tab above."
         : "Weekly Boss contribution is currently disabled.";
 
     // hh:mm:ss countdown to despawn. Re-renders every interval via the
@@ -372,7 +372,7 @@ export function WeeklyBossArena({
                 onBack={() => setScreen(backScreen)}
             />
             {worldBossTabs}
-            {loadError && <div role="status" style={{ color: "#fbbf24", marginBottom: "0.5rem" }}><GameArtIcon kind="warning" size={16} /> The Weekly Boss status could not be refreshed. It will try again automatically.</div>}
+            {loadError && <div role="status" style={{ color: "#e6c477", marginBottom: "0.5rem" }}><GameArtIcon kind="warning" size={16} /> The Weekly Boss status could not be refreshed. It will try again automatically.</div>}
             {error && <div role="alert" style={{ color: "var(--red-400)", marginBottom: "0.5rem" }}><GameArtIcon kind="warning" size={16} /> {error}</div>}
             {guardCycleAvailability !== "available" && (
                 <div role="status" style={{ background: "rgba(15,23,42,0.55)", border: "1px solid rgba(148,163,184,0.35)", borderRadius: 6, padding: "0.55rem 0.75rem", margin: "0.5rem 0", fontSize: "0.84rem", color: "var(--slate-300)" }}>
@@ -421,7 +421,7 @@ export function WeeklyBossArena({
                     · Attempts: <strong>{attemptsUsed}/{WEEKLY_BOSS_MAX_ATTEMPTS}</strong>
                 </span>
             </p>
-            <div style={{ background: "rgba(15,23,42,0.5)", border: "1px solid rgba(250,204,21,0.25)", borderRadius: 6, padding: "0.5rem 0.7rem", margin: "0.4rem 0", fontSize: "0.82rem" }}>
+            <div style={{ background: "rgba(15,23,42,0.5)", border: "1px solid rgba(230, 196, 119, 0.25)", borderRadius: 6, padding: "0.5rem 0.7rem", margin: "0.4rem 0", fontSize: "0.82rem" }}>
                 <div><GiTrophy style={WB_ICON} /><strong>Rewards at despawn</strong></div>
                 <div>· Top 10 by damage → <strong style={{ color: "var(--gold)" }}>1 Weekly Boss Core</strong> each</div>
                 <div>· Top 25 by damage → <strong style={{ color: "var(--blue-400)" }}>1 Dungeon Key</strong> each</div>
@@ -492,7 +492,7 @@ export function WeeklyBossArena({
                                 ? <><GiPadlock style={WB_ICON} />Contribution paused</>
                             : lockedOut
                                 ? <><GiPadlock style={WB_ICON} />No attempts left</>
-                                : <><GiCrossedSwords style={WB_ICON} />Fight Boss ({attemptsLeft} left · 20 stamina)</>}
+                                : <><GiCrossedSwords style={WB_ICON} />Fight boss ({attemptsLeft} left · 20 stamina)</>}
                     </button>
                 )}
                 <button className="back-btn" onClick={() => setScreen(backScreen)}>× Back</button>
@@ -509,9 +509,9 @@ export function WeeklyBossArena({
                     const inKeyTier = i < 25;
                     const isMe = name === myKey;
                     const bg = isMvp
-                        ? "rgba(250,204,21,0.18)"
+                        ? "rgba(230, 196, 119, 0.18)"
                         : inCoreTier
-                            ? "rgba(250,204,21,0.07)"
+                            ? "rgba(230, 196, 119, 0.07)"
                             : inKeyTier
                                 ? "rgba(96,165,250,0.07)"
                                 : "transparent";

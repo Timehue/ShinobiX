@@ -290,7 +290,7 @@ export async function fetchInitialPvpProjection(options: {
     if (lastStatus === 503) {
         return {
             kind: "unavailable",
-            message: "Battle settlement is still finalizing. Retrying this connection is safe.",
+            message: "Your battle result is still being recorded. It is safe to retry this connection.",
             seedMayRemainVisible: true,
         };
     }

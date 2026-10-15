@@ -32,7 +32,7 @@
 .operation-invite-row,.operation-member-identity { justify-content:flex-start;min-width:0; }
 .operation-invite-row .operation-finder-row,.operation-member-identity,.operation-standings>div strong { flex:1 1 auto; }
 .operation-presence.is-online,.operation-ready.is-ready,.operation-state-message.is-complete { color:#6ee7b7; }
-.operation-presence.is-stale { color:#fbbf24; }
+.operation-presence.is-stale { color:var(--sj-gold-bright); }
 .operation-ready { flex:none;font-size:.72rem;font-weight:800; }
 .operation-member-actions,.operation-primary-actions,.operation-create-actions,.operation-invite-grid,.operation-pings {
     display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;

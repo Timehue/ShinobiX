@@ -70,9 +70,9 @@ describe("Clan Boss operation client contract", () => {
 
     it("exposes honest population, ready, reconnect, bounded fallback, and tactical pings", () => {
         assert.match(lobby, /real current population/i);
-        assert.match(lobby, /Seal Loadout & Ready/);
+        assert.match(lobby, /Seal loadout & ready/);
         assert.match(lobby, /bounded two-minute wait/);
-        assert.match(lobby, /Recover Leadership/);
+        assert.match(lobby, /Recover leadership/);
         assert.match(boss, /Rejoin your accepted operation/);
         assert.match(read("./components/ClanBossOperationComms.tsx"), /focus-boss[\s\S]*clear-adds[\s\S]*need-heal[\s\S]*hold[\s\S]*ready/);
     });

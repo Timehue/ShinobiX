@@ -163,6 +163,10 @@ export function Modal({
       // top, and an outer modal's focus trap must not fight the inner one for
       // Tab while it is open.
       if (openModals[openModals.length - 1] !== titleId) return;
+      // A game notice, confirm or password prompt (GameAlert.tsx) always sits
+      // above every Modal, so its keys are its own. Handling Escape here first
+      // closed this Modal underneath and left the confirm open on top.
+      if (document.querySelector(".game-alert-backdrop")) return;
       if (e.key === "Escape") {
         e.preventDefault();
         e.stopImmediatePropagation();

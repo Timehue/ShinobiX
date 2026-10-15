@@ -15,7 +15,7 @@
 .profile-card,
 .cinematic-card {
     background: linear-gradient( 180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015) ), rgba(5, 10, 22, 0.42) !important;
-    border: 1px solid rgba(250, 204, 21, 0.28) !important;
+    border: 1px solid rgba(230, 196, 119, 0.28) !important;
     box-shadow: 0 18px 45px rgba(0, 0, 0, 0.36) !important;
     backdrop-filter: blur(3px) !important;
 }
@@ -26,8 +26,8 @@
     align-items: center;
     gap: 8px;
     padding: 6px 14px;
-    background: rgba(250, 204, 21, 0.10);
-    border: 1px solid rgba(250, 204, 21, 0.40);
+    background: rgba(230, 196, 119, 0.10);
+    border: 1px solid rgba(230, 196, 119, 0.40);
     border-radius: 6px;
     font-weight: 700;
     color: var(--gold-400);
@@ -64,12 +64,12 @@
     cursor: pointer;
 }
     .bloodline-wizard-step.done {
-        border-color: rgba(250, 204, 21, 0.35) !important;
+        border-color: rgba(230, 196, 119, 0.35) !important;
         color: var(--gold-400) !important;
     }
     .bloodline-wizard-step.active {
-        border-color: rgba(250, 204, 21, 0.7) !important;
-        background: rgba(250, 204, 21, 0.16) !important;
+        border-color: rgba(230, 196, 119, 0.7) !important;
+        background: rgba(230, 196, 119, 0.16) !important;
         color: var(--gold-300) !important;
     }
 .bloodline-wizard-panel {
@@ -113,7 +113,7 @@
 }
     @media (hover: hover) {
         .bloodline-chip:hover {
-            border-color: rgba(250, 204, 21, 0.6) !important;
+            border-color: rgba(230, 196, 119, 0.6) !important;
             color: var(--gold-300) !important;
         }
     }
@@ -140,15 +140,15 @@
     gap: 3px;
     text-align: left !important;
     padding: 9px 12px !important;
-    border: 1px solid rgba(250, 204, 21, 0.3) !important;
+    border: 1px solid rgba(230, 196, 119, 0.3) !important;
     border-radius: 8px !important;
     background: rgba(2, 6, 23, 0.45) !important;
     cursor: pointer;
 }
     @media (hover: hover) {
         .bloodline-template-card:hover {
-            border-color: rgba(250, 204, 21, 0.65) !important;
-            background: rgba(250, 204, 21, 0.08) !important;
+            border-color: rgba(230, 196, 119, 0.65) !important;
+            background: rgba(230, 196, 119, 0.08) !important;
         }
     }
     .bloodline-template-card strong {
@@ -282,7 +282,7 @@
     padding: 1px 0;
 }
     .bloodline-points-breakdown li span:last-child {
-        color: #fbbf24;
+        color: var(--sj-gold-bright);
         font-variant-numeric: tabular-nums;
     }
 
@@ -347,7 +347,7 @@ textarea {
 .left-profile-card {
     background: linear-gradient(180deg, rgba(3, 7, 18, 0.34), rgba(3, 7, 18, 0.30) 38%, rgba(3, 7, 18, 0.55) 76%, rgba(3, 7, 18, 0.74)), url("../../assets/sectorbanner.webp") center / cover no-repeat !important;
     border-right: 3px solid var(--gold) !important;
-    box-shadow: inset -1px 0 0 rgba(250, 204, 21, 0.25), 0 0 22px rgba(0, 0, 0, 0.55) !important;
+    box-shadow: inset -1px 0 0 rgba(230, 196, 119, 0.25), 0 0 22px rgba(0, 0, 0, 0.55) !important;
 }
 
     .left-profile-card::before {
@@ -602,11 +602,11 @@ textarea {
 
 @keyframes levelup-pulse {
     0%, 100% {
-        box-shadow: 0 0 6px rgba(250, 204, 21, 0.3);
+        box-shadow: 0 0 6px rgba(230, 196, 119, 0.3);
     }
 
     50% {
-        box-shadow: 0 0 14px rgba(250, 204, 21, 0.7);
+        box-shadow: 0 0 14px rgba(230, 196, 119, 0.7);
     }
 }
 
@@ -848,7 +848,7 @@ textarea {
     margin: 6px 0 4px;
     font-size: 1.3rem;
     font-weight: 800;
-    color: #fbbf24;
+    color: var(--sj-gold-bright);
     text-shadow: 0 0 18px rgba(245,158,11,0.5);
 }
 
@@ -1146,7 +1146,7 @@ textarea {
     }
 
     .aw-forge-card.rank-s {
-        border-color: rgba(250,204,21,0.4);
+        border-color: rgba(230, 196, 119, 0.4);
     }
 
 .aw-forge-rank {
@@ -1196,9 +1196,9 @@ textarea {
 }
 
 .rank-s .aw-forge-btn {
-    background: rgba(250,204,21,0.2);
+    background: rgba(230, 196, 119, 0.2);
     color: #fde047;
-    border: 1px solid rgba(250,204,21,0.4);
+    border: 1px solid rgba(230, 196, 119, 0.4);
 }
 
 /* ── Clan Hall ───────────────────────────────────────────────────────────── */
@@ -1303,7 +1303,7 @@ textarea {
     justify-content: space-between;
     gap: 12px;
     padding: 10px;
-    border: 1px solid rgba(250,204,21,.22);
+    border: 1px solid rgba(230, 196, 119, .22);
     border-radius: 8px;
     background: rgba(15,23,42,.55);
 }
@@ -1554,7 +1554,7 @@ textarea {
     flex: none;
     border-radius: 12px;
     object-fit: cover;
-    border: 1px solid rgba(250,204,21,0.35);
+    border: 1px solid rgba(230, 196, 119, 0.35);
     box-shadow: 0 3px 16px rgba(0,0,0,0.5);
 }
 
@@ -1590,8 +1590,8 @@ textarea {
 }
 .clan-chat-msg.self {
     align-self: flex-end;
-    background: rgba(250, 204, 21, 0.12);
-    border: 1px solid rgba(250, 204, 21, 0.22);
+    background: rgba(230, 196, 119, 0.12);
+    border: 1px solid rgba(230, 196, 119, 0.22);
 }
 .clan-chat-name {
     font-size: 0.68rem;

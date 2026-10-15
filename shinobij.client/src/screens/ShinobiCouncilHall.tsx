@@ -221,9 +221,9 @@ export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchC
             />
 
             <div className="council-tabs">
-                <button aria-current={tab === "wars" ? "page" : undefined} className={`council-tab ${tab === "wars" ? "council-tab-active" : ""}`} onClick={() => setTab("wars")}><GiCrossedSwords style={SCH_ICON} />Active Wars</button>
+                <button aria-current={tab === "wars" ? "page" : undefined} className={`council-tab ${tab === "wars" ? "council-tab-active" : ""}`} onClick={() => setTab("wars")}><GiCrossedSwords style={SCH_ICON} />Active wars</button>
                 <button aria-current={tab === "clanBattles" ? "page" : undefined} className={`council-tab ${tab === "clanBattles" ? "council-tab-active" : ""}`} onClick={() => setTab("clanBattles")}><GiBlackFlag style={SCH_ICON} />Clan Battles</button>
-                <button aria-current={tab === "kage" ? "page" : undefined} className={`council-tab ${tab === "kage" ? "council-tab-active" : ""}`} onClick={() => setTab("kage")}><GiCrown style={SCH_ICON} />Kage Records</button>
+                <button aria-current={tab === "kage" ? "page" : undefined} className={`council-tab ${tab === "kage" ? "council-tab-active" : ""}`} onClick={() => setTab("kage")}><GiCrown style={SCH_ICON} />Kage records</button>
             </div>
 
             {tab === "wars" && <><section className="council-section">

@@ -91,8 +91,8 @@ test('two ranked players enter one live PvP session and can advance its first tu
         const bobPage = await openRanked(bobContext, bob);
         await alicePage.getByTestId('ranked-format-weapon-picker')
             .getByRole('button', { name: /Tempest Fang Blade/ }).click();
-        await alicePage.getByRole('button', { name: 'Queue Up for Ranked' }).click();
-        await bobPage.getByRole('button', { name: 'Queue Up for Ranked' }).click();
+        await alicePage.getByRole('button', { name: 'Queue up for ranked' }).click();
+        await bobPage.getByRole('button', { name: 'Queue up for ranked' }).click();
         await expect(alicePage.locator('.app-shell[data-screen="pvpBattle"]')).toBeVisible({ timeout: 30_000 });
         await expect(bobPage.locator('.app-shell[data-screen="pvpBattle"]')).toBeVisible({ timeout: 30_000 });
 

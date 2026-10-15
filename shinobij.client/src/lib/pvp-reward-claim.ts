@@ -82,7 +82,7 @@ export async function readPvpOwnerSaveForContinuation(
     }
     requireContinuationCurrent(continuation);
     if (playerSlug(body.character.name) !== playerSlug(playerName)) {
-        throw new Error("PvP settlement returned a foreign save.");
+        throw new Error("The battle result came back with a different account's save. Press Retry.");
     }
     return { character: body.character, version: body._saveVersion };
 }
@@ -422,7 +422,7 @@ export async function postPvpRewardClaim(
         if (typeof payload.completionPending !== "boolean") {
             return {
                 status: "retry",
-                message: "Reward verification returned an incomplete completion receipt. Please retry.",
+                message: "Your battle rewards could not be fully confirmed yet. Your result is safe; retry to apply them.",
             };
         }
         return {

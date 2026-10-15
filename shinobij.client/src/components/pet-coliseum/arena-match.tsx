@@ -39,7 +39,7 @@ const ARENA_SPRITE_H = 1.05;
 // and damps clump-jitter without touching the sim. Higher = snappier/less lag.
 const ARENA_POS_SMOOTH = 0.4;
 
-const ROLE_COLOR: Record<ArenaRole, string> = { defender: "#60a5fa", tracker: "#34d399", assassin: "#f87171", sage: "#fbbf24" };
+const ROLE_COLOR: Record<ArenaRole, string> = { defender: "#60a5fa", tracker: "#34d399", assassin: "#f87171", sage: "#e6c477" };
 
 const ROLE_TAG: Record<ArenaRole, string> = { defender: "DEF", tracker: "TRK", assassin: "ASN", sage: "SGE" };
 
@@ -1058,7 +1058,7 @@ function PetArenaMatchView({ blue, red, seed, applyItems = false, sharedImages =
             {ended && (
                 <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: "rgba(3,7,18,0.55)" }}>
                     <div style={{ textAlign: "center" }}>
-                        <div style={{ font: "900 38px Inter, system-ui, sans-serif", color: result.winner === "blue" ? "#60a5fa" : result.winner === "red" ? "#f87171" : "#facc15", textShadow: "0 2px 12px #000" }}>{winLabel}</div>
+                        <div style={{ font: "900 38px Inter, system-ui, sans-serif", color: result.winner === "blue" ? "#60a5fa" : result.winner === "red" ? "#f87171" : "#e6c477", textShadow: "0 2px 12px #000" }}>{winLabel}</div>
                         <div style={{ color: "#94a3b8", font: "700 16px Inter, system-ui, sans-serif", marginTop: 4 }}>{result.scoreBlue} — {result.scoreRed}</div>
                         <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 14 }}>
                             <button onClick={replay} style={resultBtn}>⟲ Replay</button>

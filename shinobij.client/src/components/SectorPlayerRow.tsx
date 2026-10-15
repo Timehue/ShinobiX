@@ -21,7 +21,7 @@ export const SectorPlayerRow = memo(function SectorPlayerRow({ player, pending, 
     const key = sectorPlayerKey(player.name);
     const spectating = player.status === 'Fighting';
     const intent = spectating ? 'spectate' : player.sleeping ? 'strike' : 'attack';
-    const label = spectating ? 'Spectate' : player.sleeping ? 'Strike Down' : player.attackLabel.kind === 'contest'
+    const label = spectating ? 'Spectate' : player.sleeping ? 'Strike down' : player.attackLabel.kind === 'contest'
         ? sectorContestLabel(player.attackLabel.winCondition) : 'Attack';
     const gestureKey = `${key}:${label}`;
     return <li className="sector-player-row" data-player-key={key}>

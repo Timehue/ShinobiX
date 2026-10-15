@@ -377,7 +377,7 @@ export function Profile({
         if (!trimmed) return alert("Enter a title first.");
         if ((character.fateShards ?? 0) < TITLE_COST) return alert(`You need ${TITLE_COST} Fate Shards.`);
         await runProfileMutation(async () => {
-            if (!(await gameConfirm(`Set your custom title to “${trimmed}” for ${TITLE_COST} Fate Shards?`, { title: "Custom Title", confirmLabel: "Set Title" }))) return false;
+            if (!(await gameConfirm(`Set your custom title to “${trimmed}” for ${TITLE_COST} Fate Shards?`, { title: "Custom Title", confirmLabel: "Set title" }))) return false;
             return runPaidProfileAction({ type: 'purchase-title', title: trimmed });
         });
     }
@@ -418,7 +418,7 @@ export function Profile({
         }
         const cost = icon === "" ? 0 : TITLE_ICON_COST;
         await runProfileMutation(async () => {
-        if (cost > 0 && !(await gameConfirm(`Add ${icon} to your title for ${cost} Fate Shards?`, { title: "Title Icon", confirmLabel: "Add Icon" }))) return false;
+        if (cost > 0 && !(await gameConfirm(`Add ${icon} to your title for ${cost} Fate Shards?`, { title: "Title Icon", confirmLabel: "Add icon" }))) return false;
             if (!capabilityAdmissionAllowed(mutationAvailability("legacy"))) return false;
             return icon === ''
                 ? mutateProfileTitle('icon', icon)
@@ -713,7 +713,7 @@ export function Profile({
                             onClick={() => {
                                 if (canCustomAvatar(character)) avatarInputRef.current?.click();
                             }}
-                        >Upload Avatar</button>
+                        >Upload avatar</button>
                         {customAvatarAllowed ? (
                             <input ref={avatarInputRef} type="file" accept="image/*" aria-label="Custom avatar image" hidden onChange={uploadAvatar} />
                         ) : (
@@ -791,7 +791,7 @@ export function Profile({
                                     onClick={feedAuraSphere}
                                     disabled={feedingAura || character.auraSphereLevel >= 300 || character.auraDust < auraDustNeeded}
                                 >
-                                    {character.auraSphereLevel >= 300 ? "Eternal Aura Reached" : `Feed ${auraDustNeeded} Aura Dust`}
+                                    {character.auraSphereLevel >= 300 ? "Eternal Aura reached" : `Feed ${auraDustNeeded} Aura Dust`}
                                 </button>
                                 <p className="hint aura-sphere-inline-hint">
                                     Aura Dust drops from PvP, village raids, boss wins, war contribution, and ancient chests.
@@ -823,7 +823,7 @@ export function Profile({
                             onClick={feedAuraSphere}
                             disabled={feedingAura || character.auraSphereLevel >= 300 || character.auraDust < auraDustNeeded}
                         >
-                            {character.auraSphereLevel >= 300 ? "Eternal Aura Reached" : `Feed ${auraDustNeeded} Aura Dust`}
+                            {character.auraSphereLevel >= 300 ? "Eternal Aura reached" : `Feed ${auraDustNeeded} Aura Dust`}
                         </button>
                         <p className="hint aura-sphere-inline-hint">
                             Aura Dust drops from PvP, village raids, boss wins, war contribution, and ancient chests.
@@ -862,9 +862,9 @@ export function Profile({
                                             style={{
                                                 padding: "3px 10px", borderRadius: 999, fontSize: 12.5, fontWeight: 700,
                                                 cursor: "pointer", whiteSpace: "nowrap",
-                                                color: active ? "#0b1020" : "#facc15",
-                                                background: active ? "#facc15" : "rgba(250,204,21,.12)",
-                                                border: "1px solid rgba(250,204,21,.45)",
+                                                color: active ? "#0b1020" : "#e6c477",
+                                                background: active ? "#e6c477" : "rgba(230, 196, 119, .12)",
+                                                border: "1px solid rgba(230, 196, 119, .45)",
                                             }}
                                         >
                                             {active ? "★ " : ""}{t}
@@ -923,7 +923,7 @@ export function Profile({
                             onClick={purchaseTitle}
                             disabled={profileMutationBusy || (character.fateShards ?? 0) < TITLE_COST || !titleInput.trim()}
                         >
-                            Set Title — <GameIcon name="shard" size={14} style={PF_COST} />{TITLE_COST}
+                            Set title — <GameIcon name="shard" size={14} style={PF_COST} />{TITLE_COST}
                         </button>
                         {character.customTitle && (
                             <button className="danger-button" onClick={clearTitle} disabled={profileMutationBusy}>Clear</button>
@@ -983,12 +983,12 @@ export function Profile({
                     <span className={`stat-points-badge ${character.unspentStats === 0 ? "stat-points-empty" : ""}`}>
                         {character.unspentStats} point{character.unspentStats !== 1 ? "s" : ""} available
                     </span>
-                    <button type="button" onClick={respecStats} disabled={profileMutationBusy} title="Reset all 12 stats to base and refund your points to re-allocate (costs 50 Fate Shards)" style={{ marginLeft: 8, fontSize: "0.8rem", padding: "4px 10px" }}>Reallocate Stats — 50 <GameIcon name="shard" size={12} style={{ verticalAlign: "-1px" }} /></button>
+                    <button type="button" onClick={respecStats} disabled={profileMutationBusy} title="Reset all 12 stats to base and refund your points to re-allocate (costs 50 Fate Shards)" style={{ marginLeft: 8, fontSize: "0.8rem", padding: "4px 10px" }}>Reallocate stats — 50 <GameIcon name="shard" size={12} style={{ verticalAlign: "-1px" }} /></button>
                 </div>
                 <p className="hint">
                     Each stat caps at <strong>{rankStatCap}</strong> at your rank, so you have room for <strong>{totalStatRoom}</strong> more point{totalStatRoom !== 1 ? "s" : ""} across all twelve right now — reaching the next rank raises every cap.
                 </p>
-                <p className="hint">Spend available points below. Changed your mind? <strong>Reallocate Stats</strong> resets all 12 stats to base and refunds every earned point—your training progress is not lost.</p>
+                <p className="hint">Spend available points below. Changed your mind? <strong>Reallocate stats</strong> resets all 12 stats to base and refunds every earned point—your training progress is not lost.</p>
                 {statWarning && <p className="stat-warning">{statWarning}</p>}
 
                 <div className="stat-group-list">

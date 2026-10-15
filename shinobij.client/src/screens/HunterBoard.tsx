@@ -281,7 +281,7 @@ export function HunterBoard({
                 // desynced client stops showing a dead Claim button on a done contract.
                 const trail = await postWorldHunt({ playerName: character.name, action: "state", missionId: mission.id });
                 if (!trail.ok) {
-                    return alert("The reward is paid, but the Guild is still syncing its receipt. Try Claim again to reconcile it.");
+                    return alert("The reward is paid, but the Guild is still updating your board. Press Claim again to finish.");
                 }
                 if (trail.character) {
                     if (!onVersionedCharacter(trail.character, trail._saveVersion)) return;
@@ -431,7 +431,7 @@ export function HunterBoard({
                         aria-busy={guildAction === "rank"}
                         onClick={rankUp}
                     >
-                        {guildAction === "rank" ? "Ranking up…" : <>Rank Up → {HUNTER_RANK_LABELS[Math.min(hunterRank + 1, HUNTER_RANK_LABELS.length - 1)]}</>}
+                        {guildAction === "rank" ? "Ranking up…" : <>Rank up → {HUNTER_RANK_LABELS[Math.min(hunterRank + 1, HUNTER_RANK_LABELS.length - 1)]}</>}
                     </button>
                 )}
             </div>
@@ -468,7 +468,7 @@ export function HunterBoard({
                                         Face the Apex
                                     </button>
                                     <button type="button" className="apex-claim" disabled={claimCooldownMs > 0 || guildBusy} aria-busy={guildAction === "apex"} onClick={claimApex}>
-                                        {guildAction === "apex" ? "Claiming…" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Purse"}
+                                        {guildAction === "apex" ? "Claiming…" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim purse"}
                                     </button>
                                 </>}
                         </div>
@@ -539,13 +539,13 @@ export function HunterBoard({
                                             )}
                                             <div className="menu">
                                                 {!accepted
-                                                    ? <button disabled={character.level < mission.levelReq || guildBusy} aria-busy={guildAction === `accept:${mission.id}`} onClick={() => { void acceptHunt(mission); }}>{character.level < mission.levelReq ? `Requires level ${mission.levelReq}` : guildAction === `accept:${mission.id}` ? "Accepting…" : "Accept Hunt"}</button>
+                                                    ? <button disabled={character.level < mission.levelReq || guildBusy} aria-busy={guildAction === `accept:${mission.id}`} onClick={() => { void acceptHunt(mission); }}>{character.level < mission.levelReq ? `Requires level ${mission.levelReq}` : guildAction === `accept:${mission.id}` ? "Accepting…" : "Accept hunt"}</button>
                                                     : <>
                                                         {complete
-                                                            ? <button aria-busy={claimingHuntId === mission.id} disabled={guildBusy || claimCooldownMs > 0} onClick={() => { void claimHunt(mission); }}>{claimingHuntId === mission.id ? "Claiming..." : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Reward"}</button>
+                                                            ? <button aria-busy={claimingHuntId === mission.id} disabled={guildBusy || claimCooldownMs > 0} onClick={() => { void claimHunt(mission); }}>{claimingHuntId === mission.id ? "Claiming…" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim reward"}</button>
                                                             : null
                                                         }
-                                                        <button className="danger-button" disabled={guildBusy} aria-busy={guildAction === `abandon:${mission.id}`} onClick={() => void abandonHunt(mission)}>{guildAction === `abandon:${mission.id}` ? "Giving up…" : "Give Up"}</button>
+                                                        <button className="danger-button" disabled={guildBusy} aria-busy={guildAction === `abandon:${mission.id}`} onClick={() => void abandonHunt(mission)}>{guildAction === `abandon:${mission.id}` ? "Giving up…" : "Give up"}</button>
                                                     </>
                                                 }
                                             </div>

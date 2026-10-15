@@ -85,7 +85,7 @@ async function warMap(request: APIRequestContext, headers: Record<string, string
     return await response.json() as Json;
 }
 
-async function openLiveSector(page: Page, game: 'Pet Battle' | 'Card Battle' = 'Pet Battle') {
+async function openLiveSector(page: Page, game: 'Pet battle' | 'Card battle' = 'Pet battle') {
     await page.goto('/#/worldMap', { waitUntil: 'domcontentloaded' });
     const worldMapShell = page.locator('.app-shell[data-screen="worldMap"]');
     const enterWorldMap = page.getByRole('button', { name: 'Enter World Map', exact: true });
@@ -131,7 +131,7 @@ async function logoutAndRelogin(page: Page, name: string) {
     await page.getByRole('button', { name: 'Use a name and password' }).click();
     await page.getByLabel('Name').fill(name);
     await page.getByPlaceholder('Enter your password').fill(PASSWORD);
-    await page.getByRole('button', { name: 'Enter Village' }).click();
+    await page.getByRole('button', { name: 'Enter village' }).click();
     await expect(loggedOut).toHaveCount(0);
 }
 
@@ -162,7 +162,7 @@ test('a real sector pet war is discoverable, replayed, persistent, and isolated 
 
     await installSession(context, attacker);
     await openLiveSector(page);
-    await page.getByRole('button', { name: 'Contested · Pet Battle', exact: true }).click();
+    await page.getByRole('button', { name: 'Contested · Pet battle', exact: true }).click();
     await expect(page.locator('.app-shell[data-screen="sectorPet"]')).toBeVisible();
     await expect(page.getByRole('heading', { name: /Pet Duel — Sector War/ })).toBeVisible();
     await page.getByRole('button', { name: 'Send into battle', exact: true }).click();
@@ -223,7 +223,7 @@ test('a real sector pet war is discoverable, replayed, persistent, and isolated 
 
     await page.reload({ waitUntil: 'domcontentloaded' });
     await openLiveSector(page);
-    await expect(page.getByRole('button', { name: 'Contested · Pet Battle', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Contested · Pet battle', exact: true })).toBeVisible();
 });
 
 // Owner ruling 2026-10-08: in a Pet war, attacking an enemy who stands in the
@@ -261,11 +261,11 @@ test('attacking an enemy in a Pet war\'s sector is a pet battle, opened on both 
         await openLiveSector(defenderPage);
         // The defender is already on the Pet screen, at the war's table: the
         // battle they are drawn into must replace it, not wait behind it.
-        await defenderPage.getByRole('button', { name: 'Contested · Pet Battle', exact: true }).click();
+        await defenderPage.getByRole('button', { name: 'Contested · Pet battle', exact: true }).click();
         await expect(defenderPage.getByRole('heading', { name: 'Pet Duel — Sector War' })).toBeVisible();
 
         // The enemy standing in the sector is offered the war's own game.
-        const battle = page.getByRole('button', { name: `Pet Battle ${defender.name}`, exact: true });
+        const battle = page.getByRole('button', { name: `Pet battle ${defender.name}`, exact: true });
         await expect(battle).toBeEnabled({ timeout: 60_000 });
         await battle.click();
 
@@ -299,7 +299,7 @@ test('attacking an enemy in a Pet war\'s sector is a pet battle, opened on both 
             await targetResult.getByRole('button', { name: 'Leave the Showdown', exact: true }).click();
             await backToSector(defenderPage);
         }
-        const again = winnerPage.getByRole('button', { name: `Pet Battle ${loserName}`, exact: true });
+        const again = winnerPage.getByRole('button', { name: `Pet battle ${loserName}`, exact: true });
         await expect(again).toBeEnabled({ timeout: 60_000 });
         await again.click();
         await expect(winnerPage.getByText(/just lost a battle and is recovering/)).toBeVisible();
@@ -342,18 +342,18 @@ test('attacking an enemy in a Card war\'s sector is a card duel the target is se
         await installSession(defenderContext, defender);
         const defenderPage = await defenderContext.newPage();
         defenderPage.setDefaultTimeout(20_000);
-        await openLiveSector(page, 'Card Battle');
-        await openLiveSector(defenderPage, 'Card Battle');
+        await openLiveSector(page, 'Card battle');
+        await openLiveSector(defenderPage, 'Card battle');
         // The defender is already on the Card screen, waiting at the war's table:
         // the duel they are challenged to must replace it, not wait behind it.
-        await defenderPage.getByRole('button', { name: 'Contested · Card Battle', exact: true }).click();
+        await defenderPage.getByRole('button', { name: 'Contested · Card battle', exact: true }).click();
         await expect(defenderPage.getByText('No attacker has opened this sector\'s table yet.', { exact: false })).toBeVisible({ timeout: 30_000 });
 
         // The target's own client takes its seat; nobody presses anything there.
         const seated = defenderPage.waitForResponse((response) => response.url().includes('/api/village/sector-card')
             && response.request().postDataJSON()?.action === 'join' && !!response.request().postDataJSON()?.engageId
             && response.status() === 200, { timeout: 60_000 });
-        const duel = page.getByRole('button', { name: `Card Battle ${defender.name}`, exact: true });
+        const duel = page.getByRole('button', { name: `Card battle ${defender.name}`, exact: true });
         await expect(duel).toBeEnabled({ timeout: 60_000 });
         await duel.click();
         await expect(page.locator('.app-shell[data-screen="sectorCard"]')).toBeVisible();

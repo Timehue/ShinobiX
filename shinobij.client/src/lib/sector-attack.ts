@@ -147,7 +147,7 @@ export async function attackSectorPlayer(opts: SectorAttackOptions): Promise<voi
     if (createResult.kind === "ambiguous") {
         setPvpBattleId(battleId);
         setScreen("pvpBattle");
-        alert("The battle response was interrupted. Reconnecting to the authoritative session…");
+        alert("The battle response was interrupted. Reconnecting to your battle…");
         return;
     }
     try {

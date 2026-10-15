@@ -39,8 +39,8 @@ test("live ancient chests use the premium reader and still enter the loot step",
 
 test("system-event finale actions preserve their domain handoffs", () => {
     const reader = readFileSync(new URL("../components/TriggeredVisualNovel.tsx", import.meta.url), "utf8");
-    assert.match(reader, /isPetEncounterEvent[\s\S]*?"Meet Companion"/);
-    assert.match(reader, /isAncientChestEvent[\s\S]*?"Open Chest"/);
+    assert.match(reader, /isPetEncounterEvent[\s\S]*?"Meet companion"/);
+    assert.match(reader, /isAncientChestEvent[\s\S]*?"Open chest"/);
 });
 
 test("accepting Senna's rift travels to the sealed destination instead of opening a remote board", () => {

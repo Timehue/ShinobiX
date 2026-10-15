@@ -247,7 +247,7 @@ export const Messages = memo(function Messages({ character, onBack, initialWith,
                 <div className="summary-box" style={{ display: "flex", flexDirection: "column" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                         <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                            <strong style={{ color: "#fbbf24" }}>{active}</strong>
+                            <strong style={{ color: "#e6c477" }}>{active}</strong>
                             <ReportControl targetType="player" targetName={active} context="direct-message" />
                             <button
                                 type="button"

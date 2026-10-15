@@ -28,7 +28,7 @@ test('a gear step drop pops up, and items already owned at login do not', async 
 
     await page.getByRole('button', { name: 'Inspect Legendary War Crate', exact: true }).click();
     await page.getByRole('dialog', { name: 'Legendary War Crate item details', exact: true })
-        .getByRole('button', { name: 'Open Crate', exact: true }).click();
+        .getByRole('button', { name: 'Open crate', exact: true }).click();
 
     const toast = page.locator('.gear-drop-toast');
     await expect(toast).toHaveCount(1);
@@ -76,7 +76,7 @@ test('a flood of drops folds into two cards and one summary', async ({ page }) =
     await expectUiAuditBoot(page, runtime, 'inventory');
     await page.getByRole('button', { name: 'Inspect Legendary War Crate', exact: true }).click();
     await page.getByRole('dialog', { name: 'Legendary War Crate item details', exact: true })
-        .getByRole('button', { name: 'Open Crate', exact: true }).click();
+        .getByRole('button', { name: 'Open crate', exact: true }).click();
 
     const toasts = page.locator('.gear-drop-toast');
     await expect(toasts).toHaveCount(3);
@@ -107,7 +107,7 @@ test('opening a Hollow Beast Cache reveals the rewards credited by the server', 
 
     await page.getByRole('button', { name: 'Inspect Hollow Beast Cache', exact: true }).click();
     await page.getByRole('dialog', { name: 'Hollow Beast Cache item details', exact: true })
-        .getByRole('button', { name: 'Open Cache', exact: true }).click();
+        .getByRole('button', { name: 'Open cache', exact: true }).click();
 
     const reveal = page.locator('.cache-reveal-dialog');
     await expect(reveal).toBeVisible();

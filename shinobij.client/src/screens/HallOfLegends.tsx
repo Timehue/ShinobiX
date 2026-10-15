@@ -275,20 +275,20 @@ function HallOfLegends({ character, setScreen, playerRoster, onVersionedCharacte
 
     const tabs: { id: LbTab; label: string; icon: ReactNode }[] = [
         { id: "ranked",      label: "Ranked",       icon: <GameArtIcon kind="crown" size={18} /> },
-        { id: "kills",       label: "Kill Streaks",  icon: <GameArtIcon kind="attack" size={18} /> },
-        { id: "xp",          label: "Most Points",   icon: <GameArtIcon kind="training" size={18} /> },
-        { id: "clans",       label: "Top Clans",     icon: <GameArtIcon kind="clanHall" size={18} /> },
-        { id: "pets",        label: "Pet Wins",      icon: <GameArtIcon kind="petTamer" size={18} /> },
+        { id: "kills",       label: "Kill streaks",  icon: <GameArtIcon kind="attack" size={18} /> },
+        { id: "xp",          label: "Most points",   icon: <GameArtIcon kind="training" size={18} /> },
+        { id: "clans",       label: "Top clans",     icon: <GameArtIcon kind="clanHall" size={18} /> },
+        { id: "pets",        label: "Pet wins",      icon: <GameArtIcon kind="petTamer" size={18} /> },
         { id: "gauntlet",    label: "Gauntlet",      icon: <GameArtIcon kind="attack" size={18} /> },
         { id: "endless",     label: "Endless",       icon: <GameArtIcon kind="warning" size={18} /> },
         { id: "villageWars", label: "Village Wars",  icon: <GameArtIcon kind="attack" size={18} /> },
         { id: "weeklyBoss",  label: "Weekly Boss",   icon: <GameArtIcon kind="warning" size={18} /> },
         { id: "tournament",  label: "Tournament",    icon: <GameArtIcon kind="crown" size={18} /> },
         { id: "professions", label: "Professions",   icon: <GameArtIcon kind="vanguard" size={18} /> },
-        { id: "news",        label: "World News",  icon: <GameArtIcon kind="scroll" size={18} /> },
+        { id: "news",        label: "World news",  icon: <GameArtIcon kind="scroll" size={18} /> },
         ...(legacyAvailable ? [
             { id: "legends" as const, label: "Legends",   icon: <GameArtIcon kind="crown" size={18} /> },
-            { id: "eras" as const,    label: "World Eras", icon: <GameArtIcon kind="biomeShadow" size={18} /> },
+            { id: "eras" as const,    label: "World eras", icon: <GameArtIcon kind="biomeShadow" size={18} /> },
         ] : []),
     ];
 
@@ -353,7 +353,7 @@ function HallOfLegends({ character, setScreen, playerRoster, onVersionedCharacte
                             const d = Math.floor(ms / 86_400_000);
                             const h = Math.floor((ms % 86_400_000) / 3_600_000);
                             return (
-                                <div style={{ padding: "10px 14px", marginBottom: "0.8rem", borderRadius: 10, background: "rgba(120,53,15,0.35)", border: "1px solid rgba(250,204,21,0.5)" }}>
+                                <div style={{ padding: "10px 14px", marginBottom: "0.8rem", borderRadius: 10, background: "rgba(120,53,15,0.35)", border: "1px solid rgba(230, 196, 119, 0.5)" }}>
                                     <strong style={{ color: "var(--gold)" }}><GameArtIcon kind="crown" size={18} />Ranked Season {season.current.id}</strong>
                                     <span style={{ color: "#e7d9b0" }}> · {ms > 0 ? `ends in ${d}d ${h}h` : "ending soon"}</span>
                                     <p className="hint" style={{ margin: "4px 0 0", fontSize: "0.76rem" }}>At season end the top 3 of each ladder are rewarded (champion: Warforged Relic + aura stones) and ratings soft-reset toward 1000.</p>
@@ -652,7 +652,7 @@ function HallOfLegends({ character, setScreen, playerRoster, onVersionedCharacte
                                 </div>
                                 <p style={{ margin: "4px 0 0", fontSize: ".78rem", color: "var(--slate-300)" }}>{e.description}</p>
                                 {e.status === "revoked" && <p style={{ margin: "4px 0 0", fontSize: ".7rem", color: "var(--red-400)" }}>Revoked{e.correctionNote ? ` — ${e.correctionNote}` : ""}</p>}
-                                {e.status === "corrected" && e.correctionNote && <p style={{ margin: "4px 0 0", fontSize: ".7rem", color: "#fbbf24" }}>Corrected — {e.correctionNote}</p>}
+                                {e.status === "corrected" && e.correctionNote && <p style={{ margin: "4px 0 0", fontSize: ".7rem", color: "#e6c477" }}>Corrected — {e.correctionNote}</p>}
                             </div>
                         ))
                 )}
@@ -691,7 +691,7 @@ function HallOfLegends({ character, setScreen, playerRoster, onVersionedCharacte
                                         the card AFTER the age unlocks (the milestone view is gone by
                                         then). The most dramatic moment of the chapter, permanent. */}
                                     {e.status === "unlocked" && e.trigger?.fired && e.trigger.firedBy && (
-                                        <p style={{ margin: "6px 0 0", fontSize: ".72rem", color: "#fbbf24" }}>
+                                        <p style={{ margin: "6px 0 0", fontSize: ".72rem", color: "#e6c477" }}>
                                             ✦ The age turned when <b>{e.trigger.firedBy}</b>{e.trigger.firedByVillage ? ` of ${e.trigger.firedByVillage}` : ""} struck the final blow: {e.trigger.label}.
                                         </p>
                                     )}
@@ -751,7 +751,7 @@ function HallOfLegends({ character, setScreen, playerRoster, onVersionedCharacte
                                         </div>
                                     ))}
                                     {e.status === "milestone_active" && e.trigger && (
-                                        <p style={{ margin: "8px 0 0", fontSize: ".72rem", color: e.trigger.fired ? "var(--green-300)" : "#fbbf24" }}>
+                                        <p style={{ margin: "8px 0 0", fontSize: ".72rem", color: e.trigger.fired ? "var(--green-300)" : "#e6c477" }}>
                                             {e.trigger.fired ? `✓ Final trigger struck by ${e.trigger.firedBy}` : `Final trigger: ${e.trigger.label}`}
                                         </p>
                                     )}

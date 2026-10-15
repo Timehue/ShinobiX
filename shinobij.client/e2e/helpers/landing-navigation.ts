@@ -9,6 +9,6 @@ export async function openLandingLogin(page: Page) {
     if (await desktopLogin.isVisible()) await desktopLogin.click();
     else {
         await mobileMenu.click();
-        await page.locator('#landing-navigation').getByRole('button', { name: 'Log In', exact: true }).click();
+        await page.locator('#landing-navigation').getByRole('button', { name: 'Log in', exact: true }).click();
     }
 }

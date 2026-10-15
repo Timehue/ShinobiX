@@ -196,7 +196,7 @@ test("Card Hall AI showdown stays wired and comfortably sized across the device 
   const shell = page.locator(".chronicle-shell--duel-active");
   await expect(shell).toBeVisible();
   await expect(page.locator(".chronicle-table")).toHaveCount(1);
-  await expect(page.getByRole("button", { name: "End Turn" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "End turn" })).toBeEnabled();
   expect(startBodies).toHaveLength(1);
   expect(startBodies[0]?.playerName).toBe("AuditNinja");
   expect(startBodies[0]?.difficulty).toBe("medium");
@@ -272,7 +272,7 @@ test("Card Hall AI showdown stays wired and comfortably sized across the device 
   await page.getByRole("button", { name: "Close card details" }).click();
 
   await page.setViewportSize({ width: 1366, height: 768 });
-  await page.getByRole("button", { name: "End Turn" }).click();
+  await page.getByRole("button", { name: "End turn" }).click();
   await expect(page.locator(".chronicle-phase-rail [aria-current='step']")).toContainText("End");
   expect(moveBodies.at(-1)).toMatchObject({ matchId, action: "enter-end-phase" });
   expect(pageErrors).toEqual([]);

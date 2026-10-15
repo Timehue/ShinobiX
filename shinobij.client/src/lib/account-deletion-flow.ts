@@ -33,7 +33,7 @@ export async function requestAccountDeletion(
     if (accountStatus.hasPassword) {
         const entered = await gamePasswordPrompt(
             `Enter your password to permanently delete "${accountName}" from the server.`,
-            { title: "Confirm Deletion", confirmLabel: "Delete Forever", danger: true },
+            { title: "Confirm Deletion", confirmLabel: "Delete forever", danger: true },
         );
         if (entered === null) return false;
         password = entered.trim();

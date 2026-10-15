@@ -18,7 +18,7 @@ export function HollowGateEntryMenu({ hollowGateEventConfig, onEnterHollowGateEv
                             {hollowGateEventConfig?.active && (
                                 <button
                                     onClick={() => { onClose(); onEnterHollowGateEvent?.(hollowGateEventConfig); }}
-                                    style={{ padding: 8, borderRadius: 8, border: "1px solid #fbbf24", background: "linear-gradient(#b45309,#78350f)", color: "#fef3c7", fontWeight: 700, cursor: "pointer" }}
+                                    style={{ padding: 8, borderRadius: 8, border: "1px solid #e6c477", background: "linear-gradient(#b45309,#78350f)", color: "#fef3c7", fontWeight: 700, cursor: "pointer" }}
                                 >
                                     <GameArtIcon kind="crown" size={16} /> Event: {hollowGateEventConfig.label || "Event Gate"}
                                     <span style={{ display: "block", fontSize: 11, fontWeight: 400, color: "var(--gold-300)" }}>
@@ -28,8 +28,8 @@ export function HollowGateEntryMenu({ hollowGateEventConfig, onEnterHollowGateEv
                                     </span>
                                 </button>
                             )}
-                            <button onClick={() => { onClose(); onEnterHollowGate?.(); }} style={{ padding: 8, borderRadius: 8, border: "none", background: "linear-gradient(#7c3aed,#4c1d95)", color: "#fff", fontWeight: 600, cursor: "pointer" }}>Enter the Shrine</button>
-                            <button onClick={() => { onClose(); onShowAttunement(); }} style={{ padding: 8, borderRadius: 8, border: "1px solid #7c3aed", background: "transparent", color: "#e9d5ff", cursor: "pointer" }}><GameArtIcon kind="fateShard" size={16} /> Shrine Attunement</button>
+                            <button onClick={() => { onClose(); onEnterHollowGate?.(); }} style={{ padding: 8, borderRadius: 8, border: "none", background: "linear-gradient(#7c3aed,#4c1d95)", color: "#fff", fontWeight: 600, cursor: "pointer" }}>Enter the shrine</button>
+                            <button onClick={() => { onClose(); onShowAttunement(); }} style={{ padding: 8, borderRadius: 8, border: "1px solid #7c3aed", background: "transparent", color: "#e9d5ff", cursor: "pointer" }}><GameArtIcon kind="fateShard" size={16} /> Shrine attunement</button>
                             <button onClick={() => onClose()} style={{ padding: 6, borderRadius: 8, border: "1px solid var(--slate-600)", background: "transparent", color: "var(--text-dim)", cursor: "pointer" }}>Cancel</button>
                         </div>
                     </div>

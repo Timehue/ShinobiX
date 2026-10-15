@@ -18,7 +18,7 @@
         padding: 6px;
         background: rgba(2, 6, 23, 0.94);
         border-radius: 12px;
-        border: 1px solid rgba(250, 204, 21, 0.25);
+        border: 1px solid rgba(230, 196, 119, 0.25);
         position: sticky;
         top: 0;
         z-index: 30;
@@ -43,8 +43,8 @@
     }
 
     .pmtab-active {
-        background: rgba(250, 204, 21, 0.14) !important;
-        border-color: rgba(250, 204, 21, 0.55) !important;
+        background: rgba(230, 196, 119, 0.14) !important;
+        border-color: rgba(230, 196, 119, 0.55) !important;
         color: var(--gold) !important;
     }
 

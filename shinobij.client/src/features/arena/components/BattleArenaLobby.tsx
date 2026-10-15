@@ -70,7 +70,7 @@ export function BattleArenaLobby({
             <p>Your hub for casual sparring — combat, pets, and cards — plus the bounty board.</p>
 
             <div className="clan-tabs expanded-tabs" style={{ marginBottom: 12 }}>
-                <button className={activeTab === "spar" ? "active" : ""} onClick={() => onTabChange("spar")}><GiBoxingGlove style={ARENA_ICON} />Spar &amp; Challenges</button>
+                <button className={activeTab === "spar" ? "active" : ""} onClick={() => onTabChange("spar")}><GiBoxingGlove style={ARENA_ICON} />Spar &amp; challenges</button>
                 <button className={activeTab === "teamArena" ? "active" : ""} onClick={() => onTabChange("teamArena")}><GiColiseum style={ARENA_ICON} />Team Arena 2v2</button>
                 <button className={activeTab === "bounty" ? "active" : ""} onClick={() => onTabChange("bounty")}><GiTwoCoins style={ARENA_ICON} />Bounty Board</button>
             </div>
@@ -92,7 +92,7 @@ export function BattleArenaLobby({
                             value={aiLevel}
                             onChange={(event) => onAiLevelChange(Math.max(1, Math.min(MAX_LEVEL, Number(event.target.value))))}
                         />
-                        <button onClick={onBeginAiBattle}>Start AI Battle</button>
+                        <button onClick={onBeginAiBattle}>Start AI battle</button>
                     </section>
 
                     <section className="summary-box">
@@ -105,24 +105,24 @@ export function BattleArenaLobby({
                                 {sparOpponents.length === 0 ? (
                                     <>
                                         <p className="hint">No roster match. Send a spar challenge directly.</p>
-                                        <button disabled={challengeBusy} onClick={() => onSendDirectSpar(sparSearch.trim())}>Send Spar Challenge to "{sparSearch.trim()}"</button>
+                                        <button disabled={challengeBusy} onClick={() => onSendDirectSpar(sparSearch.trim())}>Send spar challenge to "{sparSearch.trim()}"</button>
                                     </>
                                 ) : sparOpponents.map((player) => (
                                     <div className="summary-box" key={`spar-${player.name}`}>
                                         <strong>{player.name}</strong>
                                         <p>Level {player.level} | {player.village} | {player.specialty}</p>
                                         <div className="menu">
-                                            <button disabled={challengeBusy} onClick={() => onChallengePlayer(player)}><GiBoxingGlove aria-hidden="true" /> Spar Challenge</button>
+                                            <button disabled={challengeBusy} onClick={() => onChallengePlayer(player)}><GiBoxingGlove aria-hidden="true" /> Spar challenge</button>
                                             <button
                                                 disabled={availablePetCount < 1 || challengeBusy}
                                                 title={availablePetCount < 1 ? "You need one available pet" : undefined}
                                                 onClick={() => onChallengePlayer(player, "clanWarPet", 0)}
-                                            ><GiPawPrint aria-hidden="true" /> Pet Battle (1v1)</button>
+                                            ><GiPawPrint aria-hidden="true" /> Pet battle (1v1)</button>
                                             <button
                                                 disabled={availablePetCount < 2 || challengeBusy}
                                                 title={availablePetCount < 2 ? "Raise a second pet (not on an expedition) to unlock 2v2" : undefined}
                                                 onClick={() => onChallengePlayer(player, "clanWarPet", 0, true)}
-                                            ><GiPawPrint aria-hidden="true" /> Pet Battle (2v2)</button>
+                                            ><GiPawPrint aria-hidden="true" /> Pet battle (2v2)</button>
                                         </div>
                                     </div>
                                 ))}
@@ -137,7 +137,7 @@ export function BattleArenaLobby({
                                 <strong>{challenge.fromName}</strong>
                                 <p>Casual spar request to {challenge.toName}</p>
                                 <div className="menu">
-                                    <button onClick={() => onAcceptChallenge(challenge)}>Accept Spar</button>
+                                    <button onClick={() => onAcceptChallenge(challenge)}>Accept spar</button>
                                     <button className="danger-button" onClick={() => onDeclineChallenge(challenge)}>Decline</button>
                                 </div>
                             </div>
@@ -157,7 +157,7 @@ export function BattleArenaLobby({
                             <div className="summary-box" key={challenge.id}>
                                 <strong>{challenge.fromName}</strong> wants a pet battle!
                                 <div className="menu">
-                                    <button onClick={() => onAcceptPetChallenge?.(challenge)}><GiColiseum style={ARENA_ICON} />Accept Pet Battle</button>
+                                    <button onClick={() => onAcceptPetChallenge?.(challenge)}><GiColiseum style={ARENA_ICON} />Accept pet battle</button>
                                     <button className="danger-button" onClick={() => onDeclineChallenge(challenge)}>Decline</button>
                                 </div>
                             </div>

@@ -81,7 +81,7 @@ for (const [packType, rarity, label, cost] of [
         await expect(opening).toHaveCSS('--pack-art', `url("/chronicle/packs/${packType}.webp")`);
         await expect(opening.locator('.pack-foil__ribbon')).toHaveText(`${label} · 5 cards`);
         await opening.screenshot({ path: testInfo.outputPath(`${packType}-foil.png`), animations: 'disabled' });
-        await opening.getByRole('button', { name: /Tear Open/ }).click();
+        await opening.getByRole('button', { name: /Tear open/ }).click();
         for (let i = 0; i < 5; i++) {
             await opening.getByRole('button', { name: 'Flip the top card', exact: true }).click();
             const revealed = opening.getByRole('button', { name: /revealed — continue/ });
@@ -95,7 +95,7 @@ for (const [packType, rarity, label, cost] of [
         await opening.screenshot({ path: testInfo.outputPath(`${packType}-summary.png`), animations: 'disabled' });
         await opening.getByRole('button', { name: `Open another · ${cost} Fate Shards` }).click();
         await expect(page.getByTestId('adopted-version')).toHaveText('3');
-        await expect(opening.getByRole('button', { name: /Tear Open/ })).toBeVisible();
+        await expect(opening.getByRole('button', { name: /Tear open/ })).toBeVisible();
         await opening.getByRole('button', { name: /Skip/ }).click();
         await expect(opening.locator('.pack-summary__card')).toHaveCount(5);
         await expect(opening.locator('.pack-summary__card .pack-card__new')).toHaveCount(0);
@@ -145,7 +145,7 @@ test('every pack connects its listing to the server draw, foil, duplicate summar
         await expect(opening).toHaveCSS('--pack-art', `url("${packArtUrl(type)}")`);
         const count = type === 'epic' || type === 'legendary' ? 1 : 5;
         await expect(opening.locator('.pack-foil__ribbon')).toHaveText(`${label} · ${count} ${count === 1 ? 'card' : 'cards'}`);
-        await opening.getByRole('button', { name: /Tear Open/ }).click();
+        await opening.getByRole('button', { name: /Tear open/ }).click();
         await expect(opening.getByRole('button', { name: 'Flip the top card', exact: true })).toBeVisible();
         await opening.getByRole('button', { name: /Skip/ }).click();
         await expect(opening.locator('.pack-summary__card')).toHaveCount(count);

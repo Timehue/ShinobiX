@@ -142,7 +142,7 @@ test('the Admin Panel shows built-in scenes as players get them, not the stored 
     await page.getByRole('button', { name: 'Use a name and password' }).click();
     await page.getByLabel('Name', { exact: true }).fill('Admin 2');
     await page.getByPlaceholder('Enter your password').fill('qa-creator-password');
-    await page.getByRole('button', { name: /Enter Village/ }).click();
+    await page.getByRole('button', { name: /Enter village/ }).click();
     await page.getByLabel('Password', { exact: true }).fill('qa-creator-password');
     await page.getByRole('button', { name: 'Login', exact: true }).click();
     const issueSeal = page.getByRole('dialog', { name: 'A Timed Issue Seal visual novel scene', exact: true });

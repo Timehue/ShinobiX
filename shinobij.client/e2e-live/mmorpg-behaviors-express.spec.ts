@@ -200,7 +200,7 @@ test('Stand & Fight starts the roaming Weekly Boss fight, and leaving it returns
     // steps toward the player like the road wanderers do.
     const bossFigure = page.locator('.sector-wanderer-figure[title*="Weekly Boss is bearing down"]');
     await expect(bossFigure).toBeAttached({ timeout: 30_000 });
-    const stand = page.getByRole('button', { name: 'Stand & Fight', exact: true });
+    const stand = page.getByRole('button', { name: 'Stand & fight', exact: true });
     await expect(stand, 'the boss reaches the hunter and confronts them').toBeVisible({ timeout: 30_000 });
     const started = page.waitForResponse((response) => response.url().endsWith('/api/weekly-boss')
         && response.request().method() === 'POST' && response.request().postDataJSON()?.kind === 'startFight');

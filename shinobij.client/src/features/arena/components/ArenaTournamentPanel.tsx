@@ -42,20 +42,20 @@ export function ArenaTournamentPanel({
                                     <div className="summary-box" key={`advance-${name}`}>
                                         <strong>{name}</strong>
                                         <div className="menu">
-                                            <button disabled={advanced} onClick={() => onAdvancePlayer(name)}>{advanced ? "Advanced" : "Advance Player"}</button>
-                                            {advanced ? <button disabled={tournamentWinnerBusy} onClick={() => onDeclareWinner(name)}>Declare Champion</button> : null}
+                                            <button disabled={advanced} onClick={() => onAdvancePlayer(name)}>{advanced ? "Advanced" : "Advance player"}</button>
+                                            {advanced ? <button disabled={tournamentWinnerBusy} onClick={() => onDeclareWinner(name)}>Declare champion</button> : null}
                                         </div>
                                     </div>
                                 );
                             })}
                         </div>
                     ) : null}
-                    {isAdminTournamentManager ? <button className="danger-button" onClick={onClear}>End Tournament</button> : null}
+                    {isAdminTournamentManager ? <button className="danger-button" onClick={onClear}>End tournament</button> : null}
                 </>
             ) : (
                 <>
                     <p className="hint">Only Admin 1 can start the next Circuit.</p>
-                    <button disabled={!isAdminTournamentManager} onClick={onStart}>{isAdminTournamentManager ? "Start 1 Week Circuit" : "Admin Only"}</button>
+                    <button disabled={!isAdminTournamentManager} onClick={onStart}>{isAdminTournamentManager ? "Start 1 week Circuit" : "Admin only"}</button>
                 </>
             )}
         </section>

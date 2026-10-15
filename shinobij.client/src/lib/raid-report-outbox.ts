@@ -229,6 +229,6 @@ export function requireRaidReportAcknowledgement(
     battleId: string,
 ): RaidReportAcknowledgement {
     const acknowledgement = result?.acknowledgements.find(entry => entry.entry.battleId === battleId);
-    if (!acknowledgement) throw new Error("PvP raid settlement was not acknowledged; retry completion.");
+    if (!acknowledgement) throw new Error("The raid result is not recorded yet. Press Retry.");
     return acknowledgement;
 }
