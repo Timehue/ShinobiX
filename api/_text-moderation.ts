@@ -10,7 +10,8 @@
  *     gets gamed within hours and produces more noise than signal; this list
  *     covers the categories most likely to draw player complaints (slurs,
  *     hate terms, sexual content) and leaves grey-area words (swears, mild
- *     insults) alone.
+ *     insults) alone in chat. Player NAMES are stricter: they also refuse
+ *     NAME_PROFANITY (swears and crude words), see isCleanPlayerName.
  *   • Matches are bounded by word boundaries when possible to avoid the
  *     Scunthorpe problem ("ass" in "assassin", "tit" in "title", etc.).
  *   • We REPLACE matches with asterisks rather than rejecting the whole
@@ -74,6 +75,30 @@ const BLOCKLIST: ReadonlyArray<string> = [
     'killyourself', 'kys',
 ];
 
+// Swears and crude words a player NAME may not contain (owner ruling
+// 2026-10-15: "no bad names like fuck and shit"). Names only — chat keeps the
+// conservative BLOCKLIST above, so ordinary swearing in conversation is not
+// masked. Names have no word boundaries, so these are SUBSTRING-matched on the
+// compacted name: every entry must be distinctive enough not to sit inside an
+// ordinary fantasy name. Left out for that reason: "ass" (Assassin), "cock"
+// (Peacock), "arse" (Arsenal), "anal" (Canal), "piss" (repeat-collapses to
+// "pis": Pistol), "boob" ("bob"), "twat" ("Eastwatch" once spaces are gone).
+// `_text-moderation.test.ts` checks this against the game's own content names.
+const NAME_PROFANITY: ReadonlyArray<string> = [
+    'fuck', 'fvck', 'phuck', 'fcuk', 'shit', 'bitch', 'bastard', 'asshole',
+    'dick', 'cocksucker', 'pussy', 'wank', 'bollock', 'bellend',
+    'penis', 'vagina', 'dildo', 'porn', 'tits', 'jizz', 'horny',
+    'retard', 'nazi', 'hitler',
+];
+
+// Real words and surnames that contain a NAME_PROFANITY entry. They are cut out
+// of the name before the scan, so whatever is left is still checked:
+// "Yamashita" passes, "YamashitaShit" does not.
+const NAME_PROFANITY_EXEMPT: ReadonlyArray<string> = [
+    'yamashita', 'kinoshita', 'morishita', 'matsushita', 'takeshita', 'miyashita',
+    'kishita', 'oshita', 'shitake', 'thorny', 'swank',
+];
+
 // Leetspeak normalization — common substitutions players try when bypassing
 // filters. The matcher normalizes BEFORE comparing, so `n!gger`/`n1gger`
 // both collapse to `nigger` and hit the blocklist.
@@ -133,6 +158,16 @@ function leetCollapseStripSpace(text: string): string {
 // We don't store a non-collapsed copy — every blocklist check goes through
 // the same normalizer that the input does.
 const COLLAPSED_BLOCKLIST: ReadonlyArray<string> = BLOCKLIST.map(w => leetCollapse(w));
+const COLLAPSED_NAME_PROFANITY: ReadonlyArray<string> = NAME_PROFANITY.map(w => leetCollapse(w));
+const COLLAPSED_NAME_PROFANITY_EXEMPT: ReadonlyArray<string> = NAME_PROFANITY_EXEMPT.map(w => leetCollapse(w));
+
+/** True when a name, compacted the way isCleanPlayerName compacts it, holds a swear. */
+export function hasNameProfanity(input: unknown): boolean {
+    if (typeof input !== 'string') return false;
+    let compact = leetCollapseStripSpace(input).replace(/[^a-z0-9]/g, '');
+    for (const safe of COLLAPSED_NAME_PROFANITY_EXEMPT) compact = compact.split(safe).join(' ');
+    return COLLAPSED_NAME_PROFANITY.some((term) => compact.includes(term));
+}
 
 const PHONE_RE = /(\+?\d[\d\s().-]{7,}\d)/g;
 const EMAIL_RE = /[\w.+-]+@[\w-]+\.[\w.-]+/g;
@@ -229,6 +264,7 @@ export function isCleanPlayerName(input: unknown): boolean {
     // The language filter is the ONLY thing that limits a name (owner ruling
     // 2026-10-15). No franchise/trademark list: players may name themselves
     // anything that is not offensive.
+    if (hasNameProfanity(input)) return false;
     return !COLLAPSED_BLOCKLIST
         .filter((term) => term.length >= 4)
         .some((term) => canonical.includes(term));

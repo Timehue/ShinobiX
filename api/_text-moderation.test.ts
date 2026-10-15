@@ -1,6 +1,8 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { sanitizeUserText, isCleanPlayerName, isCleanText, TEXT_LIMITS } from './_text-moderation.js';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { sanitizeUserText, hasNameProfanity, isCleanPlayerName, isCleanText, TEXT_LIMITS } from './_text-moderation.js';
 
 describe('sanitizeUserText', () => {
     it('returns empty string for non-strings', () => {
@@ -73,6 +75,62 @@ describe('sanitizeUserText', () => {
         assert.equal(isCleanPlayerName('n1gger-ninja'), false);
         assert.equal(isCleanPlayerName('Hidden Leaf'), true);
         assert.equal(isCleanPlayerName('SkyStorm'), true);
+    });
+});
+
+// Owner ruling 2026-10-15: no bad names like "fuck" and "shit".
+describe('player-name profanity', () => {
+    it('refuses swears and crude words, including the usual evasions', () => {
+        for (const name of [
+            'fuck', 'Shit', 'xXfuckXx', 'f u c k', 'f.u.c.k', 'sh1t', 'SHIIIT', 'fvck',
+            'Phuck You', 'b1tch', 'Asshole', 'BigDick', 'Shitlord', 'MotherFucker',
+            'pu$$y', 'Bastard', 'n4zi', 'Hitler', 'YamashitaShit', 'Shit Yamashita',
+        ]) {
+            assert.equal(isCleanPlayerName(name), false, `"${name}" must be refused`);
+        }
+    });
+
+    it('does not catch ordinary fantasy names that merely contain the letters', () => {
+        for (const name of [
+            'Assassin', 'Peacock', 'Arsenal', 'Canal', 'Scrap', 'Classic', 'Titan',
+            'Bass', 'Shiro', 'Mishima', 'Pistol', 'Sussex', 'Cassandra', 'Analise',
+            'Hidden Leaf', 'Stormveil', 'Kunoichi', 'Eastwatch', 'The last watch',
+            'Yamashita', 'Kinoshita', 'Thorny Vale', 'Swanky', 'Bob',
+        ]) {
+            assert.equal(isCleanPlayerName(name), true, `"${name}" must remain usable`);
+        }
+    });
+
+    it('chat is unaffected: swears are not masked in conversation', () => {
+        assert.equal(sanitizeUserText('oh shit that was close', TEXT_LIMITS.chatMessage), 'oh shit that was close');
+    });
+
+    // The load-bearing check: a swear on the list must never make one of the
+    // game's OWN pet, jutsu, item, village or NPC names unusable.
+    it('no shipped game content name is refused', () => {
+        const roots = ['shinobij.client/src/data', 'shinobij.client/src/constants', 'api', 'shared']
+            .map((dir) => join(process.cwd(), dir));
+        const nameRe = /\b(?:name|title):\s*["'`]([^"'`]{2,32})["'`]/g;
+        const refused: string[] = [];
+        let checked = 0;
+        const walk = (dir: string) => {
+            for (const entry of readdirSync(dir, { withFileTypes: true })) {
+                if (entry.name === 'node_modules' || entry.name === 'dist') continue;
+                const full = join(dir, entry.name);
+                if (entry.isDirectory()) { walk(full); continue; }
+                if (!/\.tsx?$/.test(entry.name) || /\.test\.tsx?$/.test(entry.name)) continue;
+                const src = readFileSync(full, 'utf8');
+                nameRe.lastIndex = 0;
+                let m: RegExpExecArray | null;
+                while ((m = nameRe.exec(src)) !== null) {
+                    checked++;
+                    if (hasNameProfanity(m[1]!)) refused.push(`${entry.name}: "${m[1]}"`);
+                }
+            }
+        };
+        roots.forEach(walk);
+        assert.ok(checked > 500, `expected to scan a lot of content names, only saw ${checked}`);
+        assert.deepEqual([...new Set(refused)], [], 'shipped content names collide with the name filter');
     });
 });
 
