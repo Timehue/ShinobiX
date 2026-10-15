@@ -2,25 +2,27 @@ import { expect, test, type Page } from '@playwright/test';
 import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave } from './helpers/ui-audit-runtime';
 import { expectViewportSafe } from './helpers/adaptive-assertions';
 
-async function campaignRuntime(page: Page) {
+async function campaignRuntime(page: Page, version: 2 | 3 = 2, startsAt = Date.now() - 3_600_000) {
     const save = uiAuditSave();
     const runtime = await installUiAuditRuntime(page, save);
     const village = String(save.character!.village), enemy = 'Moonshadow Village';
-    const startsAt = Date.now() - 3_600_000, endsAt = startsAt + 5 * 86_400_000;
+    const endsAt = startsAt + 5 * 86_400_000;
     const warId = 'moonshadowvillage-vs-stormveilvillage';
     const objective = (id: string, mode: string, sector: number) => ({ id, mode, sector, village,
         opensAt: startsAt, closesAt: endsAt, limit: 3, bouts: 0, wins: {} });
-    const campaign = { version: 2, startsAt, endsAt, scores: { [village]: { pvp: 20, pve: 5, rawPve: 20, total: 25 },
+    const campaign = { version, startsAt, endsAt, scores: { [village]: { pvp: 20, pve: 5, rawPve: 20, total: 25 },
         [enemy]: { pvp: 0, pve: 0, rawPve: 0, total: 0 } }, hiddenStrongholds: 3, intel: 0,
         shrine: [{ id: 'shrine-0', sector: 47, mode: 'combat', opensAt: startsAt + 20 * 3_600_000,
             closesAt: startsAt + 86_400_000, limit: 15, bouts: 0, wins: {} }],
         strongholds: [objective('combat-home', 'combat', 31), objective('pet-home', 'pet', 32), objective('card-home', 'card', 33)],
         operationAllowance: { total: 200, categories: { supply: 50, sabotage: 100, espionage: 50 }, players: {} }, operationResetAt: startsAt + 86_400_000 };
+    if (version === 3) campaign.shrine = Array.from({ length: 5 }, (_, day) => ({ id: `shrine-${day}`, sector: 47, mode: 'combat',
+        opensAt: startsAt + (2 + day * 29) * 3_600_000, closesAt: startsAt + (4 + day * 29) * 3_600_000, limit: 10, bouts: 0, wins: {} }));
     let defense = '';
     let ended = false;
     const commands: Record<string, unknown>[] = [];
     await page.route('**/api/world-state', route => route.fulfill({ json: { territories: [], standings: [],
-        wars: ended ? [] : [{ id: warId, villages: [village, enemy], startedAt: startsAt, updatedAt: startsAt, campaignVersion: 2,
+        wars: ended ? [] : [{ id: warId, villages: [village, enemy], startedAt: startsAt, updatedAt: startsAt, campaignVersion: version, shrineWindows: campaign.shrine.map(({ id, opensAt, closesAt }) => ({ id, opensAt, closesAt })),
             campaignEndsAt: endsAt, warGroundSector: 47, hp: { [village]: 5000, [enemy]: 5000 }, warPoints: { [village]: 25, [enemy]: 0 } }] } }));
     await page.route('**/api/village/war-campaign', route => {
         const body = route.request().postDataJSON();
@@ -188,3 +190,38 @@ test('an open Town Hall defense panel stops offering objectives after its curren
     await expect(campaign).toHaveCount(0, { timeout: 15_000 });
     await expect(page.getByRole('button', { name: 'Queue as Village Guard', exact: true })).toBeVisible();
 });
+
+for (const [timezoneId, elapsedHours] of [['America/Chicago', -0.5], ['Asia/Kathmandu', 5]] as const) {
+    test.describe(`rotating shrine schedule in ${timezoneId}`, () => {
+        test.use({ contextOptions: { timezoneId, reducedMotion: 'reduce' } });
+        test('publishes all five fixed local opening and closing times and the next countdown', async ({ page }, testInfo) => {
+            const startsAt = Date.parse('2026-10-31T18:00:00Z');
+            await page.clock.setFixedTime(new Date(startsAt + elapsedHours * 3_600_000));
+            const { runtime, campaign } = await campaignRuntime(page, 3, startsAt);
+            await expectUiAuditBoot(page, runtime, 'townHall');
+            const operations = page.getByRole('region', { name: 'War operations' });
+            await expect(operations.getByText(elapsedHours < 0 ? 'Shrine window opens in 2h 30m' : 'Shrine window opens in 1d 2h 0m', { exact: true })).toBeVisible();
+            await operations.getByText('Locked shrine schedule · your local time', { exact: true }).click();
+            const schedule = operations.getByRole('list', { name: 'Locked shrine windows' });
+            await expect(schedule.locator('li')).toHaveCount(5);
+            const assertTimes = async (scope: typeof schedule) => {
+                const times = scope.locator('time');
+                const timestamps = campaign.shrine.flatMap(o => [o.opensAt, o.closesAt]);
+                for (const [i, timestamp] of timestamps.entries()) {
+                    await expect(times.nth(i)).toHaveAttribute('datetime', new Date(timestamp).toISOString());
+                    const local = await page.evaluate(at => new Date(at).toLocaleString(), timestamp);
+                    await expect(times.nth(i)).toHaveText(local);
+                }
+            };
+            await assertTimes(schedule);
+            await page.getByRole('button', { name: 'War Hall', exact: true }).click();
+            const panel = page.getByRole('region', { name: 'Village war campaign' });
+            await expect(panel.getByText('20 extra points per win · First 10 shared wins', { exact: true })).toBeVisible();
+            await expect(panel.getByText('100 points for the most uncontested time at closing. Tied or zero totals award no bonus.', { exact: true })).toBeVisible();
+            await panel.getByText('Locked shrine schedule · your local time', { exact: true }).click();
+            await assertTimes(panel.getByRole('list', { name: 'Locked shrine windows' }));
+            await expectViewportSafe(page);
+            await testInfo.attach('rotating-schedule', { body: await page.screenshot({ path: testInfo.outputPath('rotating-schedule.png'), fullPage: true }), contentType: 'image/png' });
+        });
+    });
+}
