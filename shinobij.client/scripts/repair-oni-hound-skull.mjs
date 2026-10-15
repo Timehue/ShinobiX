@@ -4,20 +4,30 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
 import { createHash } from 'node:crypto';
+import { Uint8BufferAttribute } from 'three';
 import { MeshoptEncoder } from 'meshoptimizer';
+import { repairPetSkinWeights } from '../src/lib/pet-skin-weight-repair.ts';
 import { loadPetDeformationProbe } from './lib/pet-deformation-probe.mjs';
 import { parseStudioGlb, encodeStudioGlb, align4 } from './lib/pet-studio-glb.mjs';
 import { compactGlbDelivery } from './compact-glb-delivery.mjs';
 
-export const ONI_SKULL_REPAIR_REVISION = '20261014-oni-skull-v1';
+export const ONI_SKULL_REPAIR_REVISION = '20261015-oni-full-face-v2';
+const ONI_REPAIR_SOURCE_SHA256 = '5c3736144f5b895c963cae5f79a19b2856f1c7fc7898d25d9b1a22190375bf98';
+const NECK_TRANSITION_EDGES = [[7683,7691],[7690,7688],[13666,13665]];
 export const oniSkullShare = point => {
     const smooth = (lo, hi, value) => { const t = Math.max(0, Math.min(1, (value-lo)/(hi-lo))); return t*t*(3-2*t); };
-    return smooth(-.02, .16, point.y) * smooth(.06, .30, point.z);
+    const upperSkull = smooth(-.02, .16, point.y) * smooth(.06, .30, point.z);
+    // The muzzle, lips and lower jaw sit BELOW the upper-skull envelope.
+    // Binding only the brow/eyes left the mouth following the neck and chest,
+    // so a normal head nod closed and stretched the unarticulated jaw.
+    const completeFace = smooth(-.32, -.18, point.y) * smooth(.35, .55, point.z);
+    return Math.max(upperSkull, completeFace);
 };
 export async function repairOniSkull(source, destination) {
     if (resolve(source) === resolve(destination)) throw Error('Write an inspection candidate first');
     const bytes = await readFile(source), { json, bin } = parseStudioGlb(bytes);
     if (json.extras?.skullBindingRepair) throw Error('Use the original unrepaired asset');
+    if (createHash('sha256').update(bytes).digest('hex') !== ONI_REPAIR_SOURCE_SHA256) throw Error('Oni anatomical landmarks require the recorded original geometry and rig');
     const model = await loadPetDeformationProbe(source);
     if (model.meshes.length !== 1) throw Error('Expected the reviewed single Oni surface');
     const mesh = model.meshes[0], { position, skinIndex, skinWeight } = mesh.geometry.attributes;
@@ -41,6 +51,22 @@ export async function repairOniSkull(source, destination) {
         changed++; if (share === 1) rigid++;
     }
     if (rigid < 3000) throw Error('Skull envelope did not cover the reviewed face');
+    // Diffuse only the measured connected neck neighborhood. Rigid facial
+    // vertices stay locked while the jaw transitions into the scarf/chest.
+    const bound = mesh.geometry.clone();
+    bound.setAttribute('skinIndex', new Uint8BufferAttribute(joints,4));
+    bound.setAttribute('skinWeight', new Uint8BufferAttribute(weights,4,true));
+    const transition = repairPetSkinWeights(bound,mesh.skeleton.bones.length,head,48,NECK_TRANSITION_EDGES);
+    const repairedJoints = transition.geometry.getAttribute('skinIndex'), repairedWeights = transition.geometry.getAttribute('skinWeight');
+    let protectedFootVertices = 0;
+    for (let v=0;v<position.count;v++) {
+        // Keep the authored grounded paws/ankles exactly as they were. The
+        // connected scarf neighborhood can otherwise reach a few distal UV
+        // copies and introduce tiny, unrelated changes in their binding.
+        if (position.getY(v)<-.65) { protectedFootVertices++; continue; }
+        for (let s=0;s<4;s++) { joints[v*4+s]=repairedJoints.getComponent(v,s);weights[v*4+s]=Math.round(repairedWeights.getComponent(v,s)*255); }
+        weights[v*4]+=255-weights.subarray(v*4,v*4+4).reduce((sum,w)=>sum+w,0);
+    }
     await MeshoptEncoder.ready;
     let binary = bin;
     let fallback = json.buffers.findIndex(b => b.extensions?.EXT_meshopt_compression?.fallback);
@@ -57,7 +83,8 @@ export async function repairOniSkull(source, destination) {
     const primitive = json.meshes[0].primitives[0]; primitive.attributes.JOINTS_0 = append(joints,false); primitive.attributes.WEIGHTS_0 = append(weights,true);
     json.buffers[0].byteLength = align4(binary.length);
     json.extras.skullBindingRepair = { revision:ONI_SKULL_REPAIR_REVISION, sourceSha256:createHash('sha256').update(bytes).digest('hex'),
-        envelope:{ y:[-.02,.16], z:[.06,.30], coordinateSpace:'original-mesh-local' }, changedVertices:changed, rigidSkullVertices:rigid };
+        envelope:{ y:[-.02,.16], z:[.06,.30], union:[{y:[-.32,-.18],z:[.35,.55]}], coordinateSpace:'original-mesh-local' }, changedVertices:changed, rigidSkullVertices:rigid,
+        neckTransition:{iterations:48,edges:NECK_TRANSITION_EDGES,protectedFootVertices} };
     const compacted = parseStudioGlb(compactGlbDelivery(encodeStudioGlb(json,binary)));
     // Compaction reindexes live accessors. A later reauthor must retain the
     // repaired weight payload rather than truncate at the historical boundary.
