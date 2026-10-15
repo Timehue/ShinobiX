@@ -19,6 +19,9 @@ import trackerImg from "../assets/wanderers/tracker.webp";
 import courierImg from "../assets/wanderers/courier.webp";
 import bountyHunterImg from "../assets/wanderers/bounty-hunter.webp";
 import nightbladeImg from "../assets/village-war/merc-shadow.webp";
+import riftspawnImg from "../assets/combat-actors/bosses/rift-boss-hollow-stalker-idle.webp";
+import anglerImg from "../assets/first-pact/portraits/stable-hand-pell.webp";
+import rivalMinerImg from "../assets/first-pact/portraits/old-kaio.webp";
 import wanderingSageImg from "../assets/wanderers/legacy/wandering-sage.webp";
 // The eight Legacy Emissaries (gpt-image-1, docs/legacy-assets.md §1).
 import stormCallerRynImg from "../assets/wanderers/legacy/storm-caller-ryn.webp";
@@ -95,6 +98,12 @@ const ART: Record<WandererArchetypeId, string> = {
     wanderingSage: wanderingSageImg,
     // Night ninjas share the hooded shadow mercenary's face (village war).
     nightblade: nightbladeImg,
+    // Reused faces: the Hollow Stalker rift boss, Pell with his coiled line,
+    // Old Kaio with his trowels, and the rival's own scarred portrait.
+    riftspawn: riftspawnImg,
+    angler: anglerImg,
+    rivalMiner: rivalMinerImg,
+    nemesis: nemesisImg,
     // The eight Legacy Emissaries — bespoke faces, one per served category.
     "storm-caller-ryn": stormCallerRynImg,
     "veil-mother-suzu": veilMotherSuzuImg,

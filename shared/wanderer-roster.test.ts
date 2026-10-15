@@ -7,6 +7,9 @@ import {
     WANDERER_GRID,
     WANDERER_MAX_INDEX,
     WANDERER_NIGHT_INDEX,
+    WANDERER_TRADE_INDEX,
+    WANDERER_RIFT_INDEX,
+    WANDERER_LAST_INDEX,
     WANDERER_SECTOR_COUNT,
     NIGHT_WANDERER_CHANCE,
     NIGHT_WANDERER_GRACE_MS,
@@ -171,6 +174,16 @@ test('the presence gate is stable per key and honours its chance', () => {
     assert.ok(hits > 100 && hits < 220, `presence rate ${hits}/400 is nowhere near 40%`);
 });
 
+test('a bandit stands in about 5% of wild sectors per window (owner, 2026-10-14)', () => {
+    const WINDOWS = 400;
+    let withBandit = 0;
+    for (let b = BUCKET; b < BUCKET + WINDOWS; b++) for (let s = 1; s <= WANDERER_SECTOR_COUNT; s++) {
+        if (rollWanderers(s, b).some((w) => w.archetype === 'bandit')) withBandit++;
+    }
+    const rate = withBandit / (WANDERER_SECTOR_COUNT * WINDOWS);
+    assert.ok(rate > 0.04 && rate < 0.06, `bandit presence ${rate} is far from 5%`);
+});
+
 // ── Night ninjas ─────────────────────────────────────────────────────────────
 // A world day is 2 real hours; night is 20:00-05:00 in-world. Bucket starts
 // are multiples of 6h, so each one sits at in-world midnight.
@@ -190,6 +203,11 @@ test('the night slot sits just above the daytime cast', () => {
     // story-field-work, pet-mentor-guide, world-map-mobile) and by the live
     // journeys' shinobij.client/e2e-live/helpers/quiet-road.ts.
     assert.equal(WANDERER_NIGHT_INDEX, 2);
+    // The angler/miner and rift-creature slots, mirrored by the same helpers as
+    // WANDERER_LAST_INDEX = WANDERER_NIGHT_INDEX + 2 (and [0..4] in world-map-mobile).
+    assert.equal(WANDERER_TRADE_INDEX, 3);
+    assert.equal(WANDERER_RIFT_INDEX, 4);
+    assert.equal(WANDERER_LAST_INDEX, WANDERER_NIGHT_INDEX + 2);
 });
 
 test('night ninjas exist only at night, and the daytime cast never changes because of them', () => {
@@ -230,13 +248,16 @@ test('when the six-hour window rolls over mid-night, the night cast is re-rolled
 });
 
 test('a night ninja is well formed and hostile', () => {
+    // One night is only ~66 sectors, too few to measure a 5% rate, so sample
+    // twenty windows. Every window starts at in-world midnight, so each is night.
+    const WINDOWS = 20;
     let seen = 0;
-    for (let s = 1; s <= WANDERER_SECTOR_COUNT; s++) {
-        const w = nightWandererAt(s, BUCKET, MIDNIGHT);
+    for (let b = BUCKET; b < BUCKET + WINDOWS; b++) for (let s = 1; s <= WANDERER_SECTOR_COUNT; s++) {
+        const w = nightWandererAt(s, b, b * WANDERER_BUCKET_MS);
         if (!w) continue;
         seen++;
-        assert.equal(w.id, `w-${s}-${BUCKET}-${WANDERER_NIGHT_INDEX}`);
-        assert.deepEqual(parseWandererId(w.id), { sector: s, dayBucket: BUCKET, index: WANDERER_NIGHT_INDEX });
+        assert.equal(w.id, `w-${s}-${b}-${WANDERER_NIGHT_INDEX}`);
+        assert.deepEqual(parseWandererId(w.id), { sector: s, dayBucket: b, index: WANDERER_NIGHT_INDEX });
         assert.equal(w.archetype, 'nightblade');
         assert.equal(w.verb, 'attack');
         assert.equal(w.movement, 'pursue', 'night ninjas hunt the player like bandits (owner, 2026-10-09)');
@@ -245,11 +266,11 @@ test('a night ninja is well formed and hostile', () => {
         assert.ok(meta.names.includes(w.name));
         assert.ok(meta.greetings.includes(w.greeting));
         assert.ok(w.level >= 3 && w.level <= 95);
-        const dayHomes = rollWanderers(s, BUCKET).map((d) => d.homeTile);
+        const dayHomes = rollWanderers(s, b).map((d) => d.homeTile);
         assert.ok(!dayHomes.includes(w.homeTile), `sector ${s}: night ninja stands on a daytime wanderer's tile`);
     }
-    const rate = seen / WANDERER_SECTOR_COUNT;
-    assert.ok(rate > NIGHT_WANDERER_CHANCE / 3 && rate < NIGHT_WANDERER_CHANCE * 3, `night density ${rate} is far from ${NIGHT_WANDERER_CHANCE}`);
+    const rate = seen / (WANDERER_SECTOR_COUNT * WINDOWS);
+    assert.ok(rate > NIGHT_WANDERER_CHANCE / 2 && rate < NIGHT_WANDERER_CHANCE * 2, `night density ${rate} is far from ${NIGHT_WANDERER_CHANCE}`);
     assert.equal(rollNightWanderer(0, 1, BUCKET), null, 'never in the village');
 });
 

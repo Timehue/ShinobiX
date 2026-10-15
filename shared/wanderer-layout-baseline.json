@@ -4,13 +4,7 @@
     "bucket": 10000,
     "nightIndex": 6,
     "cast": [],
-    "night": {
-      "id": "w-1-10000-2",
-      "name": "Sumi of the Unlit Road",
-      "archetype": "nightblade",
-      "level": 9,
-      "greeting": "Put the light out. We'll settle this the way the dark likes it."
-    }
+    "night": null
   },
   {
     "sector": 1,
@@ -25,13 +19,7 @@
         "greeting": "Far from home. That makes this easy."
       }
     ],
-    "night": {
-      "id": "w-1-80000-2",
-      "name": "Oboro Three-Shadows",
-      "archetype": "nightblade",
-      "level": 7,
-      "greeting": "Put the light out. We'll settle this the way the dark likes it."
-    }
+    "night": null
   },
   {
     "sector": 9,
@@ -46,26 +34,14 @@
         "greeting": "Rest a moment, traveler. The road is long."
       }
     ],
-    "night": {
-      "id": "w-9-10000-2",
-      "name": "Oboro Three-Shadows",
-      "archetype": "nightblade",
-      "level": 19,
-      "greeting": "I've followed you since the moon came up. Turn around."
-    }
+    "night": null
   },
   {
     "sector": 9,
     "bucket": 80000,
     "nightIndex": 6,
     "cast": [],
-    "night": {
-      "id": "w-9-80000-2",
-      "name": "Oboro Three-Shadows",
-      "archetype": "nightblade",
-      "level": 21,
-      "greeting": "Put the light out. We'll settle this the way the dark likes it."
-    }
+    "night": null
   },
   {
     "sector": 17,
@@ -93,13 +69,7 @@
     "bucket": 80000,
     "nightIndex": 0,
     "cast": [],
-    "night": {
-      "id": "w-17-80000-2",
-      "name": "Hollow-Moon Kaito",
-      "archetype": "nightblade",
-      "level": 33,
-      "greeting": "Nobody patrols this road after dark. Nobody but me."
-    }
+    "night": null
   },
   {
     "sector": 31,
@@ -114,26 +84,14 @@
         "greeting": "Take it, take it. An old man needs a lighter pack more than he needs ryo."
       }
     ],
-    "night": {
-      "id": "w-31-10000-2",
-      "name": "Oboro Three-Shadows",
-      "archetype": "nightblade",
-      "level": 48,
-      "greeting": "Put the light out. We'll settle this the way the dark likes it."
-    }
+    "night": null
   },
   {
     "sector": 31,
     "bucket": 80000,
     "nightIndex": 0,
     "cast": [],
-    "night": {
-      "id": "w-31-80000-2",
-      "name": "Hollow-Moon Kaito",
-      "archetype": "nightblade",
-      "level": 51,
-      "greeting": "Put the light out. We'll settle this the way the dark likes it."
-    }
+    "night": null
   },
   {
     "sector": 66,
@@ -161,12 +119,6 @@
         "greeting": "A wild beast bars your path, hackles raised."
       }
     ],
-    "night": {
-      "id": "w-66-80000-2",
-      "name": "Nightjar Reiko",
-      "archetype": "nightblade",
-      "level": 95,
-      "greeting": "I've followed you since the moon came up. Turn around."
-    }
+    "night": null
   }
 ]

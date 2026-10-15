@@ -38,7 +38,11 @@ export type WandererVerb =
     | "trackerTrail"
     /** Passive: visible and greets when you walk up, but offers NO action. Used for
      *  a Contract Hunter seen by a bystander — it is hunting someone ELSE. */
-    | "watch";
+    | "watch"
+    /** An angler at a fishing shoal: reads the water for you. Talk only, no reward. */
+    | "angler"
+    /** A rival miner working a seam: you may contest it (an optional fight). */
+    | "contest";
 export type WandererMovement = "stationary" | "patrol" | "pursue";
 export type WandererArchetypeId =
     | "bandit" | "gambler" | "pilgrim" | "beast" | "sage"
@@ -47,6 +51,11 @@ export type WandererArchetypeId =
     // Night-only hostile ninja. Weight 0: never in the daytime roll; it comes
     // from rollNightWanderer below, in the reserved night slot.
     | "nightblade"
+    // Weight-0 actors with their own spawn rules (shared/wanderer-extra-slots.ts
+    // and shared/road-nemesis.ts): a creature that crawls out of the rift you
+    // are sealed for, the angler and the rival miner at resource nodes, and
+    // Kagero, the road rival who hunts players that lose on the road.
+    | "riftspawn" | "angler" | "rivalMiner" | "nemesis"
     // The eight Legacy Emissaries (lib/legacy-emissaries.ts) — weight-0 like the
     // Sage: never rolled into the natural cast, synthed per window.
     | "storm-caller-ryn" | "veil-mother-suzu" | "iron-pilgrim-daigo" | "blade-keeper-hana"
@@ -83,6 +92,9 @@ export interface Wanderer {
     targetSector?: number;
     expiresAt?: number;
     factionVillage?: string;
+    /** A road patrol's standing toward the viewer, from the village that holds
+     *  the sector (shared/village-patrol.ts). Absent on an unclaimed road. */
+    patrolStance?: "home" | "rival" | "rivalWar";
 }
 
 export const WANDERER_GRID = 12;
@@ -103,8 +115,10 @@ export const WANDERER_ARCHETYPES: Record<WandererArchetypeId, WandererArchetypeM
         // WALKS AT YOU and forces a Fight/Flee choice, so it sets how intrusive the
         // road feels — it was ~2× the support cast. Knock-on: the robberStreak
         // ambush gauntlet (5 fends → gang) now triggers proportionally less often.
+        // 2026-10 owner pass: 0.24 → 0.197, which puts a bandit in 5.0% of wild
+        // sectors per 6h window (was ~5.9%), given the count thresholds below.
         verb: "attack",
-        weight: 0.24,
+        weight: 0.197,
         tellTint: "#ff6b5a",
         names: ["Kano Two-Blades", "Genta Red-Sash", "Saito the Cinder", "Renga of the Waste", "Hibiki the Restless"],
         greetings: [
@@ -256,6 +270,51 @@ export const WANDERER_ARCHETYPES: Record<WandererArchetypeId, WandererArchetypeM
             "Put the light out. We'll settle this the way the dark likes it.",
         ],
     },
+    // Something the rift you carry a seal for let loose. It stands only in that
+    // rift's target sector, and only for the player who holds the seal.
+    riftspawn: {
+        verb: "attack",
+        weight: 0,
+        tellTint: "#8b5cf6",
+        names: ["Rift-Touched Stalker", "Hollow Crawler", "Seam-Born Husk", "Gatebleed Prowler"],
+        greetings: [
+            "It drops out of a crack in the air, still smoking from the rift.",
+            "The air tears open behind you, and something hungry climbs through.",
+            "It sniffs at the seal you carry and starts toward you.",
+        ],
+    },
+    // An angler working a shoal. Talk only: she reads the water for you.
+    angler: {
+        verb: "angler",
+        weight: 0,
+        tellTint: "#38bdf8",
+        names: ["Pell of the Long Line", "Reed-Hat Sora", "Old Net Kaji", "Tide-Reader Mio"],
+        greetings: [
+            "Quiet feet, please. They can hear you through the bank.",
+            "The fish are biting today, but only for someone patient.",
+            "Pull up a stone. The current tells you everything if you let it.",
+        ],
+    },
+    // A rival miner working a seam. You may contest the seam with him.
+    rivalMiner: {
+        verb: "contest",
+        weight: 0,
+        tellTint: "#d97706",
+        names: ["Old Kaio Ironhand", "Gravel-Tooth Benzo", "Seam-Boss Tetsu", "Pickaxe Hiru"],
+        greetings: [
+            "This seam is mine. I staked it before you could walk.",
+            "Find your own rock. This one already has a name on it.",
+            "If you want this vein, you'll have to move me off it.",
+        ],
+    },
+    // Kagero, the one road rival (shared/road-nemesis.ts holds his voice).
+    nemesis: {
+        verb: "attack",
+        weight: 0,
+        tellTint: "#ef4444",
+        names: ["Kagero"],
+        greetings: ["You again. I heard you lost on the road."],
+    },
     // The eight Legacy Emissaries. All weight 0: like the Sage they are synthed
     // per window (lib/legacy-emissaries.ts rollEmissarySpawn), never rolled into
     // the natural cast — these entries exist to satisfy the archetype record;
@@ -276,8 +335,8 @@ const ARCHETYPE_IDS = Object.keys(WANDERER_ARCHETYPES) as WandererArchetypeId[];
  *  Service NPCs loiter near a recognizable spot; field actors keep the road alive;
  *  every hostile (bandits by day, night ninjas after dark) hunts the player and
  *  stops them with Fight/Flee (owner, 2026-10-09). */
-function naturalWandererMovement(archetype: WandererArchetypeId): WandererMovement {
-    if (archetype === "bandit" || archetype === "nightblade") return "pursue";
+export function naturalWandererMovement(archetype: WandererArchetypeId): WandererMovement {
+    if (archetype === "bandit" || archetype === "nightblade" || archetype === "riftspawn" || archetype === "nemesis") return "pursue";
     if (archetype === "beast" || archetype === "patrol" || archetype === "tracker") return "patrol";
     return "stationary";
 }
@@ -349,13 +408,13 @@ function pickWeightedArchetype(r: number): WandererArchetypeId {
 
 // Keep wanderers in the interior of the 12×12 board (away from the corners/edges
 // where the UI chrome and the player's spawn tend to sit).
-function interiorTile(rng: () => number): number {
+export function interiorTile(rng: () => number): number {
     const col = 2 + Math.floor(rng() * 8); // 2..9
     const row = 2 + Math.floor(rng() * 8); // 2..9
     return row * GRID + col;
 }
 
-function nearbyTile(tile: number, rng: () => number): number {
+export function nearbyTile(tile: number, rng: () => number): number {
     const col = tile % GRID;
     const row = Math.floor(tile / GRID);
     const nc = Math.max(1, Math.min(10, col + (Math.floor(rng() * 5) - 2)));
@@ -435,12 +494,21 @@ function rollRawWanderers(sector: number, dayBucket: number): Wanderer[] {
  *  0..WANDERER_MAX_INDEX, so the two never collide. */
 export const WANDERER_NIGHT_INDEX = WANDERER_MAX_INDEX + 1;
 /** Share of playable wild sectors that hold a night ninja on a given night.
- *  Tune for density; it is independent of the daytime thresholds above. */
-export const NIGHT_WANDERER_CHANCE = 0.22;
+ *  Tune for density; it is independent of the daytime thresholds above.
+ *  2026-10 owner pass: 0.22 → 0.05, to match the bandit's 5% per sector. */
+export const NIGHT_WANDERER_CHANCE = 0.05;
 /** The server still honours a night ninja this long after dawn, so a fight
  *  started in the last seconds of night (or on a slightly slow clock) is not
  *  refused. The client stops showing it at dawn exactly. */
 export const NIGHT_WANDERER_GRACE_MS = 60_000;
+/** The roster slot of the angler or rival miner at a resource node
+ *  (shared/wanderer-extra-slots.ts). World-deterministic like the night slot. */
+export const WANDERER_TRADE_INDEX = WANDERER_NIGHT_INDEX + 1;
+/** The roster slot of a rift-touched creature. Per player: it stands only in
+ *  the target sector of the rift that player holds a seal for. */
+export const WANDERER_RIFT_INDEX = WANDERER_TRADE_INDEX + 1;
+/** Highest roster index any natural wanderer id may carry. */
+export const WANDERER_LAST_INDEX = WANDERER_RIFT_INDEX;
 
 /** Which night it is (one per world day, counted from the epoch), or null in
  *  daylight. A night runs 20:00 → 05:00 in-world, across the day boundary, so
@@ -463,7 +531,7 @@ export function rollWanderers(sector: number, dayBucket: number): Wanderer[] {
     return rollRawWanderers(sector, dayBucket).map(w => placeWanderer(w, sector));
 }
 
-function placeWanderer(w: Wanderer, sector: number): Wanderer {
+export function placeWanderer(w: Wanderer, sector: number): Wanderer {
     return { ...w, homeTile: nearestWalkableTile(sector, w.homeTile),
         waypoints: Array.from(new Set(w.waypoints.map(tile => nearestWalkableTile(sector, tile)))) };
 }
