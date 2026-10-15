@@ -133,7 +133,7 @@ for (const [kind, tab, slot] of [['Weapon', 'Weapons', 'hand'], ['Armor', 'Armor
         await reveal.getByRole('button', { name: 'Continue to Forge' }).click();
         await page.locator('.nw-result input[type="text"], .nw-result input:not([type])').fill('Integration Relic');
         await page.locator('.nw-result textarea').fill('Sealed by the forge.');
-        await page.getByRole('button', { name: `Forge ${kind}`, exact: true }).click();
+        await page.getByRole('button', { name: `Forge ${kind.toLowerCase()}`, exact: true }).click();
         await expect.poll(async () => JSON.parse((await page.getByTestId('forge-state').textContent())!).character.fateShards).toBe(0);
         const { character, creatorItems, saveVersion } = JSON.parse((await page.getByTestId('forge-state').textContent())!);
         expect(saveVersion).toBe(2);
