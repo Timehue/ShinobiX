@@ -676,7 +676,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         _saveVersion: Number(priorSave?._saveVersion ?? 0),
                     });
                 }
-                return res.status(200).json({ ok: true, reward: 0, reason: 'invalid-or-spent-pet-battle-token' });
+                // The proof expired (or its receipt aged out of the rolling
+                // window), so nothing more can be paid. Still hand back the
+                // current save: a client holding a queued result needs the
+                // roster to retire it, or every retry returns this same answer.
+                return res.status(200).json({
+                    ok: true,
+                    reward: 0,
+                    reason: 'invalid-or-spent-pet-battle-token',
+                    ...(priorCharacter ? { character: priorCharacter, _saveVersion: Number(priorSave?._saveVersion ?? 0) } : {}),
+                });
             }
             if (tokenData.reportKey !== reportKey) {
                 return res.status(403).json({ error: 'Pet battle token does not match this battle report.' });
