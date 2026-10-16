@@ -4,11 +4,13 @@ import { takeEarlyPlayRewardEvents } from './play-reward-event-inbox';
 type PlayGamesRequest = Record<string, unknown>;
 type PlayGamesResponse = { available?: boolean; configured?: boolean; accepted?: boolean };
 export type PlayRewardPurchase = { productId: string; purchaseToken: string };
+export type PlayRewardBundleContents = { ryo: number; fateShards: number; boneCharms: number; supporterDays: number };
 export type PlayRewardClaimResponse = {
     ok: true;
     rewardLabel: string;
     title?: string;
     ryo?: number;
+    bundle?: PlayRewardBundleContents;
     granted: boolean;
     alreadyOwned: boolean;
     acknowledged: boolean;
@@ -20,7 +22,20 @@ const PLAY_REWARD_LABEL_BY_PRODUCT: Readonly<Record<string, string>> = {
     sj_reward_title_dawn: 'Dawn-Sealed Shinobi',
     sj_reward_title_ember: 'Emberbound Shinobi',
     sj_reward_ryo_cache_small: '100 Ryo Cache',
+    sj_prereg_first_shinobi_box: '1st Shinobi Reward Box',
 };
+
+/** One readable line for what a reward box paid, e.g. after the server opens it. */
+export function describePlayRewardBundle(bundle: PlayRewardBundleContents): string {
+    const parts = [
+        bundle.ryo > 0 ? `${bundle.ryo.toLocaleString()} Ryo` : null,
+        bundle.fateShards > 0 ? `${bundle.fateShards.toLocaleString()} Fate Shards` : null,
+        bundle.boneCharms > 0 ? `${bundle.boneCharms.toLocaleString()} Bone Charms` : null,
+        bundle.supporterDays > 0 ? `${bundle.supporterDays} days of Shinobi Supporter` : null,
+    ].filter((part): part is string => part !== null);
+    if (parts.length <= 1) return parts[0] ?? '';
+    return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+}
 const pendingRewardPurchases: PlayRewardPurchase[] = [];
 const rewardPurchaseListeners = new Set<(purchase: PlayRewardPurchase) => void>();
 

@@ -7,6 +7,8 @@ import { cors, safeName } from '../_utils.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { normalizeTitleKey } from '../_titles-registry.js';
+import { promoSupporterFlag } from '../_subscription.js';
+import type { PlayGamesRewardBundle } from '../../shared/play-games-rewards.js';
 import { acknowledgePlayRewardPurchase, consumePlayRewardPurchase, verifyPlayRewardPurchase } from './_google-publisher.js';
 import { claimPlayGamesReward, PlayRewardClaimError, type PlayRewardClaimDependencies, type PlayRewardReceipt } from './_rewards-core.js';
 
@@ -74,7 +76,54 @@ const defaultDependencies: PlayRewardClaimDependencies = {
             saveVersion: result._saveVersion,
         };
     },
+    grantBundle: async (playerName, bundle, purchaseDigest) => {
+        const result = await mutatePlayerSave(playerName, ({ character }) => {
+            const next = applyPlayRewardBundle(character, bundle, purchaseDigest);
+            if (!next) return { ok: true as const, character, value: { alreadyOwned: true }, write: false };
+            return { ok: true as const, character: next, value: { alreadyOwned: false } };
+        });
+        if (!result.ok) return result;
+        return {
+            ok: true,
+            alreadyOwned: result.value.alreadyOwned,
+            character: result.character,
+            saveVersion: result._saveVersion,
+        };
+    },
 };
+
+const PURCHASE_DIGEST = /^[a-f0-9]{64}$/;
+
+function wallet(character: Record<string, unknown>, field: string, amount: number): number {
+    const balance = Math.max(0, Math.floor(Number(character[field]) || 0));
+    return Math.min(Number.MAX_SAFE_INTEGER, balance + amount);
+}
+
+/**
+ * The character after opening a reward bundle, or null when this purchase
+ * already opened it. The digest receipt, the currencies and the Supporter days
+ * are one save write, so a retry can never pay part of the box twice.
+ */
+export function applyPlayRewardBundle(
+    character: Record<string, unknown>,
+    bundle: PlayGamesRewardBundle,
+    purchaseDigest: string,
+    now: number = Date.now(),
+): Record<string, unknown> | null {
+    const receipts = Array.isArray(character.playRewardPurchaseReceipts)
+        ? character.playRewardPurchaseReceipts.filter((value): value is string => typeof value === 'string' && PURCHASE_DIGEST.test(value))
+        : [];
+    if (receipts.includes(purchaseDigest)) return null;
+    const supporter = promoSupporterFlag(character, bundle.supporterDays, now);
+    return {
+        ...character,
+        ryo: wallet(character, 'ryo', bundle.ryo),
+        fateShards: wallet(character, 'fateShards', bundle.fateShards),
+        boneCharms: wallet(character, 'boneCharms', bundle.boneCharms),
+        ...(supporter ? { patreon: supporter } : {}),
+        playRewardPurchaseReceipts: [...receipts, purchaseDigest],
+    };
+}
 
 export function createPlayRewardClaimHandler(
     dependencies: PlayRewardClaimDependencies = defaultDependencies,

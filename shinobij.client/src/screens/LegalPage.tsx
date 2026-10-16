@@ -35,8 +35,11 @@ type LegalDocument = {
 // Profile, so it matches the Premium Shop's description of the subscription.
 // 1.10: the conduct rules name sector chat (players standing in the same wild
 // sector) alongside the other chat channels it now sits beside.
-const LAST_UPDATED = "October 4, 2026";
-const VERSION = "1.10";
+// 1.11: the purchases page states the Google Play pre-registration reward
+// terms (the URL Play Console requires for the 1st Shinobi Reward Box is
+// /purchases-and-refunds#preregistration-reward).
+const LAST_UPDATED = "October 16, 2026";
+const VERSION = "1.11";
 
 const documents: Record<LegalPageSlug, LegalDocument> = {
     terms: {
@@ -276,6 +279,19 @@ const documents: Record<LegalPageSlug, LegalDocument> = {
                         <p>No blanket “no refunds” rule is stated here. Because Tebex is the merchant of record, refund requests go to Tebex under their process, and are handled together with the terms shown at purchase and whatever your local law requires — including any statutory right to cancel a digital purchase, which these terms do not override.</p>
                         <p>If a payment succeeded but the items never arrived, that is a delivery failure rather than a refund question: contact staff with your player name and the approximate time, and the purchase can be credited from the payment record.</p>
                         <p>Fraud, chargebacks, reversed payments, and delivery disputes may lead to a temporary restriction while records are reviewed. Shards already spent are not clawed back automatically.</p>
+                    </>
+                ),
+            },
+            {
+                id: "preregistration-reward",
+                title: "Google Play pre-registration reward",
+                content: (
+                    <>
+                        <p>Players who pre-registered for Shinobi Journey on Google Play receive the <strong>1st Shinobi Reward Box</strong> free of charge. It contains 10,000 Ryo, 50 Fate Shards, 10 Bone Charms and 14 days of Shinobi Supporter benefits.</p>
+                        <p><strong>Who is eligible.</strong> Install the app from Google Play with the same Google account you used to pre-register. Google decides who is eligible and delivers the reward, and each Google account receives one box. Pre-registering does not oblige you to install or play.</p>
+                        <p><strong>How to claim it.</strong> Open the app, sign in to the character that should receive the box, and accept the claim prompt. Claim it soon after installing, because Google Play may cancel a reward that is left unclaimed for several days. Once claimed, the box belongs to that character and cannot be moved to another one.</p>
+                        <p><strong>Supporter days.</strong> The 14 days start when you claim the box and end on their own. Nothing renews and nothing is charged. If you already have an active paid Shinobi Supporter subscription, the days are not added to it. If you already have time-limited Supporter access, the 14 days are added to the end of it.</p>
+                        <p>The reward contents are virtual items under these terms: they have no cash value, cannot be exchanged for money, and follow the balance and correction rules above. The offer may be changed or withdrawn before launch, and a box obtained through fraud or abuse may be removed.</p>
                     </>
                 ),
             },

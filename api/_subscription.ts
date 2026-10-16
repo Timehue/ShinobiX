@@ -15,7 +15,9 @@
  *     ALWAYS_SERVER_LEDGER_CHARACTER_FIELDS, so a client save can never set or
  *     forge it — it is always copied from the stored record.
  *   - The ONLY writers are the two functions below, and both take the `save:`
- *     lock with `{ failClosed: true }`.
+ *     lock with `{ failClosed: true }`. The one exception is promoSupporterFlag,
+ *     a pure helper whose result a reward grant writes inside its own save
+ *     mutation (the Play pre-registration box in api/play/reward-claim.ts).
  *
  * WHY THE STORED KEY IS STILL CALLED `patreon`: it is live save data on a
  * running game. Renaming it would mean migrating every existing save and
@@ -229,6 +231,51 @@ export async function applyAdminSubscription(
         };
     }));
     return out.ok ? out.value : null;
+}
+
+// ─── Promo days (a reward that includes Supporter time) ───────────────────────
+
+/**
+ * The `character.patreon` flag after adding `days` of promotional Supporter
+ * time, or null when the flag should stay as it is. Pure: the caller writes
+ * the result inside its own save mutation, so the days land in the same
+ * commit as the rest of the reward (see api/play/reward-claim.ts).
+ *
+ *   - A plain paid subscription (active, no expiry) is left alone. Giving it
+ *     an expiry would end perks the player is paying for.
+ *   - A live comp or promo with an expiry is extended from that expiry, so
+ *     stacked rewards add up instead of overlapping.
+ *   - Anything else (no flag, revoked, lapsed) starts a fresh promo that
+ *     expires on its own, like an admin comp. It carries no billing
+ *     reference, so a provider's `ended` event can never be mistaken for it,
+ *     and a real purchase later replaces it with a plain paid flag.
+ */
+export function promoSupporterFlag(
+    character: Record<string, unknown>,
+    days: number,
+    now: number = Date.now(),
+): Record<string, unknown> | null {
+    const wholeDays = Math.floor(days);
+    if (!Number.isFinite(wholeDays) || wholeDays < 1) return null;
+    const span = wholeDays * 86_400_000;
+    const prev = (character.patreon ?? null) as Record<string, unknown> | null;
+    const live = isPatreonSubscriber(character);
+    const expiresAt = Number(prev?.expiresAt);
+    const hasExpiry = typeof prev?.expiresAt === 'number' && expiresAt > 0;
+    if (live && prev && !hasExpiry) return null;
+    if (live && prev && hasExpiry) {
+        return { ...prev, expiresAt: Math.max(expiresAt, now) + span, updatedAt: now };
+    }
+    return {
+        userId: '',
+        tier: SUBSCRIBER_TIER,
+        active: true,
+        entitledCents: 0,
+        since: now,
+        updatedAt: now,
+        expiresAt: now + span,
+        source: 'promo',
+    };
 }
 
 // ─── Pure read helpers ────────────────────────────────────────────────────────
