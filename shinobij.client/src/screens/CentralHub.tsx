@@ -78,7 +78,7 @@ import { SceneCritters } from "../components/SceneCritters";
 import { DayNightSky } from "../components/DayNightSky";
 import { NextGoalPin } from "../components/NextGoalPin";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
-import { forgeServer, rollNamedForgeServer, type NamedRollResult } from "../lib/craft-api";
+import { forgeServer, hasPendingNamedForgeRoll, rollNamedForgeServer, type NamedRollResult } from "../lib/craft-api";
 import { forgeHollowGateKeyServer } from "../lib/hollow-gate-forge-api";
 import { gameToast } from "../components/GameToast";
 import { gameConfirm } from "../components/GameAlert";
@@ -332,6 +332,9 @@ export function CentralHub({
     // There is no discard; an unwanted piece is sold on the Sunscar Exchange.
     function namedRollBlocker(kind: "weapon" | "armor"): string | null {
         if (namedForgeLocked) return namedForgeLockMessage;
+        // A lost reply can follow a paid roll. Let its same scoped request ID
+        // reach the server receipt before checking the refreshed wallet again.
+        if (hasPendingNamedForgeRoll(character.name, kind, kind === "armor" ? namedArmorSlot : undefined)) return null;
         if (!namedForgePaymentReady) return namedForgePaymentError;
         const short = namedForgeShortfall(kind, (id) => countItem(character, id));
         return short ? `A named ${kind} roll needs ${short.count} ${short.label}.` : null;
