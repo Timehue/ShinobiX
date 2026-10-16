@@ -356,9 +356,12 @@ describe('historical mentor payment repair', { concurrency: false }, () => {
         assert.ok(fired);
         restoreKv();
         assert.deepEqual(await kv.get(PAID_KEY), { academy: START }, 'the repair really committed before the reply was lost');
+        time += 399 * DAY;
         await settlement.repairMentorStudentPaid(STUDENT);
         await settlement.repairMentorStudentPaid(STUDENT);
         assert.deepEqual(await kv.get(PAID_KEY), { academy: START });
+        time = START + 400 * DAY;
+        assert.equal(await kv.get(PAID_KEY), null, 'retries must not restart the committed repair\'s retention period');
         assert.deepEqual(await saves(), before);
     });
 
@@ -397,24 +400,62 @@ describe('historical mentor payment repair', { concurrency: false }, () => {
         assert.equal(await kv.get(PAID_KEY), null, 'a retry must inspect the recreated account instead of the old receipt');
     });
 
-    test('repair renews an existing 400-day paid record permanently, including unchanged flags', async () => {
+    test('valid receipts still prevent replay when an unchanged canonical key expires before admission rereads it', async () => {
         await paidAndReleasedBeforeDeployment();
-        await kv.set(PAID_KEY, { academy: START }, { ex: 400 * DAY / 1_000 });
+        assert.equal((await action('assign')).status, 200);
+        await kv.set(PAID_KEY, { academy: START }, { ex: 1 });
+        const before = await saves();
+        const get = kv.get.bind(kv);
+        let paidReads = 0;
+        kv.get = (async (key: string) => {
+            const value = await get(key);
+            if (key === PAID_KEY && ++paidReads === 1) {
+                assert.deepEqual(value, { academy: START }, 'harvesting sees the existing flag and skips its unchanged write');
+                time += 1_001;
+            }
+            return value;
+        }) as typeof kv.get;
+        try {
+            const admission = await settlement.admitMentorClaim(SENSEI, STUDENT, START);
+            assert.deepEqual(admission, { status: 'none' });
+            assert.equal(paidReads, 2, 'the subsequent canonical read observes the expired key');
+        } finally { kv.get = get; }
+        assert.equal(await kv.get(PAID_KEY), null, 'receipt evidence excludes replay without forcing an expiry renewal');
+        assert.deepEqual(await saves(), before, 'neither player receives the historical reward again');
+        assert.deepEqual((await read(RECORD_KEY)).settlements ?? [], []);
+    });
+
+    test('a newly validated historical flag keeps the original 400-day retention', async () => {
+        await paidAndReleasedBeforeDeployment();
         const before = await saves();
         await settlement.repairMentorStudentPaid(STUDENT);
-        time += 401 * DAY;
-        assert.deepEqual(await kv.get(PAID_KEY), { academy: START }, 'ever-paid history cannot expire and reopen rewards');
+        time = START + 400 * DAY - 1;
+        assert.deepEqual(await kv.get(PAID_KEY), { academy: START });
+        time += 1;
+        assert.equal(await kv.get(PAID_KEY), null, 'historical repair must preserve #413\'s 400-day policy');
         assert.deepEqual(await saves(), before);
     });
 
-    test('repair permanently retains canonical paid flags even after their receipts were compacted', async () => {
-        await kv.set(PAID_KEY, { academy: START - 20, level20: START - 10 }, { ex: 400 * DAY / 1_000 });
-        const before = await saves();
-        const repaired = await settlement.repairMentorStudentPaid(STUDENT);
-        assert.deepEqual(repaired.evidence, [], 'there is no receipt left to reconstruct');
-        time += 401 * DAY;
-        assert.deepEqual(await kv.get(PAID_KEY), { academy: START - 20, level20: START - 10 });
-        assert.deepEqual(await saves(), before);
+    test('receiptless current or missing accounts do not renew an existing canonical record', async () => {
+        const source = await read(STUDENT_KEY);
+        for (const scenario of ['recreated', 'missing']) {
+            time = START;
+            if (scenario === 'missing') await kv.del(STUDENT_KEY);
+            else await kv.set(STUDENT_KEY, { ...source, character: { ...source.character, createdAt: START - 1, mentorRewardReceipts: [] } });
+            const paid = { academy: START - 20, level20: START - 10 };
+            await kv.set(PAID_KEY, paid, { ex: 10 });
+            const before = await saves();
+            time += 5_000;
+            const repaired = await settlement.repairMentorStudentPaid(STUDENT);
+            assert.deepEqual(repaired.paid, {}, scenario);
+            assert.deepEqual(repaired.evidence, [], 'there is no receipt left to reconstruct');
+            assert.deepEqual(await kv.get(PAID_KEY), paid);
+            time += 5_000;
+            assert.equal(await kv.get(PAID_KEY), null, `${scenario} account must not renew unrelated canonical history`);
+            await settlement.repairMentorStudentPaid(STUDENT);
+            assert.equal(await kv.get(PAID_KEY), null, 'no evidence means no replacement after expiration');
+            assert.deepEqual(await saves(), before);
+        }
     });
 });
 

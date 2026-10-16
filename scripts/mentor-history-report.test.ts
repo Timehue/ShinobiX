@@ -88,20 +88,42 @@ test('null paid row has the exact null comparison expected by a future CAS', () 
     assert.equal(report.proposedWrites[0].expected, null);
 });
 
-test('valid existing flags with an active TTL are proposed unchanged for durable retention', () => {
+test('existing flags alone never authorize expiry-only renewal, including missing and recreated accounts', () => {
+    const expiresAt = new Date(NOW + 100_000).toISOString();
+    const paid = { key: 'clan-mentor-paid:student', value: { academy: AT }, expires_at: expiresAt };
+    for (const accountRows of [
+        [],
+        [save('student')],
+        [{ key: 'save:student', value: null }],
+        [{ key: 'save:student', value: { character: { createdAt: AT + 1, mentorRewardReceipts: [] } } }],
+    ]) {
+        const report = buildMentorHistoryReport(snapshot([paid, ...accountRows]), NOW);
+        assert.deepEqual(report.proposedWrites, []);
+        assert.equal(report.summary.proposedMilestones, 0);
+        assert.deepEqual(report.existingPaidRecords, [{ key: paid.key, paid: paid.value, expiresAt }]);
+        assert.ok(report.limitations.some((item) => item.includes('not proof of current account identity')));
+    }
+});
+
+test('missing receipt-proven flags retain #413 retention and exact prior expiry metadata', () => {
     const expiresAt = new Date(NOW + 100_000).toISOString();
     const report = buildMentorHistoryReport(snapshot([
-        { key: 'clan-mentor-paid:student', value: { academy: AT }, expires_at: expiresAt },
+        save('student', [receipt(['academy', 'level20'])]),
+        { key: 'clan-mentor-paid:student', value: { academy: AT - 1 }, expires_at: expiresAt },
     ]), NOW);
     assert.equal(report.proposedWrites.length, 1);
-    assert.deepEqual(report.proposedWrites[0], {
-        key: 'clan-mentor-paid:student', studentSlug: 'student', expected: { academy: AT },
-        expectedExpiresAt: expiresAt, removeExpiry: true, add: {}, next: { academy: AT }, evidence: [],
+    const { evidence, ...proposal } = report.proposedWrites[0];
+    assert.deepEqual(proposal, {
+        key: 'clan-mentor-paid:student', studentSlug: 'student', expected: { academy: AT - 1 },
+        expectedExpiresAt: expiresAt, retentionSeconds: 400 * 24 * 60 * 60,
+        add: { level20: AT }, next: { academy: AT - 1, level20: AT },
     });
-    assert.equal(report.summary.proposedMilestones, 0);
-    assert.equal(report.summary.proposedExpiryRemovals, 1);
+    assert.deepEqual(evidence.map((item) => item.milestones), [['academy', 'level20']]);
+    assert.equal(Object.hasOwn(report.proposedWrites[0], 'removeExpiry'), false);
+    assert.equal(report.summary.proposedMilestones, 1);
     const rerun = buildMentorHistoryReport(snapshot([
-        { key: 'clan-mentor-paid:student', value: { academy: AT }, expires_at: null },
+        save('student', [receipt(['academy', 'level20'])]),
+        { key: 'clan-mentor-paid:student', value: report.proposedWrites[0].next, expires_at: expiresAt },
     ]), NOW);
     assert.deepEqual(rerun.proposedWrites, []);
 });

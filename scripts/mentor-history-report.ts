@@ -13,6 +13,7 @@ type Snapshot = { capturedAt: number; rows: Row[] };
 type Evidence = { studentSlug: string; settlementId: string; milestones: string[]; at: number; source: string };
 type Unresolved = { source: string; reason: string };
 const SLUG = /^[a-z0-9_-]{1,32}$/;
+const PAID_RETENTION_SECONDS = 400 * 24 * 60 * 60;
 
 function object(value: unknown): value is Record<string, unknown> {
     return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -113,9 +114,7 @@ export function buildMentorHistoryReport(raw: unknown, now = Date.now()) {
     const uniqueEvidence = [...new Map(evidence.map((item) => [JSON.stringify(item), item])).values()]
         .sort((a, b) => compare(a.studentSlug, b.studentSlug) || a.at - b.at || compare(a.source, b.source)
             || compare(a.milestones.join(','), b.milestones.join(',')));
-    const expiringStudents = [...existing].filter(([slug, paid]) => existingExpiry.get(slug) != null && Object.keys(paid).length > 0)
-        .map(([slug]) => slug);
-    const students = [...new Set([...uniqueEvidence.map((item) => item.studentSlug), ...expiringStudents])].sort(compare);
+    const students = [...new Set(uniqueEvidence.map((item) => item.studentSlug))].sort(compare);
     const proposedWrites = students.flatMap((studentSlug) => {
         if (malformedPaid.has(studentSlug)) return [];
         const before = existing.get(studentSlug);
@@ -126,10 +125,9 @@ export function buildMentorHistoryReport(raw: unknown, now = Date.now()) {
                 if (!Object.hasOwn(before ?? {}, milestone) && (!add[milestone] || item.at < add[milestone])) add[milestone] = item.at;
             }
         }
-        const removeExpiry = existingExpiry.get(studentSlug) != null;
-        if (Object.keys(add).length === 0 && !removeExpiry) return [];
+        if (Object.keys(add).length === 0) return [];
         return [{ key: `clan-mentor-paid:${studentSlug}`, studentSlug, expected: existingExpected.get(studentSlug) ?? null,
-            expectedExpiresAt: existingExpiry.get(studentSlug) ?? null, removeExpiry,
+            expectedExpiresAt: existingExpiry.get(studentSlug) ?? null, retentionSeconds: PAID_RETENTION_SECONDS,
             add: sortedPaid(add), next: sortedPaid({ ...before, ...add }), evidence: studentEvidence }];
     });
     const uniqueUnresolved = [...new Map(unresolved.map((item) => [JSON.stringify(item), item])).values()]
@@ -139,7 +137,6 @@ export function buildMentorHistoryReport(raw: unknown, now = Date.now()) {
         summary: { snapshotRows: snapshot.rows.length, activeRows: active.length, ignoredExpiredRows: expired.length,
             validatedEvidence: uniqueEvidence.length, proposedKeys: proposedWrites.length,
             proposedMilestones: proposedWrites.reduce((sum, item) => sum + Object.keys(item.add).length, 0),
-            proposedExpiryRemovals: proposedWrites.filter((item) => item.removeExpiry).length,
             existingPaidKeys: existing.size, unresolved: uniqueUnresolved.length },
         proposedWrites,
         existingPaidRecords: [...existing].sort(([a], [b]) => compare(a, b)).map(([studentSlug, paid]) => ({
@@ -152,7 +149,8 @@ export function buildMentorHistoryReport(raw: unknown, now = Date.now()) {
             'Missing, expired, overwritten, or compacted history can hide former pairs. An empty report does not establish that no replay exposure exists.',
             'Legacy claimed maps, claim counts, assignment/release audits, and settledLog alone cannot prove both named payment and current account identity.',
             'This report makes no reward, save, KV, or production changes and has no apply mode. Proposed timestamps preserve existing flags and add only validated missing milestones.',
-            'Expiring valid canonical flags are proposed unchanged with removeExpiry=true, preventing their existing payment history from expiring; this requires the same explicit approval as additions.',
+            'Only missing receipt-proven milestones receive write proposals, using #413\'s existing 400-day retention. No expiry-only renewal or permanent retention is proposed.',
+            'Existing canonical flags are per-slug state, not proof of current account identity. Individual account deletion can leave them behind for a later account using the same name; that pre-existing #413 limitation is not repaired here.',
             'Before any separately approved application, pause all mentor writers including recovery and preserve evidence before compaction; revalidate current account identity, evidence, and exact expected record with compare-and-set. Resume owed settlements through existing recovery after preserving the approved history.',
         ],
     };

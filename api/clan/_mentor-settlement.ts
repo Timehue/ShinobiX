@@ -50,6 +50,7 @@ export const MENTOR_SETTLED_LOG_LIMIT = 20;
 export const MENTOR_RECOVERY_STATUS_KEY = 'clan-mentor-settlement:status';
 const POINTER_PREFIX = 'clan-mentor-pending:';
 const PROTOCOL = 'clan-mentor-milestone/v1';
+const STUDENT_PAID_RETENTION_SECONDS = 400 * 24 * 60 * 60;
 
 const RETRY_BASE_MS = 5 * 60_000;
 const RETRY_MAX_MS = 6 * 60 * 60_000;
@@ -84,21 +85,26 @@ export async function recordMentorStudentPaid(studentSlug: string, claimed: Reco
             let current: Record<string, number>;
             try { current = parseMentorPaidRecord(raw); }
             catch { throw new MentorRecordError('Mentor payment history needs review.'); }
-            for (const [milestone, at] of entries) current[milestone] ??= at as number;
-            // Exact CAS also fences a writer whose lock lease expired. No TTL:
-            // an ever-paid flag must outlive every release/rejoin cycle.
-            // Rewrite unchanged flags too, removing #413's old 400-day TTL.
+            let changed = false;
+            for (const [milestone, at] of entries) {
+                if (current[milestone] !== undefined) continue;
+                current[milestone] = at as number;
+                changed = true;
+            }
+            // Preserve #413's retention policy, including the existing expiry
+            // on retries. Exact CAS fences a writer whose lock lease expired.
+            if (!changed) return;
             if (sourceSave !== undefined) {
                 // Bind historical evidence to the save that supplied it, so a
                 // deleted/recreated account cannot inherit a stale repair.
                 if (!kv.compareSetMany) throw new Error('Mentor history repair requires atomic source validation.');
                 if (await kv.compareSetMany([
                     { op: 'assert', key: `save:${studentSlug}`, expected: sourceSave },
-                    { op: 'cas', key, expected: raw, value: current },
+                    { op: 'cas', key, expected: raw, value: current, ex: STUDENT_PAID_RETENTION_SECONDS },
                 ])) return;
                 throw new Error('Student save changed during history repair. Please retry.');
             }
-            if (await kv.compareSet(key, raw, current)) return;
+            if (await kv.compareSet(key, raw, current, { ex: STUDENT_PAID_RETENTION_SECONDS })) return;
         }
         throw new Error('Mentor payment history changed while recording. Please retry.');
     }, { failClosed: true });
@@ -109,9 +115,7 @@ export async function repairMentorStudentPaid(studentSlug: string, now = Date.no
     const sourceSave = await kv.get(`save:${studentSlug}`);
     const history = mentorHistoryFromStudentSave(studentSlug, sourceSave, now);
     const paid = Object.fromEntries(Object.entries(history.paid).filter(([m]) => !approvedMilestones || approvedMilestones.includes(m as MentorMilestone)));
-    // Also make already-existing #413 flags permanent. This adds no inferred
-    // milestones and lets an approved report renew a key without new evidence.
-    await recordMentorStudentPaid(studentSlug, { ...paid, ...await readMentorStudentPaid(studentSlug) }, sourceSave);
+    await recordMentorStudentPaid(studentSlug, paid, sourceSave);
     return history;
 }
 export function mentorStudentMarkerKey(studentSlug: string): string { return `clan-mentor-of:${studentSlug}`; }
@@ -709,7 +713,9 @@ export async function admitMentorClaim(senseiSlug: string, studentSlug: string, 
         if (error instanceof MentorRecordError) throw error;
         return { status: 'retry', error: errorText(error) };
     }
-    const milestones = claimableMilestones({ onboardingStep: evidence.onboardingStep ?? undefined, level: evidence.level, rankedWins: evidence.rankedWins }, { ...(entry.claimed ?? {}), ...everPaid });
+    // Valid receipts remain proof for this admission even if an unchanged
+    // canonical key expires between harvesting it and the following read.
+    const milestones = claimableMilestones({ onboardingStep: evidence.onboardingStep ?? undefined, level: evidence.level, rankedWins: evidence.rankedWins }, { ...(entry.claimed ?? {}), ...history.paid, ...everPaid });
     if (milestones.length === 0) return { status: 'none' };
 
     // A milestone must never be paid to a sensei with no save to credit.

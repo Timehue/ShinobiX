@@ -37,6 +37,15 @@ of an otherwise legitimate reward. The runtime can recover surviving valid
 student receipts before admitting a new batch; pending settlements continue
 through the existing settlement recovery protocol.
 
+The canonical record remains #413's flat per-slug map with its existing
+400-day retention. It does not contain an account creation stamp, and individual
+account or character deletion currently leaves that map behind. A later account
+using the same name can therefore inherit earlier flags until they expire.
+That account-lifecycle limitation predates this repair and is not solved here.
+An existing canonical flag alone is not evidence of current account identity;
+this repair neither removes those flags nor renews them without adding a
+missing milestone proven by a current student receipt.
+
 ## Offline report
 
 The tool imports only pure evidence helpers. It does not load `.env`, import
@@ -106,12 +115,13 @@ summary counts only the rows supplied; it is not a count of all historical
 players or former pairs. Capture the input/report file hashes separately for
 the approval record, without including any credential material.
 
-Valid, nonempty canonical paid records with an active expiry receive a separate
-`removeExpiry: true` proposal, even without a surviving receipt. Their
-`add` map is empty and their `next` map preserves every existing timestamp;
-the existing canonical flags already establish this history. The report
-includes `expectedExpiresAt` so expiry retention is explicit in approval and
-revalidation. Removing a TTL does not invent a payment or alter a balance.
+Only missing milestones backed by validated current student receipts receive
+write proposals. Every proposal has a nonempty `add` map and preserves existing
+timestamps in `next`. `retentionSeconds` is #413's existing 400 days for a write
+that adds flags, and `expectedExpiresAt` records the predecessor's expiry for
+revalidation. There are no expiry-only renewal or permanent-retention proposals.
+If every proven milestone already exists, the report proposes no write even
+when that key is expiring or the current student save is missing.
 
 ## Approval and production execution plan
 
@@ -135,18 +145,16 @@ own authorization. The offline report tool cannot perform those actions.
    real affected-player count is asserted here.
 3. Submit an exact allowlist of `clan-mentor-paid:<studentSlug>` keys and each
    missing named milestone, evidence references, expected current fields,
-   snapshot/report hashes, and each `removeExpiry` proposal with its expected
-   expiry. The proposed automatic scope adds validated ever-paid flags and
-   retains valid canonical flags permanently; it changes no saves,
-   balances, clan rewards, pairing records, receipts, or recovery pointers.
-   Approve expiry-only retention explicitly: #413's existing canonical flags
-   with a legacy TTL otherwise remain exposed to future expiration.
+   expected expiry, the 400-day retention on additions, and snapshot/report
+   hashes. The proposed automatic scope adds validated missing payment flags;
+   it changes no saves, balances, clan rewards, pairing records, receipts, or
+   recovery pointers and does not renew a key solely because it is expiring.
 4. After explicit approval, re-read every allowlisted current save and paid
    record while all mentor writers remain quiesced. Revalidate current account
    identity and the same valid student receipt, ensure each approved milestone
    still has evidence, and compare the live canonical record and expiry to
-   `expected` and `expectedExpiresAt`. For expiry-only retention, the valid
-   canonical flags themselves are the evidence; do not fabricate receipts.
+   `expected` and `expectedExpiresAt`. Existing canonical flags alone cannot
+   replace the current student receipt evidence for an addition.
    If evidence disappeared, an account was recreated, the record is malformed,
    or the expected value differs, stop that candidate and regenerate the
    report. Pending settlements remain owed and unchanged; their claimed marks
@@ -156,8 +164,9 @@ own authorization. The offline report tool cannot perform those actions.
    `repairMentorStudentPaid(studentSlug, now, approvedMilestones)` from
    `api/clan/_mentor-settlement.ts` for the explicitly allowlisted milestones.
    That helper re-reads current receipt evidence and uses additive
-   compare-and-set writes with no expiration. It cannot replace the
-   quiescence, exact `expected` check, or approval gate. On a CAS conflict,
+   compare-and-set writes with #413's 400-day retention when adding flags.
+   Already-present milestones produce no write or expiry renewal. It cannot
+   replace the quiescence, exact `expected` check, or approval gate. On a CAS conflict,
    reread and revalidate instead of overwriting. On retry, preserve live flags
    and skip already present fields. Log only approved key/field outcomes and
    evidence references; never log raw saves or credentials.
@@ -186,3 +195,8 @@ Until then, do not mark milestones paid, block accounts, subtract currency,
 claw back rewards, or freeze legitimate claims indefinitely. Any deliberate
 one-time replay allowance or broader eligibility change is a distinct product
 decision, not something this repair can infer from missing history.
+
+Resolving #413's per-slug account-reuse limitation or changing its 400-day
+retention also requires a separately reviewed design. Do not infer a current
+account identity from a surviving canonical map, clear paid flags as cleanup,
+or make those flags permanent through this historical repair.
