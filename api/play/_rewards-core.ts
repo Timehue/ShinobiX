@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { PLAY_GAMES_REWARD_PRODUCTS, playGamesRewardProduct } from '../../shared/play-games-rewards.js';
+import { PLAY_GAMES_REWARD_PRODUCTS, playGamesRewardProduct, type PlayGamesRewardBundle } from '../../shared/play-games-rewards.js';
 
 export type PlayRewardPurchaseVerification = {
     purchaseState: number;
@@ -42,6 +42,7 @@ export type PlayRewardClaimDependencies = {
     consumePurchase: (productId: string, purchaseToken: string) => Promise<void>;
     grantTitle: (playerName: string, title: string) => Promise<PlayRewardGrantResult>;
     grantRyo: (playerName: string, amount: number, purchaseDigest: string) => Promise<PlayRewardGrantResult>;
+    grantBundle: (playerName: string, bundle: PlayGamesRewardBundle, purchaseDigest: string) => Promise<PlayRewardGrantResult>;
     now?: () => number;
 };
 
@@ -56,7 +57,7 @@ const TOKEN_MAX_LENGTH = 4096;
 export async function claimPlayGamesReward(
     args: { playerName: string; productId: string; purchaseToken: string },
     deps: PlayRewardClaimDependencies,
-): Promise<{ rewardLabel: string; title?: string; ryo?: number; granted: boolean; acknowledged: boolean; alreadyOwned: boolean; character?: Record<string, unknown>; saveVersion?: number }> {
+): Promise<{ rewardLabel: string; title?: string; ryo?: number; bundle?: PlayGamesRewardBundle; granted: boolean; acknowledged: boolean; alreadyOwned: boolean; character?: Record<string, unknown>; saveVersion?: number }> {
     const product = playGamesRewardProduct(args.productId);
     if (!product) throw new PlayRewardClaimError(400, 'This Play reward is not supported.');
     if (typeof args.purchaseToken !== 'string' || args.purchaseToken.length < 16 || args.purchaseToken.length > TOKEN_MAX_LENGTH) {
@@ -65,12 +66,16 @@ export async function claimPlayGamesReward(
 
     const digest = createHash('sha256').update(args.purchaseToken, 'utf8').digest('hex');
     const receiptKey = `play:reward:purchase:${digest}`;
-    const applyReward = () => product.kind === 'title'
-        ? deps.grantTitle(args.playerName, product.title)
-        : deps.grantRyo(args.playerName, product.amount, digest);
-    const resultFields = () => product.kind === 'title'
-        ? { title: product.title }
-        : { ryo: product.amount };
+    const applyReward = () => {
+        if (product.kind === 'title') return deps.grantTitle(args.playerName, product.title);
+        if (product.kind === 'bundle') return deps.grantBundle(args.playerName, product.contents, digest);
+        return deps.grantRyo(args.playerName, product.amount, digest);
+    };
+    const resultFields = () => {
+        if (product.kind === 'title') return { title: product.title };
+        if (product.kind === 'bundle') return { bundle: product.contents };
+        return { ryo: product.amount };
+    };
     return deps.withLock(receiptKey, async () => {
         let receipt = await deps.getReceipt(receiptKey);
         if (receipt && (receipt.playerName !== args.playerName || receipt.productId !== product.productId)) {
@@ -80,7 +85,8 @@ export async function claimPlayGamesReward(
         // A settled receipt needs no Google call. Ryo receipts use the explicit
         // consumed state; an older acknowledged Ryo receipt is retried below
         // so the server can consume it and allow the weekly SKU to be bought again.
-        if (receipt?.state === 'consumed' || (product.kind === 'title' && receipt?.state === 'acknowledged')) {
+        // Titles and bundles are kept (acknowledged), never consumed.
+        if (receipt?.state === 'consumed' || (product.kind !== 'ryo' && receipt?.state === 'acknowledged')) {
             const replayGrant = await applyReward();
             if (!replayGrant.ok) throw new PlayRewardClaimError(replayGrant.status ?? 503, replayGrant.error ?? 'Reward delivery failed. Please retry.');
             return {

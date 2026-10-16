@@ -4,6 +4,7 @@ import type { GameToastOptions } from "../components/GameToast";
 import type { Character, VersionedCharacterCommit } from "../types/character";
 import {
     claimPlayRewardPurchase,
+    describePlayRewardBundle,
     onPlayRewardPurchases,
     playRewardLabelForProduct,
     recordServerConfirmedPlayEvent,
@@ -62,7 +63,11 @@ export function usePlayGameServices(
                         || !commitRef.current(updatedCharacter, result.saveVersion)) {
                         throw new Error("The reward was delivered, but this screen could not safely refresh your save. Reopen the game to sync it.");
                     }
-                    toastRef.current(result.ryo
+                    toastRef.current(result.bundle
+                        ? result.alreadyOwned
+                            ? `Your ${expectedLabel} was already opened.`
+                            : `${expectedLabel} opened: ${describePlayRewardBundle(result.bundle)}.`
+                        : result.ryo
                         ? result.alreadyOwned
                             ? `This ${result.ryo.toLocaleString()} Ryo reward was already delivered.`
                             : `${result.ryo.toLocaleString()} Ryo added to your wallet.`
