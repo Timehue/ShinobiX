@@ -1,3 +1,4 @@
+import { displayPlayerName } from "../../../shared/player-name";
 import { PROFESSION_MAX_RANK } from "../constants/profession";
 import { professionThresholds } from "../lib/profession-bonuses";
 import "../styles/index/40-village-social-panels.css";
@@ -710,13 +711,13 @@ function HallOfLegends({ character, setScreen, playerRoster, onVersionedCharacte
                                                 </p>
                                                 {oldest && (
                                                     <p style={{ margin: "0 0 5px", fontSize: ".68rem", color: "#9aa3b2", fontStyle: "italic" }}>
-                                                        It opened with {oldest.player ? <b style={{ color: "var(--slate-300)" }}>{oldest.player}</b> : "the first of them"} and the {oldest.title}.
+                                                        It opened with {oldest.player ? <b style={{ color: "var(--slate-300)" }}>{displayPlayerName(oldest.player)}</b> : "the first of them"} and the {oldest.title}.
                                                     </p>
                                                 )}
                                                 <ul style={{ margin: 0, paddingLeft: 16, display: "grid", gap: 2 }}>
                                                     {shown.map((l) => (
                                                         <li key={l.id} style={{ fontSize: ".72rem", color: "var(--slate-300)", lineHeight: 1.35 }}>
-                                                            <b style={{ color: "var(--slate-200)" }}>{l.title}</b>{l.player ? ` — ${l.player}${l.village ? ` of ${l.village}` : ""}` : ""}
+                                                            <b style={{ color: "var(--slate-200)" }}>{l.title}</b>{l.player ? ` — ${displayPlayerName(l.player)}${l.village ? ` of ${l.village}` : ""}` : ""}
                                                         </li>
                                                     ))}
                                                 </ul>

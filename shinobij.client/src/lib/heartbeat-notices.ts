@@ -2,9 +2,11 @@ import { EXCHANGE_CURRENCIES, EXCHANGE_SALE_EVENT, isExchangeSaleReceipt, type E
 import type { Character, VersionedCharacterCommit } from '../types/character';
 import { gameToast } from '../components/GameToast';
 import { applyOfflineNotices } from './offline-notices';
-import { withholdNoticeAck } from './notice-ack';
+import { takeUnseenNotices, withholdNoticeAck } from './notice-ack';
+import { displayPlayerName } from '../../../shared/player-name';
 
 type Notice = { kind: 'exchange-sale'; sale: ExchangeSaleReceipt };
+type MentionNotice = { kind: 'tavern-mention'; by: string; text?: string; id?: string };
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
 type Options = {
     accountKey: string;
@@ -47,6 +49,36 @@ export function exchangeSaleMessage(sales: readonly ExchangeSaleReceipt[]): stri
     return `Sunscar Exchange: ${number(sales.length)} listings sold. You received ${amounts} after fees. See Trade history for details.`;
 }
 
+/** One short toast line for every tavern mention in a delivery. */
+export function tavernMentionMessage(mentions: readonly { by: string; text?: string }[]): string {
+    const names = [...new Set(mentions.map(m => displayPlayerName(m.by)).filter(Boolean))];
+    if (names.length === 0) return '';
+    if (mentions.length === 1) {
+        const text = mentions[0].text?.trim();
+        return text ? `${names[0]} mentioned you in the tavern: "${text}"` : `${names[0]} mentioned you in the tavern.`;
+    }
+    if (names.length === 1) return `${names[0]} mentioned you in the tavern ${mentions.length} times.`;
+    if (names.length === 2) return `${names[0]} and ${names[1]} mentioned you in the tavern.`;
+    return `${names[0]} and ${names.length - 1} others mentioned you in the tavern.`;
+}
+
+const isMention = (value: unknown): value is MentionNotice => !!value && typeof value === 'object'
+    && (value as { kind?: unknown }).kind === 'tavern-mention' && typeof (value as { by?: unknown }).by === 'string';
+
+/** Tavern mentions are a small toast, not a "While you were away" report. */
+function applyTavernMentions(mentions: readonly MentionNotice[], options: Options): number {
+    if (!mentions.length) return 0;
+    // A background tab must not acknowledge a toast that expires unseen.
+    if (!(options.visible ?? (() => typeof document === 'undefined' || document.visibilityState === 'visible'))()) {
+        withholdNoticeAck(mentions); return 0;
+    }
+    const fresh = takeUnseenNotices(mentions);
+    const message = tavernMentionMessage(fresh);
+    if (!message) return 0;
+    (options.toast ?? ((text: string) => gameToast(text, { kind: 'info' })))(message);
+    return fresh.length;
+}
+
 /** Deliver sale feedback only after adopting the current server save. The
  * receipt describes a completed payment; its amounts never mutate a wallet. */
 export async function applyHeartbeatNotices(notices: unknown, options: Options): Promise<number> {
@@ -54,7 +86,8 @@ export async function applyHeartbeatNotices(notices: unknown, options: Options):
     if (!options.isCurrent()) { withholdNoticeAck(list); return 0; }
     const isSale = (value: unknown) => !!value && typeof value === 'object' && (value as { kind?: unknown }).kind === 'exchange-sale';
     const saleNotices = list.filter(isSale);
-    const otherCount = applyOfflineNotices(list.filter(n => !isSale(n)), options.showOther);
+    const otherCount = applyOfflineNotices(list.filter(n => !isSale(n) && !isMention(n)), options.showOther)
+        + applyTavernMentions(list.filter(isMention), options);
     if (!saleNotices.length) return otherCount;
     const account = slug(options.accountKey);
     const valid = saleNotices.filter((n): n is Notice => isExchangeSaleReceipt((n as Notice).sale) && (n as Notice).sale.seller === account);

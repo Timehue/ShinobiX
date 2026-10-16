@@ -29,7 +29,8 @@ test('slow mail reads do not overlap or replace another conversation', async ({ 
         ] });
     });
     await expectUiAuditBoot(page, runtime, 'messages');
-    await page.getByRole('button', { name: /slow-ninja Waiting/ }).click();
+    // Inbox rows show player names capitalized (shared/player-name.ts).
+    await page.getByRole('button', { name: /Slow-ninja Waiting/ }).click();
     await expect.poll(() => delayedReads).toBe(1);
     // Longer than the 8s poll interval, shorter than the request timeout.
     await page.clock.fastForward(9_000);
@@ -38,14 +39,14 @@ test('slow mail reads do not overlap or replace another conversation', async ({ 
     const aborted = page.waitForEvent('requestfailed', request => request === retired);
     await page.getByRole('button', { name: '← Inbox', exact: true }).click();
     await aborted;
-    await page.getByRole('button', { name: /fast-ninja Ready/ }).click();
+    await page.getByRole('button', { name: /Fast-ninja Ready/ }).click();
     await expect(page.getByText('Current conversation', { exact: true })).toBeVisible();
     // A transport may already have delivered bytes when cleanup runs. Returning
     // the retired response must never paint it under the new partner's name.
     await delayed!.fulfill({ json: [{ from: 'slow-ninja', to: 'AuditNinja', text: 'Retired conversation', ts: Date.now() }] });
     await expect(page.getByText('Retired conversation', { exact: true })).toHaveCount(0);
     await expect(page.getByText('Current conversation', { exact: true })).toBeVisible();
-    const reply = page.getByPlaceholder('Message fast-ninja…', { exact: true });
+    const reply = page.getByPlaceholder('Message Fast-ninja…', { exact: true });
     await reply.fill('Still the right conversation');
     await page.getByRole('button', { name: 'Send', exact: true }).click();
     await expect(page.getByText('Still the right conversation', { exact: true })).toBeVisible();

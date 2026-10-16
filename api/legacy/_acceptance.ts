@@ -21,6 +21,7 @@ import {
 } from '../_legacy-core.js';
 import { recordAudit } from '../_audit.js';
 import { addHallEntry, announce } from '../_announce.js';
+import { displayPlayerName } from '../../shared/player-name.js';
 
 const num = (value: unknown) => (Number.isFinite(Number(value)) ? Number(value) : 0);
 const OFFER_TTL_SECONDS = 7 * 24 * 60 * 60;
@@ -235,14 +236,14 @@ export async function deliverLegacyAcceptanceEffects(
                 type: 'mythic_legacy',
                 importance: 'mythic',
                 title: 'A LEGACY PATH IS CLAIMED',
-                message: `${playerName} accepted the ${def.name}. From this moment, their path is sealed forever.`,
+                message: `${displayPlayerName(playerName)} accepted the ${def.name}. From this moment, their path is sealed forever.`,
                 player: playerName,
                 legacyId: def.id,
             }, { receiptId: `${receipt.id}:announcement` }))) return false;
             await addHallEntry({
                 entryType: 'mythic_legacy_claim',
                 title: `${def.name} — Claimed`,
-                description: `${playerName} accepted the ${def.name}. Their path is sealed forever.`,
+                description: `${displayPlayerName(playerName)} accepted the ${def.name}. Their path is sealed forever.`,
                 player: playerName,
                 legacyId: def.id,
             }, { nxKey: `mythic-claim:${def.id}:${playerName}` });

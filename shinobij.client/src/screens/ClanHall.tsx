@@ -1,4 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect, react-hooks/purity */
+import { displayPlayerName } from "../../../shared/player-name";
 import { useMemo, useState, useEffect, useLayoutEffect, useRef } from "react";
 import "../styles/index/29-clan-exchange-storefront.css";
 
@@ -457,7 +458,7 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
     async function kickMember(member: ClanMemberEntry) {
         if (!clanData) return;
         if (member.name === clanData.founderName) return;
-        if (!(await gameConfirm(`Remove ${member.name} from "${clanData.name}"? They'll lose clan access immediately.`, { danger: true, confirmLabel: "Remove" }))) return;
+        if (!(await gameConfirm(`Remove ${displayPlayerName(member.name)} from "${clanData.name}"? They'll lose clan access immediately.`, { danger: true, confirmLabel: "Remove" }))) return;
         const result = await postClanKick(character.name, clanData.name, member.name);
         if (!result) return;
         setClanData(enhanceClanData({ ...clanData, members: clanData.members.filter(m => m.name !== member.name), joinRequests: clanData.joinRequests.filter(r => r.name !== member.name) }));
@@ -1043,12 +1044,12 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
                 const roleColor = CLAN_ROLE_COLOR[role] ?? "#94a3b8";
                 return <div key={member.name} className={`clan-member-row-v2${isMe ? " clan-member-me" : ""}`}>
                     <span className="clan-member-pos">#{idx + 1}</span>
-                    <div className="clan-member-info"><span className="clan-member-name">{member.name}{isMe ? <small className="clan-member-you">YOU</small> : ""}</span><span className="clan-member-sub">Lv.{member.level} · {member.specialty}</span></div>
+                    <div className="clan-member-info"><span className="clan-member-name">{displayPlayerName(member.name)}{isMe ? <small className="clan-member-you">YOU</small> : ""}</span><span className="clan-member-sub">Lv.{member.level} · {member.specialty}</span></div>
                     <span className="clan-rank-badge" style={{ background: roleColor + "1a", color: roleColor, borderColor: roleColor + "44" }}><GameArtIcon kind={CLAN_ROLE_ART[role] ?? "missionHall"} size={16} /> {role}</span>
                     <div className="clan-contrib-col"><span className="clan-contrib-total">{contrib} pts</span><span className="clan-contrib-breakdown"><GameArtIcon kind="attack" size={14} />{member.battleContrib} <GameArtIcon kind="event" size={14} />{member.eventContrib} <GameArtIcon kind="mission" size={14} />{member.missionContrib}</span></div>
                     <div className="clan-member-actions">
-                        {myRole === "Founder" && !isFounderRow && <select className="clan-role-select" aria-label={`Set ${member.name}'s role`} value={role === "Leader" || role === "Officer" ? role : "Member"} disabled={clanSaveBusy} onChange={e => void setMemberRole(member, e.target.value as "Leader" | "Officer" | "Member")}><option value="Member">Member</option><option value="Officer">Officer</option><option value="Leader">Leader</option></select>}
-                        {canManageClan(myRole) && !isMe && !isFounderRow && <button className="danger-button clan-kick-btn" title={`Remove ${member.name}`} disabled={Boolean(clanActionBusy)} onClick={() => void runClanAction(`kick:${member.name}`, () => kickMember(member))}>{clanActionBusy === `kick:${member.name}` ? "Removing…" : "Kick"}</button>}
+                        {myRole === "Founder" && !isFounderRow && <select className="clan-role-select" aria-label={`Set ${displayPlayerName(member.name)}'s role`} value={role === "Leader" || role === "Officer" ? role : "Member"} disabled={clanSaveBusy} onChange={e => void setMemberRole(member, e.target.value as "Leader" | "Officer" | "Member")}><option value="Member">Member</option><option value="Officer">Officer</option><option value="Leader">Leader</option></select>}
+                        {canManageClan(myRole) && !isMe && !isFounderRow && <button className="danger-button clan-kick-btn" title={`Remove ${displayPlayerName(member.name)}`} disabled={Boolean(clanActionBusy)} onClick={() => void runClanAction(`kick:${member.name}`, () => kickMember(member))}>{clanActionBusy === `kick:${member.name}` ? "Removing…" : "Kick"}</button>}
                     </div>
                 </div>;
             })}
