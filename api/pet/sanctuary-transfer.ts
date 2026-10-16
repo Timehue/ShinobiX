@@ -17,6 +17,26 @@ type TransferResult =
     | { ok: true; character: Record<string, unknown>; pet: Record<string, unknown>; version: number; action: SanctuaryAction; replayed: boolean }
     | { ok: false; status: number; error: string; message?: string };
 
+/**
+ * True while this player's open pet battle sealed a consumable on this pet.
+ * battle-result spends that item from the carried roster when the fight
+ * settles, so a companion stored mid-fight would keep an item it already used.
+ * Only that one pet waits; every other companion moves freely.
+ */
+async function sealedFightOwesConsumable(playerName: string, petId: string): Promise<boolean> {
+    const activeToken = await kv.get<string>(`pet:battle-active:${playerName}`);
+    if (!activeToken) return false;
+    const battle = await kv.get<{ playerName?: string; casualPveSeal?: { playerPets?: unknown } }>(
+        `pet:battle-token:${playerName}:${activeToken}`,
+    );
+    if (!battle || String(battle.playerName ?? '').toLowerCase() !== playerName.toLowerCase()) return false;
+    const sealedPets = battle.casualPveSeal?.playerPets;
+    const sealed = Array.isArray(sealedPets) ? sealedPets as Array<Record<string, any>> : [];
+    return sealed.some((pet) => String(pet?.id ?? '') === petId
+        && typeof pet?.loadout?.consumable === 'string'
+        && pet.loadout.consumable.length > 0);
+}
+
 function defensePetIds(defense: unknown): string[] {
     if (!defense || typeof defense !== 'object') return [];
     const pets = (defense as { pets?: unknown }).pets;
@@ -68,6 +88,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ]);
                 if (activeBattle) {
                     return { ok: false, status: 409, error: 'pet-is-in-active-battle', message: 'Finish or resume your active battle before moving a companion to the Sanctuary.' };
+                }
+                if (await sealedFightOwesConsumable(playerName, petId)) {
+                    return { ok: false, status: 409, error: 'pet-is-in-active-battle', message: 'This companion is still in a pet battle. Finish that fight before moving it to the Sanctuary.' };
                 }
                 const assignmentIds = [...defensePetIds(coliseumDefense), ...defensePetIds(tacticalDefense)];
                 const busy = petBusyReason(character, carriedPet, Date.now(), {
