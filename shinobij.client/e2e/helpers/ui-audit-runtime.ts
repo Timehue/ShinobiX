@@ -148,6 +148,13 @@ export async function installUiAuditRuntime(page: Page, initialSave: UiAuditSave
             ? (url.searchParams.get("ver") === "1" ? { version: "1", ids: [] } : [])
             : {});
         if (path === "/api/player-auth") return json(route, { ok: true, token: "ui-audit-token" });
+        if (path === "/api/missions/ai-fight-start" && request.method() === "POST") {
+            const body = request.postDataJSON();
+            // No saved fight is the server's empty 204 response. The generic
+            // 200 fallback has no sealed session and triggers recovery retries
+            // that can interrupt unrelated narrative fixtures every five seconds.
+            if (body.resumeWorldFight || body.resumeAiFight) return route.fulfill({ status: 204 });
+        }
         if (path === "/api/player/world-move") {
             if (request.method() === 'POST') {
                 const body = request.postDataJSON(), cursor = worldModel.read(body.worldPosition);

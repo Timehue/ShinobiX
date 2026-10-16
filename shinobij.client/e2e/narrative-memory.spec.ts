@@ -139,7 +139,16 @@ test("a stalled story battle launch does not reopen its pre-battle conversation"
     let startRequested = false;
     let releaseStart: (() => void) | undefined;
     const heldStart = new Promise<void>((resolve) => { releaseStart = resolve; });
+    const recoveryResponses: Array<{ kind: string; status: number }> = [];
+    page.on("response", (response) => {
+        if (!response.url().includes("/api/missions/ai-fight-start")) return;
+        const body = response.request().postDataJSON();
+        if (body?.resumeWorldFight || body?.resumeAiFight) recoveryResponses.push({
+            kind: body.resumeWorldFight ? "world" : "generic", status: response.status(),
+        });
+    });
     await openFirstChapter(page);
+    await expect.poll(() => recoveryResponses).toEqual([{ kind: "world", status: 204 }, { kind: "generic", status: 204 }]);
     await page.route("**/api/story/boss-start", async (route) => {
         startRequested = true;
         await heldStart;
