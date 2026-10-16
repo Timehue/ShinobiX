@@ -65,8 +65,9 @@ import type { Pet } from '../_pet-sim/pet-types.js';
 
 export type PetDuelOutcome = 'win' | 'loss' | 'draw';
 
-/** One accepted command and the tick it took effect on. Mirrors
- *  DuelInputLogEntry in shinobij.client/src/lib/pet-duel-live.ts. */
+/** One accepted command and the tick it took effect on. The client that wrote
+ *  these logs (pet-duel-live.ts) was retired on 2026-10-16; the shape is kept for
+ *  tokens sealed before then. */
 export interface DuelInputLogEntry { t: number; cmd: DuelCommand }
 
 /** Everything needed to rebuild the exact fight, SEALED at battle-start so the
@@ -179,7 +180,7 @@ export function parseDuelInputLog(raw: unknown): DuelInputLogEntry[] | null {
  * server derived. `log` must already have been through parseDuelInputLog.
  *
  * An EMPTY log reproduces the uncommanded AI fight exactly — that is the
- * property pet-duel-live.test.ts asserts — so this is also the correct way to
+ * property pet-duel-cinematic-commands.test.ts asserts — so this is also the correct way to
  * score a fight the player watched without touching the controls.
  */
 export function replayCasualPetDuel(

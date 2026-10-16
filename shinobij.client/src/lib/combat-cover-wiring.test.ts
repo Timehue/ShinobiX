@@ -41,10 +41,6 @@ test("decorative frame loops pause when covered or hidden; the fight's weather c
     assert.match(ambience, /insideCombat \? \(\) => \{\} : subscribeCombatCover\(/);
     const critters = src("components/SceneCritters.tsx");
     assert.match(critters, /subscribeCombatCover\(\(\) => \{ covered = isCoveredByCombat\(\); sync\(\); \}\)/);
-    const visibilityHook = src("lib/use-battle-frameloop.ts");
-    assert.match(visibilityHook, /document\.visibilityState === 'visible'/, "visibility starts from the current document state");
-    assert.match(visibilityHook, /document\.addEventListener\('visibilitychange', update\)/, "visibility changes are subscribed");
-    assert.match(visibilityHook, /document\.removeEventListener\('visibilitychange', update\)/, "visibility listeners are released on teardown");
 });
 
 test("background tab visibility cannot pause battle simulation", () => {
@@ -52,7 +48,5 @@ test("background tab visibility cannot pause battle simulation", () => {
     assert.equal(battleFrameloopFor(false, true), "always", "settled state alone cannot pause an active match");
     assert.equal(battleFrameloopFor(true, false), "always", "the result beat gets time to finish");
     assert.equal(battleFrameloopFor(true, true), "demand", "only a settled result retires continuous rendering");
-    const hook = src("lib/use-battle-frameloop.ts");
-    const battleHook = hook.slice(hook.indexOf("export function useBattleFrameloop"));
-    assert.doesNotMatch(battleHook, /useDocumentVisible/, "visibility is reserved for decorative canvases, not frame-driven battle simulation");
+    assert.doesNotMatch(src("lib/use-battle-frameloop.ts"), /visibilityState|visibilitychange/, "battle simulation never reads tab visibility");
 });

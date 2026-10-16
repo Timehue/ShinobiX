@@ -13,20 +13,6 @@ import {
     syncPayload, sideOf, sideOwnsActor, _resetSessions,
     DUEL_INPUT_DELAY_TICKS, DUEL_STALL_MS, DUEL_INVITE_TTL_MS,
 } from './pet-duel-session.js';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-
-/** The client's scheduling constant, READ AS TEXT rather than imported: the
- *  server build must not reach into `shinobij.client/src` (different module
- *  system, and it would drag the client graph into the API compile). Parsing the
- *  literal still catches drift, which is the only thing that matters here.
- *  Resolved from the repo root — this suite always runs from there. */
-function clientInputDelayTicks(): number {
-    const src = readFileSync(join(process.cwd(), 'shinobij.client', 'src', 'lib', 'pet-duel-lockstep.ts'), 'utf8');
-    const m = /export const INPUT_DELAY_TICKS\s*=\s*(\d+)\s*;/.exec(src);
-    assert.ok(m, 'could not find INPUT_DELAY_TICKS in pet-duel-lockstep.ts — did it get renamed?');
-    return Number(m![1]);
-}
 
 const NOW = 1_000_000;
 const fresh = (now = NOW) => {
@@ -38,14 +24,6 @@ const fresh = (now = NOW) => {
 };
 
 beforeEach(() => _resetSessions());
-
-test('the server delay never exceeds the client delay', () => {
-    // If the server declared MORE settled than the client guarantees, it would
-    // mark a tick final that a client is still allowed to schedule into.
-    const client = clientInputDelayTicks();
-    assert.ok(DUEL_INPUT_DELAY_TICKS <= client,
-        `server ${DUEL_INPUT_DELAY_TICKS} must be <= client ${client}`);
-});
 
 test('a player can only command their own side', () => {
     assert.equal(sideOwnsActor('p1', 'player-0'), true);
