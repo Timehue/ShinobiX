@@ -214,7 +214,7 @@ Only after 1–4 are in:
 | Clan war determinism break | **High** | Headless resolve pure over `(pets, seed)`; regression test re-derives a known verdict |
 | Stored ladder replays unplayable | Medium | Dual-read; never migrate rows in place |
 | Daily faucet pressure (`dailyPetWins` 100/day shared) | Medium | Ported entries must not become newly reward-eligible; audit `rewardEligible` per entry |
-| Pet busy/lease flags diverge | Medium | The new engine must take the same `_pet-busy` / `_active-battle-lease` locks the duel path takes |
+| Pet busy/lease flags diverge | Medium | The new engine must apply the same `_pet-busy` checks at start and hold the same `pet:battle-active:<slug>` pointer the duel path holds (the unused `_active-battle-lease` helper was removed 2026-10-16) |
 | `PetColiseum.tsx` carve breaks board modes | Medium | Phase 5 audits imports before deleting anything |
 
 ---
