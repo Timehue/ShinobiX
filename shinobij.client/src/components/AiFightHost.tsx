@@ -672,7 +672,7 @@ export function AiFightHost({
                         enemyAvatar={enemyAvatar}
                         encounter={encounter}
                         queuedOpponentName={queuedOpponentName}
-                        onExportLog={() => { void import('../lib/solo-battle-debug').then(({ downloadRecordedSoloBattleDebug }) => downloadRecordedSoloBattleDebug(currentFight.sessionId, currentFight.session.player.name)); }}
+                        onExportLog={() => { void import('../lib/solo-battle-debug').then(({ downloadRecordedSoloBattleDebug }) => downloadRecordedSoloBattleDebug(currentFight.sessionId, currentFight.session.player.name)).catch(() => alert('Unable to load the battle log. Please retry export.')); }}
                         worldEncounter={!!currentFight.worldContext}
                         spar={!currentFight.worldContext && request.battleKind === "practice"}
                         onRetry={ctx.retry}
