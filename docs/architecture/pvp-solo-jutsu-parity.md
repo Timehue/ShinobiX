@@ -108,5 +108,6 @@ cd shinobij.client && npm run lint && npm run build
 
 Responsive combat verification additionally runs the live Solo-PvE and PvP
 flows in Chromium, Firefox, and WebKit at phone, tablet, desktop, and ultrawide
-viewports. Screenshots and measured layout telemetry live under
-`docs/screenshots/combat-layout/`.
+viewports. Screenshots and measured layout telemetry are written to
+`shinobij.client/test-results/combat-layout-captures/<phase>/` (or under
+`COMBAT_LAYOUT_ARTIFACT_ROOT` when it is set).

@@ -1,5 +1,7 @@
 # Real Postgres integration review
 
+> Raw evidence files linked from this page (logs, transcripts, screenshots) were removed on 2026-10-16 to cut repository weight. Retrieve one with `git show 5124ba3f2:<path>`.
+
 October 12, 2026. Follow-up to the [Anbu async/queue CI review](anbu-async-queue-ci-review.md).
 
 ## Database and isolation
@@ -49,12 +51,12 @@ The full-run command sets `PG_INTEGRATION_DATABASE_URL` and
 The separate paid/live Tebex contract remains disabled. This is local execution;
 it does not claim a hosted GitHub run, production database capacity, or deployment.
 
-Logs: [standalone Postgres](postgres-integration-initial.log),
-[final npm helper and cleanup](postgres-local-helper-final.log),
-[first helper check](postgres-local-helper.log),
-[full CI with Postgres enabled](postgres-enabled-full-ci.log),
-[original database cleanup](postgres-cleanup.log),
-[handoffs](postgres-handoffs.log), [deployment contract](postgres-deployment.log).
+Logs: standalone Postgres,
+final npm helper and cleanup,
+first helper check,
+full CI with Postgres enabled,
+original database cleanup,
+handoffs, deployment contract.
 
 ## Repeat
 

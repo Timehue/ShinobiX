@@ -1,5 +1,7 @@
 # Anbu async recovery, queues, and CI review
 
+> Raw evidence files linked from this page (logs, transcripts, screenshots) were removed on 2026-10-16 to cut repository weight. Retrieve one with `git show 5124ba3f2:<path>`.
+
 October 12, 2026. Stronghold entry remains level 50; enemy Anbu treasury raids remain level 100.
 
 ## Changes and integration
@@ -39,7 +41,7 @@ with direct SQL persistence checks, plus actual authenticated multiplayer.
 
 Backend tests use isolated in-memory storage and disposable authenticated identities. Failure injection covers lost acknowledgements; a concurrent stored combat advance proves recovery cannot rewind another request. Browser checks mount the actual exploration, Anbu host, and Arena with deterministic API fixtures, including missing browser run IDs, reload, failed recovery, pending requests, viewport fit, patrol thresholds, settlement, and account isolation. The full suite covers the wider village/sector war, guard queue, PvP, Hollow Gate/Rift, mission, receipt, and recovery contracts.
 
-Logs: [full CI with Postgres required](postgres-enabled-full-ci.log), [prior full CI with 14 skips](anbu-async-full-ci.log), [first passing CI run](anbu-async-full-ci-initial.log), [concurrency](anbu-async-concurrency.log), [focused contracts](anbu-async-focused.log), [browser results](anbu-async-browser/results.json), [client build](anbu-async-client-build.log), [server build](anbu-async-server-build.log), [client lint](anbu-async-client-lint.log), [changed-file lint](anbu-async-lint.log), [distribution](anbu-async-distribution.log), [production size](anbu-async-production-size.log), [handoff contract](anbu-async-handoffs.log).
+Logs: full CI with Postgres required, prior full CI with 14 skips, first passing CI run, concurrency, focused contracts, [browser results](anbu-async-browser/results.json), client build, server build, client lint, changed-file lint, distribution, production size, handoff contract.
 
 ## Reproduce
 

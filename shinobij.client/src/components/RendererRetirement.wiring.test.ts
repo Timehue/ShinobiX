@@ -18,7 +18,6 @@ const srcDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Files that render a <Canvas> and are deliberately not wired, with the reason.
 const EXEMPT = new Map<string, string>([
     ["components/PetWarfrontRiteStage3D.tsx", "owns the original of this guard (RendererContextGuard + pet-warfront-renderer-lifecycle)"],
-    ["components/PetModelQa.tsx", "QA-only entry, never part of the production app"],
     ["pet-model-lifecycle-preview.tsx", "QA-only entry, never part of the production app"],
 ]);
 
@@ -41,7 +40,7 @@ const importsCanvas = (text: string) => /import\s*\{[^}]*\bCanvas\b[^}]*\}\s*fro
 
 test("every file that renders an R3F <Canvas> mounts <RendererRetirement />", () => {
     const canvasFiles = files.filter(file => importsCanvas(file.text));
-    assert.ok(canvasFiles.length >= 12, `expected to find the known canvases, found ${canvasFiles.length}`);
+    assert.ok(canvasFiles.length >= 11, `expected to find the known canvases, found ${canvasFiles.length}`);
     const unwired = canvasFiles
         .filter(file => !EXEMPT.has(file.rel))
         .filter(file => {
@@ -72,5 +71,5 @@ test("no production file uses drei's useTexture", () => {
         .filter(file => !EXEMPT.has(file.rel))
         .filter(file => /\buseTexture\b/.test(file.text))
         .map(file => file.rel);
-    assert.deepEqual(offenders, [], "use useLoader(THREE.TextureLoader, url) and clone, as SectorScene3DScene does");
+    assert.deepEqual(offenders, [], "use useLoader(THREE.TextureLoader, url) and clone, as PetBoardArena does");
 });

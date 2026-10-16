@@ -13,7 +13,7 @@
  *
  * COSMETIC ONLY: nothing here affects gameplay, balance, saves, or what
  * information is shown — it only decides how much decorative motion is drawn.
- * Consumers: SectorScene3D, SceneAmbience3D, SceneAmbience, SceneCritters, and
+ * Consumers: SceneAmbience, SceneCritters, and
  * the `.lite-fx` CSS overrides applied to <html> by applyLiteFxClass().
  */
 

@@ -1,5 +1,7 @@
 # Legacy audit corrections — 2026-10-02
 
+> Raw evidence files linked from this page (logs, transcripts, screenshots) were removed on 2026-10-16 to cut repository weight. Retrieve one with `git show 5124ba3f2:<path>`.
+
 The user authorized correcting the acquisition audit. Late-game requirements
 remain: reaching level 96+ before finishing a path is acceptable. Existing
 accepted identities, earned totals and completed stage receipts are preserved.
@@ -89,12 +91,12 @@ storage structure is introduced.
 
 Final follow-up validation: **122/122 passed**, zero skips/cancellations, on
 pinned Node 24.21.0 with test concurrency 1
-([integration-final-results.txt](integration-final-results.txt)). This includes
+(integration-final-results.txt). This includes
 real creation/claim/mission/story/Tower recovery, long-lived guard evidence,
 participant binding, Sage rotation and acceptance, all stages, signatures,
 roster parity and client stage presentation. The final combined server
 `tsc -p tsconfig.cpanel.json --noEmit` completed with exit 0 and no diagnostics
-([integration-typecheck.txt](integration-typecheck.txt)). `git diff --check`
+(integration-typecheck.txt). `git diff --check`
 passed for this follow-up's source/test files. No screen or component changed.
 The earlier `integration-handler-results.txt` includes one failed fixture that
 reused accounts with a previous battle's pending pointers; isolated identities
