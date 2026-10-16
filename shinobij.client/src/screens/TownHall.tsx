@@ -1242,7 +1242,7 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
                             <label htmlFor={`elder-appointee-${option.key}`}>Appoint {option.role.replace("doctrine", "elder")}</label>
                             <select id={`elder-appointee-${option.key}`} value={elderAppointmentInputs[index]} disabled={!elderSeatsReady || elderAppointmentBusy !== null} onChange={event => setElderAppointmentInputs(inputs => inputs.map((value, seat) => seat === index ? event.target.value : value))}>
                                 <option value="">Choose village player</option>
-                                {villagePlayers.filter(name => !elderSeats.some((held, seat) => seat !== index && held.toLowerCase() === name.toLowerCase())).map(name => <option key={name} value={name}>{name}</option>)}
+                                {villagePlayers.filter(name => name.toLowerCase() !== character.name.toLowerCase() && !elderSeats.some((held, seat) => seat !== index && held.toLowerCase() === name.toLowerCase())).map(name => <option key={name} value={name}>{name}</option>)}
                             </select>
                             <div className="menu">
                                 <button type="button" disabled={!elderSeatsReady || !elderAppointmentInputs[index] || elderAppointmentBusy !== null || elderFocusBusy !== null} onClick={() => void manageElderSeat(option.key, "appoint", index)}>{elderAppointmentBusy === option.key ? "Updating…" : "Appoint"}</button>
