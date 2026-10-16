@@ -56,9 +56,50 @@ function Read-Secret([string]$prompt) {
     finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr) }
 }
 
-$storePassword = Read-Secret 'Keystore password'
-$keyPassword = Read-Secret 'Key password (press Enter if it is the same)'
-if ([string]::IsNullOrEmpty($keyPassword)) { $keyPassword = $storePassword }
+# Check both passwords against the keystore BEFORE starting Gradle, so a typo
+# costs a retry instead of a failed build. keytool reads them from this
+# process's environment (`:env`), never from the command line or its own
+# prompt, which echoes nothing and looks like it ignores typing.
+function Test-UploadKey([string]$storePw, [string]$keyPw) {
+    $ErrorActionPreference = 'Continue'
+    $keytool = Join-Path $JavaHome 'bin\keytool.exe'
+    $csr = Join-Path ([IO.Path]::GetTempPath()) ("sj-keycheck-" + [Guid]::NewGuid().ToString('N') + '.csr')
+    $env:SJ_CHECK_STORE_PW = $storePw
+    $env:SJ_CHECK_KEY_PW = $keyPw
+    try {
+        # -certreq needs the private key, so it proves the key password too.
+        $out = (& $keytool -certreq -alias $KeyAlias -keystore $Keystore -storepass:env SJ_CHECK_STORE_PW -keypass:env SJ_CHECK_KEY_PW -file $csr 2>&1 | ForEach-Object { "$_" }) -join "`n"
+        if ($LASTEXITCODE -eq 0) { return 'ok' }
+        if ($out -match 'password was incorrect|keystore was tampered') { return 'store' }
+        if ($out -match 'Cannot recover key|key password') { return 'key' }
+        if ($out -match 'does not exist') { return 'alias' }
+        return "other: $out"
+    }
+    finally {
+        Remove-Item Env:SJ_CHECK_STORE_PW, Env:SJ_CHECK_KEY_PW -ErrorAction SilentlyContinue
+        Remove-Item $csr -ErrorAction SilentlyContinue
+    }
+}
+
+$verdict = ''
+for ($attempt = 1; $attempt -le 3; $attempt++) {
+    $storePassword = Read-Secret 'Keystore password'
+    $keyPassword = Read-Secret 'Key password (press Enter if it is the same)'
+    if ([string]::IsNullOrEmpty($keyPassword)) { $keyPassword = $storePassword }
+    $verdict = Test-UploadKey $storePassword $keyPassword
+    if ($verdict -eq 'ok') { Write-Host 'Passwords accepted by the keystore.' -ForegroundColor Green; break }
+    switch -Wildcard ($verdict) {
+        'store' { Write-Host 'The keystore password is wrong. Try again.' -ForegroundColor Yellow }
+        'key' { Write-Host 'The keystore password is right, but the key password is wrong. Try again and type the key password at the second prompt.' -ForegroundColor Yellow }
+        'alias' { throw "The keystore has no key named '$KeyAlias'. Pass -KeyAlias with the right name." }
+        default { throw "keytool could not check the keystore: $verdict" }
+    }
+}
+if ($verdict -ne 'ok') {
+    $storePassword = $null
+    $keyPassword = $null
+    throw 'Three wrong passwords; nothing was built.'
+}
 
 # Build through a short drive letter: no spaces and no deep paths for Gradle.
 $used = (Get-PSDrive -PSProvider FileSystem).Name
