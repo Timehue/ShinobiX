@@ -1,3 +1,4 @@
+import { displayPlayerName } from "../../../../shared/player-name";
 import { useEffect, useState } from 'react';
 import type { Character, PlayerRecord } from '../../types/character';
 import { campaignRequest } from '../../lib/village-war-campaign';
@@ -52,7 +53,7 @@ export function WarGuardStronghold({ character, warId, sector, onAttackPlayer, o
         <h3>Enemy players inside</h3>
         {inside && !peers.some(peer => peer.village !== character.village) && <p>No enemy players inside.</p>}
         {inside && peers.filter(peer => peer.village !== character.village).map(peer => <div className='war-espionage-peer' key={peer.name}>
-            <span>{peer.name} · Level {peer.level}</span><button disabled={busy || !!peer.inBattle} onClick={() => void attack(peer)}>Attack</button>
+            <span>{displayPlayerName(peer.name)} · Level {peer.level}</span><button disabled={busy || !!peer.inBattle} onClick={() => void attack(peer)}>Attack</button>
         </div>)}
         <button disabled={busy} onClick={() => void leave()}>Leave stronghold</button>
     </StrongholdDialog>;

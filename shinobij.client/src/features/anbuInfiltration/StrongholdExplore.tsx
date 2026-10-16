@@ -1,3 +1,4 @@
+import { displayPlayerName } from "../../../../shared/player-name";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from 'react';
 import { advanceStronghold, ANBU_RAID_MIN_LEVEL, strongholdRooms, strongholdTitle, isDeathsGateStronghold, STRONGHOLD_INTEL_ROOM_ID, STRONGHOLD_INTEL_TILE, STRONGHOLD_VAULT, STRONGHOLD_THREAT_PER_STEP, type StrongholdVisit } from '../../../../shared/sector-stronghold';
 import type { Character, PlayerRecord } from '../../types/character';
@@ -379,7 +380,7 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
     }
     const playerList = <div className="stronghold-roster"><h3>Players inside <span>{peers.length + (state ? 1 : 0)}</span></h3>
         {peers.length === 0 && <p>No other shinobi inside yet.</p>}
-        {peers.map(peer => <div className="stronghold-roster-row" key={peer.name}><div><b>{peer.name}</b><span>Lv {peer.level} · {peer.inBattle ? 'In battle' : peer.village}</span></div><button disabled={blocked || !!pending || threat >= 100 || !availablePeers.includes(peer)} onClick={() => { stopWalk(); setPlayersOpen(false); setIntelOpen(false); setSelectedPeer(peer); }}>Inspect</button></div>)}
+        {peers.map(peer => <div className="stronghold-roster-row" key={peer.name}><div><b>{displayPlayerName(peer.name)}</b><span>Lv {peer.level} · {peer.inBattle ? 'In battle' : peer.village}</span></div><button disabled={blocked || !!pending || threat >= 100 || !availablePeers.includes(peer)} onClick={() => { stopWalk(); setPlayersOpen(false); setIntelOpen(false); setSelectedPeer(peer); }}>Inspect</button></div>)}
     </div>;
 
     return <section className={`stronghold-shell underground-world${obsidian ? ' stronghold-obsidian underground-world--obsidian' : ''}`} aria-label={title} data-gamepad-mode="sector">
@@ -420,7 +421,7 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
                     {!overview && [...peerTiles].map(([tile, occupants]) => {
                         const peer = occupants[0];
                         const avatar = sharedImages[`avatar:${peer.name.toLowerCase()}`] || peer.character?.avatarImage;
-                        return <button key={tile} className="stronghold-peer" data-tile={tile} aria-label={`Inspect ${occupants.length > 1 ? `${occupants.length} shinobi` : peer.name}`} title={`${peer.name} · Lv ${peer.level}${peer.inBattle ? ' · In battle' : ''}`}
+                        return <button key={tile} className="stronghold-peer" data-tile={tile} aria-label={`Inspect ${occupants.length > 1 ? `${occupants.length} shinobi` : displayPlayerName(peer.name)}`} title={`${displayPlayerName(peer.name)} · Lv ${peer.level}${peer.inBattle ? ' · In battle' : ''}`}
                             disabled={blocked || !!pending || overview} onClick={() => { stopWalk(); if (occupants.length > 1) setPlayersOpen(true); else setSelectedPeer(peer); }}
                             style={{ left: (tile % base.width + 0.5 + (tile === playerTile ? .4 : 0)) * tileSize, top: (Math.floor(tile / base.width) + 0.5 - (tile === playerTile ? .28 : 0)) * tileSize, width: Math.max(44, avatarSize), height: Math.max(44, avatarSize) }}>
                             <span className="stronghold-avatar stronghold-peer-avatar" style={{ width: avatarSize, height: avatarSize }}>

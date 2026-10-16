@@ -1,7 +1,7 @@
 import { beforeEach, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { applyHeartbeatNotices, exchangeSaleMessage, resetSaleNotificationSession } from './heartbeat-notices';
+import { applyHeartbeatNotices, exchangeSaleMessage, resetSaleNotificationSession, tavernMentionMessage } from './heartbeat-notices';
 import { heartbeatNoticeAckFields, noteHeartbeatDelivery, resetNoticeAckState } from './notice-ack';
 import type { Character } from '../types/character';
 import type { ExchangeCurrency } from '../../../shared/sunscar-exchange';
@@ -88,6 +88,29 @@ it('does not accept malformed or foreign-account sale receipts', async () => {
     const count = await applyHeartbeatNotices(notices, { accountKey: 'different', isCurrent: () => true, visible: () => true, storage,
         fetch: async () => { throw new Error('must not fetch'); }, commit: () => false, toast: () => assert.fail('must not toast') });
     assert.equal(count, 0); assert.deepEqual(heartbeatNoticeAckFields().ackNotices, []);
+});
+
+it('shows tavern mentions as one small toast, not the away digest', async () => {
+    const mention = (by: string, id: string, text = 'see you at the gate') => ({ kind: 'tavern-mention', by, village: 'Frostfang Village', sector: 0, at: 5, text, id });
+    const toasts: string[] = [], reports: string[] = [];
+    const options = { accountKey: 'friend', isCurrent: () => true, visible: () => true, storage, fetch: fetchSave, commit: () => true,
+        toast: (message: string) => toasts.push(message), showOther: (message: string) => reports.push(message) };
+    assert.equal(await applyHeartbeatNotices([mention('rill', 'm1')], options), 1);
+    assert.deepEqual(toasts, ['Rill mentioned you in the tavern: "see you at the gate"']);
+    assert.deepEqual(reports, [], 'no "While you were away" digest');
+    await applyHeartbeatNotices([mention('rill', 'm1')], options);
+    assert.equal(toasts.length, 1, 'a redelivered mention is not shown twice');
+    assert.equal(tavernMentionMessage([mention('kenji', 'a'), mention('Aiko', 'b')]), 'Kenji and Aiko mentioned you in the tavern.');
+    assert.equal(tavernMentionMessage([mention('kenji', 'a'), mention('Aiko', 'b'), mention('rill', 'c')]), 'Kenji and 2 others mentioned you in the tavern.');
+    assert.equal(tavernMentionMessage([mention('kenji', 'a'), mention('kenji', 'b')]), 'Kenji mentioned you in the tavern 2 times.');
+});
+
+it('holds a mention for a hidden tab until the player returns', async () => {
+    const pending = [{ kind: 'tavern-mention', by: 'Rill', sector: 0, at: 5, id: 'hidden-1' }];
+    let toasts = 0;
+    noteHeartbeatDelivery({ pendingNotices: pending });
+    await applyHeartbeatNotices(pending, { accountKey: 'friend', isCurrent: () => true, visible: () => false, storage, commit: () => true, toast: () => { toasts++; } });
+    assert.equal(toasts, 0); assert.deepEqual(heartbeatNoticeAckFields().ackNotices, []);
 });
 
 it('is wired into the global heartbeat with the current-account guard and versioned save commit', () => {

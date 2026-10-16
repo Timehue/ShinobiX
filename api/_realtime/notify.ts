@@ -70,7 +70,7 @@ function canon(name: string): string {
  * Nudge a player to run an immediate heartbeat (instant attack/challenge
  * delivery). No-op if no socket layer is attached or the player has no socket.
  */
-export function kickPlayer(name: string | undefined | null, reason: 'attack' | 'challenge' | 'heal' | 'exchange-sale'): void {
+export function kickPlayer(name: string | undefined | null, reason: 'attack' | 'challenge' | 'heal' | 'exchange-sale' | 'mention'): void {
     if (!_emit || !name) return;
     try {
         _emit(`user:${canon(name)}`, 'presence:kick', { reason });

@@ -32,6 +32,7 @@ import { ChronicleCardInspector } from "./ChronicleCardInspector";
 import { Modal } from "./ui/Modal";
 import { chronicleBeats, chronicleEventCopy } from "../lib/chronicle-presentation";
 import { ChronicleResolutionDirector } from "./ChronicleResolutionDirector";
+import { displayPlayerName } from "../../../shared/player-name";
 
 type SideKey = "p1" | "p2";
 type DuelReaction = {
@@ -301,6 +302,9 @@ export function ChronicleDuelBoard({
   const foeKey: SideKey = meKey === "p1" ? "p2" : "p1";
   const me = state[meKey];
   const foe = state[foeKey];
+  // Duelists may arrive as lowercase slugs from the match server.
+  const meName = displayPlayerName(me.name);
+  const foeName = displayPlayerName(foe.name);
   const [handIndex, setHandIndex] = useState<number | null>(null);
   const handRailRef = useRef<HTMLDivElement>(null);
   const commandDockRef = useRef<HTMLDivElement>(null);
@@ -515,7 +519,7 @@ export function ChronicleDuelBoard({
       ? state.activePlayer === meKey && (state.missedTurns?.[meKey] ?? 0) > 0
         ? "You missed your last turn. Miss this one too and you forfeit."
         : state.activePlayer === foeKey && (state.missedTurns?.[foeKey] ?? 0) > 0
-          ? `${foe.name} missed their last turn. If they miss this one too, you win.`
+          ? `${foeName} missed their last turn. If they miss this one too, you win.`
           : null
       : null;
   const fieldStyle = state.activeField
@@ -545,9 +549,9 @@ export function ChronicleDuelBoard({
     availableAttackers === 0;
   const presentationEvents = state.events ?? EMPTY_PRESENTATION_EVENTS;
   const duelistNames = useMemo(() => ({
-    [meKey]: me.name,
-    [foeKey]: foe.name,
-  }) as Record<SideKey, string>, [meKey, foeKey, me.name, foe.name]);
+    [meKey]: meName,
+    [foeKey]: foeName,
+  }) as Record<SideKey, string>, [meKey, foeKey, meName, foeName]);
   const recentBeats = useMemo(() => chronicleBeats(presentationEvents, cardsById, duelistNames), [presentationEvents, cardsById, duelistNames]);
   const lastEffect = recentBeats.at(-1);
   const pendingTrigger = state.responseWindow ? presentationEvents.findLast(event => ["monster-summoned", "monster-flipped", "attack-declared", "magic-activated"].includes(event.kind)) : undefined;
@@ -794,14 +798,14 @@ export function ChronicleDuelBoard({
         ? {
             side: "me" as const,
             kind: meDelta < 0 ? ("damage" as const) : ("heal" as const),
-            name: me.name,
+            name: displayPlayerName(me.name),
             amount: Math.abs(meDelta),
           }
         : foeDelta !== 0
           ? {
               side: "foe" as const,
               kind: foeDelta < 0 ? ("damage" as const) : ("heal" as const),
-              name: foe.name,
+              name: displayPlayerName(foe.name),
               amount: Math.abs(foeDelta),
             }
           : null;
@@ -931,13 +935,13 @@ export function ChronicleDuelBoard({
       <header className="chronicle-duel-status">
         <div className="chronicle-combatant">
           <ChronicleDuelistAvatar
-            name={foe.name}
+            name={foeName}
             avatar={opponentAvatar}
             opponent
           />
           <div className="chronicle-combatant__identity">
             <span className="eyebrow">OPPONENT</span>
-            <strong>{foe.name}</strong>
+            <strong>{foeName}</strong>
             <div className="chronicle-combatant__health">
               <b>
                 <AnimatedNumber value={foe.lifePoints} /> <small>HP</small>
@@ -965,7 +969,7 @@ export function ChronicleDuelBoard({
           {missedTurnNotice ? <em role="status">{missedTurnNotice}</em> : null}
           {aiActing ? (
             <em className="chronicle-ai-acting" aria-live="polite">
-              {foe.name} is acting
+              {foeName} is acting
               <i />
               <i />
               <i />
@@ -1474,10 +1478,10 @@ export function ChronicleDuelBoard({
         </div>
         <div className="chronicle-player-bar">
           <div className="chronicle-combatant">
-          <ChronicleDuelistAvatar name={me.name} avatar={playerAvatar} />
+          <ChronicleDuelistAvatar name={meName} avatar={playerAvatar} />
           <div className="chronicle-combatant__identity">
             <span className="eyebrow">CHALLENGER</span>
-            <strong>{me.name}</strong>
+            <strong>{meName}</strong>
             <div className="chronicle-combatant__health">
               <b>
                 <AnimatedNumber value={me.lifePoints} /> <small>HP</small>
@@ -2046,9 +2050,9 @@ export function ChronicleDuelBoard({
           </b>
           <span>
             {outcome === "victory"
-              ? `${me.name} takes the duel`
+              ? `${meName} takes the duel`
               : outcome === "defeat"
-                ? `${foe.name} takes the duel`
+                ? `${foeName} takes the duel`
                 : "The Chronicle records a stalemate"}
           </span>
         </div>
@@ -2067,7 +2071,7 @@ export function ChronicleDuelBoard({
                 onClose={() => setGraveyardView(null)}
                 size="lg"
                 className="chronicle-graveyard-modal"
-                title={`${graveyardView === "me" ? "Your" : `${foe.name}'s`} Graveyard (${pile.length})`}
+                title={`${graveyardView === "me" ? "Your" : `${foeName}'s`} Graveyard (${pile.length})`}
               >
                 <p className="chronicle-graveyard-modal__hint">
                   {picking

@@ -1,3 +1,4 @@
+import { displayPlayerName } from "../../../shared/player-name";
 import { useEffect, useState } from "react";
 import type { Screen } from "../types/core";
 import type { AnnouncementView } from "../lib/legacy";
@@ -52,7 +53,7 @@ export function WorldCrisisNewsReport({ announcement, setScreen, frames, variant
                 <div className="crisis-cinematic__villages" aria-hidden="true">{[stormveilArt, ashenLeafArt, frostfangArt, moonshadowArt].map((art, index) => <span key={art} style={{ backgroundImage: `url(${art})`, animationDelay: `${index * 90}ms` }} />)}</div>
                 <div className="crisis-cinematic__veil" aria-hidden="true"><i /><i /><i /><i /></div>
                 <button type="button" className="crisis-cinematic__close" onClick={() => setOpen(false)} aria-label="Close report">×</button>
-                <div className="crisis-cinematic__reporter"><span>{reporterHeading}</span><b>{announcement.player ? `${playerPrefix}: ${announcement.player}` : reporterFallback}</b></div>
+                <div className="crisis-cinematic__reporter"><span>{reporterHeading}</span><b>{announcement.player ? `${playerPrefix}: ${displayPlayerName(announcement.player)}` : reporterFallback}</b></div>
                 <div className="crisis-cinematic__copy"><small>{current.kicker}</small><h2>{current.title}</h2><p>{current.body}</p></div>
                 <div className="crisis-cinematic__controls">
                     <div className="crisis-cinematic__steps" aria-label={`Report scene ${frame + 1} of ${frames.length}`}>{frames.map((entry, index) => <button key={entry.title} type="button" className={index === frame ? "is-active" : ""} onClick={() => setFrame(index)} aria-label={`Scene ${index + 1}: ${entry.title}`} />)}</div>
