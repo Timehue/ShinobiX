@@ -31,4 +31,6 @@
     <string name="play_reward_sku_dawn" translatable="false">sj_reward_title_dawn</string>
     <string name="play_reward_sku_ember" translatable="false">sj_reward_title_ember</string>
     <string name="play_reward_sku_ryo_cache_small" translatable="false">sj_reward_ryo_cache_small</string>
+    <!-- Pre-registration reward: Play delivers it as a free purchase on first install. -->
+    <string name="play_reward_sku_prereg_first_box" translatable="false">sj_prereg_first_shinobi_box</string>
 </resources>
