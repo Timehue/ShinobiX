@@ -59,7 +59,7 @@ export function standardPvePlannerApplies(input: {
 
 export type EnemyTurnPolicy = {
     band: PveBand;
-    tier: 'novice' | 'trained' | 'tactical' | 'advanced' | 'master';
+    tier: 'novice' | 'trained' | 'tactical' | 'advanced' | 'master' | 'apex';
     /**
      * Keep the original end-of-turn rule (stop once fewer than 30 AP remain).
      * Easy enemies stay readable: they never chain a 20-AP follow-up.
@@ -78,8 +78,8 @@ export type EnemyTurnPolicy = {
  * Tactical progression is separate from the unchanged damage/onboarding guards.
  * 1-15: readable original choices; 16-35: shallow two-action combinations;
  * 36-60: two-action combinations; 61-85: positioning and survival; 86-100:
- * bounded whole-turn planning. A sealed masterAi (including final story Kage)
- * always gets the highest chooser, with exactly the same combat rules.
+ * bounded whole-turn planning. A sealed masterAi gets master planning; the
+ * final-story seal below adds the widest search with the same combat rules.
  */
 export function enemyTurnPolicy(level: number, masterAi = false): EnemyTurnPolicy {
     const band = pveAiCompetence(level, masterAi).band;
@@ -88,6 +88,19 @@ export function enemyTurnPolicy(level: number, masterAi = false): EnemyTurnPolic
     if (level >= 36) return { band, tier: 'tactical', legacyTurnEnd: false, lookahead: 2, firstActionBeam: 4, maxSimulations: 64, considersSurvival: false };
     if (level >= 16) return { band, tier: 'trained', legacyTurnEnd: false, lookahead: 2, firstActionBeam: 2, maxSimulations: 40, considersSurvival: false };
     return { band, tier: 'novice', legacyTurnEnd: true, lookahead: 1, firstActionBeam: 1, maxSimulations: 24, considersSurvival: false };
+}
+
+/** Only the authoritative final story seal gets the widest legal chooser.
+ * Other masters, ordinary encounters and reused raid-guard catalog identities
+ * retain their existing budget. Rollback selection still happens in the host.
+ */
+export function enemyTurnPolicyForEncounter(input: {
+    level: number; masterAi: boolean; kind: string; difficulty: unknown;
+}): EnemyTurnPolicy {
+    const policy = enemyTurnPolicy(input.level, input.masterAi);
+    return input.kind === 'story-boss' && input.difficulty === 'final-kage' && input.masterAi
+        ? { ...policy, tier: 'apex', lookahead: 5, firstActionBeam: 8, maxSimulations: 192, considersSurvival: true }
+        : policy;
 }
 
 /** A stable, total order over actions, for deterministic tie-breaks. */

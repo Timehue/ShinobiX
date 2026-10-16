@@ -10,8 +10,8 @@ import { hexNeighbors } from '../combat-core/grid.js';
 import { JUTSU_CATALOG } from '../pvp/_jutsu-catalog.js';
 import { raidVillageGuardOpponentId } from '../missions/_generic-ai-fight-authority.js';
 import { buildSoloPveAiEncounter } from '../solo-pve/_ai-encounter.js';
-import { enemyTurnPolicy, STANDARD_PVE_AI_POLICY } from '../solo-pve/_ai-turn-policy.js';
-import { applySoloPveAction } from '../solo-pve/_engine.js';
+import { enemyTurnPolicy, enemyTurnPolicyForEncounter, STANDARD_PVE_AI_POLICY } from '../solo-pve/_ai-turn-policy.js';
+import { applySoloPveAction, planStandardPveEnemyActionForTest } from '../solo-pve/_engine.js';
 import type { SoloPveJutsu, SoloPveSession } from '../solo-pve/_session.js';
 import { applyStoryBossSettlement, LIBERATOR_TITLES, STORY_LEVELS, STORY_REWARDS, storyOpponentId } from './_settle.js';
 import {
@@ -45,7 +45,7 @@ function encounter(village: string, runId = 'final-kage-run', env: NodeJS.Proces
 test('all four story finales seal the highest legal policy, mastery and player catalog kit without HP inflation', () => {
     const originalCatalog = structuredClone(JUTSU_CATALOG);
     const legalMastery = Math.min(JUTSU_MAX_LEVEL, jutsuLevelCapForLevel(100));
-    const highest = enemyTurnPolicy(100, true);
+    const highest = enemyTurnPolicyForEncounter({ level: 100, masterAi: true, kind: 'story-boss', difficulty: 'final-kage' });
     for (const [village, authored] of Object.entries(STORY_KAGE_ENCOUNTERS)) {
         const template = storyBossEnemyTemplate({ village, progressIndex: FINAL_INDEX });
         const session = encounter(village);
@@ -59,7 +59,8 @@ test('all four story finales seal the highest legal policy, mastery and player c
         assert.match(String(session.enemy.character.pveDifficultyLabel), /Final Kage/);
         assert.ok(String(session.enemy.character.tacticalTell).includes(authored.tell));
         assert.equal(session.enemy.character.aiTurnPolicy, STANDARD_PVE_AI_POLICY);
-        assert.deepEqual(enemyTurnPolicy(Number(session.enemy.character.level), session.enemy.character.masterAi === true), highest);
+        assert.deepEqual(enemyTurnPolicyForEncounter({ level: Number(session.enemy.character.level), masterAi: session.enemy.character.masterAi === true,
+            kind: session.encounter.kind, difficulty: session.enemy.character.pveDifficulty }), highest);
         for (const level of [10, 25, 50, 75, 100]) {
             assert.ok(highest.lookahead >= enemyTurnPolicy(level).lookahead);
             assert.ok(highest.firstActionBeam >= enemyTurnPolicy(level).firstActionBeam);
@@ -83,8 +84,24 @@ test('all four story finales seal the highest legal policy, mastery and player c
         }
         assert.deepEqual(session.enemy.character.jutsuMastery,
             kit.map((move) => ({ jutsuId: move.id, level: legalMastery })));
+        const beforePreview = structuredClone(session);
+        const planned = planStandardPveEnemyActionForTest(session, highest);
+        assert.ok(planned.simulations <= 192, 'apex previews obey a deterministic work budget');
+        assert.deepEqual(session, beforePreview, 'planning never changes the sealed combat state');
     }
     assert.deepEqual(JUTSU_CATALOG, originalCatalog, 'sealing effective costs never rewrites the shared player catalog');
+});
+
+test('apex chooser requires every final-story seal and preserves ordinary and protected master budgets', () => {
+    const final = { level: 100, masterAi: true, kind: 'story-boss', difficulty: 'final-kage' };
+    assert.deepEqual(enemyTurnPolicyForEncounter(final), { ...enemyTurnPolicy(100, true), tier: 'apex', firstActionBeam: 8, maxSimulations: 192 });
+    for (const kind of ['generic-ai', 'world-ai', 'mission', 'village-war-garrison', 'weekly-boss', 'pvp']) {
+        assert.deepEqual(enemyTurnPolicyForEncounter({ ...final, kind }), enemyTurnPolicy(100, true));
+    }
+    for (const difficulty of ['elite', 'standard', undefined]) {
+        assert.deepEqual(enemyTurnPolicyForEncounter({ ...final, difficulty }), enemyTurnPolicy(100, true));
+    }
+    assert.deepEqual(enemyTurnPolicyForEncounter({ ...final, masterAi: false }), enemyTurnPolicy(100));
 });
 
 test('raid guards reused from the legacy catalog do not inherit the authored final story overhaul', () => {
