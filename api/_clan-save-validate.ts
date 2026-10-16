@@ -39,7 +39,59 @@ type ClanBlob = {
 type ClanContext = {
     callerName: string;          // lowercase, or '' for admin
     isAdmin: boolean;
+    /** The caller's STORED character — the server-clamped source of their own roster row's numbers. */
+    callerCharacter?: Record<string, unknown> | null;
 };
+
+// Roster numbers clan missions are paid from (api/clan/_mission-catalog.ts).
+// A player may only refresh their OWN row, and only from their server-clamped
+// character counters; every other row keeps its stored numbers.
+const MEMBER_COUNTER_FIELDS = [
+    ['battleContrib', 'clanBattleContrib'],
+    ['eventContrib', 'clanEventContrib'],
+    ['missionContrib', 'clanMissionContrib'],
+] as const;
+
+function pinMemberCounters(
+    incomingMembers: Record<string, unknown>[],
+    prevByName: Map<string, unknown>,
+    callerName: string,
+    callerCharacter: Record<string, unknown> | null | undefined,
+): Record<string, unknown>[] {
+    const month = new Date().toISOString().slice(0, 7);
+    return incomingMembers.map((raw) => {
+        if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return raw;
+        const member: Record<string, unknown> = { ...raw };
+        const key = lower(member.name);
+        const stored = prevByName.get(key) as Record<string, unknown> | undefined;
+        const storedSameMonth = !!stored && stored.month === month;
+        const own = !!key && key === callerName && !!callerCharacter;
+        const has = (row: Record<string, unknown> | undefined, field: string) => !!row && Object.prototype.hasOwnProperty.call(row, field);
+        for (const [rowField, charField] of MEMBER_COUNTER_FIELDS) {
+            // Only rows that carry a counter are rewritten; a row without one
+            // stays without one (clan missions read a missing counter as 0).
+            if (!has(member, rowField) && !has(stored, rowField)) continue;
+            if (own) {
+                // Server writers (ANBU raids) credit the row directly, so keep
+                // the larger of this month's stored value and the character's.
+                const storedValue = storedSameMonth ? Math.max(0, Number(stored![rowField]) || 0) : 0;
+                const charValue = callerCharacter!.clanContribMonth === month ? Math.max(0, Number(callerCharacter![charField]) || 0) : 0;
+                member[rowField] = Math.max(storedValue, charValue);
+            } else {
+                member[rowField] = has(stored, rowField) ? Math.max(0, Number(stored![rowField]) || 0) : 0;
+            }
+        }
+        if (own) {
+            if (has(member, 'level') || has(stored, 'level')) member.level = Math.max(0, Number(callerCharacter!.level) || 0);
+            if (has(member, 'month') || has(stored, 'month')) member.month = month;
+        } else {
+            if (has(stored, 'level')) member.level = stored!.level;
+            else delete member.level;
+            if (has(stored, 'month')) member.month = stored!.month;
+        }
+        return member;
+    });
+}
 
 // provisions = the clan mirror of Village Stores rations (ration-pack donations
 // via /api/clan/treasury/donate; burned by the daily clan-war pass).
@@ -107,6 +159,20 @@ export function validateClanSaveWrite(
     const suppressed: string[] = [];
     const prev: ClanBlob = existing ?? {};
     const next: ClanBlob = { ...prev, ...incoming };
+    // Each guarded block below only runs when its field arrives with the
+    // expected shape, so `treasury: null` (or `members: "x"`) used to skip
+    // the guard and overwrite the stored value — a null treasury wiped the
+    // clan's pool. A wrongly-typed field keeps its stored value instead.
+    for (const [field, isArray] of [['members', true], ['warHistory', true], ['treasury', false], ['joinRequests', true], ['notices', true]] as const) {
+        if (!Object.prototype.hasOwnProperty.call(incoming, field)) continue;
+        const value = incoming[field];
+        const shaped = isArray ? Array.isArray(value) : !!value && typeof value === 'object' && !Array.isArray(value);
+        if (shaped) continue;
+        const nextRecord = next as Record<string, unknown>;
+        if (prev[field] !== undefined) nextRecord[field] = prev[field];
+        else delete nextRecord[field];
+        suppressed.push(`${field}: wrong type`);
+    }
     // Server-owned journals: recovery trusts these as proof that the XP grant
     // or treasury debit was co-written. A client clan save cannot forge, clear,
     // or replace that evidence, including on the first write.
@@ -232,10 +298,12 @@ export function validateClanSaveWrite(
                 if (illegalAdds.length > 0) suppressed.push(`members illegal add: ${illegalAdds.join(',')}`);
                 if (illegalRemoves.length > 0) suppressed.push(`members illegal remove: ${illegalRemoves.join(',')}`);
             } else {
-                next.members = incomingMembers;
+                next.members = pinMemberCounters(incomingMembers, prevByName, ctx.callerName, ctx.callerCharacter);
             }
         } else {
-            next.members = incomingMembers;
+            // An authenticated admin edits rosters by hand (corrections); only
+            // player writes are held to the server counters.
+            next.members = ctx.isAdmin ? incomingMembers : pinMemberCounters(incomingMembers, prevByName, ctx.callerName, ctx.callerCharacter);
         }
     } else if (Object.prototype.hasOwnProperty.call(incoming, 'members')) {
         next.members = prev.members;

@@ -281,10 +281,13 @@ export function applyWeeklyBossRunDamageReceipt(
         return { boss, damage: Math.max(0, Math.floor(Number(prior))), replayed: true };
     }
     const logged = Math.max(0, Math.floor(Number(damage) || 0));
-    const damageByPlayer = {
-        ...boss.damageByPlayer,
-        [playerName]: (boss.damageByPlayer[playerName] ?? 0) + logged,
-    };
+    // A run that dealt no damage is banked (its receipt below makes it
+    // final) but does not make the player a contributor: contributor entries
+    // are what the weekly payout pays, so a 0-damage run used to earn the
+    // participation share (owner ruling 2026-10-15).
+    const damageByPlayer = logged > 0 || boss.damageByPlayer[playerName] !== undefined
+        ? { ...boss.damageByPlayer, [playerName]: (boss.damageByPlayer[playerName] ?? 0) + logged }
+        : boss.damageByPlayer;
     return {
         boss: {
             ...boss,
@@ -524,7 +527,10 @@ async function distributeRewardsIfExpired(boss: WeeklyBossState): Promise<Weekly
             return;
         }
 
+        // Only players who dealt damage are contributors (older spawns can
+        // still hold 0-damage entries from before that rule).
         const entries = Object.entries(fresh.damageByPlayer)
+            .filter(([, dmg]) => Number(dmg) > 0)
             .sort(([, a], [, b]) => (b as number) - (a as number));
         const totalDmg = entries.reduce((sum, [, dmg]) => sum + (dmg as number), 0) || 1;
         const baseRyo = Math.floor(fresh.hpMax * 0.5);

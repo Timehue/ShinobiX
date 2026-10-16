@@ -36,6 +36,32 @@ export function endlessActiveWaveKey(playerName: string, runToken: string): stri
     return `endless-wave-active:${playerName}:${runToken}`;
 }
 
+/**
+ * The last wave sealed for a run, kept far longer than the wave's own 45-minute
+ * keys. A win advances `run.wave` and a loss ends the run, so a marker whose
+ * wave still equals `run.wave` is a sealed wave that was never settled. Without
+ * it, a player could lose a wave, skip `settle`, and cash out the whole bank
+ * (or wait out the 45 minutes and re-seal the same wave).
+ */
+export function endlessSealedWaveKey(playerName: string, runToken: string): string {
+    return `endless-wave-sealed:${playerName}:${runToken}`;
+}
+export const ENDLESS_SEALED_WAVE_TTL_SECONDS = 30 * 24 * 60 * 60;
+export type EndlessSealedWave = { runId: string; wave: number };
+
+/** What an unsettled sealed wave means for the run right now. */
+export function unsettledWaveVerdict(
+    sealed: EndlessSealedWave | null | undefined,
+    runWave: number,
+    session: { status?: unknown; outcome?: unknown } | null | undefined,
+): 'none' | 'in-progress' | 'won-unsettled' | 'lost' {
+    if (!sealed?.runId || Math.floor(Number(sealed.wave)) !== runWave) return 'none';
+    if (session && session.status !== 'done') return 'in-progress';
+    if (session && session.outcome === 'win') return 'won-unsettled';
+    // A loss, a flee, a draw, or a wave whose session has expired unsettled.
+    return 'lost';
+}
+
 export function endlessWaveRunId(): string {
     return `endlesswave-${randomUUID().replace(/-/g, '')}`;
 }

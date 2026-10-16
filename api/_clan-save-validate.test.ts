@@ -329,3 +329,53 @@ describe('validateClanSaveWrite — clan xp/level lockdown (server-credited only
         assert.equal(suppressed.some((s) => s.includes('via save blob blocked')), false);
     });
 });
+
+describe('validateClanSaveWrite — wrong-type fields and roster counters (2026-10-15)', () => {
+    it('a null treasury, notices or members keeps the stored value instead of wiping it', () => {
+        const prev = { ...clanWith([{ itemId: 'kunai', count: 3 }], { ryo: 5_000, mythicSeals: 2 }), notices: [{ text: 'hi' }], members: [{ name: 'Akira' }] };
+        for (const field of ['treasury', 'notices', 'members']) {
+            const { next, suppressed } = validateClanSaveWrite(prev, { ...prev, [field]: field === 'members' ? 'x' : null }, member);
+            assert.deepEqual((next as Record<string, unknown>)[field], (prev as Record<string, unknown>)[field], field);
+            assert.ok(suppressed.some((s) => s.startsWith(`${field}: wrong type`)), field);
+        }
+    });
+
+    const month = new Date().toISOString().slice(0, 7);
+    const roster = { name: 'Storm', founderName: 'Kaze', members: [
+        { name: 'Akira', battleContrib: 2, eventContrib: 1, missionContrib: 0, level: 20, month },
+        { name: 'Kaze', battleContrib: 5, eventContrib: 3, missionContrib: 1, level: 60, month },
+    ] };
+    const forged = (rows: Array<Record<string, unknown>>) => ({ ...roster, members: rows });
+
+    it("a member cannot raise another member's counters, nor their own past the server character", () => {
+        const callerCharacter = { level: 22, clanBattleContrib: 4, clanEventContrib: 1, clanMissionContrib: 0, clanContribMonth: month };
+        const { next } = validateClanSaveWrite(roster, forged([
+            { name: 'Akira', battleContrib: 999, eventContrib: 999, missionContrib: 999, level: 99, month },
+            { name: 'Kaze', battleContrib: 999, eventContrib: 999, missionContrib: 999, level: 99, month },
+        ]), { ...member, callerCharacter });
+        const rows = next.members as Array<Record<string, unknown>>;
+        assert.deepEqual(rows[0], { name: 'Akira', battleContrib: 4, eventContrib: 1, missionContrib: 0, level: 22, month }, 'own row = the server counters');
+        assert.deepEqual(rows[1], roster.members[1], "another member's row keeps its stored numbers");
+    });
+
+    it('keeps a server-credited row value above the character counter (ANBU raids credit the row)', () => {
+        const callerCharacter = { level: 20, clanBattleContrib: 0, clanEventContrib: 0, clanMissionContrib: 0, clanContribMonth: month };
+        const { next } = validateClanSaveWrite(roster, roster, { ...member, callerCharacter });
+        assert.equal((next.members as Array<Record<string, unknown>>)[0].eventContrib, 1);
+    });
+
+    it('a newly added row starts its counters at 0', () => {
+        const { next } = validateClanSaveWrite(roster, forged([...roster.members, { name: 'Newbie', battleContrib: 999, level: 99 }]),
+            { callerName: 'kaze', isAdmin: false });
+        const added = (next.members as Array<Record<string, unknown>>).find((row) => row.name === 'Newbie');
+        assert.ok(added, 'the founder may add a member');
+        assert.equal(added.battleContrib, 0);
+        assert.equal(added.level, undefined);
+    });
+
+    it('an authenticated admin may still correct roster numbers by hand', () => {
+        const edited = forged([{ ...roster.members[0], battleContrib: 7 }, roster.members[1]]);
+        const { next } = validateClanSaveWrite(roster, edited, admin);
+        assert.equal((next.members as Array<Record<string, unknown>>)[0].battleContrib, 7);
+    });
+});

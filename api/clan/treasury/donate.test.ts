@@ -207,3 +207,37 @@ test('non-members, forged identities, reused ids and short balances move nothing
     assert.equal((await clan()).treasury.ryo, 1_000);
     assert.equal((await kv.get<{ character: { ryo: number } }>(`save:${OUTSIDER}`))?.character.ryo, 100_000);
 });
+
+// Clan XP from non-ryo donations is capped per donor per UTC day (2,000), so
+// donating one Mythic Seal and having an officer gift it straight back cannot
+// loop clan XP. Ryo stays uncapped: its gifts are taxed.
+async function clanXpTotal(): Promise<number> {
+    const { clanXpNeededServer } = await import('../_mission-catalog.js');
+    const { xp, level } = await clan();
+    let total = xp;
+    for (let l = 1; l < level; l += 1) total += clanXpNeededServer(l);
+    return total;
+}
+
+test('non-ryo donation clan XP stops at the daily cap, while the donation itself still lands', async () => {
+    await kv.set(`save:${DONOR}`, { _saveVersion: 1, character: { name: DONOR, clan: 'Mist', level: 40, ryo: 0, mythicSeals: 20, inventory: [] } });
+    for (let i = 0; i < 11; i += 1) {
+        resetRateLimits();
+        const out = await call({ currency: 'mythicSeals', amount: 1, requestId: `clan-donate-xpcap-${String(i).padStart(6, '0')}` });
+        assert.equal(out.statusCode, 200, JSON.stringify(out.body));
+    }
+    assert.equal(await clanXpTotal(), 2_000, 'ten paying donations; the eleventh grants no XP');
+    assert.equal((await clan()).treasury.mythicSeals, 11, 'every seal still reached the treasury');
+    assert.equal((await donor()).mythicSeals, 9);
+});
+
+test('parallel non-ryo donations cannot read the same counter and overshoot the cap', async () => {
+    await kv.set(`save:${DONOR}`, { _saveVersion: 1, character: { name: DONOR, clan: 'Mist', level: 40, ryo: 0, mythicSeals: 40, inventory: [] } });
+    const burst = await Promise.all(Array.from({ length: 12 }, (_, i) =>
+        call({ currency: 'mythicSeals', amount: 1, requestId: `clan-donate-burst-${String(i).padStart(6, '0')}` })));
+    const landed = burst.filter((out) => out.statusCode === 200).length;
+    assert.ok(landed >= 1, JSON.stringify(burst.map((out) => out.statusCode)));
+    for (const out of burst) assert.ok(out.statusCode === 200 || out.statusCode === 503, `unexpected ${out.statusCode}: ${JSON.stringify(out.body)}`);
+    assert.ok(await clanXpTotal() <= 2_000, `clan XP ${await clanXpTotal()} overshot the 2,000 cap`);
+    assert.equal(await clanXpTotal(), Math.min(landed, 10) * 200, 'each landed donation granted its share, up to the cap');
+});

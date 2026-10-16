@@ -615,7 +615,7 @@
           },
           {
             "type": "p",
-            "text": "At level 90, you can forge named weapons and armor. Each item costs exactly 200 Fate Shards, paid when you forge the revealed roll. Named gear accepts Fate Shards only. Inspect the stats in the roll pop-out, then continue to name and forge your item."
+            "text": "At level 90, you can forge named weapons and armor. Name your piece first, then roll. Every roll costs 200 Fate Shards plus apex materials: Pristine Iron Sand, Legendary Material, an Ancient Beast Core, a Titan Bone for a weapon or Shadow Pelts for armor, Superior elemental minerals, and one relic. The price is paid when you roll, and every roll is yours to keep, so there is no discard or free re-roll. Named gear accepts Fate Shards only for its shard cost. The Crafter lists the full price and what you hold."
           },
           {
             "type": "p",

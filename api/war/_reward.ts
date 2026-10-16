@@ -194,13 +194,23 @@ export function settleClanWarRewards(
     let warsWon = 0;
     let mvpCount = 0;
 
-    if (war.winnerClan === clan && war.warCrateId && !claimed.has(war.warCrateId)) {
+    // The winner's crate is for members who FOUGHT for the winning clan — the
+    // rule /api/village/claim-war-crate already enforces (warCrateClaimDecision)
+    // and the village branch above follows. Without it, a member who sat the
+    // war out, or anyone who joined the winning clan after it ended, got a
+    // Legendary War Crate here. Campaign wars carry a per-player ledger;
+    // legacy (admin-made) wars fall back to dealt damage or the clan's MVP.
+    const clanSlug = clan.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const campaignEntry = war.campaign?.contributions?.[safeName(playerName)];
+    const foughtForWinningClan = war.campaign
+        ? !!campaignEntry && campaignEntry.clan === clan && Number(campaignEntry.played) > 0
+        : clanDamageFor(war, clan, playerName) > 0 || sameName(war.mvpByClan?.[clan], playerName);
+    if (war.winnerClan === clan && war.warCrateId && !claimed.has(war.warCrateId) && foughtForWinningClan) {
         markers.push(war.warCrateId);
         crates += 1;
         warsWon += 1;
     }
 
-    const clanSlug = clan.toLowerCase().replace(/[^a-z0-9]/g, '');
     const mvpId = `clan-war-mvp-${war.id}-${clanSlug}`;
     if (sameName(war.mvpByClan?.[clan], playerName) && !claimed.has(mvpId)) {
         markers.push(mvpId);
