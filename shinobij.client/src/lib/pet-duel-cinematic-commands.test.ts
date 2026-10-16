@@ -1,4 +1,8 @@
-// Tests for the player-controlled coliseum duel (docs/pet-coliseum-player-control-plan.md).
+// Tests for the commanded (create/step) path of the cinematic duel engine
+// (docs/pet-coliseum-player-control-plan.md). The player-controlled coliseum
+// controller that drove it in the browser (pet-duel-live.ts) was retired with the
+// coliseum renderer; the engine path stays because api/pet/_duel-replay.ts replays
+// sealed input logs through the generated server mirror of this module.
 //
 // The load-bearing invariant is the FIRST test: stepping the sim tick-by-tick with
 // no commands must reproduce runPetDuelCinematic byte for byte. That is what proves
@@ -13,7 +17,6 @@ import {
     stepCinematicDuel, finishCinematicDuel, applyDuelCommand, readDuelControl,
     checkpointCinematicDuel, restoreCinematicDuel, DUEL_COMMAND_FULL,
 } from "./pet-duel-cinematic";
-import { createLiveDuel, createLivePartyDuel, commandedActorId } from "./pet-duel-live";
 import { bondCharge, bondReady, BOND_FULL } from "./pet-bond-meter";
 import { DUEL_TPS, type DuelEvent } from "./pet-duel-sim";
 
@@ -261,31 +264,6 @@ test("the enemy pet never accepts commands", () => {
     assert.equal(applyDuelCommand(sim, { kind: "break", actorId: "enemy-0" }), false);
 });
 
-test("the live controller keeps the sim ahead of playback and never shows the buffer", () => {
-    const duel = createLiveDuel(pet("P", "Fire"), pet("Q", "Water"), 23, 1, 1, false, true, true, null);
-    const view = duel.advance(0);
-    assert.ok(view.snapshots.length >= 1, "playback tick 0 must have something to draw");
-    // Everything visible is settled: the look-ahead the presentation layer needs
-    // has already been simulated, but is deliberately not exposed.
-    assert.ok(view.events.every((e) => e.t <= view.snapshots.length - 1), "no event may reference an unshown tick");
-    const later = duel.advance(60);
-    assert.ok(later.snapshots.length > view.snapshots.length, "advancing playback must reveal more of the fight");
-});
-
-test("a command issued at the playback head takes effect without waiting out the buffer", () => {
-    const duel = createLiveDuel(pet("P", "Fire"), pet("Q", "Water"), 29, 1, 1, false, true, true, null);
-    const playbackTick = DUEL_TPS * 2;
-    const before = duel.advance(playbackTick);
-    const seenBefore = before.snapshots.length;
-    duel.command({ kind: "ability", actorId: "player-0", idx: 1 });
-    const after = duel.advance(playbackTick);
-    // The already-seen prefix is untouched — a rewind must never rewrite history.
-    for (let t = 0; t <= playbackTick && t < seenBefore; t++) {
-        assert.deepEqual(after.snapshots[t], before.snapshots[t], `tick ${t} changed under the player`);
-    }
-    assert.ok(after.snapshots.length >= seenBefore - 1, "the buffer should refill after a rewind");
-});
-
 test("the bond meter fills on the player's work and resets when it is spent", () => {
     const events: DuelEvent[] = [
         { t: 5, type: "hit", side: "player", actorId: "player-0", targetId: "enemy-0", dmg: 40 },
@@ -331,28 +309,27 @@ function replayInputLog(
 test("replaying the input log reproduces the commanded duel exactly", () => {
     for (const seed of [3, 11, 23, 42]) {
         const make = () => createLiveCinematicDuel(pet("P", "Fire"), pet("Q", "Water"), seed, 1, 1, false, true, true, null, false);
-        const live = createLiveDuel(pet("P", "Fire"), pet("Q", "Water"), seed, 1, 1, false, true, true, null);
 
-        // Drive real playback and issue orders through the rewind path, which is
-        // what makes the recorded ticks non-trivial: each command lands on
-        // playbackTick + 1, not on the sim's leading edge.
-        let tick = 0;
-        for (let guard = 0; guard < DUEL_TPS * 200 && !live.finishedAt(tick); guard++) {
-            live.advance(tick);
-            if (!live.settled) {
-                if (tick % 17 === 0) live.command({ kind: "ability", actorId: "player-0", idx: (tick / 17) % 4 });
-                if (tick % 43 === 0) live.command({ kind: "stance", actorId: "player-0", stance: (tick / 43) % 3 });
-            }
-            tick++;
+        // Play the fight once, issuing orders on the tick they land and recording
+        // every accepted one exactly as a client would post it.
+        const sim = make();
+        const log: { t: number; cmd: Parameters<typeof applyDuelCommand>[1] }[] = [];
+        const order = (cmd: Parameters<typeof applyDuelCommand>[1]) => {
+            if (applyDuelCommand(sim, cmd)) log.push({ t: sim.t, cmd });
+        };
+        for (let guard = 0; guard < DUEL_TPS * 200; guard++) {
+            if (sim.t % 17 === 0) order({ kind: "ability", actorId: "player-0", idx: (sim.t / 17) % 4 });
+            if (sim.t % 43 === 0) order({ kind: "stance", actorId: "player-0", stance: (sim.t / 43) % 3 });
+            if (!stepCinematicDuel(sim)) break;
         }
+        const played = finishCinematicDuel(sim);
 
-        const log = live.inputLog();
         assert.ok(log.length > 0, `seed ${seed} issued no commands — the test would prove nothing`);
         // Ticks must be non-decreasing, or the server's parser rejects the log.
         for (let i = 1; i < log.length; i++) {
             assert.ok(log[i].t >= log[i - 1].t, `seed ${seed} logged an out-of-order tick`);
         }
-        assert.deepEqual(replayInputLog(make, log), live.outcome(), `seed ${seed} replay diverged from the played fight`);
+        assert.deepEqual(replayInputLog(make, log), played, `seed ${seed} replay diverged from the played fight`);
     }
 });
 
@@ -471,43 +448,4 @@ test("a clash call survives the rewind, so the server replay agrees with the scr
     const played = finishCinematicDuel(sim);
     assert.deepEqual(replayInputLog(make, [{ t: at, cmd: { kind: "clash", actorId: "player-0", pick: 1 } }]), played,
         "replaying the logged clash call must reproduce the played fight exactly");
-});
-
-// ── The commanded-seat contract ───────────────────────────────────────────────
-//
-// PetColiseum.tsx reads its deck, Bond meter and clash prompt for ONE actor id,
-// which it gets from commandedActorId(). It used to hard-code "player-0", and
-// because the engine seats the challenger as "player", a live-PvP p2 client was
-// asking for a fighter it does not command — so it got no deck at all.
-//
-// The component itself is an r3f canvas and cannot be rendered headlessly, so the
-// guard lives here instead: these pin the contract the helper rests on, for every
-// shape of duel the app can construct.
-
-test("commandedActorId returns the fighter the engine actually takes orders for", () => {
-    // PvE — must still be exactly the old hard-coded constant, or this refactor
-    // silently changed single-player.
-    const solo = createLiveDuel(pet("P", "Fire"), pet("Q", "Water"), 5);
-    assert.equal(commandedActorId(solo), "player-0");
-    const party = createLivePartyDuel(pet("P", "Fire"), pet("R", "Earth"), pet("Q", "Water"), pet("S", "Wind"), 5);
-    assert.equal(commandedActorId(party), "player-0");
-    const partySolo = createLivePartyDuel(pet("P", "Fire"), null, pet("Q", "Water"), null, 5);
-    assert.equal(commandedActorId(partySolo), "player-0");
-    // A watch-only replay has no live session at all; the deck is not rendered, but
-    // the helper must not throw on the way to that decision.
-    assert.equal(commandedActorId(null), "player-0");
-    assert.equal(commandedActorId(undefined), "player-0");
-});
-
-test("the commanded seat is the one the deck can actually read and command", () => {
-    // The real invariant behind the p2 bug: whatever id commandedActorId hands the
-    // HUD, controlAt must answer for it (otherwise the deck renders nothing) and the
-    // engine must accept a command for it.
-    const duel = createLiveDuel(pet("P", "Fire"), pet("Q", "Water"), 5);
-    duel.advance(DUEL_TPS);
-    const me = commandedActorId(duel);
-    assert.ok(duel.controlAt(2, me), `controlAt must answer for the commanded seat (${me})`);
-    // …and it must NOT answer for the opposing pet, which is what made the old
-    // hard-coded id fail silently instead of loudly.
-    assert.equal(duel.controlAt(2, "enemy-0"), null, "the opposing pet is not commandable from this seat");
 });

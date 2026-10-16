@@ -9,7 +9,6 @@
  * client's claim is ignored (online-store.ts).
  *
  * Evidence, in the order it is consulted (cheapest first):
- *   - a pet duel, running or pending with this side committed: in-process registry, free;
  *   - `battle-lock:<slug>`: a Tower lease (refreshed per action, released at
  *     terminal) or the legacy marker the regeneration exclusion already honours;
  *   - `battle-state:<slug>`: the projection a fight host writes at start
@@ -49,7 +48,6 @@ import { hollowGateRunKey } from '../hollow-gate/_run-token.js';
 import { parsePvpPendingSessionPointer, pvpPendingSessionKey } from '../pvp/_pending-session.js';
 import type { PvpSession } from '../pvp/session.js';
 import { isPvpSessionLapsed } from '../pvp/_lapse-rules.js';
-import { sessionForPlayer as petDuelSessionForPlayer } from './pet-duel-session.js';
 import { cardDuelEngages, type CardDuelSessionShape } from '../card-clash/_presence.js';
 import {
     battleStateKey,
@@ -85,35 +83,10 @@ export type BattleEvidence = {
     petBattleActive: unknown;
 };
 
-/** The slice of a pet-duel registry entry the resolver reads. */
-export type PetDuelPresence = {
-    status: string;
-    p1?: { name: string; ready: boolean };
-    p2?: { name: string; ready: boolean };
-};
-
 export type BattleAuthorityDeps = {
     kv?: Pick<KvLike, 'get'>;
     now?: () => number;
-    petDuelFor?: (slug: string) => PetDuelPresence | null;
 };
-
-/**
- * A two-player pet duel engages a fighter while it RUNS, and while it is
- * still PENDING once that fighter has committed: the challenger from the
- * moment the invite goes out, the target from the moment they accept (the
- * socket marks each side `ready` at exactly those points, and the session
- * runs once both are). A target who has not answered is not in a fight and
- * stays attackable; an invite that lapses unanswered is swept out of the
- * registry within its 30-second window, and the flag follows on the next beat.
- */
-export function petDuelEngages(duel: PetDuelPresence | null | undefined, slug: string): boolean {
-    if (!duel) return false;
-    if (duel.status === 'running') return true;
-    if (duel.status !== 'pending') return false;
-    const side = [duel.p1, duel.p2].find((p) => p && safeName(p.name) === slug);
-    return side?.ready === true;
-}
 
 /** The KV keys whose values corroborate a fight, for the heartbeat's mget. */
 export function battleAuthorityKeys(playerName: string): [string, string, string, string, string] {
@@ -166,11 +139,6 @@ export async function resolveBattleAuthority(
     const now = deps.now?.() ?? Date.now();
     const store = deps.kv ?? realKv;
     if (!slug) return { inBattle: false, source: null };
-
-    // A pet duel is server state in this very process: running, or pending
-    // with this side committed to it (petDuelEngages).
-    const duel = (deps.petDuelFor ?? petDuelSessionForPlayer)(slug);
-    if (petDuelEngages(duel, slug)) return { inBattle: true, source: 'pet-duel' };
 
     const fingerprint = evidenceFingerprint(evidence);
     const cached = cachedBattleAuthority(slug, fingerprint, now);
