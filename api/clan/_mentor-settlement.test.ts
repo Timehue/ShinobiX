@@ -933,6 +933,237 @@ describe('mentor settlement save integrity and compatibility', { concurrency: fa
     });
 });
 
+describe('pre-deploy released pending rewards across reassignment', { concurrency: false }, () => {
+    async function releasedTeacherPaid(opts: { studentSlug?: string; studentCreatedAt?: number } = {}) {
+        // Seed the old persisted state directly. Calling today's release would
+        // create #413's paid marker and conceal the pre-deploy replay gap.
+        const milestones: import('./_mentor.js').MentorMilestone[] = ['academy'];
+        const pairingId = 'predeploy-released-pair';
+        const payout = rewards.mentorPayout(1);
+        const terms: import('./_mentor-settlement.js').MentorSettlementTerms = {
+            id: settlement.mentorSettlementId(pairingId, milestones), pairingId,
+            senseiSlug: SENSEI, studentSlug: opts.studentSlug ?? STUDENT, studentName: 'FormerStudent', milestones,
+            teacher: { createdAt: SENSEI_CREATED, seals: payout.seals, contrib: payout.contrib, clanPoints: 25 },
+            student: { createdAt: opts.studentCreatedAt ?? STUDENT_CREATED, ryo: payout.studentRyo },
+            evidence: { onboardingStep: 'done', level: 1, rankedWins: 0 }, admittedAt: START - 1_000,
+        };
+        const batch: import('./_mentor-settlement.js').MentorSettlement = {
+            v: 1, ...terms, fingerprint: settlement.mentorTermsFingerprint(terms),
+            attempts: 0, nextAttemptAt: START, step: 'student',
+        };
+        const teacher = await read(SENSEI_KEY);
+        await kv.set(SENSEI_KEY, { ...teacher, _saveVersion: 4, character: {
+            ...teacher.character, honorSeals: paid(1, 25).seals, clanEventContrib: paid(1, 25).contrib,
+            clanPoints: paid(1, 25).clanPoints, weeklyClanPoints: paid(1, 25).weekly,
+            lifetimeClanPoints: paid(1, 25).lifetime, weeklyClanPointsWeek: '2026-W38',
+            mentorRewardReceipts: [{ v: 1, settlementId: batch.id, role: 'teacher', fingerprint: batch.fingerprint,
+                senseiSlug: SENSEI, pairingId, milestones, appliedAt: START - 500,
+                seals: payout.seals, contrib: payout.contrib,
+                clanPoints: { requested: 25, awarded: 25, weekKey: '2026-W38', reason: null } }],
+        } });
+        await kv.set(RECORD_KEY, { students: [], settlements: [batch] });
+        await kv.set(POINTER_KEY, 'predeploy-pending-pointer');
+        await kv.del(`clan-mentor-of:${STUDENT}`);
+        await kv.del(settlement.mentorStudentPaidKey(STUDENT));
+        await kv.set(`save:${OTHER_SENSEI}`, { _saveVersion: 1, _saveAt: time, _regenAt: time,
+            character: character(OTHER_SENSEI, { clan: 'Mentor Hall', level: 60, honorSeals: 0, clanEventContrib: 0,
+                clanPoints: 0, weeklyClanPoints: 0, lifetimeClanPoints: 0, ryo: 500, createdAt: SENSEI_CREATED }) });
+        const assigned = await call('POST', { action: 'assign', playerName: OTHER_SENSEI, studentName: STUDENT });
+        assert.equal(assigned.status, 200, JSON.stringify(assigned.body));
+        assert.deepEqual(receipts(await read(STUDENT_KEY)), [], 'the old student credit never committed');
+        assert.equal(await kv.get(settlement.mentorStudentPaidKey(STUDENT)), null, 'no pre-deploy canonical history survives');
+        return batch;
+    }
+
+    const otherClaim = () => call('POST', { action: 'claim', playerName: OTHER_SENSEI, studentName: STUDENT });
+
+    test('B-first Academy claim defers while released A still owes that current account; recovery pays once', async () => {
+        const batch = await releasedTeacherPaid();
+        await kv.del(POINTER_KEY);
+        assert.equal(await kv.get(POINTER_KEY), null, 'legacy pending obligations must be found even without a recovery pointer');
+        const oldTeacher = await read(SENSEI_KEY);
+        const newTeacher = await read(`save:${OTHER_SENSEI}`);
+        const studentBefore = await read(STUDENT_KEY);
+        const first = await otherClaim();
+        assert.equal(first.status, 503, 'B must defer an overlapping milestone instead of paying ahead of A');
+        assert.equal(first.body.retryable, true);
+        assert.deepEqual(await read(SENSEI_KEY), oldTeacher, 'A is neither repaid nor cancelled');
+        assert.deepEqual(await read(`save:${OTHER_SENSEI}`), newTeacher, 'B receives no second Academy reward');
+        assert.deepEqual(await read(STUDENT_KEY), studentBefore, 'the duplicate student payout is not admitted');
+        assert.deepEqual((await pending()).map((entry) => entry.id), [batch.id], 'A remains recoverable after release');
+        assert.deepEqual((await read(`clan-mentor:${OTHER_SENSEI}`)).settlements ?? [], []);
+        assert.equal(await kv.get(settlement.mentorStudentPaidKey(STUDENT)), null, 'deferral does not invent a paid flag');
+
+        const recovery = await settlement.settleMentorSettlement(batch);
+        assert.equal(recovery.status, 'completed');
+        assert.deepEqual(await economy(), paid(1, 25), 'the previously owed student boost is paid exactly once');
+        assert.deepEqual(await read(SENSEI_KEY), oldTeacher, 'recovery recognizes the old teacher receipt');
+        assert.deepEqual((await read(RECORD_KEY)).students, [], 'the released pairing is not resurrected');
+        assert.deepEqual(await pending(), []);
+        for (let attempt = 0; attempt < 2; attempt++) {
+            const retry = await otherClaim();
+            assert.equal(retry.status, 200);
+            assert.equal(retry.body.claimed, 0, 'B cannot replay Academy after the owed credit finishes');
+        }
+        assert.deepEqual(await read(`save:${OTHER_SENSEI}`), newTeacher);
+        assert.deepEqual(await economy(), paid(1, 25));
+        assert.equal(receipts(await read(STUDENT_KEY)).filter((receipt) => receipt.settlementId === batch.id).length, 1);
+        const staleRecovery = await settlement.settleMentorSettlement(batch);
+        if (staleRecovery.status === 'completed') assert.equal(staleRecovery.replayed, true);
+        else assert.equal(staleRecovery.status, 'gone');
+        assert.deepEqual(await economy(), paid(1, 25), 'stale recovery is harmless too');
+    });
+
+    test('B may pay level20 while released A Academy is pending, leaving Academy owed to A', async () => {
+        const batch = await releasedTeacherPaid();
+        await setStudent({ level: 21 });
+        const first = await otherClaim();
+        assert.equal(first.status, 200, JSON.stringify(first.body));
+        assert.deepEqual(first.body.milestones, ['level20'], 'only the exact overlapping milestone is deferred');
+        assert.equal((await read(`save:${OTHER_SENSEI}`)).character.honorSeals, rewards.MENTOR_REWARD_SEALS);
+        assert.equal((await read(STUDENT_KEY)).character.ryo, BASE.studentRyo + rewards.MENTOR_STUDENT_RYO);
+        assert.deepEqual((await pending()).map((entry) => entry.id), [batch.id]);
+        assert.equal((await settlement.settleMentorSettlement(batch)).status, 'completed');
+        assert.equal((await read(STUDENT_KEY)).character.ryo, BASE.studentRyo + 2 * rewards.MENTOR_STUDENT_RYO,
+            'Academy and level20 each pay once');
+        assert.equal((await read(SENSEI_KEY)).character.honorSeals, paid(1, 25).seals);
+        const retry = await otherClaim();
+        assert.equal(retry.status, 200);
+        assert.equal(retry.body.claimed, 0);
+        assert.equal((await read(`save:${OTHER_SENSEI}`)).character.honorSeals, rewards.MENTOR_REWARD_SEALS);
+    });
+
+    for (const discoveryFailure of ['transport', 'incomplete'] as const) {
+        test(`${discoveryFailure} obligation discovery defers B without reserving or paying anything`, async () => {
+            await releasedTeacherPaid();
+            await setStudent({ level: 21 });
+            const before = await Promise.all([read(SENSEI_KEY), read(STUDENT_KEY), read(`save:${OTHER_SENSEI}`),
+                read(RECORD_KEY), read(`clan-mentor:${OTHER_SENSEI}`)]);
+            const keys = kv.keys.bind(kv);
+            const mget = kv.mget.bind(kv);
+            let injected = false;
+            if (discoveryFailure === 'transport') {
+                kv.keys = async (pattern) => {
+                    if (pattern === 'clan-mentor:*') { injected = true; throw new Error('injected obligation discovery transport failure'); }
+                    return keys(pattern);
+                };
+            } else {
+                kv.mget = (async (...requested: string[]) => {
+                    if (requested.some((key) => key.startsWith('clan-mentor:'))) { injected = true; return []; }
+                    return mget(...requested);
+                }) as typeof kv.mget;
+            }
+            try {
+                const first = await otherClaim();
+                assert.equal(first.status, 503);
+                assert.equal(first.body.retryable, true);
+                assert.ok(injected, 'the intended discovery failure must actually fire');
+            } finally { kv.keys = keys; kv.mget = mget; }
+            assert.deepEqual(await Promise.all([read(SENSEI_KEY), read(STUDENT_KEY), read(`save:${OTHER_SENSEI}`),
+                read(RECORD_KEY), read(`clan-mentor:${OTHER_SENSEI}`)]), before);
+            assert.equal(await kv.get(settlement.mentorStudentPaidKey(STUDENT)), null, 'failed discovery cannot reserve a milestone');
+            assert.equal(await kv.get(settlement.mentorPendingPointerKey(OTHER_SENSEI)), null, 'no B batch was admitted');
+        });
+    }
+
+    test('A recovery after discovery fences B admission against its stale student save, then retry pays level20 once', async () => {
+        const batch = await releasedTeacherPaid();
+        await setStudent({ level: 21 });
+        const oldTeacher = await read(SENSEI_KEY);
+        const newTeacher = await read(`save:${OTHER_SENSEI}`);
+        const compareSetMany = kv.compareSetMany!.bind(kv);
+        let recoveredBetweenScanAndAdmission = false;
+        kv.compareSetMany = async (ops) => {
+            if (!recoveredBetweenScanAndAdmission && ops.some((op) => op.op === 'cas' && op.key === `clan-mentor:${OTHER_SENSEI}`)) {
+                recoveredBetweenScanAndAdmission = true;
+                assert.equal((await settlement.settleMentorSettlement(batch)).status, 'completed');
+            }
+            return compareSetMany(ops);
+        };
+        try {
+            const first = await otherClaim();
+            assert.ok(recoveredBetweenScanAndAdmission, 'recover A after B scans, immediately before its atomic admission');
+            assert.equal(first.status, 503, 'the source-save assertion must reject B\'s stale admission');
+        } finally { kv.compareSetMany = compareSetMany; }
+        assert.deepEqual(await read(SENSEI_KEY), oldTeacher);
+        assert.deepEqual(await read(`save:${OTHER_SENSEI}`), newTeacher);
+        assert.equal((await read(STUDENT_KEY)).character.ryo, BASE.studentRyo + rewards.MENTOR_STUDENT_RYO);
+        assert.deepEqual((await read(`clan-mentor:${OTHER_SENSEI}`)).settlements ?? [], []);
+        assert.deepEqual((await read(`clan-mentor:${OTHER_SENSEI}`)).students[0].claimed, {});
+        assert.equal((await kv.get<Json>(settlement.mentorStudentPaidKey(STUDENT)))?.level20, undefined,
+            'a refused atomic admission does not leak its new canonical reservation');
+        const retry = await otherClaim();
+        assert.equal(retry.status, 200, JSON.stringify(retry.body));
+        assert.deepEqual(retry.body.milestones, ['level20']);
+        assert.equal((await read(STUDENT_KEY)).character.ryo, BASE.studentRyo + 2 * rewards.MENTOR_STUDENT_RYO);
+        assert.equal((await read(`save:${OTHER_SENSEI}`)).character.honorSeals, rewards.MENTOR_REWARD_SEALS);
+        assert.equal((await otherClaim()).body.claimed, 0);
+        assert.deepEqual(await read(SENSEI_KEY), oldTeacher);
+    });
+
+    test('concurrent B and C admissions have one canonical winner for the unrelated newly reached milestone', { timeout: 15_000 }, async () => {
+        await releasedTeacherPaid();
+        await setStudent({ level: 21 });
+        const third = 'thirdsensei';
+        const thirdKey = `clan-mentor:${third}`;
+        const otherKey = `clan-mentor:${OTHER_SENSEI}`;
+        const thirdSave = await read(`save:${OTHER_SENSEI}`);
+        await kv.set(`save:${third}`, { ...thirdSave, character: { ...thirdSave.character, name: third } });
+        // A stale pairing marker is not admission authority; model two writers
+        // already holding different mentor records for the same current save.
+        await kv.set(thirdKey, { students: [{ studentSlug: STUDENT, studentName: 'MentorStudent',
+            startedAt: time, claimed: {}, pairingId: 'concurrent-third-pair' }], settlements: [] });
+        const compareSetMany = kv.compareSetMany!.bind(kv);
+        let admittedWriters = 0;
+        let release!: () => void;
+        const bothReady = new Promise<void>((resolve) => { release = resolve; });
+        kv.compareSetMany = async (ops) => {
+            if (ops.some((op) => op.op === 'cas' && (op.key === thirdKey || op.key === otherKey))) {
+                admittedWriters += 1;
+                if (admittedWriters === 2) release();
+                await bothReady;
+            }
+            return compareSetMany(ops);
+        };
+        let results: Awaited<ReturnType<typeof settlement.admitMentorClaim>>[];
+        try {
+            results = await Promise.all([settlement.admitMentorClaim(OTHER_SENSEI, STUDENT, time),
+                settlement.admitMentorClaim(third, STUDENT, time)]);
+        } finally { kv.compareSetMany = compareSetMany; }
+        assert.equal(admittedWriters, 2);
+        assert.deepEqual(results.map((result) => result.status).sort(), ['admitted', 'retry']);
+        const batches = [await read(otherKey), await read(thirdKey)].flatMap((record) => record.settlements ?? []);
+        assert.equal(batches.length, 1, 'only one mentor record acquired the new entitlement');
+        assert.deepEqual(batches[0].milestones, ['level20']);
+        assert.deepEqual(await kv.get(settlement.mentorStudentPaidKey(STUDENT)), { level20: time });
+        assert.equal((await read(STUDENT_KEY)).character.ryo, BASE.studentRyo, 'admission itself pays no value');
+        assert.equal((await settlement.settleMentorSettlement(batches[0])).status, 'completed');
+        assert.equal((await read(STUDENT_KEY)).character.ryo, BASE.studentRyo + rewards.MENTOR_STUDENT_RYO);
+        const teachers = [(await read(`save:${OTHER_SENSEI}`)).character, (await read(`save:${third}`)).character];
+        assert.equal(teachers.reduce((sum, current) => sum + current.honorSeals, 0), rewards.MENTOR_REWARD_SEALS);
+    });
+
+    for (const scenario of [
+        { label: 'a different account reusing the slug', studentCreatedAt: STUDENT_CREATED - 5_000, reason: 'identity-mismatch' },
+        { label: 'a different student slug', studentSlug: 'formerstudent', reason: 'recipient-missing' },
+    ]) {
+        test(`released A pending for ${scenario.label} cannot deny B's legitimate Academy reward`, async () => {
+            const batch = await releasedTeacherPaid(scenario);
+            const first = await otherClaim();
+            assert.equal(first.status, 200, JSON.stringify(first.body));
+            assert.deepEqual(first.body.milestones, ['academy']);
+            assert.equal((await read(`save:${OTHER_SENSEI}`)).character.honorSeals, rewards.MENTOR_REWARD_SEALS);
+            assert.equal((await read(STUDENT_KEY)).character.ryo, BASE.studentRyo + rewards.MENTOR_STUDENT_RYO);
+            const beforeRecovery = await economy();
+            const staleRecovery = await settlement.settleMentorSettlement(batch);
+            assert.equal(staleRecovery.status, 'exception');
+            if (staleRecovery.status === 'exception') assert.equal(staleRecovery.reason, scenario.reason);
+            assert.deepEqual(await economy(), beforeRecovery, 'old identity recovery never pays the current account');
+            assert.equal((await pending())[0].id, batch.id, 'the historical exception remains available for review');
+        });
+    }
+});
+
 async function mentorNoAuth(): Promise<Reply> {
     const out: Reply = { status: 200, body: {} };
     const res = { setHeader() { return res; }, status(n: number) { out.status = n; return res; }, json(b: Json) { out.body = b; return res; }, end() { return res; } };

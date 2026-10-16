@@ -680,6 +680,38 @@ export type MentorAdmission =
     | { status: 'retry'; error: string };
 
 /**
+ * A released legacy pairing can still owe a sealed batch under another
+ * sensei. That is an outstanding obligation, not proof of payment. Reserve
+ * only its overlapping milestones for the same immutable student identity.
+ * Pointers alone are insufficient: legacy discovery may not have completed.
+ */
+async function outstandingStudentMilestones(studentSlug: string, createdAt: number | null): Promise<Set<MentorMilestone>> {
+    const outstanding = new Set<MentorMilestone>();
+    // An unanchored legacy row cannot establish ownership of this account.
+    // The offline report keeps such rows in its explicit recovery review queue.
+    if (createdAt === null) return outstanding;
+    const keys = [...new Set((await kv.keys('clan-mentor:*')).filter((key) => key.startsWith('clan-mentor:')))];
+    for (let offset = 0; offset < keys.length; offset += 100) {
+        const chunk = keys.slice(offset, offset + 100);
+        const rows = await kv.mget(...chunk);
+        if (rows.length !== chunk.length) throw new Error('Mentor obligation discovery was incomplete. Please retry.');
+        for (const [index, raw] of rows.entries()) {
+            if (!isObject(raw) || !Array.isArray(raw.settlements)) continue;
+            for (const candidate of raw.settlements) {
+                if (!isObject(candidate) || candidate.studentSlug !== studentSlug
+                    || !isObject(candidate.student) || candidate.student.createdAt !== createdAt) continue;
+                let pending: MentorSettlement;
+                try { pending = parseSettlement(candidate); }
+                catch { continue; } // Ambiguous legacy data cannot authorize a reservation.
+                if (mentorRecordKey(pending.senseiSlug) !== chunk[index]) continue;
+                for (const milestone of pending.milestones) outstanding.add(milestone);
+            }
+        }
+    }
+    return outstanding;
+}
+
+/**
  * Freeze the reached-but-unclaimed milestones of one pairing as a pending
  * settlement. Reads real server-side progress; trusts nothing from the client.
  */
@@ -704,10 +736,13 @@ export async function admitMentorClaim(senseiSlug: string, studentSlug: string, 
     // student payout into #413's durable record. Missing/ambiguous evidence
     // adds no flags; the offline report supplies the operator review queue.
     const history = mentorHistoryFromStudentSave(studentSlug, studentSave, now);
+    let everPaidRaw: unknown;
     let everPaid: Record<string, number>;
     try {
         await recordMentorStudentPaid(studentSlug, history.paid, studentSave);
-        everPaid = await readMentorStudentPaid(studentSlug);
+        everPaidRaw = await kv.get(mentorStudentPaidKey(studentSlug));
+        try { everPaid = parseMentorPaidRecord(everPaidRaw); }
+        catch { throw new MentorRecordError('Mentor payment history needs review.'); }
     }
     catch (error) {
         if (error instanceof MentorRecordError) throw error;
@@ -715,8 +750,13 @@ export async function admitMentorClaim(senseiSlug: string, studentSlug: string, 
     }
     // Valid receipts remain proof for this admission even if an unchanged
     // canonical key expires between harvesting it and the following read.
-    const milestones = claimableMilestones({ onboardingStep: evidence.onboardingStep ?? undefined, level: evidence.level, rankedWins: evidence.rankedWins }, { ...(entry.claimed ?? {}), ...history.paid, ...everPaid });
-    if (milestones.length === 0) return { status: 'none' };
+    const eligible = claimableMilestones({ onboardingStep: evidence.onboardingStep ?? undefined, level: evidence.level, rankedWins: evidence.rankedWins }, { ...(entry.claimed ?? {}), ...history.paid, ...everPaid });
+    if (eligible.length === 0) return { status: 'none' };
+    let outstanding: Set<MentorMilestone>;
+    try { outstanding = await outstandingStudentMilestones(studentSlug, accountCreatedAt(studentChar)); }
+    catch (error) { return { status: 'retry', error: errorText(error) }; }
+    const milestones = eligible.filter((milestone) => !outstanding.has(milestone));
+    if (milestones.length === 0) return { status: 'refused', httpStatus: 503, error: 'An earlier mentor reward must finish before this milestone can be claimed. Please retry.' };
 
     // A milestone must never be paid to a sensei with no save to credit.
     const senseiSave = await kv.get<Record<string, unknown>>(`save:${senseiSlug}`);
@@ -751,7 +791,16 @@ export async function admitMentorClaim(senseiSlug: string, studentSlug: string, 
     // without a matching admission is harmless; the reconciler clears it.
     await kv.set(mentorPendingPointerKey(senseiSlug), randomUUID());
     try {
-        if (await kv.compareSet(key, raw, next) !== true) return { status: 'retry', error: 'mentor record changed during admission' };
+        if (!kv.compareSetMany) return { status: 'retry', error: 'Mentor admission requires atomic source validation.' };
+        // Recovery may pay/finalize the legacy batch after discovery. Fence
+        // both its student-save changes and concurrent new admissions before
+        // reserving a milestone. These are #413's NEW admission flags, never
+        // historical pending-to-paid inferences.
+        if (await kv.compareSetMany([
+            { op: 'assert', key: `save:${studentSlug}`, expected: studentSave },
+            { op: 'cas', key: mentorStudentPaidKey(studentSlug), expected: everPaidRaw, value: { ...everPaid, ...reserved }, ex: STUDENT_PAID_RETENTION_SECONDS },
+            { op: 'cas', key, expected: raw, value: next },
+        ]) !== true) return { status: 'retry', error: 'mentor record or student history changed during admission' };
     } catch (error) {
         const back = await kv.get(key).catch(() => undefined);
         if (back !== undefined) {
@@ -762,9 +811,6 @@ export async function admitMentorClaim(senseiSlug: string, studentSlug: string, 
         }
         throw error;
     }
-    // Best-effort here; release writes the same record again before it ends
-    // the pairing, so a lost write here cannot reopen these milestones.
-    await recordMentorStudentPaid(studentSlug, reserved).catch(() => undefined);
     return { status: 'admitted', settlement };
 }
 
