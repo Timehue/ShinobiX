@@ -58,6 +58,8 @@ test("AiFightHost renders the code-split authoritative solo shell", () => {
     // ordinary AI fight and swaps in the grid screen only for a hunt battlefield.
     assert.match(host, /<AiFightScreen/);
     assert.match(host, /import\(["']\.\.\/screens\/AiFightScreen["']\)/);
+    assert.match(host, /const AiFightResultCard = lazyWithRetry\(\(\) => import\('\.\/AiFightResultCard'\)\)/,
+        "result presentation must stay outside the eager recovery host");
     const screen = readFileSync(new URL("../screens/AiFightScreen.tsx", import.meta.url), "utf8");
     assert.match(screen, /<MissionArenaFight \{\.\.\.arena\} \/>/);
     assert.match(screen, /if \(!huntSession\.huntCombat\)/);
@@ -95,15 +97,17 @@ test("AiFightHost invalidates old-account starts, settlements, and local side ef
     assert.match(app, /playerSlug\(characterRef\.current\?\.name \?\? ""\) !== playerSlug\(playerName\)/,
         "field-explore ACKs must be fenced to the canonical account key");
     assert.match(host, /originatingPlayerName:\s*string/);
-    assert.match(host, /startRequestIdRef\.current !== requestId/,
-        "a start response that lost its account scope must be ignored");
+    assert.match(host, /const requestIsCurrent = useCallback\([\s\S]{0,120}aiFightRecoveryIsCurrent\(\s*mountedRef\.current, playerKey, requestId, activePlayerKeyRef\.current, startRequestIdRef\.current/,
+        "the shared guard must read the current mount, account and monotonic request refs at invocation");
+    assert.match(host, /if \(!requestIsCurrent\(originatingPlayerKey, requestId\)\) return;/,
+        "a start response that lost its account or request scope must be ignored");
     assert.match(host, /activePlayerKeyRef\.current !== originatingPlayerKey/,
         "start and settle phases must compare the originating account");
     assert.match(host, /playerName:\s*originatingPlayerName/);
     assert.match(host, /token:\s*currentFight\.token/);
     assert.doesNotMatch(host, /playerName:\s*settlingPlayer/,
         "the arena callback argument must not retarget a sealed fight");
-    assert.match(host, /const scopeIsCurrent = \(\) => mountedRef\.current[\s\S]{0,120}activePlayerKeyRef\.current === originatingPlayerKey/);
+    assert.match(host, /const scopeIsCurrent = \(\) => requestIsCurrent\(originatingPlayerKey, currentFight\.requestId\)/);
     assert.match(host, /if \(scopeIsCurrent\(\)\) \{[\s\S]{0,100}latestOnSettled\.current\(settled\)/,
         "an old account's response must not paint the newly mounted account");
     assert.match(host, /onMissionRaidComplete: \(sector, missionIds\) => \{[\s\S]{0,120}scopeIsCurrent\(\)/,

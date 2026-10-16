@@ -110,6 +110,11 @@ export function uiAuditSave(): UiAuditSave {
 }
 
 export async function installUiAuditRuntime(page: Page, initialSave: UiAuditSave = uiAuditSave(), showBriefing = false, accountName = 'AuditNinja') {
+    // Production-image builds compile public, invalid service fixtures. Keep
+    // local UI audits fully mocked even when checking that exact artifact.
+    const fixtureHosts = new Set(['abcdefghijklmnopqrst.supabase.co', 'o123456.ingest.us.sentry.io', 'us.i.posthog.com']);
+    await page.route(url => fixtureHosts.has(url.hostname), route => route.fulfill({ status: 204 }));
+    await page.routeWebSocket(url => fixtureHosts.has(url.hostname), socket => socket.close());
     let save = structuredClone(initialSave);
     const worldModel = worldPositionModel();
     let worldCursor = worldModel.fallback(Number(save.currentSector ?? 0), Number(save.currentTile ?? 78)), worldSequence = 0;

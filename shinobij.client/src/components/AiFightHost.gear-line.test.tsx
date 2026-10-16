@@ -3,7 +3,7 @@ import test from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-// AiFightHost reaches for localStorage at import time through world state.
+// Result catalog helpers reach for localStorage through world state.
 const store = new Map<string, string>();
 (globalThis as Record<string, unknown>).localStorage = {
     getItem: (k: string) => store.get(k) ?? null,
@@ -15,7 +15,7 @@ const store = new Map<string, string>();
 };
 // The component file relies on Vite's automatic JSX runtime; the plain node runner compiles it classic.
 (globalThis as Record<string, unknown>).React = React;
-const { AiFightResultCard } = await import("./AiFightHost");
+const { default: AiFightResultCard } = await import("./AiFightResultCard");
 import type { AiFightSettleResult } from "../lib/ai-fight-settle";
 import { rollOrdinaryPveEncounter } from '../../../shared/ordinary-pve-encounter';
 

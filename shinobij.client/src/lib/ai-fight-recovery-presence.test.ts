@@ -28,9 +28,8 @@ test('Alice to pending Bob to Alice cannot reuse Alice completion or accept late
 });
 
 test('unmount, account changes and replaced requests reject stale recovery completion, including an Alice ABA request', () => {
-    const current = { mounted: true, playerKey: 'alice', requestId: 7, currentPlayerKey: 'alice', currentRequestId: 7 };
-    assert.equal(aiFightRecoveryIsCurrent(current), true);
-    assert.equal(aiFightRecoveryIsCurrent({ ...current, mounted: false }), false);
-    assert.equal(aiFightRecoveryIsCurrent({ ...current, currentPlayerKey: 'bob' }), false);
-    assert.equal(aiFightRecoveryIsCurrent({ ...current, currentRequestId: 9 }), false);
+    assert.equal(aiFightRecoveryIsCurrent(true, 'alice', 7, 'alice', 7), true);
+    assert.equal(aiFightRecoveryIsCurrent(false, 'alice', 7, 'alice', 7), false);
+    assert.equal(aiFightRecoveryIsCurrent(true, 'alice', 7, 'bob', 7), false);
+    assert.equal(aiFightRecoveryIsCurrent(true, 'alice', 7, 'alice', 9), false);
 });
