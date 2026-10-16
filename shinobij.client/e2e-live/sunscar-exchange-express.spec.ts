@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { expect, type APIRequestContext, type BrowserContext, type Page, type TestInfo } from '@playwright/test';
 import { openLandingLogin } from '../e2e/helpers/landing-navigation';
 import { API_CONNECTION_RETRIES, test } from './helpers/reconnecting-request';
@@ -61,7 +62,12 @@ async function seedAccount(request: APIRequestContext, info: TestInfo, tag: stri
 }
 
 async function installSession(context: BrowserContext, account: Awaited<ReturnType<typeof seedAccount>>) {
-    await context.addInitScript(({ name, token, canonical, patch }) => {
+    // Each journey player is a separate device. Browser contexts on one test
+    // machine compute the same fingerprint, and the Exchange (like player
+    // trade) refuses a sale between accounts that share a device.
+    const deviceFp = createHash('sha256').update(`exchange-journey-device:${account.name}`).digest('hex');
+    await context.addInitScript(({ name, token, canonical, patch, deviceFp }) => {
+        try { sessionStorage.setItem('shinobix:fp', deviceFp); } catch { /* storage unavailable */ }
         if (localStorage.getItem('exchange-journey-installed') === name) return;
         localStorage.setItem('ninjav-admin-build-v1', JSON.stringify({ currentAccountName: name }));
         localStorage.setItem('ninjav-player-accounts-v1', JSON.stringify({ [name]: { token } }));
@@ -72,7 +78,7 @@ async function installSession(context: BrowserContext, account: Awaited<ReturnTy
         localStorage.setItem('patchNotes.lastSeenVersion.v1', patch);
         localStorage.setItem('dailyBriefing.seen.v1', new Date().toISOString().slice(0, 10));
         localStorage.setItem('exchange-journey-installed', name);
-    }, { ...account, patch: LATEST_PATCH_NOTE?.version ?? '' });
+    }, { ...account, patch: LATEST_PATCH_NOTE?.version ?? '', deviceFp });
 }
 
 async function openExchange(page: Page) {

@@ -347,6 +347,14 @@
 }
 .nw-roll { background:linear-gradient(135deg,#78350f,#d97706); color:#fef3c7; border:1px solid #d97706; }
 
+/* Each named roll's price, one row per material; a short row reads red. */
+.nw-cost {
+    display: grid;
+    gap: 4px;
+    margin: 4px 0 8px;
+}
+.nw-cost .nw-cost-short .no-pct { color: #f87171; font-weight: 700; }
+
 .nw-roll:disabled {
     opacity: 0.4;
     cursor: not-allowed;

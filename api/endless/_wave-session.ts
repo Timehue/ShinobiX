@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import type { KvLike } from '../_storage.js';
 import type { AdminCombatContent } from '../_admin-content.js';
 import { buildSoloPveAiEncounter } from '../solo-pve/_ai-encounter.js';
 import type { SoloPveOutcome, SoloPveSession } from '../solo-pve/_session.js';
@@ -36,6 +37,32 @@ export function endlessActiveWaveKey(playerName: string, runToken: string): stri
     return `endless-wave-active:${playerName}:${runToken}`;
 }
 
+/**
+ * The last wave sealed for a run, kept far longer than the wave's own 45-minute
+ * keys. A win advances `run.wave` and a loss ends the run, so a marker whose
+ * wave still equals `run.wave` is a sealed wave that was never settled. Without
+ * it, a player could lose a wave, skip `settle`, and cash out the whole bank
+ * (or wait out the 45 minutes and re-seal the same wave).
+ */
+export function endlessSealedWaveKey(playerName: string, runToken: string): string {
+    return `endless-wave-sealed:${playerName}:${runToken}`;
+}
+export const ENDLESS_SEALED_WAVE_TTL_SECONDS = 30 * 24 * 60 * 60;
+export type EndlessSealedWave = { runId: string; wave: number };
+
+/** What an unsettled sealed wave means for the run right now. */
+export function unsettledWaveVerdict(
+    sealed: EndlessSealedWave | null | undefined,
+    runWave: number,
+    session: { status?: unknown; outcome?: unknown } | null | undefined,
+): 'none' | 'in-progress' | 'won-unsettled' | 'lost' {
+    if (!sealed?.runId || Math.floor(Number(sealed.wave)) !== runWave) return 'none';
+    if (session && session.status !== 'done') return 'in-progress';
+    if (session && session.outcome === 'win') return 'won-unsettled';
+    // A loss, a flee, a draw, or a wave whose session has expired unsettled.
+    return 'lost';
+}
+
 export function endlessWaveRunId(): string {
     return `endlesswave-${randomUUID().replace(/-/g, '')}`;
 }
@@ -53,6 +80,39 @@ export interface EndlessWaveBinding {
     expiresAt: number;
     status: 'active' | 'won' | 'spent';
     settledAt?: number;
+}
+
+/** The server-owned binding must name this exact player, run and wave. */
+export function endlessWaveBindingMatches(
+    binding: EndlessWaveBinding | null | undefined,
+    playerName: string,
+    runToken: string,
+    wave: number,
+    runId: string,
+): binding is EndlessWaveBinding {
+    return !!binding && binding.version === 1 && binding.runId === runId && binding.sessionId === runId
+        && binding.playerName === playerName && binding.runToken === runToken && binding.wave === wave;
+}
+
+export function endlessWaveSessionMatches(session: SoloPveSession | null | undefined, binding: EndlessWaveBinding): session is SoloPveSession {
+    return !!session && session.sessionId === binding.runId && session.ownerSlug === binding.playerName
+        && session.encounter.kind === 'endless-wave' && session.encounter.id === `${binding.runToken}:${binding.wave}`
+        && session.encounter.bindingId === binding.runId && session.encounter.sourceId === binding.opponentId;
+}
+
+/** A pre-deploy active wave is also authoritative when its new marker is absent. */
+export async function readEndlessWaveForCashout(
+    store: Pick<KvLike, 'get'>,
+    playerName: string,
+    runToken: string,
+    wave: number,
+): Promise<EndlessSealedWave | null> {
+    const sealed = await store.get<EndlessSealedWave>(endlessSealedWaveKey(playerName, runToken));
+    if (sealed?.runId && sealed.wave === wave) return sealed;
+    const active = await store.get<EndlessSealedWave>(endlessActiveWaveKey(playerName, runToken));
+    if (!active?.runId || active.wave !== wave) return sealed;
+    const binding = await store.get<EndlessWaveBinding>(endlessWaveBindingKey(active.runId));
+    return endlessWaveBindingMatches(binding, playerName, runToken, wave, active.runId) ? active : sealed;
 }
 
 export type EndlessWaveFailureReason = 'invalid-binding' | 'wrong-player' | 'wrong-run' | 'wrong-wave' | 'expired' | 'already-settled' | 'not-complete' | 'not-won' | 'not-a-member';

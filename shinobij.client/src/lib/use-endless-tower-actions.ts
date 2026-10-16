@@ -95,7 +95,9 @@ export function useEndlessTowerActions({ character, commitCharacter }: EndlessTo
             if (result.error || !result.character) throw new Error(result.error || "The tower could not bank this run.");
             commitCharacter(result.character, result._saveVersion);
             setEndlessFight(null);
-            gameToast(`Tower rewards banked${result.creditedRyo ? `: +${result.creditedRyo.toLocaleString()} ryo` : ""}.`);
+            gameToast(result.forfeitedWave
+                ? `Wave ${result.forfeitedWave} was left unfinished and counts as lost, so this run ended with nothing banked.`
+                : `Tower rewards banked${result.creditedRyo ? `: +${result.creditedRyo.toLocaleString()} ryo` : ""}.`);
         } catch (error) {
             alert(error instanceof Error ? error.message : "The tower could not bank this run.");
         } finally {
