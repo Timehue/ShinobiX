@@ -136,6 +136,18 @@ export async function validateVillageStateWrite(
     const suppressed: string[] = [];
     const prev: VillageStateBlob = existing ?? {};
     const next: VillageStateBlob = { ...prev, ...incoming };
+    // The treasury / history guards below only run when the field arrives
+    // with the expected shape, so `treasury: null` skipped them and wiped the
+    // stored value. A wrongly-typed field keeps its stored value instead.
+    for (const [field, isArray] of [['treasury', false], ['warRecords', true], ['kageHistory', true]] as const) {
+        if (!Object.prototype.hasOwnProperty.call(incoming, field)) continue;
+        const value = (incoming as Record<string, unknown>)[field];
+        const shaped = isArray ? Array.isArray(value) : !!value && typeof value === 'object' && !Array.isArray(value);
+        if (shaped) continue;
+        if ((prev as Record<string, unknown>)[field] !== undefined) (next as Record<string, unknown>)[field] = (prev as Record<string, unknown>)[field];
+        else delete (next as Record<string, unknown>)[field];
+        suppressed.push(`${field}: wrong type`);
+    }
 
     // Server-owned settlement journals. Each is read as PROOF that a server
     // write already happened, so a blob write — any villager's, the Kage's, or

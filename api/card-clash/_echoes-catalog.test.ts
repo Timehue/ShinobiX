@@ -200,6 +200,7 @@ test('client display data mirrors the server encounter table exactly', async () 
     assert.equal(client.ECHOES_REWARD_DISPLAY.firstClearBonus, ECHOES_REWARDS.firstClearBonus);
     assert.equal(client.ECHOES_REWARD_DISPLAY.bossFirstClearBonus, ECHOES_REWARDS.bossFirstClearBonus);
     assert.equal(client.ECHOES_REWARD_DISPLAY.basicPackCost, ECHOES_REWARDS.basicPackCost);
+    assert.equal(client.ECHOES_REWARD_DISPLAY.repeatWinsPerDay, ECHOES_REWARDS.repeatWinsPerDay);
 });
 
 test('every scene stays inside the handoff beat budget and every art asset exists', async () => {
@@ -225,4 +226,29 @@ test('every scene stays inside the handoff beat budget and every art asset exist
             assert.ok(fs.existsSync(onDisk), `${opponent.id} asset exists on disk: ${asset}`);
         }
     }
+});
+
+test('repeat wins pay for the first ten each UTC day; first clears always pay (owner ruling 2026-10-15)', () => {
+    const tovin = echoesEncounterById('echoes-1-tovin')!;
+    const day1 = Date.UTC(2026, 9, 15, 12);
+    let character: Record<string, unknown> = { chroniclePoints: 0 };
+    const first = applyEchoesVictory(character, tovin, day1);
+    assert.equal(first.summary.firstClear, true);
+    assert.equal(first.summary.points, ECHOES_REWARDS.repeatWin + ECHOES_REWARDS.firstClearBonus, 'a first clear pays and uses no daily allowance');
+    assert.equal(first.summary.repeatWinsLeftToday, ECHOES_REWARDS.repeatWinsPerDay);
+    character = first.character;
+    for (let i = 0; i < ECHOES_REWARDS.repeatWinsPerDay; i += 1) {
+        const won = applyEchoesVictory(character, tovin, day1 + i + 1);
+        assert.equal(won.summary.points, ECHOES_REWARDS.repeatWin, `paid repeat win ${i + 1}`);
+        character = won.character;
+    }
+    const capped = applyEchoesVictory(character, tovin, day1 + 100);
+    assert.equal(capped.summary.points, 0, 'the eleventh repeat win of the day pays nothing');
+    assert.equal(capped.summary.repeatWinsLeftToday, 0);
+    assert.equal(capped.summary.wins, ECHOES_REWARDS.repeatWinsPerDay + 2, 'it still counts as a win');
+    assert.equal(capped.character.chroniclePoints, (first.character.chroniclePoints as number) + ECHOES_REWARDS.repeatWin * ECHOES_REWARDS.repeatWinsPerDay);
+    assert.deepEqual(echoesProgressOf(capped.character)[tovin.id]?.wins, capped.summary.wins, 'the daily counter does not disturb encounter progress');
+
+    const nextDay = applyEchoesVictory(capped.character, tovin, day1 + 24 * 60 * 60 * 1000);
+    assert.equal(nextDay.summary.points, ECHOES_REWARDS.repeatWin, 'the allowance resets at the next UTC day');
 });

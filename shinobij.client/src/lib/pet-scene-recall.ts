@@ -1,7 +1,17 @@
 export type PetRecallParticipant = () => Promise<void>;
 
+/**
+ * The longest a departure waits for cards to finish leaving. A recall is
+ * PET_RECALL_SECONDS (0.9 s) of render-loop frames; a canvas whose frames stop
+ * (a WebGL context WebKit evicted, a model that never drew) never finishes it,
+ * and the departure used to wait forever: the evolution cutscene's Continue
+ * then did nothing (reproduced 1 run in 5 in WebKit). Past this, the scene
+ * leaves anyway.
+ */
+export const PET_SCENE_RECALL_MAX_WAIT_MS = 2_500;
+
 /** A scene owns departure; only pets that actually mounted join its recall. */
-export function createPetSceneRecallController() {
+export function createPetSceneRecallController(maxWaitMs: number = PET_SCENE_RECALL_MAX_WAIT_MS) {
     const participants = new Set<PetRecallParticipant>();
     const listeners = new Set<() => void>();
     const started = new Set<PetRecallParticipant>();
@@ -35,7 +45,17 @@ export function createPetSceneRecallController() {
             if (pending) return gateComplete ? Promise.resolve().then(after) : pending;
             active = true;
             pending = Promise.resolve().then(async () => {
-                while (flights.size) await Promise.all([...flights]);
+                // A participant that throws still rejects the departure (its
+                // caller retries); one that never settles is cut off at the cap.
+                let timer: ReturnType<typeof setTimeout> | undefined;
+                const deadline = new Promise<'timeout'>(resolve => { timer = setTimeout(() => resolve('timeout'), maxWaitMs); });
+                try {
+                    while (flights.size) {
+                        if (await Promise.race([Promise.all([...flights]), deadline]) === 'timeout') break;
+                    }
+                } finally {
+                    clearTimeout(timer);
+                }
                 gateComplete = true;
                 await after();
             }).finally(() => {

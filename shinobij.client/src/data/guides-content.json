@@ -4,10 +4,10 @@
     "category": "Start Here",
     "title": "Your First Hour",
     "tagline": "Follow the Academy route from your first training session to your first trip beyond the village.",
-    "blurb": "A spoiler-light walkthrough of character creation, starter gear, the Academy spar, and your first objectives.",
+    "blurb": "Getting through the Academy, choosing your first stats, equipping starter gear, and finding your next objective.",
     "audience": "New shinobi",
-    "readMinutes": 6,
-    "reviewedAt": "August 2026",
+    "readMinutes": 4,
+    "reviewedAt": "October 2026",
     "hero": "fieldManual",
     "heroAlt": "A lantern-lit shinobi field desk overlooking a mountain road at dawn.",
     "featured": true,
@@ -18,12 +18,15 @@
       "first hour",
       "logbook",
       "starter gear",
-      "spar"
+      "spar",
+      "resonance trial",
+      "field journal",
+      "first assignments"
     ],
     "quickTake": [
       "Follow the Academy checklist in order; each step introduces a screen you will use later.",
       "For the Academy route, equip four usable jutsu and both starter items.",
-      "If you lose the Academy spar, adjust one thing and try again. A spar never sends you to the Hospital."
+      "The Resonance Trial is a practice spar. If you lose, adjust your loadout and try again; you will not be sent to the Hospital."
     ],
     "relatedGuideIds": [
       "progression",
@@ -37,17 +40,17 @@
         "blocks": [
           {
             "type": "p",
-            "text": "Your village choice is permanent. It determines your home and story, but it does not give a direct stat bonus. Choose the one that appeals to you. Shortly afterward, the opening sequence asks you to choose a companion."
+            "text": "Choose your village for its setting and characters. It becomes your home and determines your village story, without a direct stat bonus. Transfers open at level 100 after you finish that story. The opening also introduces your companion and the Academy route."
           },
           {
             "type": "p",
-            "text": "The opening sequence gives you some context, your companion, and a guided Academy route. Read the short coach prompts; they point to the same screens and systems you will use after the tutorial."
+            "text": "Follow the short coach prompts as you learn each screen. You can keep playing while stat training runs; you do not need to wait for it before taking the next lesson."
           },
           {
             "type": "callout",
             "tone": "tip",
-            "label": "A useful habit",
-            "text": "Open the Logbook whenever the next step feels unclear; it tracks your current objectives and useful next actions."
+            "label": "Finding the next step",
+            "text": "Open the Logbook when you lose track of your goal. It shows your current objectives and where to continue."
           }
         ]
       },
@@ -56,27 +59,27 @@
         "heading": "The Academy route, in order",
         "blocks": [
           {
-            "type": "p",
-            "text": "The tutorial introduces one screen at a time. Complete the highlighted task before exploring the rest of the menus."
-          },
-          {
             "type": "list",
             "items": [
-              "Start a stat-training session.",
+              "Start a stat-training session. The recommended stat and 15-minute timer are a useful first choice.",
               "Unlock one extra jutsu for free in the Training Hall.",
-              "Fill your four-jutsu combat loadout.",
-              "Spend your 20 starting stat points while you are on the Profile screen.",
-              "Equip the Rustfang Kunai and Shinobi Vest.",
-              "Win the Academy spar and follow its turn-by-turn coaching.",
-              "Recover in the Noodle Den if the spar cost you HP.",
+              "Equip at least four usable jutsu on your Profile.",
+              "Spend your 20 starting stat points and any Academy bonus points while you are on the Profile screen.",
+              "Equip both the Rustfang Kunai and Shinobi Vest.",
+              "Win the Academy's Resonance Trial with its turn-by-turn coaching.",
+              "Recover in the Noodle Den if you need to.",
               "Claim the Academy Trial in the Mission Hall.",
-              "Open the Logbook to see your next goals.",
-              "Travel to any numbered sector from the World Map, then return to the village."
+              "Open the Logbook and read the field assignment.",
+              "Travel to a numbered sector, inspect the Hollow Gate trace, then return to the village and complete the Field Seal ceremony."
             ]
           },
           {
             "type": "p",
-            "text": "After that, take an E-rank mission or visit the Story Hall. At level 2, go to the Central Hub and use the Awakening Stone to roll your first random element."
+            "text": "Starting your first Academy training session brings you to level 2. From that level, the Awakening Stone in the Central Hub offers your first free random element. Completing the Academy brings you to at least level 10; the Field Seal is a keepsake, and Genin rank still begins at level 15."
+          },
+          {
+            "type": "p",
+            "text": "Your first field assignments continue in order: win the E-Rank Drill and collect its reward, explore one field tile in a numbered sector, then visit the Pet Yard and use Pet or give an owned treat. Follow the field journal between steps. Afterward, the Logbook and Story Hall give you longer goals."
           }
         ]
       },
@@ -86,17 +89,17 @@
         "blocks": [
           {
             "type": "p",
-            "text": "Choose one jutsu family first and raise its matching Offense stat. Then split the rest between its matching Defense stat and its two general stats: Ninjutsu uses Willpower and Speed; Genjutsu uses Intelligence and Willpower; Taijutsu uses Strength and Speed; Bukijutsu uses Intelligence and Strength."
+            "text": "Start with the discipline used by the jutsu you enjoy. Its general stats help both attack and defense: Ninjutsu uses Willpower and Speed; Genjutsu uses Intelligence and Willpower; Taijutsu uses Strength and Speed; Bukijutsu uses Intelligence and Strength. The Training Plan recommends a stat for your current kit. Matching Offense and Defense stats support that same discipline."
           },
           {
             "type": "p",
-            "text": "Chakra powers Ninjutsu and Genjutsu. Stamina powers Taijutsu and Bukijutsu. If every equipped jutsu drains the same pool, one expensive sequence can leave you unable to cast while that pool recovers."
+            "text": "Ninjutsu and Genjutsu spend Chakra. Taijutsu and Bukijutsu spend Stamina. Keep an affordable attack ready so one expensive sequence does not use up all your options."
           },
           {
             "type": "callout",
             "tone": "good",
             "label": "Cover two ranges",
-            "text": "For the Academy, carry one action you can use up close and another that can reach a more distant target."
+            "text": "For the Academy, carry something you can use up close and something that reaches a more distant target. Four equipped jutsu complete this lesson; your normal loadout can hold more."
           }
         ]
       },
@@ -106,17 +109,17 @@
         "blocks": [
           {
             "type": "p",
-            "text": "If a jutsu is greyed out, check its card for the reason: not enough AP or Chakra or Stamina, a target outside its range, a cooldown that is still active, or no valid target. The spar coach also walks you through Basic Attack, a ready jutsu, and using Wait when AP is low."
+            "text": "If a jutsu is greyed out, read its card. You may be short on AP, Chakra, or Stamina, outside its range, waiting on a cooldown, or missing a valid target. The spar coach walks you through Basic Attack, a ready jutsu, and Wait."
           },
           {
             "type": "p",
-            "text": "If a real fight knocks you out, you will wake up in the Hospital. A spar never does. Early on, use the free checkout after roughly a minute; a Healer can also help when one is available. Once you are back on your feet, change one part of the loadout and try again."
+            "text": "A spar never sends you to the Hospital. When another fight does, free checkout opens after the admission timer, normally 60 seconds. Discharge restores HP; use rest or the Noodle Den for Chakra and Stamina. Before trying again, change the part of your plan that failed."
           },
           {
             "type": "callout",
             "tone": "warn",
             "label": "Finish the return trip",
-            "text": "Travel is real time. Return to the village after visiting a numbered sector so the Academy coach can mark the final step complete."
+            "text": "Travel takes real time. At the field trace, finish the scene with Return with the evidence before heading home. Then accept the Field Seal and finish the return ceremony."
           }
         ]
       }
@@ -127,10 +130,10 @@
     "category": "Start Here",
     "title": "Levels, Ranks, and Daily Progress",
     "tagline": "Levels follow the stat points you earn through training, fights, and field work.",
-    "blurb": "A practical overview of levels, ranks, training timers, jutsu mastery, missions, hunts, and daily limits.",
+    "blurb": "Levels and exam holds, stat training, jutsu lessons, daily work, and the Legacy path that opens at level 50.",
     "audience": "New and returning players",
-    "readMinutes": 8,
-    "reviewedAt": "August 2026",
+    "readMinutes": 5,
+    "reviewedAt": "October 2026",
     "hero": "missionHall",
     "heroAlt": "A mission hall lined with maps, ledgers, and hanging lanterns.",
     "heroPosition": "center 56%",
@@ -143,7 +146,13 @@
       "mastery",
       "daily",
       "genin",
-      "chunin"
+      "chunin",
+      "legacy",
+      "sage",
+      "eras",
+      "hall of legends",
+      "queue",
+      "stat cap"
     ],
     "quickTake": [
       "Level is derived from the stat points you have earned, so training is progression.",
@@ -153,7 +162,7 @@
     "relatedGuideIds": [
       "first-hour",
       "builds",
-      "world"
+      "endgame"
     ],
     "sections": [
       {
@@ -162,11 +171,11 @@
         "blocks": [
           {
             "type": "p",
-            "text": "Your level is derived from the stat points you have earned. Training and other activities add those points, and some rewards arrive unspent so you can choose where they go. There is no separate experience bar to fill."
+            "text": "Your level comes from the stat points you earn, including unspent points. Spend them on your Profile to shape your build."
           },
           {
             "type": "table",
-            "caption": "Rank unlocks, exam pauses, and mastery caps",
+            "caption": "Rank unlocks, exam holds, and combat limits",
             "head": [
               "Level",
               "Rank",
@@ -176,33 +185,33 @@
               [
                 "1–14",
                 "Academy Student",
-                "Academy route; first Awakening at level 2; profession unlocks at 13; mastery cap 10"
+                "First Awakening at 2; profession at 13; each stat capped at 350"
               ],
               [
                 "15–29",
                 "Genin",
-                "Progress pauses at level 20 until you pass the first advancement exam; mastery cap 20"
+                "Exam hold at 20; each stat capped at 700"
               ],
               [
                 "30–49",
                 "Chunin",
-                "Progress pauses at level 39 until you pass the second advancement exam; mastery cap 30"
+                "Exam hold at 39; each stat capped at 1,300"
               ],
               [
                 "50–79",
                 "Jonin",
-                "Mastery cap 50; Jonin ceremony is optional"
+                "Legacy offers become possible; each stat capped at 2,100"
               ],
               [
                 "80–100",
                 "Special Jonin",
-                "Late-game world content; Special Jonin ceremony is optional"
+                "Each stat capped at 2,500"
               ]
             ]
           },
           {
             "type": "p",
-            "text": "You become Genin at level 15 and Chunin at level 30. Your level cannot rise past 20 until you pass the Genin Advancement Exam, or past 39 until you pass the Chunin Advancement Exam. Jonin and Special Jonin ranks arrive automatically at levels 50 and 80; their ceremonies are optional."
+            "text": "Genin and Chunin ranks arrive at levels 15 and 30. Your level cannot rise past 20 until you pass the Genin Advancement Exam, or past 39 until you pass the Chunin Advancement Exam. Check the Logbook for exam requirements. Jonin and Special Jonin arrive automatically at levels 50 and 80; their ceremonies are optional."
           }
         ]
       },
@@ -212,11 +221,11 @@
         "blocks": [
           {
             "type": "p",
-            "text": "Training grows the selected stat while you are away. At level 1 the rookie boost is six times the base gain, then it eases down until level 35. Use those early gains to establish the core of your build."
+            "text": "Choose a stat, compare the shown gain and Stamina cost, then start a timer. Training continues while you play or log out. At level 1 the rookie boost is six times the base gain, then it tapers down through level 35. Village and other bonuses can raise the amount shown."
           },
           {
             "type": "table",
-            "caption": "Base stat gain before the rookie boost and any village, clan, or doctrine bonus",
+            "caption": "Base stat gain before the rookie boost and other bonuses",
             "head": [
               "Session",
               "Base gain",
@@ -225,34 +234,38 @@
             ],
             "rows": [
               [
-                "15 minutes",
+                "15 Minutes",
                 "+3",
                 "5",
-                "Active play and the best hourly rate"
+                "Checking in often"
               ],
               [
-                "1 hour",
+                "1 Hour",
                 "+10",
                 "15",
-                "A normal session or short break"
+                "A short break"
               ],
               [
-                "4 hours",
+                "4 Hours",
                 "+38",
                 "35",
                 "An afternoon away"
               ],
               [
-                "8 hours",
+                "8 Hours",
                 "+72",
                 "60",
-                "Work, sleep, or a long absence"
+                "Work or sleep"
               ]
             ]
           },
           {
             "type": "p",
-            "text": "Short sessions edge out long ones per hour, but an expired timer earns nothing extra. The best timer is the one you will remember to restart. Consistency beats setting alarms for a tiny efficiency gain."
+            "text": "Collect when the timer finishes, then start another session. Leaving a finished timer alone earns nothing extra. Short sessions have the best base hourly rate, but choose one you can realistically collect."
+          },
+          {
+            "type": "p",
+            "text": "Points that would exceed the selected stat’s rank cap go into your unspent pool. Spend them on your Profile. Cancelling a running session keeps the progress earned so far, rounded down to whole points; the Stamina spent is not refunded."
           }
         ]
       },
@@ -269,18 +282,16 @@
           {
             "type": "list",
             "items": [
-              "Restart training first, so the timer runs while you do everything else.",
-              "Complete up to 20 missions each UTC day. Choose the highest difficulty you can clear reliably.",
-              "Use the Hunter Guild when you want combat materials. You begin with 20 hunts per day, and each Hunter Rank adds one more, up to 25.",
-              "Review Posted Contracts on the World Map if you are already traveling; six rotate each UTC day.",
-              "Recover, bank, sell, craft, or adjust your loadout before committing to a boss or PvP queue."
+              "Collect finished training and start the next timer.",
+              "Complete up to 20 missions each UTC day. Choose work you can clear reliably.",
+              "Use the Hunting tab at the Shinobi Outpost for combat materials. You begin with 20 hunts per day, and each Hunter Rank adds one more, up to 25.",
+              "Look at Posted Contracts if you are already traveling; six rotate each UTC day.",
+              "Check your recovery and equipment before a boss fight or PvP queue."
             ]
           },
           {
-            "type": "callout",
-            "tone": "tip",
-            "label": "Keep it manageable",
-            "text": "You do not need to clear every daily counter. Choose the activities whose rewards you need most."
+            "type": "p",
+            "text": "Once-per-day field jobs and hunt claims also award unspent stat points. Pick the rewards you need now; you do not have to empty every daily counter."
           }
         ]
       },
@@ -290,7 +301,15 @@
         "blocks": [
           {
             "type": "p",
-            "text": "Ryo lessons in the Jutsu Training Hall stop at mastery 30, subject to your rank cap. From 30 to 40 the same 30-minute lessons are paid in Honor Seals instead — they use the same lesson and queue slots, and Seals or ryo can speed them up. Mastery 41–50 is earned in PvP battles, up to your rank's cap (Jonin and above)."
+            "text": "Unlock an unlearned, eligible jutsu for free at mastery 1 in the Jutsu Training Hall. Further ryo lessons raise it one level at a time through mastery 30, within your rank cap. Base lessons take 10 minutes below mastery 10 and 30 minutes from there; the Hall shows the time and cost before you pay."
+          },
+          {
+            "type": "p",
+            "text": "From mastery 30 to 40, lessons cost Honor Seals and use the same active lesson and queue slot. Mastery 41–50 is earned through PvP battles once your rank allows it. Ryo or Honor Seals can shorten a running lesson; compare the displayed price with how long remains."
+          },
+          {
+            "type": "p",
+            "text": "Queue one paid lesson behind the current one. It starts when the first lesson finishes. Removing it before it starts gives a full refund. Cancelling the current lesson loses its progress, returns half its tuition, and fully refunds the queued lesson."
           },
           {
             "type": "table",
@@ -320,7 +339,25 @@
           },
           {
             "type": "p",
-            "text": "Your rank limits how much jutsu mastery counts in combat. Train several techniques you use regularly instead of spending every resource on one finisher."
+            "text": "Mastery matters most on the techniques you actually use. Work on a dependable attack and the supporting jutsu that keep you alive long enough to use it."
+          }
+        ]
+      },
+      {
+        "id": "legacy-path",
+        "heading": "Taking up a Legacy",
+        "blocks": [
+          {
+            "type": "p",
+            "text": "At level 50, the Wandering Sage may offer you a Legacy based on the way you have played. Keep taking missions, fighting, and exploring. Your Profile’s Legacy tab shows whether an offer is waiting and where to find him. Read each offered path’s trial activities and signature preview before choosing."
+          },
+          {
+            "type": "p",
+            "text": "Accepting a Legacy is permanent. You can decline an offer and meet the Sage again later. Once you accept, trials take that same path through Awakened, Bound, Proven, and Mythic stages. Objectives count new progress from the trial’s start. Asking for a different proof changes the tasks and resets the current trial’s progress."
+          },
+          {
+            "type": "p",
+            "text": "Bound, Stage III, grants your Legacy’s signature technique in an extra combat slot. Its mastery rises with the Legacy stage instead of through ordinary lessons. The Hall of Legends also records world Eras and offers longer personal campaigns; see Endgame Modes and How to Prepare before starting one."
           }
         ]
       }
@@ -330,11 +367,11 @@
     "id": "combat",
     "category": "Build Your Shinobi",
     "title": "Combat Fundamentals: Turns, Range, and Resources",
-    "tagline": "Position, range, and resource management decide most fights before the damage roll does.",
-    "blurb": "Action Points, range, resources, statuses, terrain, and the choices that carry from Academy sparring to ranked teams.",
+    "tagline": "Plan your move and attack together so you do not run out of AP in the wrong place.",
+    "blurb": "Planning AP, reading range and targets, handling resource costs and status timing, and getting started in multiplayer combat.",
     "audience": "All shinobi",
-    "readMinutes": 9,
-    "reviewedAt": "August 2026",
+    "readMinutes": 4,
+    "reviewedAt": "October 2026",
     "hero": "combat",
     "heroAlt": "Two shinobi measuring distance across a rain-dark citadel arena.",
     "heroPosition": "center 48%",
@@ -348,7 +385,13 @@
       "pvp",
       "ranked",
       "2v2",
-      "status"
+      "status",
+      "cleanse",
+      "clear",
+      "poison",
+      "wound",
+      "drain",
+      "weapon"
     ],
     "quickTake": [
       "You normally have 100 Action Points each turn. Review action costs before moving.",
@@ -367,17 +410,17 @@
         "blocks": [
           {
             "type": "p",
-            "text": "At the start of each turn, count the tiles between you and your opponent and note any obstacles or active zones. Then check your AP, Chakra or Stamina, and cooldowns before choosing an action."
+            "text": "Before moving, check the distance, obstacles, and active ground zones. Then look at your AP, Chakra, Stamina, and cooldowns. Target highlights show what a selected action can reach."
           },
           {
             "type": "p",
-            "text": "Moving, attacking, healing, cleansing, and using jutsu all draw from the same 100 AP. Stun lowers that turn to 60 AP. Every action card shows its current cost. Custom techniques shaped in Bloodline Awakening use one of two base types: 40 AP utility or 60 AP damage. Other actions show their own costs."
+            "text": "A normal turn starts with 100 AP. Stun reduces that turn to 60 AP. Moving, weapon attacks, jutsu, and basic support actions spend from the same allowance. Status effects can change costs, so use the amount on the action card. Custom Bloodline techniques start at 40 AP for utility or 60 AP for damage."
           },
           {
             "type": "callout",
             "tone": "tip",
             "label": "If an action is greyed out",
-            "text": "Check AP, range, cooldown, Chakra or Stamina, and valid targets."
+            "text": "Check AP, range, cooldown, Chakra or Stamina, and valid targets. Moving closer only helps if you still have enough AP to act afterward."
           }
         ]
       },
@@ -387,7 +430,7 @@
         "blocks": [
           {
             "type": "p",
-            "text": "Ninjutsu and Genjutsu draw from Chakra; Taijutsu and Bukijutsu draw from Stamina. Both pools grow with level and recover during combat, but an expensive sequence can leave you with nothing affordable to cast. Keep at least one lower-cost jutsu in the loadout."
+            "text": "Ninjutsu and Genjutsu use Chakra; Taijutsu and Bukijutsu use Stamina. Techniques marked Any use your specialty’s resource pool. Both pools grow with level and recover at the start of your turns. Costs also rise with level, so judge your plan by the current numbers on the cards."
           },
           {
             "type": "h",
@@ -395,7 +438,7 @@
           },
           {
             "type": "p",
-            "text": "Do not spend all your AP moving into attack range. Either stop short enough that the opponent must spend AP approaching, or keep enough AP to attack as soon as you arrive."
+            "text": "Keep enough AP to attack when you arrive. If you cannot reach and attack in the same turn, stop where the opponent must spend AP to approach you."
           },
           {
             "type": "h",
@@ -403,7 +446,11 @@
           },
           {
             "type": "p",
-            "text": "When kiting, attack first when possible, then move back out of the opponent's strongest range. Carry a second ranged option so one cooldown does not shut down your plan."
+            "text": "Attack before retreating when the position allows it. Keep a second ranged option ready for turns when your strongest one is on cooldown. Check the weapon in your hand as well; it has its own range and cooldown."
+          },
+          {
+            "type": "p",
+            "text": "Terrain and weather can favor particular disciplines or elements. Read the battle’s terrain information and account for any ground zones before deciding where to stand."
           }
         ]
       },
@@ -412,37 +459,36 @@
         "heading": "Choose one priority each turn",
         "blocks": [
           {
-            "type": "list",
-            "items": [
-              "Pressure: deal damage or make the opponent use a defensive option.",
-              "Setup: apply a status or move into position for the next turn.",
-              "Stabilize: shield, cleanse, reduce damage, or move to a safer range.",
-              "Finish: use the high-impact jutsu you saved once the opponent has no good answer."
-            ]
+            "type": "p",
+            "text": "Decide what the turn needs. You might pressure an opponent into defending, set up a later hit, recover from a bad exchange, or finish a weakened target. Spend your AP on that goal before adding another action."
           },
           {
             "type": "p",
-            "text": "Trying to do all four at once produces half-finished turns. If Wait preserves a better position or lets a resource pool recover, use it."
+            "text": "Use Wait once you are done. A turn spent holding a safe position can let resources and cooldowns recover. Count what the opponent can reach before ending there."
           },
           {
             "type": "callout",
             "tone": "warn",
             "label": "Common mistake",
-            "text": "Do not spend your last AP stepping into an opponent's best range. That leaves you exposed to a full counterattack."
+            "text": "Do not spend your last AP stepping into an opponent’s best range. You may be handing them an attack before you can use your own."
           }
         ]
       },
       {
         "id": "statuses-and-loadouts",
-        "heading": "Balance the four loadout slots",
+        "heading": "Keep answers to status effects",
         "blocks": [
           {
             "type": "p",
-            "text": "A balanced loadout usually needs an opener, a reliable attack, a defensive or mobility option, and a finisher. A shield, movement effect, or Cleanse often helps more than a fourth damage jutsu."
+            "text": "Cleanse removes your negative statuses, including ones waiting to activate. Clear removes an opponent’s active positive effects and breaks their shield, if they are in range. Both have a base cost of 60 AP and their own cooldowns. Check for Cleanse Prevent or Clear Prevent before spending the action."
           },
           {
             "type": "p",
-            "text": "Read status timing closely. Damage over time is most valuable when it forces the opponent to spend AP on Cleanse, and a shield must be active before the heavy hit lands. Use movement when it changes range, cover, or who can be targeted."
+            "text": "Wound and Drain tick at the end of the affected fighter’s turn, giving that fighter a chance to Cleanse first. Poison also hurts you when you spend Chakra or Stamina on jutsu. If you are poisoned, compare the value of another cast with the damage it will cause you."
+          },
+          {
+            "type": "p",
+            "text": "Use a shield before the heavy hit arrives. Movement is useful when it changes who can reach you or moves you out of a dangerous zone. Keep these options available alongside your damage jutsu."
           }
         ]
       },
@@ -452,17 +498,29 @@
         "blocks": [
           {
             "type": "p",
-            "text": "AI practice and direct player spars in the Battle Arena do not change your ranked rating, and losing one never sends you to the Hospital. Team Arena is a four-player 2v2 mode with balanced teams, no consumables, and no rating, currency, or progression rewards. Queue solo; matchmaking finds three other live fighters and balances the teams."
+            "text": "AI practice and direct player spars in the Battle Arena do not affect ranked rating, and losing one never sends you to the Hospital. Team Arena is a four-player 2v2 mode with balanced teams, no consumables, and no rating, currency, or progression rewards. Queue solo and matchmaking finds the other three fighters."
           },
           {
             "type": "p",
-            "text": "Ranked 1v1 is the individual ladder. Ranked 2v2 uses a chosen partner who must accept, while each player keeps a separate 2v2 rating. Matchmaking uses the pair's average rating. Before a team match starts, agree on one target and decide who will save a defensive or Cleanse option."
+            "text": "Ranked 1v1 has its own ladder. For ranked 2v2, invite a partner who must accept; each player keeps a separate 2v2 rating, and matchmaking uses the pair’s average. Agree on a target before the fight and pay attention to the turn order before committing support actions."
+          },
+          {
+            "type": "h",
+            "text": "Scheduled tournaments"
+          },
+          {
+            "type": "p",
+            "text": "Open Tournaments from the Arena District and read the format before signing up. Standard uses your own build, Ranked and 2v2 use Ranked Format, and pet events use one or two companions per owner. Your loadout locks at signup. A 2v2 partner must accept before signup closes."
+          },
+          {
+            "type": "p",
+            "text": "Stay on the board and ready up each round; missing a deadline can eliminate you. The bracket is single elimination. Tournament rounds spend no consumables, change no ladder rating, and award no normal combat payout. The board records the champion."
           },
           {
             "type": "callout",
             "tone": "tip",
             "label": "Check before queuing",
-            "text": "These activities can close temporarily. Check the Arena District for their live availability."
+            "text": "Check the Arena District for each mode’s current availability and entry rules."
           }
         ]
       }
@@ -472,11 +530,11 @@
     "id": "builds",
     "category": "Build Your Shinobi",
     "title": "Building a Loadout That Holds Up",
-    "tagline": "Choose four jutsu that cover your normal rotation, weak range, defense, and finisher.",
-    "blurb": "Jutsu loadouts, mastery, Awakening, Bloodline forging, gear, crafting, and late-game named equipment.",
+    "tagline": "Build a useful rotation, then add answers for the fights that give you trouble.",
+    "blurb": "Loadout capacity, mastery, elemental Awakening, forged Bloodlines, gear upgrades, weapon attunement, and named equipment.",
     "audience": "Growing and veteran",
-    "readMinutes": 10,
-    "reviewedAt": "August 2026",
+    "readMinutes": 5,
+    "reviewedAt": "October 2026",
     "hero": "forge",
     "heroAlt": "A dark cedar forge filled with tools, steel, and a restrained blue flame.",
     "heroPosition": "center 54%",
@@ -489,12 +547,17 @@
       "forge",
       "named weapon",
       "mastery",
-      "loadout"
+      "loadout",
+      "elemental core",
+      "elemental shards",
+      "legacy signature",
+      "supporter",
+      "upgrade gear"
     ],
     "quickTake": [
-      "Build around a repeatable turn before adding a high-cost finisher.",
-      "Awakenings at levels 2 and 20 are free; forged Bloodlines cost rare materials, so plan them carefully.",
-      "Bloodline Awakening assigns a point cost to every advantage. If the budget turns red, simplify the technique before sealing it."
+      "You can equip 12 jutsu, or 15 with Shinobi Supporter. Start with a small rotation you know how to use.",
+      "Free elemental Awakenings unlock at levels 2 and 20. Check your gear and jutsu requirements before a paid reroll.",
+      "Use Bloodline Awakening’s point breakdown to fit the techniques you want within the ritual’s budget."
     ],
     "relatedGuideIds": [
       "combat",
@@ -508,20 +571,24 @@
         "blocks": [
           {
             "type": "p",
-            "text": "Choose one plan your loadout can repeat: attack safely from range, stay close and drain Stamina, apply a status before a heavy attack, or defend while a key jutsu comes off cooldown. If one of the four techniques does not support that plan, replace the one you use least."
+            "text": "Your regular loadout holds 12 jutsu, or 15 with an active Shinobi Supporter membership. The Academy only asks for four. Start with a few techniques you can use together, then fill the remaining space with answers to particular problems."
           },
           {
             "type": "list",
             "items": [
-              "One lower-cost action you can use regularly.",
-              "One tool for the range where your dependable action fails.",
-              "One defensive, movement, or control answer.",
-              "One finisher or payoff that benefits from the setup created by the other three."
+              "Keep an affordable attack for ordinary turns.",
+              "Cover the range where that attack struggles.",
+              "Bring defense or movement for a bad position.",
+              "Choose a stronger hit that benefits from your other techniques."
             ]
           },
           {
             "type": "p",
-            "text": "Train mastery on the jutsu you use regularly. A maxed technique outside your four equipped slots contributes nothing to the current fight."
+            "text": "Train mastery on the jutsu you cast regularly. On your Profile, check that each intended technique is learned, equipped, and usable with your current elements and Bloodline. Changing a Bloodline can change which techniques are available."
+          },
+          {
+            "type": "p",
+            "text": "A Bound Legacy adds a separate signature slot at Stage III. The signature arrives at mastery 30, rises to 40 at Stage IV and 50 at Stage V, and does not need ordinary jutsu lessons."
           }
         ]
       },
@@ -531,7 +598,7 @@
         "blocks": [
           {
             "type": "p",
-            "text": "At levels 2 and 20, claim a free random element roll at the Awakening Stone. Once you have two elements, 10 Fate Shards rerolls the primary element and keeps the secondary; 15 rerolls both. Try an unfamiliar result in a few fights before spending Fate Shards to replace it."
+            "text": "Claim a free random element roll at the Awakening Stone at levels 2 and 20. A paid roll costs 10 Fate Shards for your primary element, keeping the secondary if you have one, or 15 to reroll both. You cannot choose the result. Check equipped gear and jutsu before replacing an element they need."
           },
           {
             "type": "table",
@@ -565,7 +632,7 @@
           },
           {
             "type": "p",
-            "text": "Higher ranks provide more jutsu and build points, but a focused B-rank kit can still outperform an unfocused S-rank kit."
+            "text": "Choose the rank whose budget fits the techniques you want to make. A higher rank allows more points, but each technique still needs a clear use in combat."
           }
         ]
       },
@@ -575,17 +642,17 @@
         "blocks": [
           {
             "type": "p",
-            "text": "Every custom technique starts as either 40 AP utility or 60 AP damage. Range 5, Circle Movement, Instant Effect, AOE Movement, AOE Burst, Nuke damage, and higher-cost tags add build points. Use the itemized total in Bloodline Awakening because balance values can change."
+            "text": "Custom techniques start as 40 AP utility or 60 AP damage. Range, targeting shape, cooldown, damage type, and effect tags can add build points. Read the itemized breakdown after each change; several small choices can put the whole Bloodline over budget."
           },
           {
             "type": "p",
-            "text": "Tags with adjustable percentages offer 25% or 30% on B- and A-rank Bloodlines, and 30% or 35% on S-rank Bloodlines. Pierce is different: its damage scales with offense and mastery and is capped instead of using one fixed damage number. Choose each tag for a job; filling every slot is not automatically stronger."
+            "text": "Adjustable percentage effects offer 25% or 30% on B- and A-rank Bloodlines, and 30% or 35% on S-rank Bloodlines. Other effects have fixed magnitudes. Pierce scales with offense and mastery up to a damage cap and bypasses defenses. Read each effect’s description instead of assuming every percentage or tag works the same way."
           },
           {
             "type": "callout",
             "tone": "tip",
             "label": "Check the core idea",
-            "text": "Temporarily remove a tag and check whether the technique still fills its intended role. If it does not, simplify the plan before adding more effects."
+            "text": "Before adding another effect, picture the turn when you would cast this technique. Keep the effects that make that turn work."
           }
         ]
       },
@@ -595,11 +662,19 @@
         "blocks": [
           {
             "type": "p",
-            "text": "Use the Shop and Grand Marketplace for catalog purchases, and the Crafter when hunt or dungeon materials can become useful gear or consumables. Direct player transfers send currency, not items. See Choosing a Profession for banking and transfer rules."
+            "text": "Use the Shop and Grand Marketplace for catalog purchases, and the Crafter for recipes. Direct player transfers send currency, not items. Sunscar Exchange handles eligible player listings. Check level and element requirements before spending materials or ryo."
           },
           {
             "type": "p",
-            "text": "Choose gear to solve the problem you lose to. Add defense if you fall before your setup works, and improve damage or reach if opponents can safely stay away. Equip consumables for the activity ahead: healing for long runs, and smoke or control for dangerous objectives."
+            "text": "Choose gear for the problem you are having in fights. Defense helps if you fall before your setup works. A weapon with suitable reach gives you another action when your jutsu are unavailable. Bring consumables allowed by the mode you are entering."
+          },
+          {
+            "type": "h",
+            "text": "Relic equipment"
+          },
+          {
+            "type": "p",
+            "text": "Relics have their own equipment slot and improve damage against AI enemies. Some help all attacks; others favor an element or discipline. Their bonuses do not apply against players. Find them through village stories, biome chests, eligible Tower clears, ranked player wins, war crates, or the Weekly Boss. Check the level requirement and choose a bonus that fits your attacks. A duplicate relic awards 15 Fate Shards instead."
           },
           {
             "type": "h",
@@ -607,7 +682,19 @@
           },
           {
             "type": "p",
-            "text": "Weapons and armor can also drop as upgrade pieces. Each one is a little stronger than the item it upgrades: a weapon gains half a point of EP per step and armor gains half a percent of damage reduction per step, but never enough to match the next tier up. Upgrades drop from Ancient Chests (5%), bosses (5%), Clan Exchange caches (1 in 5), and ordinary fights (0.5%). They come from the highest gear tier you have bought or crafted, so buying or crafting a better tier unlocks stronger upgrades. They cannot be bought or crafted, and any spare sells for 500 ryo."
+            "text": "Some weapon and armor drops are improved versions of a catalog item. Each step adds 0.5 EP to a weapon or 0.5 percentage points of damage reduction to armor, staying below the next tier. Buying or crafting better gear unlocks drops from higher eligible upgrade tiers. Upgrade pieces cannot be bought or crafted, and spares sell for 500 ryo."
+          },
+          {
+            "type": "p",
+            "text": "Upgrade drops can come from Ancient Chests and bosses at 5%, Clan Exchange caches at 1 in 5, and ordinary fights at 0.5%. Treat them as occasional finds while you work toward your next purchase."
+          },
+          {
+            "type": "h",
+            "text": "Elemental weapon attunement"
+          },
+          {
+            "type": "p",
+            "text": "Hollow Gate bosses can drop Elemental Shards. Forge 10 into an Elemental Core at the Crafter, then use it from Inventory to attune a legendary or mythic melee weapon to an element you have awakened. Each attunement, including a change to another element, spends one Core. You must still have the weapon’s element to equip it."
           },
           {
             "type": "h",
@@ -615,17 +702,17 @@
           },
           {
             "type": "p",
-            "text": "At level 90, you can forge named weapons and armor. Each item costs exactly 200 Fate Shards, paid when you forge the revealed roll. Named gear accepts Fate Shards only. Inspect the stats in the roll pop-out, then continue to name and forge your item."
+            "text": "At level 90, you can forge named weapons and armor. Name your piece first, then roll. Every roll costs 200 Fate Shards plus apex materials: Pristine Iron Sand, Legendary Material, an Ancient Beast Core, a Titan Bone for a weapon or Shadow Pelts for armor, Superior elemental minerals, and one relic. The price is paid when you roll, and every roll is yours to keep, so there is no discard or free re-roll. Named gear accepts Fate Shards only for its shard cost. The Crafter lists the full price and what you hold."
           },
           {
             "type": "p",
-            "text": "Any named weapon or armor piece can be sold to the shop for 500 ryo. A named piece that you have never equipped can also be listed at Sunscar Exchange. Once you have equipped it even once, it can no longer be listed there, so decide where it goes before you wear it."
+            "text": "A named piece sells to the shop for 500 ryo. You can list an unworn piece at Sunscar Exchange, but equipping it once permanently removes that option. Decide whether to keep it before putting it on."
           },
           {
             "type": "callout",
             "tone": "warn",
-            "label": "Inventory discipline",
-            "text": "Do not sell a rare material only because its current tooltip looks unhelpful. Hunter rank-ups, Bloodline forging, Hollow Gate keys, and named gear use different currencies and recipes, so check the relevant screen first."
+            "label": "Before spending materials",
+            "text": "Check the recipe or upgrade screen first. Hunter rank-ups, Bloodline forging, Hollow Gate keys, and weapon attunement use different materials."
           }
         ]
       }
@@ -635,11 +722,11 @@
     "id": "world",
     "category": "World & Community",
     "title": "Travel, Exploration, and World Events",
-    "tagline": "Roads take time, popular hunting grounds get worked over, and other players leave evidence behind.",
-    "blurb": "Travel, sector richness, contracts, weather, night, wanderers, duel scars, Sunscar, and the two shared world crises.",
+    "tagline": "Find your way through the connected world, read the ground, and prepare for trouble on the road.",
+    "blurb": "Walking, exploration, gathering, road encounters, contracts, changing weather, and shared world events.",
     "audience": "All shinobi",
-    "readMinutes": 9,
-    "reviewedAt": "August 2026",
+    "readMinutes": 5,
+    "reviewedAt": "October 2026",
     "hero": "world",
     "heroAlt": "A lone shinobi looking across connected mountain roads, villages, and a distant storm.",
     "heroPosition": "center 52%",
@@ -648,101 +735,161 @@
       "map",
       "sector",
       "travel",
+      "walking",
+      "gathering",
       "weather",
       "contracts",
       "night",
       "crisis",
       "wanderer",
+      "world boss",
       "sunscar"
     ],
     "quickTake": [
-      "The map has 66 ordinary sectors plus special destinations. You do not need to memorize them.",
-      "If a sector is Picked Clean Today, move elsewhere or wait for the daily reset.",
-      "Travel takes time, but a traveling shinobi cannot be attacked on the road."
+      "The map has 66 ordinary sectors plus special destinations. Follow connected roads and learn the places you use most.",
+      "Explore, Fishing, and Mining share 100 actions per UTC day. A sector's shared exploration pool is a separate limit.",
+      "The world completes a day every two real hours. Night work follows that clock, while daily allowances reset at midnight UTC."
     ],
     "relatedGuideIds": [
       "progression",
+      "professions-economy",
       "clans-and-war",
       "endgame"
     ],
     "sections": [
       {
         "id": "reading-the-map",
-        "heading": "Learn the map by route",
+        "heading": "Find your way on the map",
         "blocks": [
           {
             "type": "figure",
             "src": "worldMap",
             "alt": "The world map showing villages, connecting roads, regions, and sector destinations.",
-            "caption": "Roads show which sectors connect and how long each trip takes."
+            "caption": "Use the overview to choose a destination, then follow the roads through its connected sectors."
           },
           {
             "type": "p",
-            "text": "The world is made of connected sectors with different biomes, weather, ownership, events, and travel times. Start with nearby roads and use the World Map to find sectors with more exploration remaining."
+            "text": "In a sector, hold WASD or the arrow keys to walk. You can also click or tap a destination, or drag to steer. Follow a road through an exit to reach the next sector. Select a building or landmark to open its activity."
           },
           {
             "type": "p",
-            "text": "Travel takes the duration shown, and you cannot be attacked while in transit. Before leaving, confirm the destination, biome, and any UTC night requirement."
+            "text": "The World Map overview helps you find contracts, village borders, and event locations. Read the selected sector's details before setting out. Some trips use a travel timer; you cannot be attacked during that timed transit. Walking around a sector does not give you the same protection."
           }
         ]
       },
       {
         "id": "shared-ground",
-        "heading": "Shared exploration and sector depletion",
+        "heading": "Choose where to explore",
         "blocks": [
           {
             "type": "p",
-            "text": "Each sector draws from a shared daily exploration pool. As players use that pool, the panel marks the sector Rich, Worked Over, or Picked Clean Today. Owners receive an exploration advantage, but everyone draws from the same finite pool. It resets with the UTC day."
+            "text": "Each sector has a shared daily gathering pool used by Explore, Fishing, and Mining. As players work it, the sector changes from Rich to Worked Over to Picked Clean Today. The owning village has a larger allowance there, but the ground is still shared. If it is picked clean for you, follow the suggested roads to another sector or return after midnight UTC."
           },
           {
             "type": "p",
-            "text": "Recent shinobi duels can leave scars for up to 24 hours. Wanderers, merchants, medics, patrols, trackers, couriers, and Contract Hunters also move through the world. Read the sector panel before clicking Explore; the best choice may be to speak, track, wait, or leave."
+            "text": "Your personal allowance is 100 actions per UTC day across Explore, Fishing, and Mining. Check the remaining count before committing to a contract or gathering trip. Moving to a fresh sector only helps while you still have personal actions left."
           },
           {
-            "type": "callout",
-            "tone": "good",
-            "label": "Before leaving",
-            "text": "Review depletion, night conditions, and current visitors before leaving a quiet sector."
+            "type": "p",
+            "text": "Explore can reveal a material find. Choose Field Herb, Binding Fiber, or Iron Sand. A regional trace lets you take two of that common material and one trace instead of three common materials. The preview shows the result before collection, and closing the find saves it for later."
+          }
+        ]
+      },
+      {
+        "id": "fishing-and-mining",
+        "heading": "Stop at fishing and mining sites",
+        "blocks": [
+          {
+            "type": "p",
+            "text": "Look for shoal and mineral markers in the sector. Select one to see its skill requirement and remaining attempts, then use Approach to walk to the shore or rock base. Equip the right tool before starting: a fishing pole for Fishing or a pickaxe for Mining."
+          },
+          {
+            "type": "p",
+            "text": "Each ordinary site gives you three attempts, then replenishes after ten minutes. You can play the minigame for a success bonus or choose the relaxed animation at the baseline chance. Both spend an action, and failed or abandoned attempts still count. The Shinobi Outpost in Central lists known sites, tracks both skills, and lets you manage tools."
+          }
+        ]
+      },
+      {
+        "id": "road-encounters",
+        "heading": "Read an encounter before acting",
+        "blocks": [
+          {
+            "type": "p",
+            "text": "Travelers can offer supplies, healing, deliveries, trails, or a conversation. Some encounters lead to a choice or a fight. Recent player duels can also leave scars on the ground for up to 24 hours. Check the person or sign you have found before spending an action."
+          },
+          {
+            "type": "p",
+            "text": "A hostile encounter can stop you with a Fight or Flee choice. Fleeing costs half your current HP, rounded down without knocking you out, and 10% of carried ryo up to the discharge cost for your level. Banked ryo is safe. The encounter shows the actual price before you choose, so recover and bank spare ryo before a long trip."
           }
         ]
       },
       {
         "id": "contracts-weather-night",
-        "heading": "Contracts, weather, and the UTC clock",
+        "heading": "Plan around contracts and the sky",
         "blocks": [
           {
             "type": "p",
-            "text": "Six sector contracts are posted each day. Most ask for 8 to 12 successful explores in a particular kind of place; some progress only at night. Night runs from 20:00 to 05:00 UTC, and Posted Contracts reset at midnight UTC."
+            "text": "Six sector contracts are posted each UTC day. They ask for 8 to 12 successful explores in the named sector, sometimes at night. Collect the reward from the contract when it is ready. Night-only progress must be earned at night, but you can collect a completed contract in daylight before the daily board changes."
           },
           {
             "type": "p",
-            "text": "Scheduled weather rotates each UTC day. A clan that owns a sector can set local weather there, which can change elemental matchups. Review the sector's current modifier before changing a build that worked yesterday."
+            "text": "A world day lasts two real hours, including about 45 minutes of night. Use the map's sky and contract status to tell whether night work counts now. This cycle does not reset your daily actions or contracts; those still use midnight UTC."
+          },
+          {
+            "type": "p",
+            "text": "Scheduled weather can change every 40 real minutes and may hold for several windows. Check the forecast and current combat modifier before fighting. A clan that holds a sector can set local weather there."
           },
           {
             "type": "callout",
             "tone": "tip",
-            "label": "Sunscar route",
-            "text": "Open Sunscar Festival from its sun icon on the world map. Sector 54 is the festival entrance, not a playable travel area. Its events and wagers are optional, so finish any time-sensitive contract before taking the detour."
+            "label": "Sunscar Festival",
+            "text": "The sun icon opens Sunscar Festival. Sector 54 is its entrance rather than an ordinary travel area. Check the festival's own rules before entering an event or placing a wager."
+          }
+        ]
+      },
+      {
+        "id": "world-boss-events",
+        "heading": "Join a roaming World Boss event",
+        "blocks": [
+          {
+            "type": "p",
+            "text": "Open World Bosses to check the active threat, its current sector, and the event clock. Travel to the boss's sector and join the public queue. A squad launches with three players, or with one or two when the 30-second queue timer ends. Recover before joining: you enter with your current HP and keep the HP remaining afterward. A knockout sends you to the Hospital."
+          },
+          {
+            "type": "p",
+            "text": "Event crystal veins offer another way to help. Mine a Hollow Shard, then turn it in on the World Bosses screen for contribution points and progress toward weakening the boss. Turn shards in before the event ends. Only deposited shards help weaken the boss."
+          },
+          {
+            "type": "p",
+            "text": "During its final stand, the boss stays in place until the event clock ends. If it survives, the threatened village receives 24 hours of Ashfall with 5% lower training gains and 5% longer jutsu lessons. Read the event screen for the current outcome and your recorded contribution."
           }
         ]
       },
       {
         "id": "world-crises",
-        "heading": "Shared world crises",
+        "heading": "Help your village answer a crisis",
         "blocks": [
           {
             "type": "p",
-            "text": "During the Fourfold Breach, each village fills its own defense target. The crisis ends after all four villages finish, and the leaderboard records the top contributors."
+            "text": "During the Fourfold Breach, each village fills its own defense target. The crisis ends when all four villages finish, and the leaderboard records the top contributors."
           },
           {
             "type": "p",
-            "text": "During Hollow Gate Reckoning, choose the shinobi front or bring a ready team to the companion front. Progress on either front contributes to your village's target, and all four villages must finish their response."
+            "text": "During Hollow Gate Reckoning, choose the shinobi front or bring a ready companion team to the companion front. Either front helps your village reach its target. Check your health, loadout, and available companions before committing an attempt."
+          }
+        ]
+      },
+      {
+        "id": "dojo-circuit",
+        "heading": "Joining a Dojo Circuit event",
+        "blocks": [
+          {
+            "type": "p",
+            "text": "When a Dojo Circuit is scheduled, join through your village and begin a trial before playing. Earn seals through shinobi sparring, Chronicle duels, and a rewarded Pet Colosseum win. Combat seals record automatically. Return to the Circuit to record AI card and companion wins before the event closes."
           },
           {
-            "type": "callout",
-            "tone": "warn",
-            "label": "Prepare before entering",
-            "text": "Recover, check your loadout, and confirm companion availability before committing an attempt."
+            "type": "p",
+            "text": "The pet trial keeps the Colosseum's normal cost and reward limit. Circuit rewards are recorded honours and a place in the event archive, with no extra currency or rating. Use the event board to check what you still need."
           }
         ]
       }
@@ -752,18 +899,21 @@
     "id": "clans-and-war",
     "category": "World & Community",
     "title": "Clans, Village War & Shared Stores",
-    "tagline": "Clans and villages run better when members know what is being built, supplied, and defended.",
-    "blurb": "Clan growth, boss operations, war modes, shared stores, supplies, territory, and structures.",
+    "tagline": "Know which campaign you are joining and what your clan or village needs from you.",
+    "blurb": "Clan Hall goals, campaign queues, Golden Shrines, five-day Village Wars, field orders, shared stores, and territory.",
     "audience": "Growing and veteran",
-    "readMinutes": 10,
-    "reviewedAt": "August 2026",
+    "readMinutes": 7,
+    "reviewedAt": "October 2026",
     "hero": "townHall",
     "heroAlt": "A village command hall with maps, supply ledgers, and a council table.",
     "heroPosition": "center 50%",
     "keywords": [
       "clan",
       "war",
+      "campaign",
+      "shrine",
       "village war",
+      "field orders",
       "stores",
       "provisions",
       "materials",
@@ -772,9 +922,9 @@
       "kage"
     ],
     "quickTake": [
-      "Clan War is a focused rivalry; Village War is a 72-hour regional campaign with its own map and supply system.",
-      "Members gather supplies and fight; village leadership decides where shared resources go.",
-      "An unfed garrison receives only half of its Watchtower bonus above normal defense."
+      "Clan War has 24 hours of preparation followed by 72 hours of scoring. Village War has one hour of preparation followed by five days.",
+      "Clan campaign queues share daily limits. Golden Shrine bonus matches have their own allowance and require you to travel there.",
+      "Use the Clan Hall for clan goals and rations. Use Town Hall for village stores, war objectives, and field orders."
     ],
     "relatedGuideIds": [
       "world",
@@ -784,78 +934,185 @@
     "sections": [
       {
         "id": "a-clan-is-more-than-chat",
-        "heading": "Using the Clan Hall",
+        "heading": "Start with the Clan Hall overview",
         "blocks": [
           {
             "type": "p",
-            "text": "The Clan Hall groups four kinds of work: roster and communication; treasury, stores, boosts, and upgrades; missions and boss operations; and war, rankings, and territory. You do not need to learn every tab immediately. Ask what the clan is building or defending this week, then help with that."
+            "text": "Join a clan from your village, then check its overview and pinned notices. The overview points you toward the current campaign, Boss Operations, and mentorship. If you are unsure where to help, ask what the clan is working toward this week."
           },
           {
             "type": "p",
-            "text": "Clan growth unlocks better Exchange tiers at Clan Levels 1, 7, 15, 25, and 40. Ask which shared upgrade or goal comes next before choosing where to contribute."
+            "text": "Weekly contracts reward scored clan-war matches and Boss assaults with active clanmates. Collect the clan reward once a contract is complete. Restore the Hall is a separate weekly project that consumes Field Herb, Binding Fiber, or Iron Sand. Each member can contribute up to ten materials toward its shared target of 40. Four completed projects earn the permanent Restored Hall decoration."
           },
           {
-            "type": "callout",
-            "tone": "tip",
-            "label": "Ask what the clan needs",
-            "text": "‘What are we building or defending this week?’ gives leaders enough context to suggest a useful task."
+            "type": "p",
+            "text": "An assignment tells your clan how you plan to help. Your clan rank decides which controls you can use. Earned Clan Points buy personal rewards in the Exchange and share a 1,000-point weekly earning cap. Exchange shelves open at Clan Levels 1, 7, 15, 25, and 40. Check an item's purchase limit before saving toward it."
           }
         ]
       },
       {
         "id": "clan-war",
-        "heading": "How Clan War damage works",
+        "heading": "Prepare for a Clan War campaign",
         "blocks": [
           {
             "type": "p",
-            "text": "Leaders declare the conflict, but the roster wins it through shinobi duels, paired 2v2 fights, companion battles, and Chronicle Showdown. Because each mode deals different war-strength damage, assign members to the formats they play best."
+            "text": "Leadership declares a campaign for 100 Honor Seals. Both clans must be at least seven days old and have four eligible members. An eligible member is level 15 or higher, joined at least 48 hours ago, and has played within seven days. The war roster is fixed at declaration, so joining a clan during preparation does not add you to that campaign."
           },
           {
             "type": "p",
-            "text": "Read the Clan War Manual before a declaration. War Room levels and doctrine can change starting durability, and the manual lists the current limits on active wars, rematches, and unfinished battles."
+            "text": "After 24 hours of preparation, fighting runs for 72 hours. Enter a Shinobi Duel, Shinobi Team Battle, Pet Showdown, or Chronicle Showdown queue. A team battle needs two clanmates. When matched, every player has 30 seconds to confirm readiness; attempts are spent when everyone confirms."
           },
           {
-            "type": "callout",
-            "tone": "warn",
-            "label": "Answer pending challenges",
-            "text": "A pending challenge has a one-hour response window, and ignoring it costs the defending clan war strength. An unfilled 2v2 queue expires harmlessly, and leaving that queue does not spend war strength."
+            "type": "table",
+            "caption": "Normal Clan War limits and scoring",
+            "head": [
+              "Rule",
+              "What it means"
+            ],
+            "rows": [
+              [
+                "20 clan slots per war day",
+                "A 1v1 uses one slot for your clan; a 2v2 uses two."
+              ],
+              [
+                "Five personal slots per war day",
+                "All four battle modes use the same personal allowance."
+              ],
+              [
+                "100 War Points per winning player",
+                "A solo victory earns 100; a 2v2 team victory earns 200."
+              ],
+              [
+                "Defeats and draws",
+                "The attempts remain spent. No victory points are added."
+              ]
+            ]
+          },
+          {
+            "type": "p",
+            "text": "The higher score at the end wins, with equal scores drawing. Played battles award 25 Clan Points plus 25 for a win. If your clan wins, members who played a scored battle receive another 75 Clan Points and a Legendary War Crate. These points share the weekly earning cap. After a campaign, clans recover for three days, and the same rivals cannot declare again for seven days."
+          },
+          {
+            "type": "p",
+            "text": "Leadership can authorize 30 clan rations for a war day to add 10% to match Clan Points. This is optional and does not raise War Points or battle limits. Check the war panel before donating rations for that purpose."
+          }
+        ]
+      },
+      {
+        "id": "clan-shrines",
+        "heading": "Watch for Golden Shrines",
+        "blocks": [
+          {
+            "type": "p",
+            "text": "Six Golden Shrines appear during a clan campaign, each with a two-hour window. The war panel reveals its sector and battle mode before opening. Travel to that sector to enter the bonus queue. Shrines use shinobi duels, Pet Showdown, or Chronicle Showdown, with each specialty appearing twice."
+          },
+          {
+            "type": "p",
+            "text": "Each appearance has five bonus matches shared by the two clans and two attempts per member. A victory earns 100 bonus War Points. This allowance is separate from normal daily slots. New matches stop 15 minutes before a shrine window or the campaign closes, so arrive early enough to finish."
           }
         ]
       },
       {
         "id": "village-war",
-        "heading": "How Village War works",
+        "heading": "Follow the five-day Village War",
         "blocks": [
           {
             "type": "p",
-            "text": "Village War runs for 72 hours and scores action across shinobi, companion, and Chronicle modes. Terrain, mercenary bands, structures, ownership, and supplies all shape the campaign. The Kage directs strategic spending; the Kage and ANBU can manage their own village's garrison in a contested sector. Everyone else keeps the stores supplied and fights in the sectors leadership marks as priorities."
+            "text": "The seated Kage declares Village War using village War Resources. One hour of preparation is followed by five full days of scoring. Town Hall shows the score, strongholds, shrine schedule, and field orders. The higher final score wins; equal scores draw. Village War results do not transfer sector ownership."
           },
           {
-            "type": "list",
-            "items": [
-              "Provisions come from ration packs cooked in the Noodle Den and donated through Town Hall. They feed mercenaries, garrisons, and active sectors.",
-              "Materials come from donated hunt materials and relics. The Supply Depot converts them into War Resources and supports advanced structures.",
-              "At the daily UTC store update, Provisions lose 5%, so plan donations around that loss.",
-              "Without Provisions, a garrison keeps its normal defense but receives only half of its Watchtower bonus."
+            "type": "p",
+            "text": "Wins against players from the enemy village count toward the war. Spars and ranked matches do not. Each village also has three strongholds, one for shinobi combat, one for pet battles, and one for cards. You can queue to defend your own stronghold from Town Hall while online and available. Attackers must travel to the enemy stronghold and enter it. Its appointed ANBU defends when no player is queued."
+          },
+          {
+            "type": "p",
+            "text": "The War Shrine opens for five two-hour windows during the campaign. Use the displayed schedule, which shows your local opening and closing times. Travel to its sector and enter the shrine room to take part. For current declarations, the first ten shared shinobi victories in each window earn 20 extra points each. Normal role victory points and enemy score deductions continue after that cap."
+          },
+          {
+            "type": "p",
+            "text": "The village with the most accumulated uncontested time inside receives the 100-point window bonus. Empty or contested time does not count, and a tie awards no bonus. Staying inside with allies can help hold control, but adding more players does not make the clock run faster."
+          }
+        ]
+      },
+      {
+        "id": "field-orders",
+        "heading": "Help with a village field order",
+        "blocks": [
+          {
+            "type": "p",
+            "text": "Accept one field order at a time from Town Hall, then follow its instructions on the World Map. Orders earn supporting points and shared intelligence that reveals enemy strongholds. Supporting PvE points can provide up to 20% of the total war score, so they help a fighting village rather than replacing player battles."
+          },
+          {
+            "type": "table",
+            "caption": "What each field order asks you to do",
+            "head": [
+              "Order",
+              "Your task"
+            ],
+            "rows": [
+              [
+                "Supply",
+                "Collect the package at your village outskirts, then deliver it to the assigned allied depot. Stay still for the displayed pickup and delivery timers."
+              ],
+              [
+                "Sabotage",
+                "Hold three different eligible enemy sectors for 20 seconds each."
+              ],
+              [
+                "Espionage",
+                "Enter the assigned enemy stronghold and defeat its sentry or an enemy player inside."
+              ]
             ]
           },
           {
             "type": "p",
-            "text": "Most players inspect and donate through Town Hall. Before traveling, review the shared stores there and the leadership plan on the war map."
+            "text": "Each player has four attempts per campaign day, with at most one Supply, two Sabotage, and two Espionage attempts. ANBU fallback assaults share the Sabotage allowance. An attempt is spent when accepted, even if you abandon it or lose. Movement, travel, combat, or a lost connection resets an unfinished stationary hold. Check the order's reset timer instead of assuming it changes at midnight."
+          }
+        ]
+      },
+      {
+        "id": "shared-stores",
+        "heading": "Stock the right shared stores",
+        "blocks": [
+          {
+            "type": "p",
+            "text": "Village Provisions come from donated ration packs and packed village supplies. Cook rations in the Noodle Den; gathered ingredients and fish support its recipes. Donated crafting materials and relics become Materials. The Supply Depot converts Materials into War Resources and advanced structures also require them."
+          },
+          {
+            "type": "p",
+            "text": "The daily UTC store update removes 5% of stored Provisions, then uses the remaining stock to supply sector wars, mercenaries, and garrisons. An unfed side receives reduced structure bonuses. Garrison feeding is a separate choice that changes how many supporting points assaults can bank. Check the war map's feeding status and Town Hall's donation limits before committing ingredients you still need."
+          },
+          {
+            "type": "p",
+            "text": "Watchtower, Barracks, and War Academy preparations belong to an individual war and end with it. Leadership should check their current scouting, upkeep, or support effect before spending War Resources. Supply Depot and Treasury Vault upgrades are permanent."
+          }
+        ]
+      },
+      {
+        "id": "territory",
+        "heading": "Separate campaigns from territory",
+        "blocks": [
+          {
+            "type": "p",
+            "text": "Sector Wars decide village control of land. A clan can plant its banner only in a sector its village already controls. The clan needs at least ten members, no other held sector, and 75 Territory Control Scrolls in its treasury. Leadership spends all 75 together to capture; partial deposits do not reserve a claim."
+          },
+          {
+            "type": "p",
+            "text": "Once a sector is held, check its HP and guard status. Reinforcement scrolls repair damage. A breached sector has a fixed repair deadline and stops producing rewards or bonuses until restored. Weather and terrain choices matter only while the hold is active."
           }
         ]
       },
       {
         "id": "clan-boss",
-        "heading": "Preparing for the Clan Boss",
+        "heading": "Prepare for Clan Boss Operations",
         "blocks": [
           {
             "type": "p",
-            "text": "The weekly Clan Boss has one shared health pool for the clan. Parties can bring one to four players, and contribution includes damage, healing, shielding, cleanses, objectives, and survival."
+            "text": "The weekly Clan Boss has a health pool shared by your clan. Parties bring one to four players. Use the ready room to agree on roles and check loadouts before starting. Prepare any needed supplies in the Crafter."
           },
           {
             "type": "p",
-            "text": "Prepare supplies in the Crafter, agree on roles, and confirm loadouts before entering. A smaller coordinated group can be more effective than a full party without assigned roles. Weekly rewards scale with recorded contribution. Each contributor also has a 5% chance of an upgrade gear piece from every assault."
+            "text": "Contribution includes damage, healing, shielding, cleanses, objectives, and survival. Weekly rewards use recorded contribution, so support work matters. Active contributors also have a 5% chance of a gear piece from each assault. If saving the result fails, use Retry before leaving the operation."
           }
         ]
       }
@@ -865,11 +1122,11 @@
     "id": "companions",
     "category": "Companions & Collections",
     "title": "Raise a Squad You Trust",
-    "tagline": "Care for companions at Pet Home, then build different teams for Showdown, Warfront, ranked play, and expeditions.",
-    "blurb": "Collection, Sanctuary, training, evolution, breeding, expeditions, Showdown, Warfront, Gauntlet, and ranked pet play.",
+    "tagline": "Care for companions at Pet Home, then choose a team for Showdown, Warfront, ranked battles, or expeditions.",
+    "blurb": "Carried companions, Sanctuary, wild binding, care, evolution, breeding, expeditions, and the different pet battle modes.",
     "audience": "All companion keepers",
-    "readMinutes": 10,
-    "reviewedAt": "August 2026",
+    "readMinutes": 6,
+    "reviewedAt": "October 2026",
     "hero": "companion",
     "heroAlt": "A shinobi handler preparing four distinct companion beasts in a lantern-lit sanctuary.",
     "heroPosition": "center 44%",
@@ -877,17 +1134,18 @@
       "pets",
       "companions",
       "sanctuary",
+      "binding",
       "breeding",
       "expedition",
       "showdown",
       "warfront",
       "gauntlet",
-      "pet arena"
+      "ranked techniques"
     ],
     "quickTake": [
-      "Your carried roster holds four companions, or six with supporter capacity; Sanctuary keeps overflow safe.",
-      "In Showdown, you choose actions, swaps, and targets each turn.",
-      "Warfront requires four available companions, so build for role coverage instead of relying on one carry."
+      "Carry five companions, or six with supporter capacity. Sanctuary has no ownership cap and keeps extra companions safe.",
+      "Showdown lets you give orders each turn. Warfront tests the formation you set before each clash.",
+      "Ranked Pet Colosseum uses four carried companions in a player-controlled 2v2 battle with two reserves. Save their ranked loadouts before queuing."
     ],
     "relatedGuideIds": [
       "endgame",
@@ -897,25 +1155,57 @@
     "sections": [
       {
         "id": "home-and-sanctuary",
-        "heading": "Pet Home, the carried roster, and Sanctuary",
+        "heading": "Pet Home and your carried roster",
         "blocks": [
           {
             "type": "p",
-            "text": "Pet Home contains Collection, Pet Yard, Pet Arena, Sanctuary, and the Shinobi Hatchery. The carried roster holds four companions by default and six with supporter capacity. Companions in Sanctuary are stored safely but are not available for active squads."
+            "text": "Pet Home links to Collection, Pet Yard, Pet Arena, Sanctuary, and the Shinobi Hatchery. You can carry five companions by default, or six with supporter capacity. Set your Active companion in the Yard for shinobi fights and choose a 2v2 Partner where needed."
           },
           {
             "type": "p",
-            "text": "The Pet Yard handles training, treats, evolution, and release. Only the five starter species can evolve right now. At level 50, use an Awakening Stone for the first evolution; at level 90, use an Ascension Stone for the second."
-          },
-          {
-            "type": "p",
-            "text": "You can run one breeding pair at a time. Parents must be different carried companions of the same element, level 50 or higher, available, and each must have a breeding use remaining. After the 24-hour pairing, complete the egg's care, adventure, and elemental bonds before hatching it. If the carried roster is full, the newborn goes to Sanctuary."
+            "text": "Sanctuary stores companions without an ownership cap. Captures and hatches go there automatically when your carried roster is full. Move a carried companion into Sanctuary to make room, then use Add to carried on the one you want to bring out."
           },
           {
             "type": "callout",
             "tone": "warn",
-            "label": "Availability matters",
-            "text": "Companions can join combat squads while training; their training continues. A companion that is breeding or away on an expedition is unavailable. Collect expedition rewards before building a Warfront formation."
+            "label": "Stored companions need a carried slot",
+            "text": "A companion in Sanctuary cannot fight, train, breed, or leave on an expedition. Preserved overflow also needs a carried slot before it can take part. Releasing a companion ends that bond permanently."
+          }
+        ]
+      },
+      {
+        "id": "care-and-growth",
+        "heading": "Care, training, and starter evolution",
+        "blocks": [
+          {
+            "type": "p",
+            "text": "Check happiness in the Yard before training or summoning a companion. It falls at daily resets. Petting has a daily allowance; treats and Bond training also help. A happy companion trains better, while low happiness can weaken its help in shinobi fights and make it disobey."
+          },
+          {
+            "type": "p",
+            "text": "Choose a training focus and duration in Growth & training, then collect the result when it finishes. Only your active five carried companions can start training. If a supporter companion is outside that group, select it as Active or 2v2 Partner, or rest another companion in Sanctuary. Training continues during pet battles, but it must be collected before an expedition."
+          },
+          {
+            "type": "p",
+            "text": "The five starter species have two evolutions. The first needs level 50 and an Awakening Stone; the second needs level 90 and an Ascension Stone. Check the evolution panel for the next form and the missing requirement. Other species do not currently evolve."
+          }
+        ]
+      },
+      {
+        "id": "binding-and-breeding",
+        "heading": "Binding wild pets and raising an egg",
+        "blocks": [
+          {
+            "type": "p",
+            "text": "Wild binding uses a companion battle. Lower the wild pet's Resolve, then use a Beast Seal while it still has HP. Read its trait clue: some settle faster when you Rest or Guard, while others respond to landed attacks. A defeated pet cannot be bound."
+          },
+          {
+            "type": "p",
+            "text": "Each seal shows how low Resolve must be before you can use it. Stronger seals can be used earlier. Activating one spends it, even if the bind fails; a failed bind leaves the fight running. Watch both Resolve and HP so an extra attack does not cost you the capture."
+          },
+          {
+            "type": "p",
+            "text": "The Hatchery accepts one pair at a time. Choose two different available carried companions of the same element, each at least level 50 with a breeding use remaining. Starting the 24-hour pairing spends one use from each parent and cannot be canceled or rerolled. Afterward, complete the egg's care, adventure, and elemental bonds, then hatch it. The Hatchery shows the species odds before you commit, but the newborn is revealed at hatching."
           }
         ]
       },
@@ -925,58 +1215,92 @@
         "blocks": [
           {
             "type": "p",
-            "text": "Showdown supports 1v1, 2v2, and 3v3 formats, with two reserves in each. You choose actions, swaps, and targets. Training Grounds and current Colosseum Showdowns use AI opponents, and those matches have no turn timer. Weather, traits, roles, conditions, and elemental matchups still change how a companion performs."
+            "text": "Training Grounds and the Colosseum offer 1v1, 2v2, and 3v3 Showdowns against AI, with up to two reserves. Pick moves, swaps, and targets each turn. These AI matches have no turn timer. Training Grounds is unlimited practice without rewards; the Colosseum matches an opponent to your team and pays wins up to its daily limit."
           },
           {
             "type": "p",
-            "text": "Each active companion has stamina. Rest restores stamina but does not heal, so resting at low health is a risk. At round 25, surviving companions, remaining HP, stamina, and the speed tiebreak decide the result."
+            "text": "Rest restores stamina without healing. Overdraft lets a companion use a move it cannot afford, but costs HP and its next action. Switches happen before attacks, so a reserve can change a bad matchup. By round 25, any unfinished fight is judged by companions left, remaining HP, stamina, then speed."
           },
           {
             "type": "list",
             "items": [
-              "Lead with a flexible companion that can handle several matchups.",
-              "Keep a reserve for a bad elemental matchup or a disabling condition.",
-              "Overdraft stamina only when the extra damage can secure a knockout or decisive advantage.",
-              "Practice is unlimited but reward-free. Colosseum wins and ranked ladders award progression."
+              "Keep a reserve that can answer your lead's weak matchup.",
+              "Check stamina costs and preparation requirements before committing a heavy move or signature.",
+              "Use Guard or a partner's protection when another companion needs to Rest.",
+              "Breeding and active expeditions make companions unavailable. Training can continue while they fight."
             ]
           }
         ]
       },
       {
         "id": "warfront",
-        "heading": "Setting up a Warfront squad",
+        "heading": "Setting up a Warfront formation",
         "blocks": [
           {
             "type": "p",
-            "text": "Beastbound Warfront is always 4v4. Choose an opening formation, then read the clash report and reposition any companion before locking the next rematch. Exactly four available carried companions are required."
+            "text": "Beastbound Warfront fields four companions at once in automatic formation combat. Bring exactly four available carried companions and place them in any four of the ten deployment cells. Two rival positions are scouted before you lock your formation. The first side to win two clashes wins the match; each clash is decided by companions standing, then remaining health."
           },
           {
             "type": "p",
-            "text": "Cover four needs when you build the formation: holding a lane, rotating between lanes, pressuring objectives, and turning a lead into objective control. Elemental coverage matters, but objectives decide the Warfront even when one companion wins its individual duel."
+            "text": "Placement sets up the fight. Forward positions make contact sooner; rear positions give ranged and support companions more room. Cover, shoji, smoke, and line of sight affect the routes and targets they can use. Read the clash report and reposition any companion before the next clash."
           },
           {
             "type": "callout",
-            "tone": "good",
-            "label": "Avoid role overlap",
-            "text": "If two companions compete for the same lane and target or run low on stamina together, change a role or swap one out."
+            "tone": "tip",
+            "label": "Build around what the squad does",
+            "text": "Defenders hold up under pressure, Trackers pressure from range, Assassins threaten vulnerable targets, and Sages support the group. Any role or element mix is allowed. Start with a formation you understand, then change the position that failed. Collect completed expeditions before entering Warfront."
+          }
+        ]
+      },
+      {
+        "id": "ranked-loadouts",
+        "heading": "Ranked battles and saved techniques",
+        "blocks": [
+          {
+            "type": "p",
+            "text": "Ranked Pet Colosseum is a live 2v2 battle with two reserves. Select four available carried companions, then choose your opening pair after reviewing the opposing squad. Both players give their own orders each round. Competitive stats are balanced at level 50; your companions keep their species, evolved forms, and training outside the match."
+          },
+          {
+            "type": "p",
+            "text": "In the Yard's Battle & techniques section, equip four learnable techniques alongside the companion's permanent signature. Choose a preset or adjust its competitive attributes and item, then save the ranked loadout. The same choices appear in the ranked squad builder, where you can review them before queuing."
+          },
+          {
+            "type": "p",
+            "text": "Lock orders for both active companions before the planning clock runs out. Rest and switching help manage stamina; repeated Guard becomes more expensive and less effective. Ranked results change Pet Elo. Unranked player-controlled rooms use the sparring roster and a room code. Neither mode spends ryo or battle items."
           }
         ]
       },
       {
         "id": "rest-of-the-roster",
-        "heading": "Gauntlet, ladders, expeditions, and growth",
+        "heading": "Expeditions and the Pet Gauntlet",
         "blocks": [
           {
             "type": "p",
-            "text": "The Pet Gauntlet uses a fresh draft of temporary companions instead of your owned roster. Those companions last only for that run."
+            "text": "Expeditions unlock at companion level 20. Scout takes 45 minutes, Forage takes two hours, and Ruins takes four. Choose Scout for a quick trip, Forage for pet XP, or Ruins for rarer finds. Check the Board's preview for the selected pet and your profession."
           },
           {
             "type": "p",
-            "text": "Pet Colosseum ladder rating comes only from its separate live 1v1 ranked queue. Tactical challenges use stored four-companion defenses, including while the defender is offline. Direct Pet Arena challenges are unranked practice."
+            "text": "Choose Safe or Bold and an optional provision before departure. Bold improves the haul but costs happiness on return; a provision is consumed when the pet leaves. When it returns, Secure haul keeps the listed rewards, while Investigate final lead risks a smaller haul for a chance at more. Daily start and collection limits are shown on the Board."
           },
           {
             "type": "p",
-            "text": "Expeditions unlock for a companion at level 20. Scout lasts 45 minutes, Forage lasts two hours, and Ruins lasts four. Companions below their level cap gain XP and stats. Pet Tamers also earn the full ryo, material, and profession XP rewards."
+            "text": "Growing companions earn pet XP. Pet Tamers also receive ryo, material finds, and profession XP. For other professions, a growing pet earns only pet XP, while a max-level pet earns half the base ryo and find odds. Collect the expedition to free that companion for its next assignment."
+          },
+          {
+            "type": "p",
+            "text": "The Pet Gauntlet uses a separate draft of temporary companions. Recruit, place, and improve that squad during the run. Its companions do not join your owned collection, so you can try combinations without changing your carried roster."
+          },
+          {
+            "type": "h",
+            "text": "Pet Rally at Sunscar Festival"
+          },
+          {
+            "type": "p",
+            "text": "Bring an available companion to race at Sunscar Festival. Practice is always open. Species sets its racing style, while trained stats give capped bonuses. Learn the turns, jumps, Burst, and elemental moves before entering the daily Grand Prix."
+          },
+          {
+            "type": "p",
+            "text": "The Grand Prix has three races and one entry per UTC day, used when the first race begins. Finish all three for ryo and Rally reputation. Combined race time breaks points ties. If you leave partway through, resume the unfinished Grand Prix from the race desk."
           }
         ]
       }
@@ -986,10 +1310,10 @@
     "id": "chronicle-showdown",
     "category": "Companions & Collections",
     "title": "Chronicle Showdown: Rules and Deck Basics",
-    "tagline": "Build a legal deck and learn what happens in each phase.",
-    "blurb": "Deck rules, Tribute summons, Snares, elemental matchups, target previews, packs, practice, and Legacy progress.",
+    "tagline": "Build a legal deck, read the field, and choose packs that help your next upgrade.",
+    "blurb": "Deck limits, turns, Tributes, Calls, Warded Monsters, Snares, elements, Chronicle Point packs, and practice modes.",
     "audience": "Collectors and tacticians",
-    "readMinutes": 8,
+    "readMinutes": 5,
     "reviewedAt": "October 2026",
     "hero": "chronicle",
     "heroAlt": "A Shinobi Chronicle Showdown board with opposing fields and card zones.",
@@ -1001,14 +1325,16 @@
       "deck",
       "snare",
       "tribute",
-      "element",
+      "warded",
+      "summoning calls",
       "packs",
+      "chronicle points",
       "living chronicle"
     ],
     "quickTake": [
       "Bring exactly 40 cards, open with five, and protect 8,000 Health.",
-      "Draw, Standby, and End are automatic; you act during Main and Battle.",
-      "AI wins update your Showdown record. Full AI matches and actively played free-play wins can count toward Legacy."
+      "The first player skips the opening draw and cannot Battle that turn. Plan your opening around the field you leave behind.",
+      "Basic packs use Chronicle Points earned in Echoes of War. Choose an element, Jutsu, or Snares when your deck needs a particular kind of card."
     ],
     "relatedGuideIds": [
       "clans-and-war",
@@ -1022,33 +1348,63 @@
         "blocks": [
           {
             "type": "p",
-            "text": "Shinobi Chronicle Showdown is the tactical duel fought with a forty-card deck. The Living Chronicle in the Story Hall is different: it records story progress, Showdown and companion wins, mission and exploration totals, recent village and clan wars, clan contribution, and Legacy."
+            "text": "Shinobi Chronicle Showdown is the card duel in the Card Hall. If the Hall is locked, reach level 17 and find the Chronicle Scribe on the world map for your first deck. The Hall's Collection, Deck Builder, and Packs sections let you read your cards, save a deck, and buy packs."
+          },
+          {
+            "type": "p",
+            "text": "The Living Chronicle in the Story Hall keeps a broader record: story progress, Showdown and companion wins, missions, exploration, recent wars, clan contribution, and Legacy. You do not build a deck there."
           },
           {
             "type": "figure",
             "src": "chronicle",
             "alt": "A Showdown board divided into player and opponent fields with clear summon, set, and battle areas.",
-            "caption": "The board keeps both fields visible. Read the target preview before committing a summon or attack."
+            "caption": "Both fields stay visible. Read the card text and target preview before committing a summon or attack."
+          }
+        ]
+      },
+      {
+        "id": "building-a-deck",
+        "heading": "Save a deck you can actually play",
+        "blocks": [
+          {
+            "type": "p",
+            "text": "A legal deck has exactly 40 cards, using copies you own. Most cards allow three copies, but printed LIMIT 1 or LIMIT 2 rules take priority. Check Deck Builder's warnings and save the finished list before starting a duel."
+          },
+          {
+            "type": "p",
+            "text": "Keep enough level 1 to 4 Monsters to establish a field without Tributes. A hand full of large Monsters can leave you unable to Summon. Add a smaller group of Tribute Monsters, then use Jutsu and Snares that support the same plan. Upgrade the starting deck a few slots at a time and test whether those cards help you play a stronger opening."
+          },
+          {
+            "type": "p",
+            "text": "Read effects as well as ATK and DEF. FLIP effects reward setting up a face-down Monster, and some Snares need a matching face-up element. A powerful card that rarely meets its own requirements may fit another deck better."
           }
         ]
       },
       {
         "id": "turn-structure",
-        "heading": "Turn structure",
+        "heading": "Turns, Tributes, and Snare responses",
         "blocks": [
           {
             "type": "p",
-            "text": "Draw, Standby, and End resolve automatically. The player who takes the first turn skips that turn's draw. In Main, you may Summon or Set once for the turn, play support, and arrange the field. In Battle, choose attacks and targets. Smart Phase Assist advances routine phases, but you still choose every summon, set, and attack."
+            "text": "The turn follows Draw, Standby, Main 1, Battle, Main 2, and End. Draw, Standby, and End resolve automatically. The player who takes the first turn skips that turn's draw and cannot enter Battle. You get one Normal Summon or Set across both Main phases. Skipping Battle also skips Main 2. Smart Phase Assist moves past completed attacks, while you still choose your plays."
           },
           {
             "type": "p",
-            "text": "Level 1–4 Monsters need no Tribute, level 5–6 need one, and level 7–8 need two. Legendary Jutsu open two other routes: Shadow Clone Summons two Shadow Doubles you can Tribute from the next turn, and each Call Jutsu Summons its own Level 8 beast for 1,000 Health. Every other level 7–8 Monster is Warded: Snares cannot destroy it or return it to the hand during the turn it is Summoned. Snares must be Set for a turn before they can respond, and only one matching Snare response can fire. Target badges show the expected result before you confirm."
+            "text": "Level 1 to 4 Monsters need no Tribute, level 5 to 6 need one, and level 7 to 8 need two. A Set Monster enters face-down Defense and may Flip Summon later. Shadow Clone creates two Shadow Doubles that can be Tributed from the next turn. They vanish when they leave the field and do not satisfy a Snare's elemental requirement."
+          },
+          {
+            "type": "p",
+            "text": "Each Call Jutsu Summons its own matching Level 8 beast for 1,000 Health. You need that beast in hand, the Call uses your Normal Summon, and the beast cannot attack that turn. Called beasts cannot be Summoned another way. Other level 7 to 8 Monsters are Warded: Snares cannot destroy them or return them to the hand during the turn they are Summoned. Jutsu can still affect them."
+          },
+          {
+            "type": "p",
+            "text": "Set Snares during a Main phase and wait a turn before using them. When the printed trigger occurs, you may use one matching response. Read its element requirement, targets, and Health cost before confirming. Target previews show the expected battle result, but a face-down card or response can change what happens."
           },
           {
             "type": "callout",
             "tone": "tip",
             "label": "Before entering Battle",
-            "text": "Confirm that you used the intended normal Summon, filled the right zone, and Set the response you want."
+            "text": "Check your Normal Summon, your Monster positions, and any response you meant to Set. Direct attacks require an empty opposing Monster field. You lose at zero Health, when you must draw from an empty deck, or by forfeiting."
           }
         ]
       },
@@ -1058,25 +1414,43 @@
         "blocks": [
           {
             "type": "p",
-            "text": "The wheel is Fire over Wind, Wind over Lightning, Lightning over Earth, Earth over Water, and Water over Fire. With no Field Jutsu active, advantage adds 200 to the ATK or DEF used in that battle. A Field Jutsu replaces the wheel instead of stacking with it: its favored element gains 300 ATK and the opposed element loses 200 ATK."
+            "text": "The wheel is Fire over Wind, Wind over Lightning, Lightning over Earth, Earth over Water, and Water over Fire. With no Field Jutsu active, advantage adds 200 to the ATK or DEF used in that battle. A Field Jutsu replaces the wheel: its favored element gains 300 ATK and the opposed element loses 200 ATK. Only one Field applies at a time."
           },
           {
             "type": "p",
-            "text": "Include enough elemental variety that one common matchup cannot shut down the deck. Prioritize a reliable summon curve and cards that support the same strategy over perfect elemental coverage."
+            "text": "Elemental variety can help with bad matchups, but it should still fit your deck. Check whether a Field also helps the opponent before playing it, and keep the face-up Monsters your Snares need to work."
           }
         ]
       },
       {
         "id": "collection-and-modes",
-        "heading": "Choosing packs and practice modes",
+        "heading": "Choosing packs and opening cards",
         "blocks": [
           {
             "type": "p",
-            "text": "Standard packs contain five cards and cost ryo. Elite and Legendary packs contain one card each, cost Fate Shards, and use the rarity guarantees shown in the Shop. Open packs that can improve a specific slot in your deck."
+            "text": "Basic packs cost Chronicle Points earned through Echoes of War in the Celestial Tower. Each contains five Common or Rare cards. Random Packs can contain Monsters of any element, Jutsu, and Snares. Element packs contain only matching Monsters; Jutsu and Snare packs focus on those card types."
           },
           {
             "type": "p",
-            "text": "Use AI spar to test sequencing and free-play PvP to practice against another player without risking rating. Neither awards ryo or rating. AI wins update your Showdown record. Full AI matches and actively played free-play wins can count toward Legacy. Clan and Village War can also use Showdown results toward their objectives."
+            "text": "Premium packs cost Fate Shards. Elite gives one Rare or Epic card, Legendary gives one Legendary, and the two Quintet packs give five Epic or five Legendary cards. Read the listing for the current price and pool. Cards are equally likely within each pack's eligible pool, and duplicates can appear even within one pack. Owning a card does not lower its chance of appearing again."
+          },
+          {
+            "type": "p",
+            "text": "Swipe across a pack or press Tear open, then tap through the cards. Skip goes straight to the summary, where you can tap any card to read it full size. The cards are already yours when the reveal begins, so skipping or closing it does not lose them. Open another buys another pack; if a purchase was interrupted, use the Recover button shown for that pack."
+          }
+        ]
+      },
+      {
+        "id": "practice-and-progress",
+        "heading": "Practice, campaign, and war matches",
+        "blocks": [
+          {
+            "type": "p",
+            "text": "AI spar lets you test against Easy, Medium, or Hard. Free-play PvP lets you queue or challenge another player without risking rating. Neither awards ryo or rating. Start with Easy while you learn your opening, then try harder opponents as your deck improves."
+          },
+          {
+            "type": "p",
+            "text": "AI wins update your Showdown record and can count toward Legacy. Free-play wins can count too when both players take part. Forfeits, timeouts, unfinished games, and very short matches do not qualify. Echoes of War supplies the Chronicle Points for Basic packs. Clan and Village War can also use Showdown results toward their own objectives."
           }
         ]
       }
@@ -1085,12 +1459,12 @@
   {
     "id": "professions-economy",
     "category": "Build Your Shinobi",
-    "title": "Choosing a Profession",
-    "tagline": "Healer, Vanguard, and Pet Tamer each advance through different activities.",
-    "blurb": "Profession ranks and Mastery, money habits, the Bank, Hospital, Grand Marketplace, hunting, and crafting.",
-    "audience": "Level 13+",
-    "readMinutes": 8,
-    "reviewedAt": "August 2026",
+    "title": "Professions, Gathering, and Ryo",
+    "tagline": "Choose work you enjoy, learn the field skills, and save materials for a purpose.",
+    "blurb": "Profession ranks and Mastery, Fishing and Mining, gathering tools, material use, and everyday money decisions.",
+    "audience": "All shinobi; professions at level 13",
+    "readMinutes": 5,
+    "reviewedAt": "October 2026",
     "hero": "professions",
     "heroAlt": "Three shinobi representing the Healer, Vanguard, and Pet Tamer professions.",
     "heroPosition": "center 42%",
@@ -1099,6 +1473,10 @@
       "healer",
       "vanguard",
       "pet tamer",
+      "mastery",
+      "fishing",
+      "mining",
+      "tools",
       "ryo",
       "bank",
       "hospital",
@@ -1106,98 +1484,135 @@
       "crafting"
     ],
     "quickTake": [
-      "Healers treat players in the Hospital, Vanguards earn rewards through PvP and war, and Pet Tamers improve companion training and expedition rewards.",
-      "Profession rank grows through rank 10; profession XP earned after that becomes Mastery.",
-      "Budget separately for everyday spending, planned upgrades, and rare materials."
+      "Professions unlock at level 13. Healer, Vanguard, and Pet Tamer each have a hub with daily work and rank progress.",
+      "Fishing and Mining are separate skills available alongside any profession. Start with a basic tool and a skill-1 site.",
+      "Bank spare ryo, collect interest when it is ready, and check a recipe before refining or donating its ingredients."
     ],
     "relatedGuideIds": [
       "builds",
       "companions",
+      "world",
       "clans-and-war"
     ],
     "sections": [
       {
         "id": "three-paths",
-        "heading": "Compare the three professions",
+        "heading": "Choose the profession you will use",
         "blocks": [
           {
             "type": "table",
             "caption": "The three profession paths",
             "head": [
               "Profession",
-              "What the work feels like",
-              "Where it matters"
+              "Typical work",
+              "Why choose it"
             ],
             "rows": [
               [
                 "Healer",
-                "Find admitted allies, restore them, and improve medical support",
-                "Hospital, Clan Boss support, village recovery"
+                "Treat wounded or knocked-out allies in the village ward",
+                "You enjoy helping players recover and supporting group fights."
               ],
               [
                 "Vanguard",
-                "Seek real-player fights and front-line war work",
-                "PvP, Honor Seals, clan and village wars"
+                "Fight eligible real-player opponents and take part in wars",
+                "You want to earn Honor Seals through PvP."
               ],
               [
                 "Pet Tamer",
-                "Train, deploy, and support companions over time",
-                "Companion PvE, expeditions, Clan Boss support"
+                "Train companions, collect expeditions, and fight with pets",
+                "You want faster companion training and better PvE or expedition rewards."
               ]
             ]
           },
           {
             "type": "p",
-            "text": "Professions unlock at level 13 and advance through ten ranks. After rank 10, further profession XP earns Mastery points. After choosing a profession, changes unlock at character level 20. Buy a Profession Change Scroll beside the Village Transfer Scroll in the Grand Marketplace, then choose either other profession. Each change starts at Rank 1 with 0 profession XP and no Mastery; previous profession progress does not carry over."
+            "text": "Your first choice unlocks at level 13. Each profession advances through ten ranks. Profession XP earned after rank 10 becomes Mastery points, which you spend in that profession's Mastery panel. The Mastery panel shows each path's effects and the price of a reset."
+          },
+          {
+            "type": "p",
+            "text": "From character level 20, you can change professions using a Profession Change Scroll. The Grand Marketplace sells it for 200 Fate Shards beside the Village Transfer Scroll. Each change starts the new profession at Rank 1 with 0 profession XP and no Mastery. Previous profession progress does not carry over."
           }
         ]
       },
       {
         "id": "profession-work",
-        "heading": "How each profession advances",
+        "heading": "Use your profession's daily work",
         "blocks": [
           {
             "type": "p",
-            "text": "Healers restore players from the Hospital's admitted list. Vanguards earn Honor Seals from eligible real-player kills, including war targets. Pet Tamers receive bonuses from companion training, PvE, and expeditions."
+            "text": "Your profession hub tracks your rank and lists today's missions. Start there if you want profession XP but aren't sure what to do next."
           },
           {
             "type": "p",
-            "text": "Clan Boss actions can also award profession XP through damage, healing, shielding, cleansing, objectives, and survival."
+            "text": "Healers spend chakra to restore allies and earn XP from the share of HP restored. Vanguards earn Honor Seals from qualifying real-player kills, with daily and per-target limits shown in the hub. Pet Tamers improve pet PvE, training speed, and expedition rewards. Their first collected expedition of the day grants double Tamer XP, pet XP, and ryo, with a material-find boost."
+          },
+          {
+            "type": "p",
+            "text": "Clan Boss actions can also award profession XP for useful work in the fight. Healing and other support actions count alongside damage, so choose a role your current loadout can perform."
           }
         ]
       },
       {
-        "id": "ryo-habits",
-        "heading": "Saving and spending ryo",
+        "id": "field-skills",
+        "heading": "Start Fishing or Mining",
         "blocks": [
           {
-            "type": "list",
-            "items": [
-              "Carry enough for the next planned purchase and recovery; bank the rest.",
-              "Bank interest requires banked ryo and at least one Town Hall Bank upgrade. A new claim becomes available after every full 24-hour interval and must be collected manually.",
-              "Direct transfers are permanent and taxed. They move currency only and do not protect item trades.",
-              "Compare item stats and effects as well as price when using the Shop or Grand Marketplace."
-            ]
+            "type": "p",
+            "text": "Visit the Shinobi Outpost in Central for the Fishing and Mining tabs. These skills have their own XP and levels, separate from your profession. The Outpost lists sites and their requirements. Begin at a skill-1 site, then move to rich sites at skill 4 and master sites at skill 7."
           },
           {
-            "type": "callout",
-            "tone": "tip",
-            "label": "Budget categories",
-            "text": "Keep separate amounts for everyday spending, your next rank or upgrade, and rare materials reserved for a known recipe."
+            "type": "p",
+            "text": "Buy a Basic Fishing Pole or Basic Pickaxe from the Ryo Shop and equip it in its gathering slot through Inventory or the Outpost. Each basic tool lasts 50 attempts. Golden tools in the Grand Marketplace never break. Gathering tools do not take a combat equipment slot or add battle stats."
+          },
+          {
+            "type": "p",
+            "text": "On the World Map, select a shoal or mineral node and approach its marked shore or rock base. Play the minigame for up to a 10 percentage point success bonus, or watch the relaxed animation at the baseline chance. Fishing asks you to hook the bite and manage line tension. Mining asks you to place charges along the fractures without destroying the core."
+          },
+          {
+            "type": "p",
+            "text": "A success awards 10 skill XP and a resource. A completed failure awards 3 XP. Each ordinary node allows three attempts before a ten-minute refill. Explore, Fishing, and Mining share 100 total actions per UTC day. Starting spends the action and one basic-tool use, even if you fail or abandon the attempt."
           }
         ]
       },
       {
         "id": "materials-have-stories",
-        "heading": "Planning material use",
+        "heading": "Check a recipe before using materials",
         "blocks": [
           {
             "type": "p",
-            "text": "Hunt materials are used for Hunter Rank, ordinary crafting, pet treats, and village stores. Hollow Gate keys and named commissions use different currencies and recipes. Before converting a stack, review the next rank-up, clan goal, and relevant recipe."
+            "text": "Better gathering skills improve success and resource quality, within the site's quality limit. Keep the grade a recipe asks for. Fine ore supports rare gear, Superior ore supports epic weapons, and Pristine ore supports legendary weapons. Regional minerals supply specialized recipes."
           },
           {
             "type": "p",
-            "text": "If you enjoy gathering, a broad stockpile gives you options later. For a specific craft, start from its recipe and gather only the materials you are missing."
+            "text": "The Outpost's Mineral Refinery can turn one Fine, Superior, or Pristine mineral into two, three, or four common ingredient units. That conversion cannot be reversed. Check your next weapon recipe before breaking down a higher-grade stack."
+          },
+          {
+            "type": "p",
+            "text": "Fish can be cooked into ration packs in the Noodle Den. The recipe also needs Field Herb, Heartwood Bark, and ryo. Higher-grade fish make more rations, within the 40-ration daily cooking allowance. Packed village supplies and donated rations help shared stores; common gathered materials can also fund your clan's Hall project."
+          },
+          {
+            "type": "p",
+            "text": "Hunt materials still have separate uses in Hunter Rank, crafting, and pet treats. Before donating or converting a stack, check the recipe or rank-up you are saving for. Gather the missing ingredients for that goal instead of trying to fill every stack at once."
+          }
+        ]
+      },
+      {
+        "id": "ryo-habits",
+        "heading": "Keep everyday spending manageable",
+        "blocks": [
+          {
+            "type": "list",
+            "items": [
+              "Carry enough ryo for your next purchase or recovery and bank what you can spare. Road fleeing can take carried ryo, but it does not touch the Bank.",
+              "Bank interest requires banked ryo and at least one Town Hall Bank upgrade. A new claim becomes available after each full 24-hour interval and must be collected manually.",
+              "Use the Shop and Grand Marketplace for catalog purchases. Compare the stats and effects with equipment you already own before spending.",
+              "Direct player transfers send currency, not items. They are permanent and taxed, and they do not protect a separate item trade."
+            ]
+          },
+          {
+            "type": "p",
+            "text": "Set aside the ryo and ingredients for your next upgrade, then donate what you can spare."
           }
         ]
       }
@@ -1207,11 +1622,11 @@
     "id": "endgame",
     "category": "Harder Challenges",
     "title": "Endgame Modes and How to Prepare",
-    "tagline": "Compare entry costs, party sizes, failure penalties, and reward timing before choosing a mode.",
-    "blurb": "Entry rules, party requirements, reward timing, and risk across the Towers, Weekly Boss, relic dungeons, and Hollow Gate.",
+    "tagline": "Choose a challenge by its entry rules, the team it needs, and what you risk on a loss.",
+    "blurb": "Prepare for Tower climbs, the Weekly Boss, Hollow Gate, Strongholds, and the longer campaigns.",
     "audience": "Veteran shinobi",
-    "readMinutes": 11,
-    "reviewedAt": "August 2026",
+    "readMinutes": 6,
+    "reviewedAt": "October 2026",
     "hero": "towers",
     "heroAlt": "A shinobi approaching monumental battle towers under a storm-lit sky.",
     "heroPosition": "center 40%",
@@ -1224,12 +1639,21 @@
       "dungeon",
       "hollow gate",
       "attunement",
-      "boss"
+      "augment",
+      "rift",
+      "stronghold",
+      "anbu",
+      "first pact",
+      "celestial",
+      "era",
+      "hall of legends",
+      "master",
+      "grandmaster"
     ],
     "quickTake": [
-      "Battle Towers use fixed objectives, Endless Tower lets you bank or risk run earnings, and Endless Spire requires four-player coordination.",
-      "The Weekly Boss roams, shares one health pool, allows three attempts, and distributes rewards when its 72-hour spawn ends.",
-      "Hollow Gate is a five-floor expedition. A fresh run needs a key; an unfinished run can be resumed without spending another."
+      "Check the lobby before entering. Battle Towers, Endless Tower, and Endless Spire have different party rules and loss penalties.",
+      "The Weekly Boss has unlimited health. Deal damage for the leaderboard during its 72-hour event; each player gets three attempts per spawn.",
+      "Resume an unfinished Hollow Gate run to keep using the entry you already paid for. A fresh standard run spends a key."
     ],
     "relatedGuideIds": [
       "builds",
@@ -1253,7 +1677,11 @@
           },
           {
             "type": "p",
-            "text": "Battle Towers contain fixed encounters that you can play solo or with a Story squad. Floors mix objectives, hazards, bosses, and first-clear rewards. Your first three entries into uncleared floors each UTC day are free; later entries cost 1,500 ryo. Replaying a cleared floor is free. Build around the floor objective instead of relying on stats alone."
+            "text": "Battle Towers have fixed encounters with objectives, hazards, bosses, and first-clear rewards. Your first three entries into uncleared floors each UTC day are free; later entries cost 1,500 ryo. Replaying a cleared floor is free. Read the objective before choosing your squad."
+          },
+          {
+            "type": "p",
+            "text": "Story Tower rooms hold two to four fighters. You can fill one slot with a reduced-strength AI helper, so a host and helper can launch a two-slot room. The helper earns no rewards."
           },
           {
             "type": "h",
@@ -1261,7 +1689,7 @@
           },
           {
             "type": "p",
-            "text": "Every wave is harder. Every fifth wave doubles that wave's ryo reward; every tenth wave triples it instead. Cash out to keep the ryo accumulated during the run; a loss clears anything you had not claimed. Milestone materials are credited as soon as you clear them and remain yours."
+            "text": "Each wave gets harder, and you carry your remaining HP into the next fight. Cash out between waves to keep your run earnings. Defeat costs the unclaimed ryo and sends you to the Hospital; milestone currencies stay yours. Your first fresh run each UTC day is free. Later starts cost 3,000 ryo more each time, while resuming an active run is free."
           },
           {
             "type": "h",
@@ -1269,7 +1697,7 @@
           },
           {
             "type": "p",
-            "text": "Endless Spire is a 20-stage boss climb for exactly four players, with weekly blessings, keystones, and a leaderboard. Story Tower rooms have two to four total slots. Up to one slot can be filled by a reduced-strength AI helper that earns no reward, so one live host and the helper can launch a two-slot room. Spire never adds an AI helper."
+            "text": "Endless Spire is a 20-stage boss climb for exactly four players. It has weekly blessings, keystones, and a leaderboard. There are no AI helpers. Agree on who will handle the boss mechanics before the party starts."
           }
         ]
       },
@@ -1279,11 +1707,15 @@
         "blocks": [
           {
             "type": "p",
-            "text": "The Weekly Boss has one shared health pool during its 72-hour spawn and moves to a connected sector about every thirteen minutes. Track its current location on the World Map before using one of your three attempts."
+            "text": "The Weekly Boss is a damage challenge against an enemy with unlimited health. It stays available for its 72-hour event, regardless of total damage dealt. Track its current sector in the Weekly Boss view, then find it there to fight. You have three attempts per spawn, each costing 20 stamina."
           },
           {
             "type": "p",
-            "text": "After its health reaches zero, the boss becomes Broken but remains fightable until despawn. Rewards are distributed at despawn based on contribution and placement, so players can continue contributing after Broken. Every contributor also has a 5% chance of an upgrade gear piece, and it appears in your bag once rewards are paid."
+            "text": "Prepare before spending an attempt. You enter with your current HP, Chakra, and remaining Stamina, and the fight has a 20-round limit. Keep enough defense to survive while dealing damage across several turns."
+          },
+          {
+            "type": "p",
+            "text": "Rewards arrive when the event ends. Every contributor earns a ryo share and a once-per-week grant of 10 stat points. The top 25 receive a Dungeon Key, and the top 10 also receive a Weekly Boss Core. Contributors can also receive an upgrade gear drop. Check the reward panel after the timer ends."
           }
         ]
       },
@@ -1293,11 +1725,11 @@
         "blocks": [
           {
             "type": "p",
-            "text": "A relic dungeon runs in order: defeat the Warden, win the Chronicle match, then face the Rare Beast with a companion. Progress is saved between stages, and the relic is awarded after all three are complete."
+            "text": "A relic dungeon has three seals: defeat the Warden with your shinobi, win the Chronicle match, then beat the Rare Beast with a companion. Bring an available companion and a usable Chronicle deck before entering."
           },
           {
             "type": "p",
-            "text": "Bring an eligible companion for the final stage and make sure it is available before you begin."
+            "text": "Progress saves between seals. After the third win, choose Claim dungeon reward on the dungeon screen."
           }
         ]
       },
@@ -1307,25 +1739,79 @@
         "blocks": [
           {
             "type": "p",
-            "text": "Hollow Gate is a five-floor fog-of-war expedition with ambushes, Alpha encounters, and random events. A fresh run requires an active 30-day village access seal from the seated Kage and consumes one Hollow Gate Key. You may start two fresh runs per day before Attunement bonuses; resuming a run is free."
+            "text": "A standard Hollow Gate dive is a five-floor expedition through a partly hidden map. Your village needs an active 30-day access seal opened by its seated Kage. A fresh standard run spends one Hollow Gate Key and one daily entry. The base allowance is two starts per UTC day, with an extra start available through Attunement. Resume an unfinished run instead of paying for a new one."
           },
           {
             "type": "p",
-            "text": "For a Hound encounter, set an eligible companion as active and carry it with you. It must have PvE unlocked, normally at level 50, and cannot be training, breeding, or away on an expedition."
+            "text": "Choose one of the offered augments at the start. Its benefit and drawback apply to that run. Follow the map markers to descend, and decide whether optional chest detours are worth the extra steps. Shrine Keys found inside open doors; they are separate from the Hollow Gate Key used for entry."
           },
           {
             "type": "p",
-            "text": "If you die, you return to the Hospital and retain 50% of run-earned currencies. Each Greedy Hands rank adds 10 percentage points, up to 80%. Item rewards and permanent progress are retained. The Shrine highlights ryo and Hollow Shards at risk, but the same percentage applies to every run currency."
+            "text": "Hollow Hounds can be fought by your shinobi. If you want to use a companion instead, bring an active, carried pet with PvE unlocked, normally at pet level 50. It must not be breeding or away on an expedition. Training can continue during the duel."
           },
           {
             "type": "p",
-            "text": "Attunement is the permanent Hollow Gate upgrade tree and includes key forging and entry upgrades. Prioritize upgrades for the obstacle ending your runs; extra entries do not improve combat."
+            "text": "Extract to keep your haul. If you die or abandon the run, you keep 50% of the currencies you earned inside. Each Greedy Hands rank raises that share by 10 percentage points, up to 80%. Items and permanent progress stay yours. Spend Hollow Shards on permanent Attunement upgrades at the Shrine, choosing the ones that address what is ending your runs."
+          }
+        ]
+      },
+      {
+        "id": "rift-quests",
+        "heading": "Short Rifts on the road",
+        "blocks": [
+          {
+            "type": "p",
+            "text": "Wandering quest givers can send you to shorter Rifts, from one to three floors. These have their own level requirements and do not spend a Hollow Gate Key, but they share the Gate daily start allowance. Accept the quest and travel to its marked sector."
           },
           {
-            "type": "callout",
-            "tone": "warn",
-            "label": "Before you enter",
-            "text": "Starting over spends another key and uses another daily entry. If a run is still active, resume it from the Hollow Gate instead."
+            "type": "p",
+            "text": "A weekly Rift signal marks an existing chest, encounter, or shard vein on each floor. It helps you choose a route. You can fight as a shinobi without bringing a pet, and card ambushes lend a starter deck if you do not have one. Defeat the named quest boss to receive the completion reward, then check the run summary before leaving."
+          }
+        ]
+      },
+      {
+        "id": "strongholds",
+        "heading": "Strongholds and ANBU vaults",
+        "blocks": [
+          {
+            "type": "p",
+            "text": "Stronghold exploration opens at character level 50. Enter from the sector and watch your threat as you walk. At full threat, you must resolve a patrol fight before continuing. Leaving or reloading does not clear a patrol you already triggered."
+          },
+          {
+            "type": "p",
+            "text": "The War Archives offer an optional intel objective. ANBU treasury raids are a separate level-100 activity: reach the vault inside a rival stronghold and clear any patrol before challenging its defender. Check the raid panel for the target, available rewards, and daily allowance before committing."
+          }
+        ]
+      },
+      {
+        "id": "celestial-campaigns",
+        "heading": "Campaigns in the Celestial Tower",
+        "blocks": [
+          {
+            "type": "p",
+            "text": "Open the Celestial Tower from the Central Hub to find its campaigns alongside the Tower climbs. Echoes of War is a Chronicle card campaign; its victories earn Chronicle Points for Basic packs."
+          },
+          {
+            "type": "p",
+            "text": "The First Pact opens at character level 100. Bring four available carried companions for its two active positions and two reserves. Explore the Sunken Court, speak to its residents, and use the journal to follow your current objective. Later trials and Court work continue after the main story, so check the journal when an objective ends."
+          }
+        ]
+      },
+      {
+        "id": "era-campaigns",
+        "heading": "Era campaigns in the Hall of Legends",
+        "blocks": [
+          {
+            "type": "p",
+            "text": "An unlocked world Era opens a personal campaign in the Hall of Legends. Choose a narrative route and complete its stages in order. Either route takes you through the full campaign. Only progress earned after a stage begins counts toward its objectives."
+          },
+          {
+            "type": "p",
+            "text": "Read examination conditions closely. A clean Tower or Spire examination may require a win within par, no squad knockouts, a pylon disruption, and a response to a signature attack in the same run. Starting the right floor is only part of the task."
+          },
+          {
+            "type": "p",
+            "text": "Later campaigns require earlier campaigns to be complete. The Master campaign also needs level 70 and a Stage IV Legacy; Grandmaster needs level 100 and Stage V. Any Legacy qualifies once it reaches the required stage. The Hall shows the current requirements and awards a title when you complete a campaign."
           }
         ]
       }
@@ -1335,11 +1821,11 @@
     "id": "game-and-community",
     "category": "Game",
     "title": "About Shinobi Journey",
-    "tagline": "Shinobi Journey is in public beta. Player feedback helps us find bugs and tune the game.",
-    "blurb": "An overview of persistent systems, public-beta changes, the Living Chronicle, and where to get help.",
+    "tagline": "A shared shinobi RPG with solo stories, village life, and player competition, currently in public beta.",
+    "blurb": "Where to track your progress, get help, adjust the game, and report a problem during public beta.",
     "audience": "Everyone",
-    "readMinutes": 4,
-    "reviewedAt": "August 2026",
+    "readMinutes": 3,
+    "reviewedAt": "October 2026",
     "hero": "game",
     "heroAlt": "A wide mountain valley with a distant shinobi village beneath the clouds.",
     "heroPosition": "center 48%",
@@ -1350,12 +1836,16 @@
       "beta",
       "living chronicle",
       "help",
-      "feedback"
+      "feedback",
+      "settings",
+      "audio",
+      "save",
+      "logbook"
     ],
     "quickTake": [
-      "The game is in public beta, so systems, costs, caps, rewards, and presentation can change.",
-      "The Living Chronicle records major story, mission, exploration, Showdown, companion, war, clan, and Legacy progress.",
-      "For bug reports, include the screen, action, expected result, actual result, and a screenshot."
+      "Use the Logbook for your next objective and the Living Chronicle to look back over your progress.",
+      "Balance and event schedules can change during public beta. Check the current in-game value before spending.",
+      "For a bug report, include the screen, the action you took, and what happened. Remove private details from screenshots."
     ],
     "relatedGuideIds": [
       "first-hour",
@@ -1365,15 +1855,15 @@
     "sections": [
       {
         "id": "what-kind-of-game",
-        "heading": "What persists in the world",
+        "heading": "Your progress and the shared world",
         "blocks": [
           {
             "type": "p",
-            "text": "Shinobi Journey is a persistent browser RPG about building a shinobi, raising companions, taking work, and traveling a shared map. It combines solo progression with shared exploration, PvP, clans, and coordinated operations."
+            "text": "Shinobi Journey is a persistent browser RPG. You build a shinobi, raise companions, take missions, and travel a shared world. You can follow solo stories, join a clan, or take part in village campaigns."
           },
           {
             "type": "p",
-            "text": "The Living Chronicle gathers your story progress, Showdown and companion wins, mission and exploration totals, recent village and clan wars, clan contribution, and Legacy. Use it to review the account's completed milestones and recent activity."
+            "text": "The Logbook tracks active goals and useful next actions. The Living Chronicle records completed story, mission, exploration, companion, card, war, and Legacy milestones. World Eras and personal Era campaigns are recorded in the Hall of Legends."
           }
         ]
       },
@@ -1383,11 +1873,11 @@
         "blocks": [
           {
             "type": "p",
-            "text": "During beta, balance and presentation can change. Costs, caps, rewards, queues, and event schedules are most likely to move, so use each guide's review date for time-sensitive values."
+            "text": "The game is open to play while development continues. Systems, rewards, costs, and event schedules may change. These guides were checked in October 2026; if a screen shows a different value, use the current in-game value and report the mismatch."
           },
           {
             "type": "p",
-            "text": "If a guide differs from the current interface, follow the in-game value and report the mismatch."
+            "text": "If a purchase or reward is still unconfirmed, wait for the save to finish. Follow the screen’s recovery instructions before trying again."
           }
         ]
       },
@@ -1396,28 +1886,31 @@
         "heading": "How to ask for help or report a bug",
         "blocks": [
           {
-            "type": "list",
-            "items": [
-              "Name the exact screen and control label.",
-              "Say what you did immediately before the problem.",
-              "Include what you expected and what actually happened.",
-              "Attach a screenshot when the issue is visual or positional, after redacting private chat or account details.",
-              "Never post a password, sign-in token, or private account data."
-            ]
+            "type": "p",
+            "text": "Use the Discord link in the game for strategy help and feedback. For build advice, include your level, rank, and the mode you are preparing for. For a bug report, give enough detail for someone else to repeat the problem."
           },
           {
-            "type": "p",
-            "text": "Join the linked Discord for strategy help and feedback. When asking about a build, include your rank and the mode you are preparing for."
+            "type": "list",
+            "items": [
+              "Name the screen and the control you used.",
+              "Explain what you did just before the problem, what you expected, and what happened.",
+              "Include your device and browser. Add a screenshot for a visual problem, with private chat and account details removed.",
+              "Keep passwords, sign-in tokens, and private account data out of public reports."
+            ]
           }
         ]
       },
       {
-        "id": "credits",
-        "heading": "How player feedback helps",
+        "id": "settings-and-feedback",
+        "heading": "Adjusting the game and giving feedback",
         "blocks": [
           {
             "type": "p",
-            "text": "Player reports, strategy discussions, and match feedback help us improve each update. Detailed reports help us reproduce problems and fix them faster."
+            "text": "Settings lets you choose the Cinematic or Classic story reader, adjust master volume, or mute all audio. These preferences are saved on the device you are using."
+          },
+          {
+            "type": "p",
+            "text": "When giving feedback, describe the decision or task that felt awkward. A specific example, such as a reward that was hard to find or an unclear entry requirement, helps us understand what needs changing."
           }
         ]
       }

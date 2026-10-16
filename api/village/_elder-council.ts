@@ -9,9 +9,20 @@ import { normalizeElderAppointees } from '../../shared/village-elders.js';
 import { ELDER_TERM_MS, elderTermScore, selectEarnedElders, type ElderCouncil } from '../../shared/elder-elections.js';
 
 export const elderCouncilKey = (village: unknown) => `village:elder-council:${leadershipVillageKey(village)}`;
+/** The authoritative `village:kage:` row. Callers may pass a slug, so map it back to the display name first. */
+export function elderKageSeatKey(village: unknown): string {
+    const name = WAR_VILLAGES.find(known => leadershipVillageKey(known) === leadershipVillageKey(village)) ?? String(village ?? '');
+    return `village:kage:${name.toLowerCase().replace(/\s+/g, '-')}`;
+}
+export async function seatedKageOf(village: unknown, store: Pick<KvLike, 'get'> = kv): Promise<string> {
+    return safeName(String((await store.get<{ seatedKage?: string }>(elderKageSeatKey(village)))?.seatedKage ?? ''));
+}
+/** A seat counts only for a current village member who is not the seated Kage. The Kage
+ * holds the higher office, so a seat they won or kept from before their crowning stays empty. */
 export async function validElderSeats(village: unknown, value: unknown, membershipStore: Pick<KvLike, 'get'> = kv): Promise<[string, string, string]> {
+    const kage = await seatedKageOf(village, membershipStore);
     return await Promise.all(normalizeElderAppointees(value).map(async name => {
-        if (!name) return '';
+        if (!name || (kage && safeName(name) === kage)) return '';
         const save = await membershipStore.get<{ character?: { village?: string } }>(`save:${safeName(name)}`);
         return leadershipVillageKey(save?.character?.village) === leadershipVillageKey(village) ? name : '';
     })) as [string, string, string];
@@ -37,9 +48,12 @@ export async function resolveElderCouncil(village: string, now = Date.now(), leg
         const keys = Object.keys(registry).filter(isPublicPlayerIndexKey);
         // Once per election, read saves rather than trusting a lagging ranking index.
         const saves = keys.length ? await kv.mget<Array<{ character?: Record<string, unknown> }>>(...keys.map(name => `save:${name}`)) : [];
+        // The Kage cannot also sit on the council, so the runner-up takes the seat.
+        const kage = await seatedKageOf(village);
         const candidates = saves.flatMap((save, index) => {
             const character = save?.character;
             if (!character || leadershipVillageKey(character.village) !== leadershipVillageKey(village)) return [];
+            if (kage && safeName(String(character.name ?? keys[index])) === kage) return [];
             return [{ name: String(character.name ?? keys[index]), ...elderTermScore(character.elderWinDays, village, startedAt - ELDER_TERM_MS, startedAt) }];
         });
         const earned = selectEarnedElders(candidates);

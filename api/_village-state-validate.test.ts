@@ -447,3 +447,14 @@ describe('validateVillageStateWrite — notices (Town Hall activity log)', () =>
         assert.deepEqual(cleared.next.notices, []);
     });
 });
+
+describe('validateVillageStateWrite — wrong-type fields (2026-10-15)', () => {
+    it('a null treasury or war record list keeps the stored value instead of wiping it', async () => {
+        const prev = { ...stateWith([{ itemId: 'ration', count: 2 }], { ryo: 9_000 }), warRecords: [{ id: 'w1' }] };
+        for (const field of ['treasury', 'warRecords']) {
+            const { next, suppressed } = await validateVillageStateWrite(prev, { [field]: null }, villager, null);
+            assert.deepEqual((next as Record<string, unknown>)[field], (prev as Record<string, unknown>)[field], field);
+            assert.ok(suppressed.some((s) => s.startsWith(`${field}: wrong type`)), field);
+        }
+    });
+});

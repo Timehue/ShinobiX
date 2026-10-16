@@ -32,7 +32,20 @@ export const ECHOES_REWARDS = Object.freeze({
     firstClearBonus: 35,
     bossFirstClearBonus: 50,
     basicPackCost: 100,
+    /** Repeat (non-first-clear) wins that pay `repeatWin` per UTC day (owner
+     *  ruling 2026-10-15). First clears always pay. 10 × 15 = 150 points/day. */
+    repeatWinsPerDay: 10,
 });
+
+/** Where the daily repeat-win counter lives inside the server-owned
+ *  `echoesOfWar` record (echoesProgressOf skips it: not an encounter id). */
+const ECHOES_DAILY_KEY = '_daily';
+type EchoesDaily = { day: string; paid: number };
+
+function echoesDailyOf(character: Record<string, unknown>, day: string): EchoesDaily {
+    const raw = (character.echoesOfWar as Record<string, unknown> | undefined)?.[ECHOES_DAILY_KEY] as Partial<EchoesDaily> | undefined;
+    return raw && raw.day === day ? { day, paid: Math.max(0, Math.floor(Number(raw.paid) || 0)) } : { day, paid: 0 };
+}
 
 const d = (counts: Record<string, number>): readonly string[] =>
     Object.freeze(Object.entries(counts).flatMap(([id, n]) => Array(n).fill(id) as string[]));
@@ -230,6 +243,8 @@ export interface EchoesVictorySummary {
     wins: number;
     balance: number;
     unlockedFloor: number | null;
+    /** Paying repeat wins left today (ECHOES_REWARDS.repeatWinsPerDay). */
+    repeatWinsLeftToday: number;
     /** Bounded, non-reward observation derived from the sealed match. */
     battleBeat: EchoesBattleBeat;
 }
@@ -248,7 +263,11 @@ export function applyEchoesVictory(
     const progress = echoesProgressOf(character);
     const prior = progress[def.id] ?? { wins: 0 };
     const firstClear = !prior.firstClearAt && prior.wins <= 0;
-    const basePoints = ECHOES_REWARDS.repeatWin;
+    // Repeat wins are a daily allowance; a first clear always pays.
+    const daily = echoesDailyOf(character, new Date(now).toISOString().slice(0, 10));
+    const repeatPays = firstClear || daily.paid < ECHOES_REWARDS.repeatWinsPerDay;
+    const nextDaily: EchoesDaily = firstClear || !repeatPays ? daily : { day: daily.day, paid: daily.paid + 1 };
+    const basePoints = repeatPays ? ECHOES_REWARDS.repeatWin : 0;
     const firstClearBonus = firstClear ? ECHOES_REWARDS.firstClearBonus : 0;
     const bossBonus = firstClear && def.isBoss ? ECHOES_REWARDS.bossFirstClearBonus : 0;
     const points = basePoints + firstClearBonus + bossBonus;
@@ -267,10 +286,11 @@ export function applyEchoesVictory(
     const nextFloor = def.floor + 1;
     const unlockedFloor = firstClear && nextFloor <= ECHOES_ENCOUNTERS.length ? nextFloor : null;
     return {
-        character: { ...character, chroniclePoints: balance, echoesOfWar: nextProgress },
+        character: { ...character, chroniclePoints: balance, echoesOfWar: { ...nextProgress, [ECHOES_DAILY_KEY]: nextDaily } },
         summary: {
             encounterId: def.id, floor: def.floor, points, basePoints, firstClear,
             firstClearBonus, bossBonus, wins, balance, unlockedFloor,
+            repeatWinsLeftToday: Math.max(0, ECHOES_REWARDS.repeatWinsPerDay - nextDaily.paid),
             battleBeat: normalizeEchoesBattleBeat(battleBeat),
         },
     };

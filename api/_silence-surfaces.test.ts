@@ -74,7 +74,12 @@ async function seed(character: Json = {}) {
             hp: 100, maxHp: 100, chakra: 50, maxChakra: 50, stamina: 50, maxStamina: 50,
             ryo: 100_000, fateShards: 500,
             petBreedingMigrationVersion: PET_BREEDING_MIGRATION_VERSION,
-            stats: {}, inventory: [], itemStacks: [{ itemId: 'gather-iron-sand-pristine', count: 20 }],
+            // One named weapon roll's materials (shared/named-forge-materials.ts).
+            stats: {}, inventory: [], itemStacks: [
+                { itemId: 'gather-iron-sand-pristine', count: 20 }, { itemId: 'hunt-legendary-material', count: 2 },
+                { itemId: 'hunt-titan-bone', count: 1 }, { itemId: 'hunt-ancient-beast-core', count: 1 },
+                { itemId: 'gather-rime-crystal-superior', count: 2 }, { itemId: 'dungeon-legendary-relic', count: 1 },
+            ],
             ...character,
         },
     });
@@ -149,20 +154,14 @@ describe('silence holds on every broadcast surface', { concurrency: false }, () 
         assert.notEqual(styled.statusCode, 403, `a registry style pick is not speech: ${JSON.stringify(styled.body)}`);
     });
 
-    it('drops the AUTHORED NAME of a forged weapon while silenced, without taking the forge', async () => {
+    it('drops the AUTHORED NAME of a forged weapon while silenced, without taking the roll', async () => {
         // A named weapon's name reaches the public PvP battle log, so a silence
-        // must reach it. The item is stat gear though, and the roll token expires
-        // in 20 minutes while a silence lasts days — refusing the forge outright
-        // would destroy a paid roll rather than mute anything.
-        const rolled = await call(craftNamed, { action: 'roll', kind: 'weapon' });
-        assert.equal(rolled.statusCode, 200, JSON.stringify(rolled.body));
-        const token = String((rolled.body as { token?: string }).token ?? '');
-        assert.ok(token, 'the roll must mint a forge token');
-
+        // must reach it. The item is stat gear though, and a silence lasts days —
+        // refusing the paid roll outright would take progression, not speech.
         await silence();
-        const forged = await call(craftNamed, { action: 'forge', token, name: 'Slur Blade', flavorText: 'a slur' });
-        assert.equal(forged.statusCode, 200, `the forge itself is progression, not speech: ${JSON.stringify(forged.body)}`);
-        const item = (forged.body as { item?: { name?: string; flavorText?: string } }).item;
+        const rolled = await call(craftNamed, { action: 'roll', kind: 'weapon', requestId: 'silencedroll00001', name: 'Slur Blade', flavorText: 'a slur' });
+        assert.equal(rolled.statusCode, 200, `the roll itself is progression, not speech: ${JSON.stringify(rolled.body)}`);
+        const item = (rolled.body as { item?: { name?: string; flavorText?: string } }).item;
         assert.ok(item, 'the item is still minted');
         assert.notEqual(item?.name, 'Slur Blade', 'the authored name must not survive a silence');
         assert.equal(item?.name, 'Named Weapon', 'it falls back to the generic name');
@@ -170,11 +169,9 @@ describe('silence holds on every broadcast surface', { concurrency: false }, () 
     });
 
     it('keeps the authored name when the forger is NOT silenced', async () => {
-        const rolled = await call(craftNamed, { action: 'roll', kind: 'weapon' });
-        const token = String((rolled.body as { token?: string }).token ?? '');
-        const forged = await call(craftNamed, { action: 'forge', token, name: 'Ashfall', flavorText: 'Quiet steel.' });
-        assert.equal(forged.statusCode, 200, JSON.stringify(forged.body));
-        assert.equal((forged.body as { item?: { name?: string } }).item?.name, 'Ashfall');
+        const rolled = await call(craftNamed, { action: 'roll', kind: 'weapon', requestId: 'unsilencedroll001', name: 'Ashfall', flavorText: 'Quiet steel.' });
+        assert.equal(rolled.statusCode, 200, JSON.stringify(rolled.body));
+        assert.equal((rolled.body as { item?: { name?: string } }).item?.name, 'Ashfall');
     });
 
     it('none of the four surfaces refuse an unsilenced player', async () => {
