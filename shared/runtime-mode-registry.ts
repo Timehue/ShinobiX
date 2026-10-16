@@ -801,14 +801,14 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
         clientEntries: [],
         routes: [],
         participantModel: 'two-player', rewardPolicy: 'none', replayKind: 'memory-only-server-replayed-lockstep-cinematic-log', status: 'match', migrationStatus: 'migrated', intendedAuthorityEngine: E.PET_TACTICS,
-        statusDetail: 'Retired. Socket challenge admission is permanently closed, and the lockstep client (pet-duel-transport, pet-duel-lockstep) was removed with the old renderer, so no shipped client reaches the petduel:* socket. Pet Arena opens the current equal-access command room.',
+        statusDetail: 'Retired. Socket challenge admission was closed first; on 2026-10-16 the lockstep client (pet-duel-transport, pet-duel-lockstep) and the petduel:* socket with its in-memory session store were removed, so no route or transport remains. Pet Arena opens the current equal-access command room.',
     }),
     defineMode({
         id: 'pet-arena-pvp-2v2', label: 'Pet Arena live PvP 2v2', category: 'pet-legacy', authorityEngine: E.PET_CINEMATIC_DUEL,
         clientEntries: [],
         routes: [],
         participantModel: 'two-player', rewardPolicy: 'none', replayKind: 'memory-only-server-replayed-lockstep-cinematic-log', status: 'match', migrationStatus: 'migrated', intendedAuthorityEngine: E.PET_TACTICS,
-        statusDetail: 'Retired. Socket challenge admission is permanently closed, and the lockstep client (pet-duel-transport, pet-duel-lockstep) was removed with the old renderer, so no shipped client reaches the petduel:* socket. Pet Arena opens the current equal-access command room.',
+        statusDetail: 'Retired. Socket challenge admission was closed first; on 2026-10-16 the lockstep client (pet-duel-transport, pet-duel-lockstep) and the petduel:* socket with its in-memory session store were removed, so no route or transport remains. Pet Arena opens the current equal-access command room.',
     }),
     defineMode({
         id: 'pet-tactics-prototype', label: 'Pet Arena player-controlled sparring', category: 'pet-tactical', authorityEngine: E.PET_TACTICS,

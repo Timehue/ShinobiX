@@ -39,8 +39,7 @@ import { onlineStore } from './online-store.js';
 import { stampPresenceBeat } from './_presence-beat.js';
 import { normalizeSector, normalizeTile, slimPresenceCharacter, capTravelingUntil, presenceBroadcastSignature, toPlayerRecord } from './presence-input.js';
 import { queuePresenceUpdate, registerPresenceClient, setPresenceBroadcastIo } from './presence-broadcast.js';
-import { setOnSweep, setOnDuelDrop, setOnDuelExpire } from './game-loop.js';
-import { wirePetDuel, notifyPeerGone, notifyInviteExpired } from './pet-duel-socket.js';
+import { setOnSweep } from './game-loop.js';
 import { wireChatRooms } from './chat-rooms.js';
 import { setRealtimeEmitter } from './notify.js';
 import { clearSleeperCampOnBeat } from './sleeper-camps.js';
@@ -171,17 +170,6 @@ function wireRealtime(io: IOServer): void {
     setRealtimeEmitter((room, event, payload) => {
         io.to(room).emit(event, payload);
     });
-
-    // A player who goes silent mid-duel stops gating the lockstep watermark. Tell
-    // the survivor so their fight resumes instead of stalling on a peer that is
-    // never going to report again.
-    setOnDuelDrop((session, dropped) => {
-        for (const side of dropped) notifyPeerGone(io, session, side);
-    });
-
-    // A challenge nobody answered lapses on the server — tell the challenger, or
-    // their "waiting to accept" panel sits there forever over a dead invite.
-    setOnDuelExpire((session) => notifyInviteExpired(io, session));
 
     // ── Handshake auth: reuse the EXACT HTTP auth (token → password → ban). ──
     io.use(async (socket, next) => {
@@ -401,10 +389,6 @@ function wireRealtime(io: IOServer): void {
         }
 
         socket.on('presence', onPresence);
-
-        // Live two-player pet duels (docs/pet-coliseum-player-control-plan.md §10).
-        // All rules live in pet-duel-session.ts; this only attaches the handlers.
-        wirePetDuel(io, socket);
 
         // Tavern + clan chat hints (chat-rooms.ts): join on request, after the
         // same membership check the chat's GET applies.

@@ -382,8 +382,7 @@ describe('executable multi-engine runtime registry', () => {
     const startSource = readFileSync(join(ROOT, 'api', 'pet', 'battle-start.ts'), 'utf8');
     const resultSource = readFileSync(join(ROOT, 'api', 'pet', 'battle-result.ts'), 'utf8');
     const replaySource = readFileSync(join(ROOT, 'api', 'pet', '_duel-replay.ts'), 'utf8');
-    const socketSource = readFileSync(join(ROOT, 'api', '_realtime', 'pet-duel-socket.ts'), 'utf8');
-    const socketSessionSource = readFileSync(join(ROOT, 'api', '_realtime', 'pet-duel-session.ts'), 'utf8');
+    const realtimeMountSource = readFileSync(join(ROOT, 'api', '_realtime', 'socket.ts'), 'utf8');
     const arenaSource = clientSource('screens/PetArena.tsx');
     const petModeIds = [
       'pet-arena-ai-1v1',
@@ -476,12 +475,9 @@ describe('executable multi-engine runtime registry', () => {
     assert.match(arenaSource, /sendDirectPetChallenge/);
     assert.doesNotMatch(arenaSource, /PetDuelLiveHost|liveDuelRef|buildPetArenaLiveRoster/);
     assert.match(arenaSource, /function sendDirectPetChallenge[\s\S]*?setShowTactics\(true\)/);
-    assert.match(socketSource, /Start player-controlled battles in Pet Arena/);
-    assert.doesNotMatch(socketSource, /makeSession\(|putSession\(/);
-    assert.match(socketSource, /loadAuthoritativePetRoster/, 'Both live rosters must be loaded from server saves.');
-    assert.match(socketSource, /replayLockstepPetDuel/, 'A client terminal hint must be replayed by the server.');
-    assert.match(socketSessionSource, /const sessions = new Map/, 'The live duel record is memory-only.');
-    assert.doesNotMatch(socketSource, /petRankedRating|recordPetArenaVictory|writeSaveProjected/, 'Ordinary realtime PvP must not be mistaken for a rewarded or ranked settlement.');
+    // The live lockstep duel is retired end to end: no client, no socket handler.
+    assert.equal(existsSync(join(ROOT, 'api', '_realtime', 'pet-duel-socket.ts')), false, 'the retired petduel:* socket stays deleted');
+    assert.doesNotMatch(realtimeMountSource, /petduel|wirePetDuel/, 'no realtime handler admits the retired live pet duel');
   });
 
   it('records Card Clash free-play durable Legacy progression as server-owned', () => {
@@ -545,7 +541,6 @@ describe('executable multi-engine runtime registry', () => {
     const petShowdownSource = readFileSync(join(ROOT, 'api', 'pet', 'showdown.ts'), 'utf8');
     const rankedWatchSource = readFileSync(join(ROOT, 'api', 'pet', 'ranked-watch.ts'), 'utf8');
     const rankedDuelSource = readFileSync(join(ROOT, 'api', 'pet', '_ranked-duel.ts'), 'utf8');
-    const petSocketSource = readFileSync(join(ROOT, 'api', '_realtime', 'pet-duel-socket.ts'), 'utf8');
     const gauntletHandlerSource = readFileSync(join(ROOT, 'api', 'pet', 'gauntlet.ts'), 'utf8');
     const gauntletRuntimeSource = readFileSync(join(ROOT, 'api', '_pet-sim', 'gauntlet-sim.ts'), 'utf8');
     const coreEngines = [E.PVP, E.SOLO_PVE, E.TOWER, E.PET_SHOWDOWN, E.PET_WARFRONT, E.CHRONICLE, E.PET_GAUNTLET_GRID, E.PET_CINEMATIC_DUEL];
@@ -656,7 +651,6 @@ describe('executable multi-engine runtime registry', () => {
     assert.match(petLadderQueuePanelSource, /fetchRankedPetDuel/);
     assert.match(petLadderQueuePanelSource, /<PetArenaCommands/);
     assert.match(rankedDuelSource, /AI resolution is forbidden/);
-    assert.doesNotMatch(petSocketSource, /petRankedRating|recordPetArenaVictory|writeSaveProjected/);
 
     const rankedCompat = runtimeModeById('pet-ranked-legacy-compat');
     assert.equal(rankedCompat.status, 'match');
