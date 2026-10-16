@@ -22,23 +22,22 @@ describe("Central Hub release authority", () => {
 
     it("keeps every Crafter roll and material debit on the server", () => {
         assert.match(hub, /rollNamedForgeServer/);
-        assert.match(hub, /commitNamedForgeServer/);
         assert.match(hub, /forgeServer/);
         assert.doesNotMatch(hub, /Math\.random|function\s+\w+Local\(/);
         assert.match(hub, /NAMED_FORGE_FATE_SHARD_COST/);
         assert.match(hub, /namedForgeFateShardTotal\(character\)/);
         assert.match(hub, /canPayNamedForge\(character\)/);
         assert.doesNotMatch(hub, /boneCharms:\s*\d|auraStones:\s*\d/);
+        // A named roll is paid and KEPT in one server write (owner ruling
+        // 2026-10-15): no second forge call, no discard.
+        assert.doesNotMatch(hub, /commitNamedForgeServer|Discard roll/);
+        assert.match(hub, /namedForgeIngredients\(kind\)/, "the roll price is read from the shared recipe");
 
-        for (const call of [
-            "commitNamedForgeServer(character.name, namedWeaponToken",
-            "commitNamedForgeServer(character.name, namedArmorToken",
-        ]) {
-            const start = hub.indexOf(call);
-            const block = hub.slice(start, hub.indexOf("finally", start));
-            assert.ok(block.indexOf("commitServerCharacter(result.character") < block.indexOf("setCreatorItems((current)"),
-                "the authoritative account/version must be accepted before projecting its forged item");
-        }
+        const start = hub.indexOf("function keepNamedRoll(");
+        assert.ok(start > 0, "both rolls keep their item through keepNamedRoll");
+        const block = hub.slice(start, hub.indexOf("return item;", start));
+        assert.ok(block.indexOf("commitServerCharacter(result.character") < block.indexOf("setCreatorItems((current)"),
+            "the authoritative account/version must be accepted before projecting its forged item");
     });
 
     it("keeps the named-forge reveal truthful, accessible, and off the startup stylesheet", () => {

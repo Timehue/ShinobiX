@@ -21,7 +21,8 @@ const pending = new Map<string, string>();
 
 export type EconomyIntentScope =
     | 'shrine-offer' | 'bounty-place' | 'clan-donate' | 'village-donate' | 'seal-donate' | 'seal-distribute'
-    | 'hollow-gate-unlock' | 'kage-challenge-declare' | 'clan-war-declare' | 'resource-gathering' | 'cook-rations' | 'craft-forge';
+    | 'hollow-gate-unlock' | 'kage-challenge-declare' | 'clan-war-declare' | 'resource-gathering' | 'cook-rations' | 'craft-forge'
+    | 'named-roll';
 
 export type EconomyIntent = { requestId: string; complete: () => void };
 

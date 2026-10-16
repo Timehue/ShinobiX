@@ -2,7 +2,7 @@ import type { Character } from '../types/character';
 import type { GameItem } from '../types/combat';
 import { makeId } from './utils';
 import type { CraftMaterialSelection } from '../../../shared/crafting-recipes';
-import { pendingEconomyIntent, economyIntentSettled } from './economy-request-intent';
+import { pendingEconomyIntent, readPendingEconomyIntent, economyIntentSettled } from './economy-request-intent';
 
 export type CraftKind = 'supply' | 'weapon' | 'armor' | 'relic';
 export { NAMED_WEAPON_TAGS } from '../../../shared/named-forge-roll';
@@ -21,18 +21,32 @@ export async function forgeServer(playerName: string, kind: CraftKind, recipeId:
     } catch { return { error: 'The forge is unreachable.' }; }
 }
 
-export async function rollNamedForgeServer<T>(playerName: string, kind: 'weapon' | 'armor', slot?: string): Promise<{ token?: string; roll?: T; error?: string }> {
-    try {
-        const response = await fetch('/api/craft/named', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName, action: 'roll', kind, slot }) });
-        const data = await response.json().catch(() => null) as { token?: string; roll?: T; error?: string } | null;
-        return response.ok && data ? data : { error: data?.error || 'The named forge roll failed.' };
-    } catch { return { error: 'The named forge is unreachable.' }; }
+export type NamedRollResult<T> = { character?: Character; _saveVersion?: number; item?: GameItem | null; roll?: T | null; replayed?: boolean; error?: string };
+
+function namedRollIntentParts(playerName: string, kind: 'weapon' | 'armor', slot?: string) {
+    return [playerName, kind, slot ?? ''];
 }
 
-export async function commitNamedForgeServer(playerName: string, token: string, name: string, flavorText: string): Promise<{ character?: Character; _saveVersion?: number; item?: GameItem | null; error?: string }> {
+/** A depleted wallet may already reflect this exact unconfirmed roll's price. */
+export function hasPendingNamedForgeRoll(playerName: string, kind: 'weapon' | 'armor', slot?: string): boolean {
+    return readPendingEconomyIntent('named-roll', namedRollIntentParts(playerName, kind, slot)) !== null;
+}
+
+/**
+ * One paid named-gear roll (owner ruling 2026-10-15): the server charges the
+ * roll, rolls it and keeps the item in one write — there is no discard. The
+ * name and flavor text are chosen before rolling. The request id survives a
+ * retry, so a lost response returns the same item instead of charging twice.
+ */
+export async function rollNamedForgeServer<T>(playerName: string, kind: 'weapon' | 'armor', options: { slot?: string; name: string; flavorText: string }): Promise<NamedRollResult<T>> {
+    const intent = pendingEconomyIntent('named-roll', namedRollIntentParts(playerName, kind, options.slot));
     try {
-        const response = await fetch('/api/craft/named', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName, action: 'forge', token, name, flavorText }) });
-        const data = await response.json().catch(() => null) as { character?: Character; _saveVersion?: number; item?: GameItem | null; error?: string } | null;
-        return response.ok && data ? data : { error: data?.error || 'The named forge commit failed.' };
+        const response = await fetch('/api/craft/named', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ playerName, action: 'roll', kind, slot: options.slot, name: options.name, flavorText: options.flavorText, requestId: intent.requestId.replace(/-/g, '') }),
+        });
+        const data = await response.json().catch(() => null) as NamedRollResult<T> | null;
+        if (economyIntentSettled(response.status, data) && (!response.ok || (data?.character && Number.isSafeInteger(data._saveVersion)))) intent.complete();
+        return response.ok && data ? data : { error: data?.error || 'The named forge roll failed.' };
     } catch { return { error: 'The named forge is unreachable.' }; }
 }

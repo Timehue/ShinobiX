@@ -23,7 +23,8 @@ export const CRAFT_MATERIAL_NAMES: Readonly<Record<string, string>> = {
     'hunt-shadow-claw': 'Shadow Claw', 'hunt-wolf-fang': 'Wolf Fang',
     'hunt-ash-scale': 'Ash Scale', 'hunt-ember-scale': 'Ember Scale',
     'hunt-shadow-pelt': 'Shadow Pelt', 'hunt-ancient-beast-core': 'Ancient Beast Core',
-    'hunt-titan-bone': 'Titan Bone', 'dungeon-legendary-relic': 'Dungeon Legendary Relic',
+    'hunt-titan-bone': 'Titan Bone', 'hunt-legendary-material': 'Legendary Material',
+    'dungeon-legendary-relic': 'Dungeon Legendary Relic',
     'warforged-relic': 'Warforged Relic', 'veil-of-the-hollow': 'Veil of the Hollow',
     'ration-pack': 'Ration Pack', 'pet-treat': 'Pet Treat',
 };

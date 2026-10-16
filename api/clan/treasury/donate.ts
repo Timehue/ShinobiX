@@ -12,6 +12,7 @@ import { runSaveDebitSaga, SaveDebitRefusal } from '../../_save-debit-saga.js';
 import { CLAN_DONATION_SAGA } from '../../_save-debit-kinds.js';
 import { villageStoresEnabled } from '../../_release-flags.js';
 import { routeStoresDonation, type StoresRouted } from '../../_treasury-stores-donate.js';
+import { reserveClanDonationXp } from './_donation-xp.js';
 
 /*
  * /api/clan/treasury/donate  — POST only
@@ -27,9 +28,8 @@ import { routeStoresDonation, type StoresRouted } from '../../_treasury-stores-d
  *
  * This endpoint is the intended path: it debits the donor's save AND credits
  * the clan treasury under dual locks, so the two halves can't be separated.
- * The legitimate client now routes the treasury credit through here; clan XP /
- * clanEventContrib stay client-side and are written on top of the treasury
- * value this returns (a zero-delta write the validator leaves alone).
+ * Clan XP is sealed with the debit; the contribution and daily XP reservation
+ * are committed in that same donor save. Generic saves cannot reset the quota.
  *
  * Body (currency):  { playerName, clan, currency, amount, requestId? }
  * Body (item):      { playerName, clan, itemId, count?, requestId? }   // count defaults to 1
@@ -69,6 +69,12 @@ const ITEM_COUNT_CAP = 1_000;
 const TERRITORY_CONTROL_SCROLL_ID = 'territory-control-scroll';
 
 const AUDIT_LOG_PREFIX = 'audit:clan-treasury-donate:';
+
+// Clan XP from NON-ryo donations is capped per donor per UTC day. A 1-unit
+// treasury gift burns nothing (api/_treasury-gift-tax.ts), so donating one
+// Mythic Seal (+200 XP) and having an officer gift it straight back was a free
+// loop worth ~6,000 clan XP a minute. Ryo is uncapped: its gifts are taxed, so
+// a ryo loop pays for itself. 2,000 XP = ten single-unit currency donations.
 
 function clanSlugBare(name: string): string {
     return name.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -122,6 +128,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!targetSlug) return res.status(400).json({ error: 'Invalid clan name.' });
         const clanSaveKey = `save:clan-${targetSlug}`;
         const amount = donation.kind === 'currency' ? Math.floor(donation.amount) : Math.floor(donation.count);
+        const cappedXp = !(donation.kind === 'currency' && donation.currency === 'ryo');
 
         // ── Atomic donate ──────────────────────────────────────────────
         // The clan save row (the shared, contended resource) is locked first,
@@ -129,6 +136,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // the opposite order, so the nesting can't deadlock. The donor debit is
         // COMMITTED before the treasury credit, so a credit failure can never
         // leave the treasury credited without a matching debit.
+        // Reserving daily XP in the same debit commit also covers interrupted
+        // credits. There is no post-credit counter write for a crash to skip.
         const settled = await runSaveDebitSaga({
             definition: CLAN_DONATION_SAGA,
             playerName,
@@ -138,7 +147,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             resource: donation.kind === 'currency' ? donation.currency : `item:${donation.itemId}`,
             amount,
             meta: { clan },
-            decide: ({ character: donorChar, shared: clanRec }) => {
+            decide: async ({ character: donorChar, shared: clanRec }) => {
                 if (!clanRec) return { ok: false, status: 404, error: 'Clan not found.' };
                 // Membership: donor's character.clan must resolve to this clan.
                 if (!identity.admin) {
@@ -167,17 +176,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const contribution = donation.kind === 'currency'
                     ? donation.currency === 'ryo' ? Math.max(1, Math.floor(donation.amount / 1000)) : Math.floor(donation.amount)
                     : Math.floor(donation.count);
-                const month = new Date().toISOString().slice(0, 7);
+                const now = Date.now();
+                const month = new Date(now).toISOString().slice(0, 7);
                 const priorContribution = donorChar.clanContribMonth === month ? Math.max(0, Number(donorChar.clanEventContrib) || 0) : 0;
                 const nextDonorChar = { ...outcome.nextDonorChar, clanEventContrib: priorContribution + contribution, clanContribMonth: month };
 
-                const clanXp = donation.kind === 'currency'
+                const rawClanXp = donation.kind === 'currency'
                     ? donation.currency === 'ryo' ? Math.floor(donation.amount / 35) : Math.floor(donation.amount) * 200
                     : donation.itemId === TERRITORY_CONTROL_SCROLL_ID ? Math.floor(donation.count) * 20 : 50;
+                const reservation = cappedXp ? await reserveClanDonationXp(donorChar, playerName, rawClanXp, now) : null;
+                const clanXp = reservation?.clanXp ?? rawClanXp;
                 return {
                     ok: true,
-                    character: nextDonorChar,
-                    plan: { treasury: treasuryCreditPlan(donation, routed), clanXp },
+                    character: { ...nextDonorChar, ...(reservation ? { clanDonationXp: reservation.quota } : {}) },
+                    plan: { treasury: treasuryCreditPlan(donation, routed), clanXp, ...(reservation ? { clanXpDay: reservation.quota.day } : {}) },
                     result: {},
                 };
             },

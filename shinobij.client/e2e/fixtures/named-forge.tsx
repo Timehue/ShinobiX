@@ -11,7 +11,13 @@ const initial = {
     hp: 1000, maxHp: 1000, chakra: 1000, maxChakra: 1000, stamina: 1000, maxStamina: 1000,
     ryo: 10000, fateShards: Number(new URLSearchParams(location.search).get('shards') ?? 200),
     boneCharms: 5000, auraStones: 5000, mythicSeals: 5000,
-    inventory: [], itemStacks: [{ itemId: 'gather-iron-sand-pristine', count: 100 }], equipment: {}, stats: {}, jutsuMastery: [], claimedAwakenings: [],
+    // Enough for two rolls of each kind (shared/named-forge-materials.ts).
+    inventory: [], itemStacks: [
+        { itemId: 'gather-iron-sand-pristine', count: 100 }, { itemId: 'hunt-legendary-material', count: 10 },
+        { itemId: 'hunt-titan-bone', count: 5 }, { itemId: 'hunt-ancient-beast-core', count: 5 },
+        { itemId: 'hunt-shadow-pelt', count: 20 }, { itemId: 'gather-rime-crystal-superior', count: 10 },
+        { itemId: 'dungeon-legendary-relic', count: 5 },
+    ], equipment: {}, stats: {}, jutsuMastery: [], claimedAwakenings: [],
     equippedJutsuIds: [], learnedJutsuIds: [], completedMissions: [], onboardingStep: 'done',
 } as Character;
 

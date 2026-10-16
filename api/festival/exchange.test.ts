@@ -279,10 +279,18 @@ it('trades zero-shop-value materials, bulk resources and mixed legacy stacks', a
     assert.equal(created.status, 200, JSON.stringify(created.body));
     assert.equal((await buy(created.body.listing.id)).status, 200);
     assert.equal((await record('buyer')).character.itemStacks.find((s: Obj) => s.itemId === 'hunt-torn-hide').count, 5);
-    created = await list({ kind: 'resource', assetId: 'mythicSeals', quantity: 20 });
+    created = await list({ kind: 'resource', assetId: 'boneCharms', quantity: 20 });
     assert.equal((await buy(created.body.listing.id)).status, 200);
-    assert.equal((await record('seller')).character.mythicSeals, 80);
-    assert.equal((await record('buyer')).character.mythicSeals, 120);
+    assert.equal((await record('seller')).character.boneCharms, 80);
+    assert.equal((await record('buyer')).character.boneCharms, 120);
+});
+
+it('refuses new Honor Seal and Mythic Seal listings, as player trades do', async () => {
+    for (const assetId of ['honorSeals', 'mythicSeals']) {
+        const refused = await list({ kind: 'resource', assetId, quantity: 5 });
+        assert.equal(refused.status, 400, JSON.stringify(refused.body));
+        assert.equal((await record('seller')).character[assetId], 100, `${assetId} never left the seller`);
+    }
 });
 
 it('preserves companion identity, lineage, growth and remaining breeding uses', async () => {

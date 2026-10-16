@@ -108,8 +108,9 @@ describe("server settlement policy", () => {
         assertGuardBefore(attunement, "forge", "hollowGateKeyForge", "forgeHollowGateKey(");
 
         const hub = source("../screens/CentralHub.tsx");
-        assertGuardBefore(hub, "forgeNamedWeapon", "creatorItemCraft", "setCreatorItems(");
-        assertGuardBefore(hub, "forgeNamedArmor", "creatorItemCraft", "setCreatorItems(");
+        // A named roll is paid and kept in one server call (owner ruling 2026-10-15).
+        assertGuardBefore(hub, "rollNamedWeapon", "creatorItemCraft", "rollNamedForgeServer<");
+        assertGuardBefore(hub, "rollNamedArmor", "creatorItemCraft", "rollNamedForgeServer<");
         assertGuardBefore(hub, "completeCraft", "creatorItemCraft", "forgeServer(");
         assertGuardBefore(hub, "craftHollowGateKeyWithDungeonKeys", "creatorItemCraft", "forgeHollowGateKeyServer(");
         assertGuardBefore(hub, "craftHollowGateKeyWithFateShards", "creatorItemCraft", "forgeHollowGateKeyServer(");

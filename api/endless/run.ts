@@ -20,6 +20,8 @@ import {
 import { cashOutEndless, recordEndlessWin, startEndlessRun, type EndlessRun } from './_run.js';
 import {
     endlessWaveBindingKey,
+    readEndlessWaveForCashout,
+    unsettledWaveVerdict,
     endlessWaveVitals,
     settleEndlessWaveBinding,
     validateTerminalEndlessWave,
@@ -106,6 +108,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             if (action === 'cashout') {
+                // A wave sealed but never settled decides the bank first: a live
+                // or won wave must be settled, and a lost (or walked-away) wave
+                // ends the run unpaid — the same as settling that loss would.
+                const runWave = Math.max(1, Math.floor(Number(run.wave) || 1));
+                const sealed = await readEndlessWaveForCashout(kv, playerName, runToken, runWave);
+                const verdict = sealed?.runId
+                    ? unsettledWaveVerdict(sealed, runWave, await readSoloPveSession(sealed.runId))
+                    : 'none';
+                if (verdict === 'in-progress' || verdict === 'won-unsettled') {
+                    return { ok: false as const, status: 409, error: 'Finish your current wave before banking this run.' };
+                }
+                if (verdict === 'lost') {
+                    const receipt: EndlessReceipt = { key: runToken, action, creditedXp: 0, creditedRyo: 0 };
+                    return {
+                        ok: true as const,
+                        character: { ...character, endlessTowerRun: null, redeemedEndlessActions: [...receipts, receipt].slice(-128) },
+                        value: { creditedXp: 0, creditedRyo: 0, forfeitedWave: runWave },
+                    };
+                }
                 const paid = cashOutEndless(character, run, dayKey());
                 const receipt: EndlessReceipt = {
                     key: runToken,
