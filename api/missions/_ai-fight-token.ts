@@ -1,5 +1,6 @@
 import { MAX_AI_FIGHT_RYO, MAX_AI_FIGHT_XP } from './_ai-fight-reward.js';
 import type { WorldAiFightContext } from '../../shared/world-ai-fight.js';
+import { cleanOrdinaryPveEncounter, type OrdinaryPveEncounter } from '../../shared/ordinary-pve-encounter.js';
 
 // Matches the active Solo-PvE session lifetime so a terminal fight never loses
 // its settlement/reconnect authority during the final ten minutes.
@@ -43,6 +44,7 @@ export type AiFightToken = {
     sector?: number;
     /** Exact World exploration result that authorized this generic ambush. */
     worldExploreRequestId?: string;
+    encounter?: OrdinaryPveEncounter;
     /** Exact raid-start authority reserved to this standalone session. */
     raidTokenId?: string;
     /** Server-authored field mission carried by this sealed raid proof. */
@@ -78,7 +80,7 @@ export function createAiFightTokenRecord(
     playerName: string,
     tokenId: string,
     now = Date.now(),
-    context: { opponentId?: unknown; opponentLevel?: unknown; sector?: unknown; worldExploreRequestId?: unknown; raidTokenId?: unknown; raidMissionId?: unknown; dungeonRunToken?: unknown; baseXp?: unknown; baseRyo?: unknown; battleKind?: unknown; sessionRuntime?: unknown; sessionId?: unknown; worldContext?: WorldAiFightContext; rewardTrait?: unknown } = {},
+    context: { opponentId?: unknown; opponentLevel?: unknown; sector?: unknown; worldExploreRequestId?: unknown; encounter?: OrdinaryPveEncounter; raidTokenId?: unknown; raidMissionId?: unknown; dungeonRunToken?: unknown; baseXp?: unknown; baseRyo?: unknown; battleKind?: unknown; sessionRuntime?: unknown; sessionId?: unknown; worldContext?: WorldAiFightContext; rewardTrait?: unknown } = {},
 ): AiFightToken {
     const sessionIdRaw = typeof context.sessionId === 'string' ? context.sessionId.trim().slice(0, 96) : '';
     const sessionId = /^[A-Za-z0-9:_-]+$/.test(sessionIdRaw) ? sessionIdRaw : undefined;
@@ -118,6 +120,7 @@ export function createAiFightTokenRecord(
     const raidMissionId = /^[A-Za-z0-9_-]{1,96}$/.test(raidMissionIdRaw) ? raidMissionIdRaw : undefined;
     const dungeonRunTokenRaw = typeof context.dungeonRunToken === 'string' ? context.dungeonRunToken.trim().slice(0, 80) : '';
     const dungeonRunToken = /^[A-Za-z0-9_-]{8,80}$/.test(dungeonRunTokenRaw) ? dungeonRunTokenRaw : undefined;
+    const encounter = cleanOrdinaryPveEncounter(context.encounter);
     return {
         playerName,
         tokenId,
@@ -133,6 +136,7 @@ export function createAiFightTokenRecord(
         ...(opponentLevel ? { opponentLevel } : {}),
         ...(sector ? { sector } : {}),
         ...(worldExploreRequestId ? { worldExploreRequestId } : {}),
+        ...(encounter ? { encounter } : {}),
         ...(raidTokenId ? { raidTokenId } : {}),
         ...(raidMissionId ? { raidMissionId } : {}),
         ...(dungeonRunToken ? { dungeonRunToken } : {}),
