@@ -9,6 +9,7 @@ import {
     type SoloPveSession,
 } from './solo-pve/_session.js';
 import type { SealedSectorWeather } from './_sector-weather-seal.js';
+import { startingItemShield } from './combat-core/shields.js';
 
 export const INFILTRATION_MAP = { width: 12, height: 10 } as const;
 export const INFILTRATION_ROUND_BUDGET = 25;
@@ -57,7 +58,9 @@ function fighter(input: InfiltrationFighter, pos: number, enemy = false): PvpFig
         maxChakra,
         stamina: maxStamina,
         maxStamina,
-        shield: 0,
+        // Both sides' gear Shield special. The ANBU is a real player's sealed loadout
+        // (getOrSealAnbuSnapshot), so it starts with its shield as in a PvP duel.
+        shield: startingItemShield(input.character),
         statuses: [],
         character,
         pos,

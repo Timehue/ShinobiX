@@ -56,6 +56,7 @@ import {
 } from '../api/pvp/_tags.js';
 import { ITEM_CATALOG, type CatalogItem } from '../api/pvp/_item-catalog.js';
 import { NAMED_WEAPON_EP_MAX } from '../api/craft/_named.js';
+import { NAMED_ARMOR_STATS, NAMED_GAUNTLET_OFFENSE } from '../shared/named-forge-roll.js';
 import { isForgedNamedWeaponId } from '../api/save/_forged-items.js';
 import { JUTSU_CATALOG } from '../api/pvp/_jutsu-catalog.js';
 import { deriveCombatMultipliers, deriveEquipmentStatBonuses } from '../api/pvp/_multipliers.js';
@@ -602,9 +603,12 @@ function bestEligibleWeapon(level: number, archetype: Archetype): CatalogItem {
 function namedArmor(archetype: Archetype, slot: typeof ARMOR_SLOTS[number] | 'hand'): CatalogItem {
     const special = PROFILE[archetype].namedSpecial;
     const value = special === 'shield' ? 150 : special === 'damagePercent' ? 1.5 : 2;
+    // The forge's max rolls (shared/named-forge-roll.ts); gauntlets roll a higher offense.
+    const offense = slot === 'hand' ? NAMED_GAUNTLET_OFFENSE.max : NAMED_ARMOR_STATS.max;
+    const defense = NAMED_ARMOR_STATS.max;
     const bonuses: Record<string, number> = {
-        ninjutsuOffense: 35, taijutsuOffense: 35, bukijutsuOffense: 35, genjutsuOffense: 35,
-        ninjutsuDefense: 35, taijutsuDefense: 35, bukijutsuDefense: 35, genjutsuDefense: 35,
+        ninjutsuOffense: offense, taijutsuOffense: offense, bukijutsuOffense: offense, genjutsuOffense: offense,
+        ninjutsuDefense: defense, taijutsuDefense: defense, bukijutsuDefense: defense, genjutsuDefense: defense,
         [special]: value,
     };
     const ordinal = ARCHETYPES.indexOf(archetype) * 8 + [...ARMOR_SLOTS, 'hand'].indexOf(slot) + 1;

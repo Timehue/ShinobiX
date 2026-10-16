@@ -6,7 +6,7 @@ import { buildItemLookup } from './pvp/_multipliers.js';
 import { buildNamedItem } from './craft/_named.js';
 import { hydrateCharacterFromSave } from './pvp/session.js';
 import { sealTowerFighter } from './towers/_seal.js';
-import { NAMED_WEAPON_OFFENSE } from '../shared/named-forge-roll.js';
+import { NAMED_ARMOR_STATS, NAMED_GAUNTLET_OFFENSE, NAMED_WEAPON_OFFENSE } from '../shared/named-forge-roll.js';
 
 describe('_item-budget — budgetItemBonuses (P0.1 sub-5)', () => {
     it('a built-in-baseline custom item is unchanged (no clip)', () => {
@@ -97,12 +97,16 @@ describe('_item-budget — budgetItemBonuses (P0.1 sub-5)', () => {
         assert.deepEqual(out.bonuses, Object.fromEntries(Object.keys(bonuses).map(field => [field, NAMED_WEAPON_OFFENSE.max])));
         for (const other of [
             { id: 'named-weapon-not-a-uuid', slot: 'hand' },
-            { id: id.replace('weapon', 'armor'), slot: 'hand' },
+            { id: 'named-armor-not-a-uuid', slot: 'hand' },
             { id: 'custom-hand-item', slot: 'hand' },
         ]) {
             const bounded = budgetItemBonuses({ ...other, bonuses }).bonuses;
             assert.equal(Object.values(bounded).reduce((sum, value) => sum + value, 0), 420);
         }
+        // Named gauntlets have their own budget (owner ruling 2026-10-16): their
+        // best roll, 4×85 offense + 4×35 defense.
+        const gauntlet = budgetItemBonuses({ id: id.replace('weapon', 'armor'), slot: 'hand', bonuses }).bonuses;
+        assert.equal(Object.values(gauntlet).reduce((sum, value) => sum + value, 0), 4 * NAMED_GAUNTLET_OFFENSE.max + 4 * NAMED_ARMOR_STATS.max);
         assert.equal(Object.values(budgetItemBonuses({ id, slot: 'body', bonuses }).bonuses).reduce((sum, value) => sum + value, 0), 280);
     });
 

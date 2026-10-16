@@ -93,7 +93,7 @@ import {
     NAMED_WEAPON_EP_VALUES, NAMED_WEAPON_RANGES, NAMED_WEAPON_OFFENSE,
     NAMED_WEAPON_TAGS, NAMED_WEAPON_TAG_STRENGTH, NAMED_WEAPON_TAG_COUNTS,
     NAMED_WEAPON_TAG_APPEARANCE_PERCENT, NAMED_ARMOR_QUALITIES, NAMED_ARMOR_STATS,
-    NAMED_ARMOR_SPECIALS, namedForgeUniformPercent,
+    NAMED_GAUNTLET_OFFENSE, NAMED_ARMOR_SPECIALS, namedForgeUniformPercent,
 } from "../../../shared/named-forge-roll";
 import { rollAwakeningServer } from "../lib/awakening-api";
 import { purchaseBloodlineForge } from "../lib/bloodline-forge";
@@ -433,7 +433,7 @@ export function CentralHub({
     type NamedArmorRoll = {
         slot: EquipmentSlot;
         armorQuality: ArmorQuality; // Elite / Legendary / Mythic (6 / 7 / 8 %)
-        offenseVal: number;         // 25 – 35, applied to all 4 offense stats
+        offenseVal: number;         // 25 – 35 (gauntlets 65 – 85), applied to all 4 offense stats
         defenseVal: number;         // 25 – 35, applied to all 4 defense stats
         special: { kind: string; value: number; bonusKey: string };
     };
@@ -1853,7 +1853,11 @@ export function CentralHub({
                                                 <div className="no-section">
                                                     <div className="no-label">All Offense</div>
                                                     <div className="no-rows">
-                                                        <div className="no-row"><span>+{NAMED_ARMOR_STATS.min} to +{NAMED_ARMOR_STATS.max}</span><span className="no-pct">~{namedForgeUniformPercent(NAMED_ARMOR_STATS.min, NAMED_ARMOR_STATS.max).toFixed(1)}% each</span></div>
+                                                        {(() => {
+                                                            // Gauntlets roll their own, higher offense (shared/named-forge-roll.ts).
+                                                            const offense = namedArmorSlot === "hand" ? NAMED_GAUNTLET_OFFENSE : NAMED_ARMOR_STATS;
+                                                            return <div className="no-row"><span>+{offense.min} to +{offense.max}</span><span className="no-pct">~{namedForgeUniformPercent(offense.min, offense.max).toFixed(1)}% each</span></div>;
+                                                        })()}
                                                     </div>
                                                 </div>
                                                 <div className="no-section">
@@ -2025,7 +2029,7 @@ export function CentralHub({
                                                         ))}
                                                     </div>
                                                     {/* Poison has its own weapon ceiling, so its strength is fixed rather than rolled. */}
-                                                    <div className="no-row"><span>Poison is always {WEAPON_POISON_TAG_CAP}%. Percentage buffs cap at {WEAPON_AMP_TAG_CAP}%; Wound caps at {WEAPON_WOUND_TAG_CAP}%. Heal, Shield, and Drain ignore the rolled percentage: as the only tag a swing heals or shields {WEAPON_FLAT_TAG_SOLO} or drains {WEAPON_DRAIN_TICK_SOLO} HP and chakra per turn; with 2 tags, {WEAPON_FLAT_TAG_SPLIT} and {WEAPON_DRAIN_TICK_SPLIT}. Drain cannot be reduced.</span></div>
+                                                    <div className="no-row"><span>Poison is always {WEAPON_POISON_TAG_CAP}%. Percentage buffs cap at {WEAPON_AMP_TAG_CAP}%; Wound caps at {WEAPON_WOUND_TAG_CAP}%. Increase Generals counts at half its capped percent, because it raises offense and defense together. Heal, Shield, and Drain ignore the rolled percentage: as the only tag a swing heals or shields {WEAPON_FLAT_TAG_SOLO} or drains {WEAPON_DRAIN_TICK_SOLO} HP and chakra per turn; with 2 tags, {WEAPON_FLAT_TAG_SPLIT} and {WEAPON_DRAIN_TICK_SPLIT}. Drain cannot be reduced.</span></div>
                                                 </div>
                                                 <div className="no-section no-wide">
                                                     <div className="no-label">Tag Formula Notes</div>
@@ -2097,14 +2101,15 @@ export function CentralHub({
                                                     <div className="nw-stat"><span>Range</span><strong>{namedWeaponRoll.range}</strong></div>
                                                     <div className="nw-stat"><span>All Offenses</span><strong>+{namedWeaponRoll.offenseVal}</strong></div>
                                                     {namedWeaponRoll.tags.map((t, i) => {
-                                                        // Heal/Shield/Drain are flat by tag count; these three ride the hit's damage.
-                                                        const dmgScaled = t.name === "Siphon" || t.name === "Lifesteal" || t.name === "Wound";
+                                                        // Heal/Shield/Drain are flat by tag count; Siphon and Lifesteal ride the
+                                                        // hit's damage (Wound's value already says so). The value is post-cap.
+                                                        const dmgScaled = t.name === "Siphon" || t.name === "Lifesteal";
                                                         return (
                                                             <div key={i} className="nw-stat nw-tag">
                                                                 <span>Tag {i + 1}</span>
                                                                 <strong>
                                                                     {t.name} {namedRollTagValue(t.name, t.percent, namedWeaponRoll.tags.length)}
-                                                                    {dmgScaled && <span className="nw-formula"> (= {t.percent}% of hit dmg)</span>}
+                                                                    {dmgScaled && <span className="nw-formula"> of hit dmg</span>}
                                                                 </strong>
                                                             </div>
                                                         );

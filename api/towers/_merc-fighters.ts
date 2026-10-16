@@ -19,6 +19,7 @@ import { runTowerFloor } from './_engine.js';
 import { makeRng } from './_sim.js';
 import type { TowerFloor } from './_floor-catalog.js';
 import { statCapForLevel } from '../combat-core/formulas.js';
+import { startingItemShield } from '../combat-core/shields.js';
 
 // A peak merc's max HP, scaled by tier level. Tunable.
 function mercMaxHp(level: number): number {
@@ -96,7 +97,8 @@ function playerActorFromSealed(name: string, ownerSlug: string, sealedChar: Reco
     return {
         id: 'sq-0', side: 'squad', name, ownerSlug, ai: true,
         hp: maxHp, maxHp, chakra: maxChakra, maxChakra, stamina: maxStamina, maxStamina,
-        shield: 0, statuses: [], cooldowns: {}, pos: 10, character: sealedChar,
+        // The defender's gear Shield special, timed in createTowerSession.
+        shield: startingItemShield(sealedChar), statuses: [], cooldowns: {}, pos: 10, character: sealedChar,
     };
 }
 

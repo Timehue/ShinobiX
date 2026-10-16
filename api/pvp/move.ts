@@ -17,7 +17,6 @@ import { expireShield, timeShieldGain } from '../combat-core/shields.js';
 import { adjustedApCost, TEMPO_AP_SWING } from '../combat-core/resources.js';
 import { castHeaderLine } from '../combat-core/cast-flavor.js';
 import { isForgedNamedWeaponId } from '../save/_forged-items.js';
-import { ITEM_CATALOG } from './_item-catalog.js';
 import { resolveJutsu as resolveCoreJutsu, type ResolveJutsuMetadata } from '../combat-core/resolveJutsu.js';
 import {
     DISCIPLINE_OFFENSE_FIELD,
@@ -34,7 +33,6 @@ import {
     generalsBonusFromStatuses,
     directDamageBaseFormula,
     directDamageNumberFormula,
-    HEAL_FLAT,
     healMultiplierFromStatuses,
     healAmountForMastery,
     JUTSU_MAX_LEVEL,
@@ -48,12 +46,12 @@ import {
     postDamagePercentAmount,
     scaledTagPercent as scaleCombatTagPercent,
     shieldAmountForMastery,
-    SHIELD_FLAT,
     WEAPON_AMP_TAG_CAP,
     WEAPON_POISON_TAG_CAP,
     statusDurationFor,
     weaponDrainTick,
     weaponFlatTagAmount,
+    weaponGeneralsPercent,
     weaponHealAmount,
     weatherMultiplier,
     withDisciplineBonuses,
@@ -206,6 +204,7 @@ import {
     REQUIRES_DAMAGE_TAGS,
     COPY_EXCLUDED_BUFFS,
 } from './_tags.js';
+import { catalogWeaponFlatTags } from './_weapon-tags.js';
 import {
     createCanonicalGroundEffect,
     resolveJutsuActionPlan,
@@ -640,20 +639,9 @@ function isWeaponSwing(jutsu: Pick<Jutsu, 'weaponSwing'>): boolean {
     return jutsu.weaponSwing === true;
 }
 
-/**
- * A BUILT-IN catalog weapon's authored flat Heal/Shield (owner ruling 2026-10-06):
- * built-ins sit on a rarity/level ladder, so the Frostfang Oathblade (legendary)
- * shields 300 and the Glacier King Cleaver (mythic) 400, as their cards say. Only
- * ITEM_CATALOG entries qualify — a player-authored item's value is a clamped
- * percent, not a flat amount — and the jutsu ceiling (HEAL_FLAT/SHIELD_FLAT) bounds it.
- */
-export function catalogWeaponFlatTags(itemId: unknown): Jutsu['catalogWeaponFlat'] {
-    const item = typeof itemId === 'string' ? ITEM_CATALOG[itemId] : undefined;
-    const tag = item?.weaponEffect;
-    const value = Number(item?.weaponEffectValue);
-    if ((tag !== 'Heal' && tag !== 'Shield') || !(value > 0)) return undefined;
-    return { [tag]: Math.min(tag === 'Heal' ? HEAL_FLAT : SHIELD_FLAT, value) };
-}
+// A built-in weapon's authored flat Heal/Shield. It lives beside the server's
+// weapon tag text (./_weapon-tags.ts) so that text reads the same numbers.
+export { catalogWeaponFlatTags };
 
 // A weapon has no mastery row to train, so its swing used to resolve its EP at
 // mastery 0: 30% of the hit a jutsu of the same EP lands once maxed. Owner ruling
@@ -914,7 +902,8 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
         // fighters are built, so it raises this fighter's offense AND defense. Stores the
         // scaled + rank-capped pct like the amp tags; stacks (STACKABLE_STATUS) but the
         // summed effect is soft-capped by K_GENERALS.
-        if (tagName === 'Increase Generals') { if (!blocksBuff(s, 'Increase Generals')) { s = addJutsuStatus(s, jutsu, { name: 'Increase Generals', rounds: 2, percent: pct, kind: 'positive' }, round); lines.push(`Increase Generals: ${s.name} gains ${pct}% general-stat potency for 2 turns.`); } continue; }
+        // A weapon swing's Generals counts at WEAPON_GENERALS_TAG_SCALE (formulas.ts).
+        if (tagName === 'Increase Generals') { if (!blocksBuff(s, 'Increase Generals')) { const generalsPct = weaponSwing ? weaponGeneralsPercent(pct) : pct; s = addJutsuStatus(s, jutsu, { name: 'Increase Generals', rounds: 2, percent: generalsPct, kind: 'positive' }, round); lines.push(`Increase Generals: ${s.name} gains ${generalsPct}% general-stat potency for 2 turns.`); } continue; }
         // Increase Discipline (legacy signature jutsu): style-locked self-buff. Lifts
         // ONLY the offense composite of the cast jutsu's discipline — the discipline is
         // captured server-side from jutsu.type here (never client-supplied) and read

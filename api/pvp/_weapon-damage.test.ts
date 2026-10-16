@@ -13,7 +13,7 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { applyJutsu, catalogWeaponFlatTags, characterOwnsElement } from './move.js';
-import { JUTSU_MAX_LEVEL, WEAPON_AMP_TAG_CAP, WEAPON_EP_CEILING } from '../combat-core/formulas.js';
+import { JUTSU_MAX_LEVEL, WEAPON_AMP_TAG_CAP, WEAPON_EP_CEILING, WEAPON_GENERALS_TAG_SCALE, weaponGeneralsPercent } from '../combat-core/formulas.js';
 import { ITEM_CATALOG } from './_item-catalog.js';
 import { JUTSU_CATALOG } from './_jutsu-catalog.js';
 import type { PvpFighter } from './session.js';
@@ -74,6 +74,21 @@ describe('PvP weapon damage', () => {
         assert.ok(st, "the weapon's Increase Generals tag should apply a status to the wielder");
         assert.equal(st?.rounds, 2, 'buff lasts 2 rounds');
         assert.ok(r.opponent.hp < 1000, 'the weapon still deals its damage');
+    });
+
+    // Increase Generals lifts offense AND defense, so at the shared 35 cap a
+    // single-tag blade far out-did every other tag. A swing counts it at half.
+    it('a weapon swing counts Increase Generals at half its capped percent; a jutsu keeps it whole', () => {
+        const generals = (weaponSwing: boolean, percent: number) => applyJutsu(fighter('A'), fighter('B'), asJutsu({
+            id: weaponSwing ? 'weapon' : 'ig-jutsu', name: 'Probe', isUtility: false, ap: 40, effectPower: 25, weaponSwing,
+            tags: [{ name: 'Increase Generals', percent }],
+        }), 1, 'central', 1).self.statuses.find(s => s.name === 'Increase Generals')?.percent;
+        assert.equal(generals(true, 38), 17, 'single roll: capped to 35, then halved');
+        assert.equal(generals(true, 18), 9, 'dual roll: halved');
+        // An untrained jutsu ramps 30 down to 30 - 50 × 0.2 = 20, and is not halved.
+        assert.equal(generals(false, 30), 20, 'jutsu are unchanged');
+        assert.equal(WEAPON_GENERALS_TAG_SCALE, 0.5);
+        assert.equal(weaponGeneralsPercent(WEAPON_AMP_TAG_CAP), 17);
     });
 });
 

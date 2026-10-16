@@ -6,10 +6,11 @@ import { countOwned, removeOwned } from './_forge.js';
 import {
     NAMED_WEAPON_EP_VALUES, NAMED_WEAPON_TAGS as WEAPON_TAGS,
     NAMED_WEAPON_RANGES, NAMED_WEAPON_OFFENSE, NAMED_WEAPON_TAG_STRENGTH, NAMED_WEAPON_TAG_COUNTS,
-    NAMED_ARMOR_STATS, NAMED_ARMOR_QUALITIES, NAMED_ARMOR_SPECIALS as ARMOR_SPECIALS,
+    NAMED_ARMOR_STATS, NAMED_GAUNTLET_OFFENSE, NAMED_ARMOR_QUALITIES, NAMED_ARMOR_SPECIALS as ARMOR_SPECIALS,
     NAMED_ARMOR_SLOTS as SLOTS,
 } from '../../shared/named-forge-roll.js';
-import { WEAPON_POISON_TAG_CAP, weaponDrainTick, weaponFlatTagAmount } from '../combat-core/formulas.js';
+import { WEAPON_POISON_TAG_CAP } from '../combat-core/formulas.js';
+import { weaponTagEffectText } from '../pvp/_weapon-tags.js';
 
 // The named forge's weapon EP roll, inclusive at both ends.
 export { NAMED_WEAPON_EP_MIN, NAMED_WEAPON_EP_MAX } from '../../shared/named-forge-roll.js';
@@ -93,7 +94,8 @@ export function rollNamedForge(kind: 'weapon' | 'armor', slotRaw?: unknown): Nam
     const slot = SLOTS.includes(slotRaw as typeof SLOTS[number]) ? slotRaw as typeof SLOTS[number] : 'body';
     const special = pick(ARMOR_SPECIALS);
     const raw = special.decimals === 0 ? randomInt(special.min, special.max + 1) : special.min + (randomInt(1_000_000) / 1_000_000) * (special.max - special.min);
-    return { kind, slot, armorQuality: pick(NAMED_ARMOR_QUALITIES), offenseVal: randomInt(NAMED_ARMOR_STATS.min, NAMED_ARMOR_STATS.max + 1), defenseVal: randomInt(NAMED_ARMOR_STATS.min, NAMED_ARMOR_STATS.max + 1), special: { kind: special.kind, bonusKey: special.bonusKey, value: Number(raw.toFixed(special.decimals)) } };
+    const offense = slot === 'hand' ? NAMED_GAUNTLET_OFFENSE : NAMED_ARMOR_STATS;
+    return { kind, slot, armorQuality: pick(NAMED_ARMOR_QUALITIES), offenseVal: randomInt(offense.min, offense.max + 1), defenseVal: randomInt(NAMED_ARMOR_STATS.min, NAMED_ARMOR_STATS.max + 1), special: { kind: special.kind, bonusKey: special.bonusKey, value: Number(raw.toFixed(special.decimals)) } };
 }
 
 /**
@@ -122,12 +124,9 @@ export function buildNamedItem(roll: NamedRoll, nameRaw: string, flavorRaw: stri
     const id = `named-${roll.kind}-${randomUUID().replace(/-/g, '')}`;
     if (roll.kind === 'weapon') {
         const name = nameRaw || 'Named Weapon';
-        // Heal/Shield/Drain ignore the rolled percent: they are flat by tag count.
-        const count = roll.tags.length;
-        const tagDesc = roll.tags.map((tag) => tag.name === 'Heal' ? `Heal ${weaponFlatTagAmount(count)} HP`
-            : tag.name === 'Shield' ? `Shield ${weaponFlatTagAmount(count)}`
-            : tag.name === 'Drain' ? `Drain ${weaponDrainTick(count)} HP + chakra per turn`
-            : `${tag.name} ${tag.percent}%`).join(', ');
+        // What each tag does in combat, not the stored roll: Heal/Shield/Drain are
+        // flat by tag count, and the percents are shown after the weapon caps.
+        const tagDesc = roll.tags.map((tag) => weaponTagEffectText({ id, weaponTags: roll.tags }, tag.name, tag.percent)).join(', ');
         return { id, name, slot: 'hand', rarity: 'legendary', cost: 0, levelReq: NAMED_ITEM_LEVEL_REQ, description: flavorRaw || `A master-forged weapon. Tags: ${tagDesc}.`, weaponEp: roll.ep, apCost: 40, weaponRange: roll.range, weaponCooldown: 5, weaponTags: roll.tags, flavorText: flavorRaw || undefined, bonuses: { ninjutsuOffense: roll.offenseVal, taijutsuOffense: roll.offenseVal, bukijutsuOffense: roll.offenseVal, genjutsuOffense: roll.offenseVal } };
     }
     const slotLabel = roll.slot === 'hand' ? 'Gloves' : roll.slot[0].toUpperCase() + roll.slot.slice(1);
@@ -140,9 +139,12 @@ export function buildNamedItem(roll: NamedRoll, nameRaw: string, flavorRaw: stri
     // produced a description promising a reduction that nothing applied.
     const isGauntlet = roll.slot === 'hand';
     const reduction = roll.armorQuality === 'Elite' ? 6 : roll.armorQuality === 'Legendary' ? 7 : 8;
+    // Every special but Shield is a percent ("Absorb 1.2%" heals 1.2% of a hit);
+    // without the sign, "Increase Damage 1.2" read as ×1.2.
+    const special = `${roll.special.kind} ${roll.special.value}${roll.special.bonusKey === 'shield' ? '' : '%'}`;
     const description = flavorRaw || (isGauntlet
-        ? `A master-forged pair of gauntlets. ${roll.special.kind} ${roll.special.value}.`
-        : `A master-forged ${slotLabel.toLowerCase()} piece. ${reduction}% damage reduction. ${roll.special.kind} ${roll.special.value}.`);
+        ? `A master-forged pair of gauntlets. ${special}.`
+        : `A master-forged ${slotLabel.toLowerCase()} piece. ${reduction}% damage reduction. ${special}.`);
     // Forged gear sits ABOVE mythic on the ladder — it is the last equipment a
     // character earns, so it is gated at 90 (owner ruling 2026-08-17). The
     // `rarity` string stays 'legendary' because the rarity vocabulary is shared

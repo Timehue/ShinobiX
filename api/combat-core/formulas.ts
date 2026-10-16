@@ -354,6 +354,24 @@ export function ampTagCapForRank(rank?: string | null): number {
 export const WEAPON_AMP_TAG_CAP = 35;
 
 /**
+ * Increase Generals on a WEAPON SWING counts at half its capped percent (owner
+ * ask 2026-10-16: a named roll should land below, level with or above a mythic
+ * weapon, never far past one). It lifts str/spd/int/wil, so it raises the
+ * wielder's offense AND defense at once. Measured on stat-capped L90 fighters, a
+ * 35 lifted the damage-dealt / damage-taken ratio ×2.08, against ×1.41 for
+ * Increase Damage Given 35 and ×1.70 for Decrease Damage Taken 35 (the
+ * mythic-level single tags). Halved, a single roll (17) lands ×1.55, between
+ * them, and a dual 15-20 roll (7-10) lands ×1.23-1.33, between a dual Increase
+ * Damage Given (×1.23-1.29) and a dual Decrease Damage Taken (×1.30-1.40).
+ * Jutsu keep the full percent.
+ */
+export const WEAPON_GENERALS_TAG_SCALE = 0.5;
+
+export function weaponGeneralsPercent(cappedPct: number): number {
+    return Math.floor(Math.max(0, cappedPct) * WEAPON_GENERALS_TAG_SCALE);
+}
+
+/**
  * The highest EP a player's weapon can carry. Owner rulings 2026-09-25: EP means
  * the same thing on a weapon and a jutsu, so a swing resolves at the mastery its
  * wielder's rank allows (see api/pvp/move.ts), and no weapon may out-hit a fully
