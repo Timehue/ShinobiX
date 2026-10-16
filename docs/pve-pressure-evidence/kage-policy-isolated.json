@@ -1,0 +1,614 @@
+{
+  "diagnosticOnly": true,
+  "sourceHashes": {
+    "api/solo-pve/_engine.ts": "1faa439baf320c3cfa995f2b8ca438b3d1332cb79921398ca71c4edbf9f851c1",
+    "api/solo-pve/_ai-turn-policy.ts": "ce144ef45991116ddabd59ee3e28942c4bc6d8472cfed142f4d16e599ec46396",
+    "shared/story-kage.ts": "4dff8caea0788946b8e7f07726f62f27f5f776f06478e9499595d3b114e7ed4f",
+    "scripts/pve-kage-policy-benchmark.ts": "5c0aa57d8b9fe456b4c961c3ae476dcf4747bf9d04d5c08459357b8e8ce5d69a"
+  },
+  "sampleRounds": 24,
+  "warmup": 3,
+  "concurrentLoad": false,
+  "rows": [
+    {
+      "village": "Stormveil Village",
+      "state": "range-four",
+      "variant": "current",
+      "simulations": 45,
+      "firstAction": {
+        "type": "jutsu",
+        "jutsuId": "starter-nin-wind-2"
+      },
+      "p50Ms": 29.339099999999235,
+      "p95Ms": 43.878099999999904,
+      "playerHp": 9135,
+      "enemyHp": 14000,
+      "remainingAp": 0,
+      "enemyActions": [
+        "starter-nin-wind-2",
+        "starter-buki-water-1"
+      ]
+    },
+    {
+      "village": "Stormveil Village",
+      "state": "range-four",
+      "variant": "apex",
+      "simulations": 53,
+      "firstAction": {
+        "type": "jutsu",
+        "jutsuId": "starter-nin-wind-2"
+      },
+      "p50Ms": 26.46519999999873,
+      "p95Ms": 37.800600000000486,
+      "playerHp": 9135,
+      "enemyHp": 14000,
+      "remainingAp": 0,
+      "enemyActions": [
+        "starter-nin-wind-2",
+        "starter-buki-water-1"
+      ]
+    },
+    {
+      "village": "Stormveil Village",
+      "state": "post-signature",
+      "variant": "current",
+      "simulations": 4,
+      "firstAction": {
+        "type": "jutsu",
+        "jutsuId": "starter-buki-water-1"
+      },
+      "p50Ms": 1.7230999999992491,
+      "p95Ms": 2.186700000000201,
+      "playerHp": 10000,
+      "enemyHp": 14000,
+      "remainingAp": 0,
+      "enemyActions": [
+        "starter-buki-water-1"
+      ]
+    },
+    {
+      "village": "Stormveil Village",
+      "state": "post-signature",
+      "variant": "apex",
+      "simulations": 4,
+      "firstAction": {
+        "type": "jutsu",
+        "jutsuId": "starter-buki-water-1"
+      },
+      "p50Ms": 2.338399999998728,
+      "p95Ms": 6.28689999999915,
+      "playerHp": 10000,
+      "enemyHp": 14000,
+      "remainingAp": 0,
+      "enemyActions": [
+        "starter-buki-water-1"
+      ]
+    },
+    {
+      "village": "Stormveil Village",
+      "state": "endangered",
+      "variant": "current",
+      "simulations": 72,
+      "firstAction": {
+        "type": "jutsu",
+        "jutsuId": "starter-nin-wind-2"
+      },
+      "p50Ms": 39.039200000001074,
+      "p95Ms": 56.941899999999805,
+      "playerHp": 9935,
+      "enemyHp": 1400,
+      "remainingAp": 0,
+      "enemyActions": [
+        "starter-nin-wind-2",
+        "starter-buki-water-1"
+      ]
+    },
+    {
+      "village": "Stormveil Village",
+      "state": "endangered",
+      "variant": "apex",
+      "simulations": 84,
+      "firstAction": {
+        "type": "jutsu",
+        "jutsuId": "starter-nin-wind-2"
+      },
+      "p50Ms": 43.17489999999998,
+      "p95Ms": 68.76130000000012,
+      "playerHp": 9935,
+      "enemyHp": 1400,
+      "remainingAp": 0,
+      "enemyActions": [
+        "starter-nin-wind-2",
+        "starter-buki-water-1"
+      ]
+    },
+    {
+      "village": "Stormveil Village",
+      "state": "dry-cooldowns",
+      "variant": "current",
+      "simulations": 26,
+      "firstAction": {
+        "type": "clear"
+      },
+      "p50Ms": 13.563500000000204,
+      "p95Ms": 22.78349999999955,
+      "playerHp": 10000,
+      "enemyHp": 14000,
+      "remainingAp": 0,
+      "enemyActions": [
+        "clear",
+        "starter-buki-water-1"
+      ]
+    },
+    {
+      "village": "Stormveil Village",
+      "state": "dry-cooldowns",
+      "variant": "apex",
+      "simulations": 28,
+      "firstAction": {
+        "type": "jutsu",
+        "jutsuId": "starter-buki-water-1"
+      },
+      "p50Ms": 18.81499999999869,
+      "p95Ms": 28.154700000000958,
+      "playerHp": 10000,
+      "enemyHp": 14000,
+      "remainingAp": 0,
+      "enemyActions": [
+        "starter-buki-water-1",
+        "starter-nin-lightning-4",
+        "starter-universal-flicker"
+      ]
+    },
+    {
+      "village": "Ashen Leaf Village",
+      "state": "range-four",
+      "variant": "current",
+      "simulations": 49,
+      "firstAction": {
+        "type": "jutsu",
+        "jutsuId": "starter-nin-fire-2"
+      },
+      "p50Ms": 22.11409999999887,
+      "p95Ms": 34.006100000002334,
+      "playerHp": 9135,
+      "enemyHp": 14000,
+      "remainingAp": 0,
+      "enemyActions": [
+        "starter-nin-fire-2",
+        "starter-nin-fire-3"
+      ]
+    },
+    {
+      "village": "Ashen Leaf Village",
+      "state": "range-four",
+      "variant": "apex",
+      "simulations": 53,
+      "firstAction": {
+        "type": "jutsu",
+        "jutsuId": "starter-nin-fire-2"
+      },
+      "p50Ms": 27.59009999999762,
+      "p95Ms": 34.865099999999074,
+      "playerHp": 9135,
+      "enemyHp": 14000,
+      "remainingAp": 0,
+      "enemyActions": [
+        "starter-nin-fire-2",
+        "starter-nin-fire-3"
+      ]
+    },
+    {
+      "village": "Ashen Leaf Village",
+      "state": "post-signature",
+      "variant": "current",
+      "simulations": 4,
+      "firstAction": {
+        "type": "jutsu",
+        "jutsuId": "starter-nin-fire-3"
+      },
+      "p50Ms": 1.9724999999998545,
+      "p95Ms": 6.52009999999791,
+      "playerHp": 10000,
+      "enemyHp": 14000,
+      "remainingAp": 0,
+      "enemyActions": [
+        "starter-nin-fire-3"
+      ]
+    },
+    {
+      "village": "Ashen Leaf Village",
+      "state": "post-signature",
+      "variant": "apex",
+      "simulations": 4,
+      "firstAction": {
+        "type": "jutsu",
+        "jutsuId": "starter-nin-fire-3"
+      },
+      "p50Ms": 1.7665000000015425,
+      "p95Ms": 2.4421000000002095,
+      "playerHp": 10000,
+      "enemyHp": 14000,
+      "remainingAp": 0,
+      "enemyActions": [
+        "starter-nin-fire-3"
+      ]
+    },
+    {
+      "village": "Ashen Leaf Village",
+      "state": "endangered",
+      "variant": "current",
+      "simulations": 66,
+      "firstAction": {
+        "type": "jutsu",
+        "jutsuId": "starter-nin-fire-2"
+      },
+      "p50Ms": 31.893599999999424,
+      "p95Ms": 44.46679999999833,
+      "playerHp": 9935,
+      "enemyHp": 1400,
+      "remainingAp": 0,
+      "enemyActions": [
+        "starter-nin-fire-2",
+        "starter-nin-earth-1"
+      ]
+    },
+    {
+      "village": "Ashen Leaf Village",
+      "state": "endangered",
+      "variant": "apex",
+      "simulations": 84,
+      "firstAction": {
+        "type": "jutsu",
+        "jutsuId": "starter-nin-fire-2"
+      },
+      "p50Ms": 32.975500000000466,
+      "p95Ms": 47.98080000000118,
+      "playerHp": 9935,
+      "enemyHp": 1400,
+      "remainingAp": 0,
+      "enemyActions": [
+        "starter-nin-fire-2",
+        "starter-nin-earth-1"
+      ]
+    },
+    {
+      "village": "Ashen Leaf Village",
+      "state": "dry-cooldowns",
+      "variant": "current",
+      "simulations": 28,
+      "firstAction": {
+        "type": "jutsu",
+        "jutsuId": "starter-nin-fire-3"
+      },
+      "p50Ms": 14.010000000002037,
+      "p95Ms": 22.392400000000634,
+      "playerHp": 10000,
+      "enemyHp": 14000,
+      "remainingAp": 0,
+      "enemyActions": [
+        "starter-nin-fire-3",
+        "starter-nin-earth-1",
+        "starter-universal-flicker"
+      ]
+    },
+    {
+      "village": "Ashen Leaf Village",
+      "state": "dry-cooldowns",
+      "variant": "apex",
+      "simulations": 28,
+      "firstAction": {
+        "type": "jutsu",
+        "jutsuId": "starter-nin-fire-3"
+      },
+      "p50Ms": 17.587500000001455,
+      "p95Ms": 21.742700000002515,
+      "playerHp": 10000,
+      "enemyHp": 14000,
+      "remainingAp": 0,
+      "enemyActions": [
+        "starter-nin-fire-3",
+        "starter-nin-earth-1",
+        "starter-universal-flicker"
+      ]
+    },
+    {
+      "village": "Frostfang Village",
+      "state": "range-four",
+      "variant": "current",
+      "simulations": 49,
+      "firstAction": {
+        "type": "jutsu",
+        "jutsuId": "starter-tai-water-2"
+      },
+      "p50Ms": 20.8833999999988,
+      "p95Ms": 33.10900000000038,
+      "playerHp": 9135,
+      "enemyHp": 14000,
+      "remainingAp": 0,
+      "enemyActions": [
+        "starter-tai-water-2",
+        "starter-buki-water-1"
+      ]
+    },
+    {
+      "village": "Frostfang Village",
+      "state": "range-four",
+      "variant": "apex",
+      "simulations": 53,
+      "firstAction": {
+        "type": "jutsu",
+        "jutsuId": "starter-tai-water-2"
+      },
+      "p50Ms": 21.23029999999926,
+      "p95Ms": 28.585699999999633,
+      "playerHp": 9135,
+      "enemyHp": 14000,
+      "remainingAp": 0,
+      "enemyActions": [
+        "starter-tai-water-2",
+        "starter-buki-water-1"
+      ]
+    },
+    {
+      "village": "Frostfang Village",
+      "state": "post-signature",
+      "variant": "current",
+      "simulations": 4,
+      "firstAction": {
+        "type": "jutsu",
+        "jutsuId": "starter-buki-water-1"
+      },
+      "p50Ms": 1.8117999999994936,
+      "p95Ms": 3.787499999998545,
+      "playerHp": 10000,
+      "enemyHp": 14000,
+      "remainingAp": 0,
+      "enemyActions": [
+        "starter-buki-water-1"
+      ]
+    },
+    {
+      "village": "Frostfang Village",
+      "state": "post-signature",
+      "variant": "apex",
+      "simulations": 4,
+      "firstAction": {
+        "type": "jutsu",
+        "jutsuId": "starter-buki-water-1"
+      },
+      "p50Ms": 1.5476000000016938,
+      "p95Ms": 5.066300000002229,
+      "playerHp": 10000,
+      "enemyHp": 14000,
+      "remainingAp": 0,
+      "enemyActions": [
+        "starter-buki-water-1"
+      ]
+    },
+    {
+      "village": "Frostfang Village",
+      "state": "endangered",
+      "variant": "current",
+      "simulations": 72,
+      "firstAction": {
+        "type": "jutsu",
+        "jutsuId": "starter-tai-water-2"
+      },
+      "p50Ms": 29.230599999998958,
+      "p95Ms": 40.987600000000384,
+      "playerHp": 9935,
+      "enemyHp": 1400,
+      "remainingAp": 0,
+      "enemyActions": [
+        "starter-tai-water-2",
+        "starter-buki-water-1"
+      ]
+    },
+    {
+      "village": "Frostfang Village",
+      "state": "endangered",
+      "variant": "apex",
+      "simulations": 84,
+      "firstAction": {
+        "type": "jutsu",
+        "jutsuId": "starter-tai-water-2"
+      },
+      "p50Ms": 33.610100000001694,
+      "p95Ms": 45.009799999999814,
+      "playerHp": 9935,
+      "enemyHp": 1400,
+      "remainingAp": 0,
+      "enemyActions": [
+        "starter-tai-water-2",
+        "starter-buki-water-1"
+      ]
+    },
+    {
+      "village": "Frostfang Village",
+      "state": "dry-cooldowns",
+      "variant": "current",
+      "simulations": 26,
+      "firstAction": {
+        "type": "clear"
+      },
+      "p50Ms": 12.06340000000273,
+      "p95Ms": 14.77929999999833,
+      "playerHp": 10000,
+      "enemyHp": 14000,
+      "remainingAp": 0,
+      "enemyActions": [
+        "clear",
+        "starter-buki-water-1"
+      ]
+    },
+    {
+      "village": "Frostfang Village",
+      "state": "dry-cooldowns",
+      "variant": "apex",
+      "simulations": 28,
+      "firstAction": {
+        "type": "jutsu",
+        "jutsuId": "starter-buki-water-1"
+      },
+      "p50Ms": 14.807799999998679,
+      "p95Ms": 19.10750000000189,
+      "playerHp": 10000,
+      "enemyHp": 14000,
+      "remainingAp": 0,
+      "enemyActions": [
+        "starter-buki-water-1",
+        "starter-tai-lightning-4",
+        "starter-universal-flicker"
+      ]
+    },
+    {
+      "village": "Moonshadow Village",
+      "state": "range-four",
+      "variant": "current",
+      "simulations": 49,
+      "firstAction": {
+        "type": "jutsu",
+        "jutsuId": "starter-gen-water-1"
+      },
+      "p50Ms": 23.87119999999777,
+      "p95Ms": 29.891500000001543,
+      "playerHp": 9135,
+      "enemyHp": 14000,
+      "remainingAp": 0,
+      "enemyActions": [
+        "starter-gen-water-1",
+        "starter-gen-lightning-2"
+      ]
+    },
+    {
+      "village": "Moonshadow Village",
+      "state": "range-four",
+      "variant": "apex",
+      "simulations": 53,
+      "firstAction": {
+        "type": "jutsu",
+        "jutsuId": "starter-gen-water-1"
+      },
+      "p50Ms": 26.125700000000506,
+      "p95Ms": 34.686499999999796,
+      "playerHp": 9135,
+      "enemyHp": 14000,
+      "remainingAp": 0,
+      "enemyActions": [
+        "starter-gen-water-1",
+        "starter-gen-lightning-2"
+      ]
+    },
+    {
+      "village": "Moonshadow Village",
+      "state": "post-signature",
+      "variant": "current",
+      "simulations": 4,
+      "firstAction": {
+        "type": "jutsu",
+        "jutsuId": "starter-gen-water-1"
+      },
+      "p50Ms": 1.7479000000021188,
+      "p95Ms": 2.6633999999976368,
+      "playerHp": 10000,
+      "enemyHp": 14000,
+      "remainingAp": 0,
+      "enemyActions": [
+        "starter-gen-water-1"
+      ]
+    },
+    {
+      "village": "Moonshadow Village",
+      "state": "post-signature",
+      "variant": "apex",
+      "simulations": 4,
+      "firstAction": {
+        "type": "jutsu",
+        "jutsuId": "starter-gen-water-1"
+      },
+      "p50Ms": 1.6111000000018976,
+      "p95Ms": 2.7515999999995984,
+      "playerHp": 10000,
+      "enemyHp": 14000,
+      "remainingAp": 0,
+      "enemyActions": [
+        "starter-gen-water-1"
+      ]
+    },
+    {
+      "village": "Moonshadow Village",
+      "state": "endangered",
+      "variant": "current",
+      "simulations": 72,
+      "firstAction": {
+        "type": "jutsu",
+        "jutsuId": "starter-gen-lightning-2"
+      },
+      "p50Ms": 32.50039999999717,
+      "p95Ms": 43.721300000001065,
+      "playerHp": 9935,
+      "enemyHp": 1400,
+      "remainingAp": 0,
+      "enemyActions": [
+        "starter-gen-lightning-2",
+        "starter-gen-water-1"
+      ]
+    },
+    {
+      "village": "Moonshadow Village",
+      "state": "endangered",
+      "variant": "apex",
+      "simulations": 84,
+      "firstAction": {
+        "type": "jutsu",
+        "jutsuId": "starter-gen-lightning-2"
+      },
+      "p50Ms": 38.84809999999925,
+      "p95Ms": 49.3140999999996,
+      "playerHp": 9935,
+      "enemyHp": 1400,
+      "remainingAp": 0,
+      "enemyActions": [
+        "starter-gen-lightning-2",
+        "starter-gen-water-1"
+      ]
+    },
+    {
+      "village": "Moonshadow Village",
+      "state": "dry-cooldowns",
+      "variant": "current",
+      "simulations": 28,
+      "firstAction": {
+        "type": "clear"
+      },
+      "p50Ms": 12.938099999999395,
+      "p95Ms": 18.28689999999915,
+      "playerHp": 10000,
+      "enemyHp": 14000,
+      "remainingAp": 0,
+      "enemyActions": [
+        "clear",
+        "starter-gen-water-1"
+      ]
+    },
+    {
+      "village": "Moonshadow Village",
+      "state": "dry-cooldowns",
+      "variant": "apex",
+      "simulations": 28,
+      "firstAction": {
+        "type": "clear"
+      },
+      "p50Ms": 14.263699999999517,
+      "p95Ms": 18.785200000002078,
+      "playerHp": 10000,
+      "enemyHp": 14000,
+      "remainingAp": 0,
+      "enemyActions": [
+        "clear",
+        "starter-gen-water-1"
+      ]
+    }
+  ]
+}

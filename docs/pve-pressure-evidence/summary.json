@@ -1,4 +1,6 @@
 {
+  "acceptanceStatus": "superseded-synthetic-stress",
+  "fixtureVersion": 1,
   "baselineCommit": "e2ccccb0d4d7cc30e8810040e3353f8a6cd2aba9",
   "sourceHashes": {
     "api/solo-pve/_engine.ts": "080c7e70963487730f9b3b02c9d272d53316b4cfa84c7cad682a05da91e59665",

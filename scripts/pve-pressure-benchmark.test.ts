@@ -9,6 +9,9 @@ import { AI_PROFILE_CATALOG } from '../api/_ai-profile-catalog.js';
 import { relevelAiProfile } from '../api/_ai-level-curves.js';
 import { storyBossEnemyTemplate } from '../api/story/_authoritative-story-combat.js';
 import type { applySoloPveAction } from '../api/solo-pve/_engine.js';
+import { ITEM_CATALOG } from '../api/pvp/_item-catalog.js';
+import { JUTSU_CATALOG } from '../api/pvp/_jutsu-catalog.js';
+import { effectiveItemLevelReq } from '../shared/item-level-gate.js';
 
 test('pressure fixtures use rank-legal mastery and authoritative equipment multipliers', () => {
     for (const level of PRESSURE_LEVELS) for (const build of PRESSURE_BUILDS) {
@@ -20,7 +23,18 @@ test('pressure fixtures use rank-legal mastery and authoritative equipment multi
         const mastery = session.player.character.jutsuMastery as Array<{ level: number }>;
         assert.ok(mastery.every(j => j.level <= jutsuLevelCapForLevel(level)));
         assert.ok((Number(session.player.character.armorRawDR) || 0) <= 1.5);
-        if (level >= 40 && build !== 'starter') assert.equal(Number(session.player.character.armorRawDR).toFixed(2), '0.35');
+        if (level >= 65 && build !== 'starter') assert.equal(Number(session.player.character.armorRawDR).toFixed(2), '0.35');
+        if (level === 50 && build !== 'starter') assert.equal(Number(session.player.character.armorRawDR).toFixed(2), '0.25');
+        for (const id of Object.values(save.character.equipment)) {
+            assert.ok(ITEM_CATALOG[id], `real equipped item ${id}`);
+            assert.ok(effectiveItemLevelReq(ITEM_CATALOG[id]) <= level, `legal effective gear gate ${id}@${level}`);
+        }
+        assert.ok(save.character.elements.length <= (level < 20 ? 1 : 2));
+        for (const id of save.character.equippedJutsuIds) {
+            const jutsu = JUTSU_CATALOG[id];
+            assert.ok(jutsu, `real learned jutsu ${id}`);
+            assert.ok(!jutsu.element || jutsu.element === 'None' || save.character.elements.includes(jutsu.element), `owned jutsu element ${id}`);
+        }
         if (build === 'maxed' && level === 100) assert.equal(session.player.character.bloodlineMult, 1.2);
         assert.equal((session.enemy.character.jutsu as unknown[]).length <= 8, true);
         assert.equal(session.enemy.maxChakra, maxChakraForLevel(level));
@@ -30,7 +44,12 @@ test('pressure fixtures use rank-legal mastery and authoritative equipment multi
         for (const move of npcKit) {
             const same = playerKit.find(j => j.id === move.id);
             if (!same) continue;
-            for (const field of ['ap', 'effectPower', 'cooldown', 'chakraCost', 'staminaCost']) assert.equal(move[field], same[field], `same legal ${field} for ${move.id}`);
+            for (const field of ['ap', 'effectPower', 'cooldown']) assert.equal(move[field], same[field], `same legal ${field} for ${move.id}`);
+            assert.equal(Number(move.chakraCost ?? 0) + Number(move.staminaCost ?? 0), Number(same.chakraCost ?? 0) + Number(same.staminaCost ?? 0), `same legal resource amount for ${move.id}`);
+            // Universal Any setups route to each caster's trained specialty.
+            // Different specialties legitimately charge different resource bars.
+            if (move.type !== 'Any' || session.player.character.specialty === session.enemy.character.specialty)
+                for (const field of ['chakraCost', 'staminaCost']) assert.equal(move[field], same[field], `same legal resource bar for ${move.id}`);
         }
     }
 });
