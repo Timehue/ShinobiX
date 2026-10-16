@@ -22,7 +22,7 @@ import type { Screen } from "../types/core";
 import type { PetArenaOpponent } from "../data/pet-arena-opponents";
 import { colosseumPetBusyReason, isPetAvailableForColosseum } from "../lib/pet";
 import { activeCarriedPetIds } from "../lib/entitlements";
-import { petCardImage } from "../lib/pet-battle-anim";
+import { petScenicPortraitImage as petCardImage } from "../lib/pet-scenic-portrait";
 import { petPvpGearById } from "../data/pet-config";
 import { clearPetColosseumPetHint, readPetColosseumPetHint } from "../lib/pet-arena-navigation";
 import { activeClientBreedingParentIds } from "../lib/pet-breeding";

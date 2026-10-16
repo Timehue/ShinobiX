@@ -1,6 +1,6 @@
 import { HOLLOW_GATE_KEY_DUNGEON_KEY_COST, HOLLOW_GATE_KEY_FATE_SHARD_COST, HOLLOW_GATE_UNLOCK_COST, setHollowGateKeyDungeonKeyCost, setHollowGateKeyFateShardCost, setHollowGateUnlockCost } from "../lib/hollow-gate-prices";
 import { stringifyServerSavePayload } from "../lib/server-save-payload";
-import { evoTemplateArt } from "../lib/admin-pet-template-art";
+import { adminPetPortraitImage, publishAdminPetPortrait } from "../lib/admin-pet-template-art";
 import { adminIconOptions } from "../data/admin-icons";
 import { createCharacter } from "../lib/create-character";
 import { defaultAncientChestVn, defaultPetEncounterVn } from "../data/default-vn-events";
@@ -4603,12 +4603,11 @@ export function AdminPanel({
                             battle-sprite pass. */}
                         <details open style={{ marginTop: 8 }}>
                             <summary style={{ cursor: "pointer", fontWeight: 600, marginBottom: 6 }}>
-                                Avatars — {editablePets.filter((p) => !(pinnedAvatars["pet:" + p.id] || p.image || sharedImages["pet:" + p.id] || sharedImages["pet:" + p.id.replace(/-\d{10,}$/, "")] || evoTemplateArt(p.id.replace(/-\d{10,}$/, "")))).length} missing of {editablePets.length}
+                                Avatars — {editablePets.filter((p) => !adminPetPortraitImage(p, pinnedAvatars, sharedImages)).length} missing of {editablePets.length}
                             </summary>
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, maxHeight: 360, overflowY: "auto", padding: 4 }}>
                                 {editablePets.map((p) => {
-                                    const baseId = p.id.replace(/-\d{10,}$/, "");
-                                    const img = pinnedAvatars["pet:" + p.id] || p.image || sharedImages["pet:" + p.id] || sharedImages["pet:" + baseId] || evoTemplateArt(baseId) || "";
+                                    const img = adminPetPortraitImage(p, pinnedAvatars, sharedImages);
                                     const selected = p.id === selectedPetId;
                                     return (
                                         <div key={p.id} style={{ width: 92, textAlign: "center", border: selected ? "2px solid #8b5cf6" : img ? "1px solid #334155" : "1px solid #b45309", borderRadius: 8, padding: 6, background: "#0f172a" }}>
@@ -4668,9 +4667,9 @@ export function AdminPanel({
                                 <div className="summary-box pet-editor-card" id="admin-pet-editor-card">
                                     <h3>{pet.name}</h3>
 
-                                    {(pinnedAvatars["pet:" + pet.id] || pet.image) && (
-                                        <div className="admin-jutsu-preview">
-                                            <img src={pinnedAvatars["pet:" + pet.id] || pet.image} alt={pet.name} />
+                                    {adminPetPortraitImage(pet, pinnedAvatars, sharedImages) && (
+                                        <div className="admin-jutsu-preview" style={{ width: 160, height: 160 }}>
+                                            <img src={adminPetPortraitImage(pet, pinnedAvatars, sharedImages)} alt={pet.name} style={{ objectFit: "contain" }} />
                                         </div>
                                     )}
 
@@ -4685,7 +4684,7 @@ export function AdminPanel({
                                                 const c = await compressDataUrl(raw, 256, 0.85);
                                                 pinAvatar("pet:" + pet.id, c);
                                                 updatePet({ image: c });
-                                                await publishSharedImage('pet:' + pet.id, c);
+                                                await publishAdminPetPortrait(pet, c, publishSharedImage, (slots) => setSharedImages((prev) => ({ ...prev, ...slots })));
                                             }, 100);
                                         }}
                                     />
@@ -4693,7 +4692,7 @@ export function AdminPanel({
                                         const c = await compressDataUrl(image, 256, 0.85);
                                         pinAvatar("pet:" + pet.id, c);
                                         updatePet({ image: c });
-                                        await publishSharedImage('pet:' + pet.id, c);
+                                        await publishAdminPetPortrait(pet, c, publishSharedImage, (slots) => setSharedImages((prev) => ({ ...prev, ...slots })));
                                     }} />
                                     {/* Force-Save: re-publish + LOCK the current avatar for this session so a
                                         background image refetch / snapshot restore / poll can't revert it (the
@@ -4701,13 +4700,13 @@ export function AdminPanel({
                                     <button
                                         style={{ marginTop: 6, background: "#166534", borderColor: "#22c55e", fontWeight: 600 }}
                                         onClick={async () => {
-                                            const current = pinnedAvatars["pet:" + pet.id] || pet.image || "";
+                                            const current = adminPetPortraitImage(pet, pinnedAvatars, sharedImages);
                                             if (!current.startsWith("data:")) { setPetGenStatus("⚠️ Upload or generate a new image first, then Force-Save."); return; }
                                             setPetGenStatus(`Saving ${pet.name}'s avatar…`);
                                             const c = await compressDataUrl(current, 256, 0.85);
                                             pinAvatar("pet:" + pet.id, c);
                                             updatePet({ image: c });
-                                            const ok = await publishSharedImage('pet:' + pet.id, c);
+                                            const ok = await publishAdminPetPortrait(pet, c, publishSharedImage, (slots) => setSharedImages((prev) => ({ ...prev, ...slots })));
                                             try { await onSaveRef.current?.(); } catch { /* no account loaded — ignore */ }
                                             setPetGenStatus(ok ? `✅ Saved & locked ${pet.name}'s avatar (won't revert this session).` : `⚠️ Locked locally, but the server publish failed — check you're logged in as admin.`);
                                         }}

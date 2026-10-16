@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { petCardImage, petPoseImage } from "../lib/pet-battle-anim";
+import { petPoseImage } from "../lib/pet-battle-anim";
+import { petScenicPortraitImage as petCardImage } from "../lib/pet-scenic-portrait";
 import type { Pet } from "../types/pet";
 
 function ArtworkSource({ pet, sources, alt, className, fallbackClassName, loading }: {
@@ -13,12 +14,12 @@ function ArtworkSource({ pet, sources, alt, className, fallbackClassName, loadin
     const [sourceIndex, setSourceIndex] = useState(0);
     const source = sources[sourceIndex];
     return source
-        ? <img className={className} src={source} alt={alt} loading={loading} onError={() => setSourceIndex((index) => index + 1)} />
+        ? <img className={className} src={source} alt={alt} loading={loading} data-pet-art={source.includes('/pet-portraits/shinobi-v1/') ? 'scenic' : undefined} onError={() => setSourceIndex((index) => index + 1)} />
         : <span className={fallbackClassName} role={alt ? "img" : undefined} aria-label={alt || undefined} aria-hidden={alt ? undefined : true}>{pet.name.slice(0, 2).toUpperCase()}</span>;
 }
 
 /** Shared pet art resolution for roster cards and their selected-pet panels. */
-export function PetArtwork({ pet, sharedImages, alt = "", className, fallbackClassName, loading = "eager" }: {
+export function PetArtwork({ pet, sharedImages, alt = "", className, fallbackClassName, loading = "lazy" }: {
     pet: Pet;
     sharedImages: Record<string, string>;
     alt?: string;

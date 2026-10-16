@@ -78,6 +78,11 @@ export function sealAsset(record: Obj, catalogs: SettlementCatalogs, kind: Excha
         stats, ...(typeof definition.image === 'string' ? { image: definition.image } : {}),
         ...(kind === 'pet' ? { level: Number(definition.level ?? 1) } : kind === 'item' ? { level: effectiveItemLevelReq(definition) } : {}),
     };
+    if (kind === 'pet') {
+        if (typeof definition.templateId === 'string' && definition.templateId.trim()) asset.templateId = definition.templateId.trim();
+        if (definition.evolutionStage === 0 || definition.evolutionStage === 1 || definition.evolutionStage === 2) asset.evolutionStage = definition.evolutionStage;
+        if (typeof definition.paletteVariantId === 'string' && definition.paletteVariantId.trim()) asset.paletteVariantId = definition.paletteVariantId.trim();
+    }
     return { asset, definition, stackable: definition.stackable === true || objects(c.itemStacks).some(s => s.itemId === id), ...(typeof attunement === 'string' ? { attunement } : {}) };
 }
 

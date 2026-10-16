@@ -290,10 +290,12 @@ it('preserves companion identity, lineage, growth and remaining breeding uses', 
     const { PET_CATALOG } = await import('../pet/_catalog.js');
     const templateId = Object.keys(PET_CATALOG).find(id => !id.startsWith('starter-'))!;
     const pet = createOwnedPet(templateId, { origin: 'bred', generation: 3, parentInstanceIds: ['parent-a', 'parent-b'] });
-    pet.breedingUsesRemaining = 2; pet.nickname = 'Sunrunner';
+    pet.breedingUsesRemaining = 2; pet.nickname = 'Sunrunner'; pet.paletteVariantId = 'chromatic-v1';
     await patch('seller', { pets: [pet] });
     const created = await list({ kind: 'pet', assetId: pet.id });
     assert.equal(created.status, 200, JSON.stringify(created.body));
+    assert.equal(created.body.listing.asset.templateId, templateId);
+    assert.equal(created.body.listing.asset.paletteVariantId, 'chromatic-v1');
     const bought = await buy(created.body.listing.id);
     assert.equal(bought.status, 200, JSON.stringify(bought.body));
     const received = (await record('buyer')).character.pets[0];

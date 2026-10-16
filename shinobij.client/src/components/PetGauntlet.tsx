@@ -26,7 +26,7 @@ import { startGauntlet, reportGauntlet, type GauntletReward, type GauntletAction
 import { GAUNTLET_NEW_RUN_FEE } from "../lib/entry-fee";
 import { resolveSynergies, applySynergiesToSquad } from "../lib/pet-synergies";
 import { teamStatTotals, elementalEdge, type TeamStatTotals } from "../lib/pet-gauntlet-stats";
-import { petCardImage } from "../lib/pet-battle-anim";
+import { petScenicPortraitImage as petCardImage } from "../lib/pet-scenic-portrait";
 import { ROLE_META, derivePetRole, type PetRole } from "../lib/pet-roles";
 import { PetBoardArena } from "./PetBoardArena";
 import "../styles/pet-battle-theme.css";
