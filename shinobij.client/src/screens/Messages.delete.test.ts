@@ -6,7 +6,7 @@ const source = readFileSync(new URL("./Messages.tsx", import.meta.url), "utf8");
 
 test("inbox rows expose an accessible, confirmed delete action", () => {
     assert.match(source, /GiTrashCan/);
-    assert.match(source, /aria-label=\{`Delete conversation with \$\{e\.with\}`\}/);
+    assert.match(source, /aria-label=\{`Delete conversation with \$\{displayPlayerName\(e\.with\)\}`\}/);
     assert.match(source, /gameConfirm\(/);
     assert.match(source, /danger: true/);
 });

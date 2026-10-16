@@ -313,9 +313,9 @@ function LandingMain({ onOpenCreate, onOpenLogin, onOpenGuides, onOpenLeaderboar
                 <LandingAtmosphere />
                 <div className="landing-hero-inner">
                     <div className="landing-hero-copy">
-                        <p className="landing-eyebrow">Four villages fight over one map</p>
+                        <p className="landing-eyebrow">A free shinobi RPG in your browser</p>
                         <h1 className="landing-title"><BrandLockup variant="hero" /></h1>
-                        <p className="landing-hero-hook">Your village needs one more shinobi.</p>
+                        <p className="landing-hero-hook">Four villages are at war. Choose one.</p>
                         <p className="landing-tagline">
                             Train a shinobi, learn their jutsu, and fight for one of {villages.length} rival villages. <strong>{APP_NAME}</strong> is a free role-playing game you play in your browser.
                         </p>
@@ -339,8 +339,8 @@ function LandingMain({ onOpenCreate, onOpenLogin, onOpenGuides, onOpenLeaderboar
             <section className="landing-features" id="landing-discover" aria-labelledby="landing-world-title" tabIndex={-1}>
                 <div className="landing-section-head" data-landing-reveal>
                     <p className="landing-kicker">This is Shinobi Journey</p>
-                    <h2 id="landing-world-title" className="landing-section-title">Villages win and lose sectors on one shared map.</h2>
-                    <p className="landing-section-sub">Missions, story chapters and clan wars all play out on that map.<br className="landing-desktop-break" /> You choose which ones your shinobi takes on.</p>
+                    <h2 id="landing-world-title" className="landing-section-title">Every fight you win shapes the world.</h2>
+                    <p className="landing-section-sub">Missions, story chapters and clan wars all happen in the same living world.<br className="landing-desktop-break" /> You choose which ones your shinobi takes on.</p>
                 </div>
                 <div className="landing-feature-grid">
                     <button type="button" className="landing-feature-card landing-feature-card--world" data-landing-reveal="card" onClick={() => scrollTo('landing-story')}>
@@ -375,7 +375,7 @@ function LandingMain({ onOpenCreate, onOpenLogin, onOpenGuides, onOpenLeaderboar
             </section>
 
             <section className="landing-begin" aria-labelledby="landing-begin-title">
-                <div className="landing-begin-inner" data-landing-reveal><p className="landing-kicker">No download needed</p><h2 id="landing-begin-title" className="landing-section-title">Start with a village.</h2><p>Pick a village and make your shinobi to begin.</p><button type="button" className="landing-cta landing-cta--primary" {...playProps}>Play free <span aria-hidden="true">→</span></button><p className="landing-cta-note" role={!registrationOpen ? 'status' : undefined}>{registrationOpen ? 'It runs in your browser on desktop and phone.' : registrationMessage}</p></div>
+                <div className="landing-begin-inner" data-landing-reveal><p className="landing-kicker">No download needed</p><h2 id="landing-begin-title" className="landing-section-title">A village is waiting for you.</h2><p>Pick a village and make your shinobi to begin.</p><button type="button" className="landing-cta landing-cta--primary" {...playProps}>Play free <span aria-hidden="true">→</span></button><p className="landing-cta-note" role={!registrationOpen ? 'status' : undefined}>{registrationOpen ? 'It runs in your browser on desktop and phone.' : registrationMessage}</p></div>
             </section>
 
             <footer className="landing-footer">

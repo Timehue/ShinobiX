@@ -14,6 +14,7 @@ import { openReign, closeCurrentReign, applyAdminReset, type KageStateLike } fro
 import { reconcilePendingKageSettle } from './_kage-settle.js';
 import { kageInactiveAt, saveAtFromRecord } from './_kage-inactivity.js';
 import { claimVacantKageSeat } from './_kage-claim.js';
+import { displayPlayerName } from '../../shared/player-name.js';
 
 type VillageKageState = KageUnlockState & Partial<KageStateLike>;
 
@@ -50,14 +51,16 @@ async function grantLiberatorReward(playerName: string, villageName: string, fre
     } catch { /* best-effort — the next unlock call re-grants */ }
     if (!mutationResult) return undefined;
     if (!mutationResult.granted) return { character: mutationResult.character, _saveVersion: mutationResult._saveVersion };
+    // playerName is the slug; heralds print the player's own name, capitalized.
+    const shown = displayPlayerName(String((mutationResult.character as { name?: unknown })?.name ?? '') || playerName);
     try {
-        await postVillageHerald(villageName, 'A Village Story Completed', `${playerName} has completed the ${villageName} story and earned the ${title} title.`);
+        await postVillageHerald(villageName, 'A Village Story Completed', `${shown} has completed the ${villageName} story and earned the ${title} title.`);
     } catch { /* best-effort */ }
     if (freshUnlock) {
         try {
-            await announce({ type: 'kage_liberation', importance: 'high', title: 'A Village Breathes', message: `${playerName} is the first to topple the false Kage of ${villageName}.`, player: playerName, village: villageName });
+            await announce({ type: 'kage_liberation', importance: 'high', title: 'A Village Breathes', message: `${shown} is the first to topple the false Kage of ${villageName}.`, player: playerName, village: villageName });
             await addHallEntry(
-                { entryType: 'kage_liberation', title: `First Liberation of ${villageName}`, description: `${playerName} broke the Hollow Gate pact and opened the Kage seat.`, player: playerName, village: villageName },
+                { entryType: 'kage_liberation', title: `First Liberation of ${villageName}`, description: `${shown} broke the Hollow Gate pact and opened the Kage seat.`, player: playerName, village: villageName },
                 { nxKey: `kage-first-liberation:${villageName.toLowerCase().replace(/\s+/g, '-')}` },
             );
         } catch { /* best-effort */ }

@@ -26,6 +26,7 @@
  * The follow-up stands: as this screen keeps draining, each cluster can come off
  * one at a time, and the rule should be deleted from this list as it does.
  */
+import { displayPlayerName } from "../../../shared/player-name";
 import { SHOWDOWN_DAILY_WIN_CAP } from "../../../shared/pet-showdown-contract";
 import { useState, useEffect, useMemo, useRef, Suspense, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
@@ -1926,7 +1927,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                                                 {matches.map(p => (
                                                     <div className="pet-challenge-row" key={p.name}>
                                                         <span className={`pet-online-dot ${p.online ? "on" : "off"}`} aria-label={p.online ? "Online" : "Offline"} />
-                                                        <span><strong>{p.name}</strong><small>Level {p.level} · {p.village || "Unknown"}</small></span>
+                                                        <span><strong>{displayPlayerName(p.name)}</strong><small>Level {p.level} · {p.village || "Unknown"}</small></span>
                                                         <button type="button" onClick={() => sendDirectPetChallenge(p.name)}><GameIcon name="sword" size={15} /> Create arena code</button>
                                                     </div>
                                                 ))}

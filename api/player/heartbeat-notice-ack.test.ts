@@ -89,6 +89,12 @@ describe('heartbeat notice acknowledgement', { concurrency: false }, () => {
         assert.equal(await kv.get(healKey), null);
     });
 
+    it('names the healer capitalized even though the signal stores their slug', async () => {
+        await kv.set(healKey, { by: 'medic', at: NOW + 2 }, { ex: 120 });
+        const out = await post({});
+        assert.deepEqual(out.body?.pendingHeal, { by: 'Medic' });
+    });
+
     it('an ack-protocol body is delivered ids and consumes nothing until acknowledged', async () => {
         const first = await post({ noticeAck: true, ackNotices: [] });
         assert.equal(first.statusCode, 200, JSON.stringify(first.body));

@@ -1,4 +1,5 @@
 import { provisionValue } from '../../../shared/gathering-supplies';
+import { displayPlayerName } from '../../../shared/player-name';
 /*
  * Village Stores — client mirror of api/_village-stores.ts + api/_village-intel.ts.
  *
@@ -151,7 +152,7 @@ export function formatStoresLedgerEntry(e: StoresLedgerEntry, now: number = Date
     else parts.push(`${KIND_LABEL[e.kind]} −${Math.abs(e.amount).toLocaleString()}${unit}`);
     const ref = formatLedgerRef(e.ref);
     if (ref) parts.push(ref);
-    if (e.by) parts.push(`by ${e.by}`);
+    if (e.by) parts.push(`by ${displayPlayerName(e.by)}`);
     return parts.join(" · ");
 }
 
