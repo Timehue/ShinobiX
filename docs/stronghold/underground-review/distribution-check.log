@@ -1,6 +1,0 @@
-
-> shinobix-api@1.0.0 verify:dist
-> node scripts/verify-dist.mjs
-
-[verify:dist] Rally: 161 atlases / 3816022 B (4 MiB ceiling).
-[verify:dist] OK — server 56.9 KB; client 531.1 MB with no authoring sources and no -webkit-only (backdrop-)filter rules; Vercel config absent.

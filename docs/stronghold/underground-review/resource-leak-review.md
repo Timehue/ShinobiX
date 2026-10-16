@@ -1,5 +1,7 @@
 # Stronghold and Hollow Gate resource review
 
+> Raw evidence files linked from this page (logs, transcripts, screenshots) were removed on 2026-10-16 to cut repository weight. Retrieve one with `git show 5124ba3f2:<path>`.
+
 October 12, 2026. Actual React views, terrain, walker, NPC avatars, audio and
 stronghold Arena are exercised with disposable local server/character fixtures.
 
@@ -90,9 +92,9 @@ measurements are not inferred from leak counters.
 - [Stronghold lifecycle results](leak-strongholds-final/resource-results.json)
 - [Chromium cave lifecycle results](leak-cave-after/chromium-cave-resources.json)
 - [WebKit cave lifecycle results](leak-cave-after/webkit-cave-resources.json)
-- [Full CI and Postgres cleanup](leak-full-ci.log)
-- [Client build](leak-client-build.log), [types](leak-types.log), [focused lint](leak-focused-lint.log)
-- [Bundle budgets](leak-size.log), [generated handoffs](leak-handoffs.log)
+- Full CI and Postgres cleanup
+- Client build, types, focused lint
+- Bundle budgets, generated handoffs
 - [Empty-page WebKit control](leak-webkit-control.json)
 - [Isolated movement samples](leak-mobile-isolated/movement-frames.json)
 - [Complete mobile results](leak-mobile-isolated/results.json)

@@ -1,5 +1,0 @@
-
-> shinobix-api@1.0.0 test:mission-eligibility
-> node scripts/check-mission-eligibility.mjs
-
-Mission eligibility catalog check passed.
