@@ -1,3 +1,4 @@
+import { displayPlayerName } from "../../../shared/player-name";
 import { useEffect, useRef, useState } from "react";
 import { visiblePoll } from "../lib/poll";
 import { hasPendingSealDistribution, hasPendingSealDonation, postSealDistribution, postSealDonation } from "../lib/clan-seal-pool-api";
@@ -127,7 +128,7 @@ export function ClanSealPool({
             if (!ok) {
                 setMsg(`Error: ${data.error ?? 'The Seal Pool refused that. Refresh the pool and try again.'}`);
             } else {
-                setMsg(`Success: Gave ${data.distributed} Seals to ${data.recipient}`);
+                setMsg(`Success: Gave ${data.distributed} Seals to ${displayPlayerName(data.recipient)}`);
                 setRecipient("");
                 void fetchPool();
             }
@@ -249,11 +250,11 @@ export function ClanSealPool({
                     <div style={{ marginTop: 6, fontSize: "0.75rem", maxHeight: 180, overflowY: "auto" }}>
                         {pool.log.map((e, i) => (
                             <div key={i} style={{ padding: "3px 0", borderBottom: "1px solid rgba(148,163,184,0.15)" }}>
-                                {e.kind === "war-declare" ? `${e.by} funded a war against ${e.to ?? 'a rival'}` : e.kind === "donate"
-                                    ? <><GameArtIcon kind="crown" size={15} /> {e.by} donated <strong>{e.amount}</strong> Seals</>
+                                {e.kind === "war-declare" ? `${displayPlayerName(e.by)} funded a war against ${e.to ?? 'a rival'}` : e.kind === "donate"
+                                    ? <><GameArtIcon kind="crown" size={15} /> {displayPlayerName(e.by)} donated <strong>{e.amount}</strong> Seals</>
                                     : e.kind === "distribute-refund"
-                                        ? <><GameArtIcon kind="warning" size={15} /> <strong>{e.amount}</strong> Seals returned to the pool ({e.to} could not be credited)</>
-                                        : <><GameArtIcon kind="crown" size={15} /> {e.by} gave <strong>{e.amount}</strong> Seals to {e.to}</>}
+                                        ? <><GameArtIcon kind="warning" size={15} /> <strong>{e.amount}</strong> Seals returned to the pool ({displayPlayerName(e.to)} could not be credited)</>
+                                        : <><GameArtIcon kind="crown" size={15} /> {displayPlayerName(e.by)} gave <strong>{e.amount}</strong> Seals to {displayPlayerName(e.to)}</>}
                                 <span className="hint" style={{ marginLeft: 6, fontSize: "0.72rem" }}>
                                     {new Date(e.at).toLocaleString()}
                                 </span>

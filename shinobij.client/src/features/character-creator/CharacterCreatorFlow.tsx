@@ -1,4 +1,5 @@
 import { createCharacter } from "../../lib/create-character";
+import { displayPlayerName } from "../../../../shared/player-name";
 import { starterBloodlineOffense, starterBloodlines, starterSavedBloodlines } from "../../data/jutsu";
 import { useMemo, useState } from "react";
 import {
@@ -96,8 +97,9 @@ export function CharacterCreatorFlow({ onCreate, onBack, compact = false, google
 
         setSubmitting(true);
         try {
+            // "rill" becomes "Rill": the account slug is the same either way.
             const character = createCharacter(
-                name.trim(),
+                displayPlayerName(name),
                 village,
                 starterBloodlineOffense[bloodline] ?? "Ninjutsu",
                 bloodline,

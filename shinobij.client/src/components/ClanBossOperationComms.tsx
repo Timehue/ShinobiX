@@ -1,3 +1,4 @@
+import { displayPlayerName } from "../../../shared/player-name";
 import type { ClanBossPartyView, ClanBossPingKind } from "../../../shared/clan-boss-operation";
 import type { ClanBossPartyAction } from "./ClanBossPartyLobby";
 
@@ -21,7 +22,7 @@ export function ClanBossOperationComms({ party, onAction }: { party: ClanBossPar
             <div className="operation-pings" aria-label="Tactical pings">
                 {PINGS.map((ping) => <button type="button" key={ping.kind} onClick={() => onAction("ping", { ping: ping.kind })}>{ping.label}</button>)}
             </div>
-            <div className="operation-latest-ping" aria-live="polite">{latest ? `${latest.by}: ${PINGS.find((ping) => ping.kind === latest.kind)?.label ?? latest.kind}` : "No tactical pings yet."}</div>
+            <div className="operation-latest-ping" aria-live="polite">{latest ? `${displayPlayerName(latest.by)}: ${PINGS.find((ping) => ping.kind === latest.kind)?.label ?? latest.kind}` : "No tactical pings yet."}</div>
         </aside>
     );
 }

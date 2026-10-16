@@ -1,3 +1,4 @@
+import { displayPlayerName } from "../../../shared/player-name";
 import { useEffect, useState } from "react";
 import { GameArtIcon } from "./GameArtIcon";
 import { gameToast } from "./GameToast";
@@ -50,7 +51,7 @@ export function BountyBoardPanel({
         updateCharacter({ ...character, ryo: res.balances?.ryo ?? character.ryo });
         if (res.bounties) setBounties(res.bounties);
         setBountyTarget("");
-        gameToast(`Bounty placed: ${bountyAmount.toLocaleString()} ryo on ${target}'s head.`);
+        gameToast(`Bounty placed: ${bountyAmount.toLocaleString()} ryo on ${displayPlayerName(target)}'s head.`);
     }
 
     const me = character.name.toLowerCase();
@@ -108,7 +109,7 @@ export function BountyBoardPanel({
                                 key={b.target}
                                 style={isMe ? { borderColor: "rgba(248,113,113,0.6)" } : undefined}
                             >
-                                <strong>#{i + 1} {b.target}{isMe ? " (you)" : ""}</strong>
+                                <strong>#{i + 1} {displayPlayerName(b.target)}{isMe ? " (you)" : ""}</strong>
                                 <p className="hint">{bountyBackerLabel(b)} · updated {formatBountyAge(b.updatedAt)}</p>
                                 <span>{formatReputationNumber(b.amount)} ryo</span>
                             </div>

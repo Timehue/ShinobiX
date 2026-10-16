@@ -11,6 +11,7 @@
  * Extracted from App.tsx.
  */
 
+import { displayPlayerName } from "../../../shared/player-name";
 import { useState, useEffect, type CSSProperties } from "react";
 import { ReportControl } from "../components/ReportControl";
 import "../styles/index/25-mobile-profile-tabs.css";
@@ -114,7 +115,7 @@ export function UserView({
         return (
             <div className="card profile-page-card">
                 <div className="profile-page-header"><div>
-                    <h2>{viewingName}</h2>
+                    <h2>{displayPlayerName(viewingName)}</h2>
                     <p role="status">This shinobi's profile is not on the village roster yet. The roster refreshes every minute, and this page will fill in on its own when it arrives.</p>
                 </div></div>
                 <button className="back-btn" onClick={onBack}>Back</button>
@@ -138,7 +139,7 @@ export function UserView({
         setChallengeBusy(true);
         const r = await sendStandardDuel({ character: viewerCharacter, opponentName: viewingName, savedBloodlines, creatorJutsus });
         setChallengeBusy(false);
-        alert(r.ok ? `Challenge sent to ${viewingName}.` : (r.error ?? "Challenge could not be sent."));
+        alert(r.ok ? `Challenge sent to ${displayPlayerName(viewingName)}.` : (r.error ?? "Challenge could not be sent."));
     }
 
     const bloodlineName = equippedBloodline?.name || viewedCharacter.bloodline;

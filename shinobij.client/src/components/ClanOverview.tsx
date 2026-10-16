@@ -1,3 +1,4 @@
+import { displayPlayerName } from "../../../shared/player-name";
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {CLAN_ASSIGNMENTS,CLAN_CONTRACTS,CLAN_PROJECT,type ClanAssignment,type ClanProgramView} from '../../../shared/clan-program';
 import {COMMON_GATHER_IDS,GATHER_NAMES} from '../../../shared/gathering-materials';
@@ -101,9 +102,9 @@ export function ClanOverview({character,clan,mentor,bossAvailable,onOpen,onVersi
                 {view.project.completed&&<p className="clan-overview-earned" role="status"><GameArtIcon kind="clanHall" size={20}/> This week’s Hall project is complete.</p>}
             </div>
             <div className="clan-overview-section"><h3>Member assignments</h3><p className="hint">Volunteer for a specialty. Assignments grant recognition; clan rank continues to control permissions.</p>
-                <div className="clan-project-form"><label>Member<select value={member} onChange={event=>setMember(event.target.value)}>{clan.members.filter(entry=>canManage||entry.name===character.name).map(entry=><option key={entry.name} value={entry.name}>{entry.name}</option>)}</select></label>
+                <div className="clan-project-form"><label>Member<select value={member} onChange={event=>setMember(event.target.value)}>{clan.members.filter(entry=>canManage||entry.name===character.name).map(entry=><option key={entry.name} value={entry.name}>{displayPlayerName(entry.name)}</option>)}</select></label>
                     <label>Assignment<select value={assigned} disabled={busy} onChange={event=>void act({action:'assign',member,assignment:event.target.value||null})}><option value="">No assignment</option>{Object.entries(CLAN_ASSIGNMENTS).map(([id,label])=><option key={id} value={id}>{label}</option>)}</select></label></div>
-                <ul className="clan-assignment-list">{Object.entries(view.assignments).map(([name,role])=><li key={name}><strong>{name}</strong><span>{CLAN_ASSIGNMENTS[role as ClanAssignment]}</span></li>)}</ul>
+                <ul className="clan-assignment-list">{Object.entries(view.assignments).map(([name,role])=><li key={name}><strong>{displayPlayerName(name)}</strong><span>{CLAN_ASSIGNMENTS[role as ClanAssignment]}</span></li>)}</ul>
             </div>
         </>}
     </section>;
