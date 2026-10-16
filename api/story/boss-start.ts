@@ -12,6 +12,7 @@ import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_to
 import { isIncapacitated } from '../_elapsed-state.js';
 import { settleHeldFights } from '../pve/_held-fights.js';
 import { sectorPlace } from '../../shared/sector-geo.js';
+import { storyKageForVillage, STORY_KAGE_DIFFICULTY_LABEL, STORY_KAGE_RECOVERY } from '../../shared/story-kage.js';
 import {
     createStoryCombatBinding,
     storyBossEligibility,
@@ -71,6 +72,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             village: eligibility.village,
             progressIndex: eligibility.progressIndex,
         });
+        const finale = bossTemplate.masterAi === true ? storyKageForVillage(eligibility.village) : undefined;
         const binding = createStoryCombatBinding({
             runId,
             playerName,
@@ -92,6 +94,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 id: `${eligibility.village}:${eligibility.progressIndex}`,
                 sourceId: binding.opponentId,
                 bindingId: runId,
+                ...(finale ? { metadata: {
+                    difficultyLabel: STORY_KAGE_DIFFICULTY_LABEL,
+                    tacticalTell: finale.tell,
+                    recoveryWindow: STORY_KAGE_RECOVERY,
+                } } : {}),
             },
             environment: { biome: fieldBiome ?? STORY_VILLAGE_BIOMES[eligibility.village] ?? 'central' },
         });
