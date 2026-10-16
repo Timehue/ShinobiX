@@ -15,7 +15,8 @@ import { petArchetypeFor, petHighGroundTiles, petBushTiles, type ArenaTile } fro
 import { PET_SPAWN_1V1 } from "../../constants/pet-arena";
 import { PetBattleAvatar } from ".././PetBattleAvatar";
 import type { PetVisualState, PetBattleAnimationEventType } from "../../types/pet-battle";
-import { buildPetAnimationEvents, petPoseForAvatar, elementVfxKey, extractPetMoveName, petPortraitImage } from "../../lib/pet-battle-anim";
+import { buildPetAnimationEvents, petPoseForAvatar, elementVfxKey, extractPetMoveName } from "../../lib/pet-battle-anim";
+import { petScenicPortraitImage as petPortraitImage } from "../../lib/pet-scenic-portrait";
 import { petBattleCamera, petCameraHoldMs } from "../../lib/pet-battle-camera";
 import { petFxSpriteKey } from "../../lib/jutsu-vfx";
 import { bundledJutsuFxFrames } from "../../lib/jutsu-fx-assets";

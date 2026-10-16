@@ -196,6 +196,12 @@ describe('isPlayerClaimableImageId — first-writer-wins scope', () => {
 });
 
 describe('categoryFromId — leader category (#16)', () => {
+    it('hydrates portrait overrides with pet art while preserving admin-only writes', () => {
+        assert.equal(categoryFromId('petcard:rare-3'), 'pet');
+        assert.equal(ownershipReject('petcard:rare-3', { admin: false, name: 'rill' })?.status, 403);
+        assert.equal(ownershipReject('petcard:rare-3', { admin: true }), null);
+        assert.equal(isPlayerClaimableImageId('petcard:rare-3'), false);
+    });
     it('routes leader:* to its own category instead of misc', () => {
         assert.equal(categoryFromId('leader:ember:kage'), 'leader');
         assert.equal(categoryFromId('leader:suna:elder:1'), 'leader');

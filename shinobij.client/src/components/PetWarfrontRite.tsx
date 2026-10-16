@@ -49,6 +49,7 @@ import {
     type RiteResult,
 } from "../lib/pet-warfront-rite";
 import { petWarfrontPortraitSources } from "../lib/pet-battle-anim";
+import { petScenicPortraitImage } from "../lib/pet-scenic-portrait";
 import { PET_VISUAL_QUALITY_PRESETS, petVisualQuality } from "../lib/pet-visual-quality";
 import { playPetSfx, primePetSfx } from "../lib/pet-sfx";
 import { startBattleMusic, stopBattleMusic } from "../lib/pet-music";
@@ -136,7 +137,7 @@ function PetPortrait({ pet, sharedImages, size = 56, placementArt = false }: {
     const sources = useMemo(
         // Saved/custom portraits can outlive their upload; retain a reviewed
         // local idle pose as the next source before falling back to an initial.
-        () => petWarfrontPortraitSources(pet, sharedImages, placementArt),
+        () => [...new Set([petScenicPortraitImage(pet, sharedImages), ...petWarfrontPortraitSources(pet, sharedImages, placementArt)].filter(Boolean))],
         [pet, placementArt, sharedImages],
     );
     const sourceKey = sources.join("\u0000");

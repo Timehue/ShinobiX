@@ -194,11 +194,11 @@ test('Vanguard ignores yesterday’s earnings and respects Sector Map maintenanc
     await expect(page.locator('.ph-hub').getByRole('button', { name: /Raid a village/ })).toBeEnabled();
 });
 
-test('Tamer loads published companion portraits and applies mastery bonuses immediately', async ({ page }) => {
+test('Tamer loads explicit published portrait overrides and applies mastery bonuses immediately', async ({ page }) => {
     const { runtime, character } = await boot(page, 'petTamer', { professionRank: 10, professionXp: 100_000, masterySpec: {} });
     await page.route('**/api/images?*', async route => {
         const category = new URL(route.request().url()).searchParams.get('cat');
-        await route.fulfill({ json: { ids: category === 'pet' ? ['pet:rare-26'] : [], version: '1' } });
+        await route.fulfill({ json: { ids: category === 'pet' ? ['petcard:rare-26'] : [], version: '1' } });
     });
     await page.route('**/api/profession/mastery', async route => {
         expect(route.request().postDataJSON()).toEqual({ playerName: 'AuditNinja', action: 'invest', nodeId: 'pet-damage' });
@@ -208,7 +208,7 @@ test('Tamer loads published companion portraits and applies mastery bonuses imme
         await route.fulfill({ json: { character: next, _saveVersion: version } });
     });
     await expectUiAuditBoot(page, runtime, 'professions');
-    await expect(page.locator('.ph-companion').filter({ hasText: 'Sumi' }).locator('img')).toHaveAttribute('src', /\/api\/img\?id=pet%3Arare-26&v=1/);
+    await expect(page.locator('.ph-companion').filter({ hasText: 'Sumi' }).locator('img')).toHaveAttribute('src', /\/api\/img\?id=petcard%3Arare-26&v=1/);
     const damage = page.locator('.ph-metric').filter({ hasText: 'PvE pet damage' }).locator('dd');
     await expect(damage).toHaveText('+20%');
     await page.locator('.profession-mastery-node').filter({ hasText: 'Savagery' }).getByRole('button').click();

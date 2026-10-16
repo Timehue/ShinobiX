@@ -19,7 +19,7 @@ import { PetLadderQueuePanel } from "../components/PetLadderQueuePanel";
 import { defaultWarfrontLadderPlan, parseWarfrontLadderPlan, type WarfrontLadderPlan } from "../lib/pet-ladder-setup";
 import { WarfrontLadderFormation } from "../components/WarfrontLadderFormation";
 import { GameArtIcon } from "../components/GameArtIcon";
-import { petCardImage } from "../lib/pet-battle-anim";
+import { petScenicPortraitImage as petCardImage } from "../lib/pet-scenic-portrait";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
 import { activeCarriedPets } from "../lib/entitlements";
 import { activeClientBreedingParentIds } from "../lib/pet-breeding";
