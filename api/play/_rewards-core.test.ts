@@ -59,6 +59,15 @@ function fixture(overrides: Partial<PlayRewardClaimDependencies> = {}) {
             grantCalls += 1;
             return { ok: true, alreadyOwned, character: { ryo: ryoBalance, playRewardPurchaseReceipts: [...ryoReceipts] }, saveVersion: 3 };
         },
+        grantBundle: async (_player, bundle, purchaseDigest) => {
+            const alreadyOwned = ryoReceipts.has(purchaseDigest);
+            if (!alreadyOwned) {
+                ryoBalance += bundle.ryo;
+                ryoReceipts.add(purchaseDigest);
+            }
+            grantCalls += 1;
+            return { ok: true, alreadyOwned, character: { ryo: ryoBalance, playRewardPurchaseReceipts: [...ryoReceipts] }, saveVersion: 3 };
+        },
         now: () => 1000,
         ...overrides,
     };
@@ -257,6 +266,29 @@ test('an already-consumed Ryo token without its owner receipt cannot be credited
     assert.equal(f.ryoBalance(), 0);
     assert.equal(f.receipts.size, 0);
     assert.equal(f.counts().consumeCalls, 0);
+});
+
+test('the pre-registration box opens once, is acknowledged (kept) and never consumed', async () => {
+    const f = fixture();
+    const purchase = { playerName: PLAYER, productId: 'sj_prereg_first_shinobi_box', purchaseToken: TOKEN };
+    const first = await claimPlayGamesReward(purchase, f.dependencies);
+    assert.equal(first.rewardLabel, '1st Shinobi Reward Box');
+    assert.deepEqual(first.bundle, { ryo: 10_000, fateShards: 50, boneCharms: 10, supporterDays: 14 });
+    assert.equal(first.granted, true);
+    assert.equal(first.acknowledged, true);
+    assert.equal([...f.receipts.values()][0]?.state, 'acknowledged');
+
+    const replay = await claimPlayGamesReward(purchase, f.dependencies);
+    assert.equal(replay.granted, false);
+    assert.equal(replay.alreadyOwned, true);
+    assert.equal(f.ryoBalance(), 10_000);
+    assert.deepEqual(f.counts(), { verifyCalls: 1, acknowledgeCalls: 1, consumeCalls: 0, grantCalls: 2 });
+
+    await assert.rejects(
+        claimPlayGamesReward({ ...purchase, playerName: 'other' }, f.dependencies),
+        (error: unknown) => error instanceof PlayRewardClaimError && error.status === 409,
+    );
+    assert.equal(f.ryoBalance(), 10_000);
 });
 
 test('a Ryo cache retry after save commit but before receipt journal update does not double-credit', async () => {

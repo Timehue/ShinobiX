@@ -49,7 +49,12 @@ class MainActivity : FlutterActivity() {
         super.onDestroy()
     }
 
-    private fun configuredRewardSkus(): Set<String> = listOf("play_reward_sku_dawn", "play_reward_sku_ember", "play_reward_sku_ryo_cache_small")
+    private fun configuredRewardSkus(): Set<String> = listOf(
+        "play_reward_sku_dawn",
+        "play_reward_sku_ember",
+        "play_reward_sku_ryo_cache_small",
+        "play_reward_sku_prereg_first_box",
+    )
         .mapNotNull { name ->
             val id = resources.getIdentifier(name, "string", packageName)
             if (id == 0) null else getString(id).trim()
