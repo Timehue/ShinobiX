@@ -241,3 +241,279 @@ test('parallel non-ryo donations cannot read the same counter and overshoot the 
     assert.ok(await clanXpTotal() <= 2_000, `clan XP ${await clanXpTotal()} overshot the 2,000 cap`);
     assert.equal(await clanXpTotal(), Math.min(landed, 10) * 200, 'each landed donation granted its share, up to the cap');
 });
+
+async function seedSeals(seals = 40): Promise<void> {
+    await kv.set(`save:${DONOR}`, { _saveVersion: 1, character: { name: DONOR, clan: 'Mist', level: 40, ryo: 100_000, mythicSeals: seals, inventory: [] } });
+}
+const sealDonation = (requestId: string, amount = 10) => ({ currency: 'mythicSeals', amount, requestId });
+const quota = async () => (await donor()).clanDonationXp;
+
+test('pending credits reserve XP before a new donation, and retry grants only the sealed amount', async (t) => {
+    await seedSeals();
+    const original = kv.set.bind(kv);
+    let broken = true;
+    t.mock.method(kv, 'set', async (...args: Parameters<typeof kv.set>) => {
+        if (broken && args[0] === CLAN_KEY) throw new Error('injected pending capped donation');
+        return original(...args);
+    });
+    const first = await call(sealDonation('clan-xp-pending-first-01'));
+    assert.equal(first.statusCode, 503, JSON.stringify(first.body));
+    assert.deepEqual(await quota(), { day: new Date().toISOString().slice(0, 10), used: 2_000 });
+    assert.equal((await donor()).mythicSeals, 30, 'quota and debit committed together');
+    broken = false;
+    assert.equal((await call(sealDonation('clan-xp-pending-second-1'))).statusCode, 200);
+    assert.equal(await clanXpTotal(), 0, 'the pending donation already reserved the full cap');
+    assert.equal((await call(sealDonation('clan-xp-pending-first-01'))).statusCode, 200);
+    assert.equal(await clanXpTotal(), 2_000);
+    assert.equal((await call(sealDonation('clan-xp-pending-first-01'))).body?.replayed, true);
+    assert.equal(await clanXpTotal(), 2_000);
+    assert.equal((await donor()).mythicSeals, 20);
+    assert.equal((await clan()).treasury.mythicSeals, 20);
+});
+
+test('there is no secondary quota write to lose after a completed donation', async (t) => {
+    await seedSeals();
+    const original = kv.set.bind(kv);
+    t.mock.method(kv, 'set', async (...args: Parameters<typeof kv.set>) => {
+        if (args[0].startsWith('clan-donate-xp:')) throw new Error('obsolete post-credit quota write');
+        return original(...args);
+    });
+    assert.equal((await call(sealDonation('clan-xp-no-late-write-01'))).statusCode, 200);
+    assert.equal((await call(sealDonation('clan-xp-no-late-write-01'))).body?.replayed, true);
+    assert.equal((await call(sealDonation('clan-xp-no-late-write-02'))).statusCode, 200);
+    assert.equal(await clanXpTotal(), 2_000);
+    assert.equal((await quota() as { used: number }).used, 2_000);
+});
+
+test('admin recovery uses the pending reserved XP without reopening quota', async (t) => {
+    await seedSeals();
+    const original = kv.set.bind(kv);
+    let broken = true;
+    t.mock.method(kv, 'set', async (...args: Parameters<typeof kv.set>) => {
+        if (broken && args[0] === CLAN_KEY) throw new Error('injected capped admin recovery');
+        return original(...args);
+    });
+    const id = 'clan-xp-admin-pending-01';
+    assert.equal((await call(sealDonation(id))).statusCode, 503);
+    broken = false;
+    assert.equal((await call(sealDonation('clan-xp-admin-new-donate'))).statusCode, 200);
+    const txId = saveDebitTransactionId('clan-treasury-donate', DONOR, id);
+    assert.equal((await adminReconcile({ txId })).body?.status, 'completed');
+    assert.equal((await adminReconcile({ txId })).body?.status, 'already-complete');
+    assert.equal((await call(sealDonation(id))).body?.replayed, true);
+    assert.equal(await clanXpTotal(), 2_000);
+    assert.equal((await quota() as { used: number }).used, 2_000);
+});
+
+test('a rejected donor commit consumes neither seals nor XP quota', async (t) => {
+    await seedSeals();
+    const original = kv.compareSet.bind(kv);
+    let broken = true;
+    t.mock.method(kv, 'compareSet', async (...args: Parameters<typeof kv.compareSet>) => {
+        if (broken && args[0] === `save:${DONOR}`) { broken = false; throw new Error('injected quota/debit commit failure'); }
+        return original(...args);
+    });
+    const id = 'clan-xp-debit-failure-01';
+    assert.equal((await call(sealDonation(id))).statusCode, 500);
+    assert.equal((await donor()).mythicSeals, 40);
+    assert.equal(await quota(), undefined);
+    assert.equal(await clanXpTotal(), 0);
+    assert.equal((await call(sealDonation(id))).statusCode, 200);
+    assert.equal((await quota() as { used: number }).used, 2_000);
+    assert.equal(await clanXpTotal(), 2_000);
+});
+
+test('UTC rollover gives the next day its own quota and never charges an old pending retry again', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-10-20T23:59:59.000Z') });
+    await seedSeals();
+    const original = kv.set.bind(kv);
+    let broken = true;
+    t.mock.method(kv, 'set', async (...args: Parameters<typeof kv.set>) => {
+        if (broken && args[0] === CLAN_KEY) throw new Error('injected midnight pending credit');
+        return original(...args);
+    });
+    const old = 'clan-xp-midnight-old-01';
+    assert.equal((await call(sealDonation(old))).statusCode, 503);
+    assert.deepEqual(await quota(), { day: '2026-10-20', used: 2_000 });
+    t.mock.timers.setTime(Date.parse('2026-10-21T00:00:01.000Z'));
+    broken = false;
+    assert.equal((await call(sealDonation('clan-xp-midnight-new-01'))).statusCode, 200);
+    assert.deepEqual(await quota(), { day: '2026-10-21', used: 2_000 });
+    assert.equal((await call(sealDonation(old))).statusCode, 200);
+    assert.deepEqual(await quota(), { day: '2026-10-21', used: 2_000 });
+    assert.equal((await call(sealDonation('clan-xp-midnight-zero-1'))).statusCode, 200);
+    assert.equal(await clanXpTotal(), 4_000, '2,000 reserved on each of two UTC days');
+});
+
+test('crossing midnight during initialization keeps one admission day and leaves an unexpected new-day counter intact', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-10-20T23:59:59.000Z') });
+    await seedSeals();
+    await kv.set(`clan-donate-xp:${DONOR}:2026-10-21`, 1_500);
+    const original = kv.get.bind(kv);
+    t.mock.method(kv, 'get', async (...args: Parameters<typeof kv.get>) => {
+        if (args[0] === `clan-donate-xp:${DONOR}:2026-10-20`) t.mock.timers.setTime(Date.parse('2026-10-21T00:00:01.000Z'));
+        return original(...args);
+    });
+    assert.equal((await call(sealDonation('clan-xp-crossing-day-01'))).statusCode, 200);
+    assert.deepEqual(await quota(), { day: '2026-10-20', used: 2_000 });
+    const next = await call(sealDonation('clan-xp-crossing-day-02'));
+    assert.equal(next.statusCode, 409, 'a partial rollout counter cannot prove the remaining quota');
+    assert.equal(next.body?.review, true);
+    assert.deepEqual(await quota(), { day: '2026-10-20', used: 2_000 });
+    assert.equal((await donor()).mythicSeals, 30, 'review refusal takes nothing');
+    assert.equal(await clanXpTotal(), 2_000);
+    assert.equal(await kv.get(`clan-donate-xp:${DONOR}:2026-10-21`), 1_500, 'legacy counters are never overwritten');
+});
+
+test('an unexpected partial-rollout counter needs review without blocking an old pending credit', async (t) => {
+    await seedSeals();
+    const day = new Date().toISOString().slice(0, 10);
+    assert.equal((await call(sealDonation('clan-xp-legacy-paid-01', 3))).statusCode, 200);
+    const original = kv.set.bind(kv);
+    let broken = true;
+    t.mock.method(kv, 'set', async (...args: Parameters<typeof kv.set>) => {
+        if (broken && args[0] === CLAN_KEY) throw new Error('injected legacy pending donation');
+        return original(...args);
+    });
+    const pendingId = 'clan-xp-legacy-pending-1';
+    assert.equal((await call(sealDonation(pendingId, 2))).statusCode, 503);
+    broken = false;
+    const saved = (await kv.get<{ character: Record<string, unknown> }>(`save:${DONOR}`))!;
+    delete saved.character.clanDonationXp;
+    for (const receipt of saved.character.serverSettlementReceipts as Array<{ value: { plan: Record<string, unknown> } }>) delete receipt.value.plan.clanXpDay;
+    await kv.set(`save:${DONOR}`, saved);
+    await kv.set(`clan-donate-xp:${DONOR}:${day}`, 600);
+    const next = await call(sealDonation('clan-xp-legacy-new-0001'));
+    assert.equal(next.statusCode, 409);
+    assert.equal(next.body?.review, true);
+    assert.equal(await quota(), undefined);
+    assert.equal((await donor()).mythicSeals, 35);
+    assert.equal(await clanXpTotal(), 600);
+    const txId = saveDebitTransactionId('clan-treasury-donate', DONOR, pendingId);
+    assert.equal((await adminReconcile({ txId })).body?.status, 'completed');
+    assert.equal(await clanXpTotal(), 1_000, 'the legacy obligation still finishes from its original sealed plan');
+});
+
+test('a new-protocol receipt with its co-written quota missing is held instead of opening another budget', async () => {
+    await seedSeals();
+    assert.equal((await call(sealDonation('clan-xp-legacy-no-key-01'))).statusCode, 200);
+    const saved = (await kv.get<{ character: Record<string, unknown> }>(`save:${DONOR}`))!;
+    delete saved.character.clanDonationXp;
+    await kv.set(`save:${DONOR}`, saved);
+    const next = await call(sealDonation('clan-xp-legacy-no-key-02'));
+    assert.equal(next.statusCode, 409);
+    assert.equal(next.body?.review, true);
+    assert.equal(await clanXpTotal(), 2_000);
+    assert.equal(await quota(), undefined);
+    assert.equal((await donor()).mythicSeals, 30);
+});
+
+test('pre-cap donation receipts do not retroactively consume the introduced daily budget', async () => {
+    await seedSeals();
+    const saved = (await kv.get<{ character: Record<string, unknown> }>(`save:${DONOR}`))!;
+    saved.character.serverSettlementReceipts = [{
+        requestId: 'clan-xp-before-cap-0001', fingerprint: 'server-fingerprint', settledAt: Date.now(),
+        value: { kind: 'clan-treasury-donate', plan: { treasury: { kind: 'currency', currency: 'mythicSeals', amount: 100 }, clanXp: 20_000 } },
+    }];
+    await kv.set(`save:${DONOR}`, saved);
+    assert.equal((await call(sealDonation('clan-xp-first-cap-budget'))).statusCode, 200);
+    assert.deepEqual(await quota(), { day: new Date().toISOString().slice(0, 10), used: 2_000 });
+    assert.equal(await clanXpTotal(), 2_000, 'the first rollout introduces a fresh capped budget');
+});
+
+test('malformed/future quota or legacy history is an explicit review refusal before debit', async () => {
+    const day = new Date().toISOString().slice(0, 10);
+    const badQuotas = [null, [], { day, used: -1 }, { day, used: '0' }, { day: '2026-02-30', used: 0 }, { day: '9999-01-01', used: 0 }];
+    for (const [i, bad] of badQuotas.entries()) {
+        await seedSeals();
+        const saved = (await kv.get<{ character: Record<string, unknown> }>(`save:${DONOR}`))!;
+        saved.character.clanDonationXp = bad;
+        await kv.set(`save:${DONOR}`, saved);
+        const out = await call(sealDonation(`clan-xp-malformed-${String(i).padStart(4, '0')}`));
+        assert.equal(out.statusCode, 409, JSON.stringify(out.body));
+        assert.equal(out.body?.review, true);
+        assert.equal((await donor()).mythicSeals, 40);
+    }
+    await seedSeals();
+    await kv.set(`clan-donate-xp:${DONOR}:${day}`, 'unreadable');
+    assert.equal((await call(sealDonation('clan-xp-malformed-legacy'))).statusCode, 409);
+    assert.equal((await donor()).mythicSeals, 40);
+    assert.equal((await call({ currency: 'ryo', amount: 1_000, requestId: 'clan-xp-ryo-unaffected-1' })).statusCode, 200, 'ryo is uncapped');
+});
+
+test('unrelated rolling receipt history does not prevent first-rollout initialization; saturated legacy quota permits gifts', async () => {
+    await seedSeals();
+    const saved = (await kv.get<{ character: Record<string, unknown> }>(`save:${DONOR}`))!;
+    saved.character.serverSettlementReceipts = Array.from({ length: 50 }, (_, i) => ({
+        requestId: `other-settlement-${String(i).padStart(4, '0')}`, fingerprint: 'server-fingerprint', value: { kind: 'other' }, settledAt: Date.now(),
+    }));
+    await kv.set(`save:${DONOR}`, saved);
+    const out = await call(sealDonation('clan-xp-truncated-legacy'));
+    assert.equal(out.statusCode, 200, 'initialization makes no claim that historical receipt lists are complete');
+    assert.equal((await donor()).mythicSeals, 30);
+    const after = (await kv.get<{ character: Record<string, unknown> }>(`save:${DONOR}`))!;
+    delete after.character.clanDonationXp;
+    await kv.set(`save:${DONOR}`, after);
+    await kv.set(`clan-donate-xp:${DONOR}:${new Date().toISOString().slice(0, 10)}`, 2_000);
+    assert.equal((await call(sealDonation('clan-xp-truncated-capped'))).statusCode, 200, 'known exhausted cap still permits the gift');
+    assert.equal((await donor()).mythicSeals, 20);
+    assert.equal(await clanXpTotal(), 2_000, 'the saturated legacy budget adds zero XP');
+});
+
+test('a legacy receipt window shortened by a refund cannot manufacture spare quota', async () => {
+    await seedSeals();
+    const saved = (await kv.get<{ character: Record<string, unknown> }>(`save:${DONOR}`))!;
+    // A previous 200-XP donation was evicted when the list hit 50. Another
+    // saga then refunded and removed its receipt, shortening the list to 49.
+    // The counter covers 400 paid XP; the visible list covers only one of
+    // those payments plus a different 200-XP pending credit. max(400, 400)
+    // would miss that pending credit and incorrectly offer 1,600 more XP.
+    saved.character.serverSettlementReceipts = Array.from({ length: 49 }, (_, i) => ({
+        requestId: `refund-pruned-history-${String(i).padStart(4, '0')}`, fingerprint: 'server-fingerprint', settledAt: Date.now(),
+        value: i < 2
+            ? { kind: 'clan-treasury-donate', plan: { treasury: { kind: 'currency', currency: 'mythicSeals', amount: 1 }, clanXp: 200 } }
+            : { kind: 'other' },
+    }));
+    await kv.set(`save:${DONOR}`, saved);
+    await kv.set(`clan-donate-xp:${DONOR}:${new Date().toISOString().slice(0, 10)}`, 400);
+    const out = await call(sealDonation('clan-xp-refund-pruned-01'));
+    assert.equal(out.statusCode, 409);
+    assert.equal(out.body?.review, true);
+    assert.equal((await donor()).mythicSeals, 40);
+});
+
+test('malformed current protocol days need review, while clearly older malformed metadata does not block today', async () => {
+    await seedSeals();
+    const saved = (await kv.get<{ character: Record<string, unknown> }>(`save:${DONOR}`))!;
+    saved.character.serverSettlementReceipts = [{
+        requestId: 'clan-xp-legacy-bad-plan', fingerprint: 'server-fingerprint', value: { kind: 'clan-treasury-donate', plan: { clanXpDay: 'unreadable' } }, settledAt: Date.now(),
+    }];
+    await kv.set(`save:${DONOR}`, saved);
+    assert.equal((await call(sealDonation('clan-xp-invalid-plan-01'))).statusCode, 409);
+    assert.equal((await donor()).mythicSeals, 40);
+    (saved.character.serverSettlementReceipts as Array<{ settledAt: number }>)[0].settledAt -= 86_400_000;
+    await kv.set(`save:${DONOR}`, saved);
+    assert.equal((await call(sealDonation('clan-xp-invalid-plan-02'))).statusCode, 200, 'clearly older malformed metadata does not consume or block today');
+    assert.equal(await clanXpTotal(), 2_000);
+});
+
+test('an already-admitted donation still recovers when its quota later needs review', async (t) => {
+    await seedSeals();
+    const original = kv.set.bind(kv);
+    let broken = true;
+    t.mock.method(kv, 'set', async (...args: Parameters<typeof kv.set>) => {
+        if (broken && args[0] === CLAN_KEY) throw new Error('injected pre-review pending credit');
+        return original(...args);
+    });
+    const id = 'clan-xp-recover-review-1';
+    assert.equal((await call(sealDonation(id))).statusCode, 503);
+    broken = false;
+    const saved = (await kv.get<{ character: Record<string, unknown> }>(`save:${DONOR}`))!;
+    saved.character.clanDonationXp = { day: 'unreadable', used: -1 };
+    await kv.set(`save:${DONOR}`, saved);
+    assert.equal((await call(sealDonation(id))).statusCode, 200, 'the sealed obligation is finished before fresh eligibility');
+    assert.equal(await clanXpTotal(), 2_000);
+    assert.equal((await donor()).mythicSeals, 30);
+    assert.equal((await call(sealDonation('clan-xp-review-new-0001'))).statusCode, 409);
+    assert.equal((await donor()).mythicSeals, 30, 'only new debit admission is held');
+});

@@ -482,7 +482,6 @@ export function GuidesLibrary({ onExit }: { onExit: () => void }) {
                             <p className="guides-intro">Clear explanations of the Academy, combat, progression, companions, war, and endgame systems.</p>
                             <div>
                                 <Badge tone="spirit" icon={<GiOpenBook />}>{catalog.length} field guides</Badge>
-                                <Badge tone="neutral">Reviewed August 2026</Badge>
                             </div>
                         </div>
                     </Panel>
