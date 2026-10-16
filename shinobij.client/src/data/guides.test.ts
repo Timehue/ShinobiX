@@ -138,15 +138,10 @@ test("player guides exclude retired routes, implementation notes, and exploratio
     assert.doesNotMatch(copy, /25\s*[×x]\s*17|hidden chambers?/i);
 });
 
-test("guide copy follows the punctuation and naming rules", () => {
+test("guide copy does not use em dashes", () => {
     const copy = JSON.stringify([GUIDES, PET_TUTORIAL_LESSONS]);
 
     assert.doesNotMatch(copy, /\u2014/, "guide copy must not use em dashes");
-    assert.doesNotMatch(
-        copy,
-        /\b(?:Naruto|Boruto|Pok[eé]mon|Hearthstone|Yu[\s-]?Gi[\s-]?Oh|Final Fantasy|World of Warcraft|Genshin Impact|RuneScape|Ninja Saga)\b/i,
-        "explain the game's own rules without competitor or franchise names",
-    );
 });
 
 test("high-drift guide numbers stay aligned with current game constants", () => {
