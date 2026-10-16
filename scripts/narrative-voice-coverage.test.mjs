@@ -42,7 +42,6 @@ const corpora = [
     'shinobij.client/src/lib/village-stores-signposts.ts',
     'shinobij.client/src/lib/clan-stores.ts',
     'shinobij.client/src/lib/logbook-objectives.ts',
-    'shinobij.client/src/lib/daily-briefing-core.ts',
     'shinobij.client/src/lib/spire-catalog.ts',
     'shinobij.client/src/lib/profession-mastery.ts',
 ];

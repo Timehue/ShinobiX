@@ -11,7 +11,7 @@ import { useVillageCampaign } from '../lib/use-village-campaign';
 import { useWarShrine } from '../features/villageWar/use-war-shrine';
 import { sectorVaultMarker } from '../features/villageWar/sector-vault-marker';
 import { HollowGateEntryMenu } from './world-map/HollowGateEntryMenu';
-import { sectorBackgroundImage, sectorDepthImage, sectorMapUrl, ambienceBiomeForSector } from './world-map/sector-art';
+import { sectorBackgroundImage, sectorMapUrl, ambienceBiomeForSector } from './world-map/sector-art';
 import { fetchVillageGuards } from "../lib/village-guard-api";
 import { useWorldTravelPresentation } from "../lib/use-world-travel-presentation";
 import { confirmRoadPosition } from "../lib/road-position-confirmation";
@@ -4464,7 +4464,6 @@ function WorldMapContent({
                         onRegionSplashDone={() => setRegionSplash(null)}
                         mapImage={sectorMapSrc}
                         sceneImage={territory.backgroundImage || sectorBackgroundImage(selectedSector)}
-                        sceneDepthImage={territory.backgroundImage ? undefined : sectorDepthImage(selectedSector)}
                         roadExits={sectorRoadExits}
                         showLivePeers={livePeersOn}
                         players={sectorPlayers.map((player) => ({
