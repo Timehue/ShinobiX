@@ -75,6 +75,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const appointee = safeName(String(body.appointee ?? ''));
                 const target = appointee ? await kv.get<{ character?: Record<string, unknown> }>(`save:${appointee}`) : null;
                 if (!target?.character || String(target.character.village ?? '').trim().toLowerCase() !== village.toLowerCase()) return { status: 400, body: { error: 'Choose an existing player in your village.' } };
+                if (appointee === safeName(kage?.seatedKage ?? '')) return { status: 409, body: { error: 'The Kage cannot also hold an Elder seat. Choose another player.' } };
                 if (elderAppointees.some((name, index) => index !== seatIndex && safeName(name) === appointee)) return { status: 409, body: { error: 'That player already holds an elected Elder seat this term. Choose another player.' } };
                 elderAppointees[seatIndex] = String(target.character.name ?? appointee);
             } else elderAppointees[seatIndex] = '';

@@ -19,6 +19,7 @@ import {
     type MentorExceptionReason,
     type MentorRecord,
     type MentorStudentEntry,
+    recordMentorStudentPaid,
 } from './_mentor-settlement.js';
 
 /*
@@ -216,7 +217,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const released = await withKvLock(senseiKey(playerName), async () => {
                 const raw = await kv.get<Record<string, unknown>>(senseiKey(playerName));
                 const rec = readMentorRecord(raw);
-                if (!raw || !rec.students.some((s) => s.studentSlug === studentName)) return true;
+                const leaving = rec.students.find((s) => s.studentSlug === studentName);
+                if (!raw || !leaving) return true;
+                // Carry what this pairing already admitted onto the student
+                // BEFORE the pairing (and its `claimed` map) is deleted, so a
+                // re-assign cannot pay the same milestones again.
+                await recordMentorStudentPaid(studentName, leaving.claimed);
                 const next = { ...raw, students: rec.students.filter((s) => s.studentSlug !== studentName) };
                 return kv.compareSet(senseiKey(playerName), raw, next);
             }, { failClosed: true });

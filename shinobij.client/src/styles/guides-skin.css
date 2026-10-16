@@ -692,6 +692,10 @@
     min-width: 0;
     max-width: 72ch;
     margin-inline: auto;
+    padding: clamp(16px, 2.5cqi, 28px);
+    background: var(--sj-surface-low, #121820);
+    border: 1px solid var(--sj-border-soft, rgba(221, 230, 236, .14));
+    border-radius: 5px;
 }
 
 .guide-section {

@@ -302,6 +302,12 @@ export function sanitizeCharacterSave(
     if (!inChar || typeof inChar !== 'object' || !exChar || typeof exChar !== 'object') {
         const partial = { ...incoming };
         preserveServerTopLevelFields(partial, existing, opts.adminContentSlot);
+        // The POST handler refuses character-less player saves; this keeps the
+        // training leases frozen on the remaining (admin) partial writes too.
+        if (!opts.adminContentSlot) {
+            partial.activeTraining = existing?.activeTraining ?? null;
+            partial.activeJutsuTraining = existing?.activeJutsuTraining ?? null;
+        }
         return partial;
     }
 
@@ -362,9 +368,11 @@ export function sanitizeCharacterSave(
 
     const out: Record<string, unknown> = { ...incoming, character: finalChar };
     // Stat training is server-created and server-cleared. A generic autosave
-    // cannot forge, replace, or replay the top-level session descriptor.
-    if (!isFirstSave) out.activeTraining = existing?.activeTraining ?? null;
-    if (!isFirstSave) out.activeJutsuTraining = existing?.activeJutsuTraining ?? null;
+    // cannot forge, replace, or replay the top-level session descriptor — the
+    // first save included: a brand-new account has no lease, and a forged
+    // token-less one would be settled (and refunded) by the training routes.
+    out.activeTraining = existing?.activeTraining ?? null;
+    out.activeJutsuTraining = existing?.activeJutsuTraining ?? null;
     if (Array.isArray(incoming.savedBloodlines)) out.savedBloodlines = normalizeBloodlineArray(incoming.savedBloodlines, existing?.savedBloodlines, true);
     preserveEquippedBloodline(finalChar, exChar, out.savedBloodlines ?? existing?.savedBloodlines,
         opts.bloodlineEquipIntent, consumedBloodlineForgeIds.size > 0);
@@ -806,6 +814,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             // Admin-flagged writes require admin auth (constant-time compare in isAdmin).
             let identityName: string | null = null;
+            // The clan writer's stored character: the only trusted source of
+            // their own roster row's contribution counters.
+            let clanActorCharacter: Record<string, unknown> | null = null;
             if (isAdminSave) {
                 if (!adminSaveTargetAllowed(name, isFullAdmin(req), isAdmin(req))) {
                     return res.status(401).json({ error: 'Admin authentication required.' });
@@ -835,6 +846,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         const targetClanSlug = name.replace(/^clan-/, '').trim().toLowerCase();
                         const actorSave = await kv.get<Record<string, unknown>>(`save:${identity.name}`);
                         const actorChar = (actorSave?.character ?? null) as Record<string, unknown> | null;
+                        clanActorCharacter = actorChar;
                         const actorClan = String(actorChar?.clan ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
                         if (!actorClan || actorClan !== targetClanSlug) {
                             // Membership check failed — but allow the write
@@ -905,6 +917,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
                 identityName = identity.admin ? null : identity.name;
 
+                // A player save must carry its character. Without one,
+                // sanitizeCharacterSave takes its partial branch, which skips
+                // every top-level freeze the full path applies
+                // (activeJutsuTraining, pendingBloodlineForges, savedBloodlines,
+                // creatorItems) — a forged token-less jutsu lease then refunded
+                // any ryoCost the body named. The shipped client always sends
+                // the whole payload, so this refuses only hand-built bodies.
+                if (identityName && !isClanSave) {
+                    const character = (incoming as Record<string, unknown>).character;
+                    if (!character || typeof character !== 'object' || Array.isArray(character)) {
+                        return res.status(400).json({ error: 'Invalid save payload.' });
+                    }
+                }
             }
 
             // Bound every authenticated ordinary-save attempt BEFORE it can
@@ -1049,6 +1074,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             {
                                 callerName: identityName ?? '',
                                 isAdmin: identityName === null,
+                                callerCharacter: clanActorCharacter,
                             },
                         );
                         safeIncoming = next;

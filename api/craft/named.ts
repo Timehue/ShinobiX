@@ -1,6 +1,5 @@
 import { inventoryGrowthBlock } from '../_inventory-capacity.js';
 import { safeLogValue } from '../_safe-log.js';
-import { randomUUID } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
@@ -9,12 +8,9 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { sanitizeUserText } from '../_text-moderation.js';
 import { getActiveSilence } from '../admin/moderation.js';
-import { buildNamedItem, debitNamedForge, makeNamedForgeReceipt, resolveNamedForgeReplay, rollNamedForge, type NamedRoll } from './_named.js';
+import { buildNamedItem, debitNamedForge, makeNamedForgeReceipt, namedForgeCostError, resolveNamedForgeReplay, rollNamedForge, type NamedRoll } from './_named.js';
 import { recordForgedItem } from '../_forged-item-registry.js';
 import { NAMED_ITEM_LEVEL_REQ } from '../../shared/item-level-gate.js';
-import { canPayNamedForge, NAMED_FORGE_FATE_SHARD_COST } from '../../shared/named-forge-economy.js';
-import { namedForgeOreCount } from '../../shared/resource-forging.js';
-import { countOwned } from './_forge.js';
 
 const cleanToken = (v: unknown) => typeof v === 'string' && /^[A-Za-z0-9]{16,96}$/.test(v) ? v : '';
 const REGISTRY_UNAVAILABLE = 'Named gear storage is temporarily unavailable. Retry this forge with the same roll.';
@@ -54,28 +50,59 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && await forgeLevelBlocked(playerName)) {
             return res.status(403).json({ error: `Named forging unlocks at level ${NAMED_ITEM_LEVEL_REQ}.`, requiredLevel: NAMED_ITEM_LEVEL_REQ });
         }
-        if (action === 'roll') {
-            const save = await kv.get<{ character?: Record<string, unknown> }>(`save:${playerName}`);
-            if (!canPayNamedForge(save?.character ?? {})) {
-                return res.status(409).json({ error: `Named forging requires ${NAMED_FORGE_FATE_SHARD_COST} Fate Shards.` });
-            }
-            const kind = body.kind === 'armor' ? 'armor' : 'weapon';
-            if (countOwned(save?.character ?? {}, 'gather-iron-sand-pristine') < namedForgeOreCount(kind))
-                return res.status(409).json({ error: `Named ${kind} forging requires ${namedForgeOreCount(kind)} Pristine Iron Sand and ${NAMED_FORGE_FATE_SHARD_COST} Fate Shards.` });
-            const roll = rollNamedForge(kind, body.slot);
-            const token = randomUUID().replace(/-/g, '');
-            await kv.set(`named-forge:${playerName}:${token}`, { playerName, roll }, { ex: 20 * 60 });
-            return res.status(200).json({ ok: true, token, roll });
-        }
         // A named weapon's NAME is echoed into the public PvP battle log, so it is
         // a broadcast surface and a silence has to reach it. But the item itself
-        // is stat gear, not a message: refusing the forge outright would take the
-        // player's progression, and their roll token expires in 20 minutes while
-        // a silence lasts hours or days — so a refusal here destroys a paid roll
-        // rather than muting anything. Instead the forge proceeds and the AUTHORED
-        // TEXT is dropped; buildNamedItem falls back to "Named Weapon" / a
-        // generated description. Silence costs speech, which is the point.
+        // is stat gear, not a message: refusing the roll outright would take the
+        // player's progression for the length of a silence. Instead the roll
+        // proceeds and the AUTHORED TEXT is dropped; buildNamedItem falls back to
+        // "Named Weapon" / a generated description. Silence costs speech.
         const silenced = identity.admin ? null : await getActiveSilence(identity.name);
+
+        if (action === 'roll') {
+            // Owner ruling 2026-10-15: the price is paid to ROLL and every roll
+            // is kept — no discard, no re-roll. Charging, rolling and granting
+            // the item are one save write. `requestId` makes a lost-response
+            // retry return the same item instead of charging again.
+            const requestId = cleanToken(body.requestId);
+            if (!requestId) return res.status(400).json({ error: 'Invalid roll request. Refresh and try again.' });
+            const kind = body.kind === 'armor' ? 'armor' : 'weapon';
+            const name = silenced ? '' : sanitizeUserText(body.name, 60);
+            const flavorText = silenced ? '' : sanitizeUserText(body.flavorText, 300);
+            const result = await mutatePlayerSave<{ replayed: boolean; item: Record<string, unknown> | null; roll: NamedRoll | null }>(playerName, async ({ character, record }) => {
+                const receipts = Array.isArray(character.redeemedNamedForges)
+                    ? character.redeemedNamedForges.filter((value): value is string => typeof value === 'string')
+                    : [];
+                const creatorItems = Array.isArray(record.creatorItems) ? record.creatorItems as Array<Record<string, unknown>> : [];
+                const replay = resolveNamedForgeReplay(receipts, requestId, creatorItems);
+                if (replay.matched) {
+                    if (replay.item && !(await registerNamedItem(replay.item))) {
+                        return { ok: false as const, status: 503, error: REGISTRY_UNAVAILABLE };
+                    }
+                    return { ok: true as const, character, write: false, value: { replayed: true, item: replay.item, roll: null } };
+                }
+                const costError = namedForgeCostError(character, kind);
+                if (costError) return { ok: false as const, status: 409, error: costError };
+                const paid = debitNamedForge(character, kind);
+                if (!paid) return { ok: false as const, status: 409, error: `You can't afford a named ${kind} roll.` };
+                const roll = rollNamedForge(kind, body.slot);
+                const item = buildNamedItem(roll, name, flavorText);
+                const inventory = Array.isArray(paid.inventory) ? paid.inventory as string[] : [];
+                const forgedCharacter = { ...paid, inventory: [...inventory, item.id], redeemedNamedForges: [...receipts.slice(-49), makeNamedForgeReceipt(requestId, item.id)] };
+                // Refused before anything commits, so a full inventory costs nothing.
+                const grew = inventoryGrowthBlock(character, forgedCharacter);
+                if (grew) return { ok: false as const, status: grew.status, error: grew.error };
+                // The registry copy must exist before the paid save commits.
+                if (!(await registerNamedItem(item))) {
+                    return { ok: false as const, status: 503, error: REGISTRY_UNAVAILABLE };
+                }
+                return { ok: true as const, character: forgedCharacter, recordPatch: { creatorItems: [...creatorItems.slice(-199), item] }, value: { replayed: false, item, roll } };
+            });
+            if (!result.ok) return res.status(result.status).json({ error: result.error });
+            return res.status(200).json({ ok: true, ...result.value, character: result.character, _saveVersion: result._saveVersion });
+        }
+
+        // `forge` only finishes a roll token minted before rolls became paid
+        // (tokens live 20 minutes); no new tokens are issued.
         const token = cleanToken(body.token); if (!token) return res.status(400).json({ error: 'Invalid forge token.' });
         const result = await mutatePlayerSave<{ replayed: boolean; item: Record<string, unknown> | null }>(playerName, async ({ character, record }) => {
             const receipts = Array.isArray(character.redeemedNamedForges)
@@ -91,10 +118,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             const sealed = await kv.get<{ playerName: string; roll: NamedRoll }>(`named-forge:${playerName}:${token}`);
             if (!sealed || sealed.playerName !== playerName) return { ok: false as const, status: 409, error: 'invalid-or-spent-roll' };
-            const paid = debitNamedForge(character, sealed.roll.kind);
-            if (!paid) {
-                return { ok: false as const, status: 409, error: `Named forging requires ${namedForgeOreCount(sealed.roll.kind)} Pristine Iron Sand and ${NAMED_FORGE_FATE_SHARD_COST} Fate Shards.` };
-            }
+            const costError = namedForgeCostError(character, sealed.roll.kind);
+            const paid = costError ? null : debitNamedForge(character, sealed.roll.kind);
+            if (!paid) return { ok: false as const, status: 409, error: costError ?? `You can't afford this named ${sealed.roll.kind}.` };
             const item = buildNamedItem(
                 sealed.roll,
                 silenced ? '' : sanitizeUserText(body.name, 60),
