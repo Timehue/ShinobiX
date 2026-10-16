@@ -49,7 +49,12 @@ export const BOUNTY_PLACE_SAGA: SaveDebitDefinition<BountyBoard, BountyPlacement
     refund: (character, plan) => ({ ...character, ryo: ryoOf(character) + plan.amount }),
 };
 
-export type ClanDonationPlan = { treasury: TreasuryCreditPlan; clanXp: number };
+export type ClanDonationPlan = {
+    treasury: TreasuryCreditPlan;
+    clanXp: number;
+    /** UTC admission day for capped XP; absent on legacy plans. */
+    clanXpDay?: string;
+};
 
 /**
  * /api/clan/treasury/donate. No refund: the debit also moves items and the

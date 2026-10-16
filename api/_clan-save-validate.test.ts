@@ -364,6 +364,22 @@ describe('validateClanSaveWrite — wrong-type fields and roster counters (2026-
         assert.equal((next.members as Array<Record<string, unknown>>)[0].eventContrib, 1);
     });
 
+    it('refreshes a spaced display name from its own slug-authenticated character only', () => {
+        const prev = { name: 'Storm', founderName: 'Kaze', members: [
+            { name: 'Aka Ito', missionContrib: 0, battleContrib: 2, level: 1, month },
+            { name: 'Other Member', missionContrib: 3, battleContrib: 4, level: 20, month },
+        ] };
+        const { next } = validateClanSaveWrite(prev, { ...prev, members: prev.members.map(row => ({
+            ...row, missionContrib: 999, battleContrib: 999, level: 99,
+        })) }, { callerName: 'akaito', isAdmin: false, callerCharacter: {
+            level: 2, clanMissionContrib: 5, clanBattleContrib: 1, clanContribMonth: month,
+        } });
+        assert.deepEqual(next.members, [
+            { name: 'Aka Ito', missionContrib: 5, battleContrib: 2, level: 2, month },
+            prev.members[1],
+        ]);
+    });
+
     it('a newly added row starts its counters at 0', () => {
         const { next } = validateClanSaveWrite(roster, forged([...roster.members, { name: 'Newbie', battleContrib: 999, level: 99 }]),
             { callerName: 'kaze', isAdmin: false });
