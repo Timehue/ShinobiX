@@ -7,6 +7,14 @@ import rogueNinjaSprite from "../assets/combat-actors/builtin-ai-rogue-ninja-idl
 import shadowWeaverSprite from "../assets/combat-actors/builtin-ai-shadow-weaver-idle.webp";
 import centralChampionSprite from "../assets/combat-actors/builtin-ai-central-champion-idle.webp";
 import rivalFallbackSprite from "../assets/combat-actors/ai-rival-fallback-idle.webp";
+import pveBruiserSprite from '../assets/combat-actors/pve/bandit-bruiser-idle.webp';
+import pveSkirmisherSprite from '../assets/combat-actors/pve/bandit-skirmisher-idle.webp';
+import pveAssassinSprite from '../assets/combat-actors/pve/rogue-assassin-idle.webp';
+import pveElementalistSprite from '../assets/combat-actors/pve/elemental-specialist-idle.webp';
+import pveDefenderSprite from '../assets/combat-actors/pve/defensive-specialist-idle.webp';
+import kageroSprite from '../assets/combat-actors/pve/kagero-idle.webp';
+import tsukikaSprite from '../assets/combat-actors/pve/tsukika-idle.webp';
+import hoshinaHollowSprite from '../assets/combat-actors/pve/hoshina-hollow-idle.webp';
 import wildBoarSprite from "../assets/combat-actors/creatures/hunt-ai-wild-boar-idle.webp";
 import forestHawkSprite from "../assets/combat-actors/creatures/hunt-ai-forest-hawk-idle.webp";
 import frostWolfSprite from "../assets/combat-actors/creatures/hunt-ai-frost-wolf-idle.webp";
@@ -37,8 +45,16 @@ import clanOniSprite from "../assets/combat-actors/bosses/clan-boss-oni-idle.web
 import clanLeviathanSprite from "../assets/combat-actors/bosses/clan-boss-leviathan-idle.webp";
 import clanGolemSprite from "../assets/combat-actors/bosses/clan-boss-golem-idle.webp";
 import { worldBossDefinitionForVisual, worldBossDefinitionForGuardVisual } from "../../../shared/world-boss-event";
+import { STORY_KAGE_PORTRAITS } from '../../../shared/story-kage-art';
 
 const HOLLOW_HOUND_SPRITE = "/hollow-gate/hollow-hound-idle.webp";
+const STORY_KAGE_SPRITES: Record<string, string> = { ...STORY_KAGE_PORTRAITS, 'story-ai-ashen-leaf-village-100': hoshinaHollowSprite };
+const ORDINARY_PVE_SPRITES: Record<string, string> = {
+    bruiser: pveBruiserSprite, skirmisher: pveSkirmisherSprite, assassin: pveAssassinSprite,
+    elementalist: pveElementalistSprite, defender: pveDefenderSprite,
+    bandit: pveBruiserSprite, nightblade: pveAssassinSprite, rivalMiner: pveDefenderSprite,
+    nemesis: kageroSprite, 'world-wanderer-nemesis': kageroSprite,
+};
 
 const HUNT_BATTLE_SPRITES: Record<string, string> = {
     "hunt-ai-wild-boar": wildBoarSprite,
@@ -188,6 +204,7 @@ function runtimeSprite(id: string): string | null {
 export function battlefieldAiSprite(
     rawId: string | null | undefined,
     sharedImages?: Record<string, string>,
+    identity?: { name?: string; archetype?: string },
 ): string | null {
     const suppliedId = String(rawId ?? "");
     if (!suppliedId) return null;
@@ -195,9 +212,14 @@ export function battlefieldAiSprite(
     const published = sharedImages?.[`ai:${suppliedId}:body`]
         || sharedImages?.[`ai:${id}:body`];
     if (published) return published;
+    if (/^Tsukika\b/i.test(identity?.name ?? '') && (id === 'nightblade' || identity?.archetype === 'assassin')) return tsukikaSprite;
+    if (/^Kagero\b/i.test(identity?.name ?? '')) return kageroSprite;
     return worldBossDefinitionForVisual(id)?.battleSprite
         || worldBossDefinitionForGuardVisual(id)?.battleSprite
         || BUNDLED_AI_BATTLE_SPRITES[id]
+        || STORY_KAGE_SPRITES[id]
+        || ORDINARY_PVE_SPRITES[id]
+        || ORDINARY_PVE_SPRITES[identity?.archetype ?? '']
         || QUEST_BOSS_SPRITES[id]
         || runtimeSprite(id)
         || rivalFallbackSprite;

@@ -46,9 +46,16 @@ import {
     type Wanderer,
 } from "./wanderers";
 import { serverNow } from "./server-clock";
+import { ordinaryWandererEncounter } from '../../../shared/wanderer-roster';
+import { ordinaryPvePortrait } from './ordinary-pve-presentation';
 import { activeVillageWarsFor, loadSectorTerritory } from "./world-state";
 
 export { roadNemesisActorId, roadNemesisTier, roadNemesisTitle };
+
+export function withOrdinaryPvePreview(wanderer: Wanderer, playerLevel: number, sector: number | null | undefined): Wanderer {
+    const encounter = sector != null ? ordinaryWandererEncounter(wanderer, playerLevel, sector) : null;
+    return encounter ? { ...wanderer, level: encounter.level, avatarImage: ordinaryPvePortrait(encounter) } : wanderer;
+}
 
 type CastCharacter = {
     name: string;

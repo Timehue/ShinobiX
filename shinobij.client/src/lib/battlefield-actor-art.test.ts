@@ -28,7 +28,7 @@ function objectKeys(objectName: string): string[] {
 
 test("all bundled battlefield sprites are optimized transparent WebP cutouts", async () => {
     const paths = webpFiles(assetDir);
-    assert.equal(paths.length, 38, "the complete standard, hunt, apex, rift, and tower sprite set drifted");
+    assert.equal(paths.length, 46, "the complete standard, ordinary PvE, named rival, Kage, hunt, apex, rift, and tower sprite set drifted");
     for (const path of paths) {
         assert.ok(existsSync(path));
         assert.ok(statSync(path).size <= 128 * 1024, `${path} exceeds the battlefield asset budget`);

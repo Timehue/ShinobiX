@@ -18,8 +18,10 @@ export function requestForResumedGenericFight(started: AiFightStart, playerName 
         opponentLevel: Math.max(1, Number(started.session.enemy.character.level) || 1),
         battleKind: started.battleKind,
         opponentName: started.opponentName,
+        ...(started.encounter ? { encounter: started.encounter } : {}),
         ...(typeof started.sector === 'number' ? { sector: started.sector } : {}),
         ...(started.worldExploreRequestId ? { worldExploreRequestId: started.worldExploreRequestId } : {}),
+        ...(started.raidToken ? { raidToken: started.raidToken } : {}),
         ...(started.dungeonRunToken ? { dungeonRunToken: started.dungeonRunToken } : {}),
         ...(circuit ? { returnScreen: 'dojoCircuit' }
             : started.battleKind === 'raidAi' || started.battleKind === 'explore' ? { returnScreen: 'worldMap' }

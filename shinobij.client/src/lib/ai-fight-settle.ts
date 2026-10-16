@@ -2,6 +2,7 @@ import type { Character } from "../types/character";
 import type { AiFightBattleKind } from "./ai-fight-api";
 import { reportAiFightWin, type AiFightReportResult } from "./ai-fight-api";
 import type { WorldAiFightContext } from "../../../shared/world-ai-fight";
+import type { OrdinaryPveEncounter } from '../../../shared/ordinary-pve-encounter';
 import { recordServerConfirmedPlayEvent } from "./google-play-games";
 
 /*
@@ -48,6 +49,7 @@ export type AiFightSettleResult = {
     /** Echoed from the token/session seal; World Map callbacks never trust their
      * local pending record for encounter identity or stage. */
     worldContext?: WorldAiFightContext;
+    encounter?: OrdinaryPveEncounter;
     /** Exact field-mission ids stamped by this settlement. */
     fetchMissionsCredited: string[];
     /** Upgrade gear piece the server granted with this win, shown with the other rewards. */
@@ -165,6 +167,7 @@ export async function settleAiFight(params: {
             : {}),
         ...(raidProgression ? { raidProgression } : {}),
         ...(reported.worldContext ? { worldContext: reported.worldContext } : {}),
+        ...(reported.encounter ? { encounter: reported.encounter } : {}),
     };
 }
 

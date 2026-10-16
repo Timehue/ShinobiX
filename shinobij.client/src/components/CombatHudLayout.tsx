@@ -146,6 +146,7 @@ export const PlainCombatBattleLog = memo(function PlainCombatBattleLog({
     emptyMessage = "No entries yet.",
     className,
     ariaLive = "polite",
+    headerActions,
 }: {
     lines: readonly string[];
     turnLabel: ReactNode;
@@ -155,6 +156,7 @@ export const PlainCombatBattleLog = memo(function PlainCombatBattleLog({
     emptyMessage?: string;
     className?: string;
     ariaLive?: "off" | "polite";
+    headerActions?: ReactNode;
 }) {
     const rounds = useMemo(() => groupPlainCombatLog(lines, selfName, oppName), [lines, selfName, oppName]);
     const visibleRounds = useMemo(
@@ -210,6 +212,7 @@ export const PlainCombatBattleLog = memo(function PlainCombatBattleLog({
                 aria-modal={expanded || undefined}
                 headerMeta={rounds.length > 0 ? `${roundSummary} · ${eventSummary}` : undefined}
                 headerActions={(
+                    <>{headerActions}
                     <button
                         type="button"
                         className="combat-log-expand"
@@ -226,7 +229,7 @@ export const PlainCombatBattleLog = memo(function PlainCombatBattleLog({
                             )}
                         </svg>
                         <span className="combat-log-expand-label">{expanded ? "Restore" : "Expand"}</span>
-                    </button>
+                    </button></>
                 )}
             >
                 {visibleRounds.length === 0 ? (

@@ -340,7 +340,7 @@ test("hunt acceptance, abandonment and turn-in remain server-authoritative", () 
 
 test("resumed World fights rebuild presentation from the server seal", () => {
     assert.match(host, /resumeWorldAiFight\(originatingPlayerName\)/);
-    assert.match(host, /const sealedRequest = started\.worldContext[\s\S]{0,420}requestForResumedWorldFight\(started,/);
+    assert.match(host, /const sealedWorldRequest = started\.worldContext \? requestForResumedWorldFight\(started\)/);
     assert.match(host, /ensureWandererFightPending\(originatingPlayerName, started\.worldContext, sealedRequest\.enemyAvatar\)/);
     assert.match(host, /recordMode=\{request\.returnScreen === 'dojoCircuit' \? 'Dojo Circuit' : currentFight\.worldContext \? "World Encounter"/);
     assert.match(host, /recoverWandererFightAvatar\(originatingPlayerName, context\)/,
@@ -368,18 +368,19 @@ test("wandering Fight/Flee decisions retire their prompt without requiring refre
 });
 
 test("fresh World fights keep art only after the server seal matches the launch", () => {
-    assert.match(host, /request\.worldEncounter\?\.kind === started\.worldContext\.kind/);
-    assert.match(host, /request\.worldEncounter\.sourceId === started\.worldContext\.sourceId/);
-    assert.match(host, /request\.worldEncounter\.sector === started\.worldContext\.sector/);
-    assert.match(host, /requestForResumedWorldFight\(started, sealedWorldMatchesRequest \? request\.enemyAvatar : undefined\)/,
+    assert.match(host, /adoptRequestedFightPresentation\(sealedWorldRequest, request\)/,
         "a matching world encounter must carry its painted portrait into combat without trusting it for identity");
+    const identity = readFileSync(new URL('./ai-fight-identity.ts', import.meta.url), 'utf8');
+    assert.match(identity, /if \(!sameAiFightIdentity\(sealed, requested\)\) return sealed/);
+    for (const field of ['kind', 'sourceId', 'sector', 'chainId', 'decisionId']) assert.ok(identity.includes(`a.${field} === b.${field}`), `World identity must compare ${field}`);
+    assert.match(identity, /\(a\.stage \?\? 0\) === \(b\.stage \?\? 0\)/);
     assert.match(host, /ensureWandererFightPending\(originatingPlayerName, started\.worldContext, sealedRequest\.enemyAvatar\)/,
         "the matching portrait must survive refresh recovery");
 });
 
 test("fresh generic fights use the server-sealed identity just like refresh recovery", () => {
     assert.match(host, /requestForStartedGenericFight\(started, request\)/);
-    assert.match(host, /const sameOpponent = sealed\.opponentId === requested\.opponentId/);
+    assert.match(host, /return adoptRequestedFightPresentation\(sealed, requested\)/);
     assert.doesNotMatch(host, /started\.worldContext[\s\S]{0,120}: request;/,
         "initial generic presentation must not keep a client-suggested explore opponent");
 });
@@ -395,7 +396,9 @@ test("a malformed start response cannot wedge the Retry gate", () => {
 test("explore and raid starts carry their exact server proofs", () => {
     const worldMap = readFileSync(new URL("../screens/WorldMap.tsx", import.meta.url), "utf8");
     const logbook = readFileSync(new URL("../screens/Logbook.tsx", import.meta.url), "utf8");
-    assert.match(worldMap, /battleKind: "explore",[\s\S]{0,180}worldExploreRequestId,/);
+    assert.match(worldMap, /requestAiFight\(exploreAmbushFightRequest\(sector, worldExploreRequestId, character\.level, preview\)\)/);
+    const explorePresentation = readFileSync(new URL('./road-flee-api.ts', import.meta.url), 'utf8');
+    assert.match(explorePresentation, /battleKind: 'explore',[\s\S]{0,220}worldExploreRequestId \}/);
     const raidStart = worldMap.indexOf("async function launchAiGuardRaid");
     const raidEnd = worldMap.indexOf("function startWandererAttack");
     assert.ok(raidStart >= 0 && raidEnd > raidStart, "WorldMap must keep launchAiGuardRaid ahead of startWandererAttack");

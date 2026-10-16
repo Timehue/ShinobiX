@@ -1,6 +1,22 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { fleeRoadAmbush, roadFleePriceLine } from "./road-flee-api";
+import { exploreAmbushDialogState, exploreAmbushFightRequest, exploreAmbushWanderer, fleeRoadAmbush, roadFleePriceLine } from "./road-flee-api";
+import { rollOrdinaryPveEncounter } from '../../../shared/ordinary-pve-encounter';
+
+test('Explore previews display the sealed identity, level and portrait without a second roll', () => {
+    const encounter = rollOrdinaryPveEncounter({ sourceId: 'receipt_123456', playerLevel: 75, sector: 60, portraitImage: '/portraits/pve/assassin.webp' });
+    const actor = exploreAmbushWanderer('receipt_123456', 75, encounter);
+    assert.equal(actor.name, encounter.displayName);
+    assert.equal(actor.level, encounter.level);
+    assert.equal(actor.avatarImage, encounter.portraitImage);
+    const dialog = exploreAmbushDialogState(60, 'receipt_123456', 75, encounter);
+    const request = exploreAmbushFightRequest(60, 'receipt_123456', 75, encounter);
+    assert.equal(dialog.encounter, encounter);
+    assert.equal(request.encounter, encounter);
+    assert.equal(request.opponentName, encounter.displayName);
+    assert.equal(request.opponentLevel, encounter.level);
+    assert.equal(request.worldExploreRequestId, dialog.ambush.requestId);
+});
 
 function withFetch(stub: typeof fetch, body: () => Promise<void>) {
     const real = globalThis.fetch;

@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';
 import test from 'node:test';
 import { createContext, runInContext } from 'node:vm';
 import { createSectorActionGuard, createTravelPresentationScope } from '../lib/travel-presentation';
+import { exploreAmbushDialogState, exploreAmbushFightRequest } from '../lib/road-flee-api';
 
 const ts = createRequire(import.meta.url)('typescript') as typeof import('typescript');
 const source = readFileSync(new URL('./WorldMap.tsx', import.meta.url), 'utf8');
@@ -47,6 +48,9 @@ function harness(options: { sector?: number; tile?: number; ok?: boolean; travel
     });
     const state = createContext({
         currentSector: options.sector ?? 12, selectedSector: options.sector ?? 12,
+        combatActive: false, isCombatActive: () => state.combatActive,
+        wandererDialog: null as unknown, wandererChoiceRef: { current: null as unknown },
+        requiresWandererChoice: (dialog: { msg?: unknown; w?: { verb?: string } } | null) => !!dialog && !dialog.msg && dialog.w?.verb === 'attack',
         sectorPlayerPos: options.tile ?? 43, isTraveling: false, travelingUntil: 0,
         liveWorldPosition: { current: { sector: options.sector ?? 12, tile: options.tile ?? 43, traveling: false } },
         getWorldPosition: () => state.liveWorldPosition.current,
@@ -92,8 +96,8 @@ function harness(options: { sector?: number; tile?: number; ok?: boolean; travel
         isWildSector: (sector: number) => sector > 0 && sector <= 99,
         setMissionProgress() {}, huntTrailSector: () => 57, playerSlug: () => 'rill',
         huntReadyForFight: () => false, sectorRegionName: () => 'Hollow Temple', setHuntToast() {},
-        exploreAmbushWanderer: () => ({ name: 'Challenger' }),
-        setWandererDialog(dialog: unknown) { state.dialog = dialog; },
+        exploreAmbushDialogState, exploreAmbushFightRequest,
+        setWandererDialog(dialog: unknown) { state.wandererDialog = typeof dialog === 'function' ? dialog(state.wandererDialog) : dialog; state.dialog = state.wandererDialog; },
         alert() {}, gameToast() {}, setCreatorEventPage() {}, setCreatorEventLine() {},
         setSelectedCreatorEvent(event: unknown) { state.event = event; },
         capabilityAdmissionAllowed: () => true, mutationAvailability() {},
@@ -369,6 +373,30 @@ test('recovering a remote ambush waits for real arrival before opening the encou
     assert.equal(h.state.currentSector, 57);
     assert.equal(h.state.sectorPlayerPos, 17);
     assert.equal(h.state.dialog.ambush.requestId, 'receipt');
+});
+
+test('a delayed Explore arrival cannot replace another hostile choice or an active fight', async () => {
+    for (const activeCombat of [false, true]) {
+        const h = harness();
+        h.call('presentExploreAmbush', 57, 'owed_receipt');
+        await h.respond();
+        const waiting = { w: { id: 'other-hostile', verb: 'attack', name: 'Kagero' } };
+        h.state.wandererChoiceRef.current = activeCombat ? null : waiting;
+        h.state.wandererDialog = waiting;
+        h.state.dialog = waiting;
+        h.state.combatActive = activeCombat;
+        h.arrive();
+        assert.equal(h.state.dialog, waiting);
+        assert.deepEqual(h.fights, []);
+    }
+});
+
+test('Explore presentation waits while a sealed fight already owns the screen', () => {
+    const h = harness();
+    h.state.combatActive = true;
+    assert.equal(h.call('presentExploreAmbush', 57, 'owed_receipt'), false);
+    assert.deepEqual(h.requests, []);
+    assert.equal(h.state.dialog, null);
 });
 
 test('creator events check level before travel and open only on confirmed arrival', async () => {
