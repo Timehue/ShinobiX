@@ -37,6 +37,7 @@ import { adoptRequestedFightPresentation, sameAiFightIdentity, resumedEncounterN
 import { EncounterDifficultyBadge } from './EncounterDifficultyBadge';
 import type { OrdinaryPveEncounter } from '../../../shared/ordinary-pve-encounter';
 import { namedPvePortrait, ordinaryPvePortrait } from '../lib/ordinary-pve-presentation';
+import { aiFightRecoveryOwner, aiFightRecoveryPending, completeAiFightRecovery, aiFightRecoveryIsCurrent } from '../lib/ai-fight-recovery-presence';
 
 // AI fights render through MissionArenaFight — the SAME server-authoritative arena
 // shell combat missions and story bosses use. The standalone transport submits
@@ -220,6 +221,12 @@ export function AiFightHost({
     const pendingCloseRef = useRef<(AiFightCloseHandoff & { queued?: AiFightRequest }) | null>(null);
     const recoveryRetryTimerRef = useRef<number | null>(null);
     const [recoveryAttempt, setRecoveryAttempt] = useState(0);
+    const recoveryPlayerKey = aiFightPlayerKey(playerName);
+    const [recoveryPresence, setRecoveryPresence] = useState({ playerKey: recoveryPlayerKey, completedScope: '' });
+    const recoveryScope = recoveryPlayerKey ? `${recoveryPlayerKey}:${recoveryAttempt}` : '';
+    // Claim recovery before passive story triggers, including the first account
+    // render. An empty/failed probe releases this claim; retries get a new scope.
+    const recoveryPending = aiFightRecoveryPending(recoveryPresence, recoveryPlayerKey, recoveryScope);
     useLayoutEffect(() => { activeRef.current = fight !== null; }, [fight]);
 
     useEffect(() => {
@@ -251,6 +258,9 @@ export function AiFightHost({
         settleInFlightRef.current = null;
         closingRequestIdRef.current = null;
         pendingCloseRef.current = null;
+        if (recoveryRetryTimerRef.current !== null) window.clearTimeout(recoveryRetryTimerRef.current);
+        recoveryRetryTimerRef.current = null;
+        setRecoveryPresence((current) => aiFightRecoveryOwner(current, nextPlayerKey));
         setFight((current) => current
             && aiFightPlayerKey(current.originatingPlayerName) !== nextPlayerKey
             ? null
@@ -266,7 +276,9 @@ export function AiFightHost({
     useEffect(() => {
         const originatingPlayerName = playerName;
         const originatingPlayerKey = aiFightPlayerKey(originatingPlayerName);
-        if (!originatingPlayerKey || startingRef.current || activeRef.current) return;
+        if (!originatingPlayerKey || !aiFightRecoveryPending(recoveryPresence, originatingPlayerKey, recoveryScope)) return;
+        if (activeRef.current) { setRecoveryPresence((current) => completeAiFightRecovery(current, originatingPlayerKey, recoveryScope)); return; }
+        if (startingRef.current) return; // The accepted start releases or adopts this claim when it settles.
         startingRef.current = true;
         const requestId = ++startRequestIdRef.current;
         void resumeWorldAiFight(originatingPlayerName)
@@ -362,7 +374,8 @@ export function AiFightHost({
             .catch(() => {
                 // A transient resume/claim failure must not orphan the pointer
                 // until a full page reload. Retrying is idempotent at both APIs.
-                if (!mountedRef.current || activePlayerKeyRef.current !== originatingPlayerKey) return;
+                if (!aiFightRecoveryIsCurrent({ mounted: mountedRef.current, playerKey: originatingPlayerKey, requestId,
+                    currentPlayerKey: activePlayerKeyRef.current, currentRequestId: startRequestIdRef.current })) return;
                 if (recoveryRetryTimerRef.current !== null) window.clearTimeout(recoveryRetryTimerRef.current);
                 recoveryRetryTimerRef.current = window.setTimeout(() => {
                     recoveryRetryTimerRef.current = null;
@@ -370,9 +383,12 @@ export function AiFightHost({
                 }, 5_000);
             })
             .finally(() => {
-                if (startRequestIdRef.current === requestId) startingRef.current = false;
+                if (!aiFightRecoveryIsCurrent({ mounted: mountedRef.current, playerKey: originatingPlayerKey, requestId,
+                    currentPlayerKey: activePlayerKeyRef.current, currentRequestId: startRequestIdRef.current })) return;
+                startingRef.current = false;
+                setRecoveryPresence((current) => completeAiFightRecovery(current, originatingPlayerKey, recoveryScope));
             });
-    }, [playerName, recoveryAttempt]);
+    }, [playerName, recoveryScope, recoveryPresence, starting]);
 
     useEffect(() => {
         const subscribedPlayerKey = aiFightPlayerKey(playerName);
@@ -491,8 +507,8 @@ export function AiFightHost({
     // Announced from an effect, with a cleanup so an unmount mid-fight still closes
     // it out. The failure card counts too: it is a blocking overlay on the same
     // portal, and nothing else should be allowed to open on top of it.
-    const open = starting || !!activeFight || !!activeStartFailure;
-    useEffect(() => {
+    const open = starting || !!activeFight || !!activeStartFailure || recoveryPending;
+    useLayoutEffect(() => {
         onFightOpenChange?.(open);
         return () => { if (open) onFightOpenChange?.(false); };
     }, [open, onFightOpenChange]);

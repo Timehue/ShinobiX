@@ -5444,7 +5444,7 @@ export default function App() {
                     />
                 )}
 
-                {activeTriggeredEvent && character && (
+                {activeTriggeredEvent && !sealedFightOpen && character && (
                     <ActiveStoryVisualNovel
                         event={activeTriggeredEvent}
                         cancelLabel={isSessionDismissableStoryScene(activeTriggeredEvent.id) ? "Later this session" : "Skip"}

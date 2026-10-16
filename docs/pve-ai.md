@@ -230,6 +230,18 @@ fixtures.
 | Pet combat (Showdown, Warfront, Gauntlet) | Pet engines | Unchanged |
 | Card game (Chronicle, Card Hall) | `api/card-clash/_ai-engine.ts` | Unchanged |
 
+## Recovery and automatic story scenes
+
+The AI host claims foreground combat presence before passive story effects
+while probing a player's sealed encounter. Empty and failed probes release
+that claim; retries claim again. Account changes reset completion, and late
+responses from an old account/request cannot release the current gate.
+An already-open story scene is temporarily unmounted while sealed combat is
+engaged, with its App-owned event and cursor retained. Deferral never records
+a completion or marks the scene seen; it can return after the fight closes.
+`e2e/authoritative-resume-story.spec.ts` exercises a genuinely unseen level-92
+interlude with delayed resume, empty recovery, and failure/retry transitions.
+
 ## Deferred, deliberately
 
 - Multi-turn enemy-response prediction and persistent ranged-kiting plans.
