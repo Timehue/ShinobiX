@@ -109,7 +109,8 @@ describe('runtime-mode public capability availability', () => {
         const executableCount = RUNTIME_MODE_REGISTRY.filter((mode) => mode.authorityEngine !== null
             && (mode.routes.length > 0 || (mode.transports?.length ?? 0) > 0)).length;
         assert.equal(matrix.length, executableCount);
-        assert.ok(matrix.some((row) => row.modeId === 'pet-arena-pvp-1v1'));
+        assert.ok(!matrix.some((row) => row.modeId === 'pet-arena-pvp-1v1'),
+            'the retired socket duel keeps no route or transport, so it is not executable');
         assert.equal(Object.isFrozen(matrix), true);
         const sectorWar = matrix.find((row) => row.modeId === 'sector-war-card');
         assert.equal(sectorWar?.capabilityId, 'villageWar');

@@ -141,7 +141,7 @@ export function resetRecentBattleStartsForTests(): void {
 
 export const BATTLE_AUTHORITY_CACHE_MS = 10_000;
 
-export type BattleAuthoritySource = 'pet-duel' | 'solo-pve' | 'tower' | 'pvp' | 'legacy-lock' | 'hollow-gate' | 'pet-showdown' | 'pet-battle' | 'card-clash';
+export type BattleAuthoritySource = 'solo-pve' | 'tower' | 'pvp' | 'legacy-lock' | 'hollow-gate' | 'pet-showdown' | 'pet-battle' | 'card-clash';
 
 export type LapsedBattle = { kind: BattleProjectionKind; sessionId: string };
 
