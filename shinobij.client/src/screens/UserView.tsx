@@ -26,7 +26,7 @@ import { NindoCard } from "../components/NindoCard";
 import { titleStyleColor, fetchLegacyDefinitions, eraAgeName, useLegacyAvailability, type LegacyDefView } from "../lib/legacy";
 import { LegacyBadge } from "../components/LegacyBadge";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
-import { petCardImage } from "../lib/pet-battle-anim";
+import { petScenicPortraitImage as petCardImage } from "../lib/pet-scenic-portrait";
 import { GameArtIcon } from "../components/GameArtIcon";
 import { achievementBadgeSrc } from "../lib/achievement-badge";
 

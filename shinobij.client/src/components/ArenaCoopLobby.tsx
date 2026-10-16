@@ -14,7 +14,7 @@ import type { Character } from "../types/character";
 import type { ArenaSlot } from "../lib/pet-arena-sim";
 import { isPetAvailableForWarfront, petDisplayName } from "../lib/pet";
 import { activeClientBreedingParentIds } from "../lib/pet-breeding";
-import { petCardImage } from "../lib/pet-battle-anim";
+import { petScenicPortraitImage as petCardImage } from "../lib/pet-scenic-portrait";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
 import coopHero from "../assets/coliseum/coop-hero.webp";
 import { GameArtIcon } from "./GameArtIcon";

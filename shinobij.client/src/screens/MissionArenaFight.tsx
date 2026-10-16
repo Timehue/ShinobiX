@@ -89,7 +89,7 @@ import { jutsuDetailDescription, jutsuTargetingLabel } from "../lib/jutsu-effect
 import { isImageAvatar } from "../lib/avatar";
 import { battlefieldAiSprite } from "../lib/battlefield-actor-art";
 import { resolveOwnAvatar } from "../lib/own-avatar";
-import { petPortraitImage } from "../lib/pet-battle-anim";
+import { petScenicPortraitImage as petPortraitImage } from "../lib/pet-scenic-portrait";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
 
 import { getAllItems } from "../lib/items";
