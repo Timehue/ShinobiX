@@ -3,6 +3,16 @@ import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import type { AiFightStart } from './ai-fight-api';
 import { rememberCircuitCombatSession, forgetCircuitCombatSession, requestForResumedGenericFight } from './ai-fight-navigation';
+import { sameAiFightIdentity } from './ai-fight-identity';
+
+test('raid recovery retains the exact sealed proof for artwork and continuation identity', () => {
+    const sealed = { sessionId: 'raid', opponentId: 'guard', opponentName: 'Guard', battleKind: 'raidAi', raidToken: 'sealed_raid_token', sector: 55,
+        session: { enemy: { character: { level: 75 } } } } as AiFightStart;
+    const rebuilt = requestForResumedGenericFight(sealed)!;
+    assert.equal(rebuilt.raidToken, sealed.raidToken);
+    assert.equal(sameAiFightIdentity(rebuilt, { ...rebuilt, enemyAvatar: '/art/guard.webp' }), true);
+    assert.equal(sameAiFightIdentity(rebuilt, { ...rebuilt, raidToken: 'another_raid_token' }), false);
+});
 
 test('Circuit reload recovery is scoped to the exact player and sealed practice session', () => {
     const previous = Object.getOwnPropertyDescriptor(globalThis, 'sessionStorage');

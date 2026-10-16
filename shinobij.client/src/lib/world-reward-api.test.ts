@@ -285,8 +285,8 @@ describe("world-map reward settlement", () => {
         assert.match(worldMap, /await recordMissionExplore\(sector, operation\.id, settled\.fieldProgress\)/);
         assert.match(source("./world-reward-drain.ts"), /await recordMissionExplore\(operation\.sector, operation\.id, result\.fieldProgress\)/,
             "reload recovery must retain the receipt until mission progress ACKs");
-        assert.match(worldMap, /battleKind: "explore",[\s\S]{0,180}worldExploreRequestId,/,
-            "the server-rolled battle must start from that same receipt");
+        assert.match(worldMap, /requestAiFight\(exploreAmbushFightRequest\(sector, worldExploreRequestId, character\.level, preview\)\)/,
+            "the sealed preview metadata and server-rolled battle must start from that same receipt");
         assert.match(app, /worldExploreRequestId/);
         assert.match(app, /result\?\.recorded !== true[\s\S]{0,80}return false/);
         assert.match(app, /if \(fieldProgress\)[\s\S]{0,500}setAcceptedMissionIds[\s\S]{0,500}setMissionProgress/,

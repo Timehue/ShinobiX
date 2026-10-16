@@ -125,6 +125,8 @@ export type ServerArenaSession = {
     status: "active" | "done";
     winner: ServerArenaSide | "draw" | null;
     log: string[];
+    /** Bounded local diagnostic journal; never read as combat authority. */
+    debugSource?: import('./solo-battle-debug').SoloBattleDebugSource;
     groundEffects?: Array<{
         id: string;
         owner: string;

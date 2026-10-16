@@ -33,6 +33,10 @@ import { playerSlug } from "../lib/utils";
 import { completeWorldRewardOperation, readPendingWorldRewards } from "../lib/world-reward-recovery";
 import { completeAiRaidLaunch } from "../lib/ai-raid-api";
 import { requestForResumedGenericFight, rememberCircuitCombatSession, forgetCircuitCombatSession } from '../lib/ai-fight-navigation';
+import { adoptRequestedFightPresentation, sameAiFightIdentity, resumedEncounterNotice } from '../lib/ai-fight-identity';
+import { EncounterDifficultyBadge } from './EncounterDifficultyBadge';
+import type { OrdinaryPveEncounter } from '../../../shared/ordinary-pve-encounter';
+import { namedPvePortrait, ordinaryPvePortrait } from '../lib/ordinary-pve-presentation';
 
 // AI fights render through MissionArenaFight — the SAME server-authoritative arena
 // shell combat missions and story bosses use. The standalone transport submits
@@ -52,6 +56,7 @@ type ActiveFight = {
     originatingPlayerName: string;
     requestId: number;
     worldContext?: AiFightStart["worldContext"];
+    notice?: string;
 };
 
 function requestForResumedWorldFight(started: AiFightStart, enemyAvatar?: string): AiFightRequest | null {
@@ -62,6 +67,7 @@ function requestForResumedWorldFight(started: AiFightStart, enemyAvatar?: string
         opponentLevel: Number(started.session.enemy.character.level) || 1,
         battleKind: "world",
         opponentName: context.displayName,
+        ...(context.encounter ? { encounter: context.encounter } : {}),
         sector: context.sector,
         returnScreen: "worldMap",
         ...(enemyAvatar ? { enemyAvatar } : {}),
@@ -72,6 +78,7 @@ function requestForResumedWorldFight(started: AiFightStart, enemyAvatar?: string
             stage: context.stage,
             ...(context.chainId ? { chainId: context.chainId } : {}),
             ...(context.decisionId ? { decisionId: context.decisionId } : {}),
+            ...(context.encounter ? { encounterId: context.encounter.id } : {}),
         },
     };
 }
@@ -121,19 +128,7 @@ function acknowledgeRaidFightStart(playerName: string, started: AiFightStart, re
 function requestForStartedGenericFight(started: AiFightStart, requested: AiFightRequest): AiFightRequest | null {
     const sealed = requestForResumedGenericFight(started);
     if (!sealed) return null;
-    const sameOpponent = sealed.opponentId === requested.opponentId;
-    return {
-        ...sealed,
-        // Navigation is client presentation. Enemy name/id/kind/sector are not:
-        // explore authority may replace a locally suggested opponent.
-        ...(requested.returnScreen ? { returnScreen: requested.returnScreen } : {}),
-        ...((sameOpponent || started.battleKind === "dungeon") && requested.enemyAvatar ? { enemyAvatar: requested.enemyAvatar } : {}),
-        // Settlement callbacks are presentation/continuation only and run after
-        // the authoritative report. Preserve them across the initial identity
-        // rebuild; enemy identity and rewards still come exclusively from the
-        // sealed start/report responses.
-        ...(requested.onResolved ? { onResolved: requested.onResolved } : {}),
-    };
+    return adoptRequestedFightPresentation(sealed, requested);
 }
 
 type StartFailure = {
@@ -219,6 +214,7 @@ export function AiFightHost({
     // mount render), so mirror "a fight is on screen" into a ref.
     const activeRef = useRef(false);
     const queuedWorldRequestRef = useRef<AiFightRequest | null>(null);
+    const [queuedOpponentName, setQueuedOpponentName] = useState<string | undefined>();
     const settleInFlightRef = useRef<Promise<AiFightSettleResult> | null>(null);
     const closingRequestIdRef = useRef<number | null>(null);
     const pendingCloseRef = useRef<(AiFightCloseHandoff & { queued?: AiFightRequest }) | null>(null);
@@ -251,6 +247,7 @@ export function AiFightHost({
         activeRef.current = false;
         settledRef.current = false;
         queuedWorldRequestRef.current = null;
+        setQueuedOpponentName(undefined);
         settleInFlightRef.current = null;
         closingRequestIdRef.current = null;
         pendingCloseRef.current = null;
@@ -397,7 +394,9 @@ export function AiFightHost({
                 // successor. Hold it until the player closes the result card;
                 // starting while the old overlay is live would replace its run.
                 if (settledRef.current && request.worldEncounter) {
+                    if (queuedWorldRequestRef.current && !sameAiFightIdentity(queuedWorldRequestRef.current, request)) return false;
                     queuedWorldRequestRef.current = request;
+                    setQueuedOpponentName(request.opponentName ?? 'the next opponent');
                     return true;
                 }
                 return false;
@@ -421,6 +420,7 @@ export function AiFightHost({
                 ...(request.raidToken ? { raidToken: request.raidToken } : {}),
                 ...(request.dungeonRunToken ? { dungeonRunToken: request.dungeonRunToken } : {}),
                 ...(request.worldEncounter ? { worldEncounter: request.worldEncounter } : {}),
+                ...(request.encounter ? { encounterId: request.encounter.id } : {}),
             })
                 .then((started) => {
                     if (!mountedRef.current
@@ -433,17 +433,15 @@ export function AiFightHost({
                         setRecoveryAttempt((attempt) => attempt + 1);
                         return;
                     }
-                    const sealedWorldMatchesRequest = !!started.worldContext
-                        && request.worldEncounter?.kind === started.worldContext.kind
-                        && request.worldEncounter.sourceId === started.worldContext.sourceId
-                        && request.worldEncounter.sector === started.worldContext.sector;
-                    const sealedRequest = started.worldContext
-                        ? requestForResumedWorldFight(started, sealedWorldMatchesRequest ? request.enemyAvatar : undefined)
+                    const sealedWorldRequest = started.worldContext ? requestForResumedWorldFight(started) : null;
+                    const sealedRequest = sealedWorldRequest
+                        ? adoptRequestedFightPresentation(sealedWorldRequest, request)
                         : requestForStartedGenericFight(started, request);
                     if (!sealedRequest) throw new Error("The combat server did not return a sealed encounter identity.");
                     if (sealedRequest.returnScreen === 'dojoCircuit' && started.battleKind === 'practice') rememberCircuitCombatSession(originatingPlayerName, started.sessionId);
-                    acknowledgeExploreFightStart(originatingPlayerName, started, request.worldExploreRequestId);
-                    acknowledgeRaidFightStart(originatingPlayerName, started, request.raidToken);
+                    const sameRequestedEncounter = sameAiFightIdentity(sealedRequest, request);
+                    acknowledgeExploreFightStart(originatingPlayerName, started, sameRequestedEncounter ? request.worldExploreRequestId : undefined);
+                    acknowledgeRaidFightStart(originatingPlayerName, started, sameRequestedEncounter ? request.raidToken : undefined);
                     if (started.worldContext) ensureWandererFightPending(originatingPlayerName, started.worldContext, sealedRequest.enemyAvatar);
                     // Do not arm the one-fight gate until the response has a
                     // complete sealed identity. A malformed rolling-deploy
@@ -457,6 +455,7 @@ export function AiFightHost({
                         originatingPlayerName,
                         requestId,
                         ...(started.worldContext ? { worldContext: started.worldContext } : {}),
+                        ...(started.resumed ? { notice: resumedEncounterNotice(sealedRequest, request) } : {}),
                     });
                 })
                 .catch((error) => {
@@ -542,7 +541,11 @@ export function AiFightHost({
     if (!activeFight || !character) return null;
     const currentFight: ActiveFight = activeFight;
     const request = currentFight.request;
-    const opponentName = request.opponentName ?? "the enemy";
+    const opponentName = currentFight.session.enemy.name || request.opponentName || "the enemy";
+    const encounter = currentFight.worldContext?.encounter ?? request.encounter;
+    const sealedAvatar = currentFight.session.enemy.character.avatarImage;
+    const enemyAvatar = typeof sealedAvatar === 'string' && sealedAvatar ? sealedAvatar
+        : encounter ? ordinaryPvePortrait(encounter) ?? request.enemyAvatar : namedPvePortrait(opponentName) ?? request.enemyAvatar;
     const originatingPlayerName = currentFight.originatingPlayerName;
     const originatingPlayerKey = aiFightPlayerKey(originatingPlayerName);
 
@@ -629,6 +632,7 @@ export function AiFightHost({
             queued: queuedWorldRequestRef.current ?? undefined,
         };
         queuedWorldRequestRef.current = null;
+        setQueuedOpponentName(undefined);
         setFight((current) => current?.requestId === active?.requestId ? null : current);
     }
 
@@ -637,11 +641,13 @@ export function AiFightHost({
             <AiFightScreen
                 huntSession={currentFight.session}
                 huntSettleFn={settle}
-                enemyAvatar={request.enemyAvatar}
+                enemyAvatar={enemyAvatar}
                 character={character}
                 runId={currentFight.sessionId}
                 initialSession={soloPveSessionForArena(currentFight.session)}
                 eventLabel={request.returnScreen === 'dojoCircuit' ? 'Dojo Circuit' : undefined}
+                encounter={encounter}
+                encounterNotice={currentFight.notice}
                 transport={soloPveArenaTransport}
                 sharedImages={sharedImages}
                 savedBloodlines={savedBloodlines}
@@ -653,7 +659,7 @@ export function AiFightHost({
                 settleOnAnyDone
                 onRecordBattle={onRecordBattle}
                 recordMode={request.returnScreen === 'dojoCircuit' ? 'Dojo Circuit' : currentFight.worldContext ? "World Encounter" : request.battleKind === "practice" ? "Practice" : "AI Fight"}
-                enemyAvatarOverride={request.enemyAvatar}
+                enemyAvatarOverride={enemyAvatar}
                 onExit={closeFight}
                 renderResult={(ctx) => request.returnScreen === 'dojoCircuit' ? <Suspense fallback={null}><CircuitCombatResult playerName={character.name} won={ctx.won} draw={ctx.draw} settleState={ctx.settleState} onRetry={ctx.retry} onExit={closeFight} /></Suspense> : (
                     <AiFightResultCard
@@ -662,6 +668,11 @@ export function AiFightHost({
                         settleState={ctx.settleState}
                         settleResult={ctx.settleResult as AiFightSettleResult | null}
                         opponentName={opponentName}
+                        opponentLevel={Number(currentFight.session.enemy.character.level) || undefined}
+                        enemyAvatar={enemyAvatar}
+                        encounter={encounter}
+                        queuedOpponentName={queuedOpponentName}
+                        onExportLog={() => { void import('../lib/solo-battle-debug').then(({ downloadRecordedSoloBattleDebug }) => downloadRecordedSoloBattleDebug(currentFight.sessionId, currentFight.session.player.name)); }}
                         worldEncounter={!!currentFight.worldContext}
                         spar={!currentFight.worldContext && request.battleKind === "practice"}
                         onRetry={ctx.retry}
@@ -680,6 +691,11 @@ export function AiFightResultCard({
     settleState,
     settleResult,
     opponentName,
+    opponentLevel,
+    enemyAvatar,
+    encounter,
+    queuedOpponentName,
+    onExportLog,
     worldEncounter,
     spar,
     onRetry,
@@ -690,6 +706,11 @@ export function AiFightResultCard({
     settleState: "idle" | "pending" | "settled" | "failed";
     settleResult: AiFightSettleResult | null;
     opponentName: string;
+    opponentLevel?: number;
+    enemyAvatar?: string;
+    encounter?: OrdinaryPveEncounter;
+    queuedOpponentName?: string;
+    onExportLog?: () => void;
     worldEncounter: boolean;
     /** A practice bout: never a hospital stay, never an HP cost. */
     spar: boolean;
@@ -702,6 +723,8 @@ export function AiFightResultCard({
                 <div className="story-fight-complete-card">
                     <p className="story-fight-complete-kicker">{draw ? "Stalemate" : spar ? "Spar lost" : "Defeated"}</p>
                     <h2>{opponentName}</h2>
+                    {enemyAvatar && <img src={enemyAvatar} alt="" style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: '50%', margin: '0 auto 8px' }} />}
+                    {encounter ? <EncounterDifficultyBadge encounter={encounter} /> : opponentLevel ? <p>Lv {opponentLevel}</p> : null}
                     <p className="story-fight-complete-boss" role={settleState === "failed" ? "alert" : "status"}>
                         {aiFightNonWinMessage(settleState, settleResult?.character, draw, spar)}
                     </p>
@@ -715,6 +738,7 @@ export function AiFightResultCard({
                         settles on a later attempt. Same reasoning as the PvP
                         result screen. */}
                     {settleState === "failed" && <button onClick={onRetry}>Retry</button>}
+                    {onExportLog && <button type="button" onClick={onExportLog}>Export observed log</button>}
                     <button disabled={settleState === "pending"} onClick={onExit}>{settleResult?.character?.hospitalized ? "Go to Hospital" : "Return"}</button>
                 </div>
             </div>
@@ -734,6 +758,9 @@ export function AiFightResultCard({
             <div className="story-fight-complete-card">
                 <p className="story-fight-complete-kicker">Victory</p>
                 <h2>{opponentName} defeated.</h2>
+                {enemyAvatar && <img src={enemyAvatar} alt="" style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: '50%', margin: '0 auto 8px' }} />}
+                {encounter ? <EncounterDifficultyBadge encounter={encounter} /> : opponentLevel ? <p>Lv {opponentLevel}</p> : null}
+                {queuedOpponentName && <p role="status">Next encounter: {queuedOpponentName}. Continue when ready.</p>}
                 {settleState !== "settled" || !settleResult
                     ? (
                         <p className="story-fight-complete-rewards">
@@ -760,6 +787,7 @@ export function AiFightResultCard({
                 {/* Same escape hatch as the defeat branch above: a failed
                     settlement offers Retry AND a way out, never Retry alone. */}
                 {settleState === "failed" && <button onClick={onRetry}>Retry</button>}
+                {onExportLog && <button type="button" onClick={onExportLog}>Export observed log</button>}
                 <button disabled={settleState === "pending"} onClick={() => {
                     onExit();
                     if (settleState === "settled" && settleResult?.settled && settleResult.character && !settleResult.replayed) {

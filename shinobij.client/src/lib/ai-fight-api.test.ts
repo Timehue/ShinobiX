@@ -6,6 +6,30 @@ import {
     resumeWorldAiFight,
     startAiFight,
 } from "./ai-fight-api";
+import { rollOrdinaryPveEncounter } from '../../../shared/ordinary-pve-encounter';
+
+test('start and both resume lanes retain the server-sealed descriptor and only send its id', { concurrency: false }, async () => {
+    const encounter = rollOrdinaryPveEncounter({ sourceId: 'receipt_123456', playerLevel: 75, sector: 66, displayName: 'Tsukika the Quiet Blade' });
+    const generic = { token: 'token', sessionId: 'session', session, opponentId: encounter.profileId, opponentName: encounter.displayName,
+        battleKind: 'explore', encounter, worldExploreRequestId: 'receipt_123456', sector: 66 };
+    const worldContext = { kind: 'wanderer', sourceId: 'w-66-5000-2', sector: 66, stage: 0, displayName: encounter.displayName, encounter };
+    const replies = [response(generic), response(generic), response({ ...generic, worldContext })];
+    const previous = globalThis.fetch;
+    const requests: Record<string, unknown>[] = [];
+    globalThis.fetch = (async (_url: string, init: RequestInit) => { requests.push(JSON.parse(String(init.body))); return replies.shift()!; }) as typeof fetch;
+    try {
+        const started = await startAiFight({ playerName: 'Rill', opponentId: encounter.profileId, opponentLevel: encounter.level,
+            battleKind: 'explore', sector: 66, worldExploreRequestId: 'receipt_123456', encounterId: encounter.id });
+        assert.ok('encounter' in started);
+        assert.deepEqual(started.encounter, encounter);
+        assert.deepEqual((await resumeGenericAiFight('Rill'))?.encounter, encounter);
+        const world = await resumeWorldAiFight('Rill');
+        assert.ok(world && 'worldContext' in world);
+        assert.deepEqual(world.worldContext?.encounter, encounter);
+        assert.equal(requests[0].encounterId, encounter.id);
+        assert.equal('encounter' in requests[0], false, 'the body cannot supply a replacement descriptor');
+    } finally { globalThis.fetch = previous; }
+});
 
 const session = {
     runtime: "solo-pve",

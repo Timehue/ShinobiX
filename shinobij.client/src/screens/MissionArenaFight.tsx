@@ -102,6 +102,10 @@ import { equipSlotForItem } from "../lib/equipment";
 import { pvpAffectsOpponent, tagMatchesName } from "../lib/tags";
 import { hollowGateCombatDirective } from "../../../shared/hollow-gate-combat-director";
 import { BASIC_CLEAR_RANGE } from "../../../shared/combat-basic-actions";
+import type { OrdinaryPveEncounter } from '../../../shared/ordinary-pve-encounter';
+import { ordinaryPvePortrait } from '../lib/ordinary-pve-presentation';
+import { EncounterDifficultyBadge } from '../components/EncounterDifficultyBadge';
+import { captureSoloBattleDebug, downloadSoloBattleDebug } from '../lib/solo-battle-debug';
 import type { HollowGateHoundKind } from "../../../shared/hollow-gate-contract";
 
 // ─── Solo Arena Fight (missions + story bosses) ───────────────────────────────
@@ -210,6 +214,8 @@ export function MissionArenaFight({
     onRecordBattle,
     recordMode,
     enemyAvatarOverride,
+    encounter,
+    encounterNotice,
     hollowGate,
     retreatSealed,
 }: {
@@ -273,6 +279,8 @@ export function MissionArenaFight({
      *  boss's authored chapter portrait, or the Anbu defender's masked art. Falls
      *  through to the sealed avatar / published art / initials when absent. */
     enemyAvatarOverride?: string;
+    encounter?: OrdinaryPveEncounter;
+    encounterNotice?: string;
     /** Display-only shrine direction. Damage, hazards, and retreat are enforced by the returned Solo PvE session. */
     hollowGate?: { floor: number; kind: HollowGateHoundKind };
     retreatSealed?: boolean;
@@ -289,6 +297,8 @@ export function MissionArenaFight({
     outcomeFn?: (runId: string, playerName: string) => Promise<unknown>;
 }) {
     const [session, setSession] = useState<ServerArenaSession>(initialSession);
+    const debugRecord = session.debugSource ? captureSoloBattleDebug(session.debugSource) : undefined;
+    const [encounterDetailsOpen, setEncounterDetailsOpen] = useState(false);
     const mobileCombat = useSyncExternalStore(subscribeMobileCombat, isMobileCombat, () => false);
     const [mode, setMode] = useState<Mode>("idle");
     const gridAppearance = useCombatGridAppearance(String(session.map.biome ?? "central"), mode !== "idle");
@@ -1202,9 +1212,9 @@ export function MissionArenaFight({
     const playerAvatar = resolveOwnAvatar(character, sharedImages) || me.slice(0, 2).toUpperCase();
     const enemyVisual = String(enemy?.character?.visual ?? "");
     const sealedEnemyAvatar = typeof enemy?.character?.avatarImage === "string" ? enemy!.character.avatarImage as string : "";
-    const enemyAvatar = enemyAvatarOverride || sealedEnemyAvatar || sharedImages?.[`ai:${enemyVisual}`] || (enemy?.name ? enemy.name.slice(0, 2).toUpperCase() : "EN");
+    const enemyAvatar = (encounter && ordinaryPvePortrait(encounter)) || enemyAvatarOverride || sealedEnemyAvatar || sharedImages?.[`ai:${enemyVisual}`] || (enemy?.name ? enemy.name.slice(0, 2).toUpperCase() : "EN");
     const enemyName = enemy?.name ?? "Enemy";
-    const enemyBattleSprite = battlefieldAiSprite(enemyVisual, sharedImages);
+    const enemyBattleSprite = battlefieldAiSprite(enemyVisual, sharedImages, { name: enemyName, archetype: encounter?.archetype });
     // The pet's portrait is resolved from the player's OWN save (character.pets) rather
     // than sealed into the session — a base64 pet image would bloat every 2.5s poll.
     // Portrait-first — `pet.image` alone misses published and replacement art.
@@ -1396,11 +1406,14 @@ export function MissionArenaFight({
                 <CombatHudMain activeTab={tabs.tab}>
                     <CombatHudHeader
                         title={biomeLabel(biome as Parameters<typeof biomeLabel>[0])}
-                        subtitle={<>Round {session.round} | {eventLabel ?? 'Shinobi Duel'}</>}
+                        subtitle={<>Round {session.round} | {eventLabel ?? 'Shinobi Duel'} {encounter && <EncounterDifficultyBadge encounter={encounter} />}</>}
                     />
 
                     <CombatEnvironmentStrip className="combat-grid-environment">
                         <div className="combat-grid-environment-details">
+                        {(encounterNotice || typeof enemy?.character?.tacticalTell === 'string') && <button type="button" id="encounter-details-trigger" aria-haspopup="dialog" aria-controls="encounter-details" aria-expanded={encounterDetailsOpen}
+                            onClick={() => setEncounterDetailsOpen(true)} title={encounterNotice}>{encounterNotice ? 'Resumed encounter' : 'Opponent tells'}</button>}
+                        {typeof enemy?.character?.pveDifficultyLabel === 'string' && <span className="encounter-difficulty" title={String(enemy.character.tacticalTell ?? '')}>{enemy.character.pveDifficultyLabel}</span>}
                         <span className="twp-strip-biome">{biomeLabel(biome as Parameters<typeof biomeLabel>[0])}</span>
                         <span className="twp-strip-sep">·</span>
                         <span className="twp-strip-label">Terrain</span>
@@ -1898,6 +1911,8 @@ export function MissionArenaFight({
                         turnLabel={turnLabel}
                         selfName={character.name}
                         oppName={enemyName}
+                        headerActions={debugRecord && <button type="button" className="combat-log-expand" onClick={() => downloadSoloBattleDebug(debugRecord)}
+                            title={debugRecord.complete ? 'Export observed battle actions and resources' : 'Export partial history; earlier events are missing'}>Export {debugRecord.complete ? 'log' : 'partial'}</button>}
                     />
                 </CombatHudMain>
 
@@ -1918,10 +1933,17 @@ export function MissionArenaFight({
                     statuses={hudStatuses(enemy?.statuses)}
                     currentRound={session.round}
                     isActive={enemyActive}
+                    level={Number(enemy?.character?.level) || undefined}
                 />
             </CombatHudLayout>
 
             {academyClickStep && <AcademyClickGuide step={academyClickStep} />}
+            {encounterDetailsOpen && <CombatDetailPortal id="encounter-details" labelId="encounter-details-title" triggerId="encounter-details-trigger" onClose={() => setEncounterDetailsOpen(false)}>
+                <h2 id="encounter-details-title">{enemyName}</h2>
+                {encounterNotice && <p role="status">{encounterNotice}</p>}
+                {typeof enemy?.character?.tacticalTell === 'string' && <p>{enemy.character.tacticalTell}</p>}
+                <button type="button" data-combat-detail-close onClick={() => setEncounterDetailsOpen(false)}>Return to battle</button>
+            </CombatDetailPortal>}
 
             {coach === "academySpar" && !done && academyCoachOpen && !academyGuideJutsu && !inspectedJutsu && (
                 <CombatDetailPortal id="academy-coach-dialog" labelId="academy-coach-title"

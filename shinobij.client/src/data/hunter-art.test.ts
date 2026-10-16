@@ -143,7 +143,9 @@ describe("hunter-art beast portraits", () => {
 
         // …and the host must prefer that override over anything the session seals.
         const host = readFileSync(join(here, "..", "components", "AiFightHost.tsx"), "utf8");
-        assert.match(host, /enemyAvatarOverride=\{request\.enemyAvatar\}/);
+        assert.match(host, /enemyAvatarOverride=\{enemyAvatar\}/);
+        assert.match(host, /adoptRequestedFightPresentation\(sealedWorldRequest, request\)/,
+            'only the matching sealed hunt may inherit the launch portrait');
         const fight = readFileSync(join(here, "..", "screens", "MissionArenaFight.tsx"), "utf8");
         const chain = fight.split("const enemyAvatar =")[1]?.split(";")[0] ?? "";
         const overrideAt = chain.indexOf("enemyAvatarOverride");

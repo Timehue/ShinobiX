@@ -4,6 +4,7 @@ import { noteSectorPoolView, type SectorPoolView } from './sector-pool';
 import { bumpSectorContractRevision } from './sector-contract';
 import { runSingleFlight } from './single-flight';
 import { expectGearDropReveal } from './gear-drop-store';
+import type { OrdinaryPveEncounter } from '../../../shared/ordinary-pve-encounter';
 
 /**
  * World-map reward settlement.
@@ -34,7 +35,7 @@ export type ExternalExploreProof = { kind: 'dungeon' | 'pet'; token: string };
 export type SectorExploreOutcome =
     | { kind: 'gather'; find: import('../../../shared/gathering').PendingGatherFind }
     | { kind: 'chest' }
-    | { kind: 'battle' }
+    | { kind: 'battle'; encounter?: OrdinaryPveEncounter }
     | { kind: 'none' }
     | { kind: 'external'; source: 'dungeon' | 'pet' };
 
@@ -58,7 +59,7 @@ export type SectorExploreResult = {
     retryable?: boolean;
     reason?: string;
     /** `pending-battle-discovery`: the ambush this player already rolled and must fight first. */
-    pendingBattle?: { requestId: string; sector: number };
+    pendingBattle?: { requestId: string; sector: number; encounter?: OrdinaryPveEncounter };
 };
 
 type WorldRewardFailure = { error?: string; status?: number; retryable?: boolean; reason?: string };
@@ -172,7 +173,7 @@ async function requestSectorExplore(
             }),
         });
         const data = await response.json().catch(() => null) as
-            { reward?: { sector: number; xp: number; ryo: number }; outcome?: SectorExploreOutcome; replayed?: boolean; character?: Character; fieldProgress?: FieldExploreProgress[]; _saveVersion?: number; sectorPool?: SectorPoolView; error?: string; reason?: string; requestId?: string; sector?: number } | null;
+            { reward?: { sector: number; xp: number; ryo: number }; outcome?: SectorExploreOutcome; encounter?: OrdinaryPveEncounter; replayed?: boolean; character?: Character; fieldProgress?: FieldExploreProgress[]; _saveVersion?: number; sectorPool?: SectorPoolView; error?: string; reason?: string; requestId?: string; sector?: number } | null;
         // Both the payout and a 'sector-depleted' refusal carry the live pool.
         if (data?.sectorPool) noteSectorPoolView(sector, data.sectorPool);
         // The server ticks contract progress off this same explore receipt, so
@@ -185,7 +186,7 @@ async function requestSectorExplore(
             const pendingBattle = data?.error === 'pending-battle-discovery'
                 && typeof data.requestId === 'string' && data.requestId
                 && Number.isFinite(Number(data.sector))
-                ? { requestId: data.requestId, sector: Math.floor(Number(data.sector)) }
+                ? { requestId: data.requestId, sector: Math.floor(Number(data.sector)), ...(data.encounter ? { encounter: data.encounter } : {}) }
                 : null;
             return pendingBattle ? { ...failure, pendingBattle } : failure;
         }

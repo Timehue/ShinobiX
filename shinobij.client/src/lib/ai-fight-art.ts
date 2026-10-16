@@ -5,6 +5,7 @@ import { vnActorImageKey } from './vn-shared-artwork';
 import { isRetiredVnArt } from './vn-retired-artwork';
 import { resolveCinematicActorImage } from './vn-presentation';
 import { worldBossDefinitionForVisual, worldBossDefinitionForGuardVisual } from '../../../shared/world-boss-event';
+import { STORY_KAGE_PORTRAITS } from '../../../shared/story-kage-art';
 
 export type TowerEnemySpriteKey =
     | "bandit"
@@ -76,6 +77,7 @@ export function resolveTowerEnemyPortrait(
 
     const published = sharedImages?.[`ai:${visual}`];
     if (published) return published;
+    if (Object.hasOwn(STORY_KAGE_PORTRAITS, visual)) return STORY_KAGE_PORTRAITS[visual as keyof typeof STORY_KAGE_PORTRAITS];
 
     const riftPortrait = RIFT_BOSS_PORTRAITS[visual];
     if (riftPortrait) return riftPortrait;

@@ -1,6 +1,9 @@
 import { roadFleeCost, type RoadFleeCost } from "../../../shared/road-flee";
 import type { Character } from "../types/character";
 import type { Wanderer } from "./wanderers";
+import type { OrdinaryPveEncounter } from '../../../shared/ordinary-pve-encounter';
+import { ordinaryPvePortrait } from './ordinary-pve-presentation';
+import type { AiFightRequest } from './ai-fight-request';
 
 /** The flee price, said before the choice: every hostile that stops you shows it. */
 export function roadFleePriceLine(character: Pick<Character, "hp" | "ryo" | "level">): string {
@@ -14,12 +17,25 @@ export function roadFleePriceLine(character: Pick<Character, "hp" | "ryo" | "lev
  * in the same Fight/Flee encounter dialog as a road bandit. The server picks
  * the real opponent when the fight starts; this is only who blocks the path.
  */
-export function exploreAmbushWanderer(requestId: string, level: number): Wanderer {
+export function exploreAmbushWanderer(requestId: string, level: number, encounter?: OrdinaryPveEncounter): Wanderer {
     return {
-        id: `explore-ambush-${requestId}`, name: "Wild Challenger", archetype: "bandit", verb: "attack",
-        level, homeTile: 0, waypoints: [], movement: "stationary", tellTint: "var(--red-400)", avatarKey: "bandit",
+        id: `explore-ambush-${requestId}`, name: encounter?.displayName ?? "Unidentified Challenger", archetype: "bandit", verb: "attack",
+        level: encounter?.level ?? level, homeTile: 0, waypoints: [], movement: "stationary", tellTint: "var(--red-400)", avatarKey: "bandit",
+        ...(encounter ? { avatarImage: ordinaryPvePortrait(encounter) } : {}),
         greeting: "You picked the wrong ground to go digging in.",
     };
+}
+
+export function exploreAmbushDialogState(sector: number, requestId: string, level: number, encounter?: OrdinaryPveEncounter) {
+    return { w: exploreAmbushWanderer(requestId, level, encounter), ambush: { sector, requestId }, ...(encounter ? { encounter } : {}) };
+}
+
+/** The server accepts only the receipt and descriptor id as authority. These
+ * identity fields let an older client display a sealed roll without re-rolling. */
+export function exploreAmbushFightRequest(sector: number, worldExploreRequestId: string, level: number, encounter?: OrdinaryPveEncounter): AiFightRequest {
+    return { opponentId: encounter?.profileId ?? 'server-explore-opponent', opponentLevel: encounter?.level ?? level,
+        battleKind: 'explore', returnScreen: 'worldMap', opponentName: encounter?.displayName ?? 'Unidentified Challenger',
+        ...(encounter ? { encounter } : {}), sector, worldExploreRequestId };
 }
 
 /** Which ambush is being fled: a hostile on the road, or an exploration's rolled battle. */

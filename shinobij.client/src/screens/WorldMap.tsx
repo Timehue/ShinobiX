@@ -89,9 +89,12 @@ import { raidStartActionScope } from "../lib/action-deadline-store";
 import { useLiveActionDeadline } from "../lib/use-action-deadline";
 import { sameJsonValue } from "../lib/pvp-session-runtime";
 import type { WorldAiFightContext, WorldAiFightRequest } from "../../../shared/world-ai-fight";
+import type { OrdinaryPveEncounter } from '../../../shared/ordinary-pve-encounter';
+import { ordinaryWandererEncounter } from '../../../shared/wanderer-roster';
+import { ordinaryPvePortrait } from '../lib/ordinary-pve-presentation';
 import { WORLD_FIGHT_KIND_BY_MODE } from "../lib/world-ai-presentation-modes";
 import { wandererAvatar, wandererRobberPortrait, questBossPortrait, WANDERER_BOSS_PORTRAIT, WANDERER_KAGERO_PORTRAIT, WANDERER_NEMESIS_PORTRAIT } from "../lib/wanderer-art";
-import { anglerTip, roadFightAftermath, roadNemesisActorId, roadNemesisTier, roadNemesisTitle, useRoadCast, wandererForcesChoice } from "../lib/road-cast";
+import { anglerTip, roadFightAftermath, roadNemesisActorId, roadNemesisTier, roadNemesisTitle, useRoadCast, wandererForcesChoice, withOrdinaryPvePreview } from "../lib/road-cast";
 import { makeBuiltinAi } from "../lib/combat-ai";
 import { genericPetArenaOpponents, type PetArenaOpponent } from "../data/pet-arena-opponents";
 import { ROAD_WANDERER_PREFIX, nextRoadEvent, synthRoadWanderer, roadEventBySynthId, roadEventToCreatorEvent, reportStoryRoadEvent, applyRoadEventChoice } from "../lib/story-road-events";
@@ -231,7 +234,7 @@ import { fetchBountyBoard, startBountyHunter, type BountyEntry } from "../lib/pv
 import { contractHunterLevel } from "../../../shared/contract-hunter";
 import { contractHunterWanderers } from "../lib/contract-hunter-wanderers";
 import { postWandererService, type WandererFavor } from "../lib/wanderer-service";
-import { exploreAmbushWanderer, fleeRoadAmbush, roadFleePriceLine, type RoadFleeResult } from "../lib/road-flee-api";
+import { exploreAmbushDialogState, exploreAmbushFightRequest, fleeRoadAmbush, roadFleePriceLine, type RoadFleeResult } from "../lib/road-flee-api";
 import { homeVillageForSector } from "../data/war-map-sectors";
 import { isLegacyServerLive, useLegacyAvailability, useLegacyMutationAvailability, fetchSageState, fetchLegacyStatus, synthSageWanderer, LEGACY_SAGE_WANDERER_ID, type SageOfferView } from "../lib/legacy";
 import { rollEmissarySpawn, EMISSARY_BY_SLUG, type EmissarySlug, type EmissaryQuestDef } from "../lib/legacy-emissaries";
@@ -766,8 +769,8 @@ function WorldMapContent({
     const roadBeastPets = useMemo(() => roadBeastReadyPets(character), [character]);
     const roadCast = useRoadCast(selectedSector, naturalWanderers, character); // + angler/miner, rift creature, Kagero; patrols answer to the road's village
     const sectorWanderers = useMemo(
-        () => roadCast.map((wanderer) => withRoadBeastIdentity(wanderer, roadBeastPets, sharedImages)),
-        [roadCast, roadBeastPets, sharedImages],
+        () => roadCast.map((wanderer) => withRoadBeastIdentity(withOrdinaryPvePreview(wanderer, character.level, selectedSector), roadBeastPets, sharedImages)),
+        [roadCast, roadBeastPets, sharedImages, character.level, selectedSector],
     );
     const [bountyBoard, setBountyBoard] = useState<BountyEntry[]>([]);
     useEffect(() => {
@@ -1260,11 +1263,9 @@ function WorldMapContent({
         coolWanderer(w.id, ms);
     }
     // ── Bandit fights, level-scaling, streak & ambush ────────────────────────
-    // All wanderer combat scales to the PLAYER's level (never impossible). Fending
-    // off robbers builds character.robberStreak; at 5, the next bandit springs an
-    // AMBUSH gauntlet — 3 robbers then a boss, back-to-back. The server seals each
-    // wave, owns the streak and outcome, and carries surviving HP plus the exact
-    // one-third recovery between waves. localStorage is presentation recovery only.
+    // Ordinary road opponents use their sealed level and difficulty. Five robber
+    // wins trigger the authored gang gauntlet; the server owns its waves, streak,
+    // surviving HP and one-third recovery. Local state only recovers presentation.
 
     function buildRobberAi(level: number, tag: string, stage = 0): CreatorAi {
         const lvl = Math.max(1, Math.min(100, Math.round(level)));
@@ -1346,7 +1347,7 @@ function WorldMapContent({
         if (isMercAiId(w.id)) { void engageRoamingMerc(w); return; }
         const d = wandererDialog?.w.id === w.id ? wandererDialog : null;
         if (d?.ambush) {
-            setWandererDialog(startExploreAmbushFight(d.ambush.sector, d.ambush.requestId) ? null : { ...d, choiceError: "The combat host is unavailable. Try Fight again in a moment." });
+            setWandererDialog(startExploreAmbushFight(d.ambush.sector, d.ambush.requestId, d.encounter) ? null : { ...d, choiceError: "The combat host is unavailable. Try Fight again in a moment." });
             return;
         }
         if (selectedSector == null) return;
@@ -1371,10 +1372,10 @@ function WorldMapContent({
             );
             return;
         }
-        // A lone robber that fights as THIS wanderer — or your returning nemesis,
-        // escalated by its tier — always scaled to the player.
+        // Ordinary levels are sealed; Kagero follows explicit rivalry escalation.
         const nem = nemesis ? (character.wandererNemesis ?? null) : null;
-        const lvl = Math.max(1, Math.min(100, character.level + (nem ? Math.max(1, nem.tier) : 1)));
+        const encounter = d?.encounter ?? (!nem && selectedSector != null ? ordinaryWandererEncounter(w, character.level, selectedSector) : null);
+        const lvl = encounter?.level ?? Math.max(1, Math.min(100, character.level + (nem ? Math.max(1, nem.tier) : 1)));
         const name = nem ? roadNemesisTitle(roadNemesisTier(nem)) : w.name;
         const statBonus = nem ? Math.min(12, Math.max(1, nem.tier) * 2) : 0;
         const ai = makeBuiltinAi(`wanderer-${nem ? "nemesis" : w.id}`, name, nem ? "😡" : "🥷", lvl, "Wandering Road", [], statBonus, undefined, "bruiser");
@@ -1382,7 +1383,7 @@ function WorldMapContent({
         launchWorldMapFight(
             ai,
             selectedSector,
-            { kind: "wanderer", sourceId: nem ? "nemesis" : w.id, sector: selectedSector, stage: 0 },
+            { kind: "wanderer", sourceId: nem ? "nemesis" : w.id, sector: selectedSector, stage: 0, ...(encounter ? { encounterId: encounter.id } : {}) },
         );
     }
     function roadRumorFor(w: Wanderer): string {
@@ -1944,6 +1945,8 @@ function WorldMapContent({
     // actually your returning rival. The dialog is the only UI; rewards are
     // server-authoritative.
     const [wandererDialog, setWandererDialog] = useState<WorldWandererDialogState | null>(null);
+    const wandererChoiceRef = useRef<WorldWandererDialogState | null>(null);
+    useLayoutEffect(() => { wandererChoiceRef.current = wandererDialog; }, [wandererDialog]);
     useEffect(() => {
         if (legacyAvailable) return;
         setSageOffer(null);
@@ -1956,11 +1959,12 @@ function WorldMapContent({
     }
     function handleWandererEngage(w: Wanderer) {
         if (selectedSector == null || !sameSector(currentSector, selectedSector)) return;
-        if (requiresWandererChoice(wandererDialog) || bossDialog || worldBossQueueOpen) return false; // one hostile at a time; a world boss queue or raid is busy too
+        if (requiresWandererChoice(wandererChoiceRef.current) || bossDialog || worldBossQueueOpen) return false; // one hostile at a time, including callbacks before the next React commit
         if (combatActive || isCombatActive()) {
             if (w.verb === "bountyHunter") pendingBountyHunterRef.current = { hunterId: w.id, sector: selectedSector };
             return;
         }
+        if (wandererForcesChoice(w)) wandererChoiceRef.current = { w };
         rememberWanderer(w);
         // Fresh scene, fresh verdict: whether the LAST giver's offer was taken must
         // never carry into this one's decline check. (The rift-accept branch closes
@@ -2068,7 +2072,8 @@ function WorldMapContent({
         }
         // Every wanderer — bandits included — opens a dialog first (a threat line
         // + Fight/Flee for bandits; greetings + actions for the rest).
-        setWandererDialog({ w, standingLine: react?.line });
+        const encounter = ordinaryWandererEncounter(w, character.level, selectedSector);
+        setWandererDialog({ w: encounter ? { ...w, level: encounter.level, avatarImage: ordinaryPvePortrait(encounter) } : w, standingLine: react?.line, ...(encounter ? { encounter } : {}) });
     }
     // Choosing Fight against a roaming merc resolves SERVER-SIDE (no client Arena;
     // the server calls the clash). Fleeing it is the priced road flee. The result reuses
@@ -3072,7 +3077,7 @@ function WorldMapContent({
                 completeWorldRewardOperation(character.name, operation.id);
             }
             if (settled.pendingBattle) { // an ambush rolled earlier is still owed: resume that exact sealed encounter
-                if (!presentExploreAmbush(settled.pendingBattle.sector, settled.pendingBattle.requestId)) notifyFailure("The combat host is unavailable. Reopen the map to resume your pending encounter.");
+                if (!presentExploreAmbush(settled.pendingBattle.sector, settled.pendingBattle.requestId, settled.pendingBattle.encounter)) notifyFailure("The combat host is unavailable. Reopen the map to resume your pending encounter.");
                 return null;
             }
             if (settled.error === "sector-depleted" && !reportFailure) { gameToast(SECTOR_DEPLETED_MESSAGE, { kind: "info" }); return null; }
@@ -3142,27 +3147,24 @@ function WorldMapContent({
     // the same Fight/Flee encounter as any road hostile. The receipt stays owed
     // (api/world/_pending-battle.ts) until Fight starts it or Flee settles it, so
     // a refresh or the next exploration brings the same choice back.
-    function presentExploreAmbush(sector: number, worldExploreRequestId: string): boolean {
-        if (!isWildSector(sector)) return startExploreAmbushFight(sector, worldExploreRequestId);
+    function presentExploreAmbush(sector: number, worldExploreRequestId: string, encounter?: OrdinaryPveEncounter): boolean {
+        if (combatActive || isCombatActive() || (requiresWandererChoice(wandererChoiceRef.current) && wandererChoiceRef.current?.ambush?.requestId !== worldExploreRequestId)) return false;
+        if (!isWildSector(sector)) return startExploreAmbushFight(sector, worldExploreRequestId, encounter);
         travelToSector(sector, () => {
-            setWandererDialog({ w: exploreAmbushWanderer(worldExploreRequestId, character.level), ambush: { sector, requestId: worldExploreRequestId } });
+            // Travel may finish after another hostile reached the player. The
+            // durable receipt remains owed; it must never replace that choice.
+            if (isCombatActive() || (requiresWandererChoice(wandererChoiceRef.current) && wandererChoiceRef.current?.ambush?.requestId !== worldExploreRequestId)) return;
+            const preview = exploreAmbushDialogState(sector, worldExploreRequestId, character.level, encounter);
+            wandererChoiceRef.current = preview;
+            setWandererDialog((current) => current?.ambush?.requestId === worldExploreRequestId ? current : preview);
         });
         return true;
     }
-    function startExploreAmbushFight(sector: number, worldExploreRequestId: string): boolean {
+    function startExploreAmbushFight(sector: number, worldExploreRequestId: string, encounter?: OrdinaryPveEncounter): boolean {
         if (!captureSectorAction(sector)()) return false;
+        const preview = encounter ?? (wandererDialog?.ambush?.requestId === worldExploreRequestId ? wandererDialog.encounter : undefined);
         setSectorReopen(isWildSector(sector) ? sector : null);
-        return requestAiFight({
-            // The server ignores this suggestion and derives the closest-level
-            // non-boss opponent from the exact exploration receipt.
-            opponentId: "server-explore-opponent",
-            opponentLevel: character.level,
-            battleKind: "explore",
-            returnScreen: "worldMap",
-            opponentName: "Wild Challenger",
-            sector,
-            worldExploreRequestId,
-        });
+        return requestAiFight(exploreAmbushFightRequest(sector, worldExploreRequestId, character.level, preview));
     }
 
     async function recoverResolvedPetOperation(
@@ -3403,7 +3405,7 @@ function WorldMapContent({
             return chestState === "settled" ? "recovered" : chestState === "terminal" ? "retired" : "blocked";
         }
         if (explored.outcome?.kind === "battle") {
-            if (presentExploreAmbush(explored.operation.sector, explored.operation.id)) return "recovered";
+            if (presentExploreAmbush(explored.operation.sector, explored.operation.id, explored.outcome.encounter)) return "recovered";
             notifyFailure("The combat host is unavailable. Reopen the map to resume this sealed encounter.");
             return "blocked";
         }
