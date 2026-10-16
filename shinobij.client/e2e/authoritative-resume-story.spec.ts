@@ -82,6 +82,7 @@ async function resumeFixture(page: Page, mode: 'active' | 'empty' | 'failure-ret
 
 async function finishAndReoffer(page: Page, info: TestInfo) {
     await expect(page.locator('#combat')).toBeVisible();
+    await expect(page.locator('.app-shell')).toHaveAttribute('data-sealed-fight-engaged', 'true');
     await expect(scene(page)).toHaveCount(0);
     await info.attach('resumed-combat-without-story-overlay', { body: await page.screenshot(), contentType: 'image/png' });
     await page.locator('#combat').getByRole('button', { name: /^Attack\b/ }).click();
@@ -90,6 +91,7 @@ async function finishAndReoffer(page: Page, info: TestInfo) {
     await expect(scene(page)).toHaveCount(0);
     await result.getByRole('button', { name: 'Continue', exact: true }).click();
     await expect(page.locator('#combat')).toHaveCount(0);
+    await expect(page.locator('.app-shell')).toHaveAttribute('data-sealed-fight-engaged', 'false');
     await expect(scene(page)).toBeVisible();
     await info.attach('unseen-story-reoffered-after-combat', { body: await page.screenshot(), contentType: 'image/png' });
 }
@@ -116,9 +118,11 @@ test('empty world and generic recovery probes release the unseen interlude', asy
     const fixture = await resumeFixture(page, 'empty');
     await expect.poll(fixture.genericProbes).toBe(1);
     await page.waitForTimeout(500);
+    await expect(page.locator('.app-shell')).toHaveAttribute('data-sealed-fight-engaged', 'true');
     await expect(scene(page)).toHaveCount(0);
     fixture.release();
     await expect(scene(page)).toBeVisible();
+    await expect(page.locator('.app-shell')).toHaveAttribute('data-sealed-fight-engaged', 'false');
     await expect(page.locator('#combat')).toHaveCount(0);
     fixture.assertUnseen();
 });

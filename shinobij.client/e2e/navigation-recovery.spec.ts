@@ -20,6 +20,9 @@ async function restoreBattleHistory(page: Page, origin: string) {
     }, origin);
     await page.reload();
     await expect(screen(page, 'pvpBattle')).toBeVisible();
+    // The shell can paint before saved-fight recovery finishes. Back is
+    // intentionally locked until that authority check commits its release.
+    await expect(screen(page, 'pvpBattle')).toHaveAttribute('data-sealed-fight-engaged', 'false');
 }
 
 test('Back and Forward follow screens; refresh retains the Back destination', async ({ page }) => {
