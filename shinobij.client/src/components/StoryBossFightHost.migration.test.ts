@@ -14,7 +14,7 @@ const rewardSummary = readFileSync(new URL("./StoryRewardSummary.tsx", import.me
 const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
 const battleCss = readFileSync(new URL("../styles/battle-skin.css", import.meta.url), "utf8");
 const immediateResultConsumers = [
-    ["wandering AI", readFileSync(new URL("./AiFightHost.tsx", import.meta.url), "utf8")],
+    ["wandering AI", readFileSync(new URL("./AiFightResultCard.tsx", import.meta.url), "utf8")],
     ["Hollow Gate", readFileSync(new URL("../screens/HollowGateFight.tsx", import.meta.url), "utf8")],
     ["Endless Tower", readFileSync(new URL("../screens/EndlessTowerFight.tsx", import.meta.url), "utf8")],
 ] as const;

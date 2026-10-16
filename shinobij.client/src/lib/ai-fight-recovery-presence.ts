@@ -13,8 +13,8 @@ export function completeAiFightRecovery(state: AiFightRecoveryPresence, playerKe
     return state.playerKey === playerKey ? { playerKey, completedScope: scope } : state;
 }
 
-export function aiFightRecoveryIsCurrent(input: {
-    mounted: boolean; playerKey: string; requestId: number; currentPlayerKey: string; currentRequestId: number;
-}): boolean {
-    return input.mounted && input.playerKey === input.currentPlayerKey && input.requestId === input.currentRequestId;
+export function aiFightRecoveryIsCurrent(
+    mounted: boolean, playerKey: string, requestId: number, currentPlayerKey: string, currentRequestId: number,
+): boolean {
+    return mounted && playerKey === currentPlayerKey && requestId === currentRequestId;
 }
