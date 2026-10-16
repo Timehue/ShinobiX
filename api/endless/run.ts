@@ -20,9 +20,8 @@ import {
 import { cashOutEndless, recordEndlessWin, startEndlessRun, type EndlessRun } from './_run.js';
 import {
     endlessWaveBindingKey,
-    endlessSealedWaveKey,
+    readEndlessWaveForCashout,
     unsettledWaveVerdict,
-    type EndlessSealedWave,
     endlessWaveVitals,
     settleEndlessWaveBinding,
     validateTerminalEndlessWave,
@@ -112,8 +111,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // A wave sealed but never settled decides the bank first: a live
                 // or won wave must be settled, and a lost (or walked-away) wave
                 // ends the run unpaid — the same as settling that loss would.
-                const sealed = await kv.get<EndlessSealedWave>(endlessSealedWaveKey(playerName, runToken));
                 const runWave = Math.max(1, Math.floor(Number(run.wave) || 1));
+                const sealed = await readEndlessWaveForCashout(kv, playerName, runToken, runWave);
                 const verdict = sealed?.runId
                     ? unsettledWaveVerdict(sealed, runWave, await readSoloPveSession(sealed.runId))
                     : 'none';
