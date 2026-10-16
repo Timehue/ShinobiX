@@ -207,7 +207,7 @@ Visual baselines in `e2e-visual/__snapshots__` are used. Keep them.
 ## Owner calls (not dead code; don't remove without a decision)
 
 - **`api/_utils.ts:205-207` CORS allows `theravensark.com`** "for the cPanel backend tier". That host now only redirects. Removing it changes CORS (security), and `server.ts` must stay in sync.
-- **`api/pet/_active-battle-lease.ts`:** used only by a test, but its header describes a race guard that no production write calls. This may be **missing wiring**, not dead code.
+- ~~**`api/pet/_active-battle-lease.ts`:** used only by a test, but its header describes a race guard that no production write calls. This may be **missing wiring**, not dead code.~~ **Resolved (branch `claude/hungry-curran-eb8a85`):** the module was removed. The remaining consumable race is closed by a narrow guard in `sanctuary-transfer`.
 - **`lib/save-conflict-restore.ts`:** deliberately retained, per `save-conflict.test.ts:454-459`.
 - **Stale cPanel/Passenger comments** in `server.ts`, `app.js`, `scripts/verify-dist.mjs`, `api/_storage.ts:340`, `api/_force-ipv4.ts` and `.env.example`. `tsconfig.cpanel.json`, `cpanel-dns.cjs` and `_vercel.d.ts` are load-bearing; rename them at most.
 - **218 `.txt`/`.md` prompt sidecars under `public/`** ship to `dist` (about 101 KB). They could be added to the runtime-assets filter.
