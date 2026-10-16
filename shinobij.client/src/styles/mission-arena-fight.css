@@ -18,6 +18,33 @@
  * and scroll locking for this screen and every other active shinobi fight.
  */
 
+/* Encounter identity must remain visible when the phone hides the desktop
+   header. Fit its badge inside the existing compact terrain track. */
+#combat.mission-arena-fight .combat-grid-environment .encounter-difficulty {
+    display: inline-flex !important;
+    align-items: center;
+    box-sizing: border-box;
+    min-height: 18px;
+    max-height: 18px;
+    padding: 0 4px !important;
+    font-size: 10px !important;
+    line-height: 16px !important;
+}
+
+/* Desktop terrain tracks are18–26px; generic button chrome is taller and was
+   clipping both the tell label and the following difficulty text. */
+@media (min-width: 980px) {
+    #combat.mission-arena-fight #encounter-details-trigger {
+        box-sizing: border-box;
+        height: 18px !important;
+        min-height: 18px !important;
+        margin: 0 !important;
+        padding: 0 5px !important;
+        font-size: 10px !important;
+        line-height: 16px !important;
+    }
+}
+
 /* Wide viewports: show the in-grid player dossier (we don't portal it) and keep
    all three columns — player dossier | board | enemy dossier. */
 html[data-vp="xl"] .arena-fullscreen.mission-arena-fight .combat-layout > .combat-side-hud:first-child,

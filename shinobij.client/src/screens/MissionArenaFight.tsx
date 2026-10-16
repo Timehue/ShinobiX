@@ -1406,11 +1406,12 @@ export function MissionArenaFight({
                 <CombatHudMain activeTab={tabs.tab}>
                     <CombatHudHeader
                         title={biomeLabel(biome as Parameters<typeof biomeLabel>[0])}
-                        subtitle={<>Round {session.round} | {eventLabel ?? 'Shinobi Duel'} {encounter && <EncounterDifficultyBadge encounter={encounter} />}</>}
+                        subtitle={<>Round {session.round} | {eventLabel ?? 'Shinobi Duel'}</>}
                     />
 
                     <CombatEnvironmentStrip className="combat-grid-environment">
                         <div className="combat-grid-environment-details">
+                        {encounter && <EncounterDifficultyBadge encounter={encounter} />}
                         {(encounterNotice || typeof enemy?.character?.tacticalTell === 'string') && <button type="button" id="encounter-details-trigger" aria-haspopup="dialog" aria-controls="encounter-details" aria-expanded={encounterDetailsOpen}
                             onClick={() => setEncounterDetailsOpen(true)} title={encounterNotice}>{encounterNotice ? 'Resumed encounter' : 'Opponent tells'}</button>}
                         {typeof enemy?.character?.pveDifficultyLabel === 'string' && <span className="encounter-difficulty" title={String(enemy.character.tacticalTell ?? '')}>{enemy.character.pveDifficultyLabel}</span>}
