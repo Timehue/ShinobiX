@@ -27,4 +27,3 @@ export function ordinaryPvePortrait(encounter: OrdinaryPveEncounter): string | u
 export function namedPvePortrait(name: string): string | undefined {
     return /^Kagero\b/i.test(name) ? '/portraits/pve/nemesis.webp' : undefined;
 }
-
