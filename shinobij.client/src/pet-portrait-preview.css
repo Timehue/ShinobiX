@@ -1,5 +1,5 @@
-:root { color: #e7e5df; background: #08111a; font-family: Inter, system-ui, sans-serif; --font-display: Georgia, serif; --r-sm: 7px; --companion-glow: #69a1b322; --companion-accent: #d6b77b; }
-body { margin: 0; }
+.portrait-review-page { color: #e7e5df; background: #08111a; font-family: Inter, system-ui, sans-serif; --font-display: Georgia, serif; --r-sm: 7px; --companion-glow: #69a1b322; --companion-accent: #d6b77b; }
+.portrait-review-page { margin: 0; }
 .portrait-review { max-width: 1340px; margin: auto; padding: 32px; }
 .portrait-review header { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; margin-bottom: 26px; }
 .portrait-review header > p { width: 100%; margin: 0; color: #bbaa8a; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; }
