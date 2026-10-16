@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { captureSoloBattleDebug, mergeSoloBattleDebug, SOLO_DEBUG_MAX_ROWS, soloBattleDebugText } from './solo-battle-debug';
+import { captureSoloBattleDebug, downloadRecordedSoloBattleDebug, downloadSoloBattleDebug, mergeSoloBattleDebug, SOLO_DEBUG_MAX_ROWS, soloBattleDebugText } from './solo-battle-debug';
 import type { SoloPveCombatEvent, SoloPveSession } from './solo-pve-api';
 
 function event(seq: number): SoloPveCombatEvent {
@@ -64,4 +64,81 @@ test('a new fight after reload retains the prior recent journals within the thre
         captureSoloBattleDebug({ ...session([]), sessionId: 'new-fight' });
         assert.deepEqual(JSON.parse(stored).map((record: { sessionId: string }) => record.sessionId), ['new-fight', 'old-fight-a', 'old-fight-b']);
     } finally { if (previous) Object.defineProperty(globalThis, 'localStorage', previous); else Reflect.deleteProperty(globalThis, 'localStorage'); }
+});
+
+test('an unchanged expired cache starts a new partial observation without resurrecting old rows', t => {
+    const previous = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+    let now = 2_000_000_000_000;
+    let stored = '[]';
+    t.mock.method(Date, 'now', () => now);
+    Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: {
+        getItem: () => stored, setItem: (_key: string, value: string) => { stored = value; },
+    } });
+    t.after(() => { if (previous) Object.defineProperty(globalThis, 'localStorage', previous); else Reflect.deleteProperty(globalThis, 'localStorage'); });
+    const initial = captureSoloBattleDebug({ ...session(Array.from({ length: 81 }, (_, i) => event(i + 1))), sessionId: 'expired-capture' });
+    assert.equal(initial.complete, true);
+    now += 7 * 24 * 60 * 60 * 1000 + 1;
+    const resumed = captureSoloBattleDebug({ ...session([event(81)]), sessionId: 'expired-capture' });
+    assert.notEqual(resumed, initial);
+    assert.equal(resumed.updatedAt, now);
+    assert.equal(resumed.complete, false);
+    assert.deepEqual(resumed.rows.map(row => row.seq), [81, 81]);
+    assert.match(soloBattleDebugText(resumed), /Partial action history/);
+    assert.deepEqual(JSON.parse(stored), [resumed]);
+});
+
+test('direct recorded export expires old memory and persisted journals even without another capture', t => {
+    const previous = Object.getOwnPropertyDescriptors(globalThis);
+    let now = 2_100_000_000_000;
+    let stored = '[]';
+    let downloads = 0;
+    t.mock.method(Date, 'now', () => now);
+    t.mock.method(URL, 'createObjectURL', () => 'blob:test');
+    t.mock.method(URL, 'revokeObjectURL', () => undefined);
+    Object.defineProperties(globalThis, {
+        localStorage: { configurable: true, value: { getItem: () => stored, setItem: (_key: string, value: string) => { stored = value; } } },
+        document: { configurable: true, value: { createElement: () => ({ click: () => { downloads++; } }) } },
+        window: { configurable: true, value: { setTimeout: (callback: () => void) => callback() } },
+    });
+    t.after(() => { for (const key of ['localStorage', 'document', 'window']) {
+        if (previous[key]) Object.defineProperty(globalThis, key, previous[key]); else Reflect.deleteProperty(globalThis, key);
+    } });
+    captureSoloBattleDebug({ ...session([event(1)]), sessionId: 'expired-export' });
+    downloadRecordedSoloBattleDebug('expired-export', 'Rill');
+    assert.equal(downloads, 1, 'a current journal still downloads');
+    now += 7 * 24 * 60 * 60 * 1000 + 1;
+    downloadRecordedSoloBattleDebug('expired-export', 'Rill');
+    assert.equal(downloads, 1, 'expired memory must not download');
+    assert.deepEqual(JSON.parse(stored), [], 'expired persisted history is removed');
+});
+
+test('a held live export expires at the seven-day boundary even when browser storage is denied', t => {
+    const previous = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+    let now = 2_200_000_000_000;
+    t.mock.method(Date, 'now', () => now);
+    Object.defineProperty(globalThis, 'localStorage', { configurable: true, get: () => { throw new Error('storage denied'); } });
+    t.after(() => { if (previous) Object.defineProperty(globalThis, 'localStorage', previous); else Reflect.deleteProperty(globalThis, 'localStorage'); });
+    const held = captureSoloBattleDebug({ ...session([event(1)]), sessionId: 'expired-held-export' });
+    now += 7 * 24 * 60 * 60 * 1000;
+    const createUrl = t.mock.method(URL, 'createObjectURL', () => { throw new Error('expired export must not create a download'); });
+    assert.doesNotThrow(() => downloadSoloBattleDebug(held));
+    assert.equal(createUrl.mock.callCount(), 0);
+    const observed = captureSoloBattleDebug({ ...session([event(81)]), sessionId: 'expired-held-export' });
+    assert.equal(observed.complete, false);
+    assert.deepEqual(observed.rows.map(row => row.seq), [81, 81]);
+});
+
+test('hydrating an unchanged current journal removes expired stored rows before the fast path', t => {
+    const previous = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+    const now = 2_300_000_000_000;
+    t.mock.method(Date, 'now', () => now);
+    const expired = mergeSoloBattleDebug(undefined, { ...session([event(1)]), sessionId: 'expired-persisted' }, now - 7 * 24 * 60 * 60 * 1000);
+    const current = mergeSoloBattleDebug(undefined, { ...session([event(81)]), sessionId: 'fresh-persisted' }, now - 1000);
+    let stored = JSON.stringify([current, expired]);
+    Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: {
+        getItem: () => stored, setItem: (_key: string, value: string) => { stored = value; },
+    } });
+    t.after(() => { if (previous) Object.defineProperty(globalThis, 'localStorage', previous); else Reflect.deleteProperty(globalThis, 'localStorage'); });
+    assert.deepEqual(captureSoloBattleDebug({ ...session([event(81)]), sessionId: 'fresh-persisted' }), current);
+    assert.deepEqual(JSON.parse(stored), [current]);
 });
