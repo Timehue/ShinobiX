@@ -88,7 +88,7 @@ async function seedAvatarFixture() {
 describe('categoryPrefixes', () => {
     it('lists every prefix a category owns, and none for misc', () => {
         assert.deepEqual(store.categoryPrefixes('avatar'), ['avatar']);
-        assert.deepEqual(store.categoryPrefixes('pet'), ['pet', 'petbody', 'petlayers', 'petsheet']);
+        assert.deepEqual(store.categoryPrefixes('pet'), ['pet', 'petbody', 'petcard', 'petlayers', 'petsheet']);
         assert.deepEqual(store.categoryPrefixes('event'), ['event', 'vn']);
         assert.equal(store.categoryPrefixes('misc'), null);
     });

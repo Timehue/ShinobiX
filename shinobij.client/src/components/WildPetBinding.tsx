@@ -6,7 +6,7 @@ import type { ShowdownStateView, ShowdownTurnResponse } from '../../../shared/pe
 import { PetShowdownBattle } from './PetShowdownBattle';
 import { withPetSceneRecall } from './PetSceneRecall';
 import type { WildBindingCinematic } from './WildBindingArenaFx';
-import { petCardImage } from '../lib/pet-battle-anim';
+import { petScenicPortraitImage as petCardImage } from '../lib/pet-scenic-portrait';
 import { warmShowdownModels } from '../lib/pet-model-preload';
 import { activeCarriedPets } from '../lib/entitlements';
 import { petHaptic, playPetSfx } from '../lib/pet-sfx';

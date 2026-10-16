@@ -283,6 +283,8 @@ export const KNOWN_PREFIXES: Readonly<Record<string, string>> = {
     petbody:   'pet',
     petsheet:  'pet',
     petlayers: 'pet',
+    // Explicit portrait overrides share pet-category hydration and remain admin-authored.
+    petcard:   'pet',
 };
 const KNOWN_CATEGORIES = Array.from(new Set(Object.values(KNOWN_PREFIXES)));
 
@@ -635,7 +637,7 @@ export function categoryFromId(id: string): string {
 // landmarks). Players can't add or replace them — without this gate, any
 // authed player can POST id="jutsu:fireball" with an arbitrary image and
 // overwrite the actual jutsu icon shown to everyone.
-const ADMIN_ONLY_PREFIXES = new Set(['jutsu', 'item', 'card', 'event', 'vn', 'ai', 'shrine', 'landmark', 'bloodline', 'leader']);
+const ADMIN_ONLY_PREFIXES = new Set(['jutsu', 'item', 'card', 'event', 'vn', 'ai', 'shrine', 'landmark', 'bloodline', 'leader', 'petcard']);
 
 // Player-forged named gear (`item:named-weapon-<rand>` / `item:named-armor-<rand>`).
 // These are UNIQUE, single-owner items the player creates in the Crafter — not

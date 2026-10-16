@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Character, VersionedCharacterCommit } from '../../types/character';
 import { requestRally, type RallyResponse } from '../../lib/sunscar-rally';
-import { petCardImage } from '../../lib/pet-battle-anim';
+import { petScenicPortraitImage as petCardImage } from '../../lib/pet-scenic-portrait';
 import { RALLY_TRACKS, rallyTrack } from '../../../../shared/sunscar/rally-tracks';
 import { RALLY_ATTACK_NAMES, RALLY_STAT_HELP, RALLY_TECHNIQUES, rallyProfile } from '../../../../shared/sunscar/rally-profiles';
 import { RALLY_RIVALS } from '../../../../shared/sunscar/rally-rivals';
