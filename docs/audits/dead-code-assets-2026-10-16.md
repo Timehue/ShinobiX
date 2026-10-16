@@ -4,6 +4,13 @@
 
 **Tier 1 (1a–1e) was removed on branch `claude/dead-code-assets-audit-3beed0`.** Tiers 2–4 and the owner calls are still open.
 
+**Tier 3, high-confidence part: also removed on the same branch (PR #419).** That is 225 files:
+- `docs/screenshots/combat-layout/`, which nothing reads; the combat-layout spec writes to `test-results/`.
+- The 77 force-added `docs/**/*.log` files.
+- The 37 `docs/audits/legacies-2026-10-02/*.txt` transcripts.
+
+Eleven docs that linked to those files now carry the link text without the link, plus a note on retrieving the files from git history. `docs/screenshots/pet-shape-2026-10-15` stays: a CI gate reads it (see the Tier 3 table).
+
 How the removal differed from the plan below:
 
 - **Pose manifest trap: fixed first.** `PetEvolutionStage3D` now uses `hasPetPose`, the idle-only check. `pet-poses-manifest.ts` has no consumers left and was deleted. `pet-pose-availability.test.ts` now checks against the real idle files on disk. One small difference: breeding mythics `mythic-10..15` now also get the idle fallback in the evolution cinematic. Their idle files exist, and `petPoseImage` already serves them.
@@ -122,7 +129,7 @@ Removing any of these means a registry edit, a fixture edit and a docs regenerat
 
 | MB | Path | Notes |
 |---|---|---|
-| 626 | `docs/screenshots/pet-shape-2026-10-15` (1,458 files) | Review gallery output. Nothing reads it. **H** |
+| 626 | `docs/screenshots/pet-shape-2026-10-15` (1,458 files) | **KEEP.** The CI gate `check:pet-shape-review` (`ci.yml:331`) hashes every evidence file named in `docs/audits/pet-animation-shape-reviews.json`. The earlier "nothing reads it" was wrong. Shrinking it means LFS, not deletion. |
 | 381 | `art-source/pet-portrait-refresh/masters` | Source PNGs for `pet-portrait-production.mjs`. Better moved to LFS/external than deleted. |
 | 98 | `art-source/raijin-hound` | Candidate GLB plus `.blend` files. **M** |
 | 61 | `docs/audits/ux-journey-2026-09-13` | Spec output. **M** |
