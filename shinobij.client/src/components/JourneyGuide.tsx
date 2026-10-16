@@ -158,7 +158,7 @@ export function JourneyGuide({
                 })}
             </ol>
             <div className="journey-guide-footer">
-                <span>Follow {guidePet?.name ?? "your guide"}&apos;s speech bubble below—it owns the current action. Expand each phase as you reach it.</span>
+                <span>Follow {guidePet?.name ?? "your guide"}&apos;s speech bubble for the next step. Expand each phase as you reach it.</span>
             </div>
         </aside>
     );
