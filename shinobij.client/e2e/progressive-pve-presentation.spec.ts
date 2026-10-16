@@ -24,7 +24,7 @@ async function screenshot(page: Page, info: TestInfo, state: string) {
     const directory = resolve(import.meta.dirname, '../../.tmp/progressive-pve-browser');
     mkdirSync(directory, { recursive: true });
     const path = resolve(directory, `${info.project.name}-${state}.png`);
-    await page.screenshot({ path, fullPage: true });
+    await page.screenshot({ path });
     await info.attach(state, { path, contentType: 'image/png' });
 }
 
@@ -61,7 +61,7 @@ async function installEncounter(page: Page, kind: 'ordinary' | 'final') {
         encounter: { kind: kind === 'final' ? 'story-boss' : 'generic-ai', id: profile.id, sourceId: profile.id },
         env: { DISABLE_PVE_AI_PLANNER: '' },
     });
-    session.enemy.hp = 1;
+    if (kind === 'ordinary') session.enemy.hp = 1;
     session.enemy.pos = hexNeighbors(session.player.pos)[0];
     const sealed = () => ({
         token: `browser-token-${kind}`, sessionId: session.sessionId, session,
@@ -96,7 +96,7 @@ async function installEncounter(page: Page, kind: 'ordinary' | 'final') {
     await page.goto('/#/village', { waitUntil: 'domcontentloaded' });
     await expect(page.locator('#combat')).toBeVisible({ timeout: 60_000 });
     return { descriptor, name: session.enemy.name, level: Number(session.enemy.character.level),
-        enemyPos: session.enemy.pos, resumeCount: () => resumeCount, session: () => session };
+        resumeCount: () => resumeCount, session: () => session };
 }
 
 test('sealed ordinary identity, level and real portrait survive refresh, victory and debug export', async ({ page }, info) => {
@@ -110,16 +110,23 @@ test('sealed ordinary identity, level and real portrait survive refresh, victory
     await readableImage(dossier().locator('.combat-avatar img'), '/portraits/pve/assassin.webp');
     await screenshot(page, info, 'ordinary-resumed');
 
+    const resumesBeforeReload = encounter.resumeCount();
     await page.reload({ waitUntil: 'domcontentloaded' });
     await expect(dossier()).toBeVisible({ timeout: 60_000 });
-    await expect.poll(encounter.resumeCount).toBeGreaterThanOrEqual(2);
+    await expect.poll(encounter.resumeCount).toBeGreaterThan(resumesBeforeReload);
     await expect(badge()).toContainText(`Lv ${encounter.level}`);
     await readableImage(dossier().locator('.combat-avatar img'), '/portraits/pve/assassin.webp');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
     await screenshot(page, info, 'ordinary-refreshed');
 
+    const logTab = page.getByRole('tab', { name: /Battle log/i });
+    if (await logTab.isVisible()) await logTab.click();
+    await expect(page.getByRole('button', { name: /^Export (log|partial)$/ })).toBeVisible();
+    await screenshot(page, info, 'ordinary-log');
+    const actionsTab = page.getByRole('tab', { name: 'Actions', exact: true });
+    if (await actionsTab.isVisible()) await actionsTab.click();
+
     await page.getByRole('button', { name: /^Attack\b/ }).click();
-    await page.locator(`#combat button.hex-tile[data-tile="${encounter.enemyPos}"]`).click();
     const victory = page.getByRole('dialog', { name: 'Fight won', exact: true });
     await expect(victory).toBeVisible({ timeout: 30_000 });
     await expect(victory.getByRole('heading')).toHaveText(`${encounter.name} defeated.`);
