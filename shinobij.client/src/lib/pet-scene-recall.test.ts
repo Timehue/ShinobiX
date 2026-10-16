@@ -70,3 +70,29 @@ test('a participant exception releases the scene instead of locking departure', 
     await assert.rejects(scene.run(() => {}), /renderer retired/);
     assert.equal(scene.snapshot(), false);
 });
+
+test('a recall that never settles cannot hold the scene forever (WebKit evicted canvas)', async () => {
+    // A canvas whose frames stopped never finishes its card flight. The
+    // evolution cutscene's Continue then did nothing; the cap lets it leave.
+    const scene = createPetSceneRecallController(40);
+    scene.register(() => new Promise<void>(() => {}));
+    let departed = false;
+    const startedAt = Date.now();
+    await scene.run(() => { departed = true; });
+    assert.equal(departed, true);
+    assert.ok(Date.now() - startedAt >= 35, 'it still waited out the cap first');
+    assert.equal(scene.snapshot(), false);
+});
+
+test('a slow recall inside the cap is still awaited before departure', async () => {
+    const scene = createPetSceneRecallController(1_000);
+    let release!: () => void;
+    let departed = false;
+    scene.register(() => new Promise<void>(resolve => { release = resolve; }));
+    const departure = scene.run(() => { departed = true; });
+    await new Promise(resolve => setTimeout(resolve, 20));
+    assert.equal(departed, false, 'the card flight is not cut short');
+    release();
+    await departure;
+    assert.equal(departed, true);
+});
