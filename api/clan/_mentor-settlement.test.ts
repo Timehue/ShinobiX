@@ -987,6 +987,7 @@ describe('pre-deploy released pending rewards across reassignment', { concurrenc
         const first = await otherClaim();
         assert.equal(first.status, 503, 'B must defer an overlapping milestone instead of paying ahead of A');
         assert.equal(first.body.retryable, true);
+        assert.ok(await kv.get(POINTER_KEY), 'deferring B must republish A so ordinary reconciliation can deliver the owed reward');
         assert.deepEqual(await read(SENSEI_KEY), oldTeacher, 'A is neither repaid nor cancelled');
         assert.deepEqual(await read(`save:${OTHER_SENSEI}`), newTeacher, 'B receives no second Academy reward');
         assert.deepEqual(await read(STUDENT_KEY), studentBefore, 'the duplicate student payout is not admitted');
@@ -994,8 +995,8 @@ describe('pre-deploy released pending rewards across reassignment', { concurrenc
         assert.deepEqual((await read(`clan-mentor:${OTHER_SENSEI}`)).settlements ?? [], []);
         assert.equal(await kv.get(settlement.mentorStudentPaidKey(STUDENT)), null, 'deferral does not invent a paid flag');
 
-        const recovery = await settlement.settleMentorSettlement(batch);
-        assert.equal(recovery.status, 'completed');
+        const recovery = await settlement.recoverPendingMentorSettlements({ now: time });
+        assert.deepEqual(recovery.completed, [batch.id], 'ordinary pointer-only reconciliation finishes A without a boot discovery pass');
         assert.deepEqual(await economy(), paid(1, 25), 'the previously owed student boost is paid exactly once');
         assert.deepEqual(await read(SENSEI_KEY), oldTeacher, 'recovery recognizes the old teacher receipt');
         assert.deepEqual((await read(RECORD_KEY)).students, [], 'the released pairing is not resurrected');
@@ -1016,6 +1017,7 @@ describe('pre-deploy released pending rewards across reassignment', { concurrenc
 
     test('B may pay level20 while released A Academy is pending, leaving Academy owed to A', async () => {
         const batch = await releasedTeacherPaid();
+        const existingPointer = await kv.get(POINTER_KEY);
         await setStudent({ level: 21 });
         const first = await otherClaim();
         assert.equal(first.status, 200, JSON.stringify(first.body));
@@ -1023,6 +1025,7 @@ describe('pre-deploy released pending rewards across reassignment', { concurrenc
         assert.equal((await read(`save:${OTHER_SENSEI}`)).character.honorSeals, rewards.MENTOR_REWARD_SEALS);
         assert.equal((await read(STUDENT_KEY)).character.ryo, BASE.studentRyo + rewards.MENTOR_STUDENT_RYO);
         assert.deepEqual((await pending()).map((entry) => entry.id), [batch.id]);
+        assert.equal(await kv.get(POINTER_KEY), existingPointer, 'discovery must preserve the existing recovery pointer token');
         assert.equal((await settlement.settleMentorSettlement(batch)).status, 'completed');
         assert.equal((await read(STUDENT_KEY)).character.ryo, BASE.studentRyo + 2 * rewards.MENTOR_STUDENT_RYO,
             'Academy and level20 each pay once');
@@ -1033,36 +1036,50 @@ describe('pre-deploy released pending rewards across reassignment', { concurrenc
         assert.equal((await read(`save:${OTHER_SENSEI}`)).character.honorSeals, rewards.MENTOR_REWARD_SEALS);
     });
 
-    for (const discoveryFailure of ['transport', 'incomplete'] as const) {
+    for (const discoveryFailure of ['transport', 'incomplete', 'pointer-publish'] as const) {
         test(`${discoveryFailure} obligation discovery defers B without reserving or paying anything`, async () => {
             await releasedTeacherPaid();
+            if (discoveryFailure === 'pointer-publish') await kv.del(POINTER_KEY);
             await setStudent({ level: 21 });
             const before = await Promise.all([read(SENSEI_KEY), read(STUDENT_KEY), read(`save:${OTHER_SENSEI}`),
                 read(RECORD_KEY), read(`clan-mentor:${OTHER_SENSEI}`)]);
             const keys = kv.keys.bind(kv);
             const mget = kv.mget.bind(kv);
+            const set = kv.set.bind(kv);
             let injected = false;
+            let pointerPublishUsedNx = false;
             if (discoveryFailure === 'transport') {
                 kv.keys = async (pattern) => {
                     if (pattern === 'clan-mentor:*') { injected = true; throw new Error('injected obligation discovery transport failure'); }
                     return keys(pattern);
                 };
-            } else {
+            } else if (discoveryFailure === 'incomplete') {
                 kv.mget = (async (...requested: string[]) => {
                     if (requested.some((key) => key.startsWith('clan-mentor:'))) { injected = true; return []; }
                     return mget(...requested);
                 }) as typeof kv.mget;
+            } else {
+                kv.set = async (key, value, options) => {
+                    if (key === POINTER_KEY) {
+                        injected = true;
+                        pointerPublishUsedNx = options?.nx === true;
+                        throw new Error('injected recovery pointer publish failure');
+                    }
+                    return set(key, value, options);
+                };
             }
             try {
                 const first = await otherClaim();
                 assert.equal(first.status, 503);
                 assert.equal(first.body.retryable, true);
                 assert.ok(injected, 'the intended discovery failure must actually fire');
-            } finally { kv.keys = keys; kv.mget = mget; }
+                if (discoveryFailure === 'pointer-publish') assert.ok(pointerPublishUsedNx, 'pointer repair must use NX so it cannot replace a newer worker token');
+            } finally { kv.keys = keys; kv.mget = mget; kv.set = set; }
             assert.deepEqual(await Promise.all([read(SENSEI_KEY), read(STUDENT_KEY), read(`save:${OTHER_SENSEI}`),
                 read(RECORD_KEY), read(`clan-mentor:${OTHER_SENSEI}`)]), before);
             assert.equal(await kv.get(settlement.mentorStudentPaidKey(STUDENT)), null, 'failed discovery cannot reserve a milestone');
             assert.equal(await kv.get(settlement.mentorPendingPointerKey(OTHER_SENSEI)), null, 'no B batch was admitted');
+            if (discoveryFailure === 'pointer-publish') assert.equal(await kv.get(POINTER_KEY), null, 'the failed publish remains unacknowledged');
         });
     }
 
