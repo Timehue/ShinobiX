@@ -298,6 +298,7 @@ export async function installUiAuditRuntime(page: Page, initialSave: UiAuditSave
     });
 
     return {
+        serverSave: () => structuredClone(save),
         currentVersion: () => saveVersion,
         acknowledgedVersion: () => acknowledgedVersion,
         saveConflictCount: () => saveConflictCount,
