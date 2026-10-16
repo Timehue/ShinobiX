@@ -2926,7 +2926,7 @@
           },
           {
             "source": "shinobij.client/src/styles/pet-yard-refined.css",
-            "line": 128
+            "line": 130
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
@@ -3296,7 +3296,7 @@
           },
           {
             "source": "shinobij.client/src/styles/pet-arena-lobby.css",
-            "line": 404
+            "line": 405
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
@@ -3391,6 +3391,10 @@
             "line": 140
           },
           {
+            "source": "shinobij.client/src/pet-portrait-preview.css",
+            "line": 23
+          },
+          {
             "source": "shinobij.client/src/screens/WorldCrisis80.css",
             "line": 12
           },
@@ -3436,7 +3440,7 @@
           },
           {
             "source": "shinobij.client/src/styles/pet-home.css",
-            "line": 584
+            "line": 587
           },
           {
             "source": "shinobij.client/src/styles/pet-skin.css",
@@ -4327,7 +4331,7 @@
           },
           {
             "source": "shinobij.client/src/styles/pet-yard-refined.css",
-            "line": 69
+            "line": 71
           }
         ]
       },
