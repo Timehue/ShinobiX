@@ -90,6 +90,20 @@ test('only the authoritative seated Kage can appoint or clear a real village pla
     assert.equal((await request('kage', { action: 'clear', focus: 'war' })).status, 200);
 });
 
+test('the seated Kage can never also hold an Elder seat', async () => {
+    assert.equal((await request('kage', { action: 'appoint', appointee: 'kage', focus: 'war' })).status, 409);
+    assert.deepEqual((await kv.get<any>('village:elder-council:frostfangvillage'))?.seats ?? ['', '', ''], ['', '', '']);
+    // A seat stored before the crowning (or by an older build) reads as empty everywhere.
+    await council(['kage', 'mei', 'rin']);
+    assert.deepEqual((await request('villager', {}, 'GET')).body.elderAppointees, ['', 'mei', 'rin']);
+    const roles = await import('../_war-role.js');
+    assert.deepEqual(await roles.sectorWarRoleOf('kage', village), roles.ROLE_KAGE);
+    assert.equal((await request('kage', { focus: 'war' })).status, 403, 'a hidden Kage seat grants no focus');
+    // Losing the Kage seat to another player clears the overlap with no write.
+    await kv.set(kageKey, { seatedKage: 'rin', kageSystemUnlocked: true });
+    assert.deepEqual((await request('villager', {}, 'GET')).body.elderAppointees, ['kage', 'mei', '']);
+});
+
 test('a player-filled seat unlocks only its focus, with idempotent repeated selection', async () => {
     await council(['', 'rin', '']);
     const chosen = await request('villager');
