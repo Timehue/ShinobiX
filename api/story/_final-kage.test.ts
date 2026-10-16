@@ -84,8 +84,11 @@ test('all four story finales seal the highest legal policy, mastery and player c
         }
         assert.deepEqual(session.enemy.character.jutsuMastery,
             kit.map((move) => ({ jutsuId: move.id, level: legalMastery })));
+        session.activeSide = 'enemy';
+        session.ap.enemy = 100;
         const beforePreview = structuredClone(session);
         const planned = planStandardPveEnemyActionForTest(session, highest);
+        assert.ok(planned.action && planned.simulations > 0, 'the apex performs a real legal decision');
         assert.ok(planned.simulations <= 192, 'apex previews obey a deterministic work budget');
         assert.deepEqual(session, beforePreview, 'planning never changes the sealed combat state');
     }

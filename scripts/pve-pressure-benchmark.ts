@@ -23,10 +23,10 @@ import type { SoloPveAction, SoloPveCombatEvent, SoloPveJutsu, SoloPveSession } 
 
 export const PRESSURE_LEVELS = [10, 25, 50, 75, 100];
 export const PRESSURE_BUILDS = ['starter', 'midgame', 'offense', 'defense', 'maxed'] as const;
-type Build = typeof PRESSURE_BUILDS[number];
-type Difficulty = 'weaker' | 'standard' | 'dangerous' | 'elite' | 'final-kage';
-type Runtime = { build: typeof buildSoloPveAiEncounter; act: typeof applySoloPveAction; catalog: typeof AI_PROFILE_CATALOG; story: typeof storyBossEnemyTemplate; relevel: typeof relevelAiProfile };
-const CURRENT: Runtime = { build: buildSoloPveAiEncounter, act: applySoloPveAction, catalog: AI_PROFILE_CATALOG, story: storyBossEnemyTemplate, relevel: relevelAiProfile };
+export type Build = typeof PRESSURE_BUILDS[number];
+export type Difficulty = 'weaker' | 'standard' | 'dangerous' | 'elite' | 'final-kage';
+export type Runtime = { build: typeof buildSoloPveAiEncounter; act: typeof applySoloPveAction; catalog: typeof AI_PROFILE_CATALOG; story: typeof storyBossEnemyTemplate; relevel: typeof relevelAiProfile };
+export const CURRENT: Runtime = { build: buildSoloPveAiEncounter, act: applySoloPveAction, catalog: AI_PROFILE_CATALOG, story: storyBossEnemyTemplate, relevel: relevelAiProfile };
 const IDS = ['builtin-ai-rogue-ninja', 'builtin-ai-ember-duelist', 'builtin-ai-shadow-weaver', 'builtin-ai-frost-sealer', 'builtin-ai-mist-sentinel'];
 const VILLAGES = ['Stormveil Village', 'Ashen Leaf Village', 'Frostfang Village', 'Moonshadow Village'];
 const NOW = 1_800_000_000_000;
@@ -37,8 +37,14 @@ export function pressurePlayerSave(level: number, build: Build) {
     const c = save.character as Record<string, any>;
     const cap = jutsuLevelCapForLevel(level);
     const mastery = build === 'starter' ? Math.min(10, cap) : build === 'midgame' ? Math.min(30, cap) : build === 'maxed' ? cap : Math.min(40, cap);
-    const ids = build === 'starter' ? c.equippedJutsuIds : [
-        'starter-nin-lightning-2', 'starter-nin-water-2', 'starter-nin-fire-2', 'starter-gen-earth-2',
+    // Acquisition grants one nature at L2 and the second at L20; paid rerolls
+    // replace, rather than add, natures. These fixtures require no legacy extras.
+    c.elements = level < 20 ? ['Earth'] : ['Earth', 'Wind'];
+    const ids = build === 'starter' ? ['starter-nin-earth-2', 'starter-gen-earth-2', 'starter-gen-earth-1', 'starter-universal-flicker'] : level < 20 ? [
+        'starter-nin-earth-2', 'starter-gen-earth-2', 'starter-tai-earth-2', 'starter-buki-earth-2',
+        'starter-gen-earth-1', 'starter-nin-earth-1', 'starter-tai-earth-1', 'starter-universal-flicker',
+    ] : [
+        'starter-gen-earth-2', 'starter-gen-wind-2', 'starter-nin-earth-2', 'starter-nin-wind-2',
         'starter-gen-earth-1', 'starter-gen-wind-1', 'starter-tai-wind-2', 'starter-universal-flicker',
     ];
     c.equippedJutsuIds = ids;
@@ -46,11 +52,15 @@ export function pressurePlayerSave(level: number, build: Build) {
     // These are explicit synthetic loadout fixtures, not a copy of a live save.
     // Maxed means rank-capped stats + battle mastery, Rill-style sustain/armor.
     if (build === 'maxed' && level === 100) for (const key of Object.keys(c.stats)) c.stats[key] = 2500;
+    c.earnedStatPoints = Object.values(c.stats as Record<string, number>).reduce((total, value) => total + Math.max(0, value - 10), 0);
     // All multiplier values must derive from real equipped definitions: the
     // hydrator intentionally ignores handwritten armorRawDR/item* save fields.
-    if (level >= 40 && build !== 'starter') {
+    if (level >= 65 && build !== 'starter') {
         const set = build === 'defense' ? 'ironwall' : build === 'offense' ? 'sennin' : 'crimson';
-        c.equipment = { hand: level >= 55 ? 'ashen-dragon-katana' : 'elderbranch-katana', body: `${set}-chest`, head: `${set}-crown`, waist: `${set}-waist`, legs: `${set}-legs`, feet: `${set}-feet` };
+        c.equipment = { hand: level >= 80 ? 'ashen-dragon-katana' : 'elderbranch-katana', body: `${set}-chest`, head: `${set}-crown`, waist: `${set}-waist`, legs: `${set}-legs`, feet: `${set}-feet` };
+        c.inventory = Object.values(c.equipment);
+    } else if (level >= 50 && build !== 'starter') {
+        c.equipment = { hand: 'frostbite-cleaver', body: 'rare-chest-plate', head: 'iron-kabuto', waist: 'chain-obi', legs: 'rare-greaves', feet: 'rare-tabi' };
         c.inventory = Object.values(c.equipment);
     } else if (level >= 15 && build !== 'starter') {
         c.equipment = { hand: 'rustfang-kunai', body: 'reinforced-vest-s3', legs: 'padded-leggings-s3', feet: 'shinobi-boots-s3' };
@@ -102,10 +112,12 @@ export function summarizePressure(rows: PressureResult[]) {
     }
     return summaries;
 }
-export function pressureFight(runtime: Runtime, input: { level: number; build: Build; difficulty: Difficulty; seed: number; variant: string; matchedMastery?: boolean; path?: 'explore' | 'natural' }) {
+export function pressureFight(runtime: Runtime, input: { level: number; build: Build; difficulty: Difficulty; seed: number; variant: string; matchedMastery?: boolean; path?: 'explore' | 'natural';
+    enemyLevel?: number; save?: ReturnType<typeof pressurePlayerSave>; playerPolicy?: (session: SoloPveSession) => SoloPveAction[]; playerPolicyName?: string; initialVitalFraction?: number; trace?: boolean;
+    profileTransform?: (profile: Parameters<typeof buildSoloPveAiEncounter>[0]['profile'], level: number) => Parameters<typeof buildSoloPveAiEncounter>[0]['profile'] }) {
     const { level, build, difficulty, seed, variant } = input;
     const path = input.path ?? 'explore';
-    const candidateLevel = difficulty === 'weaker' ? Math.max(1, Math.floor(level * 0.75)) : level;
+    const candidateLevel = input.enemyLevel ?? (difficulty === 'weaker' ? Math.max(1, Math.floor(level * 0.75)) : level);
     const before = variant !== 'after';
     const enemyLevel = before && !input.matchedMastery ? Math.min(100, level + (path === 'natural' ? 1 : 0)) : candidateLevel;
     const naturalProfiles = ['builtin-ai-rogue-ninja', 'builtin-ai-shadow-weaver', 'builtin-ai-mist-sentinel'];
@@ -128,14 +140,21 @@ export function pressureFight(runtime: Runtime, input: { level: number; build: B
         if (profile.level !== enemyLevel) scaling = { level: enemyLevel };
     }
     if (!before && path === 'natural') profile = { ...profile, id: `world-wanderer-benchmark-${seed}` };
+    if (input.profileTransform) profile = input.profileTransform(profile, enemyLevel);
     let s = runtime.build({ sessionId: `pressure-${seed}-${level}-${build}-${difficulty}`, playerName: 'pressuretester',
-        save: pressurePlayerSave(level, build), profile, now: NOW, admin: null,
+        save: input.save ?? pressurePlayerSave(level, build), profile, now: NOW, admin: null,
         ...(scaling ? { scaling } : {}),
         aiTurnPolicy: STANDARD_PVE_AI_POLICY, difficultyMode: difficulty === 'final-kage' ? 'STORY' : 'AI_FIGHT',
         encounter: { kind: difficulty === 'final-kage' ? 'story-boss' : 'generic-ai', id: profile.id, level: enemyLevel },
         env: { ...process.env, DISABLE_PVE_AI_PLANNER: '' },
     });
     if (input.matchedMastery) s.enemy.character.jutsuMastery = (s.enemy.character.jutsu as SoloPveJutsu[]).map(j => ({ jutsuId: j.id, level: pveAiMasteryForEncounter(enemyLevel, difficulty) }));
+    if (input.initialVitalFraction !== undefined) {
+        const fraction = Math.max(0, Math.min(1, input.initialVitalFraction));
+        s.player.hp = Math.floor(s.player.maxHp * fraction);
+        s.player.chakra = Math.floor(s.player.maxChakra * fraction);
+        s.player.stamina = Math.floor(s.player.maxStamina * fraction);
+    }
     // Seeded openings exercise approach and adjacency, without RNG in decisions.
     if (seed % 2) s.enemy.pos = Array.from({ length: 96 }, (_, t) => t).find(t => hexDistance(t, s.player.pos) === 1)!;
     const initial = { hp: s.player.hp, enemyHp: s.enemy.maxHp, chakra: s.player.chakra, stamina: s.player.stamina, enemyChakra: s.enemy.chakra, enemyStamina: s.enemy.stamina };
@@ -145,7 +164,7 @@ export function pressureFight(runtime: Runtime, input: { level: number; build: B
     for (let step = 0; step < 600 && s.status === 'active'; step++) {
         let next: SoloPveSession | undefined;
         const started = performance.now();
-        for (const action of playerActions(s, build)) {
+        for (const action of input.playerPolicy ? input.playerPolicy(s) : playerActions(s, build)) {
             const result = runtime.act(s, action);
             if (result.applied) { next = result.session; break; }
         }
@@ -169,8 +188,11 @@ export function pressureFight(runtime: Runtime, input: { level: number; build: B
     const enemyHealing = sum(allEvents.flatMap(e => e.combat.healing).filter(h => h.role === 'enemy').map(h => h.applied));
     const mastery = (s.enemy.character.jutsuMastery as Array<{ level: number }>)[0]?.level ?? 0;
     return { variant, path, level, enemyLevel, build, difficulty, seed, profile: profile.id,
+        ...(input.playerPolicyName ? { playerPolicy: input.playerPolicyName } : {}),
+        ...(input.initialVitalFraction === undefined ? {} : { initialVitalFraction: input.initialVitalFraction }),
         outcome: s.outcome, death: s.player.hp <= 0, roundLimitLoss: s.outcome === 'loss' && s.player.hp > 0,
         rounds: s.round, minimumHp, finalHp: s.player.hp, maxHp: s.player.maxHp,
+        finalEnemyHp: s.enemy.hp, finalPlayerChakra: s.player.chakra, finalPlayerStamina: s.player.stamina,
         enemyMaxHp: initial.enemyHp, enemyMastery: mastery, effectiveEp36: +(46 * masteryDamageFrac(mastery)).toFixed(2),
         playerMastery: (s.player.character.jutsuMastery as Array<{ level: number }>)[0]?.level,
         playerArmorRawDR: s.player.character.armorRawDR, playerBloodlineMult: s.player.character.bloodlineMult,
@@ -179,6 +201,8 @@ export function pressureFight(runtime: Runtime, input: { level: number; build: B
         rawAfterMitigation: sum(damage.map(d => d.raw)), resolvedAfterGuard: sum(damage.map(d => d.resolved)),
         damageToHp: sum(allPlayerDamage.map(d => d.toHp)), enemyDirectHpDamage: sum(damage.map(d => d.toHp)),
         damageToShield: sum(damage.map(d => d.toShield)),
+        damageToEnemyHp: sum(allEvents.flatMap(e => e.combat.damage).filter(d => d.target === 'enemy').map(d => d.toHp)),
+        damageToEnemyShield: sum(allEvents.filter(e => e.action !== 'clear').flatMap(e => e.combat.damage).filter(d => d.target === 'enemy').map(d => d.toShield)),
         ...(damage.some(d => d.baseDamage !== undefined) ? {
             formulaBaseDamage: sum(damage.map(d => d.baseDamage ?? 0)),
             drDeductionBeforeAmplifiers: sum(damage.map(d => (d.baseDamage ?? 0) * (d.effectiveDR ?? 0))),
@@ -195,6 +219,10 @@ export function pressureFight(runtime: Runtime, input: { level: number; build: B
         enemyTurnMsP95: turns.map(t => t.ms).sort((a, b) => a - b)[Math.floor(turns.length * 0.95)] ?? 0,
         elapsedMs: performance.now() - began, completed: s.status === 'done',
         enemyActions: allEvents.filter(e => e.actor === 'enemy').reduce((out, e) => { const id = e.actionId ?? e.action; out[id] = (out[id] ?? 0) + 1; return out; }, {} as Record<string, number>),
+        playerActions: allEvents.filter(e => e.actor === 'player').reduce((out, e) => { const id = e.actionId ?? e.action; out[id] = (out[id] ?? 0) + 1; return out; }, {} as Record<string, number>),
+        ...(input.trace ? { trace: allEvents.map(e => ({ round: e.round, actor: e.actor, action: e.actionId ?? e.action,
+            playerHp: e.after.player.hp, enemyHp: e.after.enemy.hp, ap: e.after.ap, damage: e.combat.damage,
+            healing: e.combat.healing, playerChakra: e.after.player.chakra, playerStamina: e.after.player.stamina })) } : {}),
     };
 }
 

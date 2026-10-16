@@ -1,4 +1,6 @@
 {
+  "acceptanceStatus": "superseded-synthetic-stress",
+  "fixtureVersion": 1,
   "node": "v24.15.0",
   "platform": "win32",
   "baselineRoot": "..\\pve-baseline",
@@ -7,7 +9,7 @@
     "Legacy events omit pre-DR formula base; candidate casts expose formulaBaseDamage/effectiveDR.",
     "damageToHp includes every observed HP loss, including DOT/recoil; enemyDirectHpDamage only counts enemy actions.",
     "Healing is observed applied healing from event HP deltas; simultaneous damage/heal may net within an event.",
-    "Fixtures are synthetic legal gear/progression builds, not copied live accounts.",
+    "Historical synthetic stress fixtures bypassed effective gear gates at50/75 and used server-compatible off-native basics beyond current awakening UI progression; not progression acceptance.",
     "Explore before uses the old original-profile plus weighted builder scaling; road before uses the old generic allocation, player+1 and original road template mapping.",
     "Matched-mastery rows also control the old enemy level to the candidate tier level; actual-before weaker rows retain the old player-relative level."
   ],
