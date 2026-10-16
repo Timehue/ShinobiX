@@ -3,6 +3,10 @@ import type { SoloPveSession } from '../solo-pve/_session.js';
 import type { ServerAiRule } from '../combat-core/ai-authoring.js';
 import { LIBERATOR_TITLES, STORY_LEVELS, STORY_REWARDS, storyOpponentId } from './_settle.js';
 import { VILLAGE_OUTSKIRTS, sectorBiomeOf } from '../../shared/sector-geo.js';
+import { storyKageForVillage, STORY_KAGE_DIFFICULTY, STORY_KAGE_DIFFICULTY_LABEL, STORY_KAGE_RECOVERY } from '../../shared/story-kage.js';
+import { aiStatsForLevel } from '../_ai-level-curves.js';
+import { maxChakraForLevel, maxStaminaForLevel } from '../_xp-engine.js';
+import { resolveAiProfileJutsu } from '../_ai-opponent-loadout.js';
 
 /*
  * Server-authoritative story-boss combat (SERVER_COMBAT_MIGRATION_PLAN Stage 4,
@@ -237,14 +241,15 @@ export function storyBossEnemyTemplate(params: {
 }) {
     const progressIndex = clampInt(params.progressIndex, 0, STORY_LEVELS.length - 1, 0);
     const level = STORY_LEVELS[progressIndex];
+    const finale = progressIndex === STORY_LEVELS.length - 1 ? storyKageForVillage(params.village) : undefined;
     const arc = STORY_LEVELS.length <= 1 ? 1 : progressIndex / (STORY_LEVELS.length - 1);
-    const specialty = (['Genjutsu', 'Taijutsu', 'Ninjutsu', 'Bukijutsu'] as const)[progressIndex % 4];
+    const specialty = finale?.specialty ?? (['Genjutsu', 'Taijutsu', 'Ninjutsu', 'Bukijutsu'] as const)[progressIndex % 4];
     const power = 1 + arc * 0.25;
     const offense = clampInt((150 + level * 27) * power, 180, 3200, 500);
     const defense = clampInt((120 + level * 20) * power, 140, 2600, 400);
     const name = typeof params.displayName === 'string' && params.displayName.trim()
         ? params.displayName.trim().slice(0, 80)
-        : `${params.village.replace(/ Village$/, '')} Story Boss`;
+        : finale?.name ?? `${params.village.replace(/ Village$/, '')} Story Boss`;
     const firstChapter = progressIndex === 0;
     return {
         id: storyOpponentId(params.village, level),
@@ -252,7 +257,9 @@ export function storyBossEnemyTemplate(params: {
         specialty,
         level,
         hp: firstChapter ? FIRST_CHAPTER_KIT.hp : clampInt((240 + level * level * 1.05) * (1.05 + arc * 0.4), 250, 14_000, 1000),
-        stats: {
+        // A finale spends the same legal stat budget as a level-100 player.
+        // No over-cap multipliers; its existing HP and armor stay unchanged.
+        stats: finale ? aiStatsForLevel(level, resolveAiProfileJutsu([...finale.jutsuIds])) : {
             [`${specialty.toLowerCase()}Offense`]: offense,
             [`${specialty.toLowerCase()}Defense`]: defense,
             strength: clampInt((80 + level * 8) * power, 80, 1100, 200),
@@ -262,11 +269,23 @@ export function storyBossEnemyTemplate(params: {
         },
         visual: storyOpponentId(params.village, level),
         boss: true,
+        ...(finale ? {
+            masterAi: true,
+            pveDifficulty: STORY_KAGE_DIFFICULTY,
+            pveDifficultyLabel: STORY_KAGE_DIFFICULTY_LABEL,
+            tacticalTell: `${finale.tell} ${STORY_KAGE_RECOVERY}`,
+            avatarImage: finale.portrait,
+        } : {}),
         armorRawDR: 0.05 + arc * 0.13,
-        maxChakra: firstChapter ? FIRST_CHAPTER_KIT.pool : 120 + level * 4,
-        maxStamina: firstChapter ? FIRST_CHAPTER_KIT.pool : 120 + level * 4,
-        ...(firstChapter ? { jutsuIds: [...FIRST_CHAPTER_KIT.jutsuIds], rules: FIRST_CHAPTER_KIT.rules() } : {}),
-        jutsu: firstChapter ? undefined : [{
+        maxChakra: finale ? maxChakraForLevel(level) : firstChapter ? FIRST_CHAPTER_KIT.pool : 120 + level * 4,
+        maxStamina: finale ? maxStaminaForLevel(level) : firstChapter ? FIRST_CHAPTER_KIT.pool : 120 + level * 4,
+        jutsuIds: finale ? [...finale.jutsuIds] : firstChapter ? [...FIRST_CHAPTER_KIT.jutsuIds] : undefined,
+        rules: firstChapter ? FIRST_CHAPTER_KIT.rules() : undefined,
+        // Resolve the finale from the player catalog. Five damaging signatures,
+        // a visible setup, a guard and Flicker give the planner choices while
+        // the catalog cooldowns leave real recovery windows. Basic Clear is
+        // available through the ordinary action system, with its usual checks.
+        jutsu: firstChapter || finale ? undefined : [{
             id: `story-${progressIndex}-signature`,
             name: `${specialty} Signature`,
             type: specialty,

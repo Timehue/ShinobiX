@@ -4,11 +4,12 @@ import type { PvpFighter } from '../pvp/session.js';
 import type { ServerAiRule } from '../combat-core/ai-authoring.js';
 import { GRID_H, GRID_W } from '../combat-core/constants.js';
 import { hexDistance, hexNeighbors } from '../combat-core/grid.js';
-import { applySoloPveAction, runStandardPveEnemyTurnForTest } from './_engine.js';
+import { applySoloPveAction, planStandardPveEnemyActionForTest, runStandardPveEnemyTurnForTest } from './_engine.js';
 import { buildSoloPveAiEncounter } from './_ai-encounter.js';
 import { createSoloPveSession, type SoloPveCombatEvent, type SoloPveJutsu, type SoloPveSession } from './_session.js';
 import {
     enemyTurnPolicy,
+    enemyStatusValue,
     STANDARD_PVE_AI_KINDS,
     STANDARD_PVE_AI_POLICY,
     standardPvePlannerApplies,
@@ -145,6 +146,26 @@ describe('standard-PvE turn planner — scope', () => {
         assert.deepEqual(apSpent(weekly), apSpent(enemyTurn(scenario({ kit, distance: 3, weeklyBossRoundBudget: 20, sealed: false }))), 'weekly boss guard');
     });
 
+    it('limits the new shield/prevention utility eligibility to the standard planner', () => {
+        const preventedBuff = [{ name: 'Clear Prevent', rounds: 2, kind: 'positive' as const }];
+        const preventedDebuffs = [
+            { name: 'Cleanse Prevent', rounds: 2, kind: 'negative' as const },
+            { name: 'Wound', rounds: 2, amount: 10, kind: 'negative' as const },
+        ];
+        for (const kind of ['hollow-gate', 'endless-wave', 'caravan', 'stronghold-patrol', 'anbu-infiltration', 'sector-war-garrison', 'weekly-boss']) {
+            const shieldOnly = enemyTurn(scenario({ level: 75, kind, kit: [], player: { shield: 200 } }));
+            assert.equal(enemyEvents(shieldOnly)[0]?.action, 'basicAttack', `${kind}: legacy does not detect shield-only Clear`);
+            const clearPrevent = enemyTurn(scenario({ level: 75, kind, kit: [], player: { shield: 200, statuses: preventedBuff } }));
+            assert.equal(enemyEvents(clearPrevent)[0]?.action, 'clear', `${kind}: preserve legacy prevention eligibility`);
+            const cleansePrevent = enemyTurn(scenario({ level: 75, kind, kit: [], enemy: { statuses: preventedDebuffs } }));
+            assert.equal(enemyEvents(cleansePrevent)[0]?.action, 'cleanse', `${kind}: preserve legacy Cleanse eligibility`);
+        }
+        const standardShield = enemyTurn(scenario({ level: 75, kit: [], player: { shield: 200 } }));
+        assert.equal(enemyEvents(standardShield)[0]?.action, 'clear');
+        const standardPrevent = enemyTurn(scenario({ level: 75, kit: [], player: { shield: 200, statuses: preventedBuff } }));
+        assert.ok(enemyEvents(standardPrevent).every((event) => event.action !== 'clear'));
+    });
+
     it('DISABLE_PVE_AI_PLANNER=1 restores the original runner for sealed sessions', () => {
         const kit = [jutsu('hit-a', 40), jutsu('hit-b', 40), FLICKER];
         const before = process.env.DISABLE_PVE_AI_PLANNER;
@@ -216,6 +237,25 @@ describe('standard-PvE turn planner — turn economy and legality', () => {
         }
     });
 
+    it('closes toward universal basic range when its only ranged damage is Elementally Sealed', () => {
+        const kit = [jutsu('fire-burst', 60, { element: 'Fire', effectPower: 36, range: 4 })];
+        for (const level of [16, 25, 50, 75, 85]) {
+            const source = scenario({ level, kit, distance: 3, enemy: { statuses: [
+                { name: 'Elemental Seal', rounds: 3, kind: 'negative' },
+                { name: 'Cleanse Prevent', rounds: 3, kind: 'negative' },
+            ] } });
+            source.activeSide = 'enemy';
+            const planned = planStandardPveEnemyActionForTest(source, enemyTurnPolicy(level));
+            assert.equal(planned.action?.type, 'move', `level ${level}: legal gap closing has real value`);
+            // Run the enemy directly because this fixture is already in its
+            // turn; no player action may alter its AP or status eligibility.
+            runStandardPveEnemyTurnForTest(source, enemyTurnPolicy(level));
+            assert.deepEqual(enemyEvents(source).map((event) => event.action), ['move', 'move', 'basicAttack'], `level ${level}`);
+            assert.ok(source.player.hp < 1_000);
+            assert.ok(sum(apSpent(source)) <= 100);
+        }
+    });
+
     it('respects cooldowns, range and resources', () => {
         const heavy = jutsu('heavy', 60, { effectPower: 40, range: 4 });
         const onCooldown = scenario({ kit: [heavy], distance: 1 });
@@ -256,13 +296,13 @@ describe('standard-PvE turn planner — decision quality by bracket', () => {
     function damageOf(id: string | null): number {
         const probe = scenario({ kit: id ? kit.filter((entry) => entry.id === id) : [] });
         probe.activeSide = 'enemy';
-        runStandardPveEnemyTurnForTest(probe, enemyTurnPolicy(40));
+        runStandardPveEnemyTurnForTest(probe, enemyTurnPolicy(10));
         const first = enemyEvents(probe)[0];
         assert.equal(first?.action, id ? 'jutsu' : 'basicAttack', 'the probe opens with the action being measured');
         return first.before.player.hp - first.after.player.hp;
     }
 
-    it('a hard enemy finds the 40 + 60 kill a one-step medium enemy misses', () => {
+    it('trained and higher enemies find a 40 + 60 kill the readable novice misses', () => {
         const basic = damageOf(null);
         const slam = damageOf('slam');
         assert.ok(basic > 0 && slam > 0, `both hits land (basic ${basic}, slam ${slam})`);
@@ -276,12 +316,14 @@ describe('standard-PvE turn planner — decision quality by bracket', () => {
             runStandardPveEnemyTurnForTest(session, enemyTurnPolicy(level));
             return session;
         };
-        const medium = run(40);
-        const hard = run(60);
-        assert.ok(medium.player.hp > 0, `the one-step chooser opens with the debuff pile (${enemyEvents(medium).map((e) => e.actionId).join(',')})`);
-        assert.equal(hard.status, 'done');
-        assert.equal(hard.winner, 'enemy');
-        assert.deepEqual(apSpent(hard).sort((a, b) => a - b), [40, 60], 'the deliberate 40 + 60 combination');
+        const novice = run(10);
+        assert.ok(novice.player.hp > 0, 'the readable power-sorted novice misses the two-action finisher');
+        for (const level of [16, 25, 40, 60, 75, 100]) {
+            const planned = run(level);
+            assert.equal(planned.status, 'done', `level ${level}`);
+            assert.equal(planned.winner, 'enemy');
+            assert.deepEqual(apSpent(planned).sort((a, b) => a - b), [40, 60], 'the deliberate 40 + 60 combination');
+        }
     });
 
     it('honours an authored opener, and skips an authored pick the resolver would refuse', () => {
@@ -299,7 +341,8 @@ describe('standard-PvE turn planner — decision quality by bracket', () => {
 
         const sealedOpener = jutsu('opener', 40, { effectPower: 5, element: 'Water' });
         const refused = enemyTurn(scenario({ kit: [sealedOpener, big], rules, enemy: { statuses: [{ name: 'Elemental Seal', rounds: 3, kind: 'negative' }] } }));
-        assert.equal(enemyEvents(refused)[0]?.actionId, 'big', 'an illegal scripted pick falls through to the next rule');
+        assert.ok(enemyEvents(refused).every((event) => event.actionId !== 'opener'), 'the illegal scripted pick is skipped');
+        assert.ok(enemyEvents(refused).some((event) => event.actionId === 'big'), 'the generic best-action rule can combine a basic and the legal burst');
     });
 
     it('is deterministic in every bracket', () => {
@@ -312,5 +355,161 @@ describe('standard-PvE turn planner — decision quality by bracket', () => {
                 assert.ok(enemyEvents(a).length <= 5 && sum(apSpent(a)) <= 100, `caps at level ${level} distance ${distance}`);
             }
         }
+    });
+});
+
+describe('progressive PvE tactical regressions', () => {
+    it('has five tactical tiers without changing the damage guard bands', () => {
+        assert.equal(enemyTurnPolicy(15).tier, 'novice');
+        assert.equal(enemyTurnPolicy(16).tier, 'trained');
+        assert.equal(enemyTurnPolicy(35).tier, 'trained');
+        assert.equal(enemyTurnPolicy(36).tier, 'tactical');
+        assert.equal(enemyTurnPolicy(61).tier, 'advanced');
+        assert.equal(enemyTurnPolicy(86).tier, 'master');
+        assert.equal(enemyTurnPolicy(1, true).tier, 'master');
+        assert.equal(enemyTurnPolicy(25).band, 'easy', 'onboarding protection remains independent');
+    });
+
+    it('clears a shield with no status icons and never spends Clear into Clear Prevent', () => {
+        const turn = enemyTurn(scenario({ level: 75, kit: [], player: { shield: 200 } }));
+        assert.equal(enemyEvents(turn)[0]?.action, 'clear', 'the shield alone is a useful target');
+        assert.equal(turn.player.shield, 0);
+        const prevented = enemyTurn(scenario({ level: 75, kit: [], player: {
+            shield: 200, statuses: [{ name: 'Clear Prevent', rounds: 2, kind: 'positive' }],
+        } }));
+        assert.ok(enemyEvents(prevented).every((event) => event.action !== 'clear'));
+    });
+
+    it('does not attempt Cleanse while Cleanse Prevent is active', () => {
+        const turn = enemyTurn(scenario({ level: 100, kit: [], enemy: { statuses: [
+            { name: 'Cleanse Prevent', rounds: 2, kind: 'negative' },
+            { name: 'Wound', rounds: 2, amount: 200, kind: 'negative' },
+            { name: 'Drain', rounds: 2, amount: 200, kind: 'negative' },
+        ] } }));
+        assert.ok(enemyEvents(turn).every((event) => event.action !== 'cleanse'));
+        assert.ok(enemyEvents(turn).length > 0, 'still uses a legal offensive option');
+    });
+
+    it('takes a legal finisher before healing, clearing buffs, or stacking delayed defenses', () => {
+        const delayed = jutsu('delayed-defense', 40, { effectPower: 0, target: 'SELF', tags: [
+            { name: 'Reflect', percent: 40 }, { name: 'Absorb', percent: 40 },
+        ] });
+        const turn = enemyTurn(scenario({ level: 100, kit: [delayed], enemy: { hp: 35 }, player: {
+            hp: 50, statuses: [{ name: 'Increase Damage Given', rounds: 2, percent: 30, kind: 'positive' }],
+        } }));
+        assert.equal(turn.winner, 'enemy');
+        assert.equal(enemyEvents(turn)[0]?.action, 'basicAttack');
+        const authored = enemyTurn(scenario({ level: 100, kit: [delayed], enemy: { hp: 35 }, player: { hp: 50 }, rules: [
+            { condition: 'hp_lower_than', value: 50, action: 'use_specific_jutsu', jutsuId: 'delayed-defense' },
+            { condition: 'always', value: 0, action: 'use_basic_attack' },
+        ] }));
+        assert.equal(authored.winner, 'enemy');
+        assert.equal(enemyEvents(authored)[0]?.action, 'basicAttack', 'conditional defensive scripts cannot preempt the finisher');
+    });
+
+    it('uses immediate survival instead of Reflect/Absorb that cannot save it from a lethal basic', () => {
+        const delayed = jutsu('delayed-defense', 40, { effectPower: 0, target: 'SELF', tags: [
+            { name: 'Reflect', percent: 40 }, { name: 'Absorb', percent: 40 },
+        ] });
+        const shield = jutsu('shield', 40, { effectPower: 0, target: 'SELF', tags: [{ name: 'Shield' }] });
+        const turn = enemyTurn(scenario({ level: 100, kit: [delayed, shield], enemy: { hp: 35 } }));
+        assert.notEqual(enemyEvents(turn)[0]?.actionId, 'delayed-defense');
+        assert.ok(enemyEvents(turn).some((event) => event.actionId === 'shield' || event.action === 'move'), 'immediate shield or useful retreat');
+    });
+
+    it('does not Flicker beside an adjacent opponent just to consume leftover AP', () => {
+        const turn = enemyTurn(scenario({ level: 100, kit: [FLICKER], distance: 1 }));
+        assert.equal(turn.enemy.pos, tileAtDistance(1));
+        assert.ok(enemyEvents(turn).every((event) => event.actionId !== 'flicker'));
+        assert.equal(sum(apSpent(turn)), 80, 'two real basic attacks, no pointless 20-AP dash');
+    });
+
+    it('does not stack another Reflect above the real aggregate ceiling', () => {
+        const reflect = jutsu('reflect', 40, { effectPower: 0, target: 'SELF', tags: [{ name: 'Reflect', percent: 40 }] });
+        const source = scenario({ level: 100, kit: [reflect], enemy: {
+            hp: 8_000, maxHp: 10_000, statuses: [{ name: 'Reflect', percent: 60, rounds: 3, kind: 'positive' }],
+        }, player: { hp: 10_000, maxHp: 10_000 } });
+        source.activeSide = 'enemy';
+        source.ap.enemy = 40;
+        runStandardPveEnemyTurnForTest(source, enemyTurnPolicy(100));
+        assert.equal(enemyEvents(source)[0]?.action, 'basicAttack');
+    });
+
+    it('the highest tier sees movement plus two attacks beyond a two-action horizon', () => {
+        const kit = [FLICKER,
+            jutsu('close-a', 40, { effectPower: 12, range: 1, isUtility: false }),
+            jutsu('close-b', 40, { effectPower: 12, range: 1, isUtility: false }),
+            jutsu('ranged', 60, { effectPower: 18, range: 4 }),
+        ];
+        const run = (level: number) => {
+            const source = scenario({ level: 100, kit, distance: 3 });
+            source.activeSide = 'enemy';
+            runStandardPveEnemyTurnForTest(source, enemyTurnPolicy(level));
+            return source;
+        };
+        const advanced = run(75), master = run(100);
+        assert.equal(enemyEvents(advanced)[0]?.actionId, 'ranged', JSON.stringify(enemyEvents(advanced).map((event) => [event.action, event.actionId, event.before.player.hp - event.after.player.hp])));
+        assert.equal(enemyEvents(master)[0]?.actionId, 'flicker');
+        assert.equal(sum(apSpent(master)), 100);
+        assert.ok(master.player.hp < advanced.player.hp, 'the legal three-action line deals more effective damage');
+    });
+
+    it('values status potency, duration and actual cleanup needs instead of icon counts', () => {
+        const context = { round: 1, maxHp: 1_000, hp: 1_000, shield: 0, positiveCount: 1, negativeCount: 0, opponentNegativeCount: 0 };
+        const weak = enemyStatusValue({ name: 'Decrease Damage Taken', percent: 5, rounds: 1, kind: 'positive' }, context);
+        const strong = enemyStatusValue({ name: 'Decrease Damage Taken', percent: 40, rounds: 2, kind: 'positive' }, context);
+        assert.ok(strong > weak * 5);
+        assert.equal(enemyStatusValue({ name: 'Increase Heal', percent: 40, rounds: 2, kind: 'positive' }, context), 0, 'full HP has no immediate heal amplification benefit');
+        const seal = { name: 'Cleanse Prevent', rounds: 2, kind: 'negative' as const };
+        assert.ok(enemyStatusValue(seal, { ...context, negativeCount: 3 }) > enemyStatusValue(seal, context));
+    });
+
+    it('a fully shielded Siphon hit has no invented healing benefit', () => {
+        const siphon = jutsu('siphon', 60, { effectPower: 2, tags: [{ name: 'Siphon', percent: 40 }] });
+        const source = scenario({ level: 100, kit: [siphon], distance: 3, enemy: { hp: 800 }, player: { shield: 200 } });
+        source.activeSide = 'enemy';
+        source.ap.enemy = 60;
+        source.cooldowns.enemy.basicHeal = 5;
+        source.cooldowns.enemy.clear = 5;
+        const turn = structuredClone(source);
+        runStandardPveEnemyTurnForTest(turn, enemyTurnPolicy(100));
+        const hit = enemyEvents(turn).find((event) => event.actionId === 'siphon');
+        assert.ok(hit, 'uses the real shield-damaging attack');
+        assert.equal(hit.after.enemy.hp, hit.before.enemy.hp, 'post-shield damage is zero, so Siphon cannot heal');
+        assert.equal(hit.after.player.hp, hit.before.player.hp);
+    });
+
+    it('bounds highest-tier work deterministically even with a large legal kit', () => {
+        const kit = [...Array.from({ length: 12 }, (_, index) => jutsu(`quick-${index}`, 20, { effectPower: 4, range: 5 })), FLICKER];
+        const source = scenario({ level: 100, kit, distance: 3 });
+        source.activeSide = 'enemy';
+        const policy = enemyTurnPolicy(100);
+        const a = planStandardPveEnemyActionForTest(source, policy);
+        const b = planStandardPveEnemyActionForTest(source, policy);
+        assert.deepEqual(a, b);
+        assert.ok(a.simulations <= policy.maxSimulations && a.simulations > 0);
+        assert.equal(source.events.length, 0, 'all previews are isolated');
+    });
+
+    it('keeps worst-case decision latency bounded with a full history attached', (t) => {
+        const kit = [...Array.from({ length: 8 }, (_, index) => jutsu(`quick-${index}`, 20, { effectPower: 4, range: 5 })), FLICKER];
+        const source = scenario({ level: 100, kit, distance: 3 });
+        source.activeSide = 'enemy';
+        source.log = Array.from({ length: 250 }, () => 'A retained combat log line.');
+        // History is intentionally retained by the caller; preview copies must
+        // drop it rather than clone a growing battle once per search branch.
+        const historyEvent = enemyTurn(scenario({ level: 100, kit: [], distance: 1 })).events[0];
+        source.events = Array.from({ length: 250 }, () => structuredClone(historyEvent));
+        const times: number[] = [];
+        for (let sample = 0; sample < 24; sample++) {
+            const start = performance.now();
+            const decision = planStandardPveEnemyActionForTest(source, enemyTurnPolicy(100));
+            times.push(performance.now() - start);
+            assert.ok(decision.simulations <= 128);
+        }
+        const p95 = times.sort((a, b) => a - b)[Math.ceil(times.length * 0.95) - 1];
+        t.diagnostic(`highest-tier decision p95: ${p95.toFixed(2)} ms (${times.length} samples, max 128 resolver previews)`);
+        assert.ok(p95 < 1_000, `bounded planner smoke budget: ${p95.toFixed(2)} ms`);
+        assert.equal(source.events.length, 250);
     });
 });

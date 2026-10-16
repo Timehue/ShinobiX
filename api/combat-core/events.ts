@@ -76,6 +76,9 @@ export type AuthoritativeActorDelta = {
 };
 
 export type CombatResolutionFacts = {
+    /** Formula base before DR, status amplifiers, Pierce and encounter guards. */
+    baseDamage?: number;
+    effectiveDR?: number;
     /** Resolver damage before an encounter-specific ceiling. */
     rawDamage?: number;
     /** Resolver damage after DR and encounter ceilings, before shield/HP routing. */
@@ -115,6 +118,9 @@ export type AuthoritativeCombatEvent = {
         target: CombatEventActor;
         raw: number;
         resolved: number;
+        /** Available for resolver-backed casts; absent from older events. */
+        baseDamage?: number;
+        effectiveDR?: number;
         toHp: number;
         toShield: number;
         capped: boolean;
@@ -365,6 +371,8 @@ export function projectAuthoritativeCombatEvent(input: ProjectAuthoritativeComba
             target: delta.role,
             raw,
             resolved,
+            ...(isPrimary && Number.isFinite(Number(resolution.baseDamage)) ? { baseDamage: Math.max(0, number(resolution.baseDamage)) } : {}),
+            ...(isPrimary && Number.isFinite(Number(resolution.effectiveDR)) ? { effectiveDR: Math.max(0, Math.min(1, number(resolution.effectiveDR))) } : {}),
             toHp,
             toShield,
             capped: raw > resolved,

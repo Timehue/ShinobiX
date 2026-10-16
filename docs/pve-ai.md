@@ -1,6 +1,6 @@
 # Standard-PvE enemy AI
 
-**Status:** current, 2026-10-12. Replaces `docs/pve-ai-smarter-plan.md`, whose
+**Status:** current, 2026-10-16. Replaces `docs/pve-ai-smarter-plan.md`, whose
 premise (a browser-owned `Arena.tsx` reducer) no longer exists.
 
 Standard PvE runs entirely on the server, on the Solo-PvE runtime
@@ -51,8 +51,8 @@ repeat use, scoring and the other stronghold specialties.
 - **Brackets.** `api/_pve-difficulty.ts`: `pveDifficultyBand` (the brackets
   below), `pveAiCompetence` (the counterplay thresholds), `pveAiMasteryForLevel`,
   the per-hit and per-turn guard (`pveEnemyHitCap`), and the easy-band
-  readability rules (`pveEasyBandHoldsBurst`, `pveEasyBandAllowsLethal`). None
-  of them changed.
+  readability rules (`pveEasyBandHoldsBurst`, `pveEasyBandAllowsLethal`). Tactical
+  progression is separate from these damage and onboarding guards.
 - **Budget.** 100 AP a turn, or 60 when stunned (`api/solo-pve/_engine.ts`); at
   most `MAX_ACTIONS` (5) actions a turn. The original runner also ends its turn
   below 30 AP.
@@ -82,42 +82,65 @@ session must carry no weekly-boss guard, and the enemy must not be an authored
 mission kit. A session keeps the runner it was sealed with, so fights in flight
 when this shipped keep the original runner.
 
-## The bracket policy
+## The tactical policy
 
-Brackets are the existing difficulty bands (`api/_pve-difficulty.ts`), read
-from the enemy's level. An admin `masterAi` profile plans at any level, as it
-already uses the smart scorer at any level.
+The enemy's own sealed level selects one of five tactical tiers. These do not
+replace the easy/medium/hard/peer damage guards. For example, a level-25 enemy
+can plan a useful two-action turn while keeping its easy-band mercy floor and
+opening burst delay. A server-sealed `masterAi` always selects the highest
+tactical tier, including the final story Kage; it grants no extra AP, hidden
+player input, resources, damage multiplier, or HP.
 
-| Bracket | Levels | What the enemy does |
-| --- | --- | --- |
-| easy | 1–30 | The original priority order and the original turn end (stop below 30 AP). The only change: it never picks an action the resolver would refuse. Readable and limited, as tutorials need. |
-| medium | 31–50 | The original priority order, but it keeps acting while any legal action remains, so leftover AP is spent (40 + 40 + a 20-AP Flicker). |
-| hard | 51–90 | Plans two-action combinations: each of the six best first actions is scored by its own result or by its best legal follow-up, simulated on a copy through the real resolver. |
-| peer | 91+ | The same planner. (The band itself already removes the damage guard at level 100.) |
+| Tier | Levels | Search depth / first-action beam | Maximum resolver previews per decision | Behavior |
+| --- | --- | --- | --- | --- |
+| novice | 1–15 | original chooser | legal choices only | Readable attacks, range, original stop below 30 AP. |
+| trained | 16–35 | 2 / 2 | 40 | Useful two-action combinations, gap closing, healing when it beats offense. |
+| tactical | 36–60 | 2 / 4 | 64 | Broader setup/attack and counterplay comparisons. |
+| advanced | 61–85 | 2 / 6 | 80 | Survival and useful retreat, shield/cooldown-aware reach. |
+| master | 86–100 | up to 5 / 6 | 128 | Bounded whole-turn search, including movement plus two attacks and legal finishers. |
 
-**Decision order** (every bracket): competence-gated counterplay (clear,
-cleanse and heal, at the existing thresholds) → the authored rule program →
-the bracket policy. An authored rule with a specific intent (a scripted
-round-1 opener, a basic attack, a heal, a move, end turn) is honoured when the
-resolver would accept it, and skipped to the next rule when it would not. A
-rule that asks for "the best jutsu" (`use_highest_power_jutsu`,
-`use_best_legal_jutsu`) and the generic fallback are decided by the bracket
-policy. Every catalog profile's program ends in an unconditional basic attack
-(`validateServerAiRules` requires it).
+All tiers obey `MAX_ACTIONS` and the AP/resources actually available. A useful
+movement opener is retained alongside the first-action beam so many utility
+options cannot crowd it out. Later search frontiers keep the best states
+globally; one root cannot consume the whole budget before others are examined.
+Search is approximate, not an exhaustive solution of every possible turn.
+
+**Decision order.** Novices keep the original counter/heal priority. Above
+that tier, Clear, Cleanse, heals and defensive setups compete with damage.
+Clear recognizes shield-only targets and skips active Clear Prevent; Cleanse
+includes pending negatives and skips active Cleanse Prevent. A substantial
+shield can meet the existing Clear competence threshold alone. A known legal
+immediate finisher takes priority over an authored defensive rule.
+
+Valid authored round-specific openers/tells and other specific offensive
+intents remain meaningful. Conditional defensive/heal/movement rules and
+"best jutsu" fallbacks use the planner's comparison with legal basics and
+utility. Illegal authored actions fall through. The search result is cached
+for the decision so several matching rules cannot multiply the preview budget.
 
 **Evaluation** (`enemyTurnValue`) scores a simulated state for the planner
 only. It never feeds combat: damage the player took (HP plus shield, as a
 share of max HP), vitality the enemy kept (weighted up when it is hurt), status
-swings (statuses start next round, so a debuff is valued for the rounds
-ahead), a large bonus for a knockout, and a small penalty for ending out of
-reach. Ties fall to a stable action key. There is no randomness.
+potency, remaining duration, deferred activation and context, and knockouts.
+It uses the actual resolver result for shield, mitigation, Siphon and other
+post-damage healing. Status icon counts do not earn a flat reward. A small
+AP/resource opportunity cost and relative positioning value reject lateral
+Flickers with no benefit. Equal final states prefer useful immediate actions,
+then a stable action key. There is no randomness.
+
+Advanced/master survival compares an endangered enemy with the universal
+public Basic Attack next round. A delayed Reflect/Absorb cannot prevent a
+lethal hit, whereas a real immediate heal/shield or retreat can help. This is
+a bounded danger estimate, not a read of the player's hidden jutsu loadout or
+future input, and it does not guarantee survival against every possible reply.
 
 ## Guarantees
 
-- **No numeric change.** AP costs, damage, tag percentages, cooldowns,
-  durations, stats, mastery, the per-hit and per-turn difficulty caps, and
-  rewards are untouched. A higher bracket gets a better chooser, never a
-  stronger fighter.
+- **Shared combat rules preserved.** The planner changes choices only. It
+  does not alter shared PvP damage formulas, AP costs, tag percentages,
+  cooldowns or durations. Encounter authors separately select the enemy's
+  sealed level, kit, legitimate mastery and rewards; those are not secretly
+  increased by the chooser.
 - **Legal actions only.** Every candidate is checked with the resolver's own
   acceptance rules before it is simulated or executed. If the resolver still
   refuses one, the turn ends; a refused pick is never repeated.
@@ -125,8 +148,10 @@ reach. Ties fall to a stable action key. There is no randomness.
   never more AP than the turn grants (100, or 60 when stunned), and an
   iteration guard.
 - **Deterministic.** Same stored state, same decisions, same events.
-- **Bounded cost.** Per decision at most six first actions and one follow-up
-  pass each; simulations copy the session without its event history and log.
+- **Bounded cost.** One deterministic preview budget per decision, up to 128
+  at the highest tier, through at most five actions; simulations drop the
+  session's event history and log before cloning. The bounded-history fixture
+  records decision p95 as diagnostic evidence, not a timing input.
 - **Rollback.** `DISABLE_PVE_AI_PLANNER=1` stops sealing new sessions and sends
   sealed sessions back to the original runner immediately.
 
@@ -142,7 +167,7 @@ reach. Ties fall to a stable action key. There is no randomness.
 | Easy enemies make exactly the original moves when nothing illegal is on the table. | same |
 | Protected hosts stay byte-for-byte on the original runner, even if sealed; the kill switch restores it. | same |
 
-### Simulation
+### Historical simulation (2026-09-25, before progressive tactics)
 
 `node --import tsx scripts/pve-ai-planner-sim.ts` plays the same 256 fights
 twice: eight catalog profiles re-levelled to each bracket, against the mission
@@ -161,7 +186,7 @@ Windows):
 | 95 | original | 0 / 32 | 10.63 | 86.8 | 1.99 | 0 | 3 | 100 | 2.78 ms |
 | 95 | planner | 0 / 32 | 10.59 | 88.3 | 2.02 | 0 | 3 | 100 | 4.62 ms |
 
-Read this honestly: on today's catalog kits the milestone barely moves the
+Read this as historical evidence: on the then-current catalog kits the milestone barely moved the
 numbers. Easy and medium are identical (no sampled kit has a 20-AP option to
 spend). Hard and peer finish fights marginally sooner. No balance target was
 changed and none needs to be. Two facts of the resolver limit what
@@ -176,6 +201,20 @@ within-turn planning can add, and they are why the gains are small:
 
 The player script loses to most enemies above level 15 in this harness. That
 is the harness's simple player, not a balance finding.
+
+### Progressive tactical regression evidence (2026-10-16)
+
+`api/solo-pve/_standard-ai-planner.test.ts` exercises the real engine for
+shield-only Clear and prevent statuses, legal lethal versus heal/defense,
+35-HP survival, adjacent Flicker, status potency/duration, post-shield Siphon,
+and movement plus two attacks. The latter uses an identical fighter/kit/board
+and shows the master horizon deals more HP damage than the shorter horizon.
+The large-kit fixture caps work at 128 resolver previews and verifies previews
+leave the source state intact. A 24-sample run with retained history measured
+28.17 ms decision p95 on Windows under concurrent development workload; this
+is local evidence, not a universal latency promise. Encounter balance and
+matched-mastery benchmark results are reported separately from these tactical
+fixtures.
 
 ## Compatibility map
 
