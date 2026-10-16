@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { petTamerPveMultiplier, petTamerTrainingSpeedPct, petTamerExpeditionMult } from "../../lib/profession-bonuses";
-import { petCardImage } from "../../lib/pet-battle-anim";
+import { petScenicPortraitImage as petCardImage } from "../../lib/pet-scenic-portrait";
 import { petDisplayName } from "../../lib/pet";
 import { petVisualVariantClass } from "../../lib/pet-visual-variant";
 import petTamerBg from "../../assets/professions/pettamer.webp";

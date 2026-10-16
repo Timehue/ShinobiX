@@ -5,7 +5,7 @@ import type { ShowdownStateView } from '../../../shared/pet-showdown-contract';
 import type { Pet } from '../types/pet';
 import type { ShowdownTurnResult } from '../lib/pet-showdown-api';
 import { petTacticsRequest } from '../lib/pet-tactics-api';
-import { petCardImage } from '../lib/pet-battle-anim';
+import { petScenicPortraitImage as petCardImage } from '../lib/pet-scenic-portrait';
 import { PetShowdownBattle } from './PetShowdownBattle';
 import { warmShowdownModels } from '../lib/pet-model-preload';
 import { petRankedQueue, settleRankedPetMatch } from '../lib/pet-ranked-queue-api';

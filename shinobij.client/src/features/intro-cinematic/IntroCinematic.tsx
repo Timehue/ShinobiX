@@ -26,6 +26,7 @@ import type { Character } from "../../App";
 import type { Pet } from "../../types/pet";
 import { STARTER_PETS, type StarterPetOption } from "../../data/starter-pets";
 import { petPoseImage } from "../../lib/pet-battle-anim";
+import { petScenicPortraitImage } from "../../lib/pet-scenic-portrait";
 import { villagePageImage } from "../../lib/village-page-image";
 import { isLowEndMobile, prefersReducedMotion } from "../../lib/device-tier";
 import { GameArtIcon, type GameArtIconKind } from "../../components/GameArtIcon";
@@ -570,7 +571,7 @@ export function IntroCinematic({
                     </div>
                     <div className="icx-pet-grid">
                         {STARTER_PETS.map((o) => {
-                            const art = artFor(o);
+                            const art = petScenicPortraitImage(o.pet, sharedImages);
                             return (
                                 <button
                                     key={o.pet.id}
@@ -615,7 +616,7 @@ export function IntroCinematic({
                         <div className="icx-confirm-pet-stage">
                             <span className="icx-pet-art">
                                 <img
-                                    src={artFor(phase.option)}
+                                    src={petScenicPortraitImage(phase.option.pet, sharedImages)}
                                     alt={phase.option.pet.name}
                                     onError={(e) => { e.currentTarget.style.display = "none"; }}
                                 />

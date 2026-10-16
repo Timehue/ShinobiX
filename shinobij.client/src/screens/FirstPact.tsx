@@ -101,7 +101,7 @@ import { lazyWithRetry, retryDynamicImport } from "../lib/lazyWithRetry";
 import { activeCarriedPetIds } from "../lib/entitlements";
 import { activeClientBreedingParentIds } from "../lib/pet-breeding";
 import { isPetAvailableForColosseum } from "../lib/pet";
-import { petCardImage } from "../lib/pet-battle-anim";
+import { petScenicPortraitImage as petCardImage } from "../lib/pet-scenic-portrait";
 import sunkenCourtKeyArt from "../assets/first-pact/sunken-court-key-art.webp";
 import sunkenCourtArchitectureAtlas from "../assets/first-pact/sunken-court-architecture-atlas.webp";
 import bellQuarterArchitectureV2 from "../assets/first-pact/bell-quarter-v2/bell-quarter-architecture-strip.png";

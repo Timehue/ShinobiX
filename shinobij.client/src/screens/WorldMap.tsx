@@ -161,7 +161,7 @@ import { DungeonProbeError, dungeonProbeFailureMessage, probeFreeDungeonServer }
 import { runSingleFlight } from "../lib/single-flight";
 import { drainPendingWorldRewardOperations, type WorldRecoveryResult } from "../lib/world-reward-drain";
 import { ambushRewardFailureMessage } from "../lib/ambush-reward-feedback";
-import { petCardImage } from "../lib/pet-battle-anim";
+import { petScenicPortraitImage as petCardImage } from "../lib/pet-scenic-portrait";
 import { roadBeastReadyPets, withRoadBeastIdentity } from "../lib/road-beast";
 import { buildPetEncounterVn } from "../lib/pet-encounter-vn";
 import { canonicalNarrativeEvent } from "../lib/canonical-narrative";

@@ -55,6 +55,8 @@
 .pet-yard-screen.pet-yard-refined .pet-profile-panel { min-width: 0; width: 100% !important; align-items: center !important; gap: 8px !important; padding: 0 22px 0 0 !important; border: 0 !important; border-right: 1px solid var(--yard-line) !important; border-radius: 0 !important; background: none !important; text-align: center !important; }
 .pet-yard-screen.pet-yard-refined .pet-detail-avatar { width: 100% !important; height: 200px !important; max-width: 270px !important; border: 0 !important; border-radius: 6px !important; background: radial-gradient(ellipse at 50% 75%,#c4a25a12,transparent 70%) !important; box-shadow: none !important; }
 .pet-yard-screen.pet-yard-refined .pet-detail-avatar img { width: 100% !important; height: 100% !important; object-fit: contain !important; filter: drop-shadow(0 12px 15px #0008); }
+.pet-yard-screen.pet-yard-refined .pet-detail-avatar:has(img[data-pet-art="scenic"]) { height: auto !important; aspect-ratio: 1; }
+.pet-yard-screen.pet-yard-refined .pet-detail-avatar img[data-pet-art="scenic"] { object-fit: cover !important; border-radius: 6px !important; filter: none; }
 .pet-yard-refined .pet-heart-anchor { width: 100% !important; display: grid !important; place-items: center; }
 .pet-yard-screen.pet-yard-refined h3 { margin: 8px 0 !important; color: #eee3cc !important; font: 400 26px/1.25 var(--font-display,Georgia,serif) !important; text-transform: none !important; letter-spacing: -.015em !important; }
 .pet-yard-screen.pet-yard-refined h4 { font: 500 17px/1.35 var(--font-display,Georgia,serif) !important; color: #e6d9be !important; margin: 0 0 12px !important; text-transform: none !important; letter-spacing: 0 !important; }
@@ -146,6 +148,7 @@
 .pet-yard-screen.pet-yard-refined .pet-slot-card.companion-card.pet-selected { border-color: #e4c079 !important; box-shadow: inset 0 0 0 1px rgba(228,192,121,.5),0 0 24px rgba(228,192,121,.12) !important; }
 .pet-yard-screen.pet-yard-refined .pet-slot-card.companion-card .companion-identity { flex: 1 0 auto; }
 .pet-yard-screen.pet-yard-refined .pet-slot-card.companion-card .companion-identity-art { max-height: 112px; }
+.pet-yard-screen.pet-yard-refined .pet-slot-card.companion-card .companion-identity-art:has(img[data-pet-art="scenic"]) { max-height: none; }
 .pet-yard-screen.pet-yard-refined .pet-slot-card.companion-card :is(.pet-active-tag,.pet-2v2-tag,.pet-ready-tag,.pet-training-tag) { align-self: flex-start; border: 1px solid rgba(167,198,157,.2) !important; border-radius: 999px !important; padding: .2rem .5rem !important; color: #b9d6b7 !important; background: rgba(70,119,84,.15) !important; font-size: .58rem !important; }
 @container yard (max-width:640px) {
     .pet-yard-screen.pet-yard-refined .pet-slots-row { display: flex !important; }

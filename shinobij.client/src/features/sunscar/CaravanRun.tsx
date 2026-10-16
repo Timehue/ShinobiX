@@ -3,7 +3,7 @@ import type { Character, VersionedCharacterCommit } from '../../types/character'
 import { requestCaravan, type CaravanResponse } from '../../lib/sunscar-caravan';
 import { declineWildPetEncounter, startWildPetEncounter, type WildPetEncounterResult } from '../../lib/wild-pet-encounter-api';
 import { WildPetBinding } from '../../components/WildPetBinding';
-import { petCardImage } from '../../lib/pet-battle-anim';
+import { petScenicPortraitImage as petCardImage } from '../../lib/pet-scenic-portrait';
 import type { TowerSession } from '../../lib/towers-api';
 import type { SoloPveSession } from '../../lib/solo-pve-api';
 import { CARAVAN_RANKS, CARAVAN_TOOLS, CARAVAN_WEATHER, caravanRank, type CaravanChoice, type CaravanNode, type CaravanRun as CaravanRunState, type CaravanTool } from '../../../../shared/sunscar/caravan-types';

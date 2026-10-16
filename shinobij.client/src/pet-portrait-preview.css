@@ -1,0 +1,23 @@
+:root { color: #e7e5df; background: #08111a; font-family: Inter, system-ui, sans-serif; --font-display: Georgia, serif; --r-sm: 7px; --companion-glow: #69a1b322; --companion-accent: #d6b77b; }
+body { margin: 0; }
+.portrait-review { max-width: 1340px; margin: auto; padding: 32px; }
+.portrait-review header { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; margin-bottom: 26px; }
+.portrait-review header > p { width: 100%; margin: 0; color: #bbaa8a; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; }
+.portrait-review h1 { margin: 0 auto 0 0; font: 400 35px Georgia, serif; }
+.portrait-review label { display: grid; gap: 6px; color: #9db1bc; font-size: 12px; }
+.portrait-review input { color: #e9eee9; background: #15242f; border: 1px solid #384c59; border-radius: 6px; padding: 10px; font: inherit; min-width: 210px; }
+.portrait-review output { color: #c9bd9d; font-size: 13px; }
+.portrait-comparison { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; max-width: 1140px; margin: 0 0 30px; }
+.portrait-comparison figure { margin: 0; background: #12202a; border: 1px solid #344450; border-radius: 8px; overflow: hidden; }
+.portrait-comparison img { display: block; width: 100%; aspect-ratio: 1; object-fit: contain; }
+.portrait-comparison figcaption { padding: 12px; color: #bac8cc; font-size: 12px; }
+.portrait-review-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 16px; }
+.portrait-review-card { text-align: left; cursor: pointer; background: #0d1922; border: 1px solid #557482; border-radius: 8px; padding: 12px; color: inherit; font: inherit; min-width: 0; }
+.portrait-review-card.rarity-legendary { border-color: #a58b43; }
+.portrait-review-card.rarity-mythic { border-color: #9765c6; }
+.portrait-review-card:focus-visible { outline: 2px solid #e4c783; outline-offset: 3px; }
+.portrait-review .companion-identity { display: grid; gap: 12px; }
+.portrait-review .companion-identity-name { font-size: 19px; }
+.portrait-review .companion-identity-meta { display: flex; gap: 8px; font-size: 11px; color: #a6bcc5; }
+.portrait-review-context { display: block; padding-top: 8px; color: #8ca7b2; font-size: 12px; }
+@media (max-width: 620px) { .portrait-review { padding: 16px; } .portrait-review h1 { font-size: 28px; } .portrait-review-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } .portrait-review-card { padding: 8px; } .portrait-review .companion-identity-name { font-size: 15px; } .portrait-review .companion-identity-meta { flex-wrap: wrap; font-size: 10px; } }

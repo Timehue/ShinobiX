@@ -94,7 +94,10 @@ const forbiddenClientExtensions = new Set([
 const maxChronicleArtBytes = 144 * 1024 * 1024;
 const maxPetShapeReviewGrowthBytes = 5695550;
 const maxOtherClientBytes = 451 * 1024 * 1024 + maxPetShapeReviewGrowthBytes;
-const maxClientArtifactBytes = maxChronicleArtBytes + maxOtherClientBytes;
+// The 161 scenic companion portraits ship separately from their unchanged
+// battle/model assets. Keep unrelated runtime growth under the existing cap.
+const maxPetPortraitBytes = 16 * 1024 * 1024;
+const maxClientArtifactBytes = maxChronicleArtBytes + maxOtherClientBytes + maxPetPortraitBytes;
 const maxRallyAtlasBytes = 4 * 1024 * 1024;
 
 function fail(msg) {
@@ -149,6 +152,42 @@ try {
 console.log('[verify:dist] Retired pet battle UI is absent from executable client assets.');
 const clientRelativeFiles = clientFiles.map((file) => relative(clientDist, file).replaceAll('\\', '/'));
 const clientRelativeFileSet = new Set(clientRelativeFiles);
+const portraitProduction = JSON.parse(readFileSync(join(root, 'shinobij.client', 'art-source', 'pet-portrait-refresh', 'production.json'), 'utf8'));
+const portraitEntries = portraitProduction.entries;
+if (!portraitProduction.symbolPolicy?.required) fail('scenic companion artwork must require a current visual symbol review');
+if (portraitEntries?.length !== 161 || portraitEntries.some((entry) => entry.status !== 'reviewed')) {
+    fail('all 161 scenic companion portraits must have a completed visual review');
+}
+const expectedPortraitFiles = new Set();
+let petPortraitBytes = 0;
+for (const entry of portraitEntries) {
+    const file = entry.output;
+    if (!/^pet-portraits\/shinobi-v1\/[a-z0-9-]+\.webp$/.test(file) || expectedPortraitFiles.has(file)) {
+        fail(`invalid or duplicate scenic portrait path: ${file}`);
+    }
+    expectedPortraitFiles.add(file);
+    if (!entry.qualityReview?.passed || entry.qualityReview.sourceSha256 !== entry.sourceSha256
+        || entry.qualityReview.outputSha256 !== entry.outputSha256) {
+        fail(`missing or stale scenic portrait review: ${entry.id}`);
+    }
+    if (!entry.symbolReview?.passed || entry.symbolReview.sourceSha256 !== entry.sourceSha256
+        || entry.symbolReview.outputSha256 !== entry.outputSha256) {
+        fail(`missing or stale scenic portrait symbol review: ${entry.id}`);
+    }
+    if (!clientRelativeFileSet.has(file)) fail(`client dist is missing scenic portrait ${entry.id}`);
+    const bytes = readFileSync(join(clientDist, file));
+    if (bytes.length !== entry.bytes || createHash('sha256').update(bytes).digest('hex') !== entry.outputSha256) {
+        fail(`scenic portrait ${entry.id} differs from its reviewed delivery bytes`);
+    }
+    petPortraitBytes += bytes.length;
+}
+const unexpectedPortraitFile = clientRelativeFiles.find((file) =>
+    file.startsWith('pet-portraits/shinobi-v1/') && !expectedPortraitFiles.has(file));
+if (unexpectedPortraitFile) fail(`client dist copied an obsolete scenic portrait: ${unexpectedPortraitFile}`);
+if (petPortraitBytes > maxPetPortraitBytes) {
+    fail(`scenic companion portraits use ${petPortraitBytes} B; ceiling is ${maxPetPortraitBytes} B`);
+}
+console.log(`[verify:dist] Scenic companions: 161 reviewed portraits / ${(petPortraitBytes / 1024 / 1024).toFixed(1)} MiB (16 MiB ceiling).`);
 const rallyAtlasFiles = clientFiles.filter((file) =>
     relative(clientDist, file).replaceAll('\\', '/').startsWith('pet-rally/'));
 if (rallyAtlasFiles.length !== 161 || rallyAtlasFiles.some((file) => !file.endsWith('.webp'))) {
@@ -276,9 +315,9 @@ const chronicleArtBytes = clientFiles
 if (chronicleArtBytes > maxChronicleArtBytes) {
     fail(`Chronicle art is ${(chronicleArtBytes / 1024 / 1024).toFixed(1)} MiB; ceiling is ${maxChronicleArtBytes / 1024 / 1024} MiB`);
 }
-const otherClientBytes = clientArtifactBytes - chronicleArtBytes;
+const otherClientBytes = clientArtifactBytes - chronicleArtBytes - petPortraitBytes;
 if (otherClientBytes > maxOtherClientBytes) {
-    fail(`client excluding Chronicle art is ${(otherClientBytes / 1024 / 1024).toFixed(1)} MiB; ceiling is ${maxOtherClientBytes / 1024 / 1024} MiB`);
+    fail(`client excluding Chronicle art and scenic companions is ${(otherClientBytes / 1024 / 1024).toFixed(1)} MiB; ceiling is ${maxOtherClientBytes / 1024 / 1024} MiB`);
 }
 console.log(`[verify:dist] Chronicle art ${(chronicleArtBytes / 1024 / 1024).toFixed(1)} / 144 MiB; other runtime assets ${(otherClientBytes / 1024 / 1024).toFixed(1)} / ${(maxOtherClientBytes / 1024 / 1024).toFixed(1)} MiB.`);
 if (clientArtifactBytes > maxClientArtifactBytes) {
