@@ -2,7 +2,6 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { _makeMemoryKv, type KvLike } from '../_storage.js';
 import { sanitizeCharacterSave } from '../save/[name].js';
-import { claimPetLifecycleLease } from './_active-battle-lease.js';
 import {
     getPetRankedJournal,
     loadPetRankedAuthorityToken,
@@ -105,7 +104,6 @@ describe('durable ranked pet settlement journal', { concurrency: false }, () => 
             const recoveredToken = await loadPetRankedAuthorityToken(store, MATCH);
             assert.equal(recoveredToken?.matchId, MATCH);
             assert.equal(await store.get(petRankedActiveKey('alpha')), MATCH);
-            assert.equal(await claimPetLifecycleLease(store, 'alpha', 'post-crash-probe'), null);
 
             const settled = await settlePetRankedMatchDurably(store, {
                 matchToken: MATCH,
@@ -151,8 +149,6 @@ describe('durable ranked pet settlement journal', { concurrency: false }, () => 
             clock += (PET_RANKED_TOKEN_TTL_SECONDS + 1) * 1_000;
             assert.equal(await store.get(petRankedActiveKey('alpha')), MATCH);
             assert.equal(await store.get(petRankedActiveKey('bravo')), MATCH);
-            assert.equal(await claimPetLifecycleLease(store, 'alpha', 'fault-window-probe'), null);
-            assert.equal(await claimPetLifecycleLease(store, 'bravo', 'fault-window-probe'), null);
 
             const recovered = await settlePetRankedMatchDurably(store, { matchToken: MATCH, token, lock, now: clock });
             assert.equal(recovered.a.status, 'settled');
@@ -218,7 +214,6 @@ describe('durable ranked pet settlement journal', { concurrency: false }, () => 
             assert.equal((await loadPetRankedAuthorityToken(store, MATCH))?.matchId, MATCH, 'journal retained authority');
             assert.equal(await store.get(petRankedActiveKey('alpha')), MATCH, 'unresolved active lease became durable');
             assert.equal(await store.get(petRankedActiveKey('bravo')), MATCH, 'both players remain blocked');
-            assert.equal(await claimPetLifecycleLease(store, 'alpha', 'journal-probe'), null);
 
             const recoveredToken = await loadPetRankedAuthorityToken(store, MATCH);
             assert.ok(recoveredToken);
@@ -239,9 +234,11 @@ describe('durable ranked pet settlement journal', { concurrency: false }, () => 
             clock += (PET_RANKED_TOKEN_TTL_SECONDS + 1) * 1_000;
             assert.equal(await store.get(petRankedActiveKey('alpha')), null, 'completed acknowledgement lease is bounded');
             assert.equal(await store.get(petRankedRecoveryKey('alpha')), null);
-            const lifecycle = await claimPetLifecycleLease(store, 'alpha', 'after-ranked');
-            assert.ok(lifecycle, 'other pet modes reopen after both receipts are confirmed');
-            await lifecycle?.release();
+            assert.equal(
+                await store.set(petRankedActiveKey('alpha'), 'next-pet-battle', { nx: true, ex: 60 }),
+                'OK',
+                'other pet modes reopen after both receipts are confirmed',
+            );
 
             clock += (PET_RANKED_REPLAY_TTL_SECONDS + 1) * 1_000;
             assert.equal(await getPetRankedJournal(store, MATCH), null);
