@@ -17,6 +17,7 @@
 
 import { relativeAgo } from './village-stores';
 import { takeUnseenNotices } from './notice-ack';
+import { displayPlayerName } from '../../../shared/player-name';
 
 export type OfflineNoticeKind = 'sleeper-kill' | 'merc-raid' | 'bounty-placed' | 'bounty-claimed' | 'kage-seat-lost' | 'kage-challenge-refunded' | 'village-unfed' | 'village-war-card-defense';
 
@@ -93,7 +94,9 @@ function formatTenure(ms: number): string {
 
 /** The notice body, with no icon and no timestamp — those are added around it. */
 export function offlineNoticeBody(n: OfflineNotice): string {
-    const who = n.by.trim() || 'someone';
+    // `by` is a player's name except on NPC raids ("Frostfang mercenaries") and
+    // the unfed-siege notice (a village); only a player's name is capitalized.
+    const who = (n.kind === 'merc-raid' || n.kind === 'village-unfed' ? n.by.trim() : displayPlayerName(n.by)) || 'someone';
     if (n.kind === 'village-war-card-defense') return `${who} attacked your queued card stronghold in Sector ${n.sector}. Open the War Hall or Town Hall Guard and enter your assigned card battle now.`;
     if (n.kind === 'village-unfed') {
         const village = n.village ?? (who !== 'someone' ? who : 'Your village');

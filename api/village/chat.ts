@@ -14,6 +14,7 @@ import { blockedPlayersFor } from '../player/_blocks.js';
 import { rejectUnclaimedGuest } from '../_guest-gate.js';
 import { socialSurfacesLocked } from '../_guest-gate.js';
 import { kickVillageChat } from '../_realtime/notify.js';
+import { notifyTavernMentions } from './_tavern-mentions.js';
 
 // A quoted reference to the message being replied to. Display-only — just the
 // original author + a short snippet so the client can render a quote block.
@@ -271,7 +272,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // next poll. Only after the write landed — a refused post kicks nobody.
             kickVillageChat(village, newMsg.ts);
 
-            return res.status(200).json(visible(updated));
+            res.status(200).json(visible(updated));
+            // Tagged players hear about it after the poster has their reply.
+            // Best-effort: a failed notice never fails a stored line.
+            await notifyTavernMentions({
+                village,
+                author,
+                text: safeText,
+                replyToAuthor: replyRef?.author,
+                at: newMsg.ts,
+                canRead: villageChatWatchable,
+            }).catch((err) => console.error('[village/chat] mentions', err));
+            return;
         } catch (err) {
             console.error('[village/chat]', err);
             return res.status(500).json({ error: 'Internal server error.' });

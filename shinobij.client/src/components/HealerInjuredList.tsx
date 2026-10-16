@@ -12,6 +12,7 @@
  * chakra/XP/rank. Renders nothing of its own chrome — drop it inside a card.
  */
 /* eslint-disable react-hooks/set-state-in-effect */
+import { displayPlayerName } from "../../../shared/player-name";
 import { useEffect, useRef, useState } from "react";
 import { GameArtIcon } from "./GameArtIcon";
 import { visiblePoll } from "../lib/poll";
@@ -209,7 +210,7 @@ export function HealerInjuredList({
                     {hospitalizedPlayers.map(p => (
                         <div key={p.name} className="summary-box healer-patient-row" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
                             <div style={{ flex: 1 }}>
-                                <strong>{p.name}</strong>
+                                <strong>{displayPlayerName(p.name)}</strong>
                                 <span className="hint" style={{ marginLeft: 6 }}>Lv {p.level} · {character.village}</span>
                                 <span style={{ marginLeft: 8, color: "var(--red-400)", fontSize: "0.8rem" }}>
                                     HP {p.hp}/{p.maxHp}
@@ -249,7 +250,7 @@ export function HealerInjuredList({
                             return (
                                 <div key={p.name} className="summary-box healer-patient-row" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
                                     <div style={{ flex: 1 }}>
-                                        <strong>{p.name}</strong>
+                                        <strong>{displayPlayerName(p.name)}</strong>
                                         <span className="hint" style={{ marginLeft: 6 }}>Lv {p.level}</span>
                                         {p.hospitalized && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, marginLeft: 8, color: "var(--gold)", fontSize: "0.75rem" }}><GameArtIcon kind="healer" size={14} /> Admitted</span>}
                                         <div style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 6 }}>

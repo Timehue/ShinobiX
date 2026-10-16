@@ -20,6 +20,7 @@ import { battleStartedWithin } from '../_realtime/battle-projection.js';
 import { reconcileLapsedBattle } from '../_battle-lapse.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
 import { offlineNoticesKey, parseOfflineNotices, OFFLINE_NOTICES_TTL_SEC, type OfflineNotice } from './_offline-notices.js';
+import { displayPlayerName } from '../../shared/player-name.js';
 import { kageStakeRefundKey, parsePendingStakeRefunds, drainKageStakeRefunds } from '../village/_kage-inactivity.js';
 import { towerPartyInviteKey } from '../towers/_party.js';
 
@@ -429,7 +430,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             pendingChallenges: pendingChallenges ?? [],
             pendingHeal: healSignal && !healAcknowledged
                 ? {
-                    by: typeof healSignal.by === 'string' ? healSignal.by : '',
+                    // The healer's slug is stored; the toast shows it capitalized.
+                    by: displayPlayerName(healSignal.by),
                     // The id the client echoes as `ackHeal`; legacy bodies keep the exact old shape.
                     ...(healConsumeOnDelivery ? {} : { id: String(healSignalAt) }),
                 }

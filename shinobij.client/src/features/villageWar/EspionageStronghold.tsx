@@ -1,3 +1,4 @@
+import { displayPlayerName } from "../../../../shared/player-name";
 import { lazy, Suspense, useEffect, useState } from 'react';
 import type { Character, PlayerRecord, VersionedCharacterCommit } from '../../types/character';
 import { campaignRequest, type CampaignBattle } from '../../lib/village-war-campaign';
@@ -46,7 +47,7 @@ export function EspionageStronghold({ character, warId, mission: initial, shared
         <FieldMissionSummary mission={mission} />{error && <p role='alert'>{error}</p>}
         {!mission.insideStronghold && <p>Entering the stronghold…</p>}
         <button disabled={busy || !mission.insideStronghold || mission.status !== 'active'} onClick={() => void attack()}>Fight stronghold sentry</button>
-        <h3>Players inside</h3>{!peers.some(p => p.village === mission.enemy) ? <p>No enemy players inside.</p> : peers.filter(p => p.village === mission.enemy).map(peer => <div key={peer.name} className='war-espionage-peer'><span>{peer.name} · Level {peer.level}</span><button disabled={busy || !!peer.inBattle} onClick={() => void attack(peer)}>Attack</button></div>)}
+        <h3>Players inside</h3>{!peers.some(p => p.village === mission.enemy) ? <p>No enemy players inside.</p> : peers.filter(p => p.village === mission.enemy).map(peer => <div key={peer.name} className='war-espionage-peer'><span>{displayPlayerName(peer.name)} · Level {peer.level}</span><button disabled={busy || !!peer.inBattle} onClick={() => void attack(peer)}>Attack</button></div>)}
         <button disabled={busy} onClick={() => void leave()}>Leave stronghold</button>
     </StrongholdDialog>;
 }

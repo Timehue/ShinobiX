@@ -11,11 +11,11 @@ import { isExchangeSaleReceipt, type ExchangeSaleReceipt } from '../../shared/su
 // after acknowledgement. Completed Exchange sales use the same delivery path.
 //
 // Key: `offline-notices:<slug>` → OfflineNotice[] (newest last), capped at 10
-// general reports plus 100 Exchange sale receipts,
+// general reports plus 100 Exchange sale receipts and 5 tavern mentions,
 // 14-day TTL (refreshed on every push). Appends run under the key's own lock so
 // two raids landing in the same tick can't drop each other's entry.
 
-export type OfflineNoticeKind = 'sleeper-kill' | 'merc-raid' | 'bounty-placed' | 'bounty-claimed' | 'kage-seat-lost' | 'kage-challenge-refunded' | 'village-unfed' | 'exchange-sale' | 'village-war-card-defense';
+export type OfflineNoticeKind = 'sleeper-kill' | 'merc-raid' | 'bounty-placed' | 'bounty-claimed' | 'kage-seat-lost' | 'kage-challenge-refunded' | 'village-unfed' | 'exchange-sale' | 'village-war-card-defense' | 'tavern-mention';
 
 export type OfflineNotice = {
     kind: OfflineNoticeKind;
@@ -39,13 +39,18 @@ export type OfflineNotice = {
     /** Server-issued receipt; a notification never grants these proceeds. */
     sale?: ExchangeSaleReceipt;
     campaignRunId?: string;
+    /** tavern-mention: a short, already-moderated snippet of the line. */
+    text?: string;
 };
 
-const NOTICE_KINDS: ReadonlySet<string> = new Set<OfflineNoticeKind>(['sleeper-kill', 'merc-raid', 'bounty-placed', 'bounty-claimed', 'kage-seat-lost', 'kage-challenge-refunded', 'village-unfed', 'exchange-sale', 'village-war-card-defense']);
+const NOTICE_KINDS: ReadonlySet<string> = new Set<OfflineNoticeKind>(['sleeper-kill', 'merc-raid', 'bounty-placed', 'bounty-claimed', 'kage-seat-lost', 'kage-challenge-refunded', 'village-unfed', 'exchange-sale', 'village-war-card-defense', 'tavern-mention']);
 
 export const OFFLINE_NOTICES_CAP = 10;
 /** Sales have their own allowance so a busy stall cannot bury other reports. */
 export const EXCHANGE_SALE_NOTICES_CAP = 100;
+/** Tavern mentions get a small allowance of their own, for the same reason:
+ *  a chatty room must never push a raid or a lost Kage seat out of the inbox. */
+export const TAVERN_MENTION_NOTICES_CAP = 5;
 export const OFFLINE_NOTICES_TTL_SEC = 14 * 24 * 60 * 60;
 
 export function offlineNoticesKey(slug: string): string {
@@ -73,8 +78,9 @@ export async function pushOfflineNotice(targetSlug: string, notice: OfflineNotic
         if (notice.kind === 'village-war-card-defense' && current.some(n => n.kind === notice.kind && n.campaignRunId === notice.campaignRunId)) return;
         const combined = [...current, notice];
         const retained = new Set([
-            ...combined.filter(n => n.kind !== 'exchange-sale').slice(-OFFLINE_NOTICES_CAP),
+            ...combined.filter(n => n.kind !== 'exchange-sale' && n.kind !== 'tavern-mention').slice(-OFFLINE_NOTICES_CAP),
             ...combined.filter(n => n.kind === 'exchange-sale').slice(-EXCHANGE_SALE_NOTICES_CAP),
+            ...combined.filter(n => n.kind === 'tavern-mention').slice(-TAVERN_MENTION_NOTICES_CAP),
         ]);
         const next = combined.filter(n => retained.has(n));
         await kv.set(key, next, { ex: OFFLINE_NOTICES_TTL_SEC });

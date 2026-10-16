@@ -1,3 +1,4 @@
+import { displayPlayerName } from "../../../shared/player-name";
 import { useEffect, useState } from "react";
 import { GameIcon, type GameIconName } from "../components/icons/GameIcon";
 
@@ -180,7 +181,7 @@ export function PublicLeaderboard({ onBack }: { onBack: () => void }) {
                                 <div key={`${tab}:${row.name}`} className={`start-leaderboard-row ${rankCls}`}>
                                     <span className="start-leaderboard-rank">{medal}</span>
                                     <span className="start-leaderboard-name">
-                                        {row.name}
+                                        {displayPlayerName(row.name)}
                                         {detail ? <span className="start-leaderboard-village"> - {detail}</span> : null}
                                     </span>
                                     <span className="start-leaderboard-value">{row.label || row.value.toLocaleString()}</span>
