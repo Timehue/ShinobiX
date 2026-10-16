@@ -687,6 +687,7 @@ export type MentorAdmission =
  */
 async function outstandingStudentMilestones(studentSlug: string, createdAt: number | null): Promise<Set<MentorMilestone>> {
     const outstanding = new Set<MentorMilestone>();
+    const pendingSenseis = new Set<string>();
     // An unanchored legacy row cannot establish ownership of this account.
     // The offline report keeps such rows in its explicit recovery review queue.
     if (createdAt === null) return outstanding;
@@ -704,9 +705,16 @@ async function outstandingStudentMilestones(studentSlug: string, createdAt: numb
                 try { pending = parseSettlement(candidate); }
                 catch { continue; } // Ambiguous legacy data cannot authorize a reservation.
                 if (mentorRecordKey(pending.senseiSlug) !== chunk[index]) continue;
+                pendingSenseis.add(pending.senseiSlug);
                 for (const milestone of pending.milestones) outstanding.add(milestone);
             }
         }
+    }
+    // Recurring recovery reads pointers; only boot performs full discovery.
+    // Reconnect validated existing obligations without replacing an admission's
+    // token or starting cross-sensei recovery under this caller's mentor lock.
+    for (const sensei of pendingSenseis) {
+        await kv.set(mentorPendingPointerKey(sensei), randomUUID(), { nx: true });
     }
     return outstanding;
 }

@@ -42,8 +42,11 @@ former sensei, without a student receipt or canonical flag. Before admitting
 new rewards, the runtime enumerates all mentor records in batches and defers
 only milestones overlapping a validated pending batch for the exact current
 student creation stamp. It uses the authoritative records even if a recovery
-pointer is missing. Other earned milestones remain claimable, and the original
-batch remains owed through normal recovery; it is never relabeled as paid.
+pointer is missing. It restores a missing pointer for strictly validated
+existing work with an atomic NX write, preserving any existing pointer token,
+so ordinary recurring recovery can find the owed batch. Other earned
+milestones remain claimable, and the original batch remains owed through
+normal recovery; it is never relabeled as paid.
 Discovery transport failures or incomplete batch responses return a retry.
 Malformed terms, missing identity anchors and unrelated accounts cannot create
 reservations; the offline report keeps pending records in the recovery review
