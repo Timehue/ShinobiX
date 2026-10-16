@@ -2,7 +2,7 @@ import { MAX_PENDING_FINDS, pendingGatherFinds } from '../../shared/gathering.js
 import { sealGatherFind } from './_gather.js';
 import { safeLogValue } from '../_safe-log.js';
 import { isIncapacitated } from '../_elapsed-state.js';
-import { randomInt } from 'node:crypto';
+import { randomInt, randomUUID } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
@@ -37,6 +37,8 @@ import { addPendingWorldReward, settlePendingWorldReward } from './_pending-rewa
 import { fieldActionBlockedByClaimedBattle } from '../_sector-presence-gate.js';
 import { unresolvedExploreBattle } from './_pending-battle.js';
 import { deliverWorldEffect, drainWorldEffects } from './_effects-outbox.js';
+import { rollOrdinaryPveEncounter } from '../../shared/ordinary-pve-encounter.js';
+import { computeAiFightBaseReward } from '../missions/_ai-fight-token.js';
 
 function cleanRequestId(value: unknown): string {
     const id = typeof value === 'string' ? value.trim().slice(0, 96) : '';
@@ -353,6 +355,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
                 : rolledOutcome?.kind === 'gather'
                     ? { kind: 'gather' as const, find: sealGatherFind(requestId, requestedSector, () => randomInt(1_000_000_000) / 1_000_000_000)! }
+                    : rolledOutcome?.kind === 'battle'
+                        ? { kind: 'battle' as const, encounter: rollOrdinaryPveEncounter({
+                            sourceId: requestId, playerLevel: Number(character.level), sector: requestedSector,
+                            // The client chooses requestId for idempotency. It
+                            // must never choose combat odds by precomputing ids.
+                            // This server roll is persisted in the same receipt
+                            // as the exploration cost and replayed unchanged.
+                            seed: randomUUID(),
+                            reward: computeAiFightBaseReward(character),
+                        }) }
                     : rolledOutcome;
             // Once the server resolves the branch, a chest or battle counts as
             // the explored tile but cannot also collect the quiet-tile ryo.

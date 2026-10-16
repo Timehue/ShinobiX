@@ -2,6 +2,10 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { AI_PROFILE_CATALOG } from '../_ai-profile-catalog.js';
 import { apexBeastForWeek, isoWeekKey } from './_apex-contract.js';
+import { rollOrdinaryPveEncounter } from '../../shared/ordinary-pve-encounter.js';
+import { ordinaryAiProfile } from './_ordinary-ai-encounter.js';
+import { relevelAiProfile, type RelevelableProfile } from '../_ai-level-curves.js';
+import { resolveAiProfileJutsu } from '../_ai-opponent-loadout.js';
 import {
     genericExploreOpponentId,
     raidVillageGuardOpponentId,
@@ -26,7 +30,20 @@ function memoryStore(seed: Record<string, unknown> = {}) {
 }
 
 describe('generic AI fight authority', () => {
-    it('varies explore opponents while keeping their effective level at or below the player', async () => {
+    it('preserves the original template role allocation instead of silently replacing it with generic stats', () => {
+        for (const archetype of ['bruiser', 'skirmisher', 'assassin', 'elementalist', 'defender'] as const) {
+            const descriptor = { ...rollOrdinaryPveEncounter({ sourceId: 'role-allocation', playerLevel: 50, sector: 61, archetype }), level: 50 };
+            const template = AI_PROFILE_CATALOG[descriptor.profileId];
+            const profile = ordinaryAiProfile(descriptor);
+            const previousExploreScaling = relevelAiProfile(template as unknown as RelevelableProfile, descriptor.level, 0, 0, resolveAiProfileJutsu(template.jutsuIds));
+            assert.deepEqual(profile.stats, previousExploreScaling.stats, `${archetype}: same original-kit stat allocation`);
+            assert.equal(profile.hp, previousExploreScaling.hp);
+            assert.equal(profile.armorRawDR, previousExploreScaling.armorRawDR);
+            assert.equal(profile.pveTemplateId, descriptor.profileId);
+        }
+    });
+
+    it('varies ordinary role templates and preserves onboarding at their effective sealed level', async () => {
         const selected = Array.from({ length: 32 }, (_, index) => genericExploreOpponentId({
             playerName: 'Scout',
             level: 32,
@@ -34,7 +51,7 @@ describe('generic AI fight authority', () => {
             receiptId: `exploreproof${String(index).padStart(2, '0')}`,
         }));
         assert.ok(new Set(selected).size > 1, 'receipt seeds should spread explorers across eligible opponents');
-        for (const id of selected) assert.ok(AI_PROFILE_CATALOG[id]!.level <= 32, `${id} is within the level band`);
+        for (const id of selected) assert.ok(AI_PROFILE_CATALOG[id], `${id} is a published template`);
 
         const lowLevel = await resolveGenericAiFightAuthority({
             store: memoryStore() as never,
@@ -46,7 +63,52 @@ describe('generic AI fight authority', () => {
             },
             tokenTtlSeconds: 1800,
         });
-        assert.deepEqual(lowLevel.scaling, { level: 1 }, 'the fallback profile is scaled to the attacker, never above them');
+        assert.equal(lowLevel.profile?.level, 1, 'onboarding never rolls an enemy above the attacker');
+        assert.equal(lowLevel.encounter?.level, 1);
+        assert.equal(lowLevel.scaling, undefined, 'the receipt profile is already built at its sealed level');
+    });
+
+    it('uses the discovered identity, level, appearance and rewards after progression or pet changes', async () => {
+        const id = 'explore-sealed-001';
+        const encounter = rollOrdinaryPveEncounter({ sourceId: id, playerLevel: 25, sector: 61,
+            seed: 'Scout:discovery', displayName: 'Sealed Assassin', portraitImage: '/art/sealed.webp',
+            reward: { xp: 125, ryo: 75, trait: 'Swift' } });
+        const store = memoryStore({ [`world-explore-receipt:Scout:${id}`]: {
+            version: 1, playerName: 'Scout', requestId: id, sector: 61, reward: { sector: 61, xp: 0, ryo: 0 },
+            outcome: { kind: 'battle', encounter }, at: Date.now(),
+        } });
+        const authority = await resolveGenericAiFightAuthority({ store: store as never, playerName: 'Scout',
+            body: { battleKind: 'explore', sector: 61, worldExploreRequestId: id, opponentId: 'forged', opponentLevel: 1, encounter: { level: 1 } },
+            character: { level: 100, activePetId: 'new', pets: [{ id: 'new', trait: 'Lucky' }] }, tokenTtlSeconds: 1800 });
+        assert.deepEqual(authority.encounter, encounter);
+        assert.equal(authority.profile?.level, encounter.level);
+        assert.equal(authority.profile?.name, encounter.displayName);
+        assert.equal(authority.profile?.visual, encounter.portraitImage);
+        assert.equal(authority.profile?.pveDifficulty, encounter.difficulty);
+        assert.deepEqual((await resolveGenericAiFightAuthority({ store: store as never, playerName: 'Scout',
+            body: { battleKind: 'explore', sector: 61, worldExploreRequestId: id }, character: { level: 1 }, tokenTtlSeconds: 1800 })).encounter, encounter);
+        await assert.rejects(resolveGenericAiFightAuthority({ store: store as never, playerName: 'Scout',
+            body: { battleKind: 'explore', sector: 61, worldExploreRequestId: id, encounterId: 'ordinary-deadbeef' },
+            character: { level: 100 }, tokenTtlSeconds: 1800 }), /preview is stale/);
+        store.rows.set(`world-ai-explore-fight:Scout:${id}`, { token: 'already-started' });
+        await assert.rejects(resolveGenericAiFightAuthority({ store: store as never, playerName: 'Scout',
+            body: { battleKind: 'explore', sector: 61, worldExploreRequestId: id }, character: { level: 100 }, tokenTtlSeconds: 1800 }), /already started/);
+    });
+
+    it('upgrades a legacy receipt only once and refuses expired, future and invalid sealed receipts', async () => {
+        const id = 'legacy-sealed-001';
+        const store = memoryStore();
+        const character = { level: 25, redeemedSectorExplorations: [{ id, sector: 61, at: Date.now(), outcome: { kind: 'battle' } }] };
+        const params = { store: store as never, playerName: 'Scout', body: { battleKind: 'explore', sector: 61, worldExploreRequestId: id }, character, tokenTtlSeconds: 1800 };
+        const first = await resolveGenericAiFightAuthority(params);
+        const retry = await resolveGenericAiFightAuthority({ ...params, character: { ...character, level: 100 } });
+        assert.deepEqual(first.encounter, retry.encounter);
+        for (const at of [Date.now() - 31 * 86400000, Date.now() + 120000]) {
+            await assert.rejects(resolveGenericAiFightAuthority({ ...params, store: memoryStore() as never,
+                character: { ...character, redeemedSectorExplorations: [{ id, sector: 61, at, outcome: { kind: 'battle' } }] } }), /does not prove/);
+        }
+        await assert.rejects(resolveGenericAiFightAuthority({ ...params, store: memoryStore() as never,
+            character: { ...character, redeemedSectorExplorations: [{ id, sector: 61, at: Date.now(), outcome: { kind: 'battle', encounter: { level: 1 } } }] } }), /opponent is invalid/);
     });
 
     it('chooses a village-themed raid guard at the nearest eligible level tier', () => {
@@ -73,7 +135,8 @@ describe('generic AI fight authority', () => {
             character,
             tokenTtlSeconds: 1800,
         });
-        assert.equal(authority.opponentId, genericExploreOpponentId({ playerName: 'Scout', level: 32, sector: 61, receiptId: 'exploreproof01' }));
+        assert.equal(authority.opponentId, authority.encounter?.profileId);
+        assert.equal(authority.encounter?.sourceId, 'exploreproof01');
         assert.notEqual(authority.opponentId, 'builtin-ai-academy-sparring');
         const durableRequestId = 'exploreproof02';
         const durableStore = memoryStore({
@@ -94,11 +157,12 @@ describe('generic AI fight authority', () => {
             character: { level: 32, redeemedSectorExplorations: [] },
             tokenTtlSeconds: 1800,
         });
-        assert.equal(
-            durableAuthority.opponentId,
-            genericExploreOpponentId({ playerName: 'Scout', level: 32, sector: 61, receiptId: durableRequestId }),
-            'a durable battle receipt remains authoritative after the capped save projection evicts it',
-        );
+        assert.equal(durableAuthority.opponentId, durableAuthority.encounter?.profileId,
+            'a durable battle receipt remains authoritative after the capped save projection evicts it');
+        const durableReplay = await resolveGenericAiFightAuthority({ store: durableStore as never, playerName: 'Scout',
+            body: { battleKind: 'explore', sector: 61, worldExploreRequestId: durableRequestId },
+            character: { level: 100, redeemedSectorExplorations: [] }, tokenTtlSeconds: 1800 });
+        assert.deepEqual(durableReplay.encounter, durableAuthority.encounter);
         await assert.rejects(() => resolveGenericAiFightAuthority({
             store: store as never,
             playerName: 'Scout',
