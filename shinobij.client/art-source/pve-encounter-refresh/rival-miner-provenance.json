@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "createdDate": "2026-10-16",
+  "provider": "built-in image_gen",
+  "mode": "identity-preserve",
+  "reference": "shinobij.client/public/portraits/pve/rivalMiner.webp",
+  "referenceMechanism": "num_last_images_to_include: 1 after view_image",
+  "transparent_background": true,
+  "prompt": "Use case: identity-preserve. Asset type: transparent full-body combat actor for Shinobi Journey. The immediately preceding image is the strict reference portrait of the existing rival miner; preserve that exact established man. Create one single full-body painterly anime-inspired fantasy-shinobi game actor, three-quarter facing viewer-left, combat-ready but grounded practical mining stance. Identity invariants: same rugged middle-aged man, broad weathered face with deep brow and pronounced nose, short dark hair greying at sides, same full close salt-and-pepper beard, stern dark eyes, worn brown-orange cloth headband, battered dark brown short-sleeve tunic, same brown leather work apron and thick apron shoulder straps, muscular forearms, work-worn gloved or exposed hands. He holds his same iron pickaxe across his right shoulder with one hand gripping the wooden handle, visible iron head behind that shoulder; his free left hand is raised in a guarded ready stance. Extend the reference naturally to practical dark brown work trousers, calf wraps and sturdy brown shinobi work boots, both feet fully visible and planted. Match the existing portrait's warm dark earth palette, realistically textured leather/cloth/iron and painterly rendering; restrained warm edge lighting for readability. Exactly one character, two arms and two legs, anatomically sound hands, entire pickaxe inside canvas. Centered complete figure with at least 8% transparent margin on all sides, upright silhouette, no cropped feet or hair. Truly transparent background; no scenery, floor, ground shadow, cast shadow, lettering, emblems, frame, logos, watermark or UI. Output square 1024x1024 transparent PNG style source suitable for normalization into a 384x384 game sprite. Preserve reference identity rather than transforming him into an armored soldier, a masked ninja, or a young person.",
+  "source": "rival-miner-source.png",
+  "runtime": "../../src/assets/combat-actors/pve/rival-miner-idle.webp",
+  "normalization": {
+    "tool": "sharp",
+    "resize": {
+      "width": 320,
+      "height": 320,
+      "fit": "contain",
+      "background": "transparent"
+    },
+    "padding": 32,
+    "webp": {
+      "quality": 90,
+      "alphaQuality": 100
+    }
+  },
+  "verification": {
+    "runtimeWidth": 384,
+    "runtimeHeight": 384,
+    "hasAlpha": true,
+    "bytes": 24276,
+    "alphaBounds": {
+      "minX": 32,
+      "minY": 32,
+      "maxX": 335,
+      "maxY": 347
+    },
+    "visual": "Matches established broad weathered face, grey beard, brown-orange headband, dark brown work tunic, leather apron and shouldered iron pickaxe. Both feet and entire weapon visible; no text, scenery, or ground shadow."
+  }
+}

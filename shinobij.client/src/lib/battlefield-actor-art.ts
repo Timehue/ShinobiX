@@ -12,6 +12,7 @@ import pveSkirmisherSprite from '../assets/combat-actors/pve/bandit-skirmisher-i
 import pveAssassinSprite from '../assets/combat-actors/pve/rogue-assassin-idle.webp';
 import pveElementalistSprite from '../assets/combat-actors/pve/elemental-specialist-idle.webp';
 import pveDefenderSprite from '../assets/combat-actors/pve/defensive-specialist-idle.webp';
+import rivalMinerSprite from '../assets/combat-actors/pve/rival-miner-idle.webp';
 import kageroSprite from '../assets/combat-actors/pve/kagero-idle.webp';
 import tsukikaSprite from '../assets/combat-actors/pve/tsukika-idle.webp';
 import hoshinaHollowSprite from '../assets/combat-actors/pve/hoshina-hollow-idle.webp';
@@ -52,7 +53,7 @@ const STORY_KAGE_SPRITES: Record<string, string> = { ...STORY_KAGE_PORTRAITS, 's
 const ORDINARY_PVE_SPRITES: Record<string, string> = {
     bruiser: pveBruiserSprite, skirmisher: pveSkirmisherSprite, assassin: pveAssassinSprite,
     elementalist: pveElementalistSprite, defender: pveDefenderSprite,
-    bandit: pveBruiserSprite, nightblade: pveAssassinSprite, rivalMiner: pveDefenderSprite,
+    bandit: pveBruiserSprite, nightblade: pveAssassinSprite, rivalMiner: rivalMinerSprite,
     nemesis: kageroSprite, 'world-wanderer-nemesis': kageroSprite,
 };
 
