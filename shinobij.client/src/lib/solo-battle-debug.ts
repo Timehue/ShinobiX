@@ -30,6 +30,19 @@ function isRecentRecord(value: unknown): value is SoloBattleDebug {
         && record.rows.every(row => !!row && Number.isSafeInteger(row.seq) && Number.isFinite(row.round) && typeof row.text === 'string' && row.text.length <= 1000);
 }
 
+function pruneExpiredRecords(): void {
+    let expired = false;
+    for (const [key, record] of records) if (record.updatedAt <= Date.now() - MAX_AGE) {
+        records.delete(key);
+        expired = true;
+    }
+    if (!expired) return;
+    try {
+        const saved: unknown = JSON.parse(localStorage.getItem(STORE_KEY) ?? '[]');
+        if (Array.isArray(saved)) localStorage.setItem(STORE_KEY, JSON.stringify(saved.filter(isRecentRecord)));
+    } catch { /* Expiry in memory does not require browser storage. */ }
+}
+
 function resourceSummary(event: SoloPveCombatEvent): string {
     const fighter = (side: 'player' | 'enemy') => {
         const before = event.before?.[side], after = event.after?.[side];
@@ -73,14 +86,18 @@ export function mergeSoloBattleDebug(previous: SoloBattleDebug | undefined, sess
 /** Accumulate sequence-tagged events before the server's 80-event window rolls.
  * Storage denial never affects the fight; the in-memory journal still works. */
 export function captureSoloBattleDebug(session: SoloBattleDebugSource): SoloBattleDebug {
+    pruneExpiredRecords();
     const key = recordKey(session.player.name, session.sessionId);
     if (!records.has(key)) {
         try {
             const saved: unknown = JSON.parse(localStorage.getItem(STORE_KEY) ?? '[]');
-            if (Array.isArray(saved)) for (const value of saved) {
-                if (!isRecentRecord(value)) continue;
-                const savedKey = recordKey(value.player, value.sessionId);
-                if (!records.has(savedKey)) records.set(savedKey, value);
+            if (Array.isArray(saved)) {
+                const recent = saved.filter(isRecentRecord);
+                for (const value of recent) {
+                    const savedKey = recordKey(value.player, value.sessionId);
+                    if (!records.has(savedKey)) records.set(savedKey, value);
+                }
+                if (recent.length !== saved.length) localStorage.setItem(STORE_KEY, JSON.stringify(recent));
             }
         } catch { /* Browser storage is optional. */ }
     }
@@ -88,7 +105,6 @@ export function captureSoloBattleDebug(session: SoloBattleDebugSource): SoloBatt
     if (previous && previous.lastSequence === session.eventSeq && previous.status === session.status && previous.outcome === session.outcome) return previous;
     const record = mergeSoloBattleDebug(previous, session);
     records.set(key, record);
-    for (const [entryKey, entry] of records) if (entry.updatedAt < Date.now() - MAX_AGE) records.delete(entryKey);
     const recent = [...records.entries()].sort((a, b) => b[1].updatedAt - a[1].updatedAt);
     for (const [entryKey] of recent.slice(3)) records.delete(entryKey);
     const persisted = recent.slice(0, 3).map(([, entry]) => entry);
@@ -107,6 +123,8 @@ export function soloBattleDebugText(record: SoloBattleDebug): string {
 }
 
 export function downloadSoloBattleDebug(record: SoloBattleDebug): void {
+    pruneExpiredRecords();
+    if (record.updatedAt <= Date.now() - MAX_AGE) return;
     const url = URL.createObjectURL(new Blob([soloBattleDebugText(record)], { type: 'text/plain;charset=utf-8' }));
     const anchor = document.createElement('a');
     anchor.href = url;
@@ -116,6 +134,7 @@ export function downloadSoloBattleDebug(record: SoloBattleDebug): void {
 }
 
 export function downloadRecordedSoloBattleDebug(sessionId: string, playerName: string): void {
+    pruneExpiredRecords();
     const record = [...records.values()].find(entry => entry.sessionId === sessionId && entry.player === playerName);
     if (record) downloadSoloBattleDebug(record);
 }
