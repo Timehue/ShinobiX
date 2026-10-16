@@ -26,6 +26,10 @@ import {
     SHOWDOWN_TURN_CAP,
 } from "../../../shared/pet-showdown-contract";
 import { MAX_WILD_SECTOR } from "../../../shared/sector-geo";
+import { FIRST_PACT_MIN_LEVEL } from "../../../shared/first-pact-contract";
+import { ANBU_RAID_MIN_LEVEL, STRONGHOLD_MIN_LEVEL } from "../../../shared/sector-stronghold";
+import { LOADOUT_CAP_BASE, LOADOUT_CAP_SUB, PET_CAP_BASE, PET_CAP_SUB } from "../lib/entitlements";
+import { PET_TUTORIAL_LESSONS } from "../lib/pet-tutorial";
 import { GUIDE_CATEGORIES, GUIDES } from "./guides";
 
 function textForGuide(id: string): string {
@@ -134,6 +138,17 @@ test("player guides exclude retired routes, implementation notes, and exploratio
     assert.doesNotMatch(copy, /25\s*[×x]\s*17|hidden chambers?/i);
 });
 
+test("guide copy follows the punctuation and naming rules", () => {
+    const copy = JSON.stringify([GUIDES, PET_TUTORIAL_LESSONS]);
+
+    assert.doesNotMatch(copy, /\u2014/, "guide copy must not use em dashes");
+    assert.doesNotMatch(
+        copy,
+        /\b(?:Naruto|Boruto|Pok[eé]mon|Hearthstone|Yu[\s-]?Gi[\s-]?Oh|Final Fantasy|World of Warcraft|Genshin Impact|RuneScape|Ninja Saga)\b/i,
+        "explain the game's own rules without competitor or franchise names",
+    );
+});
+
 test("high-drift guide numbers stay aligned with current game constants", () => {
     const firstHour = textForGuide("first-hour");
     const progression = textForGuide("progression");
@@ -180,10 +195,16 @@ test("high-drift guide numbers stay aligned with current game constants", () => 
 
     assert.match(companions, new RegExp(`${numberText(SHOWDOWN_BENCH_SIZE)} reserves`, "i"));
     assert.match(companions, new RegExp(`round ${SHOWDOWN_TURN_CAP}`, "i"));
+    assert.match(companions, new RegExp(`carry ${numberText(PET_CAP_BASE)} companions, or ${numberText(PET_CAP_SUB)}`, "i"));
 
+    assert.match(builds, new RegExp(`equip ${LOADOUT_CAP_BASE} jutsu, or ${LOADOUT_CAP_SUB}`, "i"));
     assert.match(builds, new RegExp(`${NAMED_FORGE_FATE_SHARD_COST} Fate Shards`, "i"));
     assert.match(builds, /Named gear accepts Fate Shards only/i);
     assert.match(builds, /paid when you forge the revealed roll/i);
+
+    assert.match(endgame, new RegExp(`Stronghold exploration opens at character level ${STRONGHOLD_MIN_LEVEL}`, "i"));
+    assert.match(endgame, new RegExp(`ANBU treasury raids are a separate level-${ANBU_RAID_MIN_LEVEL} activity`, "i"));
+    assert.match(endgame, new RegExp(`The First Pact opens at character level ${FIRST_PACT_MIN_LEVEL}`, "i"));
 });
 
 test("economy guidance distinguishes catalogs, currency transfers, and claimable bank interest", () => {
