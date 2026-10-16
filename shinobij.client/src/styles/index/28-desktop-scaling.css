@@ -42,22 +42,9 @@
 }
 /* Sit beneath higher-z interactive markers (village building buttons are z-4). */
 .scene-ambience.amb-under { z-index: 2; }
-/* 3D parallax depth field sits just behind the 2D particle layer. */
-.scene-ambience-3d {
-    position: absolute;
-    inset: 0;
-    pointer-events: none !important;
-    overflow: hidden;
-    z-index: 3;
-    border-radius: inherit;
-}
-/* CRITICAL: react-three-fiber sets pointer-events:auto inline on its <canvas>
-   for raycasting — that would sit over the sector tile grid and swallow every
-   click (movement breaks; only WASD works). Force every ambience descendant
-   click-through so gameplay underneath stays interactive. */
-.scene-ambience *,
-.scene-ambience-3d * { pointer-events: none !important; }
-.scene-ambience-3d canvas { width: 100% !important; height: 100% !important; display: block; }
+/* Force every ambience descendant click-through so gameplay underneath stays
+   interactive. */
+.scene-ambience * { pointer-events: none !important; }
 .scene-ambience-canvas {
     position: absolute;
     inset: 0;
@@ -140,109 +127,6 @@
     height: 100%;
 }
 
-/* ═══ Sector foreground parallax band (SectorForeground.tsx) ═════════════════
-   The near-camera foliage strip that frames the scene and parallaxes against the
-   backdrop as the player crosses the grid (the "patrolling through the biome"
-   cue). z-index 4: in front of the walking avatar, behind the z-5 markers. The
-   wrapper sways gently so the foreground breathes even when idle; the art carries
-   the focus-driven parallax transform (transitioned so movement glides). */
-.sector-foreground {
-    position: absolute;
-    inset: 0;
-    z-index: 4;
-    pointer-events: none !important;
-    overflow: hidden;
-    border-radius: inherit;
-    animation: sectorFgSway 15s ease-in-out infinite;
-}
-.sector-foreground * { pointer-events: none !important; }
-.sector-foreground-art {
-    position: absolute;
-    left: 50%;
-    bottom: 0;
-    width: 132%;
-    height: auto;
-    transform-origin: bottom center;
-    transition: transform 1.2s ease-out;
-    filter: drop-shadow(0 -2px 10px rgba(0,0,0,0.25));
-}
-@keyframes sectorFgSway {
-    0%, 100% { transform: translateX(-0.6%); }
-    50%      { transform: translateX(0.6%); }
-}
-.sector-foreground.is-still { animation: none; }
-.sector-foreground.is-still .sector-foreground-art { transition: none; }
-@media (prefers-reduced-motion: reduce) {
-    .sector-foreground { animation: none; }
-    .sector-foreground-art { transition: none; }
-}
-
-/* ═══ Sector scatter props (SectorScatter.tsx) ══════════════════════════════
-   Biome ground-objects (rocks / bushes / crystals / lanterns…) filling the
-   play-field. z-index -1 = UNDER the tile grid, so a prop never hides an
-   other-player marker, encounter marker, or the gold target tile; it paints
-   above the backdrop and is tinted by the z-2 day/night wash. Each prop stands
-   bottom-centre on its cell, depth-scaled (--s), softly shadowed, and swaying;
-   glow props pulse a halo coloured by --glow-c. pointer-events:none throughout,
-   so click-to-move underneath is untouched. */
-.sector-scatter {
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    pointer-events: none !important;
-    overflow: hidden;
-    border-radius: inherit;
-}
-.sector-scatter * { pointer-events: none !important; }
-.sector-scatter-prop {
-    position: absolute;
-    width: calc(7.5% * var(--s, 1));
-    transform: translate(-50%, -100%); /* stand the prop on its cell point */
-    transform-origin: 50% 100%;
-}
-.sector-scatter-sway {
-    display: block;
-    transform-origin: 50% 100%;
-    animation: scatterSway 6s ease-in-out infinite;
-}
-.sector-scatter-img {
-    display: block;
-    width: 100%;
-    height: auto;
-    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.28));
-}
-.is-glow .sector-scatter-img {
-    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.28)) drop-shadow(0 0 7px var(--glow-c, rgba(255,220,150,0.5)));
-}
-.sector-scatter-shadow {
-    position: absolute;
-    left: 50%;
-    bottom: 0;
-    width: 76%;
-    height: 12%;
-    transform: translate(-50%, 42%);
-    border-radius: 50%;
-    background: radial-gradient(ellipse at center, rgba(0,0,0,0.42), rgba(0,0,0,0) 70%);
-}
-.sector-scatter-glow {
-    position: absolute;
-    left: 50%;
-    bottom: 14%;
-    width: 130%;
-    height: 130%;
-    transform: translate(-50%, 0);
-    border-radius: 50%;
-    background: radial-gradient(circle, var(--glow-c, rgba(255,225,150,0.5)), transparent 64%);
-    mix-blend-mode: screen;
-    animation: scatterGlow 3.2s ease-in-out infinite;
-}
-@keyframes scatterSway { 0%, 100% { transform: rotate(-1.6deg); } 50% { transform: rotate(1.6deg); } }
-@keyframes scatterGlow { 0%, 100% { opacity: .35; } 50% { opacity: .82; } }
-@media (prefers-reduced-motion: reduce) {
-    .sector-scatter-sway { animation: none; }
-    .sector-scatter-glow { animation: none; opacity: .55; }
-}
-
 /* ═══ World-map biome atmosphere + settlement life ═══════════════════════════
    Per-nation elemental glows so the four homelands read at a glance, plus a soft
    hearth glow + rising smoke over each town. All pointer-events:none, below the
@@ -317,12 +201,9 @@
    prefers-reduced-motion treatments above, but targets detected weak hardware
    instead of a user setting. Cosmetic only — nothing here hides gameplay info;
    backdrops, markers, avatars and HUD are untouched. The 2D particle/critter
-   canvases and the 3D parallax scenes are gated separately in their components. */
+   canvases are gated separately in their components. */
 .lite-fx .scene-ambience-rays { animation: none; opacity: .22; }
-.lite-fx .sector-scene-haze,
-.lite-fx .sector-foreground,
-.lite-fx .sector-scatter-sway { animation: none; }
-.lite-fx .sector-scatter-glow { animation: none; opacity: .5; }
+.lite-fx .sector-scene-haze { animation: none; }
 .lite-fx .world-biome-glow { animation: none; filter: none; }
 .lite-fx .world-poi-glow { animation: none; }
 .lite-fx .world-poi-smoke { animation: none; opacity: 0; }

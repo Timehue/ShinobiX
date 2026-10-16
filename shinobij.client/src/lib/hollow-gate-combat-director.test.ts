@@ -5,7 +5,7 @@ import {
     hollowGateCombatDirective,
     hollowGateHazardDamage,
     hollowGatePhaseTransitionText,
-} from "./hollow-gate-combat-director";
+} from "../../../shared/hollow-gate-combat-director";
 
 test("Alpha fight has three stable health-threshold phases", () => {
     assert.equal(hollowGateAlphaPhase(100, 100), 1);

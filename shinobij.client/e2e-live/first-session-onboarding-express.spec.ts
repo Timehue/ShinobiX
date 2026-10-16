@@ -178,11 +178,11 @@ async function createCharacter(page: Page, playerName: string, password: string)
     await expect(page.locator('.icx-root')).toBeVisible();
 }
 
-// Full motion on purpose. This journey asserts that the WebGL world backdrops
-// (.sector-scene-3d, .scene-ambience-3d) never bind pointer listeners, and those
-// layers only mount when reduced motion is off (SectorScene3D.tsx,
-// SceneAmbience3D.tsx). Under the suite's reduced motion that check would pass
-// with nothing mounted to check.
+// Full motion on purpose: the journey runs with every motion-gated layer
+// mounted. It still asserts that no decorative WebGL backdrop
+// (.sector-scene-3d, .scene-ambience-3d) binds pointer listeners. The original
+// SectorScene3D / SceneAmbience3D layers were retired on 2026-10-16, so this is
+// now a regression net in case a backdrop with those classes returns.
 test.use({ contextOptions: { reducedMotion: 'no-preference' } });
 
 for (const grantDelayMs of [0, 500]) {

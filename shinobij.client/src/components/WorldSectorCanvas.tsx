@@ -46,7 +46,6 @@ export type WorldSectorCanvasProps = {
     onRegionSplashDone: () => void;
     mapImage?: string;
     sceneImage: string;
-    sceneDepthImage?: string;
     roadExits: readonly SectorExit[];
     showLivePeers: boolean;
     players: readonly WorldSectorCanvasPlayer[];

@@ -1,5 +1,7 @@
 # Stronghold and Hollow Gate quality completion review
 
+> Raw evidence files linked from this page (logs, transcripts, screenshots) were removed on 2026-10-16 to cut repository weight. Retrieve one with `git show 5124ba3f2:<path>`.
+
 October 12, 2026. This follows the original underground expansion, level-50 entry,
 Anbu recovery/queue fixes, and the [real-Postgres CI run](postgres-integration-review.md).
 
@@ -83,17 +85,17 @@ uniform physical-device frame pacing. No frame threshold was increased.
 
 Evidence: [room matrix](goal-final-rooms/results.json),
 [multiplayer](goal-postgres-multiplayer/results.json),
-[multiplayer log](goal-postgres-multiplayer-final.log),
-[real API log](goal-postgres-api-final.log),
+multiplayer log,
+real API log,
 [depth layouts](goal-final-depths/results.json),
 [mobile matrix](goal-final-mobile/results.json),
 [final WebKit walking](goal-webkit-walking/results.json),
 [Anbu/Arena UI](goal-final-anbu-ui/results.json),
 [entry/raid boundaries](goal-final-entry-levels/results.json),
-[full CI and database cleanup](goal-final-full-ci.log),
-[server build](goal-final-server-build.log), [client build](goal-final-client-build.log),
-[client lint](goal-final-client-lint.log), [distribution](goal-final-distribution.log),
-[production size](goal-final-production-size.log), [handoffs](goal-final-handoffs.log).
+full CI and database cleanup,
+server build, client build,
+client lint, distribution,
+production size, handoffs.
 
 ## Repeat and scope
 

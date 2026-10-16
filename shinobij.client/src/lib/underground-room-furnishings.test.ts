@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildStrongholdTiles, STRONGHOLD_DIMS, STRONGHOLD_ROOMS } from '../../../shared/sector-stronghold';
-import { planUndergroundFurnishings } from './underground-room-furnishings';
+import { planUndergroundFurnishings } from '../../../shared/underground-floor-features';
 const rooms = STRONGHOLD_ROOMS.map(r => ({ ...r, roomId: r.id, right: r.x + r.width, bottom: r.y + r.height, cx: r.x + r.width / 2, cy: r.y + r.height / 2 }));
 const tiles = buildStrongholdTiles(12), width = STRONGHOLD_DIMS.width;
 test('every base room has a functional furnishing plan, with paired reserves and entrance guards in the treasury', () => {

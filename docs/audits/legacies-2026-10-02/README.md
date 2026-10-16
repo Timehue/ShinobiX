@@ -1,5 +1,7 @@
 # Legacy qualification and acquisition audit — 2026-10-02
 
+> Raw evidence files linked from this page (logs, transcripts, screenshots) were removed on 2026-10-16 to cut repository weight. Retrieve one with `git show 5124ba3f2:<path>`.
+
 Status: historical before-fix audit. The user authorized corrections after this
 report; see [resolution.md](resolution.md) for the resulting rules and validation.
 The evidence and matrix here preserve the audited baseline.
@@ -23,7 +25,7 @@ No gameplay code, thresholds, permanent choices or live settings were changed. T
 - [All 100 paths](path-matrix.md): baseline qualification, an abstract selector-inclusion witness, finding tags, and both variants of all four stage trials for every identity.
 - [Counter sources and actual meanings](stat-sources.md).
 - [Reproducible probes](probe.mts) and [machine-readable evidence](evidence.json).
-- [Focused existing tests](test-results.txt): 188 passed, zero failures or skips.
+- Focused existing tests: 188 passed, zero failures or skips.
 - Probes covered all 46 qualification counters and 30 trial counters, checked 269 direct qualification boundaries and generated 800 trial variants. Every identity has some abstract counter profile that makes it appear in an offer. This does not prove a real character can earn every combination or recover access after progressing further.
 
 Tests cover definitions, scoring, Sage, acceptance/stage recovery, counter receipts, economy delivery, save ownership, signatures, permanent specialty, changed raid/mission/dungeon settlement and client legacy/report behavior. Tests needed unsandboxed execution because the sandbox blocks Node workers with `spawn EPERM`.

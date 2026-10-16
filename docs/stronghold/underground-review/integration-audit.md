@@ -1,5 +1,7 @@
 # Underground integration audit — October 11, 2026
 
+> Raw evidence files linked from this page (logs, transcripts, screenshots) were removed on 2026-10-16 to cut repository weight. Retrieve one with `git show 5124ba3f2:<path>`.
+
 This review covers the stronghold and Hollow Gate presentation, room furnishing, cave travelers, movement, combat and their existing sector integrations. Verification uses the actual client components, real API handlers with isolated in-memory storage, and local browser fixtures. It does not certify a deployed multiplayer environment or physical-device performance.
 
 ## Integration coverage
@@ -31,7 +33,7 @@ This review covers the stronghold and Hollow Gate presentation, room furnishing,
 - **50 existing stronghold browser checks**, including dismissal during pending admission, patrol triggering, actual Arena mounting and settlement, recovery, mobile controls and Obsidian isolation. [Results](stronghold-results.json).
 - **24 additional Chromium checks** after the final continuous-wall correction, including desktop/phone traversal, gifts and modal recovery. [Results](final-browser-results.json).
 - Browser runs report zero page errors; the underground runs also report zero missing or failed image requests.
-- Final movement, NPC range, gift and API caller checks: **23 passed**. Client/server TypeScript, focused lint, production client build, distribution and normal/production-fixture bundle checks all passed. [Regression log](regression-tests.log), [client build](client-build.log), [server build](server-build.log), [distribution](distribution-check.log), [normal size check](normal-sizecheck.log), [production-fixture size check](production-sizecheck.log).
+- Final movement, NPC range, gift and API caller checks: **23 passed**. Client/server TypeScript, focused lint, production client build, distribution and normal/production-fixture bundle checks all passed. Regression log, client build, server build, distribution, normal size check, production-fixture size check.
 - The production-fixture startup graph is **1,422,667 B raw / 395,216 B gzip**. Budgeted product JS/CSS is **9,525,282 B**, below the documented 9,550,000 B aggregate allowance. The 31 optimized underground WebP assets total **1,384,662 B**.
 
 Room review sheets: [rooms 1–4](rooms-1.png), [rooms 5–8](rooms-2.png), [rooms 9–12](rooms-3.png). Final presentation: [Anbu treasury](anbu-treasury.png), [Hollow Gate desktop](hollow-gate-desktop.png), [Hollow Gate phone](hollow-gate-phone.png), [cave traveler](hollow-gate-travelers.png), [stronghold desktop](stronghold-desktop.png).

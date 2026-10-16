@@ -52,7 +52,7 @@ import {
     type SpriteBounds,
 } from "../lib/pet-coliseum-scene";
 import { PEBBLE_TORTOISE_CUTOUT, petStripVariant } from "../lib/pet-battle-anim";
-import { POSED_PET_IDS } from "../assets/coliseum/pet-poses-manifest";
+import { hasPetPose } from "../lib/pet-pose-availability";
 import { versionPetArtUrl } from "../lib/pet-art-revision";
 
 const DEG2RAD = Math.PI / 180;
@@ -74,11 +74,13 @@ const poseIdleUrl = (id: string) => id === "starter-earth"
     : versionPetArtUrl(`/pet-poses/${id}-idle.webp`);
 const heroUrl = (visualId: string) => versionPetArtUrl(`/pet-evos/${visualId}.webp`);
 /** The posed-asset id for a visual id (itself, or its variant-stripped base), or
- *  null when no pose set exists → the renderer falls back to the portrait. */
+ *  null when no idle pose exists → the renderer falls back to the portrait. Only
+ *  the idle frame is read here, so availability is the idle-only check rather
+ *  than the retired flipbook manifest (which demanded attack/hurt/cast too). */
 function posedId(visualId: string): string | null {
-    if (POSED_PET_IDS.has(visualId)) return visualId;
+    if (hasPetPose(visualId)) return visualId;
     const base = petStripVariant(visualId);
-    return POSED_PET_IDS.has(base) ? base : null;
+    return hasPetPose(base) ? base : null;
 }
 /** Pick the cleanest art source for a form. EVOLVED forms (…-r / …-l) have a
  *  dedicated hero portrait under /pet-evos with the full, intact creature — the
