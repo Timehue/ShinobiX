@@ -5,7 +5,7 @@ import { kv } from '../../_storage.js';
 import { cors, safeName } from '../../_utils.js';
 import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
-import { LockContendedError } from '../../_lock.js';
+import { LockContendedError, withKvLock } from '../../_lock.js';
 import { applyTreasuryDonation, treasuryCreditPlan, type TreasuryDonation } from '../../_treasury-donate.js';
 import { parseSettlementRequestId } from '../../_settlement-receipts.js';
 import { runSaveDebitSaga, SaveDebitRefusal } from '../../_save-debit-saga.js';
@@ -70,6 +70,14 @@ const TERRITORY_CONTROL_SCROLL_ID = 'territory-control-scroll';
 
 const AUDIT_LOG_PREFIX = 'audit:clan-treasury-donate:';
 
+// Clan XP from NON-ryo donations is capped per donor per UTC day. A 1-unit
+// treasury gift burns nothing (api/_treasury-gift-tax.ts), so donating one
+// Mythic Seal (+200 XP) and having an officer gift it straight back was a free
+// loop worth ~6,000 clan XP a minute. Ryo is uncapped: its gifts are taxed, so
+// a ryo loop pays for itself. 2,000 XP = ten single-unit currency donations.
+const CLAN_DONATION_XP_DAILY_CAP = 2_000;
+const donationXpKey = (playerName: string) => `clan-donate-xp:${playerName}:${new Date().toISOString().slice(0, 10)}`;
+
 function clanSlugBare(name: string): string {
     return name.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
@@ -122,6 +130,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!targetSlug) return res.status(400).json({ error: 'Invalid clan name.' });
         const clanSaveKey = `save:clan-${targetSlug}`;
         const amount = donation.kind === 'currency' ? Math.floor(donation.amount) : Math.floor(donation.count);
+        const cappedXp = !(donation.kind === 'currency' && donation.currency === 'ryo');
 
         // ── Atomic donate ──────────────────────────────────────────────
         // The clan save row (the shared, contended resource) is locked first,
@@ -129,62 +138,80 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // the opposite order, so the nesting can't deadlock. The donor debit is
         // COMMITTED before the treasury credit, so a credit failure can never
         // leave the treasury credited without a matching debit.
-        const settled = await runSaveDebitSaga({
-            definition: CLAN_DONATION_SAGA,
-            playerName,
-            requestId,
-            identity: { clan: targetSlug, donation },
-            sharedKey: clanSaveKey,
-            resource: donation.kind === 'currency' ? donation.currency : `item:${donation.itemId}`,
-            amount,
-            meta: { clan },
-            decide: ({ character: donorChar, shared: clanRec }) => {
-                if (!clanRec) return { ok: false, status: 404, error: 'Clan not found.' };
-                // Membership: donor's character.clan must resolve to this clan.
-                if (!identity.admin) {
-                    const donorClanSlug = clanSlugBare(String(donorChar.clan ?? ''));
-                    if (!donorClanSlug || donorClanSlug !== targetSlug) {
-                        return { ok: false, status: 403, error: 'You are not a member of this clan.' };
+        //
+        // A capped donation also holds the donor's daily-XP counter lock from
+        // reading the counter to writing it back, so parallel donations queue
+        // instead of each reading 0 and each granting a full share. Only this
+        // route takes that key, and it takes it before the saga's locks.
+        const donate = async () => {
+            const xpUsedToday = cappedXp ? Math.max(0, Number(await kv.get<number>(donationXpKey(playerName))) || 0) : 0;
+            const xpRemainingToday = Math.max(0, CLAN_DONATION_XP_DAILY_CAP - xpUsedToday);
+            const settled = await runSaveDebitSaga({
+                definition: CLAN_DONATION_SAGA,
+                playerName,
+                requestId,
+                identity: { clan: targetSlug, donation },
+                sharedKey: clanSaveKey,
+                resource: donation.kind === 'currency' ? donation.currency : `item:${donation.itemId}`,
+                amount,
+                meta: { clan },
+                decide: ({ character: donorChar, shared: clanRec }) => {
+                    if (!clanRec) return { ok: false, status: 404, error: 'Clan not found.' };
+                    // Membership: donor's character.clan must resolve to this clan.
+                    if (!identity.admin) {
+                        const donorClanSlug = clanSlugBare(String(donorChar.clan ?? ''));
+                        if (!donorClanSlug || donorClanSlug !== targetSlug) {
+                            return { ok: false, status: 403, error: 'You are not a member of this clan.' };
+                        }
                     }
-                }
 
-                let outcome = applyTreasuryDonation(
-                    clanRec.treasury as Record<string, unknown> | undefined,
-                    donorChar,
-                    donation,
-                    { allowedCurrencies: CLAN_CURRENCIES, currencyCaps: CURRENCY_CAPS, itemCountCap: ITEM_COUNT_CAP },
-                );
-                if (!outcome.ok) return outcome;
-                // Village Stores clan mirror: ration-pack → clanTreasury.provisions
-                // (same 40/day donor cap as the village; materials are NOT mirrored).
-                let routed: StoresRouted | null = null;
-                if (donation.kind === 'item' && villageStoresEnabled()) {
-                    const r = routeStoresDonation(clanRec.treasury as Record<string, unknown> | undefined, outcome, donation, {}, { materialPoints: false });
-                    if (!r.ok) return r;
-                    if (r.routed) { outcome = { ok: true, nextDonorChar: r.nextDonorChar, nextTreasury: r.nextTreasury }; routed = r.routed; }
-                }
+                    let outcome = applyTreasuryDonation(
+                        clanRec.treasury as Record<string, unknown> | undefined,
+                        donorChar,
+                        donation,
+                        { allowedCurrencies: CLAN_CURRENCIES, currencyCaps: CURRENCY_CAPS, itemCountCap: ITEM_COUNT_CAP },
+                    );
+                    if (!outcome.ok) return outcome;
+                    // Village Stores clan mirror: ration-pack → clanTreasury.provisions
+                    // (same 40/day donor cap as the village; materials are NOT mirrored).
+                    let routed: StoresRouted | null = null;
+                    if (donation.kind === 'item' && villageStoresEnabled()) {
+                        const r = routeStoresDonation(clanRec.treasury as Record<string, unknown> | undefined, outcome, donation, {}, { materialPoints: false });
+                        if (!r.ok) return r;
+                        if (r.routed) { outcome = { ok: true, nextDonorChar: r.nextDonorChar, nextTreasury: r.nextTreasury }; routed = r.routed; }
+                    }
 
-                const contribution = donation.kind === 'currency'
-                    ? donation.currency === 'ryo' ? Math.max(1, Math.floor(donation.amount / 1000)) : Math.floor(donation.amount)
-                    : Math.floor(donation.count);
-                const month = new Date().toISOString().slice(0, 7);
-                const priorContribution = donorChar.clanContribMonth === month ? Math.max(0, Number(donorChar.clanEventContrib) || 0) : 0;
-                const nextDonorChar = { ...outcome.nextDonorChar, clanEventContrib: priorContribution + contribution, clanContribMonth: month };
+                    const contribution = donation.kind === 'currency'
+                        ? donation.currency === 'ryo' ? Math.max(1, Math.floor(donation.amount / 1000)) : Math.floor(donation.amount)
+                        : Math.floor(donation.count);
+                    const month = new Date().toISOString().slice(0, 7);
+                    const priorContribution = donorChar.clanContribMonth === month ? Math.max(0, Number(donorChar.clanEventContrib) || 0) : 0;
+                    const nextDonorChar = { ...outcome.nextDonorChar, clanEventContrib: priorContribution + contribution, clanContribMonth: month };
 
-                const clanXp = donation.kind === 'currency'
-                    ? donation.currency === 'ryo' ? Math.floor(donation.amount / 35) : Math.floor(donation.amount) * 200
-                    : donation.itemId === TERRITORY_CONTROL_SCROLL_ID ? Math.floor(donation.count) * 20 : 50;
-                return {
-                    ok: true,
-                    character: nextDonorChar,
-                    plan: { treasury: treasuryCreditPlan(donation, routed), clanXp },
-                    result: {},
-                };
-            },
-            messages: {
-                pending: 'Your donation was taken but not yet added to the clan treasury. Donate again to finish it; you will not be charged twice.',
-            },
-        });
+                    const rawClanXp = donation.kind === 'currency'
+                        ? donation.currency === 'ryo' ? Math.floor(donation.amount / 35) : Math.floor(donation.amount) * 200
+                        : donation.itemId === TERRITORY_CONTROL_SCROLL_ID ? Math.floor(donation.count) * 20 : 50;
+                    const clanXp = cappedXp ? Math.min(rawClanXp, xpRemainingToday) : rawClanXp;
+                    return {
+                        ok: true,
+                        character: nextDonorChar,
+                        plan: { treasury: treasuryCreditPlan(donation, routed), clanXp },
+                        result: {},
+                    };
+                },
+                messages: {
+                    pending: 'Your donation was taken but not yet added to the clan treasury. Donate again to finish it; you will not be charged twice.',
+                },
+            });
+            const grantedXp = Math.max(0, Number(settled.plan.clanXp) || 0);
+            if (!settled.replayed && cappedXp && grantedXp > 0) {
+                await kv.set(donationXpKey(playerName), xpUsedToday + grantedXp, { ex: 2 * 24 * 60 * 60 });
+            }
+            return settled;
+        };
+        const settled = cappedXp
+            ? await withKvLock(donationXpKey(playerName), donate, { failClosed: true })
+            : await donate();
         const clanRow = settled.shared;
         const treasury = (clanRow.treasury ?? {}) as Record<string, unknown>;
 

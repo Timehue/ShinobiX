@@ -26,6 +26,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
+        // Membership below is checked for `playerName`, so it must BE the
+        // caller (send.ts does the same) — or any player could read any clan's
+        // chat by naming one of its members.
+        if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'You can only read your own clan chat.' });
 
         const slug = clanBareSlug(clan);
         if (!slug) return res.status(400).json({ error: 'Invalid clan name.' });

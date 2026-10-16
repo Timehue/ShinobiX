@@ -110,7 +110,16 @@ export const ECHOES_REWARD_DISPLAY = {
     firstClearBonus: 35,
     bossFirstClearBonus: 50,
     basicPackCost: 100,
+    /** Repeat wins that pay per UTC day; first clears always pay. */
+    repeatWinsPerDay: 10,
 } as const;
+
+/** Paying repeat wins left today, read from the server-kept `echoesOfWar._daily`. */
+export function echoesRepeatWinsLeftToday(raw: unknown, now: number = Date.now()): number {
+    const daily = raw && typeof raw === "object" ? (raw as Record<string, unknown>)._daily as { day?: unknown; paid?: unknown } | undefined : undefined;
+    const paid = daily?.day === new Date(now).toISOString().slice(0, 10) ? Math.max(0, Math.floor(Number(daily.paid) || 0)) : 0;
+    return Math.max(0, ECHOES_REWARD_DISPLAY.repeatWinsPerDay - paid);
+}
 
 export const ECHOES_FLOOR_COUNT = 10;
 

@@ -109,7 +109,9 @@ test('omitting the character blob cannot bypass top-level position ownership', a
     const out = await request(saveHandler, 'POST', { _baseSaveVersion: 4,
         currentSector: 55, currentTile: 140, worldGeoV: 0, worldTravelReceipt: 'forged',
         pendingTravel: { destinationSector: 55, arrivalAt: 1 } });
-    assert.equal(out.status, 200, JSON.stringify(out.body));
+    // A player save without a character is refused outright now; either way
+    // the stored position must be untouched.
+    assert.equal(out.status, 400, JSON.stringify(out.body));
     const saved = (await kv.get<Json>(SAVE))!;
     assert.equal(saved.currentSector, 12);
     assert.equal(saved.currentTile, 17);

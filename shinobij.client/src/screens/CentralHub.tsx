@@ -19,7 +19,7 @@ import "../styles/central-hub-forge.css";
 import {
     GiCrossedSwords, GiDragonHead, GiBookshelf,
     GiCrystalBall, GiBlacksmith, GiDungeonGate, GiStoneTower, GiScrollUnfurled,
-    GiTempleGate, GiSparkles, GiStoneStack, GiFlame, GiBreastplate, GiTrashCan,
+    GiTempleGate, GiSparkles, GiStoneStack, GiFlame, GiBreastplate,
     // Craft-material + recipe glyphs (forge tab).
     GiSwapBag, GiAnimalHide, GiFeather, GiFangs, GiHornInternal, GiMeat, GiSnowflake1,
     GiClawSlashes, GiWolfHead, GiFishScales, GiSpikedDragonHead, GiCrystalGrowth,
@@ -78,13 +78,13 @@ import { SceneCritters } from "../components/SceneCritters";
 import { DayNightSky } from "../components/DayNightSky";
 import { NextGoalPin } from "../components/NextGoalPin";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
-import { commitNamedForgeServer, forgeServer, rollNamedForgeServer } from "../lib/craft-api";
+import { forgeServer, rollNamedForgeServer, type NamedRollResult } from "../lib/craft-api";
 import { forgeHollowGateKeyServer } from "../lib/hollow-gate-forge-api";
 import { gameToast } from "../components/GameToast";
 import { gameConfirm } from "../components/GameAlert";
 import { effectiveItemLevelReq } from "../../../shared/item-level-gate";
 import { VILLAGE_SUPPLY_GOODS } from "../../../shared/gathering-materials";
-import { namedForgeOreCount } from '../../../shared/resource-forging';
+import { namedForgeIngredients, namedForgeShortfall } from '../../../shared/named-forge-materials';
 import { CRAFT_MATERIAL_NAMES, SUPPLY_CRAFT_RECIPES, gearCraftIngredients, planCraftIngredients, craftIngredientProgress, type CraftMaterialSelection } from '../../../shared/crafting-recipes';
 import { CraftMaterialPicker, type CraftPickerRecipe } from '../components/CraftMaterialPicker';
 import { Modal } from "../components/ui/Modal";
@@ -297,7 +297,6 @@ export function CentralHub({
     const [namedWeaponName, setNamedWeaponName] = useState("Unnamed Blade");
     const [namedWeaponImage, setNamedWeaponImage] = useState("");
     const [namedWeaponFlavorText, setNamedWeaponFlavorText] = useState("");
-    const [namedWeaponToken, setNamedWeaponToken] = useState("");
     const [namedForgeBusy, setNamedForgeBusy] = useState(false);
     const [namedForgeAnimation, setNamedForgeAnimation] = useState<NamedForgeAnimation | null>(null);
     const namedWeaponRollButtonRef = useRef<HTMLButtonElement>(null);
@@ -329,28 +328,90 @@ export function CentralHub({
         };
     }, [namedForgeAnimation]);
 
+    // Owner ruling 2026-10-15: the price is paid to ROLL and every roll is kept.
+    // There is no discard; an unwanted piece is sold on the Sunscar Exchange.
+    function namedRollBlocker(kind: "weapon" | "armor"): string | null {
+        if (namedForgeLocked) return namedForgeLockMessage;
+        if (!namedForgePaymentReady) return namedForgePaymentError;
+        const short = namedForgeShortfall(kind, (id) => countItem(character, id));
+        return short ? `A named ${kind} roll needs ${short.count} ${short.label}.` : null;
+    }
+
+    /** Every roll's price, with what the player holds of each. */
+    function renderNamedRollCost(kind: "weapon" | "armor") {
+        const rows = [
+            { label: "Fate Shards", have: namedForgePts, need: NW_COST },
+            ...namedForgeIngredients(kind).map((ingredient) => ({
+                label: ingredient.label,
+                have: ingredient.ids.reduce((sum, id) => sum + countItem(character, id), 0),
+                need: ingredient.count,
+            })),
+        ];
+        return (
+            <div className="nw-cost">
+                <div className="nw-label">Each roll costs (the piece is always kept)</div>
+                {rows.map((row) => (
+                    <div key={row.label} className={`no-row${row.have < row.need ? " nw-cost-short" : ""}`}>
+                        <span>{row.need}× {row.label}</span>
+                        <span className="no-pct">{Math.floor(row.have)} / {row.need}</span>
+                    </div>
+                ))}
+                <div className="no-row"><span>Don&apos;t want a roll? List it on the Sunscar Exchange before you equip it.</span></div>
+            </div>
+        );
+    }
+
+    /** Commit a paid roll's kept item; returns the item, or null after alerting. */
+    function keepNamedRoll(result: NamedRollResult<unknown>, kind: "weapon" | "armor", image: string): GameItem | null {
+        if (result.replayed && result.character && !result.item) {
+            // A retry of a roll the server already settled whose definition has
+            // since aged out of the save: it was paid and kept, not lost.
+            commitServerCharacter(result.character, result._saveVersion);
+            gameToast(`That named ${kind} roll was already forged and is in your inventory.`);
+            return null;
+        }
+        if (!result.character || !result.item) {
+            alert(result.error || `The named ${kind} roll failed.`);
+            return null;
+        }
+        const item: GameItem = { ...result.item, ...(image ? { image } : {}) };
+        // Paid and kept even if a newer save was adopted first (see completeCraft).
+        commitServerCharacter(result.character, result._saveVersion);
+        setCreatorItems((current) => [...current.filter((entry) => entry.id !== item.id), item]);
+        if (image) {
+            // Stays a Notice: the player chose that image and needs to know it is gone.
+            void publishSharedImage(`item:${item.id}`, image).then((ok) => {
+                if (!ok) alert(`${item.name} was forged, but its image could not be saved.`);
+            });
+        }
+        gameToast(`${item.name} was forged and added to your inventory.`);
+        return item;
+    }
+
     async function rollNamedWeapon() {
-        if (countItem(character, 'gather-iron-sand-pristine') < namedForgeOreCount('weapon')) return alert(`Need ${namedForgeOreCount('weapon')} Pristine Iron Sand for a named weapon.`);
-        if (namedForgeLocked) return alert(namedForgeLockMessage);
-        if (!namedForgePaymentReady) return alert(namedForgePaymentError);
+        if (!requireServerSettlement("creatorItemCraft")) return;
+        const blocker = namedRollBlocker("weapon");
+        if (blocker) return alert(blocker);
         if (!beginNamedForge()) return;
         primeGameAudio(["omen", "reveal", "mythic"]);
         setNamedForgeAnimation({ kind: "weapon", phase: "rolling" });
         try {
-            const result = await rollNamedForgeServer<NamedWeaponRoll>(character.name, "weapon");
-            if (!result.roll || !result.token) {
+            const result = await rollNamedForgeServer<NamedWeaponRoll>(character.name, "weapon", { name: namedWeaponName, flavorText: namedWeaponFlavorText });
+            if (!keepNamedRoll(result, "weapon", namedWeaponImage)) {
                 setNamedForgeAnimation(null);
-                return alert(result.error || "The named weapon roll failed.");
+                return;
             }
-            setNamedWeaponRoll(result.roll);
-            setNamedWeaponToken(result.token);
-            setNamedForgeAnimation({ kind: "weapon", phase: "reveal" });
+            setNamedWeaponRoll(result.roll ?? null);
+            setNamedWeaponName("Unnamed Blade");
+            setNamedWeaponImage("");
+            setNamedWeaponFlavorText("");
+            setNamedForgeAnimation(result.roll ? { kind: "weapon", phase: "reveal" } : null);
         } finally {
             endNamedForge();
         }
     }
 
-    // Named weapons and every armor slot use the same Fate Shard payment.
+    // Named weapons and every armor slot pay the same Fate Shards per roll.
     const NW_COST = NAMED_FORGE_FATE_SHARD_COST;
     const namedForgeLocked = Math.max(1, Math.floor(Number(character.level) || 1)) < NAMED_ITEM_LEVEL_REQ;
     const namedForgeLockMessage = `Named forging unlocks at Level ${NAMED_ITEM_LEVEL_REQ}. You are Level ${character.level}.`;
@@ -359,41 +420,13 @@ export function CentralHub({
         namedForgePts: namedForgeFateShardTotal(character),
         namedForgePaymentReady: canPayNamedForge(character),
     }), [character]);
-    const namedForgePaymentError = `Not enough Fate Shards. Need ${NW_COST} Fate Shards to forge named gear.`;
-
-    async function forgeNamedWeapon() {
-        if (!requireServerSettlement("creatorItemCraft")) return;
-        if (!namedWeaponRoll || !namedWeaponToken) return;
-        if (!namedForgePaymentReady) return alert(namedForgePaymentError);
-        if (!beginNamedForge()) return;
-        try {
-            const result = await commitNamedForgeServer(character.name, namedWeaponToken, namedWeaponName, namedWeaponFlavorText);
-            if (!result.character || !result.item) return alert(result.error || "The named weapon forge failed.");
-            const item: GameItem = { ...result.item, ...(namedWeaponImage ? { image: namedWeaponImage } : {}) };
-            // Paid and forged even if a newer save was adopted first (see completeCraft).
-            commitServerCharacter(result.character, result._saveVersion);
-            setCreatorItems((current) => [...current.filter((entry) => entry.id !== item.id), item]);
-            if (namedWeaponImage) {
-                // Stays a Notice: the player chose that image and needs to know it is gone.
-                void publishSharedImage(`item:${item.id}`, namedWeaponImage).then((ok) => {
-                    if (!ok) alert(`${item.name} was forged, but its image could not be saved.`);
-                });
-            }
-            setNamedWeaponRoll(null);
-            setNamedWeaponToken("");
-            setNamedWeaponName("Unnamed Blade");
-            setNamedWeaponImage("");
-            setNamedWeaponFlavorText("");
-            gameToast(`${item.name} was forged and added to your inventory.`);
-        } finally {
-            endNamedForge();
-        }
-    }
+    const namedForgePaymentError = `Not enough Fate Shards. A named roll costs ${NW_COST} Fate Shards.`;
 
     // ── Named Armor forge ───────────────────────────────────────────────
     // Mirrors the Named Weapon flow but produces a master-forged armor
-    // piece. Player picks a slot from a dropdown; rolling fills in
-    // randomized stats. Both named gear kinds cost 200 Fate Shards.
+    // piece. Player picks a slot from a dropdown; each paid roll keeps a piece
+    // with randomized stats. Both kinds pay the same Fate Shards; their
+    // materials differ (shared/named-forge-materials.ts).
     type NamedArmorRoll = {
         slot: EquipmentSlot;
         armorQuality: ArmorQuality; // Elite / Legendary / Mythic (6 / 7 / 8 %)
@@ -406,7 +439,6 @@ export function CentralHub({
     const [namedArmorImage, setNamedArmorImage] = useState("");
     const [namedArmorFlavorText, setNamedArmorFlavorText] = useState("");
     const [namedArmorSlot, setNamedArmorSlot] = useState<EquipmentSlot>("body");
-    const [namedArmorToken, setNamedArmorToken] = useState("");
 
     const NAMED_ARMOR_SLOTS: Array<{ value: EquipmentSlot; label: string }> = [
         { value: "head",  label: "Head" },
@@ -421,50 +453,23 @@ export function CentralHub({
     ];
 
     async function rollNamedArmor() {
-        if (countItem(character, 'gather-iron-sand-pristine') < namedForgeOreCount('armor')) return alert(`Need ${namedForgeOreCount('armor')} Pristine Iron Sand for named armor.`);
-        if (namedForgeLocked) return alert(namedForgeLockMessage);
-        if (!namedForgePaymentReady) return alert(namedForgePaymentError);
+        if (!requireServerSettlement("creatorItemCraft")) return;
+        const blocker = namedRollBlocker("armor");
+        if (blocker) return alert(blocker);
         if (!beginNamedForge()) return;
         primeGameAudio(["omen", "reveal", "mythic"]);
         setNamedForgeAnimation({ kind: "armor", phase: "rolling" });
         try {
-            const result = await rollNamedForgeServer<NamedArmorRoll>(character.name, "armor", namedArmorSlot);
-            if (!result.roll || !result.token) {
+            const result = await rollNamedForgeServer<NamedArmorRoll>(character.name, "armor", { slot: namedArmorSlot, name: namedArmorName, flavorText: namedArmorFlavorText });
+            if (!keepNamedRoll(result, "armor", namedArmorImage)) {
                 setNamedForgeAnimation(null);
-                return alert(result.error || "The named armor roll failed.");
+                return;
             }
-            setNamedArmorRoll(result.roll);
-            setNamedArmorToken(result.token);
-            setNamedForgeAnimation({ kind: "armor", phase: "reveal" });
-        } finally {
-            endNamedForge();
-        }
-    }
-
-    async function forgeNamedArmor() {
-        if (!requireServerSettlement("creatorItemCraft")) return;
-        if (!namedArmorRoll || !namedArmorToken) return;
-        if (!namedForgePaymentReady) return alert(namedForgePaymentError);
-        if (!beginNamedForge()) return;
-        try {
-            const result = await commitNamedForgeServer(character.name, namedArmorToken, namedArmorName, namedArmorFlavorText);
-            if (!result.character || !result.item) return alert(result.error || "The named armor forge failed.");
-            const item: GameItem = { ...result.item, ...(namedArmorImage ? { image: namedArmorImage } : {}) };
-            // Paid and forged even if a newer save was adopted first (see completeCraft).
-            commitServerCharacter(result.character, result._saveVersion);
-            setCreatorItems((current) => [...current.filter((entry) => entry.id !== item.id), item]);
-            if (namedArmorImage) {
-                // Stays a Notice: the player chose that image and needs to know it is gone.
-                void publishSharedImage(`item:${item.id}`, namedArmorImage).then((ok) => {
-                    if (!ok) alert(`${item.name} was forged, but its image could not be saved.`);
-                });
-            }
-            setNamedArmorRoll(null);
-            setNamedArmorToken("");
+            setNamedArmorRoll(result.roll ?? null);
             setNamedArmorName("Unnamed Vestige");
             setNamedArmorImage("");
             setNamedArmorFlavorText("");
-            gameToast(`${item.name} was forged and added to your inventory.`);
+            setNamedForgeAnimation(result.roll ? { kind: "armor", phase: "reveal" } : null);
         } finally {
             endNamedForge();
         }
@@ -1789,7 +1794,7 @@ export function CentralHub({
                                     <div className="nw-forge">
                                         <div className="nw-head">
                                             <span className="nw-title"><GiBreastplate style={HDR_ICON} />Named Armor</span>
-                                            <small>Forge a one-of-a-kind armor piece — the finest armor in the world, above mythic. Costs {NW_COST} Fate Shards.</small>
+                                            <small>Forge a one-of-a-kind armor piece — the finest armor in the world, above mythic. Each roll costs {NW_COST} Fate Shards plus apex materials, and every roll is yours to keep.</small>
                                         </div>
 
                                         {/* Currency display — same pool as named weapons */}
@@ -1871,20 +1876,56 @@ export function CentralHub({
                                             </div>
                                         </div>
 
+                                        <label className="nw-label">Armor Name</label>
+                                        <input
+                                            className="nw-input"
+                                            value={namedArmorName}
+                                            onChange={(e) => setNamedArmorName(e.target.value)}
+                                            placeholder="e.g. Stormveil Plate"
+                                        />
+
+                                        <label className="nw-label">Flavor Text</label>
+                                        <textarea
+                                            className="nw-input"
+                                            rows={3}
+                                            value={namedArmorFlavorText}
+                                            onChange={(e) => setNamedArmorFlavorText(e.target.value)}
+                                            placeholder="Forged from the scales of the Ash Lizard king…"
+                                        />
+
+                                        <label className="nw-label">Armor Image</label>
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) readImageFile(file, setNamedArmorImage, 25);
+                                            }}
+                                        />
+                                        {namedArmorImage && (
+                                            <div>
+                                                <img src={namedArmorImage} alt="armor preview" />
+                                                <button className="danger-button" onClick={() => setNamedArmorImage("")}>Remove</button>
+                                            </div>
+                                        )}
+
+                                        {renderNamedRollCost("armor")}
+
                                         <button
                                             className="nw-roll"
                                             ref={namedArmorRollButtonRef}
                                             onClick={rollNamedArmor}
-                                            disabled={!namedForgePaymentReady || namedForgeLocked || namedForgeBusy || namedForgeAnimation !== null}
+                                            disabled={!!namedRollBlocker("armor") || namedForgeBusy || namedForgeAnimation !== null}
                                         >
                                             <GameIcon name="dice" size={16} style={HDR_ICON} />
                                             {namedForgeAnimation?.kind === "armor"
                                                 ? namedForgeAnimation.phase === "rolling" ? "Rolling armor…" : "Sealing armor…"
-                                                : `Roll named armor · ${namedForgeOreCount('armor')} Pristine Ore`}
+                                                : "Roll named armor"}
                                         </button>
 
                                         {namedArmorRoll && !namedForgeAnimation && (
                                             <div className="nw-result nf-enter">
+                                                <div className="nw-label">Your last roll — kept in your inventory</div>
                                                 <div className="nw-stats">
                                                     <div className="nw-stat"><span>Slot</span><strong>{NAMED_ARMOR_SLOTS.find(s => s.value === namedArmorRoll.slot)?.label}</strong></div>
                                                     {namedArmorRoll.slot !== "hand" && <div className="nw-stat"><span>Damage Reduction</span><strong>{Math.round(armorReductionForQuality(namedArmorRoll.armorQuality) * 100)}% ({namedArmorRoll.armorQuality})</strong></div>}
@@ -1900,48 +1941,6 @@ export function CentralHub({
                                                         </strong>
                                                     </div>
                                                 </div>
-
-                                                <label className="nw-label">Armor Name</label>
-                                                <input
-                                                    className="nw-input"
-                                                    value={namedArmorName}
-                                                    onChange={(e) => setNamedArmorName(e.target.value)}
-                                                    placeholder="e.g. Stormveil Plate"
-                                                />
-
-                                                <label className="nw-label">Flavor Text</label>
-                                                <textarea
-                                                    className="nw-input"
-                                                    rows={3}
-                                                    value={namedArmorFlavorText}
-                                                    onChange={(e) => setNamedArmorFlavorText(e.target.value)}
-                                                    placeholder="Forged from the scales of the Ash Lizard king…"
-                                                />
-
-                                                <label className="nw-label">Armor Image</label>
-                                                <input
-                                                    type="file"
-                                                    accept="image/*"
-                                                    onChange={(e) => {
-                                                        const file = e.target.files?.[0];
-                                                        if (file) readImageFile(file, setNamedArmorImage, 25);
-                                                    }}
-                                                />
-                                                {namedArmorImage && (
-                                                    <div>
-                                                        <img src={namedArmorImage} alt="armor preview" />
-                                                        <button className="danger-button" onClick={() => setNamedArmorImage("")}>Remove</button>
-                                                    </div>
-                                                )}
-
-                                                <div>
-                                                    <button className="nw-commit" onClick={forgeNamedArmor} disabled={namedForgeBusy}>
-                                                        <GiBlacksmith style={HDR_ICON} />{namedForgeBusy ? "Forging…" : "Forge armor"}
-                                                    </button>
-                                                    <button className="danger-button" onClick={() => { setNamedArmorRoll(null); setNamedArmorToken(""); }} disabled={namedForgeBusy}>
-                                                        <GiTrashCan style={HDR_ICON} />Discard roll
-                                                    </button>
-                                                </div>
                                             </div>
                                         )}
                                     </div>
@@ -1956,7 +1955,7 @@ export function CentralHub({
                                     <div className="nw-forge">
                                         <div className="nw-head">
                                             <span className="nw-title"><GiCrossedSwords style={HDR_ICON} />Named Weapon</span>
-                                            <small>Forge a one-of-a-kind hand weapon — the finest weapon in the world, above mythic. Costs {NW_COST} Fate Shards.</small>
+                                            <small>Forge a one-of-a-kind hand weapon — the finest weapon in the world, above mythic. Each roll costs {NW_COST} Fate Shards plus apex materials, and every roll is yours to keep.</small>
                                         </div>
 
                                         {/* Currency display */}
@@ -2039,20 +2038,56 @@ export function CentralHub({
                                             </div>
                                         </div>
 
+                                        <label className="nw-label">Weapon Name</label>
+                                        <input
+                                            className="nw-input"
+                                            value={namedWeaponName}
+                                            onChange={(e) => setNamedWeaponName(e.target.value)}
+                                            placeholder="e.g. Void Fang"
+                                        />
+
+                                        <label className="nw-label">Flavor Text</label>
+                                        <textarea
+                                            className="nw-input"
+                                            rows={3}
+                                            value={namedWeaponFlavorText}
+                                            onChange={(e) => setNamedWeaponFlavorText(e.target.value)}
+                                            placeholder="A blade forged from the bones of ancient beasts…"
+                                        />
+
+                                        <label className="nw-label">Weapon Image</label>
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) readImageFile(file, setNamedWeaponImage, 25);
+                                            }}
+                                        />
+                                        {namedWeaponImage && (
+                                            <div>
+                                                <img src={namedWeaponImage} alt="weapon preview" />
+                                                <button className="danger-button" onClick={() => setNamedWeaponImage("")}>Remove</button>
+                                            </div>
+                                        )}
+
+                                        {renderNamedRollCost("weapon")}
+
                                         <button
                                             className="nw-roll"
                                             ref={namedWeaponRollButtonRef}
                                             onClick={rollNamedWeapon}
-                                            disabled={!namedForgePaymentReady || namedForgeLocked || namedForgeBusy || namedForgeAnimation !== null}
+                                            disabled={!!namedRollBlocker("weapon") || namedForgeBusy || namedForgeAnimation !== null}
                                         >
                                             <GameIcon name="dice" size={16} style={HDR_ICON} />
                                             {namedForgeAnimation?.kind === "weapon"
                                                 ? namedForgeAnimation.phase === "rolling" ? "Rolling weapon…" : "Sealing weapon…"
-                                                : `Roll named weapon · ${namedForgeOreCount('weapon')} Pristine Ore`}
+                                                : "Roll named weapon"}
                                         </button>
 
                                         {namedWeaponRoll && !namedForgeAnimation && (
                                             <div className="nw-result nf-enter">
+                                                <div className="nw-label">Your last roll — kept in your inventory</div>
                                                 <div className="nw-stats">
                                                     <div className="nw-stat"><span>Damage EP</span><strong>{namedWeaponRoll.ep}</strong></div>
                                                     <div className="nw-stat"><span>AP Cost</span><strong>40</strong></div>
@@ -2071,48 +2106,6 @@ export function CentralHub({
                                                             </div>
                                                         );
                                                     })}
-                                                </div>
-
-                                                <label className="nw-label">Weapon Name</label>
-                                                <input
-                                                    className="nw-input"
-                                                    value={namedWeaponName}
-                                                    onChange={(e) => setNamedWeaponName(e.target.value)}
-                                                    placeholder="e.g. Void Fang"
-                                                />
-
-                                                <label className="nw-label">Flavor Text</label>
-                                                <textarea
-                                                    className="nw-input"
-                                                    rows={3}
-                                                    value={namedWeaponFlavorText}
-                                                    onChange={(e) => setNamedWeaponFlavorText(e.target.value)}
-                                                    placeholder="A blade forged from the bones of ancient beasts…"
-                                                />
-
-                                                <label className="nw-label">Weapon Image</label>
-                                                <input
-                                                    type="file"
-                                                    accept="image/*"
-                                                    onChange={(e) => {
-                                                        const file = e.target.files?.[0];
-                                                        if (file) readImageFile(file, setNamedWeaponImage, 25);
-                                                    }}
-                                                />
-                                                {namedWeaponImage && (
-                                                    <div>
-                                                        <img src={namedWeaponImage} alt="weapon preview" />
-                                                        <button className="danger-button" onClick={() => setNamedWeaponImage("")}>Remove</button>
-                                                    </div>
-                                                )}
-
-                                                <div>
-                                                    <button className="nw-commit" onClick={forgeNamedWeapon} disabled={namedForgeBusy}>
-                                                        <GiBlacksmith style={HDR_ICON} />{namedForgeBusy ? "Forging…" : "Forge weapon"}
-                                                    </button>
-                                                    <button className="danger-button" onClick={() => { setNamedWeaponRoll(null); setNamedWeaponToken(""); }} disabled={namedForgeBusy}>
-                                                        <GiTrashCan style={HDR_ICON} />Discard roll
-                                                    </button>
                                                 </div>
                                             </div>
                                         )}

@@ -121,7 +121,7 @@ for (const currency of ['ryo', 'fateShards']) for (const strict of ['0', '1']) i
     }
     const staleSeller = structuredClone(seller);
     const staleBuyer = structuredClone(await stored('tradebuyer'));
-    for (const [kind, id, quantity] of [['item', namedId, 1], ['item', armorId, 1], ['pet', pet.id, 1], ['card', card, 1], ['item', 'hunt-torn-hide', 15], ...['fateShards', 'boneCharms', 'auraStones', 'honorSeals', 'mythicSeals'].map(id => ['resource', id, 5])] as [string, string, number][]) {
+    for (const [kind, id, quantity] of [['item', namedId, 1], ['item', armorId, 1], ['pet', pet.id, 1], ['card', card, 1], ['item', 'hunt-torn-hide', 15], ...['fateShards', 'boneCharms', 'auraStones'].map(id => ['resource', id, 5])] as [string, string, number][]) {
         const listingId = await list(kind, id, quantity, currency);
         const result = await trade('tradebuyer', { action: 'buy', listingId, expectedPrice: 100, expectedCurrency: currency });
         assert.equal(result.status, 200, JSON.stringify(result.body));
@@ -130,8 +130,9 @@ for (const currency of ['ryo', 'fateShards']) for (const strict of ['0', '1']) i
     assert.equal((await autosave('tradeseller', staleSeller)).status, 409);
     assert.equal((await autosave('tradebuyer', staleBuyer)).status, 409);
     const acquired = await stored('tradebuyer');
-    assert.equal(acquired.character.ryo, currency === 'ryo' ? 9000 : 10000);
-    assert.equal((await stored('tradeseller')).character.ryo, currency === 'ryo' ? 10950 : 10000);
+    // Eight purchases at 100 each; the seller keeps 95 of each.
+    assert.equal(acquired.character.ryo, currency === 'ryo' ? 9200 : 10000);
+    assert.equal((await stored('tradeseller')).character.ryo, currency === 'ryo' ? 10760 : 10000);
     const equip = { ...acquired.character, inventory: acquired.character.inventory.filter((id: string) => id !== namedId && id !== armorId), equipment: { hand: namedId, body: armorId }, activePetId: pet.id };
     // A client that has not hydrated creatorItems yet must retain server definitions.
     const saved = await autosave('tradebuyer', acquired, equip, []);
@@ -154,9 +155,11 @@ for (const currency of ['ryo', 'fateShards']) for (const strict of ['0', '1']) i
     for (const key of ['id', 'templateId', 'origin', 'generation', 'parentInstanceIds', 'hatchedAt', 'breedingSessionId', 'paletteVariantId', 'growthAllocation', 'breedingUsesRemaining', 'nickname']) assert.deepEqual(received[key], pet[key as keyof typeof pet], key);
     assert.ok(reloaded.character.tileCards.includes(card));
     assert.equal(reloaded.character.itemStacks.find((s: Obj) => s.itemId === 'hunt-torn-hide').count, 15);
-    for (const resource of ['fateShards', 'boneCharms', 'auraStones', 'honorSeals', 'mythicSeals']) assert.equal(reloaded.character[resource], currency === 'fateShards' && resource === 'fateShards' ? 9005 : 15, resource);
+    for (const resource of ['fateShards', 'boneCharms', 'auraStones']) assert.equal(reloaded.character[resource], currency === 'fateShards' && resource === 'fateShards' ? 9205 : 15, resource);
+    // Honor and Mythic Seals cannot be listed (as /api/player/trade refuses them), so they never moved.
+    for (const resource of ['honorSeals', 'mythicSeals']) assert.equal(reloaded.character[resource], 10, resource);
     const sellerAfter = await stored('tradeseller');
-    if (currency === 'fateShards') assert.equal(sellerAfter.character.fateShards, 10945);
+    if (currency === 'fateShards') assert.equal(sellerAfter.character.fateShards, 10755);
     assert.equal((await autosave('tradeseller', sellerAfter)).status, 200);
     assert.ok(!(await stored('tradeseller')).character.inventory.includes(namedId));
     assert.equal((await stored('tradeseller')).character.pets.length, 0);

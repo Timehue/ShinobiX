@@ -183,7 +183,9 @@ test("high-drift guide numbers stay aligned with current game constants", () => 
 
     assert.match(builds, new RegExp(`${NAMED_FORGE_FATE_SHARD_COST} Fate Shards`, "i"));
     assert.match(builds, /Named gear accepts Fate Shards only/i);
-    assert.match(builds, /paid when you forge the revealed roll/i);
+    // Owner ruling 2026-10-15: the price is paid to roll, and every roll is kept.
+    assert.match(builds, /paid when you roll, and every roll is yours to keep/i);
+    assert.doesNotMatch(builds, /forge the revealed roll/i);
 });
 
 test("economy guidance distinguishes catalogs, currency transfers, and claimable bank interest", () => {

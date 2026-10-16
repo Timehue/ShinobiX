@@ -17,7 +17,11 @@ import {
     endlessActiveWaveKey,
     endlessWaveBindingKey,
     endlessWaveRunId,
+    endlessSealedWaveKey,
+    unsettledWaveVerdict,
+    ENDLESS_SEALED_WAVE_TTL_SECONDS,
     ENDLESS_WAVE_TTL_SECONDS,
+    type EndlessSealedWave,
 } from './_wave-session.js';
 
 /**
@@ -70,6 +74,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
             }
 
+            // A sealed wave of THIS number that was walked away from (not resumable
+            // above) cannot be re-sealed for a fresh try: a lost wave ends the run.
+            const sealed = await kv.get<EndlessSealedWave>(endlessSealedWaveKey(playerName, runToken));
+            if (sealed?.runId) {
+                const verdict = unsettledWaveVerdict(sealed, wave, await readSoloPveSession(sealed.runId));
+                if (verdict === 'won-unsettled' || verdict === 'in-progress') {
+                    return { ok: false as const, error: 'Settle your current wave first.', errorCode: 'endless-wave-unsettled' };
+                }
+                if (verdict === 'lost') {
+                    return { ok: false as const, error: 'Your last wave was left unfinished and counts as lost. Abandon this run to start a new one.', errorCode: 'endless-wave-lost' };
+                }
+            }
+
             // Every fight this player is holding, an earlier wave included, is
             // settled before this wave is sealed from the save
             // (api/pve/_held-fights.ts).
@@ -112,6 +129,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 { ex: ENDLESS_WAVE_TTL_SECONDS },
             );
             await kv.set(activeKey, { runId, wave }, { ex: ENDLESS_WAVE_TTL_SECONDS });
+            await kv.set(endlessSealedWaveKey(playerName, runToken), { runId, wave } satisfies EndlessSealedWave, { ex: ENDLESS_SEALED_WAVE_TTL_SECONDS });
             return { ok: true as const, runId, wave, session: built.session, resumed: false };
         }, { failClosed: true });
         if (!started.ok) return res.status(409).json({ error: started.error, ...('errorCode' in started ? { errorCode: started.errorCode } : {}) });

@@ -9,6 +9,20 @@ import { battleLockedFor } from '../_elapsed-state.js';
 import { FORGED_ITEM_ID } from '../_forged-item-registry.js';
 import { recordEconomyTxn } from '../_economy.js';
 import { pushOfflineNotice } from '../player/_offline-notices.js';
+import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
+
+// The Exchange is a player-to-player transfer channel like /api/player/trade,
+// so it carries the same two rules: no buying from (or bidding against) an
+// account on your own connection, and no listing the two currencies trade
+// refuses outright. Before this, an alt could list junk at up to 1e9 for a
+// main to buy (bypassing trade's caps, tax and budget), or sell Honor/Mythic
+// Seals for 1 ryo. Existing seal listings still settle.
+const EXCHANGE_UNLISTABLE_RESOURCES = new Set(['honorSeals', 'mythicSeals']);
+async function refuseSameConnection(player: string, seller: string): Promise<void> {
+    let overlap = false;
+    try { overlap = await hasRecentIpOrFpOverlap(player, seller); } catch { /* fail open, as trade does */ }
+    if (overlap) throw new ExchangeError("You can't trade with someone sharing your connection.", 403);
+}
 import { kickPlayer } from '../_realtime/notify.js';
 import { loadSettlementCatalogs, type SettlementCatalogs } from '../shop/_catalog.js';
 import { balance, ExchangeError, exchangeGrantBlocker, exchangeInventory, grantAsset, objects, recoverExchangeDefinitions, removeAsset, sealAsset, type SealedExchangeAsset } from './_exchange-assets.js';
@@ -233,6 +247,7 @@ async function recoverLocked(current: StoredExchangeListing, catalogs?: Settleme
 export async function createExchangeListing(player: string, input: { requestId: string; kind: ExchangeKind; assetId: string; quantity: number; price: number; currency?: unknown; listingType?: unknown; durationHours?: unknown }): Promise<ExchangeListing> {
     const currency = parseCurrency(input.currency);
     if (!['item', 'pet', 'card', 'resource'].includes(input.kind) || !input.assetId || input.assetId.length > 160) throw new ExchangeError('Choose a valid asset.', 400);
+    if (input.kind === 'resource' && EXCHANGE_UNLISTABLE_RESOURCES.has(input.assetId)) throw new ExchangeError('Honor Seals and Mythic Seals cannot be traded.', 400);
     if (!Number.isSafeInteger(input.quantity) || input.quantity < 1 || input.quantity > EXCHANGE_MAX_QUANTITY) throw new ExchangeError('Enter a valid whole quantity.', 400);
     if (!Number.isSafeInteger(input.price) || input.price < 1 || input.price > EXCHANGE_MAX_PRICE) throw new ExchangeError(`The total price must be between 1 and ${EXCHANGE_MAX_PRICE.toLocaleString()} ${EXCHANGE_CURRENCIES[currency]}.`, 400);
     const listingType = input.listingType === undefined ? 'fixed' : input.listingType;
@@ -295,6 +310,7 @@ export async function actOnExchangeListing(player: string, id: string, action: '
             if (listing.seller === player) throw new ExchangeError('You cannot bid on your own auction.', 400);
             // A retry after a lost response confirms the already accepted bid.
             if (listing.highestBid?.player === player && listing.highestBid.amount === expectedPrice) return publicListing(listing);
+            await refuseSameConnection(player, listing.seller);
             if (!Number.isSafeInteger(expectedPrice) || expectedPrice! <= Math.max(listing.price, listing.highestBid?.amount ?? 0) || expectedPrice! > EXCHANGE_MAX_PRICE) throw new ExchangeError(`Your bid must be higher than ${(listing.highestBid?.amount ?? listing.price).toLocaleString()}.`, 400);
             if (parseCurrency(expectedCurrency) !== exchangeCurrency(listing)) throw new ExchangeError('The bid currency does not match this auction.');
             const record = await kv.get<Obj>(`save:${player}`);
@@ -319,6 +335,7 @@ export async function actOnExchangeListing(player: string, id: string, action: '
         if (listing.state === 'sold' && listing.buyer === player && action === 'buy') return publicListing(listing);
         if (listing.state === 'cancelled' && action === 'cancel') return publicListing(listing);
         if (listing.state !== 'active') throw new ExchangeError('This listing is no longer available.');
+        if (action === 'buy') await refuseSameConnection(player, listing.seller);
         if (action === 'buy') await kv.hset(playerIndex(player), { [id]: listing.createdAt });
         listing = await transition(listing, action === 'buy' ? { state: 'buying', buyer: player } : { state: 'cancelling' });
         return publicListing(await recoverLocked(listing));

@@ -56,6 +56,40 @@ const EXCEPTION_BASE_MS = 60 * 60_000;
 const EXCEPTION_MAX_MS = 24 * 60 * 60_000;
 
 export function mentorRecordKey(senseiSlug: string): string { return `clan-mentor:${senseiSlug}`; }
+
+/**
+ * Milestones ever admitted for a STUDENT, across every pairing. A pairing's
+ * own `claimed` map dies with it on release, and a re-assign mints a fresh
+ * pairingId — so without this record, release → assign → claim paid the same
+ * milestones again, about 20 times a minute.
+ */
+export function mentorStudentPaidKey(studentSlug: string): string { return `clan-mentor-paid:${studentSlug}`; }
+
+export async function readMentorStudentPaid(studentSlug: string): Promise<Record<string, number>> {
+    const raw = await kv.get<Record<string, unknown>>(mentorStudentPaidKey(studentSlug));
+    const out: Record<string, number> = {};
+    if (raw && typeof raw === 'object') {
+        for (const [milestone, at] of Object.entries(raw)) {
+            const ts = Number(at);
+            if (Number.isFinite(ts) && ts > 0) out[milestone] = ts;
+        }
+    }
+    return out;
+}
+
+/** Merge milestones into the student's ever-paid record (idempotent; never removes). */
+export async function recordMentorStudentPaid(studentSlug: string, claimed: Record<string, unknown> | undefined): Promise<void> {
+    const entries = Object.entries(claimed ?? {}).filter(([, at]) => Number(at) > 0);
+    if (entries.length === 0) return;
+    await withKvLock(mentorStudentPaidKey(studentSlug), async () => {
+        const current = await readMentorStudentPaid(studentSlug);
+        let changed = false;
+        for (const [milestone, at] of entries) {
+            if (!current[milestone]) { current[milestone] = Number(at); changed = true; }
+        }
+        if (changed) await kv.set(mentorStudentPaidKey(studentSlug), current, { ex: 400 * 24 * 60 * 60 });
+    }, { failClosed: true });
+}
 export function mentorStudentMarkerKey(studentSlug: string): string { return `clan-mentor-of:${studentSlug}`; }
 export function mentorPendingPointerKey(senseiSlug: string): string { return `${POINTER_PREFIX}${senseiSlug}`; }
 
@@ -627,7 +661,10 @@ export async function admitMentorClaim(senseiSlug: string, studentSlug: string, 
         level: Math.max(0, Math.floor(num(studentChar.level))),
         rankedWins: Math.max(0, Math.floor(num(studentChar.rankedWins))),
     };
-    const milestones = claimableMilestones({ onboardingStep: evidence.onboardingStep ?? undefined, level: evidence.level, rankedWins: evidence.rankedWins }, entry.claimed);
+    // A milestone this student already earned a sensei under ANY pairing is not
+    // claimable again (see mentorStudentPaidKey).
+    const everPaid = await readMentorStudentPaid(studentSlug);
+    const milestones = claimableMilestones({ onboardingStep: evidence.onboardingStep ?? undefined, level: evidence.level, rankedWins: evidence.rankedWins }, { ...everPaid, ...(entry.claimed ?? {}) });
     if (milestones.length === 0) return { status: 'none' };
 
     // A milestone must never be paid to a sensei with no save to credit.
@@ -674,6 +711,9 @@ export async function admitMentorClaim(senseiSlug: string, studentSlug: string, 
         }
         throw error;
     }
+    // Best-effort here; release writes the same record again before it ends
+    // the pairing, so a lost write here cannot reopen these milestones.
+    await recordMentorStudentPaid(studentSlug, reserved).catch(() => undefined);
     return { status: 'admitted', settlement };
 }
 

@@ -1,4 +1,5 @@
 import { safeName } from '../_utils.js';
+import { CHRONICLE_AFK_STRIKE_LIMIT, TURN_TIMEOUT_MS } from '../../shared/chronicle-duel.js';
 import {
     noteBattleEnded,
     noteBattleStarted,
@@ -26,7 +27,17 @@ export type CardDuelSessionShape = {
     p1Name?: string;
     p2Name?: string;
     status: string;
+    /** The live match; `turnStartedAt` is when its current turn began. */
+    state?: { turnStartedAt?: unknown } | null;
 };
+
+// The duel clock (shared/chronicle-duel.ts advanceExpiredChronicleTurn) only
+// runs when a duelist sends a request, so a duel BOTH sides leave untouched
+// stayed `active` for its whole 2h TTL — renewable by one end-turn — and kept
+// a logged-off player un-campable. A real duel's turn never outlives
+// TURN_TIMEOUT_MS by much (two missed turns forfeit it), so a turn older than
+// three timeouts is a duel nobody is playing.
+const CARD_DUEL_STALE_TURN_MS = TURN_TIMEOUT_MS * (CHRONICLE_AFK_STRIKE_LIMIT + 1);
 
 const CARD_DUEL_PRESENCE_RETAIN_SECONDS = 24 * 60 * 60;
 
@@ -37,8 +48,10 @@ export function cardDuelParticipants(session: CardDuelSessionShape): string[] {
 }
 
 /** True when `slug` is a duelist in a session whose match is live. */
-export function cardDuelEngages(session: CardDuelSessionShape | null | undefined, slug: string): boolean {
+export function cardDuelEngages(session: CardDuelSessionShape | null | undefined, slug: string, now: number = Date.now()): boolean {
     if (!session || session.status !== 'active') return false;
+    const turnStartedAt = Number(session.state?.turnStartedAt);
+    if (Number.isFinite(turnStartedAt) && turnStartedAt > 0 && now - turnStartedAt > CARD_DUEL_STALE_TURN_MS) return false;
     return cardDuelParticipants(session).includes(safeName(slug));
 }
 

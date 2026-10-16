@@ -564,6 +564,7 @@
     },
     "creatorItems": [],
     "someUnknownTopLevel": "kept",
+    "activeJutsuTraining": null,
     "pendingBloodlineForges": [],
     "currentSector": 40,
     "worldGeoV": 2
@@ -700,6 +701,7 @@
     },
     "creatorItems": [],
     "someUnknownTopLevel": "kept",
+    "activeJutsuTraining": null,
     "pendingBloodlineForges": [],
     "currentSector": 40,
     "worldGeoV": 2
