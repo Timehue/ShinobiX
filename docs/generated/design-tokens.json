@@ -3095,7 +3095,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/28-desktop-scaling.css",
-            "line": 1029
+            "line": 910
           },
           {
             "source": "shinobij.client/src/styles/index/29-clan-exchange-storefront.css",
@@ -4442,7 +4442,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/02-world-map.css",
-            "line": 697
+            "line": 666
           },
           {
             "source": "shinobij.client/src/styles/index/10-layout-lock-herald.css",
@@ -4450,11 +4450,11 @@
           },
           {
             "source": "shinobij.client/src/styles/index/28-desktop-scaling.css",
-            "line": 836
+            "line": 717
           },
           {
             "source": "shinobij.client/src/styles/index/28-desktop-scaling.css",
-            "line": 1011
+            "line": 892
           },
           {
             "source": "shinobij.client/src/styles/landing-home.css",

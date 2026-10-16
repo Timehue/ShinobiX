@@ -104,14 +104,12 @@ let cine = read("lib/pet-duel-cinematic.ts")
     .replace(/from "\.\/pet-duel-sim"/g, 'from "./pet-duel-sim.js"');
 write("pet-duel-cinematic.ts", "lib/pet-duel-cinematic.ts", cine);
 
-// 7. Hollow Warfront map + contract → pet-warfront-{mask-baked,map,contract}.ts.
+// 7. Hollow Warfront map + contract → pet-warfront-{map,contract}.ts.
 //    The settlement runs on the Rite (step 12); the lane-war simulator that used
 //    to be mirrored here was retired on 2026-10-02. The server still reads the
-//    map's WfTheme and the contract's tick rate and plan types.
-write("pet-warfront-mask-baked.ts", "lib/pet-warfront-mask-baked.ts", read("lib/pet-warfront-mask-baked.ts"));
-const wfMap = read("lib/pet-warfront-map.ts")
-    .replace(/from "\.\/pet-warfront-mask-baked"/g, 'from "./pet-warfront-mask-baked.js"');
-write("pet-warfront-map.ts", "lib/pet-warfront-map.ts", wfMap);
+//    map's WfTheme and the contract's tick rate and plan types. The map no longer
+//    imports the baked walk mask, so that file is no longer mirrored.
+write("pet-warfront-map.ts", "lib/pet-warfront-map.ts", read("lib/pet-warfront-map.ts"));
 // The contract imports nothing, so it is copied verbatim.
 write("pet-warfront-contract.ts", "lib/pet-warfront-contract.ts", read("lib/pet-warfront-contract.ts"));
 
@@ -164,7 +162,7 @@ const STRAY = ['../types/pet', '../data/pet-config', './pet-coliseum-flag', '../
     // A client-depth shared/ path compiles on the client and NOT on the server,
     // so without this the mirror ships broken and only tsc notices.
     '../../../shared/'];
-for (const name of ["pet-types.ts", "pet-config.ts", "pet-duel-sim.ts", "pet-duel-cinematic.ts", "pet-warfront-mask-baked.ts", "pet-warfront-map.ts", "pet-warfront-contract.ts", "pet-roles.ts", "pet-bond-meter.ts", "pet-duel-doctrine.ts", "pet-warfront-rite.ts"]) {
+for (const name of ["pet-types.ts", "pet-config.ts", "pet-duel-sim.ts", "pet-duel-cinematic.ts", "pet-warfront-map.ts", "pet-warfront-contract.ts", "pet-roles.ts", "pet-bond-meter.ts", "pet-duel-doctrine.ts", "pet-warfront-rite.ts"]) {
     const body = readFileSync(join(OUT, name), "utf8");
     for (const s of STRAY) if (body.includes(s)) throw new Error(`gen-pet-sim: stray client import "${s}" left in ${name} — a rewrite rule missed it`);
 }

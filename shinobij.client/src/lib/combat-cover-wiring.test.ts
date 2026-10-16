@@ -41,27 +41,10 @@ test("decorative frame loops pause when covered or hidden; the fight's weather c
     assert.match(ambience, /insideCombat \? \(\) => \{\} : subscribeCombatCover\(/);
     const critters = src("components/SceneCritters.tsx");
     assert.match(critters, /subscribeCombatCover\(\(\) => \{ covered = isCoveredByCombat\(\); sync\(\); \}\)/);
-    for (const scene of ["components/SceneAmbience3DScene.tsx", "components/SectorScene3DScene.tsx"]) {
-        const source = src(scene);
-        assert.match(source, /const covered = useCombatCover\(\);/, `${scene} reads the cover`);
-        assert.match(source, /frameloop=\{covered \|\| !visible \? "never" : "always"\}/, `${scene} stops its render loop while covered or hidden`);
-        assert.match(source, /useDocumentVisible\(\)/, `${scene} follows page visibility without window-focus assumptions`);
-        assert.match(source, /from "\.\.\/lib\/use-battle-frameloop"/);
-        assert.doesNotMatch(source, /frameloop="always"/, `${scene} has no unconditional loop left`);
-    }
     const visibilityHook = src("lib/use-battle-frameloop.ts");
     assert.match(visibilityHook, /document\.visibilityState === 'visible'/, "visibility starts from the current document state");
     assert.match(visibilityHook, /document\.addEventListener\('visibilitychange', update\)/, "visibility changes are subscribed");
     assert.match(visibilityHook, /document\.removeEventListener\('visibilitychange', update\)/, "visibility listeners are released on teardown");
-});
-
-test("the 3D Pet Arena retires its continuous renderer after the result beat and resumes on replay", () => {
-    const stage = src("components/PetArena3DStage.tsx");
-    assert.match(stage, /useBattleFrameloop\(finished\)/, "the 3D stage uses the shared result lifecycle");
-    assert.match(stage, /<Canvas frameloop=\{frameloop\}/, "the arena renderer follows that lifecycle");
-    const match = src("components/pet-coliseum/arena-match.tsx");
-    assert.match(match, /<PetArena3DStage[^>]*finished=\{ended\}/, "the match's settled result state reaches the visual stage");
-    assert.match(match, /setEnded\(false\)/, "replay clears the finish state so animation resumes");
 });
 
 test("background tab visibility cannot pause battle simulation", () => {

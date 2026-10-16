@@ -795,27 +795,6 @@
     background: radial-gradient(ellipse 80% 80% at 50% 46%, transparent 56%, rgba(8,10,20,.42) 100%);
 }
 
-/* r3f depth backdrop (SectorScene3D / SectorScene3DScene). Sits behind the tiles
-   on top of the flat CSS backdrop, fully click-through (r3f sets the canvas to
-   pointer-events:auto for raycasting, so force every descendant off — same fix
-   the ambience layers use). */
-.sector-scene-3d {
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    pointer-events: none;
-    overflow: hidden;
-}
-
-.sector-scene-3d *,
-.sector-scene-3d canvas { pointer-events: none !important; }
-
-.sector-scene-3d canvas {
-    width: 100% !important;
-    height: 100% !important;
-    display: block;
-}
-
 @keyframes sectorHazeDrift {
     0%, 100% { transform: translate3d(-2%, 0, 0);  opacity: .7; }
     50%      { transform: translate3d(2%, 1%, 0);  opacity: 1; }

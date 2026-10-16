@@ -15,9 +15,6 @@ import forrestSectorImg from "../../assets/sectors/forrest.webp";
 import meadow2SectorImg from "../../assets/sectors/meadow2.webp";
 import meadowSectorImg from "../../assets/sectors/meadow.webp";
 import {
-    SECTOR_DEPTH_THEMES,
-} from "../../data/sector-depth-manifest";
-import {
     type Biome,
 } from "../../types/core";
 import {
@@ -74,18 +71,6 @@ function sectorBackgroundImage(sector: number) {
     }
 }
 
-// Depth-map URL for a sector's painted scene, when one has been baked
-// (scripts/gen-sector-depth.mjs). Mirrors sectorBackgroundImage's image choice
-// so the depth lines up with what's shown: only theme images have maps for now —
-// village outskirts, Death's Gate, and custom territory art fall back to the
-// procedural depth in SectorScene3DScene.
-function sectorDepthImage(sector: number): string | undefined {
-    if (sector === 99) return undefined;
-    if (villageForOutskirtsSector(sector)) return undefined;
-    const theme = sectorImageTheme(sector);
-    return SECTOR_DEPTH_THEMES.has(theme) ? `/sector-depth/${theme}.webp` : undefined;
-}
-
 /*
  * The painted top-down ADVENTURE MAP for a sector. Every sector 1-66 plus
  * Death's Gate (99) now has bespoke art, so this is a straight lookup — the ten
@@ -129,7 +114,6 @@ function ambienceBiomeForSector(sector: number): Biome {
 
 export {
     sectorBackgroundImage,
-    sectorDepthImage,
     sectorMapUrl,
     ambienceBiomeForSector,
 };

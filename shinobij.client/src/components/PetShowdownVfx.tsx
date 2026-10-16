@@ -4,7 +4,7 @@
  * Plays the bundled hand-painted FX flipbooks (src/assets/fx/<key>/NNN.png via
  * lib/jutsu-fx-assets — Foozle / Ninja Adventure / CodeManu, see CREDITS.txt)
  * as additive billboards inside the r3f scene, plus the painted projectile
- * sprites (assets/fx/projectiles/<element>.webp) with a fading trail, melee
+ * sprites (assets/fx/projectiles-v2/<element>.webp) with a fading trail, melee
  * afterimage streaks, and the signature light pillar. This is what turns a
  * turn-based action from "a sphere flew" into a real anime beat.
  *

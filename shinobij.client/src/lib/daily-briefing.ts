@@ -1,8 +1,6 @@
 /*
  * Daily Briefing data layer — the global world report (reads the polled war
- * caches) plus a re-export of the pure core (./daily-briefing-core). The modal
- * imports from here; tests import the core directly to avoid dragging the
- * cache/world-state graph.
+ * caches). The modal imports from here.
  */
 import { activeVillageWarsGlobal } from "./world-state";
 import { sharedClanWarCache } from "./clan-war-read-api";

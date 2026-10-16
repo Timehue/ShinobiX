@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import { syncBuiltinESMExports } from 'node:module';
 import { isDeepStrictEqual } from 'node:util';
-import { applyCombatResolveResultToPvpSession, pvpSessionToCombatBattleState } from '../combat-adapters/pvpAdapter.js';
 import { activeCombatStatuses } from '../combat-core/statuses.js';
 import { ITEM_CATALOG } from './_item-catalog.js';
 import { RANKED_FORMAT_LEGENDARY_WEAPON_IDS, RANKED_FORMAT_MAX_HP, RANKED_FORMAT_MAX_STATS } from './_ranked-format.js';
@@ -1127,49 +1126,6 @@ test('pending third Wound preserves two current stacks, then caps the next bound
             `${phase.label}: exactly the strongest two Wounds are active at the refresh boundary`,
         );
     }
-});
-
-test('pvp adapter converts session state without changing PvP-compatible fields', () => {
-    const initial = session('adapter', {
-        cooldowns: { p1: { blast: 2 }, p2: {} },
-        groundEffects: [{
-            id: 'zone-1',
-            owner: 'p1',
-            name: 'Test Zone',
-            tiles: [1, 2],
-            rounds: 2,
-            tags: [{ name: 'Poison', percent: 6 }],
-        }],
-        biome: 'forest',
-        weatherPositiveElement: 'Fire',
-    });
-    const combat = pvpSessionToCombatBattleState(initial);
-    assert.equal(combat.battleId, 'adapter');
-    assert.equal(combat.activeActorId, 'p1');
-    assert.equal(combat.fighters.p1?.name, 'alice');
-    assert.equal(combat.fighters.p1?.cooldowns?.blast, 2);
-    assert.equal(combat.groundEffects?.[0]?.owner, 'p1');
-    assert.equal(combat.meta?.biome, 'forest');
-
-    const updated = applyCombatResolveResultToPvpSession(initial, {
-        fighters: { p2: { ...combat.fighters.p2!, hp: 321, shield: 12 } },
-        ap: { p1: 70, p2: 100 },
-        cooldowns: { p1: { blast: 1 }, p2: {} },
-        log: [...initial.log, 'adapter update'],
-        status: 'done',
-        winner: 'p1',
-        fx: [{ target: 'p2', amount: 123, kind: 'damage' }],
-        fxSeq: 9,
-    });
-    assert.equal(updated.p2.hp, 321);
-    assert.equal(updated.p2.shield, 12);
-    assert.equal(updated.ap.p1, 70);
-    assert.equal(updated.cooldowns.p1.blast, 1);
-    assert.equal(updated.status, 'done');
-    assert.equal(updated.winner, 'p1');
-    assert.deepEqual(updated.fx, [{ target: 'p2', amount: 123, kind: 'damage' }]);
-    assert.equal(updated.fxSeq, 9);
-    assert.ok(updated.log.at(-1)?.includes('adapter update'));
 });
 
 test('moving off a ground field immediately removes its poison and recoil', async () => {

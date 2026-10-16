@@ -5,13 +5,11 @@ import test from "node:test";
 const arenaSource = readFileSync(new URL("./Arena.tsx", import.meta.url), "utf8");
 const battleLobbySource = readFileSync(new URL("../features/arena/components/BattleArenaLobby.tsx", import.meta.url), "utf8");
 const districtLobbySource = readFileSync(new URL("../features/arena/components/ArenaDistrictLobby.tsx", import.meta.url), "utf8");
-const tournamentPanelSource = readFileSync(new URL("../features/arena/components/ArenaTournamentPanel.tsx", import.meta.url), "utf8");
 const typesSource = readFileSync(new URL("../features/arena/types.ts", import.meta.url), "utf8");
 
 const leaves = [
     ["BattleArenaLobby.tsx", battleLobbySource, 180],
     ["ArenaDistrictLobby.tsx", districtLobbySource, 240],
-    ["ArenaTournamentPanel.tsx", tournamentPanelSource, 80],
     ["types.ts", typesSource, 10],
 ] as const;
 
@@ -98,6 +96,7 @@ test("retired Arena combat leaves have no remaining source owner", () => {
         "../components/ArenaBattlePersister.tsx",
         "../features/arena/components/ArenaCombatBoardStage.tsx",
         "../features/arena/components/ArenaCommandDeck.tsx",
+        "../features/arena/components/ArenaTournamentPanel.tsx",
         "../features/arena/components/ArenaBattleTimeline.tsx",
         "../features/arena/domain/arena-ai-policy.ts",
     ]) {
