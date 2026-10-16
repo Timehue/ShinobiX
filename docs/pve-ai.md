@@ -232,12 +232,15 @@ fixtures.
 
 ## Deferred, deliberately
 
-- Retreat, kiting and ranged spacing: the planner's only move is the step
-  toward the player, as before.
+- Multi-turn enemy-response prediction and persistent ranged-kiting plans.
+  Current own-turn planning already evaluates legal movement, useful Flicker,
+  reachable follow-ups and immediate survival retreats.
 - Weapons and items for AI actors: enemies carry none, and giving them some is
   a balance change.
-- Telegraphs and boss phases in Solo (they exist only on the tower engine).
-- Deeper search (three or more actions) and companion-aware planning.
+- Scripted multi-phase Solo bosses. Final story Kage already have public kit
+  tells and cooldown recovery windows, without a separate phase system.
+- Companion-aware planning and cross-turn search. Master and apex policies
+  already search up to five legal actions within their deterministic budgets.
 - `readsBehavior` (still inert) and any use of the player's action history
   beyond the authored `player_recent_action` condition.
 - Adopting the planner in the protected Solo hosts. Each is a balance decision
