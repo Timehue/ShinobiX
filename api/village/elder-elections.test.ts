@@ -102,6 +102,16 @@ test('exact rollover elects last-term winners, expires the Kage seat and holds w
     assert.deepEqual((await read(village, undefined, START + 2 * ELDER_TERM_MS)).seats, ['', 'idle', '']);
 });
 
+test('the seated Kage is not a council candidate, so the runner-up takes the seat', async () => {
+    await read(village, undefined, START);
+    await player('kage', 50, 50);
+    await player('pvp', 20, 0);
+    await player('pve', 0, 30);
+    const council = await read(village, undefined, START + ELDER_TERM_MS);
+    assert.deepEqual(council.seats, ['', 'pvp', 'pve']);
+    assert.deepEqual(council.winningScores, [20, 30]);
+});
+
 test('an offline village catches up using only the latest completed term, with no fabricated carryover', async () => {
     await read(village, undefined, START);
     await player('pvp', 500, 500, START);
