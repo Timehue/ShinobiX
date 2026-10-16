@@ -33,6 +33,7 @@ import { withKvLock } from '../_lock.js';
 import { awardClanPoints } from '../_clan-points.js';
 import { settlementFingerprint } from '../_durable-settlement.js';
 import { mutatePlayerSave, type PlayerSaveRecord } from '../save/_mutate-player-save.js';
+import { mentorHistoryFromStudentSave, parseMentorPaidRecord } from './_mentor-history.js';
 import {
     MENTOR_MILESTONES,
     claimableMilestones,
@@ -66,29 +67,52 @@ export function mentorRecordKey(senseiSlug: string): string { return `clan-mento
 export function mentorStudentPaidKey(studentSlug: string): string { return `clan-mentor-paid:${studentSlug}`; }
 
 export async function readMentorStudentPaid(studentSlug: string): Promise<Record<string, number>> {
-    const raw = await kv.get<Record<string, unknown>>(mentorStudentPaidKey(studentSlug));
-    const out: Record<string, number> = {};
-    if (raw && typeof raw === 'object') {
-        for (const [milestone, at] of Object.entries(raw)) {
-            const ts = Number(at);
-            if (Number.isFinite(ts) && ts > 0) out[milestone] = ts;
-        }
-    }
-    return out;
+    const raw = await kv.get(mentorStudentPaidKey(studentSlug));
+    try { return parseMentorPaidRecord(raw); }
+    catch { throw new MentorRecordError('Mentor payment history needs review.'); }
 }
 
 /** Merge milestones into the student's ever-paid record (idempotent; never removes). */
-export async function recordMentorStudentPaid(studentSlug: string, claimed: Record<string, unknown> | undefined): Promise<void> {
-    const entries = Object.entries(claimed ?? {}).filter(([, at]) => Number(at) > 0);
+export async function recordMentorStudentPaid(studentSlug: string, claimed: Record<string, unknown> | undefined, sourceSave?: unknown): Promise<void> {
+    const entries = Object.entries(claimed ?? {}).filter(([m, at]) => MENTOR_MILESTONES.includes(m as MentorMilestone)
+        && typeof at === 'number' && Number.isFinite(at) && at > 0);
     if (entries.length === 0) return;
-    await withKvLock(mentorStudentPaidKey(studentSlug), async () => {
-        const current = await readMentorStudentPaid(studentSlug);
-        let changed = false;
-        for (const [milestone, at] of entries) {
-            if (!current[milestone]) { current[milestone] = Number(at); changed = true; }
+    const key = mentorStudentPaidKey(studentSlug);
+    await withKvLock(key, async () => {
+        for (let attempt = 0; attempt < 8; attempt++) {
+            const raw = await kv.get(key);
+            let current: Record<string, number>;
+            try { current = parseMentorPaidRecord(raw); }
+            catch { throw new MentorRecordError('Mentor payment history needs review.'); }
+            for (const [milestone, at] of entries) current[milestone] ??= at as number;
+            // Exact CAS also fences a writer whose lock lease expired. No TTL:
+            // an ever-paid flag must outlive every release/rejoin cycle.
+            // Rewrite unchanged flags too, removing #413's old 400-day TTL.
+            if (sourceSave !== undefined) {
+                // Bind historical evidence to the save that supplied it, so a
+                // deleted/recreated account cannot inherit a stale repair.
+                if (!kv.compareSetMany) throw new Error('Mentor history repair requires atomic source validation.');
+                if (await kv.compareSetMany([
+                    { op: 'assert', key: `save:${studentSlug}`, expected: sourceSave },
+                    { op: 'cas', key, expected: raw, value: current },
+                ])) return;
+                throw new Error('Student save changed during history repair. Please retry.');
+            }
+            if (await kv.compareSet(key, raw, current)) return;
         }
-        if (changed) await kv.set(mentorStudentPaidKey(studentSlug), current, { ex: 400 * 24 * 60 * 60 });
+        throw new Error('Mentor payment history changed while recording. Please retry.');
     }, { failClosed: true });
+}
+
+/** Targeted, idempotent repair. No scans, balance writes or inferred legacy flags. */
+export async function repairMentorStudentPaid(studentSlug: string, now = Date.now(), approvedMilestones?: readonly MentorMilestone[]) {
+    const sourceSave = await kv.get(`save:${studentSlug}`);
+    const history = mentorHistoryFromStudentSave(studentSlug, sourceSave, now);
+    const paid = Object.fromEntries(Object.entries(history.paid).filter(([m]) => !approvedMilestones || approvedMilestones.includes(m as MentorMilestone)));
+    // Also make already-existing #413 flags permanent. This adds no inferred
+    // milestones and lets an approved report renew a key without new evidence.
+    await recordMentorStudentPaid(studentSlug, { ...paid, ...await readMentorStudentPaid(studentSlug) }, sourceSave);
+    return history;
 }
 export function mentorStudentMarkerKey(studentSlug: string): string { return `clan-mentor-of:${studentSlug}`; }
 export function mentorPendingPointerKey(senseiSlug: string): string { return `${POINTER_PREFIX}${senseiSlug}`; }
@@ -403,7 +427,16 @@ async function payRecipient(settlement: MentorSettlement, role: 'teacher' | 'stu
             // Compact only receipts whose settlement belongs to THIS mentor
             // record and has already been finalized out of it.
             const pendingIds = new Set(authority.settlements.map((s) => s.id));
-            const kept = lookup.receipts.filter((r) => r.senseiSlug !== settlement.senseiSlug || pendingIds.has(r.settlementId));
+            // The mutation callback's record includes uncommitted idle regen.
+            // Validate evidence against an actual stored row, under this save
+            // lock, rather than asserting equality with that derived snapshot.
+            const historySource = role === 'student' ? await kv.get(saveKey) : null;
+            const historical = mentorHistoryFromStudentSave(slug, historySource, Date.now());
+            if (role === 'student') await recordMentorStudentPaid(slug, historical.paid, historySource);
+            const proven = new Set(historical.evidence.map((e) => e.settlementId));
+            const kept = lookup.receipts.filter((r) => r.senseiSlug !== settlement.senseiSlug || pendingIds.has(r.settlementId)
+                // Preserve ambiguous student evidence for operator review.
+                || (r.role === 'student' && !proven.has(r.settlementId)));
             if (kept.length + 1 > MENTOR_RECEIPT_CAPACITY) throw new PayStop({ status: 'exception', reason: 'receipt-capacity' });
 
             const appliedAt = Date.now();
@@ -663,8 +696,20 @@ export async function admitMentorClaim(senseiSlug: string, studentSlug: string, 
     };
     // A milestone this student already earned a sensei under ANY pairing is not
     // claimable again (see mentorStudentPaidKey).
-    const everPaid = await readMentorStudentPaid(studentSlug);
-    const milestones = claimableMilestones({ onboardingStep: evidence.onboardingStep ?? undefined, level: evidence.level, rankedWins: evidence.rankedWins }, { ...everPaid, ...(entry.claimed ?? {}) });
+    // Before any new payment can compact a legacy receipt, carry its named
+    // student payout into #413's durable record. Missing/ambiguous evidence
+    // adds no flags; the offline report supplies the operator review queue.
+    const history = mentorHistoryFromStudentSave(studentSlug, studentSave, now);
+    let everPaid: Record<string, number>;
+    try {
+        await recordMentorStudentPaid(studentSlug, history.paid, studentSave);
+        everPaid = await readMentorStudentPaid(studentSlug);
+    }
+    catch (error) {
+        if (error instanceof MentorRecordError) throw error;
+        return { status: 'retry', error: errorText(error) };
+    }
+    const milestones = claimableMilestones({ onboardingStep: evidence.onboardingStep ?? undefined, level: evidence.level, rankedWins: evidence.rankedWins }, { ...(entry.claimed ?? {}), ...everPaid });
     if (milestones.length === 0) return { status: 'none' };
 
     // A milestone must never be paid to a sensei with no save to credit.
