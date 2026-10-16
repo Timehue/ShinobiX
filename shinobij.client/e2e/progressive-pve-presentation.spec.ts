@@ -10,6 +10,7 @@ import { aiStatsForLevel } from '../../api/_ai-level-curves';
 import { ordinaryAiProfile } from '../../api/missions/_ordinary-ai-encounter';
 import { storyBossEnemyTemplate } from '../../api/story/_authoritative-story-combat';
 import { STORY_KAGE_ENCOUNTERS } from '../../shared/story-kage';
+import { storyInterludesByVillage } from '../src/data/story-interludes';
 import { installUiAuditRuntime, uiAuditSave } from './helpers/ui-audit-runtime';
 
 // Production browser components and actual image bytes, with isolated network
@@ -45,6 +46,10 @@ async function installEncounter(page: Page, kind: 'ordinary' | 'final') {
         stamina: 10_000, maxStamina: 10_000, bloodline: 'None',
         equippedJutsuIds: [], jutsuMastery: [], equipment: {}, pets: [],
     };
+    // The shared audit save is level85. A level100 combat fixture has already
+    // completed its later interludes; otherwise their asynchronous VN overlay
+    // can cover the resumed encounter after its DOM first becomes visible.
+    save.triggeredEvents = [...save.triggeredEvents, ...storyInterludesByVillage['Stormveil Village'].map(interlude => interlude.id)];
     const runtime = await installUiAuditRuntime(page, save);
     const descriptor = rollOrdinaryPveEncounter({
         sourceId: 'browser-sealed-discovery', playerLevel: 100, sector: 60,
@@ -105,6 +110,7 @@ test('sealed ordinary identity, level and real portrait survive refresh, victory
     const dossier = () => page.getByRole('complementary', { name: `${encounter.name} combat status`, exact: true });
     const badge = () => page.locator(`.encounter-difficulty[data-encounter-id="${encounter.descriptor.id}"]`).first();
     await expect(dossier()).toBeVisible();
+    await expect(badge()).toBeVisible();
     await expect(badge()).toContainText(`Lv ${encounter.level}`);
     await expect(badge()).toContainText(/Weaker opponent|Standard opponent|Dangerous opponent|Elite opponent/);
     await readableImage(dossier().locator('.combat-avatar img'), '/portraits/pve/assassin.webp');
@@ -114,6 +120,7 @@ test('sealed ordinary identity, level and real portrait survive refresh, victory
     await page.reload({ waitUntil: 'domcontentloaded' });
     await expect(dossier()).toBeVisible({ timeout: 60_000 });
     await expect.poll(encounter.resumeCount).toBeGreaterThan(resumesBeforeReload);
+    await expect(badge()).toBeVisible();
     await expect(badge()).toContainText(`Lv ${encounter.level}`);
     await readableImage(dossier().locator('.combat-avatar img'), '/portraits/pve/assassin.webp');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
@@ -155,6 +162,13 @@ test('final Kage canonical art, highest difficulty and readable tell details ren
     await expect(dossier).toBeVisible();
     await readableImage(dossier.locator('.combat-avatar img'), authored.portrait);
     await expect(page.locator('#combat .encounter-difficulty')).toHaveText('Final Kage - Apex tactics');
+    await expect(page.locator('#combat .encounter-difficulty')).toBeVisible();
+    const stripBounds = await page.locator('.combat-grid-environment').boundingBox();
+    const tellBounds = await page.locator('#encounter-details-trigger').boundingBox();
+    expect(stripBounds).not.toBeNull();
+    expect(tellBounds).not.toBeNull();
+    expect(tellBounds!.y).toBeGreaterThanOrEqual(stripBounds!.y - 1);
+    expect(tellBounds!.y + tellBounds!.height).toBeLessThanOrEqual(stripBounds!.y + stripBounds!.height + 1);
     await screenshot(page, info, 'kage-combat');
     await page.locator('#encounter-details-trigger').click();
     const details = page.locator('#encounter-details');
