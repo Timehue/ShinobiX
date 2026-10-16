@@ -62,7 +62,6 @@ describe('battle authority — presence immunity is proven, never claimed', () =
     const deps = () => ({
         kv: { get: async <T,>(key: string) => { reads.push(key); return kv.get<T>(key); } },
         now: () => NOW,
-        petDuelFor: () => null,
     });
 
     beforeEach(() => {
@@ -196,25 +195,6 @@ describe('battle authority — presence immunity is proven, never claimed', () =
         await kv.set('solo-pve:run-3', soloSession('run-3'));
         const verdict = await resolveBattleAuthority(SLUG, evidence({ aiFightPointer: { playerName: SLUG, token: 't', sessionId: 'run-3' } }), deps());
         assert.deepEqual(verdict, { inBattle: true, source: 'solo-pve' });
-    });
-
-    it('a pet duel proves a fight while it runs, and while pending for the side that has committed', async () => {
-        const running = await resolveBattleAuthority(SLUG, evidence(), { ...deps(), petDuelFor: () => ({ status: 'running' }) });
-        assert.deepEqual(running, { inBattle: true, source: 'pet-duel' });
-
-        const invite = { status: 'pending', p1: { name: SLUG, ready: true }, p2: { name: 'mira', ready: false } };
-        const challenger = await resolveBattleAuthority(SLUG, evidence(), { ...deps(), petDuelFor: () => invite });
-        assert.deepEqual(challenger, { inBattle: true, source: 'pet-duel' }, 'the challenger is committed from the moment the invite goes out');
-        const target = await resolveBattleAuthority('mira', evidence(), { ...deps(), petDuelFor: () => invite });
-        assert.equal(target.inBattle, false, 'a target who has not answered is not in a fight');
-        const accepted = { status: 'pending', p1: { name: SLUG, ready: true }, p2: { name: 'Mira', ready: true } };
-        const acceptedTarget = await resolveBattleAuthority('mira', evidence(), { ...deps(), petDuelFor: () => accepted });
-        assert.deepEqual(acceptedTarget, { inBattle: true, source: 'pet-duel' }, 'accepting commits the target, display casing notwithstanding');
-
-        const noSides = await resolveBattleAuthority(SLUG, evidence(), { ...deps(), petDuelFor: () => ({ status: 'pending' }) });
-        assert.equal(noSides.inBattle, false, 'a pending entry naming nobody proves nothing');
-        const over = await resolveBattleAuthority(SLUG, evidence(), { ...deps(), petDuelFor: () => ({ status: 'finished', p1: { name: SLUG, ready: true } }) });
-        assert.equal(over.inBattle, false);
     });
 
     it('a Hollow Gate dive is proven by its run key for as long as the key exists, whatever the projection clock says', async () => {

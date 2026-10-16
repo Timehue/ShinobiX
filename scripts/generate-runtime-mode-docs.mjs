@@ -36,7 +36,7 @@ function routeCell(routes) {
     if (routes.length === 0) return '—';
     return routes
         .map((route) => {
-            const callerRequirement = route.clientCallerRequired === false ? 'server-internal' : 'client caller required';
+            const callerRequirement = route.clientCallerRequired === false ? 'no shipped client caller' : 'client caller required';
             return `${codeCell(route.roles.join(', '))} ${codeCell(route.path)} → ${codeCell(route.handler)} (${callerRequirement})`;
         })
         .join('<br>');

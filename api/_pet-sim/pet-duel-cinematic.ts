@@ -35,9 +35,9 @@
 //     abs plus a seeded LCG. State QUANTIZED to 1/256 each tick. Fixed iteration
 //     order (player team first, by slot). Replays byte-identical.
 //
-// It emits the EXACT `DuelResult` snapshot+event contract the renderer already
-// consumes (PetColiseum.tsx), so the whole visual/spectacle layer is reused
-// unchanged. It does NOT touch pet-duel-sim.ts, so the authoritative engine, the
+// It emits the EXACT `DuelResult` snapshot+event contract the battle renderers
+// consume (the retired PetColiseum.tsx was the first), so the whole
+// visual/spectacle layer is reused unchanged. It does NOT touch pet-duel-sim.ts, so the authoritative engine, the
 // server mirror (api/_pet-sim), the ladder hand-port, and the parity tests are
 // all untouched.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -211,10 +211,9 @@ const CLASH_MIN_TICK = Math.round(DUEL_TPS * 6);     // let the fight establish 
 const CLASH_COOLDOWN = Math.round(DUEL_TPS * 11);    // spacing between binds
 const CLASH_CHANCE = 0.85;                           // roll at an eligible dive contact
 const CLASH_WINDOW = Math.round(DUEL_TPS * 1.6);     // ticks the bind holds while awaiting a call
-/** The bind's length in ticks, exported so the lockstep controller can prove its
- *  input delay fits inside it — a scheduled PvP call that lands after the window
- *  has closed is simply refused, which is safe but silently costs a player their
- *  read. See the budget assertion in pet-duel-lockstep.ts. */
+/** The bind's length in ticks. It was exported for the lockstep PvP controller
+ *  (pet-duel-lockstep.ts, retired 2026-10-16), which proved its input delay fit
+ *  inside the window; a call that lands after the window closes is refused. */
 export const CLASH_WINDOW_TICKS = CLASH_WINDOW;
 const CLASH_MIN_HP = 0.22;                           // never bind a pet that is about to die
 const CLASH_WIN_POWER = 165;                         // the winner's payoff blow
@@ -679,7 +678,7 @@ function bfsNextStep(fc: number, fr: number, tc: number, tr: number, team?: Figh
 
 /** Deterministic LCG — same constants as the shipped engine.
  *  The cursor lives in an EXTERNAL cell (RngState) rather than a closure so the
- *  live/player-controlled path can checkpoint and rewind it (see pet-duel-live.ts).
+ *  live/player-controlled path can checkpoint and rewind it (checkpointCinematicDuel).
  *  The arithmetic is unchanged, so every existing caller draws the same stream. */
 export interface RngState { s: number }
 function makeRngFrom(state: RngState): () => number {
@@ -877,7 +876,7 @@ interface Fighter {
     lungeStuck: number;                     // consecutive pounce ticks with ~no progress (wall) → resolve early, don't phantom-whiff
     // ── PLAYER CONTROL (docs/pet-coliseum-player-control-plan.md) ──────────────
     // All four are inert unless `controlled` is true, and `controlled` is only ever
-    // set by the live/commanded path (pet-duel-live.ts). Every existing entry point
+    // set by the live/commanded path (createLiveCinematicDuel). Every existing entry point
     // leaves them at these defaults, so runPetDuelCinematic stays byte-identical and
     // the server mirror / ladder / sector-war outcomes are untouched.
     controlled: boolean;                    // this fighter accepts player commands
@@ -3521,7 +3520,7 @@ function updateWarfrontRelics(
 
 // ── Core loop ──────────────────────────────────────────────────────────────────
 // The loop is split into createDuelState / stepDuelState / finishDuelState so the
-// player-controlled path (pet-duel-live.ts) can drive it one tick at a time, read
+// player-controlled path (createLiveCinematicDuel) can drive it one tick at a time, read
 // the fighters between ticks, and rewind. `simulate()` below composes the three in
 // exactly the order the single fused loop used to run, so every existing entry
 // point — and therefore the server mirror, the ladder and sector war — produces
@@ -4713,8 +4712,8 @@ export function petCinematicArchetype(pet: Pet): Archetype {
 }
 
 // ── LIVE / PLAYER-CONTROLLED API ────────────────────────────────────────────────
-// Everything below exists only for the commanded coliseum path (pet-duel-live.ts).
-// None of it runs for runPetDuelCinematic / runPetPartyDuelCinematic, so the
+// Everything below exists only for the commanded path, which today only the
+// server replay (api/pet/_duel-replay.ts) drives. None of it runs for runPetDuelCinematic / runPetPartyDuelCinematic, so the
 // server mirror, the pet ladder and sector war are untouched by its presence.
 
 /** One player input. `idx` is an ability slot, or -1 for a plain basic attack. */
@@ -4802,7 +4801,7 @@ export function createLiveCinematicDuel(
     applyItems = true, accuracyEnabled = petAccuracyEnabled(), terrain: string | null = null,
     debugTrace = false,
     /** TEST SEAM ONLY — leave at the default. Passing false skips the brawl profile,
-     *  which exists so `pet-duel-live.test.ts` can prove that the create/step/rewind
+     *  which exists so `pet-duel-cinematic-commands.test.ts` can prove that the create/step/rewind
      *  machinery is still byte-faithful to the one-shot engine and that ALL of the
      *  live path's divergence comes from the profile. Production and the server
      *  replay must both use the default, or they desynchronise. */
@@ -4923,11 +4922,11 @@ export interface ClashPrompt {
 
 /** Turn the clash bind OFF for a duel.
  *
- *  Live PvP (pet-duel-lockstep) uses this. A bind freezes BOTH fighters and asks
- *  each for a read, which across two clients needs its own synchronised prompt and
- *  proposal round-trip — and a competitive mode should not ship a beat where one
- *  side answers and the other silently defaults. Until that exists, PvP keeps the
- *  un-bound fight. Casual PvE (createLiveDuel) leaves it on. */
+ *  The retired live PvP lockstep duel (pet-duel-lockstep, removed 2026-10-16) used
+ *  this. A bind freezes BOTH fighters and asks each for a read, which across two
+ *  clients needs its own synchronised prompt and proposal round-trip — and a
+ *  competitive mode should not ship a beat where one side answers and the other
+ *  silently defaults. Casual PvE leaves it on. */
 export function setCinematicClashEnabled(sim: CinematicDuelState, on: boolean) {
     sim.clashEnabled = on;
     if (!on) sim.clash = null;
