@@ -28,7 +28,7 @@ function objectKeys(objectName: string): string[] {
 
 test("all bundled battlefield sprites are optimized transparent WebP cutouts", async () => {
     const paths = webpFiles(assetDir);
-    assert.equal(paths.length, 46, "the complete standard, ordinary PvE, named rival, Kage, hunt, apex, rift, and tower sprite set drifted");
+    assert.equal(paths.length, 47, "the complete standard, ordinary PvE, named rival, Kage, hunt, apex, rift, and tower sprite set drifted");
     for (const path of paths) {
         assert.ok(existsSync(path));
         assert.ok(statSync(path).size <= 128 * 1024, `${path} exceeds the battlefield asset budget`);
@@ -48,6 +48,23 @@ test("all bundled battlefield sprites are optimized transparent WebP cutouts", a
         assert.ok(transparent / pixels >= 0.2, `${path} is not an isolated cutout`);
         assert.ok(visible / pixels >= 0.02, `${path} has too little visible actor art`);
     }
+});
+
+test("the established rival miner keeps his own body before the generic defensive role", () => {
+    assert.match(resolverSource, /import rivalMinerSprite from ['"]\.\.\/assets\/combat-actors\/pve\/rival-miner-idle\.webp['"]/);
+    const ordinary = /const ORDINARY_PVE_SPRITES:[^=]+ = \{([\s\S]*?)\n\};/.exec(resolverSource)?.[1];
+    assert.ok(ordinary, "ordinary PvE sprite policy is missing");
+    assert.match(ordinary, /\brivalMiner:\s*rivalMinerSprite\b/,
+        "the bearded miner must not borrow the armored generic defender's identity");
+    assert.match(ordinary, /\bdefender:\s*pveDefenderSprite\b/,
+        "the ordinary defensive specialist retains his own approved body");
+    assert.match(resolverSource, /ORDINARY_PVE_SPRITES\[id\][\s\S]*?ORDINARY_PVE_SPRITES\[identity\?\.archetype/,
+        "the sealed miner identity must take priority over his defensive combat role");
+    assert.deepEqual(
+        readFileSync(join(clientRoot, "public", "portraits", "pve", "rivalMiner.webp")),
+        readFileSync(join(clientRoot, "src", "assets", "wanderers", "rival-miner.webp")),
+        "the miner's established portrait remains unchanged",
+    );
 });
 
 test("authoritative creature and boss catalogs have exhaustive sprite policies", () => {

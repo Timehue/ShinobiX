@@ -1,6 +1,6 @@
 # PvE encounter artwork
 
-The built-in imagegen tool produced eight new combat actors and one portrait for this change. Existing portraits and story illustrations are preserved. These are final raster assets, not placeholder silhouettes.
+The built-in imagegen tool produced nine new combat actors and one portrait for this change. Existing portraits and story illustrations are preserved. These are final raster assets, not placeholder silhouettes.
 
 ![Accepted combat actors](pve-encounter-art-contact.png)
 
@@ -17,6 +17,7 @@ The unique Tsukika portrait is `shinobij.client/public/portraits/pve/tsukika.web
 | `rogue-assassin-idle.webp` | `src/assets/village-war/merc-shadow.webp` | Strict black hood/scarf and fitted black cloth/leather, eyes visible, two short daggers; poised lateral stealth stance and restrained warm rimlight. No brown costume or exposed hair. |
 | `elemental-specialist-idle.webp` | `src/assets/towers/enemies/acolyte.webp` | Blue-black rune-trimmed hooded robe, blue face/eyes, restrained cold-blue water/frost chakra in an open casting hand; stable caster stance. |
 | `defensive-specialist-idle.webp` | `src/assets/towers/enemies/blocker.webp` | Same black spiked hair, plain iron brow plate and black scarf; large dull-steel segmented armor over black/navy cloth; guarded raised forearms and a small wrist ward. |
+| `rival-miner-idle.webp` | `public/portraits/pve/rivalMiner.webp` (unchanged copy of `src/assets/wanderers/rival-miner.webp`) | Preserve the same broad weathered face, salt-and-pepper beard, brown-orange headband, dark brown work tunic, leather apron and shouldered iron pickaxe; guarded free hand, work trousers and boots, complete planted stance. This body applies only to `rivalMiner`. |
 | `kagero-idle.webp` | `src/assets/wanderers/kagero.webp` | Strict established upper-face cracked ivory mask, amber eyes, short black hair, exposed mouth/jaw, worn deep-red scarf and long dark coat; slim blade held low, composed upright stance. |
 | `tsukika-idle.webp` | Existing nightblade/assassin style | Original named nightblade variant: slim upright silhouette, grey eyes, dark bangs, black hood/scarf, pale crescent clasp, muted plum sash, two lowered daggers and cool moon rimlight. This override applies to the sealed name Tsukika only. |
 | `hoshina-hollow-idle.webp` | `public/portraits/cinematic/storywide/kage-hoshina-enju-hollow-canon.webp` | Preserve Hoshina's face, long black hair, gold eyes/fissures, existing flame hat marking, white/red-orange robe, earrings, belt and casting gesture. Extend the thigh-cropped reference to a full lower robe, shins and shinobi sandals. The original portrait is unchanged. |
@@ -30,3 +31,5 @@ Tsukika's portrait was generated from the accepted body with identity preservati
 All generated outputs were visually inspected. Early variants that borrowed another role's brown costume or changed Kagero's mask were rejected and regenerated from individual identity references. The three other final Kage retain their established, already full-body Hollow artwork. Hoshina alone needed a new complete body.
 
 Preview, combat and victory select art from the same sealed identity/role. Role selection does not replace named Kagero or turn every nightblade into Tsukika. Asset tests enforce dimensions, transparency, file bounds and named-role mappings.
+
+The rival miner has a separate body because his established bearded worker portrait differs from the armored defensive specialist. His portrait stays byte-for-byte unchanged; his sealed identity takes priority over a defensive-role fallback. The [exact generation prompt and normalization record](../shinobij.client/art-source/pve-encounter-refresh/rival-miner-provenance.json) and [transparent source master](../shinobij.client/art-source/pve-encounter-refresh/rival-miner-source.png) retain the accepted reference and output provenance.
