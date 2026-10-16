@@ -21,13 +21,14 @@
  */
 
 /**
- * MUST NOT EXCEED the client's INPUT_DELAY_TICKS
- * (shinobij.client/src/lib/pet-duel-lockstep.ts). The client schedules its orders
+ * MUST NOT EXCEED the client's INPUT_DELAY_TICKS. The client schedules its orders
  * at `progress + ITS delay + 1`; the server declares everything at or below
  * `progress + THIS delay` settled. If the server's value were larger it would
  * mark a tick settled that a client is still allowed to schedule into, which is
  * precisely the divergence lockstep exists to prevent. Equal is correct; smaller
- * is merely conservative. `pet-duel-session.test.ts` guards the relationship.
+ * is merely conservative. The lockstep client (`pet-duel-lockstep.ts`, delay 12)
+ * was removed on 2026-10-16 with the retired coliseum renderer; socket admission
+ * was already closed, so no shipped client schedules into this protocol.
  */
 export const DUEL_INPUT_DELAY_TICKS = 12;
 

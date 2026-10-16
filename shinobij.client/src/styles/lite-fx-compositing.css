@@ -87,13 +87,6 @@ html.lite-fx .ai-preset-card {
     background: rgba(2, 6, 23, 0.88) !important;
 }
 
-/* Pet park tiles — backing was rgba(4,20,10,.28). Kept deliberately lighter
-   than the panels above: these sit over the park art and are scenery, not text
-   surfaces, so they should still read as tinted glass rather than a solid slab. */
-html.lite-fx .pet-park-tile {
-    background: rgba(4, 20, 10, 0.58) !important;
-}
-
 /* Cinematic VN scene caption — backing was rgba(5,8,11,.46) under .72-alpha
    body text, the thinnest text surface in the set. */
 html.lite-fx .cvn-scene-caption {

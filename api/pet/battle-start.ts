@@ -392,7 +392,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             revive,
             // Must match the client's controlled-duel construction exactly: items
             // ON, and accuracy PINNED rather than read from the per-device
-            // petAccuracy.v1 flag (CONTROLLED_DUEL_ACCURACY in pet-duel-live.ts).
+            // petAccuracy.v1 flag (CONTROLLED_DUEL_ACCURACY, true, in the retired
+            // pet-duel-live.ts).
             // Either one disagreeing resolves a different fight.
             applyItems: true,
             accuracy: true,

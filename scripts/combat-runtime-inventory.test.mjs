@@ -111,7 +111,7 @@ describe('executable multi-engine runtime registry', () => {
       );
       for (const route of mode.routes) {
         const callerRequirement = route.clientCallerRequired === false
-          ? 'server-internal'
+          ? 'no shipped client caller'
           : 'client caller required';
         assert.ok(
           rendered.includes(`<code>${route.roles.join(', ')}</code> <code>${route.path}</code> → <code>${route.handler}</code> (${callerRequirement})`),

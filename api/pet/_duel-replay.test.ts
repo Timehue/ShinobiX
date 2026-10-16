@@ -2,8 +2,8 @@
 // (docs/pet-coliseum-player-control-plan.md §9.6).
 //
 // The client-side parity assertion — "a replayed log reproduces the fight the
-// player played" — lives in shinobij.client/src/lib/pet-duel-live.test.ts, next
-// to the rewind path that produces the log. What is covered HERE is the part the
+// player played" — lives in shinobij.client/src/lib/pet-duel-cinematic-commands.test.ts,
+// next to the engine path that produces the log. What is covered HERE is the part the
 // client cannot be trusted with: rejecting a log that a modified client wrote by
 // hand.
 import { test } from 'node:test';
