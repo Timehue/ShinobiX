@@ -378,10 +378,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // NOTHING IN THE APP produces a casualPveSeal any more — the
         // sealed-params branch below, and the legacy sims it feeds, are reachable
         // only by a caller naming a SERVER_ARENA_PETS id directly. They are kept
-        // rather than deleted for two reasons: battle-result must still settle
-        // tokens minted before this deploy (15-minute TTL), and `_duel-replay.ts`
-        // is still the live-PvP lockstep path's replay. Both go when live PvP
-        // ports.
+        // rather than deleted because battle-result must still settle tokens
+        // minted before this deploy (15-minute TTL). The live-PvP lockstep
+        // replay that also lived in `_duel-replay.ts` was retired on 2026-10-16
+        // with the petduel:* socket.
         // Gated on `isAiOpponent` alone. A wanderer request never reaches this
         // line — it is refused far above.
         const sealedParams: SealedDuelParams | null = isAiOpponent ? {
@@ -392,7 +392,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             revive,
             // Must match the client's controlled-duel construction exactly: items
             // ON, and accuracy PINNED rather than read from the per-device
-            // petAccuracy.v1 flag (CONTROLLED_DUEL_ACCURACY in pet-duel-live.ts).
+            // petAccuracy.v1 flag (CONTROLLED_DUEL_ACCURACY, true, in the retired
+            // pet-duel-live.ts).
             // Either one disagreeing resolves a different fight.
             applyItems: true,
             accuracy: true,

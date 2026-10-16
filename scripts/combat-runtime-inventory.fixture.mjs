@@ -11,9 +11,6 @@ function deepFreeze(value) {
 }
 
 const route = (path, roles) => `${path}:${roles}`;
-const transport = (kind, channel, serverHandler, clientAdapter, roles, persistence) => (
-  `${kind}:${channel}:${serverHandler}:${clientAdapter}:${roles}:${persistence}`
-);
 const C = (id, routes, transports = []) => ({ id, routeSignatures: routes, transportSignatures: transports });
 const SOLO_AI = [
   route('/missions/ai-fight-start', 'start'),
@@ -37,14 +34,6 @@ const TOWER_RUNTIME = [
   route('/towers/settle', 'settlement'),
   route('/towers/my-run', 'recovery+state'),
 ];
-const LIVE_PET_DUEL = [transport(
-  'socket.io',
-  'petduel:*',
-  '_realtime/pet-duel-socket',
-  'lib/pet-duel-transport.ts',
-  'action+settlement+start+state',
-  'memory-only',
-)];
 
 /** Exact mounted route/role expectations, maintained outside the registry. */
 export const EXPECTED_RUNTIME_MODE_CONTRACTS = deepFreeze([
@@ -119,8 +108,8 @@ export const EXPECTED_RUNTIME_MODE_CONTRACTS = deepFreeze([
   C('pet-arena-ai-1v1', []),
   C('pet-arena-ai-2v2', []),
   C('pet-arena-ai-issued-token-compat', [route('/pet/battle-start', 'recovery'), route('/pet/battle-result', 'settlement')]),
-  C('pet-arena-pvp-1v1', [], LIVE_PET_DUEL),
-  C('pet-arena-pvp-2v2', [], LIVE_PET_DUEL),
+  C('pet-arena-pvp-1v1', []),
+  C('pet-arena-pvp-2v2', []),
   C('pet-tactics-prototype', [route('/pet/tactics', 'action+lifecycle+record+recovery+start+state')]),
   C('pet-ranked-live', [
     route('/pvp/pet-ranked-queue', 'lifecycle+start'),

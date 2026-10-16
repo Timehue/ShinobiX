@@ -2,7 +2,7 @@
 
 ## Status
 
-**Tier 1 (1a–1e) was removed on branch `claude/dead-code-assets-audit-3beed0`.** Tiers 2–4 and the owner calls are still open.
+**Tier 1 (1a–1e) was removed on branch `claude/dead-code-assets-audit-3beed0` (PR #419).** A second pass removed the PR #419 leftovers, Tier 2 and the high-confidence part of Tier 4 (see below). The rest of Tier 4 and the owner calls are still open.
 
 **Tier 3, high-confidence part: also removed on the same branch (PR #419).** That is 225 files:
 - `docs/screenshots/combat-layout/`, which nothing reads; the combat-layout spec writes to `test-results/`.
@@ -23,6 +23,61 @@ How the removal differed from the plan below:
   - The now-unused `sectorDepthImage` / `sector-depth` chain.
   - The `pet-warfront-mask-baked` step in `scripts/gen-pet-sim.mjs`.
 - **Totals:** 1,656 files changed (about 19.7k lines removed), with 1,417 non-idle pet poses (44 MB) and about 90 other images removed.
+
+### Second pass (branch `claude/serene-merkle-1a6315`): PR #419 leftovers, Tier 2, Tier 4 high-confidence
+
+**Leftovers that PR #419 orphaned:**
+- `useDocumentVisible` (`lib/use-battle-frameloop.ts`) and its source-pin assertions in `combat-cover-wiring.test.ts`. The test now asserts that the battle frameloop reads no tab visibility at all.
+- The `sunscar-queen-body-v1` facing regex in `lib/battlefield-sprite.ts` and its test. The art was deleted in 1e.
+- **CSS.** Every class in `21-pet-arena-fx.css` was checked against the client source, `shared/` and the HTML pages, including template-built prefixes. 138 classes had no owner. Their rules are gone from four stylesheets:
+  - `21-pet-arena-fx.css` went from 1,779 to 455 lines. Removed: the arena battlefield, HP bars, momentum bar, status badges, prefight card internals, K.O. overlay, cut-ins, obstacles, tiles, VFX tiles, combo/commentary/ticker and `.rec-*`.
+  - `22-pet-battle-sprites.css`: `.pet-arena-current-action`, `.pet-victory-screen`, the `.pet-park-*` mobile rules, the `vfx-*`, `pet-pvfx-*` and `damage-number`-family pops, `.move-callout`, `.battle-camera-focus` and `.pet-slot-*`.
+  - `24-combat-mobile-restore.css`: the `.pet-vfx-tile-*` overlays, the obstacle blocks and `.tag-grid`.
+  - `lite-fx-compositing.css`: `.pet-park-tile`.
+  - 81 `@keyframes` that only those rules used were removed with them, about 1,960 CSS lines in all. Design tokens were regenerated.
+- **Pose scripts.** `pet-poses-manifest.ts` was deleted in #419, but three writers still regenerated it. Changes:
+  - `pet-pose-manifest.mjs`, `slice-all-move-frames.mjs` and `slice-move-frames.mjs` (non-idle move frames) are deleted. So are `gen-all-pet-moveframes.mjs`, `gen-all-pet-runs.mjs` (batch drivers with no prompts) and `gen-warden-frames.mjs` (warden frames, deleted in 1a).
+  - `finalize-evo-poses.mjs` was identical to `finalize-pet-poses.mjs` once the manifest was gone, so it is deleted.
+  - `finalize-pet-poses.mjs` now publishes **idle poses only**, without a manifest. `pet-pose-writer.test.mjs` certifies that.
+  - **Kept:** `slice-pet-poses.mjs` and `gen-all-pet-poses.mjs`, which produce the idle pose. Also kept as prompt records: `gen-pet-moveframes.mjs` and `gen-pet-run.mjs`.
+
+**Tier 2: removed.** The registry rows describe retired modes. Their client paths had no importer since `c14cf951a` and #419.
+- `lib/pet-duel-transport.ts`, plus what only it kept alive: `pet-duel-lockstep`, `pet-duel-live` and `pet-duel-stage-director`, with their tests.
+  - The engine tests in `pet-duel-live.test.ts` covered the still-live `pet-duel-cinematic` command path, so they moved to `pet-duel-cinematic-commands.test.ts`. That includes the replay-parity check that `api/pet/_duel-replay.test.ts` points at. The parity log is now recorded straight from the sim instead of through the deleted rewind controller.
+  - `pet-arena-pvp-1v1/2v2` keep their registry rows, with no client entry and no transport, and say so. The fixture drops `LIVE_PET_DUEL`.
+  - The client parity test against `INPUT_DELAY_TICKS` in `api/_realtime/pet-duel-session.test.ts` is gone; the constant was 12 and is recorded in the server comment.
+  - `presence-socket.onRealtime` lost its last caller and was removed.
+- `lib/dungeon-pet-authority.ts` and its test. In `dungeon-pet-cinematic`, the `/pet/battle-result` route is now `clientCallerRequired: false`. The generated docs label that "no shipped client caller" (the old label was "server-internal").
+- `lib/pet-warfront-impostor.ts`, its test and `generated/pet-warfront-impostor-manifest.ts` (11.7k lines). `generate-warfront-pet-impostors.mjs` no longer writes or checks that manifest. The live `pet-warfront-impostor-url` manifest is unchanged.
+
+**Tier 4: high-confidence part removed (71 files).**
+- `vn-art-*` / `vn-live-*`, `audit-kage-*` / `capture-kage-*`, and the `sunscar-*-qa` browser scripts.
+- The Sunscar Exchange QA harness: `sunscar-exchange-qa.html`, its `.tsx`, server and Vite config.
+- `pet-gpu-probe`, `pet-hitch-profile` and `analyze-pet-heap`.
+- `migrate-world-geo`, `backfill-battle-history`, `raise-timeout` and `gameplay-loop-audit-2026-09-29.mts`.
+- The Vite configs `first-pact-qa`, `vn-art-qa`, `warfront-qa` and `story-presentation-baseline-build`.
+- `cardpreview.html`, `vfx-audit.html` and `kage-progress.html` + `.json`.
+
+**Tier 4 files the audit listed that are NOT dead, kept:**
+- `backfill-asset-meta.mjs`: `AdminDiagnosticsPanel` tells admins to run it for legacy assets.
+- `capture-kage-attack-causality.mjs`: `pet-warfront-rite-presentation.test.ts` reads it.
+- `vn-art-fixtures.mjs`: three `vn-*-qa` scripts import it.
+- `vite.pet-tactics-qa.config.mjs`: `scripts/pet-tactics-qa-server.mts` uses it.
+- The Sunscar **modes** QA harness (`sunscar-modes-qa.html`/`.tsx`, `sunscar-modes-qa-server.mts` and its Vite config). The pet performance QA scripts and `RallyCanvas`'s QA mode use it.
+- `src/cardpreview.tsx`: the `art:chronicle:review` npm script bundles it.
+
+**Retired server socket (same PR, second commit).** Removed:
+- `api/_realtime/pet-duel-socket.ts` and `pet-duel-session.ts`, with their four test files.
+- The socket's wiring in `socket.ts` and `game-loop.ts` (the duel sweep and its drop/expire callbacks).
+- The `pet-duel` evidence source in the heartbeat's `battle-authority.ts`.
+- `replayLockstepPetDuel` in `api/pet/_duel-replay.ts`, with `_duel-replay-lockstep.test.ts`.
+
+Socket challenge admission was already closed, and the sessions lived only in memory, so no player record or stored state is affected. The inventory test now asserts that the socket stays deleted. The stale `pet-duel-live`/`pet-duel-lockstep` comments in `pet-duel-cinematic.ts` were fixed, and the `api/_pet-sim` mirror was regenerated (comment-only diff).
+
+**Still open:**
+- **Unused exports.** `pet-duel-doctrine` (client and mirror) now has no runtime caller; `gen-pet-sim` describes it as also meant for sector-war garrisons, so it needs an owner call. The engine exports `setCinematicClashEnabled`, `readClashPrompt` and `CLASH_WINDOW_TICKS` lost their last callers with the lockstep client and the old renderer.
+- The rest of Tier 4: the unrun Playwright configs and the M-rated QA pages.
+- The owner calls below.
 
 The audit as written before the removal follows.
 
@@ -159,7 +214,7 @@ Visual baselines in `e2e-visual/__snapshots__` are used. Keep them.
 ## Owner calls (not dead code; don't remove without a decision)
 
 - **`api/_utils.ts:205-207` CORS allows `theravensark.com`** "for the cPanel backend tier". That host now only redirects. Removing it changes CORS (security), and `server.ts` must stay in sync.
-- **`api/pet/_active-battle-lease.ts`:** used only by a test, but its header describes a race guard that no production write calls. This may be **missing wiring**, not dead code.
+- ~~**`api/pet/_active-battle-lease.ts`:** used only by a test, but its header describes a race guard that no production write calls. This may be **missing wiring**, not dead code.~~ **Resolved (branch `claude/hungry-curran-eb8a85`):** the module was removed. The remaining consumable race is closed by a narrow guard in `sanctuary-transfer`.
 - **`lib/save-conflict-restore.ts`:** deliberately retained, per `save-conflict.test.ts:454-459`.
 - **Stale cPanel/Passenger comments** in `server.ts`, `app.js`, `scripts/verify-dist.mjs`, `api/_storage.ts:340`, `api/_force-ipv4.ts` and `.env.example`. `tsconfig.cpanel.json`, `cpanel-dns.cjs` and `_vercel.d.ts` are load-bearing; rename them at most.
 - **218 `.txt`/`.md` prompt sidecars under `public/`** ship to `dist` (about 101 KB). They could be added to the runtime-assets filter.

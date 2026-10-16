@@ -64,7 +64,9 @@ export type RuntimeRoute = {
     path: `/${string}`;
     handler: string;
     roles: readonly RuntimeRouteRole[];
-    /** False only when a route is intentionally server-internal. */
+    /** False only when no shipped client calls the route for this mode: it is
+     *  server-internal, or its client was retired while the server still honours
+     *  already-issued tokens. */
     clientCallerRequired?: boolean;
 };
 
@@ -796,19 +798,17 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
     }),
     defineMode({
         id: 'pet-arena-pvp-1v1', label: 'Pet Arena live PvP 1v1', category: 'pet-legacy', authorityEngine: E.PET_CINEMATIC_DUEL,
-        clientEntries: ['lib/pet-duel-transport.ts'],
+        clientEntries: [],
         routes: [],
-        transports: [socketTransport('petduel:*', '_realtime/pet-duel-socket', 'lib/pet-duel-transport.ts', ['start', 'action', 'state', 'settlement'], 'memory-only')],
         participantModel: 'two-player', rewardPolicy: 'none', replayKind: 'memory-only-server-replayed-lockstep-cinematic-log', status: 'match', migrationStatus: 'migrated', intendedAuthorityEngine: E.PET_TACTICS,
-        statusDetail: 'Retained in-memory recovery only. Socket challenge admission is permanently closed; Pet Arena opens the current equal-access command room. The old renderer is absent from active player entry points.',
+        statusDetail: 'Retired. Socket challenge admission was closed first; on 2026-10-16 the lockstep client (pet-duel-transport, pet-duel-lockstep) and the petduel:* socket with its in-memory session store were removed, so no route or transport remains. Pet Arena opens the current equal-access command room.',
     }),
     defineMode({
         id: 'pet-arena-pvp-2v2', label: 'Pet Arena live PvP 2v2', category: 'pet-legacy', authorityEngine: E.PET_CINEMATIC_DUEL,
-        clientEntries: ['lib/pet-duel-transport.ts'],
+        clientEntries: [],
         routes: [],
-        transports: [socketTransport('petduel:*', '_realtime/pet-duel-socket', 'lib/pet-duel-transport.ts', ['start', 'action', 'state', 'settlement'], 'memory-only')],
         participantModel: 'two-player', rewardPolicy: 'none', replayKind: 'memory-only-server-replayed-lockstep-cinematic-log', status: 'match', migrationStatus: 'migrated', intendedAuthorityEngine: E.PET_TACTICS,
-        statusDetail: 'Retained in-memory recovery only. Socket challenge admission is permanently closed; Pet Arena opens the current equal-access command room. The old renderer is absent from active player entry points.',
+        statusDetail: 'Retired. Socket challenge admission was closed first; on 2026-10-16 the lockstep client (pet-duel-transport, pet-duel-lockstep) and the petduel:* socket with its in-memory session store were removed, so no route or transport remains. Pet Arena opens the current equal-access command room.',
     }),
     defineMode({
         id: 'pet-tactics-prototype', label: 'Pet Arena player-controlled sparring', category: 'pet-tactical', authorityEngine: E.PET_TACTICS,
@@ -870,13 +870,15 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
     defineMode({
         id: 'dungeon-pet-cinematic', label: 'Dungeon pet historical receipt', category: 'pet-legacy', authorityEngine: E.PET_CINEMATIC_DUEL,
         orchestrationOwner: O.DUNGEON,
-        clientEntries: ['lib/dungeon-pet-authority.ts', 'lib/dungeon-api.ts'],
+        clientEntries: ['lib/dungeon-api.ts'],
         routes: [
-                        mountedRoute('/pet/battle-result', 'pet/battle-result', ['settlement']),
+            // The cinematic Dungeon client (dungeon-pet-authority.ts) was retired, so no
+            // shipped screen posts here for a Dungeon receipt; the server path stays.
+            Object.freeze({ ...mountedRoute('/pet/battle-result', 'pet/battle-result', ['settlement']), clientCallerRequired: false }),
             mountedRoute('/dungeon/run', 'dungeon/run', ['settlement']),
         ],
         participantModel: 'solo', rewardPolicy: 'parent-mode-settlement', replayKind: 'server-replayed-cinematic-input-log-and-parent-run-receipt', status: 'match', migrationStatus: 'migrated', intendedAuthorityEngine: E.PET_SHOWDOWN,
-        statusDetail: 'Historical receipt settlement only. Fresh cinematic Dungeon admissions return 410. Existing sealed receipts retain exact replay, retries and parent-payment semantics.',
+        statusDetail: 'Historical receipt settlement only. Fresh cinematic Dungeon admissions return 410, and the cinematic Dungeon client was removed, so no shipped screen posts a Dungeon pet log to /pet/battle-result. The server keeps exact replay, retries and parent-payment semantics for any sealed receipt; /dungeon/run still settles the parent run.',
     }),
 
     defineMode({
