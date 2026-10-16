@@ -11,6 +11,7 @@ type AdaptiveGameShellProps = {
     facilityAccent?: string;
     artwork: string;
     uiMode: "noncombat" | "combat";
+    sealedFightEngaged?: boolean;
     style?: AdaptiveShellStyle;
 };
 
@@ -28,6 +29,7 @@ export function AdaptiveGameShell({
     facilityAccent,
     artwork,
     uiMode,
+    sealedFightEngaged = false,
     style: suppliedStyle,
 }: AdaptiveGameShellProps) {
     const facility = Boolean(facilityAccent);
@@ -44,6 +46,7 @@ export function AdaptiveGameShell({
             data-screen={screen}
             data-village={village}
             data-ui-mode={uiMode}
+            data-sealed-fight-engaged={sealedFightEngaged}
             style={style}
         >
             <div className="app-background" style={{ backgroundImage: `url(${artwork})` }} />
