@@ -37,6 +37,32 @@ of an otherwise legitimate reward. The runtime can recover surviving valid
 student receipts before admitting a new batch; pending settlements continue
 through the existing settlement recovery protocol.
 
+A pre-deploy release can also leave a valid sealed, unpaid batch under the
+former sensei, without a student receipt or canonical flag. Before admitting
+new rewards, the runtime enumerates all mentor records in batches and defers
+only milestones overlapping a validated pending batch for the exact current
+student creation stamp. It uses the authoritative records even if a recovery
+pointer is missing. Other earned milestones remain claimable, and the original
+batch remains owed through normal recovery; it is never relabeled as paid.
+Discovery transport failures or incomplete batch responses return a retry.
+Malformed terms, missing identity anchors and unrelated accounts cannot create
+reservations; the offline report keeps pending records in the recovery review
+queue. Operator review must resolve any such ambiguous historical obligation.
+If pre-deploy sealed batches already overlap for the same current student
+identity and milestone, preserve every batch and obtain an operator decision
+for those overlaps before draining them; this repair prevents new overlapping
+admissions but does not deduplicate existing obligations.
+
+Admission atomically checks the source student save, reserves new milestones
+in #413's canonical record, and appends the new sealed batch to the mentor
+record. A recovery payment or receipt compaction that wins during discovery
+therefore forces a fresh retry instead of admitting from stale evidence. The
+same canonical comparison prevents two new admissions from reserving the same
+milestone concurrently. This adds no bulk migration or scan of player saves.
+Mentor-record enumeration occurs only when a new eligible batch is considered;
+it is complete rather than a prefix limited by recovery's per-pass budget.
+Normal lease fencing aborts an overlong scan before it can admit value.
+
 The canonical record remains #413's flat per-slug map with its existing
 400-day retention. It does not contain an account creation stamp, and individual
 account or character deletion currently leaves that map behind. A later account
