@@ -65,7 +65,8 @@ function pinMemberCounters(
         const key = lower(member.name);
         const stored = prevByName.get(key) as Record<string, unknown> | undefined;
         const storedSameMonth = !!stored && stored.month === month;
-        const own = !!key && key === callerName && !!callerCharacter;
+        // Roster rows carry display names; the authenticated caller is a slug.
+        const own = !!key && safeName(String(member.name ?? '')) === callerName && !!callerCharacter;
         const has = (row: Record<string, unknown> | undefined, field: string) => !!row && Object.prototype.hasOwnProperty.call(row, field);
         for (const [rowField, charField] of MEMBER_COUNTER_FIELDS) {
             // Only rows that carry a counter are rewritten; a row without one
