@@ -86,11 +86,11 @@ export const PET_TUTORIAL_LESSONS: readonly PetTutorialLesson[] = [
             {
                 kicker: "Lesson 1 · Readiness",
                 title: "Available means available",
-                body: "Training, breeding, and expeditions take a companion out of battle. The Sanctuary can also hold overflow pets outside the carried roster. Check readiness before building a team so your planned reserve is not somewhere else when the gate opens.",
+                body: "Training can continue during pet battles. Breeding and active expeditions keep a companion away, while Sanctuary pets need a carried slot before they can join. Check readiness and collect completed expeditions before building your team.",
                 points: [
-                    "Your active pet is the companion used by pet-aware PvE and preselected by some battle entries.",
-                    "The 2v2 partner is only a default reserve; you can change it before a duel.",
-                    "Battle consumables and PvP gear can matter, so inspect the loadout before a serious bout.",
+                    "Your Active companion helps in shinobi fights once its PvE use is unlocked and is preselected by some battle entries.",
+                    "The Yard's 2v2 Partner is a default pick for some entries. Check the starting pair and bench before fighting.",
+                    "Use the loadout for the mode you are entering. Ranked techniques are saved separately from ordinary pet equipment.",
                 ],
             },
             {
@@ -124,7 +124,7 @@ export const PET_TUTORIAL_LESSONS: readonly PetTutorialLesson[] = [
                 points: [
                     "Start in Sparring for an opponent leveled to your own team.",
                     "Click a fighter or its status plate when a move needs a target.",
-                    "The event feed is evidence: use it to learn speed order, conditions, and damage swings.",
+                    "Read the feed to see who acted first, which conditions landed, and how much damage got through.",
                 ],
                 callout: "Tomoe: ‘Practice is where you spend mistakes instead of ryo.’",
             },
@@ -144,18 +144,18 @@ export const PET_TUTORIAL_LESSONS: readonly PetTutorialLesson[] = [
                 body: "Guard resolves early. Conditions can change a winning race, but a pet holds only two at a time; a third pushes off the oldest. Fire thaws freeze, frost smothers burn, and shields sit outside the condition limit.",
                 points: [
                     "Turn order uses speed multiplied by move priority. Speed alone does not decide who acts first.",
-                    "The signature meter fills as a pet deals and takes damage, then empties in one cast.",
+                    "The first signature also charges each round on the field. After using it, build the meter again by dealing and taking damage.",
                     "A defensive turn is good when it ruins the opponent's expensive turn.",
                 ],
             },
             {
                 kicker: "Lesson 2 · Endgame",
                 title: "Know how the judges decide",
-                body: "Attrition begins late so endless healing cannot stall forever. After 25 rounds, the judges compare pets remaining, total health, total stamina, then the speed arrow. If you are ahead, protect the ladder; if behind, create a decisive swing before time runs out.",
+                body: "Attrition begins late so endless healing cannot stall forever. After 25 rounds, the judges compare pets remaining, total health, total stamina, then the speed arrow. If you are ahead, keep your companions alive. If you are behind, look for a knockout before the last round.",
                 points: [
                     "A surviving reserve is worth more than pretty damage numbers.",
                     "Do not overdraft blindly near the judge limit.",
-                    "Training is unlimited. Repeat the matchup until you can explain why you won or lost.",
+                    "Training Grounds is unlimited. Repeat the matchup until you can explain why you won or lost.",
                 ],
             },
         ],
@@ -178,14 +178,14 @@ export const PET_TUTORIAL_LESSONS: readonly PetTutorialLesson[] = [
                 body: "The Colosseum uses the Showdown rules you practiced. The arena chooses your opponent, and paid wins count toward the daily purse. Refreshing keeps the same bout; it will not give you an easier opponent or undo the result.",
                 points: [
                     "Training Grounds is unlimited and unrewarded; Colosseum is matched and rewarded.",
-                    "The paid-win counter is a reward cap, not a ban on learning the mode.",
+                    "After the daily purse is used up, you can still fight, but further wins do not pay.",
                     "Use what you learned from a loss in Training Grounds before spending another serious attempt.",
                 ],
             },
             {
                 kicker: "Lesson 3 · Preparation",
                 title: "Bring a plan, not only a favorite",
-                body: "Check the selected format, field only available pets, and review the elemental spread. In larger formats the bench is part of the plan: it can cover a bad lead, preserve a healthier judge ladder, or carry a synergy your opening line needs.",
+                body: "Check the selected format, field only available pets, and review the elemental spread. In larger formats the bench is part of the plan: it can cover a bad lead, keep a healthy companion for a close judges' decision, or carry a synergy your opening line needs.",
                 points: [
                     "Pick a legal full team before asking the arena to match you.",
                     "Use neutral pressure when a lead is trapped by the element wheel.",
@@ -195,7 +195,7 @@ export const PET_TUTORIAL_LESSONS: readonly PetTutorialLesson[] = [
             },
             {
                 kicker: "Lesson 3 · Review",
-                title: "Every settled bout is a lesson",
+                title: "Learn from the last bout",
                 body: "After the result, separate decisions from luck. Ask whether your target, stamina curve, switch timing, and defensive turns were sound. One unlucky condition is noise; repeatedly entering the same bad element is a habit.",
                 points: [
                     "Review the feed before rematching.",
@@ -213,16 +213,16 @@ export const PET_TUTORIAL_LESSONS: readonly PetTutorialLesson[] = [
         eyebrow: "Genin team tactics",
         title: "Fight as a pair",
         shortTitle: "2v2 teams",
-        summary: "Build a lead and reserve that cover each other instead of treating 2v2 as two unrelated 1v1 fights.",
+        summary: "Build an opening pair that works together, then choose reserves for the matchups you expect.",
         practiceLabel: "Practice a 2v2",
         destination: { kind: "screen", screen: "petShowdown" },
         pages: [
             {
                 kicker: "Lesson 4 · Pair construction",
-                title: "Your reserve is an answer",
-                body: "A 2v2 team needs two eligible pets on both sides. Pick a reserve that covers your lead's weak matchups or supports its techniques. The second-highest power number may not be the best partner.",
+                title: "Choose the opening pair",
+                body: "A 2v2 Showdown fields two companions together. Bring at least two available carried pets and add up to two reserves when you have them. Pair moves and elements that give each active pet something useful to do.",
                 points: [
-                    "Set a default 2v2 partner in the Pet Yard, then override it when the matchup demands.",
+                    "Check which two companions start on the field and which wait on the bench.",
                     "Do not pair two pets that lose to the same common answer unless their roles compensate.",
                     "A healthy reserve gives you another chance to win and improves your position if the match reaches the judges.",
                 ],
@@ -230,7 +230,7 @@ export const PET_TUTORIAL_LESSONS: readonly PetTutorialLesson[] = [
             {
                 kicker: "Lesson 4 · Switching",
                 title: "Switch when the better matchup is worth a turn",
-                body: "Switching gives up immediate pressure, so make the new matchup worth the cost. Switch before the lead is too damaged to contribute later, or when the reserve can absorb the technique the opponent is clearly building toward.",
+                body: "A switch replaces one active companion and uses its action for the round. Switch before that pet is too damaged to contribute later, or when a reserve can take the incoming hit in a better elemental matchup. The other active pet can keep up the pressure.",
                 points: [
                     "Preserve useful pets; do not preserve one that has no favorable work left.",
                     "Track hold counters and signature meters across both sides.",
@@ -255,40 +255,40 @@ export const PET_TUTORIAL_LESSONS: readonly PetTutorialLesson[] = [
         minLevel: 20,
         minPets: 1,
         eyebrow: "Ranked responsibility",
-        title: "Defend a rank while you are away",
+        title: "Choose the ranked contest you want",
         shortTitle: "Pet Ladder",
-        summary: "Set a legal defense, understand live queue versus ladder challenges, and climb without confusing rating modes.",
+        summary: "Prepare a live Colosseum squad or save a Warfront defense, and learn how each contest changes your standing.",
         practiceLabel: "Open the Pet Ladder",
         destination: { kind: "screen", screen: "petLadder" },
         pages: [
             {
-                kicker: "Lesson 5 · Defense",
+                kicker: "Lesson 5 · Live Colosseum",
                 title: "Your first move is made before the fight",
-                body: "The ladder begins with a defense. In Colosseum ladder play one pet holds your place; Tactical ladder play uses four. The defense fights even while you are away, and its stats and PvP items count.",
+                body: "Ranked Pet Colosseum pairs two players who choose their own orders each round. Bring four available carried companions for two active positions and two reserves. Competitive stats are balanced at level 50, while your companions keep their training outside the match.",
                 points: [
-                    "You cannot challenge for rank until a legal defense is saved.",
-                    "Choose consistency for unattended defense; fragile tricks need a pilot.",
-                    "Notifications tell you who took your rank or failed to move you.",
+                    "Equip four techniques alongside each pet's permanent signature. Choose a preset if you are still learning its moves.",
+                    "Save ranked loadouts in the Yard's Battle & techniques section, then review them in the ranked squad builder.",
+                    "Choose your opening pair after reviewing the opponent's squad. Both players must lock orders before the planning clock ends.",
                 ],
             },
             {
-                kicker: "Lesson 5 · Two ranked doors",
-                title: "Live queue and ladder are not the same action",
-                body: "The live ranked queue pairs two players who are both searching for a duel. A ladder challenge uses the saved defense of a rival above you, even when that player is away. Win the offered ladder challenge to take their place.",
+                kicker: "Lesson 5 · Warfront defense",
+                title: "Your formation can defend while you are away",
+                body: "The Beastbound Warfront ladder uses saved four-pet defenses. Pick your companions and starting cells, then save the formation. Its trained stats and roles count, while gear and consumables do not. The defense can be challenged even while you are offline.",
                 points: [
-                    "Live queue is immediate matchmaking when another player is searching.",
-                    "Ladder challenge is positional: beat the offered rival to take the rung.",
-                    "Tactical ladder unlocks only when you can field the required four-pet team.",
+                    "Save a legal defense before making a Warfront ladder challenge.",
+                    "Beat the offered rival to take their rung. This changes your Warfront position, not your Colosseum Pet Elo.",
+                    "Bring all four defense pets back from breeding or expeditions before challenging. A saved defense can still be attacked while they are away.",
                 ],
             },
             {
                 kicker: "Lesson 5 · Climb",
                 title: "Treat attempts as information",
-                body: "A ladder is a long record, not one duel. Read who attacks you, update the defense when the field changes, and do not spend every daily challenge proving the same bad matchup twice.",
+                body: "For the Colosseum, review your orders, stamina use, and switches before changing the squad. For Warfront, look at which pet fell first and whether a different starting cell could protect it. Change one part of the plan, then see whether the next fight improves.",
                 points: [
-                    "Set defense first, then inspect the offered opponent.",
-                    "Keep busy pets out of a defense you expect to rely on.",
-                    "Return after roster or gear improvements; rank is allowed to wait.",
+                    "Colosseum wins and losses change Pet Elo after the battle is recorded.",
+                    "Warfront has a daily challenge allowance. Check it before repeating the same matchup.",
+                    "Update your saved Warfront defense after training or changing its companions and formation.",
                 ],
             },
         ],
@@ -308,13 +308,13 @@ export const PET_TUTORIAL_LESSONS: readonly PetTutorialLesson[] = [
             {
                 kicker: "Lesson 6 · Objective",
                 title: "Everything you watch is the scoreboard",
-                body: "Warfront fields all four of your pets against all four of theirs. Wipe out the opposing team to win a clash. If time runs out, the side with more pets standing wins it. Win two clashes to take the Rite. There is no flag to capture or structure to break.",
+                body: "Warfront fields all four of your pets against all four of theirs. Wipe out the opposing team to win a clash. If both sides survive, companions standing decide the result, followed by remaining health. Win two clashes to take the Rite.",
                 points: [
                     "Pets auto-fight by role: defenders hold, sages sustain, trackers pressure, assassins hunt.",
                     "Your work happens before the clash, not during it.",
-                    "A clash runs about thirty seconds; a whole Rite is two or three of them.",
+                    "Watch who makes first contact and which pet falls first. Those are useful clues for the next formation.",
                 ],
-                callout: "Tomoe: ‘Four beasts make noise. A commander decides which two meet the enemy first.’",
+                callout: "Tomoe: ‘Watch where Kuro takes his first hit. A different starting cell might spare him the second.’",
             },
             {
                 kicker: "Lesson 6 · Formation",
@@ -331,8 +331,8 @@ export const PET_TUTORIAL_LESSONS: readonly PetTutorialLesson[] = [
                 title: "Four pets, not four individuals",
                 body: "Every pet strengthens the whole band. Defenders and sages add health; trackers and assassins add attack. A pet contributes 50% more when it shares a bandmate's element. Choose roles for the bonuses you need, then check how the elements affect them.",
                 points: [
-                    "A band needs three different elements, or a single counter beats all four of you.",
-                    "Elements are the strongest single force in a clash, so never field a one-element band.",
+                    "Any mix of elements is allowed. A wider spread helps cover bad matchups.",
+                    "Shared elements strengthen bonds, but a narrow band is more exposed to its counter. Decide whether that trade suits your team.",
                     "Build for what your band gives each other, not just for four strong pets.",
                 ],
             },
@@ -355,7 +355,7 @@ export const PET_TUTORIAL_LESSONS: readonly PetTutorialLesson[] = [
         minLevel: 40,
         minPets: 1,
         eyebrow: "Veteran endurance",
-        title: "Build a run that survives itself",
+        title: "Build a squad for the whole run",
         shortTitle: "Gauntlet",
         summary: "Draft, merge, position, activate synergies, spend carefully, and carry one roster through escalating rounds.",
         practiceLabel: "Enter the Pet Gauntlet",
@@ -374,7 +374,7 @@ export const PET_TUTORIAL_LESSONS: readonly PetTutorialLesson[] = [
             {
                 kicker: "Lesson 7 · Position",
                 title: "Front and back are rules, not decoration",
-                body: "Melee cannot reach the back until the front falls. Front-row pets deal more damage; the back row receives cover against melee. Put defenders where their taunt protects someone and keep sages away from the assassins looking for them.",
+                body: "Defenders and Sages target the front line. Assassins dive into the back row, while Trackers can target enemies in any row. Front-row pets deal more damage; the back row receives cover against melee. Put defenders where their taunt protects someone and keep sages away from the assassins looking for them.",
                 points: [
                     "Defenders tank the front; assassins dive the back.",
                     "Trackers fire at vulnerable targets from range.",
