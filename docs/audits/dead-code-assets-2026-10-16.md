@@ -66,9 +66,16 @@ How the removal differed from the plan below:
 - The Sunscar **modes** QA harness (`sunscar-modes-qa.html`/`.tsx`, `sunscar-modes-qa-server.mts` and its Vite config). The pet performance QA scripts and `RallyCanvas`'s QA mode use it.
 - `src/cardpreview.tsx`: the `art:chronicle:review` npm script bundles it.
 
+**Retired server socket (same PR, second commit).** Removed:
+- `api/_realtime/pet-duel-socket.ts` and `pet-duel-session.ts`, with their four test files.
+- The socket's wiring in `socket.ts` and `game-loop.ts` (the duel sweep and its drop/expire callbacks).
+- The `pet-duel` evidence source in the heartbeat's `battle-authority.ts`.
+- `replayLockstepPetDuel` in `api/pet/_duel-replay.ts`, with `_duel-replay-lockstep.test.ts`.
+
+Socket challenge admission was already closed, and the sessions lived only in memory, so no player record or stored state is affected. The inventory test now asserts that the socket stays deleted. The stale `pet-duel-live`/`pet-duel-lockstep` comments in `pet-duel-cinematic.ts` were fixed, and the `api/_pet-sim` mirror was regenerated (comment-only diff).
+
 **Still open:**
-- **Retired server socket.** `api/_realtime/pet-duel-socket.ts` + `pet-duel-session.ts` are still mounted, and their tests still run, but no shipped client reaches them. Retiring them is a server change.
-- **Stale comments.** `pet-duel-cinematic.ts` and its generated `api/_pet-sim` mirror still name `pet-duel-live`/`pet-duel-lockstep` in comments.
+- **Unused exports.** `pet-duel-doctrine` (client and mirror) now has no runtime caller; `gen-pet-sim` describes it as also meant for sector-war garrisons, so it needs an owner call. The engine exports `setCinematicClashEnabled`, `readClashPrompt` and `CLASH_WINDOW_TICKS` lost their last callers with the lockstep client and the old renderer.
 - The rest of Tier 4: the unrun Playwright configs and the M-rated QA pages.
 - The owner calls below.
 
