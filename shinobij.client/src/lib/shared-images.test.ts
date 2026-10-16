@@ -43,3 +43,16 @@ test('a prototype-named id busts the misc cache, like any unknown prefix', async
     }
     assert.deepEqual(removed, ['imgcat:misc', 'imgcat:misc', 'imgcat:misc', 'imgcat:jutsu']);
 });
+
+test('publishing a companion card invalidates the pet category cache', async t => {
+    t.mock.method(globalThis, 'fetch', async () => new Response(null, { status: 200 }));
+    const removed: string[] = [];
+    const previous = Object.getOwnPropertyDescriptor(globalThis, 'sessionStorage');
+    Object.defineProperty(globalThis, 'sessionStorage', { configurable: true, value: { removeItem: (key: string) => removed.push(key) } });
+    t.after(() => {
+        if (previous) Object.defineProperty(globalThis, 'sessionStorage', previous);
+        else delete (globalThis as { sessionStorage?: unknown }).sessionStorage;
+    });
+    assert.equal(await publishSharedImage('petcard:rare-3', 'data:image/png;base64,AAAA'), true);
+    assert.deepEqual(removed, ['imgcat:pet']);
+});

@@ -16,7 +16,7 @@ import chromaticOverlay from "../assets/pet-home/hatch-chromatic-overlay.webp";
 import hatchSanctum from "../assets/pet-home/hatch-sanctum.webp";
 import { activeCarriedPetIds, activeCarriedPets, maxPets } from "../lib/entitlements";
 import { petDisplayName } from "../lib/pet";
-import { petCardImage } from "../lib/pet-battle-anim";
+import { petScenicPortraitImage as petCardImage } from "../lib/pet-scenic-portrait";
 import { breedingOddsForPets, clientPetBreedingBlocker } from "../lib/pet-breeding";
 import { fetchBreedingStatus, hatchPetBreeding, startPetBreeding } from "../lib/pet-breeding-api";
 import { playPetSfx, primePetSfx } from "../lib/pet-sfx";

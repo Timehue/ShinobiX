@@ -1,6 +1,7 @@
 import { expect, test, type Page, type Route, type TestInfo } from "@playwright/test";
 import { PUBLIC_CAPABILITY_IDS } from "../../shared/public-capabilities";
 import { PET_CAP_BASE } from "../src/lib/entitlements";
+import { PET_SCENIC_PORTRAITS } from "../src/lib/pet-portrait-assets.generated";
 import AxeBuilder from "@axe-core/playwright";
 import { gotoSettled, reloadSettled } from "./helpers/network-settle";
 
@@ -409,7 +410,12 @@ async function expectCompanionAvatars(page: Page, selector: string, expected: nu
         const image = frame.locator("img");
         await expect(image).toHaveCount(1);
         await expect.poll(() => image.evaluate((node: HTMLImageElement) => node.complete && node.naturalWidth > 0)).toBe(true);
-        await expect(image).toHaveCSS("object-fit", "contain");
+        await expect(image).toHaveAttribute("data-pet-art", "scenic");
+        await expect(image).toHaveCSS("object-fit", "cover");
+        await expect(image).toHaveCSS("padding", "0px");
+        const bounds = await frame.boundingBox();
+        expect(bounds).not.toBeNull();
+        expect(Math.abs(bounds!.width - bounds!.height)).toBeLessThan(1.5);
         expect(await image.evaluate((node: HTMLImageElement) => {
             const art = node.parentElement!.getBoundingClientRect();
             const avatar = node.getBoundingClientRect();
@@ -419,35 +425,80 @@ async function expectCompanionAvatars(page: Page, selector: string, expected: nu
     }
 }
 
-test("pet avatars load and fit in every Companion Home card", async ({ page }) => {
+test("pet avatars load and fit in every Companion Home card", async ({ page }, testInfo) => {
     const state = await installPetHomeApi(page);
-    // A missing saved portrait must recover to the shipped species pose.
+    // A stale saved image must not hide the reviewed portrait for its template.
     state.character.pets[0].image = "/pet-portraits/missing-sumi.webp";
+    // Exercise the latest remakes through opaque owned IDs and stale saved art.
+    state.character.pets[2] = pet("qa-water-1", "rare-3", "Sky Falcon", "Wind", "rare", 7,
+        { image: "/pet-poses/rare-3-idle.webp" });
+    state.character.pets[3] = pet("qa-fire-spent", "rare-40", "Volt Polecat", "Lightning", "rare", 0,
+        { image: "/pet-poses/rare-40-run-a.webp" });
     await openHome(page);
     await expectCompanionAvatars(page, ".pet-collection-card", 4);
-    await expect(page.locator('.pet-collection-card:has-text("Sumi") .companion-identity-art img')).toHaveAttribute("src", /rare-26-idle\.webp/);
+    await expect(page.locator('.pet-collection-card:has-text("Sumi") .companion-identity-art img')).toHaveAttribute("src", PET_SCENIC_PORTRAITS['rare-26']);
+    for (const [name, id] of [['Sky Falcon', 'rare-3'], ['Volt Polecat', 'rare-40']]) {
+        await expect(page.locator(`.pet-collection-card:has-text("${name}") .companion-identity-art img`)).toHaveAttribute("src", PET_SCENIC_PORTRAITS[id]);
+    }
+    await shot(page, testInfo, "portrait-collection");
 
     await page.getByRole("button", { name: "Pet Yard" }).click();
     await expectCompanionAvatars(page, ".pet-slot-card.companion-card", 4);
     await page.locator('.pet-slot-card:has-text("Ember Phoenix")').click();
-    await expect(page.locator(".pet-detail-avatar img")).toHaveAttribute("src", /legendary-6-idle\.webp/);
+    await expect(page.locator(".pet-detail-avatar img")).toHaveAttribute("src", PET_SCENIC_PORTRAITS['legendary-6']);
     await page.locator('.pet-slot-card:has-text("Sumi")').click();
-    await expect(page.locator(".pet-detail-avatar img")).toHaveAttribute("src", /rare-26-idle\.webp/);
+    await expect(page.locator(".pet-detail-avatar img")).toHaveAttribute("src", PET_SCENIC_PORTRAITS['rare-26']);
+    await expect(page.locator(".pet-detail-avatar img")).toHaveCSS("border-radius", "6px");
+    const detailBounds = await page.locator(".pet-detail-avatar").boundingBox();
+    expect(Math.abs(detailBounds!.width - detailBounds!.height)).toBeLessThan(1.5);
+    await shot(page, testInfo, "portrait-yard");
+    for (const [name, id] of [['Sky Falcon', 'rare-3'], ['Volt Polecat', 'rare-40']]) {
+        await page.locator(`.pet-slot-card:has-text("${name}")`).click();
+        await expect(page.locator(".pet-detail-avatar img")).toHaveAttribute("src", PET_SCENIC_PORTRAITS[id]);
+        await shot(page, testInfo, `portrait-yard-${id}`);
+    }
 
     await page.getByRole("button", { name: "Pet Arena" }).click();
     await expectCompanionAvatars(page, '.pet-arena-selector[data-side="player"] .pet-pick.companion-card', 4);
     await page.locator('.pet-arena-selector[data-side="player"] .pet-pick:has-text("Ember Phoenix")').click();
-    await expect(page.locator('.pet-arena-selector[data-side="player"] .pet-arena-avatar img')).toHaveAttribute("src", /legendary-6-idle\.webp/);
+    await expect(page.locator('.pet-arena-selector[data-side="player"] .pet-arena-avatar img')).toHaveAttribute("src", PET_SCENIC_PORTRAITS['legendary-6']);
     await page.locator('.pet-arena-selector[data-side="player"] .pet-pick:has-text("Sumi")').click();
-    await expect(page.locator('.pet-arena-selector[data-side="player"] .pet-arena-avatar img')).toHaveAttribute("src", /rare-26-idle\.webp/);
+    await expect(page.locator('.pet-arena-selector[data-side="player"] .pet-arena-avatar img')).toHaveAttribute("src", PET_SCENIC_PORTRAITS['rare-26']);
+    await shot(page, testInfo, "portrait-arena");
+    for (const [name, id] of [['Sky Falcon', 'rare-3'], ['Volt Polecat', 'rare-40']]) {
+        await page.locator(`.pet-arena-selector[data-side="player"] .pet-pick:has-text("${name}")`).click();
+        await expect(page.locator('.pet-arena-selector[data-side="player"] .pet-arena-avatar img')).toHaveAttribute("src", PET_SCENIC_PORTRAITS[id]);
+    }
 
     await page.getByRole("button", { name: "Sanctuary", exact: true }).click();
     await expectCompanionAvatars(page, ".pet-sanctuary-card", 2);
+    await shot(page, testInfo, "portrait-sanctuary");
 
     await page.getByRole("button", { name: "Shinobi Hatchery" }).click();
     await page.getByLabel("First parent").selectOption("qa-fire-1");
     await page.getByLabel("Second parent").selectOption("qa-fire-2");
     await expectCompanionAvatars(page, ".breeding-parent-preview", 2);
+    await shot(page, testInfo, "portrait-hatchery");
+
+    // Exchange snapshots must retain form identity even with an opaque owned id.
+    const asset = { id: 'opaque-owned-companion', templateId: 'starter-earth', evolutionStage: 1,
+        kind: 'pet', category: 'pets', rarity: 'rare', name: 'Granite Tortoise', level: 60,
+        image: '/pet-evos/starter-earth-r.webp', description: 'A trusted companion.', stats: [] };
+    const listing = { id: 'portrait-listing', asset, quantity: 1, price: 100, fee: 5, proceeds: 95,
+        seller: 'portrait-seller', sellerName: 'Portrait Seller', state: 'active', createdAt: Date.now() };
+    await page.route('**/api/festival/exchange', route => {
+        if (route.request().postDataJSON().action === 'readiness') return json(route, { ok: true,
+            readiness: { listingId: listing.id, observedAt: Date.now(), status: 'ready', listing } });
+        return json(route, { ok: true, character: state.character,
+            _saveVersion: state.saveVersion, listings: [listing], inventory: [], activity: [], creatorItems: [], recoveryErrors: [] });
+    });
+    await gotoSettled(page, '/#/sunscarFestival');
+    await reloadSettled(page);
+    await page.getByRole('button', { name: 'Enter the Exchange' }).click();
+    await expect(page.locator('.sx-listing img')).toHaveAttribute('src', PET_SCENIC_PORTRAITS['starter-earth-r']);
+    await page.locator('.sx-listing').click();
+    await expect(page.getByRole('dialog').locator('.sx-asset-art img')).toHaveAttribute('src', PET_SCENIC_PORTRAITS['starter-earth-r']);
+    await shot(page, testInfo, 'portrait-exchange');
 });
 
 test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
@@ -918,7 +969,7 @@ test("refined companion and Sunscar pages", async ({ page }, testInfo) => {
     state.character.pets[0].jutsus = [{ name: "Ember Fang", kind: "damage", power: 24, cooldown: 3 }];
     const marketAssets = [
         { id: "qa-blade", kind: "item", category: "weapons", rarity: "legendary", name: "Dawnreaver, the Last Ember", description: "A blade tempered in the final light of the desert.", image: "/items/shop-ashen-dragon-katana-v1.webp", level: 60, stats: [{ label: "Attack", value: "+120" }] },
-        { id: "qa-pet", kind: "pet", category: "pets", rarity: "rare", name: "Ember Ocelot", description: "A swift companion of the southern wilds.", image: "/pet-poses/rare-26-idle.webp", level: 60, stats: [{ label: "Breeding Uses Remaining", value: "8" }] },
+        { id: "qa-pet", templateId: "rare-26", kind: "pet", category: "pets", rarity: "rare", name: "Ember Ocelot", description: "A swift companion of the southern wilds.", image: "/pet-poses/rare-26-idle.webp", level: 60, stats: [{ label: "Breeding Uses Remaining", value: "8" }] },
         { id: "qa-hide", kind: "item", category: "materials", rarity: "uncommon", name: "Torn Hide", description: "A sturdy crafting material.", image: "/items/hunt-torn-hide-v1.webp", stats: [] },
     ];
     const listings = marketAssets.map((asset, i) => ({ id: `listing-${i}`, asset, quantity: i === 2 ? 12 : 1, price: [425_000, 120_000, 41][i], currency: i === 2 ? "fateShards" : "ryo", fee: 0, proceeds: 0, seller: "miraa", sellerName: "Miraa", state: "active", createdAt: Date.now() - i * 1000 }));

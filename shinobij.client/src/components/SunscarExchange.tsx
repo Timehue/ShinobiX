@@ -9,6 +9,9 @@ import { ExchangeRequestError, pendingExchangeRequest, requestExchange, requestE
 import { clearExchangeReturnContext, peekExchangeReturnContext, saveExchangeReturnContext } from '../lib/exchange-return';
 import { setPetHomeTabHint } from './PetHomeTabs';
 import type { Screen } from '../types/core';
+import type { Pet } from '../types/pet';
+import { PetArtwork } from './PetArtwork';
+import { petVisualVariantClass } from '../lib/pet-visual-variant';
 import exchangeArt from '../assets/festival/sunscar-exchange-v1.webp';
 import weaponArt from '../assets/clan-exchange/weaponCache.webp';
 import armorArt from '../assets/clan-exchange/armorCache.webp';
@@ -38,8 +41,11 @@ function AssetPortrait({ asset }: { asset: ExchangeAsset }) {
     const fallback = catalogArt.get(asset.id) ?? (asset.category === 'weapons' ? weaponArt : asset.category === 'armor' ? armorArt : undefined);
     const image = asset.image && /^(https?:\/\/|\/|data:image\/)/.test(asset.image) ? asset.image : fallback;
     const [failedSource, setFailedSource] = useState<string | null>(null);
-    return <span className={`sx-asset-art sx-rarity-${asset.rarity}`}>
-        {image && failedSource !== image ? <img src={image} alt="" loading="lazy" onError={() => setFailedSource(image)} /> : <span className="sx-asset-monogram">{asset.name.split(/\s+/).slice(0, 2).map(word => word[0]).join("")}</span>}
+    const companion = asset.kind === 'pet' ? { id: asset.id, templateId: asset.templateId, name: asset.name, rarity: asset.rarity,
+        evolutionStage: asset.evolutionStage, paletteVariantId: asset.paletteVariantId, image } as Pet : null;
+    return <span className={`sx-asset-art sx-rarity-${asset.rarity} ${companion ? petVisualVariantClass(companion) : ''}`}>
+        {companion ? <PetArtwork pet={companion} sharedImages={{}} fallbackClassName="sx-asset-monogram" />
+            : image && failedSource !== image ? <img src={image} alt="" loading="lazy" onError={() => setFailedSource(image)} /> : <span className="sx-asset-monogram">{asset.name.split(/\s+/).slice(0, 2).map(word => word[0]).join("")}</span>}
     </span>;
 }
 

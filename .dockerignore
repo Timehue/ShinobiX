@@ -33,7 +33,12 @@ release-audit
 **/*.spec.*
 shinobij.client/e2e*
 shinobij.client/art-references
-shinobij.client/art-source
+# The build verifies portrait delivery hashes against this review manifest.
+# Keep its 400 MB of source masters and all other art sources out of the image.
+shinobij.client/art-source/*
+!shinobij.client/art-source/pet-portrait-refresh/
+shinobij.client/art-source/pet-portrait-refresh/*
+!shinobij.client/art-source/pet-portrait-refresh/production.json
 shinobij.client/playwright*.ts
 shinobij.client/*preview.html
 # The Android app shell (Flutter) and the old TWA's native sources. Neither is

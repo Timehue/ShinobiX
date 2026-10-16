@@ -19,6 +19,10 @@ export type ExchangeAsset = {
     rarity: string;
     description: string;
     image?: string;
+    /** Stable companion presentation identity, independent of its owned id or nickname. */
+    templateId?: string;
+    evolutionStage?: 0 | 1 | 2;
+    paletteVariantId?: string;
     level?: number;
     stats: Array<{ label: string; value: string }>;
 };

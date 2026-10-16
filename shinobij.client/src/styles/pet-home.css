@@ -552,6 +552,9 @@
 .companion-identity-art { position: relative; isolation: isolate; display: grid; place-items: center; width: 100%; aspect-ratio: 1.22; overflow: hidden; border: 1px solid rgba(218,227,220,.1); border-radius: var(--r-sm); background: radial-gradient(ellipse at 50% 38%, var(--companion-glow), transparent 64%),linear-gradient(145deg,#151f2a,#0a111a); }
 .companion-identity-art::after { content: ""; position: absolute; inset: auto 14% 5%; height: 12%; border-radius: 50%; background: rgba(0,0,0,.26); filter: blur(9px); pointer-events: none; }
 .companion-identity-art img { box-sizing: border-box; position: absolute; z-index: 1; inset: 0; display: block; width: 100%; height: 100%; padding: 6px; object-fit: contain; object-position: center; filter: drop-shadow(0 9px 10px rgba(0,0,0,.5)); }
+.companion-identity-art:has(img[data-pet-art="scenic"]) { aspect-ratio: 1; }
+.companion-identity-art img[data-pet-art="scenic"] { padding: 0; object-fit: cover; }
+.companion-card:not(.pet-visual--chromatic) .companion-identity-art img[data-pet-art="scenic"] { filter: none; }
 .companion-card.pet-visual--chromatic .companion-identity-art img { filter: saturate(1.35) hue-rotate(24deg) drop-shadow(0 0 12px rgba(188,137,255,.55)); }
 .companion-identity-fallback { color: var(--companion-accent); font: 400 2rem var(--font-display); }
 .companion-identity-copy { display: grid; gap: .4rem; min-width: 0; }

@@ -8,7 +8,7 @@ import { PetShowdownBattle } from "../components/PetShowdownBattle";
 import { activeCarriedPetIds } from "../lib/entitlements";
 import { activeClientBreedingParentIds } from "../lib/pet-breeding";
 import { isPetAvailableForColosseum } from "../lib/pet";
-import { petCardImage } from "../lib/pet-battle-anim";
+import { petScenicPortraitImage as petCardImage } from "../lib/pet-scenic-portrait";
 import { warmShowdownModels } from "../lib/pet-model-preload";
 import { fetchShowdownState, forfeitShowdown, submitShowdownTurn, type ShowdownCommand, type ShowdownStateView } from "../lib/pet-showdown-api";
 import { fetchTowerState, type TowerHostLoadout, type TowerSession } from "../lib/towers-api";
