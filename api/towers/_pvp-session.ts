@@ -13,6 +13,7 @@ import type {
 } from '../../shared/tower-pvp.js';
 import { TOWER_PVP_MATCH_SIZE, TOWER_PVP_TEAM_SIZE, TOWER_PVP_TURN_MS } from '../../shared/tower-pvp.js';
 import { MAX_ROUNDS } from '../combat-core/constants.js';
+import { startingItemShield } from '../combat-core/shields.js';
 import type { TowerFloor } from './_floor-catalog.js';
 import {
     activeActor,
@@ -110,7 +111,8 @@ function fighterActor(
         maxChakra,
         stamina: maxStamina,
         maxStamina,
-        shield: 0,
+        // Gear Shield special, seeded as PvP seeds it (timed in createTowerSession).
+        shield: startingItemShield(fighter.character),
         statuses: [],
         cooldowns: {},
         pos,

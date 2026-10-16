@@ -15,6 +15,13 @@ export const NAMED_WEAPON_TAGS = ['Siphon', 'Absorb', 'Poison', 'Wound', 'Reflec
 // Half draw one tag, half draw two, without replacement: (1 + 2) / 2 / 12.
 export const NAMED_WEAPON_TAG_APPEARANCE_PERCENT = 100 * (NAMED_WEAPON_TAG_COUNTS.reduce((sum, count) => sum + count, 0) / NAMED_WEAPON_TAG_COUNTS.length) / NAMED_WEAPON_TAGS.length;
 export const NAMED_ARMOR_STATS = { min: 25, max: 35 } as const;
+/**
+ * Named gauntlets roll their OFFENSE here instead (owner ruling 2026-10-16). The
+ * built-in legendary gauntlets carry 75 offense / 30 defense, so on the shared
+ * 25-35 every named pair lost to them. 65-85 averages the built-in 75, the way
+ * the other named pieces average the legendary 30. Defense stays NAMED_ARMOR_STATS.
+ */
+export const NAMED_GAUNTLET_OFFENSE = { min: 65, max: 85 } as const;
 export const NAMED_ARMOR_QUALITIES = ['Elite', 'Legendary', 'Mythic'] as const;
 export const NAMED_ARMOR_SLOTS = ['head', 'body', 'waist', 'legs', 'feet', 'hand'] as const;
 export const NAMED_ARMOR_SPECIALS = [

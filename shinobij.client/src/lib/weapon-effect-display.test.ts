@@ -36,6 +36,26 @@ describe("weapon effect cards show what the swing really does", () => {
         assert.equal(weaponEffectDisplayValue("Reflect", 40), "35%");
         assert.equal(weaponEffectDisplayValue("Lifesteal", 30), "30%");
         assert.equal(weaponEffectDisplayValue("Poison", 40), `${WEAPON_POISON_TAG_CAP}%`);
+        // A swing's Increase Generals counts at half (api/combat-core/formulas.ts WEAPON_GENERALS_TAG_SCALE).
+        assert.equal(weaponEffectDisplayValue("Increase Generals", 38), "17%");
+        assert.equal(weaponEffectDisplayValue("Increase Generals", 18), "9%");
+    });
+
+    it("reads a missing percent the way combat does, and gives no number to a tag without one", () => {
+        // scaledTagPercent treats 0 as 30; Poison falls back to POISON_DEFAULT_PCT (6).
+        assert.equal(weaponEffectDisplayValue("Lifesteal", 0), "30%");
+        assert.equal(weaponEffectDisplayValue("Wound", undefined), "25% of damage dealt");
+        assert.equal(weaponEffectDisplayValue("Poison", 0), "6%");
+        assert.equal(weaponEffectDisplayValue("Pierce", 0), "");
+        assert.equal(weaponEffectDisplayValue("Stun", 40), "");
+    });
+
+    it("shows a fresh roll at the value combat applies, not the raw roll", () => {
+        // A single roll is 35-40; the reveal used to print it as-is.
+        assert.equal(namedRollTagValue("Wound", 38, 1), "25% of damage dealt");
+        assert.equal(namedRollTagValue("Increase Damage Given", 40, 1), "35%");
+        assert.equal(namedRollTagValue("Increase Generals", 38, 1), "17%");
+        assert.equal(namedRollTagValue("Poison", 12, 1), `${WEAPON_POISON_TAG_CAP}%`);
     });
 });
 

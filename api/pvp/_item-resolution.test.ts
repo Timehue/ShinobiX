@@ -186,3 +186,41 @@ describe('no built-in item advertises an inert vitals bonus', () => {
         assert.deepEqual(offenders, [], `these bonuses are never applied to any pool: ${offenders.join(', ')}`);
     });
 });
+
+/*
+ * A named piece only counts from a gear slot. The save sanitizer now refuses one
+ * anywhere else, and combat ignores it there too, so a save stored before that
+ * guard cannot stack spare named armor from relic / item1-3 / thrown / potion.
+ */
+describe('named gear outside the gear slots counts for nothing', () => {
+    const head = (n: number) => ({
+        id: `named-armor-${String(n).repeat(32)}`, name: `Head ${n}`, slot: 'head', rarity: 'legendary', armorQuality: 'Mythic',
+        bonuses: { ninjutsuDefense: 35, absorbPercent: 2, shield: 150 },
+    });
+    const pieces = [1, 2, 3, 4, 5, 6, 7].map(head);
+    const save = { creatorItems: pieces };
+
+    it('sums a named head once, however many spares sit in other slots', () => {
+        const [a, b, c, d, e, f, g] = pieces.map((p) => p.id);
+        const stacked = deriveCombatMultipliers(saveCharacter({ head: a, relic: b, item1: c, item2: d, item3: e, thrown: f, potion: g }), save);
+        const legit = deriveCombatMultipliers(saveCharacter({ head: a }), save);
+        assert.deepEqual(stacked, legit);
+        assert.equal(stacked.itemAbsorbPct, 2);
+        assert.equal(stacked.itemShield, 150);
+    });
+
+    it('never arms a spare named weapon parked outside the gear slots', () => {
+        const weapon = (n: number) => ({ id: `named-weapon-${String(n).repeat(32)}`, name: `Blade ${n}`, slot: 'hand', rarity: 'legendary', weaponEp: 25, weaponTags: [{ name: 'Wound', percent: 38 }] });
+        const [main, spare] = [weapon(8), weapon(9)];
+        const hydrated = hydrateCharacterFromSave(saveCharacter({ hand: main.id, relic: spare.id }), {}, { creatorItems: [main, spare] }, null) as Record<string, unknown>;
+        assert.deepEqual(itemIds(hydrated), [main.id]);
+    });
+
+    it('still counts a built-in in a non-gear slot (only named pieces are held to the gear slots)', () => {
+        const relic = Object.entries(ITEM_CATALOG as Record<string, Record<string, unknown>>)
+            .find(([, item]) => item.slot === 'relic' && Number((item.bonuses as Record<string, unknown> | undefined)?.damagePercent) > 0);
+        if (!relic) return;
+        const out = deriveCombatMultipliers(saveCharacter({ relic: relic[0] }), save);
+        assert.ok(out.itemDamagePct > 0);
+    });
+});

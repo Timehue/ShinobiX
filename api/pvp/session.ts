@@ -59,6 +59,7 @@ import { JUTSU_CATALOG } from './_jutsu-catalog.js';
 import { LEGACY_JUTSU_CATALOG, LEGACY_JUTSU_ID_BY_LEGACY } from './_legacy-jutsu-catalog.js';
 import { legacyEnabled, LEGACY_PVP_RECEIPT_TTL_SECONDS } from '../_legacy-track.js';
 import { deriveCombatMultipliers, deriveEquipmentStatBonuses, derivePveBonuses, buildItemLookup } from './_multipliers.js';
+import { namedGearFitsEquipSlot } from '../../shared/named-gear-rules.js';
 import { combatEquipment } from '../../shared/gathering-tools.js';
 import { territoryRewardsSuspended } from '../_territory-lifecycle.js';
 import { carriedBloodlines, characterMayUseJutsu } from './_bloodline-gate.js';
@@ -1307,8 +1308,12 @@ function resolveEquippedPvpItems(
     if (!save) return null;
     const equipment = saveCharacter.equipment;
     if (!equipment || typeof equipment !== 'object') return null;
+    // A named piece outside the gear slots is never armed (shared/named-gear-rules.ts),
+    // the same rule the stat sums in _multipliers.ts apply to a stored legacy save.
     const ids = [...new Set(
-        Object.values(equipment as Record<string, unknown>).filter((v): v is string => typeof v === 'string'),
+        Object.entries(equipment as Record<string, unknown>)
+            .filter(([slot, v]) => typeof v === 'string' && namedGearFitsEquipSlot(slot, v))
+            .map(([, v]) => v as string),
     )];
     if (ids.length === 0) return null;
     const getItem = buildItemLookup(save.creatorItems, adminItems);

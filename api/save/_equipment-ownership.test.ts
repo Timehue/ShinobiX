@@ -175,6 +175,23 @@ describe('equipment ownership boundary (non-strict mode)', () => {
         assert.equal(equipment.armor, 'shinobi-vest');
     });
 
+    it('holds named gear to the gear slots, so spare pieces cannot stack their specials', () => {
+        // A forged piece has no built-in definition for the kind check, and every
+        // equipment value is summed into combat. Seven Absorb heads in head +
+        // relic + item1-3 + thrown + potion used to count seven times over.
+        const head = (n: number) => `named-armor-${String(n).repeat(32)}`;
+        const ids = [1, 2, 3, 4, 5, 6, 7].map(head);
+        const weapon = 'named-weapon-abcdefabcdefabcdefabcdefabcdefab';
+        const stored = baseChar({ level: 90, inventory: [...ids, weapon] });
+        const out = sanitize(baseChar({
+            level: 90,
+            inventory: [...ids, weapon],
+            equipment: { head: ids[0], relic: ids[1], item1: ids[2], item2: ids[3], item3: ids[4], thrown: ids[5], potion: ids[6], hand: weapon },
+        }), stored);
+        assert.deepEqual(out.equipment, { head: ids[0], hand: weapon }, 'only the gear slots keep a named piece');
+        assert.deepEqual([...(out.inventory as string[])].sort(), ids.slice(1).sort(), 'the refused pieces stay in the backpack');
+    });
+
     it('itemStacks count as ownership for reference slots', () => {
         const stored = baseChar({ itemStacks: [{ itemId: 'shuriken', count: 5 }] });
         const out = sanitize(baseChar({
@@ -196,6 +213,25 @@ describe('weaponElements is server-owned', () => {
         const stored = baseChar();
         const out = sanitize(baseChar({ weaponElements: { 'worldsplitter-katana': 'Fire' } }), stored);
         assert.equal(out.weaponElements, undefined, 'no stored attunement → the field is deleted');
+    });
+});
+
+describe('named gear refused from a slot is never lost (strict ledger)', () => {
+    it('returns a named piece the client listed as worn in relic to the backpack', () => {
+        const previous = process.env.STRICT_RAW_SAVE_LEDGER;
+        process.env.STRICT_RAW_SAVE_LEDGER = '1';
+        try {
+            const piece = `named-armor-${'a'.repeat(32)}`;
+            const stored = baseChar({ level: 90, inventory: [piece] });
+            // The client says the piece is worn (not carried), as a save that
+            // parked it in relic would.
+            const out = sanitizeCharacterSave(wrap(baseChar({ level: 90, inventory: [], equipment: { relic: piece } })), wrap(stored)).character as Record<string, unknown>;
+            assert.deepEqual(out.equipment, {}, 'relic refuses a named piece');
+            assert.deepEqual(out.inventory, [piece], 'and the piece survives in the backpack');
+        } finally {
+            if (previous === undefined) delete process.env.STRICT_RAW_SAVE_LEDGER;
+            else process.env.STRICT_RAW_SAVE_LEDGER = previous;
+        }
     });
 });
 

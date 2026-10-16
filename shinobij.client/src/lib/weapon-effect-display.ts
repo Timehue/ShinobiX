@@ -13,6 +13,7 @@
  *     The stored value is never read.
  *   • Percentage buffs answer to the weapon amp ceiling (WEAPON_AMP_TAG_CAP, 35),
  *     Wound to the basic-rank Wound cap (25) and Poison to WEAPON_POISON_TAG_CAP.
+ *     Increase Generals then counts at half (WEAPON_GENERALS_TAG_SCALE).
  *     A Wound bleeds that percent of the damage the swing caused, per turn.
  * Cards used to print the stored number with a "%" — the Frostfang Oathblade read
  * "Shield 300%" and the Ranked Kunai "Wound 300%".
@@ -66,16 +67,43 @@ export function weaponFlatTagAmountFor(item: WeaponLike | undefined, tag: "Heal"
     return solo ? WEAPON_FLAT_TAG_SOLO : WEAPON_FLAT_TAG_SPLIT;
 }
 
+/** Mirrors WEAPON_GENERALS_TAG_SCALE in api/combat-core/formulas.ts: a swing's Generals counts at half. */
+export const WEAPON_GENERALS_TAG_SCALE = 0.5;
+
+/** Mirrors WEAPON_TAGS_WITHOUT_MAGNITUDE in api/pvp/_weapon-tags.ts: no percent is read. */
+const WEAPON_TAGS_WITHOUT_MAGNITUDE = new Set([
+    "Pierce", "Stun", "Barrier", "Push", "Pull",
+    "Debuff Prevent", "Buff Prevent", "Cleanse Prevent", "Clear Prevent", "Stun Prevent",
+]);
+
+/** Mirrors POISON_DEFAULT_PCT and scaledTagPercent's 30 for a missing percent (api/combat-core/formulas.ts). */
+const MISSING_PERCENT_DEFAULT = 30;
+const MISSING_POISON_DEFAULT = 6;
+
+/** A swing's percent tag after the weapon caps, as the server applies it ("" when the tag has no number). */
+function weaponTagPercentText(tag: string, value: number | undefined): string {
+    if (WEAPON_TAGS_WITHOUT_MAGNITUDE.has(tag)) return "";
+    const raw = Number(value) > 0 ? Number(value) : tag === "Poison" ? MISSING_POISON_DEFAULT : MISSING_PERCENT_DEFAULT;
+    const pct = weaponTagCombatPercent(tag, raw);
+    if (tag === "Wound") return `${Math.min(pct, WEAPON_WOUND_TAG_CAP)}% of damage dealt`;
+    if (tag === "Increase Generals") return `${Math.floor(Math.min(pct, WEAPON_AMP_TAG_CAP) * WEAPON_GENERALS_TAG_SCALE)}%`;
+    if (cappedDamageTags.includes(tag)) return `${Math.min(pct, WEAPON_AMP_TAG_CAP)}%`;
+    return `${pct}%`;
+}
+
 /**
  * A freshly ROLLED Named Weapon tag (no item id yet): Heal/Shield/Drain show the
- * flat amount the blade will grant; everything else shows its rolled percent.
+ * flat amount the blade will grant; everything else shows the percent it applies
+ * in combat. The reveal used to print the raw roll, so a 38 Wound read "38%"
+ * while it bled 25%.
  */
 export function namedRollTagValue(name: string, percent: number, distinctTagCount: number): string {
     const solo = distinctTagCount <= 1;
-    if (name === "Heal") return `${solo ? WEAPON_FLAT_TAG_SOLO : WEAPON_FLAT_TAG_SPLIT} HP`;
-    if (name === "Shield") return `${solo ? WEAPON_FLAT_TAG_SOLO : WEAPON_FLAT_TAG_SPLIT} shield`;
-    if (name === "Drain") return `${solo ? WEAPON_DRAIN_TICK_SOLO : WEAPON_DRAIN_TICK_SPLIT} HP + chakra per turn`;
-    return `${percent}%`;
+    const tag = normalizeTagName(name);
+    if (tag === "Heal") return `${solo ? WEAPON_FLAT_TAG_SOLO : WEAPON_FLAT_TAG_SPLIT} HP`;
+    if (tag === "Shield") return `${solo ? WEAPON_FLAT_TAG_SOLO : WEAPON_FLAT_TAG_SPLIT} shield`;
+    if (tag === "Drain") return `${solo ? WEAPON_DRAIN_TICK_SOLO : WEAPON_DRAIN_TICK_SPLIT} HP + chakra per turn`;
+    return weaponTagPercentText(tag, percent);
 }
 
 export function weaponEffectDisplayValue(name: string, value: number | undefined, item?: WeaponLike): string {
@@ -83,8 +111,5 @@ export function weaponEffectDisplayValue(name: string, value: number | undefined
     if (tag === "Heal") return `${weaponFlatTagAmountFor(item, "Heal")} HP`;
     if (tag === "Shield") return `${weaponFlatTagAmountFor(item, "Shield")} shield`;
     if (tag === "Drain") return `${weaponFlatTagAmountFor(item, "Drain")} HP + chakra per turn`;
-    const pct = weaponTagCombatPercent(tag, Math.max(0, Number(value) || 0));
-    if (tag === "Wound") return `${Math.min(pct, WEAPON_WOUND_TAG_CAP)}% of damage dealt`;
-    if (cappedDamageTags.includes(tag)) return `${Math.min(pct, WEAPON_AMP_TAG_CAP)}%`;
-    return `${pct}%`;
+    return weaponTagPercentText(tag, value);
 }

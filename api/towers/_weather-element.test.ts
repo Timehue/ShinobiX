@@ -51,8 +51,8 @@ function fighter(name: string): PvpFighter {
 
 type WeatherCase = { element: string; weatherElement?: string };
 
-/** Damage dealt by one cast of the case's jutsu in a fresh single-creature hunt. */
-function castDamage(jutsu: WeatherCase, weathered: boolean): number {
+/** A fresh single-creature hunt battle, with or without the sealed sky. */
+function huntBattle(weathered: boolean) {
     const session = createSoloPveSession({
         sessionId: 'hunt-weather-parity', ownerSlug: 'hunter',
         encounter: { kind: 'generic-ai', id: 'hunt-wild-boar', level: 20 },
@@ -74,20 +74,39 @@ function castDamage(jutsu: WeatherCase, weathered: boolean): number {
 
     const player = battle.actors.find((actor) => actor.id === 'player')!;
     const enemy = battle.actors.find((actor) => actor.side === 'enemy')!;
+    // Enough HP that no hit is clamped, so the two variants stay comparable.
+    enemy.hp = ENEMY_HP;
+    enemy.maxHp = ENEMY_HP;
+    return { battle, player, enemy };
+}
+
+/** Damage dealt by one cast of the case's jutsu in a fresh single-creature hunt. */
+function castDamage(jutsu: WeatherCase, weathered: boolean): number {
+    const { battle, player, enemy } = huntBattle(weathered);
     player.character.jutsu = [{
         id: PROBE_ID, name: 'Weather Probe', type: 'Taijutsu', target: 'OPPONENT', method: 'SINGLE',
         // 60 AP: a 40-AP technique is a zero-damage utility by rule.
         effectPower: 60, ap: 60, range: 30, chakraCost: 0, staminaCost: 0, cooldown: 0, tags: [],
         ...jutsu,
     }];
-    // Enough HP that no cast is clamped, so the two variants stay comparable.
-    enemy.hp = ENEMY_HP;
-    enemy.maxHp = ENEMY_HP;
 
     const result = applyAction(battle, battle.encounterFloor!,
         { actorId: player.id, type: 'jutsu', jutsuId: PROBE_ID, targetId: enemy.id },
         makeRng(20261002));
     assert.equal(result.applied, true, result.reason ?? 'the cast resolves');
+    return ENEMY_HP - enemy.hp;
+}
+
+/** Damage dealt by one swing of an attuned hand weapon in a fresh hunt. */
+function swingDamage(weaponElement: string, weathered: boolean): number {
+    const { battle, player, enemy } = huntBattle(weathered);
+    const blade = { id: 'weather-blade', name: 'Weather Blade', slot: 'hand', weaponEp: 25, weaponRange: 30, apCost: 40, weaponCooldown: 5, weaponElement };
+    player.character.pvpItems = [blade];
+    player.character.equipment = { hand: blade.id };
+    const result = applyAction(battle, battle.encounterFloor!,
+        { actorId: player.id, type: 'weapon', itemId: blade.id, targetId: enemy.id },
+        makeRng(20261002));
+    assert.equal(result.applied, true, result.reason ?? 'the swing resolves');
     return ENEMY_HP - enemy.hp;
 }
 
@@ -119,4 +138,18 @@ describe('Tower weather term reads weatherElement like PvP and Solo', () => {
     it('scores a Water-looking jutsu by its Fire weather element, not as the opposed element', () => {
         assertWeatherScales({ element: 'Water', weatherElement: 'Fire' });
     });
+
+    // A swing carries its attunement on pveWeaponElement, not `element`, so the
+    // Tower term used to read nothing and a Fire blade lost its +5% in a hunt.
+    for (const element of [POSITIVE, NEGATIVE]) {
+        it(`scales a ${element}-attuned weapon swing like PvP and Solo do`, () => {
+            const neutral = swingDamage(element, false);
+            const weathered = swingDamage(element, true);
+            assert.ok(neutral > 0, 'the swing must land for the comparison to mean anything');
+            const expected = weatherMultiplier(element, POSITIVE, NEGATIVE);
+            assert.notEqual(expected, 1);
+            assert.ok(Math.abs(weathered - neutral * expected) <= 2,
+                `expected ~${(neutral * expected).toFixed(1)} (×${expected}), got ${weathered} against ${neutral}`);
+        });
+    }
 });
