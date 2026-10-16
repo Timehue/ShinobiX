@@ -37,8 +37,8 @@ describe('generic AI fight authority', () => {
             const profile = ordinaryAiProfile(descriptor);
             const previousExploreScaling = relevelAiProfile(template as unknown as RelevelableProfile, descriptor.level, 0, 0, resolveAiProfileJutsu(template.jutsuIds));
             assert.deepEqual(profile.stats, previousExploreScaling.stats, `${archetype}: same original-kit stat allocation`);
-            assert.equal(profile.hp, previousExploreScaling.hp);
-            assert.equal(profile.armorRawDR, previousExploreScaling.armorRawDR);
+            assert.equal(profile.chakra, previousExploreScaling.chakra);
+            assert.equal(profile.stamina, previousExploreScaling.stamina);
             assert.equal(profile.pveTemplateId, descriptor.profileId);
         }
     });

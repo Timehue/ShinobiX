@@ -1,11 +1,13 @@
 import { builtinAiProfile } from '../_ai-profile-catalog.js';
 import { relevelAiProfile, type RelevelableProfile } from '../_ai-level-curves.js';
 import { resolveAiProfileJutsu } from '../_ai-opponent-loadout.js';
+import { maxHpForLevel } from '../_xp-engine.js';
+import { pveDifficultyHpMultiplier } from '../_pve-difficulty.js';
 import type { OrdinaryPveEncounter } from '../../shared/ordinary-pve-encounter.js';
 import type { AiFightProfile } from './_ai-fight-encounter.js';
 
-/** A receipt owns role/name/level; templates supply the legal combat kit. No
- * HP, damage multiplier or client-selected profile is added by difficulty. */
+/** A receipt owns role/name/level; templates supply the legal combat kit.
+ * Difficulty never adds HP or a damage multiplier. */
 export function ordinaryAiProfile(encounter: OrdinaryPveEncounter): AiFightProfile {
     const template = builtinAiProfile(encounter.profileId);
     if (!template) throw new Error('The sealed exploration template is unavailable.');
@@ -15,6 +17,14 @@ export function ordinaryAiProfile(encounter: OrdinaryPveEncounter): AiFightProfi
         resolveAiProfileJutsu(template.jutsuIds)) as AiFightProfile;
     return {
         ...profile,
+        // Advanced ordinary opponents use the player's level HP curve. The
+        // standard encounter builder applies a band multiplier afterward;
+        // compensate here so the sealed effective HP is exactly that curve.
+        // This adapter never handles authored rivals, patrols or story bosses.
+        ...(encounter.level >= 36 ? {
+            hp: Math.ceil(maxHpForLevel(encounter.level) / pveDifficultyHpMultiplier(encounter.level)),
+            armorRawDR: Math.min(Number(profile.armorRawDR) || 0, encounter.level < 65 ? .25 : .35),
+        } : {}),
         id: encounter.profileId,
         name: encounter.displayName,
         pveDifficulty: encounter.difficulty,

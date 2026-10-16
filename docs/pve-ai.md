@@ -87,9 +87,10 @@ when this shipped keep the original runner.
 The enemy's own sealed level selects one of five tactical tiers. These do not
 replace the easy/medium/hard/peer damage guards. For example, a level-25 enemy
 can plan a useful two-action turn while keeping its easy-band mercy floor and
-opening burst delay. A server-sealed `masterAi` always selects the highest
-tactical tier, including the final story Kage; it grants no extra AP, hidden
-player input, resources, damage multiplier, or HP.
+opening burst delay. A server-sealed `masterAi` selects master planning. Only
+the authoritative final story encounter, with `story-boss`, `final-kage`, and
+`masterAi` all sealed, selects apex planning. These choices grant no extra AP,
+hidden player input, resources, damage multiplier, or HP.
 
 | Tier | Levels | Search depth / first-action beam | Maximum resolver previews per decision | Behavior |
 | --- | --- | --- | --- | --- |
@@ -98,6 +99,7 @@ player input, resources, damage multiplier, or HP.
 | tactical | 36–60 | 2 / 4 | 64 | Broader setup/attack and counterplay comparisons. |
 | advanced | 61–85 | 2 / 6 | 80 | Survival and useful retreat, shield/cooldown-aware reach. |
 | master | 86–100 | up to 5 / 6 | 128 | Bounded whole-turn search, including movement plus two attacks and legal finishers. |
+| apex | Final story Kage only | up to 5 / 8 | 192 | Wider search using the same legal actions, public state and survival scoring. |
 
 All tiers obey `MAX_ACTIONS` and the AP/resources actually available. A useful
 movement opener is retained alongside the first-action beam so many utility
@@ -149,7 +151,7 @@ future input, and it does not guarantee survival against every possible reply.
   iteration guard.
 - **Deterministic.** Same stored state, same decisions, same events.
 - **Bounded cost.** One deterministic preview budget per decision, up to 128
-  at the highest tier, through at most five actions; simulations drop the
+  for ordinary masters or 192 for the final story apex, through at most five actions; simulations drop the
   session's event history and log before cloning. The bounded-history fixture
   records decision p95 as diagnostic evidence, not a timing input.
 - **Rollback.** `DISABLE_PVE_AI_PLANNER=1` stops sealing new sessions and sends

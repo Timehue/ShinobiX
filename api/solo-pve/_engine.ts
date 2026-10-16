@@ -72,7 +72,7 @@ import {
 import type { HollowGateHoundKind } from '../../shared/hollow-gate-contract.js';
 import {
     enemyActionKey,
-    enemyTurnPolicy,
+    enemyTurnPolicyForEncounter,
     enemyTurnValue,
     enemyStatusValue,
     standardPvePlannerApplies,
@@ -2163,7 +2163,10 @@ function chooseStandardPveEnemyAction(session: SoloPveSession, policy: EnemyTurn
  */
 function runStandardPveEnemyTurn(
     session: SoloPveSession,
-    policy: EnemyTurnPolicy = enemyTurnPolicy(Math.max(1, Number(session.enemy.character.level) || 1), session.enemy.character.masterAi === true),
+    policy: EnemyTurnPolicy = enemyTurnPolicyForEncounter({
+        level: Math.max(1, Number(session.enemy.character.level) || 1), masterAi: session.enemy.character.masterAi === true,
+        kind: session.encounter.kind, difficulty: session.enemy.character.pveDifficulty,
+    }),
 ): void {
     const turnOver = () => session.actionsThisTurn >= MAX_ACTIONS || (policy.legacyTurnEnd && session.ap.enemy < 30);
     let guard = 0;
