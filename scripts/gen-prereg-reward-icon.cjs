@@ -74,6 +74,29 @@ function hexMask(pointyTop) {
     const meta = await sharp(out).metadata();
     console.log(out, meta.width, meta.height, meta.channels, 'channels');
 
+    // The pre-registration reward badge: the same art on a TRANSPARENT
+    // background (Play asks for a transparent PNG), with a soft glow so the
+    // dark crate still reads on a dark store theme.
+    const badgeOut = path.join(path.dirname(out), 'prereg-first-shinobi-box-badge-512.png');
+    const glow = Buffer.from(`
+<svg xmlns="http://www.w3.org/2000/svg" width="${S}" height="${S}">
+  <defs>
+    <radialGradient id="g" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffbe5c" stop-opacity="0.55"/>
+      <stop offset="55%" stop-color="#c2412d" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#c2412d" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <circle cx="${C}" cy="${C}" r="${C - 6}" fill="url(#g)"/>
+</svg>`);
+    await sharp(glow)
+        .composite([{ input: group, left: offset, top: offset + 6 }])
+        .ensureAlpha()
+        .png({ compressionLevel: 9 })
+        .toFile(badgeOut);
+    const badgeMeta = await sharp(badgeOut).metadata();
+    console.log(badgeOut, badgeMeta.width, badgeMeta.height, badgeMeta.channels, 'channels');
+
     if (preview) {
         // Second tile: pointy hexagon after a 1.2x centre zoom, like Play's preview.
         const zoomed = await sharp(out).resize(614, 614).extract({ left: 51, top: 51, width: S, height: S }).png().toBuffer();
