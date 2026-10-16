@@ -5,6 +5,7 @@
  * globally by the window.fetch interceptor (authFetch.ts), so plain fetch() is
  * fine here. Single-pane (inbox OR conversation) so it works on mobile.
  */
+import { displayPlayerName } from "../../../shared/player-name";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { visiblePoll } from "../lib/poll";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -247,7 +248,7 @@ export const Messages = memo(function Messages({ character, onBack, initialWith,
                 <div className="summary-box" style={{ display: "flex", flexDirection: "column" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                         <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                            <strong style={{ color: "#e6c477" }}>{active}</strong>
+                            <strong style={{ color: "#e6c477" }}>{displayPlayerName(active)}</strong>
                             <ReportControl targetType="player" targetName={active} context="direct-message" />
                             <button
                                 type="button"
@@ -281,7 +282,7 @@ export const Messages = memo(function Messages({ character, onBack, initialWith,
                         <GuestSocialLock compact what="Guest characters can read the mail they are sent, but cannot reply." />
                     ) : (
                         <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-                            <input aria-label={`Reply to ${active}`} enterKeyHint="send" disabled={blocked.has(active) || composeDisabled} value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void send(active, draft); }} placeholder={blocked.has(active) ? `${active} is blocked` : `Message ${active}…`} maxLength={500} style={{ flex: 1 }} />
+                            <input aria-label={`Reply to ${displayPlayerName(active)}`} enterKeyHint="send" disabled={blocked.has(active) || composeDisabled} value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void send(active, draft); }} placeholder={blocked.has(active) ? `${displayPlayerName(active)} is blocked` : `Message ${displayPlayerName(active)}…`} maxLength={500} style={{ flex: 1 }} />
                             <button disabled={busy || blocked.has(active) || composeDisabled || !draft.trim()} onClick={() => void send(active, draft)}>Send</button>
                         </div>
                     )}
@@ -316,15 +317,15 @@ export const Messages = memo(function Messages({ character, onBack, initialWith,
                                     <div key={e.with} style={{ display: "flex", alignItems: "stretch", gap: 6, minWidth: 0 }}>
                                         <button onClick={() => { setActive(e.with); setError(""); }} style={{ display: "flex", flex: 1, minWidth: 0, justifyContent: "space-between", alignItems: "center", textAlign: "left", padding: "6px 10px", background: e.unread > 0 ? "var(--slate-800)" : "transparent", border: "1px solid var(--slate-700)", borderRadius: 8 }}>
                                             <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-                                                <strong style={{ color: "#e5e7eb", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" }}>{e.with}{e.unread > 0 ? ` (${e.unread})` : ""}</strong>
+                                                <strong style={{ color: "#e5e7eb", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" }}>{displayPlayerName(e.with)}{e.unread > 0 ? ` (${e.unread})` : ""}</strong>
                                                 <small style={{ color: "var(--text-dim)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 360 }}>{e.lastText}</small>
                                             </span>
                                             <small style={{ color: "var(--text-muted)", flexShrink: 0, marginLeft: 8 }}>{timeAgo(e.lastTs)}</small>
                                         </button>
                                         <button
                                             type="button"
-                                            aria-label={`Delete conversation with ${e.with}`}
-                                            title={`Delete conversation with ${e.with}`}
+                                            aria-label={`Delete conversation with ${displayPlayerName(e.with)}`}
+                                            title={`Delete conversation with ${displayPlayerName(e.with)}`}
                                             disabled={busy || deleting !== null}
                                             onClick={() => void deleteConversation(e.with)}
                                             style={{ width: 42, flex: "0 0 42px", display: "grid", placeItems: "center", padding: 0, color: "#fca5a5", border: "1px solid rgba(248, 113, 113, .45)", borderRadius: 8, background: "rgba(127, 29, 29, .14)" }}

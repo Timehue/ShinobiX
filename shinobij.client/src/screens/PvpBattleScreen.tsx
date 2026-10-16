@@ -1,3 +1,4 @@
+import { displayPlayerName } from "../../../shared/player-name";
 import { playerLensDiscipline } from "../lib/player-lens-discipline";
 import { CombatGridAppearanceControls, CombatGridOutline } from "../components/CombatGridAppearance";
 import { useCombatGridAppearance } from "../lib/use-combat-grid-appearance";
@@ -2955,7 +2956,7 @@ export function PvpBattleScreen({
                                     <p className="battle-chat-empty">No messages yet.</p>
                                 ) : battleChatMessages.map((msg, i) => (
                                     <div key={i} className={`battle-chat-msg ${msg.role === "fighter" ? "chat-fighter" : "chat-spectator"}`}>
-                                        <strong>{msg.author}</strong>
+                                        <strong>{displayPlayerName(msg.author)}</strong>
                                         <span>{msg.text}</span>
                                     </div>
                                 ))}

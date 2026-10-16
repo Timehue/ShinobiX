@@ -6,6 +6,7 @@
  * adds no background traffic when a player isn't looking at the chat. Messages
  * are a server-capped ring buffer (last 50); the server stamps name + timestamp.
  */
+import { displayPlayerName } from "../../../shared/player-name";
 import { useEffect, useRef, useState } from "react";
 import { CLAN_CHAT_SEND_FAILED, sendClanChat } from "../lib/clan-chat-api";
 import { CLAN_CHAT_KEEP, useClanChatFeed } from "../lib/use-clan-chat-feed";
@@ -45,7 +46,7 @@ export function ClanChat({ playerName, clan }: { playerName: string; clan: strin
                     ? <p className="hint">No messages yet — say hello to your clan.</p>
                     : messages.map(m => (
                         <div key={m.id} className={`clan-chat-msg${m.name === playerName ? " self" : ""}`}>
-                            <span className="clan-chat-name">{m.name}</span>
+                            <span className="clan-chat-name">{displayPlayerName(m.name)}</span>
                             <span className="clan-chat-text">{m.text}</span>
                             {m.name !== playerName && (
                                 <ReportControl targetType="clan-chat" targetName={m.name} targetId={m.id} context="clan-chat" style={{ marginLeft: "auto" }} />

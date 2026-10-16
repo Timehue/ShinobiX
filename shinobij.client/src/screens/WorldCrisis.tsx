@@ -1,3 +1,4 @@
+import { displayPlayerName } from "../../../shared/player-name";
 import { useCallback, useEffect, useMemo, useState, useTransition, type CSSProperties } from "react";
 import { cacheDynamicImport, lazyWithRetry } from "../lib/lazyWithRetry";
 import type { BattleHistoryEntry, Character, VersionedCharacterCommit } from "../types/character";
@@ -183,7 +184,7 @@ export function WorldCrisis({ character, creatorItems, savedBloodlines, setScree
                 <section className="world-crisis__honor" aria-label="Leading defenders">
                     <span>Field ledger</span>
                     {crisis!.topDefenders.slice(0, 5).map((defender, index) => (
-                        <div key={`${defender.player}-${defender.village}`}><b>#{index + 1}</b><strong>{defender.player}</strong><small>{defender.village}</small><em>{defender.wins} wins</em></div>
+                        <div key={`${defender.player}-${defender.village}`}><b>#{index + 1}</b><strong>{displayPlayerName(defender.player)}</strong><small>{defender.village}</small><em>{defender.wins} wins</em></div>
                     ))}
                 </section>
             )}

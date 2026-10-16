@@ -13,6 +13,7 @@ import { useSocialLock } from "../lib/account-status";
 import { GiCrown, GiLaurelCrown, GiTalk } from "../components/icons/LightweightGameIcons";
 import { FacilityHero } from "../components/FacilityHero";
 import { useVillageChat } from "../lib/use-village-chat";
+import { displayPlayerName } from "../../../shared/player-name";
 
 // Server-added optional fields (api/village/chat.ts ChatMessage): paid title
 // cosmetics + legacy prestige derived from the author's save, and the
@@ -162,7 +163,7 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerR
                 metrics={[
                     { label: "Room", value: locked ? "Closed" : "Members only", tone: locked ? "warning" : "good" },
                     { label: "Recent voices", value: loading ? "Listening…" : messages.length.toLocaleString() },
-                    { label: "Village Kage", value: seatedKage ?? "Unseated" },
+                    { label: "Village Kage", value: seatedKage ? displayPlayerName(seatedKage) : "Unseated" },
                 ]}
             />
             {/* Hold the room back until the server has answered, rather than
@@ -196,6 +197,7 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerR
                     // returned "Invalid Date"; keep that output.
                     const sentAt = new Date(m.ts);
                     const sentTime = Number.isNaN(sentAt.getTime()) ? "Invalid Date" : timeFormat.format(sentAt);
+                    const authorName = displayPlayerName(m.author);
                     return (
                         <div key={`${m.ts}-${m.author}`} className={`tavern-message ${m.author === character.name ? "tavern-mine" : ""}${m.system ? " tavern-herald" : ""}`}>
                             <div className="tavern-avatar-col">
@@ -203,10 +205,10 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerR
                                     className="tavern-avatar"
                                     onClick={() => onViewProfile?.(m.author)}
                                     style={onViewProfile ? { cursor: "pointer" } : undefined}
-                                    title={onViewProfile ? `View ${m.author}'s profile` : undefined}
+                                    title={onViewProfile ? `View ${authorName}'s profile` : undefined}
                                 >
                                     {avatar
-                                        ? <img src={avatar} alt={m.author} />
+                                        ? <img src={avatar} alt={authorName} />
                                         : <span>{m.author.slice(0, 2).toUpperCase()}</span>}
                                 </div>
                                 {level != null && <div className="tavern-level-badge">Lv{level}</div>}
@@ -220,8 +222,8 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerR
                                         tabIndex={onViewProfile ? 0 : undefined}
                                         onKeyDown={(e) => { if (onViewProfile && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onViewProfile(m.author); } }}
                                         style={onViewProfile ? { cursor: "pointer" } : undefined}
-                                        title={onViewProfile ? `View ${m.author}'s profile` : undefined}
-                                    >{m.author}</span>
+                                        title={onViewProfile ? `View ${authorName}'s profile` : undefined}
+                                    >{authorName}</span>
                                     {isKage && <span className="tavern-kage" title={`${character.village} Kage`}><GiCrown aria-hidden="true" /> Kage</span>}
                                     {rankTitle && <span className="tavern-rank">{rankTitle}</span>}
                                     {customTitle && (
@@ -243,7 +245,7 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerR
                                         type="button"
                                         className="tavern-reply-btn"
                                         onClick={() => startReply(m)}
-                                        aria-label={`Reply to ${m.author}`}
+                                        aria-label={`Reply to ${authorName}`}
                                     >↩ Reply</button>
                                     {/* Same in-app report path as clan chat / DMs / profiles
                                         (api/report.ts). Own and World Herald lines are exempt. */}
@@ -253,7 +255,7 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerR
                                 </div>
                                 {m.replyTo && (
                                     <div className="tavern-quote">
-                                        <span className="tavern-quote-author">↩ {m.replyTo.author}</span>
+                                        <span className="tavern-quote-author">↩ {displayPlayerName(m.replyTo.author)}</span>
                                         <span className="tavern-quote-text">{m.replyTo.text}</span>
                                     </div>
                                 )}
@@ -267,7 +269,7 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerR
                 {replyingTo && (
                     <div className="tavern-reply-banner">
                         <div className="tavern-reply-banner-info">
-                            <span className="tavern-reply-banner-label">Replying to {replyingTo.author}</span>
+                            <span className="tavern-reply-banner-label">Replying to {displayPlayerName(replyingTo.author)}</span>
                             <span className="tavern-reply-banner-text">{replyingTo.text}</span>
                         </div>
                         <button
@@ -285,8 +287,8 @@ function VillageTavern({ character, onBack, sharedImages, onViewProfile, playerR
                         value={input}
                         onChange={(e: ChangeEvent<HTMLInputElement>) => setInput(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Enter") void send(); }}
-                        placeholder={replyingTo ? `Reply to ${replyingTo.author}...` : `Say something to ${character.village}...`}
-                        aria-label={replyingTo ? `Your reply to ${replyingTo.author}` : "Message the tavern"}
+                        placeholder={replyingTo ? `Reply to ${displayPlayerName(replyingTo.author)}...` : `Say something to ${character.village}...`}
+                        aria-label={replyingTo ? `Your reply to ${displayPlayerName(replyingTo.author)}` : "Message the tavern"}
                         enterKeyHint="send"
                         maxLength={300}
                     />

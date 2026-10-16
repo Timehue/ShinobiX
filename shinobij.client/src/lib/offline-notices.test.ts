@@ -39,6 +39,11 @@ test('offlineNoticeMessage names the attacker and the sector', () => {
         offlineNoticeMessage({ kind: 'merc-raid', by: 'Frostfang mercenaries', village: 'Frostfang', sector: 9, at: 1 }),
         'Frostfang mercenaries raided your camp in Sector 9 while you were away. You were carried to the hospital.',
     );
+    // A player typed in lowercase is still shown capitalized.
+    assert.equal(
+        offlineNoticeMessage({ kind: 'sleeper-kill', by: 'raiden', sector: 17, at: 1 }),
+        'While you slept in Sector 17, Raiden ambushed your camp. You were carried to the hospital.',
+    );
 });
 
 test('notice icon art shares one semantic key per family', () => {

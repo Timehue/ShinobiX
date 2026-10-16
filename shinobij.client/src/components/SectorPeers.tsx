@@ -1,3 +1,4 @@
+import { displayPlayerName } from "../../../shared/player-name";
 import { SectorPortrait } from "./SectorPortrait";
 import { GameIcon } from "./icons/GameIcon";
 /*
@@ -173,7 +174,7 @@ export function SectorPeers({ peers, sector }: { peers: SectorPeer[]; sector?: n
                             transform: `translate(var(--peer-x, ${cx}px), var(--peer-y, ${cy}px)) translate(-50%, -${SECTOR_MARKER_ANCHOR}%)`,
                             ["--marker-ring"]: SECTOR_RING_PEER,
                         } as CSSProperties}
-                        title={`${it.name} (Lv ${it.level})`}
+                        title={`${displayPlayerName(it.name)} (Lv ${it.level})`}
                     >
                         <div
                             className={`sector-peer-body ${it.leaving ? "is-leaving" : "is-entering"}`}
@@ -188,7 +189,7 @@ export function SectorPeers({ peers, sector }: { peers: SectorPeer[]; sector?: n
                                     <span className="sector-avatar-pin" />
                                 </span>
                             </span>
-                            <span className="sector-peer-label">{it.name}{it.sleeping && <> <GameIcon name="moon" size={12} title="Sleeping" /></>}</span>
+                            <span className="sector-peer-label">{displayPlayerName(it.name)}{it.sleeping && <> <GameIcon name="moon" size={12} title="Sleeping" /></>}</span>
                         </div>
                     </div>
                 );
