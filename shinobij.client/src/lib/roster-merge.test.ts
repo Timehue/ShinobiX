@@ -90,7 +90,8 @@ test("applies normalize to each incoming character", () => {
 test("layers a minimal heartbeat character over the cached rich one (Nindo survives)", () => {
   const rich = {
     name: "Raiko",
-    character: { name: "Raiko", level: 50, nindo: "Never give up", nindoBg: "ember", pets: [{ id: "p1" }] },
+    character: { name: "Raiko", level: 50, nindo: "Never give up", nindoBg: "ember", pets: [{ id: "p1" }],
+      unlockedAchievements: ["exam-genin", "exam-chunin"], achievementUnlockedAt: { "exam-genin": 1234 } },
   } as unknown as PlayerRecord;
   const heartbeat = {
     name: "Raiko",
@@ -101,12 +102,15 @@ test("layers a minimal heartbeat character over the cached rich one (Nindo survi
   const out = mergePlayerRoster([rich], [heartbeat], idNorm);
   const ch = out[0].character as unknown as {
     nindo?: string; nindoBg?: string; level?: number; pets?: unknown[]; avatarImage?: string;
+    unlockedAchievements?: string[]; achievementUnlockedAt?: Record<string, number>;
   };
   assert.equal(ch.nindo, "Never give up"); // preserved (heartbeat doesn't carry it)
   assert.equal(ch.nindoBg, "ember");       // preserved
   assert.equal(ch.pets?.length, 1);        // preserved
   assert.equal(ch.level, 50);              // preserved (heartbeat character omits it)
   assert.equal(ch.avatarImage, "");        // light field the heartbeat DID carry applies
+  assert.deepEqual(ch.unlockedAchievements, ["exam-genin", "exam-chunin"]);
+  assert.deepEqual(ch.achievementUnlockedAt, { "exam-genin": 1234 });
 });
 
 test("preserves the server-projected eligible pet roster across a minimal heartbeat", () => {

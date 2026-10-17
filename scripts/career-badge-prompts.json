@@ -1,0 +1,23 @@
+{
+  "provider": "Built-in image_gen",
+  "output": "shinobij.client/public/badges/{id}.webp",
+  "size": 256,
+  "prompts": [
+    {
+      "id": "exam-genin",
+      "prompt": "Use case: stylized-concept. Asset: single square achievement badge for Shinobi Journey, a shinobi RPG. Cinematic richly painted fantasy game icon, black lacquer, worn metal and intricate physical detail, strong central readable silhouette at 64px, dramatic lighting, restrained ornate circular bronze/gold framing, very dark corners. No letters, words, numerals, logos, watermarks. Full square composition, no transparent background. Subject: newly earned shinobi field headband resting across a closed mission scroll, bronze clasp and dark blue cloth, academy gate softly silhouetted behind, hopeful warm dawn rim light. Recognizes passing the Genin advancement exam. Focus on the headband and scroll, no human figure."
+    },
+    {
+      "id": "exam-chunin",
+      "prompt": "Use case: stylized-concept. Asset: single square achievement badge for Shinobi Journey, a shinobi RPG. Cinematic richly painted fantasy game icon, black lacquer, worn metal and intricate physical detail, strong central readable silhouette at 64px, dramatic lighting, restrained ornate circular bronze/gold framing, very dark corners. No letters, words, numerals, logos, watermarks. Full square composition, no transparent background. Subject: a seasoned shinobi field vest with a jade-green command cord, an unfurled tactical scroll beneath, one small bronze command seal in front, warm amber lantern light against deep forest teal shadows. Recognizes passing the Chunin advancement exam. Focus on vest and command seal, no human figure."
+    },
+    {
+      "id": "exam-jonin",
+      "prompt": "Use case: stylized-concept. Asset: single square achievement badge for Shinobi Journey, a shinobi RPG. Cinematic richly painted fantasy game icon, black lacquer, worn metal and intricate physical detail, strong central readable silhouette at 64px, dramatic lighting, restrained ornate circular bronze/gold framing, very dark corners. No letters, words, numerals, logos, watermarks. Full square composition, no transparent background. Subject: a battle-worn shinobi short sword crossed with a sealed crimson mission scroll above a dark steel veteran medallion; rain beads on steel, deep burgundy and charcoal with decisive white-gold edge lighting. Recognizes the optional Jonin veteran combat and raid distinction. Noble earned service, no human figure."
+    },
+    {
+      "id": "exam-special-jonin",
+      "prompt": "Use case: stylized-concept. Asset: single square achievement badge for Shinobi Journey, a shinobi RPG. Cinematic richly painted fantasy game icon, black lacquer, worn metal and intricate physical detail, strong central readable silhouette at 64px, dramatic lighting, restrained ornate circular bronze/gold framing, very dark corners. No letters, words, numerals, logos, watermarks. Full square composition, no transparent background. Subject: an ornate gold village council seal on black lacquer flanked by a single upright dark shinobi blade and folded violet ceremonial cord, distant village rooftops under moonlight, dignified silver and gold light with royal purple accents. Recognizes the optional Special Jonin leadership and PvP distinction. No human figure."
+    }
+  ]
+}
