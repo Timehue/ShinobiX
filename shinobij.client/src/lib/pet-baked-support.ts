@@ -3,6 +3,10 @@ import { PET_CHARACTER_MOTION_ASSET_REVISION } from './pet-proper-animation-asse
 export interface PetCharacterMotionBank {
     revision: string;
     clips: readonly { contacts: number }[];
+    /** Authored physical/cast techniques solve paws and torso together. */
+    plantedAttack?: boolean;
+    /** Authored hit reaction solves its own grounded recoil. */
+    plantedRecoil?: boolean;
 }
 const SUPPORT_MOTIONS = new Set(['idle', 'run', 'dash', 'guard', 'rest']);
 export function petHasBakedRigMotion(bank: PetCharacterMotionBank | undefined): boolean {
@@ -21,6 +25,8 @@ export function petBakedSupportOwnsBody(
         && bank!.clips.some(clip => clip.contacts > 0)
         && !aquatic && !frame.victorious
         && !(frame.entranceProgress !== undefined && frame.entranceProgress < 1)
-        && SUPPORT_MOTIONS.has(frame.motion)
+        && (SUPPORT_MOTIONS.has(frame.motion)
+            || (bank!.plantedAttack === true && ['windup', 'strike', 'recover'].includes(frame.motion))
+            || (bank!.plantedRecoil === true && frame.motion === 'stagger'))
         && !(profile === 'avian' && frame.motion === 'dash');
 }

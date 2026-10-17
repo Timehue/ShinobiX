@@ -20468,7 +20468,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS + reviewed geometry cleanup",
       "textured": true,
       "estimatedGenerationCostUsd": 0.96,
-      "sha256": "10FC738A32473FB682BBBCEA70FDB66FEEF4AAC9189366367A515B2167708AEA",
+      "sha256": "719271C3CA743572B9AB79E818A6A486928919DBFD9DDCA03B63B32A2A4D9F99",
       "visualReview": {
         "passed": true,
         "reason": "Abyssal Oni Hound now contains one coherent head, neck, torso, and four-legged silhouette. The disconnected duplicate head, neck, and front-leg island was removed without changing the approved atlas, primary anatomy, skeleton, or animation set; front, side, rear, and three-quarter QA pass."

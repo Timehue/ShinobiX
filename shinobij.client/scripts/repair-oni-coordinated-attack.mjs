@@ -1,0 +1,11 @@
+import {readFile,writeFile,mkdir} from 'node:fs/promises';
+import {dirname,resolve} from 'node:path';
+import {repairOniCoordinatedAttack} from './lib/pet-oni-coordinated-attack.mjs';
+const args=process.argv.slice(2),value=name=>args.find(a=>a.startsWith(`--${name}=`))?.slice(name.length+3);
+const input=resolve(value('input')??'public/pet-models/roster/mythic-4.glb');
+const output=resolve(value('output')??'.tmp/oni-coordinated-attack/roster/mythic-4.glb');
+if(input===output)throw Error('Write a separate candidate and review it before replacing the production asset.');
+const result=await repairOniCoordinatedAttack(await readFile(input));
+await mkdir(dirname(output),{recursive:true});await writeFile(output,result.bytes);
+await writeFile(`${output}.json`,JSON.stringify(result.report,null,2)+'\n');
+console.log(JSON.stringify({output,...result.report,clips:result.report.clips.map(({contacts,...r})=>({...r,contacts:contacts.length}))}));
