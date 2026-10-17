@@ -2279,7 +2279,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
-            "line": 6111
+            "line": 6109
           }
         ]
       },
@@ -2561,11 +2561,11 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
-            "line": 6125
+            "line": 6123
           },
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
-            "line": 7059
+            "line": 7057
           }
         ]
       },
@@ -3726,7 +3726,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
-            "line": 6309
+            "line": 6307
           },
           {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",
@@ -4242,7 +4242,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
-            "line": 6154
+            "line": 6152
           }
         ]
       },
@@ -4562,15 +4562,15 @@
           },
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
-            "line": 5811
+            "line": 5809
           },
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
-            "line": 6154
+            "line": 6152
           },
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
-            "line": 7162
+            "line": 7160
           },
           {
             "source": "shinobij.client/src/styles/combat-grid-appearance.css",
@@ -4905,7 +4905,7 @@
           },
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
-            "line": 5497
+            "line": 5495
           },
           {
             "source": "shinobij.client/src/styles/index/24-combat-mobile-restore.css",
@@ -5236,7 +5236,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
-            "line": 6309
+            "line": 6307
           },
           {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",

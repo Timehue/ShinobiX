@@ -88,7 +88,8 @@ test("plain combat log opens only the latest round and color-codes its effects",
     assert.doesNotMatch(html, /class="bl-num">160</);
     assert.match(html, /Round 1[\s\S]*?aria-expanded="false"|aria-expanded="false"[\s\S]*?Round 1/);
     assert.match(html, /aria-label="Expand battle log"/);
-    assert.match(html, /2 rounds · 6 events/);
+    assert.match(html, /Round 2 · 2 retained rounds · 6 retained events/);
+    assert.doesNotMatch(html, /Partial view/);
     assert.doesNotMatch(html, /events · scroll/);
     assert.match(html, /combat-log-expand-icon/);
     assert.match(html, /class="combat-log-scroll-region" tabindex="0"/);
@@ -109,6 +110,46 @@ test("plain combat log derives a trimmed pre-marker round and preserves action o
     assert.equal(rounds[0]?.actions[0]?.role, "player");
     assert.equal(rounds[1]?.actions[0]?.role, "enemy");
     assert.equal(rounds[1]?.actions[0]?.actionNumber, 2);
+});
+
+test("rolling battle log labels retained counts separately from the current fight round", () => {
+    const html = renderToStaticMarkup(React.createElement(PlainCombatBattleLog, {
+        lines: [
+            ...Array<string>(12).fill("80 damage to Exam Proctor."),
+            ...[7, 8, 9, 10].flatMap(round => [
+                `--- Round ${round} ---`, "Rill uses Basic Attack:", ...Array<string>(10).fill("80 damage to Exam Proctor."),
+            ]),
+        ],
+        currentRound: 10,
+        turnLabel: "Your Turn",
+    }));
+
+    assert.match(html, /Round 10 · 5 retained rounds · 56 retained events · Partial view/);
+    assert.doesNotMatch(html, />5 rounds · 56 events</);
+    assert.equal((html.match(/plain-combat-log-round timeline-round/g) ?? []).length, 5);
+});
+
+test("a newly started round stays accurate before it has any visible events", () => {
+    for (const withMarker of [false, true]) {
+        const html = renderToStaticMarkup(React.createElement(PlainCombatBattleLog, {
+            lines: ["--- Round 9 ---", "Rill waits.", ...(withMarker ? ["--- Round 10 ---"] : [])],
+            ...(withMarker ? {} : { currentRound: 10 }),
+            turnLabel: "Your Turn",
+        }));
+
+        assert.match(html, /Round 10 · 1 retained round · 1 retained event · Partial view/);
+        assert.equal((html.match(/plain-combat-log-round timeline-round/g) ?? []).length, 1);
+    }
+});
+
+test("an explicit server trim notice marks partial history even within the first round", () => {
+    const html = renderToStaticMarkup(React.createElement(PlainCombatBattleLog, {
+        lines: ["… (3 earlier lines trimmed)", "Rill waits."],
+        currentRound: 1,
+        turnLabel: "Your Turn",
+    }));
+
+    assert.match(html, /Round 1 · 1 retained round · 2 retained events · Partial view/);
 });
 
 test("plain combat log hides automatic no-action turn housekeeping", () => {

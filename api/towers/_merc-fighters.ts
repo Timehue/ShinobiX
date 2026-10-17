@@ -10,21 +10,21 @@
  * sealTowerFighter) + a seed; no kv / Date.now in the resolution path (the caller
  * stamps now/seed). The contest application + WR refund live in the endpoint.
  *
- * The merc is deliberately a CREDIBLE-BUT-BEATABLE peak fighter — capped stats and
- * a solid kit, but NO bloodline / item-damage bonuses, so a well-built player
- * out-guns it. All numbers are tunable (verified by _merc-fighters.test.ts).
+ * Hired bands are prepared special NPCs with catalog techniques, shared level
+ * pools and legal equipment, without bloodline/item-damage multipliers. Their
+ * opponent uses the existing sealed defender AI, not live player inputs.
  */
 import { createTowerSession, type TowerActor } from './_tower-session.js';
 import { runTowerFloor } from './_engine.js';
 import { makeRng } from './_sim.js';
 import type { TowerFloor } from './_floor-catalog.js';
-import { statCapForLevel } from '../combat-core/formulas.js';
+import { jutsuLevelCapForLevel, statCapForLevel } from '../combat-core/formulas.js';
 import { startingItemShield } from '../combat-core/shields.js';
-
-// A peak merc's max HP, scaled by tier level. Tunable.
-function mercMaxHp(level: number): number {
-    return Math.round(2200 + Math.max(1, level) * 28); // L75 ≈ 4300, L100 ≈ 5000
-}
+import { resolveAiProfileJutsu, MAX_CHALLENGE_AI_LOADOUT_JUTSU } from '../_ai-opponent-loadout.js';
+import { COMBAT_RESOURCES_V2, v2JutsuCosts } from '../_combat-resources.js';
+import { maxHpForLevel, maxChakraForLevel, maxStaminaForLevel } from '../_xp-engine.js';
+import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
+import { warMercenaryCombatProfile } from '../../shared/war-mercenary-profile.js';
 
 const STAT_KEYS = [
     'strength', 'speed', 'intelligence', 'willpower',
@@ -32,50 +32,50 @@ const STAT_KEYS = [
     'genjutsuOffense', 'genjutsuDefense', 'ninjutsuOffense', 'ninjutsuDefense',
 ] as const;
 
-// The merc's fixed Taijutsu kit: 5 elemental strikes (cd 7 — the AI rotates through
-// them) + a Flicker for mobility. Real catalog ids so jutsuMastery applies. The
-// fighter's `specialty` matches (Taijutsu) so the engine's AI picks these.
-function mercJutsuKit(): Array<Record<string, unknown>> {
-    const strike = (id: string, name: string, element: string, tag?: { name: string; percent: number }) => ({
-        id, name, type: 'Taijutsu', element, ap: 60, range: 4, effectPower: 36, cooldown: 7,
-        chakraCost: 250, staminaCost: 250, target: 'OPPONENT', method: 'SINGLE',
-        tags: tag ? [tag] : [],
-    });
-    return [
-        strike('starter-tai-earth-2', 'Boulder Heel Drop', 'Earth', { name: 'Poison', percent: 10 }),
-        strike('starter-tai-fire-2', 'Meteor Axe Kick', 'Fire'),
-        strike('starter-tai-lightning-2', 'Raikou Knee Strike', 'Lightning', { name: 'Reflect', percent: 30 }),
-        strike('starter-tai-water-2', 'Tidal Shoulder Throw', 'Water', { name: 'Increase Damage Given', percent: 30 }),
-        strike('starter-tai-wind-2', 'Rising Gale Combo', 'Wind', { name: 'Lifesteal', percent: 30 }),
-        { id: 'starter-universal-flicker', name: 'Flicker', type: 'Taijutsu', element: 'None', ap: 20, range: 5, effectPower: 1, cooldown: 2, chakraCost: 25, staminaCost: 25, target: 'EMPTY_GROUND', method: 'SINGLE', tags: [{ name: 'Move', percent: 0 }] },
+// A two-nature veteran curriculum, capped at the baseline player's 12 slots.
+// All EP/AP/tags/cooldowns come from the catalog. Six or more strikes cover
+// recovery turns; 40AP stances can pair with a 60AP attack. Upper tiers add
+// counters rather than inflating the EP of their attacks.
+function mercJutsuKit(level: number): Array<Record<string, unknown>> {
+    const ids = [
+        'starter-buki-earth-2', 'starter-tai-earth-2', 'starter-tai-wind-2',
+        'starter-nin-earth-2', 'starter-nin-wind-2', 'starter-gen-wind-2',
+        'starter-buki-wind-4', 'starter-buki-earth-3', 'starter-universal-flicker',
     ];
+    if (level >= 80) ids.splice(1, 0, 'starter-gen-earth-2');
+    if (level >= 85) ids.splice(1, 0, 'starter-buki-wind-2');
+    if (level >= 95) ids.push(level >= 100 ? 'starter-gen-earth-4' : 'starter-tai-wind-4');
+    return resolveAiProfileJutsu(ids, null, MAX_CHALLENGE_AI_LOADOUT_JUTSU).map(j => ({ ...j,
+        ...(COMBAT_RESOURCES_V2 ? v2JutsuCosts(j, level, 'Taijutsu') : {}),
+    }));
 }
-
-/** The sealed `character` for a peak merc at a tier level (75-100): capped stats +
- *  a max-mastery Taijutsu kit + a basic weapon/armor. No bloodline / item-damage
- *  bonus → a credible but beatable threat. Tunable. */
+/** Newly hired war combatants only. Existing Tower squad recruits use their own
+ * builder; human and ranked combat formulas are untouched. */
 export function buildMercCharacter(level: number): Record<string, unknown> {
+    level = Math.max(1, Math.min(100, Math.floor(Number(level) || 1)));
     const cap = statCapForLevel(level);
     const stats: Record<string, number> = {};
     for (const k of STAT_KEYS) stats[k] = cap;
-    const jutsu = mercJutsuKit();
+    const jutsu = mercJutsuKit(level);
+    const weapon = { ...ITEM_CATALOG[level >= 80 ? 'worldsplitter-katana' : 'elderbranch-katana'] };
+    // Same single equipment bonus as player hydration; mastery is not baked in.
+    for (const [key, bonus] of Object.entries(weapon.bonuses ?? {})) stats[key] = (stats[key] ?? 0) + Number(bonus);
     return {
         level,
         specialty: 'Taijutsu',
+        elements: ['Earth', 'Wind'],
+        warMercenaryProfile: warMercenaryCombatProfile(level),
         stats,
         jutsu,
-        jutsuMastery: jutsu.map((j) => ({ jutsuId: j.id, level: 50 })),
-        equipment: { hand: 'merc-blade' },
-        // An epic-tier blade on the catalog weapon ladder (common 14 … mythic 25).
-        pvpItems: [
-            { id: 'merc-blade', name: 'Mercenary Blade', slot: 'hand', weaponEp: 19, weaponElement: 'None', weaponRange: 1, apCost: 40, weaponTags: [] },
-        ],
+        jutsuMastery: jutsu.map((j) => ({ jutsuId: j.id, level: jutsuLevelCapForLevel(level) })),
+        equipment: { hand: weapon.id },
+        pvpItems: [weapon],
         bloodlineMult: 1,   // no bloodline — kept fair/beatable
         itemDamagePct: 0,
         armorRawDR: 0.35,   // a basic armor (modest DR)
-        maxHp: mercMaxHp(level),
-        maxChakra: 1400,
-        maxStamina: 1000,
+        maxHp: maxHpForLevel(level),
+        maxChakra: maxChakraForLevel(level),
+        maxStamina: maxStaminaForLevel(level),
     };
 }
 
@@ -83,7 +83,7 @@ function mercActor(level: number): TowerActor {
     const character = buildMercCharacter(level);
     const hp = Number(character.maxHp);
     return {
-        id: 'merc-0', side: 'enemy', name: 'Mercenary', ownerSlug: null, ai: true,
+        id: 'merc-0', side: 'enemy', name: 'Mercenary ' + warMercenaryCombatProfile(level).role, ownerSlug: null, ai: true,
         hp, maxHp: hp, chakra: Number(character.maxChakra), maxChakra: Number(character.maxChakra),
         stamina: Number(character.maxStamina), maxStamina: Number(character.maxStamina),
         shield: 0, statuses: [], cooldowns: {}, pos: 60, character,
@@ -115,6 +115,8 @@ export interface MercBattleResult {
     playerWon: boolean;  // → the player's side scores at the merc-repel fraction
     rounds: number;
     log: string[];
+    /** Internal offline evidence; omitted by existing injected fight mocks. */
+    vitals?: { player: { hp: number; maxHp: number; shield: number }; merc: { hp: number; maxHp: number; shield: number } };
 }
 
 /** Auto-resolve a merc-vs-player battle SERVER-SIDE (both AI-driven, deterministic
@@ -142,6 +144,10 @@ export function resolveMercBattle(args: {
         objectiveKind: 'defeat-all',
         now: args.now,
     });
+    // Veteran competence enables public-state Clear/Cleanse decisions. All live
+    // war tiers are 75+, where the onboarding hit ceiling is a no-op.
+    session.pveGuard = { enemyLevel: args.mercLevel, turnStartHp: {}, dealtThisTurn: {} };
+    const preparation = merc.name + ': ' + warMercenaryCombatProfile(args.mercLevel).tactics + ' Both combatants use their prepared loadouts automatically.';
     const out = runTowerFloor(session, MERC_FLOOR, makeRng(args.seed));
     const playerDead = (out.actors.find((a) => a.id === 'sq-0')?.hp ?? 1) <= 0;
     const mercDead = (out.actors.find((a) => a.id === 'merc-0')?.hp ?? 1) <= 0;
@@ -151,6 +157,7 @@ export function resolveMercBattle(args: {
         mercWon: winner === 'merc',
         playerWon: winner === 'player',
         rounds: out.round,
-        log: out.log,
+        log: [preparation, ...out.log],
+        vitals: { player: { hp: player.hp, maxHp: player.maxHp, shield: player.shield }, merc: { hp: merc.hp, maxHp: merc.maxHp, shield: merc.shield } },
     };
 }

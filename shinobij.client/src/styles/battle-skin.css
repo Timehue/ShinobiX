@@ -4553,8 +4553,7 @@ html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .com
     color: rgba(148, 163, 184, 0.72);
     font: 650 9px/1.2 Inter, system-ui, sans-serif;
     letter-spacing: 0.04em;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    white-space: normal;
 }
 
 html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .combat-log-turn {
@@ -4801,7 +4800,6 @@ html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log > .p
         padding: 6px 8px 6px 11px !important;
     }
 
-    html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .combat-log-summary,
     html body > .arena-fullscreen.shinobi-combat-shell .plain-combat-battle-log .combat-log-expand-label {
         display: none;
     }

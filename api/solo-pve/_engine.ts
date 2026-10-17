@@ -71,11 +71,13 @@ import {
 } from '../../shared/hollow-gate-combat-director.js';
 import type { HollowGateHoundKind } from '../../shared/hollow-gate-contract.js';
 import {
+    CATALOG_CHALLENGE_WEAPON_POLICY,
     enemyActionKey,
     enemyTurnPolicyForEncounter,
     enemyTurnValue,
     enemyStatusValue,
     standardPvePlannerApplies,
+    weeklyBossPlannerApplies,
     type EnemyTurnPolicy,
     type EnemyTurnSnapshot,
 } from './_ai-turn-policy.js';
@@ -964,6 +966,18 @@ function equippedItem(value: PvpFighter, itemId: string): SoloPveItem | null {
         : {};
     const equipped = new Set(Object.values(equipment).map(String));
     return items.find((item) => item.id === itemId && equipped.has(itemId)) ?? null;
+}
+
+/** NPC weapons exist only when a host explicitly seals both the hand slot and
+ * its resolved item definition. Never infer an item from a profile identity. */
+function enemyHandWeapon(session: SoloPveSession): SoloPveItem | null {
+    if (session.encounter.kind === 'village-war-garrison'
+        || session.enemy.character.pveWeaponPolicy !== CATALOG_CHALLENGE_WEAPON_POLICY) return null;
+    const equipment = session.enemy.character.equipment as Record<string, unknown> | undefined;
+    const itemId = equipment?.hand;
+    if (typeof itemId !== 'string') return null;
+    const item = equippedItem(session.enemy, itemId);
+    return item && normalizeSlot(item.slot) === 'hand' ? item : null;
 }
 
 function normalizeSlot(slot: string | undefined): string {
@@ -1884,6 +1898,13 @@ function enemyActionLegal(session: SoloPveSession, action: SoloPveAction): boole
             return canAct(session, 'enemy', BASIC_ATTACK_AP)
                 && hexDistance(enemy.pos, session.player.pos) <= 1
                 && enemy.stamina >= BASIC_ATTACK_STAMINA;
+        case 'weapon': {
+            const item = enemyHandWeapon(session);
+            return !!item && item.id === action.itemId
+                && canAct(session, 'enemy', Math.max(1, Number(item.apCost ?? 40)))
+                && (session.cooldowns.enemy[`weapon:${item.id}`] ?? 0) <= 0
+                && hexDistance(enemy.pos, session.player.pos) <= Math.max(1, Number(item.weaponRange ?? 1));
+        }
         case 'basicHeal':
             return canAct(session, 'enemy', BASIC_HEAL_AP)
                 && (session.cooldowns.enemy.basicHeal ?? 0) <= 0
@@ -1932,6 +1953,8 @@ function plannerEnemyActions(session: SoloPveSession, policy: EnemyTurnPolicy): 
             if (retreat !== undefined && retreat !== tile) push({ type: 'jutsu', jutsuId: jutsu.id, tile: retreat });
         }
     }
+    const weapon = enemyHandWeapon(session);
+    if (weapon?.id) push({ type: 'weapon', itemId: weapon.id });
     push({ type: 'basicAttack' });
     if (session.enemy.hp < session.enemy.maxHp) push({ type: 'basicHeal' });
     if (enemyClearHasBenefit(session, competence.clearBuffThreshold)) push({ type: 'clear' });
@@ -1971,6 +1994,11 @@ function enemyTurnSnapshot(session: SoloPveSession, policy: EnemyTurnPolicy): En
             return total + benefit;
         }, 0);
     };
+    const weapon = enemyHandWeapon(session);
+    const weaponReach = weapon?.id
+        && canAct(session, 'enemy', Math.max(1, Number(weapon.apCost ?? 40)))
+        && (session.cooldowns.enemy[`weapon:${weapon.id}`] ?? 0) <= 0
+        ? Math.max(1, Number(weapon.weaponRange ?? 1)) : 1;
     const damagingReach = jutsuList(session.enemy)
         .filter((jutsu) => Number(jutsu.effectPower ?? 0) > 0 && !isZeroDamageFortyApJutsu(jutsu) && !hasMoveTag(jutsu)
             && jutsu.target !== 'SELF'
@@ -1983,7 +2011,7 @@ function enemyTurnSnapshot(session: SoloPveSession, policy: EnemyTurnPolicy): En
             const plan = jutsuActionPlan(session, 'enemy', jutsu, aiTileForJutsu(session, jutsu));
             return plan.accepted || plan.rejection === 'out-of-range';
         })
-        .reduce((reach, jutsu) => Math.max(reach, Number(jutsu.range) || 0), 1);
+        .reduce((reach, jutsu) => Math.max(reach, Number(jutsu.range) || 0), weaponReach);
     let enemyHpAfterBasic: number | undefined;
     if (policy.considersSurvival && session.enemy.hp < session.enemy.maxHp * 0.35 && session.player.hp > 0) {
         enemyHpAfterBasic = session.enemy.hp;
@@ -2196,6 +2224,11 @@ export function runStandardPveEnemyTurnForTest(session: SoloPveSession, policy: 
 
 export function runSoloPveAiUntilPlayer(session: SoloPveSession): void {
     if (standardPvePlannerApplies({
+        policy: session.enemy.character.aiTurnPolicy,
+        kind: session.encounter.kind,
+        missionTactics: session.enemy.character.missionTactics === true,
+        weeklyBoss: !!session.weeklyBossGuard,
+    }) || weeklyBossPlannerApplies({
         policy: session.enemy.character.aiTurnPolicy,
         kind: session.encounter.kind,
         missionTactics: session.enemy.character.missionTactics === true,

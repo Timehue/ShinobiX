@@ -39,8 +39,11 @@ export function pveAiMasteryForEncounter(level: number, difficulty: unknown): nu
     const rankCap = jutsuLevelCapForLevel(level);
     switch (difficulty) {
         case 'weaker': return Math.floor(standard * 0.7);
-        case 'standard': return standard;
-        case 'dangerous': return Math.min(40, rankCap);
+        // Veteran roads contain trained opponents, not permanent ryo-only
+        // pupils. Seal training is available to players at these levels too.
+        // Weaker rolls and the protected lower-level curve keep their old cap.
+        case 'standard': return level >= 86 ? rankCap : level >= 61 ? Math.min(40, rankCap) : standard;
+        case 'dangerous': return Math.min(level >= 86 ? 50 : 40, rankCap);
         case 'elite':
         case 'final-kage': return rankCap;
         default: return pveAiMasteryForLevel(level);

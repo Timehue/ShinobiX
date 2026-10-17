@@ -1,18 +1,38 @@
 /*
  * Deterministic Clan Boss balance evidence for 1/2/4-player geared squads.
  * This uses the shipped encounter builder, party scaling, boss mechanics, PvE
- * seals, enemy AI, and the same competent focus-fire policy as the Spire audit.
+ * seals and enemy AI, with an independently audited legal catalog fixture and
+ * public-state mark, pylon, Clear/Cleanse, setup and recovery responses.
  * It is an offline tuning signal, not a substitute for staging playtime data.
  *
  *   npm run audit:clan-boss-balance -- [seeds]
  */
-import { pathToFileURL } from 'node:url';
 import { CB_ASSAULT_HP_CAP, CLAN_BOSSES } from '../api/clan-boss/_storage.js';
 import { configureClanBossEncounter } from '../api/clan-boss/_encounter-config.js';
 import { buildTowerEncounter } from '../api/towers/_encounter.js';
 import { CLAN_BOSS_FLOORS } from '../api/towers/_floor-catalog.js';
-import { makeRng } from '../api/towers/_sim.js';
-import { gearedSquad, KNOBS, runFloorSmart } from './spire-balance-sim.js';
+import { diagnosticPlayerSave } from './pve-viability-diagnostic.js';
+import { auditPressureFixture } from './_pve-pressure-fixture-audit.js';
+import { hydrateCharacterFromSave } from '../api/pvp/session.js';
+import { runAuditedBossTeam } from './_pve-boss-acceptance-policy.js';
+
+/** Legal catalog control, independently checked through production ownership,
+ * rank, resource, mastery, slot, equipment and bloodline gates. */
+export function clanBossAcceptanceFixture() {
+    const save = diagnosticPlayerSave(100, 'maxed', 'coherent');
+    save.character.equippedJutsuIds.push('starter-nin-earth-1', 'starter-nin-earth-3', 'starter-gen-earth-4', 'starter-tai-earth-2');
+    save.character.jutsuMastery = save.character.equippedJutsuIds.map(jutsuId => ({ jutsuId, level: 50, xp: 0 }));
+    const audit = auditPressureFixture(save, 100, { expectedBloodlineRank: 'S Rank', expectedMasteryCeiling: 50 });
+    if (!audit.legal || audit.acquisitionWarnings.length || audit.sealedJutsuCount !== 12 || audit.derivedBloodlineMult !== 1.2)
+        throw new Error(`Illegal clan acceptance fixture: ${JSON.stringify(audit)}`);
+    return { save, audit, hydrated: hydrateCharacterFromSave(save.character, {}, save, null) };
+}
+
+function acceptanceSquad(size: number) {
+    const { hydrated } = clanBossAcceptanceFixture();
+    return Array.from({ length: size }, (_, i) => ({ id: `sq-${i}`, name: `Hero${i}`, ownerSlug: `hero${i}`, ai: false,
+        character: structuredClone(hydrated) }));
+}
 
 export type ClanBossBalanceResult = {
     bossId: string;
@@ -43,7 +63,7 @@ export function simulateClanBossBalance(bossIndex: number, partySize: number, se
         const seed = 41_000 + bossIndex * 1_000 + partySize * 100 + index * 17;
         const session = buildTowerEncounter({
             floor,
-            squad: gearedSquad(partySize),
+            squad: acceptanceSquad(partySize),
             runId: `cboss-balance-${boss.id}-${partySize}-${index}`,
             seed,
             partySize,
@@ -52,8 +72,7 @@ export function simulateClanBossBalance(bossIndex: number, partySize: number, se
         const bossActor = session.actors.find((actor) => actor.id === session.phaseState.bossId);
         if (!bossActor) throw new Error(`${boss.name} encounter did not create its boss actor.`);
         configureClanBossEncounter(session, floor, CB_ASSAULT_HP_CAP);
-        for (const actor of session.actors) if (actor.side === 'squad') actor.shield = KNOBS.itemShield;
-        runFloorSmart(session, floor, makeRng(seed));
+        runAuditedBossTeam(session, floor);
 
         const remaining = Math.max(0, bossActor.hp);
         const alive = session.actors.filter((actor) => actor.side === 'squad' && actor.hp > 0).length;
@@ -84,7 +103,7 @@ export function simulateClanBossBalance(bossIndex: number, partySize: number, se
 export function runClanBossBalanceReport(argv = process.argv.slice(2)): void {
     const seeds = Math.max(1, Math.min(200, Math.floor(Number(argv[0]) || 12)));
     console.log(`\nClan Boss balance audit — geared L100 squads, ${seeds} deterministic seeds`);
-    console.log(`Assault boss HP ${CB_ASSAULT_HP_CAP}; policy uses focus fire, guard priority, and low-HP healing.`);
+    console.log(`Assault boss HP ${CB_ASSAULT_HP_CAP}; audited12-slot catalog fixture, ownedS-rank1.20, public counters and recovery.`);
     console.log('Boss                  Party  Clear  Wipe  Time  AvgRnd  AvgDamage  HP removed  Survivors');
     console.log('-'.repeat(92));
     for (let bossIndex = 0; bossIndex < CLAN_BOSSES.length; bossIndex += 1) {
@@ -100,4 +119,4 @@ export function runClanBossBalanceReport(argv = process.argv.slice(2)): void {
     console.log('Offline combat evidence only: confirm 8–15 minute human pacing and perceived fairness on disposable staging.\n');
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) runClanBossBalanceReport();
+if (process.argv[1]?.replaceAll('\\', '/').endsWith('/clan-boss-balance-sim.ts')) runClanBossBalanceReport();

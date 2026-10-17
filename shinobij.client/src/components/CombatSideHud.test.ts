@@ -9,6 +9,7 @@ import { CombatEffectsPanel, MobileEffectsStrip } from "./CombatSideHud.js";
 const source = readFileSync(new URL("./CombatSideHud.tsx", import.meta.url), "utf8");
 const missionSource = readFileSync(new URL("../screens/MissionArenaFight.tsx", import.meta.url), "utf8");
 const towerSource = readFileSync(new URL("../screens/BattleTowerFight.tsx", import.meta.url), "utf8");
+const pvpSource = readFileSync(new URL("../screens/PvpBattleScreen.tsx", import.meta.url), "utf8");
 const statuses = [
     { name: "Increase Damage Given", rounds: 2, percent: 20, kind: "positive", activeRound: 2, inactiveRound: 3 },
     { name: "Increase Damage Given", rounds: 2, percent: 30, kind: "positive", activeRound: 3 },
@@ -80,8 +81,28 @@ describe("CombatSideHud deferred status display", () => {
         assert.match(missionSource, /activeRound: s\.activeRound/);
         assert.match(missionSource, /source: s\.source/);
         assert.match(missionSource, /inactiveRound: s\.inactiveRound/);
-        assert.equal((missionSource.match(/currentRound=\{session\.round\}/g) ?? []).length, 2);
+        const missionHuds = missionSource.match(/<CombatSideHud\b[\s\S]*?\/>/g) ?? [];
+        for (const [name, actor] of [["me", "myActor"], ["enemyName", "enemy"]] as const) {
+            const hud = missionHuds.find(instance => instance.includes(`name={${name}}`));
+            assert.ok(hud, `Mission HUD exists for ${name}`);
+            assert.ok(hud.includes(`statuses={hudStatuses(${actor}?.statuses)}`), `${name} HUD receives its own statuses`);
+            assert.match(hud, /currentRound=\{session\.round\}/, `${name} HUD filters statuses against the live round`);
+        }
         assert.match(towerSource, /activeCombatDisplayStatuses\(actor\.statuses, round\)/);
         assert.match(towerSource, /visibleStatuses\.slice\(0, 8\)/);
+    });
+
+    it("passes the live round to retained battle logs independently of status HUDs", () => {
+        for (const [mode, screen, selector] of [
+            ["Mission", missionSource, "lines={session.log ?? []}"],
+            ["PvP", pvpSource, "lines={battleLogLines}"],
+            ["Tower mobile", towerSource, 'className="tower-mobile-battle-log"'],
+            ["Tower desktop", towerSource, 'className="tower-rail-battle-log"'],
+        ] as const) {
+            const logs = screen.match(/<PlainCombatBattleLog\b[\s\S]*?\/>/g) ?? [];
+            const log = logs.find(instance => instance.includes(selector));
+            assert.ok(log, `${mode} retains its own battle-log surface`);
+            assert.match(log, /currentRound=\{session\.round\}/, `${mode} log receives the fight round separately from retained groups`);
+        }
     });
 });
