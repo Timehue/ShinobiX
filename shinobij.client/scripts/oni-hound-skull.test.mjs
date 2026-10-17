@@ -8,6 +8,11 @@ import { fileURLToPath } from 'node:url';
 import { loadPetDeformationProbe, preparePetHeadProbe, snapshotPetPose, petClipSampleTimes } from './lib/pet-deformation-probe.mjs';
 import { oniSkullShare, ONI_SKULL_REPAIR_REVISION, repairOniSkull } from './repair-oni-hound-skull.mjs';
 import { parseStudioGlb } from './lib/pet-studio-glb.mjs';
+import { repairOniCoordinatedAttack } from './lib/pet-oni-coordinated-attack.mjs';
+
+// Preserve the face-only repair's original conservation contract even after
+// the separately reviewed action authoring intentionally changes leg tracks.
+const faceOnlyFixture = new URL('./fixtures/pet-oni-coordinated-attack/mythic-4.glb', import.meta.url);
 
 // These anatomical landmarks are independent of the repair's falloff. The v1
 // test selected only vertices already made rigid by that repair and missed the
@@ -90,7 +95,7 @@ test('released v1 Oni fixture exposes the lower-face defect while its old upper-
 
 test('complete-face repair conserves the sculpt, textures, skeleton, animation curves and grounded paws', async () => {
     const oldPath=new URL('./fixtures/oni-face-20261015/mythic-4-v1.glb',import.meta.url);
-    const newPath=new URL('../public/pet-models/roster/mythic-4.glb',import.meta.url);
+    const newPath=faceOnlyFixture;
     const before=await loadPetDeformationProbe(oldPath),after=await loadPetDeformationProbe(newPath);
     assert.deepEqual(before.json.nodes,after.json.nodes);
     const a=before.meshes[0].geometry,b=after.meshes[0].geometry;
@@ -114,7 +119,10 @@ test('complete-face repair replays exactly from its pinned pre-repair fixture', 
     try {
         const replay=join(directory,'mythic-4.glb');
         await repairOniSkull(fileURLToPath(original),replay);
-        assert.deepEqual(await readFile(replay),await readFile(new URL('../public/pet-models/roster/mythic-4.glb',import.meta.url)));
+        const faceBytes=await readFile(replay);
+        assert.deepEqual(faceBytes,await readFile(faceOnlyFixture));
+        const final=await repairOniCoordinatedAttack(faceBytes);
+        assert.deepEqual(final.bytes,await readFile(new URL('../public/pet-models/roster/mythic-4.glb',import.meta.url)));
     } finally {
         assert.equal(dirname(resolve(directory)),resolve(tmpdir()));
         assert.ok(basename(directory).startsWith('oni-full-face-'));

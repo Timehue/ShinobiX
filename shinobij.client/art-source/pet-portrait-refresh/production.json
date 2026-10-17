@@ -2439,7 +2439,7 @@
       "rarity": "mythic",
       "references": [
         "pet-poses/mythic-4-idle.webp",
-        "pet-models/warfront-impostors/roster/mythic-4.webp"
+        "pet-models/proofs/oni-hound-portrait-reference-20261015.webp"
       ],
       "referenceSha256": [
         "c5b69170a6d35b7f7c5aa41a4f21d73cebdd02c48d0e0430f2c98238cb07dd2d",
@@ -2487,7 +2487,13 @@
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
         }
-      ]
+      ],
+      "preservedModelReference": {
+        "original": "pet-models/warfront-impostors/roster/mythic-4.webp",
+        "reference": "pet-models/proofs/oni-hound-portrait-reference-20261015.webp",
+        "sha256": "b1fc77ffc72c4250341c1eb1a5ee6df4f7ebd7a5c92e4910e95cf671283249fd",
+        "reason": "Keep the exact reference used for the existing scenic portrait after the separately reviewed Oni action repair regenerates the live battle atlas."
+      }
     },
     {
       "id": "mythic-5",

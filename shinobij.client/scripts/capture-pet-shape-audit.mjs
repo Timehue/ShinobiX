@@ -23,9 +23,9 @@ const output = resolve(import.meta.dirname, '../.tmp/pet-shape-review', label); 
 const browser = await chromium.launch({ headless: true });
 const results = [], errors = [];
 try {
-    const page = await browser.newPage({ viewport: { width: 320, height: 320 } });
+    const page = await browser.newPage({ viewport: { width: 320, height: 320 }, ignoreHTTPSErrors: process.argv.includes('--ignore-https-errors') });
     page.on('pageerror', error => errors.push(error.message));
-    await page.goto(`${base}/petshapeaudit.html`,{timeout:120000});
+    await page.goto(`${base}/petshapeaudit.html`,{waitUntil:'domcontentloaded',timeout:120000});
     await page.waitForFunction(() => !!window.petShapeAudit,{},{timeout:120000});
     for (const row of runtimePetModels.filter(row => !filter || filter.includes(row.pet.id))) {
         const url = candidate ?? (candidateRoot ? `${candidateRoot}${new URL(row.model.url,'https://local.invalid').pathname.slice('/pet-models'.length)}` : row.model.url);
