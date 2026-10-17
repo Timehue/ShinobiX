@@ -1,0 +1,83 @@
+.logbook-screen .logbook-priority {
+    padding: 18px;
+    margin: 16px 0 24px;
+    border: 1px solid var(--bsv2-gold-soft);
+    border-left: 4px solid var(--bsv2-gold-bright);
+    border-radius: 8px;
+    background: linear-gradient(125deg, rgba(196, 162, 90, .13), rgba(10, 20, 40, .95));
+}
+
+.logbook-screen .logbook-priority h3 {
+    color: var(--bsv2-gold-bright) !important;
+    font-size: 17px !important;
+    letter-spacing: .05em !important;
+    text-align: left;
+    margin: 6px 0 12px !important;
+}
+
+.logbook-screen .logbook-priority h3::before,
+.logbook-screen .logbook-priority h3::after {
+    display: none;
+}
+
+.logbook-screen .logbook-priority p {
+    text-align: left;
+    color: #e8edf5 !important;
+    font-size: 14px !important;
+}
+
+.logbook-screen .logbook-priority .logbook-eyebrow {
+    color: var(--bsv2-gold-bright) !important;
+    font-size: 11px !important;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+
+.logbook-screen [id^="logbook-"][tabindex="-1"] {
+    scroll-margin-top: 24px;
+}
+
+.logbook-screen .logbook-completed-requirements summary,
+.logbook-screen .logbook-board-overview summary {
+    cursor: pointer;
+    padding: 12px 0;
+    color: #c8cfdc;
+}
+
+.logbook-screen .logbook-board-overview {
+    margin: 20px 0 8px;
+    border-top: 1px solid var(--bsv2-gold-faint);
+}
+
+.logbook-screen .logbook-priority button,
+.logbook-screen .logbook-career-record button {
+    min-height: 48px;
+    max-width: 100%;
+    white-space: normal;
+}
+
+.logbook-ceremony-art {
+    display: block;
+    border-radius: 12px;
+    margin: 0 auto 16px;
+}
+
+.logbook-ceremony p {
+    line-height: 1.6;
+}
+
+.logbook-ceremony { text-align: center; }
+.logbook-ceremony .ui-modal-body { padding: 24px; }
+.logbook-ceremony button { min-height: 48px; }
+
+.ui-modal-backdrop.logbook-ceremony-backdrop { z-index: 1000000; }
+
+.logbook-screen .logbook-priority .logbook-priority-title {
+    font-size: 18px !important;
+}
+
+@media (max-width: 480px) {
+    .logbook-screen .logbook-priority { padding: 14px; }
+    .logbook-screen .logbook-priority .menu { flex-wrap: wrap; }
+}

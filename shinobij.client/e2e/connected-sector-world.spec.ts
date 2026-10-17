@@ -59,7 +59,6 @@ test('semantic tile reveal and focus cannot scroll the camera viewport on either
     await boot(page, 1, nearestWalkableTile(1, 13));
     const viewport = page.locator('.continuous-world-map');
     const canvas = viewport.locator(':scope > canvas');
-    const marker = page.locator('[data-world-self]');
     for (const size of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { width: 844, height: 390 }, { width: 1366, height: 768 }]) {
         await page.setViewportSize(size);
         expect(await viewport.evaluate(element => {
@@ -77,11 +76,19 @@ test('semantic tile reveal and focus cannot scroll the camera viewport on either
             await target.evaluate(element => element.scrollIntoView({ block: 'nearest', inline: 'nearest' }));
             await viewport.evaluate(element => { element.scrollLeft = 38; element.scrollTop = 38; });
             expect(await viewport.evaluate(element => [element.scrollLeft, element.scrollTop])).toEqual([0, 0]);
-            const bounds = await viewport.boundingBox(), floor = await canvas.boundingBox(), avatar = await marker.boundingBox();
-            expect(floor!.x).toBeCloseTo(bounds!.x, 0);
-            expect(floor!.y).toBeCloseTo(bounds!.y, 0);
-            expect(avatar!.x + avatar!.width / 2).toBeCloseTo(bounds!.x + bounds!.width / 2, 0);
-            expect(avatar!.y + avatar!.height).toBeCloseTo(bounds!.y + bounds!.height / 2, 0);
+            // ResizeObserver-driven HUD layout can change the viewport height
+            // between separate Playwright round trips. Read all three boxes in
+            // one layout so a correctly centered marker cannot be compared with
+            // the viewport's previous size (a 118px resize looked 59px off).
+            const { bounds, floor, avatar } = await viewport.evaluate(element => ({
+                bounds: element.getBoundingClientRect().toJSON(),
+                floor: element.querySelector(':scope > canvas')!.getBoundingClientRect().toJSON(),
+                avatar: element.querySelector('[data-world-self]')!.getBoundingClientRect().toJSON(),
+            }));
+            expect(floor.x).toBeCloseTo(bounds.x, 0);
+            expect(floor.y).toBeCloseTo(bounds.y, 0);
+            expect(avatar.x + avatar.width / 2).toBeCloseTo(bounds.x + bounds.width / 2, 0);
+            expect(avatar.y + avatar.height).toBeCloseTo(bounds.y + bounds.height / 2, 0);
         }
         await canvas.focus();
         await expect(canvas).toBeFocused();

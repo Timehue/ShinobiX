@@ -223,6 +223,17 @@ const SHELL_BOOT_PATHS = [
 ];
 
 async function installPetHomeApi(page: Page) {
+    const fixtureBaseURL = test.info().project.use.baseURL;
+    if (!fixtureBaseURL) throw new Error('Pet Home UI fixture requires a same-origin preview URL');
+    const origin = new URL(fixtureBaseURL).origin;
+    // The static preview has no realtime service. Send an Engine.IO close packet
+    // so presence uses its HTTP fallback instead of parsing the SPA's HTML as a
+    // handshake. A 503 would itself pollute the strict console-error checks.
+    await page.route(url => url.origin === origin && url.pathname === '/socket.io/', route => route.fulfill({
+        status: 200,
+        contentType: 'text/plain',
+        body: '1',
+    }));
     const state = {
         character: baseCharacter(),
         hatchPet: null as PetFixture | null,

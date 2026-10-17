@@ -1,6 +1,5 @@
 import { gainXp } from "../lib/character-level-projection";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import "../styles/hub-screens-skin.css";
 import type React from "react";
 import type { Screen } from "../types/core";
@@ -37,6 +36,11 @@ import { claimWarMissionServer } from "../lib/world-reward-api";
 import { passRankExamServer } from "../lib/exam-api";
 import { postFieldTrail, type FieldTrailResult } from "../lib/field-trail-api";
 import { useFieldTrailRefreshVersion } from "../lib/use-field-trail-refresh";
+import { CAREER_MILESTONES } from "../../../shared/career-milestones";
+import { achievementBadgeSrc } from "../lib/achievement-badge";
+import { logbookPriority } from "../lib/logbook-priority";
+import "../styles/logbook-career.css";
+import { Modal } from "../components/ui/Modal";
 
 export function Logbook({
     character,
@@ -77,7 +81,8 @@ export function Logbook({
 }) {
     const onVersionedCharacterRef = useRef(onVersionedCharacter);
     useLayoutEffect(() => { onVersionedCharacterRef.current = onVersionedCharacter; }, [onVersionedCharacter]);
-    const [ceremony, setCeremony] = useState<{ title: string; prestige: boolean } | null>(null);
+    const [ceremony, setCeremony] = useState<{ title: string; prestige: boolean; examKey: string } | null>(null);
+    const ceremonyReturnRef = useRef<HTMLElement | null>(null);
     const [warMissionPending, setWarMissionPending] = useState(false);
     const claimCooldownMs = useActionDeadline(missionClaimActionScope(character.name));
     const [fieldTrailPending, setFieldTrailPending] = useState<string | null>(null);
@@ -149,11 +154,25 @@ export function Logbook({
     );
     const blockingExams = examMissions.filter((exam) => exam.progressionImpact === "blocking");
     const prestigeMilestones = examMissions.filter((exam) => exam.progressionImpact === "prestige");
-    const ceremonyBody = ceremony?.prestige
-        ? `Distinction recorded for ${character.name}. This recognition grants no extra levels, stats, jutsu power, or content access.`
-        : ceremony?.title === "Genin Advancement Exam"
-        ? "You graduated from the Academy. The village now trusts you with real shinobi work."
-        : `Congratulations, ${character.name}. Your next shinobi path is open.`;
+    const ceremonyMilestone = CAREER_MILESTONES.find((milestone) => milestone.examKey === ceremony?.examKey);
+    const priority = logbookPriority(character, objectives, currentObjective);
+    const nextRequirement = priority?.requirements.find((requirement) => requirement.progress < requirement.target);
+    const priorityIsHold = priority?.progressionImpact === "blocking" && character.level >= priority.unlockLevel;
+    const priorityLabel = priorityIsHold ? "Continue your advancement"
+        : priority?.progressionImpact === "prestige" ? "An optional distinction"
+        : priority?.kind === "exam" ? "Prepare for your next advancement" : "Your next milestone";
+
+    function openAchievements() {
+        try { sessionStorage.setItem("profile.initialTab", "achievements"); } catch { /* Profile remains reachable without storage. */ }
+        setScreen("profile");
+    }
+
+    function reviewPriority() {
+        if (!priority) return;
+        const section = document.getElementById(`logbook-${priority.id}`);
+        section?.scrollIntoView({ block: "start" });
+        section?.focus({ preventScroll: true });
+    }
 
     // Paid once the server applied it, even when this commit is refused as stale
     // (see Missions.tsx), so every caller finishes its step after this.
@@ -400,19 +419,21 @@ export function Logbook({
         const isBlocking = !prestige && !passed && character.level >= exam.unlockLevel;
         const upcoming = character.level < exam.unlockLevel;
         return (
-            <section className="summary-box mission-board-section" key={exam.id}>
+            <section className="summary-box mission-board-section" key={exam.id} id={`logbook-${exam.id}`} tabIndex={-1}>
                 <h3>{exam.title} {prestige ? <small className="activity-spine-returner">Optional Prestige</small> : null} {passed ? "✓" : ""}</h3>
                 {exam.summary && <p className="hint">{exam.summary}</p>}
                 {prestige
-                    ? <p className="hint"><strong>Progression impact: none.</strong> This distinction does not block leveling, stats, jutsu, or content.</p>
+                    ? <p className="hint">{passed ? "Distinction earned. " : "Recognition of your service. "}This distinction does not block leveling, stats, jutsu, or content.</p>
                     : <p className="hint">Progression hold: level {exam.unlockLevel}. Status: <strong>{passed ? "Passed" : upcoming ? "Upcoming — prepare now" : complete ? "Ready to pass" : "In progress"}</strong></p>}
                 {isBlocking && !complete && <p style={{ color: "var(--red-400)", fontWeight: "bold" }}>You cannot level past {exam.unlockLevel} until you pass this exam.</p>}
-                <div className="location-grid">{exam.requirements.map(renderRequirement)}</div>
+                {passed ? <details className="logbook-completed-requirements"><summary>View completed requirements</summary><div className="location-grid">{exam.requirements.map(renderRequirement)}</div></details>
+                    : <div className="location-grid">{exam.requirements.map(renderRequirement)}</div>}
                 {!passed && <div className="menu">
                     <button disabled={upcoming || !complete} onClick={() => {
                         void passRankExamServer(character.name, exam.examKey).then((next) => {
+                            ceremonyReturnRef.current = document.getElementById(`logbook-${exam.id}`);
                             updateCharacter(next);
-                            setCeremony({ title: exam.title, prestige });
+                            setCeremony({ title: exam.title, prestige, examKey: exam.examKey });
                         }).catch((error) => alert(error instanceof Error ? error.message : "Rank exam could not be verified."));
                     }}>{upcoming ? `Opens at level ${exam.unlockLevel}` : complete ? prestige ? "Claim distinction" : `Pass ${exam.title}` : "Requirements incomplete"}</button>
                 </div>}
@@ -423,28 +444,34 @@ export function Logbook({
     return (
         <div className="card logbook-screen">
             <h2>Logbook</h2>
-            {/* Rank-up celebration. Portaled to <body> at z-index 1000000, which is the
-                house convention for any full-screen overlay: the desktop nav rail sits at
-                999999, so this used to draw BEHIND the rail at its old z-index of 9000 —
-                and passing a rank exam is one of the game's few marquee moments. Portaling
-                also escapes the .logbook-screen card's own stacking/overflow context. */}
-            {ceremony && createPortal(
-                <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.78)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000000, padding: 16 }}>
-                    <div className="card" style={{ maxWidth: 420, width: "100%", textAlign: "center" }}>
-                        <div style={{ marginBottom: 4 }}><GameArtIcon kind="crown" size={48} /></div>
-                        <h2 style={{ marginTop: 0 }}>{ceremony.prestige ? `${ceremony.title} Recorded` : `${ceremony.title} Passed!`}</h2>
-                        <p>{ceremonyBody}</p>
-                        <button className="start-primary-btn" style={{ width: "100%" }} onClick={() => setCeremony(null)}>Continue →</button>
-                    </div>
-                </div>,
-                document.body,
+            {ceremony && (
+                <Modal open onClose={() => setCeremony(null)} bare size="sm" ariaLabelledBy="logbook-ceremony-title" className="logbook-ceremony" backdropClassName="logbook-ceremony-backdrop" returnFocusRef={ceremonyReturnRef}>
+                        {ceremonyMilestone ? <img className="logbook-ceremony-art" src={achievementBadgeSrc(ceremonyMilestone.id)} alt="" width={128} height={128} /> : <GameArtIcon kind="crown" size={48} />}
+                        <h2 id="logbook-ceremony-title" style={{ marginTop: 0 }}>{ceremonyMilestone?.title ?? `${ceremony.title} complete`}</h2>
+                        <p>{ceremonyMilestone?.body ?? `Your achievement is recorded, ${character.name}.`}</p>
+                        {ceremonyMilestone && <p><strong>{ceremonyMilestone.name}</strong><br />A career achievement for your record.</p>}
+                        {ceremony.prestige && <p className="hint">Optional recognition; your level progression remains open.</p>}
+                        <button className="start-primary-btn" style={{ width: "100%" }} onClick={() => setCeremony(null)}>Return to Logbook</button>
+                </Modal>
             )}
-            <p>Progression exams: <strong>{blockingExams.length}</strong> · Prestige milestones: <strong>{prestigeMilestones.length}</strong> · Daily missions: <strong>{dailyMissions.length + (activeVillageWar ? VILLAGE_WAR_DAILY_MISSIONS : 0)}</strong> · Events: <strong>{logbookEvents.length}</strong> · Raids: <strong>{logbookRaids.length}</strong> · Assigned missions: <strong>{assignedMissions.length}</strong></p>
-            <LogbookCareerRecord character={character} village={loadVillageState(character.village)} />
+            <p className="hint">Your next milestone, the work you have taken on, and the career you are building.</p>
+            <section className="logbook-priority" aria-labelledby="logbook-priority-heading">
+                <p className="logbook-eyebrow">{priorityLabel}</p>
+                <h3 id="logbook-priority-heading">{priority ? "Your next milestone" : "Your advancement is open"}</h3>
+                {priority && <p className="logbook-priority-title"><strong>{priority.title}</strong></p>}
+                {priority ? <>
+                    <p>{priorityIsHold ? `Pass this exam to continue beyond level ${priority.unlockLevel}.` : priority.summary}</p>
+                    <p><strong>{nextRequirement ? "Work toward: " : "Ready: "}</strong>{nextRequirement ? nextRequirement.label : priority.progressionImpact === "prestige" ? "Claim your distinction below." : "Review your completed requirements below."}</p>
+                    <button className="start-primary-btn" onClick={reviewPriority}>Review milestone</button>
+                </> : <>
+                    <p>Your available advancement milestones are complete. Choose your next ambition from the activities you already enjoy.</p>
+                    <div className="menu"><button onClick={() => setScreen("missions")}>Visit Mission Hall</button><button onClick={openAchievements}>Browse achievements</button></div>
+                </>}
+            </section>
             {academyChecklist && (
                 <>
                     <h3>Academy Training</h3>
-                    <section className="academy-logbook-panel mission-board-section">
+                    <section className="academy-logbook-panel mission-board-section" id={`logbook-${academyChecklist.id}`} tabIndex={-1}>
                         <p className="hint">Complete these goals to learn the core loop, then follow the Path to Genin chapters.</p>
                         <div className="logbook-requirement-grid">{academyChecklist.requirements.map(renderRequirement)}</div>
                         {academyComplete && (
@@ -464,7 +491,7 @@ export function Logbook({
                             const complete = objectiveComplete(chapter);
                             const active = currentObjective?.id === chapter.id;
                             return (
-                                <div key={chapter.id} className={`logbook-chapter-card${complete ? " complete" : ""}${active ? " active" : ""}`}>
+                                <div key={chapter.id} id={`logbook-${chapter.id}`} tabIndex={-1} className={`logbook-chapter-card${complete ? " complete" : ""}${active ? " active" : ""}`}>
                                     <div className="logbook-chapter-header">
                                         <div>
                                             <h4>{chapter.title}</h4>
@@ -495,6 +522,41 @@ export function Logbook({
                     {blockingExams.map(renderExam)}
                 </>
             )}
+            {assignedMissions.length > 0 && (
+                <section aria-label="Assigned missions">
+                <h3>Assigned Missions</h3>
+                <div className="location-grid">
+                    {assignedMissions.map((mission) => {
+                        const progress = missionProgress[mission.id] ?? 0;
+                        const raidReq = missionRaidRequirement(mission);
+                        const raidProgress = missionProgress[missionRaidProgressKey(mission.id)] ?? 0;
+                        const complete = progress >= mission.exploreCount && raidProgress >= raidReq;
+                        const nextAction = fieldMissionNextAction(mission, progress, raidProgress, currentSector);
+                        const progressPercent = Math.min(100, ((Math.min(mission.exploreCount, progress) + Math.min(raidReq, raidProgress)) / Math.max(1, mission.exploreCount + raidReq)) * 100);
+                        const boostedRyo = boostAmount(mission.ryoReward, missionRewardBonus);
+                        const boostedStamina = boostAmount(mission.staminaReward, missionRewardBonus);
+                        return (
+                            <div key={mission.id} className="location-button mission-card">
+                                <CardVisual image={creatorAis.find((ai) => ai.id === mission.aiProfileId)?.image} icon={mission.rank} label={mission.name} />
+                                <span>{mission.name}</span>
+                                <small>Sector {mission.targetSector} | Explore {progress}/{mission.exploreCount}{raidReq > 0 ? ` | Raid ${raidProgress}/${raidReq}` : ""}</small>
+                                <small>Lvl {mission.levelReq} | {rewardSummary(boostedRyo, boostedStamina, mission.currencyRewards, character)}</small>
+                                <p>{mission.description}</p>
+                                <p><strong>Next:</strong> {nextAction.instruction}</p>
+                                <div className="mission-progress"><span style={{ width: `${progressPercent}%` }}></span></div>
+                                <div className="menu">
+                                    {complete ? <button disabled={claimingFieldMissionId !== null || claimCooldownMs > 0} onClick={() => { void claimMission(mission); }}>{claimingFieldMissionId === mission.id ? "Claiming…" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim reward"}</button> : nextAction.objective === "explore" ? null : <button onClick={() => {
+                                        setScreen("worldMap");
+                                    }}>{nextAction.label}</button>}
+                                    <button className="danger-button" disabled={fieldTrailPending !== null || claimingFieldMissionId !== null} onClick={() => { void abandonMission(mission.id); }}>Abandon</button>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+                </section>
+            )}
+            <LogbookCareerRecord character={character} village={loadVillageState(character.village)} onOpenAchievements={openAchievements} />
             {prestigeMilestones.length > 0 && (
                 <>
                     <h3>Prestige Milestones</h3>
@@ -502,6 +564,10 @@ export function Logbook({
                     {prestigeMilestones.map(renderExam)}
                 </>
             )}
+            <details className="logbook-board-overview">
+                <summary>Activity board overview</summary>
+                <p>Daily missions: <strong>{dailyMissions.length + (activeVillageWar ? VILLAGE_WAR_DAILY_MISSIONS : 0)}</strong> · Events: <strong>{logbookEvents.length}</strong> · Raids: <strong>{logbookRaids.length}</strong> · Assigned missions: <strong>{assignedMissions.length}</strong></p>
+            </details>
             {activeVillageWar && (
                 <>
                     <h3>Village War Missions</h3>
@@ -576,49 +642,6 @@ export function Logbook({
                         );
                     })}</div>
                 </>
-            )}
-            <h3>Assigned Missions</h3>
-            {assignedMissions.length === 0 ? (
-                <div className="summary-box">
-                    <h3>No Active Assignments</h3>
-                    <p className="hint">Accept a fetch mission from the Mission Hall to track it here.</p>
-                    <button onClick={() => setScreen("missions")}>Open Mission Hall</button>
-                </div>
-            ) : (
-                <div className="location-grid">
-                    {assignedMissions.map((mission) => {
-                        const progress = missionProgress[mission.id] ?? 0;
-                        const raidReq = missionRaidRequirement(mission);
-                        const raidProgress = missionProgress[missionRaidProgressKey(mission.id)] ?? 0;
-                        const complete = progress >= mission.exploreCount && raidProgress >= raidReq;
-                        const nextAction = fieldMissionNextAction(mission, progress, raidProgress, currentSector);
-                        const progressPercent = Math.min(100, ((Math.min(mission.exploreCount, progress) + Math.min(raidReq, raidProgress)) / Math.max(1, mission.exploreCount + raidReq)) * 100);
-                        const boostedRyo = boostAmount(mission.ryoReward, missionRewardBonus);
-                        const boostedStamina = boostAmount(mission.staminaReward, missionRewardBonus);
-                        return (
-                            <div key={mission.id} className="location-button mission-card">
-                                <CardVisual image={creatorAis.find((ai) => ai.id === mission.aiProfileId)?.image} icon={mission.rank} label={mission.name} />
-                                <span>{mission.name}</span>
-                                <small>Sector {mission.targetSector} | Explore {progress}/{mission.exploreCount}{raidReq > 0 ? ` | Raid ${raidProgress}/${raidReq}` : ""}</small>
-                                <small>Lvl {mission.levelReq} | {rewardSummary(boostedRyo, boostedStamina, mission.currencyRewards, character)}</small>
-                                <p>{mission.description}</p>
-                                <p><strong>Next:</strong> {nextAction.instruction}</p>
-                                <div className="mission-progress"><span style={{ width: `${progressPercent}%` }}></span></div>
-                                <div className="menu">
-                                    {complete ? <button disabled={claimingFieldMissionId !== null || claimCooldownMs > 0} onClick={() => { void claimMission(mission); }}>{claimingFieldMissionId === mission.id ? "Claiming…" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim reward"}</button> : nextAction.objective === "explore" ? null : <button onClick={() => {
-                                        setScreen("worldMap");
-                                    }}>{nextAction.label}</button>}
-                                    <button className="danger-button" disabled={fieldTrailPending !== null || claimingFieldMissionId !== null} onClick={() => { void abandonMission(mission.id); }}>Abandon</button>
-                                </div>
-                            </div>
-                        );
-                    })}
-                    {/* An accepted id that matches no mission used to render an
-                        "Archived Assignment" card whose Remove could never work:
-                        field-trail refuses ids outside its catalog, and creator
-                        missions can simply be still loading. Not rendering it
-                        loses nothing, and a still-loading mission reappears. */}
-                </div>
             )}
             {defeatedAiIds.length > 0 && (
                 <>

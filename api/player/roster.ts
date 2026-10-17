@@ -11,6 +11,7 @@ import { cachedFor } from '../_proc-cache.js';
 import { earnedStatPoints } from '../_xp-engine.js';
 import { activeCarriedPets } from '../_entitlements.js';
 import { readKvProjection } from '../_storage-projection.js';
+import { publicAchievementRecord } from '../achievements/_public.js';
 
 const FULL_ROSTER_CACHE_KEY = 'player:roster:full';
 const FULL_ROSTER_CACHE_TTL_MS = 60_000;
@@ -62,7 +63,7 @@ const ROSTER_STRIP_CHAR_FIELDS = new Set<string>([
     // battleTowerRating (flat leaderboard stats, like rankedRating).
     'battleTowerClearedFloors', 'battleTowerClaimedRewards', 'battleTowerAssistRewardsClaimed',
     'weeklyBossKills', 'claimedWarCrateIds',
-    'unlockedAchievements', 'achievementUnlockedAt',
+    'unlockedAchievements', 'achievementUnlockedAt', 'claimedAchievementRewards',
     'villageWarMissionDate', 'villageWarRaidProgress', 'villageWarMissionsCompleted',
     'clanBattleContrib', 'clanEventContrib', 'clanMissionContrib', 'clanContribMonth',
     'petEscortBonusReady', 'hunterRank',
@@ -260,6 +261,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // status. Display-only; safe to surface publicly.
                 const fullChar = save?.character as Record<string, unknown> | undefined;
                 if (character && typeof character === 'object' && fullChar) {
+                    // Presence is deliberately slim and client-reported. Derive the
+                    // public achievement display from the authoritative save instead.
+                    Object.assign(character, publicAchievementRecord(fullChar));
                     for (const k of ['nindo', 'nindoBg']) {
                         const v = fullChar[k];
                         if (typeof v === 'string' && v) (character as Record<string, unknown>)[k] = v;
