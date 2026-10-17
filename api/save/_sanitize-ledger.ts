@@ -3,6 +3,7 @@ import { AURA_SPHERE_ITEM_ID } from '../pvp/_multipliers.js';
 import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
 import { FORGED_ITEM_ID } from './_forged-items.js';
 import { meetsItemLevelReq } from '../../shared/item-level-gate.js';
+import { namedGearFitsEquipSlot } from '../../shared/named-gear-rules.js';
 import {
     ALWAYS_SERVER_LEDGER_CHARACTER_FIELDS,
     SERVER_PAYOUT_CHARACTER_FIELDS,
@@ -238,6 +239,10 @@ function enforceEquipmentOwnership(char: Record<string, unknown>, stored: Record
         // the next write (the item stays in the backpack), which self-heals the
         // slot instead of leaving the sphere permanently locked out.
         if (canonicalSlot === 'aura' && id !== AURA_SPHERE_ITEM_ID) continue;
+        // Named gear has no built-in definition for the kind check below, so it is
+        // held to the gear slots by id. Not grandfathered: the client never puts a
+        // named piece anywhere else, and the piece stays in the backpack.
+        if (!namedGearFitsEquipSlot(slot, id)) continue;
         const grandfathered = String(storedEquipment[slot] ?? '') === id;
         const builtin = ITEM_CATALOG[id];
         if (!grandfathered && builtin && !slotAcceptsItemKind(slot, builtin.slot)) continue;
@@ -434,6 +439,17 @@ function enforceRawSaveLedgerBoundary(
     for (const [slot, id] of resolvedEquipmentEntries(requestedEquipment)) {
         const canonicalSlot = canonicalEquipmentSlot(slot);
         if (equippedIds.has(id) || occupiedCanonicalSlots.has(canonicalSlot)) continue;
+        if (!namedGearFitsEquipSlot(slot, id)) {
+            // A refused named piece goes back to the backpack. The client listed it as
+            // worn, not carried, so the inventory pass above never kept its unit.
+            const left = remaining.get(id) ?? 0;
+            if (!REFERENCE_EQUIPMENT_SLOTS.has(slot) && left > 0 && !retainedBackpackIds.has(id)) {
+                inventory.push(id);
+                retainedBackpackIds.add(id);
+                remaining.set(id, left - 1);
+            }
+            continue;
+        }
         if (REFERENCE_EQUIPMENT_SLOTS.has(slot)) {
             if (!retainedBackpackIds.has(id)) continue;
         } else {

@@ -36,6 +36,34 @@ describe("weapon effect cards show what the swing really does", () => {
         assert.equal(weaponEffectDisplayValue("Reflect", 40), "35%");
         assert.equal(weaponEffectDisplayValue("Lifesteal", 30), "30%");
         assert.equal(weaponEffectDisplayValue("Poison", 40), `${WEAPON_POISON_TAG_CAP}%`);
+        assert.equal(weaponEffectDisplayValue("Increase Generals", 38), "35%", "a non-named weapon keeps the 35 cap");
+        assert.equal(weaponEffectDisplayValue("Increase Generals", 18), "18%");
+    });
+
+    it("shows a named blade's tags exactly as rolled (owner ruling 2026-10-16)", () => {
+        const blade = { id: "named-weapon-0f07ac79-66d2-4f4f-a4b4-3c9b6eb74527", weaponTags: [{ name: "Reflect" }] };
+        assert.equal(weaponEffectDisplayValue("Reflect", 40, blade), "40%");
+        assert.equal(weaponEffectDisplayValue("Increase Generals", 38, blade), "38%");
+        assert.equal(weaponEffectDisplayValue("Wound", 30, blade), "30% of damage dealt");
+        assert.equal(weaponEffectDisplayValue("Wound", 38, blade), "30% of damage dealt", "an older roll above today's top Wound reads its bound");
+    });
+
+    it("reads a missing percent the way combat does, and gives no number to a tag without one", () => {
+        // scaledTagPercent treats 0 as 30; Poison falls back to POISON_DEFAULT_PCT (6).
+        assert.equal(weaponEffectDisplayValue("Lifesteal", 0), "30%");
+        assert.equal(weaponEffectDisplayValue("Wound", undefined), "25% of damage dealt");
+        assert.equal(weaponEffectDisplayValue("Poison", 0), "6%");
+        assert.equal(weaponEffectDisplayValue("Pierce", 0), "");
+        assert.equal(weaponEffectDisplayValue("Stun", 40), "");
+    });
+
+    it("shows a fresh roll at its rolled value, which is what combat applies", () => {
+        assert.equal(namedRollTagValue("Wound", 30, 1), "30% of damage dealt");
+        assert.equal(namedRollTagValue("Wound", 15, 2), "15% of damage dealt");
+        assert.equal(namedRollTagValue("Increase Damage Given", 40, 1), "40%");
+        assert.equal(namedRollTagValue("Increase Generals", 38, 1), "38%");
+        assert.equal(namedRollTagValue("Absorb", 12, 2), "12%");
+        assert.equal(namedRollTagValue("Poison", 12, 1), `${WEAPON_POISON_TAG_CAP}%`);
     });
 });
 
