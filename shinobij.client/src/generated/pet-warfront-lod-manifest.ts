@@ -41,7 +41,7 @@ const modelRows = [
     ["roster/mythic-15.glb","-092ed61d1b34-4e45e5ed3288",39718,16980],
     ["roster/mythic-2.glb","-2e86223de4db-4dd22cddde04",40000,10000],
     ["roster/mythic-3.glb","-58b8211ad208-f4103620d8cb",40000,10000],
-    ["roster/mythic-4.glb","-10fc738a3247-65f31b06986f",30422,10000],
+    ["roster/mythic-4.glb","-719271c3ca74-ea8c6f6ee569",30422,10000],
     ["roster/mythic-5.glb","-9936f40f9c7c-e665f3c95486",40000,10000],
     ["roster/mythic-6.glb","-b7919b82a0ce-e81c05fa0f0c",40000,10000],
     ["roster/mythic-7.glb","-4fffae57743f-f019f4257f7c",40000,10000],

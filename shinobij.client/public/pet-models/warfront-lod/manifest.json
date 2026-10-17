@@ -25,8 +25,8 @@
     "minSilhouetteIoU": 0.975
   },
   "totals": {
-    "sourceBytes": 105321800,
-    "lodBytes": 69801980,
+    "sourceBytes": 105422592,
+    "lodBytes": 69865336,
     "sourceTriangles": 5956618,
     "lodTriangles": 1624700
   },
@@ -1033,11 +1033,11 @@
     },
     {
       "sourceUrl": "/pet-models/roster/mythic-4.glb",
-      "lodUrl": "/pet-models/warfront-lod/roster/mythic-4.glb?v=20260902-battle-lod-v1-10fc738a3247-65f31b06986f",
-      "sourceBytes": 484268,
-      "lodBytes": 346808,
-      "sourceSha256": "10fc738a32473fb682bbbcea70fdb66feef4aac9189366367a515b2167708aea",
-      "lodSha256": "65f31b06986faa35e2c3e3377d45154a9cacc022b6ba2d0e5cc99e07006443e4",
+      "lodUrl": "/pet-models/warfront-lod/roster/mythic-4.glb?v=20260902-battle-lod-v1-719271c3ca74-ea8c6f6ee569",
+      "sourceBytes": 585060,
+      "lodBytes": 410164,
+      "sourceSha256": "719271c3ca743572b9ab79e818a6a486928919dbfd9ddca03b63b32a2a4d9f99",
+      "lodSha256": "ea8c6f6ee569b347684b6911b3205e531e4933cc7c5977cea80ef122856bd919",
       "sourceTriangles": 30422,
       "lodTriangles": 10000,
       "reduction": 0.671291,

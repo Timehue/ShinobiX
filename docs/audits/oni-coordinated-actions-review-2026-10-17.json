@@ -1,0 +1,756 @@
+{
+  "schema": 1,
+  "id": "mythic-4",
+  "name": "Abyssal Oni Hound",
+  "revision": "20261017-oni-coordinated-actions-v3",
+  "reviewer": "Codex visual inspection",
+  "reviewedAt": "2026-10-17T05:29:38.814Z",
+  "sha256": "719271c3ca743572b9ab79e818a6a486928919dbfd9ddca03b63b32a2a4d9f99",
+  "lodSha256": "ea8c6f6ee569b347684b6911b3205e531e4933cc7c5977cea80ef122856bd919",
+  "atlasSha256": "954ad89a51999157aeff3ac75e8d4c5669f7777ada6f1a8eacb2a6467ed347f9",
+  "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+  "passed": true,
+  "fullBodyReviewed": true,
+  "skullShapeReviewed": true,
+  "transitionsReviewed": true,
+  "clips": [
+    "idle",
+    "idle_2",
+    "walk",
+    "gallop",
+    "gallop_jump",
+    "attack",
+    "idle_hitreact1",
+    "death",
+    "entrance",
+    "cast",
+    "guard",
+    "rest",
+    "victory"
+  ],
+  "views": [
+    "front",
+    "side"
+  ],
+  "raw": [
+    {
+      "label": "oni-v3-final-source-head",
+      "sha256": "719271c3ca743572b9ab79e818a6a486928919dbfd9ddca03b63b32a2a4d9f99",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "views": [
+        "head-front",
+        "head-side"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "slicesActuallyInspected": 6
+    },
+    {
+      "label": "oni-v3-final-source-body",
+      "sha256": "719271c3ca743572b9ab79e818a6a486928919dbfd9ddca03b63b32a2a4d9f99",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "views": [
+        "front",
+        "side"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "slicesActuallyInspected": 6
+    },
+    {
+      "label": "oni-v3-final-battle-head",
+      "sha256": "ea8c6f6ee569b347684b6911b3205e531e4933cc7c5977cea80ef122856bd919",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "views": [
+        "head-front",
+        "head-side"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "slicesActuallyInspected": 6
+    },
+    {
+      "label": "oni-v3-final-battle-body",
+      "sha256": "ea8c6f6ee569b347684b6911b3205e531e4933cc7c5977cea80ef122856bd919",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "views": [
+        "front",
+        "side"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "slicesActuallyInspected": 6
+    }
+  ],
+  "runtime": [
+    {
+      "label": "oni-v3-final-runtime-low",
+      "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+      "rows": [
+        {
+          "name": "idle",
+          "duration": 1.2,
+          "frame": {
+            "motion": "idle"
+          }
+        },
+        {
+          "name": "run",
+          "duration": 0.8,
+          "frame": {
+            "motion": "run",
+            "moving": true,
+            "speed": 3
+          }
+        },
+        {
+          "name": "dash",
+          "duration": 0.6,
+          "frame": {
+            "motion": "dash",
+            "moving": true,
+            "speed": 5
+          }
+        },
+        {
+          "name": "windup",
+          "duration": 0.38,
+          "frame": {
+            "motion": "windup"
+          }
+        },
+        {
+          "name": "strike",
+          "duration": 0.26,
+          "frame": {
+            "motion": "strike",
+            "contactPose": true
+          }
+        },
+        {
+          "name": "recover",
+          "duration": 0.51,
+          "frame": {
+            "motion": "recover"
+          }
+        },
+        {
+          "name": "stagger",
+          "duration": 0.65,
+          "frame": {
+            "motion": "stagger",
+            "hit": 0.6,
+            "contactPose": true
+          }
+        },
+        {
+          "name": "dodge",
+          "duration": 0.65,
+          "frame": {
+            "motion": "dodge"
+          }
+        },
+        {
+          "name": "guard",
+          "duration": 0.8,
+          "frame": {
+            "motion": "guard"
+          }
+        },
+        {
+          "name": "rest",
+          "duration": 1.2,
+          "frame": {
+            "motion": "rest"
+          }
+        },
+        {
+          "name": "cast",
+          "duration": 0.9,
+          "frame": {
+            "motion": "idle",
+            "casting": true
+          }
+        },
+        {
+          "name": "entrance",
+          "duration": 1.1,
+          "frame": {
+            "motion": "idle"
+          }
+        },
+        {
+          "name": "victory",
+          "duration": 1.2,
+          "frame": {
+            "motion": "idle",
+            "victorious": true
+          }
+        },
+        {
+          "name": "dead",
+          "duration": 1.6,
+          "frame": {
+            "motion": "dead"
+          }
+        },
+        {
+          "name": "revive",
+          "duration": 0.8,
+          "frame": {
+            "motion": "idle"
+          }
+        },
+        {
+          "name": "attack-sequence",
+          "duration": 1.7,
+          "frame": {
+            "motion": "windup"
+          }
+        }
+      ],
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ],
+      "captures": [
+        {
+          "stage": "source",
+          "sha256": "719271c3ca743572b9ab79e818a6a486928919dbfd9ddca03b63b32a2a4d9f99",
+          "meshes": 1,
+          "headVertices": [
+            2597
+          ],
+          "quality": "low",
+          "sheets": [
+            {
+              "name": "mythic-4-source-head.webp",
+              "sha256": "08ba9b2d8e830d17e60fff35329cf01af153afb9a830e7f454763a462ac52f39"
+            },
+            {
+              "name": "mythic-4-source-body.webp",
+              "sha256": "c65e099c9a297fa8155623a54aa9316e9ce3307ed6760ab170cbc22862693d44"
+            }
+          ]
+        },
+        {
+          "stage": "battle",
+          "sha256": "ea8c6f6ee569b347684b6911b3205e531e4933cc7c5977cea80ef122856bd919",
+          "meshes": 1,
+          "headVertices": [
+            1193
+          ],
+          "quality": "low",
+          "sheets": [
+            {
+              "name": "mythic-4-battle-head.webp",
+              "sha256": "249a95793ffaa08406cf68e994715c4a2d4d6e386e425f7b5c974a2261591ef7"
+            },
+            {
+              "name": "mythic-4-battle-body.webp",
+              "sha256": "76a1ac15119bedb50e4c7ebe634dcd75acfb1b2047ca3515e34df90defc77598"
+            }
+          ]
+        }
+      ],
+      "slicesActuallyInspected": 16
+    },
+    {
+      "label": "oni-v3-final-runtime-medium",
+      "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+      "rows": [
+        {
+          "name": "idle",
+          "duration": 1.2,
+          "frame": {
+            "motion": "idle"
+          }
+        },
+        {
+          "name": "run",
+          "duration": 0.8,
+          "frame": {
+            "motion": "run",
+            "moving": true,
+            "speed": 3
+          }
+        },
+        {
+          "name": "dash",
+          "duration": 0.6,
+          "frame": {
+            "motion": "dash",
+            "moving": true,
+            "speed": 5
+          }
+        },
+        {
+          "name": "windup",
+          "duration": 0.38,
+          "frame": {
+            "motion": "windup"
+          }
+        },
+        {
+          "name": "strike",
+          "duration": 0.26,
+          "frame": {
+            "motion": "strike",
+            "contactPose": true
+          }
+        },
+        {
+          "name": "recover",
+          "duration": 0.51,
+          "frame": {
+            "motion": "recover"
+          }
+        },
+        {
+          "name": "stagger",
+          "duration": 0.65,
+          "frame": {
+            "motion": "stagger",
+            "hit": 0.6,
+            "contactPose": true
+          }
+        },
+        {
+          "name": "dodge",
+          "duration": 0.65,
+          "frame": {
+            "motion": "dodge"
+          }
+        },
+        {
+          "name": "guard",
+          "duration": 0.8,
+          "frame": {
+            "motion": "guard"
+          }
+        },
+        {
+          "name": "rest",
+          "duration": 1.2,
+          "frame": {
+            "motion": "rest"
+          }
+        },
+        {
+          "name": "cast",
+          "duration": 0.9,
+          "frame": {
+            "motion": "idle",
+            "casting": true
+          }
+        },
+        {
+          "name": "entrance",
+          "duration": 1.1,
+          "frame": {
+            "motion": "idle"
+          }
+        },
+        {
+          "name": "victory",
+          "duration": 1.2,
+          "frame": {
+            "motion": "idle",
+            "victorious": true
+          }
+        },
+        {
+          "name": "dead",
+          "duration": 1.6,
+          "frame": {
+            "motion": "dead"
+          }
+        },
+        {
+          "name": "revive",
+          "duration": 0.8,
+          "frame": {
+            "motion": "idle"
+          }
+        },
+        {
+          "name": "attack-sequence",
+          "duration": 1.7,
+          "frame": {
+            "motion": "windup"
+          }
+        }
+      ],
+      "phases": [
+        0.025,
+        0.1,
+        0.25,
+        0.5,
+        0.75,
+        1
+      ],
+      "captures": [
+        {
+          "stage": "source",
+          "sha256": "719271c3ca743572b9ab79e818a6a486928919dbfd9ddca03b63b32a2a4d9f99",
+          "meshes": 1,
+          "headVertices": [
+            2597
+          ],
+          "quality": "medium",
+          "sheets": [
+            {
+              "name": "mythic-4-source-head.webp",
+              "sha256": "a6b9b5d14c1298d8f64f2b6ce60a2f3abd32960821d21b9b6786cf0dcb83c589"
+            },
+            {
+              "name": "mythic-4-source-body.webp",
+              "sha256": "3aa16cbbaf7bf3a3101477a509e5394a4d3cc32562e17b9b749c8e94d3c49425"
+            }
+          ]
+        },
+        {
+          "stage": "battle",
+          "sha256": "ea8c6f6ee569b347684b6911b3205e531e4933cc7c5977cea80ef122856bd919",
+          "meshes": 1,
+          "headVertices": [
+            1193
+          ],
+          "quality": "medium",
+          "sheets": [
+            {
+              "name": "mythic-4-battle-head.webp",
+              "sha256": "62d3ec7e3cc00583623d6eceee76fbdbdaad77d0957db020802ca7c5036a7289"
+            },
+            {
+              "name": "mythic-4-battle-body.webp",
+              "sha256": "55053ba6193ac9d27b6f7fd3c1f6863316c1914bb9119d3c3f249aec816dd13d"
+            }
+          ]
+        }
+      ],
+      "slicesActuallyInspected": 16
+    }
+  ],
+  "companion": [
+    {
+      "label": "oni-v3-final-all-techniques",
+      "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+      "models": [
+        {
+          "url": "/pet-models/warfront-lod/roster/mythic-4.glb?v=20260902-battle-lod-v1-719271c3ca74-ea8c6f6ee569",
+          "sha256": "ea8c6f6ee569b347684b6911b3205e531e4933cc7c5977cea80ef122856bd919"
+        }
+      ],
+      "moves": [
+        "earth-strike",
+        "earth-pulse",
+        "earth-breaker",
+        "lightning-pulse",
+        "open-wound",
+        "expose",
+        "rally",
+        "protect",
+        "mythic-4-signature"
+      ],
+      "views": [
+        "front",
+        "side"
+      ],
+      "framesActuallyInspected": 216,
+      "sheetsActuallyInspected": 36
+    },
+    {
+      "label": "oni-v3-final-open-wound-angles",
+      "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+      "models": [
+        {
+          "url": "/pet-models/warfront-lod/roster/mythic-4.glb?v=20260902-battle-lod-v1-719271c3ca74-ea8c6f6ee569",
+          "sha256": "ea8c6f6ee569b347684b6911b3205e531e4933cc7c5977cea80ef122856bd919"
+        }
+      ],
+      "moves": [
+        "open-wound"
+      ],
+      "views": [
+        "opposite",
+        "quarter"
+      ],
+      "framesActuallyInspected": 24,
+      "sheetsActuallyInspected": 4
+    }
+  ],
+  "numeric": [
+    {
+      "evidence": "docs/screenshots/oni-coordinated-actions-2026-10-17/mythic-4-coordinated-actions-v3-motion-audit.json",
+      "summary": {
+        "geometryCoverage": "all vertices, triangle edges above numerical degeneracy tolerance, and connected UV seam copies",
+        "attemptedModels": 1,
+        "auditedModels": 1,
+        "distinctRuntimeAssets": 1,
+        "failedModels": 0,
+        "deformationWarnings": 0,
+        "petsWithDeformationWarnings": 0,
+        "auditedPoses": 483,
+        "showcaseAuthored": 0,
+        "identityAuthored": 1,
+        "identityDirected": 1,
+        "uniquePerformanceFingerprints": 1,
+        "rigs": [
+          "quadruped"
+        ],
+        "families": [
+          "pack-hunter"
+        ]
+      }
+    },
+    {
+      "evidence": "docs/screenshots/oni-coordinated-actions-2026-10-17/mythic-4-coordinated-actions-v3-battle-motion-audit.json",
+      "summary": {
+        "geometryCoverage": "all vertices, triangle edges above numerical degeneracy tolerance, and connected UV seam copies",
+        "attemptedModels": 1,
+        "auditedModels": 1,
+        "distinctRuntimeAssets": 1,
+        "failedModels": 0,
+        "deformationWarnings": 0,
+        "petsWithDeformationWarnings": 0,
+        "auditedPoses": 483,
+        "showcaseAuthored": 0,
+        "identityAuthored": 1,
+        "identityDirected": 1,
+        "uniquePerformanceFingerprints": 1,
+        "rigs": [
+          "quadruped"
+        ],
+        "families": [
+          "pack-hunter"
+        ]
+      }
+    },
+    {
+      "evidence": "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-coordinated-v3-source.json",
+      "summary": {
+        "pets": 1,
+        "failures": 0,
+        "poses": 1293
+      }
+    },
+    {
+      "evidence": "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-coordinated-v3-battle.json",
+      "summary": {
+        "pets": 1,
+        "failures": 0,
+        "poses": 1293
+      }
+    }
+  ],
+  "observations": "The original live technique swung the upper legs independently and folded the forelegs under an upright body. Attack, cast and recoil now solve upper leg, knee and paw together. The complete source and rebuilt battle assets were visually inspected across all 13 clips. All 16 production transition sequences were inspected at low and medium quality. All nine inspector technique choices were inspected front and side; Open Wound was also inspected from the opposite side and three-quarter view. No disconnected legs, folded-under forelegs, muzzle/cheek collapse or floor-clipping support paws were seen. The first full-source candidate inspection covered another 36 sheets and 216 frames before this separate final battle-model pass. This certifies Oni only; the renewed independent full-roster audit remains unfinished.",
+  "evidence": [
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-source-head-mythic-4-head-front.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-source-head-mythic-4-head-side.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-source-body-mythic-4-front.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-source-body-mythic-4-side.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-battle-head-mythic-4-head-front.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-battle-head-mythic-4-head-side.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-battle-body-mythic-4-front.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-battle-body-mythic-4-side.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-runtime-low-mythic-4-source-head.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-runtime-low-mythic-4-source-body.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-runtime-low-mythic-4-battle-head.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-runtime-low-mythic-4-battle-body.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-runtime-medium-mythic-4-source-head.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-runtime-medium-mythic-4-source-body.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-runtime-medium-mythic-4-battle-head.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-runtime-medium-mythic-4-battle-body.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-strike-front-sheet-0.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-strike-front-sheet-1.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-strike-side-sheet-0.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-strike-side-sheet-1.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-pulse-front-sheet-0.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-pulse-front-sheet-1.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-pulse-side-sheet-0.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-pulse-side-sheet-1.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-breaker-front-sheet-0.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-breaker-front-sheet-1.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-breaker-side-sheet-0.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-breaker-side-sheet-1.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-lightning-pulse-front-sheet-0.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-lightning-pulse-front-sheet-1.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-lightning-pulse-side-sheet-0.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-lightning-pulse-side-sheet-1.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-open-wound-front-sheet-0.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-open-wound-front-sheet-1.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-open-wound-side-sheet-0.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-open-wound-side-sheet-1.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-expose-front-sheet-0.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-expose-front-sheet-1.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-expose-side-sheet-0.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-expose-side-sheet-1.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-rally-front-sheet-0.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-rally-front-sheet-1.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-rally-side-sheet-0.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-rally-side-sheet-1.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-protect-front-sheet-0.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-protect-front-sheet-1.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-protect-side-sheet-0.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-protect-side-sheet-1.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-mythic-4-signature-front-sheet-0.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-mythic-4-signature-front-sheet-1.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-mythic-4-signature-side-sheet-0.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-mythic-4-signature-side-sheet-1.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-open-wound-angles-mythic-4-open-wound-opposite-sheet-0.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-open-wound-angles-mythic-4-open-wound-opposite-sheet-1.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-open-wound-angles-mythic-4-open-wound-quarter-sheet-0.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-open-wound-angles-mythic-4-open-wound-quarter-sheet-1.webp",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/mythic-4-coordinated-actions-v3-motion-audit.json",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/mythic-4-coordinated-actions-v3-battle-motion-audit.json",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-coordinated-v3-source.json",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-coordinated-v3-battle.json"
+  ],
+  "evidenceSha256": {
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-source-head-mythic-4-head-front.webp": "dbb477d7d007a46ad5c4c7c25cb1e55d5b49976a3e92138a7a58e94c532b9dda",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-source-head-mythic-4-head-side.webp": "04fdbd47482e4f184ce6d00f542977859805ad424c25eb27bff480d3657844eb",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-source-body-mythic-4-front.webp": "f42b1b14f0cb03064769a96f394fb4abea61882615abfc03e0bdbb8888d37626",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-source-body-mythic-4-side.webp": "11625488b9785a57ba0b1f38415163a87ab1e189bc7e03f4b5f545efbb369a05",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-battle-head-mythic-4-head-front.webp": "f511d7691b6d641d367fa6fbd32f401ef6bbbe59d523096b042b899c85519934",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-battle-head-mythic-4-head-side.webp": "71037c56dfdf1c712a905dfde4a5a86e42e60708991256fd1edd86710adaec66",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-battle-body-mythic-4-front.webp": "820c32488345849fe2d82c1168474f73d0685ba7c74cb4e48e0d502080f4ef68",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-battle-body-mythic-4-side.webp": "28177428f137928d638f540f326a1758b3c235f784c085cf2a39ab97f8fc959e",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-runtime-low-mythic-4-source-head.webp": "08ba9b2d8e830d17e60fff35329cf01af153afb9a830e7f454763a462ac52f39",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-runtime-low-mythic-4-source-body.webp": "c65e099c9a297fa8155623a54aa9316e9ce3307ed6760ab170cbc22862693d44",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-runtime-low-mythic-4-battle-head.webp": "249a95793ffaa08406cf68e994715c4a2d4d6e386e425f7b5c974a2261591ef7",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-runtime-low-mythic-4-battle-body.webp": "76a1ac15119bedb50e4c7ebe634dcd75acfb1b2047ca3515e34df90defc77598",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-runtime-medium-mythic-4-source-head.webp": "a6b9b5d14c1298d8f64f2b6ce60a2f3abd32960821d21b9b6786cf0dcb83c589",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-runtime-medium-mythic-4-source-body.webp": "3aa16cbbaf7bf3a3101477a509e5394a4d3cc32562e17b9b749c8e94d3c49425",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-runtime-medium-mythic-4-battle-head.webp": "62d3ec7e3cc00583623d6eceee76fbdbdaad77d0957db020802ca7c5036a7289",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-runtime-medium-mythic-4-battle-body.webp": "55053ba6193ac9d27b6f7fd3c1f6863316c1914bb9119d3c3f249aec816dd13d",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-strike-front-sheet-0.webp": "e3f364f81211b527f731dd6a94c3240cde03e34ca71aa8a96188b0956aa46e1c",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-strike-front-sheet-1.webp": "011301ed1b58af24712b9418b06260f0d706a480819fbe53ca2a4b6a29d5be05",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-strike-side-sheet-0.webp": "58a4c7c0a197137a887512b06fbec7f5b5633808313d69c8d80104298806a5c7",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-strike-side-sheet-1.webp": "a80c0e9b403bbf1d4606b191897a5a96b941efa1201b5786f63a49ce390495ed",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-pulse-front-sheet-0.webp": "78c7db25d65ecc5b918981baadd7dcb766032ce4e358071f90feb1b02d5a891f",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-pulse-front-sheet-1.webp": "ed39cab7c1dbc918f8931d7c83d4e0e9c65c853c86e13652cb0f6a73b0ae593b",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-pulse-side-sheet-0.webp": "6616922b7509f67249aeefe4b1b97e1a00dda3f62213edad9d9277d07b58914f",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-pulse-side-sheet-1.webp": "5923f0c33dcf1c2801cc5d2a8de8899c1e12dbd3dd56d6214fc148a38ef4956a",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-breaker-front-sheet-0.webp": "e35136756b83db76ebfdc89aa08aa2f32c37f4c40f2cac5e626c57bfd69b0fe6",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-breaker-front-sheet-1.webp": "05b1b4d11d34fb92356f27cfe5fbaf7262fec9f87a6d7b63e2501d5cb31f0318",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-breaker-side-sheet-0.webp": "efa6f1082257f1208f0a2ad40623eac3177f7cbd0874b44d986c1b0f73ab7cd2",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-breaker-side-sheet-1.webp": "2554b3c07252fec5680e73b7e96f73d97b12d5cbbbd038917b65a4b242b9f357",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-lightning-pulse-front-sheet-0.webp": "aa38f0cff718fb9f7db32251dbecc6960f844d68e17002f3d65389ef644cc9d3",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-lightning-pulse-front-sheet-1.webp": "811ee877bd33ad15ab65baca5a7bc6edcaf69e5a37d4a88117f68a092fcbe813",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-lightning-pulse-side-sheet-0.webp": "fee1c2fea352a11eb05c6ac349e267d0b3fa01bb54dafde3ec8d5fc6bb02ec54",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-lightning-pulse-side-sheet-1.webp": "05fe0de35f72adb24cf22efd5409e9809c450ad281d8cfdc4dbe48ed6746ba3b",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-open-wound-front-sheet-0.webp": "eadf65539427866de9b6f06bcac3bccfaed491d3c5fe41af866ebbcc708544e1",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-open-wound-front-sheet-1.webp": "cf2e35568cd0c41140acea12d4c3f9d3841602281ea4f0c2dd3df6031647ee87",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-open-wound-side-sheet-0.webp": "82fd4d138a1441a79467257648a62896b824b19288989fcfe7a193a3af1ae80f",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-open-wound-side-sheet-1.webp": "8e7618f9679da498018022859546ea4c0319b77c032fcb185ad4627bbdbbc652",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-expose-front-sheet-0.webp": "ad1765d33ac078235326d99f439c75959f7e27e6bb4fd939ac44f966488e5299",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-expose-front-sheet-1.webp": "99e7eb343f7992255ea4d7c68b52789734afb136c301ae4a21764ea92025b675",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-expose-side-sheet-0.webp": "9a29eb2c1d3ab7487e26f0437ccad870e95d122d40275a6aec93026debc5ec48",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-expose-side-sheet-1.webp": "2886d865da8005f60ded074f4823294d63e880c8cf8a88cf456d19bbb7b4ad43",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-rally-front-sheet-0.webp": "de23790a7d512c9a7992fe69359b8d694885199883ef0005e328f341e05e7e4a",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-rally-front-sheet-1.webp": "40efa4a78ea914d215db9fa06203fb31792067b4adc8643f8ba74d845938813a",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-rally-side-sheet-0.webp": "245d0ae5d5df5ac1b3efc23c383881c509405f8955a796478fd2bf59df074d5c",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-rally-side-sheet-1.webp": "0640906fbd9450e9b7c932255e023e2824401c8cbf50064b8b423d86e02dc179",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-protect-front-sheet-0.webp": "e37fc5adcecf6fbacf7fccbeaa6b48ef306ad3a90336630b07d1b0a250f48afb",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-protect-front-sheet-1.webp": "31c9c03b411c0d50a0ebe21c96942ec24461e1765ab38d4162bee9faf4c59958",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-protect-side-sheet-0.webp": "112339efc22f6379ee742d5bb3f4e7bbe4c3075e9951e06b8b8b0bda9f0234b3",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-protect-side-sheet-1.webp": "eb963e6f1f99f3a10f7962e4c2d33e97b85425ba561143783c394f4ffdfb155d",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-mythic-4-signature-front-sheet-0.webp": "0801f2357d4a75671505f0d4c817d45b265e7192cbc55cc1fc13975d580760b8",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-mythic-4-signature-front-sheet-1.webp": "682bf2ed5b68cf95d9989f5463f9f61c010936c73d1f026b64c70018d318aea6",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-mythic-4-signature-side-sheet-0.webp": "a8ab9db7f66cde8e5f07f767a6e492a60ed7acc99e3a0def8741b0572ff301c7",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-mythic-4-signature-side-sheet-1.webp": "189ecd804cb471ab1f74fb1a6d40f912dd5395a56746ab458c570406f864da01",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-open-wound-angles-mythic-4-open-wound-opposite-sheet-0.webp": "2589847230d022c460b32192d71625a400073134e6e053b60d4501c7caca8cf5",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-open-wound-angles-mythic-4-open-wound-opposite-sheet-1.webp": "70ecd09f3c0510d68a458b33a5c5b8140fe590cb8286293541a20e67a07994cb",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-open-wound-angles-mythic-4-open-wound-quarter-sheet-0.webp": "0d4c4afa7c29f1d00e706cb74fc9a122ab10a5868a534f7f4b3d5e3ec3a1849a",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-open-wound-angles-mythic-4-open-wound-quarter-sheet-1.webp": "fc22953b3ca72ac1797a725d8c4282e148306d99c7c60a911b8e59b348814add",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/mythic-4-coordinated-actions-v3-motion-audit.json": "37ce325d5f1471dc0dcb025a9c0accbda6e6afd4a8c492bffc7df326933ccada",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/mythic-4-coordinated-actions-v3-battle-motion-audit.json": "e941bef95b8913d4c160e367f5802d27293ca88d3d0519bbc9f3462dc0b549fd",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-coordinated-v3-source.json": "fe525dbd766c24e05876e3a0be1989a2b251f5906a9a2330cc32fd203d49962c",
+    "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-coordinated-v3-battle.json": "8de6ffc27d5e6bced42482c244ffbf3cc947af0275c6c111924be7837a2b00ca"
+  }
+}
