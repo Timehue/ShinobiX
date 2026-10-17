@@ -7,7 +7,7 @@ import { NAMED_ITEM_LEVEL_REQ } from '../../shared/item-level-gate.js';
 import { NAMED_FORGE_CURRENCY_POINTS, namedForgePointTotal } from '../../shared/named-forge-economy.js';
 import { WEAPON_EP_CEILING } from '../combat-core/formulas.js';
 import { budgetItemBonuses } from '../_item-budget.js';
-import { NAMED_ARMOR_QUALITIES, NAMED_ARMOR_SLOTS, NAMED_ARMOR_SPECIALS, NAMED_ARMOR_STATS, NAMED_GAUNTLET_OFFENSE, NAMED_WEAPON_EP_VALUES, NAMED_WEAPON_OFFENSE, NAMED_WEAPON_RANGES, NAMED_WEAPON_TAG_APPEARANCE_PERCENT, NAMED_WEAPON_TAG_STRENGTH } from '../../shared/named-forge-roll.js';
+import { NAMED_ARMOR_QUALITIES, NAMED_ARMOR_SLOTS, NAMED_ARMOR_SPECIALS, NAMED_ARMOR_STATS, NAMED_GAUNTLET_OFFENSE, NAMED_WEAPON_EP_VALUES, NAMED_WEAPON_OFFENSE, NAMED_WEAPON_RANGES, NAMED_WEAPON_TAG_APPEARANCE_PERCENT, NAMED_WEAPON_TAG_STRENGTH, NAMED_WEAPON_WOUND_STRENGTH, namedWeaponTagStrength } from '../../shared/named-forge-roll.js';
 
 describe('named forge authority', () => {
     it('debits exactly 200 Fate Shards and preserves all other currencies', () => {
@@ -40,14 +40,12 @@ describe('named forge authority', () => {
         assert.match(dual.description, /Drain 75 HP \+ chakra per turn, Wound 17% of damage dealt/);
     });
 
-    it('describes each percent tag at the value combat applies, not the stored roll', () => {
+    it('describes each percent tag exactly as rolled (owner ruling 2026-10-16)', () => {
         const text = (name: string, percent: number) =>
             buildNamedItem({ kind: 'weapon', ep: 25, range: 4, offenseVal: 170, tags: [{ name, percent }] }, 'Blade', '').description;
-        // A single roll is 35-40, but a swing caps Wound at 25 and amp tags at 35,
-        // and counts Increase Generals at half of its cap.
-        assert.match(text('Wound', 38), /Tags: Wound 25% of damage dealt\./);
-        assert.match(text('Increase Damage Given', 40), /Tags: Increase Damage Given 35%\./);
-        assert.match(text('Increase Generals', 38), /Tags: Increase Generals 17%\./);
+        assert.match(text('Wound', 30), /Tags: Wound 30% of damage dealt\./);
+        assert.match(text('Increase Damage Given', 40), /Tags: Increase Damage Given 40%\./);
+        assert.match(text('Increase Generals', 38), /Tags: Increase Generals 38%\./);
         assert.match(text('Poison', 12), /Tags: Poison 12%\./);
     });
 
@@ -128,6 +126,7 @@ describe('named forge tag fairness', () => {
         const rangeCounts = new Map<number, number>();
         const offenseCounts = new Map<number, number>();
         const tagCountCounts = new Map<number, number>();
+        const strengthCounts = new Map<string, number>();
         const count = <T>(table: Map<T, number>, value: T) => table.set(value, (table.get(value) ?? 0) + 1);
         const DRAWS = 24_000;
         for (let i = 0; i < DRAWS; i += 1) {
@@ -138,14 +137,23 @@ describe('named forge tag fairness', () => {
             count(offenseCounts, roll.offenseVal);
             count(tagCountCounts, roll.tags.length);
             assert.equal(new Set(roll.tags.map(tag => tag.name)).size, roll.tags.length, 'dual tags are distinct');
-            const strength = roll.tags.length === 1 ? NAMED_WEAPON_TAG_STRENGTH.single : NAMED_WEAPON_TAG_STRENGTH.dual;
             for (const tag of roll.tags) {
+                const strength = namedWeaponTagStrength(tag.name, roll.tags.length);
                 if (tag.name === 'Poison') assert.equal(tag.percent, 12);
-                else assert.ok(Number.isInteger(tag.percent) && tag.percent >= strength.min && tag.percent <= strength.max);
+                else assert.ok(Number.isInteger(tag.percent) && tag.percent >= strength.min && tag.percent <= strength.max, `${tag.name} ${tag.percent} outside ${strength.min}-${strength.max}`);
+                count(strengthCounts, `${tag.name === 'Wound' ? 'wound' : 'tag'}:${roll.tags.length}:${tag.percent}`);
             }
             for (const tag of roll.tags) counts.set(tag.name, (counts.get(tag.name) ?? 0) + 1);
         }
         assert.equal(counts.size, 12, 'every tag should be reachable');
+        // Owner ruling 2026-10-16: both ends of every range are reachable.
+        assert.deepEqual(NAMED_WEAPON_TAG_STRENGTH, { single: { min: 30, max: 40 }, dual: { min: 12, max: 22 } });
+        assert.deepEqual(NAMED_WEAPON_WOUND_STRENGTH, { single: { min: 22, max: 30 }, dual: { min: 15, max: 20 } });
+        for (const [kind, table] of [['tag', NAMED_WEAPON_TAG_STRENGTH], ['wound', NAMED_WEAPON_WOUND_STRENGTH]] as const) {
+            for (const [tagCount, range] of [[1, table.single], [2, table.dual]] as const) {
+                for (const end of [range.min, range.max]) assert.ok(strengthCounts.has(`${kind}:${tagCount}:${end}`), `${kind} ${tagCount}-tag never rolled ${end}`);
+            }
+        }
 
         // Each draw yields 1 tag half the time and 2 the other half, so the
         // expected count per tag is DRAWS * 1.5 / 12. A uniform shuffle lands

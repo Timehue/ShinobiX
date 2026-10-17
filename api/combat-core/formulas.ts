@@ -1,4 +1,5 @@
 import type { CombatJutsu, CombatStatus } from './types.js';
+import { NAMED_WEAPON_TAG_MAX, NAMED_WEAPON_WOUND_MAX } from '../../shared/named-forge-roll.js';
 
 export const MAX_STAT = 2500;
 export const EP_MULTIPLIER = 32;
@@ -69,7 +70,7 @@ export const POISON_CAP_BY_RANK: Record<string, number> = {
     S: 14,
 };
 // A weapon swing has no bloodline rank. Like WEAPON_AMP_TAG_CAP it answers to the
-// A/B ceiling, so a forged Poison blade (rolled at 15-40) lands at 12.
+// A/B ceiling, so a forged Poison blade lands at 12 (the forge stores 12 outright).
 export const WEAPON_POISON_TAG_CAP = POISON_CAP_BY_RANK.AB;
 // Potency for a Poison with no authored percent (the long-standing 6% default).
 export const POISON_DEFAULT_PCT = 6;
@@ -227,7 +228,10 @@ export function cappedPostDamage(damage: number, percent: number): number {
     return Math.floor(Math.min(damage * (percent / 100), damage * 0.6));
 }
 
-export function woundCapForJutsu(jutsu: { bloodlineRank?: string | null }): number {
+export function woundCapForJutsu(jutsu: { bloodlineRank?: string | null; weaponSwing?: boolean; isUtility?: boolean; namedWeaponSwing?: boolean }): number {
+    // A named blade's Wound applies as rolled, 22-30 (owner ruling 2026-10-16),
+    // so it answers to the forge's top Wound roll, not the basic-rank 25.
+    if (jutsu.weaponSwing === true && jutsu.isUtility !== true && jutsu.namedWeaponSwing === true) return NAMED_WEAPON_WOUND_MAX;
     const rank = (jutsu.bloodlineRank ?? '').trim();
     if (/^S/i.test(rank)) return WOUND_CAP_BY_RANK.S;
     if (/^[AB]/i.test(rank)) return WOUND_CAP_BY_RANK.AB;
@@ -347,28 +351,21 @@ export function ampTagCapForRank(rank?: string | null): number {
  * authored with 35% effects BY DESIGN (Ashen Dragon Katana / Eclipse Fang Dagger /
  * Void-Leech Nodachi / Worldsplitter Katana all carry 35), and that 30 silently
  * shaved them to 30. Owner ruling 2026-08-16: a weapon answers to 35, the same
- * ceiling an A/B-rank bloodline gets. Forged named weapons roll 35–40 on a
- * single-tag result and are clamped here to 35 — a crafted weapon can MATCH the
- * best built-in mythic, never beat it (see the balanced-PvP pillar).
+ * ceiling an A/B-rank bloodline gets. Forged named weapons are NOT held to it
+ * (owner ruling 2026-10-16): their tags apply as rolled, see weaponAmpTagCap.
  */
 export const WEAPON_AMP_TAG_CAP = 35;
 
 /**
- * Increase Generals on a WEAPON SWING counts at half its capped percent (owner
- * ask 2026-10-16: a named roll should land below, level with or above a mythic
- * weapon, never far past one). It lifts str/spd/int/wil, so it raises the
- * wielder's offense AND defense at once. Measured on stat-capped L90 fighters, a
- * 35 lifted the damage-dealt / damage-taken ratio ×2.08, against ×1.41 for
- * Increase Damage Given 35 and ×1.70 for Decrease Damage Taken 35 (the
- * mythic-level single tags). Halved, a single roll (17) lands ×1.55, between
- * them, and a dual 15-20 roll (7-10) lands ×1.23-1.33, between a dual Increase
- * Damage Given (×1.23-1.29) and a dual Decrease Damage Taken (×1.30-1.40).
- * Jutsu keep the full percent.
+ * The amp-tag ceiling for a weapon swing. A forged NAMED blade applies its tags
+ * exactly as rolled (owner ruling 2026-10-16: "dont cap them at 35%"), so it
+ * answers only to the forge's own top roll, NAMED_WEAPON_TAG_MAX (40). That is a
+ * bound on a tampered value, never a cut on a real roll. Every other weapon and
+ * combat item keeps WEAPON_AMP_TAG_CAP.
  */
-export const WEAPON_GENERALS_TAG_SCALE = 0.5;
-
-export function weaponGeneralsPercent(cappedPct: number): number {
-    return Math.floor(Math.max(0, cappedPct) * WEAPON_GENERALS_TAG_SCALE);
+export function weaponAmpTagCap(jutsu: { weaponSwing?: boolean; isUtility?: boolean; namedWeaponSwing?: boolean }): number | undefined {
+    if (jutsu.weaponSwing !== true) return undefined;
+    return jutsu.isUtility !== true && jutsu.namedWeaponSwing === true ? NAMED_WEAPON_TAG_MAX : WEAPON_AMP_TAG_CAP;
 }
 
 /**
@@ -625,7 +622,9 @@ export function postDamagePercentAmount(finalDmg: number, percent: number | unde
     return Math.floor(cappedPostDamage(finalDmg, percent ?? 30) * multiplier);
 }
 
-export function woundAmountForFinalDamage(finalDmg: number, rawPercent: number | undefined, jutsu: { bloodlineRank?: string | null }): number {
+// `jutsu` must be the real swing/jutsu object: a named blade's 30% Wound ceiling
+// is read from its weaponSwing / isUtility / namedWeaponSwing flags (woundCapForJutsu).
+export function woundAmountForFinalDamage(finalDmg: number, rawPercent: number | undefined, jutsu: Parameters<typeof woundCapForJutsu>[0]): number {
     const effectivePct = Math.min(rawPercent ?? 30, woundCapForJutsu(jutsu), WOUND_HARD_CAP_PCT);
     return cappedPostDamage(finalDmg, effectivePct);
 }

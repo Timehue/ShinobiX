@@ -46,12 +46,11 @@ import {
     postDamagePercentAmount,
     scaledTagPercent as scaleCombatTagPercent,
     shieldAmountForMastery,
-    WEAPON_AMP_TAG_CAP,
+    weaponAmpTagCap,
     WEAPON_POISON_TAG_CAP,
     statusDurationFor,
     weaponDrainTick,
     weaponFlatTagAmount,
-    weaponGeneralsPercent,
     weaponHealAmount,
     weatherMultiplier,
     withDisciplineBonuses,
@@ -629,8 +628,9 @@ function ampMultiplierFor(attacker: PvpFighter, defender: PvpFighter, round: num
 //   level 50 = full stored value, each level below 50 subtracts 0.2 from the raw percent.
 // For amp/DR tags, then clamp to the bloodline rank cap (parity with PvE, which
 // caps these via effectiveTagPercent — previously PvP applied no cap).
-// `capOverride` lets a WEAPON swing answer to WEAPON_AMP_TAG_CAP instead of the
-// bloodline table — a weapon has no rank, so it would otherwise take the 30 floor.
+// `capOverride` lets a WEAPON swing answer to weaponAmpTagCap (WEAPON_AMP_TAG_CAP,
+// or a named blade's own top roll) instead of the bloodline table — a weapon has
+// no rank, so it would otherwise take the 30 floor.
 function scaledTagPercent(rawPct: number, masteryLevel: number, tagName?: string, bloodlineRank?: string | null, capOverride?: number): number {
     return scaleCombatTagPercent(rawPct, masteryLevel, tagName, bloodlineRank, CAPPED_AMP_TAGS, capOverride);
 }
@@ -778,9 +778,10 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
     //     (the whole common tier) completely inert and halved the rest, while the
     //     item tooltip and the client's own weapon path both promised the authored
     //     value. Percents resolve at max mastery so the number on the item is the
-    //     number you get, under the weapon's own amp ceiling (WEAPON_AMP_TAG_CAP,
-    //     35 — mythic weapons are authored at 35 by design, and a weapon has no
-    //     bloodline rank so ampTagCapForRank would wrongly floor it at 30).
+    //     number you get, under the weapon's own amp ceiling (weaponAmpTagCap:
+    //     35 for built-ins — mythic weapons are authored at 35 by design, and a
+    //     weapon has no bloodline rank so ampTagCapForRank would wrongly floor it
+    //     at 30 — and a named blade's own top roll, so its tags apply as rolled).
     //
     // The flat Heal/Shield MAGNITUDE deliberately keeps the real mastery — a swing
     // heals its ~30% share, not a full jutsu's 750 — EXCEPT on a forged Named
@@ -806,7 +807,7 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
         tagOccurrences.set(tagName, tagOccurrence);
         const tagTotal = tagTotals.get(tagName) ?? 1;
         const stackLabel = tagTotal > 1 ? ` (stack ${tagOccurrence}/${tagTotal})` : '';
-        const pct = Math.floor(scaledTagPercent(tag.percent ?? 0, tagPercentMastery, tagName, jutsu.bloodlineRank, weaponSwing ? WEAPON_AMP_TAG_CAP : undefined));
+        const pct = Math.floor(scaledTagPercent(tag.percent ?? 0, tagPercentMastery, tagName, jutsu.bloodlineRank, weaponAmpTagCap(jutsu)));
         if (tagName === 'Heal') { const healAmt = namedBladeSwing ? weaponHealAmount(tagTotals.size, healBoost) : catalogFlat?.Heal ? Math.floor(catalogFlat.Heal * Math.max(1, Number(healBoost) || 1)) : healAmountForMastery(masteryLevel, healBoost); const applied = Math.min(healAmt, Math.max(0, s.maxHp - s.hp - healing)); healing += healAmt; lines.push(`Heal: ${s.name} restores ${applied} HP.`); continue; }
         if (tagName === 'Shield') {
             const requested = namedBladeSwing ? weaponFlatTagAmount(tagTotals.size) : catalogFlat?.Shield ?? shieldAmountForMastery(masteryLevel);
@@ -902,8 +903,7 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
         // fighters are built, so it raises this fighter's offense AND defense. Stores the
         // scaled + rank-capped pct like the amp tags; stacks (STACKABLE_STATUS) but the
         // summed effect is soft-capped by K_GENERALS.
-        // A weapon swing's Generals counts at WEAPON_GENERALS_TAG_SCALE (formulas.ts).
-        if (tagName === 'Increase Generals') { if (!blocksBuff(s, 'Increase Generals')) { const generalsPct = weaponSwing ? weaponGeneralsPercent(pct) : pct; s = addJutsuStatus(s, jutsu, { name: 'Increase Generals', rounds: 2, percent: generalsPct, kind: 'positive' }, round); lines.push(`Increase Generals: ${s.name} gains ${generalsPct}% general-stat potency for 2 turns.`); } continue; }
+        if (tagName === 'Increase Generals') { if (!blocksBuff(s, 'Increase Generals')) { s = addJutsuStatus(s, jutsu, { name: 'Increase Generals', rounds: 2, percent: pct, kind: 'positive' }, round); lines.push(`Increase Generals: ${s.name} gains ${pct}% general-stat potency for 2 turns.`); } continue; }
         // Increase Discipline (legacy signature jutsu): style-locked self-buff. Lifts
         // ONLY the offense composite of the cast jutsu's discipline — the discipline is
         // captured server-side from jutsu.type here (never client-supplied) and read
@@ -1049,7 +1049,7 @@ function resolvePostDamage(sIn: PvpFighter, oIn: PvpFighter, jutsu: Jutsu, round
             tagPercentMastery,
             tagName,
             jutsu.bloodlineRank,
-            weaponSwing ? WEAPON_AMP_TAG_CAP : undefined,
+            weaponAmpTagCap(jutsu),
         ));
         if (tagName === 'Wound' && pct > 0 && finalDmg > 0) {
             if (hasStatus(o, 'Debuff Prevent', round)) {

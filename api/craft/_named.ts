@@ -5,7 +5,7 @@ import { namedForgeShortfall, planNamedForgeMaterials } from '../../shared/named
 import { countOwned, removeOwned } from './_forge.js';
 import {
     NAMED_WEAPON_EP_VALUES, NAMED_WEAPON_TAGS as WEAPON_TAGS,
-    NAMED_WEAPON_RANGES, NAMED_WEAPON_OFFENSE, NAMED_WEAPON_TAG_STRENGTH, NAMED_WEAPON_TAG_COUNTS,
+    NAMED_WEAPON_RANGES, NAMED_WEAPON_OFFENSE, NAMED_WEAPON_TAG_COUNTS, namedWeaponTagStrength,
     NAMED_ARMOR_STATS, NAMED_GAUNTLET_OFFENSE, NAMED_ARMOR_QUALITIES, NAMED_ARMOR_SPECIALS as ARMOR_SPECIALS,
     NAMED_ARMOR_SLOTS as SLOTS,
 } from '../../shared/named-forge-roll.js';
@@ -73,7 +73,7 @@ export function shuffled<T>(values: readonly T[]): T[] {
 }
 
 // Poison's percent is a potency on its own lower scale, and combat caps a weapon's
-// at WEAPON_POISON_TAG_CAP, so store that instead of a 15-40 roll the blade could
+// at WEAPON_POISON_TAG_CAP, so store that instead of a 12-40 roll the blade could
 // never deliver. Only the stored magnitude changes: which tags are drawn, the draw
 // odds, and every other tag's roll are untouched.
 const forgedTag = (name: string, percent: number) => ({ name, percent: name === 'Poison' ? Math.min(percent, WEAPON_POISON_TAG_CAP) : percent });
@@ -82,14 +82,17 @@ export function rollNamedForge(kind: 'weapon' | 'armor', slotRaw?: unknown): Nam
     if (kind === 'weapon') {
         const tags = shuffled(WEAPON_TAGS);
         const tagCount = pick(NAMED_WEAPON_TAG_COUNTS);
-        const single = tagCount === 1;
         // 24-27 EP (owner ruling 2026-09-25): around the mythic tier's 25, so a
         // named blade lands 73-80% of a fully maxed 60-AP jutsu. Rolled in
         // half-point steps (owner ruling 2026-10-06), 7 values. Named weapons
         // forged before this keep their 32-34 EP until the reset, which is why
         // WEAPON_EP_CEILING (36) still bounds a player's saved weapon.
-        const strength = single ? NAMED_WEAPON_TAG_STRENGTH.single : NAMED_WEAPON_TAG_STRENGTH.dual;
-        return { kind, ep: pick(NAMED_WEAPON_EP_VALUES), range: pick(NAMED_WEAPON_RANGES), offenseVal: randomInt(NAMED_WEAPON_OFFENSE.min, NAMED_WEAPON_OFFENSE.max + 1), tags: tags.slice(0, tagCount).map((name) => forgedTag(name, randomInt(strength.min, strength.max + 1))) };
+        // Tag strengths (owner ruling 2026-10-16): 30-40 alone, 12-22 beside another;
+        // Wound 22-30 alone, 15-20 beside another. Combat applies them as rolled.
+        return { kind, ep: pick(NAMED_WEAPON_EP_VALUES), range: pick(NAMED_WEAPON_RANGES), offenseVal: randomInt(NAMED_WEAPON_OFFENSE.min, NAMED_WEAPON_OFFENSE.max + 1), tags: tags.slice(0, tagCount).map((name) => {
+            const strength = namedWeaponTagStrength(name, tagCount);
+            return forgedTag(name, randomInt(strength.min, strength.max + 1));
+        }) };
     }
     const slot = SLOTS.includes(slotRaw as typeof SLOTS[number]) ? slotRaw as typeof SLOTS[number] : 'body';
     const special = pick(ARMOR_SPECIALS);

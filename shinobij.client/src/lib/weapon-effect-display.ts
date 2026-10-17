@@ -11,9 +11,10 @@
  *   • Drain is unmitigated (nothing reduces a tick). A built-in weapon ticks at
  *     its 50 floor; a Named Weapon ticks 150 as its only tag, 75 beside another.
  *     The stored value is never read.
- *   • Percentage buffs answer to the weapon amp ceiling (WEAPON_AMP_TAG_CAP, 35),
- *     Wound to the basic-rank Wound cap (25) and Poison to WEAPON_POISON_TAG_CAP.
- *     Increase Generals then counts at half (WEAPON_GENERALS_TAG_SCALE).
+ *   • A Named Weapon's percent tags apply exactly as rolled (owner ruling
+ *     2026-10-16). Other weapons' percentage buffs answer to the weapon amp
+ *     ceiling (WEAPON_AMP_TAG_CAP, 35) and their Wound to the basic-rank Wound cap
+ *     (25). Poison answers to WEAPON_POISON_TAG_CAP everywhere.
  *     A Wound bleeds that percent of the damage the swing caused, per turn.
  * Cards used to print the stored number with a "%" — the Frostfang Oathblade read
  * "Shield 300%" and the Ranked Kunai "Wound 300%".
@@ -21,7 +22,7 @@
 import { HEAL_FLAT_PVE, SHIELD_FLAT_PVE, drainTickPVE, masteryDamageFrac } from "./combat-math";
 import { cappedDamageTags, normalizeTagName, weaponTagCombatPercent } from "./tags";
 import { starterItems } from "../data/starter-items";
-import { isForgedNamedWeaponId } from "../../../shared/named-forge-roll";
+import { isForgedNamedWeaponId, NAMED_WEAPON_TAG_MAX, NAMED_WEAPON_WOUND_MAX } from "../../../shared/named-forge-roll";
 
 /** Mirrors WEAPON_AMP_TAG_CAP in api/combat-core/formulas.ts. */
 export const WEAPON_AMP_TAG_CAP = 35;
@@ -67,9 +68,6 @@ export function weaponFlatTagAmountFor(item: WeaponLike | undefined, tag: "Heal"
     return solo ? WEAPON_FLAT_TAG_SOLO : WEAPON_FLAT_TAG_SPLIT;
 }
 
-/** Mirrors WEAPON_GENERALS_TAG_SCALE in api/combat-core/formulas.ts: a swing's Generals counts at half. */
-export const WEAPON_GENERALS_TAG_SCALE = 0.5;
-
 /** Mirrors WEAPON_TAGS_WITHOUT_MAGNITUDE in api/pvp/_weapon-tags.ts: no percent is read. */
 const WEAPON_TAGS_WITHOUT_MAGNITUDE = new Set([
     "Pierce", "Stun", "Barrier", "Push", "Pull",
@@ -80,22 +78,24 @@ const WEAPON_TAGS_WITHOUT_MAGNITUDE = new Set([
 const MISSING_PERCENT_DEFAULT = 30;
 const MISSING_POISON_DEFAULT = 6;
 
-/** A swing's percent tag after the weapon caps, as the server applies it ("" when the tag has no number). */
-function weaponTagPercentText(tag: string, value: number | undefined): string {
+/**
+ * A swing's percent tag as the server applies it ("" when the tag has no number).
+ * A Named Weapon applies its roll as-is (owner ruling 2026-10-16), bounded only by
+ * the forge's top roll; every other weapon answers to the 35 / 25 weapon caps.
+ */
+function weaponTagPercentText(tag: string, value: number | undefined, named: boolean): string {
     if (WEAPON_TAGS_WITHOUT_MAGNITUDE.has(tag)) return "";
     const raw = Number(value) > 0 ? Number(value) : tag === "Poison" ? MISSING_POISON_DEFAULT : MISSING_PERCENT_DEFAULT;
     const pct = weaponTagCombatPercent(tag, raw);
-    if (tag === "Wound") return `${Math.min(pct, WEAPON_WOUND_TAG_CAP)}% of damage dealt`;
-    if (tag === "Increase Generals") return `${Math.floor(Math.min(pct, WEAPON_AMP_TAG_CAP) * WEAPON_GENERALS_TAG_SCALE)}%`;
-    if (cappedDamageTags.includes(tag)) return `${Math.min(pct, WEAPON_AMP_TAG_CAP)}%`;
+    if (tag === "Wound") return `${Math.min(pct, named ? NAMED_WEAPON_WOUND_MAX : WEAPON_WOUND_TAG_CAP)}% of damage dealt`;
+    if (cappedDamageTags.includes(tag)) return `${Math.min(pct, named ? NAMED_WEAPON_TAG_MAX : WEAPON_AMP_TAG_CAP)}%`;
     return `${pct}%`;
 }
 
 /**
  * A freshly ROLLED Named Weapon tag (no item id yet): Heal/Shield/Drain show the
- * flat amount the blade will grant; everything else shows the percent it applies
- * in combat. The reveal used to print the raw roll, so a 38 Wound read "38%"
- * while it bled 25%.
+ * flat amount the blade will grant; everything else shows its rolled percent,
+ * which is exactly what it applies in combat.
  */
 export function namedRollTagValue(name: string, percent: number, distinctTagCount: number): string {
     const solo = distinctTagCount <= 1;
@@ -103,7 +103,7 @@ export function namedRollTagValue(name: string, percent: number, distinctTagCoun
     if (tag === "Heal") return `${solo ? WEAPON_FLAT_TAG_SOLO : WEAPON_FLAT_TAG_SPLIT} HP`;
     if (tag === "Shield") return `${solo ? WEAPON_FLAT_TAG_SOLO : WEAPON_FLAT_TAG_SPLIT} shield`;
     if (tag === "Drain") return `${solo ? WEAPON_DRAIN_TICK_SOLO : WEAPON_DRAIN_TICK_SPLIT} HP + chakra per turn`;
-    return weaponTagPercentText(tag, percent);
+    return weaponTagPercentText(tag, percent, true);
 }
 
 export function weaponEffectDisplayValue(name: string, value: number | undefined, item?: WeaponLike): string {
@@ -111,5 +111,5 @@ export function weaponEffectDisplayValue(name: string, value: number | undefined
     if (tag === "Heal") return `${weaponFlatTagAmountFor(item, "Heal")} HP`;
     if (tag === "Shield") return `${weaponFlatTagAmountFor(item, "Shield")} shield`;
     if (tag === "Drain") return `${weaponFlatTagAmountFor(item, "Drain")} HP + chakra per turn`;
-    return weaponTagPercentText(tag, value);
+    return weaponTagPercentText(tag, value, isForgedNamedWeaponId(item?.id));
 }

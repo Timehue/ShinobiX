@@ -10,7 +10,23 @@ export const NAMED_WEAPON_EP_VALUES: readonly number[] = Array.from(
 export const NAMED_WEAPON_RANGES = [3, 4, 5] as const;
 export const NAMED_WEAPON_OFFENSE = { min: 168, max: 180 } as const;
 export const NAMED_WEAPON_TAG_COUNTS = [1, 2] as const;
-export const NAMED_WEAPON_TAG_STRENGTH = { single: { min: 35, max: 40 }, dual: { min: 15, max: 20 } } as const;
+/**
+ * Owner ruling 2026-10-16: a named blade's percent tags roll these ranges and
+ * apply EXACTLY as rolled. No 35% weapon cap, no scaling. Wound rolls its own,
+ * lower range. Heal, Shield and Drain are flat by tag count, and Poison is fixed
+ * at WEAPON_POISON_TAG_CAP, so none of them read the roll.
+ */
+export const NAMED_WEAPON_TAG_STRENGTH = { single: { min: 30, max: 40 }, dual: { min: 12, max: 22 } } as const;
+export const NAMED_WEAPON_WOUND_STRENGTH = { single: { min: 22, max: 30 }, dual: { min: 15, max: 20 } } as const;
+/** The highest percent a named blade's tag can roll: combat's ceiling for one (a bound, not a cut). */
+export const NAMED_WEAPON_TAG_MAX = NAMED_WEAPON_TAG_STRENGTH.single.max;
+export const NAMED_WEAPON_WOUND_MAX = NAMED_WEAPON_WOUND_STRENGTH.single.max;
+
+/** The range one tag rolls on a named blade with `tagCount` tags. */
+export function namedWeaponTagStrength(name: string, tagCount: number): { min: number; max: number } {
+    const table = name === 'Wound' ? NAMED_WEAPON_WOUND_STRENGTH : NAMED_WEAPON_TAG_STRENGTH;
+    return tagCount <= 1 ? table.single : table.dual;
+}
 export const NAMED_WEAPON_TAGS = ['Siphon', 'Absorb', 'Poison', 'Wound', 'Reflect', 'Shield', 'Drain', 'Ignition', 'Heal', 'Increase Damage Given', 'Increase Generals', 'Decrease Damage Taken'] as const;
 // Half draw one tag, half draw two, without replacement: (1 + 2) / 2 / 12.
 export const NAMED_WEAPON_TAG_APPEARANCE_PERCENT = 100 * (NAMED_WEAPON_TAG_COUNTS.reduce((sum, count) => sum + count, 0) / NAMED_WEAPON_TAG_COUNTS.length) / NAMED_WEAPON_TAGS.length;
