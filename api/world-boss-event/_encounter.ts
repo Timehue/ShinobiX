@@ -3,6 +3,9 @@ import { loadAdminCombatContent } from '../_admin-content.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { isIncapacitated, settleVitalsRegen } from '../_elapsed-state.js';
 import { applyAiMasteryToActor } from '../_pve-ai-mastery.js';
+import { sealTeamBossChallengeKit } from '../_boss-challenge-kit.js';
+import { initializeTowerTactics } from '../towers/_combat-tactics.js';
+import { sealPveDifficultyBand } from '../_pve-band-seal.js';
 import { sealTowerFighter, sealTowerItemCharges } from '../towers/_seal.js';
 import { buildTowerEncounter, type SquadMemberInput } from '../towers/_encounter.js';
 import { runAiUntilHuman, startRound } from '../towers/_engine.js';
@@ -99,6 +102,20 @@ export function buildWorldBossTeamEncounter(input: {
     for (const actor of session.actors) if (actor.side === 'enemy') applyAiMasteryToActor(actor);
     const boss = session.actors.find(actor => actor.id === session.phaseState.bossId);
     if (!boss) throw new Error('World boss encounter did not create its boss actor.');
+    // Enable add roles and coordinated public-state targeting on this newly
+    // sealed raid. Keep each world boss's authored nova/slam/volley signature;
+    // the public Tower's generic signature must not replace that identity.
+    initializeTowerTactics(session);
+    delete session.towerTactics!.signature;
+    for (const [index, actor] of session.actors.filter(a => a.side === 'enemy').entries()) {
+        const isBoss = actor.id === boss.id;
+        sealTeamBossChallengeKit(actor, isBoss, index);
+        if (!isBoss) actor.character.combatRole = index % 2 ? 'skirmisher' : 'vanguard';
+    }
+    // Reuse the existing visible-buff Clear/Cleanse competence without applying
+    // another stat/HP band or altering the raid's party scaling. The hard-band
+    // safety ceilings remain well above these authored ordinary hits.
+    sealPveDifficultyBand(session, { mode: 'TOWER', scaleHp: false, scaleStats: false });
     const crystalEffects = worldBossCrystalEffects(input.event.hollowShardsDeposited ?? 0);
     // Tower's outgoing-damage discount made solo world bosses harmless.
     boss.character.towerDmgScale = crystalEffects.bossDamageDealtMultiplier;

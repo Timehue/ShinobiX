@@ -23,6 +23,17 @@ import type { CombatStatus } from '../combat-core/types.js';
  * Village-war ANBU copies explicitly seal the same planner for tactical play.
  */
 export const STANDARD_PVE_AI_POLICY = 'standard-pve-v1' as const;
+/** Explicit score-attack opt-in; never makes another weekly-guard host standard PvE. */
+export const WEEKLY_BOSS_AI_POLICY = 'weekly-boss-v1' as const;
+export type SoloPveAiPolicy = typeof STANDARD_PVE_AI_POLICY | typeof WEEKLY_BOSS_AI_POLICY;
+
+export function weeklyBossPlannerApplies(input: {
+    policy: unknown; kind: string; weeklyBoss: boolean; missionTactics: boolean; env?: NodeJS.ProcessEnv;
+}): boolean {
+    return !standardPveAiPlannerDisabled(input.env)
+        && input.policy === WEEKLY_BOSS_AI_POLICY
+        && input.kind === 'weekly-boss' && input.weeklyBoss && !input.missionTactics;
+}
 
 /** Hosts allowed to opt into the explicitly sealed tactical planner. */
 export const STANDARD_PVE_AI_KINDS: ReadonlySet<string> = new Set([
@@ -107,6 +118,7 @@ export function enemyTurnPolicyForEncounter(input: {
 export function enemyActionKey(action: SoloPveAction): string {
     switch (action.type) {
         case 'jutsu': return `jutsu:${action.jutsuId}:${action.tile ?? ''}`;
+        case 'weapon': return `weapon:${action.itemId}`;
         case 'move': return `move:${String(action.tile).padStart(4, '0')}`;
         default: return action.type;
     }

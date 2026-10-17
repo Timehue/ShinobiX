@@ -2911,6 +2911,7 @@ export function PvpBattleScreen({
 
                     <PlainCombatBattleLog
                         lines={battleLogLines}
+                        currentRound={session.round}
                         turnLabel={!bothJoined ? `Waiting for ${awaitingFighterName}` : isMyTurn ? "Your Turn" : `${displayedTurnName}'s Turn`}
                         selfName={me.name}
                         oppName={opp.name}

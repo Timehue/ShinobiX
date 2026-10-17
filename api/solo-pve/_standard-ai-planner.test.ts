@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import type { PvpFighter } from '../pvp/session.js';
 import type { ServerAiRule } from '../combat-core/ai-authoring.js';
+import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
 import { GRID_H, GRID_W } from '../combat-core/constants.js';
 import { hexDistance, hexNeighbors } from '../combat-core/grid.js';
 import { applySoloPveAction, planStandardPveEnemyActionForTest, runStandardPveEnemyTurnForTest } from './_engine.js';
@@ -489,6 +490,59 @@ describe('progressive PvE tactical regressions', () => {
         assert.deepEqual(a, b);
         assert.ok(a.simulations <= policy.maxSimulations && a.simulations > 0);
         assert.equal(source.events.length, 0, 'all previews are isolated');
+    });
+
+    it('pairs a sealed catalog hand weapon with a 60-AP technique using shared cooldowns', () => {
+        const source = scenario({ level: 100, distance: 3,
+            kit: [jutsu('heavy', 60, { effectPower: 36 })],
+            player: { hp: 10_000, maxHp: 10_000 }, enemy: { hp: 10_000, maxHp: 10_000 } });
+        const weapon = structuredClone(ITEM_CATALOG['ashen-dragon-katana']);
+        source.enemy.character.pvpItems = [weapon];
+        source.enemy.character.equipment = { hand: weapon.id };
+        source.enemy.character.jutsuMastery = [{ jutsuId: 'heavy', level: 50 }];
+        const first = enemyTurn(source);
+        const actions = enemyEvents(first);
+        assert.ok(actions.some(event => event.action === 'weapon' && event.actionId === weapon.id));
+        assert.ok(actions.some(event => event.actionId === 'heavy'));
+        assert.equal(sum(actions.map(event => event.combat.actorSpend.ap)), 100);
+        assert.ok(first.player.hp < 8_000, 'real technique and weapon damage both reach HP');
+        assert.equal(first.cooldowns.enemy[`weapon:${weapon.id}`], Number(weapon.weaponCooldown) - 1);
+        const second = enemyTurn(first);
+        assert.equal(enemyEvents(second).filter(event => event.round > actions[0].round && event.action === 'weapon').length, 0);
+        assert.equal(second.itemCharges[weapon.id], undefined, 'hand swings consume no item charges');
+    });
+
+    it('never invents an NPC weapon or uses unequipped, thrown, or unaffordable items', () => {
+        const weapon = structuredClone(ITEM_CATALOG['ashen-dragon-katana']);
+        for (const variant of ['missing-definition', 'unequipped', 'thrown', 'ap', 'cooldown']) {
+            const source = scenario({ level: 100, kit: [], distance: 3,
+                player: { hp: 10_000, maxHp: 10_000 } });
+            source.enemy.character.pvpItems = variant === 'missing-definition' ? [] : [{ ...weapon, ...(variant === 'thrown' ? { slot: 'thrown' } : {}) }];
+            source.enemy.character.equipment = variant === 'unequipped' ? {} : { hand: weapon.id };
+            source.activeSide = 'enemy';
+            source.ap.enemy = variant === 'ap' ? 20 : 40;
+            if (variant === 'cooldown') source.cooldowns.enemy[`weapon:${weapon.id}`] = 2;
+            runStandardPveEnemyTurnForTest(source, enemyTurnPolicy(100));
+            assert.ok(enemyEvents(source).every(event => event.action !== 'weapon'), variant);
+        }
+    });
+
+    it('closes to a weapon-only range and keeps weapon previews deterministic and bounded', () => {
+        const source = scenario({ level: 100, kit: [], distance: 5,
+            player: { hp: 10_000, maxHp: 10_000 } });
+        const weapon = structuredClone(ITEM_CATALOG['ashen-dragon-katana']);
+        source.enemy.character.pvpItems = [weapon];
+        source.enemy.character.equipment = { hand: weapon.id };
+        source.activeSide = 'enemy';
+        const policy = enemyTurnPolicy(100);
+        const a = planStandardPveEnemyActionForTest(source, policy);
+        assert.deepEqual(a, planStandardPveEnemyActionForTest(source, policy));
+        assert.ok(a.simulations <= policy.maxSimulations);
+        assert.equal(source.events.length, 0);
+        runStandardPveEnemyTurnForTest(source, policy);
+        assert.ok(enemyEvents(source).some(event => event.action === 'move'));
+        assert.ok(enemyEvents(source).some(event => event.action === 'weapon'));
+        assert.ok(hexDistance(source.enemy.pos, source.player.pos) <= Number(weapon.weaponRange));
     });
 
     it('keeps worst-case decision latency bounded with a full history attached', (t) => {

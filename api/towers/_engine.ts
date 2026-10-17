@@ -3407,6 +3407,19 @@ export function pickAiAction(session: TowerSession, actor: TowerActor, rng: () =
     if (selfUtility?.id) return { actorId: actor.id, type: 'jutsu', jutsuId: selfUtility.id };
     const ground = bestGroundJutsu(session, actor, target);
     if (ground?.id) return { actorId: actor.id, type: 'jutsu', jutsuId: ground.id, tile: target.pos };
+    // Hired war NPCs are sealed by _merc-fighters, never by a player save.
+    // Their catalog weapon is a real cooldown action, allowing a 40+60 turn.
+    // Human participants and their headless snapshots keep their existing policy.
+    if (actor.ai && actor.ownerSlug == null && actor.character.warMercenaryProfile
+        && (actor.character.warMercenaryProfile as { classification?: string }).classification === 'special-npc') {
+        const item = equippedItem(actor);
+        if (item && normalizeSlot(item.slot) === 'hand'
+            && canAct(session, Math.max(0, Number(item.apCost ?? BASIC_ATTACK_AP)), actor)
+            && (actor.cooldowns[`weapon:${item.id ?? item.name ?? 'weapon'}`] ?? 0) <= 0
+            && dist <= Math.max(1, Number(item.weaponRange ?? 1))) {
+            return { actorId: actor.id, type: 'weapon', itemId: item.id, targetId: target.id };
+        }
+    }
     const aoe = bestTargetedAoe(session, actor, target);
     if (aoe?.jutsu.id) {
         return { actorId: actor.id, type: 'jutsu', jutsuId: aoe.jutsu.id, targetId: aoe.target.id };
