@@ -4,6 +4,7 @@
  * quest stage, chain order, and rewards are all reconstructed by the server.
  */
 import type { WorldCrisisVillage } from './world-crisis.js';
+import type { OrdinaryPveEncounter } from './ordinary-pve-encounter.js';
 
 export const WORLD_AI_FIGHT_KINDS = [
     'wanderer',
@@ -29,6 +30,9 @@ export type WorldAiFightRequest = {
     chainId?: string;
     /** Required when a hunt choice rolled a pack ambush. */
     decisionId?: string;
+    /** Optional preview identity. The server reconstructs it and rejects a
+     * stale preview instead of silently starting a different opponent. */
+    encounterId?: string;
 };
 
 /** Token/session-sealed context echoed by start and settlement. */
@@ -38,6 +42,7 @@ export type WorldAiFightContext = {
     sector: number;
     stage: number;
     displayName: string;
+    encounter?: OrdinaryPveEncounter;
     chainId?: string;
     missionId?: string;
     /** Server-owned Hunter contract nonce; stale fights cannot settle a reaccept. */

@@ -28,7 +28,7 @@ import {
 } from '../combat-core/companion.js';
 import { tickCombatCooldowns } from '../combat-core/cooldowns.js';
 import { expireShield, shieldExpiryForGrant } from '../combat-core/shields.js';
-import { weatherMultiplier } from '../combat-core/formulas.js';
+import { isZeroDamageFortyApJutsu, weatherMultiplier } from '../combat-core/formulas.js';
 import { hexDistance, hexNeighbors } from '../combat-core/grid.js';
 import { BASIC_CLEAR_RANGE } from '../../shared/combat-basic-actions.js';
 import { adjustedApCost } from '../combat-core/resources.js';
@@ -72,8 +72,9 @@ import {
 import type { HollowGateHoundKind } from '../../shared/hollow-gate-contract.js';
 import {
     enemyActionKey,
-    enemyTurnPolicy,
+    enemyTurnPolicyForEncounter,
     enemyTurnValue,
+    enemyStatusValue,
     standardPvePlannerApplies,
     type EnemyTurnPolicy,
     type EnemyTurnSnapshot,
@@ -1030,6 +1031,8 @@ function resolutionFacts(metadata: ResolveJutsuMetadata): CombatResolutionFacts 
     return {
         rawDamage: metadata.rawDamage,
         resolvedDamage: metadata.damage,
+        baseDamage: metadata.baseDamage,
+        effectiveDR: metadata.effectiveDR,
         healing: metadata.healing,
         shielding: metadata.shieldGain,
     };
@@ -1593,6 +1596,23 @@ function aiTacticalAction(session: SoloPveSession): SoloPveAction | null {
     return null;
 }
 
+function enemyClearHasBenefit(session: SoloPveSession, threshold: number): boolean {
+    const statuses = activeStatuses(session.player, session.round);
+    if (!Number.isFinite(threshold) || statuses.some((status) => status.name === 'Clear Prevent')) return false;
+    // A substantial shield is a worthwhile Clear target on its own. A small
+    // shield counts as one buff; the planner still compares its actual value
+    // with attacks/heals instead of blindly spending 60 AP on it.
+    const shieldValue = session.player.shield >= Math.max(1, session.player.maxHp * 0.1)
+        ? threshold : Number(session.player.shield > 0);
+    return pveMeaningfulBuffCount(statuses) + shieldValue >= threshold;
+}
+
+function enemyCleanseHasBenefit(session: SoloPveSession, threshold: number): boolean {
+    if (!Number.isFinite(threshold) || activeStatuses(session.enemy, session.round).some((status) => status.name === 'Cleanse Prevent')) return false;
+    // Cleanse removes pending negatives too, unlike Clear's active-only rule.
+    return session.enemy.statuses.filter((status) => status.kind === 'negative' && status.rounds > 0).length >= threshold;
+}
+
 function enemyMoveTowardPlayerAction(session: SoloPveSession): SoloPveAction | null {
     if (!canAct(session, 'enemy', MOVE_AP)) return null;
     const candidates = hexNeighbors(session.enemy.pos)
@@ -1663,7 +1683,7 @@ function authoredAiRuleMatches(session: SoloPveSession, rule: ServerAiRule): boo
     }
 }
 
-function authoredAiRuleAction(session: SoloPveSession, rule: ServerAiRule, candidatesForState?: () => AiJutsuCandidate[]): SoloPveAction | null {
+function authoredAiRuleAction(session: SoloPveSession, rule: ServerAiRule, candidatesForState?: () => AiJutsuCandidate[], standardPlanner = false): SoloPveAction | null {
     const candidates = candidatesForState ? candidatesForState() : aiJutsuCandidates(session);
     if (rule.action === 'use_specific_jutsu') {
         const chosen = candidates.find((candidate) => candidate.jutsu.id === rule.jutsuId);
@@ -1706,14 +1726,14 @@ function authoredAiRuleAction(session: SoloPveSession, rule: ServerAiRule, candi
         return canAct(session, 'enemy', CLEAR_AP)
             && (session.cooldowns.enemy.clear ?? 0) <= 0
             && hexDistance(session.enemy.pos, session.player.pos) <= BASIC_CLEAR_RANGE
-            && pveMeaningfulBuffCount(activeStatuses(session.player, session.round)) > 0
+            && (standardPlanner ? enemyClearHasBenefit(session, 1) : pveMeaningfulBuffCount(activeStatuses(session.player, session.round)) > 0)
             ? { type: 'clear' }
             : null;
     }
     if (rule.action === 'cleanse_self') {
         return canAct(session, 'enemy', CLEANSE_AP)
             && (session.cooldowns.enemy.cleanse ?? 0) <= 0
-            && activeStatuses(session.enemy, session.round).some((status) => status.kind === 'negative')
+            && (standardPlanner ? enemyCleanseHasBenefit(session, 1) : activeStatuses(session.enemy, session.round).some((status) => status.kind === 'negative'))
             ? { type: 'cleanse' }
             : null;
     }
@@ -1895,25 +1915,86 @@ function legalJutsuCandidates(session: SoloPveSession): AiJutsuCandidate[] {
  * below the clear / cleanse thresholds never plans one. Movement is the
  * step toward the player, the only repositioning the AI already made.
  */
-function plannerEnemyActions(session: SoloPveSession): SoloPveAction[] {
+function plannerEnemyActions(session: SoloPveSession, policy: EnemyTurnPolicy): SoloPveAction[] {
     const competence = pveAiCompetence(Math.max(1, Number(session.enemy.character.level) || 1), session.enemy.character.masterAi === true);
-    const actions: SoloPveAction[] = legalJutsuCandidates(session).map(jutsuCandidateAction);
+    const actions: SoloPveAction[] = [];
     const push = (action: SoloPveAction | null) => { if (action && enemyActionLegal(session, action)) actions.push(action); };
+    // The real resolver scores these below; do not resolve every jutsu twice
+    // with the old power/count scorer at every node in a search tree.
+    for (const jutsu of jutsuList(session.enemy)) {
+        if (pveEasyBandHoldsBurst(Number(session.enemy.character.level) || 1, session.round) && Number(jutsu.ap ?? 40) >= 60) continue;
+        const tile = aiTileForJutsu(session, jutsu);
+        push({ type: 'jutsu', jutsuId: jutsu.id, ...(tile === undefined ? {} : { tile }) });
+        if (policy.considersSurvival && hasMoveTag(jutsu) && session.enemy.hp < session.enemy.maxHp * 0.35) {
+            const retreat = Array.from({ length: GRID_W * GRID_H }, (_, index) => index)
+                .filter((index) => validOpenTile(session, 'enemy', index, Math.max(1, Number(jutsu.range) || 4)))
+                .sort((a, b) => Math.abs(hexDistance(a, session.player.pos) - 2) - Math.abs(hexDistance(b, session.player.pos) - 2) || a - b)[0];
+            if (retreat !== undefined && retreat !== tile) push({ type: 'jutsu', jutsuId: jutsu.id, tile: retreat });
+        }
+    }
     push({ type: 'basicAttack' });
     if (session.enemy.hp < session.enemy.maxHp) push({ type: 'basicHeal' });
-    if (Number.isFinite(competence.clearBuffThreshold)
-        && pveMeaningfulBuffCount(activeStatuses(session.player, session.round)) >= competence.clearBuffThreshold) push({ type: 'clear' });
-    if (Number.isFinite(competence.cleanseSelfThreshold)
-        && activeStatuses(session.enemy, session.round).filter((status) => status.kind === 'negative').length >= competence.cleanseSelfThreshold) push({ type: 'cleanse' });
-    push(enemyMoveTowardPlayerAction(session));
+    if (enemyClearHasBenefit(session, competence.clearBuffThreshold)) push({ type: 'clear' });
+    if (enemyCleanseHasBenefit(session, competence.cleanseSelfThreshold)) push({ type: 'cleanse' });
+    const toward = hexNeighbors(session.enemy.pos)
+        .filter((tile) => validOpenTile(session, 'enemy', tile, 1)
+            && hexDistance(tile, session.player.pos) < hexDistance(session.enemy.pos, session.player.pos))
+        .sort((a, b) => hexDistance(a, session.player.pos) - hexDistance(b, session.player.pos) || a - b)[0];
+    if (toward !== undefined) push({ type: 'move', tile: toward });
+    if (policy.considersSurvival && session.enemy.hp < session.enemy.maxHp * 0.35) {
+        const retreat = hexNeighbors(session.enemy.pos)
+            .filter((tile) => validOpenTile(session, 'enemy', tile, 1)
+                && hexDistance(tile, session.player.pos) > hexDistance(session.enemy.pos, session.player.pos))
+            .sort((a, b) => a - b)[0];
+        if (retreat !== undefined) push({ type: 'move', tile: retreat });
+    }
     return actions;
 }
 
-function enemyTurnSnapshot(session: SoloPveSession): EnemyTurnSnapshot {
-    const count = (value: PvpFighter, kind: 'positive' | 'negative') => value.statuses.filter((status) => status.kind === kind).length;
+function enemyTurnSnapshot(session: SoloPveSession, policy: EnemyTurnPolicy): EnemyTurnSnapshot {
+    const statusValue = (value: PvpFighter, kind: 'positive' | 'negative') => {
+        const cappedTotals = new Map<string, number>();
+        return value.statuses.filter((status) => status.kind === kind).reduce((total, status) => {
+            let benefit = enemyStatusValue(status, {
+                round: session.round, maxHp: value.maxHp, hp: value.hp, shield: value.shield,
+                positiveCount: value.statuses.filter((entry) => entry.kind === 'positive').length,
+                negativeCount: value.statuses.filter((entry) => entry.kind === 'negative').length,
+            });
+            // These reactive percentages share a real 60% aggregate ceiling.
+            // Another status icon above it has no additional defensive benefit.
+            if (benefit > 0 && ['Reflect', 'Absorb', 'Lifesteal'].includes(status.name)) {
+                const pct = Math.max(0, Number(status.percent) || 0);
+                const used = cappedTotals.get(status.name) ?? 0;
+                benefit *= pct > 0 ? Math.min(pct, Math.max(0, 60 - used)) / pct : 0;
+                cappedTotals.set(status.name, Math.min(60, used + pct));
+            }
+            return total + benefit;
+        }, 0);
+    };
     const damagingReach = jutsuList(session.enemy)
-        .filter((jutsu) => Number(jutsu.effectPower ?? 0) > 0)
+        .filter((jutsu) => Number(jutsu.effectPower ?? 0) > 0 && !isZeroDamageFortyApJutsu(jutsu) && !hasMoveTag(jutsu)
+            && jutsu.target !== 'SELF'
+            && (!pveEasyBandHoldsBurst(Number(session.enemy.character.level) || 1, session.round) || Number(jutsu.ap ?? 40) < 60))
+        .filter((jutsu) => {
+            // Range can be solved by moving; a prohibited cast cannot. Reuse
+            // the authoritative eligibility rules, including Elemental Seal,
+            // so an unavailable ranged kit never masks useful basic-attack
+            // gap closing in the shorter tactical horizons.
+            const plan = jutsuActionPlan(session, 'enemy', jutsu, aiTileForJutsu(session, jutsu));
+            return plan.accepted || plan.rejection === 'out-of-range';
+        })
         .reduce((reach, jutsu) => Math.max(reach, Number(jutsu.range) || 0), 1);
+    let enemyHpAfterBasic: number | undefined;
+    if (policy.considersSurvival && session.enemy.hp < session.enemy.maxHp * 0.35 && session.player.hp > 0) {
+        enemyHpAfterBasic = session.enemy.hp;
+        if (hexDistance(session.enemy.pos, session.player.pos) <= 1 && session.player.stamina >= BASIC_ATTACK_STAMINA) {
+            // Only the universal, public basic attack is forecast. Never inspect
+            // the player's hidden jutsu list to select a bespoke counter.
+            const specialty = typeof session.player.character.specialty === 'string' ? session.player.character.specialty : 'Ninjutsu';
+            const basic: SoloPveJutsu = { id: 'basic-attack', name: 'Basic Attack', type: specialty, effectPower: 10, ap: BASIC_ATTACK_AP, range: 1, tags: [] };
+            enemyHpAfterBasic = applyJutsu(session.player, session.enemy, basic, weatherMult(session, basic), session.environment.biome, session.round + 1).opponent.hp;
+        }
+    }
     return {
         playerHp: session.player.hp,
         playerShield: session.player.shield,
@@ -1921,12 +2002,18 @@ function enemyTurnSnapshot(session: SoloPveSession): EnemyTurnSnapshot {
         enemyHp: session.enemy.hp,
         enemyShield: session.enemy.shield,
         enemyMaxHp: session.enemy.maxHp,
-        playerPositive: count(session.player, 'positive'),
-        playerNegative: count(session.player, 'negative'),
-        enemyPositive: count(session.enemy, 'positive'),
-        enemyNegative: count(session.enemy, 'negative'),
+        playerPositive: statusValue(session.player, 'positive'),
+        playerNegative: statusValue(session.player, 'negative'),
+        enemyPositive: statusValue(session.enemy, 'positive'),
+        enemyNegative: statusValue(session.enemy, 'negative'),
         distance: hexDistance(session.enemy.pos, session.player.pos),
         enemyReach: Math.max(1, damagingReach),
+        enemyAp: session.ap.enemy,
+        enemyChakra: session.enemy.chakra,
+        enemyMaxChakra: session.enemy.maxChakra,
+        enemyStamina: session.enemy.stamina,
+        enemyMaxStamina: session.enemy.maxStamina,
+        ...(enemyHpAfterBasic === undefined ? {} : { enemyHpAfterBasic }),
     };
 }
 
@@ -1940,41 +2027,78 @@ function simulateEnemyAction(session: SoloPveSession, action: SoloPveAction): So
 }
 
 type PlannedStep = { action: SoloPveAction; key: string; after: SoloPveSession; value: number };
+type PlannerBudget = { simulations: number; immediateFinisher?: boolean };
 
 /**
- * The first step of the best one- or two-action combination from here. Bounded
- * (a one-step ranking keeps `firstActionBeam` first actions; each is scored by
- * its own result or by its best legal follow-up, whichever is higher) and
- * deterministic (ties fall to the action key).
+ * The first step of a bounded beam search through legal actions. A single
+ * resolver-call budget spans every root and depth, and the highest tier may
+ * see an entire five-action turn. Equal final states prefer immediate benefit
+ * and then a stable action key. No wall clock influences a decision.
  */
-function plannedEnemyAction(session: SoloPveSession, policy: EnemyTurnPolicy, jutsuOnly: boolean): SoloPveAction | null {
-    const start = enemyTurnSnapshot(session);
-    const rank = (from: SoloPveSession, actions: SoloPveAction[]): PlannedStep[] => actions
-        .map((action) => {
+function plannedEnemyAction(session: SoloPveSession, policy: EnemyTurnPolicy, jutsuOnly: boolean, budget: PlannerBudget = { simulations: 0 }): SoloPveAction | null {
+    const start = enemyTurnSnapshot(session, policy);
+    const rank = (from: SoloPveSession, actions: SoloPveAction[]): PlannedStep[] => {
+        const steps: PlannedStep[] = [];
+        for (const action of actions) {
+            if (budget.simulations >= policy.maxSimulations) break;
+            budget.simulations++;
             const after = simulateEnemyAction(from, action);
-            return after ? { action, key: enemyActionKey(action), after, value: enemyTurnValue(start, enemyTurnSnapshot(after)) } : null;
-        })
-        .filter((step): step is PlannedStep => step !== null)
-        .sort((a, b) => b.value - a.value || a.key.localeCompare(b.key));
-    const firsts = rank(session, plannerEnemyActions(session).filter((action) => !jutsuOnly || action.type === 'jutsu'))
-        .slice(0, policy.firstActionBeam);
-    let best: { key: string; value: number; action: SoloPveAction } | null = null;
-    for (const first of firsts) {
-        let value = first.value;
-        if (policy.lookahead === 2 && first.after.status === 'active' && first.after.activeSide === 'enemy') {
-            const followUp = rank(first.after, plannerEnemyActions(first.after))[0];
-            if (followUp && followUp.value > value) value = followUp.value;
+            if (after) steps.push({ action, key: enemyActionKey(action), after, value: enemyTurnValue(start, enemyTurnSnapshot(after, policy)) });
         }
-        if (!best || value > best.value || (value === best.value && first.key.localeCompare(best.key) < 0)) {
-            best = { key: first.key, value, action: first.action };
-        }
+        return steps.sort((a, b) => b.value - a.value || a.key.localeCompare(b.key));
+    };
+    const rankedFirsts = rank(session, plannerEnemyActions(session, policy).filter((action) => !jutsuOnly || action.type === 'jutsu'));
+    const finisher = rankedFirsts.find((step) => step.after.player.hp <= 0 && step.after.enemy.hp > 0);
+    if (finisher) {
+        budget.immediateFinisher = true;
+        return finisher.action;
     }
-    return best?.action ?? null;
+    const firsts = rankedFirsts.slice(0, policy.firstActionBeam);
+    // A movement opener may have little immediate value but unlock two hits.
+    // Keep its best representative even beneath a pile of utility candidates.
+    if (policy.lookahead > 1) {
+        const movement = rankedFirsts.find((step) => step.after.enemy.pos !== session.enemy.pos);
+        if (movement && !firsts.includes(movement)) firsts.push(movement);
+    }
+    let best: { key: string; value: number; firstValue: number; action: SoloPveAction } | null = null;
+    const consider = (step: PlannedStep, root: PlannedStep) => {
+        // Equal final states prefer the useful immediate action. A gratuitous
+        // dash before an identical ranged hit should not win by its ID alone.
+        if (!best || step.value > best.value || (step.value === best.value
+            && (root.value > best.firstValue || (root.value === best.firstValue && root.key.localeCompare(best.key) < 0)))) {
+            best = { key: root.key, value: step.value, firstValue: root.value, action: root.action };
+        }
+    };
+    for (const first of firsts) consider(first, first);
+    let frontier = firsts.map((step) => ({ step, root: step }));
+    for (let depth = 1; depth < policy.lookahead && budget.simulations < policy.maxSimulations && frontier.length; depth++) {
+        const next: typeof frontier = [];
+        for (const { step, root } of frontier) {
+            if (step.after.status !== 'active' || step.after.activeSide !== 'enemy' || step.after.actionsThisTurn >= MAX_ACTIONS) continue;
+            for (const child of rank(step.after, plannerEnemyActions(step.after, policy))) {
+                consider(child, root);
+                next.push({ step: child, root });
+            }
+        }
+        frontier = next.sort((a, b) => b.step.value - a.step.value || a.root.key.localeCompare(b.root.key) || a.step.key.localeCompare(b.step.key))
+            .slice(0, policy.firstActionBeam);
+    }
+    // Preserve real advances (closing range, surviving, damage, useful setup),
+    // and end dry turns rather than spend leftover AP on lateral Flickers.
+    const chosen = best as { key: string; value: number; action: SoloPveAction } | null;
+    return chosen && chosen.value > enemyTurnValue(start, start) + 0.001 ? chosen.action : null;
+}
+
+/** Deterministic work-count seam for bounded planner and regression fixtures. */
+export function planStandardPveEnemyActionForTest(session: SoloPveSession, policy: EnemyTurnPolicy): { action: SoloPveAction | null; simulations: number } {
+    const budget = { simulations: 0 };
+    const action = plannedEnemyAction(session, policy, false, budget);
+    return { action, simulations: budget.simulations };
 }
 
 /** The best jutsu for this bracket: the scorer's pick, or a planned combination's first cast. */
 function bestJutsuForPolicy(session: SoloPveSession, policy: EnemyTurnPolicy): SoloPveAction | null {
-    if (policy.lookahead === 2) return plannedEnemyAction(session, policy, true);
+    if (policy.tier !== 'novice') return plannedEnemyAction(session, policy, true);
     const candidate = legalJutsuCandidates(session)[0];
     return candidate ? jutsuCandidateAction(candidate) : null;
 }
@@ -1987,22 +2111,42 @@ function bestJutsuForPolicy(session: SoloPveSession, policy: EnemyTurnPolicy): S
  * generic fallback are decided by the bracket policy.
  */
 function chooseStandardPveEnemyAction(session: SoloPveSession, policy: EnemyTurnPolicy): SoloPveAction | null {
-    const tactic = aiTacticalAction(session);
+    const tactic = policy.tier === 'novice' ? aiTacticalAction(session) : null;
     if (tactic && enemyActionLegal(session, tactic)) return tactic;
+    const budget: PlannerBudget = { simulations: 0 };
+    let planned: SoloPveAction | null | undefined;
+    const getPlan = () => planned === undefined ? planned = plannedEnemyAction(session, policy, false, budget) : planned;
+    // Even an authored heal/defense must not steal an obvious legal finishing
+    // blow. Preserve authored tells/openers otherwise, and cache the search so
+    // multiple matching rules cannot multiply its deterministic work budget.
+    if (policy.tier !== 'novice' && session.player.hp <= session.player.maxHp * 0.35) {
+        const pick = getPlan();
+        if (budget.immediateFinisher) return pick;
+    }
     const program = validateServerAiRules(session.enemy.character.aiRules, jutsuList(session.enemy).map((jutsu) => jutsu.id));
     if (program.ok) {
         for (const rule of program.rules) {
             if (!authoredAiRuleMatches(session, rule)) continue;
             if (rule.action === 'use_highest_power_jutsu' || rule.action === 'use_best_legal_jutsu') {
+                // Generic catalog fallback means "play well", so basics and
+                // survival/utility must compete with the best jutsu too.
+                if (policy.tier !== 'novice') return getPlan();
                 const pick = bestJutsuForPolicy(session, policy);
                 if (pick) return pick;
                 continue;
             }
-            const action = authoredAiRuleAction(session, rule, () => legalJutsuCandidates(session));
+            if (policy.tier !== 'novice' && rule.condition !== 'specific_round') {
+                const specific = rule.action === 'use_specific_jutsu'
+                    ? jutsuList(session.enemy).find((entry) => entry.id === rule.jutsuId) : undefined;
+                const utilityIntent = ['heal', 'defend', 'buff', 'clear_player_buffs', 'cleanse_self', 'use_movement_jutsu'].includes(rule.action)
+                    || (specific && (specific.target === 'SELF' || hasMoveTag(specific)));
+                if (utilityIntent) return getPlan();
+            }
+            const action = authoredAiRuleAction(session, rule, () => legalJutsuCandidates(session), true);
             if (action && enemyActionLegal(session, action)) return action;
         }
     }
-    if (policy.lookahead === 2) return plannedEnemyAction(session, policy, false);
+    if (policy.tier !== 'novice') return getPlan();
     const jutsu = bestJutsuForPolicy(session, policy);
     if (jutsu) return jutsu;
     for (const fallback of [{ type: 'basicAttack' } as SoloPveAction, enemyMoveTowardPlayerAction(session)]) {
@@ -2019,7 +2163,10 @@ function chooseStandardPveEnemyAction(session: SoloPveSession, policy: EnemyTurn
  */
 function runStandardPveEnemyTurn(
     session: SoloPveSession,
-    policy: EnemyTurnPolicy = enemyTurnPolicy(Math.max(1, Number(session.enemy.character.level) || 1), session.enemy.character.masterAi === true),
+    policy: EnemyTurnPolicy = enemyTurnPolicyForEncounter({
+        level: Math.max(1, Number(session.enemy.character.level) || 1), masterAi: session.enemy.character.masterAi === true,
+        kind: session.encounter.kind, difficulty: session.enemy.character.pveDifficulty,
+    }),
 ): void {
     const turnOver = () => session.actionsThisTurn >= MAX_ACTIONS || (policy.legacyTurnEnd && session.ap.enemy < 30);
     let guard = 0;

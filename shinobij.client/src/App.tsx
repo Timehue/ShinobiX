@@ -5140,7 +5140,7 @@ export default function App() {
         <MaintenanceOperatorBoundary mode={surfaceBlockerMode}>
         <AdaptiveGameShell
             biome={currentBiome}
-            screen={screen}
+            screen={screen} sealedFightEngaged={sealedFightOpen}
             village={character?.village}
             uiMode={hideBattleChrome || isBattleViewScreen(screen) ? "combat" : "noncombat"}
             facilityAccent={STUDIO_SCREEN_PRESENTATION[screen].facility?.accent}
@@ -5444,7 +5444,7 @@ export default function App() {
                     />
                 )}
 
-                {activeTriggeredEvent && character && (
+                {activeTriggeredEvent && !sealedFightOpen && character && (
                     <ActiveStoryVisualNovel
                         event={activeTriggeredEvent}
                         cancelLabel={isSessionDismissableStoryScene(activeTriggeredEvent.id) ? "Later this session" : "Skip"}

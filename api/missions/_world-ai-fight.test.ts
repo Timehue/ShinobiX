@@ -11,10 +11,12 @@ import {
     WORLD_AI_FIGHT_TTL_SECONDS,
 } from './_world-ai-fight.js';
 import { SOLO_PVE_SESSION_TTL_SECONDS } from '../solo-pve/_session.js';
+import { buildSoloPveAiEncounter } from '../solo-pve/_ai-encounter.js';
+import { STANDARD_PVE_AI_POLICY } from '../solo-pve/_ai-turn-policy.js';
 import type { WorldAiFightContext } from '../../shared/world-ai-fight.js';
 import { serverHuntTrailSector } from './_hunt-trail.js';
 import { kv } from '../_storage.js';
-import { rollWanderers, WANDERER_BUCKET_MS, WANDERER_RIFT_INDEX } from '../../shared/wanderer-roster.js';
+import { ordinaryWandererEncounter, rollWanderers, WANDERER_BUCKET_MS, WANDERER_RIFT_INDEX } from '../../shared/wanderer-roster.js';
 import { rollTradeWanderer } from '../../shared/wanderer-extra-slots.js';
 import { roadNemesisPresentAt } from '../../shared/road-nemesis.js';
 import { RIFT_QUESTS } from '../sector/_rift-quest.js';
@@ -351,6 +353,47 @@ describe('World AI fight authority for the road cast', () => {
         throw new Error(`no ${verb} in 400 windows`);
     }
     const save = (sector: number, character: Record<string, unknown>) => ({ currentSector: sector, character: { name: 'Roadwalker', level: 30, village: 'Leaf', ...character } });
+
+    it('seals the same ordinary NPC that was previewed, keeps its regional level, and rejects stale identities', async () => {
+        const road = find('attack', rollWanderers);
+        const npc = rollWanderers(road.sector, road.bucket).find((entry) => entry.id === road.id)!;
+        const preview = ordinaryWandererEncounter(npc, 100, road.sector)!;
+        const request = { kind: 'wanderer' as const, sourceId: road.id, sector: road.sector, encounterId: preview.id };
+        const spec = await buildWorldAiFightSpec({ playerName: 'Roadwalker', request, save: save(road.sector, { level: 100 }), now: road.now });
+        assert.equal(spec.profile.level, preview.level);
+        assert.equal(spec.profile.name, preview.displayName);
+        assert.equal(spec.profile.pveDifficulty, preview.difficulty);
+        assert.equal(spec.context.encounter?.id, preview.id);
+        assert.equal(spec.context.encounter?.portraitKey, preview.portraitKey);
+        assert.ok(Number(spec.profile.level) < 100, 'ordinary road NPC does not become player + 1');
+        await assert.rejects(buildWorldAiFightSpec({ playerName: 'Roadwalker', request: { ...request, encounterId: 'ordinary-deadbeef' },
+            save: save(road.sector, { level: 100 }), now: road.now }), /preview-stale/);
+        await assert.rejects(buildWorldAiFightSpec({ playerName: 'Roadwalker', request,
+            save: save(road.sector, { level: 100 }), now: road.now + WANDERER_BUCKET_MS }), /not-attackable/);
+    });
+
+    it('retains the sealed role template when a high-level natural NPC receives its unique world identity', async () => {
+        let fixture: { sector: number; now: number; id: string } | undefined;
+        for (let bucket = 5000; bucket < 5050 && !fixture; bucket++) {
+            for (let sector = 61; sector <= 66 && !fixture; sector++) {
+                const npc = rollWanderers(sector, bucket).find((entry) => entry.archetype === 'bandit'
+                    && ordinaryWandererEncounter(entry, 100, sector)?.difficulty === 'standard');
+                if (npc) fixture = { sector, now: bucket * WANDERER_BUCKET_MS + 60_000, id: npc.id };
+            }
+        }
+        assert.ok(fixture, 'a deterministic high-level ordinary bandit exists');
+        const stored = save(fixture.sector, { level: 100, hp: 10_000, maxHp: 10_000, stats: {}, equipment: {} });
+        const spec = await buildWorldAiFightSpec({ playerName: 'Roadwalker', request: { kind: 'wanderer', sourceId: fixture.id, sector: fixture.sector },
+            save: stored, now: fixture.now });
+        assert.match(spec.profile.id, /^world-wanderer-/);
+        assert.equal(spec.profile.pveTemplateId, spec.context.encounter?.profileId);
+        const session = buildSoloPveAiEncounter({ playerName: 'Roadwalker', sessionId: 'natural-kit-regression', save: stored,
+            profile: spec.profile, now: fixture.now, admin: null, aiTurnPolicy: STANDARD_PVE_AI_POLICY,
+            encounter: { kind: 'world-ai', id: fixture.id } });
+        const kit = session.enemy.character.jutsu as Array<{ ap?: number; effectPower?: number }>;
+        assert.equal(kit.filter((move) => move.ap === 60 && Number(move.effectPower) > 1).length, 6,
+            'a high-level ordinary world instance receives its six damaging catalog techniques');
+    });
 
     it("refuses your own village's patrol and names a rival village's patrol for its holder", async () => {
         const patrol = find('patrol', rollWanderers);

@@ -110,6 +110,11 @@ export function uiAuditSave(): UiAuditSave {
 }
 
 export async function installUiAuditRuntime(page: Page, initialSave: UiAuditSave = uiAuditSave(), showBriefing = false, accountName = 'AuditNinja') {
+    // Production-image builds compile public, invalid service fixtures. Keep
+    // local UI audits fully mocked even when checking that exact artifact.
+    const fixtureHosts = new Set(['abcdefghijklmnopqrst.supabase.co', 'o123456.ingest.us.sentry.io', 'us.i.posthog.com']);
+    await page.route(url => fixtureHosts.has(url.hostname), route => route.fulfill({ status: 204 }));
+    await page.routeWebSocket(url => fixtureHosts.has(url.hostname), socket => socket.close());
     let save = structuredClone(initialSave);
     const worldModel = worldPositionModel();
     let worldCursor = worldModel.fallback(Number(save.currentSector ?? 0), Number(save.currentTile ?? 78)), worldSequence = 0;
@@ -143,6 +148,13 @@ export async function installUiAuditRuntime(page: Page, initialSave: UiAuditSave
             ? (url.searchParams.get("ver") === "1" ? { version: "1", ids: [] } : [])
             : {});
         if (path === "/api/player-auth") return json(route, { ok: true, token: "ui-audit-token" });
+        if (path === "/api/missions/ai-fight-start" && request.method() === "POST") {
+            const body = request.postDataJSON();
+            // No saved fight is the server's empty 204 response. The generic
+            // 200 fallback has no sealed session and triggers recovery retries
+            // that can interrupt unrelated narrative fixtures every five seconds.
+            if (body.resumeWorldFight || body.resumeAiFight) return route.fulfill({ status: 204 });
+        }
         if (path === "/api/player/world-move") {
             if (request.method() === 'POST') {
                 const body = request.postDataJSON(), cursor = worldModel.read(body.worldPosition);
@@ -298,6 +310,7 @@ export async function installUiAuditRuntime(page: Page, initialSave: UiAuditSave
     });
 
     return {
+        serverSave: () => structuredClone(save),
         currentVersion: () => saveVersion,
         acknowledgedVersion: () => acknowledgedVersion,
         saveConflictCount: () => saveConflictCount,

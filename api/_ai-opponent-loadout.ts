@@ -35,6 +35,28 @@ export type AiOpponentJutsu = CombatJutsu & { visualEffect?: string };
  *  loadout is 6; the cap only bounds a hand-authored `shared:ai-profiles` entry). */
 export const MAX_AI_LOADOUT_JUTSU = 8;
 
+const ORDINARY_PROGRESSIVE_KITS: Record<string, { damage: string[]; setup: string[] }> = {
+    'builtin-ai-rogue-ninja': { damage: ['starter-tai-water-2', 'starter-tai-earth-2', 'starter-tai-fire-2', 'starter-tai-wind-2', 'starter-tai-lightning-2', 'starter-buki-earth-2'], setup: ['starter-tai-fire-4'] },
+    'builtin-ai-ember-duelist': { damage: ['starter-tai-water-2', 'starter-buki-fire-2', 'starter-nin-lightning-2', 'starter-tai-fire-2', 'starter-tai-wind-2', 'starter-tai-lightning-2'], setup: ['starter-tai-fire-4'] },
+    'builtin-ai-shadow-weaver': { damage: ['starter-gen-water-2', 'starter-gen-earth-2', 'starter-gen-lightning-2', 'starter-gen-wind-2', 'starter-gen-fire-2', 'starter-buki-wind-2'], setup: ['starter-gen-water-1'] },
+    'builtin-ai-frost-sealer': { damage: ['starter-gen-lightning-2', 'starter-gen-water-2', 'starter-gen-earth-2', 'starter-nin-water-2', 'starter-nin-lightning-2', 'starter-nin-fire-2'], setup: ['starter-gen-earth-1'] },
+    'builtin-ai-mist-sentinel': { damage: ['starter-gen-lightning-2', 'starter-gen-water-2', 'starter-gen-earth-2', 'starter-buki-water-2', 'starter-buki-wind-2', 'starter-gen-wind-2'], setup: ['starter-gen-fire-1', 'starter-gen-earth-1'] },
+};
+
+/** A larger rotation supplies real damaging turns while signatures recover.
+ * Only server-classified ordinary encounters opt in. Named rivals, authored
+ * missions, bosses, player copies and protected low-level/weaker kits keep
+ * their own definitions. Every learned technique is the player catalog object;
+ * no EP/AP/cooldown/resource overrides and no extra damage multiplier. */
+export function progressiveOrdinaryAiJutsuIds(profileId: string, level: number, difficulty: unknown): string[] | null {
+    const kit = Object.hasOwn(ORDINARY_PROGRESSIVE_KITS, profileId) ? ORDINARY_PROGRESSIVE_KITS[profileId] : undefined;
+    if (!kit || level <= 35 || difficulty === 'weaker' || !['standard', 'dangerous', 'elite'].includes(String(difficulty))) return null;
+    const accelerated = difficulty === 'elite' ? 2 : difficulty === 'dangerous' ? 1 : 0;
+    const damageCount = Math.min(6, (level >= 86 ? 6 : 5) + accelerated);
+    const setup = kit.setup.slice(0, MAX_AI_LOADOUT_JUTSU - damageCount - 1);
+    return [...kit.damage.slice(0, damageCount), ...setup, 'starter-universal-flicker'];
+}
+
 /** The fields an EnemyTemplate jutsu carries. `target` / `tags` are included on
  *  purpose: the tower engine reads both (EMPTY_GROUND placement, ground zones,
  *  Push/Pull, every status tag), so omitting them would disarm the AI's kit. */

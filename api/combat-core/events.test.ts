@@ -49,11 +49,11 @@ describe('authoritative combat event projection', () => {
         const event = projectAuthoritativeCombatEvent({
             runtime: 'solo-pve', mode: 'weekly-boss', sessionId: 'boss', sequence: 9,
             roundBefore: 4, roundAfter: 4, actor: 'player', target: 'enemy', actionType: 'jutsu', actionId: 'finisher',
-            applied: true, before, after, resolution: { rawDamage: 70, resolvedDamage: 20 },
+            applied: true, before, after, resolution: { baseDamage: 100, effectiveDR: .3, rawDamage: 70, resolvedDamage: 20 },
             objectives: [{ objectiveId: 'boss-health', kind: 'damage', amount: 12 }],
             status: 'done', winner: 'player', outcome: 'win',
         });
-        assert.deepEqual(event.damage, [{ source: 'player', target: 'enemy', raw: 70, resolved: 20, toHp: 12, toShield: 0, capped: true }]);
+        assert.deepEqual(event.damage, [{ source: 'player', target: 'enemy', baseDamage: 100, effectiveDR: .3, raw: 70, resolved: 20, toHp: 12, toShield: 0, capped: true }]);
         assert.deepEqual(event.objectives, [{ objectiveId: 'boss-health', kind: 'damage', amount: 12 }]);
         assert.deepEqual(event.lifecycle, [{ role: 'enemy', event: 'down' }]);
     });

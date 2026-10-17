@@ -1,7 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
 import { installUiAuditRuntime, uiAuditSave } from './helpers/ui-audit-runtime';
 
-const screen = (page: Page, name: string) => page.locator(`.app-shell[data-screen="${name}"]`);
+// These navigation fixtures contain no AI fight. A painted route is ready for
+// Back only after the initial saved-fight probe commits its empty release.
+const screen = (page: Page, name: string) => page.locator(`.app-shell[data-screen="${name}"][data-sealed-fight-engaged="false"]`);
 async function openMenuScreen(page: Page, name: string) {
     const target = page.getByRole('button', { name, exact: true }).filter({ visible: true }).first();
     const menu = page.getByRole('button', { name: 'Menu', exact: true }).filter({ visible: true }).first();

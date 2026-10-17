@@ -25,7 +25,27 @@
  * below are excluded.
  */
 import { pveAiMasteryForLevel } from './_pve-difficulty.js';
+import { jutsuLevelCapForLevel } from './combat-core/formulas.js';
 import type { TowerSession, TowerActor } from './towers/_tower-session.js';
+
+export type PveAiMasteryDifficulty = 'weaker' | 'standard' | 'dangerous' | 'elite' | 'final-kage';
+
+/** Ordinary opponents follow the same progression available to players:
+ * ryo lessons stop at 30, Seal lessons at 40, and battle mastery at 50.
+ * Character-rank caps apply first. Unclassified legacy hosts keep their sealed
+ * historical curve; this does not rewrite player copies or active sessions. */
+export function pveAiMasteryForEncounter(level: number, difficulty: unknown): number {
+    const standard = Math.min(30, pveAiMasteryForLevel(level));
+    const rankCap = jutsuLevelCapForLevel(level);
+    switch (difficulty) {
+        case 'weaker': return Math.floor(standard * 0.7);
+        case 'standard': return standard;
+        case 'dangerous': return Math.min(40, rankCap);
+        case 'elite':
+        case 'final-kage': return rankCap;
+        default: return pveAiMasteryForLevel(level);
+    }
+}
 
 export type PveMasteryMode =
     | 'MISSION'    // api/missions/combat-start.ts

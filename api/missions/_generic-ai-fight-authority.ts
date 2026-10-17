@@ -1,10 +1,14 @@
-import { AI_PROFILE_CATALOG } from '../_ai-profile-catalog.js';
+import { randomUUID } from 'node:crypto';
 import type { KvLike } from '../_storage.js';
 import { canTakeApex, isApexBeastForWeek, isoWeekKey } from './_apex-contract.js';
 import { resolveDungeonAiFightAuthority } from '../dungeon/_ai-fight.js';
 import type { AiFightProfile, AiFightScaling } from './_ai-fight-encounter.js';
 import { cleanWorldExploreAuthorityReceipt, worldExploreAuthorityKey } from '../world/_explore-authority.js';
 import { serverFieldMissionRun } from './_field-trail.js';
+import { cleanOrdinaryPveEncounter, rollOrdinaryPveEncounter, type OrdinaryPveEncounter } from '../../shared/ordinary-pve-encounter.js';
+import { ordinaryAiProfile } from './_ordinary-ai-encounter.js';
+import { computeAiFightBaseReward } from './_ai-fight-token.js';
+import { WORLD_EXPLORE_RECEIPT_TTL_SECONDS } from '../world/_explore-authority.js';
 
 export type GenericAiFightBattleKind = 'practice' | 'explore' | 'raidAi' | 'dungeon';
 
@@ -14,6 +18,7 @@ export type GenericAiFightAuthority = {
     sector?: number;
     exploreReceiptKey?: string;
     worldExploreRequestId?: string;
+    encounter?: OrdinaryPveEncounter;
     raidTokenId?: string;
     raidMissionId?: string;
     raidTokenKey?: string;
@@ -139,17 +144,6 @@ export async function settleRaidAiToken(params: {
     throw new Error('The AI-raid token could not be settled safely.');
 }
 
-const EXPLORE_POOL_IDS = [
-    'builtin-ai-academy-sparring',
-    'builtin-ai-mist-sentinel',
-    'builtin-ai-ember-duelist',
-    'builtin-ai-exam-proctor',
-    'builtin-ai-frost-sealer',
-    'builtin-ai-rogue-ninja',
-    'builtin-ai-shadow-weaver',
-    'builtin-ai-central-champion',
-] as const;
-
 // One exploration receipt may launch its sealed battle for 30 days. The
 // one-use KV marker lives slightly longer, so a dormant save cannot resurrect
 // the same battle after the marker expires while the receipt is still present.
@@ -158,15 +152,6 @@ export const EXPLORE_BATTLE_MARKER_TTL_SECONDS = 31 * 24 * 60 * 60;
 
 export function exploreBattleMarkerKey(playerName: string, receiptId: string): string {
     return `world-ai-explore-fight:${playerName}:${receiptId}`;
-}
-
-function hash(value: string): number {
-    let result = 2166136261;
-    for (let index = 0; index < value.length; index += 1) {
-        result ^= value.charCodeAt(index);
-        result = Math.imul(result, 16777619);
-    }
-    return result >>> 0;
 }
 
 function cleanOpaqueId(value: unknown): string {
@@ -179,21 +164,31 @@ function cleanProfileId(value: unknown): string {
     return /^[A-Za-z0-9:_-]+$/.test(id) ? id : '';
 }
 
+/** @deprecated Compatibility preview helper only. Server encounter rolls use
+ * private random entropy and then persist the complete receipt descriptor. */
 export function genericExploreOpponentId(params: {
     playerName: string;
     level: number;
     sector: number;
     receiptId: string;
 }): string {
-    const level = Math.max(1, Math.min(100, Math.floor(Number(params.level) || 1)));
-    const profiles = EXPLORE_POOL_IDS
-        .map((id) => AI_PROFILE_CATALOG[id])
-        .filter((profile): profile is NonNullable<typeof profile> => Boolean(profile) && profile.isBossAi !== true);
-    const eligible = profiles.filter((profile) => profile.level <= level);
-    const pool = eligible.length > 0
-        ? eligible
-        : profiles.filter((profile) => profile.level === Math.min(...profiles.map((entry) => entry.level)));
-    return pool[hash(`${params.playerName.toLowerCase()}:${params.sector}:${params.receiptId}`) % pool.length]!.id;
+    return rollOrdinaryPveEncounter({ sourceId: params.receiptId, playerLevel: params.level, sector: params.sector,
+        seed: `${params.playerName.toLowerCase()}:${params.sector}:${params.receiptId}` }).profileId;
+}
+
+async function exploreReceipt(store: Pick<KvLike, 'get'>, playerName: string, character: Record<string, unknown>, receiptId: string, sector: number) {
+    const durable = cleanWorldExploreAuthorityReceipt(await store.get(worldExploreAuthorityKey(playerName, receiptId)));
+    const receipts = Array.isArray(character.redeemedSectorExplorations)
+        ? character.redeemedSectorExplorations as Array<Record<string, unknown>> : [];
+    const saved = receipts.find((entry) => entry?.id === receiptId);
+    const receipt = durable ?? saved;
+    if (!receipt || (durable && durable.playerName.toLowerCase() !== playerName.toLowerCase())
+        || Number(receipt.sector) !== sector || !Number.isSafeInteger(Number(receipt.at))
+        || Number(receipt.at) <= 0 || Number(receipt.at) > Date.now() + 60_000
+        || Date.now() - Number(receipt.at) > EXPLORE_BATTLE_AUTHORITY_TTL_MS
+        || !receipt.outcome || typeof receipt.outcome !== 'object'
+        || (receipt.outcome as Record<string, unknown>).kind !== 'battle') return null;
+    return receipt;
 }
 
 /** The exploration receipt is this player's, in this sector, still fightable, and rolled a battle. */
@@ -204,23 +199,7 @@ export async function ownsExploreReceipt(
     receiptId: string,
     sector: number,
 ): Promise<boolean> {
-    const receipts = Array.isArray(character.redeemedSectorExplorations)
-        ? character.redeemedSectorExplorations as Array<Record<string, unknown>>
-        : [];
-    if (receipts.some((entry) => entry
-        && entry.id === receiptId
-        && Number(entry.sector) === sector
-        && Number.isFinite(Number(entry.at))
-        && Number(entry.at) > 0
-        && Date.now() - Number(entry.at) <= EXPLORE_BATTLE_AUTHORITY_TTL_MS
-        && typeof entry.outcome === 'object'
-        && entry.outcome !== null
-        && (entry.outcome as Record<string, unknown>).kind === 'battle')) return true;
-    const durable = cleanWorldExploreAuthorityReceipt(await store.get(worldExploreAuthorityKey(playerName, receiptId)));
-    return durable?.playerName.toLowerCase() === playerName.toLowerCase()
-        && durable.sector === sector
-        && Date.now() - durable.at <= EXPLORE_BATTLE_AUTHORITY_TTL_MS
-        && durable.outcome?.kind === 'battle';
+    return Boolean(await exploreReceipt(store, playerName, character, receiptId, sector));
 }
 
 export async function resolveGenericAiFightAuthority(params: {
@@ -249,27 +228,38 @@ export async function resolveGenericAiFightAuthority(params: {
         if (!Number.isSafeInteger(sector) || sector < 1 || sector > 66 || !receiptId) {
             throw new Error('A sealed exploration receipt is required for this encounter.');
         }
-        if (!(await ownsExploreReceipt(params.store, params.playerName, params.character, receiptId, sector))) {
+        const receipt = await exploreReceipt(params.store, params.playerName, params.character, receiptId, sector);
+        if (!receipt) {
             throw new Error('That exploration receipt does not prove this sector.');
         }
         const exploreReceiptKey = exploreBattleMarkerKey(params.playerName, receiptId);
         if (await params.store.get(exploreReceiptKey)) {
             throw new Error('That exploration encounter was already started.');
         }
-        const opponentId = genericExploreOpponentId({
-            playerName: params.playerName,
-            level: Number(params.character.level),
-            sector,
-            receiptId,
-        });
-        const opponentProfile = AI_PROFILE_CATALOG[opponentId];
-        const playerLevel = Math.max(1, Math.floor(Number(params.character.level) || 1));
+        const outcome = receipt.outcome as Record<string, unknown>;
+        let encounter = cleanOrdinaryPveEncounter(outcome.encounter);
+        if (outcome.encounter != null && (!encounter || encounter.sourceId !== receiptId)) {
+            throw new Error('The sealed exploration opponent is invalid.');
+        }
+        if (!encounter) {
+            // Pre-overhaul receipts have no combat descriptor. Upgrade once at
+            // their existing authority key before starting; subsequent retries
+            // must use it even when the save level or pet changes.
+            encounter = rollOrdinaryPveEncounter({ sourceId: receiptId, playerLevel: Number(params.character.level), sector,
+                seed: randomUUID(), reward: computeAiFightBaseReward(params.character) });
+            await params.store.set(worldExploreAuthorityKey(params.playerName, receiptId), {
+                version: 1, playerName: params.playerName, requestId: receiptId, sector,
+                reward: receipt.reward ?? { sector, xp: 0, ryo: 0 }, outcome: { ...outcome, encounter }, at: receipt.at,
+            }, { ex: WORLD_EXPLORE_RECEIPT_TTL_SECONDS });
+        }
+        if (params.body.encounterId != null && params.body.encounterId !== encounter.id) {
+            throw new Error('The exploration preview is stale. Resume its sealed opponent.');
+        }
         return {
             battleKind,
-            opponentId,
-            ...(opponentProfile && opponentProfile.level !== playerLevel
-                ? { scaling: { level: playerLevel } }
-                : {}),
+            opponentId: encounter.profileId,
+            profile: ordinaryAiProfile(encounter),
+            encounter,
             sector,
             exploreReceiptKey,
             worldExploreRequestId: receiptId,

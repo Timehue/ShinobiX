@@ -3,7 +3,7 @@ import test from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-// AiFightHost reaches for localStorage at import time through world state.
+// Result catalog helpers reach for localStorage through world state.
 const store = new Map<string, string>();
 (globalThis as Record<string, unknown>).localStorage = {
     getItem: (k: string) => store.get(k) ?? null,
@@ -15,8 +15,21 @@ const store = new Map<string, string>();
 };
 // The component file relies on Vite's automatic JSX runtime; the plain node runner compiles it classic.
 (globalThis as Record<string, unknown>).React = React;
-const { AiFightResultCard } = await import("./AiFightHost");
+const { default: AiFightResultCard } = await import("./AiFightResultCard");
 import type { AiFightSettleResult } from "../lib/ai-fight-settle";
+import { rollOrdinaryPveEncounter } from '../../../shared/ordinary-pve-encounter';
+
+test('victory retains its sealed identity and announces the queued opponent separately', () => {
+    const encounter = rollOrdinaryPveEncounter({ sourceId: 'sealed_12345', playerLevel: 50, sector: 66, displayName: 'Tsukika the Quiet Blade' });
+    const html = renderToStaticMarkup(<AiFightResultCard won draw={false} settleState="settled" settleResult={null}
+        opponentName={encounter.displayName} opponentLevel={encounter.level} enemyAvatar="/portraits/pve/assassin.webp"
+        encounter={encounter} queuedOpponentName="Kagero" worldEncounter spar={false} onRetry={() => {}} onExit={() => {}} />);
+    assert.match(html, /Tsukika the Quiet Blade defeated/);
+    assert.ok(html.includes(`Lv ${encounter.level}`));
+    assert.ok(html.includes(`data-encounter-id="${encounter.id}"`));
+    assert.match(html, /Next encounter: Kagero/);
+    assert.match(html, /src="\/portraits\/pve\/assassin.webp"/);
+});
 
 const settled = (extra: Partial<AiFightSettleResult> = {}): AiFightSettleResult => ({
     settled: true, outcome: "win", ryo: 120, statPoints: 1, capped: false, replayed: false,

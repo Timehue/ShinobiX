@@ -180,6 +180,9 @@ export function soloPveSessionForArena(session: SoloPveSession): ServerArenaSess
         status: session.status,
         winner: session.winner === "player" ? "squad" : session.winner,
         log: session.log,
+        // The diagnostic runtime is loaded with the combat screen, not boot.
+        debugSource: { sessionId: session.sessionId, eventSeq: session.eventSeq, events: session.events, status: session.status, outcome: session.outcome,
+            player: { name: session.player.name }, enemy: { name: session.enemy.name, character: { level: session.enemy.character.level } } },
         groundEffects: session.groundEffects.map((effect) => ({ ...effect, owner: effect.owner })),
         weather: {
             positiveElement: session.environment.weatherPositiveElement,

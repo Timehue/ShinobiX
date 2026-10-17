@@ -1,5 +1,6 @@
 import type { Character } from "../types/character";
 import type { SoloPveSession } from "./solo-pve-api";
+import type { OrdinaryPveEncounter } from '../../../shared/ordinary-pve-encounter';
 import type {
     WorldAiFightContext,
     WorldAiFightPendingChain,
@@ -23,6 +24,7 @@ export type AiFightStart = {
     worldExploreRequestId?: string;
     raidToken?: string;
     dungeonRunToken?: string;
+    encounter?: OrdinaryPveEncounter;
 };
 export type AiFightPendingWorldChain = { resumed: true; pendingWorldChain: WorldAiFightPendingChain };
 export type AiFightPendingWorldOutcome = {
@@ -53,6 +55,7 @@ export async function startAiFight(params: {
     raidToken?: string;
     dungeonRunToken?: string;
     worldEncounter?: WorldAiFightRequest;
+    encounterId?: string;
 }): Promise<AiFightWorldResume> {
     let response: Response;
     try {
@@ -71,6 +74,7 @@ export async function startAiFight(params: {
                 ...(params.raidToken ? { raidToken: params.raidToken } : {}),
                 ...(params.dungeonRunToken ? { dungeonRunToken: params.dungeonRunToken } : {}),
                 ...(params.worldEncounter ? { worldEncounter: params.worldEncounter } : {}),
+                ...(params.encounterId ? { encounterId: params.encounterId } : {}),
             }),
         });
     } catch (error) {
@@ -122,6 +126,7 @@ export async function startAiFight(params: {
         ...(data.worldExploreRequestId ? { worldExploreRequestId: data.worldExploreRequestId } : {}),
         ...(data.raidToken ? { raidToken: data.raidToken } : {}),
         ...(data.dungeonRunToken ? { dungeonRunToken: data.dungeonRunToken } : {}),
+        ...(data.encounter ? { encounter: data.encounter } : {}),
     };
 }
 
@@ -152,7 +157,8 @@ export async function resumeWorldAiFight(playerName: string): Promise<AiFightWor
     if (!data.token || !data.sessionId || !data.session || data.session.runtime !== "solo-pve" || !data.worldContext) {
         throw new Error("The combat server returned an incomplete resumed encounter.");
     }
-    return { token: data.token, sessionId: data.sessionId, session: data.session, worldContext: data.worldContext };
+    return { token: data.token, sessionId: data.sessionId, session: data.session, worldContext: data.worldContext, resumed: true,
+        ...(data.encounter ? { encounter: data.encounter } : {}) };
 }
 
 /** Resume a non-World sealed AI encounter (raid, explore, or practice). */
@@ -183,6 +189,7 @@ export async function resumeGenericAiFight(playerName: string): Promise<AiFightS
         ...(data.worldExploreRequestId ? { worldExploreRequestId: data.worldExploreRequestId } : {}),
         ...(data.raidToken ? { raidToken: data.raidToken } : {}),
         ...(data.dungeonRunToken ? { dungeonRunToken: data.dungeonRunToken } : {}),
+        ...(data.encounter ? { encounter: data.encounter } : {}),
     };
 }
 
@@ -225,6 +232,7 @@ export type AiFightReportResult = {
     character?: Partial<Character>;
     _saveVersion?: number;
     worldContext?: WorldAiFightContext;
+    encounter?: OrdinaryPveEncounter;
     /** Exact field-mission runs stamped by this sealed raid settlement. */
     fetchMissionsCredited?: string[];
     /** The upgrade gear piece this settle granted (fresh settles only). */
