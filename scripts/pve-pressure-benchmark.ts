@@ -114,6 +114,7 @@ export function summarizePressure(rows: PressureResult[]) {
 }
 export function pressureFight(runtime: Runtime, input: { level: number; build: Build; difficulty: Difficulty; seed: number; variant: string; matchedMastery?: boolean; path?: 'explore' | 'natural';
     enemyLevel?: number; save?: ReturnType<typeof pressurePlayerSave>; playerPolicy?: (session: SoloPveSession) => SoloPveAction[]; playerPolicyName?: string; initialVitalFraction?: number; trace?: boolean;
+    profileOverride?: Parameters<typeof buildSoloPveAiEncounter>[0]['profile'];
     profileTransform?: (profile: Parameters<typeof buildSoloPveAiEncounter>[0]['profile'], level: number) => Parameters<typeof buildSoloPveAiEncounter>[0]['profile'] }) {
     const { level, build, difficulty, seed, variant } = input;
     const path = input.path ?? 'explore';
@@ -140,6 +141,7 @@ export function pressureFight(runtime: Runtime, input: { level: number; build: B
         if (profile.level !== enemyLevel) scaling = { level: enemyLevel };
     }
     if (!before && path === 'natural') profile = { ...profile, id: `world-wanderer-benchmark-${seed}` };
+    if (input.profileOverride) { profile = input.profileOverride; scaling = undefined; }
     if (input.profileTransform) profile = input.profileTransform(profile, enemyLevel);
     let s = runtime.build({ sessionId: `pressure-${seed}-${level}-${build}-${difficulty}`, playerName: 'pressuretester',
         save: input.save ?? pressurePlayerSave(level, build), profile, now: NOW, admin: null,
@@ -191,7 +193,7 @@ export function pressureFight(runtime: Runtime, input: { level: number; build: B
         ...(input.playerPolicyName ? { playerPolicy: input.playerPolicyName } : {}),
         ...(input.initialVitalFraction === undefined ? {} : { initialVitalFraction: input.initialVitalFraction }),
         outcome: s.outcome, death: s.player.hp <= 0, roundLimitLoss: s.outcome === 'loss' && s.player.hp > 0,
-        rounds: s.round, minimumHp, finalHp: s.player.hp, maxHp: s.player.maxHp,
+        rounds: s.round, minimumHp: Math.min(minimumHp, s.player.hp), finalHp: s.player.hp, maxHp: s.player.maxHp,
         finalEnemyHp: s.enemy.hp, finalPlayerChakra: s.player.chakra, finalPlayerStamina: s.player.stamina,
         enemyMaxHp: initial.enemyHp, enemyMastery: mastery, effectiveEp36: +(46 * masteryDamageFrac(mastery)).toFixed(2),
         playerMastery: (s.player.character.jutsuMastery as Array<{ level: number }>)[0]?.level,

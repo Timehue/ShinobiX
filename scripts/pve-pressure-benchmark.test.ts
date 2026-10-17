@@ -36,7 +36,7 @@ test('pressure fixtures use rank-legal mastery and authoritative equipment multi
             assert.ok(!jutsu.element || jutsu.element === 'None' || save.character.elements.includes(jutsu.element), `owned jutsu element ${id}`);
         }
         if (build === 'maxed' && level === 100) assert.equal(session.player.character.bloodlineMult, 1.2);
-        assert.equal((session.enemy.character.jutsu as unknown[]).length <= 8, true);
+        assert.equal((session.enemy.character.jutsu as unknown[]).length <= (level >= 61 ? 12 : 8), true);
         assert.equal(session.enemy.maxChakra, maxChakraForLevel(level));
         assert.equal(session.enemy.maxStamina, maxStaminaForLevel(level));
         const playerKit = session.player.character.jutsu as Array<Record<string, unknown>>;
@@ -63,7 +63,7 @@ test('pressure fixture natural encounter keeps its identity and progressive temp
     const kit = session.enemy.character.jutsu as Array<{ ap: number }>;
     assert.equal(kit.filter(j => j.ap === 60).length, 6);
     assert.equal(session.encounter.id, 'world-wanderer-bandit-47');
-    assert.ok((session.enemy.character.jutsuMastery as Array<{ level: number }>).every(j => j.level === 40));
+    assert.ok((session.enemy.character.jutsuMastery as Array<{ level: number }>).every(j => j.level === 50));
 });
 
 test('benchmark before variants preserve the distinct original Explore and road constructors', () => {

@@ -139,6 +139,7 @@ export const CombatBattleLogPanel = forwardRef<HTMLDivElement, DivProps & {
 /** Structured, color-coded battle-log feed used by authoritative Solo PvE and PvP. */
 export const PlainCombatBattleLog = memo(function PlainCombatBattleLog({
     lines,
+    currentRound,
     turnLabel,
     selfName = "",
     oppName = "",
@@ -149,6 +150,7 @@ export const PlainCombatBattleLog = memo(function PlainCombatBattleLog({
     headerActions,
 }: {
     lines: readonly string[];
+    currentRound?: number;
     turnLabel: ReactNode;
     selfName?: string;
     oppName?: string;
@@ -198,8 +200,16 @@ export const PlainCombatBattleLog = memo(function PlainCombatBattleLog({
     }, [expanded]);
 
     const eventCount = rounds.reduce((total, group) => total + group.lineCount, 0);
-    const roundSummary = `${rounds.length} ${rounds.length === 1 ? "round" : "rounds"}`;
-    const eventSummary = `${eventCount} ${eventCount === 1 ? "event" : "events"}`;
+    // The server log is a bounded window, so its group count is not the fight's
+    // round count. A trailing marker may also name a round with no events yet.
+    const latestRound = lines.reduce((latest, line) => {
+        const marker = (line ?? "").trim().match(/^--- Round (\d+) ---$/i);
+        return marker ? Math.max(latest, Number(marker[1])) : latest;
+    }, Math.max(1, currentRound ?? 1, rounds.at(-1)?.round ?? 1));
+    const partialHistory = (rounds[0]?.round ?? 1) > 1
+        || lines.some(line => /earlier lines trimmed/i.test(line));
+    const roundSummary = `${rounds.length} retained ${rounds.length === 1 ? "round" : "rounds"}`;
+    const eventSummary = `${eventCount} retained ${eventCount === 1 ? "event" : "events"}`;
     return (
         <>
             {expanded && <div className="combat-log-modal-backdrop" aria-hidden="true" onClick={() => setExpanded(false)} />}
@@ -210,7 +220,7 @@ export const PlainCombatBattleLog = memo(function PlainCombatBattleLog({
                 ariaLive={ariaLive}
                 role={expanded ? "dialog" : "log"}
                 aria-modal={expanded || undefined}
-                headerMeta={rounds.length > 0 ? `${roundSummary} · ${eventSummary}` : undefined}
+                headerMeta={rounds.length > 0 ? `Round ${latestRound} · ${roundSummary} · ${eventSummary}${partialHistory ? " · Partial view" : ""}` : undefined}
                 headerActions={(
                     <>{headerActions}
                     <button

@@ -334,7 +334,8 @@ describe('list: the effective price, the wars to hire for, the allowance left', 
         const list = await post(D_KAGE, { action: 'list', village: DEFENDER });
         assert.equal(list.statusCode, 200);
         const tiers = list.body?.tiers as Array<{ id: string; costWr: number; cost: number }>;
-        assert.deepEqual(tiers.find((t) => t.id === 'merc-ronin'), { id: 'merc-ronin', level: 75, costWr: 60, cost: 15, band: 3 });
+        assert.deepEqual(tiers.find((t) => t.id === 'merc-ronin'), { id: 'merc-ronin', level: 75, costWr: 60, cost: 15, band: 3,
+            combatProfile: { classification: 'special-npc', role: 'Ronin', tactics: 'Veteran duelist: damage focus sets up elemental strikes, with Wound and Poison to pressure recovery.' } });
         const contexts = list.body?.contexts as Array<Json>;
         assert.deepEqual(contexts.map((c) => [c.kind, c.enemy, c.hiresLimit, c.callerHiresLeft]), [
             ['village', ATTACKER, 6, 3],

@@ -33,6 +33,29 @@ test('late resume and sequence gaps explicitly export a partial history', () => 
     assert.equal(mergeSoloBattleDebug(first, session([event(3)]), 2).complete, false);
 });
 
+test('switching accounts cannot reuse another player journal with the same session id', t => {
+    const previous = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+    // Leave these journals expired when the real clock is restored so the
+    // module cache cannot affect the independent three-fight hydration test.
+    const now = Date.now() - 8 * 24 * 60 * 60 * 1000;
+    t.mock.method(Date, 'now', () => now);
+    let stored = '[]';
+    Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: {
+        getItem: () => stored, setItem: (_key: string, value: string) => { stored = value; },
+    } });
+    t.after(() => { if (previous) Object.defineProperty(globalThis, 'localStorage', previous); else Reflect.deleteProperty(globalThis, 'localStorage'); });
+    const rill = captureSoloBattleDebug({ ...session([event(1)]), sessionId: 'shared-account-session' });
+    const buster = captureSoloBattleDebug({ ...session([event(81)]), sessionId: 'shared-account-session', player: { name: 'Buster' } });
+
+    assert.equal(rill.complete, true);
+    assert.equal(buster.player, 'Buster');
+    assert.equal(buster.complete, false);
+    assert.deepEqual(buster.rows.map(row => row.seq), [81, 81]);
+    assert.equal(captureSoloBattleDebug({ ...session([event(1)]), sessionId: 'shared-account-session' }), rill);
+    const sharedSessionRows = JSON.parse(stored).filter((record: { sessionId: string }) => record.sessionId === 'shared-account-session');
+    assert.deepEqual(sharedSessionRows.map((record: { player: string }) => record.player).sort(), ['Buster', 'Rill']);
+});
+
 test('the local bound is explicit and keeps the ending without claiming completeness', () => {
     const log = mergeSoloBattleDebug(undefined, session(Array.from({ length: 2100 }, (_, i) => event(i + 1))), 1);
     assert.equal(log.rows.length, SOLO_DEBUG_MAX_ROWS);

@@ -1,4 +1,5 @@
 import { safeLogValue } from '../_safe-log.js';
+import { warMercenaryCombatProfile } from '../../shared/war-mercenary-profile.js';
 import { preparationLevels } from '../_war-preparations.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
@@ -357,8 +358,8 @@ async function doList(res: VercelResponse, identity: Identity, playerName: strin
         warResources: record.warResources,
         // `cost` is what the server charges right now (comeback × Barracks
         // applied); `costWr` stays the undiscounted base for older clients.
-        tiers: WR_MERC_TIERS.map((t) => ({ ...t, cost: mercHireCost(t.id, sectorsHeld, record), band: mercBandSize(t.id) })),
-        contexts: contexts.map(c => ({ ...c, tiers: WR_MERC_TIERS.map(t => ({ ...t,
+        tiers: WR_MERC_TIERS.map((t) => ({ ...t, combatProfile: warMercenaryCombatProfile(t.level), cost: mercHireCost(t.id, sectorsHeld, record), band: mercBandSize(t.id) })),
+        contexts: contexts.map(c => ({ ...c, tiers: WR_MERC_TIERS.map(t => ({ ...t, combatProfile: warMercenaryCombatProfile(t.level),
             cost: mercHireCost(t.id, sectorsHeld, record, preparationLevels(record, c.key, now).barracks), band: mercBandSize(t.id) })) })),
         attacking,
         leases,

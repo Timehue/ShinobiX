@@ -28,7 +28,7 @@ import { MAX_WILD_SECTOR, isPlayableWildSector } from "./sector-geo.js";
 import { nearestWalkableTile } from "./sector-walk-mask.js";
 import { isWorldNight } from "./world-phase.js";
 import { WORLD_DAY_MS, WORLD_HOUR_MS } from "./world-clock.js";
-import { rollOrdinaryPveEncounter, type OrdinaryPveEncounter } from './ordinary-pve-encounter.js';
+import { ordinaryPveHash, ordinaryPveLevel, rollOrdinaryPveEncounter, type OrdinaryPveEncounter } from './ordinary-pve-encounter.js';
 
 export type WandererVerb =
     | "attack" | "gift" | "gamble" | "petDuel" | "quest"
@@ -105,7 +105,7 @@ export interface Wanderer {
 export function ordinaryWandererEncounter(wanderer: Wanderer, playerLevel: number, sector: number,
     reward?: { xp: number; ryo: number; trait?: string | null }): OrdinaryPveEncounter | null {
     if (wanderer.archetype !== 'bandit' && wanderer.archetype !== 'nightblade' && wanderer.archetype !== 'rivalMiner') return null;
-    return rollOrdinaryPveEncounter({
+    const encounter = rollOrdinaryPveEncounter({
         sourceId: wanderer.id, playerLevel, sector,
         displayName: wanderer.name,
         archetype: wanderer.archetype === 'nightblade' ? 'assassin' : wanderer.archetype === 'rivalMiner' ? 'defender' : undefined,
@@ -113,6 +113,17 @@ export function ordinaryWandererEncounter(wanderer: Wanderer, playerLevel: numbe
         portraitImage: wanderer.avatarImage,
         reward,
     });
+    // Night ninjas are an authored stronger road source, not world bosses.
+    // Both preview and server start use this function, so the stronger tier
+    // and its real regional level are visible before fighting. Early roads
+    // and novices retain the original protected distribution.
+    if (wanderer.archetype !== 'nightblade' || encounter.level <= 35) return encounter;
+    const difficulty = encounter.difficulty === 'weaker' ? 'standard'
+        : encounter.difficulty === 'standard' ? 'dangerous' : 'elite';
+    return { ...encounter, difficulty,
+        level: ordinaryPveLevel(playerLevel, sector, difficulty, ordinaryPveHash(`${wanderer.id}:level`) / 0x100000000),
+        id: `${encounter.id}-night-${difficulty}`,
+    };
 }
 
 export const WANDERER_GRID = 12;

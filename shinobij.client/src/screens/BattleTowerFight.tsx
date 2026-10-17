@@ -2357,6 +2357,7 @@ export function BattleTowerFight({
                     <PlainCombatBattleLog
                         className="tower-mobile-battle-log"
                         lines={displayLog}
+                        currentRound={session.round}
                         turnLabel={turnLabel || "Battle resolved"}
                         selfName={character.name}
                         oppName={bossActor?.name ?? enemies[0]?.name ?? "Enemy"}
@@ -2380,6 +2381,7 @@ export function BattleTowerFight({
                     <PlainCombatBattleLog
                         className="tower-rail-battle-log"
                         lines={displayLog}
+                        currentRound={session.round}
                         turnLabel={turnLabel || "Battle resolved"}
                         selfName={character.name}
                         oppName={bossActor?.name ?? enemies[0]?.name ?? "Enemy"}

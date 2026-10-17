@@ -1909,6 +1909,7 @@ export function MissionArenaFight({
 
                     <PlainCombatBattleLog
                         lines={session.log ?? []}
+                        currentRound={session.round}
                         turnLabel={turnLabel}
                         selfName={character.name}
                         oppName={enemyName}

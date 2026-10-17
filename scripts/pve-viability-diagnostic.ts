@@ -8,7 +8,7 @@ import { earnedForLevel, maxHpForLevel, STAT_KEYS } from '../api/_xp-engine.js';
 import { aiStatBudgetForLevel } from '../api/_ai-level-curves.js';
 import { ordinaryPveLevel } from '../shared/ordinary-pve-encounter.js';
 import { planStandardPveEnemyActionForTest } from '../api/solo-pve/_engine.js';
-import { enemyTurnPolicy } from '../api/solo-pve/_ai-turn-policy.js';
+import { CATALOG_CHALLENGE_WEAPON_POLICY, enemyTurnPolicy } from '../api/solo-pve/_ai-turn-policy.js';
 import { policyActions } from './mission-encounter-sim.js';
 import { hexDistance } from '../api/combat-core/grid.js';
 import { progressiveOrdinaryAiJutsuIds, resolveAiProfileJutsu } from '../api/_ai-opponent-loadout.js';
@@ -121,13 +121,15 @@ export function answeringPlayerActions(s: SoloPveSession): SoloPveAction[] {
 
 /** Diagnostic strong-play proxy: put the player on the existing planner's
  * acting side and use its bounded legal own-turn search. No future opponent
- * response is simulated; opponent hidden loadout is never scored. This omits
- * weapon actions (the NPC planner does), so it is not an optimal human solver.
+ * response is simulated; opponent hidden loadout is never scored. The offline
+ * proxy explicitly opts the acting player's own sealed weapon into search;
+ * this diagnostic-only stamp never changes a production player copy.
  */
 export function plannedPlayerActions(s: SoloPveSession): SoloPveAction[] {
     const swapped = structuredClone({ ...s, events: [], log: [], player: s.enemy, enemy: s.player,
         ap: { player: s.ap.enemy, enemy: s.ap.player }, cooldowns: { player: s.cooldowns.enemy, enemy: s.cooldowns.player },
         activeSide: 'enemy', difficultyGuard: undefined, weeklyBossGuard: undefined }) as SoloPveSession;
+    swapped.enemy.character.pveWeaponPolicy = CATALOG_CHALLENGE_WEAPON_POLICY;
     const action = planStandardPveEnemyActionForTest(swapped, enemyTurnPolicy(100, true)).action;
     return [...(action ? [action] : []), { type: 'wait' }];
 }
