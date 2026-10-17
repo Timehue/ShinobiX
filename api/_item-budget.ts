@@ -33,11 +33,14 @@
  *   vitals (maxHp/maxChakra/maxStamina) ≤ 150           (no built-in grants these
  *     any more — pools come from LEVEL alone, so a vitals bonus is inert; the
  *     clamp stays only so a custom/admin item can't author an absurd one)
- *   specialty-stat TOTAL: armor 280, hand 420, named weapon 720 (4×180)
+ *   specialty-stat TOTAL: armor 280, hand 420, named weapon 720 (4×180),
+ *     named gauntlets 480 (4×85 offense + 4×35 defense)
  */
 
-import { NAMED_WEAPON_OFFENSE } from '../shared/named-forge-roll.js';
+import { FORGED_ITEM_ID, NAMED_ARMOR_STATS, NAMED_GAUNTLET_OFFENSE, NAMED_WEAPON_OFFENSE } from '../shared/named-forge-roll.js';
 import { isForgedNamedWeaponId } from './save/_forged-items.js';
+
+const isForgedNamedArmorId = (id: unknown) => /^named-armor-/i.test(String(id ?? '')) && FORGED_ITEM_ID.test(String(id));
 
 import { PVE_SPECIALIST_FIELDS } from '../shared/relics.js';
 
@@ -59,6 +62,11 @@ const ARMOR_SLOTS = new Set(['head', 'body', 'waist', 'legs', 'feet', 'armor']);
 function specialtyBudgetForItem(item: Record<string, unknown>): number {
     if (item.slot === 'hand' && isForgedNamedWeaponId(item.id)) {
         return 4 * NAMED_WEAPON_OFFENSE.max;
+    }
+    // Named gauntlets (owner ruling 2026-10-16): their best roll, 4×85 offense +
+    // 4×35 defense, sits past the generic 420 hand budget.
+    if (item.slot === 'hand' && isForgedNamedArmorId(item.id)) {
+        return 4 * NAMED_GAUNTLET_OFFENSE.max + 4 * NAMED_ARMOR_STATS.max;
     }
     return ARMOR_SLOTS.has(String(item.slot)) ? 280 : 420;
 }

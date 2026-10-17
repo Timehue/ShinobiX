@@ -49,6 +49,7 @@ import { starterItemArtworkFor } from "../data/starter-items";
 import { weatherFromElements } from "../../../shared/sector-weather";
 import { getJutsuMastery, scaleJutsuByLevel } from "../lib/jutsu-scaling";
 import { normalizeEquipmentSlot } from "../lib/equipment";
+import { weaponEffectDisplayValue } from "../lib/weapon-effect-display";
 import { hasAffordablePvpPaidAction } from "../lib/pvp-action-affordability";
 import { normalizeJutsu } from "../lib/jutsu";
 import { jutsuDetailDescription, jutsuTargetingLabel } from "../lib/jutsu-effects";
@@ -2854,7 +2855,16 @@ export function PvpBattleScreen({
                                                     <span><strong>Range:</strong> {wRange}</span>
                                                     <span><strong>Effect Power:</strong> {w.weaponEp ?? 15}</span>
                                                     {w.weaponCooldown != null && w.weaponCooldown > 0 && <span><strong>Cooldown:</strong> {w.weaponCooldown} round(s)</span>}
-                                                    {w.weaponEffect && <span><strong>Effect:</strong> {w.weaponEffect}</span>}
+                                                    {/* Every tag the swing carries, as combat applies it. This used to show
+                                                        only the legacy weaponEffect, so a named blade's tags never appeared. */}
+                                                    {[
+                                                        ...(w.weaponTags ?? []),
+                                                        ...(w.weaponEffect && !(w.weaponTags ?? []).some(t => t.name === w.weaponEffect)
+                                                            ? [{ name: w.weaponEffect, percent: w.weaponEffectValue ?? 0 }] : []),
+                                                    ].map((t, i) => {
+                                                        const value = weaponEffectDisplayValue(t.name, t.percent, w);
+                                                        return <span key={`${t.name}-${i}`}><strong>{value ? `${t.name}:` : t.name}</strong>{value ? ` ${value}` : ""}</span>;
+                                                    })}
                                                 </div>
                                                 {w.description && <p className="combat-jutsu-detail-desc">{w.description}</p>}
                                             </CombatDetailPortal>

@@ -23,6 +23,7 @@ import { PVE_SPECIALIST_FIELDS, type PveSpecialistField } from '../../shared/rel
 import { ITEM_CATALOG, BUILTIN_BLOODLINE_IDS, type CatalogItem } from './_item-catalog.js';
 import { budgetItemBonuses } from '../_item-budget.js';
 import { isStepItemId } from '../../shared/gear-steps.js';
+import { namedGearFitsEquipSlot } from '../../shared/named-gear-rules.js';
 
 // Armor damage-reduction per quality tier — mirrors armorQualityTiers in
 // shinobij.client/src/lib/equipment.ts. Keep in sync with that table.
@@ -106,11 +107,13 @@ export function buildItemLookup(
         : ITEM_CATALOG[id] ?? fromAdmin(id) ?? custom.get(id);
 }
 
+// A named piece outside the gear slots counts for nothing, even on a stored save
+// written before the sanitizer refused it (shared/named-gear-rules.ts).
 function equipmentIds(equipment: unknown): string[] {
     if (!equipment || typeof equipment !== 'object') return [];
-    return Object.values(equipment as Record<string, unknown>).filter(
-        (v): v is string => typeof v === 'string',
-    );
+    return Object.entries(equipment as Record<string, unknown>)
+        .filter(([slot, v]) => typeof v === 'string' && namedGearFitsEquipSlot(slot, v))
+        .map(([, v]) => v as string);
 }
 
 // Sum of per-piece armor reductions across the armor slots — NO pet Guardian

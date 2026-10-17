@@ -65,7 +65,7 @@ import { countItem, unifiedItemStacks } from "../lib/inventory";
 import { publishSharedImage, readImageFile } from "../lib/shared-images";
 import { starterSavedBloodlines } from "../data/jutsu";
 import { WEAPON_POISON_TAG_CAP } from "../lib/tags";
-import { WEAPON_AMP_TAG_CAP, WEAPON_DRAIN_TICK_SOLO, WEAPON_DRAIN_TICK_SPLIT, WEAPON_FLAT_TAG_SOLO, WEAPON_FLAT_TAG_SPLIT, WEAPON_WOUND_TAG_CAP, namedRollTagValue, weaponEffectDisplayValue } from "../lib/weapon-effect-display";
+import { WEAPON_DRAIN_TICK_SOLO, WEAPON_DRAIN_TICK_SPLIT, WEAPON_FLAT_TAG_SOLO, WEAPON_FLAT_TAG_SPLIT, namedRollTagValue, weaponEffectDisplayValue } from "../lib/weapon-effect-display";
 import { weeklyBossSchedule } from "../lib/weekly-boss";
 import { biomeLabel } from "../data/world";
 import {
@@ -91,9 +91,9 @@ import { Modal } from "../components/ui/Modal";
 import { NamedForgeRevealModal, type NamedForgeAnimation } from "../components/NamedForgeRevealModal";
 import {
     NAMED_WEAPON_EP_VALUES, NAMED_WEAPON_RANGES, NAMED_WEAPON_OFFENSE,
-    NAMED_WEAPON_TAGS, NAMED_WEAPON_TAG_STRENGTH, NAMED_WEAPON_TAG_COUNTS,
+    NAMED_WEAPON_TAGS, NAMED_WEAPON_TAG_STRENGTH, NAMED_WEAPON_WOUND_STRENGTH, NAMED_WEAPON_TAG_COUNTS,
     NAMED_WEAPON_TAG_APPEARANCE_PERCENT, NAMED_ARMOR_QUALITIES, NAMED_ARMOR_STATS,
-    NAMED_ARMOR_SPECIALS, namedForgeUniformPercent,
+    NAMED_GAUNTLET_OFFENSE, NAMED_ARMOR_SPECIALS, namedForgeUniformPercent,
 } from "../../../shared/named-forge-roll";
 import { rollAwakeningServer } from "../lib/awakening-api";
 import { purchaseBloodlineForge } from "../lib/bloodline-forge";
@@ -433,7 +433,7 @@ export function CentralHub({
     type NamedArmorRoll = {
         slot: EquipmentSlot;
         armorQuality: ArmorQuality; // Elite / Legendary / Mythic (6 / 7 / 8 %)
-        offenseVal: number;         // 25 – 35, applied to all 4 offense stats
+        offenseVal: number;         // 25 – 35 (gauntlets 65 – 85), applied to all 4 offense stats
         defenseVal: number;         // 25 – 35, applied to all 4 defense stats
         special: { kind: string; value: number; bonusKey: string };
     };
@@ -1853,7 +1853,11 @@ export function CentralHub({
                                                 <div className="no-section">
                                                     <div className="no-label">All Offense</div>
                                                     <div className="no-rows">
-                                                        <div className="no-row"><span>+{NAMED_ARMOR_STATS.min} to +{NAMED_ARMOR_STATS.max}</span><span className="no-pct">~{namedForgeUniformPercent(NAMED_ARMOR_STATS.min, NAMED_ARMOR_STATS.max).toFixed(1)}% each</span></div>
+                                                        {(() => {
+                                                            // Gauntlets roll their own, higher offense (shared/named-forge-roll.ts).
+                                                            const offense = namedArmorSlot === "hand" ? NAMED_GAUNTLET_OFFENSE : NAMED_ARMOR_STATS;
+                                                            return <div className="no-row"><span>+{offense.min} to +{offense.max}</span><span className="no-pct">~{namedForgeUniformPercent(offense.min, offense.max).toFixed(1)}% each</span></div>;
+                                                        })()}
                                                     </div>
                                                 </div>
                                                 <div className="no-section">
@@ -2013,8 +2017,8 @@ export function CentralHub({
                                                 <div className="no-section">
                                                     <div className="no-label">Tag Count</div>
                                                     <div className="no-rows">
-                                                        <div className="no-row"><span>1 tag ({NAMED_WEAPON_TAG_STRENGTH.single.min}–{NAMED_WEAPON_TAG_STRENGTH.single.max}% rolled)</span><span className="no-pct">{100 / NAMED_WEAPON_TAG_COUNTS.length}%</span></div>
-                                                        <div className="no-row"><span>2 distinct tags ({NAMED_WEAPON_TAG_STRENGTH.dual.min}–{NAMED_WEAPON_TAG_STRENGTH.dual.max}% ea.)</span><span className="no-pct">{100 / NAMED_WEAPON_TAG_COUNTS.length}%</span></div>
+                                                        <div className="no-row"><span>1 tag ({NAMED_WEAPON_TAG_STRENGTH.single.min}–{NAMED_WEAPON_TAG_STRENGTH.single.max}%; Wound {NAMED_WEAPON_WOUND_STRENGTH.single.min}–{NAMED_WEAPON_WOUND_STRENGTH.single.max}%)</span><span className="no-pct">{100 / NAMED_WEAPON_TAG_COUNTS.length}%</span></div>
+                                                        <div className="no-row"><span>2 distinct tags ({NAMED_WEAPON_TAG_STRENGTH.dual.min}–{NAMED_WEAPON_TAG_STRENGTH.dual.max}% ea.; Wound {NAMED_WEAPON_WOUND_STRENGTH.dual.min}–{NAMED_WEAPON_WOUND_STRENGTH.dual.max}%)</span><span className="no-pct">{100 / NAMED_WEAPON_TAG_COUNTS.length}%</span></div>
                                                     </div>
                                                 </div>
                                                 <div className="no-section no-wide">
@@ -2025,17 +2029,17 @@ export function CentralHub({
                                                         ))}
                                                     </div>
                                                     {/* Poison has its own weapon ceiling, so its strength is fixed rather than rolled. */}
-                                                    <div className="no-row"><span>Poison is always {WEAPON_POISON_TAG_CAP}%. Percentage buffs cap at {WEAPON_AMP_TAG_CAP}%; Wound caps at {WEAPON_WOUND_TAG_CAP}%. Heal, Shield, and Drain ignore the rolled percentage: as the only tag a swing heals or shields {WEAPON_FLAT_TAG_SOLO} or drains {WEAPON_DRAIN_TICK_SOLO} HP and chakra per turn; with 2 tags, {WEAPON_FLAT_TAG_SPLIT} and {WEAPON_DRAIN_TICK_SPLIT}. Drain cannot be reduced.</span></div>
+                                                    <div className="no-row"><span>Every rolled percentage applies in combat exactly as rolled. Poison is always {WEAPON_POISON_TAG_CAP}%. Heal, Shield, and Drain ignore the rolled percentage: as the only tag a swing heals or shields {WEAPON_FLAT_TAG_SOLO} or drains {WEAPON_DRAIN_TICK_SOLO} HP and chakra per turn; with 2 tags, {WEAPON_FLAT_TAG_SPLIT} and {WEAPON_DRAIN_TICK_SPLIT}. Drain cannot be reduced.</span></div>
                                                 </div>
                                                 <div className="no-section no-wide">
                                                     <div className="no-label">Tag Formula Notes</div>
                                                     <div className="no-rows">
                                                         <div className="no-row"><span><GameArtIcon kind="roleDefender" size={15} /> Shield</span><span className="no-pct">Flat {WEAPON_FLAT_TAG_SOLO} shield per swing as the only tag, {WEAPON_FLAT_TAG_SPLIT} with 2 tags; limited by your shield cap</span></div>
                                                         <div className="no-row"><span><GameArtIcon kind="vitality" size={15} /> Heal</span><span className="no-pct">Flat {WEAPON_FLAT_TAG_SOLO} HP per swing as the only tag, {WEAPON_FLAT_TAG_SPLIT} with 2 tags</span></div>
-                                                        <div className="no-row"><span><GameArtIcon kind="vitality" size={15} /> Siphon</span><span className="no-pct">Restores up to 35% of damage dealt, after shield and mitigation</span></div>
+                                                        <div className="no-row"><span><GameArtIcon kind="vitality" size={15} /> Siphon</span><span className="no-pct">Restores its rolled percent of damage dealt, after shield and mitigation</span></div>
                                                         <div className="no-row"><span><GameArtIcon kind="elementFire" size={15} /> Ignition</span><span className="no-pct">Increases target damage taken for 2 turns; combat amplification caps apply</span></div>
                                                         <div className="no-row"><span><GameArtIcon kind="warning" size={15} /> Poison / Drain</span><span className="no-pct">{COMBAT_RESOURCES_V2 ? "Drain saps HP+chakra each round; Poison bites when the target spends chakra/stamina to cast" : "Deals rolled% of enemy chakra as damage per round"}</span></div>
-                                                        <div className="no-row"><span><GameArtIcon kind="attack" size={15} /> IDG / Generals / DDT / Reflect / Absorb</span><span className="no-pct">Rolled strengths are capped in combat; buffs last 2 turns</span></div>
+                                                        <div className="no-row"><span><GameArtIcon kind="attack" size={15} /> IDG / Generals / DDT / Reflect / Absorb</span><span className="no-pct">Apply at their rolled strength; buffs last 2 turns</span></div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -2097,14 +2101,16 @@ export function CentralHub({
                                                     <div className="nw-stat"><span>Range</span><strong>{namedWeaponRoll.range}</strong></div>
                                                     <div className="nw-stat"><span>All Offenses</span><strong>+{namedWeaponRoll.offenseVal}</strong></div>
                                                     {namedWeaponRoll.tags.map((t, i) => {
-                                                        // Heal/Shield/Drain are flat by tag count; these three ride the hit's damage.
-                                                        const dmgScaled = t.name === "Siphon" || t.name === "Lifesteal" || t.name === "Wound";
+                                                        // Heal/Shield/Drain are flat by tag count; Siphon and Lifesteal ride the
+                                                        // hit's damage (Wound's value already says so). The value is the roll,
+                                                        // which is what combat applies.
+                                                        const dmgScaled = t.name === "Siphon" || t.name === "Lifesteal";
                                                         return (
                                                             <div key={i} className="nw-stat nw-tag">
                                                                 <span>Tag {i + 1}</span>
                                                                 <strong>
                                                                     {t.name} {namedRollTagValue(t.name, t.percent, namedWeaponRoll.tags.length)}
-                                                                    {dmgScaled && <span className="nw-formula"> (= {t.percent}% of hit dmg)</span>}
+                                                                    {dmgScaled && <span className="nw-formula"> of hit dmg</span>}
                                                                 </strong>
                                                             </div>
                                                         );

@@ -1601,10 +1601,13 @@ function resolveDashSecondaryTags(session: TowerSession, actor: TowerActor, juts
 // A bloodline technique's explicit weatherElement (a base element, or "None" to opt
 // out) outranks its cosmetic element, exactly as in PvP (api/pvp/move.ts), Solo PvE
 // (api/solo-pve/_engine.ts) and the client's weatherElementOf (lib/elements.ts).
+// A weapon swing carries its attunement on pveWeaponElement (it has no `element`),
+// and rides the sky by it exactly as PvP and Solo PvE swings do.
 function weatherMult(session: TowerSession, jutsu: JutsuLike): number {
     const w = session.weather;
     if (!w) return 1;
-    return weatherMultiplier(String(jutsu.weatherElement ?? jutsu.element ?? ''), String(w.positiveElement ?? ''), String(w.negativeElement ?? ''));
+    const element = jutsu.weaponSwing ? jutsu.pveWeaponElement : (jutsu.weatherElement ?? jutsu.element);
+    return weatherMultiplier(String(element ?? ''), String(w.positiveElement ?? ''), String(w.negativeElement ?? ''));
 }
 
 /**

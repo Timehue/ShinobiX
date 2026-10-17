@@ -11,6 +11,7 @@ import { petBusyReason, petBusyMessage } from '../pet/_pet-busy.js';
 import type { SettlementCatalogs } from '../shop/_catalog.js';
 import { NAMED_GEAR_EXCHANGE_BLOCK_MESSAGE } from '../../shared/named-gear-rules.js';
 import { wasEverEquipped } from '../save/_named-gear-equipped.js';
+import { weaponTagEffectText } from '../pvp/_weapon-tags.js';
 
 type Obj = Record<string, unknown>;
 export type SealedExchangeAsset = { asset: ExchangeAsset; definition: Obj; stackable: boolean; attunement?: string };
@@ -71,7 +72,11 @@ export function sealAsset(record: Obj, catalogs: SettlementCatalogs, kind: Excha
     if (definition.bonuses && typeof definition.bonuses === 'object') {
         for (const [key, value] of Object.entries(definition.bonuses)) if (typeof value === 'number' && value) stats.push({ label: title(key), value: `${value > 0 ? '+' : ''}${value}` });
     }
-    for (const tag of objects(definition.weaponTags)) stats.push({ label: 'Weapon tag', value: `${tag.name}${tag.percent ? ` ${tag.percent}%` : ''}` });
+    // What each tag does on a swing (flat Heal/Shield/Drain, capped percents), not
+    // the stored roll: a listing used to read "Heal 37%" for a flat 450 HP.
+    for (const tag of objects(definition.weaponTags)) {
+        if (typeof tag.name === 'string' && tag.name) stats.push({ label: 'Weapon tag', value: weaponTagEffectText(definition, tag.name, tag.percent) });
+    }
     const asset: ExchangeAsset = { kind, id, name: String(definition.nickname || definition.name || title(id)), category,
         rarity: FORGED_ITEM_ID.test(id) ? 'named' : String(definition.rarity ?? 'common'),
         description: String(definition.description || definition.flavorText || (kind === 'pet' ? 'A companion with its own history. Level, traits, growth and lineage travel with this pet.' : 'Offered by a fellow traveler at Sunscar Exchange.')),

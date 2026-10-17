@@ -17,6 +17,7 @@ import {
     type TowerMap,
 } from './_tower-session.js';
 import { applyPartyScaling, towerNeighbors } from './_engine.js';
+import { startingItemShield } from '../combat-core/shields.js';
 import { requireEnemyTemplate, type EnemyTemplate } from './_enemy-templates.js';
 import { hexZone, type TowerFloor, type TowerFeature } from './_floor-catalog.js';
 import { pickTowerElements, rollTowerEnvironment, placeTowerEnvironment } from '../../shared/tower-environment.js';
@@ -223,7 +224,8 @@ function squadActor(m: SquadMemberInput, pos: number): TowerActor {
     return {
         id: m.id, side: 'squad', name: m.name, ownerSlug: m.ownerless ? null : m.ownerSlug, ai: m.ai,
         hp: maxHp, maxHp, chakra: maxChakra, maxChakra, stamina: maxStamina, maxStamina,
-        shield: 0, statuses: [], cooldowns: {}, pos, character: m.character,
+        // The gear Shield special, like every other engine (timed in createTowerSession).
+        shield: startingItemShield(m.character), statuses: [], cooldowns: {}, pos, character: m.character,
         itemCharges: m.itemCharges ? { ...m.itemCharges } : {},
     };
 }

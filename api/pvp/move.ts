@@ -17,7 +17,6 @@ import { expireShield, timeShieldGain } from '../combat-core/shields.js';
 import { adjustedApCost, TEMPO_AP_SWING } from '../combat-core/resources.js';
 import { castHeaderLine } from '../combat-core/cast-flavor.js';
 import { isForgedNamedWeaponId } from '../save/_forged-items.js';
-import { ITEM_CATALOG } from './_item-catalog.js';
 import { resolveJutsu as resolveCoreJutsu, type ResolveJutsuMetadata } from '../combat-core/resolveJutsu.js';
 import {
     DISCIPLINE_OFFENSE_FIELD,
@@ -34,7 +33,6 @@ import {
     generalsBonusFromStatuses,
     directDamageBaseFormula,
     directDamageNumberFormula,
-    HEAL_FLAT,
     healMultiplierFromStatuses,
     healAmountForMastery,
     JUTSU_MAX_LEVEL,
@@ -48,8 +46,7 @@ import {
     postDamagePercentAmount,
     scaledTagPercent as scaleCombatTagPercent,
     shieldAmountForMastery,
-    SHIELD_FLAT,
-    WEAPON_AMP_TAG_CAP,
+    weaponAmpTagCap,
     WEAPON_POISON_TAG_CAP,
     statusDurationFor,
     weaponDrainTick,
@@ -206,6 +203,7 @@ import {
     REQUIRES_DAMAGE_TAGS,
     COPY_EXCLUDED_BUFFS,
 } from './_tags.js';
+import { catalogWeaponFlatTags } from './_weapon-tags.js';
 import {
     createCanonicalGroundEffect,
     resolveJutsuActionPlan,
@@ -630,8 +628,9 @@ function ampMultiplierFor(attacker: PvpFighter, defender: PvpFighter, round: num
 //   level 50 = full stored value, each level below 50 subtracts 0.2 from the raw percent.
 // For amp/DR tags, then clamp to the bloodline rank cap (parity with PvE, which
 // caps these via effectiveTagPercent — previously PvP applied no cap).
-// `capOverride` lets a WEAPON swing answer to WEAPON_AMP_TAG_CAP instead of the
-// bloodline table — a weapon has no rank, so it would otherwise take the 30 floor.
+// `capOverride` lets a WEAPON swing answer to weaponAmpTagCap (WEAPON_AMP_TAG_CAP,
+// or a named blade's own top roll) instead of the bloodline table — a weapon has
+// no rank, so it would otherwise take the 30 floor.
 function scaledTagPercent(rawPct: number, masteryLevel: number, tagName?: string, bloodlineRank?: string | null, capOverride?: number): number {
     return scaleCombatTagPercent(rawPct, masteryLevel, tagName, bloodlineRank, CAPPED_AMP_TAGS, capOverride);
 }
@@ -640,20 +639,9 @@ function isWeaponSwing(jutsu: Pick<Jutsu, 'weaponSwing'>): boolean {
     return jutsu.weaponSwing === true;
 }
 
-/**
- * A BUILT-IN catalog weapon's authored flat Heal/Shield (owner ruling 2026-10-06):
- * built-ins sit on a rarity/level ladder, so the Frostfang Oathblade (legendary)
- * shields 300 and the Glacier King Cleaver (mythic) 400, as their cards say. Only
- * ITEM_CATALOG entries qualify — a player-authored item's value is a clamped
- * percent, not a flat amount — and the jutsu ceiling (HEAL_FLAT/SHIELD_FLAT) bounds it.
- */
-export function catalogWeaponFlatTags(itemId: unknown): Jutsu['catalogWeaponFlat'] {
-    const item = typeof itemId === 'string' ? ITEM_CATALOG[itemId] : undefined;
-    const tag = item?.weaponEffect;
-    const value = Number(item?.weaponEffectValue);
-    if ((tag !== 'Heal' && tag !== 'Shield') || !(value > 0)) return undefined;
-    return { [tag]: Math.min(tag === 'Heal' ? HEAL_FLAT : SHIELD_FLAT, value) };
-}
+// A built-in weapon's authored flat Heal/Shield. It lives beside the server's
+// weapon tag text (./_weapon-tags.ts) so that text reads the same numbers.
+export { catalogWeaponFlatTags };
 
 // A weapon has no mastery row to train, so its swing used to resolve its EP at
 // mastery 0: 30% of the hit a jutsu of the same EP lands once maxed. Owner ruling
@@ -790,9 +778,10 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
     //     (the whole common tier) completely inert and halved the rest, while the
     //     item tooltip and the client's own weapon path both promised the authored
     //     value. Percents resolve at max mastery so the number on the item is the
-    //     number you get, under the weapon's own amp ceiling (WEAPON_AMP_TAG_CAP,
-    //     35 — mythic weapons are authored at 35 by design, and a weapon has no
-    //     bloodline rank so ampTagCapForRank would wrongly floor it at 30).
+    //     number you get, under the weapon's own amp ceiling (weaponAmpTagCap:
+    //     35 for built-ins — mythic weapons are authored at 35 by design, and a
+    //     weapon has no bloodline rank so ampTagCapForRank would wrongly floor it
+    //     at 30 — and a named blade's own top roll, so its tags apply as rolled).
     //
     // The flat Heal/Shield MAGNITUDE deliberately keeps the real mastery — a swing
     // heals its ~30% share, not a full jutsu's 750 — EXCEPT on a forged Named
@@ -818,7 +807,7 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
         tagOccurrences.set(tagName, tagOccurrence);
         const tagTotal = tagTotals.get(tagName) ?? 1;
         const stackLabel = tagTotal > 1 ? ` (stack ${tagOccurrence}/${tagTotal})` : '';
-        const pct = Math.floor(scaledTagPercent(tag.percent ?? 0, tagPercentMastery, tagName, jutsu.bloodlineRank, weaponSwing ? WEAPON_AMP_TAG_CAP : undefined));
+        const pct = Math.floor(scaledTagPercent(tag.percent ?? 0, tagPercentMastery, tagName, jutsu.bloodlineRank, weaponAmpTagCap(jutsu)));
         if (tagName === 'Heal') { const healAmt = namedBladeSwing ? weaponHealAmount(tagTotals.size, healBoost) : catalogFlat?.Heal ? Math.floor(catalogFlat.Heal * Math.max(1, Number(healBoost) || 1)) : healAmountForMastery(masteryLevel, healBoost); const applied = Math.min(healAmt, Math.max(0, s.maxHp - s.hp - healing)); healing += healAmt; lines.push(`Heal: ${s.name} restores ${applied} HP.`); continue; }
         if (tagName === 'Shield') {
             const requested = namedBladeSwing ? weaponFlatTagAmount(tagTotals.size) : catalogFlat?.Shield ?? shieldAmountForMastery(masteryLevel);
@@ -1060,7 +1049,7 @@ function resolvePostDamage(sIn: PvpFighter, oIn: PvpFighter, jutsu: Jutsu, round
             tagPercentMastery,
             tagName,
             jutsu.bloodlineRank,
-            weaponSwing ? WEAPON_AMP_TAG_CAP : undefined,
+            weaponAmpTagCap(jutsu),
         ));
         if (tagName === 'Wound' && pct > 0 && finalDmg > 0) {
             if (hasStatus(o, 'Debuff Prevent', round)) {

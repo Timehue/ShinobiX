@@ -30,6 +30,7 @@ import {
 } from './solo-pve/_session.js';
 import { biomeForTerrain } from './_anbu-infiltration-encounter.js';
 import type { SealedSectorWeather } from './_sector-weather-seal.js';
+import { startingItemShield } from './combat-core/shields.js';
 
 export const GARRISON_MAP = { width: 12, height: 10 } as const;
 export const GARRISON_ROUND_BUDGET = 25;
@@ -77,7 +78,9 @@ function fighter(input: GarrisonFighter, pos: number, enemy = false): PvpFighter
         maxChakra,
         stamina: maxStamina,
         maxStamina,
-        shield: 0,
+        // Both sides' gear Shield special. The ANBU is a real player's sealed loadout,
+        // so it starts with its shield the way the human sector-war duel would.
+        shield: startingItemShield(input.character),
         statuses: [],
         character,
         pos,
