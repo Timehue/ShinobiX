@@ -10832,8 +10832,8 @@
         "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-side-block-1-half-1.png",
         "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-side-block-2-half-0.png",
         "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-side-block-2-half-1.png",
-        "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-tests.log",
-        "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-build.log"
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-tests-log.json",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-build-log.json"
       ],
       "evidenceSha256": {
         "docs/screenshots/oni-anatomical-actions-2026-10-17/source-head-manifest.json": "8e583ea20d6d2f90b4a966bf6bc6eabcb42ca363cc36e8f3a01dd13cb16e3205",
@@ -10928,7 +10928,7 @@
         "docs/screenshots/oni-anatomical-actions-2026-10-17/metadata-boundary-proof.json": "629f59a4326860e761b2d8b3bfcf40f4219afd41071d900e8a3f4e1f48855416",
         "docs/screenshots/oni-anatomical-actions-2026-10-17/recipe.json": "36ff8520d35837b6db28e4126c87c97df727a70260a1d98ad585415af77f974d",
         "docs/screenshots/oni-anatomical-actions-2026-10-17/rejected-v1-geometry.json": "42c1f4672ae7a4c57363afb41f23c5eb308ac12fd7597b64b23b64433d0f7894",
-        "docs/audits/oni-anatomical-actions-review-2026-10-17.json": "e124de76ecb9b0cc4584c51f62bc33380221cf2c3093e33ca9562fff895cdeeb",
+        "docs/audits/oni-anatomical-actions-review-2026-10-17.json": "7659ac1a28d264f9a64491c6be1ae6d7320c8810820b587bfb94be9150c96ae3",
         "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-technique-manifest.json": "dd5f61ac3bd3c8b495ef3fc16bc6a56f0b5ac1df46370c249db95fc5a70cbe5e",
         "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-manifest.json": "03e4e745917b49f3f95f2bc950cabeb45cf3db442e5a621d6f3b75e34340d036",
         "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-front-block-0-half-0.png": "568af6e670d84400f718936b70ab269606e53378f45171b27499890e01545a87",
@@ -10943,8 +10943,8 @@
         "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-side-block-1-half-1.png": "86ccf53240411c6b44e7b2d28fabcab85cc82545c4e8c982e3cb60003f9d84f0",
         "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-side-block-2-half-0.png": "ad82c540531b92eae4141f75ae2c61eca62f5620a193699f9f98cc4e9d8c0bfd",
         "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-side-block-2-half-1.png": "2c249944e27ba7b3c0077d65c212705ca518295f3c97338cf9d9e407582bdbcf",
-        "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-tests.log": "06f957e73dffa5fd0a436ae01ce32efacb54265cba44ae46a3519658fc750494",
-        "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-build.log": "0272895ce2929962e1031439185348b7f6daafdddb8fb30822ad3b6e8bba0073"
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-tests-log.json": "75448a07cf24121a102b7d3081f17a8cf7f9c705f1f845dab5098fea454b0348",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-build-log.json": "3cd7115f6189ea51f8ab9ab247192f77edeea2a62e935887fef1e155bd8b8b7b"
       },
       "findings": [
         "Additional independent visible-foot review invalidated the prior joint-only assurance: full front sole sinks by up to 0.02533 and one toe patch inherits neck/head rotation. Fitted 12 new limb joints at the four actual mesh soles; original 21 bone frames/inverses and all original head, neck, tail and unrelated curves retained. Candidate v1 had seven gallop seam warnings, v2 corrects the three measured edges and passes 483 full-geometry poses. At 481 times per action visible support drift is below 0.000148, floor penetration below 0.000144, front-left strike lifts approximately 0.055 and its neck/head contribution is zero. All twelve candidate raw face/body slices and all 216 native actual equipped-technique frames actually inspected and pass. This new candidate is not yet live; complete second pass required."

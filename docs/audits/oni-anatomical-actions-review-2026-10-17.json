@@ -142,8 +142,8 @@
     "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-side-block-1-half-1.png",
     "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-side-block-2-half-0.png",
     "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-side-block-2-half-1.png",
-    "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-tests.log",
-    "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-build.log"
+    "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-tests-log.json",
+    "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-build-log.json"
   ],
   "evidenceSha256": {
     "docs/screenshots/oni-anatomical-actions-2026-10-17/source-head-manifest.json": "8e583ea20d6d2f90b4a966bf6bc6eabcb42ca363cc36e8f3a01dd13cb16e3205",
@@ -252,8 +252,8 @@
     "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-side-block-1-half-1.png": "86ccf53240411c6b44e7b2d28fabcab85cc82545c4e8c982e3cb60003f9d84f0",
     "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-side-block-2-half-0.png": "ad82c540531b92eae4141f75ae2c61eca62f5620a193699f9f98cc4e9d8c0bfd",
     "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-side-block-2-half-1.png": "2c249944e27ba7b3c0077d65c212705ca518295f3c97338cf9d9e407582bdbcf",
-    "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-tests.log": "06f957e73dffa5fd0a436ae01ce32efacb54265cba44ae46a3519658fc750494",
-    "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-build.log": "0272895ce2929962e1031439185348b7f6daafdddb8fb30822ad3b6e8bba0073"
+    "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-tests-log.json": "75448a07cf24121a102b7d3081f17a8cf7f9c705f1f845dab5098fea454b0348",
+    "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-build-log.json": "3cd7115f6189ea51f8ab9ab247192f77edeea2a62e935887fef1e155bd8b8b7b"
   },
   "currentMainVerification": {
     "baseCommit": "bcf37e2739c882e0089c0c4c94343faf8b506975",
@@ -279,8 +279,8 @@
       "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-side-block-1-half-1.png",
       "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-side-block-2-half-0.png",
       "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-side-block-2-half-1.png",
-      "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-tests.log",
-      "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-build.log"
+      "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-tests-log.json",
+      "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-build-log.json"
     ]
   }
 }
