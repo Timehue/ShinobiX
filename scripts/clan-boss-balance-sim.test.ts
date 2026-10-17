@@ -4,7 +4,7 @@ import { CLAN_BOSSES } from '../api/clan-boss/_storage.js';
 import { simulateClanBossBalance } from './clan-boss-balance-sim.js';
 
 describe('Clan Boss deterministic low-population balance ratchet', () => {
-    it('lets a geared solo fallback bank meaningful progress against every boss', () => {
+    it('lets an audited catalog-equipped solo fallback bank meaningful progress against every boss', () => {
         for (let bossIndex = 0; bossIndex < CLAN_BOSSES.length; bossIndex += 1) {
             const result = simulateClanBossBalance(bossIndex, 1, 6);
             assert.ok(result.avgDamagePct >= 50, `${CLAN_BOSSES[bossIndex]!.name} solo progress fell to ${result.avgDamagePct}%`);
