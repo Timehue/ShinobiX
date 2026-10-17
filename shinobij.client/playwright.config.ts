@@ -28,7 +28,11 @@ export default defineConfig({
     fullyParallel: true,
     forbidOnly: Boolean(process.env.CI),
     retries: process.env.CI ? 1 : 0,
-    workers: process.env.CI ? 2 : undefined,
+    // Full RPG clients compete for decoding, layout and browser startup on this
+    // host. Match CI's concurrency locally instead of scaling to every CPU;
+    // higher parallelism caused unrelated navigation and artwork timeouts.
+    // Playwright's --workers flag remains available for deliberate load checks.
+    workers: 2,
     reporter: process.env.CI ? [['line'], ['html', { open: 'never' }]] : 'line',
     use: {
         baseURL,

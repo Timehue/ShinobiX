@@ -1,3 +1,5 @@
+import { CAREER_MILESTONES, achievementMetaCount, hasCareerExam, isCareerAchievement } from '../../shared/career-milestones.js';
+
 type Character = Record<string, unknown>;
 type Rule = { id: string; hidden?: boolean; check: (character: Character) => boolean };
 
@@ -64,7 +66,8 @@ const numeric: Array<[string, string, number]> = [
 ];
 
 const value = (character: Character, field: string): number => field.endsWith('.length')
-    ? (Array.isArray(character[field.slice(0, -7)]) ? (character[field.slice(0, -7)] as unknown[]).length : 0)
+    ? field === 'unlockedAchievements.length' ? achievementMetaCount(character.unlockedAchievements)
+        : (Array.isArray(character[field.slice(0, -7)]) ? (character[field.slice(0, -7)] as unknown[]).length : 0)
     : n(character, field);
 
 const HIDDEN_IDS = new Set([
@@ -95,6 +98,9 @@ export function achievementTitlesForIds(ids: Iterable<string>): string[] {
 }
 
 export const ACHIEVEMENT_RULES: Rule[] = [
+    ...CAREER_MILESTONES.map((milestone): Rule => ({
+        id: milestone.id, check: c => hasCareerExam(c.examsPassed, milestone.examKey),
+    })),
     { id: 'tower-clean-clear', check: c => Boolean((c.battleTowerRecords as { honors?: Record<string, number> } | undefined)?.honors?.['tower-clean-clear']) },
     { id: 'tower-par-clear', check: c => Boolean((c.battleTowerRecords as { honors?: Record<string, number> } | undefined)?.honors?.['tower-par-clear']) },
     { id: 'tower-disrupt-clear', check: c => Boolean((c.battleTowerRecords as { honors?: Record<string, number> } | undefined)?.honors?.['tower-disrupt-clear']) },
@@ -141,6 +147,7 @@ export function eligibleAchievementIds(character: Character): string[] {
 export function achievementRewardForIds(ids: string[]): { ryo: number; fateShards: number } {
     let ryo = 0; let fateShards = 0;
     for (const id of new Set(ids)) {
+        if (isCareerAchievement(id)) continue;
         if (!ACHIEVEMENT_RULES.some((rule) => rule.id === id)) continue;
         if (HIDDEN_IDS.has(id)) { ryo += 3000; fateShards += 1; } else ryo += 2000;
     }
