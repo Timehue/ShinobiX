@@ -12,6 +12,9 @@ import { huntFormationFor } from './_hunt-trail.js';
 import { savedCurrentSector } from './_mission-progress-receipt.js';
 import { loadAiFightProfile, type AiFightProfile } from './_ai-fight-encounter.js';
 import { ordinaryAiProfile } from './_ordinary-ai-encounter.js';
+import { MAX_CHALLENGE_AI_LOADOUT_JUTSU, progressiveOrdinaryAiJutsuIds, resolveAiProfileJutsu } from '../_ai-opponent-loadout.js';
+import { maxHpForLevel } from '../_xp-engine.js';
+import { pveDifficultyHpMultiplier } from '../_pve-difficulty.js';
 import { computeAiFightBaseReward } from './_ai-fight-token.js';
 import { MAX_WILD_SECTOR, sectorBiomeOf } from '../../shared/sector-geo.js';
 import { ordinaryWandererEncounter, parseWandererId, WANDERER_MAX_INDEX, WANDERER_NIGHT_INDEX } from '../../shared/wanderer-roster.js';
@@ -440,10 +443,31 @@ function template(loadout: QuestBossSpec['loadoutId']): AiFightProfile {
     return structuredClone(profile) as unknown as AiFightProfile;
 }
 
-function runtimeProfile(id: string, name: string, level: number, statBonus: number, loadout: QuestBossSpec['loadoutId']): AiFightProfile {
+export function worldRuntimeAiProfile(id: string, name: string, level: number, statBonus: number, loadout: QuestBossSpec['loadoutId'], challenge = false): AiFightProfile {
     const base = { ...template(loadout), id, name } as unknown as RelevelableProfile;
-    return relevelAiProfile(base, level, statBonus) as unknown as AiFightProfile;
+    if (!challenge || level < 61) return relevelAiProfile(base, level, statBonus) as unknown as AiFightProfile;
+    const source = template(loadout);
+    const sourceIds = Array.isArray(source.jutsuIds) ? source.jutsuIds.filter((id): id is string => typeof id === 'string') : [];
+    // Named threats keep identity and progression bonuses. Their old
+    // attrition shell is replaced by a shorter, trained tactical fight.
+    // Give their legal stat budget its authored specialty and enough learned
+    // follow-ups to contest a prepared player, rather than a new damage scale.
+    const ordinaryKit = progressiveOrdinaryAiJutsuIds(source.id, level, 'elite');
+    const ids = ordinaryKit ?? [...new Set([...sourceIds,
+        'starter-nin-lightning-4', 'starter-buki-earth-2', 'starter-nin-earth-2', 'starter-buki-wind-1'])].slice(0, MAX_CHALLENGE_AI_LOADOUT_JUTSU);
+    const trained = relevelAiProfile(base, level, statBonus, 0, resolveAiProfileJutsu(sourceIds));
+    return { ...trained,
+        // Their old thick armor compensated for sparse attacks. Keep the
+        // full trained rotation should threaten through play rather than
+        // require an attrition build to get through the shell.
+        armorRawDR: Math.min(trained.armorRawDR, .35),
+        hp: Math.ceil(maxHpForLevel(trained.level) * (loadout === 'boss' ? 1.2 : 1.1) / pveDifficultyHpMultiplier(trained.level)),
+        jutsuIds: ids, rules: [], pveNamedChallenge: true, pveDifficulty: 'elite',
+        tacticalTell: 'A trained rotation and counter blade punish repeated attacks. Clear Reflect or wait out its stance before committing a burst; Cleanse damaging conditions. Weapon swings recover for five rounds and signatures for seven.',
+    } as unknown as AiFightProfile;
 }
+
+const runtimeProfile = worldRuntimeAiProfile;
 
 function playerLevel(character: Record<string, unknown>): number {
     return Math.max(1, Math.min(100, Math.floor(Number(character.level) || 1)));
@@ -521,7 +545,7 @@ export async function buildWorldAiFightSpec(params: {
         });
         const scaledBonus = Math.min(encounter.statBonus, Math.max(0, Math.floor(level / 12)));
         return {
-            profile: runtimeProfile(`world-crisis-${encounter.sourceId}`, encounter.name, level + 1, scaledBonus, encounter.loadoutId),
+            profile: runtimeProfile(`world-crisis-${encounter.sourceId}`, encounter.name, level + 1, scaledBonus, encounter.loadoutId, true),
             environment: { biome: encounter.biome },
             context: {
                 kind: request.kind,
@@ -547,7 +571,7 @@ export async function buildWorldAiFightSpec(params: {
             const tier = roadNemesisTier(nemesis);
             const name = roadNemesisTitle(tier);
             // Capped at 100 like the level the map and dialog show for him.
-            return { profile: runtimeProfile('world-wanderer-nemesis', name, Math.min(100, level + tier), Math.min(12, tier * 2), 'bruiser'), environment,
+            return { profile: runtimeProfile('world-wanderer-nemesis', name, Math.min(100, level + tier), Math.min(12, tier * 2), 'bruiser', true), environment,
                 context: { kind: request.kind, sourceId: request.sourceId, sector: request.sector, stage: 0, displayName: name, finalStage: true } };
         }
         // The rift creature answers only to the SEALED rift on the save record,
@@ -567,7 +591,7 @@ export async function buildWorldAiFightSpec(params: {
         // The authored rift quest retains its separate player + 1 burst fight;
         // it does not roll ordinary difficulty or change its quest contract.
         if (natural.archetype !== 'riftspawn') throw new Error('world-wanderer-not-attackable');
-        return { profile: runtimeProfile(`world-wanderer-${request.sourceId}`, natural.name, level + 1, 0, 'burst'), environment,
+        return { profile: runtimeProfile(`world-wanderer-${request.sourceId}`, natural.name, level + 1, 0, 'burst', true), environment,
             context: { kind: request.kind, sourceId: request.sourceId, sector: request.sector, stage: 0, displayName: natural.name, finalStage: true } };
     }
 
@@ -587,7 +611,7 @@ export async function buildWorldAiFightSpec(params: {
         const hostile = stance === 'rivalWar' || (stance === null && enemies.length > 0);
         const base = patrolNameFor(owner, stance, wanderer.name);
         const name = hostile ? `${base} Captain` : base;
-        return { profile: runtimeProfile(`world-patrol-${request.sourceId}`, name, level + (hostile ? 3 : 1), hostile ? 7 : 3, hostile ? 'defender' : 'bruiser'), environment,
+        return { profile: runtimeProfile(`world-patrol-${request.sourceId}`, name, level + (hostile ? 3 : 1), hostile ? 7 : 3, hostile ? 'defender' : 'bruiser', hostile), environment,
             context: { kind: request.kind, sourceId: request.sourceId, sector: request.sector, stage: 0, displayName: name, finalStage: true } };
     }
 
@@ -605,7 +629,7 @@ export async function buildWorldAiFightSpec(params: {
         const hunter = deriveContractHunter(bounty, { name: bounty.target, level, currentSector: request.sector });
         if (!hunter) throw new Error('world-bounty-missing');
         if (request.sourceId !== hunter.id) throw new Error('world-bounty-stale');
-        return { profile: runtimeProfile(`world-bounty-${request.sourceId}`, hunter.name, hunter.level, hunter.power, 'boss'), environment,
+        return { profile: runtimeProfile(`world-bounty-${request.sourceId}`, hunter.name, hunter.level, hunter.power, 'boss', true), environment,
             context: { kind: request.kind, sourceId: request.sourceId, sector: request.sector, stage: 0, displayName: hunter.name, finalStage: true } };
     }
 
@@ -614,7 +638,7 @@ export async function buildWorldAiFightSpec(params: {
         const chain = requireChain(request, character, 4, generatedChainId);
         const boss = chain.stage === 3;
         const name = boss ? 'Bandit Warlord' : 'Road Bandit';
-        return { profile: runtimeProfile(`world-ambush-${chain.chainId}-${chain.stage}`, name, level + (boss ? 3 : chain.stage), boss ? 8 : 0, boss ? 'boss' : 'bruiser'), environment,
+        return { profile: runtimeProfile(`world-ambush-${chain.chainId}-${chain.stage}`, name, level + (boss ? 3 : chain.stage), boss ? 8 : 0, boss ? 'boss' : 'bruiser', boss), environment,
             context: { kind: request.kind, sourceId: request.sourceId, sector: request.sector, stage: chain.stage, chainId: chain.chainId, displayName: name, ...(boss ? { finalStage: true } : { nextStage: chain.stage + 1 }) } };
     }
 
@@ -695,7 +719,7 @@ export async function buildWorldAiFightSpec(params: {
             statBonus += Math.min(8, tier * 2);
             if (tier >= 4) name += ', Risen';
         }
-        return { profile: runtimeProfile(`world-questbook-${seal.id}-${stage.bossId}`, name, level + levelOffset, statBonus, boss.loadoutId), environment,
+        return { profile: runtimeProfile(`world-questbook-${seal.id}-${stage.bossId}`, name, level + levelOffset, statBonus, boss.loadoutId, true), environment,
             context: { kind: request.kind, sourceId: seal.id, sector: request.sector, stage: seal.stage, displayName: name, finalStage: true, sealVersion } };
     }
 
@@ -708,7 +732,7 @@ export async function buildWorldAiFightSpec(params: {
         if (worldContextWinProofCount(character, {
             kind: 'story-reckoning', sourceId: request.sourceId, stage: request.stage ?? 0, sealVersion,
         }) >= Math.max(1, Math.floor(Number(definition.target) || 1))) throw new Error('world-context-already-won');
-        return { profile: runtimeProfile(`world-story-${request.sourceId}`, boss.name, level + boss.levelOffset, boss.statBonus, boss.loadoutId), environment,
+        return { profile: runtimeProfile(`world-story-${request.sourceId}`, boss.name, level + boss.levelOffset, boss.statBonus, boss.loadoutId, true), environment,
             context: { kind: request.kind, sourceId: request.sourceId, sector: request.sector, stage: 0, displayName: boss.name, finalStage: true, sealVersion } };
     }
 

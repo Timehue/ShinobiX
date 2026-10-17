@@ -1,5 +1,7 @@
-import { sealPveAiMastery } from '../_pve-ai-mastery.js';
+import { pveAiMasteryEnabled, sealPveAiMastery } from '../_pve-ai-mastery.js';
 import { sealPveDifficultyBand } from '../_pve-band-seal.js';
+import { sealTeamBossChallengeKit } from '../_boss-challenge-kit.js';
+import { initializeTowerTactics } from '../towers/_combat-tactics.js';
 import { MAX_ROUNDS } from '../towers/_engine.js';
 import type { TowerFloor } from '../towers/_floor-catalog.js';
 import { getActor, type TowerActor, type TowerSession } from '../towers/_tower-session.js';
@@ -22,5 +24,12 @@ export function configureClanBossEncounter(session: TowerSession, floor: TowerFl
     sealPveDifficultyBand(session, { mode: 'CLAN_BOSS', scaleHp: false, scaleStats: false });
     // Enemy jutsu use their authored mastery instead of the generic 30% fallback.
     sealPveAiMastery(session, { mode: 'CLAN_BOSS' });
+    // Only new operation encounters opt in. The existing role/signature layer
+    // adds marked attacks, exposed misses, disruptible pylons and add priority.
+    initializeTowerTactics(session);
+    for (const [index, actor] of session.actors.filter(a => a.side === 'enemy').entries()) {
+        sealTeamBossChallengeKit(actor, actor.id === boss.id, index, pveAiMasteryEnabled('CLAN_BOSS'));
+        if (actor.id !== boss.id) actor.character.combatRole = index % 2 ? 'skirmisher' : 'controller';
+    }
     return boss;
 }

@@ -38,7 +38,7 @@ async function readableImage(image: Locator, expectedPath: string) {
     })).toBe(true);
 }
 
-async function installEncounter(page: Page, kind: 'ordinary' | 'final') {
+async function installEncounter(page: Page, kind: 'ordinary' | 'final', rollingLog = false) {
     const save = uiAuditSave();
     save.character = {
         ...save.character, level: 100, stats: aiStatsForLevel(100),
@@ -68,6 +68,12 @@ async function installEncounter(page: Page, kind: 'ordinary' | 'final') {
     });
     if (kind === 'ordinary') session.enemy.hp = 1;
     session.enemy.pos = hexNeighbors(session.player.pos)[0];
+    if (rollingLog) {
+        session.round = 10;
+        session.log = [...Array<string>(12).fill('80 damage to Enemy.'), ...[7, 8, 9, 10].flatMap(round => [
+            `--- Round ${round} ---`, 'auditninja uses Basic Attack:', ...Array<string>(10).fill('80 damage to Enemy.'),
+        ])];
+    }
     const sealed = () => ({
         token: `browser-token-${kind}`, sessionId: session.sessionId, session,
         opponentId: profile.id, opponentName: session.enemy.name, battleKind: 'practice', resumed: true,
@@ -152,6 +158,20 @@ test('sealed ordinary identity, level and real portrait survive refresh, victory
     expect(text).toContain('outcome: win');
     await info.attach('exported-battle-log', { body: Buffer.from(text), contentType: 'text/plain' });
     await screenshot(page, info, 'ordinary-victory');
+});
+
+test('rolling battle log shows actual round and visible partial retention counts on desktop and phone', async ({ page }, info) => {
+    test.setTimeout(120_000);
+    await installEncounter(page, 'ordinary', true);
+    const logTab = page.getByRole('tab', { name: /Battle log/i });
+    if (await logTab.isVisible()) await logTab.click();
+    const summary = page.locator('#combat .combat-log-summary');
+    await expect(summary).toBeVisible();
+    await expect(summary).toHaveText('Round 10 · 5 retained rounds · 56 retained events · Partial view');
+    expect(await summary.evaluate(element => element.scrollWidth <= element.clientWidth + 1
+        && element.scrollHeight <= element.clientHeight + 1)).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    await screenshot(page, info, 'rolling-log-retention');
 });
 
 test('final Kage canonical art, highest difficulty and readable tell details render on desktop and phone', async ({ page }, info) => {
