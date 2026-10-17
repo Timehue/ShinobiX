@@ -13,7 +13,7 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { applyJutsu, catalogWeaponFlatTags, characterOwnsElement } from './move.js';
-import { JUTSU_MAX_LEVEL, WEAPON_AMP_TAG_CAP, WEAPON_EP_CEILING, WEAPON_GENERALS_TAG_SCALE, weaponGeneralsPercent } from '../combat-core/formulas.js';
+import { JUTSU_MAX_LEVEL, WEAPON_AMP_TAG_CAP, WEAPON_EP_CEILING } from '../combat-core/formulas.js';
 import { ITEM_CATALOG } from './_item-catalog.js';
 import { JUTSU_CATALOG } from './_jutsu-catalog.js';
 import type { PvpFighter } from './session.js';
@@ -76,19 +76,43 @@ describe('PvP weapon damage', () => {
         assert.ok(r.opponent.hp < 1000, 'the weapon still deals its damage');
     });
 
-    // Increase Generals lifts offense AND defense, so at the shared 35 cap a
-    // single-tag blade far out-did every other tag. A swing counts it at half.
-    it('a weapon swing counts Increase Generals at half its capped percent; a jutsu keeps it whole', () => {
-        const generals = (weaponSwing: boolean, percent: number) => applyJutsu(fighter('A'), fighter('B'), asJutsu({
-            id: weaponSwing ? 'weapon' : 'ig-jutsu', name: 'Probe', isUtility: false, ap: 40, effectPower: 25, weaponSwing,
-            tags: [{ name: 'Increase Generals', percent }],
-        }), 1, 'central', 1).self.statuses.find(s => s.name === 'Increase Generals')?.percent;
-        assert.equal(generals(true, 38), 17, 'single roll: capped to 35, then halved');
-        assert.equal(generals(true, 18), 9, 'dual roll: halved');
-        // An untrained jutsu ramps 30 down to 30 - 50 × 0.2 = 20, and is not halved.
-        assert.equal(generals(false, 30), 20, 'jutsu are unchanged');
-        assert.equal(WEAPON_GENERALS_TAG_SCALE, 0.5);
-        assert.equal(weaponGeneralsPercent(WEAPON_AMP_TAG_CAP), 17);
+});
+
+/*
+ * Owner ruling 2026-10-16: a forged Named Weapon's tags apply EXACTLY as rolled
+ * (30-40 alone, 12-22 beside another; Wound 22-30 / 15-20). No 35% weapon cap,
+ * no 25% Wound cap, no scaling. Built-in and custom weapons keep their caps.
+ */
+describe('a named blade applies its tags as rolled', () => {
+    const named = (tags: Array<{ name: string; percent: number }>, namedWeaponSwing = true) => applyJutsu(fighter('A', 100), fighter('B'), asJutsu({
+        id: 'weapon', name: 'Named Blade', isUtility: false, ap: 40, effectPower: 25, weaponSwing: true, namedWeaponSwing, tags,
+    }), 1, 'central', 1);
+    const statusPct = (r: ReturnType<typeof applyJutsu>, side: 'self' | 'opponent', name: string) => r[side].statuses.find(s => s.name === name)?.percent;
+
+    it('every percent buff reaches its rolled 40', () => {
+        for (const name of ['Increase Damage Given', 'Decrease Damage Taken', 'Increase Generals', 'Absorb', 'Reflect']) {
+            assert.equal(statusPct(named([{ name, percent: 40 }]), 'self', name), 40, `${name} 40 stays 40`);
+        }
+        assert.equal(statusPct(named([{ name: 'Ignition', percent: 40 }]), 'opponent', 'Ignition'), 40);
+    });
+
+    it('a two-tag roll applies its 12-22 as rolled, Generals included', () => {
+        const r = named([{ name: 'Increase Generals', percent: 22 }, { name: 'Absorb', percent: 12 }]);
+        assert.equal(statusPct(r, 'self', 'Increase Generals'), 22);
+        assert.equal(statusPct(r, 'self', 'Absorb'), 12);
+    });
+
+    it('Wound bleeds its rolled 30% and Siphon heals its rolled 40%', () => {
+        const r = named([{ name: 'Wound', percent: 30 }, { name: 'Siphon', percent: 40 }]);
+        assert.equal(r.opponent.statuses.find(s => s.name === 'Wound')?.amount, Math.floor(r.metadata.damage * 0.30));
+        assert.equal(r.self.hp - 100, Math.floor(r.metadata.damage * 0.40));
+    });
+
+    it('the forge top roll still bounds a tampered value, and other weapons keep their caps', () => {
+        assert.equal(statusPct(named([{ name: 'Reflect', percent: 90 }]), 'self', 'Reflect'), 40, 'a named tag never passes the forge maximum');
+        const wound = named([{ name: 'Wound', percent: 90 }]);
+        assert.equal(wound.opponent.statuses.find(s => s.name === 'Wound')?.amount, Math.floor(wound.metadata.damage * 0.30));
+        assert.equal(statusPct(named([{ name: 'Reflect', percent: 40 }], false), 'self', 'Reflect'), WEAPON_AMP_TAG_CAP, 'a built-in weapon keeps 35');
     });
 });
 
@@ -217,9 +241,8 @@ describe('weapon tag percents ignore jutsu mastery', () => {
     // A weapon has no bloodline rank, so ampTagCapForRank would floor it at the
     // no-bloodline 30 — which silently shaved the four mythic weapons that are
     // authored at 35 BY DESIGN. Owner ruling 2026-08-16: weapons answer to
-    // WEAPON_AMP_TAG_CAP (35). A forged named weapon rolls 35-40 on a single-tag
-    // result and clamps to 35, so crafted gear MATCHES the best built-in mythic
-    // rather than beating it.
+    // WEAPON_AMP_TAG_CAP (35). A forged named weapon is not held to it: its tags
+    // apply as rolled (owner ruling 2026-10-16, pinned below).
     it('a weapon amp tag reaches the authored mythic 35%', () => {
         const r = applyJutsu(fighter('A'), fighter('B'), asJutsu({
             id: 'weapon', name: 'Ashen Dragon Katana', isUtility: false, ap: 40, effectPower: 30,
@@ -228,12 +251,12 @@ describe('weapon tag percents ignore jutsu mastery', () => {
         assert.equal(r.self.statuses.find(s => s.name === 'Absorb')?.percent, 35, 'a mythic weapon delivers the 35% printed on it');
     });
 
-    it('a weapon amp tag is still capped — a 40% forge roll lands at 35%', () => {
+    it('a built-in or custom weapon amp tag is still capped — 40% lands at 35%', () => {
         const r = applyJutsu(fighter('A'), fighter('B'), asJutsu({
             id: 'weapon', name: 'Named Blade', isUtility: false, ap: 40, effectPower: 30,
             tags: [{ name: 'Increase Damage Given', percent: 40 }],
         }), 1, 'central', 1);
-        assert.equal(r.self.statuses.find(s => s.name === 'Increase Damage Given')?.percent, WEAPON_AMP_TAG_CAP, 'a forged weapon cannot exceed the mythic ceiling');
+        assert.equal(r.self.statuses.find(s => s.name === 'Increase Damage Given')?.percent, WEAPON_AMP_TAG_CAP, 'a non-named weapon cannot exceed the 35% weapon ceiling');
     });
 
     it('the weapon ceiling does NOT leak into jutsu — bloodline ranks are untouched', () => {

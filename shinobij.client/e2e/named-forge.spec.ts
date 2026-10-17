@@ -15,7 +15,9 @@ const ROLL_SPEND: Record<'weapon' | 'armor', Record<string, number>> = {
  * flavor text are chosen before rolling; there is no Forge step and no Discard.
  */
 
-async function setup(page: Page, options: { shards?: number; fail?: boolean } = {}) {
+type WeaponTag = { name: string; percent: number };
+
+async function setup(page: Page, options: { shards?: number; fail?: boolean; weaponTags?: WeaponTag[] } = {}) {
     const requests: Record<string, unknown>[] = [];
     await page.route('**/api/**', async route => {
         if (new URL(route.request().url()).pathname === '/api/craft/named') {
@@ -25,7 +27,7 @@ async function setup(page: Page, options: { shards?: number; fail?: boolean } = 
             // Hold long enough to inspect the rolling state, including keyboard dismissal.
             await new Promise(resolve => setTimeout(resolve, 450));
             const roll: NamedRoll = body.kind === 'weapon'
-                ? { kind: 'weapon', ep: 26, range: 4, offenseVal: 178, tags: [{ name: 'Siphon', percent: 19 }, { name: 'Poison', percent: 12 }] }
+                ? { kind: 'weapon', ep: 26, range: 4, offenseVal: 178, tags: options.weaponTags ?? [{ name: 'Siphon', percent: 19 }, { name: 'Poison', percent: 12 }] }
                 : { kind: 'armor', slot: body.slot, armorQuality: 'Mythic', offenseVal: 32, defenseVal: 29, special: { kind: 'Reflect', bonusKey: 'reflectPercent', value: 1.46 } };
             // Mock the server contract; the real payment/registry are tested by the API integration suite.
             const common = { id: `named-${roll.kind}-1234567890abcdef1234567890abcdef`, name: body.name,
@@ -108,6 +110,49 @@ test('weapon pop-out shows the kept roll, stays open, and restores the Crafter',
     await expect(page.locator('.nw-result')).toContainText('26');
     await expect(page.locator('.nw-result')).toContainText('kept in your inventory');
     await expect(page.getByRole('button', { name: /Forge weapon|Discard roll/ })).toHaveCount(0);
+});
+
+/*
+ * Owner ruling 2026-10-16: a named blade's tags roll 30-40% alone and 12-22%
+ * beside another (Wound 22-30% / 15-20%), and apply EXACTLY as rolled. The odds
+ * panel, the reveal and the kept-roll card must all show the rolled number,
+ * never a 35% / 25% cap or a halved Increase Generals.
+ */
+test('the weapon odds list the as-rolled tag ranges and no combat cap', async ({ page }) => {
+    await setup(page);
+    await page.locator('.cf-tabs').getByRole('button', { name: 'Weapons', exact: true }).click();
+    const odds = page.locator('.nw-odds');
+    await expect(odds).toContainText('1 tag (30–40%; Wound 22–30%)');
+    await expect(odds).toContainText('2 distinct tags (12–22% ea.; Wound 15–20%)');
+    await expect(odds).toContainText('applies in combat exactly as rolled');
+    await expect(odds).not.toContainText(/cap at 35%|caps at 25%|counts at half|capped in combat/);
+});
+
+for (const [label, tags, shown] of [
+    ['a 40% Increase Generals', [{ name: 'Increase Generals', percent: 40 }], ['Increase Generals · 40%']],
+    ['a 30% Wound', [{ name: 'Wound', percent: 30 }], ['Wound · 30% of damage dealt']],
+    ['a 22% / 12% pair', [{ name: 'Reflect', percent: 22 }, { name: 'Absorb', percent: 12 }], ['Reflect · 22%', 'Absorb · 12%']],
+] as const) {
+    test(`the reveal and the kept roll show ${label} exactly as rolled`, async ({ page }) => {
+        await setup(page, { weaponTags: tags.map(tag => ({ ...tag })) });
+        await page.locator('.cf-tabs').getByRole('button', { name: 'Weapons', exact: true }).click();
+        await page.getByRole('button', { name: 'Roll named weapon', exact: true }).click();
+        const reveal = page.getByRole('dialog', { name: 'Named Weapon Roll', exact: true });
+        for (const text of shown) await expect(reveal).toContainText(text);
+        await reveal.getByRole('button', { name: 'Continue to Forge' }).click();
+        const kept = page.locator('.nw-result');
+        for (const text of shown) await expect(kept).toContainText(text.replace(' · ', ' '));
+    });
+}
+
+test('named gauntlets list their own 65-85 offense odds', async ({ page }) => {
+    await setup(page);
+    await page.locator('.cf-tabs').getByRole('button', { name: 'Armor', exact: true }).click();
+    const odds = page.locator('.nw-odds');
+    await page.locator('select.nw-input').selectOption('body');
+    await expect(odds).toContainText('+25 to +35');
+    await page.locator('select.nw-input').selectOption('hand');
+    await expect(odds).toContainText('+65 to +85');
 });
 
 test('armor reveals the selected slot and omits damage reduction for gloves', async ({ page }, testInfo) => {

@@ -9,11 +9,12 @@
  *   - Heal, Shield and Drain are flat. A Named Weapon follows its distinct tag
  *     count (450 / 225, Drain 150 / 75), a built-in uses its authored amount, and
  *     anything else gets the mastery-0 amount.
- *   - Amp tags answer to WEAPON_AMP_TAG_CAP, Wound to the basic-rank Wound cap,
- *     Poison to WEAPON_POISON_TAG_CAP, and Increase Generals counts at
- *     WEAPON_GENERALS_TAG_SCALE of that.
- * The text used to print the stored percent, so a blade read "Wound 38%" while it
- * bled 25%, and an Exchange listing read "Heal 37%" for a flat 450 HP.
+ *   - A Named Weapon's percent tags apply as rolled (owner ruling 2026-10-16),
+ *     bounded only by the forge's top roll. Other weapons' amp tags answer to
+ *     WEAPON_AMP_TAG_CAP and their Wound to the basic-rank Wound cap. Poison
+ *     answers to WEAPON_POISON_TAG_CAP everywhere.
+ * The text used to print the stored percent, so an Exchange listing read
+ * "Heal 37%" for a flat 450 HP.
  * The client mirror is shinobij.client/src/lib/weapon-effect-display.ts.
  */
 import { ITEM_CATALOG } from './_item-catalog.js';
@@ -28,13 +29,12 @@ import {
     scaledTagPercent,
     shieldAmountForMastery,
     SHIELD_FLAT,
-    WEAPON_AMP_TAG_CAP,
     WEAPON_POISON_TAG_CAP,
-    WOUND_CAP_BY_RANK,
     WOUND_HARD_CAP_PCT,
+    weaponAmpTagCap,
     weaponDrainTick,
     weaponFlatTagAmount,
-    weaponGeneralsPercent,
+    woundCapForJutsu,
 } from '../combat-core/formulas.js';
 
 export type CatalogWeaponFlat = Partial<Record<'Heal' | 'Shield', number>>;
@@ -88,8 +88,9 @@ export function weaponTagEffectText(item: WeaponLike, rawName: string, rawPercen
     if (WEAPON_TAGS_WITHOUT_MAGNITUDE.has(name)) return name;
     // A missing percent resolves like combat: 30 on the amp scale, 6 for Poison.
     if (name === 'Poison') return `Poison ${poisonPercentForTag(percent, JUTSU_MAX_LEVEL, {}, WEAPON_POISON_TAG_CAP)}%`;
-    const pct = Math.floor(scaledTagPercent(percent, JUTSU_MAX_LEVEL, name, undefined, CAPPED_AMP_TAGS, WEAPON_AMP_TAG_CAP));
-    if (name === 'Wound') return `Wound ${Math.min(pct, WOUND_CAP_BY_RANK.basic, WOUND_HARD_CAP_PCT)}% of damage dealt`;
-    if (name === 'Increase Generals') return `Increase Generals ${weaponGeneralsPercent(pct)}%`;
+    // The same caps combat reads: a named blade applies its roll, the rest 35 / 25.
+    const swing = { weaponSwing: true, isUtility: false, namedWeaponSwing: named };
+    const pct = Math.floor(scaledTagPercent(percent, JUTSU_MAX_LEVEL, name, undefined, CAPPED_AMP_TAGS, weaponAmpTagCap(swing)));
+    if (name === 'Wound') return `Wound ${Math.min(pct, woundCapForJutsu(swing), WOUND_HARD_CAP_PCT)}% of damage dealt`;
     return `${name} ${pct}%`;
 }

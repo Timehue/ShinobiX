@@ -21,12 +21,20 @@ describe('weaponTagEffectText', () => {
         assert.equal(weaponTagEffectText(named(['Drain', 18], ['Absorb', 16]), 'Drain', 18), 'Drain 75 HP + chakra per turn');
     });
 
-    it('shows each percent after the weapon caps', () => {
-        assert.equal(weaponTagEffectText(named(['Wound', 38]), 'Wound', 38), 'Wound 25% of damage dealt');
+    it('shows a named blade\'s percents exactly as rolled (owner ruling 2026-10-16)', () => {
+        assert.equal(weaponTagEffectText(named(['Wound', 30]), 'Wound', 30), 'Wound 30% of damage dealt');
         assert.equal(weaponTagEffectText(named(['Wound', 17], ['Heal', 16]), 'Wound', 17), 'Wound 17% of damage dealt');
-        assert.equal(weaponTagEffectText(named(['Reflect', 40]), 'Reflect', 40), 'Reflect 35%');
+        assert.equal(weaponTagEffectText(named(['Reflect', 40]), 'Reflect', 40), 'Reflect 40%');
+        assert.equal(weaponTagEffectText(named(['Increase Generals', 38]), 'Increase Generals', 38), 'Increase Generals 38%');
         assert.equal(weaponTagEffectText(named(['Poison', 12]), 'Poison', 12), 'Poison 12%');
-        assert.equal(weaponTagEffectText(named(['Increase Generals', 38]), 'Increase Generals', 38), 'Increase Generals 17%');
+        // An older blade's Wound above today's top roll reads what combat bounds it to.
+        assert.equal(weaponTagEffectText(named(['Wound', 38]), 'Wound', 38), 'Wound 30% of damage dealt');
+    });
+
+    it('keeps the 35% / 25% caps for every other weapon', () => {
+        const custom = { id: 'custom-blade' };
+        assert.equal(weaponTagEffectText(custom, 'Reflect', 40), 'Reflect 35%');
+        assert.equal(weaponTagEffectText(custom, 'Wound', 38), 'Wound 25% of damage dealt');
     });
 
     it('gives a built-in its authored flat amount and anything else the mastery-0 one', () => {
