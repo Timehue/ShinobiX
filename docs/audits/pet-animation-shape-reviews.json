@@ -10577,17 +10577,14 @@
       "schema": 1,
       "id": "mythic-4",
       "name": "Abyssal Oni Hound",
-      "revision": "20261017-oni-coordinated-actions-v3",
-      "reviewer": "Codex visual inspection",
-      "reviewedAt": "2026-10-17T05:29:38.814Z",
-      "sha256": "719271c3ca743572b9ab79e818a6a486928919dbfd9ddca03b63b32a2a4d9f99",
-      "lodSha256": "ea8c6f6ee569b347684b6911b3205e531e4933cc7c5977cea80ef122856bd919",
-      "atlasSha256": "954ad89a51999157aeff3ac75e8d4c5669f7777ada6f1a8eacb2a6467ed347f9",
+      "revision": "20261017-oni-anatomical-actions-v1",
+      "reviewer": "Codex actual visual inspection",
+      "reviewedAt": "2026-10-17T21:16:26.674Z",
+      "sha256": "d6f30574c4e1f0d0b6f004fc08f38db254bc40cb3fe6f775593d97472aa6804c",
+      "lodSha256": "9c56d19d9f817caf977b67043acd632682aeccd84ea17d1cd1175bfff8cbf757",
+      "atlasSha256": "f49f702993688aebfe3ef3ec0ea68665174c05856696ab056642fcdbd98d821e",
       "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
       "passed": true,
-      "fullBodyReviewed": true,
-      "skullShapeReviewed": true,
-      "transitionsReviewed": true,
       "clips": [
         "idle",
         "idle_2",
@@ -10607,10 +10604,13 @@
         "front",
         "side"
       ],
+      "fullBodyReviewed": true,
+      "skullShapeReviewed": true,
+      "transitionsReviewed": true,
       "raw": [
         {
-          "label": "oni-v3-final-source-head",
-          "sha256": "719271c3ca743572b9ab79e818a6a486928919dbfd9ddca03b63b32a2a4d9f99",
+          "label": "independent-mythic-004-anatomical-v1-final-source-head",
+          "sha256": "d6f30574c4e1f0d0b6f004fc08f38db254bc40cb3fe6f775593d97472aa6804c",
           "clips": [
             "idle",
             "idle_2",
@@ -10630,19 +10630,11 @@
             "head-front",
             "head-side"
           ],
-          "progress": [
-            0,
-            0.125,
-            0.375,
-            0.625,
-            0.875,
-            1
-          ],
           "slicesActuallyInspected": 6
         },
         {
-          "label": "oni-v3-final-source-body",
-          "sha256": "719271c3ca743572b9ab79e818a6a486928919dbfd9ddca03b63b32a2a4d9f99",
+          "label": "independent-mythic-004-anatomical-v1-final-source-body",
+          "sha256": "d6f30574c4e1f0d0b6f004fc08f38db254bc40cb3fe6f775593d97472aa6804c",
           "clips": [
             "idle",
             "idle_2",
@@ -10662,19 +10654,11 @@
             "front",
             "side"
           ],
-          "progress": [
-            0,
-            0.125,
-            0.375,
-            0.625,
-            0.875,
-            1
-          ],
           "slicesActuallyInspected": 6
         },
         {
-          "label": "oni-v3-final-battle-head",
-          "sha256": "ea8c6f6ee569b347684b6911b3205e531e4933cc7c5977cea80ef122856bd919",
+          "label": "independent-mythic-004-anatomical-v1-final-battle-head",
+          "sha256": "9c56d19d9f817caf977b67043acd632682aeccd84ea17d1cd1175bfff8cbf757",
           "clips": [
             "idle",
             "idle_2",
@@ -10694,19 +10678,11 @@
             "head-front",
             "head-side"
           ],
-          "progress": [
-            0,
-            0.125,
-            0.375,
-            0.625,
-            0.875,
-            1
-          ],
           "slicesActuallyInspected": 6
         },
         {
-          "label": "oni-v3-final-battle-body",
-          "sha256": "ea8c6f6ee569b347684b6911b3205e531e4933cc7c5977cea80ef122856bd919",
+          "label": "independent-mythic-004-anatomical-v1-final-battle-body",
+          "sha256": "9c56d19d9f817caf977b67043acd632682aeccd84ea17d1cd1175bfff8cbf757",
           "clips": [
             "idle",
             "idle_2",
@@ -10725,611 +10701,257 @@
           "views": [
             "front",
             "side"
-          ],
-          "progress": [
-            0,
-            0.125,
-            0.375,
-            0.625,
-            0.875,
-            1
           ],
           "slicesActuallyInspected": 6
         }
       ],
       "runtime": [
         {
-          "label": "oni-v3-final-runtime-low",
+          "label": "independent-mythic-004-anatomical-v1-final-runtime-low",
+          "quality": "low",
           "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
-          "rows": [
-            {
-              "name": "idle",
-              "duration": 1.2,
-              "frame": {
-                "motion": "idle"
-              }
-            },
-            {
-              "name": "run",
-              "duration": 0.8,
-              "frame": {
-                "motion": "run",
-                "moving": true,
-                "speed": 3
-              }
-            },
-            {
-              "name": "dash",
-              "duration": 0.6,
-              "frame": {
-                "motion": "dash",
-                "moving": true,
-                "speed": 5
-              }
-            },
-            {
-              "name": "windup",
-              "duration": 0.38,
-              "frame": {
-                "motion": "windup"
-              }
-            },
-            {
-              "name": "strike",
-              "duration": 0.26,
-              "frame": {
-                "motion": "strike",
-                "contactPose": true
-              }
-            },
-            {
-              "name": "recover",
-              "duration": 0.51,
-              "frame": {
-                "motion": "recover"
-              }
-            },
-            {
-              "name": "stagger",
-              "duration": 0.65,
-              "frame": {
-                "motion": "stagger",
-                "hit": 0.6,
-                "contactPose": true
-              }
-            },
-            {
-              "name": "dodge",
-              "duration": 0.65,
-              "frame": {
-                "motion": "dodge"
-              }
-            },
-            {
-              "name": "guard",
-              "duration": 0.8,
-              "frame": {
-                "motion": "guard"
-              }
-            },
-            {
-              "name": "rest",
-              "duration": 1.2,
-              "frame": {
-                "motion": "rest"
-              }
-            },
-            {
-              "name": "cast",
-              "duration": 0.9,
-              "frame": {
-                "motion": "idle",
-                "casting": true
-              }
-            },
-            {
-              "name": "entrance",
-              "duration": 1.1,
-              "frame": {
-                "motion": "idle"
-              }
-            },
-            {
-              "name": "victory",
-              "duration": 1.2,
-              "frame": {
-                "motion": "idle",
-                "victorious": true
-              }
-            },
-            {
-              "name": "dead",
-              "duration": 1.6,
-              "frame": {
-                "motion": "dead"
-              }
-            },
-            {
-              "name": "revive",
-              "duration": 0.8,
-              "frame": {
-                "motion": "idle"
-              }
-            },
-            {
-              "name": "attack-sequence",
-              "duration": 1.7,
-              "frame": {
-                "motion": "windup"
-              }
-            }
-          ],
-          "phases": [
-            0.025,
-            0.1,
-            0.25,
-            0.5,
-            0.75,
-            1
-          ],
-          "captures": [
-            {
-              "stage": "source",
-              "sha256": "719271c3ca743572b9ab79e818a6a486928919dbfd9ddca03b63b32a2a4d9f99",
-              "meshes": 1,
-              "headVertices": [
-                2597
-              ],
-              "quality": "low",
-              "sheets": [
-                {
-                  "name": "mythic-4-source-head.webp",
-                  "sha256": "08ba9b2d8e830d17e60fff35329cf01af153afb9a830e7f454763a462ac52f39"
-                },
-                {
-                  "name": "mythic-4-source-body.webp",
-                  "sha256": "c65e099c9a297fa8155623a54aa9316e9ce3307ed6760ab170cbc22862693d44"
-                }
-              ]
-            },
-            {
-              "stage": "battle",
-              "sha256": "ea8c6f6ee569b347684b6911b3205e531e4933cc7c5977cea80ef122856bd919",
-              "meshes": 1,
-              "headVertices": [
-                1193
-              ],
-              "quality": "low",
-              "sheets": [
-                {
-                  "name": "mythic-4-battle-head.webp",
-                  "sha256": "249a95793ffaa08406cf68e994715c4a2d4d6e386e425f7b5c974a2261591ef7"
-                },
-                {
-                  "name": "mythic-4-battle-body.webp",
-                  "sha256": "76a1ac15119bedb50e4c7ebe634dcd75acfb1b2047ca3515e34df90defc77598"
-                }
-              ]
-            }
-          ],
-          "slicesActuallyInspected": 16
+          "slicesActuallyInspected": 16,
+          "states": 16
         },
         {
-          "label": "oni-v3-final-runtime-medium",
+          "label": "independent-mythic-004-anatomical-v1-final-runtime-medium",
+          "quality": "medium",
           "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
-          "rows": [
-            {
-              "name": "idle",
-              "duration": 1.2,
-              "frame": {
-                "motion": "idle"
-              }
-            },
-            {
-              "name": "run",
-              "duration": 0.8,
-              "frame": {
-                "motion": "run",
-                "moving": true,
-                "speed": 3
-              }
-            },
-            {
-              "name": "dash",
-              "duration": 0.6,
-              "frame": {
-                "motion": "dash",
-                "moving": true,
-                "speed": 5
-              }
-            },
-            {
-              "name": "windup",
-              "duration": 0.38,
-              "frame": {
-                "motion": "windup"
-              }
-            },
-            {
-              "name": "strike",
-              "duration": 0.26,
-              "frame": {
-                "motion": "strike",
-                "contactPose": true
-              }
-            },
-            {
-              "name": "recover",
-              "duration": 0.51,
-              "frame": {
-                "motion": "recover"
-              }
-            },
-            {
-              "name": "stagger",
-              "duration": 0.65,
-              "frame": {
-                "motion": "stagger",
-                "hit": 0.6,
-                "contactPose": true
-              }
-            },
-            {
-              "name": "dodge",
-              "duration": 0.65,
-              "frame": {
-                "motion": "dodge"
-              }
-            },
-            {
-              "name": "guard",
-              "duration": 0.8,
-              "frame": {
-                "motion": "guard"
-              }
-            },
-            {
-              "name": "rest",
-              "duration": 1.2,
-              "frame": {
-                "motion": "rest"
-              }
-            },
-            {
-              "name": "cast",
-              "duration": 0.9,
-              "frame": {
-                "motion": "idle",
-                "casting": true
-              }
-            },
-            {
-              "name": "entrance",
-              "duration": 1.1,
-              "frame": {
-                "motion": "idle"
-              }
-            },
-            {
-              "name": "victory",
-              "duration": 1.2,
-              "frame": {
-                "motion": "idle",
-                "victorious": true
-              }
-            },
-            {
-              "name": "dead",
-              "duration": 1.6,
-              "frame": {
-                "motion": "dead"
-              }
-            },
-            {
-              "name": "revive",
-              "duration": 0.8,
-              "frame": {
-                "motion": "idle"
-              }
-            },
-            {
-              "name": "attack-sequence",
-              "duration": 1.7,
-              "frame": {
-                "motion": "windup"
-              }
-            }
-          ],
-          "phases": [
-            0.025,
-            0.1,
-            0.25,
-            0.5,
-            0.75,
-            1
-          ],
-          "captures": [
-            {
-              "stage": "source",
-              "sha256": "719271c3ca743572b9ab79e818a6a486928919dbfd9ddca03b63b32a2a4d9f99",
-              "meshes": 1,
-              "headVertices": [
-                2597
-              ],
-              "quality": "medium",
-              "sheets": [
-                {
-                  "name": "mythic-4-source-head.webp",
-                  "sha256": "a6b9b5d14c1298d8f64f2b6ce60a2f3abd32960821d21b9b6786cf0dcb83c589"
-                },
-                {
-                  "name": "mythic-4-source-body.webp",
-                  "sha256": "3aa16cbbaf7bf3a3101477a509e5394a4d3cc32562e17b9b749c8e94d3c49425"
-                }
-              ]
-            },
-            {
-              "stage": "battle",
-              "sha256": "ea8c6f6ee569b347684b6911b3205e531e4933cc7c5977cea80ef122856bd919",
-              "meshes": 1,
-              "headVertices": [
-                1193
-              ],
-              "quality": "medium",
-              "sheets": [
-                {
-                  "name": "mythic-4-battle-head.webp",
-                  "sha256": "62d3ec7e3cc00583623d6eceee76fbdbdaad77d0957db020802ca7c5036a7289"
-                },
-                {
-                  "name": "mythic-4-battle-body.webp",
-                  "sha256": "55053ba6193ac9d27b6f7fd3c1f6863316c1914bb9119d3c3f249aec816dd13d"
-                }
-              ]
-            }
-          ],
-          "slicesActuallyInspected": 16
+          "slicesActuallyInspected": 16,
+          "states": 16
         }
       ],
-      "companion": [
-        {
-          "label": "oni-v3-final-all-techniques",
-          "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
-          "models": [
-            {
-              "url": "/pet-models/warfront-lod/roster/mythic-4.glb?v=20260902-battle-lod-v1-719271c3ca74-ea8c6f6ee569",
-              "sha256": "ea8c6f6ee569b347684b6911b3205e531e4933cc7c5977cea80ef122856bd919"
-            }
-          ],
-          "moves": [
-            "earth-strike",
-            "earth-pulse",
-            "earth-breaker",
-            "lightning-pulse",
-            "open-wound",
-            "expose",
-            "rally",
-            "protect",
-            "mythic-4-signature"
-          ],
-          "views": [
-            "front",
-            "side"
-          ],
-          "framesActuallyInspected": 216,
-          "sheetsActuallyInspected": 36
-        },
-        {
-          "label": "oni-v3-final-open-wound-angles",
-          "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
-          "models": [
-            {
-              "url": "/pet-models/warfront-lod/roster/mythic-4.glb?v=20260902-battle-lod-v1-719271c3ca74-ea8c6f6ee569",
-              "sha256": "ea8c6f6ee569b347684b6911b3205e531e4933cc7c5977cea80ef122856bd919"
-            }
-          ],
-          "moves": [
-            "open-wound"
-          ],
-          "views": [
-            "opposite",
-            "quarter"
-          ],
-          "framesActuallyInspected": 24,
-          "sheetsActuallyInspected": 4
-        }
-      ],
-      "numeric": [
-        {
-          "evidence": "docs/screenshots/oni-coordinated-actions-2026-10-17/mythic-4-coordinated-actions-v3-motion-audit.json",
-          "summary": {
-            "geometryCoverage": "all vertices, triangle edges above numerical degeneracy tolerance, and connected UV seam copies",
-            "attemptedModels": 1,
-            "auditedModels": 1,
-            "distinctRuntimeAssets": 1,
-            "failedModels": 0,
-            "deformationWarnings": 0,
-            "petsWithDeformationWarnings": 0,
-            "auditedPoses": 483,
-            "showcaseAuthored": 0,
-            "identityAuthored": 1,
-            "identityDirected": 1,
-            "uniquePerformanceFingerprints": 1,
-            "rigs": [
-              "quadruped"
-            ],
-            "families": [
-              "pack-hunter"
-            ]
-          }
-        },
-        {
-          "evidence": "docs/screenshots/oni-coordinated-actions-2026-10-17/mythic-4-coordinated-actions-v3-battle-motion-audit.json",
-          "summary": {
-            "geometryCoverage": "all vertices, triangle edges above numerical degeneracy tolerance, and connected UV seam copies",
-            "attemptedModels": 1,
-            "auditedModels": 1,
-            "distinctRuntimeAssets": 1,
-            "failedModels": 0,
-            "deformationWarnings": 0,
-            "petsWithDeformationWarnings": 0,
-            "auditedPoses": 483,
-            "showcaseAuthored": 0,
-            "identityAuthored": 1,
-            "identityDirected": 1,
-            "uniquePerformanceFingerprints": 1,
-            "rigs": [
-              "quadruped"
-            ],
-            "families": [
-              "pack-hunter"
-            ]
-          }
-        },
-        {
-          "evidence": "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-coordinated-v3-source.json",
-          "summary": {
-            "pets": 1,
-            "failures": 0,
-            "poses": 1293
-          }
-        },
-        {
-          "evidence": "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-coordinated-v3-battle.json",
-          "summary": {
-            "pets": 1,
-            "failures": 0,
-            "poses": 1293
-          }
-        }
-      ],
-      "observations": "The original live technique swung the upper legs independently and folded the forelegs under an upright body. Attack, cast and recoil now solve upper leg, knee and paw together. The complete source and rebuilt battle assets were visually inspected across all 13 clips. All 16 production transition sequences were inspected at low and medium quality. All nine inspector technique choices were inspected front and side; Open Wound was also inspected from the opposite side and three-quarter view. No disconnected legs, folded-under forelegs, muzzle/cheek collapse or floor-clipping support paws were seen. The first full-source candidate inspection covered another 36 sheets and 216 frames before this separate final battle-model pass. This certifies Oni only; the renewed independent full-roster audit remains unfinished.",
+      "companionIdleFramesReviewed": 24,
+      "equippedTechniqueFramesReviewed": 216,
+      "independentVisibleFootSurfacesReviewed": true,
       "evidence": [
-        "docs/audits/oni-coordinated-actions-review-2026-10-17.json",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-source-head-mythic-4-head-front.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-source-head-mythic-4-head-side.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-source-body-mythic-4-front.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-source-body-mythic-4-side.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-battle-head-mythic-4-head-front.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-battle-head-mythic-4-head-side.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-battle-body-mythic-4-front.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-battle-body-mythic-4-side.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-runtime-low-mythic-4-source-head.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-runtime-low-mythic-4-source-body.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-runtime-low-mythic-4-battle-head.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-runtime-low-mythic-4-battle-body.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-runtime-medium-mythic-4-source-head.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-runtime-medium-mythic-4-source-body.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-runtime-medium-mythic-4-battle-head.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-runtime-medium-mythic-4-battle-body.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-strike-front-sheet-0.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-strike-front-sheet-1.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-strike-side-sheet-0.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-strike-side-sheet-1.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-pulse-front-sheet-0.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-pulse-front-sheet-1.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-pulse-side-sheet-0.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-pulse-side-sheet-1.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-breaker-front-sheet-0.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-breaker-front-sheet-1.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-breaker-side-sheet-0.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-breaker-side-sheet-1.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-lightning-pulse-front-sheet-0.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-lightning-pulse-front-sheet-1.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-lightning-pulse-side-sheet-0.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-lightning-pulse-side-sheet-1.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-open-wound-front-sheet-0.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-open-wound-front-sheet-1.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-open-wound-side-sheet-0.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-open-wound-side-sheet-1.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-expose-front-sheet-0.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-expose-front-sheet-1.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-expose-side-sheet-0.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-expose-side-sheet-1.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-rally-front-sheet-0.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-rally-front-sheet-1.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-rally-side-sheet-0.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-rally-side-sheet-1.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-protect-front-sheet-0.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-protect-front-sheet-1.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-protect-side-sheet-0.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-protect-side-sheet-1.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-mythic-4-signature-front-sheet-0.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-mythic-4-signature-front-sheet-1.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-mythic-4-signature-side-sheet-0.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-mythic-4-signature-side-sheet-1.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-open-wound-angles-mythic-4-open-wound-opposite-sheet-0.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-open-wound-angles-mythic-4-open-wound-opposite-sheet-1.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-open-wound-angles-mythic-4-open-wound-quarter-sheet-0.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-open-wound-angles-mythic-4-open-wound-quarter-sheet-1.webp",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/mythic-4-coordinated-actions-v3-motion-audit.json",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/mythic-4-coordinated-actions-v3-battle-motion-audit.json",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-coordinated-v3-source.json",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-coordinated-v3-battle.json"
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/source-head-manifest.json",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/source-head-mythic-4-head-front.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/source-head-mythic-4-head-side.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/source-body-manifest.json",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/source-body-mythic-4-front.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/source-body-mythic-4-side.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/battle-head-manifest.json",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/battle-head-mythic-4-head-front.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/battle-head-mythic-4-head-side.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/battle-body-manifest.json",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/battle-body-mythic-4-front.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/battle-body-mythic-4-side.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/runtime-low-mythic-4-source-head.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/runtime-low-mythic-4-source-body.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/runtime-low-mythic-4-battle-head.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/runtime-low-mythic-4-battle-body.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/runtime-low-manifest.json",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/runtime-medium-mythic-4-source-head.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/runtime-medium-mythic-4-source-body.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/runtime-medium-mythic-4-battle-head.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/runtime-medium-mythic-4-battle-body.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/runtime-medium-manifest.json",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/companion-manifest.json",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/companion-idle-sheet-0.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/companion-idle-sheet-1.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/companion-idle-sheet-2.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/companion-idle-sheet-3.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/companion-idle-sheet-4.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/companion-idle-sheet-5.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-manifest.json",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-earth-strike-front-sheet-0.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-earth-strike-front-sheet-1.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-earth-strike-side-sheet-0.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-earth-strike-side-sheet-1.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-earth-pulse-front-sheet-0.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-earth-pulse-front-sheet-1.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-earth-pulse-side-sheet-0.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-earth-pulse-side-sheet-1.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-earth-breaker-front-sheet-0.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-earth-breaker-front-sheet-1.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-earth-breaker-side-sheet-0.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-earth-breaker-side-sheet-1.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-lightning-pulse-front-sheet-0.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-lightning-pulse-front-sheet-1.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-lightning-pulse-side-sheet-0.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-lightning-pulse-side-sheet-1.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-open-wound-front-sheet-0.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-open-wound-front-sheet-1.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-open-wound-side-sheet-0.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-open-wound-side-sheet-1.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-expose-front-sheet-0.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-expose-front-sheet-1.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-expose-side-sheet-0.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-expose-side-sheet-1.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-rally-front-sheet-0.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-rally-front-sheet-1.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-rally-side-sheet-0.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-rally-side-sheet-1.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-protect-front-sheet-0.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-protect-front-sheet-1.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-protect-side-sheet-0.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-protect-side-sheet-1.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-mythic-4-signature-front-sheet-0.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-mythic-4-signature-front-sheet-1.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-mythic-4-signature-side-sheet-0.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-mythic-4-signature-side-sheet-1.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/native-front-block-0-half-0.png",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/native-front-block-0-half-1.png",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/native-front-block-1-half-0.png",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/native-front-block-1-half-1.png",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/native-front-block-2-half-0.png",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/native-front-block-2-half-1.png",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/native-side-block-0-half-0.png",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/native-side-block-0-half-1.png",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/native-side-block-1-half-0.png",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/native-side-block-1-half-1.png",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/native-side-block-2-half-0.png",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/native-side-block-2-half-1.png",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/native-manifest.json",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/source-geometry.json",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/source-skull.json",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/battle-geometry.json",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/battle-skull.json",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/atlas.webp",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/visible-paw-coverage.png",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/frozen-visible-paws.json",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/original-visible-support.json",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/candidate-visible-support.json",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/conservation-and-faces.json",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/metadata-boundary-proof.json",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/recipe.json",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/rejected-v1-geometry.json",
+        "docs/audits/oni-anatomical-actions-review-2026-10-17.json",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-technique-manifest.json",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-manifest.json",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-front-block-0-half-0.png",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-front-block-0-half-1.png",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-front-block-1-half-0.png",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-front-block-1-half-1.png",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-front-block-2-half-0.png",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-front-block-2-half-1.png",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-side-block-0-half-0.png",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-side-block-0-half-1.png",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-side-block-1-half-0.png",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-side-block-1-half-1.png",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-side-block-2-half-0.png",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-side-block-2-half-1.png",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-tests.log",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-build.log"
       ],
       "evidenceSha256": {
-        "docs/audits/oni-coordinated-actions-review-2026-10-17.json": "771ab34f0d606ee73ca6bd95af49a2780999a1d19fe1c22cbe2b4381ba4029df",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-source-head-mythic-4-head-front.webp": "dbb477d7d007a46ad5c4c7c25cb1e55d5b49976a3e92138a7a58e94c532b9dda",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-source-head-mythic-4-head-side.webp": "04fdbd47482e4f184ce6d00f542977859805ad424c25eb27bff480d3657844eb",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-source-body-mythic-4-front.webp": "f42b1b14f0cb03064769a96f394fb4abea61882615abfc03e0bdbb8888d37626",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-source-body-mythic-4-side.webp": "11625488b9785a57ba0b1f38415163a87ab1e189bc7e03f4b5f545efbb369a05",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-battle-head-mythic-4-head-front.webp": "f511d7691b6d641d367fa6fbd32f401ef6bbbe59d523096b042b899c85519934",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-battle-head-mythic-4-head-side.webp": "71037c56dfdf1c712a905dfde4a5a86e42e60708991256fd1edd86710adaec66",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-battle-body-mythic-4-front.webp": "820c32488345849fe2d82c1168474f73d0685ba7c74cb4e48e0d502080f4ef68",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-battle-body-mythic-4-side.webp": "28177428f137928d638f540f326a1758b3c235f784c085cf2a39ab97f8fc959e",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-runtime-low-mythic-4-source-head.webp": "08ba9b2d8e830d17e60fff35329cf01af153afb9a830e7f454763a462ac52f39",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-runtime-low-mythic-4-source-body.webp": "c65e099c9a297fa8155623a54aa9316e9ce3307ed6760ab170cbc22862693d44",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-runtime-low-mythic-4-battle-head.webp": "249a95793ffaa08406cf68e994715c4a2d4d6e386e425f7b5c974a2261591ef7",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-runtime-low-mythic-4-battle-body.webp": "76a1ac15119bedb50e4c7ebe634dcd75acfb1b2047ca3515e34df90defc77598",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-runtime-medium-mythic-4-source-head.webp": "a6b9b5d14c1298d8f64f2b6ce60a2f3abd32960821d21b9b6786cf0dcb83c589",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-runtime-medium-mythic-4-source-body.webp": "3aa16cbbaf7bf3a3101477a509e5394a4d3cc32562e17b9b749c8e94d3c49425",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-runtime-medium-mythic-4-battle-head.webp": "62d3ec7e3cc00583623d6eceee76fbdbdaad77d0957db020802ca7c5036a7289",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-runtime-medium-mythic-4-battle-body.webp": "55053ba6193ac9d27b6f7fd3c1f6863316c1914bb9119d3c3f249aec816dd13d",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-strike-front-sheet-0.webp": "e3f364f81211b527f731dd6a94c3240cde03e34ca71aa8a96188b0956aa46e1c",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-strike-front-sheet-1.webp": "011301ed1b58af24712b9418b06260f0d706a480819fbe53ca2a4b6a29d5be05",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-strike-side-sheet-0.webp": "58a4c7c0a197137a887512b06fbec7f5b5633808313d69c8d80104298806a5c7",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-strike-side-sheet-1.webp": "a80c0e9b403bbf1d4606b191897a5a96b941efa1201b5786f63a49ce390495ed",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-pulse-front-sheet-0.webp": "78c7db25d65ecc5b918981baadd7dcb766032ce4e358071f90feb1b02d5a891f",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-pulse-front-sheet-1.webp": "ed39cab7c1dbc918f8931d7c83d4e0e9c65c853c86e13652cb0f6a73b0ae593b",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-pulse-side-sheet-0.webp": "6616922b7509f67249aeefe4b1b97e1a00dda3f62213edad9d9277d07b58914f",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-pulse-side-sheet-1.webp": "5923f0c33dcf1c2801cc5d2a8de8899c1e12dbd3dd56d6214fc148a38ef4956a",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-breaker-front-sheet-0.webp": "e35136756b83db76ebfdc89aa08aa2f32c37f4c40f2cac5e626c57bfd69b0fe6",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-breaker-front-sheet-1.webp": "05b1b4d11d34fb92356f27cfe5fbaf7262fec9f87a6d7b63e2501d5cb31f0318",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-breaker-side-sheet-0.webp": "efa6f1082257f1208f0a2ad40623eac3177f7cbd0874b44d986c1b0f73ab7cd2",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-earth-breaker-side-sheet-1.webp": "2554b3c07252fec5680e73b7e96f73d97b12d5cbbbd038917b65a4b242b9f357",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-lightning-pulse-front-sheet-0.webp": "aa38f0cff718fb9f7db32251dbecc6960f844d68e17002f3d65389ef644cc9d3",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-lightning-pulse-front-sheet-1.webp": "811ee877bd33ad15ab65baca5a7bc6edcaf69e5a37d4a88117f68a092fcbe813",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-lightning-pulse-side-sheet-0.webp": "fee1c2fea352a11eb05c6ac349e267d0b3fa01bb54dafde3ec8d5fc6bb02ec54",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-lightning-pulse-side-sheet-1.webp": "05fe0de35f72adb24cf22efd5409e9809c450ad281d8cfdc4dbe48ed6746ba3b",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-open-wound-front-sheet-0.webp": "eadf65539427866de9b6f06bcac3bccfaed491d3c5fe41af866ebbcc708544e1",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-open-wound-front-sheet-1.webp": "cf2e35568cd0c41140acea12d4c3f9d3841602281ea4f0c2dd3df6031647ee87",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-open-wound-side-sheet-0.webp": "82fd4d138a1441a79467257648a62896b824b19288989fcfe7a193a3af1ae80f",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-open-wound-side-sheet-1.webp": "8e7618f9679da498018022859546ea4c0319b77c032fcb185ad4627bbdbbc652",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-expose-front-sheet-0.webp": "ad1765d33ac078235326d99f439c75959f7e27e6bb4fd939ac44f966488e5299",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-expose-front-sheet-1.webp": "99e7eb343f7992255ea4d7c68b52789734afb136c301ae4a21764ea92025b675",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-expose-side-sheet-0.webp": "9a29eb2c1d3ab7487e26f0437ccad870e95d122d40275a6aec93026debc5ec48",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-expose-side-sheet-1.webp": "2886d865da8005f60ded074f4823294d63e880c8cf8a88cf456d19bbb7b4ad43",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-rally-front-sheet-0.webp": "de23790a7d512c9a7992fe69359b8d694885199883ef0005e328f341e05e7e4a",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-rally-front-sheet-1.webp": "40efa4a78ea914d215db9fa06203fb31792067b4adc8643f8ba74d845938813a",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-rally-side-sheet-0.webp": "245d0ae5d5df5ac1b3efc23c383881c509405f8955a796478fd2bf59df074d5c",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-rally-side-sheet-1.webp": "0640906fbd9450e9b7c932255e023e2824401c8cbf50064b8b423d86e02dc179",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-protect-front-sheet-0.webp": "e37fc5adcecf6fbacf7fccbeaa6b48ef306ad3a90336630b07d1b0a250f48afb",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-protect-front-sheet-1.webp": "31c9c03b411c0d50a0ebe21c96942ec24461e1765ab38d4162bee9faf4c59958",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-protect-side-sheet-0.webp": "112339efc22f6379ee742d5bb3f4e7bbe4c3075e9951e06b8b8b0bda9f0234b3",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-protect-side-sheet-1.webp": "eb963e6f1f99f3a10f7962e4c2d33e97b85425ba561143783c394f4ffdfb155d",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-mythic-4-signature-front-sheet-0.webp": "0801f2357d4a75671505f0d4c817d45b265e7192cbc55cc1fc13975d580760b8",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-mythic-4-signature-front-sheet-1.webp": "682bf2ed5b68cf95d9989f5463f9f61c010936c73d1f026b64c70018d318aea6",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-mythic-4-signature-side-sheet-0.webp": "a8ab9db7f66cde8e5f07f767a6e492a60ed7acc99e3a0def8741b0572ff301c7",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-all-techniques-mythic-4-mythic-4-signature-side-sheet-1.webp": "189ecd804cb471ab1f74fb1a6d40f912dd5395a56746ab458c570406f864da01",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-open-wound-angles-mythic-4-open-wound-opposite-sheet-0.webp": "2589847230d022c460b32192d71625a400073134e6e053b60d4501c7caca8cf5",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-open-wound-angles-mythic-4-open-wound-opposite-sheet-1.webp": "70ecd09f3c0510d68a458b33a5c5b8140fe590cb8286293541a20e67a07994cb",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-open-wound-angles-mythic-4-open-wound-quarter-sheet-0.webp": "0d4c4afa7c29f1d00e706cb74fc9a122ab10a5868a534f7f4b3d5e3ec3a1849a",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-v3-final-open-wound-angles-mythic-4-open-wound-quarter-sheet-1.webp": "fc22953b3ca72ac1797a725d8c4282e148306d99c7c60a911b8e59b348814add",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/mythic-4-coordinated-actions-v3-motion-audit.json": "37ce325d5f1471dc0dcb025a9c0accbda6e6afd4a8c492bffc7df326933ccada",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/mythic-4-coordinated-actions-v3-battle-motion-audit.json": "e941bef95b8913d4c160e367f5802d27293ca88d3d0519bbc9f3462dc0b549fd",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-coordinated-v3-source.json": "fe525dbd766c24e05876e3a0be1989a2b251f5906a9a2330cc32fd203d49962c",
-        "docs/screenshots/oni-coordinated-actions-2026-10-17/oni-coordinated-v3-battle.json": "8de6ffc27d5e6bced42482c244ffbf3cc947af0275c6c111924be7837a2b00ca"
-      }
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/source-head-manifest.json": "8e583ea20d6d2f90b4a966bf6bc6eabcb42ca363cc36e8f3a01dd13cb16e3205",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/source-head-mythic-4-head-front.webp": "8834bc1fa88d82bc708a08e1081a5fa661df64a4f7cd117f7a0320a7b4544d91",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/source-head-mythic-4-head-side.webp": "9fc3341dfdea73844af3fbe0efc2b5e8331214cdcdae4bf4795d3710525b868b",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/source-body-manifest.json": "604d0892ea2bd50ad72188890824cc43396491e403e22895850a15345314a1db",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/source-body-mythic-4-front.webp": "e2296610ae194e72aa18b5076598d30b6eeb801e95e023b469840b3ef7445cd7",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/source-body-mythic-4-side.webp": "6df2d1ac9b0d54763f34929fe0c88fac2f7b72d3c61777e85b917e7546e98fcd",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/battle-head-manifest.json": "7300fd794654e096f9d95c81e1fa1393ab498e3c79fa023dd538a73a5d2b6f77",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/battle-head-mythic-4-head-front.webp": "e38837f03a06ae2b6762ac2da9f8c7bb0bcac1ec344c8138808be87a619e0a27",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/battle-head-mythic-4-head-side.webp": "a8a227ac0f1e6dd31232b6e56bc048c62afaf8d47d882506c881d8800fa114d8",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/battle-body-manifest.json": "b5d5edf94bf26c1d2f529d2826f141e29e2343edd0a70d16457f8e6a99fda4e9",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/battle-body-mythic-4-front.webp": "0a3ea2b9fdc344d46d21101a5e5208449abe5c555e07d7d1b62546d66baa2355",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/battle-body-mythic-4-side.webp": "5ea46361a3586da723e72f9a31c012fc95910652128703af50f6dc4d8550feba",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/runtime-low-mythic-4-source-head.webp": "6fb748fcd1a3ac27be1acdb61a3624f973d075807e1a0c25e853424f29d433ad",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/runtime-low-mythic-4-source-body.webp": "05a2b4e1bc7ece64bc9f5fb1a96f20184b3b436d2578e6683460fff648594b02",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/runtime-low-mythic-4-battle-head.webp": "036eb1fa8a4095eb6a87f517978087ffa54dffedce367700191eb2419f9bfc83",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/runtime-low-mythic-4-battle-body.webp": "d72d75e506343c8abfd0209d091948b088feae3bf3bbcc8ebc3947f454fbe4c7",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/runtime-low-manifest.json": "87a5c83d31c3b7136bc3d3e8d4a50024c248bd03d5206e8ff0a205fa248010fa",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/runtime-medium-mythic-4-source-head.webp": "ee2b564297fa333f8e89b8df93372698f034f09ca9d521a740245e5aec2a7f8c",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/runtime-medium-mythic-4-source-body.webp": "425eb4d2617597fc1e5257d47bf7df3876287ae4a678dc420baa7935838df269",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/runtime-medium-mythic-4-battle-head.webp": "e75acc973a4c989e06c36e79aa4b33eefde177591a6e29c7161d3141cc71afe6",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/runtime-medium-mythic-4-battle-body.webp": "01621b1729c222bdacf785bf8d5cbce74de49a9663222c8332ef0638c9a7881e",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/runtime-medium-manifest.json": "5fa5402fe7bc20cc08c12770d239229825b7a4c5fdb4dcd77b0c27792730fc3e",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/companion-manifest.json": "7d00fe30b5a827794bf619500d26c0070de0df683e4b108a9b8cf534d1eab9c7",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/companion-idle-sheet-0.webp": "8fe4b40a38db6e25ddc471f69dee854a4eda08e8ce318b4def837993e71c4ea7",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/companion-idle-sheet-1.webp": "bbbd690da92c1fd57f6df06dc04e149f1288a4c5794f2f1f7e5e0447f3a3cb1c",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/companion-idle-sheet-2.webp": "f730a6423f23d24aa07eb5733406968c5c69f3fe1b65eef685711dd2dd76d18e",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/companion-idle-sheet-3.webp": "2e2edd23b96ddc341403342777ab0860f9d5e93aa1e3ce935af465f0d499be84",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/companion-idle-sheet-4.webp": "699c96eb175439ba6cb5856fc1aaa030a7ba2c70e052a4eae4ec3d6f05333dd5",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/companion-idle-sheet-5.webp": "dfb8dc4636c17879e968394d6b8b6d468b75fc8477c56847376070707c63b1d0",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-manifest.json": "862865483e4924035148c02f5a361fa26957a6cc8698063898e46d4fef631712",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-earth-strike-front-sheet-0.webp": "c5f857f2d57bfac2402a5edf5c7388b741d7dddbe2f21364f791c1afec2981f3",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-earth-strike-front-sheet-1.webp": "cd04f259bf896f5b5737aaa16d78be18c5d461b133b1e1f2866c2b84fe328114",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-earth-strike-side-sheet-0.webp": "c2e066b5a2e10a3b3052c391a8ac412ccde10a933a3bfa4774b691b596b30553",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-earth-strike-side-sheet-1.webp": "835616c9da4782a1121bb7a3f8eb50c4c1902fb99b72945c090179e30e5d3db7",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-earth-pulse-front-sheet-0.webp": "d31a2ec842e4d54dd71e841d9512c40d0d76177c023bdf68a3d4629193c97be8",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-earth-pulse-front-sheet-1.webp": "e59cb4ddab2cc59886497e9dd3962b31ba856004fd3c44ed32c4e42e22af1dc2",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-earth-pulse-side-sheet-0.webp": "491022f80c9805fae0084417b5b5d94f073f8e0ba03f738d2c885b31110be8ff",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-earth-pulse-side-sheet-1.webp": "05aae883a5990820b25a0712b9e446382489779ad79432f1f0de3d54435b5a70",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-earth-breaker-front-sheet-0.webp": "2a979c35a9b29562e0e1a1e7a0d72230628ddc123bbc9ebf98a27d540a4ddd0d",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-earth-breaker-front-sheet-1.webp": "b945141adb696e7743638b9b35ac1239692b16ac5f7193667564742d1343ab46",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-earth-breaker-side-sheet-0.webp": "05a9bd1bbd5cc11f939f84846ab72b43f45ae930b9e928e4047c3dc0f037b67b",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-earth-breaker-side-sheet-1.webp": "c1ac64098cde99c494deccfb68153a61cacb2f33bb09d7b592033498a84549b0",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-lightning-pulse-front-sheet-0.webp": "ae10d384f524f9519f4c6bb4de65dd82fdd01bd65f6004e8c17267af1241e762",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-lightning-pulse-front-sheet-1.webp": "f836e22965b38c896e916f8b79e47db610dd164bfc90c414eb3c1ab6ac4ed8ee",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-lightning-pulse-side-sheet-0.webp": "4cc60cd7a46d11bd239fc6f662d4134097a117ac1c2d15fe41e001d20098271f",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-lightning-pulse-side-sheet-1.webp": "b3f64236297e969eaa6c7220f20a30d2cf1d491b8f61fa3b0c03f109cfcfe537",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-open-wound-front-sheet-0.webp": "95335f3f4b42af898457871640271cea1bf7a3bf4ad4846c89014a39309068b1",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-open-wound-front-sheet-1.webp": "2c3e7a202c4c926234935dfa734ab4209b4b1ec244363c1f5309883224184a9d",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-open-wound-side-sheet-0.webp": "4524a2d0561559cb122cfb9b12a483bc9bab081f76d62424c9d5f28177f21337",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-open-wound-side-sheet-1.webp": "b99aaff99a1ccd1b6fd5a2115a656129f45d1954bc68d1aad311eac3bafd36ee",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-expose-front-sheet-0.webp": "dfb4e3abc35f760ba7cd2367b54086e76983433df4f76bd560425836fae3f0d7",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-expose-front-sheet-1.webp": "e6100d24b46b9bf2813601efeacf2f2e10e84aa473c88525b78df0259730a22d",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-expose-side-sheet-0.webp": "6c3988de3fc4eb470247e7139dbf7e6546f6748aa173b2a58197f12d8f7b402a",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-expose-side-sheet-1.webp": "4278b367a9119a1d809d2b7b3289af115d10fbea607fb0291a1aa3b50e847152",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-rally-front-sheet-0.webp": "db85e09138536276f3bb6d68e36833c24708cb25b8390ad4e9bf736a45c50bd7",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-rally-front-sheet-1.webp": "395d9bc2586759ef97c51cf2f15d24be0d302511a0ccec0a7ff1f5513186c7a4",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-rally-side-sheet-0.webp": "0fc46330607997f0d145cce14eb4c5e3cede52805b8758959e776e49d7fc5a07",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-rally-side-sheet-1.webp": "64fa541651eacf14c7c47dde9b3683df204a30b6e64eb9da92f7b06500c47875",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-protect-front-sheet-0.webp": "9fd30786d9bd4e95a224fc7943e4c16eeba97335ae5446643f4ae864af55ecad",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-protect-front-sheet-1.webp": "2c0f50c9ddf749f465fcf29e5137a424696076f190bad02badb06888ded0b593",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-protect-side-sheet-0.webp": "b55d369ed46225c09a7ed79de1a103853c36d321433c09ff5b05436704ee3d4c",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-protect-side-sheet-1.webp": "0896a28a048f381c82f859ce01b3cd33cc91fc84ef7e3d740604da02a94b9df0",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-mythic-4-signature-front-sheet-0.webp": "e9827be1cdb196ca09ee80b31f33cf7a7d81d3a3ce4223b63e72c404af22f7ca",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-mythic-4-signature-front-sheet-1.webp": "448c696e05eff251698e1c58bc15962fa2fa706e97624fd9d4f4590800d86b8d",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-mythic-4-signature-side-sheet-0.webp": "d6f9c453fdb6df56c4238240066aef7d5f05a92c92bc5f7570568edf84a23fa2",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/technique-mythic-4-mythic-4-signature-side-sheet-1.webp": "e1825aba4aac1db2ba7cbc52206c2b9f62ea1b538f100013736be43cd2028857",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/native-front-block-0-half-0.png": "a8c8571da87e0902e4b50eb4fdcea4b273488c73c38207111be58a161816a6e8",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/native-front-block-0-half-1.png": "29dbabf44f0a311c260dd7428ef60b2da3d0d0d1968908fe48afc34ece2c5a94",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/native-front-block-1-half-0.png": "8e21a2ea29fa9d0db1c776d8f0582f514b78c38b9701028fed6c2179750d32e4",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/native-front-block-1-half-1.png": "1b1352c2d9e6c76d22024560264cf0bfa8dbdaceb1710330c331f53c361e1261",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/native-front-block-2-half-0.png": "af63c32250f0a62feab423f23e4509221705e619e0179ef191b2ee42c473f0aa",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/native-front-block-2-half-1.png": "c7abdf482838ade7b7d7a7822f31096dd93d1df133fb0a653baad705fda0b4c0",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/native-side-block-0-half-0.png": "797ab97d19dd24dcc6fc2402dac5832029e86c9092b6fa62c6b2321fb4488d88",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/native-side-block-0-half-1.png": "ad6ec90c84e12362df318ce2bcc7493424c3328586655079652e44059385976e",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/native-side-block-1-half-0.png": "2b292650c574203f7f51e7ac1882dcb48a6bc18b5c20e6dc8bee2fb2cc123226",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/native-side-block-1-half-1.png": "a8af6b5c790f996d05ed17890b13e9f6348da5997b9996a967ec4332ea460e38",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/native-side-block-2-half-0.png": "dfee31e6ba307a5eeeb6f2f47c7c7be853f45cb05ab6901673971f8afe9f4a34",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/native-side-block-2-half-1.png": "45a6cec8809e0c65313e4d4f683c35f8f8f46d5cc7673b5341eb725799827513",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/native-manifest.json": "628b9dfe6a7357bcdda976140a9c4e6a7c3194821d3b784e7e041ef32df16809",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/source-geometry.json": "5079870b6f4b8a5df6b3f73c7f01d6aec8457448be75af64641be36b15e68e25",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/source-skull.json": "a3b30f82b8af91db34c2f5c392923ded96a05da045101dc6a670d3917b959a5c",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/battle-geometry.json": "1e4c550071878117aec20f925fcf8ee151c7ead03b377d711912e4f984a5fa3b",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/battle-skull.json": "3524dcd62f46528fb459d244f71388d624b96722f028ba14fef6bba3e59a4c56",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/atlas.webp": "f49f702993688aebfe3ef3ec0ea68665174c05856696ab056642fcdbd98d821e",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/visible-paw-coverage.png": "6b7cb9e822d043cd3715f9b6cce6ee3e10332d58e62fb67531ac969557eba69d",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/frozen-visible-paws.json": "d25ab6ecbe0eaf80849d2378dbebb69d03139c6f4e16937449343dc5a7e49f10",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/original-visible-support.json": "46e6e23682edc99cd364299f36ff4b5279ea38c33cd3b090e4e6d6308f3a69d6",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/candidate-visible-support.json": "12c73b8e2f399c6a393019b755db189559e019cb97af4b529eaad7ff754b7f4e",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/conservation-and-faces.json": "744c45f355cd2afdd7b3504fcac2dd83db39b2717e13dcdbc5639a6b48f4d968",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/metadata-boundary-proof.json": "629f59a4326860e761b2d8b3bfcf40f4219afd41071d900e8a3f4e1f48855416",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/recipe.json": "36ff8520d35837b6db28e4126c87c97df727a70260a1d98ad585415af77f974d",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/rejected-v1-geometry.json": "42c1f4672ae7a4c57363afb41f23c5eb308ac12fd7597b64b23b64433d0f7894",
+        "docs/audits/oni-anatomical-actions-review-2026-10-17.json": "e124de76ecb9b0cc4584c51f62bc33380221cf2c3093e33ca9562fff895cdeeb",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-technique-manifest.json": "dd5f61ac3bd3c8b495ef3fc16bc6a56f0b5ac1df46370c249db95fc5a70cbe5e",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-manifest.json": "03e4e745917b49f3f95f2bc950cabeb45cf3db442e5a621d6f3b75e34340d036",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-front-block-0-half-0.png": "568af6e670d84400f718936b70ab269606e53378f45171b27499890e01545a87",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-front-block-0-half-1.png": "95cf29995e97b19fd6ebdb5879416c4c54f63d759f930bb0427569963f39ea7b",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-front-block-1-half-0.png": "0c4840c10a146a7ef07ceebdc4543afa256d8586e839d8497fcc148967ec9548",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-front-block-1-half-1.png": "c5abad53c9ddfbf205fb4d963e563de8356d9c00618ec67929fd45ce052562d7",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-front-block-2-half-0.png": "4595fb06ec457873321c30729be85687fb743ddb86158007e4e368e7a41933ce",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-front-block-2-half-1.png": "8d60844478ae51c023774f3f9b4eb0b5f079fd20d56ac1a135c55db72f47b661",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-side-block-0-half-0.png": "25a09b6f109d1230f99d86ff3b3d7ff3c528b7dad2bbdbad5aff78d3a68edaf5",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-side-block-0-half-1.png": "7a92658cd81023a49dba55c17835af42e54f4fb9ef86aab2f5c3191a00aa5e16",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-side-block-1-half-0.png": "d03c17b09cf8db40ded6287741a6bc4122b763b12ef30f2d05f37623158f5c3f",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-side-block-1-half-1.png": "86ccf53240411c6b44e7b2d28fabcab85cc82545c4e8c982e3cb60003f9d84f0",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-side-block-2-half-0.png": "ad82c540531b92eae4141f75ae2c61eca62f5620a193699f9f98cc4e9d8c0bfd",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-native-side-block-2-half-1.png": "2c249944e27ba7b3c0077d65c212705ca518295f3c97338cf9d9e407582bdbcf",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-tests.log": "06f957e73dffa5fd0a436ae01ce32efacb54265cba44ae46a3519658fc750494",
+        "docs/screenshots/oni-anatomical-actions-2026-10-17/current-main-build.log": "0272895ce2929962e1031439185348b7f6daafdddb8fb30822ad3b6e8bba0073"
+      },
+      "findings": [
+        "Additional independent visible-foot review invalidated the prior joint-only assurance: full front sole sinks by up to 0.02533 and one toe patch inherits neck/head rotation. Fitted 12 new limb joints at the four actual mesh soles; original 21 bone frames/inverses and all original head, neck, tail and unrelated curves retained. Candidate v1 had seven gallop seam warnings, v2 corrects the three measured edges and passes 483 full-geometry poses. At 481 times per action visible support drift is below 0.000148, floor penetration below 0.000144, front-left strike lifts approximately 0.055 and its neck/head contribution is zero. All twelve candidate raw face/body slices and all 216 native actual equipped-technique frames actually inspected and pass. This new candidate is not yet live; complete second pass required."
+      ],
+      "limits": "Two sampled raw visual passes of all thirteen clips; source and battle, six phases, front/side complete face/body. Thirty-two production-transition slices at low/medium; twenty-four advancing companion idle frames; all nine actual techniques at twelve native frames each in front/side. All 216 additionally replayed and actually inspected in the exact current-main companion component. Source/LOD/sculpt/texture/rest and visible sole regression checks pass. Live verification and whole-roster completion remain pending.",
+      "currentMainCompanionComponentSha256": "e5690cfdfae10df8660446f51fdabe60f60f4a631782d990e3fa93d58d189aa5",
+      "currentMainEquippedTechniqueFramesReviewed": 216
     }
   }
 }

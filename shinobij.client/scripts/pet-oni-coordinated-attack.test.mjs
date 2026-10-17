@@ -8,8 +8,8 @@ import {MeshoptDecoder} from 'meshoptimizer';
 import {createCharacterRig,readCharacterTake,sampleChannel} from './lib/pet-character-motion.mjs';
 const input=await readFile(new URL('./fixtures/pet-oni-coordinated-attack/mythic-4.glb',import.meta.url));
 const result=await repairOniCoordinatedAttack(input),before=parseStudioGlb(input),after=parseStudioGlb(result.bytes);
-test('delivered Oni source is exactly reproducible from the pinned face repair and action recipe',async()=>{
- assert.deepEqual(await readFile(new URL('../public/pet-models/roster/mythic-4.glb',import.meta.url)),result.bytes);
+test('Oni intermediate action repair is exactly reproducible from the pinned face repair',async()=>{
+ assert.deepEqual(await readFile(new URL('./fixtures/pet-oni-anatomical-limbs/mythic-4.glb',import.meta.url)),result.bytes);
 });
 // Compare every mesh stream, including UVs and unsigned 32-bit indices.
 async function readStudioAccessor(json,bin,index){
