@@ -2,6 +2,7 @@ import { expect, type APIRequestContext, type BrowserContext, type Page, type Te
 import { test } from './helpers/reconnecting-request';
 import { uniquePlayerName } from './helpers/player-names';
 import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
+import { installResumedSceneHandler } from './helpers/resumed-scenes';
 
 const PASSWORD = 'RankedJourney!1234';
 const ADMIN = 'live-express-e2e-admin';
@@ -54,16 +55,9 @@ async function openRanked(context: BrowserContext, account: Awaited<ReturnType<t
         localStorage.setItem('ranked-journey-installed', name);
     }, { ...account, patchVersion: LATEST_PATCH_NOTE?.version ?? '' });
     const page = await context.newPage();
+    await installResumedSceneHandler(page);
     await page.goto('/#/centralHub', { waitUntil: 'domcontentloaded' });
     const arenaEntry = page.getByRole('button', { name: /Arena District/ });
-    const skip = page.getByRole('dialog', { name: /visual novel scene/i }).getByRole('button', { name: 'Skip' });
-    await expect(skip.or(arenaEntry)).toBeVisible();
-    for (let attempt = 0; attempt < 6 && await skip.isVisible().catch(() => false); attempt++) {
-        await skip.click();
-    }
-    if (!(await arenaEntry.isVisible())) {
-        await page.goto('/#/centralHub', { waitUntil: 'domcontentloaded' });
-    }
     await expect(arenaEntry).toBeVisible();
     await arenaEntry.click();
     await expect(page.getByRole('heading', { name: 'Arena District' })).toBeVisible();
