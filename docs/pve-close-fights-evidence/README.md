@@ -59,4 +59,32 @@ node --import tsx scripts/pve-close-fights-benchmark.ts --baseline-root ../pve-c
 node --import tsx scripts/pve-close-fights-benchmark.ts --baseline-root ../pve-current-main --levels 100 --fixtures optimized,sustain,stress --difficulties final-kage --seeds 0,1,2,3 --named --output special.json
 ```
 
-Only reports marked `complete:true` with unchanged final source hashes establish final acceptance. Earlier local probes informed tuning but are not final certification. Validation results and review outcomes are recorded below after the final-source runs.
+Only reports marked `complete:true` with unchanged final source hashes establish final acceptance. Earlier local probes informed tuning but are not final certification.
+
+## Final matched results
+
+The five primary reports contain **880 before/after rows**. `summary.json` verifies every recorded source hash, completed encounter and fixture audit. Its **285 protected/weak pairs have no deterministic outcome, health, resource, damage or duration changes**. Seeds and individual outcomes remain in the JSON rather than only in aggregate counts.
+
+| Same prepared fixture and policy | Current-main before | After | After duration |
+| --- | --- | --- | --- |
+| Level100 versus94 standard, current-forge sustain12, seeds0–4 | 5/5 wins; median minimum92.3%HP | 5/5 wins; median minimum65.2%HP | 7–11 rounds |
+| Level100 versus94 standard, legacy33EP stress15, seeds0–4 | 5/5 wins; median minimum87.3%HP; all finish full | 5/5 wins; median minimum61.1%HP; minimum46.4–67.5%, finish67.4–78.4% | 7–11 rounds |
+| Same two near94 fixtures, repeated-attack policy without counters | 10/10 wins | 0/10 wins; all die | 6–9 rounds |
+| Stress15, ordinary weaker rolls, seeds0–4 | 5/5 wins; median minimum94.1%HP | Identical outcomes and telemetry | 3–7 rounds |
+| Stress15, ordinary standard rolls, seeds0–4 | 5/5 wins; median minimum86.1%HP | 5/5 wins; median minimum46.8%HP | 6–12 rounds |
+| Stress15, elite rolls, seeds0–4 | 5/5 wins; median minimum78.6%HP | 5/5 wins; median minimum31.5%HP | 7–13 rounds |
+| Same stress15, four final story Kage | 4/4 wins; median minimum74.4%HP | 4/4 wins; median minimum17.6%HP | 10–12 rounds |
+
+The twelve-slot sustain fixture also beats all five elites and all four final Kage; its minimum HP ranges are33.3–58.5% and5.1–39.6%, respectively. The catalog optimized control beats all elites but loses one Kage matchup. This demonstrates preparation and matchup sensitivity, not guaranteed victory. Final Kage keeps14,000HP and its exclusive apex chooser.
+
+Near94 stress15 has mean **5,292 reported event HP damage**,1,059 shield damage and2,971 reported applied healing after, compared with1,799/708/1,879 before. Mean final HP changes from100% to72.3%. These event measures are lower-bound telemetry, separate from net health loss: simultaneous healing, reflection/recoil, status ticks and same-event recovery prevent reconstructing gross incoming damage by simply adding healing to final HP loss. For seed0,5,167 event HP damage minus3,439 reported healing is1,728, while the authoritative net loss is2,706HP: the978HP reconciliation gap is not silently attributed to enemy direct damage or lifesteal. Minimum/final HP are authoritative state measurements. Do not describe shield loss as health pressure.
+
+Explicit named bruiser/defender/boss profiles also have winning routes with the same prepared kit. Stress15 wins all six tested named openings at10–12 rounds, with minimum4.0–15.0%HP. Their old armor/HP shell could instead produce15–26-round attrition. Shorter recoverable fights come from legal effective offense and counter windows, not extra HP. These constructor probes do not claim every identity/reward branch or a live account was played.
+
+The progression matrix intentionally retains narrower eight-slot fixtures at levels17/25/50/75. Its level75 `optimized` row is the same eight-slot kit as `narrow`, not a claim to test full available capacity. Limited trained/specialist builds can lose near-level standards; the prepared-capacity sensitivity is recorded separately. No claim is made that every legal build should defeat every encounter.
+
+## Review and validation
+
+Independent source review found and resolved two regressions during this change: an unscoped weapon candidate on real ANBU garrison copies, and a clan-boss mastery rollback omission. Challenge weapons now require a server builder seal; player hydration removes forged seals and garrison copies remain excluded. A matched real garrison replay established the local regression before the fix (three moves versus a1,120HP weapon hit), and focused tests cover the repaired path.
+
+The independent final review passed44 focused tests with no failures/skips. The implementation review passed55 scope/authority/weapon tests and the server build. The mercenary suite passed65 checks plus3 final builder/policy checks, including equality between the instrumented probe and the actual production headless resolver. Desktop/phone presentation Playwright passed6/6. Final CI is linked from the draft PR; it must be green on its final commit before merge is considered. No merge is authorized by this work.

@@ -1,0 +1,7305 @@
+{
+  "baselineSha": "a31087565df43d4b34f81f5b5bdb5acf5841b724",
+  "complete": true,
+  "sourceHashesVerified": true,
+  "reports": [
+    {
+      "name": "progression",
+      "rows": 640,
+      "sha256": "f3eb34bd479e78cbb5580493eff1ffd6de87f644f0e8694f938f98ab8656a6c4"
+    },
+    {
+      "name": "endgame",
+      "rows": 120,
+      "sha256": "ac9b7642cf2e261256c4177dfd8a2d8d24cf011d65bac88d89415febe33c1bd1"
+    },
+    {
+      "name": "near94",
+      "rows": 40,
+      "sha256": "7f12ad06c8c1910de875262da61cf964748a7c4ec5c35e0d29843709fdaf0ebf"
+    },
+    {
+      "name": "special",
+      "rows": 60,
+      "sha256": "047b1b67424f2e550e3b27ff168b15a803ad72f00893657a444b3abb4774885b"
+    },
+    {
+      "name": "rookie",
+      "rows": 20,
+      "sha256": "1de96f6e3975a22bc121381751e238666455db6a0aac06a561fc6f73669955cc"
+    }
+  ],
+  "totalRows": 880,
+  "protectedAndWeakMatchedControls": 285,
+  "changedControls": [],
+  "summary": [
+    {
+      "key": "progression:explore:trained:17:weaker:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 90.33,
+      "minHpPctRange": [
+        83.1,
+        100
+      ],
+      "meanFinalHpPct": 91.75,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 186,
+      "meanEnemyDirectHpDamage": 0,
+      "meanShieldDamage": 314.33,
+      "meanAppliedHealing": 12.67,
+      "meanEnemyAp": 88.89,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:trained:17:weaker:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 90.33,
+      "minHpPctRange": [
+        83.1,
+        100
+      ],
+      "meanFinalHpPct": 91.75,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 186,
+      "meanEnemyDirectHpDamage": 0,
+      "meanShieldDamage": 314.33,
+      "meanAppliedHealing": 12.67,
+      "meanEnemyAp": 88.89,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:trained:17:standard:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 81.52,
+      "minHpPctRange": [
+        62.29,
+        95.05
+      ],
+      "meanFinalHpPct": 79.62,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 428,
+      "meanEnemyDirectHpDamage": 218,
+      "meanShieldDamage": 388,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 91.11,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:trained:17:standard:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 81.52,
+      "minHpPctRange": [
+        62.29,
+        95.05
+      ],
+      "meanFinalHpPct": 79.62,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 428,
+      "meanEnemyDirectHpDamage": 218,
+      "meanShieldDamage": 388,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 91.11,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:trained:17:dangerous:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 92.57,
+      "minHpPctRange": [
+        62,
+        94.57
+      ],
+      "meanFinalHpPct": 83.05,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 356,
+      "meanEnemyDirectHpDamage": 226.33,
+      "meanShieldDamage": 389.33,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 91.11,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:trained:17:dangerous:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 92.57,
+      "minHpPctRange": [
+        62,
+        94.57
+      ],
+      "meanFinalHpPct": 83.05,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 356,
+      "meanEnemyDirectHpDamage": 226.33,
+      "meanShieldDamage": 389.33,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 91.11,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:trained:17:elite:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 92.57,
+      "minHpPctRange": [
+        62,
+        94.57
+      ],
+      "meanFinalHpPct": 83.05,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 356,
+      "meanEnemyDirectHpDamage": 226.33,
+      "meanShieldDamage": 389.33,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 91.11,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:trained:17:elite:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 92.57,
+      "minHpPctRange": [
+        62,
+        94.57
+      ],
+      "meanFinalHpPct": 83.05,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 356,
+      "meanEnemyDirectHpDamage": 226.33,
+      "meanShieldDamage": 389.33,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 91.11,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:trained:17:weaker:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 73.81,
+      "minHpPctRange": [
+        64.52,
+        83.1
+      ],
+      "meanFinalHpPct": 73.81,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 550,
+      "meanEnemyDirectHpDamage": 210,
+      "meanShieldDamage": 286,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 88.33,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:trained:17:weaker:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 73.81,
+      "minHpPctRange": [
+        64.52,
+        83.1
+      ],
+      "meanFinalHpPct": 73.81,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 550,
+      "meanEnemyDirectHpDamage": 210,
+      "meanShieldDamage": 286,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 88.33,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:trained:17:standard:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 71.9,
+      "minHpPctRange": [
+        62.29,
+        81.52
+      ],
+      "meanFinalHpPct": 71.9,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 590,
+      "meanEnemyDirectHpDamage": 275,
+      "meanShieldDamage": 365,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 91.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:trained:17:standard:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 71.9,
+      "minHpPctRange": [
+        62.29,
+        81.52
+      ],
+      "meanFinalHpPct": 71.9,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 590,
+      "meanEnemyDirectHpDamage": 275,
+      "meanShieldDamage": 365,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 91.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:trained:17:dangerous:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 77.29,
+      "minHpPctRange": [
+        62,
+        92.57
+      ],
+      "meanFinalHpPct": 77.29,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 477,
+      "meanEnemyDirectHpDamage": 282.5,
+      "meanShieldDamage": 367,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 91.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:trained:17:dangerous:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 77.29,
+      "minHpPctRange": [
+        62,
+        92.57
+      ],
+      "meanFinalHpPct": 77.29,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 477,
+      "meanEnemyDirectHpDamage": 282.5,
+      "meanShieldDamage": 367,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 91.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:trained:17:elite:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 77.29,
+      "minHpPctRange": [
+        62,
+        92.57
+      ],
+      "meanFinalHpPct": 77.29,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 477,
+      "meanEnemyDirectHpDamage": 282.5,
+      "meanShieldDamage": 367,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 91.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:trained:17:elite:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 77.29,
+      "minHpPctRange": [
+        62,
+        92.57
+      ],
+      "meanFinalHpPct": 77.29,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 477,
+      "meanEnemyDirectHpDamage": 282.5,
+      "meanShieldDamage": 367,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 91.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:specialist:17:weaker:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 90.33,
+      "minHpPctRange": [
+        83.1,
+        100
+      ],
+      "meanFinalHpPct": 91.75,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 186,
+      "meanEnemyDirectHpDamage": 0,
+      "meanShieldDamage": 314.33,
+      "meanAppliedHealing": 12.67,
+      "meanEnemyAp": 88.89,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:specialist:17:weaker:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 90.33,
+      "minHpPctRange": [
+        83.1,
+        100
+      ],
+      "meanFinalHpPct": 91.75,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 186,
+      "meanEnemyDirectHpDamage": 0,
+      "meanShieldDamage": 314.33,
+      "meanAppliedHealing": 12.67,
+      "meanEnemyAp": 88.89,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:specialist:17:standard:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 81.52,
+      "minHpPctRange": [
+        62.29,
+        95.05
+      ],
+      "meanFinalHpPct": 79.62,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 428,
+      "meanEnemyDirectHpDamage": 218,
+      "meanShieldDamage": 388,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 91.11,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:specialist:17:standard:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 81.52,
+      "minHpPctRange": [
+        62.29,
+        95.05
+      ],
+      "meanFinalHpPct": 79.62,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 428,
+      "meanEnemyDirectHpDamage": 218,
+      "meanShieldDamage": 388,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 91.11,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:specialist:17:dangerous:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 92.57,
+      "minHpPctRange": [
+        62,
+        94.57
+      ],
+      "meanFinalHpPct": 83.05,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 356,
+      "meanEnemyDirectHpDamage": 226.33,
+      "meanShieldDamage": 389.33,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 91.11,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:specialist:17:dangerous:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 92.57,
+      "minHpPctRange": [
+        62,
+        94.57
+      ],
+      "meanFinalHpPct": 83.05,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 356,
+      "meanEnemyDirectHpDamage": 226.33,
+      "meanShieldDamage": 389.33,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 91.11,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:specialist:17:elite:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 92.57,
+      "minHpPctRange": [
+        62,
+        94.57
+      ],
+      "meanFinalHpPct": 83.05,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 356,
+      "meanEnemyDirectHpDamage": 226.33,
+      "meanShieldDamage": 389.33,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 91.11,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:specialist:17:elite:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 92.57,
+      "minHpPctRange": [
+        62,
+        94.57
+      ],
+      "meanFinalHpPct": 83.05,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 356,
+      "meanEnemyDirectHpDamage": 226.33,
+      "meanShieldDamage": 389.33,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 91.11,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:specialist:17:weaker:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 73.81,
+      "minHpPctRange": [
+        64.52,
+        83.1
+      ],
+      "meanFinalHpPct": 73.81,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 550,
+      "meanEnemyDirectHpDamage": 210,
+      "meanShieldDamage": 286,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 88.33,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:specialist:17:weaker:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 73.81,
+      "minHpPctRange": [
+        64.52,
+        83.1
+      ],
+      "meanFinalHpPct": 73.81,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 550,
+      "meanEnemyDirectHpDamage": 210,
+      "meanShieldDamage": 286,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 88.33,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:specialist:17:standard:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 71.9,
+      "minHpPctRange": [
+        62.29,
+        81.52
+      ],
+      "meanFinalHpPct": 71.9,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 590,
+      "meanEnemyDirectHpDamage": 275,
+      "meanShieldDamage": 365,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 91.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:specialist:17:standard:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 71.9,
+      "minHpPctRange": [
+        62.29,
+        81.52
+      ],
+      "meanFinalHpPct": 71.9,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 590,
+      "meanEnemyDirectHpDamage": 275,
+      "meanShieldDamage": 365,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 91.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:specialist:17:dangerous:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 77.29,
+      "minHpPctRange": [
+        62,
+        92.57
+      ],
+      "meanFinalHpPct": 77.29,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 477,
+      "meanEnemyDirectHpDamage": 282.5,
+      "meanShieldDamage": 367,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 91.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:specialist:17:dangerous:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 77.29,
+      "minHpPctRange": [
+        62,
+        92.57
+      ],
+      "meanFinalHpPct": 77.29,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 477,
+      "meanEnemyDirectHpDamage": 282.5,
+      "meanShieldDamage": 367,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 91.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:specialist:17:elite:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 77.29,
+      "minHpPctRange": [
+        62,
+        92.57
+      ],
+      "meanFinalHpPct": 77.29,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 477,
+      "meanEnemyDirectHpDamage": 282.5,
+      "meanShieldDamage": 367,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 91.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:specialist:17:elite:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 77.29,
+      "minHpPctRange": [
+        62,
+        92.57
+      ],
+      "meanFinalHpPct": 77.29,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 477,
+      "meanEnemyDirectHpDamage": 282.5,
+      "meanShieldDamage": 367,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 91.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:optimized:17:weaker:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 84.86,
+      "minHpPctRange": [
+        66.95,
+        100
+      ],
+      "meanFinalHpPct": 83.94,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 337.33,
+      "meanEnemyDirectHpDamage": 110.67,
+      "meanShieldDamage": 316.33,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 88.89,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:optimized:17:weaker:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 84.86,
+      "minHpPctRange": [
+        66.95,
+        100
+      ],
+      "meanFinalHpPct": 83.94,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 337.33,
+      "meanEnemyDirectHpDamage": 110.67,
+      "meanShieldDamage": 316.33,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 88.89,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:optimized:17:standard:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 83.76,
+      "minHpPctRange": [
+        63.38,
+        94.38
+      ],
+      "meanFinalHpPct": 80.51,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 409.33,
+      "meanEnemyDirectHpDamage": 220,
+      "meanShieldDamage": 390.67,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 91.11,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:optimized:17:standard:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 83.76,
+      "minHpPctRange": [
+        63.38,
+        94.38
+      ],
+      "meanFinalHpPct": 80.51,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 409.33,
+      "meanEnemyDirectHpDamage": 220,
+      "meanShieldDamage": 390.67,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 91.11,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:optimized:17:dangerous:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 63.1,
+      "minHpPctRange": [
+        54.9,
+        93.9
+      ],
+      "meanFinalHpPct": 70.63,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 616.67,
+      "meanEnemyDirectHpDamage": 423.33,
+      "meanShieldDamage": 392,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 92.22,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:optimized:17:dangerous:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 63.1,
+      "minHpPctRange": [
+        54.9,
+        93.9
+      ],
+      "meanFinalHpPct": 70.63,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 616.67,
+      "meanEnemyDirectHpDamage": 423.33,
+      "meanShieldDamage": 392,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 92.22,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:optimized:17:elite:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 63.1,
+      "minHpPctRange": [
+        54.9,
+        93.9
+      ],
+      "meanFinalHpPct": 70.63,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 616.67,
+      "meanEnemyDirectHpDamage": 423.33,
+      "meanShieldDamage": 392,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 92.22,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:optimized:17:elite:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 63.1,
+      "minHpPctRange": [
+        54.9,
+        93.9
+      ],
+      "meanFinalHpPct": 70.63,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 616.67,
+      "meanEnemyDirectHpDamage": 423.33,
+      "meanShieldDamage": 392,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 92.22,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:optimized:17:weaker:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 87.98,
+      "minHpPctRange": [
+        84.86,
+        91.1
+      ],
+      "meanFinalHpPct": 88.81,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 252.5,
+      "meanEnemyDirectHpDamage": 0,
+      "meanShieldDamage": 284,
+      "meanAppliedHealing": 17.5,
+      "meanEnemyAp": 88.33,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:optimized:17:weaker:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 87.98,
+      "minHpPctRange": [
+        84.86,
+        91.1
+      ],
+      "meanFinalHpPct": 88.81,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 252.5,
+      "meanEnemyDirectHpDamage": 0,
+      "meanShieldDamage": 284,
+      "meanAppliedHealing": 17.5,
+      "meanEnemyAp": 88.33,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:optimized:17:standard:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 73.57,
+      "minHpPctRange": [
+        63.38,
+        83.76
+      ],
+      "meanFinalHpPct": 73.57,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 555,
+      "meanEnemyDirectHpDamage": 271,
+      "meanShieldDamage": 369,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 91.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:optimized:17:standard:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 73.57,
+      "minHpPctRange": [
+        63.38,
+        83.76
+      ],
+      "meanFinalHpPct": 73.57,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 555,
+      "meanEnemyDirectHpDamage": 271,
+      "meanShieldDamage": 369,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 91.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:optimized:17:dangerous:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 59,
+      "minHpPctRange": [
+        54.9,
+        63.1
+      ],
+      "meanFinalHpPct": 59,
+      "rounds": [
+        4,
+        4
+      ],
+      "meanActualHpDamage": 861,
+      "meanEnemyDirectHpDamage": 571,
+      "meanShieldDamage": 371,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 93.33,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:optimized:17:dangerous:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 59,
+      "minHpPctRange": [
+        54.9,
+        63.1
+      ],
+      "meanFinalHpPct": 59,
+      "rounds": [
+        4,
+        4
+      ],
+      "meanActualHpDamage": 861,
+      "meanEnemyDirectHpDamage": 571,
+      "meanShieldDamage": 371,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 93.33,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:optimized:17:elite:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 59,
+      "minHpPctRange": [
+        54.9,
+        63.1
+      ],
+      "meanFinalHpPct": 59,
+      "rounds": [
+        4,
+        4
+      ],
+      "meanActualHpDamage": 861,
+      "meanEnemyDirectHpDamage": 571,
+      "meanShieldDamage": 371,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 93.33,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:optimized:17:elite:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 59,
+      "minHpPctRange": [
+        54.9,
+        63.1
+      ],
+      "meanFinalHpPct": 59,
+      "rounds": [
+        4,
+        4
+      ],
+      "meanActualHpDamage": 861,
+      "meanEnemyDirectHpDamage": 571,
+      "meanShieldDamage": 371,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 93.33,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:narrow:17:weaker:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 84.86,
+      "minHpPctRange": [
+        66.95,
+        100
+      ],
+      "meanFinalHpPct": 83.94,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 337.33,
+      "meanEnemyDirectHpDamage": 110.67,
+      "meanShieldDamage": 316.33,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 88.89,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:narrow:17:weaker:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 84.86,
+      "minHpPctRange": [
+        66.95,
+        100
+      ],
+      "meanFinalHpPct": 83.94,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 337.33,
+      "meanEnemyDirectHpDamage": 110.67,
+      "meanShieldDamage": 316.33,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 88.89,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:narrow:17:standard:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 83.76,
+      "minHpPctRange": [
+        63.38,
+        94.38
+      ],
+      "meanFinalHpPct": 80.51,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 409.33,
+      "meanEnemyDirectHpDamage": 220,
+      "meanShieldDamage": 390.67,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 91.11,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:narrow:17:standard:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 83.76,
+      "minHpPctRange": [
+        63.38,
+        94.38
+      ],
+      "meanFinalHpPct": 80.51,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 409.33,
+      "meanEnemyDirectHpDamage": 220,
+      "meanShieldDamage": 390.67,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 91.11,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:narrow:17:dangerous:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 63.1,
+      "minHpPctRange": [
+        54.9,
+        93.9
+      ],
+      "meanFinalHpPct": 70.63,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 616.67,
+      "meanEnemyDirectHpDamage": 423.33,
+      "meanShieldDamage": 392,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 92.22,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:narrow:17:dangerous:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 63.1,
+      "minHpPctRange": [
+        54.9,
+        93.9
+      ],
+      "meanFinalHpPct": 70.63,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 616.67,
+      "meanEnemyDirectHpDamage": 423.33,
+      "meanShieldDamage": 392,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 92.22,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:narrow:17:elite:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 63.1,
+      "minHpPctRange": [
+        54.9,
+        93.9
+      ],
+      "meanFinalHpPct": 70.63,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 616.67,
+      "meanEnemyDirectHpDamage": 423.33,
+      "meanShieldDamage": 392,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 92.22,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:narrow:17:elite:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 63.1,
+      "minHpPctRange": [
+        54.9,
+        93.9
+      ],
+      "meanFinalHpPct": 70.63,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 616.67,
+      "meanEnemyDirectHpDamage": 423.33,
+      "meanShieldDamage": 392,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 92.22,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:narrow:17:weaker:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 87.98,
+      "minHpPctRange": [
+        84.86,
+        91.1
+      ],
+      "meanFinalHpPct": 88.81,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 252.5,
+      "meanEnemyDirectHpDamage": 0,
+      "meanShieldDamage": 284,
+      "meanAppliedHealing": 17.5,
+      "meanEnemyAp": 88.33,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:narrow:17:weaker:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 87.98,
+      "minHpPctRange": [
+        84.86,
+        91.1
+      ],
+      "meanFinalHpPct": 88.81,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 252.5,
+      "meanEnemyDirectHpDamage": 0,
+      "meanShieldDamage": 284,
+      "meanAppliedHealing": 17.5,
+      "meanEnemyAp": 88.33,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:narrow:17:standard:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 73.57,
+      "minHpPctRange": [
+        63.38,
+        83.76
+      ],
+      "meanFinalHpPct": 73.57,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 555,
+      "meanEnemyDirectHpDamage": 271,
+      "meanShieldDamage": 369,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 91.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:narrow:17:standard:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 73.57,
+      "minHpPctRange": [
+        63.38,
+        83.76
+      ],
+      "meanFinalHpPct": 73.57,
+      "rounds": [
+        3,
+        4
+      ],
+      "meanActualHpDamage": 555,
+      "meanEnemyDirectHpDamage": 271,
+      "meanShieldDamage": 369,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 91.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:narrow:17:dangerous:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 59,
+      "minHpPctRange": [
+        54.9,
+        63.1
+      ],
+      "meanFinalHpPct": 59,
+      "rounds": [
+        4,
+        4
+      ],
+      "meanActualHpDamage": 861,
+      "meanEnemyDirectHpDamage": 571,
+      "meanShieldDamage": 371,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 93.33,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:narrow:17:dangerous:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 59,
+      "minHpPctRange": [
+        54.9,
+        63.1
+      ],
+      "meanFinalHpPct": 59,
+      "rounds": [
+        4,
+        4
+      ],
+      "meanActualHpDamage": 861,
+      "meanEnemyDirectHpDamage": 571,
+      "meanShieldDamage": 371,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 93.33,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:narrow:17:elite:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 59,
+      "minHpPctRange": [
+        54.9,
+        63.1
+      ],
+      "meanFinalHpPct": 59,
+      "rounds": [
+        4,
+        4
+      ],
+      "meanActualHpDamage": 861,
+      "meanEnemyDirectHpDamage": 571,
+      "meanShieldDamage": 371,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 93.33,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:narrow:17:elite:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 59,
+      "minHpPctRange": [
+        54.9,
+        63.1
+      ],
+      "meanFinalHpPct": 59,
+      "rounds": [
+        4,
+        4
+      ],
+      "meanActualHpDamage": 861,
+      "meanEnemyDirectHpDamage": 571,
+      "meanShieldDamage": 371,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 93.33,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:trained:25:weaker:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 81.86,
+      "minHpPctRange": [
+        74.31,
+        90.72
+      ],
+      "meanFinalHpPct": 83.4,
+      "rounds": [
+        3,
+        5
+      ],
+      "meanActualHpDamage": 513.33,
+      "meanEnemyDirectHpDamage": 333.33,
+      "meanShieldDamage": 144.67,
+      "meanAppliedHealing": 32,
+      "meanEnemyAp": 100,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:trained:25:weaker:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 81.86,
+      "minHpPctRange": [
+        74.31,
+        90.72
+      ],
+      "meanFinalHpPct": 83.4,
+      "rounds": [
+        3,
+        5
+      ],
+      "meanActualHpDamage": 513.33,
+      "meanEnemyDirectHpDamage": 333.33,
+      "meanShieldDamage": 144.67,
+      "meanAppliedHealing": 32,
+      "meanEnemyAp": 100,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:trained:25:standard:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 75.93,
+      "minHpPctRange": [
+        63.14,
+        81.59
+      ],
+      "meanFinalHpPct": 73.55,
+      "rounds": [
+        4,
+        6
+      ],
+      "meanActualHpDamage": 850.33,
+      "meanEnemyDirectHpDamage": 737.67,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 83.33,
+      "meanEnemyAp": 98.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:trained:25:standard:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 75.93,
+      "minHpPctRange": [
+        63.14,
+        81.59
+      ],
+      "meanFinalHpPct": 73.55,
+      "rounds": [
+        4,
+        6
+      ],
+      "meanActualHpDamage": 850.33,
+      "meanEnemyDirectHpDamage": 737.67,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 83.33,
+      "meanEnemyAp": 98.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:trained:25:dangerous:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 59.31,
+      "minHpPctRange": [
+        56.03,
+        59.79
+      ],
+      "meanFinalHpPct": 58.38,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 1313,
+      "meanEnemyDirectHpDamage": 1119,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 106,
+      "meanEnemyAp": 95.33,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:trained:25:dangerous:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 59.31,
+      "minHpPctRange": [
+        56.03,
+        59.79
+      ],
+      "meanFinalHpPct": 58.38,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 1313,
+      "meanEnemyDirectHpDamage": 1119,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 106,
+      "meanEnemyAp": 95.33,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:trained:25:elite:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 59.31,
+      "minHpPctRange": [
+        56.03,
+        59.79
+      ],
+      "meanFinalHpPct": 58.38,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 1313,
+      "meanEnemyDirectHpDamage": 1119,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 106,
+      "meanEnemyAp": 95.33,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:trained:25:elite:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 59.31,
+      "minHpPctRange": [
+        56.03,
+        59.79
+      ],
+      "meanFinalHpPct": 58.38,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 1313,
+      "meanEnemyDirectHpDamage": 1119,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 106,
+      "meanEnemyAp": 95.33,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:trained:25:weaker:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 80.28,
+      "minHpPctRange": [
+        78.69,
+        81.86
+      ],
+      "meanFinalHpPct": 80.28,
+      "rounds": [
+        3,
+        5
+      ],
+      "meanActualHpDamage": 650,
+      "meanEnemyDirectHpDamage": 330.5,
+      "meanShieldDamage": 217,
+      "meanAppliedHealing": 78,
+      "meanEnemyAp": 100,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:trained:25:weaker:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 80.28,
+      "minHpPctRange": [
+        78.69,
+        81.86
+      ],
+      "meanFinalHpPct": 80.28,
+      "rounds": [
+        3,
+        5
+      ],
+      "meanActualHpDamage": 650,
+      "meanEnemyDirectHpDamage": 330.5,
+      "meanShieldDamage": 217,
+      "meanAppliedHealing": 78,
+      "meanEnemyAp": 100,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:trained:25:standard:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 72.57,
+      "minHpPctRange": [
+        63.55,
+        81.59
+      ],
+      "meanFinalHpPct": 72.57,
+      "rounds": [
+        4,
+        6
+      ],
+      "meanActualHpDamage": 832.5,
+      "meanEnemyDirectHpDamage": 662.5,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 37,
+      "meanEnemyAp": 98,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:trained:25:standard:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 72.57,
+      "minHpPctRange": [
+        63.55,
+        81.59
+      ],
+      "meanFinalHpPct": 72.57,
+      "rounds": [
+        4,
+        6
+      ],
+      "meanActualHpDamage": 832.5,
+      "meanEnemyDirectHpDamage": 662.5,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 37,
+      "meanEnemyAp": 98,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:trained:25:dangerous:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 57.67,
+      "minHpPctRange": [
+        56.03,
+        59.31
+      ],
+      "meanFinalHpPct": 57.67,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 1262,
+      "meanEnemyDirectHpDamage": 1023.5,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 34.5,
+      "meanEnemyAp": 95.5,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:trained:25:dangerous:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 57.67,
+      "minHpPctRange": [
+        56.03,
+        59.31
+      ],
+      "meanFinalHpPct": 57.67,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 1262,
+      "meanEnemyDirectHpDamage": 1023.5,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 34.5,
+      "meanEnemyAp": 95.5,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:trained:25:elite:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 57.67,
+      "minHpPctRange": [
+        56.03,
+        59.31
+      ],
+      "meanFinalHpPct": 57.67,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 1262,
+      "meanEnemyDirectHpDamage": 1023.5,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 34.5,
+      "meanEnemyAp": 95.5,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:trained:25:elite:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 57.67,
+      "minHpPctRange": [
+        56.03,
+        59.31
+      ],
+      "meanFinalHpPct": 57.67,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 1262,
+      "meanEnemyDirectHpDamage": 1023.5,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 34.5,
+      "meanEnemyAp": 95.5,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:specialist:25:weaker:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 81.86,
+      "minHpPctRange": [
+        74.31,
+        90.72
+      ],
+      "meanFinalHpPct": 83.4,
+      "rounds": [
+        3,
+        5
+      ],
+      "meanActualHpDamage": 513.33,
+      "meanEnemyDirectHpDamage": 333.33,
+      "meanShieldDamage": 144.67,
+      "meanAppliedHealing": 32,
+      "meanEnemyAp": 100,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:specialist:25:weaker:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 81.86,
+      "minHpPctRange": [
+        74.31,
+        90.72
+      ],
+      "meanFinalHpPct": 83.4,
+      "rounds": [
+        3,
+        5
+      ],
+      "meanActualHpDamage": 513.33,
+      "meanEnemyDirectHpDamage": 333.33,
+      "meanShieldDamage": 144.67,
+      "meanAppliedHealing": 32,
+      "meanEnemyAp": 100,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:specialist:25:standard:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 75.93,
+      "minHpPctRange": [
+        63.14,
+        81.59
+      ],
+      "meanFinalHpPct": 73.55,
+      "rounds": [
+        4,
+        6
+      ],
+      "meanActualHpDamage": 850.33,
+      "meanEnemyDirectHpDamage": 737.67,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 83.33,
+      "meanEnemyAp": 98.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:specialist:25:standard:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 75.93,
+      "minHpPctRange": [
+        63.14,
+        81.59
+      ],
+      "meanFinalHpPct": 73.55,
+      "rounds": [
+        4,
+        6
+      ],
+      "meanActualHpDamage": 850.33,
+      "meanEnemyDirectHpDamage": 737.67,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 83.33,
+      "meanEnemyAp": 98.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:specialist:25:dangerous:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 59.31,
+      "minHpPctRange": [
+        56.03,
+        59.79
+      ],
+      "meanFinalHpPct": 58.38,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 1313,
+      "meanEnemyDirectHpDamage": 1119,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 106,
+      "meanEnemyAp": 95.33,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:specialist:25:dangerous:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 59.31,
+      "minHpPctRange": [
+        56.03,
+        59.79
+      ],
+      "meanFinalHpPct": 58.38,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 1313,
+      "meanEnemyDirectHpDamage": 1119,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 106,
+      "meanEnemyAp": 95.33,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:specialist:25:elite:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 59.31,
+      "minHpPctRange": [
+        56.03,
+        59.79
+      ],
+      "meanFinalHpPct": 58.38,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 1313,
+      "meanEnemyDirectHpDamage": 1119,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 106,
+      "meanEnemyAp": 95.33,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:specialist:25:elite:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 59.31,
+      "minHpPctRange": [
+        56.03,
+        59.79
+      ],
+      "meanFinalHpPct": 58.38,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 1313,
+      "meanEnemyDirectHpDamage": 1119,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 106,
+      "meanEnemyAp": 95.33,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:specialist:25:weaker:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 80.28,
+      "minHpPctRange": [
+        78.69,
+        81.86
+      ],
+      "meanFinalHpPct": 80.28,
+      "rounds": [
+        3,
+        5
+      ],
+      "meanActualHpDamage": 650,
+      "meanEnemyDirectHpDamage": 330.5,
+      "meanShieldDamage": 217,
+      "meanAppliedHealing": 78,
+      "meanEnemyAp": 100,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:specialist:25:weaker:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 80.28,
+      "minHpPctRange": [
+        78.69,
+        81.86
+      ],
+      "meanFinalHpPct": 80.28,
+      "rounds": [
+        3,
+        5
+      ],
+      "meanActualHpDamage": 650,
+      "meanEnemyDirectHpDamage": 330.5,
+      "meanShieldDamage": 217,
+      "meanAppliedHealing": 78,
+      "meanEnemyAp": 100,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:specialist:25:standard:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 72.57,
+      "minHpPctRange": [
+        63.55,
+        81.59
+      ],
+      "meanFinalHpPct": 72.57,
+      "rounds": [
+        4,
+        6
+      ],
+      "meanActualHpDamage": 832.5,
+      "meanEnemyDirectHpDamage": 662.5,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 37,
+      "meanEnemyAp": 98,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:specialist:25:standard:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 72.57,
+      "minHpPctRange": [
+        63.55,
+        81.59
+      ],
+      "meanFinalHpPct": 72.57,
+      "rounds": [
+        4,
+        6
+      ],
+      "meanActualHpDamage": 832.5,
+      "meanEnemyDirectHpDamage": 662.5,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 37,
+      "meanEnemyAp": 98,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:specialist:25:dangerous:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 57.67,
+      "minHpPctRange": [
+        56.03,
+        59.31
+      ],
+      "meanFinalHpPct": 57.67,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 1262,
+      "meanEnemyDirectHpDamage": 1023.5,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 34.5,
+      "meanEnemyAp": 95.5,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:specialist:25:dangerous:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 57.67,
+      "minHpPctRange": [
+        56.03,
+        59.31
+      ],
+      "meanFinalHpPct": 57.67,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 1262,
+      "meanEnemyDirectHpDamage": 1023.5,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 34.5,
+      "meanEnemyAp": 95.5,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:specialist:25:elite:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 57.67,
+      "minHpPctRange": [
+        56.03,
+        59.31
+      ],
+      "meanFinalHpPct": 57.67,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 1262,
+      "meanEnemyDirectHpDamage": 1023.5,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 34.5,
+      "meanEnemyAp": 95.5,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:specialist:25:elite:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 57.67,
+      "minHpPctRange": [
+        56.03,
+        59.31
+      ],
+      "meanFinalHpPct": 57.67,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 1262,
+      "meanEnemyDirectHpDamage": 1023.5,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 34.5,
+      "meanEnemyAp": 95.5,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:optimized:25:weaker:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 73.31,
+      "minHpPctRange": [
+        65.17,
+        81.69
+      ],
+      "meanFinalHpPct": 77.14,
+      "rounds": [
+        3,
+        6
+      ],
+      "meanActualHpDamage": 771.67,
+      "meanEnemyDirectHpDamage": 563,
+      "meanShieldDamage": 144.67,
+      "meanAppliedHealing": 108.67,
+      "meanEnemyAp": 96,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:optimized:25:weaker:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 73.31,
+      "minHpPctRange": [
+        65.17,
+        81.69
+      ],
+      "meanFinalHpPct": 77.14,
+      "rounds": [
+        3,
+        6
+      ],
+      "meanActualHpDamage": 771.67,
+      "meanEnemyDirectHpDamage": 563,
+      "meanShieldDamage": 144.67,
+      "meanAppliedHealing": 108.67,
+      "meanEnemyAp": 96,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:optimized:25:standard:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 56.31,
+      "minHpPctRange": [
+        51.76,
+        57.62
+      ],
+      "meanFinalHpPct": 57.7,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 1329.33,
+      "meanEnemyDirectHpDamage": 1081,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 102.67,
+      "meanEnemyAp": 97,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:optimized:25:standard:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 56.31,
+      "minHpPctRange": [
+        51.76,
+        57.62
+      ],
+      "meanFinalHpPct": 57.7,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 1329.33,
+      "meanEnemyDirectHpDamage": 1081,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 102.67,
+      "meanEnemyAp": 97,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:optimized:25:dangerous:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 49.86,
+      "minHpPctRange": [
+        42.17,
+        56.17
+      ],
+      "meanFinalHpPct": 53.79,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 1467.33,
+      "meanEnemyDirectHpDamage": 1206,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 127.33,
+      "meanEnemyAp": 98.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:optimized:25:dangerous:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 49.86,
+      "minHpPctRange": [
+        42.17,
+        56.17
+      ],
+      "meanFinalHpPct": 53.79,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 1467.33,
+      "meanEnemyDirectHpDamage": 1206,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 127.33,
+      "meanEnemyAp": 98.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:optimized:25:elite:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 49.86,
+      "minHpPctRange": [
+        42.17,
+        56.17
+      ],
+      "meanFinalHpPct": 53.79,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 1467.33,
+      "meanEnemyDirectHpDamage": 1206,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 127.33,
+      "meanEnemyAp": 98.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:optimized:25:elite:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 49.86,
+      "minHpPctRange": [
+        42.17,
+        56.17
+      ],
+      "meanFinalHpPct": 53.79,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 1467.33,
+      "meanEnemyDirectHpDamage": 1206,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 127.33,
+      "meanEnemyAp": 98.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:optimized:25:weaker:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 77.14,
+      "minHpPctRange": [
+        72.59,
+        81.69
+      ],
+      "meanFinalHpPct": 77.14,
+      "rounds": [
+        3,
+        5
+      ],
+      "meanActualHpDamage": 663,
+      "meanEnemyDirectHpDamage": 347.5,
+      "meanShieldDamage": 217,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 100,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:optimized:25:weaker:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 77.14,
+      "minHpPctRange": [
+        72.59,
+        81.69
+      ],
+      "meanFinalHpPct": 77.14,
+      "rounds": [
+        3,
+        5
+      ],
+      "meanActualHpDamage": 663,
+      "meanEnemyDirectHpDamage": 347.5,
+      "meanShieldDamage": 217,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 100,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:optimized:25:standard:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 54.26,
+      "minHpPctRange": [
+        51.76,
+        56.76
+      ],
+      "meanFinalHpPct": 57.72,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 1326.5,
+      "meanEnemyDirectHpDamage": 953,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 100.5,
+      "meanEnemyAp": 98,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:optimized:25:standard:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 54.26,
+      "minHpPctRange": [
+        51.76,
+        56.76
+      ],
+      "meanFinalHpPct": 57.72,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 1326.5,
+      "meanEnemyDirectHpDamage": 953,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 100.5,
+      "meanEnemyAp": 98,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:optimized:25:dangerous:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 53.02,
+      "minHpPctRange": [
+        49.86,
+        56.17
+      ],
+      "meanFinalHpPct": 56.31,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 1362.5,
+      "meanEnemyDirectHpDamage": 970.5,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 95.5,
+      "meanEnemyAp": 98,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:optimized:25:dangerous:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 53.02,
+      "minHpPctRange": [
+        49.86,
+        56.17
+      ],
+      "meanFinalHpPct": 56.31,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 1362.5,
+      "meanEnemyDirectHpDamage": 970.5,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 95.5,
+      "meanEnemyAp": 98,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:optimized:25:elite:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 53.02,
+      "minHpPctRange": [
+        49.86,
+        56.17
+      ],
+      "meanFinalHpPct": 56.31,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 1362.5,
+      "meanEnemyDirectHpDamage": 970.5,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 95.5,
+      "meanEnemyAp": 98,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:optimized:25:elite:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 53.02,
+      "minHpPctRange": [
+        49.86,
+        56.17
+      ],
+      "meanFinalHpPct": 56.31,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 1362.5,
+      "meanEnemyDirectHpDamage": 970.5,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 95.5,
+      "meanEnemyAp": 98,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:narrow:25:weaker:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 73.31,
+      "minHpPctRange": [
+        65.17,
+        81.69
+      ],
+      "meanFinalHpPct": 77.14,
+      "rounds": [
+        3,
+        6
+      ],
+      "meanActualHpDamage": 771.67,
+      "meanEnemyDirectHpDamage": 563,
+      "meanShieldDamage": 144.67,
+      "meanAppliedHealing": 108.67,
+      "meanEnemyAp": 96,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:narrow:25:weaker:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 73.31,
+      "minHpPctRange": [
+        65.17,
+        81.69
+      ],
+      "meanFinalHpPct": 77.14,
+      "rounds": [
+        3,
+        6
+      ],
+      "meanActualHpDamage": 771.67,
+      "meanEnemyDirectHpDamage": 563,
+      "meanShieldDamage": 144.67,
+      "meanAppliedHealing": 108.67,
+      "meanEnemyAp": 96,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:narrow:25:standard:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 56.31,
+      "minHpPctRange": [
+        51.76,
+        57.62
+      ],
+      "meanFinalHpPct": 57.7,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 1329.33,
+      "meanEnemyDirectHpDamage": 1081,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 102.67,
+      "meanEnemyAp": 97,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:narrow:25:standard:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 56.31,
+      "minHpPctRange": [
+        51.76,
+        57.62
+      ],
+      "meanFinalHpPct": 57.7,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 1329.33,
+      "meanEnemyDirectHpDamage": 1081,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 102.67,
+      "meanEnemyAp": 97,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:narrow:25:dangerous:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 49.86,
+      "minHpPctRange": [
+        42.17,
+        56.17
+      ],
+      "meanFinalHpPct": 53.79,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 1467.33,
+      "meanEnemyDirectHpDamage": 1206,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 127.33,
+      "meanEnemyAp": 98.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:narrow:25:dangerous:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 49.86,
+      "minHpPctRange": [
+        42.17,
+        56.17
+      ],
+      "meanFinalHpPct": 53.79,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 1467.33,
+      "meanEnemyDirectHpDamage": 1206,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 127.33,
+      "meanEnemyAp": 98.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:narrow:25:elite:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 49.86,
+      "minHpPctRange": [
+        42.17,
+        56.17
+      ],
+      "meanFinalHpPct": 53.79,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 1467.33,
+      "meanEnemyDirectHpDamage": 1206,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 127.33,
+      "meanEnemyAp": 98.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:narrow:25:elite:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 49.86,
+      "minHpPctRange": [
+        42.17,
+        56.17
+      ],
+      "meanFinalHpPct": 53.79,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 1467.33,
+      "meanEnemyDirectHpDamage": 1206,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 127.33,
+      "meanEnemyAp": 98.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:narrow:25:weaker:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 77.14,
+      "minHpPctRange": [
+        72.59,
+        81.69
+      ],
+      "meanFinalHpPct": 77.14,
+      "rounds": [
+        3,
+        5
+      ],
+      "meanActualHpDamage": 663,
+      "meanEnemyDirectHpDamage": 347.5,
+      "meanShieldDamage": 217,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 100,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:narrow:25:weaker:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 77.14,
+      "minHpPctRange": [
+        72.59,
+        81.69
+      ],
+      "meanFinalHpPct": 77.14,
+      "rounds": [
+        3,
+        5
+      ],
+      "meanActualHpDamage": 663,
+      "meanEnemyDirectHpDamage": 347.5,
+      "meanShieldDamage": 217,
+      "meanAppliedHealing": 0,
+      "meanEnemyAp": 100,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:narrow:25:standard:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 54.26,
+      "minHpPctRange": [
+        51.76,
+        56.76
+      ],
+      "meanFinalHpPct": 57.72,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 1326.5,
+      "meanEnemyDirectHpDamage": 953,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 100.5,
+      "meanEnemyAp": 98,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:narrow:25:standard:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 54.26,
+      "minHpPctRange": [
+        51.76,
+        56.76
+      ],
+      "meanFinalHpPct": 57.72,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 1326.5,
+      "meanEnemyDirectHpDamage": 953,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 100.5,
+      "meanEnemyAp": 98,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:narrow:25:dangerous:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 53.02,
+      "minHpPctRange": [
+        49.86,
+        56.17
+      ],
+      "meanFinalHpPct": 56.31,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 1362.5,
+      "meanEnemyDirectHpDamage": 970.5,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 95.5,
+      "meanEnemyAp": 98,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:narrow:25:dangerous:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 53.02,
+      "minHpPctRange": [
+        49.86,
+        56.17
+      ],
+      "meanFinalHpPct": 56.31,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 1362.5,
+      "meanEnemyDirectHpDamage": 970.5,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 95.5,
+      "meanEnemyAp": 98,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:narrow:25:elite:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 53.02,
+      "minHpPctRange": [
+        49.86,
+        56.17
+      ],
+      "meanFinalHpPct": 56.31,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 1362.5,
+      "meanEnemyDirectHpDamage": 970.5,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 95.5,
+      "meanEnemyAp": 98,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:narrow:25:elite:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 53.02,
+      "minHpPctRange": [
+        49.86,
+        56.17
+      ],
+      "meanFinalHpPct": 56.31,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 1362.5,
+      "meanEnemyDirectHpDamage": 970.5,
+      "meanShieldDamage": 434,
+      "meanAppliedHealing": 95.5,
+      "meanEnemyAp": 98,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:trained:50:weaker:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 79.57,
+      "minHpPctRange": [
+        72.61,
+        83.41
+      ],
+      "meanFinalHpPct": 78.53,
+      "rounds": [
+        3,
+        7
+      ],
+      "meanActualHpDamage": 1417.67,
+      "meanEnemyDirectHpDamage": 1132.67,
+      "meanShieldDamage": 327.33,
+      "meanAppliedHealing": 258.33,
+      "meanEnemyAp": 98.89,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:trained:50:weaker:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 79.57,
+      "minHpPctRange": [
+        72.61,
+        83.41
+      ],
+      "meanFinalHpPct": 78.53,
+      "rounds": [
+        3,
+        7
+      ],
+      "meanActualHpDamage": 1417.67,
+      "meanEnemyDirectHpDamage": 1132.67,
+      "meanShieldDamage": 327.33,
+      "meanAppliedHealing": 258.33,
+      "meanEnemyAp": 98.89,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:trained:50:standard:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 41.72,
+      "minHpPctRange": [
+        35.74,
+        48.78
+      ],
+      "meanFinalHpPct": 42.08,
+      "rounds": [
+        5,
+        7
+      ],
+      "meanActualHpDamage": 3359,
+      "meanEnemyDirectHpDamage": 3053.67,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 610.67,
+      "meanEnemyAp": 97,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:trained:50:standard:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 41.72,
+      "minHpPctRange": [
+        35.74,
+        48.78
+      ],
+      "meanFinalHpPct": 42.08,
+      "rounds": [
+        5,
+        7
+      ],
+      "meanActualHpDamage": 3359,
+      "meanEnemyDirectHpDamage": 3053.67,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 610.67,
+      "meanEnemyAp": 97,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:trained:50:dangerous:before:planner",
+      "fights": 3,
+      "wins": 2,
+      "deaths": 1,
+      "livingLimits": 0,
+      "medianMinHpPct": 19.78,
+      "minHpPctRange": [
+        0,
+        33.33
+      ],
+      "meanFinalHpPct": 25.09,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 4350.67,
+      "meanEnemyDirectHpDamage": 3895.67,
+      "meanShieldDamage": 180,
+      "meanAppliedHealing": 706.67,
+      "meanEnemyAp": 93.33,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:trained:50:dangerous:after:planner",
+      "fights": 3,
+      "wins": 2,
+      "deaths": 1,
+      "livingLimits": 0,
+      "medianMinHpPct": 19.78,
+      "minHpPctRange": [
+        0,
+        33.33
+      ],
+      "meanFinalHpPct": 25.09,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 4350.67,
+      "meanEnemyDirectHpDamage": 3895.67,
+      "meanShieldDamage": 180,
+      "meanAppliedHealing": 706.67,
+      "meanEnemyAp": 93.33,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:trained:50:elite:before:planner",
+      "fights": 3,
+      "wins": 2,
+      "deaths": 1,
+      "livingLimits": 0,
+      "medianMinHpPct": 9.78,
+      "minHpPctRange": [
+        0,
+        20.28
+      ],
+      "meanFinalHpPct": 13.71,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 4576,
+      "meanEnemyDirectHpDamage": 4201.33,
+      "meanShieldDamage": 180,
+      "meanAppliedHealing": 504,
+      "meanEnemyAp": 93.33,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:trained:50:elite:after:planner",
+      "fights": 3,
+      "wins": 2,
+      "deaths": 1,
+      "livingLimits": 0,
+      "medianMinHpPct": 9.78,
+      "minHpPctRange": [
+        0,
+        20.28
+      ],
+      "meanFinalHpPct": 13.71,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 4576,
+      "meanEnemyDirectHpDamage": 4201.33,
+      "meanShieldDamage": 180,
+      "meanAppliedHealing": 504,
+      "meanEnemyAp": 93.33,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:trained:50:weaker:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 78.94,
+      "minHpPctRange": [
+        74.48,
+        83.41
+      ],
+      "meanFinalHpPct": 85.1,
+      "rounds": [
+        3,
+        6
+      ],
+      "meanActualHpDamage": 1324.5,
+      "meanEnemyDirectHpDamage": 873,
+      "meanShieldDamage": 270,
+      "meanAppliedHealing": 520,
+      "meanEnemyAp": 100,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:trained:50:weaker:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 78.94,
+      "minHpPctRange": [
+        74.48,
+        83.41
+      ],
+      "meanFinalHpPct": 85.1,
+      "rounds": [
+        3,
+        6
+      ],
+      "meanActualHpDamage": 1324.5,
+      "meanEnemyDirectHpDamage": 873,
+      "meanShieldDamage": 270,
+      "meanAppliedHealing": 520,
+      "meanEnemyAp": 100,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:trained:50:standard:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 46.34,
+      "minHpPctRange": [
+        43.91,
+        48.78
+      ],
+      "meanFinalHpPct": 52.05,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 3038,
+      "meanEnemyDirectHpDamage": 2694.5,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 731.5,
+      "meanEnemyAp": 97.5,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:trained:50:standard:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 46.34,
+      "minHpPctRange": [
+        43.91,
+        48.78
+      ],
+      "meanFinalHpPct": 52.05,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 3038,
+      "meanEnemyDirectHpDamage": 2694.5,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 731.5,
+      "meanEnemyAp": 97.5,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:trained:50:dangerous:before:planner",
+      "fights": 2,
+      "wins": 1,
+      "deaths": 1,
+      "livingLimits": 0,
+      "medianMinHpPct": 16.67,
+      "minHpPctRange": [
+        0,
+        33.33
+      ],
+      "meanFinalHpPct": 22.2,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 4502.5,
+      "meanEnemyDirectHpDamage": 4028,
+      "meanShieldDamage": 270,
+      "meanAppliedHealing": 653.5,
+      "meanEnemyAp": 92,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:trained:50:dangerous:after:planner",
+      "fights": 2,
+      "wins": 1,
+      "deaths": 1,
+      "livingLimits": 0,
+      "medianMinHpPct": 16.67,
+      "minHpPctRange": [
+        0,
+        33.33
+      ],
+      "meanFinalHpPct": 22.2,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 4502.5,
+      "meanEnemyDirectHpDamage": 4028,
+      "meanShieldDamage": 270,
+      "meanAppliedHealing": 653.5,
+      "meanEnemyAp": 92,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:trained:50:elite:before:planner",
+      "fights": 2,
+      "wins": 1,
+      "deaths": 1,
+      "livingLimits": 0,
+      "medianMinHpPct": 10.14,
+      "minHpPctRange": [
+        0,
+        20.28
+      ],
+      "meanFinalHpPct": 15.68,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 4544,
+      "meanEnemyDirectHpDamage": 4213.5,
+      "meanShieldDamage": 270,
+      "meanAppliedHealing": 572,
+      "meanEnemyAp": 92,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:trained:50:elite:after:planner",
+      "fights": 2,
+      "wins": 1,
+      "deaths": 1,
+      "livingLimits": 0,
+      "medianMinHpPct": 10.14,
+      "minHpPctRange": [
+        0,
+        20.28
+      ],
+      "meanFinalHpPct": 15.68,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 4544,
+      "meanEnemyDirectHpDamage": 4213.5,
+      "meanShieldDamage": 270,
+      "meanAppliedHealing": 572,
+      "meanEnemyAp": 92,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:specialist:50:weaker:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 65.59,
+      "minHpPctRange": [
+        63.83,
+        72.48
+      ],
+      "meanFinalHpPct": 71.03,
+      "rounds": [
+        3,
+        7
+      ],
+      "meanActualHpDamage": 2077.67,
+      "meanEnemyDirectHpDamage": 1585.67,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 513.33,
+      "meanEnemyAp": 96.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:specialist:50:weaker:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 65.59,
+      "minHpPctRange": [
+        63.83,
+        72.48
+      ],
+      "meanFinalHpPct": 71.03,
+      "rounds": [
+        3,
+        7
+      ],
+      "meanActualHpDamage": 2077.67,
+      "meanEnemyDirectHpDamage": 1585.67,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 513.33,
+      "meanEnemyAp": 96.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:specialist:50:standard:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 52.24,
+      "minHpPctRange": [
+        45.26,
+        55.85
+      ],
+      "meanFinalHpPct": 56.48,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 2762,
+      "meanEnemyDirectHpDamage": 2457.67,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 735,
+      "meanEnemyAp": 96.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:specialist:50:standard:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 52.24,
+      "minHpPctRange": [
+        45.26,
+        55.85
+      ],
+      "meanFinalHpPct": 56.48,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 2762,
+      "meanEnemyDirectHpDamage": 2457.67,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 735,
+      "meanEnemyAp": 96.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:specialist:50:dangerous:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 28.96,
+      "minHpPctRange": [
+        23.46,
+        38.91
+      ],
+      "meanFinalHpPct": 30.44,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 3927,
+      "meanEnemyDirectHpDamage": 3527,
+      "meanShieldDamage": 214.67,
+      "meanAppliedHealing": 504.33,
+      "meanEnemyAp": 95.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:specialist:50:dangerous:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 28.96,
+      "minHpPctRange": [
+        23.46,
+        38.91
+      ],
+      "meanFinalHpPct": 30.44,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 3927,
+      "meanEnemyDirectHpDamage": 3527,
+      "meanShieldDamage": 214.67,
+      "meanAppliedHealing": 504.33,
+      "meanEnemyAp": 95.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:specialist:50:elite:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 19.22,
+      "minHpPctRange": [
+        16.13,
+        28.67
+      ],
+      "meanFinalHpPct": 21.34,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 4331.33,
+      "meanEnemyDirectHpDamage": 4016,
+      "meanShieldDamage": 214.67,
+      "meanAppliedHealing": 483.67,
+      "meanEnemyAp": 95.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:specialist:50:elite:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 19.22,
+      "minHpPctRange": [
+        16.13,
+        28.67
+      ],
+      "meanFinalHpPct": 21.34,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 4331.33,
+      "meanEnemyDirectHpDamage": 4016,
+      "meanShieldDamage": 214.67,
+      "meanAppliedHealing": 483.67,
+      "meanEnemyAp": 95.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:specialist:50:weaker:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 70.61,
+      "minHpPctRange": [
+        63.83,
+        77.39
+      ],
+      "meanFinalHpPct": 73,
+      "rounds": [
+        3,
+        5
+      ],
+      "meanActualHpDamage": 1734,
+      "meanEnemyDirectHpDamage": 1277.5,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 276,
+      "meanEnemyAp": 97.5,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:specialist:50:weaker:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 70.61,
+      "minHpPctRange": [
+        63.83,
+        77.39
+      ],
+      "meanFinalHpPct": 73,
+      "rounds": [
+        3,
+        5
+      ],
+      "meanActualHpDamage": 1734,
+      "meanEnemyDirectHpDamage": 1277.5,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 276,
+      "meanEnemyAp": 97.5,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:specialist:50:standard:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 49.3,
+      "minHpPctRange": [
+        46.35,
+        52.24
+      ],
+      "meanFinalHpPct": 54.72,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 2998.5,
+      "meanEnemyDirectHpDamage": 2656,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 836.5,
+      "meanEnemyAp": 97.5,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:specialist:50:standard:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 49.3,
+      "minHpPctRange": [
+        46.35,
+        52.24
+      ],
+      "meanFinalHpPct": 54.72,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 2998.5,
+      "meanEnemyDirectHpDamage": 2656,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 836.5,
+      "meanEnemyAp": 97.5,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:specialist:50:dangerous:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 31.19,
+      "minHpPctRange": [
+        23.46,
+        38.91
+      ],
+      "meanFinalHpPct": 31.19,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 3968.5,
+      "meanEnemyDirectHpDamage": 3497,
+      "meanShieldDamage": 322,
+      "meanAppliedHealing": 502.5,
+      "meanEnemyAp": 95.5,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:specialist:50:dangerous:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 31.19,
+      "minHpPctRange": [
+        23.46,
+        38.91
+      ],
+      "meanFinalHpPct": 31.19,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 3968.5,
+      "meanEnemyDirectHpDamage": 3497,
+      "meanShieldDamage": 322,
+      "meanAppliedHealing": 502.5,
+      "meanEnemyAp": 95.5,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:specialist:50:elite:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 23.94,
+      "minHpPctRange": [
+        19.22,
+        28.67
+      ],
+      "meanFinalHpPct": 23.94,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 4290.5,
+      "meanEnemyDirectHpDamage": 3960.5,
+      "meanShieldDamage": 322,
+      "meanAppliedHealing": 483.5,
+      "meanEnemyAp": 95.5,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:specialist:50:elite:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 23.94,
+      "minHpPctRange": [
+        19.22,
+        28.67
+      ],
+      "meanFinalHpPct": 23.94,
+      "rounds": [
+        5,
+        6
+      ],
+      "meanActualHpDamage": 4290.5,
+      "meanEnemyDirectHpDamage": 3960.5,
+      "meanShieldDamage": 322,
+      "meanAppliedHealing": 483.5,
+      "meanEnemyAp": 95.5,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:optimized:50:weaker:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 75.09,
+      "minHpPctRange": [
+        74.61,
+        86.89
+      ],
+      "meanFinalHpPct": 81.61,
+      "rounds": [
+        2,
+        5
+      ],
+      "meanActualHpDamage": 1215.67,
+      "meanEnemyDirectHpDamage": 1059.67,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 222.67,
+      "meanEnemyAp": 98.33,
+      "cooldownDryTurns": 1
+    },
+    {
+      "key": "progression:explore:optimized:50:weaker:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 75.09,
+      "minHpPctRange": [
+        74.61,
+        86.89
+      ],
+      "meanFinalHpPct": 81.61,
+      "rounds": [
+        2,
+        5
+      ],
+      "meanActualHpDamage": 1215.67,
+      "meanEnemyDirectHpDamage": 1059.67,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 222.67,
+      "meanEnemyAp": 98.33,
+      "cooldownDryTurns": 1
+    },
+    {
+      "key": "progression:explore:optimized:50:standard:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 52.09,
+      "minHpPctRange": [
+        49.85,
+        54.04
+      ],
+      "meanFinalHpPct": 59.85,
+      "rounds": [
+        4,
+        5
+      ],
+      "meanActualHpDamage": 2761,
+      "meanEnemyDirectHpDamage": 2682,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 859.33,
+      "meanEnemyAp": 93.89,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:optimized:50:standard:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 52.09,
+      "minHpPctRange": [
+        49.85,
+        54.04
+      ],
+      "meanFinalHpPct": 59.85,
+      "rounds": [
+        4,
+        5
+      ],
+      "meanActualHpDamage": 2761,
+      "meanEnemyDirectHpDamage": 2682,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 859.33,
+      "meanEnemyAp": 93.89,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:optimized:50:dangerous:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 35.06,
+      "minHpPctRange": [
+        30.2,
+        51.81
+      ],
+      "meanFinalHpPct": 46.14,
+      "rounds": [
+        4,
+        5
+      ],
+      "meanActualHpDamage": 3359,
+      "meanEnemyDirectHpDamage": 3299.67,
+      "meanShieldDamage": 250,
+      "meanAppliedHealing": 905.67,
+      "meanEnemyAp": 93.89,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:optimized:50:dangerous:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 35.06,
+      "minHpPctRange": [
+        30.2,
+        51.81
+      ],
+      "meanFinalHpPct": 46.14,
+      "rounds": [
+        4,
+        5
+      ],
+      "meanActualHpDamage": 3359,
+      "meanEnemyDirectHpDamage": 3299.67,
+      "meanShieldDamage": 250,
+      "meanAppliedHealing": 905.67,
+      "meanEnemyAp": 93.89,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:optimized:50:elite:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 33.54,
+      "minHpPctRange": [
+        16.87,
+        35.13
+      ],
+      "meanFinalHpPct": 32.78,
+      "rounds": [
+        4,
+        6
+      ],
+      "meanActualHpDamage": 3999.67,
+      "meanEnemyDirectHpDamage": 3933.67,
+      "meanShieldDamage": 500,
+      "meanAppliedHealing": 905,
+      "meanEnemyAp": 94.78,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:optimized:50:elite:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 33.54,
+      "minHpPctRange": [
+        16.87,
+        35.13
+      ],
+      "meanFinalHpPct": 32.78,
+      "rounds": [
+        4,
+        6
+      ],
+      "meanActualHpDamage": 3999.67,
+      "meanEnemyDirectHpDamage": 3933.67,
+      "meanShieldDamage": 500,
+      "meanAppliedHealing": 905,
+      "meanEnemyAp": 94.78,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:optimized:50:weaker:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 80.65,
+      "minHpPctRange": [
+        74.41,
+        86.89
+      ],
+      "meanFinalHpPct": 83.66,
+      "rounds": [
+        2,
+        4
+      ],
+      "meanActualHpDamage": 1045,
+      "meanEnemyDirectHpDamage": 865,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 162.5,
+      "meanEnemyAp": 100,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:optimized:50:weaker:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 80.65,
+      "minHpPctRange": [
+        74.41,
+        86.89
+      ],
+      "meanFinalHpPct": 83.66,
+      "rounds": [
+        2,
+        4
+      ],
+      "meanActualHpDamage": 1045,
+      "meanEnemyDirectHpDamage": 865,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 162.5,
+      "meanEnemyAp": 100,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:optimized:50:standard:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 53.56,
+      "minHpPctRange": [
+        52.09,
+        55.02
+      ],
+      "meanFinalHpPct": 61.99,
+      "rounds": [
+        4,
+        5
+      ],
+      "meanActualHpDamage": 2657,
+      "meanEnemyDirectHpDamage": 2578,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 804.5,
+      "meanEnemyAp": 94.17,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:optimized:50:standard:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 53.56,
+      "minHpPctRange": [
+        52.09,
+        55.02
+      ],
+      "meanFinalHpPct": 61.99,
+      "rounds": [
+        4,
+        5
+      ],
+      "meanActualHpDamage": 2657,
+      "meanEnemyDirectHpDamage": 2578,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 804.5,
+      "meanEnemyAp": 94.17,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:optimized:50:dangerous:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 41.01,
+      "minHpPctRange": [
+        30.2,
+        51.81
+      ],
+      "meanFinalHpPct": 47.16,
+      "rounds": [
+        4,
+        5
+      ],
+      "meanActualHpDamage": 3195.5,
+      "meanEnemyDirectHpDamage": 3151,
+      "meanShieldDamage": 375,
+      "meanAppliedHealing": 775,
+      "meanEnemyAp": 94.17,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:optimized:50:dangerous:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 41.01,
+      "minHpPctRange": [
+        30.2,
+        51.81
+      ],
+      "meanFinalHpPct": 47.16,
+      "rounds": [
+        4,
+        5
+      ],
+      "meanActualHpDamage": 3195.5,
+      "meanEnemyDirectHpDamage": 3151,
+      "meanShieldDamage": 375,
+      "meanAppliedHealing": 775,
+      "meanEnemyAp": 94.17,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:optimized:50:elite:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 25.2,
+      "minHpPctRange": [
+        16.87,
+        33.54
+      ],
+      "meanFinalHpPct": 26.85,
+      "rounds": [
+        4,
+        6
+      ],
+      "meanActualHpDamage": 4175.5,
+      "meanEnemyDirectHpDamage": 4126,
+      "meanShieldDamage": 375,
+      "meanAppliedHealing": 728,
+      "meanEnemyAp": 94.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:optimized:50:elite:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 25.2,
+      "minHpPctRange": [
+        16.87,
+        33.54
+      ],
+      "meanFinalHpPct": 26.85,
+      "rounds": [
+        4,
+        6
+      ],
+      "meanActualHpDamage": 4175.5,
+      "meanEnemyDirectHpDamage": 4126,
+      "meanShieldDamage": 375,
+      "meanAppliedHealing": 728,
+      "meanEnemyAp": 94.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:narrow:50:weaker:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 75.09,
+      "minHpPctRange": [
+        74.61,
+        86.89
+      ],
+      "meanFinalHpPct": 81.61,
+      "rounds": [
+        2,
+        5
+      ],
+      "meanActualHpDamage": 1215.67,
+      "meanEnemyDirectHpDamage": 1059.67,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 222.67,
+      "meanEnemyAp": 98.33,
+      "cooldownDryTurns": 1
+    },
+    {
+      "key": "progression:explore:narrow:50:weaker:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 75.09,
+      "minHpPctRange": [
+        74.61,
+        86.89
+      ],
+      "meanFinalHpPct": 81.61,
+      "rounds": [
+        2,
+        5
+      ],
+      "meanActualHpDamage": 1215.67,
+      "meanEnemyDirectHpDamage": 1059.67,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 222.67,
+      "meanEnemyAp": 98.33,
+      "cooldownDryTurns": 1
+    },
+    {
+      "key": "progression:explore:narrow:50:standard:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 52.09,
+      "minHpPctRange": [
+        49.85,
+        54.04
+      ],
+      "meanFinalHpPct": 59.85,
+      "rounds": [
+        4,
+        5
+      ],
+      "meanActualHpDamage": 2761,
+      "meanEnemyDirectHpDamage": 2682,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 859.33,
+      "meanEnemyAp": 93.89,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:narrow:50:standard:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 52.09,
+      "minHpPctRange": [
+        49.85,
+        54.04
+      ],
+      "meanFinalHpPct": 59.85,
+      "rounds": [
+        4,
+        5
+      ],
+      "meanActualHpDamage": 2761,
+      "meanEnemyDirectHpDamage": 2682,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 859.33,
+      "meanEnemyAp": 93.89,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:narrow:50:dangerous:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 35.06,
+      "minHpPctRange": [
+        30.2,
+        51.81
+      ],
+      "meanFinalHpPct": 46.14,
+      "rounds": [
+        4,
+        5
+      ],
+      "meanActualHpDamage": 3359,
+      "meanEnemyDirectHpDamage": 3299.67,
+      "meanShieldDamage": 250,
+      "meanAppliedHealing": 905.67,
+      "meanEnemyAp": 93.89,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:narrow:50:dangerous:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 35.06,
+      "minHpPctRange": [
+        30.2,
+        51.81
+      ],
+      "meanFinalHpPct": 46.14,
+      "rounds": [
+        4,
+        5
+      ],
+      "meanActualHpDamage": 3359,
+      "meanEnemyDirectHpDamage": 3299.67,
+      "meanShieldDamage": 250,
+      "meanAppliedHealing": 905.67,
+      "meanEnemyAp": 93.89,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:narrow:50:elite:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 33.54,
+      "minHpPctRange": [
+        16.87,
+        35.13
+      ],
+      "meanFinalHpPct": 32.78,
+      "rounds": [
+        4,
+        6
+      ],
+      "meanActualHpDamage": 3999.67,
+      "meanEnemyDirectHpDamage": 3933.67,
+      "meanShieldDamage": 500,
+      "meanAppliedHealing": 905,
+      "meanEnemyAp": 94.78,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:narrow:50:elite:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 33.54,
+      "minHpPctRange": [
+        16.87,
+        35.13
+      ],
+      "meanFinalHpPct": 32.78,
+      "rounds": [
+        4,
+        6
+      ],
+      "meanActualHpDamage": 3999.67,
+      "meanEnemyDirectHpDamage": 3933.67,
+      "meanShieldDamage": 500,
+      "meanAppliedHealing": 905,
+      "meanEnemyAp": 94.78,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:narrow:50:weaker:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 80.65,
+      "minHpPctRange": [
+        74.41,
+        86.89
+      ],
+      "meanFinalHpPct": 83.66,
+      "rounds": [
+        2,
+        4
+      ],
+      "meanActualHpDamage": 1045,
+      "meanEnemyDirectHpDamage": 865,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 162.5,
+      "meanEnemyAp": 100,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:narrow:50:weaker:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 80.65,
+      "minHpPctRange": [
+        74.41,
+        86.89
+      ],
+      "meanFinalHpPct": 83.66,
+      "rounds": [
+        2,
+        4
+      ],
+      "meanActualHpDamage": 1045,
+      "meanEnemyDirectHpDamage": 865,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 162.5,
+      "meanEnemyAp": 100,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:narrow:50:standard:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 53.56,
+      "minHpPctRange": [
+        52.09,
+        55.02
+      ],
+      "meanFinalHpPct": 61.99,
+      "rounds": [
+        4,
+        5
+      ],
+      "meanActualHpDamage": 2657,
+      "meanEnemyDirectHpDamage": 2578,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 804.5,
+      "meanEnemyAp": 94.17,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:narrow:50:standard:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 53.56,
+      "minHpPctRange": [
+        52.09,
+        55.02
+      ],
+      "meanFinalHpPct": 61.99,
+      "rounds": [
+        4,
+        5
+      ],
+      "meanActualHpDamage": 2657,
+      "meanEnemyDirectHpDamage": 2578,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 804.5,
+      "meanEnemyAp": 94.17,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:narrow:50:dangerous:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 41.01,
+      "minHpPctRange": [
+        30.2,
+        51.81
+      ],
+      "meanFinalHpPct": 47.16,
+      "rounds": [
+        4,
+        5
+      ],
+      "meanActualHpDamage": 3195.5,
+      "meanEnemyDirectHpDamage": 3151,
+      "meanShieldDamage": 375,
+      "meanAppliedHealing": 775,
+      "meanEnemyAp": 94.17,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:narrow:50:dangerous:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 41.01,
+      "minHpPctRange": [
+        30.2,
+        51.81
+      ],
+      "meanFinalHpPct": 47.16,
+      "rounds": [
+        4,
+        5
+      ],
+      "meanActualHpDamage": 3195.5,
+      "meanEnemyDirectHpDamage": 3151,
+      "meanShieldDamage": 375,
+      "meanAppliedHealing": 775,
+      "meanEnemyAp": 94.17,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:narrow:50:elite:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 25.2,
+      "minHpPctRange": [
+        16.87,
+        33.54
+      ],
+      "meanFinalHpPct": 26.85,
+      "rounds": [
+        4,
+        6
+      ],
+      "meanActualHpDamage": 4175.5,
+      "meanEnemyDirectHpDamage": 4126,
+      "meanShieldDamage": 375,
+      "meanAppliedHealing": 728,
+      "meanEnemyAp": 94.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:narrow:50:elite:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 25.2,
+      "minHpPctRange": [
+        16.87,
+        33.54
+      ],
+      "meanFinalHpPct": 26.85,
+      "rounds": [
+        4,
+        6
+      ],
+      "meanActualHpDamage": 4175.5,
+      "meanEnemyDirectHpDamage": 4126,
+      "meanShieldDamage": 375,
+      "meanAppliedHealing": 728,
+      "meanEnemyAp": 94.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:trained:75:weaker:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 81.46,
+      "minHpPctRange": [
+        75.54,
+        90.1
+      ],
+      "meanFinalHpPct": 84.31,
+      "rounds": [
+        5,
+        13
+      ],
+      "meanActualHpDamage": 2420.67,
+      "meanEnemyDirectHpDamage": 1739,
+      "meanShieldDamage": 192,
+      "meanAppliedHealing": 1181.33,
+      "meanEnemyAp": 97.38,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:trained:75:weaker:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 81.46,
+      "minHpPctRange": [
+        75.54,
+        90.1
+      ],
+      "meanFinalHpPct": 84.31,
+      "rounds": [
+        5,
+        13
+      ],
+      "meanActualHpDamage": 2420.67,
+      "meanEnemyDirectHpDamage": 1739,
+      "meanShieldDamage": 192,
+      "meanAppliedHealing": 1181.33,
+      "meanEnemyAp": 97.38,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:trained:75:standard:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 42.15,
+      "minHpPctRange": [
+        24.48,
+        44.58
+      ],
+      "meanFinalHpPct": 39.21,
+      "rounds": [
+        10,
+        19
+      ],
+      "meanActualHpDamage": 6660.33,
+      "meanEnemyDirectHpDamage": 5824.33,
+      "meanShieldDamage": 559.67,
+      "meanAppliedHealing": 2294.67,
+      "meanEnemyAp": 97.07,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:trained:75:standard:after:planner",
+      "fights": 3,
+      "wins": 0,
+      "deaths": 3,
+      "livingLimits": 0,
+      "medianMinHpPct": 0,
+      "minHpPctRange": [
+        0,
+        0
+      ],
+      "meanFinalHpPct": 0,
+      "rounds": [
+        6,
+        11
+      ],
+      "meanActualHpDamage": 8765,
+      "meanEnemyDirectHpDamage": 8130.33,
+      "meanShieldDamage": 360,
+      "meanAppliedHealing": 1405.67,
+      "meanEnemyAp": 98.79,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:trained:75:dangerous:before:planner",
+      "fights": 3,
+      "wins": 2,
+      "deaths": 1,
+      "livingLimits": 0,
+      "medianMinHpPct": 19.34,
+      "minHpPctRange": [
+        0,
+        22.87
+      ],
+      "meanFinalHpPct": 15.42,
+      "rounds": [
+        10,
+        16
+      ],
+      "meanActualHpDamage": 8373.33,
+      "meanEnemyDirectHpDamage": 7635.33,
+      "meanShieldDamage": 540,
+      "meanAppliedHealing": 2392.33,
+      "meanEnemyAp": 97.04,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:trained:75:dangerous:after:planner",
+      "fights": 3,
+      "wins": 0,
+      "deaths": 3,
+      "livingLimits": 0,
+      "medianMinHpPct": 0,
+      "minHpPctRange": [
+        0,
+        0
+      ],
+      "meanFinalHpPct": 0,
+      "rounds": [
+        6,
+        8
+      ],
+      "meanActualHpDamage": 8065.67,
+      "meanEnemyDirectHpDamage": 7823.33,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 793,
+      "meanEnemyAp": 100,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:trained:75:elite:before:planner",
+      "fights": 3,
+      "wins": 0,
+      "deaths": 3,
+      "livingLimits": 0,
+      "medianMinHpPct": 0,
+      "minHpPctRange": [
+        0,
+        0
+      ],
+      "meanFinalHpPct": 0,
+      "rounds": [
+        8,
+        15
+      ],
+      "meanActualHpDamage": 9359,
+      "meanEnemyDirectHpDamage": 8772,
+      "meanShieldDamage": 360,
+      "meanAppliedHealing": 2148.33,
+      "meanEnemyAp": 95.39,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:trained:75:elite:after:planner",
+      "fights": 3,
+      "wins": 0,
+      "deaths": 3,
+      "livingLimits": 0,
+      "medianMinHpPct": 0,
+      "minHpPctRange": [
+        0,
+        0
+      ],
+      "meanFinalHpPct": 0,
+      "rounds": [
+        6,
+        7
+      ],
+      "meanActualHpDamage": 7736,
+      "meanEnemyDirectHpDamage": 7304.67,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 404.67,
+      "meanEnemyAp": 95.87,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:trained:75:weaker:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 79.56,
+      "minHpPctRange": [
+        75.54,
+        83.58
+      ],
+      "meanFinalHpPct": 81.84,
+      "rounds": [
+        5,
+        10
+      ],
+      "meanActualHpDamage": 2199.5,
+      "meanEnemyDirectHpDamage": 1460,
+      "meanShieldDamage": 40.5,
+      "meanAppliedHealing": 765,
+      "meanEnemyAp": 96.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:trained:75:weaker:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 79.56,
+      "minHpPctRange": [
+        75.54,
+        83.58
+      ],
+      "meanFinalHpPct": 81.84,
+      "rounds": [
+        5,
+        10
+      ],
+      "meanActualHpDamage": 2199.5,
+      "meanEnemyDirectHpDamage": 1460,
+      "meanShieldDamage": 40.5,
+      "meanAppliedHealing": 765,
+      "meanEnemyAp": 96.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:trained:75:standard:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 38.04,
+      "minHpPctRange": [
+        24.48,
+        51.59
+      ],
+      "meanFinalHpPct": 39.7,
+      "rounds": [
+        10,
+        16
+      ],
+      "meanActualHpDamage": 6985.5,
+      "meanEnemyDirectHpDamage": 6270,
+      "meanShieldDamage": 459,
+      "meanAppliedHealing": 2473,
+      "meanEnemyAp": 98.22,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:trained:75:standard:after:planner",
+      "fights": 2,
+      "wins": 0,
+      "deaths": 2,
+      "livingLimits": 0,
+      "medianMinHpPct": 0,
+      "minHpPctRange": [
+        0,
+        0
+      ],
+      "meanFinalHpPct": 0,
+      "rounds": [
+        6,
+        11
+      ],
+      "meanActualHpDamage": 8311,
+      "meanEnemyDirectHpDamage": 7701,
+      "meanShieldDamage": 270,
+      "meanAppliedHealing": 842,
+      "meanEnemyAp": 97.27,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:trained:75:dangerous:before:planner",
+      "fights": 2,
+      "wins": 1,
+      "deaths": 1,
+      "livingLimits": 0,
+      "medianMinHpPct": 11.44,
+      "minHpPctRange": [
+        0,
+        22.87
+      ],
+      "meanFinalHpPct": 11.44,
+      "rounds": [
+        10,
+        16
+      ],
+      "meanActualHpDamage": 8823,
+      "meanEnemyDirectHpDamage": 7953,
+      "meanShieldDamage": 540,
+      "meanAppliedHealing": 2347.5,
+      "meanEnemyAp": 96.33,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:trained:75:dangerous:after:planner",
+      "fights": 2,
+      "wins": 0,
+      "deaths": 2,
+      "livingLimits": 0,
+      "medianMinHpPct": 0,
+      "minHpPctRange": [
+        0,
+        0
+      ],
+      "meanFinalHpPct": 0,
+      "rounds": [
+        6,
+        8
+      ],
+      "meanActualHpDamage": 8614,
+      "meanEnemyDirectHpDamage": 8390.5,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 1151,
+      "meanEnemyAp": 100,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:trained:75:elite:before:planner",
+      "fights": 2,
+      "wins": 0,
+      "deaths": 2,
+      "livingLimits": 0,
+      "medianMinHpPct": 0,
+      "minHpPctRange": [
+        0,
+        0
+      ],
+      "meanFinalHpPct": 0,
+      "rounds": [
+        8,
+        15
+      ],
+      "meanActualHpDamage": 9730,
+      "meanEnemyDirectHpDamage": 9007,
+      "meanShieldDamage": 270,
+      "meanAppliedHealing": 2238.5,
+      "meanEnemyAp": 95.58,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:trained:75:elite:after:planner",
+      "fights": 2,
+      "wins": 0,
+      "deaths": 2,
+      "livingLimits": 0,
+      "medianMinHpPct": 0,
+      "minHpPctRange": [
+        0,
+        0
+      ],
+      "meanFinalHpPct": 0,
+      "rounds": [
+        6,
+        6
+      ],
+      "meanActualHpDamage": 7474.5,
+      "meanEnemyDirectHpDamage": 7102.5,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 91.5,
+      "meanEnemyAp": 96.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:specialist:75:weaker:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 87.13,
+      "minHpPctRange": [
+        80.92,
+        88.51
+      ],
+      "meanFinalHpPct": 89.37,
+      "rounds": [
+        3,
+        10
+      ],
+      "meanActualHpDamage": 1730.33,
+      "meanEnemyDirectHpDamage": 1214,
+      "meanShieldDamage": 367.67,
+      "meanAppliedHealing": 890.33,
+      "meanEnemyAp": 97.78,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:specialist:75:weaker:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 87.13,
+      "minHpPctRange": [
+        80.92,
+        88.51
+      ],
+      "meanFinalHpPct": 89.37,
+      "rounds": [
+        3,
+        10
+      ],
+      "meanActualHpDamage": 1730.33,
+      "meanEnemyDirectHpDamage": 1214,
+      "meanShieldDamage": 367.67,
+      "meanAppliedHealing": 890.33,
+      "meanEnemyAp": 97.78,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:specialist:75:standard:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 53.65,
+      "minHpPctRange": [
+        28.05,
+        57.59
+      ],
+      "meanFinalHpPct": 49.13,
+      "rounds": [
+        9,
+        14
+      ],
+      "meanActualHpDamage": 5729,
+      "meanEnemyDirectHpDamage": 4856.67,
+      "meanShieldDamage": 429.33,
+      "meanAppliedHealing": 2013.67,
+      "meanEnemyAp": 97.4,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:specialist:75:standard:after:planner",
+      "fights": 3,
+      "wins": 0,
+      "deaths": 3,
+      "livingLimits": 0,
+      "medianMinHpPct": 0,
+      "minHpPctRange": [
+        0,
+        0
+      ],
+      "meanFinalHpPct": 0,
+      "rounds": [
+        6,
+        11
+      ],
+      "meanActualHpDamage": 8593,
+      "meanEnemyDirectHpDamage": 7716,
+      "meanShieldDamage": 429.33,
+      "meanAppliedHealing": 1233.67,
+      "meanEnemyAp": 97.58,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:specialist:75:dangerous:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 23.35,
+      "minHpPctRange": [
+        5.51,
+        36.81
+      ],
+      "meanFinalHpPct": 25.17,
+      "rounds": [
+        10,
+        12
+      ],
+      "meanActualHpDamage": 7063.33,
+      "meanEnemyDirectHpDamage": 6196.67,
+      "meanShieldDamage": 644,
+      "meanAppliedHealing": 1901,
+      "meanEnemyAp": 97.99,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:specialist:75:dangerous:after:planner",
+      "fights": 3,
+      "wins": 0,
+      "deaths": 3,
+      "livingLimits": 0,
+      "medianMinHpPct": 0,
+      "minHpPctRange": [
+        0,
+        0
+      ],
+      "meanFinalHpPct": 0,
+      "rounds": [
+        6,
+        8
+      ],
+      "meanActualHpDamage": 8071.67,
+      "meanEnemyDirectHpDamage": 7798,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 799,
+      "meanEnemyAp": 100,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:specialist:75:elite:before:planner",
+      "fights": 3,
+      "wins": 2,
+      "deaths": 1,
+      "livingLimits": 0,
+      "medianMinHpPct": 15.56,
+      "minHpPctRange": [
+        0,
+        21.99
+      ],
+      "meanFinalHpPct": 15.01,
+      "rounds": [
+        7,
+        12
+      ],
+      "meanActualHpDamage": 7791.67,
+      "meanEnemyDirectHpDamage": 7133.67,
+      "meanShieldDamage": 429.33,
+      "meanAppliedHealing": 1686,
+      "meanEnemyAp": 97.84,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:specialist:75:elite:after:planner",
+      "fights": 3,
+      "wins": 0,
+      "deaths": 3,
+      "livingLimits": 0,
+      "medianMinHpPct": 0,
+      "minHpPctRange": [
+        0,
+        0
+      ],
+      "meanFinalHpPct": 0,
+      "rounds": [
+        6,
+        6
+      ],
+      "meanActualHpDamage": 7631.33,
+      "meanEnemyDirectHpDamage": 7122,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 375.33,
+      "meanEnemyAp": 97.78,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:specialist:75:weaker:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 86.83,
+      "minHpPctRange": [
+        85.15,
+        88.51
+      ],
+      "meanFinalHpPct": 86.83,
+      "rounds": [
+        3,
+        7
+      ],
+      "meanActualHpDamage": 1319.5,
+      "meanEnemyDirectHpDamage": 850,
+      "meanShieldDamage": 268.5,
+      "meanAppliedHealing": 279,
+      "meanEnemyAp": 98.33,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:specialist:75:weaker:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 86.83,
+      "minHpPctRange": [
+        85.15,
+        88.51
+      ],
+      "meanFinalHpPct": 86.83,
+      "rounds": [
+        3,
+        7
+      ],
+      "meanActualHpDamage": 1319.5,
+      "meanEnemyDirectHpDamage": 850,
+      "meanShieldDamage": 268.5,
+      "meanAppliedHealing": 279,
+      "meanEnemyAp": 98.33,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:specialist:75:standard:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 44.21,
+      "minHpPctRange": [
+        28.05,
+        60.37
+      ],
+      "meanFinalHpPct": 45.23,
+      "rounds": [
+        9,
+        12
+      ],
+      "meanActualHpDamage": 5791,
+      "meanEnemyDirectHpDamage": 4965,
+      "meanShieldDamage": 322,
+      "meanAppliedHealing": 1615.5,
+      "meanEnemyAp": 97.84,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:specialist:75:standard:after:planner",
+      "fights": 2,
+      "wins": 0,
+      "deaths": 2,
+      "livingLimits": 0,
+      "medianMinHpPct": 0,
+      "minHpPctRange": [
+        0,
+        0
+      ],
+      "meanFinalHpPct": 0,
+      "rounds": [
+        6,
+        12
+      ],
+      "meanActualHpDamage": 8485.5,
+      "meanEnemyDirectHpDamage": 7644.5,
+      "meanShieldDamage": 322,
+      "meanAppliedHealing": 1081.5,
+      "meanEnemyAp": 97.5,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:specialist:75:dangerous:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 21.16,
+      "minHpPctRange": [
+        5.51,
+        36.81
+      ],
+      "meanFinalHpPct": 26.08,
+      "rounds": [
+        10,
+        12
+      ],
+      "meanActualHpDamage": 7351,
+      "meanEnemyDirectHpDamage": 6594,
+      "meanShieldDamage": 644,
+      "meanAppliedHealing": 1948,
+      "meanEnemyAp": 97.98,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:specialist:75:dangerous:after:planner",
+      "fights": 2,
+      "wins": 0,
+      "deaths": 2,
+      "livingLimits": 0,
+      "medianMinHpPct": 0,
+      "minHpPctRange": [
+        0,
+        0
+      ],
+      "meanFinalHpPct": 0,
+      "rounds": [
+        6,
+        8
+      ],
+      "meanActualHpDamage": 8661.5,
+      "meanEnemyDirectHpDamage": 8410.5,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 1198.5,
+      "meanEnemyAp": 100,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:specialist:75:elite:before:planner",
+      "fights": 2,
+      "wins": 1,
+      "deaths": 1,
+      "livingLimits": 0,
+      "medianMinHpPct": 10.99,
+      "minHpPctRange": [
+        0,
+        21.99
+      ],
+      "meanFinalHpPct": 13.22,
+      "rounds": [
+        7,
+        12
+      ],
+      "meanActualHpDamage": 7847.5,
+      "meanEnemyDirectHpDamage": 7168.5,
+      "meanShieldDamage": 322,
+      "meanAppliedHealing": 1509,
+      "meanEnemyAp": 97.66,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:specialist:75:elite:after:planner",
+      "fights": 2,
+      "wins": 0,
+      "deaths": 2,
+      "livingLimits": 0,
+      "medianMinHpPct": 0,
+      "minHpPctRange": [
+        0,
+        0
+      ],
+      "meanFinalHpPct": 0,
+      "rounds": [
+        6,
+        6
+      ],
+      "meanActualHpDamage": 7867.5,
+      "meanEnemyDirectHpDamage": 7541.5,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 484.5,
+      "meanEnemyAp": 96.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:optimized:75:weaker:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 84.84,
+      "minHpPctRange": [
+        72.77,
+        85.87
+      ],
+      "meanFinalHpPct": 85.24,
+      "rounds": [
+        3,
+        10
+      ],
+      "meanActualHpDamage": 2198,
+      "meanEnemyDirectHpDamage": 1724.67,
+      "meanShieldDamage": 32.67,
+      "meanAppliedHealing": 1031.67,
+      "meanEnemyAp": 96.11,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:optimized:75:weaker:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 84.84,
+      "minHpPctRange": [
+        72.77,
+        85.87
+      ],
+      "meanFinalHpPct": 85.24,
+      "rounds": [
+        3,
+        10
+      ],
+      "meanActualHpDamage": 2198,
+      "meanEnemyDirectHpDamage": 1724.67,
+      "meanShieldDamage": 32.67,
+      "meanAppliedHealing": 1031.67,
+      "meanEnemyAp": 96.11,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:optimized:75:standard:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 54.59,
+      "minHpPctRange": [
+        54.34,
+        63.54
+      ],
+      "meanFinalHpPct": 58.95,
+      "rounds": [
+        6,
+        12
+      ],
+      "meanActualHpDamage": 4711.67,
+      "meanEnemyDirectHpDamage": 4192.33,
+      "meanShieldDamage": 500,
+      "meanAppliedHealing": 1775.67,
+      "meanEnemyAp": 97.93,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:optimized:75:standard:after:planner",
+      "fights": 3,
+      "wins": 1,
+      "deaths": 2,
+      "livingLimits": 0,
+      "medianMinHpPct": 0,
+      "minHpPctRange": [
+        0,
+        6.46
+      ],
+      "meanFinalHpPct": 3.41,
+      "rounds": [
+        6,
+        12
+      ],
+      "meanActualHpDamage": 8216,
+      "meanEnemyDirectHpDamage": 7832.67,
+      "meanShieldDamage": 250,
+      "meanAppliedHealing": 1190,
+      "meanEnemyAp": 98.33,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:optimized:75:dangerous:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 30.57,
+      "minHpPctRange": [
+        22.39,
+        42.53
+      ],
+      "meanFinalHpPct": 35.86,
+      "rounds": [
+        9,
+        11
+      ],
+      "meanActualHpDamage": 6710.67,
+      "meanEnemyDirectHpDamage": 5995,
+      "meanShieldDamage": 500,
+      "meanAppliedHealing": 2208,
+      "meanEnemyAp": 97.83,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:optimized:75:dangerous:after:planner",
+      "fights": 3,
+      "wins": 0,
+      "deaths": 3,
+      "livingLimits": 0,
+      "medianMinHpPct": 0,
+      "minHpPctRange": [
+        0,
+        0
+      ],
+      "meanFinalHpPct": 0,
+      "rounds": [
+        6,
+        11
+      ],
+      "meanActualHpDamage": 8223.67,
+      "meanEnemyDirectHpDamage": 7860,
+      "meanShieldDamage": 250,
+      "meanAppliedHealing": 1006.33,
+      "meanEnemyAp": 97.12,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:optimized:75:elite:before:planner",
+      "fights": 3,
+      "wins": 2,
+      "deaths": 1,
+      "livingLimits": 0,
+      "medianMinHpPct": 7.7,
+      "minHpPctRange": [
+        0,
+        23.53
+      ],
+      "meanFinalHpPct": 12.83,
+      "rounds": [
+        8,
+        11
+      ],
+      "meanActualHpDamage": 8200.67,
+      "meanEnemyDirectHpDamage": 7484,
+      "meanShieldDamage": 299,
+      "meanAppliedHealing": 2038,
+      "meanEnemyAp": 96.09,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:optimized:75:elite:after:planner",
+      "fights": 3,
+      "wins": 0,
+      "deaths": 3,
+      "livingLimits": 0,
+      "medianMinHpPct": 0,
+      "minHpPctRange": [
+        0,
+        0
+      ],
+      "meanFinalHpPct": 0,
+      "rounds": [
+        6,
+        6
+      ],
+      "meanActualHpDamage": 7591.67,
+      "meanEnemyDirectHpDamage": 7029.33,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 346.33,
+      "meanEnemyAp": 95.56,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:optimized:75:weaker:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 78.95,
+      "minHpPctRange": [
+        72.77,
+        85.13
+      ],
+      "meanFinalHpPct": 83.51,
+      "rounds": [
+        3,
+        8
+      ],
+      "meanActualHpDamage": 2098,
+      "meanEnemyDirectHpDamage": 1351,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 795.5,
+      "meanEnemyAp": 95.71,
+      "cooldownDryTurns": 1
+    },
+    {
+      "key": "progression:natural:optimized:75:weaker:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 78.95,
+      "minHpPctRange": [
+        72.77,
+        85.13
+      ],
+      "meanFinalHpPct": 83.51,
+      "rounds": [
+        3,
+        8
+      ],
+      "meanActualHpDamage": 2098,
+      "meanEnemyDirectHpDamage": 1351,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 795.5,
+      "meanEnemyAp": 95.71,
+      "cooldownDryTurns": 1
+    },
+    {
+      "key": "progression:natural:optimized:75:standard:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 59.83,
+      "minHpPctRange": [
+        56.11,
+        63.54
+      ],
+      "meanFinalHpPct": 60.16,
+      "rounds": [
+        6,
+        12
+      ],
+      "meanActualHpDamage": 4574.5,
+      "meanEnemyDirectHpDamage": 4003.5,
+      "meanShieldDamage": 375,
+      "meanAppliedHealing": 1583,
+      "meanEnemyAp": 98,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:optimized:75:standard:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 13.34,
+      "minHpPctRange": [
+        6.46,
+        20.22
+      ],
+      "meanFinalHpPct": 15.24,
+      "rounds": [
+        9,
+        12
+      ],
+      "meanActualHpDamage": 7305,
+      "meanEnemyDirectHpDamage": 6854,
+      "meanShieldDamage": 375,
+      "meanAppliedHealing": 1113,
+      "meanEnemyAp": 99.09,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:optimized:75:dangerous:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 32.46,
+      "minHpPctRange": [
+        22.39,
+        42.53
+      ],
+      "meanFinalHpPct": 36.29,
+      "rounds": [
+        9,
+        11
+      ],
+      "meanActualHpDamage": 6763,
+      "meanEnemyDirectHpDamage": 5935.5,
+      "meanShieldDamage": 375,
+      "meanAppliedHealing": 2076.5,
+      "meanEnemyAp": 97.75,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:optimized:75:dangerous:after:planner",
+      "fights": 2,
+      "wins": 0,
+      "deaths": 2,
+      "livingLimits": 0,
+      "medianMinHpPct": 0,
+      "minHpPctRange": [
+        0,
+        0
+      ],
+      "meanFinalHpPct": 0,
+      "rounds": [
+        6,
+        11
+      ],
+      "meanActualHpDamage": 8196.5,
+      "meanEnemyDirectHpDamage": 7774,
+      "meanShieldDamage": 375,
+      "meanAppliedHealing": 808.5,
+      "meanEnemyAp": 98.18,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:optimized:75:elite:before:planner",
+      "fights": 2,
+      "wins": 1,
+      "deaths": 1,
+      "livingLimits": 0,
+      "medianMinHpPct": 11.77,
+      "minHpPctRange": [
+        0,
+        23.53
+      ],
+      "meanFinalHpPct": 13.94,
+      "rounds": [
+        8,
+        11
+      ],
+      "meanActualHpDamage": 8286,
+      "meanEnemyDirectHpDamage": 7604,
+      "meanShieldDamage": 375,
+      "meanAppliedHealing": 2011.5,
+      "meanEnemyAp": 95.25,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:optimized:75:elite:after:planner",
+      "fights": 2,
+      "wins": 0,
+      "deaths": 2,
+      "livingLimits": 0,
+      "medianMinHpPct": 0,
+      "minHpPctRange": [
+        0,
+        0
+      ],
+      "meanFinalHpPct": 0,
+      "rounds": [
+        6,
+        6
+      ],
+      "meanActualHpDamage": 7820,
+      "meanEnemyDirectHpDamage": 7301,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 444,
+      "meanEnemyAp": 96.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:narrow:75:weaker:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 84.84,
+      "minHpPctRange": [
+        72.77,
+        85.87
+      ],
+      "meanFinalHpPct": 85.24,
+      "rounds": [
+        3,
+        10
+      ],
+      "meanActualHpDamage": 2198,
+      "meanEnemyDirectHpDamage": 1724.67,
+      "meanShieldDamage": 32.67,
+      "meanAppliedHealing": 1031.67,
+      "meanEnemyAp": 96.11,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:narrow:75:weaker:after:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 84.84,
+      "minHpPctRange": [
+        72.77,
+        85.87
+      ],
+      "meanFinalHpPct": 85.24,
+      "rounds": [
+        3,
+        10
+      ],
+      "meanActualHpDamage": 2198,
+      "meanEnemyDirectHpDamage": 1724.67,
+      "meanShieldDamage": 32.67,
+      "meanAppliedHealing": 1031.67,
+      "meanEnemyAp": 96.11,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:narrow:75:standard:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 54.59,
+      "minHpPctRange": [
+        54.34,
+        63.54
+      ],
+      "meanFinalHpPct": 58.95,
+      "rounds": [
+        6,
+        12
+      ],
+      "meanActualHpDamage": 4711.67,
+      "meanEnemyDirectHpDamage": 4192.33,
+      "meanShieldDamage": 500,
+      "meanAppliedHealing": 1775.67,
+      "meanEnemyAp": 97.93,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:narrow:75:standard:after:planner",
+      "fights": 3,
+      "wins": 1,
+      "deaths": 2,
+      "livingLimits": 0,
+      "medianMinHpPct": 0,
+      "minHpPctRange": [
+        0,
+        6.46
+      ],
+      "meanFinalHpPct": 3.41,
+      "rounds": [
+        6,
+        12
+      ],
+      "meanActualHpDamage": 8216,
+      "meanEnemyDirectHpDamage": 7832.67,
+      "meanShieldDamage": 250,
+      "meanAppliedHealing": 1190,
+      "meanEnemyAp": 98.33,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:narrow:75:dangerous:before:planner",
+      "fights": 3,
+      "wins": 3,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 30.57,
+      "minHpPctRange": [
+        22.39,
+        42.53
+      ],
+      "meanFinalHpPct": 35.86,
+      "rounds": [
+        9,
+        11
+      ],
+      "meanActualHpDamage": 6710.67,
+      "meanEnemyDirectHpDamage": 5995,
+      "meanShieldDamage": 500,
+      "meanAppliedHealing": 2208,
+      "meanEnemyAp": 97.83,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:narrow:75:dangerous:after:planner",
+      "fights": 3,
+      "wins": 0,
+      "deaths": 3,
+      "livingLimits": 0,
+      "medianMinHpPct": 0,
+      "minHpPctRange": [
+        0,
+        0
+      ],
+      "meanFinalHpPct": 0,
+      "rounds": [
+        6,
+        11
+      ],
+      "meanActualHpDamage": 8223.67,
+      "meanEnemyDirectHpDamage": 7860,
+      "meanShieldDamage": 250,
+      "meanAppliedHealing": 1006.33,
+      "meanEnemyAp": 97.12,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:narrow:75:elite:before:planner",
+      "fights": 3,
+      "wins": 2,
+      "deaths": 1,
+      "livingLimits": 0,
+      "medianMinHpPct": 7.7,
+      "minHpPctRange": [
+        0,
+        23.53
+      ],
+      "meanFinalHpPct": 12.83,
+      "rounds": [
+        8,
+        11
+      ],
+      "meanActualHpDamage": 8200.67,
+      "meanEnemyDirectHpDamage": 7484,
+      "meanShieldDamage": 299,
+      "meanAppliedHealing": 2038,
+      "meanEnemyAp": 96.09,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:explore:narrow:75:elite:after:planner",
+      "fights": 3,
+      "wins": 0,
+      "deaths": 3,
+      "livingLimits": 0,
+      "medianMinHpPct": 0,
+      "minHpPctRange": [
+        0,
+        0
+      ],
+      "meanFinalHpPct": 0,
+      "rounds": [
+        6,
+        6
+      ],
+      "meanActualHpDamage": 7591.67,
+      "meanEnemyDirectHpDamage": 7029.33,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 346.33,
+      "meanEnemyAp": 95.56,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:narrow:75:weaker:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 78.95,
+      "minHpPctRange": [
+        72.77,
+        85.13
+      ],
+      "meanFinalHpPct": 83.51,
+      "rounds": [
+        3,
+        8
+      ],
+      "meanActualHpDamage": 2098,
+      "meanEnemyDirectHpDamage": 1351,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 795.5,
+      "meanEnemyAp": 95.71,
+      "cooldownDryTurns": 1
+    },
+    {
+      "key": "progression:natural:narrow:75:weaker:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 78.95,
+      "minHpPctRange": [
+        72.77,
+        85.13
+      ],
+      "meanFinalHpPct": 83.51,
+      "rounds": [
+        3,
+        8
+      ],
+      "meanActualHpDamage": 2098,
+      "meanEnemyDirectHpDamage": 1351,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 795.5,
+      "meanEnemyAp": 95.71,
+      "cooldownDryTurns": 1
+    },
+    {
+      "key": "progression:natural:narrow:75:standard:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 59.83,
+      "minHpPctRange": [
+        56.11,
+        63.54
+      ],
+      "meanFinalHpPct": 60.16,
+      "rounds": [
+        6,
+        12
+      ],
+      "meanActualHpDamage": 4574.5,
+      "meanEnemyDirectHpDamage": 4003.5,
+      "meanShieldDamage": 375,
+      "meanAppliedHealing": 1583,
+      "meanEnemyAp": 98,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:narrow:75:standard:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 13.34,
+      "minHpPctRange": [
+        6.46,
+        20.22
+      ],
+      "meanFinalHpPct": 15.24,
+      "rounds": [
+        9,
+        12
+      ],
+      "meanActualHpDamage": 7305,
+      "meanEnemyDirectHpDamage": 6854,
+      "meanShieldDamage": 375,
+      "meanAppliedHealing": 1113,
+      "meanEnemyAp": 99.09,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:narrow:75:dangerous:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 32.46,
+      "minHpPctRange": [
+        22.39,
+        42.53
+      ],
+      "meanFinalHpPct": 36.29,
+      "rounds": [
+        9,
+        11
+      ],
+      "meanActualHpDamage": 6763,
+      "meanEnemyDirectHpDamage": 5935.5,
+      "meanShieldDamage": 375,
+      "meanAppliedHealing": 2076.5,
+      "meanEnemyAp": 97.75,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:narrow:75:dangerous:after:planner",
+      "fights": 2,
+      "wins": 0,
+      "deaths": 2,
+      "livingLimits": 0,
+      "medianMinHpPct": 0,
+      "minHpPctRange": [
+        0,
+        0
+      ],
+      "meanFinalHpPct": 0,
+      "rounds": [
+        6,
+        11
+      ],
+      "meanActualHpDamage": 8196.5,
+      "meanEnemyDirectHpDamage": 7774,
+      "meanShieldDamage": 375,
+      "meanAppliedHealing": 808.5,
+      "meanEnemyAp": 98.18,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:narrow:75:elite:before:planner",
+      "fights": 2,
+      "wins": 1,
+      "deaths": 1,
+      "livingLimits": 0,
+      "medianMinHpPct": 11.77,
+      "minHpPctRange": [
+        0,
+        23.53
+      ],
+      "meanFinalHpPct": 13.94,
+      "rounds": [
+        8,
+        11
+      ],
+      "meanActualHpDamage": 8286,
+      "meanEnemyDirectHpDamage": 7604,
+      "meanShieldDamage": 375,
+      "meanAppliedHealing": 2011.5,
+      "meanEnemyAp": 95.25,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "progression:natural:narrow:75:elite:after:planner",
+      "fights": 2,
+      "wins": 0,
+      "deaths": 2,
+      "livingLimits": 0,
+      "medianMinHpPct": 0,
+      "minHpPctRange": [
+        0,
+        0
+      ],
+      "meanFinalHpPct": 0,
+      "rounds": [
+        6,
+        6
+      ],
+      "meanActualHpDamage": 7820,
+      "meanEnemyDirectHpDamage": 7301,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 444,
+      "meanEnemyAp": 96.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "endgame:explore:optimized:100:weaker:before:planner",
+      "fights": 5,
+      "wins": 5,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 88.86,
+      "minHpPctRange": [
+        69.41,
+        93.29
+      ],
+      "meanFinalHpPct": 88.1,
+      "rounds": [
+        4,
+        8
+      ],
+      "meanActualHpDamage": 1556.2,
+      "meanEnemyDirectHpDamage": 877.6,
+      "meanShieldDamage": 36.8,
+      "meanAppliedHealing": 386,
+      "meanEnemyAp": 92.33,
+      "cooldownDryTurns": 1
+    },
+    {
+      "key": "endgame:explore:optimized:100:weaker:after:planner",
+      "fights": 5,
+      "wins": 5,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 88.86,
+      "minHpPctRange": [
+        69.41,
+        93.29
+      ],
+      "meanFinalHpPct": 88.1,
+      "rounds": [
+        4,
+        8
+      ],
+      "meanActualHpDamage": 1556.2,
+      "meanEnemyDirectHpDamage": 877.6,
+      "meanShieldDamage": 36.8,
+      "meanAppliedHealing": 386,
+      "meanEnemyAp": 92.33,
+      "cooldownDryTurns": 1
+    },
+    {
+      "key": "endgame:explore:optimized:100:standard:before:planner",
+      "fights": 5,
+      "wins": 5,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 83.92,
+      "minHpPctRange": [
+        78.22,
+        91.14
+      ],
+      "meanFinalHpPct": 88.75,
+      "rounds": [
+        6,
+        9
+      ],
+      "meanActualHpDamage": 2134.8,
+      "meanEnemyDirectHpDamage": 1679.4,
+      "meanShieldDamage": 281.4,
+      "meanAppliedHealing": 1111.8,
+      "meanEnemyAp": 98.06,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "endgame:explore:optimized:100:standard:after:planner",
+      "fights": 5,
+      "wins": 5,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 47.05,
+      "minHpPctRange": [
+        33.96,
+        66.28
+      ],
+      "meanFinalHpPct": 50.2,
+      "rounds": [
+        7,
+        12
+      ],
+      "meanActualHpDamage": 5326.6,
+      "meanEnemyDirectHpDamage": 3770,
+      "meanShieldDamage": 708.8,
+      "meanAppliedHealing": 668,
+      "meanEnemyAp": 98.58,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "endgame:explore:optimized:100:dangerous:before:planner",
+      "fights": 5,
+      "wins": 5,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 71.72,
+      "minHpPctRange": [
+        56.77,
+        80.81
+      ],
+      "meanFinalHpPct": 74.86,
+      "rounds": [
+        8,
+        9
+      ],
+      "meanActualHpDamage": 3324.8,
+      "meanEnemyDirectHpDamage": 2692.6,
+      "meanShieldDamage": 285.4,
+      "meanAppliedHealing": 1228.8,
+      "meanEnemyAp": 97.54,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "endgame:explore:optimized:100:dangerous:after:planner",
+      "fights": 5,
+      "wins": 5,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 19.69,
+      "minHpPctRange": [
+        12.96,
+        33.57
+      ],
+      "meanFinalHpPct": 23.32,
+      "rounds": [
+        9,
+        12
+      ],
+      "meanActualHpDamage": 7279.6,
+      "meanEnemyDirectHpDamage": 5554.2,
+      "meanShieldDamage": 498,
+      "meanAppliedHealing": 724.6,
+      "meanEnemyAp": 100,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "endgame:explore:optimized:100:elite:before:planner",
+      "fights": 5,
+      "wins": 5,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 67.18,
+      "minHpPctRange": [
+        51.76,
+        79.6
+      ],
+      "meanFinalHpPct": 69.58,
+      "rounds": [
+        8,
+        9
+      ],
+      "meanActualHpDamage": 3724.2,
+      "meanEnemyDirectHpDamage": 3300.4,
+      "meanShieldDamage": 271.4,
+      "meanAppliedHealing": 1173.6,
+      "meanEnemyAp": 98.11,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "endgame:explore:optimized:100:elite:after:planner",
+      "fights": 5,
+      "wins": 5,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 21.61,
+      "minHpPctRange": [
+        2.27,
+        37.31
+      ],
+      "meanFinalHpPct": 20.65,
+      "rounds": [
+        9,
+        12
+      ],
+      "meanActualHpDamage": 8376.6,
+      "meanEnemyDirectHpDamage": 5987.4,
+      "meanShieldDamage": 424.8,
+      "meanAppliedHealing": 1144.8,
+      "meanEnemyAp": 100,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "endgame:explore:sustain:100:weaker:before:planner",
+      "fights": 5,
+      "wins": 5,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 94.19,
+      "minHpPctRange": [
+        90.76,
+        95.35
+      ],
+      "meanFinalHpPct": 98.15,
+      "rounds": [
+        3,
+        8
+      ],
+      "meanActualHpDamage": 1079.6,
+      "meanEnemyDirectHpDamage": 812.8,
+      "meanShieldDamage": 302.8,
+      "meanAppliedHealing": 914.2,
+      "meanEnemyAp": 96.52,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "endgame:explore:sustain:100:weaker:after:planner",
+      "fights": 5,
+      "wins": 5,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 94.19,
+      "minHpPctRange": [
+        90.76,
+        95.35
+      ],
+      "meanFinalHpPct": 98.15,
+      "rounds": [
+        3,
+        8
+      ],
+      "meanActualHpDamage": 1079.6,
+      "meanEnemyDirectHpDamage": 812.8,
+      "meanShieldDamage": 302.8,
+      "meanAppliedHealing": 914.2,
+      "meanEnemyAp": 96.52,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "endgame:explore:sustain:100:standard:before:planner",
+      "fights": 5,
+      "wins": 5,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 90.92,
+      "minHpPctRange": [
+        84.22,
+        94.41
+      ],
+      "meanFinalHpPct": 96.76,
+      "rounds": [
+        7,
+        10
+      ],
+      "meanActualHpDamage": 1875.4,
+      "meanEnemyDirectHpDamage": 1550.4,
+      "meanShieldDamage": 1245,
+      "meanAppliedHealing": 1654.6,
+      "meanEnemyAp": 96.04,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "endgame:explore:sustain:100:standard:after:planner",
+      "fights": 5,
+      "wins": 5,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 62.07,
+      "minHpPctRange": [
+        56.9,
+        65.65
+      ],
+      "meanFinalHpPct": 67.97,
+      "rounds": [
+        6,
+        12
+      ],
+      "meanActualHpDamage": 5209,
+      "meanEnemyDirectHpDamage": 4513.4,
+      "meanShieldDamage": 1380,
+      "meanAppliedHealing": 2223,
+      "meanEnemyAp": 98.83,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "endgame:explore:sustain:100:dangerous:before:planner",
+      "fights": 5,
+      "wins": 5,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 88.48,
+      "minHpPctRange": [
+        81.81,
+        91.65
+      ],
+      "meanFinalHpPct": 91.91,
+      "rounds": [
+        7,
+        10
+      ],
+      "meanActualHpDamage": 2663.4,
+      "meanEnemyDirectHpDamage": 2211.4,
+      "meanShieldDamage": 1498.2,
+      "meanAppliedHealing": 1983.2,
+      "meanEnemyAp": 98.56,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "endgame:explore:sustain:100:dangerous:after:planner",
+      "fights": 5,
+      "wins": 5,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 40.86,
+      "minHpPctRange": [
+        35.42,
+        58.45
+      ],
+      "meanFinalHpPct": 46.86,
+      "rounds": [
+        7,
+        12
+      ],
+      "meanActualHpDamage": 6542.4,
+      "meanEnemyDirectHpDamage": 5689,
+      "meanShieldDamage": 1830,
+      "meanAppliedHealing": 2112.2,
+      "meanEnemyAp": 100,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "endgame:explore:sustain:100:elite:before:planner",
+      "fights": 5,
+      "wins": 5,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 81.51,
+      "minHpPctRange": [
+        78.5,
+        87.47
+      ],
+      "meanFinalHpPct": 89.23,
+      "rounds": [
+        7,
+        10
+      ],
+      "meanActualHpDamage": 3175.6,
+      "meanEnemyDirectHpDamage": 2761.8,
+      "meanShieldDamage": 1477.4,
+      "meanAppliedHealing": 2518.6,
+      "meanEnemyAp": 98.17,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "endgame:explore:sustain:100:elite:after:planner",
+      "fights": 5,
+      "wins": 5,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 48.38,
+      "minHpPctRange": [
+        33.25,
+        58.45
+      ],
+      "meanFinalHpPct": 48.14,
+      "rounds": [
+        7,
+        12
+      ],
+      "meanActualHpDamage": 6366.6,
+      "meanEnemyDirectHpDamage": 5208.6,
+      "meanShieldDamage": 1956.6,
+      "meanAppliedHealing": 1710.4,
+      "meanEnemyAp": 99.11,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "endgame:explore:stress:100:weaker:before:planner",
+      "fights": 5,
+      "wins": 5,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 94.05,
+      "minHpPctRange": [
+        84.56,
+        97.34
+      ],
+      "meanFinalHpPct": 95.55,
+      "rounds": [
+        3,
+        7
+      ],
+      "meanActualHpDamage": 1193.2,
+      "meanEnemyDirectHpDamage": 743.2,
+      "meanShieldDamage": 359.2,
+      "meanAppliedHealing": 768,
+      "meanEnemyAp": 97.87,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "endgame:explore:stress:100:weaker:after:planner",
+      "fights": 5,
+      "wins": 5,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 94.05,
+      "minHpPctRange": [
+        84.56,
+        97.34
+      ],
+      "meanFinalHpPct": 95.55,
+      "rounds": [
+        3,
+        7
+      ],
+      "meanActualHpDamage": 1193.2,
+      "meanEnemyDirectHpDamage": 743.2,
+      "meanShieldDamage": 359.2,
+      "meanAppliedHealing": 768,
+      "meanEnemyAp": 97.87,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "endgame:explore:stress:100:standard:before:planner",
+      "fights": 5,
+      "wins": 5,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 86.09,
+      "minHpPctRange": [
+        83.29,
+        94.41
+      ],
+      "meanFinalHpPct": 99.32,
+      "rounds": [
+        6,
+        8
+      ],
+      "meanActualHpDamage": 1889.8,
+      "meanEnemyDirectHpDamage": 1585.4,
+      "meanShieldDamage": 636.6,
+      "meanAppliedHealing": 1901.8,
+      "meanEnemyAp": 97.63,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "endgame:explore:stress:100:standard:after:planner",
+      "fights": 5,
+      "wins": 5,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 46.76,
+      "minHpPctRange": [
+        37.4,
+        61.91
+      ],
+      "meanFinalHpPct": 56.26,
+      "rounds": [
+        6,
+        12
+      ],
+      "meanActualHpDamage": 6311.6,
+      "meanEnemyDirectHpDamage": 5337,
+      "meanShieldDamage": 735,
+      "meanAppliedHealing": 2256,
+      "meanEnemyAp": 98.3,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "endgame:explore:stress:100:dangerous:before:planner",
+      "fights": 5,
+      "wins": 5,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 81.41,
+      "minHpPctRange": [
+        78.16,
+        82.86
+      ],
+      "meanFinalHpPct": 94,
+      "rounds": [
+        7,
+        9
+      ],
+      "meanActualHpDamage": 3125,
+      "meanEnemyDirectHpDamage": 2548.2,
+      "meanShieldDamage": 975,
+      "meanAppliedHealing": 2625.2,
+      "meanEnemyAp": 97.21,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "endgame:explore:stress:100:dangerous:after:planner",
+      "fights": 5,
+      "wins": 5,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 28.85,
+      "minHpPctRange": [
+        16.11,
+        40.71
+      ],
+      "meanFinalHpPct": 31.4,
+      "rounds": [
+        8,
+        13
+      ],
+      "meanActualHpDamage": 7913.4,
+      "meanEnemyDirectHpDamage": 6662.4,
+      "meanShieldDamage": 1125,
+      "meanAppliedHealing": 1660,
+      "meanEnemyAp": 98.35,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "endgame:explore:stress:100:elite:before:planner",
+      "fights": 5,
+      "wins": 5,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 78.55,
+      "minHpPctRange": [
+        67.28,
+        81.23
+      ],
+      "meanFinalHpPct": 89.58,
+      "rounds": [
+        7,
+        9
+      ],
+      "meanActualHpDamage": 3718,
+      "meanEnemyDirectHpDamage": 3072,
+      "meanShieldDamage": 930,
+      "meanAppliedHealing": 3004,
+      "meanEnemyAp": 97.69,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "endgame:explore:stress:100:elite:after:planner",
+      "fights": 5,
+      "wins": 5,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 31.53,
+      "minHpPctRange": [
+        23.81,
+        41.42
+      ],
+      "meanFinalHpPct": 34.54,
+      "rounds": [
+        7,
+        13
+      ],
+      "meanActualHpDamage": 7665.6,
+      "meanEnemyDirectHpDamage": 6471.2,
+      "meanShieldDamage": 1335,
+      "meanAppliedHealing": 1662.4,
+      "meanEnemyAp": 99.22,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "near94:explore:sustain:100:standard:before:planner",
+      "fights": 5,
+      "wins": 5,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 92.25,
+      "minHpPctRange": [
+        91.07,
+        94.25
+      ],
+      "meanFinalHpPct": 97.18,
+      "rounds": [
+        7,
+        9
+      ],
+      "meanActualHpDamage": 1423.4,
+      "meanEnemyDirectHpDamage": 1126,
+      "meanShieldDamage": 1497.8,
+      "meanAppliedHealing": 1221,
+      "meanEnemyAp": 97.19,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "near94:explore:sustain:100:standard:after:planner",
+      "fights": 5,
+      "wins": 5,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 65.22,
+      "minHpPctRange": [
+        59.8,
+        74.22
+      ],
+      "meanFinalHpPct": 71.57,
+      "rounds": [
+        7,
+        11
+      ],
+      "meanActualHpDamage": 4921.6,
+      "meanEnemyDirectHpDamage": 3920.6,
+      "meanShieldDamage": 1791.4,
+      "meanAppliedHealing": 2354,
+      "meanEnemyAp": 99.06,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "near94:explore:sustain:100:standard:before:reckless",
+      "fights": 5,
+      "wins": 5,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 74.16,
+      "minHpPctRange": [
+        51.17,
+        76.1
+      ],
+      "meanFinalHpPct": 68.89,
+      "rounds": [
+        8,
+        10
+      ],
+      "meanActualHpDamage": 4785.6,
+      "meanEnemyDirectHpDamage": 4240.2,
+      "meanShieldDamage": 270,
+      "meanAppliedHealing": 1924.8,
+      "meanEnemyAp": 98.67,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "near94:explore:sustain:100:standard:after:reckless",
+      "fights": 5,
+      "wins": 0,
+      "deaths": 5,
+      "livingLimits": 0,
+      "medianMinHpPct": 0,
+      "minHpPctRange": [
+        0,
+        0
+      ],
+      "meanFinalHpPct": 0,
+      "rounds": [
+        6,
+        9
+      ],
+      "meanActualHpDamage": 9932.8,
+      "meanEnemyDirectHpDamage": 8429.4,
+      "meanShieldDamage": 315,
+      "meanAppliedHealing": 748.4,
+      "meanEnemyAp": 97.33,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "near94:explore:stress:100:standard:before:planner",
+      "fights": 5,
+      "wins": 5,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 87.26,
+      "minHpPctRange": [
+        83.6,
+        92.42
+      ],
+      "meanFinalHpPct": 100,
+      "rounds": [
+        6,
+        7
+      ],
+      "meanActualHpDamage": 1799.2,
+      "meanEnemyDirectHpDamage": 1509.6,
+      "meanShieldDamage": 708,
+      "meanAppliedHealing": 1879.2,
+      "meanEnemyAp": 98,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "near94:explore:stress:100:standard:after:planner",
+      "fights": 5,
+      "wins": 5,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 61.07,
+      "minHpPctRange": [
+        46.36,
+        67.49
+      ],
+      "meanFinalHpPct": 72.28,
+      "rounds": [
+        7,
+        11
+      ],
+      "meanActualHpDamage": 5292.2,
+      "meanEnemyDirectHpDamage": 4415.6,
+      "meanShieldDamage": 1058.8,
+      "meanAppliedHealing": 2971,
+      "meanEnemyAp": 98.46,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "near94:explore:stress:100:standard:before:reckless",
+      "fights": 5,
+      "wins": 5,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 74.67,
+      "minHpPctRange": [
+        65.64,
+        76.74
+      ],
+      "meanFinalHpPct": 72.26,
+      "rounds": [
+        8,
+        10
+      ],
+      "meanActualHpDamage": 4546,
+      "meanEnemyDirectHpDamage": 4000.6,
+      "meanShieldDamage": 270,
+      "meanAppliedHealing": 1982.2,
+      "meanEnemyAp": 98.61,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "near94:explore:stress:100:standard:after:reckless",
+      "fights": 5,
+      "wins": 0,
+      "deaths": 5,
+      "livingLimits": 0,
+      "medianMinHpPct": 0,
+      "minHpPctRange": [
+        0,
+        0
+      ],
+      "meanFinalHpPct": 0,
+      "rounds": [
+        6,
+        9
+      ],
+      "meanActualHpDamage": 9939.2,
+      "meanEnemyDirectHpDamage": 8430.4,
+      "meanShieldDamage": 315,
+      "meanAppliedHealing": 754.8,
+      "meanEnemyAp": 97.33,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "special:explore:optimized:100:final-kage:before:planner",
+      "fights": 4,
+      "wins": 4,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 55.88,
+      "minHpPctRange": [
+        36.93,
+        60.51
+      ],
+      "meanFinalHpPct": 52.75,
+      "rounds": [
+        10,
+        12
+      ],
+      "meanActualHpDamage": 5271,
+      "meanEnemyDirectHpDamage": 4308.25,
+      "meanShieldDamage": 905.75,
+      "meanAppliedHealing": 1403,
+      "meanEnemyAp": 98.09,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "special:explore:optimized:100:final-kage:after:planner",
+      "fights": 4,
+      "wins": 3,
+      "deaths": 1,
+      "livingLimits": 0,
+      "medianMinHpPct": 17.11,
+      "minHpPctRange": [
+        0,
+        20.67
+      ],
+      "meanFinalHpPct": 14.56,
+      "rounds": [
+        8,
+        12
+      ],
+      "meanActualHpDamage": 8892.5,
+      "meanEnemyDirectHpDamage": 6110,
+      "meanShieldDamage": 748,
+      "meanAppliedHealing": 1459.5,
+      "meanEnemyAp": 98.75,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "special:explore:sustain:100:final-kage:before:planner",
+      "fights": 4,
+      "wins": 4,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 59.47,
+      "minHpPctRange": [
+        34.12,
+        76.78
+      ],
+      "meanFinalHpPct": 68.77,
+      "rounds": [
+        9,
+        13
+      ],
+      "meanActualHpDamage": 7249,
+      "meanEnemyDirectHpDamage": 6316.75,
+      "meanShieldDamage": 2051,
+      "meanAppliedHealing": 4918.5,
+      "meanEnemyAp": 99.09,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "special:explore:sustain:100:final-kage:after:planner",
+      "fights": 4,
+      "wins": 4,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 33.61,
+      "minHpPctRange": [
+        5.13,
+        39.58
+      ],
+      "meanFinalHpPct": 29.09,
+      "rounds": [
+        10,
+        12
+      ],
+      "meanActualHpDamage": 8359.25,
+      "meanEnemyDirectHpDamage": 6194.5,
+      "meanShieldDamage": 2287.5,
+      "meanAppliedHealing": 2213.5,
+      "meanEnemyAp": 100,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "special:explore:stress:100:final-kage:before:planner",
+      "fights": 4,
+      "wins": 4,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 74.41,
+      "minHpPctRange": [
+        61.28,
+        79.29
+      ],
+      "meanFinalHpPct": 84.03,
+      "rounds": [
+        8,
+        12
+      ],
+      "meanActualHpDamage": 4915,
+      "meanEnemyDirectHpDamage": 4340,
+      "meanShieldDamage": 1406.25,
+      "meanAppliedHealing": 3896.5,
+      "meanEnemyAp": 98.89,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "special:explore:stress:100:final-kage:after:planner",
+      "fights": 4,
+      "wins": 4,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 17.61,
+      "minHpPctRange": [
+        14.42,
+        28.73
+      ],
+      "meanFinalHpPct": 24.47,
+      "rounds": [
+        10,
+        12
+      ],
+      "meanActualHpDamage": 8774.25,
+      "meanEnemyDirectHpDamage": 6850,
+      "meanShieldDamage": 1781.25,
+      "meanAppliedHealing": 2368.25,
+      "meanEnemyAp": 99.44,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "special:named-bruiser:optimized:100:elite:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 28.42,
+      "minHpPctRange": [
+        26.05,
+        30.78
+      ],
+      "meanFinalHpPct": 28.91,
+      "rounds": [
+        17,
+        22
+      ],
+      "meanActualHpDamage": 7802.5,
+      "meanEnemyDirectHpDamage": 5524,
+      "meanShieldDamage": 1746,
+      "meanAppliedHealing": 2043,
+      "meanEnemyAp": 97.95,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "special:named-bruiser:optimized:100:elite:after:planner",
+      "fights": 2,
+      "wins": 0,
+      "deaths": 2,
+      "livingLimits": 0,
+      "medianMinHpPct": 0,
+      "minHpPctRange": [
+        0,
+        0
+      ],
+      "meanFinalHpPct": 0,
+      "rounds": [
+        9,
+        11
+      ],
+      "meanActualHpDamage": 9385.5,
+      "meanEnemyDirectHpDamage": 7158,
+      "meanShieldDamage": 750,
+      "meanAppliedHealing": 817.5,
+      "meanEnemyAp": 95.05,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "special:named-defender:optimized:100:elite:before:planner",
+      "fights": 2,
+      "wins": 1,
+      "deaths": 0,
+      "livingLimits": 1,
+      "medianMinHpPct": 45.02,
+      "minHpPctRange": [
+        38.8,
+        51.23
+      ],
+      "meanFinalHpPct": 49.92,
+      "rounds": [
+        24,
+        26
+      ],
+      "meanActualHpDamage": 9333.5,
+      "meanEnemyDirectHpDamage": 5356.5,
+      "meanShieldDamage": 922.5,
+      "meanAppliedHealing": 4325.5,
+      "meanEnemyAp": 94.16,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "special:named-defender:optimized:100:elite:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 12.47,
+      "minHpPctRange": [
+        8.73,
+        16.2
+      ],
+      "meanFinalHpPct": 13.46,
+      "rounds": [
+        13,
+        15
+      ],
+      "meanActualHpDamage": 9831.5,
+      "meanEnemyDirectHpDamage": 7048,
+      "meanShieldDamage": 968,
+      "meanAppliedHealing": 1864.5,
+      "meanEnemyAp": 96.9,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "special:named-boss:optimized:100:elite:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 28.35,
+      "minHpPctRange": [
+        25.1,
+        31.59
+      ],
+      "meanFinalHpPct": 32.28,
+      "rounds": [
+        20,
+        21
+      ],
+      "meanActualHpDamage": 8715.5,
+      "meanEnemyDirectHpDamage": 6426,
+      "meanShieldDamage": 1415,
+      "meanAppliedHealing": 1943.5,
+      "meanEnemyAp": 97.42,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "special:named-boss:optimized:100:elite:after:planner",
+      "fights": 2,
+      "wins": 1,
+      "deaths": 1,
+      "livingLimits": 0,
+      "medianMinHpPct": 6.38,
+      "minHpPctRange": [
+        0,
+        12.76
+      ],
+      "meanFinalHpPct": 6.38,
+      "rounds": [
+        13,
+        15
+      ],
+      "meanActualHpDamage": 10504.5,
+      "meanEnemyDirectHpDamage": 7773.5,
+      "meanShieldDamage": 1424.5,
+      "meanAppliedHealing": 2060.5,
+      "meanEnemyAp": 100,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "special:named-bruiser:sustain:100:elite:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 57.65,
+      "minHpPctRange": [
+        38.74,
+        76.55
+      ],
+      "meanFinalHpPct": 58.71,
+      "rounds": [
+        16,
+        19
+      ],
+      "meanActualHpDamage": 6406.5,
+      "meanEnemyDirectHpDamage": 5347.5,
+      "meanShieldDamage": 3442,
+      "meanAppliedHealing": 3627.5,
+      "meanEnemyAp": 97.56,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "special:named-bruiser:sustain:100:elite:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 15.07,
+      "minHpPctRange": [
+        11.6,
+        18.53
+      ],
+      "meanFinalHpPct": 15.07,
+      "rounds": [
+        10,
+        11
+      ],
+      "meanActualHpDamage": 9154,
+      "meanEnemyDirectHpDamage": 7077,
+      "meanShieldDamage": 2100,
+      "meanAppliedHealing": 1793,
+      "meanEnemyAp": 100,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "special:named-defender:sustain:100:elite:before:planner",
+      "fights": 2,
+      "wins": 1,
+      "deaths": 0,
+      "livingLimits": 1,
+      "medianMinHpPct": 86.76,
+      "minHpPctRange": [
+        82.18,
+        91.35
+      ],
+      "meanFinalHpPct": 92.61,
+      "rounds": [
+        20,
+        26
+      ],
+      "meanActualHpDamage": 5115.5,
+      "meanEnemyDirectHpDamage": 3663.5,
+      "meanShieldDamage": 3276.5,
+      "meanAppliedHealing": 4376.5,
+      "meanEnemyAp": 93.64,
+      "cooldownDryTurns": 2
+    },
+    {
+      "key": "special:named-defender:sustain:100:elite:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 30.98,
+      "minHpPctRange": [
+        27.71,
+        34.24
+      ],
+      "meanFinalHpPct": 35.54,
+      "rounds": [
+        12,
+        12
+      ],
+      "meanActualHpDamage": 8297.5,
+      "meanEnemyDirectHpDamage": 7188,
+      "meanShieldDamage": 2475,
+      "meanAppliedHealing": 2482.5,
+      "meanEnemyAp": 100,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "special:named-boss:sustain:100:elite:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 53.75,
+      "minHpPctRange": [
+        35.95,
+        71.55
+      ],
+      "meanFinalHpPct": 59.75,
+      "rounds": [
+        19,
+        19
+      ],
+      "meanActualHpDamage": 7750.5,
+      "meanEnemyDirectHpDamage": 6144.5,
+      "meanShieldDamage": 3259.5,
+      "meanAppliedHealing": 3725,
+      "meanEnemyAp": 98.33,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "special:named-boss:sustain:100:elite:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 28.49,
+      "minHpPctRange": [
+        20.57,
+        36.4
+      ],
+      "meanFinalHpPct": 28.69,
+      "rounds": [
+        10,
+        12
+      ],
+      "meanActualHpDamage": 8026.5,
+      "meanEnemyDirectHpDamage": 6434,
+      "meanShieldDamage": 2100,
+      "meanAppliedHealing": 1035.5,
+      "meanEnemyAp": 100,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "special:named-bruiser:stress:100:elite:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 71.19,
+      "minHpPctRange": [
+        66.83,
+        75.54
+      ],
+      "meanFinalHpPct": 76.9,
+      "rounds": [
+        15,
+        15
+      ],
+      "meanActualHpDamage": 4909,
+      "meanEnemyDirectHpDamage": 4197.5,
+      "meanShieldDamage": 2756.5,
+      "meanAppliedHealing": 3798.5,
+      "meanEnemyAp": 97.14,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "special:named-bruiser:stress:100:elite:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 6.37,
+      "minHpPctRange": [
+        4.01,
+        8.73
+      ],
+      "meanFinalHpPct": 8.33,
+      "rounds": [
+        10,
+        12
+      ],
+      "meanActualHpDamage": 10400,
+      "meanEnemyDirectHpDamage": 8607.5,
+      "meanShieldDamage": 1725,
+      "meanAppliedHealing": 2741.5,
+      "meanEnemyAp": 99.09,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "special:named-defender:stress:100:elite:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 89.52,
+      "minHpPctRange": [
+        87.69,
+        91.35
+      ],
+      "meanFinalHpPct": 96.67,
+      "rounds": [
+        20,
+        20
+      ],
+      "meanActualHpDamage": 3013.5,
+      "meanEnemyDirectHpDamage": 1539.5,
+      "meanShieldDamage": 3551.5,
+      "meanAppliedHealing": 2680.5,
+      "meanEnemyAp": 93.68,
+      "cooldownDryTurns": 2
+    },
+    {
+      "key": "special:named-defender:stress:100:elite:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 12.85,
+      "minHpPctRange": [
+        10.73,
+        14.97
+      ],
+      "meanFinalHpPct": 15.88,
+      "rounds": [
+        11,
+        12
+      ],
+      "meanActualHpDamage": 10672.5,
+      "meanEnemyDirectHpDamage": 8975,
+      "meanShieldDamage": 1725,
+      "meanAppliedHealing": 2589,
+      "meanEnemyAp": 99.09,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "special:named-boss:stress:100:elite:before:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 73.77,
+      "minHpPctRange": [
+        70,
+        77.54
+      ],
+      "meanFinalHpPct": 79.5,
+      "rounds": [
+        17,
+        17
+      ],
+      "meanActualHpDamage": 6201,
+      "meanEnemyDirectHpDamage": 5105,
+      "meanShieldDamage": 2545.5,
+      "meanAppliedHealing": 4151,
+      "meanEnemyAp": 96.88,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "special:named-boss:stress:100:elite:after:planner",
+      "fights": 2,
+      "wins": 2,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 8.64,
+      "minHpPctRange": [
+        7.38,
+        9.9
+      ],
+      "meanFinalHpPct": 8.9,
+      "rounds": [
+        10,
+        12
+      ],
+      "meanActualHpDamage": 9633,
+      "meanEnemyDirectHpDamage": 7114,
+      "meanShieldDamage": 1350,
+      "meanAppliedHealing": 1117,
+      "meanEnemyAp": 98.89,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "rookie:explore:rookie:17:weaker:before:planner",
+      "fights": 5,
+      "wins": 5,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 52.48,
+      "minHpPctRange": [
+        38.81,
+        67.48
+      ],
+      "meanFinalHpPct": 55.02,
+      "rounds": [
+        3,
+        6
+      ],
+      "meanActualHpDamage": 978.4,
+      "meanEnemyDirectHpDamage": 925.8,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 33.8,
+      "meanEnemyAp": 88.93,
+      "cooldownDryTurns": 1
+    },
+    {
+      "key": "rookie:explore:rookie:17:weaker:after:planner",
+      "fights": 5,
+      "wins": 5,
+      "deaths": 0,
+      "livingLimits": 0,
+      "medianMinHpPct": 52.48,
+      "minHpPctRange": [
+        38.81,
+        67.48
+      ],
+      "meanFinalHpPct": 55.02,
+      "rounds": [
+        3,
+        6
+      ],
+      "meanActualHpDamage": 978.4,
+      "meanEnemyDirectHpDamage": 925.8,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 33.8,
+      "meanEnemyAp": 88.93,
+      "cooldownDryTurns": 1
+    },
+    {
+      "key": "rookie:explore:rookie:17:standard:before:planner",
+      "fights": 5,
+      "wins": 4,
+      "deaths": 1,
+      "livingLimits": 0,
+      "medianMinHpPct": 17,
+      "minHpPctRange": [
+        0,
+        62.38
+      ],
+      "meanFinalHpPct": 25.16,
+      "rounds": [
+        4,
+        7
+      ],
+      "meanActualHpDamage": 1697.8,
+      "meanEnemyDirectHpDamage": 1622.4,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 126.2,
+      "meanEnemyAp": 89.07,
+      "cooldownDryTurns": 0
+    },
+    {
+      "key": "rookie:explore:rookie:17:standard:after:planner",
+      "fights": 5,
+      "wins": 4,
+      "deaths": 1,
+      "livingLimits": 0,
+      "medianMinHpPct": 17,
+      "minHpPctRange": [
+        0,
+        62.38
+      ],
+      "meanFinalHpPct": 25.16,
+      "rounds": [
+        4,
+        7
+      ],
+      "meanActualHpDamage": 1697.8,
+      "meanEnemyDirectHpDamage": 1622.4,
+      "meanShieldDamage": 0,
+      "meanAppliedHealing": 126.2,
+      "meanEnemyAp": 89.07,
+      "cooldownDryTurns": 0
+    }
+  ]
+}

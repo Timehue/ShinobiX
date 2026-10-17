@@ -63,6 +63,9 @@ test('only the hired NPC policy uses its catalog weapon; the player snapshot is 
     const result = probeWarMercenary(buildMercCharacter(100), sealed, 1);
     assert.ok(result.actions.some(a => a.actor === 'merc-0' && a.type === 'weapon' && a.applied));
     assert.ok(!result.actions.some(a => a.actor === 'sq-0' && a.type === 'weapon'), 'human snapshot retains existing auto policy');
+    const markedHuman = { ...sealed, warMercenaryProfile: { classification: 'special-npc' } };
+    const spoofed = probeWarMercenary(buildMercCharacter(100), markedHuman, 1);
+    assert.ok(!spoofed.actions.some(a => a.actor === 'sq-0' && a.type === 'weapon'), 'a saved human marker cannot grant NPC policy');
     assert.deepEqual(sealed, prior, 'simulation never mutates the stored/sealed input');
     const rounds = new Set(result.actions.filter(a => a.actor === 'merc-0' && a.type === 'weapon' && a.applied).map(a => a.round));
     assert.ok(result.actions.some(a => a.actor === 'merc-0' && a.type === 'jutsu' && a.applied && rounds.has(a.round)), 'a weapon and legal jutsu share a turn');
