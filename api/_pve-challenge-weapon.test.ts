@@ -4,7 +4,7 @@ import { pveChallengeWeapon } from './_pve-challenge-weapon.js';
 import { ITEM_CATALOG } from './pvp/_item-catalog.js';
 import { effectiveItemLevelReq } from '../shared/item-level-gate.js';
 import { buildSoloPveAiEncounter } from './solo-pve/_ai-encounter.js';
-import { STANDARD_PVE_AI_POLICY } from './solo-pve/_ai-turn-policy.js';
+import { CATALOG_CHALLENGE_WEAPON_POLICY, STANDARD_PVE_AI_POLICY } from './solo-pve/_ai-turn-policy.js';
 import { ordinaryAiProfile } from './missions/_ordinary-ai-encounter.js';
 import { worldRuntimeAiProfile } from './missions/_world-ai-fight.js';
 import { aiStatsForLevel } from './_ai-level-curves.js';
@@ -38,6 +38,8 @@ test('server classification seals veteran gear without ratcheting HP, altering i
     assert.equal(standard.enemy.maxHp, weaker.enemy.maxHp);
     assert.equal(standard.enemy.name, 'Specialist');
     assert.equal((standard.enemy.character.equipment as Record<string, unknown>)?.hand, 'worldsplitter-katana');
+    assert.equal(standard.enemy.character.pveWeaponPolicy, CATALOG_CHALLENGE_WEAPON_POLICY);
+    assert.equal(weaker.enemy.character.pveWeaponPolicy, undefined);
     assert.equal(weaker.enemy.character.equipment, undefined);
     assert.equal(build({ ...ordinaryAiProfile({ ...descriptor, difficulty: 'standard' }), pveDifficulty: undefined }).enemy.character.equipment, undefined);
     assert.equal(build(ordinaryAiProfile({ ...descriptor, difficulty: 'standard' }), false).enemy.character.equipment, undefined);
@@ -67,5 +69,6 @@ test('each final Kage keeps its exclusive policy, legal full rotation and origin
         assert.equal(s.enemy.character.masterAi, true);
         assert.equal((s.enemy.character.jutsu as unknown[]).length, 12);
         assert.equal((s.enemy.character.equipment as Record<string, unknown>)?.hand, 'worldsplitter-katana');
+        assert.equal(s.enemy.character.pveWeaponPolicy, CATALOG_CHALLENGE_WEAPON_POLICY);
     }
 });

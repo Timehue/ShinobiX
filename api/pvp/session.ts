@@ -1396,6 +1396,9 @@ export function hydrateCharacterFromSave(rawSaveCharacter: Record<string, unknow
     const merged: Record<string, unknown> = { ...saveCharacter };
     // Only the server's Ranked Format path may add this combat-only authority.
     delete merged.rankedFormatCombat;
+    // NPC challenge authority is stamped after server encounter construction.
+    // A save field must never grant it to a human or a village-war player copy.
+    delete merged.pveWeaponPolicy;
     // This is a session-only stamp, added after field-war authority is checked.
     merged.elderWarDefensePct = 0;
     // For derived fields the client computes, fall back to the client value

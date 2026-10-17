@@ -16,7 +16,7 @@ import { validateServerAiRules } from '../combat-core/ai-authoring.js';
 import type { PvpFighter } from '../pvp/session.js';
 import { hydrateCharacterFromSave, sealItemCharges } from '../pvp/session.js';
 import { createSoloPveSession, type SoloPveEncounter, type SoloPveEnvironment, type SoloPveSession } from './_session.js';
-import { standardPveAiPlannerDisabled, type SoloPveAiPolicy } from './_ai-turn-policy.js';
+import { CATALOG_CHALLENGE_WEAPON_POLICY, standardPveAiPlannerDisabled, type SoloPveAiPolicy } from './_ai-turn-policy.js';
 
 export type SoloPveAiProfile = Record<string, unknown> & { id: string };
 
@@ -150,7 +150,7 @@ function buildEnemy(profile: SoloPveAiProfile, admin: AdminCombatContent | null,
         ...(typeof profile.pveDifficulty === 'string' ? { pveDifficulty: profile.pveDifficulty } : {}),
         specialty,
         stats,
-        ...(weapon ? { equipment: { hand: weapon.id }, pvpItems: [weapon] } : {}),
+        ...(weapon ? { equipment: { hand: weapon.id }, pvpItems: [weapon], pveWeaponPolicy: CATALOG_CHALLENGE_WEAPON_POLICY } : {}),
         armorRawDR: Math.max(0, Math.min(1.5, finite(profile.armorRawDR, 0))),
         jutsu: jutsu.map((entry) => {
             const description = profile.missionTactics === true && profile.missionJutsuDescriptions && typeof profile.missionJutsuDescriptions === 'object'
