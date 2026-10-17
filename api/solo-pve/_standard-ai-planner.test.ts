@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import type { PvpFighter } from '../pvp/session.js';
+import { hydrateCharacterFromSave, type PvpFighter } from '../pvp/session.js';
+import { buildGarrisonEncounter } from '../_sector-war-garrison-encounter.js';
 import type { ServerAiRule } from '../combat-core/ai-authoring.js';
 import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
 import { GRID_H, GRID_W } from '../combat-core/constants.js';
@@ -9,6 +10,7 @@ import { applySoloPveAction, planStandardPveEnemyActionForTest, runStandardPveEn
 import { buildSoloPveAiEncounter } from './_ai-encounter.js';
 import { createSoloPveSession, type SoloPveCombatEvent, type SoloPveJutsu, type SoloPveSession } from './_session.js';
 import {
+    CATALOG_CHALLENGE_WEAPON_POLICY,
     enemyTurnPolicy,
     enemyStatusValue,
     STANDARD_PVE_AI_KINDS,
@@ -499,6 +501,7 @@ describe('progressive PvE tactical regressions', () => {
         const weapon = structuredClone(ITEM_CATALOG['ashen-dragon-katana']);
         source.enemy.character.pvpItems = [weapon];
         source.enemy.character.equipment = { hand: weapon.id };
+        source.enemy.character.pveWeaponPolicy = CATALOG_CHALLENGE_WEAPON_POLICY;
         source.enemy.character.jutsuMastery = [{ jutsuId: 'heavy', level: 50 }];
         const first = enemyTurn(source);
         const actions = enemyEvents(first);
@@ -514,11 +517,12 @@ describe('progressive PvE tactical regressions', () => {
 
     it('never invents an NPC weapon or uses unequipped, thrown, or unaffordable items', () => {
         const weapon = structuredClone(ITEM_CATALOG['ashen-dragon-katana']);
-        for (const variant of ['missing-definition', 'unequipped', 'thrown', 'ap', 'cooldown']) {
+        for (const variant of ['unsealed', 'wrong-policy', 'missing-definition', 'unequipped', 'thrown', 'ap', 'cooldown']) {
             const source = scenario({ level: 100, kit: [], distance: 3,
                 player: { hp: 10_000, maxHp: 10_000 } });
             source.enemy.character.pvpItems = variant === 'missing-definition' ? [] : [{ ...weapon, ...(variant === 'thrown' ? { slot: 'thrown' } : {}) }];
             source.enemy.character.equipment = variant === 'unequipped' ? {} : { hand: weapon.id };
+            if (variant !== 'unsealed') source.enemy.character.pveWeaponPolicy = variant === 'wrong-policy' ? 'forged' : CATALOG_CHALLENGE_WEAPON_POLICY;
             source.activeSide = 'enemy';
             source.ap.enemy = variant === 'ap' ? 20 : 40;
             if (variant === 'cooldown') source.cooldowns.enemy[`weapon:${weapon.id}`] = 2;
@@ -533,6 +537,7 @@ describe('progressive PvE tactical regressions', () => {
         const weapon = structuredClone(ITEM_CATALOG['ashen-dragon-katana']);
         source.enemy.character.pvpItems = [weapon];
         source.enemy.character.equipment = { hand: weapon.id };
+        source.enemy.character.pveWeaponPolicy = CATALOG_CHALLENGE_WEAPON_POLICY;
         source.activeSide = 'enemy';
         const policy = enemyTurnPolicy(100);
         const a = planStandardPveEnemyActionForTest(source, policy);
@@ -543,6 +548,49 @@ describe('progressive PvE tactical regressions', () => {
         assert.ok(enemyEvents(source).some(event => event.action === 'move'));
         assert.ok(enemyEvents(source).some(event => event.action === 'weapon'));
         assert.ok(hexDistance(source.enemy.pos, source.player.pos) <= Number(weapon.weaponRange));
+    });
+
+    it('strips forged NPC weapon authority when hydrating a player save', () => {
+        const raw = { name: 'Defender', level: 100, hp: 10000, maxHp: 10000,
+            stats: {}, equippedJutsuIds: [], equipment: { hand: 'ashen-dragon-katana' },
+            inventory: ['ashen-dragon-katana'], pveWeaponPolicy: CATALOG_CHALLENGE_WEAPON_POLICY };
+        for (const save of [null, { character: raw }]) {
+            const hydrated = hydrateCharacterFromSave(raw, { pveWeaponPolicy: CATALOG_CHALLENGE_WEAPON_POLICY }, save);
+            assert.equal(hydrated.pveWeaponPolicy, undefined);
+            assert.equal(raw.pveWeaponPolicy, CATALOG_CHALLENGE_WEAPON_POLICY, 'hydration does not mutate the stored character');
+        }
+    });
+
+    it('keeps actual village-war garrison copies and legacy sessions away from NPC weapon planning', () => {
+        const weapon = structuredClone(ITEM_CATALOG['ashen-dragon-katana']);
+        const raw = { name: 'Defender', level: 100, hp: 10000, maxHp: 10000,
+            chakra: 10000, maxChakra: 10000, stamina: 10000, maxStamina: 10000,
+            stats: {}, equippedJutsuIds: [], equipment: { hand: weapon.id }, inventory: [weapon.id],
+            pveWeaponPolicy: CATALOG_CHALLENGE_WEAPON_POLICY };
+        const defender = hydrateCharacterFromSave(raw, {}, { character: raw });
+        const source = buildGarrisonEncounter({ runId: 'weapon-scope-garrison', now: NOW,
+            attacker: { slug: 'alice', name: 'Alice', character: { ...defender, name: 'Alice' } },
+            anbu: { slug: 'defender', name: 'Defender', character: defender }, terrain: 'central',
+            sector: 66, contestId: 'scope-test', attackerVillage: 'Stormveil Village', defenderVillage: 'Frostfang Village' });
+        source.encounter.kind = 'village-war-garrison';
+        delete source.enemy.character.boss;
+        source.enemy.character.aiTurnPolicy = STANDARD_PVE_AI_POLICY;
+        source.enemy.character.masterAi = true;
+        assert.equal(hexDistance(source.enemy.pos, source.player.pos), 4, 'actual production garrison opening');
+        assert.deepEqual(source.enemy.character.jutsu, []);
+        assert.ok((source.enemy.character.pvpItems as Array<{ id: string }>).some(item => item.id === weapon.id));
+        const unmarked = enemyTurn(source);
+        const forged = structuredClone(source);
+        forged.enemy.character.pveWeaponPolicy = CATALOG_CHALLENGE_WEAPON_POLICY;
+        const marked = enemyTurn(forged);
+        assert.deepEqual(marked.events, unmarked.events, 'even a forged session marker cannot enable copied-player weapons');
+        assert.ok(enemyEvents(marked).every(event => event.action !== 'weapon'));
+        assert.equal(hexDistance(marked.enemy.pos, marked.player.pos), 1, 'weapon range must not strand the copy at four tiles');
+        const legacy = scenario({ level: 100, kit: [], distance: 4, sealed: false });
+        legacy.enemy.character.pvpItems = [weapon];
+        legacy.enemy.character.equipment = { hand: weapon.id };
+        legacy.enemy.character.pveWeaponPolicy = CATALOG_CHALLENGE_WEAPON_POLICY;
+        assert.ok(enemyEvents(enemyTurn(legacy)).every(event => event.action !== 'weapon'));
     });
 
     it('keeps worst-case decision latency bounded with a full history attached', (t) => {

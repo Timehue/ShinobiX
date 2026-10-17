@@ -4,7 +4,7 @@ import { bossChallengeCatalogKit, sealTeamBossChallengeKit } from './_boss-chall
 import { weeklyBossChallengeProfile } from './_weekly-boss-profile.js';
 import { builtinAiProfile } from './_ai-profile-catalog.js';
 import { buildSoloPveAiEncounter } from './solo-pve/_ai-encounter.js';
-import { WEEKLY_BOSS_AI_POLICY } from './solo-pve/_ai-turn-policy.js';
+import { CATALOG_CHALLENGE_WEAPON_POLICY, WEEKLY_BOSS_AI_POLICY } from './solo-pve/_ai-turn-policy.js';
 import { ITEM_CATALOG } from './pvp/_item-catalog.js';
 import { effectiveItemLevelReq } from '../shared/item-level-gate.js';
 import { buildWorldBossTeamEncounter } from './world-boss-event/_encounter.js';
@@ -41,6 +41,7 @@ test('weekly score attacks use fixed level-legal weapons and bounded trained kit
         const s = buildSoloPveAiEncounter({ sessionId: id, playerName: 'test', now: 1, save: { character: { level: 100, hp: 10000, maxHp: 10000, stats: {}, equippedJutsuIds: [], inventory: [], equipment: {} } }, profile: p, admin: null,
             difficultyMode: false, encounter: { kind: 'weekly-boss', id }, weeklyBossRoundBudget: 20, aiTurnPolicy: WEEKLY_BOSS_AI_POLICY });
         assert.equal(s.enemy.character.aiTurnPolicy, WEEKLY_BOSS_AI_POLICY);
+        assert.equal(s.enemy.character.pveWeaponPolicy, CATALOG_CHALLENGE_WEAPON_POLICY);
         assert.notEqual(s.enemy.character.pveDifficulty, 'final-kage');
         assert.equal(s.enemy.unlimitedHealth, true);
         const kit = s.enemy.character.jutsu as Array<{ id: string; chakraCost?: number; staminaCost?: number }>;

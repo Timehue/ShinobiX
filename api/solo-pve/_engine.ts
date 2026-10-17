@@ -71,6 +71,7 @@ import {
 } from '../../shared/hollow-gate-combat-director.js';
 import type { HollowGateHoundKind } from '../../shared/hollow-gate-contract.js';
 import {
+    CATALOG_CHALLENGE_WEAPON_POLICY,
     enemyActionKey,
     enemyTurnPolicyForEncounter,
     enemyTurnValue,
@@ -970,6 +971,8 @@ function equippedItem(value: PvpFighter, itemId: string): SoloPveItem | null {
 /** NPC weapons exist only when a host explicitly seals both the hand slot and
  * its resolved item definition. Never infer an item from a profile identity. */
 function enemyHandWeapon(session: SoloPveSession): SoloPveItem | null {
+    if (session.encounter.kind === 'village-war-garrison'
+        || session.enemy.character.pveWeaponPolicy !== CATALOG_CHALLENGE_WEAPON_POLICY) return null;
     const equipment = session.enemy.character.equipment as Record<string, unknown> | undefined;
     const itemId = equipment?.hand;
     if (typeof itemId !== 'string') return null;

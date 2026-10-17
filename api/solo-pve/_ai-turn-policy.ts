@@ -23,6 +23,8 @@ import type { CombatStatus } from '../combat-core/types.js';
  * Village-war ANBU copies explicitly seal the same planner for tactical play.
  */
 export const STANDARD_PVE_AI_POLICY = 'standard-pve-v1' as const;
+/** Sealed only by server-authored challenge builders, never player copies. */
+export const CATALOG_CHALLENGE_WEAPON_POLICY = 'catalog-challenge-v1' as const;
 /** Explicit score-attack opt-in; never makes another weekly-guard host standard PvE. */
 export const WEEKLY_BOSS_AI_POLICY = 'weekly-boss-v1' as const;
 export type SoloPveAiPolicy = typeof STANDARD_PVE_AI_POLICY | typeof WEEKLY_BOSS_AI_POLICY;
