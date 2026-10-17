@@ -20468,7 +20468,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS + reviewed geometry cleanup",
       "textured": true,
       "estimatedGenerationCostUsd": 0.96,
-      "sha256": "719271C3CA743572B9AB79E818A6A486928919DBFD9DDCA03B63B32A2A4D9F99",
+      "sha256": "D6F30574C4E1F0D0B6F004FC08F38DB254BC40CB3FE6F775593D97472AA6804C",
       "visualReview": {
         "passed": true,
         "reason": "Abyssal Oni Hound now contains one coherent head, neck, torso, and four-legged silhouette. The disconnected duplicate head, neck, and front-leg island was removed without changing the approved atlas, primary anatomy, skeleton, or animation set; front, side, rear, and three-quarter QA pass."
@@ -20520,7 +20520,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 484268,
+        "bytes": 1124588,
         "triangles": 30422,
         "vertices": 28087,
         "skins": 1,
@@ -20601,6 +20601,177 @@
           ],
           "protectedFootVertices": 3077
         }
+      },
+      "anatomicalLimbRepair": {
+        "sourceSha256": "719271c3ca743572b9ab79e818a6a486928919dbfd9ddca03b63b32a2a4d9f99",
+        "changedVertices": 6199,
+        "legs": [
+          {
+            "part": "front",
+            "side": "L",
+            "joints": [
+              21,
+              22,
+              23
+            ],
+            "upper": [
+              -0.08406177098028135,
+              -0.12,
+              0.304593404197333
+            ],
+            "knee": [
+              -0.08406177098028135,
+              -0.34,
+              0.33959340419733297
+            ],
+            "paw": [
+              -0.08406177098028135,
+              -0.4638448145608166,
+              0.359593404197333
+            ],
+            "center": [
+              -0.08406177098028135,
+              -0.4638448145608166,
+              0.359593404197333
+            ]
+          },
+          {
+            "part": "front",
+            "side": "R",
+            "joints": [
+              24,
+              25,
+              26
+            ],
+            "upper": [
+              -0.31616618855530265,
+              -0.12,
+              0.306521455654794
+            ],
+            "knee": [
+              -0.31616618855530265,
+              -0.34,
+              0.34152145565479397
+            ],
+            "paw": [
+              -0.31616618855530265,
+              -0.46414607151123544,
+              0.361521455654794
+            ],
+            "center": [
+              -0.31616618855530265,
+              -0.46414607151123544,
+              0.361521455654794
+            ]
+          },
+          {
+            "part": "hind",
+            "side": "L",
+            "joints": [
+              27,
+              28,
+              29
+            ],
+            "upper": [
+              -0.091050958006098,
+              -0.16,
+              -0.07843259056724311
+            ],
+            "knee": [
+              -0.091050958006098,
+              -0.34,
+              -0.10843259056724311
+            ],
+            "paw": [
+              -0.091050958006098,
+              -0.46471844717341443,
+              -0.1434325905672431
+            ],
+            "center": [
+              -0.091050958006098,
+              -0.46471844717341443,
+              -0.1434325905672431
+            ]
+          },
+          {
+            "part": "hind",
+            "side": "R",
+            "joints": [
+              30,
+              31,
+              32
+            ],
+            "upper": [
+              -0.3063752909684966,
+              -0.16,
+              -0.07614302627121397
+            ],
+            "knee": [
+              -0.3063752909684966,
+              -0.34,
+              -0.10614302627121397
+            ],
+            "paw": [
+              -0.3063752909684966,
+              -0.4642063129358621,
+              -0.14114302627121397
+            ],
+            "center": [
+              -0.3063752909684966,
+              -0.4642063129358621,
+              -0.14114302627121397
+            ]
+          }
+        ],
+        "gaitReports": [
+          {
+            "name": "idle",
+            "maxContactError": 9.8817800260969e-12
+          },
+          {
+            "name": "walk",
+            "maxContactError": 2.3551386880256624e-16
+          },
+          {
+            "name": "gallop",
+            "maxContactError": 2.0816681711721685e-16
+          },
+          {
+            "name": "guard",
+            "maxContactError": 1.0228626453962992e-11
+          },
+          {
+            "name": "rest",
+            "maxContactError": 4.704258520056729e-11
+          }
+        ]
+      },
+      "coordinatedActionRepair": {
+        "revision": "20261017-oni-coordinated-actions-v1",
+        "sourceSha256": "a2263038773f3df55580af0a4f4764746d4d64f6976658b9eb680e673aeb2ed3",
+        "clips": [
+          {
+            "name": "attack",
+            "keys": 49,
+            "changedTracks": 16,
+            "maxContactError": 2.830524433501838e-16,
+            "contacts": 164
+          },
+          {
+            "name": "cast",
+            "keys": 49,
+            "changedTracks": 16,
+            "maxContactError": 2.482534153247273e-16,
+            "contacts": 196
+          },
+          {
+            "name": "idle_hitreact1",
+            "keys": 49,
+            "changedTracks": 16,
+            "maxContactError": 2.6326359574940518e-11,
+            "contacts": 196
+          }
+        ]
       }
     },
     "mythic-5": {
