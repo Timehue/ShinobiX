@@ -11,8 +11,10 @@ import { huntMissionById } from './_mission-catalog.js';
 import { huntFormationFor } from './_hunt-trail.js';
 import { savedCurrentSector } from './_mission-progress-receipt.js';
 import { loadAiFightProfile, type AiFightProfile } from './_ai-fight-encounter.js';
+import { ordinaryAiProfile } from './_ordinary-ai-encounter.js';
+import { computeAiFightBaseReward } from './_ai-fight-token.js';
 import { MAX_WILD_SECTOR, sectorBiomeOf } from '../../shared/sector-geo.js';
-import { parseWandererId, WANDERER_MAX_INDEX, WANDERER_NIGHT_INDEX } from '../../shared/wanderer-roster.js';
+import { ordinaryWandererEncounter, parseWandererId, WANDERER_MAX_INDEX, WANDERER_NIGHT_INDEX } from '../../shared/wanderer-roster.js';
 import { ROAD_NEMESIS_NAME, roadNemesisPresentAt, roadNemesisTier, roadNemesisTitle } from '../../shared/road-nemesis.js';
 import { riftSealOf, type RiftSealView } from '../../shared/wanderer-extra-slots.js';
 import { parseRiftQuestSeal } from '../sector/_rift-quest.js';
@@ -133,13 +135,15 @@ export function cleanWorldAiFightRequest(raw: unknown): WorldAiFightRequest | nu
     if (value.stage != null && stage == null) return null;
     const chainId = typeof value.chainId === 'string' && /^[A-Za-z0-9_-]{8,96}$/.test(value.chainId) ? value.chainId : undefined;
     const decisionId = typeof value.decisionId === 'string' && /^[A-Za-z0-9:_-]{1,96}$/.test(value.decisionId) ? value.decisionId : undefined;
+    const encounterId = typeof value.encounterId === 'string' && /^ordinary-[a-f0-9]{1,8}$/.test(value.encounterId) ? value.encounterId : undefined;
+    if (value.encounterId != null && (!encounterId || value.kind !== 'wanderer')) return null;
     const stageValue = stage ?? 0;
     const chained = value.kind === 'wanderer-ambush' || value.kind === 'hunt-pack';
     if (!chained && (stageValue !== 0 || chainId || decisionId)) return null;
     if (value.kind === 'wanderer-ambush' && decisionId) return null;
     if (value.kind === 'hunt-pack' && !decisionId) return null;
     if (chained && ((stageValue === 0 && chainId) || (stageValue > 0 && !chainId))) return null;
-    return { kind: value.kind, sourceId, sector, ...(stage != null ? { stage } : {}), ...(chainId ? { chainId } : {}), ...(decisionId ? { decisionId } : {}) };
+    return { kind: value.kind, sourceId, sector, ...(stage != null ? { stage } : {}), ...(chainId ? { chainId } : {}), ...(decisionId ? { decisionId } : {}), ...(encounterId ? { encounterId } : {}) };
 }
 
 export function worldAiActiveKey(playerName: string): string {
@@ -194,7 +198,8 @@ export function sameWorldAiFightRequest(a: WorldAiFightRequest, b: WorldAiFightR
     return a.kind === b.kind && a.sourceId === b.sourceId && a.sector === b.sector
         && (a.stage ?? 0) === (b.stage ?? 0)
         && (a.chainId ?? '') === (b.chainId ?? '')
-        && (a.decisionId ?? '') === (b.decisionId ?? '');
+        && (a.decisionId ?? '') === (b.decisionId ?? '')
+        && (a.encounterId ?? '') === (b.encounterId ?? '');
 }
 
 export function worldContextWinProofExists(
@@ -549,16 +554,21 @@ export async function buildWorldAiFightSpec(params: {
         // never to the client-writable character.activeRiftQuest mirror.
         // riftSealOf applies the same festival-sector fallback the map draws from.
         const riftSeal = riftSealOf({ activeRiftQuest: parseRiftQuestSeal(params.save.activeRiftQuestSeal) });
-        const wanderer = resolveNaturalWorldWanderer(request.sourceId, character, request.sector, now, riftSeal);
+        const natural = resolveNaturalWanderer(request.sourceId, now, character, request.sector, riftSeal);
         // 'contest' is the rival miner's optional fight over his seam.
-        if (!wanderer || (wanderer.verb !== 'attack' && wanderer.verb !== 'contest')) throw new Error('world-wanderer-not-attackable');
-        // A night ninja and a rift creature fight with the burst template and a
-        // rival miner with the defender's, for a different feel. Same level
-        // offset and no stat bonus, so none is stronger than a road bandit.
-        const loadout = wanderer.id === 'nightblade' || wanderer.id === 'riftspawn' ? 'burst'
-            : wanderer.id === 'rivalMiner' ? 'defender' : 'bruiser';
-        return { profile: runtimeProfile(`world-wanderer-${request.sourceId}`, wanderer.name, level + 1, 0, loadout), environment,
-            context: { kind: request.kind, sourceId: request.sourceId, sector: request.sector, stage: 0, displayName: wanderer.name, finalStage: true } };
+        if (!natural || (natural.verb !== 'attack' && natural.verb !== 'contest')) throw new Error('world-wanderer-not-attackable');
+        const encounter = natural ? ordinaryWandererEncounter(natural, level, request.sector, computeAiFightBaseReward(character)) : null;
+        if (request.encounterId && request.encounterId !== encounter?.id) throw new Error('world-encounter-preview-stale');
+        if (encounter) return {
+            profile: { ...ordinaryAiProfile(encounter), id: `world-wanderer-${request.sourceId}` },
+            environment,
+            context: { kind: request.kind, sourceId: request.sourceId, sector: request.sector, stage: 0, displayName: encounter.displayName, encounter, finalStage: true },
+        };
+        // The authored rift quest retains its separate player + 1 burst fight;
+        // it does not roll ordinary difficulty or change its quest contract.
+        if (natural.archetype !== 'riftspawn') throw new Error('world-wanderer-not-attackable');
+        return { profile: runtimeProfile(`world-wanderer-${request.sourceId}`, natural.name, level + 1, 0, 'burst'), environment,
+            context: { kind: request.kind, sourceId: request.sourceId, sector: request.sector, stage: 0, displayName: natural.name, finalStage: true } };
     }
 
     if (request.kind === 'patrol') {

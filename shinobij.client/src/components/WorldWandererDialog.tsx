@@ -28,6 +28,8 @@ import {
 import { isStoryReckoningId } from "../lib/story-reckonings";
 import { roadFleePriceLine } from "../lib/road-flee-api";
 import { wandererForcesChoice, wandererKindLabel } from "../lib/road-cast";
+import { EncounterDifficultyBadge } from './EncounterDifficultyBadge';
+import type { OrdinaryPveEncounter } from '../../../shared/ordinary-pve-encounter';
 
 type ActionResult = void | Promise<unknown>;
 type WandererAction = (wanderer: Wanderer) => ActionResult;
@@ -45,6 +47,7 @@ export type WorldWandererDialogState = Readonly<{
     fleeId?: string;
     /** Why the last Fight or Flee did not go through; the choice stays open. */
     choiceError?: string;
+    encounter?: OrdinaryPveEncounter;
 }>;
 
 export type WorldWandererDialogProps = Readonly<{
@@ -141,6 +144,7 @@ export function WorldWandererDialog({
                 style={{ width: 96, height: 96, objectFit: "cover", borderRadius: "50%", border: `2px solid ${wandererDialog.w.tellTint}`, margin: "0 auto 8px" }}
             />
             <h3 style={{ margin: "0 0 2px" }}>{wandererDialog.w.name}</h3>
+            {wandererDialog.encounter && <EncounterDifficultyBadge encounter={wandererDialog.encounter} showTell />}
             <p style={{ fontSize: ".75rem", color: "#9aa3b2", margin: "0 0 10px" }}>{wandererDialog.nemesis ? <><GameArtIcon kind="attack" size={15} /> Your rival · Lv {Math.min(100, character.level + (character.wandererNemesis?.tier ?? 1))}</> : wandererDialog.w.verb === "trackerTrail" ? "On the trail" : `${wandererKindLabel(wandererDialog.w)} · Lv ${wandererDialog.w.level}`}</p>
             <p style={{ fontStyle: "italic", margin: "0 0 14px" }}>{wandererDialog.msg ?? wandererDialog.w.greeting}</p>
             {!wandererDialog.msg && remembered && <p style={{ fontSize: ".72rem", color: "#a7f3d0", margin: "-8px 0 12px", fontStyle: "italic" }}>{remembered}</p>}

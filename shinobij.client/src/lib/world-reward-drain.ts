@@ -1,6 +1,7 @@
 import type { VersionedCharacterCommit } from "../types/character";
 import { recordSectorExplore, worldRewardFailureMessage, type FieldExploreProgress } from "./world-reward-api";
 import { completeWorldRewardOperation, readPendingWorldRewards, type PendingWorldRewardOperation } from "./world-reward-recovery";
+import type { OrdinaryPveEncounter } from '../../../shared/ordinary-pve-encounter';
 
 export type WorldRecoveryResult = { state: "none" | "recovered" | "blocked"; message?: string };
 
@@ -9,7 +10,7 @@ type ReportFailure = (message: string) => void;
 export type WorldRewardDrainCallbacks = {
     continueWorldDiscovery: (operation: PendingWorldRewardOperation, interactive: boolean, reportFailure: ReportFailure) => Promise<"recovered" | "blocked" | "retired">;
     recoverPendingExternalDiscovery: (operation: PendingWorldRewardOperation, source: "pet" | "dungeon", reportFailure: ReportFailure) => Promise<boolean>;
-    presentExploreAmbush: (sector: number, requestId: string) => boolean;
+    presentExploreAmbush: (sector: number, requestId: string, encounter?: OrdinaryPveEncounter) => boolean;
     recordMissionExplore: (sector: number, requestId: string, fieldProgress?: FieldExploreProgress[]) => Promise<boolean>;
     settleDiscoveredChest: (operation: PendingWorldRewardOperation, reportFailure: ReportFailure) => Promise<"settled" | "retryable" | "terminal">;
     onDungeonFound: (token: string) => void;
@@ -70,7 +71,7 @@ export async function drainPendingWorldRewardOperations(
                 }
                 if (result.pendingBattle) { // this parked operation never committed; retire it and resume the owed ambush
                     completeWorldRewardOperation(playerName, operation.id);
-                    if (presentExploreAmbush(result.pendingBattle.sector, result.pendingBattle.requestId)) { recovered = true; break; }
+                    if (presentExploreAmbush(result.pendingBattle.sector, result.pendingBattle.requestId, result.pendingBattle.encounter)) { recovered = true; break; }
                     blocked = true;
                     continue;
                 }
@@ -91,7 +92,7 @@ export async function drainPendingWorldRewardOperations(
                     else if (chestState === "terminal") retired = true;
                     else blocked = true;
                 } else if (result.outcome?.kind === "battle") {
-                    if (presentExploreAmbush(operation.sector, operation.id)) {
+                    if (presentExploreAmbush(operation.sector, operation.id, result.outcome.encounter)) {
                         recovered = true;
                         // AiFightHost clears the operation only after start
                         // ACK (or active-session resume), closing the crash gap;

@@ -28,6 +28,7 @@ import { MAX_WILD_SECTOR, isPlayableWildSector } from "./sector-geo.js";
 import { nearestWalkableTile } from "./sector-walk-mask.js";
 import { isWorldNight } from "./world-phase.js";
 import { WORLD_DAY_MS, WORLD_HOUR_MS } from "./world-clock.js";
+import { rollOrdinaryPveEncounter, type OrdinaryPveEncounter } from './ordinary-pve-encounter.js';
 
 export type WandererVerb =
     | "attack" | "gift" | "gamble" | "petDuel" | "quest"
@@ -95,6 +96,23 @@ export interface Wanderer {
     /** A road patrol's standing toward the viewer, from the village that holds
      *  the sector (shared/village-patrol.ts). Absent on an unclaimed road. */
     patrolStance?: "home" | "rival" | "rivalWar";
+}
+
+/** Per-player combat preview of an already rolled road NPC. Identity and
+ * appearance remain the shared roster's; only the ordinary combat band is
+ * relative to this player's progression. Rivals, rift quests and patrols have
+ * their own explicit adapters and never enter the ordinary distribution. */
+export function ordinaryWandererEncounter(wanderer: Wanderer, playerLevel: number, sector: number,
+    reward?: { xp: number; ryo: number; trait?: string | null }): OrdinaryPveEncounter | null {
+    if (wanderer.archetype !== 'bandit' && wanderer.archetype !== 'nightblade' && wanderer.archetype !== 'rivalMiner') return null;
+    return rollOrdinaryPveEncounter({
+        sourceId: wanderer.id, playerLevel, sector,
+        displayName: wanderer.name,
+        archetype: wanderer.archetype === 'nightblade' ? 'assassin' : wanderer.archetype === 'rivalMiner' ? 'defender' : undefined,
+        portraitKey: wanderer.archetype === 'bandit' ? undefined : wanderer.avatarKey,
+        portraitImage: wanderer.avatarImage,
+        reward,
+    });
 }
 
 export const WANDERER_GRID = 12;

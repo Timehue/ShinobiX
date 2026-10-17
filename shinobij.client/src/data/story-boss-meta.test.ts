@@ -14,6 +14,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { storylines } from "./storylines";
 import { storyBossMeta, bossScaleByLevel, storyAiId } from "./story-boss-meta";
+import { STORY_KAGE_ENCOUNTERS } from "../../../shared/story-kage";
 
 test("story-boss-meta mirrors the storylines chapter meta exactly, in order", () => {
     const derived = Object.entries(storylines).flatMap(([village, steps]) => steps.map((step) => ({
@@ -51,5 +52,16 @@ test("every storylines chapter reward matches the shared scale table", () => {
             assert.equal(step.rewardRyo, scale.ryo, `${village} L${step.levelReq} rewardRyo`);
             assert.equal(step.aiProfileId, storyAiId(village, step.levelReq), `${village} L${step.levelReq} aiProfileId`);
         }
+    }
+});
+
+test("authoritative final Kage identities match every village's published final chapter", () => {
+    const finales = storyBossMeta.filter((boss) => boss.levelReq === 100);
+    assert.equal(finales.length, Object.keys(STORY_KAGE_ENCOUNTERS).length);
+    for (const [village, boss] of Object.entries(STORY_KAGE_ENCOUNTERS)) {
+        assert.equal(finales.find((finale) => finale.village === village)?.bossName, boss.name);
+        const chapter = storylines[village].find((step) => step.kageFinale);
+        assert.ok(chapter?.pages.some((page) => page.rightImage === boss.portrait || page.leftImage === boss.portrait),
+            `${village}: combat preserves the established Hollow-form finale portrait`);
     }
 });

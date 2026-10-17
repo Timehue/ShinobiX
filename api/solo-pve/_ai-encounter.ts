@@ -1,13 +1,13 @@
 import type { AdminCombatContent } from '../_admin-content.js';
-import { resolveAiProfileJutsu } from '../_ai-opponent-loadout.js';
+import { progressiveOrdinaryAiJutsuIds, resolveAiProfileJutsu } from '../_ai-opponent-loadout.js';
 import { relevelAiProfile, type RelevelableProfile } from '../_ai-level-curves.js';
-import { COMBAT_RESOURCES_V2 } from '../_combat-resources.js';
+import { COMBAT_RESOURCES_V2, v2JutsuCosts } from '../_combat-resources.js';
 import {
-    pveAiMasteryForLevel,
     pveDifficultyHpMultiplier,
     pveDifficultyStatMultiplier,
     scaleStatsForPveDifficulty,
 } from '../_pve-difficulty.js';
+import { pveAiMasteryForEncounter } from '../_pve-ai-mastery.js';
 import { pveDifficultyGuardEnabled, type PveBandMode } from '../_pve-band-seal.js';
 import { perRankStatCap } from '../combat-core/formulas.js';
 import { sealCompanionFromSave } from '../combat-core/companion.js';
@@ -125,11 +125,12 @@ function buildEnemy(profile: SoloPveAiProfile, admin: AdminCombatContent | null,
     const embeddedJutsu = Array.isArray(profile.jutsu)
         ? profile.jutsu.filter((entry): entry is Record<string, unknown> => !!entry && typeof entry === 'object' && typeof (entry as Record<string, unknown>).id === 'string')
         : [];
-    const authoredJutsu = embeddedJutsu.length > 0 ? embeddedJutsu : resolveAiProfileJutsu(profile.jutsuIds, admin);
-    // Validate authored rules against the authored/resolved kit before adding a
-    // fallback. A missing referenced jutsu must still fail closed; the generic
-    // signature exists only to keep a genuinely empty, rule-free profile active.
-    const aiProgram = validateServerAiRules(profile.rules, authoredJutsu.map((entry) => String(entry.id ?? '')).filter(Boolean));
+    const progressiveIds = embeddedJutsu.length === 0 ? progressiveOrdinaryAiJutsuIds(String(profile.pveTemplateId ?? profile.id), level, profile.pveDifficulty) : null;
+    const authoredJutsu = embeddedJutsu.length > 0 ? embeddedJutsu : resolveAiProfileJutsu(progressiveIds ?? profile.jutsuIds, admin);
+    // Progressive ordinary templates use the sealed legal-action planner; their
+    // old template rule program referenced the replaced kit. Every other host
+    // still validates authored references before adding a rule-free fallback.
+    const aiProgram = validateServerAiRules(progressiveIds ? [] : profile.rules, authoredJutsu.map((entry) => String(entry.id ?? '')).filter(Boolean));
     if (!aiProgram.ok) {
         throw new Error(`AI profile ${profile.id} has an invalid server rule program: ${aiProgram.issues[0]?.message ?? 'invalid rules'}`);
     }
@@ -137,20 +138,27 @@ function buildEnemy(profile: SoloPveAiProfile, admin: AdminCombatContent | null,
     const jutsu = authoredJutsu.length > 0
         ? authoredJutsu
         : [fallbackEnemyJutsu(profile.id, level, specialty)];
-    const mastery = pveAiMasteryForLevel(level);
+    const mastery = pveAiMasteryForEncounter(level, profile.pveDifficulty);
+    const progressiveMastery = ['weaker', 'standard', 'dangerous', 'elite', 'final-kage'].includes(String(profile.pveDifficulty));
     const character: Record<string, unknown> = {
         name: typeof profile.name === 'string' ? profile.name.slice(0, 80) : 'Opponent',
         level,
+        ...(typeof profile.pveDifficulty === 'string' ? { pveDifficulty: profile.pveDifficulty } : {}),
         specialty,
         stats,
         armorRawDR: Math.max(0, Math.min(1.5, finite(profile.armorRawDR, 0))),
         jutsu: jutsu.map((entry) => {
             const description = profile.missionTactics === true && profile.missionJutsuDescriptions && typeof profile.missionJutsuDescriptions === 'object'
                 ? (profile.missionJutsuDescriptions as Record<string, unknown>)[String(entry.id)] : undefined;
-            return { ...entry, ...(typeof description === 'string' ? { battleDescription: description.slice(0, 300) } : {}) };
+            return { ...entry,
+                ...(progressiveMastery && COMBAT_RESOURCES_V2 ? v2JutsuCosts(entry, level, specialty) : {}),
+                ...(typeof description === 'string' ? { battleDescription: description.slice(0, 300) } : {}) };
         }),
         jutsuMastery: jutsu.map((entry) => ({ jutsuId: entry.id, level: mastery })),
         visual: typeof profile.visual === 'string' ? profile.visual : profile.id,
+        ...(typeof profile.avatarImage === 'string' && /^\/(?!\/)[A-Za-z0-9_./-]+\.(?:png|webp|jpe?g)$/i.test(profile.avatarImage) ? { avatarImage: profile.avatarImage } : {}),
+        ...(typeof profile.pveDifficultyLabel === 'string' ? { pveDifficultyLabel: profile.pveDifficultyLabel.slice(0, 100) } : {}),
+        ...(typeof profile.tacticalTell === 'string' ? { tacticalTell: profile.tacticalTell.slice(0, 500) } : {}),
         ...(profile.isBossAi === true || profile.boss === true ? { boss: true } : {}),
         ...(profile.masterAi === true ? { masterAi: true } : {}),
         ...(aiProgram.rules.length > 0 ? { aiRules: aiProgram.rules } : {}),

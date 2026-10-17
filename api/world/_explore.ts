@@ -13,6 +13,7 @@ export const DAILY_SECTOR_EXPLORE_LIMIT = 100;
 export const SECTOR_EXPLORE_CHEST_CHANCE = 0.15;
 
 import type { PendingGatherFind } from '../../shared/gathering.js';
+import type { OrdinaryPveEncounter } from '../../shared/ordinary-pve-encounter.js';
 
 export type SectorExploreOutcome =
     | { kind: 'gather'; find?: PendingGatherFind }
@@ -20,7 +21,7 @@ export type SectorExploreOutcome =
     // sector chest pool at discovery time, so /world/open-chest never has to
     // reserve (and therefore can never refuse) a chest the player already holds.
     | { kind: 'chest'; reservationDate?: string; reservationOrdinal?: number; poolReserved?: boolean }
-    | { kind: 'battle' }
+    | { kind: 'battle'; encounter?: OrdinaryPveEncounter }
     | { kind: 'external'; source: 'dungeon' | 'pet' }
     | { kind: 'none' };
 

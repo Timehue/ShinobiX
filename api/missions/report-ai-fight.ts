@@ -688,6 +688,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 outcome,
                 retryable: true,
                 ...(sealedWorldContext ? { worldContext: sealedWorldContext } : {}),
+                ...(peeked?.encounter ? { encounter: peeked.encounter } : {}),
             });
         }
 
@@ -730,6 +731,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 dungeonRun: finalCharacter.activeDungeonRun ?? null,
             } : {}),
             ...(sealedWorldContext ? { worldContext: sealedWorldContext } : {}),
+            ...(peeked?.encounter ? { encounter: peeked.encounter } : {}),
         });
     } catch (err) {
         console.error('[missions/report-ai-fight]', safeLogValue(err));

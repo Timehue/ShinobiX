@@ -1,6 +1,7 @@
 import type { AiFightBattleKind } from "./ai-fight-api";
 import type { WorldAiFightRequest } from "../../../shared/world-ai-fight";
 import type { AiFightSettleResult } from "./ai-fight-settle";
+import type { OrdinaryPveEncounter } from '../../../shared/ordinary-pve-encounter';
 
 /*
  * AI-fight launch bus (mirrors lib/story-fight-theme's requestStoryBossFight).
@@ -28,6 +29,8 @@ export type AiFightRequest = {
     opponentName?: string;
     /** Display-only: the enemy portrait on the server-combat screen. */
     enemyAvatar?: string;
+    /** Display of the server-sealed roll; never sent as combat authority. */
+    encounter?: OrdinaryPveEncounter;
     /**
      * The sector this fight is fought over. The server seals it into explore or
      * raid authority, so it must be the launch sector rather than later map state.

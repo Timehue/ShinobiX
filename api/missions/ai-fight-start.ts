@@ -172,6 +172,7 @@ function genericStartBody(recovered: { pointer: AiFightActivePointer; token: AiF
         raidToken: recovered.token.raidTokenId ?? null,
         dungeonRunToken: recovered.token.dungeonRunToken ?? null,
         opponentName: String(recovered.session.enemy?.name ?? ''),
+        ...(recovered.token.encounter ? { encounter: recovered.token.encounter } : {}),
         resumed,
     };
 }
@@ -322,6 +323,12 @@ async function recoverWorldFight(playerName: string): Promise<{
         await kv.del(key).catch(() => undefined);
         return null;
     }
+    if (isSoloPveSessionLapsed(session)) {
+        await reconcileLapsedBattle({ kind: 'solo-pve', sessionId: session.sessionId }, playerName);
+        await releaseWorldAiChainStage(playerName, pointer.context).catch(() => undefined);
+        await kv.del(key).catch(() => undefined);
+        return null;
+    }
     await ensureNaturalWorldEncounterClaim(playerName, pointer.context, pointer.token);
     return { pointer, token, session };
 }
@@ -342,6 +349,7 @@ function worldStartBody(recovered: {
         sessionId: recovered.pointer.sessionId,
         session: recovered.session,
         worldContext: recovered.pointer.context,
+        ...(recovered.pointer.context.encounter ? { encounter: recovered.pointer.context.encounter } : {}),
         resumed,
     };
 }
@@ -381,7 +389,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const generic = await recoverAiFight(playerName);
                 if (generic) return { status: 409, body: { error: 'Another AI encounter is already active.', resumable: true, mode: 'generic' } };
                 const recovered = await recoverWorldFight(playerName);
-                if (recovered) return { status: 200, body: worldStartBody(recovered, true) };
+                if (recovered) {
+                    const active = recovered.pointer.context;
+                    const chained = worldRequest?.kind === 'wanderer-ambush' || worldRequest?.kind === 'hunt-pack';
+                    if (worldRequest && (worldRequest.kind !== active.kind || worldRequest.sourceId !== active.sourceId
+                        || worldRequest.sector !== active.sector || (chained && (worldRequest.stage ?? 0) !== active.stage)
+                        || (worldRequest.chainId && worldRequest.chainId !== active.chainId)
+                        || (worldRequest.decisionId ?? '') !== (active.decisionId ?? '')
+                        || (worldRequest.encounterId && worldRequest.encounterId !== active.encounter?.id))) {
+                        return { status: 409, body: { error: 'Another World encounter is already active.', reason: 'active-encounter-conflict', resumable: true, mode: 'world', worldContext: active } };
+                    }
+                    return { status: 200, body: worldStartBody(recovered, true) };
+                }
 
                 // A new World fight settles every other fight this player is
                 // holding before it is sealed from the save
@@ -464,7 +483,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     character = healed.character;
                 }
 
-                const reward = computeAiFightBaseReward(character);
+                const reward = worldSpec.context.encounter
+                    ? { xp: worldSpec.context.encounter.baseXp, ryo: worldSpec.context.encounter.baseRyo, trait: worldSpec.context.encounter.rewardTrait ?? null }
+                    : computeAiFightBaseReward(character);
                 try {
                     if (pendingChain && worldRequest && sameWorldAiFightRequest(worldRequest, pendingChain.request)) {
                         await repairWorldAiChainForPending(playerName, character, pendingChain);
@@ -490,6 +511,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         sessionRuntime: 'solo-pve',
                         sessionId: sealedAttempt.sessionId,
                         worldContext: worldSpec.context,
+                        encounter: worldSpec.context.encounter,
                         rewardTrait: reward.trait,
                     });
                     await kv.set(aiFightTokenKey(playerName, token), record, { ex: WORLD_AI_FIGHT_TTL_SECONDS });
@@ -607,7 +629,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 battleKind: genericAuthority.battleKind,
                 ...(genericAuthority.sector !== undefined ? { sector: genericAuthority.sector } : {}),
             };
-            const reward = computeAiFightBaseReward(character);
+            const reward = genericAuthority.encounter
+                ? { xp: genericAuthority.encounter.baseXp, ryo: genericAuthority.encounter.baseRyo, trait: genericAuthority.encounter.rewardTrait ?? null }
+                : computeAiFightBaseReward(character);
             let sealed: { sessionId: string; session: SoloPveSession } | null = null;
             let token = '';
             let exploreReceiptOwned = false;
@@ -622,6 +646,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     opponentLevel: sealed.session.enemy.character.level,
                     sector: genericAuthority.sector,
                     worldExploreRequestId: genericAuthority.worldExploreRequestId,
+                    encounter: genericAuthority.encounter,
                     raidTokenId: genericAuthority.raidTokenId,
                     raidMissionId: genericAuthority.raidMissionId,
                     dungeonRunToken: genericAuthority.dungeonRunToken,
