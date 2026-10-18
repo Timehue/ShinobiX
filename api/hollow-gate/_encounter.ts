@@ -8,6 +8,7 @@ import { AUGMENT_CATALOG, type HollowGateRunToken } from './_run-token.js';
 import type { HollowGateCombatBinding, HollowGateCombatKind } from './_combat-session.js';
 import { hollowGateWandererForNode } from './_wanderers.js';
 import { hollowGateWandererName, hollowGateWandererArt } from '../../shared/hollow-gate-wanderers.js';
+import { SHRINE_AI_POLICY } from '../solo-pve/_ai-turn-policy.js';
 
 const LOADOUTS: Record<'burst' | 'bruiser' | 'hunter' | 'boss', string[]> = {
     burst: ['starter-tai-water-2', 'starter-nin-lightning-2', 'starter-buki-fire-2', 'starter-tai-fire-2', 'starter-tai-earth-1', 'starter-universal-flicker'],
@@ -91,6 +92,7 @@ export function buildHollowGateSoloPveEncounter(params: {
         now: params.now,
         admin: params.admin,
         difficultyMode: 'AI_FIGHT',
+        aiTurnPolicy: SHRINE_AI_POLICY,
         encounter: {
             kind: 'hollow-gate',
             id: `${params.run.seed}:${params.binding.floor}:${params.binding.nodeId}:${params.binding.kind}`,
@@ -107,6 +109,8 @@ export function buildHollowGateSoloPveEncounter(params: {
         environment: { biome: 'shadow' },
     });
     const wanderer = params.binding.kind === 'battle' ? hollowGateWandererForNode(params.run, params.binding.nodeId) : undefined;
+    session.shrineAi = { version: 1, healsUsed: 0, healLimit: params.binding.kind === 'elite' || params.binding.kind === 'boss' ? 2 : 1 };
+    session.log.push(`Shrine tactics: ${session.enemy.name} can use Basic Heal ${session.shrineAi.healLimit === 1 ? 'once' : 'twice'}. After a support technique it must return to offense for a round. Clear removes active defenses; Cleanse removes afflictions.`);
     if (wanderer) session.enemy.character.avatarImage = hollowGateWandererArt(wanderer);
     return session;
 }

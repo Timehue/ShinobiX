@@ -1,0 +1,2167 @@
+{
+  "noSustain": false,
+  "fixture": "Illustrative catalog builds with level-appropriate armor; no bloodline, pet, relic or production save. Level17 has INT640/GEN570. This is not a Buster/Rill replay.",
+  "policy": "Fixed legal cast rotation; sustain maintains Absorb/Lifesteal/Reflect, offense favors damaging casts. Same seed and numbers before/after; no stochastic win-rate claim.",
+  "rows": [
+    {
+      "level": 5,
+      "sustain": false,
+      "encounter": "hunt-wild-boar",
+      "before": {
+        "outcome": "win",
+        "rounds": 4,
+        "endHp": 360,
+        "minHp": 360,
+        "enemyHeals": 0,
+        "enemyCasts": 2,
+        "enemyMaxHp": 949,
+        "playerMaxHp": 900,
+        "actions": 8
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 4,
+        "endHp": 360,
+        "minHp": 360,
+        "enemyHeals": 0,
+        "enemyCasts": 3,
+        "enemyMaxHp": 949,
+        "playerMaxHp": 900,
+        "actions": 8
+      }
+    },
+    {
+      "level": 5,
+      "sustain": false,
+      "encounter": "hunt-frost-wolf",
+      "before": {
+        "outcome": "win",
+        "rounds": 4,
+        "endHp": 360,
+        "minHp": 360,
+        "enemyHeals": 0,
+        "enemyCasts": 2,
+        "enemyMaxHp": 949,
+        "playerMaxHp": 900,
+        "actions": 8
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 4,
+        "endHp": 360,
+        "minHp": 360,
+        "enemyHeals": 0,
+        "enemyCasts": 3,
+        "enemyMaxHp": 949,
+        "playerMaxHp": 900,
+        "actions": 8
+      }
+    },
+    {
+      "level": 5,
+      "sustain": false,
+      "encounter": "hunt-ash-lizard",
+      "before": {
+        "outcome": "win",
+        "rounds": 3,
+        "endHp": 630,
+        "minHp": 630,
+        "enemyHeals": 0,
+        "enemyCasts": 0,
+        "enemyMaxHp": 949,
+        "playerMaxHp": 900,
+        "actions": 6
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 3,
+        "endHp": 630,
+        "minHp": 630,
+        "enemyHeals": 0,
+        "enemyCasts": 2,
+        "enemyMaxHp": 949,
+        "playerMaxHp": 900,
+        "actions": 6
+      }
+    },
+    {
+      "level": 5,
+      "sustain": false,
+      "encounter": "hunt-forest-hawk",
+      "before": {
+        "outcome": "win",
+        "rounds": 3,
+        "endHp": 630,
+        "minHp": 630,
+        "enemyHeals": 0,
+        "enemyCasts": 0,
+        "enemyMaxHp": 949,
+        "playerMaxHp": 900,
+        "actions": 6
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 3,
+        "endHp": 630,
+        "minHp": 630,
+        "enemyHeals": 0,
+        "enemyCasts": 2,
+        "enemyMaxHp": 949,
+        "playerMaxHp": 900,
+        "actions": 6
+      }
+    },
+    {
+      "level": 5,
+      "sustain": false,
+      "encounter": "shrine-battle-f1",
+      "before": {
+        "outcome": "win",
+        "rounds": 3,
+        "endHp": 489,
+        "minHp": 489,
+        "enemyHeals": 0,
+        "enemyCasts": 2,
+        "enemyMaxHp": 807,
+        "playerMaxHp": 900,
+        "actions": 6
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 3,
+        "endHp": 489,
+        "minHp": 489,
+        "enemyHeals": 0,
+        "enemyCasts": 2,
+        "enemyMaxHp": 807,
+        "playerMaxHp": 900,
+        "actions": 6
+      }
+    },
+    {
+      "level": 5,
+      "sustain": false,
+      "encounter": "shrine-elite-f1",
+      "before": {
+        "outcome": "win",
+        "rounds": 3,
+        "endHp": 489,
+        "minHp": 489,
+        "enemyHeals": 0,
+        "enemyCasts": 3,
+        "enemyMaxHp": 1128,
+        "playerMaxHp": 900,
+        "actions": 6
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 3,
+        "endHp": 582,
+        "minHp": 582,
+        "enemyHeals": 1,
+        "enemyCasts": 1,
+        "enemyMaxHp": 1128,
+        "playerMaxHp": 900,
+        "actions": 6
+      }
+    },
+    {
+      "level": 5,
+      "sustain": false,
+      "encounter": "shrine-boss-f5",
+      "before": {
+        "outcome": "loss",
+        "rounds": 5,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 7,
+        "enemyMaxHp": 3678,
+        "playerMaxHp": 900,
+        "actions": 11
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 4,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 3,
+        "enemyMaxHp": 3678,
+        "playerMaxHp": 900,
+        "actions": 9
+      }
+    },
+    {
+      "level": 5,
+      "sustain": false,
+      "encounter": "shrine-bandit",
+      "before": {
+        "outcome": "win",
+        "rounds": 3,
+        "endHp": 537,
+        "minHp": 537,
+        "enemyHeals": 1,
+        "enemyCasts": 3,
+        "enemyMaxHp": 807,
+        "playerMaxHp": 900,
+        "actions": 6
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 3,
+        "endHp": 447,
+        "minHp": 447,
+        "enemyHeals": 0,
+        "enemyCasts": 3,
+        "enemyMaxHp": 807,
+        "playerMaxHp": 900,
+        "actions": 6
+      }
+    },
+    {
+      "level": 5,
+      "sustain": false,
+      "encounter": "shrine-night-ninja",
+      "before": {
+        "outcome": "win",
+        "rounds": 3,
+        "endHp": 676,
+        "minHp": 676,
+        "enemyHeals": 1,
+        "enemyCasts": 2,
+        "enemyMaxHp": 807,
+        "playerMaxHp": 900,
+        "actions": 6
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 3,
+        "endHp": 676,
+        "minHp": 676,
+        "enemyHeals": 1,
+        "enemyCasts": 2,
+        "enemyMaxHp": 807,
+        "playerMaxHp": 900,
+        "actions": 6
+      }
+    },
+    {
+      "level": 5,
+      "sustain": false,
+      "encounter": "shrine-patrol",
+      "before": {
+        "outcome": "win",
+        "rounds": 3,
+        "endHp": 489,
+        "minHp": 489,
+        "enemyHeals": 0,
+        "enemyCasts": 2,
+        "enemyMaxHp": 807,
+        "playerMaxHp": 900,
+        "actions": 6
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 3,
+        "endHp": 489,
+        "minHp": 489,
+        "enemyHeals": 0,
+        "enemyCasts": 2,
+        "enemyMaxHp": 807,
+        "playerMaxHp": 900,
+        "actions": 6
+      }
+    },
+    {
+      "level": 5,
+      "sustain": true,
+      "encounter": "hunt-wild-boar",
+      "before": {
+        "outcome": "win",
+        "rounds": 4,
+        "endHp": 900,
+        "minHp": 804,
+        "enemyHeals": 0,
+        "enemyCasts": 2,
+        "enemyMaxHp": 949,
+        "playerMaxHp": 900,
+        "actions": 10
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 4,
+        "endHp": 883,
+        "minHp": 734,
+        "enemyHeals": 0,
+        "enemyCasts": 3,
+        "enemyMaxHp": 949,
+        "playerMaxHp": 900,
+        "actions": 10
+      }
+    },
+    {
+      "level": 5,
+      "sustain": true,
+      "encounter": "hunt-frost-wolf",
+      "before": {
+        "outcome": "win",
+        "rounds": 4,
+        "endHp": 900,
+        "minHp": 804,
+        "enemyHeals": 0,
+        "enemyCasts": 2,
+        "enemyMaxHp": 949,
+        "playerMaxHp": 900,
+        "actions": 10
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 4,
+        "endHp": 883,
+        "minHp": 734,
+        "enemyHeals": 0,
+        "enemyCasts": 3,
+        "enemyMaxHp": 949,
+        "playerMaxHp": 900,
+        "actions": 10
+      }
+    },
+    {
+      "level": 5,
+      "sustain": true,
+      "encounter": "hunt-ash-lizard",
+      "before": {
+        "outcome": "win",
+        "rounds": 4,
+        "endHp": 849,
+        "minHp": 734,
+        "enemyHeals": 0,
+        "enemyCasts": 1,
+        "enemyMaxHp": 949,
+        "playerMaxHp": 900,
+        "actions": 9
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 4,
+        "endHp": 849,
+        "minHp": 734,
+        "enemyHeals": 0,
+        "enemyCasts": 3,
+        "enemyMaxHp": 949,
+        "playerMaxHp": 900,
+        "actions": 9
+      }
+    },
+    {
+      "level": 5,
+      "sustain": true,
+      "encounter": "hunt-forest-hawk",
+      "before": {
+        "outcome": "win",
+        "rounds": 4,
+        "endHp": 849,
+        "minHp": 734,
+        "enemyHeals": 0,
+        "enemyCasts": 1,
+        "enemyMaxHp": 949,
+        "playerMaxHp": 900,
+        "actions": 9
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 4,
+        "endHp": 849,
+        "minHp": 734,
+        "enemyHeals": 0,
+        "enemyCasts": 3,
+        "enemyMaxHp": 949,
+        "playerMaxHp": 900,
+        "actions": 9
+      }
+    },
+    {
+      "level": 5,
+      "sustain": true,
+      "encounter": "shrine-battle-f1",
+      "before": {
+        "outcome": "win",
+        "rounds": 4,
+        "endHp": 900,
+        "minHp": 720,
+        "enemyHeals": 0,
+        "enemyCasts": 4,
+        "enemyMaxHp": 807,
+        "playerMaxHp": 900,
+        "actions": 9
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 4,
+        "endHp": 900,
+        "minHp": 720,
+        "enemyHeals": 0,
+        "enemyCasts": 4,
+        "enemyMaxHp": 807,
+        "playerMaxHp": 900,
+        "actions": 9
+      }
+    },
+    {
+      "level": 5,
+      "sustain": true,
+      "encounter": "shrine-elite-f1",
+      "before": {
+        "outcome": "win",
+        "rounds": 4,
+        "endHp": 815,
+        "minHp": 734,
+        "enemyHeals": 0,
+        "enemyCasts": 4,
+        "enemyMaxHp": 1128,
+        "playerMaxHp": 900,
+        "actions": 9
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 4,
+        "endHp": 866,
+        "minHp": 630,
+        "enemyHeals": 0,
+        "enemyCasts": 2,
+        "enemyMaxHp": 1128,
+        "playerMaxHp": 900,
+        "actions": 9
+      }
+    },
+    {
+      "level": 5,
+      "sustain": true,
+      "encounter": "shrine-boss-f5",
+      "before": {
+        "outcome": "loss",
+        "rounds": 8,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 1,
+        "enemyCasts": 9,
+        "enemyMaxHp": 3678,
+        "playerMaxHp": 900,
+        "actions": 18
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 6,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 5,
+        "enemyMaxHp": 3678,
+        "playerMaxHp": 900,
+        "actions": 14
+      }
+    },
+    {
+      "level": 5,
+      "sustain": true,
+      "encounter": "shrine-bandit",
+      "before": {
+        "outcome": "win",
+        "rounds": 4,
+        "endHp": 849,
+        "minHp": 805,
+        "enemyHeals": 0,
+        "enemyCasts": 5,
+        "enemyMaxHp": 807,
+        "playerMaxHp": 900,
+        "actions": 9
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 4,
+        "endHp": 849,
+        "minHp": 805,
+        "enemyHeals": 0,
+        "enemyCasts": 5,
+        "enemyMaxHp": 807,
+        "playerMaxHp": 900,
+        "actions": 9
+      }
+    },
+    {
+      "level": 5,
+      "sustain": true,
+      "encounter": "shrine-night-ninja",
+      "before": {
+        "outcome": "win",
+        "rounds": 4,
+        "endHp": 900,
+        "minHp": 720,
+        "enemyHeals": 1,
+        "enemyCasts": 3,
+        "enemyMaxHp": 807,
+        "playerMaxHp": 900,
+        "actions": 9
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 4,
+        "endHp": 900,
+        "minHp": 720,
+        "enemyHeals": 1,
+        "enemyCasts": 3,
+        "enemyMaxHp": 807,
+        "playerMaxHp": 900,
+        "actions": 9
+      }
+    },
+    {
+      "level": 5,
+      "sustain": true,
+      "encounter": "shrine-patrol",
+      "before": {
+        "outcome": "win",
+        "rounds": 4,
+        "endHp": 900,
+        "minHp": 720,
+        "enemyHeals": 0,
+        "enemyCasts": 4,
+        "enemyMaxHp": 807,
+        "playerMaxHp": 900,
+        "actions": 9
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 4,
+        "endHp": 900,
+        "minHp": 720,
+        "enemyHeals": 0,
+        "enemyCasts": 4,
+        "enemyMaxHp": 807,
+        "playerMaxHp": 900,
+        "actions": 9
+      }
+    },
+    {
+      "level": 17,
+      "sustain": false,
+      "encounter": "hunt-wild-boar",
+      "before": {
+        "outcome": "win",
+        "rounds": 5,
+        "endHp": 651,
+        "minHp": 483,
+        "enemyHeals": 0,
+        "enemyCasts": 3,
+        "enemyMaxHp": 2282,
+        "playerMaxHp": 2100,
+        "actions": 10
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 5,
+        "endHp": 651,
+        "minHp": 483,
+        "enemyHeals": 0,
+        "enemyCasts": 4,
+        "enemyMaxHp": 2282,
+        "playerMaxHp": 2100,
+        "actions": 10
+      }
+    },
+    {
+      "level": 17,
+      "sustain": false,
+      "encounter": "hunt-frost-wolf",
+      "before": {
+        "outcome": "win",
+        "rounds": 5,
+        "endHp": 651,
+        "minHp": 483,
+        "enemyHeals": 0,
+        "enemyCasts": 3,
+        "enemyMaxHp": 2282,
+        "playerMaxHp": 2100,
+        "actions": 10
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 5,
+        "endHp": 651,
+        "minHp": 483,
+        "enemyHeals": 0,
+        "enemyCasts": 4,
+        "enemyMaxHp": 2282,
+        "playerMaxHp": 2100,
+        "actions": 10
+      }
+    },
+    {
+      "level": 17,
+      "sustain": false,
+      "encounter": "hunt-ash-lizard",
+      "before": {
+        "outcome": "win",
+        "rounds": 4,
+        "endHp": 1113,
+        "minHp": 1113,
+        "enemyHeals": 0,
+        "enemyCasts": 1,
+        "enemyMaxHp": 2282,
+        "playerMaxHp": 2100,
+        "actions": 8
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 4,
+        "endHp": 912,
+        "minHp": 912,
+        "enemyHeals": 0,
+        "enemyCasts": 3,
+        "enemyMaxHp": 2282,
+        "playerMaxHp": 2100,
+        "actions": 8
+      }
+    },
+    {
+      "level": 17,
+      "sustain": false,
+      "encounter": "hunt-forest-hawk",
+      "before": {
+        "outcome": "win",
+        "rounds": 4,
+        "endHp": 1113,
+        "minHp": 1113,
+        "enemyHeals": 0,
+        "enemyCasts": 1,
+        "enemyMaxHp": 2282,
+        "playerMaxHp": 2100,
+        "actions": 8
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 4,
+        "endHp": 912,
+        "minHp": 912,
+        "enemyHeals": 0,
+        "enemyCasts": 3,
+        "enemyMaxHp": 2282,
+        "playerMaxHp": 2100,
+        "actions": 8
+      }
+    },
+    {
+      "level": 17,
+      "sustain": false,
+      "encounter": "shrine-battle-f1",
+      "before": {
+        "outcome": "win",
+        "rounds": 4,
+        "endHp": 1216,
+        "minHp": 1216,
+        "enemyHeals": 0,
+        "enemyCasts": 4,
+        "enemyMaxHp": 1951,
+        "playerMaxHp": 2100,
+        "actions": 8
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 4,
+        "endHp": 1031,
+        "minHp": 1031,
+        "enemyHeals": 0,
+        "enemyCasts": 3,
+        "enemyMaxHp": 1951,
+        "playerMaxHp": 2100,
+        "actions": 8
+      }
+    },
+    {
+      "level": 17,
+      "sustain": false,
+      "encounter": "shrine-elite-f1",
+      "before": {
+        "outcome": "win",
+        "rounds": 5,
+        "endHp": 733,
+        "minHp": 623,
+        "enemyHeals": 1,
+        "enemyCasts": 5,
+        "enemyMaxHp": 2721,
+        "playerMaxHp": 2100,
+        "actions": 10
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 4,
+        "endHp": 987,
+        "minHp": 987,
+        "enemyHeals": 0,
+        "enemyCasts": 2,
+        "enemyMaxHp": 2721,
+        "playerMaxHp": 2100,
+        "actions": 8
+      }
+    },
+    {
+      "level": 17,
+      "sustain": false,
+      "encounter": "shrine-boss-f5",
+      "before": {
+        "outcome": "loss",
+        "rounds": 4,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 6,
+        "enemyMaxHp": 6433,
+        "playerMaxHp": 2100,
+        "actions": 8
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 3,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 5,
+        "enemyMaxHp": 6433,
+        "playerMaxHp": 2100,
+        "actions": 7
+      }
+    },
+    {
+      "level": 17,
+      "sustain": false,
+      "encounter": "shrine-bandit",
+      "before": {
+        "outcome": "win",
+        "rounds": 4,
+        "endHp": 1293,
+        "minHp": 1293,
+        "enemyHeals": 1,
+        "enemyCasts": 4,
+        "enemyMaxHp": 1951,
+        "playerMaxHp": 2100,
+        "actions": 8
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 3,
+        "endHp": 1594,
+        "minHp": 1594,
+        "enemyHeals": 0,
+        "enemyCasts": 2,
+        "enemyMaxHp": 1951,
+        "playerMaxHp": 2100,
+        "actions": 7
+      }
+    },
+    {
+      "level": 17,
+      "sustain": false,
+      "encounter": "shrine-night-ninja",
+      "before": {
+        "outcome": "win",
+        "rounds": 3,
+        "endHp": 1594,
+        "minHp": 1594,
+        "enemyHeals": 0,
+        "enemyCasts": 2,
+        "enemyMaxHp": 1951,
+        "playerMaxHp": 2100,
+        "actions": 7
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 3,
+        "endHp": 1614,
+        "minHp": 1614,
+        "enemyHeals": 0,
+        "enemyCasts": 1,
+        "enemyMaxHp": 1951,
+        "playerMaxHp": 2100,
+        "actions": 7
+      }
+    },
+    {
+      "level": 17,
+      "sustain": false,
+      "encounter": "shrine-patrol",
+      "before": {
+        "outcome": "win",
+        "rounds": 4,
+        "endHp": 1216,
+        "minHp": 1216,
+        "enemyHeals": 0,
+        "enemyCasts": 4,
+        "enemyMaxHp": 1951,
+        "playerMaxHp": 2100,
+        "actions": 8
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 4,
+        "endHp": 1031,
+        "minHp": 1031,
+        "enemyHeals": 0,
+        "enemyCasts": 3,
+        "enemyMaxHp": 1951,
+        "playerMaxHp": 2100,
+        "actions": 8
+      }
+    },
+    {
+      "level": 17,
+      "sustain": true,
+      "encounter": "hunt-wild-boar",
+      "before": {
+        "outcome": "win",
+        "rounds": 5,
+        "endHp": 1748,
+        "minHp": 1748,
+        "enemyHeals": 0,
+        "enemyCasts": 3,
+        "enemyMaxHp": 2282,
+        "playerMaxHp": 2100,
+        "actions": 12
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 5,
+        "endHp": 1562,
+        "minHp": 1562,
+        "enemyHeals": 0,
+        "enemyCasts": 4,
+        "enemyMaxHp": 2282,
+        "playerMaxHp": 2100,
+        "actions": 12
+      }
+    },
+    {
+      "level": 17,
+      "sustain": true,
+      "encounter": "hunt-frost-wolf",
+      "before": {
+        "outcome": "win",
+        "rounds": 5,
+        "endHp": 1748,
+        "minHp": 1748,
+        "enemyHeals": 0,
+        "enemyCasts": 3,
+        "enemyMaxHp": 2282,
+        "playerMaxHp": 2100,
+        "actions": 12
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 5,
+        "endHp": 1562,
+        "minHp": 1562,
+        "enemyHeals": 0,
+        "enemyCasts": 4,
+        "enemyMaxHp": 2282,
+        "playerMaxHp": 2100,
+        "actions": 12
+      }
+    },
+    {
+      "level": 17,
+      "sustain": true,
+      "encounter": "hunt-ash-lizard",
+      "before": {
+        "outcome": "win",
+        "rounds": 5,
+        "endHp": 1562,
+        "minHp": 1562,
+        "enemyHeals": 0,
+        "enemyCasts": 2,
+        "enemyMaxHp": 2282,
+        "playerMaxHp": 2100,
+        "actions": 11
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 5,
+        "endHp": 1472,
+        "minHp": 1472,
+        "enemyHeals": 0,
+        "enemyCasts": 4,
+        "enemyMaxHp": 2282,
+        "playerMaxHp": 2100,
+        "actions": 11
+      }
+    },
+    {
+      "level": 17,
+      "sustain": true,
+      "encounter": "hunt-forest-hawk",
+      "before": {
+        "outcome": "win",
+        "rounds": 5,
+        "endHp": 1562,
+        "minHp": 1562,
+        "enemyHeals": 0,
+        "enemyCasts": 2,
+        "enemyMaxHp": 2282,
+        "playerMaxHp": 2100,
+        "actions": 11
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 5,
+        "endHp": 1472,
+        "minHp": 1472,
+        "enemyHeals": 0,
+        "enemyCasts": 4,
+        "enemyMaxHp": 2282,
+        "playerMaxHp": 2100,
+        "actions": 11
+      }
+    },
+    {
+      "level": 17,
+      "sustain": true,
+      "encounter": "shrine-battle-f1",
+      "before": {
+        "outcome": "win",
+        "rounds": 5,
+        "endHp": 1956,
+        "minHp": 1850,
+        "enemyHeals": 1,
+        "enemyCasts": 4,
+        "enemyMaxHp": 1951,
+        "playerMaxHp": 2100,
+        "actions": 11
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 5,
+        "endHp": 1581,
+        "minHp": 1581,
+        "enemyHeals": 0,
+        "enemyCasts": 4,
+        "enemyMaxHp": 1951,
+        "playerMaxHp": 2100,
+        "actions": 11
+      }
+    },
+    {
+      "level": 17,
+      "sustain": true,
+      "encounter": "shrine-elite-f1",
+      "before": {
+        "outcome": "win",
+        "rounds": 5,
+        "endHp": 1488,
+        "minHp": 1488,
+        "enemyHeals": 0,
+        "enemyCasts": 6,
+        "enemyMaxHp": 2721,
+        "playerMaxHp": 2100,
+        "actions": 12
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 6,
+        "endHp": 1231,
+        "minHp": 1099,
+        "enemyHeals": 1,
+        "enemyCasts": 5,
+        "enemyMaxHp": 2721,
+        "playerMaxHp": 2100,
+        "actions": 13
+      }
+    },
+    {
+      "level": 17,
+      "sustain": true,
+      "encounter": "shrine-boss-f5",
+      "before": {
+        "outcome": "loss",
+        "rounds": 5,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 7,
+        "enemyMaxHp": 6433,
+        "playerMaxHp": 2100,
+        "actions": 12
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 4,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 6,
+        "enemyMaxHp": 6433,
+        "playerMaxHp": 2100,
+        "actions": 10
+      }
+    },
+    {
+      "level": 17,
+      "sustain": true,
+      "encounter": "shrine-bandit",
+      "before": {
+        "outcome": "win",
+        "rounds": 5,
+        "endHp": 1799,
+        "minHp": 1780,
+        "enemyHeals": 1,
+        "enemyCasts": 5,
+        "enemyMaxHp": 1951,
+        "playerMaxHp": 2100,
+        "actions": 11
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 5,
+        "endHp": 1684,
+        "minHp": 1638,
+        "enemyHeals": 1,
+        "enemyCasts": 3,
+        "enemyMaxHp": 1951,
+        "playerMaxHp": 2100,
+        "actions": 11
+      }
+    },
+    {
+      "level": 17,
+      "sustain": true,
+      "encounter": "shrine-night-ninja",
+      "before": {
+        "outcome": "win",
+        "rounds": 5,
+        "endHp": 1865,
+        "minHp": 1780,
+        "enemyHeals": 1,
+        "enemyCasts": 4,
+        "enemyMaxHp": 1951,
+        "playerMaxHp": 2100,
+        "actions": 11
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 5,
+        "endHp": 1855,
+        "minHp": 1758,
+        "enemyHeals": 1,
+        "enemyCasts": 3,
+        "enemyMaxHp": 1951,
+        "playerMaxHp": 2100,
+        "actions": 11
+      }
+    },
+    {
+      "level": 17,
+      "sustain": true,
+      "encounter": "shrine-patrol",
+      "before": {
+        "outcome": "win",
+        "rounds": 5,
+        "endHp": 1956,
+        "minHp": 1850,
+        "enemyHeals": 1,
+        "enemyCasts": 4,
+        "enemyMaxHp": 1951,
+        "playerMaxHp": 2100,
+        "actions": 11
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 5,
+        "endHp": 1581,
+        "minHp": 1581,
+        "enemyHeals": 0,
+        "enemyCasts": 4,
+        "enemyMaxHp": 1951,
+        "playerMaxHp": 2100,
+        "actions": 11
+      }
+    },
+    {
+      "level": 50,
+      "sustain": false,
+      "encounter": "hunt-wild-boar",
+      "before": {
+        "outcome": "loss",
+        "rounds": 9,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 8,
+        "enemyMaxHp": 7183,
+        "playerMaxHp": 5400,
+        "actions": 20
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 9,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 9,
+        "enemyMaxHp": 7183,
+        "playerMaxHp": 5400,
+        "actions": 20
+      }
+    },
+    {
+      "level": 50,
+      "sustain": false,
+      "encounter": "hunt-frost-wolf",
+      "before": {
+        "outcome": "loss",
+        "rounds": 9,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 8,
+        "enemyMaxHp": 7183,
+        "playerMaxHp": 5400,
+        "actions": 20
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 9,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 9,
+        "enemyMaxHp": 7183,
+        "playerMaxHp": 5400,
+        "actions": 20
+      }
+    },
+    {
+      "level": 50,
+      "sustain": false,
+      "encounter": "hunt-ash-lizard",
+      "before": {
+        "outcome": "win",
+        "rounds": 8,
+        "endHp": 1104,
+        "minHp": 1104,
+        "enemyHeals": 0,
+        "enemyCasts": 5,
+        "enemyMaxHp": 7183,
+        "playerMaxHp": 5400,
+        "actions": 18
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 8,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 7,
+        "enemyMaxHp": 7183,
+        "playerMaxHp": 5400,
+        "actions": 18
+      }
+    },
+    {
+      "level": 50,
+      "sustain": false,
+      "encounter": "hunt-forest-hawk",
+      "before": {
+        "outcome": "win",
+        "rounds": 8,
+        "endHp": 1104,
+        "minHp": 1104,
+        "enemyHeals": 0,
+        "enemyCasts": 5,
+        "enemyMaxHp": 7183,
+        "playerMaxHp": 5400,
+        "actions": 18
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 8,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 7,
+        "enemyMaxHp": 7183,
+        "playerMaxHp": 5400,
+        "actions": 18
+      }
+    },
+    {
+      "level": 50,
+      "sustain": false,
+      "encounter": "shrine-battle-f1",
+      "before": {
+        "outcome": "win",
+        "rounds": 8,
+        "endHp": 1268,
+        "minHp": 1268,
+        "enemyHeals": 1,
+        "enemyCasts": 8,
+        "enemyMaxHp": 6219,
+        "playerMaxHp": 5400,
+        "actions": 17
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 8,
+        "endHp": 1019,
+        "minHp": 1019,
+        "enemyHeals": 1,
+        "enemyCasts": 6,
+        "enemyMaxHp": 6219,
+        "playerMaxHp": 5400,
+        "actions": 17
+      }
+    },
+    {
+      "level": 50,
+      "sustain": false,
+      "encounter": "shrine-elite-f1",
+      "before": {
+        "outcome": "loss",
+        "rounds": 7,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 1,
+        "enemyCasts": 9,
+        "enemyMaxHp": 8621,
+        "playerMaxHp": 5400,
+        "actions": 15
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 4,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 7,
+        "enemyMaxHp": 8621,
+        "playerMaxHp": 5400,
+        "actions": 9
+      }
+    },
+    {
+      "level": 50,
+      "sustain": false,
+      "encounter": "shrine-boss-f5",
+      "before": {
+        "outcome": "loss",
+        "rounds": 8,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 10,
+        "enemyMaxHp": 14373,
+        "playerMaxHp": 5400,
+        "actions": 18
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 6,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 1,
+        "enemyCasts": 7,
+        "enemyMaxHp": 14373,
+        "playerMaxHp": 5400,
+        "actions": 13
+      }
+    },
+    {
+      "level": 50,
+      "sustain": false,
+      "encounter": "shrine-bandit",
+      "before": {
+        "outcome": "win",
+        "rounds": 7,
+        "endHp": 43,
+        "minHp": 43,
+        "enemyHeals": 1,
+        "enemyCasts": 8,
+        "enemyMaxHp": 6219,
+        "playerMaxHp": 5400,
+        "actions": 15
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 7,
+        "endHp": 245,
+        "minHp": 136,
+        "enemyHeals": 1,
+        "enemyCasts": 7,
+        "enemyMaxHp": 6219,
+        "playerMaxHp": 5400,
+        "actions": 14
+      }
+    },
+    {
+      "level": 50,
+      "sustain": false,
+      "encounter": "shrine-night-ninja",
+      "before": {
+        "outcome": "win",
+        "rounds": 6,
+        "endHp": 1666,
+        "minHp": 1271,
+        "enemyHeals": 1,
+        "enemyCasts": 7,
+        "enemyMaxHp": 6219,
+        "playerMaxHp": 5400,
+        "actions": 12
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 7,
+        "endHp": 889,
+        "minHp": 889,
+        "enemyHeals": 1,
+        "enemyCasts": 6,
+        "enemyMaxHp": 6219,
+        "playerMaxHp": 5400,
+        "actions": 14
+      }
+    },
+    {
+      "level": 50,
+      "sustain": false,
+      "encounter": "shrine-patrol",
+      "before": {
+        "outcome": "win",
+        "rounds": 8,
+        "endHp": 1268,
+        "minHp": 1268,
+        "enemyHeals": 1,
+        "enemyCasts": 8,
+        "enemyMaxHp": 6219,
+        "playerMaxHp": 5400,
+        "actions": 17
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 8,
+        "endHp": 1019,
+        "minHp": 1019,
+        "enemyHeals": 1,
+        "enemyCasts": 6,
+        "enemyMaxHp": 6219,
+        "playerMaxHp": 5400,
+        "actions": 17
+      }
+    },
+    {
+      "level": 50,
+      "sustain": true,
+      "encounter": "hunt-wild-boar",
+      "before": {
+        "outcome": "win",
+        "rounds": 12,
+        "endHp": 2386,
+        "minHp": 2164,
+        "enemyHeals": 0,
+        "enemyCasts": 9,
+        "enemyMaxHp": 7183,
+        "playerMaxHp": 5400,
+        "actions": 28
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 12,
+        "endHp": 2227,
+        "minHp": 1934,
+        "enemyHeals": 0,
+        "enemyCasts": 9,
+        "enemyMaxHp": 7183,
+        "playerMaxHp": 5400,
+        "actions": 28
+      }
+    },
+    {
+      "level": 50,
+      "sustain": true,
+      "encounter": "hunt-frost-wolf",
+      "before": {
+        "outcome": "win",
+        "rounds": 12,
+        "endHp": 2386,
+        "minHp": 2164,
+        "enemyHeals": 0,
+        "enemyCasts": 9,
+        "enemyMaxHp": 7183,
+        "playerMaxHp": 5400,
+        "actions": 28
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 12,
+        "endHp": 2227,
+        "minHp": 1934,
+        "enemyHeals": 0,
+        "enemyCasts": 9,
+        "enemyMaxHp": 7183,
+        "playerMaxHp": 5400,
+        "actions": 28
+      }
+    },
+    {
+      "level": 50,
+      "sustain": true,
+      "encounter": "hunt-ash-lizard",
+      "before": {
+        "outcome": "win",
+        "rounds": 11,
+        "endHp": 3208,
+        "minHp": 2560,
+        "enemyHeals": 0,
+        "enemyCasts": 6,
+        "enemyMaxHp": 7183,
+        "playerMaxHp": 5400,
+        "actions": 26
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 12,
+        "endHp": 1021,
+        "minHp": 919,
+        "enemyHeals": 0,
+        "enemyCasts": 10,
+        "enemyMaxHp": 7183,
+        "playerMaxHp": 5400,
+        "actions": 28
+      }
+    },
+    {
+      "level": 50,
+      "sustain": true,
+      "encounter": "hunt-forest-hawk",
+      "before": {
+        "outcome": "win",
+        "rounds": 11,
+        "endHp": 3208,
+        "minHp": 2560,
+        "enemyHeals": 0,
+        "enemyCasts": 6,
+        "enemyMaxHp": 7183,
+        "playerMaxHp": 5400,
+        "actions": 26
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 12,
+        "endHp": 1021,
+        "minHp": 919,
+        "enemyHeals": 0,
+        "enemyCasts": 10,
+        "enemyMaxHp": 7183,
+        "playerMaxHp": 5400,
+        "actions": 28
+      }
+    },
+    {
+      "level": 50,
+      "sustain": true,
+      "encounter": "shrine-battle-f1",
+      "before": {
+        "outcome": "win",
+        "rounds": 10,
+        "endHp": 2682,
+        "minHp": 2166,
+        "enemyHeals": 1,
+        "enemyCasts": 12,
+        "enemyMaxHp": 6219,
+        "playerMaxHp": 5400,
+        "actions": 25
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 10,
+        "endHp": 2422,
+        "minHp": 1906,
+        "enemyHeals": 1,
+        "enemyCasts": 9,
+        "enemyMaxHp": 6219,
+        "playerMaxHp": 5400,
+        "actions": 25
+      }
+    },
+    {
+      "level": 50,
+      "sustain": true,
+      "encounter": "shrine-elite-f1",
+      "before": {
+        "outcome": "loss",
+        "rounds": 11,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 1,
+        "enemyCasts": 15,
+        "enemyMaxHp": 8621,
+        "playerMaxHp": 5400,
+        "actions": 27
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 10,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 1,
+        "enemyCasts": 12,
+        "enemyMaxHp": 8621,
+        "playerMaxHp": 5400,
+        "actions": 25
+      }
+    },
+    {
+      "level": 50,
+      "sustain": true,
+      "encounter": "shrine-boss-f5",
+      "before": {
+        "outcome": "loss",
+        "rounds": 9,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 13,
+        "enemyMaxHp": 14373,
+        "playerMaxHp": 5400,
+        "actions": 23
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 8,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 1,
+        "enemyCasts": 8,
+        "enemyMaxHp": 14373,
+        "playerMaxHp": 5400,
+        "actions": 20
+      }
+    },
+    {
+      "level": 50,
+      "sustain": true,
+      "encounter": "shrine-bandit",
+      "before": {
+        "outcome": "win",
+        "rounds": 11,
+        "endHp": 574,
+        "minHp": 574,
+        "enemyHeals": 1,
+        "enemyCasts": 14,
+        "enemyMaxHp": 6219,
+        "playerMaxHp": 5400,
+        "actions": 26
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 10,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 1,
+        "enemyCasts": 12,
+        "enemyMaxHp": 6219,
+        "playerMaxHp": 5400,
+        "actions": 25
+      }
+    },
+    {
+      "level": 50,
+      "sustain": true,
+      "encounter": "shrine-night-ninja",
+      "before": {
+        "outcome": "win",
+        "rounds": 10,
+        "endHp": 2377,
+        "minHp": 1671,
+        "enemyHeals": 1,
+        "enemyCasts": 12,
+        "enemyMaxHp": 6219,
+        "playerMaxHp": 5400,
+        "actions": 25
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 10,
+        "endHp": 2311,
+        "minHp": 1605,
+        "enemyHeals": 1,
+        "enemyCasts": 9,
+        "enemyMaxHp": 6219,
+        "playerMaxHp": 5400,
+        "actions": 25
+      }
+    },
+    {
+      "level": 50,
+      "sustain": true,
+      "encounter": "shrine-patrol",
+      "before": {
+        "outcome": "win",
+        "rounds": 10,
+        "endHp": 2682,
+        "minHp": 2166,
+        "enemyHeals": 1,
+        "enemyCasts": 12,
+        "enemyMaxHp": 6219,
+        "playerMaxHp": 5400,
+        "actions": 25
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 10,
+        "endHp": 2422,
+        "minHp": 1906,
+        "enemyHeals": 1,
+        "enemyCasts": 9,
+        "enemyMaxHp": 6219,
+        "playerMaxHp": 5400,
+        "actions": 25
+      }
+    },
+    {
+      "level": 100,
+      "sustain": false,
+      "encounter": "hunt-wild-boar",
+      "before": {
+        "outcome": "loss",
+        "rounds": 11,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 10,
+        "enemyMaxHp": 19950,
+        "playerMaxHp": 10000,
+        "actions": 24
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 11,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 10,
+        "enemyMaxHp": 19950,
+        "playerMaxHp": 10000,
+        "actions": 24
+      }
+    },
+    {
+      "level": 100,
+      "sustain": false,
+      "encounter": "hunt-frost-wolf",
+      "before": {
+        "outcome": "loss",
+        "rounds": 11,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 10,
+        "enemyMaxHp": 19950,
+        "playerMaxHp": 10000,
+        "actions": 24
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 11,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 10,
+        "enemyMaxHp": 19950,
+        "playerMaxHp": 10000,
+        "actions": 24
+      }
+    },
+    {
+      "level": 100,
+      "sustain": false,
+      "encounter": "hunt-ash-lizard",
+      "before": {
+        "outcome": "loss",
+        "rounds": 13,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 8,
+        "enemyMaxHp": 19950,
+        "playerMaxHp": 10000,
+        "actions": 28
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 10,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 10,
+        "enemyMaxHp": 19950,
+        "playerMaxHp": 10000,
+        "actions": 22
+      }
+    },
+    {
+      "level": 100,
+      "sustain": false,
+      "encounter": "hunt-forest-hawk",
+      "before": {
+        "outcome": "loss",
+        "rounds": 13,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 8,
+        "enemyMaxHp": 19950,
+        "playerMaxHp": 10000,
+        "actions": 28
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 10,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 10,
+        "enemyMaxHp": 19950,
+        "playerMaxHp": 10000,
+        "actions": 22
+      }
+    },
+    {
+      "level": 100,
+      "sustain": false,
+      "encounter": "shrine-battle-f1",
+      "before": {
+        "outcome": "loss",
+        "rounds": 12,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 1,
+        "enemyCasts": 15,
+        "enemyMaxHp": 15300,
+        "playerMaxHp": 10000,
+        "actions": 26
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 10,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 1,
+        "enemyCasts": 10,
+        "enemyMaxHp": 15300,
+        "playerMaxHp": 10000,
+        "actions": 22
+      }
+    },
+    {
+      "level": 100,
+      "sustain": false,
+      "encounter": "shrine-elite-f1",
+      "before": {
+        "outcome": "loss",
+        "rounds": 10,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 13,
+        "enemyMaxHp": 21060,
+        "playerMaxHp": 10000,
+        "actions": 22
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 10,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 1,
+        "enemyCasts": 11,
+        "enemyMaxHp": 21060,
+        "playerMaxHp": 10000,
+        "actions": 21
+      }
+    },
+    {
+      "level": 100,
+      "sustain": false,
+      "encounter": "shrine-boss-f5",
+      "before": {
+        "outcome": "loss",
+        "rounds": 11,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 16,
+        "enemyMaxHp": 24360,
+        "playerMaxHp": 10000,
+        "actions": 24
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 11,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 1,
+        "enemyCasts": 12,
+        "enemyMaxHp": 24360,
+        "playerMaxHp": 10000,
+        "actions": 24
+      }
+    },
+    {
+      "level": 100,
+      "sustain": false,
+      "encounter": "shrine-bandit",
+      "before": {
+        "outcome": "loss",
+        "rounds": 10,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 13,
+        "enemyMaxHp": 15300,
+        "playerMaxHp": 10000,
+        "actions": 22
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 10,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 1,
+        "enemyCasts": 11,
+        "enemyMaxHp": 15300,
+        "playerMaxHp": 10000,
+        "actions": 21
+      }
+    },
+    {
+      "level": 100,
+      "sustain": false,
+      "encounter": "shrine-night-ninja",
+      "before": {
+        "outcome": "loss",
+        "rounds": 11,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 1,
+        "enemyCasts": 13,
+        "enemyMaxHp": 15300,
+        "playerMaxHp": 10000,
+        "actions": 24
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 10,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 1,
+        "enemyCasts": 10,
+        "enemyMaxHp": 15300,
+        "playerMaxHp": 10000,
+        "actions": 22
+      }
+    },
+    {
+      "level": 100,
+      "sustain": false,
+      "encounter": "shrine-patrol",
+      "before": {
+        "outcome": "loss",
+        "rounds": 12,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 1,
+        "enemyCasts": 15,
+        "enemyMaxHp": 15300,
+        "playerMaxHp": 10000,
+        "actions": 26
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 10,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 1,
+        "enemyCasts": 10,
+        "enemyMaxHp": 15300,
+        "playerMaxHp": 10000,
+        "actions": 22
+      }
+    },
+    {
+      "level": 100,
+      "sustain": true,
+      "encounter": "hunt-wild-boar",
+      "before": {
+        "outcome": "loss",
+        "rounds": 21,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 15,
+        "enemyMaxHp": 19950,
+        "playerMaxHp": 10000,
+        "actions": 51
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 19,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 15,
+        "enemyMaxHp": 19950,
+        "playerMaxHp": 10000,
+        "actions": 46
+      }
+    },
+    {
+      "level": 100,
+      "sustain": true,
+      "encounter": "hunt-frost-wolf",
+      "before": {
+        "outcome": "loss",
+        "rounds": 21,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 15,
+        "enemyMaxHp": 19950,
+        "playerMaxHp": 10000,
+        "actions": 51
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 19,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 15,
+        "enemyMaxHp": 19950,
+        "playerMaxHp": 10000,
+        "actions": 46
+      }
+    },
+    {
+      "level": 100,
+      "sustain": true,
+      "encounter": "hunt-ash-lizard",
+      "before": {
+        "outcome": "loss",
+        "rounds": 23,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 14,
+        "enemyMaxHp": 19950,
+        "playerMaxHp": 10000,
+        "actions": 57
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 16,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 14,
+        "enemyMaxHp": 19950,
+        "playerMaxHp": 10000,
+        "actions": 40
+      }
+    },
+    {
+      "level": 100,
+      "sustain": true,
+      "encounter": "hunt-forest-hawk",
+      "before": {
+        "outcome": "loss",
+        "rounds": 23,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 14,
+        "enemyMaxHp": 19950,
+        "playerMaxHp": 10000,
+        "actions": 57
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 16,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 14,
+        "enemyMaxHp": 19950,
+        "playerMaxHp": 10000,
+        "actions": 40
+      }
+    },
+    {
+      "level": 100,
+      "sustain": true,
+      "encounter": "shrine-battle-f1",
+      "before": {
+        "outcome": "loss",
+        "rounds": 22,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 2,
+        "enemyCasts": 24,
+        "enemyMaxHp": 15300,
+        "playerMaxHp": 10000,
+        "actions": 54
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 16,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 1,
+        "enemyCasts": 13,
+        "enemyMaxHp": 15300,
+        "playerMaxHp": 10000,
+        "actions": 40
+      }
+    },
+    {
+      "level": 100,
+      "sustain": true,
+      "encounter": "shrine-elite-f1",
+      "before": {
+        "outcome": "loss",
+        "rounds": 16,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 20,
+        "enemyMaxHp": 21060,
+        "playerMaxHp": 10000,
+        "actions": 39
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 14,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 1,
+        "enemyCasts": 13,
+        "enemyMaxHp": 21060,
+        "playerMaxHp": 10000,
+        "actions": 34
+      }
+    },
+    {
+      "level": 100,
+      "sustain": true,
+      "encounter": "shrine-boss-f5",
+      "before": {
+        "outcome": "loss",
+        "rounds": 15,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 20,
+        "enemyMaxHp": 24360,
+        "playerMaxHp": 10000,
+        "actions": 37
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 15,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 2,
+        "enemyCasts": 14,
+        "enemyMaxHp": 24360,
+        "playerMaxHp": 10000,
+        "actions": 37
+      }
+    },
+    {
+      "level": 100,
+      "sustain": true,
+      "encounter": "shrine-bandit",
+      "before": {
+        "outcome": "loss",
+        "rounds": 16,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 1,
+        "enemyCasts": 21,
+        "enemyMaxHp": 15300,
+        "playerMaxHp": 10000,
+        "actions": 40
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 14,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 1,
+        "enemyCasts": 13,
+        "enemyMaxHp": 15300,
+        "playerMaxHp": 10000,
+        "actions": 34
+      }
+    },
+    {
+      "level": 100,
+      "sustain": true,
+      "encounter": "shrine-night-ninja",
+      "before": {
+        "outcome": "loss",
+        "rounds": 19,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 2,
+        "enemyCasts": 22,
+        "enemyMaxHp": 15300,
+        "playerMaxHp": 10000,
+        "actions": 46
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 16,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 1,
+        "enemyCasts": 14,
+        "enemyMaxHp": 15300,
+        "playerMaxHp": 10000,
+        "actions": 40
+      }
+    },
+    {
+      "level": 100,
+      "sustain": true,
+      "encounter": "shrine-patrol",
+      "before": {
+        "outcome": "loss",
+        "rounds": 22,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 2,
+        "enemyCasts": 24,
+        "enemyMaxHp": 15300,
+        "playerMaxHp": 10000,
+        "actions": 54
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 16,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 1,
+        "enemyCasts": 13,
+        "enemyMaxHp": 15300,
+        "playerMaxHp": 10000,
+        "actions": 40
+      }
+    }
+  ]
+}

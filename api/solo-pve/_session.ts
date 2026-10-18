@@ -181,6 +181,8 @@ export type SoloPveSession = {
     /** Hunt combat is resolved only by the embedded Tower engine. Player/enemy
      * below remain settlement projections; the actor collection owns combat. */
     huntCombat?: import('./_hunt-combat.js').HuntCombatState;
+    /** New shrine encounters only; lifetime AI support budget survives reconnects. */
+    shrineAi?: { version: 1; healsUsed: number; healLimit: number; lastSupportRound?: number };
     round: number;
     activeSide: SoloPveSide;
     ap: Record<SoloPveSide, number>;

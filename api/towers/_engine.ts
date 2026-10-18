@@ -1,4 +1,5 @@
 import { pveSpecialistDamagePercent } from '../../shared/relics.js';
+import { HUNT_AI_POLICY, pickHuntAiAction } from './_hunt-ai.js';
 import { primeTowerSignature, resolveTowerSignature, recordTowerKnockouts, cancelInvalidTowerSignature } from './_combat-tactics.js';
 import { TOWER_DISRUPT_AP, towerSignaturePattern } from '../../shared/tower-progression.js';
 /*
@@ -3350,6 +3351,13 @@ function towerEscapeStep(session: TowerSession, actor: TowerActor): number | und
 }
 
 export function pickAiAction(session: TowerSession, actor: TowerActor, rng: () => number): TowerAction {
+    if (session.towerId === 'hunt' && actor.side === 'enemy' && actor.character.huntAiPolicy === HUNT_AI_POLICY) {
+        return pickHuntAiAction(session, actor, {
+            apply: (copy, action) => applyAction(copy, copy.encounterFloor!, action, () => .5),
+            step: (copy, self, target) => nextStepToward(copy, self.pos, target.pos, self.id),
+            ready: (copy, self, id) => { const jutsu = findJutsu(self, id); return !!jutsu && aiJutsuReady(copy, self, jutsu); },
+        });
+    }
     if (session.towerTactics?.telegraph?.kind === 'charge' && actor.id === session.phaseState.bossId) return { actorId: actor.id, type: 'wait' };
     const escape = towerEscapeStep(session, actor);
     if (escape !== undefined) return { actorId: actor.id, type: 'move', tile: escape };
