@@ -154,7 +154,7 @@ const REPAIRED_RIG_REVISIONS: Readonly<Record<string, string>> = {
     'mythic-10': '20261018-ash-crown-phoenix-anatomical-actions-v1',
     'mythic-11': '20261018-moonwell-leviathan-independent-complete-face-v7',
     'mythic-12': '20261018-skyglass-kirin-anatomical-actions-v1',
-    'mythic-13': '20261014-reviewed-skull-v1',
+    'mythic-13': '20261018-thunderbloom-kirin-anatomical-actions-v2',
     'mythic-14': '20261014-reviewed-skull-v1',
     'mythic-15': '20261014-reviewed-skull-v1',
     'starter-fire': '20261015-reviewed-orthogonal-rig-v1',

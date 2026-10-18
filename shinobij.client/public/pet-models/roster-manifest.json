@@ -24182,7 +24182,7 @@
       "generatedAt": "2026-08-03T12:00:00.000Z",
       "provider": "fal-ai/hunyuan3d-v3/multi-view + deterministic 21-bone production rig",
       "textured": true,
-      "sha256": "1B474681FB09B7AB68B28010E2E34AE2D6AF67BC34F68262D01167E6576F2495",
+      "sha256": "62EABAF7202D7D74084F0FDB2EA21F73B13A798E58C019B4CEC4C340EF0DC77B",
       "visualReview": {
         "passed": true,
         "views": [
@@ -24195,7 +24195,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 1115244,
+        "bytes": 1599184,
         "triangles": 16142,
         "vertices": 14752,
         "materials": 1,
@@ -24228,9 +24228,9 @@
         ]
       },
       "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
+        "revision": "20261018-thunderbloom-kirin-complete-jaw-mane-v1",
         "id": "mythic-13",
-        "sourceSha256": "9679db6546b02507aec57d05e6ee9335ec245afd10b2ef7948aa1d301f0e3a35",
+        "sourceSha256": "1b474681fb09b7ab68b28010e2e34ae2d6af67bc34f68262d01167e6576f2495",
         "region": {
           "y": [
             0.1,
@@ -24242,7 +24242,7 @@
           ],
           "cameraPadding": 1.4,
           "status": "repair",
-          "finding": "Thunderbloom kirin lower muzzle and curled head mane shear during attack and death; preserve four hooves, body ornaments and tail curls.",
+          "finding": "Original twelve raw head/body slices and all 216 actual technique frames inspected. Lower jaw and curled cheek mane shear independently of the rigid upper face and horn. Extend complete-face binding to original independently selected jaw and mane; separately fitted leg joints and coordinated action support are still required. Unapproved intermediate face stage.",
           "union": [
             {
               "y": [
@@ -24253,29 +24253,348 @@
                 0.25,
                 0.4
               ]
+            },
+            {
+              "y": [
+                0.08,
+                0.18
+              ],
+              "z": [
+                0.45,
+                0.5
+              ],
+              "x": [
+                0.28,
+                0.38
+              ]
             }
-          ]
+          ],
+          "revision": "20261018-thunderbloom-kirin-complete-jaw-mane-v1",
+          "supersedesSourceSha256": "1b474681fb09b7ab68b28010e2e34ae2d6af67bc34f68262d01167e6576f2495",
+          "repairRegion": {
+            "y": [
+              0.08,
+              0.18
+            ],
+            "z": [
+              0.45,
+              0.5
+            ],
+            "x": [
+              0.28,
+              0.38
+            ]
+          }
         },
         "envelopeMatrix": [
-          0.9999998552641882,
+          0.9999998554794786,
           0,
           0,
           0,
           0,
-          -1.343588370385125e-7,
-          0.9999999896230255,
+          -1.3435883706743866e-7,
+          0.9999999898383158,
           0,
           0,
-          -0.9999999896230255,
-          -1.343588370385125e-7,
+          -0.9999999898383158,
+          -1.3435883706743866e-7,
           0,
           0,
-          5.732686925163932e-8,
+          5.754215948172714e-8,
           2.1816343620528755e-8,
           1
         ],
-        "changedVertices": 2355,
-        "rigidVertices": 1232
+        "changedVertices": 2314,
+        "rigidVertices": 1720,
+        "supersededRepair": {
+          "revision": "20261014-reviewed-skull-v1",
+          "sourceSha256": "9679db6546b02507aec57d05e6ee9335ec245afd10b2ef7948aa1d301f0e3a35"
+        }
+      },
+      "anatomicalLimbRepair": {
+        "sourceSha256": "586c33c3e7160d5048d32ac824f9152dcb4a1f9d70379e44a7cdc5bafa9ca6b8",
+        "changedVertices": 4300,
+        "legacyReboundVertices": 12661,
+        "headNeckLegCleanupVertices": 517,
+        "legacySupportBinding": "Original front/hind influences rebound continuously onto the fitted same-section visible leg joints using sculpt-side proximity; lower-leg neck/head influence feathers onto the nearest supporting torso parent.",
+        "legs": [
+          {
+            "part": "front",
+            "side": "L",
+            "joints": [
+              21,
+              22,
+              23
+            ],
+            "upper": [
+              0.10930203769879458,
+              -0.16,
+              0.4641331261390348
+            ],
+            "knee": [
+              0.10930203769879458,
+              -0.544,
+              0.5482331261390347
+            ],
+            "paw": [
+              0.10930203769879458,
+              -0.921115177688536,
+              0.6287331261390348
+            ],
+            "center": [
+              0.10930203769879458,
+              -0.946115177688536,
+              0.6287331261390348
+            ]
+          },
+          {
+            "part": "front",
+            "side": "R",
+            "joints": [
+              24,
+              25,
+              26
+            ],
+            "upper": [
+              -0.10930203769879458,
+              -0.16,
+              0.4641331261390348
+            ],
+            "knee": [
+              -0.10930203769879458,
+              -0.544,
+              0.5482331261390347
+            ],
+            "paw": [
+              -0.10930203769879458,
+              -0.921115177688536,
+              0.6287331261390348
+            ],
+            "center": [
+              -0.10930203769879458,
+              -0.946115177688536,
+              0.6287331261390348
+            ]
+          },
+          {
+            "part": "hind",
+            "side": "L",
+            "joints": [
+              27,
+              28,
+              29
+            ],
+            "upper": [
+              0.1484420263393149,
+              -0.255,
+              -0.1407963871383361
+            ],
+            "knee": [
+              0.1484420263393149,
+              -0.644,
+              -0.13039638713833607
+            ],
+            "paw": [
+              0.1484420263393149,
+              -0.9211150874902482,
+              -0.03809638713833609
+            ],
+            "center": [
+              0.1484420263393149,
+              -0.9461150874902482,
+              -0.03809638713833609
+            ]
+          },
+          {
+            "part": "hind",
+            "side": "R",
+            "joints": [
+              30,
+              31,
+              32
+            ],
+            "upper": [
+              -0.1484420263393149,
+              -0.255,
+              -0.1407963871383361
+            ],
+            "knee": [
+              -0.1484420263393149,
+              -0.644,
+              -0.13039638713833607
+            ],
+            "paw": [
+              -0.1484420263393149,
+              -0.9211150874902482,
+              -0.03809638713833609
+            ],
+            "center": [
+              -0.1484420263393149,
+              -0.9461150874902482,
+              -0.03809638713833609
+            ]
+          }
+        ],
+        "gaitReports": [
+          {
+            "name": "idle",
+            "strideScale": 0.55,
+            "verticalScale": 0.45,
+            "maxContactError": 2.136580999202231e-10
+          },
+          {
+            "name": "walk",
+            "strideScale": 0.55,
+            "verticalScale": 0.45,
+            "maxContactError": 8.95090418262362e-16
+          },
+          {
+            "name": "gallop",
+            "strideScale": 0.55,
+            "verticalScale": 0.45,
+            "maxContactError": 5.667663097476985e-16
+          },
+          {
+            "name": "guard",
+            "strideScale": 0.55,
+            "verticalScale": 0.45,
+            "maxContactError": 5.05867353189664e-10
+          },
+          {
+            "name": "rest",
+            "strideScale": 0.55,
+            "verticalScale": 0.45,
+            "maxContactError": 1.656723370976402e-10
+          }
+        ]
+      },
+      "anatomicalNeckRepair": {
+        "revision": "20261018-thunderbloom-kirin-anatomical-neck-v1",
+        "sourceSha256": "5694e18d2b1e5ad07a4c697811aa00238d1028091557dd400c3f648dbde4fc81",
+        "originalBoneFramesAndCurvesPreserved": true,
+        "fitted": [
+          {
+            "name": "neck",
+            "oldNode": 5,
+            "oldJoint": 4,
+            "node": 35,
+            "joint": 33,
+            "worldTarget": [
+              0,
+              -0.12,
+              0.5
+            ],
+            "amplitude": 0.55
+          },
+          {
+            "name": "head",
+            "oldNode": 6,
+            "oldJoint": 5,
+            "node": 36,
+            "joint": 34,
+            "worldTarget": [
+              0,
+              0.33,
+              0.67
+            ],
+            "amplitude": 0.65
+          }
+        ],
+        "reboundInfluenceSlots": 6924,
+        "clips": [
+          {
+            "name": "idle",
+            "keys": 73,
+            "tracks": 2
+          },
+          {
+            "name": "idle_2",
+            "keys": 77,
+            "tracks": 2
+          },
+          {
+            "name": "walk",
+            "keys": 73,
+            "tracks": 2
+          },
+          {
+            "name": "gallop",
+            "keys": 73,
+            "tracks": 2
+          },
+          {
+            "name": "gallop_jump",
+            "keys": 73,
+            "tracks": 2
+          },
+          {
+            "name": "attack",
+            "keys": 79,
+            "tracks": 2
+          },
+          {
+            "name": "idle_hitreact1",
+            "keys": 76,
+            "tracks": 2
+          },
+          {
+            "name": "death",
+            "keys": 78,
+            "tracks": 2
+          },
+          {
+            "name": "entrance",
+            "keys": 73,
+            "tracks": 2
+          },
+          {
+            "name": "cast",
+            "keys": 79,
+            "tracks": 2
+          },
+          {
+            "name": "guard",
+            "keys": 73,
+            "tracks": 2
+          },
+          {
+            "name": "rest",
+            "keys": 73,
+            "tracks": 2
+          },
+          {
+            "name": "victory",
+            "keys": 78,
+            "tracks": 2
+          }
+        ]
+      },
+      "coordinatedActionRepair": {
+        "revision": "20261018-thunderbloom-kirin-coordinated-actions-v1",
+        "sourceSha256": "58b5b0ff1f0c71d5cd9c15455449b1fcc9d117c07c6068c3a45312557f1a0378",
+        "clips": [
+          {
+            "name": "attack",
+            "keys": 49,
+            "changedTracks": 16,
+            "maxContactError": 6.661338147750939e-16,
+            "contacts": 164
+          },
+          {
+            "name": "cast",
+            "keys": 49,
+            "changedTracks": 16,
+            "maxContactError": 6.661338147750939e-16,
+            "contacts": 196
+          },
+          {
+            "name": "idle_hitreact1",
+            "keys": 49,
+            "changedTracks": 16,
+            "maxContactError": 5.418947909369352e-10,
+            "contacts": 196
+          }
+        ]
       }
     },
     "mythic-14": {

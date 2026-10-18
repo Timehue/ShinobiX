@@ -1,0 +1,102 @@
+{
+  "revision": "20261018-thunderbloom-kirin-anatomical-neck-v1",
+  "sourceSha256": "5694e18d2b1e5ad07a4c697811aa00238d1028091557dd400c3f648dbde4fc81",
+  "originalBoneFramesAndCurvesPreserved": true,
+  "fitted": [
+    {
+      "name": "neck",
+      "oldNode": 5,
+      "oldJoint": 4,
+      "node": 35,
+      "joint": 33,
+      "worldTarget": [
+        0,
+        -0.12,
+        0.5
+      ],
+      "amplitude": 0.55
+    },
+    {
+      "name": "head",
+      "oldNode": 6,
+      "oldJoint": 5,
+      "node": 36,
+      "joint": 34,
+      "worldTarget": [
+        0,
+        0.33,
+        0.67
+      ],
+      "amplitude": 0.65
+    }
+  ],
+  "reboundInfluenceSlots": 6924,
+  "clips": [
+    {
+      "name": "idle",
+      "keys": 73,
+      "tracks": 2
+    },
+    {
+      "name": "idle_2",
+      "keys": 77,
+      "tracks": 2
+    },
+    {
+      "name": "walk",
+      "keys": 73,
+      "tracks": 2
+    },
+    {
+      "name": "gallop",
+      "keys": 73,
+      "tracks": 2
+    },
+    {
+      "name": "gallop_jump",
+      "keys": 73,
+      "tracks": 2
+    },
+    {
+      "name": "attack",
+      "keys": 79,
+      "tracks": 2
+    },
+    {
+      "name": "idle_hitreact1",
+      "keys": 76,
+      "tracks": 2
+    },
+    {
+      "name": "death",
+      "keys": 78,
+      "tracks": 2
+    },
+    {
+      "name": "entrance",
+      "keys": 73,
+      "tracks": 2
+    },
+    {
+      "name": "cast",
+      "keys": 79,
+      "tracks": 2
+    },
+    {
+      "name": "guard",
+      "keys": 73,
+      "tracks": 2
+    },
+    {
+      "name": "rest",
+      "keys": 73,
+      "tracks": 2
+    },
+    {
+      "name": "victory",
+      "keys": 78,
+      "tracks": 2
+    }
+  ],
+  "sha256": "62eabaf7202d7d74084f0fdb2ea21f73b13a798e58c019b4cec4c340ef0dc77b"
+}
