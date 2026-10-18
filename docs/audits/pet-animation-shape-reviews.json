@@ -12269,8 +12269,7 @@
       ],
       "views": [
         "front",
-        "side",
-        "other-side"
+        "side"
       ],
       "fullBodyReviewed": true,
       "skullShapeReviewed": true,
@@ -12472,7 +12471,10 @@
         }
       },
       "limits": "Thirty final raw slices including opposite head side; 32 production transition slices across low/medium including sixteen fresh medium slices after scoped contour correction; 24 advancing idle frames; all nine actual techniques, 216 native frames. Whole-roster final/live verification remains pending.",
-      "presentationConfigSha256": "37e2d50521274d97e5418be6f10626322f63cfce111e04fe6ba7dc5aba7ad83b"
+      "presentationConfigSha256": "37e2d50521274d97e5418be6f10626322f63cfce111e04fe6ba7dc5aba7ad83b",
+      "extraHeadViewsActuallyInspected": [
+        "other-side"
+      ]
     },
     "starter-lightning-r": {
       "sha256": "74cd2d1668cfa710f630844723e3808f112527b9e3b2abac1099fa0feaedad72",

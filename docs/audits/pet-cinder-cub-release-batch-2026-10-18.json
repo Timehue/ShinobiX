@@ -58,5 +58,23 @@
         "sha256": "79a1c1c464357090457c739b647d48ccec9a6948a23a97913b7dcb2daedfbce4"
       }
     ]
+  },
+  "ciCorrections": {
+    "failedRun": 39145489540,
+    "correctedAt": "2026-10-18T16:53:45.560Z",
+    "structuralCertification": {
+      "attempted": 161,
+      "passed": 161,
+      "distinctAssets": 160,
+      "failures": [],
+      "reason": "Reviewed Cinder Cub has 35 joints; retain 21-joint requirement for every other starter asset."
+    },
+    "regression": {
+      "command": "node --import tsx --test scripts/pet-character-motion.test.mjs scripts/pet-studio-assets.test.mjs scripts/pet-cinder-cub-anatomical-limbs.test.mjs",
+      "tests": 17,
+      "passed": 17,
+      "failed": 0
+    },
+    "receiptCorrection": "Keep required front/side schema; separately record actually inspected opposite-side head slices. No asset or visual evidence bytes changed."
   }
 }
