@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { brokerCertificateCount, rallyBrokerCertificates } from '../../shared/sunscar/broker-certificates.js';
 import { PET_CATALOG } from '../pet/_catalog.js';
 import { resolvePetTemplateId } from '../pet/_owned-pet.js';
 import { petCombatBusyReason } from '../pet/_pet-busy.js';
@@ -61,7 +62,7 @@ export function prepareChampionship(character: Obj, player: string, petId: unkno
     progress.current = {
         id: randomUUID(), ...daily, pet, difficulty: Math.min(3, Math.floor(progress.reputation / 300)),
         raceIndex: 0, race: null, startedAt: null, checkpointAt: now, results: [], status: 'ready', reward: null,
-        // Full championship pays 30–50% of the actual daily-login curve. No shards or combat stats.
+        // Full championship pays 30–50% of the daily-login curve, plus podium certificates.
         rewardBase: Math.round(dailyLoginRyo(Number(character.level) || 1) * .5),
     };
     return { ...character, sunscarRally: progress };
@@ -103,6 +104,7 @@ export function checkpointChampionship(character: Obj, body: Obj, now: number): 
     catch { throw new FestivalError('The checkpoint contains invalid race inputs.'); }
     run.checkpointAt = now;
     let paid = 0;
+    let certificates = 0;
     if (run.race.finished) {
         const result = rallyResult(run.race);
         run.results.push(result);
@@ -114,12 +116,13 @@ export function checkpointChampionship(character: Obj, body: Obj, now: number): 
             const place = standings.findIndex(r => r.id === 'player') + 1;
             const reputation = standings.find(r => r.id === 'player')!.points;
             paid = Math.floor(run.rewardBase * [1, .85, .7, .6][place - 1]);
-            run.reward = { ryo: paid, reputation, place };
+            certificates = rallyBrokerCertificates(place);
+            run.reward = { ryo: paid, reputation, place, brokerCertificates: certificates };
             run.status = 'complete';
             progress.reputation += reputation;
             progress.championships++;
             if (place === 1) progress.wins++;
         }
     }
-    return { character: { ...character, sunscarRally: progress, ...(paid ? { ryo: Number(character.ryo || 0) + paid, serverTitles: grantFestivalTitles(character, 'rally', progress.reputation) } : {}) }, paid, replay: false };
+    return { character: { ...character, sunscarRally: progress, ...(certificates ? { brokerCertificates: brokerCertificateCount(character) + certificates } : {}), ...(paid ? { ryo: Number(character.ryo || 0) + paid, serverTitles: grantFestivalTitles(character, 'rally', progress.reputation) } : {}) }, paid, replay: false };
 }

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { brokerCertificateCount } from '../../shared/sunscar/broker-certificates.js';
 import { dailyLoginRyo } from '../player/_daily-login.js';
 import { isIncapacitated } from '../_elapsed-state.js';
 import { petCombatBusyReason } from '../pet/_pet-busy.js';
@@ -75,14 +76,14 @@ export function finishCaravan(character: Obj, progress: CaravanProgress, reason:
     const reputation = success ? preview.reputation : Math.max(0, Math.floor(run.reputation / 2));
     const ryo = success ? preview.ryo : 0;
     run.status = success ? 'complete' : 'failed';
-    run.result = { ryo, reputation, cargo: run.cargo, objectiveComplete, reason };
+    run.result = { ryo, reputation, cargo: run.cargo, objectiveComplete, reason, brokerCertificates: success ? 1 : 0 };
     run.updatedAt = now;
     progress.reputation += reputation;
     if (success) progress.deliveries++;
     if (success && run.contract.chain) progress.chains[run.contract.chain.id] = Math.max(progress.chains[run.contract.chain.id] ?? 0, run.contract.chain.stage);
     progress.discoveries = [...new Set([...progress.discoveries, ...run.discoveries])];
     progress.history = [{ id: run.id, title: run.contract.title, day: run.day, result: run.result }, ...progress.history].slice(0, 12);
-    return { ...character, ryo: (Number(character.ryo) || 0) + ryo, sunscarCaravan: progress, serverTitles: grantFestivalTitles(character, 'caravan', progress.reputation) };
+    return { ...character, ...(success ? { brokerCertificates: brokerCertificateCount(character) + 1 } : {}), ryo: (Number(character.ryo) || 0) + ryo, sunscarCaravan: progress, serverTitles: grantFestivalTitles(character, 'caravan', progress.reputation) };
 }
 export function advanceCaravan(character: Obj, body: Obj, now: number): { character: Obj; replay: boolean; petTrail: boolean } {
     const { progress, run } = requireCaravan(character, body.runId);

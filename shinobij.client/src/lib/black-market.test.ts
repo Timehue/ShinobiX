@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
+import { resetBrokerPullIntentsForTests } from './black-market-intent';
 import {
     knownBlackMarketUsage,
     pullBlackMarket,
@@ -25,6 +26,7 @@ const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 beforeEach(() => {
     resetBlackMarketUsageForTests();
+    resetBrokerPullIntentsForTests();
     calls = [];
     reply = () => json({ ok: true, dailyUsed: 3, dailyCap: 10, day: DAY });
     globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
@@ -94,4 +96,48 @@ test("a pull's reply updates the shared count, including a refusal at the cap", 
     const refused = await pullBlackMarket("Kaito");
     assert.equal(refused.ok, false);
     assert.equal(knownBlackMarketUsage("Kaito", today), 10);
+});
+
+test('certificate redemption explicitly selects its payment method', async () => {
+    let sent: { playerName: string; payment: string; requestId: string };
+    globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+        sent = JSON.parse(String(init?.body));
+        return json({ ok: true, cost: 0, payment: 'certificate', dailyUsed: 1 });
+    }) as typeof fetch;
+    const result = await pullBlackMarket('Kaito', 'certificate');
+    assert.equal(sent!.playerName, 'Kaito');
+    assert.equal(sent!.payment, 'certificate');
+    assert.match(sent!.requestId, /^\d{4}-\d{2}-\d{2}_[a-f0-9-]+$/);
+    assert.equal(result.cost, 0);
+    assert.equal(result.payment, 'certificate');
+});
+
+test('an uncertain response retries the same request and payment instead of buying twice', async () => {
+    const sent: Array<{ requestId: string; payment: string }> = [];
+    globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+        sent.push(JSON.parse(String(init?.body)));
+        if (sent.length === 1) throw new Error('lost response');
+        return json({ ok: true, payment: 'certificate', dailyUsed: 1 });
+    }) as typeof fetch;
+    assert.equal((await pullBlackMarket('Kaito', 'certificate')).ok, false);
+    assert.equal((await pullBlackMarket('Kaito', 'ryo')).ok, true);
+    assert.deepEqual(sent[1], sent[0], 'recover the original certificate purchase before any new paid pull');
+    await pullBlackMarket('Kaito', 'ryo');
+    assert.notEqual(sent[2].requestId, sent[1].requestId);
+    assert.equal(sent[2].payment, 'ryo');
+});
+
+test('pull counts use the server day when a response crosses midnight', async () => {
+    const serverDay = '2026-10-19';
+    reply = () => json({ ok: true, dailyUsed: 1, day: serverDay });
+    await pullBlackMarket('MidnightNinja');
+    assert.equal(knownBlackMarketUsage('MidnightNinja', serverDay), 1);
+});
+
+test('a declined purchase retains the authoritative character for a stale device', async () => {
+    reply = () => json({ error: 'No certificates remain.', character: { name: 'Kaito', brokerCertificates: 0 }, _saveVersion: 12 }, 400);
+    const result = await pullBlackMarket('Kaito', 'certificate');
+    assert.equal(result.ok, false);
+    assert.equal(result.character?.brokerCertificates, 0);
+    assert.equal(result._saveVersion, 12);
 });

@@ -7,6 +7,10 @@
 import { useEffect, useSyncExternalStore } from "react";
 import type { Character } from "../types/character";
 import { serverNow } from "./server-clock";
+import type { BrokerPayment } from '../../../shared/sunscar/broker-certificates';
+import { brokerPullIntent, clearBrokerPullIntent } from './black-market-intent';
+export type { BrokerCrateReward as BlackMarketReward } from '../../../shared/sunscar/broker-certificates';
+import type { BrokerCrateReward as BlackMarketReward } from '../../../shared/sunscar/broker-certificates';
 
 // MIRROR: api/festival/_black-market.ts BLACK_MARKET_COST — the server debits,
 // this is the displayed price. Keep in sync or the pull quotes one number and
@@ -14,20 +18,12 @@ import { serverNow } from "./server-clock";
 export const BLACK_MARKET_COST = 75_000;
 export const BLACK_MARKET_DAILY_CAP = 10;
 
-export type BlackMarketReward = {
-    tier: 'scraps' | 'trinket' | 'haul' | 'relic' | 'fortune' | 'jackpot';
-    label: string;
-    ryo: number;
-    fateShards: number;
-    boneCharms: number;
-    auraStones: number;
-    mythicSeals: number;
-};
-
 export type BlackMarketResult = {
     ok: boolean;
     error?: string;
     cost?: number;
+    payment?: BrokerPayment;
+    day?: string;
     reward?: BlackMarketReward;
     dailyUsed?: number;
     dailyCap?: number;
@@ -36,20 +32,22 @@ export type BlackMarketResult = {
     _saveVersion?: unknown;
 };
 
-export async function pullBlackMarket(playerName: string): Promise<BlackMarketResult> {
+export async function pullBlackMarket(playerName: string, payment: BrokerPayment = 'ryo'): Promise<BlackMarketResult> {
     try {
+        const intent = brokerPullIntent(playerName, payment, utcDay(serverNow()));
         const res = await fetch('/api/festival/black-market', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ playerName }),
+            body: JSON.stringify({ playerName, ...intent }),
         });
         const data = await res.json().catch(() => ({})) as BlackMarketResult;
         // A refusal at the cap reports the count too, so record it either way.
-        if (typeof data.dailyUsed === 'number') recordBlackMarketUsage(playerName, utcDay(serverNow()), data.dailyUsed);
-        if (!res.ok || !data.ok) return { ok: false, error: data.error || 'The black market turns you away.', dailyUsed: data.dailyUsed, dailyCap: data.dailyCap };
+        if (typeof data.dailyUsed === 'number') recordBlackMarketUsage(playerName, data.day ?? utcDay(serverNow()), data.dailyUsed);
+        if (res.ok && data.ok || [400, 409, 429].includes(res.status)) clearBrokerPullIntent(playerName, intent.requestId);
+        if (!res.ok || !data.ok) return { ...data, ok: false, error: data.error || 'The black market turns you away.' };
         return data;
     } catch {
-        return { ok: false, error: 'That pull may not have gone through. Wait until the game has saved, then refresh to check before you try again.' };
+        return { ok: false, error: 'The Broker could not confirm your crate. Try again to recover or finish the same purchase without being charged twice.' };
     }
 }
 
@@ -57,8 +55,8 @@ export async function pullBlackMarket(playerName: string): Promise<BlackMarketRe
  * Today's crate count, shared by the player card's daily-caps grid (desktop rail
  * and mobile sheet) and the festival hub.
  *
- * The server keeps this count in its own per-day key, not on the character, so
- * the save never carries it. A page fetches each player's count once per UTC day
+ * The server co-writes its count with the crate payout, retaining the old daily
+ * key as a compatibility mirror. A page fetches the count once per UTC day
  * (a reload fetches again) and then keeps it current from every pull's reply.
  * Within a day the count only rises, so a slow fetch can never undo a pull the
  * player just made. A pull made on another device shows up after a reload.
