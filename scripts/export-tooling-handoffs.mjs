@@ -33,6 +33,7 @@ import {
 import { PET_BREEDING_DURATION_MS, PET_CHROMATIC_DENOMINATOR } from '../api/pet/_breeding.ts';
 import { PET_BREEDING_RULES_VERSION, PET_BREEDING_USES_MAX, PET_BREEDING_USES_MIN } from '../api/pet/_owned-pet.ts';
 import { PET_BREEDING_MIN_LEVEL } from '../api/pet/_pet-busy.ts';
+import { PET_EGG_CHANCE_PERCENT } from '../shared/pet-incubation.ts';
 import { BLOODLINE_FORGE_COSTS } from '../api/bloodlines/_forge.ts';
 import { KEY_FORGE_COSTS } from '../api/hollow-gate/_forge-key.ts';
 import { PROFILE_RESPEC_COST, PROFILE_TITLE_COST, PROFILE_TITLE_ICON_COST, PROFILE_TITLE_STYLE_COST } from '../api/profile/_settlement.ts';
@@ -223,10 +224,13 @@ function economyExport() {
       sinks,
       shopItems,
       petBreeding: {
-        authority: ['api/pet/_breeding.ts', 'api/pet/_owned-pet.ts', 'api/pet/_pet-busy.ts', 'shared/shrines.ts'],
+        authority: ['api/pet/_breeding.ts', 'api/pet/_owned-pet.ts', 'api/pet/_pet-busy.ts', 'shared/pet-incubation.ts', 'shared/shrines.ts'],
         rulesVersion: PET_BREEDING_RULES_VERSION,
         minimumParentLevel: PET_BREEDING_MIN_LEVEL,
         durationMs: PET_BREEDING_DURATION_MS,
+        eggChancePercent: PET_EGG_CHANCE_PERCENT,
+        incubationClock: 'foreground-gameplay',
+        eggLocation: 'sanctuary',
         usesPerPet: { min: PET_BREEDING_USES_MIN, max: PET_BREEDING_USES_MAX },
         speciesPercent: { parent1: 45, parent2: 45, sameElementSameTier: 9, randomNonStandard: 1 },
         chromaticPercent: 100 / PET_CHROMATIC_DENOMINATOR,

@@ -20,13 +20,13 @@ try {
         });
         const save = () => page.evaluate(async name => (await (await fetch(`/api/save/${name}`)).json()).character, seat);
         await page.goto(`${base}/pet-tactics-qa.html?seat=${seat}&ranked=1&yard=1`, { waitUntil: 'commit' });
-        await page.getByRole('button', { name: 'View 3D & techniques', exact: true }).waitFor();
+        await page.getByRole('button', { name: 'View companion', exact: true }).waitFor();
         const portraits = await page.locator('.pet-slot-card img').evaluateAll(images => images.map(image => image.src));
         assert.ok(portraits.length > 0);
         assert.equal(models.size, 0);
         const initial = await save();
         assert.ok(initial.pets[0].training, 'start the isolated care harness with a fresh completed-training fixture');
-        await page.getByRole('button', { name: 'View 3D & techniques', exact: true }).click();
+        await page.getByRole('button', { name: 'View companion', exact: true }).click();
         const dialog = page.getByRole('dialog'), canvas = dialog.locator('canvas');
         await canvas.waitFor();
         await dialog.getByRole('status').filter({ hasText: 'Loading companion' }).waitFor({ state: 'hidden' });
@@ -71,11 +71,12 @@ try {
         await dialog.getByRole('button', { name: 'Preview only', exact: true }).waitFor();
         assert.equal(await dialog.getByRole('button', { name: 'Preview only', exact: true }).isDisabled(), true);
         await page.waitForFunction(() => document.querySelector('canvas')?.dataset.previewCollar === 'collar-azure');
-        await dialog.getByLabel('Preview appearance', { exact: true }).selectOption('chromatic');
-        await page.waitForFunction(() => document.querySelector('canvas')?.dataset.previewAppearance === 'chromatic');
+        assert.equal(await dialog.getByLabel('Preview appearance', { exact: true }).locator('option[value="chromatic"]').count(), 0);
+        await dialog.getByLabel('Preview appearance', { exact: true }).selectOption('original');
+        await page.waitForFunction(() => document.querySelector('canvas')?.dataset.previewAppearance === 'original');
         assert.equal(mutations.length, countBefore, 'previewing items and colors performs no save mutation');
         assert.deepEqual((await save()).pets[0], trained.pets[0]);
-        await dialog.screenshot({ path: resolve(output, `chromatic-${viewport.width}.png`) });
+        await dialog.screenshot({ path: resolve(output, `appearance-${viewport.width}.png`) });
         await dialog.getByLabel('Preview appearance', { exact: true }).selectOption('current');
         await dialog.getByLabel('Preview collar', { exact: true }).selectOption('collar-crimson');
         await dialog.getByRole('button', { name: 'Equip collar', exact: true }).click();
@@ -100,7 +101,7 @@ try {
         assert.equal(await page.locator('canvas').count(), 0);
         assert.deepEqual(await page.locator('.pet-slot-card img').evaluateAll(images => images.map(image => image.src)), portraits);
         await page.reload({ waitUntil: 'commit' });
-        await page.getByRole('button', { name: 'View 3D & techniques', exact: true }).click();
+        await page.getByRole('button', { name: 'View companion', exact: true }).click();
         await page.getByRole('dialog').locator('summary').filter({ hasText: 'Collar & appearance preview' }).click();
         assert.equal(await page.getByRole('dialog').getByLabel('Preview collar', { exact: true }).inputValue(), 'collar-prismatic');
         assert.equal(await page.getByRole('dialog').getByRole('button', { name: 'Equipped', exact: true }).isDisabled(), true);
@@ -111,11 +112,9 @@ try {
         await page.getByRole('dialog').getByLabel('Preview collar', { exact: true }).selectOption('collar-prismatic');
         await page.getByRole('dialog').getByRole('button', { name: 'Equip collar', exact: true }).click();
         await page.getByRole('dialog').getByRole('status').filter({ hasText: 'Collar equipped' }).waitFor();
-        await page.getByRole('dialog').locator('summary').filter({ hasText: 'Technique motion' }).click();
-        await page.getByRole('dialog').getByRole('button', { name: 'Edit ranked loadout', exact: false }).click();
-        assert.equal(await page.locator('canvas').count(), 0, 'opening the ranked editor retires the viewer');
-        assert.equal(await page.getByRole('button', { name: 'Battle & techniques', exact: true }).getAttribute('aria-current'), 'page');
-        await page.getByRole('heading', { name: 'Learnable techniques', exact: true }).waitFor();
+        await page.getByRole('dialog').locator('summary').filter({ hasText: 'Edit loadout' }).click();
+        assert.equal(await page.locator('canvas').count(), 1, 'loadout editing stays inside the viewer');
+        await page.getByRole('dialog').getByRole('heading', { name: 'Learnable techniques', exact: true }).waitFor();
         await page.waitForFunction(() => document.activeElement?.id === 'pet-yard-section');
         assert.equal(models.size, 1, 'care, collars and alternate colors all reuse the selected model');
         report.viewports.push({ viewport, failedCareSafe: true, pet: true, feed: true, training: true,

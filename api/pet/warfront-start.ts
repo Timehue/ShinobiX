@@ -1,4 +1,6 @@
 import { safeLogValue } from '../_safe-log.js';
+import { petBattleJutsus } from '../../shared/pet-battle-loadout.js';
+import { rankedBuildForPet } from '../../shared/pet-tactics-build.js';
 import { randomInt, randomUUID } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
@@ -113,9 +115,10 @@ const warfrontPetSnapshot = (pet: Pet): Pet => ({
     attack: pet.attack,
     defense: pet.defense,
     speed: pet.speed,
-    jutsus: (Array.isArray(pet.jutsus) ? pet.jutsus : []).slice(0, 8)
+    jutsus: petBattleJutsus(pet).slice(0, 8)
         .map((jutsu) => ({ ...jutsu, name: String(jutsu.name).slice(0, 80) })),
     unlockedForPve: pet.unlockedForPve,
+    ...(pet.rankedBuild ? { rankedBuild: rankedBuildForPet(pet) ?? undefined } : {}),
     ...(pet.nickname ? { nickname: String(pet.nickname).slice(0, 80) } : {}),
     ...(pet.element ? { element: pet.element } : {}),
     ...(pet.trait ? { trait: pet.trait } : {}),
