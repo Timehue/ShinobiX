@@ -1,0 +1,277 @@
+{
+  "schema": 1,
+  "errors": [],
+  "pets": [
+    {
+      "id": "mythic-6",
+      "name": "Azure Ryujin",
+      "url": "/pet-models/roster/mythic-6.glb?v=20261014-reviewed-skull-v1-20261013-studio-v1-20261013-articulation-v1-20261014-contact-performance-v1",
+      "sha256": "b7919b82a0ce7a1260c9e0cab2eb27615acfe4aa4deac9e59f21912f4b6fe253",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "head-front",
+        "head-side"
+      ],
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.4896711720609205,
+          0.22417313227414853,
+          0.15830268844617126,
+          0.8764984561196292,
+          0.3440457934161838,
+          1.1090869060534025
+        ],
+        "cameraPadding": 1.15
+      },
+      "sheets": [
+        "mythic-6-head-front.webp",
+        "mythic-6-head-side.webp"
+      ],
+      "review": "pending",
+      "anatomySha256": "e07f076e9e6d41316b473901f3824dac6ec0b79dd0d179739201600085d15bb4"
+    },
+    {
+      "id": "mythic-7",
+      "name": "Turtle Duck",
+      "url": "/pet-models/roster/mythic-7.glb?v=20261014-reviewed-skull-v1-20261013-studio-v1-20261013-articulation-v1-20261014-contact-performance-v1",
+      "sha256": "4fffae57743f0cef6df2e5d9268dc16afcd11c18c59224b4655c456817d27c06",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "head-front",
+        "head-side"
+      ],
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.29071031354291094,
+          0.39873582300818267,
+          0.19838462327138287,
+          0.9360693355198566,
+          0.10679883200754436,
+          0.8106329855851893
+        ],
+        "cameraPadding": 1.15
+      },
+      "sheets": [
+        "mythic-7-head-front.webp",
+        "mythic-7-head-side.webp"
+      ],
+      "review": "pending",
+      "anatomySha256": "87b7e494c10593733500eedc5aaddd2a1acce88bbab9858de5ad7d60d05c7055"
+    },
+    {
+      "id": "mythic-8",
+      "name": "Stormgod Raijin",
+      "url": "/pet-models/roster/mythic-8.glb?v=20261014-reviewed-skull-v1-20261013-studio-v1-20261013-articulation-v1-20261014-contact-performance-v1",
+      "sha256": "102c9cb332811bce864416b561da5ce8455c3671220cf65be022eca26d64db4c",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "head-front",
+        "head-side"
+      ],
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.349340250772572,
+          0.29584364528884044,
+          0.33000532084165735,
+          1.0224537402321094,
+          0.03191602185024034,
+          0.5483049342645909
+        ],
+        "cameraPadding": 1.15
+      },
+      "sheets": [
+        "mythic-8-head-front.webp",
+        "mythic-8-head-side.webp"
+      ],
+      "review": "pending",
+      "anatomySha256": "adb0a1039932c0b2632a36472a8df631c7411c958110a5b5fcb5dd4922b4398d"
+    },
+    {
+      "id": "mythic-9",
+      "name": "Worldroot Colossus",
+      "url": "/pet-models/roster/mythic-9.glb?v=20261014-reviewed-skull-v1-20261013-studio-v1-20261013-articulation-v1-20261014-contact-performance-v1",
+      "sha256": "378464c376e5968a77685ca7a6e596183a71a6187d0e35dd3fa72340a60f0244",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "head-front",
+        "head-side"
+      ],
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.23582525224578416,
+          0.43265441328497395,
+          -0.05692082011706467,
+          0.645569204587958,
+          -0.07486040873879454,
+          0.4700784801765341
+        ],
+        "cameraPadding": 1.15
+      },
+      "sheets": [
+        "mythic-9-head-front.webp",
+        "mythic-9-head-side.webp"
+      ],
+      "review": "pending",
+      "anatomySha256": "1ef74e70e020e73c9044fab1d6ef510f83caa18d95be3764f6a42cfda5149270"
+    },
+    {
+      "id": "mythic-10",
+      "name": "Ash Crown Phoenix",
+      "url": "/pet-models/roster/mythic-10.glb?v=20261014-reviewed-skull-v1-20261013-studio-v1-20261013-articulation-v1-20261014-contact-performance-v1",
+      "sha256": "7be7cc15a40a0233a9d0edaeda067d0f0866e233e8221ab412a6025868f7a58e",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "head-front",
+        "head-side"
+      ],
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.25515287874361975,
+          0.26660089339212734,
+          0.233076427911274,
+          0.9280130564402085,
+          0.35384716303502795,
+          0.9913065619020722
+        ],
+        "cameraPadding": 1.15
+      },
+      "sheets": [
+        "mythic-10-head-front.webp",
+        "mythic-10-head-side.webp"
+      ],
+      "review": "pending",
+      "anatomySha256": "b24357a149e18d3ab702e840ef937022b59c3441ee628622178fa484e0e23dc2"
+    }
+  ],
+  "artisticCertification": false
+}

@@ -22068,7 +22068,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "B7919B82A0CE7A1260C9E0CAB2EB27615ACFE4AA4DEAC9E59F21912F4B6FE253",
+      "sha256": "8C2C2BFC468365EC3CAC2083756048EE0641393F7DE5257514DC501203CE4DAA",
       "visualReview": {
         "passed": true,
         "reason": "Azure Ryujin is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -22118,7 +22118,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 721020,
+        "bytes": 1387260,
         "triangles": 40000,
         "vertices": 28380,
         "skins": 1,
@@ -22152,9 +22152,9 @@
         "localizedSeamVertices": 45007
       },
       "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
+        "revision": "20261017-azure-ryujin-independent-complete-face-v1",
         "id": "mythic-6",
-        "sourceSha256": "572b2ae1115d9ea4d6bf4c8130df0ee18232a543a903aad5e5e78b3a47a1c597",
+        "sourceSha256": "b7919b82a0ce7a1260c9e0cab2eb27615acfe4aa4deac9e59f21912f4b6fe253",
         "region": {
           "y": [
             0.08,
@@ -22166,28 +22166,249 @@
           ],
           "cameraPadding": 1.4,
           "status": "repair",
-          "finding": "Ryujin muzzle, whiskers and horns distort during attacks and death; preserve the coiled tail and four limbs."
+          "finding": "All twelve original raw face and body slices inspected. Independent lower-jaw and side-jaw patches drift under head tilt; brow, muzzle and horn already remain rigid. Complete-face binding is a separate stage; actual techniques remain under review and visible anatomical leg chains with coordinated standing actions are required. Preserve the tall flexible neck below the jaw, whiskers, coiled tail, body and original authored curves. Candidate not yet visually inspected.",
+          "revision": "20261017-azure-ryujin-independent-complete-face-v1",
+          "supersedesSourceSha256": "b7919b82a0ce7a1260c9e0cab2eb27615acfe4aa4deac9e59f21912f4b6fe253",
+          "repairRegion": {
+            "y": [
+              0.1,
+              0.18
+            ],
+            "z": [
+              0.6,
+              0.7
+            ],
+            "x": [
+              0.36,
+              0.44
+            ]
+          },
+          "union": [
+            {
+              "y": [
+                0.1,
+                0.18
+              ],
+              "z": [
+                0.6,
+                0.7
+              ],
+              "x": [
+                0.36,
+                0.44
+              ]
+            }
+          ],
+          "continuousInfluencePacking": true
         },
         "envelopeMatrix": [
-          0.9999999931623507,
+          1.0000000114482157,
           0,
           0,
           0,
           0,
-          0.9999999766801613,
-          -3.7723990042870525e-9,
+          0.9999999949660261,
+          -3.772398948775901e-9,
           0,
           0,
-          -1.7734489171639112e-7,
-          0.999999855935286,
+          -1.7734489499154904e-7,
+          0.9999998742211486,
           0,
-          -1.0594769485501847e-8,
-          7.170500998521234e-8,
-          1.3672633902839237e-7,
+          -1.0594769735410448e-8,
+          8.999087641736736e-8,
+          1.4267175241222674e-7,
           1
         ],
-        "changedVertices": 10550,
-        "rigidVertices": 5760
+        "changedVertices": 3915,
+        "rigidVertices": 2177,
+        "supersededRepair": {
+          "revision": "20261014-reviewed-skull-v1",
+          "sourceSha256": "572b2ae1115d9ea4d6bf4c8130df0ee18232a543a903aad5e5e78b3a47a1c597"
+        }
+      },
+      "anatomicalLimbRepair": {
+        "sourceSha256": "2d6f530f69de3b5daa2a550c10f003caf7ce25012c0752f3fcf124c3f1353cc8",
+        "changedVertices": 6577,
+        "legacyReboundVertices": 14347,
+        "headNeckLegCleanupVertices": 1577,
+        "legacySupportBinding": "Original front/hind influences rebound onto fitted visible leg sections using continuous sculpt-height and side proximity; lower-leg neck/head influence feathers onto the nearest supporting torso parent.",
+        "legs": [
+          {
+            "part": "front",
+            "side": "L",
+            "joints": [
+              21,
+              22,
+              23
+            ],
+            "upper": [
+              0.09579021861251917,
+              -0.28,
+              0.2661859310296119
+            ],
+            "knee": [
+              0.09579021861251917,
+              -0.39,
+              0.3011859310296119
+            ],
+            "paw": [
+              0.09579021861251917,
+              -0.46359099623877215,
+              0.3211859310296119
+            ],
+            "center": [
+              0.09579021861251917,
+              -0.48859099623877217,
+              0.3211859310296119
+            ]
+          },
+          {
+            "part": "front",
+            "side": "R",
+            "joints": [
+              24,
+              25,
+              26
+            ],
+            "upper": [
+              -0.16521430136420506,
+              -0.28,
+              0.26525188623164964
+            ],
+            "knee": [
+              -0.16521430136420506,
+              -0.39,
+              0.3002518862316496
+            ],
+            "paw": [
+              -0.16521430136420506,
+              -0.4636813862318769,
+              0.32025188623164963
+            ],
+            "center": [
+              -0.16521430136420506,
+              -0.4886813862318769,
+              0.32025188623164963
+            ]
+          },
+          {
+            "part": "hind",
+            "side": "L",
+            "joints": [
+              27,
+              28,
+              29
+            ],
+            "upper": [
+              0.12236521839795376,
+              -0.29,
+              0.005443272483065829
+            ],
+            "knee": [
+              0.12236521839795376,
+              -0.39,
+              -0.02455672751693417
+            ],
+            "paw": [
+              0.12236521839795376,
+              -0.4635909996502936,
+              -0.05955672751693417
+            ],
+            "center": [
+              0.12236521839795376,
+              -0.4885909996502936,
+              -0.05955672751693417
+            ]
+          },
+          {
+            "part": "hind",
+            "side": "R",
+            "joints": [
+              30,
+              31,
+              32
+            ],
+            "upper": [
+              -0.18441488789023014,
+              -0.29,
+              0.00637731648588008
+            ],
+            "knee": [
+              -0.18441488789023014,
+              -0.39,
+              -0.02362268351411992
+            ],
+            "paw": [
+              -0.18441488789023014,
+              -0.46350060905893575,
+              -0.05862268351411992
+            ],
+            "center": [
+              -0.18441488789023014,
+              -0.4885006090589358,
+              -0.05862268351411992
+            ]
+          }
+        ],
+        "gaitReports": [
+          {
+            "name": "idle",
+            "strideScale": 0.55,
+            "verticalScale": 0.45,
+            "maxContactError": 6.191166431853964e-10
+          },
+          {
+            "name": "walk",
+            "strideScale": 0.55,
+            "verticalScale": 0.45,
+            "maxContactError": 8.389963689873534e-10
+          },
+          {
+            "name": "gallop",
+            "strideScale": 0.55,
+            "verticalScale": 0.45,
+            "maxContactError": 1.3284783103800432e-9
+          },
+          {
+            "name": "guard",
+            "strideScale": 0.55,
+            "verticalScale": 0.45,
+            "maxContactError": 8.88138440960921e-11
+          },
+          {
+            "name": "rest",
+            "strideScale": 0.55,
+            "verticalScale": 0.45,
+            "maxContactError": 1.9986861856979726e-10
+          }
+        ]
+      },
+      "coordinatedActionRepair": {
+        "revision": "20261017-azure-ryujin-coordinated-actions-v1",
+        "sourceSha256": "f78468e5ea42409774216c368aa305921230a19f0a8b1ebd06f7c9a48fdf5069",
+        "clips": [
+          {
+            "name": "attack",
+            "keys": 49,
+            "changedTracks": 16,
+            "maxContactError": 3.5847342012914883e-10,
+            "contacts": 132
+          },
+          {
+            "name": "cast",
+            "keys": 49,
+            "changedTracks": 16,
+            "maxContactError": 4.324926626129016e-10,
+            "contacts": 196
+          },
+          {
+            "name": "idle_hitreact1",
+            "keys": 49,
+            "changedTracks": 16,
+            "maxContactError": 3.9964562272524774e-10,
+            "contacts": 196
+          }
+        ]
       }
     },
     "mythic-7": {
@@ -22201,7 +22422,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "4FFFAE57743F0CEF6DF2E5D9268DC16AFCD11C18C59224B4655C456817D27C06",
+      "sha256": "941B3299378AD850E734AD1898A84E6087E521DBD074992FE2C1CDB2CA0679E7",
       "visualReview": {
         "passed": true,
         "reason": "Turtle Duck is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -22251,7 +22472,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 569840,
+        "bytes": 568972,
         "triangles": 40000,
         "vertices": 24185,
         "skins": 1,
@@ -22288,9 +22509,9 @@
         "localizedSeamVertices": 94
       },
       "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
+        "revision": "20261018-turtle-duck-independent-complete-face-v1",
         "id": "mythic-7",
-        "sourceSha256": "da33b48fd4388e97e9055d794b945c6b4901f66ee5f41e16f3947eb289192cf2",
+        "sourceSha256": "4fffae57743f0cef6df2e5d9268dc16afcd11c18c59224b4655c456817d27c06",
         "region": {
           "y": [
             0.12,
@@ -22302,11 +22523,44 @@
           ],
           "cameraPadding": 1.4,
           "status": "repair",
-          "finding": "Duck lower face and beak deform in hit reaction and collapse; preserve shell and flippers.",
+          "finding": "All twelve original raw source face/body slices and 216 actual equipped technique frames inspected. Lower duck beak and side jaw shear in head turns, recoil and defeat. Repair the complete head while preserving shell, shoulders, wings, feet and every authored animation curve. Candidate not yet visually inspected.",
           "x": [
             0.4,
             0.55
-          ]
+          ],
+          "revision": "20261018-turtle-duck-independent-complete-face-v1",
+          "supersedesSourceSha256": "4fffae57743f0cef6df2e5d9268dc16afcd11c18c59224b4655c456817d27c06",
+          "repairRegion": {
+            "y": [
+              0.1,
+              0.18
+            ],
+            "z": [
+              0.1,
+              0.25
+            ],
+            "x": [
+              0.4,
+              0.55
+            ]
+          },
+          "union": [
+            {
+              "y": [
+                0.1,
+                0.18
+              ],
+              "z": [
+                0.1,
+                0.25
+              ],
+              "x": [
+                0.4,
+                0.55
+              ]
+            }
+          ],
+          "continuousInfluencePacking": true
         },
         "envelopeMatrix": [
           1.0000001346017549,
@@ -22323,11 +22577,15 @@
           0,
           -6.491182647167318e-8,
           6.640769173449357e-8,
-          1.663728850520574e-8,
+          2.0304413539395938e-8,
           1
         ],
-        "changedVertices": 2749,
-        "rigidVertices": 1545
+        "changedVertices": 2772,
+        "rigidVertices": 1991,
+        "supersededRepair": {
+          "revision": "20261014-reviewed-skull-v1",
+          "sourceSha256": "da33b48fd4388e97e9055d794b945c6b4901f66ee5f41e16f3947eb289192cf2"
+        }
       }
     },
     "mythic-8": {
@@ -22341,7 +22599,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "102C9CB332811BCE864416B561DA5CE8455C3671220CF65BE022ECA26D64DB4C",
+      "sha256": "9A757096DB2F43C59D1441A8AECD2A9A461833393ECCBC304C61ABE48F73ED95",
       "visualReview": {
         "passed": true,
         "reason": "Stormgod Raijin is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -22391,7 +22649,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 627980,
+        "bytes": 628132,
         "triangles": 40000,
         "vertices": 25744,
         "skins": 1,
@@ -22428,9 +22686,9 @@
         "localizedSeamVertices": 285
       },
       "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
+        "revision": "20261018-stormgod-raijin-independent-complete-chin-v1",
         "id": "mythic-8",
-        "sourceSha256": "d12e479ef77dfebe42c6588bea78850cd2610a4e7922a7d1f4605fa732c21ee1",
+        "sourceSha256": "102c9cb332811bce864416b561da5ce8455c3671220cf65be022eca26d64db4c",
         "region": {
           "y": [
             0.18,
@@ -22442,28 +22700,65 @@
           ],
           "cameraPadding": 1.3,
           "status": "repair",
-          "finding": "Raijin cheek, eyes and lower face shear in hit reaction and death; preserve scarf tails and hands."
+          "finding": "All twelve original raw source head/body slices and 216 actual equipped technique frames inspected. A small lower chin rim still drifts in recoil, head turns and defeat; upper face and side jaw are already rigid. Bind the complete chin while preserving the scarf, shoulders, hands, legs, tail and every authored animation curve. Candidate visual review pending.",
+          "revision": "20261018-stormgod-raijin-independent-complete-chin-v1",
+          "supersedesSourceSha256": "102c9cb332811bce864416b561da5ce8455c3671220cf65be022eca26d64db4c",
+          "repairRegion": {
+            "y": [
+              0.26,
+              0.33
+            ],
+            "z": [
+              0.2,
+              0.28
+            ],
+            "x": [
+              0.28,
+              0.38
+            ]
+          },
+          "union": [
+            {
+              "y": [
+                0.26,
+                0.33
+              ],
+              "z": [
+                0.2,
+                0.28
+              ],
+              "x": [
+                0.28,
+                0.38
+              ]
+            }
+          ],
+          "continuousInfluencePacking": true
         },
         "envelopeMatrix": [
-          1.0000002150584528,
+          1.0000002166772592,
           0,
           0,
           0,
           0,
-          1.0000000519513046,
-          -2.2633756424639273e-8,
+          1.0000000535701108,
+          -2.263375645239485e-8,
           0,
           0,
           -2.0254442512079862e-8,
-          1.0000002286320286,
+          1.000000230250835,
           0,
-          -6.136130793164829e-7,
-          -5.0127623996143456e-8,
-          -6.225620990951697e-10,
+          -6.136130803087447e-7,
+          -4.850881801798934e-8,
+          7.611741237312231e-10,
           1
         ],
-        "changedVertices": 11714,
-        "rigidVertices": 8329
+        "changedVertices": 3601,
+        "rigidVertices": 1950,
+        "supersededRepair": {
+          "revision": "20261014-reviewed-skull-v1",
+          "sourceSha256": "d12e479ef77dfebe42c6588bea78850cd2610a4e7922a7d1f4605fa732c21ee1"
+        }
       }
     },
     "mythic-9": {
@@ -22477,7 +22772,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "378464C376E5968A77685CA7A6E596183A71A6187D0E35DD3FA72340A60F0244",
+      "sha256": "B9A703DE5751CBEB02139FCB63AB9CC286A0A4637C2A3D6AEBAB1A7624D14C29",
       "visualReview": {
         "passed": true,
         "reason": "Worldroot Colossus is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -22527,7 +22822,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 724388,
+        "bytes": 722752,
         "triangles": 40000,
         "vertices": 32196,
         "skins": 1,
@@ -22563,9 +22858,9 @@
         "iterations": 48
       },
       "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
+        "revision": "20261018-worldroot-colossus-independent-complete-beard-v1",
         "id": "mythic-9",
-        "sourceSha256": "35a18f7b504139e87725eab46069ea460f2510ca6c4a89e3efa10b64aeda524c",
+        "sourceSha256": "378464c376e5968a77685ca7a6e596183a71a6187d0e35dd3fa72340a60f0244",
         "region": {
           "y": [
             0.05,
@@ -22577,7 +22872,7 @@
           ],
           "cameraPadding": 1.4,
           "status": "repair",
-          "finding": "Colossus face and leafy crown shear in hit reaction and collapse; preserve arm branches and hands.",
+          "finding": "Original twelve raw source head/body slices and all 216 actual equipped technique frames inspected. Lower wooden face, long beard and side jaw shear during head turns, recoil and collapse. Extend the head binding over the complete beard, retaining the original canopy repair, shoulders, branches, hands, feet and all authored animation curves. Candidate visual review pending.",
           "x": [
             0.25,
             0.38
@@ -22592,29 +22887,64 @@
                 -0.3,
                 -0.08
               ]
+            },
+            {
+              "y": [
+                -0.25,
+                -0.11
+              ],
+              "z": [
+                0.04,
+                0.1
+              ],
+              "x": [
+                0.27,
+                0.37
+              ]
             }
-          ]
+          ],
+          "revision": "20261018-worldroot-colossus-independent-complete-beard-v1",
+          "supersedesSourceSha256": "378464c376e5968a77685ca7a6e596183a71a6187d0e35dd3fa72340a60f0244",
+          "repairRegion": {
+            "y": [
+              -0.25,
+              -0.11
+            ],
+            "z": [
+              0.04,
+              0.1
+            ],
+            "x": [
+              0.27,
+              0.37
+            ]
+          },
+          "continuousInfluencePacking": true
         },
         "envelopeMatrix": [
-          1.000000260376429,
+          1.0000002570413724,
           0,
           0,
           0,
           0,
-          1.0000000503331425,
-          -3.37926475690864e-8,
+          1.0000000469980868,
+          -3.3792647458064096e-8,
           0,
           0,
-          -1.8384849864716557e-8,
-          1.0000002865294806,
+          -1.8384849809205406e-8,
+          1.0000002831944237,
           0,
-          0.000001214362626869754,
-          -4.3851553055418435e-8,
-          1.4117435540028644e-8,
+          0.0000012143626228196085,
+          -4.718660878699765e-8,
+          1.2542028721140852e-8,
           1
         ],
-        "changedVertices": 16788,
-        "rigidVertices": 7727
+        "changedVertices": 7256,
+        "rigidVertices": 4350,
+        "supersededRepair": {
+          "revision": "20261014-reviewed-skull-v1",
+          "sourceSha256": "35a18f7b504139e87725eab46069ea460f2510ca6c4a89e3efa10b64aeda524c"
+        }
       }
     },
     "mythic-10": {
@@ -22627,7 +22957,7 @@
       "generatedAt": "2026-08-03T12:00:00.000Z",
       "provider": "fal-ai/hunyuan3d-v3/multi-view + deterministic 21-bone production rig",
       "textured": true,
-      "sha256": "7BE7CC15A40A0233A9D0EDAEDA067D0F0866E233E8221AB412A6025868F7A58E",
+      "sha256": "FD4F4F9DB5A9B048706A8A9D59FF72F3E55B42D164E903DB9C6998C31CFC1762",
       "visualReview": {
         "passed": true,
         "views": [
@@ -22640,7 +22970,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 1202452,
+        "bytes": 1637664,
         "triangles": 15558,
         "vertices": 16648,
         "materials": 1,
@@ -22678,9 +23008,9 @@
         "localizedSeamVertices": 77
       },
       "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
+        "revision": "20261018-ash-crown-phoenix-complete-face-v3",
         "id": "mythic-10",
-        "sourceSha256": "775658c8d0eb21bf1eb17efd64ad09a45537f9b960d754b4de0a749d60795eba",
+        "sourceSha256": "7be7cc15a40a0233a9d0edaeda067d0f0866e233e8221ab412a6025868f7a58e",
         "region": {
           "y": [
             0.15,
@@ -22696,7 +23026,7 @@
           ],
           "cameraPadding": 1.4,
           "status": "repair",
-          "finding": "Phoenix beak and face stretch severely during attack; preserve neck flexion, wings and long flame tail.",
+          "finding": "Original twelve source raw head/body slices and all 216 native equipped-technique frames inspected. Original head is anchored to neck rather than head; beak and crest fail all independently frozen head landmarks, while chest/neck feathers pinch and strike sinks feet and tail below the floor. Candidate V1 restores the head anchor only; neck and support validation still required.",
           "union": [
             {
               "y": [
@@ -22714,28 +23044,317 @@
             }
           ],
           "weightPrecision": "float32",
-          "anchorBone": "neck"
+          "anchorBone": "head",
+          "revision": "20261018-ash-crown-phoenix-complete-face-v3",
+          "supersedesSourceSha256": "7be7cc15a40a0233a9d0edaeda067d0f0866e233e8221ab412a6025868f7a58e",
+          "repairRegion": {
+            "y": [
+              0.15,
+              0.28
+            ],
+            "z": [
+              0.35,
+              0.5
+            ],
+            "x": [
+              0.2,
+              0.35
+            ],
+            "union": [
+              {
+                "y": [
+                  0.6,
+                  0.75
+                ],
+                "z": [
+                  0.25,
+                  0.4
+                ],
+                "x": [
+                  0.2,
+                  0.35
+                ]
+              }
+            ]
+          },
+          "continuousInfluencePacking": false,
+          "neckTransition": {
+            "iterations": 32,
+            "edges": [
+              [
+                13784,
+                13782
+              ],
+              [
+                13880,
+                13879
+              ],
+              [
+                13867,
+                13869
+              ]
+            ],
+            "protectBelowY": 0.05,
+            "featherY": 0.1,
+            "region": {
+              "y": [
+                0.05,
+                0.15
+              ],
+              "z": [
+                0.35,
+                0.5
+              ],
+              "x": [
+                0.2,
+                0.35
+              ]
+            }
+          }
         },
         "envelopeMatrix": [
-          0.9999998660954031,
+          0.9999998352358554,
           0,
           0,
           0,
           0,
-          -1.3435883849378218e-7,
-          1.000000000454242,
+          -1.343588343475286e-7,
+          0.99999996959469,
           0,
           0,
-          -1.000000000454242,
-          -1.3435883849378218e-7,
+          -0.99999996959469,
+          -1.343588343475286e-7,
           0,
           0,
-          6.576684163928093e-8,
-          1.2764372295248627e-8,
+          5.7259030961098745e-8,
+          2.0910651155059412e-8,
           1
         ],
         "changedVertices": 3165,
-        "rigidVertices": 1965
+        "rigidVertices": 1965,
+        "supersededRepair": {
+          "revision": "20261014-reviewed-skull-v1",
+          "sourceSha256": "775658c8d0eb21bf1eb17efd64ad09a45537f9b960d754b4de0a749d60795eba"
+        }
+      },
+      "anatomicalLimbRepair": {
+        "revision": "20261018-ash-crown-phoenix-anatomical-legs-v1",
+        "sourceSha256": "8d51681e018a59bbfd9e8c29c694ccf6d3550e329fc91f13136880fcd0f7e83d",
+        "changedVertices": 12109,
+        "appendedJoints": 6,
+        "originalBoneFramesAndInversesPreserved": true,
+        "legs": [
+          {
+            "side": "L",
+            "sign": 1,
+            "joints": [
+              23,
+              24,
+              25
+            ],
+            "nodes": [
+              25,
+              26,
+              27
+            ]
+          },
+          {
+            "side": "R",
+            "sign": -1,
+            "joints": [
+              26,
+              27,
+              28
+            ],
+            "nodes": [
+              28,
+              29,
+              30
+            ]
+          }
+        ],
+        "clips": [
+          {
+            "name": "idle",
+            "kind": "supported-gait",
+            "keys": 9,
+            "maximumContactError": 1.2412670766236366e-16
+          },
+          {
+            "name": "walk",
+            "kind": "supported-gait",
+            "keys": 17,
+            "maximumContactError": 1.6125073081291992e-9
+          },
+          {
+            "name": "gallop",
+            "kind": "supported-gait",
+            "keys": 17,
+            "maximumContactError": 1.6653345369377348e-16
+          },
+          {
+            "name": "guard",
+            "kind": "supported-gait",
+            "keys": 5,
+            "maximumContactError": 1.1102230246251565e-16
+          },
+          {
+            "name": "rest",
+            "kind": "supported-gait",
+            "keys": 9,
+            "maximumContactError": 1.5700924586837752e-16
+          },
+          {
+            "name": "attack",
+            "kind": "planted-action",
+            "keys": 73,
+            "tracks": 9,
+            "maximumContactError": 2.482534153247273e-16
+          },
+          {
+            "name": "cast",
+            "kind": "planted-action",
+            "keys": 73,
+            "tracks": 9,
+            "maximumContactError": 2.220446049250313e-16
+          },
+          {
+            "name": "idle_hitreact1",
+            "kind": "planted-action",
+            "keys": 73,
+            "tracks": 9,
+            "maximumContactError": 2.482534153247273e-16
+          }
+        ]
+      },
+      "anatomicalNeckRepair": {
+        "revision": "20261018-ash-crown-phoenix-anatomical-neck-v4",
+        "sourceSha256": "8e4c82223636edb3b485f4e12aefc1c00e3bb00fddad019795e388d9a1b9cdee",
+        "originalBoneFramesAndCurvesPreserved": true,
+        "fitted": [
+          {
+            "name": "neck",
+            "oldNode": 5,
+            "oldJoint": 4,
+            "node": 23,
+            "joint": 21,
+            "worldTarget": [
+              0,
+              0.1,
+              0.48
+            ],
+            "amplitude": 0.55
+          },
+          {
+            "name": "head",
+            "oldNode": 6,
+            "oldJoint": 5,
+            "node": 24,
+            "joint": 22,
+            "worldTarget": [
+              0,
+              0.38,
+              0.76
+            ],
+            "amplitude": 0.65
+          }
+        ],
+        "throatVertices": 2132,
+        "throatTransition": {
+          "iterations": 48,
+          "transitionPairs": [
+            [
+              10996,
+              10997
+            ],
+            [
+              10618,
+              10617
+            ],
+            [
+              12458,
+              12461
+            ]
+          ],
+          "measuredPairs": [
+            [
+              12943,
+              12942
+            ],
+            [
+              13101,
+              13099
+            ]
+          ]
+        },
+        "reboundInfluenceSlots": 3990,
+        "clips": [
+          {
+            "name": "idle",
+            "keys": 73,
+            "tracks": 2
+          },
+          {
+            "name": "idle_2",
+            "keys": 77,
+            "tracks": 2
+          },
+          {
+            "name": "walk",
+            "keys": 73,
+            "tracks": 0
+          },
+          {
+            "name": "gallop",
+            "keys": 73,
+            "tracks": 0
+          },
+          {
+            "name": "gallop_jump",
+            "keys": 73,
+            "tracks": 0
+          },
+          {
+            "name": "attack",
+            "keys": 79,
+            "tracks": 2
+          },
+          {
+            "name": "idle_hitreact1",
+            "keys": 76,
+            "tracks": 2
+          },
+          {
+            "name": "death",
+            "keys": 78,
+            "tracks": 2
+          },
+          {
+            "name": "entrance",
+            "keys": 73,
+            "tracks": 0
+          },
+          {
+            "name": "cast",
+            "keys": 79,
+            "tracks": 2
+          },
+          {
+            "name": "guard",
+            "keys": 73,
+            "tracks": 2
+          },
+          {
+            "name": "rest",
+            "keys": 73,
+            "tracks": 2
+          },
+          {
+            "name": "victory",
+            "keys": 78,
+            "tracks": 2
+          }
+        ]
       }
     },
     "mythic-11": {

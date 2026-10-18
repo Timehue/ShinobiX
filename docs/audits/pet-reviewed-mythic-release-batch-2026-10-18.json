@@ -1,0 +1,122 @@
+{
+  "baseMain": "37ecf0fcd8ec70418f0e1b96b9f7e258d3adb9f3",
+  "reviewedSourceCommit": "cd0a478e1",
+  "status": "validated-ready-for-main",
+  "wholeRosterComplete": false,
+  "petRows": [
+    {
+      "id": "mythic-5",
+      "sourceSha256": "9936f40f9c7c76a0a8f28e2e14d838052ee115d932a95759a5131919bb8d056f",
+      "battleSha256": "e665f3c954862d4112ac8c0811507270e3dc43dac6d2b3c8b9a62b7eab848444",
+      "atlasSha256": "41b3c21ade171eafaa76072aaa7ddefd1175a112b17842d73e1c09d9babe3882",
+      "visualEvidenceFiles": 76,
+      "equippedTechniqueFrames": 216,
+      "companionIdleFrames": 24,
+      "liveVerified": false
+    },
+    {
+      "id": "mythic-6",
+      "sourceSha256": "8c2c2bfc468365ec3cac2083756048ee0641393f7de5257514dc501203ce4daa",
+      "battleSha256": "0a2285ed8991899dc6e3654c8d366e70b92b271830cba57471d7730122be51b4",
+      "atlasSha256": "1ab9e5912c74a035d6ac04b96e39fcb33836691c2ca8aff1cb0dd2da5e11fb62",
+      "visualEvidenceFiles": 74,
+      "equippedTechniqueFrames": 216,
+      "companionIdleFrames": 24,
+      "liveVerified": false
+    },
+    {
+      "id": "mythic-7",
+      "sourceSha256": "941b3299378ad850e734ad1898a84e6087e521dbd074992fe2c1cdb2ca0679e7",
+      "battleSha256": "171a15afffa9d53e4836324a45948597317af3d47bd046bfcd3f40e17c3f81f3",
+      "atlasSha256": "dd2b4232e522811bad419f747eb366d07f7af4dd3dd5691d4c13151157b9c7ec",
+      "visualEvidenceFiles": 74,
+      "equippedTechniqueFrames": 216,
+      "companionIdleFrames": 24,
+      "liveVerified": false
+    },
+    {
+      "id": "mythic-8",
+      "sourceSha256": "9a757096db2f43c59d1441a8aecd2a9a461833393eccbc304c61abe48f73ed95",
+      "battleSha256": "c171bf4be8189504ec63de0754e36128f87e7c3c8f8497a329bb2b55e6d31cb3",
+      "atlasSha256": "67fec3b399d13d957ade4c643b5042cff3fa61dbe3ff2de899cfb50867e1e6b6",
+      "visualEvidenceFiles": 74,
+      "equippedTechniqueFrames": 216,
+      "companionIdleFrames": 24,
+      "liveVerified": false
+    },
+    {
+      "id": "mythic-9",
+      "sourceSha256": "b9a703de5751cbeb02139fcb63ab9cc286a0a4637c2a3d6aebab1a7624d14c29",
+      "battleSha256": "a118630516797f3287562f980059bdc88c358042c8e75a7eacf283531f3a93af",
+      "atlasSha256": "ac615a46ce261f319f8e6f51aa9fa4826255305fc2e74b7a4b5620ab7b27a650",
+      "visualEvidenceFiles": 74,
+      "equippedTechniqueFrames": 216,
+      "companionIdleFrames": 24,
+      "liveVerified": false
+    },
+    {
+      "id": "mythic-10",
+      "sourceSha256": "fd4f4f9db5a9b048706a8a9d59ff72f3e55b42d164e903db9c6998c31cfc1762",
+      "battleSha256": "3c24e7bf52ef5603cbe8659a0e1b2026d8aa594b1fa85134b261fc1f9480ae0b",
+      "atlasSha256": "0fb7ab9f3c2399e3fb98c56c4bb91a6a344ad3192855e080457960a81e90c7c8",
+      "visualEvidenceFiles": 74,
+      "equippedTechniqueFrames": 216,
+      "companionIdleFrames": 24,
+      "liveVerified": false
+    }
+  ],
+  "reports": [
+    "docs/audits/pet-suzaku-preview-framing-review-2026-10-17.json",
+    "docs/audits/pet-azure-ryujin-anatomical-review-2026-10-18.json",
+    "docs/audits/pet-turtle-duck-complete-face-review-2026-10-18.json",
+    "docs/audits/pet-stormgod-raijin-complete-face-review-2026-10-18.json",
+    "docs/audits/pet-worldroot-colossus-complete-face-review-2026-10-18.json",
+    "docs/audits/pet-ash-crown-phoenix-anatomical-review-2026-10-18.json"
+  ],
+  "runtimeEquivalence": {
+    "result": "pass",
+    "rendererFilesIdentical": true,
+    "primaryComponentSha256": "193c79e909badc0efab2f09ecb45882406ea66463fc5801966dd395344fcf9a9",
+    "releaseComponentSha256": "d2dafafee3cdb047a8562fb227689be8b92c9585b8c103ba8407bb3e55ea3316",
+    "selectedIds": [
+      "mythic-5",
+      "mythic-6",
+      "mythic-7",
+      "mythic-8",
+      "mythic-9",
+      "mythic-10"
+    ],
+    "scope": "Component differs only by removal of two camera overrides for unselected legendary birds. All six selected execution paths match the inspected primary component."
+  },
+  "note": "Six completed local mythic reviews only. Other roster initial reviews, older technique follow-ups and remaining quadruped sole checks continue. Primary-workspace counts in historical reports do not approve unshipped models.",
+  "localValidation": {
+    "validatedAt": "2026-10-18T08:10:14.259Z",
+    "focusedTests": 69,
+    "anatomyAndAnimationBankTests": 40,
+    "assetReferenceAndRuntimeMetadataTests": 29,
+    "productionBuild": "passed",
+    "all161RecordedAssetAndEvidenceReceipts": "passed-integrity-only-not-new-whole-roster-visual-approval",
+    "fiveChangedModelBattleAndAtlasReproduction": "exact-reviewed-bytes",
+    "suzakuSourceBattleAndAtlas": "unchanged-reviewed-bytes-framing-only",
+    "changedProductionAssetFiles": 15,
+    "nonselectedProductionAssetsChanged": 0,
+    "validationEvidence": [
+      {
+        "path": "docs/screenshots/pet-reviewed-mythic-release-2026-10-18/reviewed-mythic-release-regression.log",
+        "sha256": "1b85fd7ad0485376fd21f2db34a2efcf436f23421e5d06d5b673941a91d2090a"
+      },
+      {
+        "path": "docs/screenshots/pet-reviewed-mythic-release-2026-10-18/reviewed-mythic-release-assets.log",
+        "sha256": "3a5d6773f68e8a367a5eff1bac23f062727e3f2f0e0a2d040356268ced105c70"
+      },
+      {
+        "path": "docs/screenshots/pet-reviewed-mythic-release-2026-10-18/reviewed-mythic-release-build.log",
+        "sha256": "20787f9d93054375f105d23f4b13980517c1dd1071c057acec34ff2b0fe30963"
+      },
+      {
+        "path": "docs/screenshots/pet-reviewed-mythic-release-2026-10-18/reviewed-mythic-release-receipts.log",
+        "sha256": "15fbf2d43885388dcafe5a49fe931177a2451b488334aa5c83089bfb1c7c9278"
+      }
+    ]
+  }
+}
