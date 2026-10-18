@@ -20,11 +20,12 @@ function MoveDescription({ move }: { move: TacticsMove }) {
 }
 
 /** One move library for the ranked squad screen and the Pet Yard. */
-export function PetTacticsBuildEditor({ build, name, onChange, onSave, savedBuild, disabled = false, lockedReason, defaultExpanded = true }: {
+export function PetTacticsBuildEditor({ build, name, onChange, onSave, savedBuild, disabled = false, lockedReason, defaultExpanded = true, summaryLabel, description }: {
     build: TacticsBuild; name?: string; onChange: (build: TacticsBuild) => void;
     onSave?: (build: TacticsBuild) => Promise<void>; savedBuild?: TacticsBuild;
     disabled?: boolean; lockedReason?: string;
     defaultExpanded?: boolean;
+    summaryLabel?: string; description?: string;
 }) {
     const pet = tacticsSpecies(build.speciesId)!;
     const points = Object.values(build.allocation).reduce((a, b) => a + b, 0);
@@ -38,17 +39,18 @@ export function PetTacticsBuildEditor({ build, name, onChange, onSave, savedBuil
     async function save() {
         if (!onSave || issue || saveLock.current) return;
         saveLock.current = true; setSaving(true); setNotice(null);
-        try { await onSave(build); setNotice({ key: buildKey, text: 'Ranked loadout saved. It will be ready when you next select this pet.' }); }
+        try { await onSave(build); setNotice({ key: buildKey, text: 'Loadout saved for future battles, including level-50 PvE summons.' }); }
         catch (error) { setNotice({ key: buildKey, text: error instanceof Error ? error.message : 'The loadout could not be saved.', error: true }); }
         finally { saveLock.current = false; setSaving(false); }
     }
     return <details className={`pta-build pet-techniques-editor${issue ? ' has-issue' : ''}`} open={expanded}
-        onToggle={event => setExpanded(event.currentTarget.open)}><summary><strong>{name ?? pet.name}</strong><span>{build.moveIds.length}/4 moves · {points}/49 points</span></summary>
+        onToggle={event => setExpanded(event.currentTarget.open)}><summary><strong>{summaryLabel ?? name ?? pet.name}</strong><span>{build.moveIds.length}/4 abilities{!summaryLabel && ` · ${points}/49 points`}</span></summary>
         <fieldset disabled={disabled || saving} aria-busy={saving}>
+            {description && <p>{description}</p>}
             <p className="pta-trait">{pet.traitText}</p>
             <div className="pta-preset">{pet.builds.map((preset, i) => <button type="button" key={preset.name} onClick={() => onChange({ ...tacticsPreset(pet.id, i), ...(build.ownedPetId ? { ownedPetId: build.ownedPetId } : {}) })}>{preset.name} build</button>)}</div>
             <h4>Learnable techniques</h4>
-            <p className="pet-techniques-hint">Equip four techniques for ranked battles. Unequip a move to make room for another.</p>
+            <p className="pet-techniques-hint">Equip four abilities for all battles. Unequip a move to make room for another.</p>
             <div className="pta-move-pool">{pet.pool.map(id => {
                 const move = TACTICS_MOVES[id], checked = build.moveIds.includes(id);
                 return <label key={id} className={checked ? 'is-equipped' : ''}><input type="checkbox" aria-label={`Equip ${move.name}`} checked={checked} disabled={!checked && build.moveIds.length >= 4}
@@ -57,14 +59,15 @@ export function PetTacticsBuildEditor({ build, name, onChange, onSave, savedBuil
             })}</div>
             <div className="pet-technique-signature"><h4>Signature · always equipped</h4><MoveTitle move={pet.signature} /><MoveDescription move={pet.signature} /></div>
             <details className="pet-techniques-advanced"><summary>Competitive attributes & item · {points}/49 points</summary>
+                <p>These attributes and this item apply only in ranked battles.</p>
                 <div className="pta-allocation">{(['vitality', 'power', 'guard', 'agility'] as const).map(key => <label key={key}>{key}<input aria-label={`${name ?? pet.name} ${key}`} type="number" min={0} max={25} step={1} value={build.allocation[key]}
                     onChange={e => onChange({ ...build, allocation: { ...build.allocation, [key]: Number(e.target.value) } })} /></label>)}</div>
                 <p className="pta-item-effect">Vitality: HP · Power: damage · Guard: defenses and +1 passive STA per 10 points · Agility: speed. Maximum 25 per attribute.</p>
                 <label className="pta-item">Competitive item<select value={build.item} onChange={e => onChange({ ...build, item: e.target.value as TacticsBuild['item'] })}>{TACTICS_ITEMS.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
                 <p className="pta-item-effect">{TACTICS_ITEMS.find(i => i.id === build.item)?.effect}</p>
             </details>
-            <p className={`pet-techniques-validity${issue ? ' has-issue' : ''}`} role="status">{issue ?? 'Ready for ranked.'}</p>
-            {onSave && <button className="pet-techniques-save" type="button" disabled={!!issue || saved} onClick={() => void save()}>{saving ? 'Saving loadout…' : saved ? 'Loadout saved' : 'Save ranked loadout'}</button>}
+            <p className={`pet-techniques-validity${issue ? ' has-issue' : ''}`} role="status">{issue ?? 'Ready for battle.'}</p>
+            {onSave && <button className="pet-techniques-save" type="button" disabled={!!issue || saved} onClick={() => void save()}>{saving ? 'Saving loadout…' : saved ? 'Loadout saved' : 'Save loadout'}</button>}
         </fieldset>
         {lockedReason && <p role="status">{lockedReason}</p>}
         {notice?.key === buildKey && <p role={notice.error ? 'alert' : 'status'}>{notice.text}</p>}

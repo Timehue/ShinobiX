@@ -57,10 +57,10 @@ try {
                 await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'QA simulated save retry.' }) });
                 await page.unroute('**/api/pet/progress');
             });
-            await editor.getByRole('button', { name: 'Save ranked loadout', exact: true }).click();
+            await editor.getByRole('button', { name: 'Save loadout', exact: true }).click();
             await editor.getByRole('alert').filter({ hasText: 'QA simulated save retry.' }).waitFor();
         }
-        await editor.getByRole('button', { name: 'Save ranked loadout', exact: true }).click();
+        await editor.getByRole('button', { name: 'Save loadout', exact: true }).click();
         await editor.getByRole('button', { name: 'Loadout saved', exact: true }).waitFor();
         await page.reload({ waitUntil: 'commit' });
         await page.getByRole('button', { name: 'Battle & techniques', exact: true }).click();
@@ -84,7 +84,7 @@ try {
         assert.equal(await secondEditor.evaluate(node => node.open), false);
         await secondEditor.locator(':scope > summary').click();
         const secondChoices = await swap(secondEditor);
-        await secondEditor.getByRole('button', { name: 'Save ranked loadout', exact: true }).click();
+        await secondEditor.getByRole('button', { name: 'Save loadout', exact: true }).click();
         await secondEditor.getByRole('button', { name: 'Loadout saved', exact: true }).waitFor();
         assert.deepEqual(await selected(secondEditor), secondChoices, 'another carried pet has its own editable saved kit');
         await secondEditor.locator(':scope > summary').click();
@@ -97,7 +97,7 @@ try {
         await rankedEditor.getByRole('checkbox', { name: nextMove, exact: true }).check();
         assert.equal(await queue.isEnabled(), true);
         const nextChoices = await selected(rankedEditor);
-        await rankedEditor.getByRole('button', { name: 'Save ranked loadout', exact: true }).click();
+        await rankedEditor.getByRole('button', { name: 'Save loadout', exact: true }).click();
         await rankedEditor.getByRole('button', { name: 'Loadout saved', exact: true }).waitFor();
         await page.getByRole('button', { name: 'QA: Pet Yard', exact: true }).click();
         await page.getByRole('button', { name: 'Battle & techniques', exact: true }).click();

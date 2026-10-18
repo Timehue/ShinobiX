@@ -7,7 +7,8 @@ import { petBreedingStartsEnabled } from '../_release-flags.js';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { carriedRegenCursor, settleIdleRecovery, writeVersionedPlayerSave } from '../save/_mutate-player-save.js';
-import { buildSealedBreedingResult, breedingResultKey, deterministicBreedingSessionId, PET_BREEDING_DURATION_MS, publicPetBreedingSession, type SealedPetBreedingResult } from './_breeding.js';
+import { buildSealedBreedingResult, breedingResultKey, deterministicBreedingSessionId, publicPetBreedingSession, type SealedPetBreedingResult } from './_breeding.js';
+import { PET_EGG_GAMEPLAY_MS } from '../../shared/pet-incubation.js';
 import { settlePetBreedingSession, type PetBreedingSession } from './_breeding-requirements.js';
 import { migrateCharacterOwnedPets, PET_BREEDING_RULES_VERSION } from './_owned-pet.js';
 import { petBreedingEligibility } from './_pet-busy.js';
@@ -17,7 +18,7 @@ import { activeCarriedPetIds } from '../_entitlements.js';
 const REQUEST_ID_RE = /^[A-Za-z0-9_-]{16,96}$/;
 
 type StartResult =
-    | { ok: true; character: Record<string, unknown>; version: number; replayed: boolean }
+    | { ok: true; character: Record<string, unknown>; version: number; replayed: boolean; eggProduced: boolean }
     | { ok: false; status: number; error: string; message?: string };
 
 function defensePetIds(defense: unknown): string[] {
@@ -55,14 +56,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const existing = character.petBreeding as PetBreedingSession | null | undefined;
             if (existing) {
                 if (existing.startRequestId === requestId) {
-                    return { ok: true, character, version: Number(record._saveVersion ?? 0), replayed: true };
+                    return { ok: true, character, version: Number(record._saveVersion ?? 0), replayed: true, eggProduced: true };
                 }
-                return { ok: false, status: 409, error: 'breeding-barn-occupied', message: 'The Shinobi Hatchery is already occupied.' };
             }
             const receipts = Array.isArray(character.petBreedingReceipts)
                 ? (character.petBreedingReceipts as unknown[]).filter((entry): entry is string => typeof entry === 'string').slice(-63)
                 : [];
-            if (receipts.includes(`start:${requestId}`)) return { ok: false, status: 409, error: 'breeding-request-already-completed' };
+            if (receipts.includes(`start:${requestId}`)) {
+                const prior = await kv.get<SealedPetBreedingResult>(breedingResultKey(playerName, deterministicBreedingSessionId(playerName, requestId)));
+                if (prior?.eggProduced === false && prior.parentIds[0] === parent1Id && prior.parentIds[1] === parent2Id) {
+                    return { ok: true, character, version: Number(record._saveVersion ?? 0), replayed: true, eggProduced: false };
+                }
+                return { ok: false, status: 409, error: 'breeding-request-already-completed' };
+            }
+            if (existing) return { ok: false, status: 409, error: 'breeding-barn-occupied', message: 'An egg is already incubating in Sanctuary.' };
             if (!petBreedingStartsEnabled()) return { ok: false, status: 503, error: 'breeding-starts-disabled' };
             if (parent1Id === parent2Id) return { ok: false, status: 400, error: 'parents-must-be-distinct' };
             const pets = Array.isArray(character.pets) ? character.pets as Array<Record<string, unknown>> : [];
@@ -100,12 +107,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!recovered) await kv.set(sealedKey, sealed);
             const session: PetBreedingSession = {
                 sessionId: sealed.sessionId,
-                state: 'breeding',
+                state: 'egg',
                 parentIds: [parent1Id, parent2Id],
                 parentNames: [String(parent1.nickname || parent1.name || 'Parent 1'), String(parent2.nickname || parent2.name || 'Parent 2')],
                 parentElement: eligible1.element,
                 startedAt: sealed.createdAt,
-                readyAt: sealed.createdAt + PET_BREEDING_DURATION_MS,
+                readyAt: sealed.createdAt,
+                eggCreatedAt: sealed.createdAt,
+                location: 'sanctuary',
+                incubationRemainingMs: PET_EGG_GAMEPLAY_MS,
+                incubationUpdatedAt: now,
                 rulesVersion: PET_BREEDING_RULES_VERSION,
                 startRequestId: requestId,
             };
@@ -116,19 +127,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const nextCharacter = {
                 ...character,
                 pets: nextPets,
-                petBreeding: session,
+                petBreeding: sealed.eggProduced === false ? null : session,
                 petBreedingReceipts: [...receipts, `start:${requestId}`],
             };
             const written = await writeVersionedPlayerSave(`save:${playerName}`, record, nextCharacter, {}, {
                 regenAt: carriedRegenCursor(recovery.character, nextCharacter, recovery.regen),
             });
-            return { ok: true, character: nextCharacter, version: written._saveVersion, replayed: Boolean(recovered) };
+            return { ok: true, character: nextCharacter, version: written._saveVersion, replayed: Boolean(recovered), eggProduced: sealed.eggProduced !== false };
         }, { failClosed: true });
         if (!result.ok) return res.status(result.status).json({ error: result.error, ...(result.message ? { message: result.message } : {}) });
         if (!result.replayed) captureServerProductEvent('pet_breeding_started', { source: 'breeding_barn' });
         return res.status(200).json({
             ok: true,
             replayed: result.replayed,
+            eggProduced: result.eggProduced,
             session: publicPetBreedingSession(result.character.petBreeding as PetBreedingSession),
             character: result.character,
             _saveVersion: result.version,

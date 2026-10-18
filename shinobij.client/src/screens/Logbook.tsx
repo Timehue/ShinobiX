@@ -396,7 +396,7 @@ export function Logbook({
         alert(`Academy Training complete! +${result.reward.statPoints ?? 0} stat points, +${result.reward.ryo} ryo, +${result.reward.stamina} stamina${shards ? `, +${shards} Fate Shards` : ""}. Keep following your Logbook path toward Genin.`);
     }
 
-    function renderRequirement(requirement: ObjectiveRequirement) {
+    function renderRequirement(requirement: ObjectiveRequirement, readOnly = false) {
         const complete = requirement.progress >= requirement.target;
         const progressText = requirement.target === 1
             ? complete ? "Complete" : "Incomplete"
@@ -406,8 +406,8 @@ export function Logbook({
                 <h4><span>{complete ? "Done" : "Open"}</span>{requirement.label}</h4>
                 <p>{progressText}{requirement.detail ? ` | ${requirement.detail}` : ""}</p>
                 <div className="mission-progress" aria-label={`${requirement.label} progress ${progressText}`}><span style={{ width: `${Math.min(100, (requirement.progress / requirement.target) * 100)}%` }}></span></div>
-                {requirement.aiId && !complete && <button onClick={() => startExamFight(requirement.aiId as string)}>Fight {requirement.label.replace("Defeat ", "")}</button>}
-                {requirement.goScreen && !complete && <button onClick={() => setScreen(requirement.goScreen as Screen)}>{requirement.goLabel ?? "Go"}</button>}
+                {!readOnly && requirement.aiId && !complete && <button onClick={() => startExamFight(requirement.aiId as string)}>Fight {requirement.label.replace("Defeat ", "")}</button>}
+                {!readOnly && requirement.goScreen && !complete && <button onClick={() => setScreen(requirement.goScreen as Screen)}>{requirement.goLabel ?? "Go"}</button>}
             </div>
         );
     }
@@ -418,16 +418,19 @@ export function Logbook({
         const prestige = exam.progressionImpact === "prestige";
         const isBlocking = !prestige && !passed && character.level >= exam.unlockLevel;
         const upcoming = character.level < exam.unlockLevel;
+        const milestone = CAREER_MILESTONES.find((entry) => entry.examKey === exam.examKey);
         return (
             <section className="summary-box mission-board-section" key={exam.id} id={`logbook-${exam.id}`} tabIndex={-1}>
                 <h3>{exam.title} {prestige ? <small className="activity-spine-returner">Optional Prestige</small> : null} {passed ? "✓" : ""}</h3>
-                {exam.summary && <p className="hint">{exam.summary}</p>}
-                {prestige
-                    ? <p className="hint">{passed ? "Distinction earned. " : "Recognition of your service. "}This distinction does not block leveling, stats, jutsu, or content.</p>
-                    : <p className="hint">Progression hold: level {exam.unlockLevel}. Status: <strong>{passed ? "Passed" : upcoming ? "Upcoming — prepare now" : complete ? "Ready to pass" : "In progress"}</strong></p>}
+                {!passed && exam.summary && <p className="hint">{exam.summary}</p>}
+                {passed
+                    ? <p className="hint"><strong>{prestige ? "Distinction earned" : "Passed"}</strong>{milestone ? ` · ${milestone.name}` : ""}</p>
+                    : prestige
+                    ? <p className="hint">Recognition of your service. This distinction does not block leveling, stats, jutsu, or content.</p>
+                    : <p className="hint">Progression hold: level {exam.unlockLevel}. Status: <strong>{upcoming ? "Upcoming — prepare now" : complete ? "Ready to pass" : "In progress"}</strong></p>}
                 {isBlocking && !complete && <p style={{ color: "var(--red-400)", fontWeight: "bold" }}>You cannot level past {exam.unlockLevel} until you pass this exam.</p>}
-                {passed ? <details className="logbook-completed-requirements"><summary>View completed requirements</summary><div className="location-grid">{exam.requirements.map(renderRequirement)}</div></details>
-                    : <div className="location-grid">{exam.requirements.map(renderRequirement)}</div>}
+                {passed ? <details className="logbook-completed-requirements"><summary>Review exam requirements</summary><p className="hint">Current progress is shown below. This milestone is already earned; you do not need to repeat these requirements.</p><div className="location-grid">{exam.requirements.map((requirement) => renderRequirement(requirement, true))}</div></details>
+                    : <div className="location-grid">{exam.requirements.map((requirement) => renderRequirement(requirement))}</div>}
                 {!passed && <div className="menu">
                     <button disabled={upcoming || !complete} onClick={() => {
                         void passRankExamServer(character.name, exam.examKey).then((next) => {
@@ -473,7 +476,7 @@ export function Logbook({
                     <h3>Academy Training</h3>
                     <section className="academy-logbook-panel mission-board-section" id={`logbook-${academyChecklist.id}`} tabIndex={-1}>
                         <p className="hint">Complete these goals to learn the core loop, then follow the Path to Genin chapters.</p>
-                        <div className="logbook-requirement-grid">{academyChecklist.requirements.map(renderRequirement)}</div>
+                        <div className="logbook-requirement-grid">{academyChecklist.requirements.map((requirement) => renderRequirement(requirement))}</div>
                         {academyComplete && (
                             <div className="menu">
                                 <button className="start-primary-btn academy-reward-btn" disabled={claimCooldownMs > 0} onClick={claimAcademyReward}>{claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Academy reward"}</button>
@@ -499,7 +502,7 @@ export function Logbook({
                                         </div>
                                         <span>{complete ? "Complete" : active ? "Current" : `Lvl ${chapter.unlockLevel}+`}</span>
                                     </div>
-                                    <div className="logbook-requirement-grid">{chapter.requirements.map(renderRequirement)}</div>
+                                    <div className="logbook-requirement-grid">{chapter.requirements.map((requirement) => renderRequirement(requirement))}</div>
                                 </div>
                             );
                         })}

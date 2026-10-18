@@ -2920,6 +2920,131 @@
         "originalNeckAndHeadCurvesRetargeted": true,
         "coverageActuallyRechecked": true
       }
+    },
+    "legendary-13": {
+      "camera": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.1529642422249296,
+          0.5274871043441836,
+          -0.078487854083237,
+          0.33722833229500415,
+          0.5994027617401327,
+          1.1199619307468613
+        ],
+        "cameraPadding": 1.15
+      },
+      "status": "landmark-coverage-reviewed",
+      "sourceSha256": "7d18a5a650b3c11d84e2c57c69f21bf9e03295e189b2f5b33c257725d83d43c9",
+      "coverageEvidence": ".tmp/pet-independent-face-recheck/legendary-13-landmark-coverage.png",
+      "landmarks": {
+        "upperFace": {
+          "center": [
+            0.08703575777507037,
+            0.15722833229500416,
+            0.8794027617401328
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            154,
+            198
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "muzzle": {
+          "center": [
+            0.2051852923278043,
+            0.07672357824633609,
+            0.9999619307468615
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            179,
+            214
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "lowerFace": {
+          "center": [
+            0.15973087287965734,
+            0.011512145916762993,
+            0.9684253133528978
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            179,
+            224
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "jawChin": {
+          "center": [
+            0.2874871043441835,
+            0.01614263500063385,
+            0.8810871039957492
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            118,
+            219
+          ],
+          "pickedView": "head-side",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        }
+      },
+      "geometrySha256": "9d98fc010f1efcce40154538f37e69de0febaec6e95aec3e1ef79bf5aa22918c",
+      "geometryToVisibleBind": [
+        0.9999999732122578,
+        0,
+        0,
+        0,
+        0,
+        0.9999997860952998,
+        -3.937513914920032e-8,
+        0,
+        0,
+        -1.2794106413194228e-8,
+        1.000000022254283,
+        0,
+        7.485872335897311e-7,
+        4.668514891337239e-8,
+        -1.0560651478308536e-8,
+        1
+      ],
+      "headCountVisuallyVerified": 1,
+      "heads": [
+        {
+          "id": "primary",
+          "landmarks": [
+            "upperFace",
+            "muzzle",
+            "lowerFace",
+            "jawChin"
+          ]
+        }
+      ],
+      "coverageReviewedAt": "2026-10-17T09:42:19.831Z",
+      "coverageReview": "Fresh six-view survey, native front/side frames and four-patch overlay inspected. Armored Polar Bear has one head. Upper eye/cheek, white muzzle, lower chin and exposed side jaw are covered above the armor boundary; minimum battle patch 32 vertices. Armor, limbs and all animation/technique coverage remain pending.",
+      "rigExtensionReview": {
+        "previousGeometrySha256": "0c17f9aef6ffe2e787572255db0438ed7ba0fa527df917fa6150b1d1b2a0044f",
+        "candidateSourceSha256": "4a046fa32a76d40df774211d9523c9719c9e6128ab8178afc1c4b3d686d92ec6",
+        "conservationEvidence": "docs/screenshots/pet-independent-legendary-010-014-progress-2026-10-17/legendary-13-anatomical-candidate-conservation.json",
+        "originalBoneFramesAndInverseBindsPreserved": true,
+        "sculptUvsTexturesPreserved": true,
+        "frozenLandmarksAndCoordinateFrameUnchanged": true,
+        "appendedAnatomicalLimbJoints": 12,
+        "coverageActuallyRechecked": true
+      }
     }
   }
 }

@@ -3,8 +3,9 @@ import { PET_CATALOG } from './_catalog.js';
 import { BRED_APEX_TRAIT_CHANCE_PERCENT } from '../../shared/shrines.js';
 import { PET_BREEDING_RULES_VERSION, resolvePetTemplateId, rollBredOwnedPetTrait, type SecureInt } from './_owned-pet.js';
 import type { PetBreedingSession } from './_breeding-requirements.js';
+import { PET_EGG_CHANCE_PERCENT, PET_EGG_GAMEPLAY_MS } from '../../shared/pet-incubation.js';
 
-export const PET_BREEDING_DURATION_MS = 24 * 60 * 60 * 1000;
+export const PET_BREEDING_DURATION_MS = PET_EGG_GAMEPLAY_MS;
 export const PET_CHROMATIC_DENOMINATOR = 2_000;
 export const PET_CHROMATIC_VARIANT_ID = 'chromatic-v1' as const;
 
@@ -24,6 +25,8 @@ export type SealedPetBreedingResult = {
     resultTemplateId: string;
     outcome: BreedingOutcome;
     chromatic: boolean;
+    /** Missing on an already-sealed legacy pairing, which keeps its egg. */
+    eggProduced?: boolean;
     paletteVariantId?: typeof PET_CHROMATIC_VARIANT_ID;
     /** Optional only for recovery of pre-apex sealed eggs. New sessions always seal it. */
     trait?: string;
@@ -105,6 +108,11 @@ export function rollChromatic(chromaticRoll: number): boolean {
     return chromaticRoll === 0;
 }
 
+export function rollBreedingEgg(roll: number): boolean {
+    if (!Number.isInteger(roll) || roll < 0 || roll >= 100) throw new Error('invalid-egg-roll');
+    return roll < PET_EGG_CHANCE_PERCENT;
+}
+
 export function deterministicBreedingSessionId(playerName: string, requestId: string): string {
     return `breed-${createHash('sha256').update(`pet-breeding-session-v1:${playerName.toLowerCase()}:${requestId}`).digest('hex').slice(0, 32)}`;
 }
@@ -129,6 +137,7 @@ export function buildSealedBreedingResult(args: {
     const selection = selectOffspringTemplate(args.parent1, args.parent2, speciesRoll, secureInt);
     const chromatic = rollChromatic(secureInt(0, PET_CHROMATIC_DENOMINATOR));
     const trait = rollBredOwnedPetTrait(PET_CATALOG[selection.templateId]?.rarity, secureInt);
+    const eggProduced = rollBreedingEgg(secureInt(0, 100));
     const sessionId = deterministicBreedingSessionId(args.playerName, args.requestId);
     return {
         sessionId,
@@ -136,6 +145,7 @@ export function buildSealedBreedingResult(args: {
         resultTemplateId: selection.templateId,
         outcome: selection.outcome,
         chromatic,
+        eggProduced,
         ...(chromatic ? { paletteVariantId: PET_CHROMATIC_VARIANT_ID } : {}),
         trait,
         parentIds: [String(args.parent1.id), String(args.parent2.id)],
@@ -160,8 +170,8 @@ export function breedingOddsForParents(parent1: ParentPet, parent2: ParentPet): 
     return { parent1: 45 + fallback / 2, parent2: 45 + fallback / 2, alternate, randomNonStandard: 1, chromatic: 0.05, apexTrait: BRED_APEX_TRAIT_CHANCE_PERCENT };
 }
 
-export function publicPetBreedingSession(session: PetBreedingSession | null | undefined): Omit<PetBreedingSession, 'startRequestId'> | null {
+export function publicPetBreedingSession(session: PetBreedingSession | null | undefined): Omit<PetBreedingSession, 'startRequestId' | 'incubationActivityId'> | null {
     if (!session) return null;
-    const { startRequestId: _privateRequestId, ...publicSession } = session;
+    const { startRequestId: _privateRequestId, incubationActivityId: _privateActivityId, ...publicSession } = session;
     return publicSession;
 }

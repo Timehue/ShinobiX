@@ -1,4 +1,5 @@
 import { pveSpecialistDamagePercent } from '../../shared/relics.js';
+import { HUNT_AI_POLICY, pickHuntAiAction } from './_hunt-ai.js';
 import { primeTowerSignature, resolveTowerSignature, recordTowerKnockouts, cancelInvalidTowerSignature } from './_combat-tactics.js';
 import { TOWER_DISRUPT_AP, towerSignaturePattern } from '../../shared/tower-progression.js';
 /*
@@ -3350,6 +3351,13 @@ function towerEscapeStep(session: TowerSession, actor: TowerActor): number | und
 }
 
 export function pickAiAction(session: TowerSession, actor: TowerActor, rng: () => number): TowerAction {
+    if (session.towerId === 'hunt' && actor.side === 'enemy' && actor.character.huntAiPolicy === HUNT_AI_POLICY) {
+        return pickHuntAiAction(session, actor, {
+            apply: (copy, action) => applyAction(copy, copy.encounterFloor!, action, () => .5),
+            step: (copy, self, target) => nextStepToward(copy, self.pos, target.pos, self.id),
+            ready: (copy, self, id) => { const jutsu = findJutsu(self, id); return !!jutsu && aiJutsuReady(copy, self, jutsu); },
+        });
+    }
     if (session.towerTactics?.telegraph?.kind === 'charge' && actor.id === session.phaseState.bossId) return { actorId: actor.id, type: 'wait' };
     const escape = towerEscapeStep(session, actor);
     if (escape !== undefined) return { actorId: actor.id, type: 'move', tile: escape };
@@ -3625,7 +3633,8 @@ function runCompanionTurn(session: TowerSession, floor: TowerFloor, actor: Tower
         }
         const moves = (Array.isArray(c.companionMoves) ? c.companionMoves : []) as CompanionMove[];
         const hpFrac = actor.maxHp > 0 ? actor.hp / actor.maxHp : 1;
-        const move = pickCompanionMove(moves, (actor.cooldowns ?? {}) as Record<string, number>, hpFrac);
+        const move = pickCompanionMove(moves, (actor.cooldowns ?? {}) as Record<string, number>, hpFrac,
+            actor.statuses.some(status => status.kind === 'negative'));
         const selfCast = !!move && companionMoveDamage(1, move) === 0;
         // Out of reach for anything offensive → spend a step closing the distance.
         if (!selfCast && hexDistance(actor.pos, target.pos, session.map.width) > COMPANION_RANGE) {
@@ -3657,6 +3666,11 @@ function companionCast(
 
     // Pure-support kinds never damage; everything else lands its scaled hit first.
     switch (kind) {
+        case 'cleanse': {
+            actor.statuses = actor.statuses.filter(status => status.kind !== 'negative');
+            session.log.push(`${actor.name}${label} and clears harmful conditions.`);
+            return;
+        }
         case 'heal': {
             const heal = Math.max(1, Math.floor(actor.maxHp * 0.25 + (move?.power ?? 0) * 0.5));
             actor.hp = Math.min(actor.maxHp, actor.hp + heal);

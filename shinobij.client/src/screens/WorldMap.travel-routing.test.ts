@@ -11,7 +11,7 @@ const source = readFileSync(new URL('./WorldMap.tsx', import.meta.url), 'utf8');
 const ast = ts.createSourceFile('WorldMap.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 const names = new Set(['beginSectorTravel', 'travelToSector', 'triggerTravelPoint', 'runWhenSectorConfirmed',
     'advanceHuntTrail', 'presentExploreAmbush', 'focusDiscoverySector', 'triggerCreatorEvent', 'startPvpRaid', 'focusSectorCombat',
-    'launchAiGuardRaid', 'launchWorldMapFight', 'startExploreAmbushFight', 'launchCreatorEventFight', 'huntSector', 'resolveHuntChoice']);
+    'launchAiGuardRaid', 'launchWorldMapFight', 'startExploreAmbushFight', 'launchCreatorEventFight', 'huntSector', 'resolveHuntChoice', 'launchHuntBeastFight']);
 const functions: string[] = [];
 let navigation = '';
 function collect(node: import('typescript').Node) {
@@ -49,6 +49,7 @@ function harness(options: { sector?: number; tile?: number; ok?: boolean; travel
     const state = createContext({
         currentSector: options.sector ?? 12, selectedSector: options.sector ?? 12,
         combatActive: false, isCombatActive: () => state.combatActive,
+        huntEncounterRef: { current: null as unknown },
         wandererDialog: null as unknown, wandererChoiceRef: { current: null as unknown },
         requiresWandererChoice: (dialog: { msg?: unknown; w?: { verb?: string } } | null) => !!dialog && !dialog.msg && dialog.w?.verb === 'attack',
         sectorPlayerPos: options.tile ?? 43, isTraveling: false, travelingUntil: 0,
@@ -114,7 +115,7 @@ function harness(options: { sector?: number; tile?: number; ok?: boolean; travel
         postWorldHunt: async () => options.huntReply ?? { ok: true, state: { sector: options.sector ?? 12, claimable: true } },
         onVersionedCharacter: () => true, onServerVersion: () => true,
         setAcceptedMissionIds() {}, adoptHuntProgressMirror() {}, setAuthoritativeHuntStates() {},
-        setHuntEncounter(encounter: unknown) { state.huntEncounter = encounter; },
+        setHuntEncounter(encounter: unknown) { state.huntEncounter = encounter; state.huntEncounterRef.current = encounter; },
     });
     runInContext(code, state);
     return { state, requests, actions, fights, raidRequests,
@@ -254,6 +255,33 @@ test('current hunt state opens its encounter and a recorded choice arrives on th
     assert.equal(choice.state.currentSector, 57);
     assert.equal(choice.state.selectedSector, 57);
     assert.equal(choice.state.sectorPlayerPos, 17);
+});
+
+test('an ambient battle or hostile choice winning a delayed hunt read keeps its encounter', async () => {
+    for (const combat of [true, false]) {
+        const reply = deferred<unknown>();
+        const h = harness({ huntReply: reply.promise });
+        const pending = h.call('huntSector', 12);
+        if (combat) h.state.combatActive = true;
+        else h.state.wandererChoiceRef.current = { w: { verb: 'attack' } };
+        const hostile = h.state.wandererChoiceRef.current;
+        reply.resolve({ ok: true, state: { sector: 12, progress: 2, requiredTracks: 3 } });
+        await pending;
+        assert.ok(h.state.huntEncounter == null);
+        assert.equal(h.state.wandererChoiceRef.current, hostile);
+        assert.deepEqual(h.fights, []);
+    }
+});
+
+test('a displayed hunt blocks ambient presentation and a stale engage cannot replace combat', async () => {
+    const h = harness({ huntReply: Promise.resolve({ ok: true, state: { sector: 12, progress: 0, requiredTracks: 3, sign: { id: 'sign' } } }) });
+    await h.call('huntSector', 12);
+    const encounter = h.state.huntEncounter;
+    assert.equal(h.call('presentExploreAmbush', 12, 'owed-ambush'), false);
+    h.state.combatActive = true;
+    h.call('launchHuntBeastFight', encounter);
+    assert.equal(h.state.huntEncounter, encounter);
+    assert.deepEqual(h.fights, []);
 });
 
 test('a failed trip leaves the player on the original board and never runs its action', async () => {

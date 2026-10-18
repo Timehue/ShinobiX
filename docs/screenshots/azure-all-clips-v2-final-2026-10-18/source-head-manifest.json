@@ -1,0 +1,70 @@
+{
+  "schema": 1,
+  "errors": [],
+  "pets": [
+    {
+      "id": "mythic-6",
+      "name": "Azure Ryujin",
+      "url": "/pet-models/roster/mythic-6.glb?v=20261018-azure-all-authored-limb-performances-v2-20261013-studio-v1-20261013-articulation-v1-20261014-contact-performance-v1",
+      "sha256": "29fe007d1943642b97042072c25a4d7a0fcd5b2be1f28ad0e7dd71971bb17692",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "head-front",
+        "head-side"
+      ],
+      "materialTreatment": {
+        "mode": "production-diffuse",
+        "materials": 1,
+        "metalnessMax": 0.05,
+        "roughnessRange": [
+          0.58,
+          0.82
+        ]
+      },
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.4896711720609205,
+          0.22417313227414853,
+          0.15830268844617126,
+          0.8764984561196292,
+          0.3440457934161838,
+          1.1090869060534025
+        ],
+        "cameraPadding": 1.15
+      },
+      "sheets": [
+        "mythic-6-head-front.webp",
+        "mythic-6-head-side.webp"
+      ],
+      "review": "pending",
+      "anatomySha256": "bb03ed59caa970e6bd2b28b429c04acec42f166dfdff9fb3b22dbf2d16f9a8e0"
+    }
+  ],
+  "artisticCertification": false
+}

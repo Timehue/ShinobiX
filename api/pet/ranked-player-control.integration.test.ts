@@ -76,6 +76,11 @@ test('premature reports cannot rate a match; terminal concession rates both save
     const recovered = (await call(queue, b, { action: 'poll' })).body; assert.equal(recovered.state, 'completed');
     assert.equal((await call(queue, b, { action: 'acknowledge', matchToken })).body.state, 'idle');
     assert.equal(await kv.get(tacticsPlayerKey(b)), null);
+    assert.equal((await call(queue, a, { action: 'acknowledge', matchToken })).body.state, 'idle');
+    assert.equal((await call(queue, a, { action: 'join', builds: builds() })).body.state, 'queued');
+    const nextMatch = await call(queue, b, { action: 'join', builds: builds() });
+    assert.equal(nextMatch.body.state, 'active', 'both the winner and loser can queue another pet battle');
+    assert.notEqual(nextMatch.body.matchToken, matchToken);
 });
 
 test('active ranked reservations recover rather than opening another room, and foreign commands cannot touch them', async () => {

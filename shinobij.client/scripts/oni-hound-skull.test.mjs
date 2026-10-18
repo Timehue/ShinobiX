@@ -1,3 +1,4 @@
+import {retargetFittedPetPerformances} from './lib/pet-retarget-fitted-performances.mjs';
 import {repairOniAnatomicalLimbs} from './lib/pet-oni-anatomical-limbs.mjs';
 import {repairOniCoordinatedActions} from './lib/pet-oni-anatomical-actions.mjs';
 import test from 'node:test';
@@ -125,7 +126,7 @@ test('complete-face repair replays exactly from its pinned pre-repair fixture', 
         assert.deepEqual(faceBytes,await readFile(faceOnlyFixture));
         const final=await repairOniCoordinatedAttack(faceBytes);
         assert.deepEqual(final.bytes,await readFile(new URL('./fixtures/pet-oni-anatomical-limbs/mythic-4.glb',import.meta.url)));
-        const gaits=await repairOniAnatomicalLimbs(final.bytes),anatomical=await repairOniCoordinatedActions(gaits.bytes);
+        const gaits=await repairOniAnatomicalLimbs(final.bytes),actions=await repairOniCoordinatedActions(gaits.bytes),anatomical=await retargetFittedPetPerformances(actions.bytes,{expectedSha256:'d6f30574c4e1f0d0b6f004fc08f38db254bc40cb3fe6f775593d97472aa6804c'});
         assert.deepEqual(anatomical.bytes,await readFile(new URL('../public/pet-models/roster/mythic-4.glb',import.meta.url)));
     } finally {
         assert.equal(dirname(resolve(directory)),resolve(tmpdir()));
