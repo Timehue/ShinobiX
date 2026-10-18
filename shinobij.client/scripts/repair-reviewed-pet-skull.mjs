@@ -25,6 +25,8 @@ export async function repairReviewedPetSkull(id,source,destination,config) {
     const envelope=petSkullEnvelopeMatrix(model,row.model.yawOffset),mesh=model.meshes[0],head=mesh.skeleton.bones.findIndex(b=>b.name===(config.anchorBone??'head'));
     if(head<0)throw Error(`${id}: reviewed anchor bone missing`);
     const {position,skinIndex,skinWeight}=mesh.geometry.attributes,point=new THREE.Vector3();
+    const frozenSurface=new Set(config.frozenHeadSurface?.indices??[]);
+    if(frozenSurface.size&&(!config.supersedesSourceSha256||config.frozenHeadSurface.sourceSha256!==sourceSha256||[...frozenSurface].some(v=>!Number.isInteger(v)||v<0||v>=position.count)))throw Error('A frozen head surface requires valid original vertex indices and the exact reviewed source');
     const precise=config.weightPrecision==='float32';
     const joints=new Uint8Array(position.count*4),weights=precise?new Float32Array(position.count*4):new Uint8Array(position.count*4);
     let changed=0,rigid=0;
@@ -36,7 +38,7 @@ export async function repairReviewedPetSkull(id,source,destination,config) {
     for(let v=0;v<position.count;v++) {
         // A later accessory repair must not reapply and strengthen the earlier
         // face/neck blend. Keep those already reviewed bindings byte-for-byte.
-        point.fromBufferAttribute(position,v).applyMatrix4(envelope);const share=petSkullRegionShare(point,config.repairRegion??config);
+        point.fromBufferAttribute(position,v).applyMatrix4(envelope);const share=frozenSurface.has(v)?1:petSkullRegionShare(point,config.repairRegion??config);
         const supportShares=supports.map(binding=>petSkullRegionShare(point,binding.region));
         if(!share&&!supportShares.some(value=>value>0)) {for(let s=0;s<4;s++){joints[v*4+s]=skinIndex.getComponent(v,s);weights[v*4+s]=precise?skinWeight.getComponent(v,s):Math.round(skinWeight.getComponent(v,s)*255);}continue;}
         const influences=new Map();for(let s=0;s<4;s++){const j=skinIndex.getComponent(v,s);influences.set(j,(influences.get(j)??0)+skinWeight.getComponent(v,s)*(supports.length?1:1-share));}

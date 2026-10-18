@@ -1,0 +1,73 @@
+{
+  "baseMain": "5301b4e1d194f96ac89070a10a3dabd9897e7fd5",
+  "reviewedSourceCommit": "12921fc57",
+  "status": "validated-ready-for-main",
+  "wholeRosterComplete": false,
+  "petRows": [
+    {
+      "id": "mythic-11",
+      "sourceSha256": "1330ad1d1678bd1e9c1148d70def3fc33cb1e84af64d81e52d7f444daa158da6",
+      "battleSha256": "ae7b6e0cf631572fc53ee31715fbcafaac527fc2b461d04882fa96b6e70730d2",
+      "atlasSha256": "f7553dd877636b3aa3c7b0cceb0ebb724a94753f97319d203a1901af57158a64",
+      "visualEvidenceFiles": 74,
+      "equippedTechniqueFrames": 216,
+      "companionIdleFrames": 24,
+      "liveVerified": false
+    },
+    {
+      "id": "mythic-12",
+      "sourceSha256": "9d39b74c479917baca5fefc7a6244794c5d597b2e2f515fe98323a8455ba3428",
+      "battleSha256": "5242e784a12882cd8b4fbe0c68fc4ba1e9dfc7685138fac45919af8fd72e8dda",
+      "atlasSha256": "e14baa2334948e6997a71185e0311341d3aa21eda1d5e7b256b6192bad015222",
+      "visualEvidenceFiles": 74,
+      "equippedTechniqueFrames": 216,
+      "companionIdleFrames": 24,
+      "liveVerified": false
+    }
+  ],
+  "reports": [
+    "docs/audits/pet-moonwell-leviathan-complete-face-review-2026-10-18.json",
+    "docs/audits/pet-skyglass-kirin-anatomical-review-2026-10-18.json"
+  ],
+  "runtimeEquivalence": {
+    "result": "pass",
+    "rendererFilesIdentical": true,
+    "primaryComponentSha256": "193c79e909badc0efab2f09ecb45882406ea66463fc5801966dd395344fcf9a9",
+    "releaseComponentSha256": "d2dafafee3cdb047a8562fb227689be8b92c9585b8c103ba8407bb3e55ea3316",
+    "selectedIds": [
+      "mythic-11",
+      "mythic-12"
+    ],
+    "scope": "Component differs only by removal of two camera overrides for unselected legendary birds. Both selected execution paths match the inspected primary component."
+  },
+  "note": "Two completed local mythic reviews only. Other roster initial reviews, older technique follow-ups and remaining quadruped sole checks continue. Primary-workspace counts in historical reports do not approve unshipped models.",
+  "localValidation": {
+    "validatedAt": "2026-10-18T10:55:36.753Z",
+    "focusedTests": 47,
+    "anatomyAndAnimationBankTests": 18,
+    "assetReferenceAndRuntimeMetadataTests": 29,
+    "productionBuild": "passed",
+    "all161RecordedAssetAndEvidenceReceipts": "passed-integrity-only-not-new-whole-roster-visual-approval",
+    "bothSourceBattleAndAtlasReproduction": "exact-reviewed-bytes",
+    "changedProductionAssetFiles": 6,
+    "nonselectedProductionAssetsChanged": 0,
+    "validationEvidence": [
+      {
+        "path": "docs/screenshots/pet-moonwell-skyglass-release-2026-10-18/moonwell-skyglass-release-regression.log",
+        "sha256": "aa483798292d5318008b104ddcaf0eb4170dc690026aa34e223030ad7c145aa6"
+      },
+      {
+        "path": "docs/screenshots/pet-moonwell-skyglass-release-2026-10-18/moonwell-skyglass-release-assets.log",
+        "sha256": "c7f9fcb9aa1a33fce793fba495c3c3040c154f5f9d2fbb39045aafb72b3b1d49"
+      },
+      {
+        "path": "docs/screenshots/pet-moonwell-skyglass-release-2026-10-18/moonwell-skyglass-release-receipts.log",
+        "sha256": "838f4662ff9f40a64904d1c4cba0d6ed5fdcf54bf9f32fe07c0a92f229a0186c"
+      },
+      {
+        "path": "docs/screenshots/pet-moonwell-skyglass-release-2026-10-18/moonwell-skyglass-release-build.log",
+        "sha256": "216a12d60dcf3b0fc986ba34600599798cbec0167fae134037b6c1cb9e1f8185"
+      }
+    ]
+  }
+}

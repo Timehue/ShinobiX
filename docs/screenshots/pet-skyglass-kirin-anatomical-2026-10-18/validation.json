@@ -1,0 +1,22 @@
+{
+  "productionBuild": "passed",
+  "regressionTests": 14,
+  "anatomicalRegressionTests": 11,
+  "animationBankTests": 3,
+  "sourceFullGeometryPoses": 485,
+  "battleFullGeometryPoses": 485,
+  "sourceAndBattleDeformationWarnings": 0,
+  "frozenFaceBlendPosesPerAsset": 468,
+  "frozenFaceClipPosesPerAsset": 818,
+  "sourceWholeHeadVertices": 2802,
+  "battleWholeHeadVertices": 2220,
+  "anatomicalCommand": "node --import tsx --test scripts/pet-skyglass-kirin-anatomical-limbs.test.mjs",
+  "anatomicalDurationMs": 9380.9754,
+  "anatomicalPass": 11,
+  "anatomicalFail": 0,
+  "animationBankCommand": "node --import tsx --test src/lib/pet-proper-animation-assets.test.ts",
+  "animationBankDurationMs": 1679.0639,
+  "animationBankPass": 3,
+  "animationBankFail": 0,
+  "buildExitCode": 0
+}
