@@ -442,6 +442,309 @@
         }
       ],
       "continuousInfluencePacking": true
+    },
+    "mythic-6": {
+      "y": [
+        0.08,
+        0.25
+      ],
+      "z": [
+        0.3,
+        0.45
+      ],
+      "cameraPadding": 1.4,
+      "status": "repair",
+      "finding": "All twelve original raw face and body slices inspected. Independent lower-jaw and side-jaw patches drift under head tilt; brow, muzzle and horn already remain rigid. Complete-face binding is a separate stage; actual techniques remain under review and visible anatomical leg chains with coordinated standing actions are required. Preserve the tall flexible neck below the jaw, whiskers, coiled tail, body and original authored curves. Candidate not yet visually inspected.",
+      "revision": "20261017-azure-ryujin-independent-complete-face-v1",
+      "supersedesSourceSha256": "b7919b82a0ce7a1260c9e0cab2eb27615acfe4aa4deac9e59f21912f4b6fe253",
+      "repairRegion": {
+        "y": [
+          0.1,
+          0.18
+        ],
+        "z": [
+          0.6,
+          0.7
+        ],
+        "x": [
+          0.36,
+          0.44
+        ]
+      },
+      "union": [
+        {
+          "y": [
+            0.1,
+            0.18
+          ],
+          "z": [
+            0.6,
+            0.7
+          ],
+          "x": [
+            0.36,
+            0.44
+          ]
+        }
+      ],
+      "continuousInfluencePacking": true
+    },
+    "mythic-7": {
+      "y": [
+        0.12,
+        0.28
+      ],
+      "z": [
+        0.1,
+        0.25
+      ],
+      "cameraPadding": 1.4,
+      "status": "repair",
+      "finding": "All twelve original raw source face/body slices and 216 actual equipped technique frames inspected. Lower duck beak and side jaw shear in head turns, recoil and defeat. Repair the complete head while preserving shell, shoulders, wings, feet and every authored animation curve. Candidate not yet visually inspected.",
+      "x": [
+        0.4,
+        0.55
+      ],
+      "revision": "20261018-turtle-duck-independent-complete-face-v1",
+      "supersedesSourceSha256": "4fffae57743f0cef6df2e5d9268dc16afcd11c18c59224b4655c456817d27c06",
+      "repairRegion": {
+        "y": [
+          0.1,
+          0.18
+        ],
+        "z": [
+          0.1,
+          0.25
+        ],
+        "x": [
+          0.4,
+          0.55
+        ]
+      },
+      "union": [
+        {
+          "y": [
+            0.1,
+            0.18
+          ],
+          "z": [
+            0.1,
+            0.25
+          ],
+          "x": [
+            0.4,
+            0.55
+          ]
+        }
+      ],
+      "continuousInfluencePacking": true
+    },
+    "mythic-8": {
+      "y": [
+        0.18,
+        0.38
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "cameraPadding": 1.3,
+      "status": "repair",
+      "finding": "All twelve original raw source head/body slices and 216 actual equipped technique frames inspected. A small lower chin rim still drifts in recoil, head turns and defeat; upper face and side jaw are already rigid. Bind the complete chin while preserving the scarf, shoulders, hands, legs, tail and every authored animation curve. Candidate visual review pending.",
+      "revision": "20261018-stormgod-raijin-independent-complete-chin-v1",
+      "supersedesSourceSha256": "102c9cb332811bce864416b561da5ce8455c3671220cf65be022eca26d64db4c",
+      "repairRegion": {
+        "y": [
+          0.26,
+          0.33
+        ],
+        "z": [
+          0.2,
+          0.28
+        ],
+        "x": [
+          0.28,
+          0.38
+        ]
+      },
+      "union": [
+        {
+          "y": [
+            0.26,
+            0.33
+          ],
+          "z": [
+            0.2,
+            0.28
+          ],
+          "x": [
+            0.28,
+            0.38
+          ]
+        }
+      ],
+      "continuousInfluencePacking": true
+    },
+    "mythic-9": {
+      "y": [
+        0.05,
+        0.2
+      ],
+      "z": [
+        -0.05,
+        0.1
+      ],
+      "cameraPadding": 1.4,
+      "status": "repair",
+      "finding": "Original twelve raw source head/body slices and all 216 actual equipped technique frames inspected. Lower wooden face, long beard and side jaw shear during head turns, recoil and collapse. Extend the head binding over the complete beard, retaining the original canopy repair, shoulders, branches, hands, feet and all authored animation curves. Candidate visual review pending.",
+      "x": [
+        0.25,
+        0.38
+      ],
+      "union": [
+        {
+          "y": [
+            0.45,
+            0.6
+          ],
+          "z": [
+            -0.3,
+            -0.08
+          ]
+        },
+        {
+          "y": [
+            -0.25,
+            -0.11
+          ],
+          "z": [
+            0.04,
+            0.1
+          ],
+          "x": [
+            0.27,
+            0.37
+          ]
+        }
+      ],
+      "revision": "20261018-worldroot-colossus-independent-complete-beard-v1",
+      "supersedesSourceSha256": "378464c376e5968a77685ca7a6e596183a71a6187d0e35dd3fa72340a60f0244",
+      "repairRegion": {
+        "y": [
+          -0.25,
+          -0.11
+        ],
+        "z": [
+          0.04,
+          0.1
+        ],
+        "x": [
+          0.27,
+          0.37
+        ]
+      },
+      "continuousInfluencePacking": true
+    },
+    "mythic-10": {
+      "y": [
+        0.15,
+        0.28
+      ],
+      "z": [
+        0.35,
+        0.5
+      ],
+      "x": [
+        0.2,
+        0.35
+      ],
+      "cameraPadding": 1.4,
+      "status": "repair",
+      "finding": "Original twelve source raw head/body slices and all 216 native equipped-technique frames inspected. Original head is anchored to neck rather than head; beak and crest fail all independently frozen head landmarks, while chest/neck feathers pinch and strike sinks feet and tail below the floor. Candidate V1 restores the head anchor only; neck and support validation still required.",
+      "union": [
+        {
+          "y": [
+            0.6,
+            0.75
+          ],
+          "z": [
+            0.25,
+            0.4
+          ],
+          "x": [
+            0.2,
+            0.35
+          ]
+        }
+      ],
+      "weightPrecision": "float32",
+      "anchorBone": "head",
+      "revision": "20261018-ash-crown-phoenix-complete-face-v3",
+      "supersedesSourceSha256": "7be7cc15a40a0233a9d0edaeda067d0f0866e233e8221ab412a6025868f7a58e",
+      "repairRegion": {
+        "y": [
+          0.15,
+          0.28
+        ],
+        "z": [
+          0.35,
+          0.5
+        ],
+        "x": [
+          0.2,
+          0.35
+        ],
+        "union": [
+          {
+            "y": [
+              0.6,
+              0.75
+            ],
+            "z": [
+              0.25,
+              0.4
+            ],
+            "x": [
+              0.2,
+              0.35
+            ]
+          }
+        ]
+      },
+      "continuousInfluencePacking": false,
+      "neckTransition": {
+        "iterations": 32,
+        "edges": [
+          [
+            13784,
+            13782
+          ],
+          [
+            13880,
+            13879
+          ],
+          [
+            13867,
+            13869
+          ]
+        ],
+        "protectBelowY": 0.05,
+        "featherY": 0.1,
+        "region": {
+          "y": [
+            0.05,
+            0.15
+          ],
+          "z": [
+            0.35,
+            0.5
+          ],
+          "x": [
+            0.2,
+            0.35
+          ]
+        }
+      }
     }
   }
 }

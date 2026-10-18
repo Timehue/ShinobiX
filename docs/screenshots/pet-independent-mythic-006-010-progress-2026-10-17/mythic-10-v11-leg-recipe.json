@@ -1,0 +1,91 @@
+{
+  "revision": "20261018-ash-crown-phoenix-anatomical-legs-v1",
+  "sourceSha256": "8d51681e018a59bbfd9e8c29c694ccf6d3550e329fc91f13136880fcd0f7e83d",
+  "changedVertices": 12109,
+  "appendedJoints": 6,
+  "originalBoneFramesAndInversesPreserved": true,
+  "legs": [
+    {
+      "side": "L",
+      "sign": 1,
+      "joints": [
+        23,
+        24,
+        25
+      ],
+      "nodes": [
+        25,
+        26,
+        27
+      ]
+    },
+    {
+      "side": "R",
+      "sign": -1,
+      "joints": [
+        26,
+        27,
+        28
+      ],
+      "nodes": [
+        28,
+        29,
+        30
+      ]
+    }
+  ],
+  "clips": [
+    {
+      "name": "idle",
+      "kind": "supported-gait",
+      "keys": 9,
+      "maximumContactError": 1.2412670766236366e-16
+    },
+    {
+      "name": "walk",
+      "kind": "supported-gait",
+      "keys": 17,
+      "maximumContactError": 1.6125073081291992e-9
+    },
+    {
+      "name": "gallop",
+      "kind": "supported-gait",
+      "keys": 17,
+      "maximumContactError": 1.6653345369377348e-16
+    },
+    {
+      "name": "guard",
+      "kind": "supported-gait",
+      "keys": 5,
+      "maximumContactError": 1.1102230246251565e-16
+    },
+    {
+      "name": "rest",
+      "kind": "supported-gait",
+      "keys": 9,
+      "maximumContactError": 1.5700924586837752e-16
+    },
+    {
+      "name": "attack",
+      "kind": "planted-action",
+      "keys": 73,
+      "tracks": 9,
+      "maximumContactError": 2.482534153247273e-16
+    },
+    {
+      "name": "cast",
+      "kind": "planted-action",
+      "keys": 73,
+      "tracks": 9,
+      "maximumContactError": 2.220446049250313e-16
+    },
+    {
+      "name": "idle_hitreact1",
+      "kind": "planted-action",
+      "keys": 73,
+      "tracks": 9,
+      "maximumContactError": 2.482534153247273e-16
+    }
+  ],
+  "sha256": "fd4f4f9db5a9b048706a8a9d59ff72f3e55b42d164e903db9c6998c31cfc1762"
+}

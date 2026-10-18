@@ -2084,20 +2084,19 @@
     },
     "mythic-5": {
       "y": [
-        0.18,
-        0.38
+        -2,
+        -2
       ],
-      "z": [
-        -0.3,
-        -0.08
+      "bounds": [
+        -0.24090603208410044,
+        0.2719635290761488,
+        0.20726564447764176,
+        0.929253700746886,
+        0.3287493519708673,
+        1.0181145257431843
       ],
-      "x": [
-        0.35,
-        0.55
-      ],
-      "cameraPadding": 1.3,
-      "status": "no-repair",
-      "finding": "Suzaku face, eyes, beak and crest remain coherent; no source repair required."
+      "cameraPadding": 1.15,
+      "finding": "One bird head. Original front/side survey and overlay actually inspected. Brow, beak, lower beak, side beak and separate crest sampled independently; minimum battle patch 24 vertices. Wing roots, legs and tail reserved for motion inspection."
     },
     "mythic-6": {
       "y": [
@@ -2112,48 +2111,51 @@
     },
     "mythic-7": {
       "y": [
-        0.12,
-        0.28
+        -2,
+        -2
       ],
-      "z": [
-        0.1,
-        0.25
+      "bounds": [
+        -0.29071031354291094,
+        0.39873582300818267,
+        0.19838462327138287,
+        0.9360693355198566,
+        0.10679883200754436,
+        0.8106329855851893
       ],
-      "cameraPadding": 1.4,
-      "status": "repair",
-      "finding": "Duck lower face and beak deform in hit reaction and collapse; preserve shell and flippers.",
-      "x": [
-        0.4,
-        0.55
-      ]
+      "cameraPadding": 1.15,
+      "finding": "Separately fitted whole-face camera; independent of the repair envelope."
     },
     "mythic-8": {
       "y": [
-        0.18,
-        0.38
+        -2,
+        -2
       ],
-      "z": [
-        -0.3,
-        -0.08
+      "bounds": [
+        -0.349340250772572,
+        0.29584364528884044,
+        0.33000532084165735,
+        1.0224537402321094,
+        0.03191602185024034,
+        0.5483049342645909
       ],
-      "cameraPadding": 1.3,
-      "status": "repair",
-      "finding": "Raijin cheek, eyes and lower face shear in hit reaction and death; preserve scarf tails and hands."
+      "cameraPadding": 1.15,
+      "finding": "Separately fitted whole-face camera; independent of the repair envelope."
     },
     "mythic-9": {
       "y": [
-        0.2,
-        0.35
+        -2,
+        -2
       ],
-      "z": [
-        0.25,
-        0.3
+      "bounds": [
+        -0.23582525224578416,
+        0.43265441328497395,
+        -0.05692082011706467,
+        0.645569204587958,
+        -0.07486040873879454,
+        0.4700784801765341
       ],
-      "x": [
-        0.15,
-        0.25
-      ],
-      "cameraPadding": 1.8
+      "cameraPadding": 1.15,
+      "finding": "Separately fitted whole-face camera; independent of the repair envelope."
     },
     "mythic-10": {
       "y": [

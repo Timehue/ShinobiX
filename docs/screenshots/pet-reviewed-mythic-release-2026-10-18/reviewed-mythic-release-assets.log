@@ -1,0 +1,37 @@
+✔ every authored Warfront battle rig is shipped with its model manifest (56.9496ms)
+✔ every starter combat model exists on disk (4.2272ms)
+✔ every starter combat model is allowlisted in .dockerignore and .gitignore (1.1086ms)
+✔ the approved roster models are allowlisted and present (49.0055ms)
+✔ the Coliseum model aliases resolve to a model that exists (1.8013ms)
+✔ the Showdown four-pet camera models are allowlisted and present (2.0116ms)
+✔ all 160 emitted atlas revisions retain certified values and key order (52.6731ms)
+✔ packed atlas revisions keep ordinary object descriptors and independent mutation behavior (20.7396ms)
+✔ revision generator roundtrips the certified complete inventory and refuses unsupported keys or reassociated hashes (7.2756ms)
+✔ impostor metadata-only check exits before any asset bake, file mutation or directory traversal (18.7458ms)
+✔ all 160 LOD entries retain certified ordered URLs, suffixes and triangle counts (8.4847ms)
+✔ LOD metadata retains plain writable objects and independent nested entries (11.8936ms)
+✔ LOD generator roundtrips all certified entries without changing URLs or metadata (6.0186ms)
+✔ LOD metadata-only check exits without processing any model (3.1166ms)
+✔ LOD metadata-only generation exits without processing any model (2.5477ms)
+✔ both compact exports preserve every expanded readonly literal type (516.9833ms)
+✔ all approved roster models are colored, skinned, animated single-pet assets (241.4334ms)
+✔ every reviewed portrait belongs to its exact production identity and is an opaque delivery WebP (167.9067ms)
+✔ all five base starters use scenic portraits without changing their battle cutouts (1.0884ms)
+✔ owned and timestamped identities resolve the same portrait, including starter stages (1.7005ms)
+✔ dedicated custom cards and explicit palette variants retain priority over the built-in replacement (0.274ms)
+✔ unknown creator companions retain legacy artwork and never borrow another species portrait (0.2927ms)
+✔ the production references remain byte-identical, including model-baked 2.5D atlases (254.3708ms)
+✔ Warfront runtime models exist and stay within the audited GLB budget (10.2181ms)
+✔ every built-in and evolved starter pet has a local Warfront portrait fallback (44.3511ms)
+✔ the legacy base Pebble idle URL serves the replacement cutout (2.8464ms)
+✔ Warfront maps a revisioned authored source to its certified battle LOD (3.4667ms)
+✔ source A/B and unknown assets retain the authored model (0.2136ms)
+✔ compact runtime metadata retains every certified expanded LOD entry exactly (1.9791ms)
+ℹ tests 29
+ℹ suites 0
+ℹ pass 29
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1351.9306
