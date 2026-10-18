@@ -19,6 +19,7 @@ import { bindPvpSessionCreateIntent } from "./pvp-session-intent";
 import { isWildSector } from "./screen-guards";
 import { setSectorReopen } from "./sector-return";
 import {prepareClanWarReturn} from './clan-war-navigation';
+import { prepareArenaDistrictReturn } from './arena-navigation';
 
 export function preloadPvpChallengeModules<T>(
     saveData: boolean,
@@ -87,6 +88,20 @@ export function pvpResultReturn(context: PvpRecoveryContext | null, currentSecto
                 : returnTarget === "townHall" ? "Return to Town Hall"
                     : returnTarget === "arenaDistrict" ? (context?.spectatingFromScreen ? "Return to Spectator Board" : "Return to Ranked Arena") : "Return to Arena",
     };
+}
+
+/** The sealed ranked session repairs breadcrumbs written before return context existed. */
+export function confirmRankedPvpContext(context: PvpRecoveryContext | null): PvpRecoveryContext {
+    if (context?.spectatingFromScreen != null || context?.spectatingFromSector != null || context?.mode === 'ranked') return context;
+    return { mode: 'ranked' };
+}
+
+/** Restore the owning activity tab before the result view or shell navigates. */
+export function preparePvpResultReturn(target: Screen, context: PvpRecoveryContext | null, currentSector: number, account: string): void {
+    if (target === 'arenaDistrict' && context?.mode === 'ranked' && context.spectatingFromScreen == null && context.spectatingFromSector == null) {
+        prepareArenaDistrictReturn(account, 'ranked');
+    }
+    markPvpSectorReturn(target, context, currentSector);
 }
 
 /*

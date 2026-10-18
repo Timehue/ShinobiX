@@ -54,6 +54,14 @@ export function Ranked2v2Panel({ character, sharedImages, onVersionedCharacter }
         } catch { /* transient; the next tick retries */ }
     }, [me]);
 
+    const exitMatch = useCallback(() => {
+        setTowerPvpMatchId(null);
+        // Settlement already released the server match. Reopen the queue even
+        // if its first refresh fails, so the normal lobby poll can retry.
+        setState(current => ({ ...current, match: null, queue: { state: "idle" } }));
+        void refresh();
+    }, [refresh]);
+
     // Inlined rather than calling refresh(): the setState must be provably AFTER
     // an await, and the local `alive` latch drops a response that lands after a
     // partner change or unmount instead of writing stale duo state.
@@ -70,7 +78,7 @@ export function Ranked2v2Panel({ character, sharedImages, onVersionedCharacter }
 
     // An unpaired player must keep polling to discover an invitation from
     // another account. The live board polls through the fight screen instead.
-    const phase = state.match ? "match" : state.queue.state === "queued" ? "queued" : state.duo?.status ?? "idle";
+    const phase = state.match ? state.match.status === "ready" ? "readyCheck" : "match" : state.queue.state === "queued" ? "queued" : state.duo?.status ?? "idle";
     // A match can start without this tab acting once we are queued, or once we
     // are an accepted duo member (either member may queue the pair). Those
     // phases keep a raw interval so a match found while the tab is hidden still
@@ -119,6 +127,23 @@ export function Ranked2v2Panel({ character, sharedImages, onVersionedCharacter }
     const ready = Boolean(duo && duo.members.length === 2 && duo.members.every(member => member.accepted));
     const rating = character.ranked2v2Rating ?? 1000;
 
+    if (state.match?.status === "ready") {
+        const match = state.match;
+        const viewer = match.roster.find(member => member.slug.toLowerCase() === me.toLowerCase());
+        return <section className="summary-box" data-testid="ranked-2v2-ready">
+            <h3>Ranked 2v2 ready check</h3>
+            <p>Confirm you are ready. The battle starts when all four players are ready.</p>
+            <ul aria-live="polite">{match.roster.map(member => <li key={member.slug}>
+                {member.displayName} — {member.ready ? "Ready" : "Waiting"}
+            </li>)}</ul>
+            {error && <p role="alert">{error}</p>}
+            <button type="button" disabled={Boolean(busy)} onClick={() => void act("ready", {
+                matchId: match.matchId, expectedVersion: match.version,
+                requestId: crypto.randomUUID(), ready: !viewer?.ready,
+            })}>{busy === "ready" ? "Saving…" : viewer?.ready ? "Mark not ready" : "Ready up"}</button>
+        </section>;
+    }
+
     if (state.match?.status === "cancelled") {
         return <section className="summary-box" data-testid="ranked-2v2-panel">
             <h3>Ranked 2v2</h3>
@@ -128,8 +153,7 @@ export function Ranked2v2Panel({ character, sharedImages, onVersionedCharacter }
                 setBusy("queue"); setError(null);
                 try {
                     await settleRanked2v2(me)(state.match!.matchId, me);
-                    setTowerPvpMatchId(null);
-                    await refresh();
+                    exitMatch();
                 } catch (cause) { setError(String((cause as Error)?.message ?? cause)); }
                 finally { setBusy(null); }
             })(); }}>Return to duo queue</button>
@@ -155,7 +179,7 @@ export function Ranked2v2Panel({ character, sharedImages, onVersionedCharacter }
                 pvpContextLabel="Ranked 2v2"
                 // The Ranked Format seals its neutral kunai, pills, smoke bomb and potion.
                 teamPvpConsumables={(state.match as TowerPvpMatch).rules?.consumables === "enabled"}
-                onExit={() => { setTowerPvpMatchId(null); void refresh(); }}
+                onExit={exitMatch}
             />
         );
     }
