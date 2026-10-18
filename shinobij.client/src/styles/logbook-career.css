@@ -16,8 +16,28 @@
 }
 
 .logbook-screen .logbook-priority h3::before,
-.logbook-screen .logbook-priority h3::after {
+.logbook-screen .logbook-priority h3::after,
+.logbook-screen .logbook-career-record h3::before,
+.logbook-screen .logbook-career-record h3::after {
     display: none;
+}
+
+.logbook-screen .logbook-career-record h3 {
+    font-size: 16px !important;
+    letter-spacing: .05em !important;
+    text-align: left;
+    margin: 4px 0 12px !important;
+}
+
+.logbook-screen .logbook-career-record p {
+    font-size: 13px !important;
+    line-height: 1.6 !important;
+    overflow-wrap: anywhere;
+}
+
+.logbook-screen .logbook-career-record .hint {
+    font-size: 12px !important;
+    line-height: 1.6 !important;
 }
 
 .logbook-screen .logbook-priority p {
