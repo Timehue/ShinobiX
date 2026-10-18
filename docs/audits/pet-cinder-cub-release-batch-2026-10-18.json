@@ -1,7 +1,7 @@
 {
   "baseMain": "ac44cd6188f70306bac7f940047f96192f57c9aa",
   "reviewedSourceCommit": "f1ac5585c6cdeb21c0d1142374515ecca7b5d3ff",
-  "status": "validated-ready-for-main",
+  "status": "paused-auto-merge-disabled-for-omitted-clip-review",
   "wholeRosterComplete": false,
   "petRows": [
     {
@@ -76,5 +76,22 @@
       "failed": 0
     },
     "receiptCorrection": "Keep required front/side schema; separately record actually inspected opposite-side head slices. No asset or visual evidence bytes changed."
-  }
+  },
+  "releaseHead": "1ea5b11a03d21c5c5bc473daf6250cca9be98d29",
+  "omittedClipGate": {
+    "status": "open-needs-independent-surface-reproduction-and-repair",
+    "inventory": "docs/audits/pet-fitted-limb-clip-inventory-2026-10-18.json",
+    "reportedByUserApprovedHandoff": false,
+    "sourceSha256": "6f94b3fc988241b616ca1274a1f7685e2714e2f37e450d73f5aa5f2e9008cebe",
+    "battleSha256": "5f6ba5845a409d12a3f47db25679c8d3fa9d020f4d9974d55a998ffe51ed8cb0",
+    "missingFittedClips": [
+      "idle_2",
+      "gallop_jump",
+      "death",
+      "entrance",
+      "victory"
+    ],
+    "priorVisualReceiptsDoNotCloseThisGate": true
+  },
+  "autoMergeDisabledAt": "2026-10-18T17:00:16.864Z"
 }
