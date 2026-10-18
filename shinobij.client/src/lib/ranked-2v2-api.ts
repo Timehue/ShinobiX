@@ -63,7 +63,7 @@ async function post(body: Record<string, unknown>): Promise<Record<string, unkno
     return data;
 }
 
-export type Ranked2v2Action = "status" | "invite" | "accept" | "leave" | "queue" | "unqueue";
+export type Ranked2v2Action = "status" | "invite" | "accept" | "leave" | "queue" | "unqueue" | "ready";
 
 /**
  * Coerce a response into a state we can render.

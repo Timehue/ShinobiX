@@ -21,6 +21,19 @@ function functionSlice(fileSource: string, name: string): string {
 const RANKED_QUEUE_HOOK = '../features/arena/hooks/use-ranked-queue.ts';
 
 describe('player-ranked queue to session wiring', () => {
+    it('installs ranked return context for both matched and newly created battles', () => {
+        const arena = functionSlice(source('../screens/Arena.tsx'), 'launchRankedMatch');
+        const matched = arena.slice(arena.indexOf('if (match.battleId)'), arena.indexOf('if (!match.initiator)'));
+        assert.ok(matched.indexOf('setPvpBattleContext({ mode: "ranked" })') < matched.indexOf('setScreen("pvpBattle")'));
+        assert.match(matched, /setPvpBattleContext\(\{ mode: "ranked" \}\)/);
+        const created = arena.slice(arena.indexOf('const battleId = created.kind'));
+        assert.match(created, /setPvpBattleContext\(created.kind === "recovered" \? created.pending.context : \{ mode: "ranked" \}\)/);
+        assert.match(created, /setPvpRole\(created.kind === "recovered" \? created.pending.role : "p1"\)/);
+        assert.ok(created.indexOf('setPvpBattleContext(') < created.indexOf('setScreen("pvpBattle")'));
+        assert.match(source('../screens/PvpBattleScreen.tsx'), /serverPlayerRanked && !spectatorOrigin && isAccountSessionCurrent\(\)\) onRankedSessionConfirmed\?\.\(\)/);
+        assert.match(source('../App.tsx'), /onRankedSessionConfirmed=\{\(\) => setPvpBattleContext\(confirmRankedPvpContext\)\}/);
+    });
+
     it('carries one parsed queue capability into a direct session launch', () => {
         const queue = source(RANKED_QUEUE_HOOK);
         const queueParse = queue.indexOf('playerRankedAuthorityFromQueueMatch(data.match)');
