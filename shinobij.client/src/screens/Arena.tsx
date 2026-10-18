@@ -358,13 +358,14 @@ export function Arena({
         rankedSession: RankedQueueClientSession,
     ): Promise<"started" | "rejected"> {
         if (!isRankedSessionCurrent(rankedSession)) return "rejected";
-        if (!setPvpBattleId || !setPvpRole) {
+        if (!setPvpBattleId || !setPvpRole || !setPvpBattleContext) {
             alert("Ranked combat is unavailable until the battle screen is ready.");
             return "rejected";
         }
         if (match.battleId) {
             setPvpBattleId(match.battleId);
             setPvpRole(match.initiator ? "p1" : "p2");
+            setPvpBattleContext({ mode: "ranked" });
             setScreen("pvpBattle");
             return "started";
         }
@@ -388,7 +389,8 @@ export function Arena({
         }
         const battleId = created.kind === "recovered" ? created.pending.battleId : created.battleId;
         setPvpBattleId(battleId);
-        setPvpRole("p1");
+        setPvpRole(created.kind === "recovered" ? created.pending.role : "p1");
+        setPvpBattleContext(created.kind === "recovered" ? created.pending.context : { mode: "ranked" });
         setScreen("pvpBattle");
         return "started";
     }

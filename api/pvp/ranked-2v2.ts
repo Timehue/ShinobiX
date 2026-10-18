@@ -3,11 +3,11 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { LockContendedError } from '../_lock.js';
-import { projectTowerPvpMatchForViewer } from '../towers/_pvp-session.js';
+import { projectTowerPvpMatchForViewer, TOWER_PVP_ID } from '../towers/_pvp-session.js';
 import { settleTowerPvpMatch, towerPvpState } from '../towers/_pvp-lifecycle.js';
-import { readTowerPvpMatch } from '../towers/_pvp-store.js';
+import { readTowerPvpMatch, setTowerPvpReady } from '../towers/_pvp-store.js';
 import { kv } from '../_storage.js';
-import { towerPvpBindingOf } from '../../shared/tower-pvp.js';
+import { TOWER_PVP_REQUEST_ID, towerPvpBindingOf } from '../../shared/tower-pvp.js';
 import {
     acceptRanked2v2Invite,
     inviteRanked2v2Partner,
@@ -28,6 +28,7 @@ import { settleRanked2v2Match } from './_ranked-2v2-settlement.js';
  *   { action: 'leave' }                 → leave/disband the duo
  *   { action: 'queue' }                 → queue the duo (either member may)
  *   { action: 'unqueue' }               → leave the queue, keep the duo
+ *   { action: 'ready', matchId, ... }   → confirm this member's ranked ready check
  *   { action: 'settle' }                → apply the ladder result exactly once
  *
  * The FIGHT itself deliberately reuses the shared four-player surfaces:
@@ -59,6 +60,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const respond = async (extra: Record<string, unknown> = {}) => {
             const status = await ranked2v2Status(slug);
+            if (status.match?.status === 'ready') {
+                const current = await towerPvpState(status.match.matchId, slug);
+                if (!current.ok) return res.status(current.status).json({ error: current.error, errorCode: current.code });
+                status.match = current.match;
+            }
             return res.status(200).json({
                 ...extra,
                 duo: status.duo,
@@ -68,6 +74,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         };
 
         if (action === 'status') return respond();
+
+        if (action === 'ready') {
+            const matchId = String(body.matchId ?? '');
+            const requestId = String(body.requestId ?? '');
+            const expectedVersion = Number(body.expectedVersion);
+            if (!TOWER_PVP_ID.test(matchId) || !TOWER_PVP_REQUEST_ID.test(requestId)
+                || !Number.isSafeInteger(expectedVersion) || expectedVersion < 0) {
+                return res.status(400).json({ error: 'Valid match, request ID and expected version are required.', errorCode: 'invalid-command' });
+            }
+            const result = await setTowerPvpReady({ matchId, slug, requestId, expectedVersion,
+                ready: body.ready !== false, requireBinding: 'ranked-2v2' });
+            if (!result.ok) return res.status(result.status).json({ error: result.error, errorCode: result.code });
+            return respond({ replayed: result.replayed });
+        }
 
         if (action === 'invite') {
             const target = safeName(String(body.target ?? ''));

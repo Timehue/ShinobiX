@@ -6,6 +6,7 @@ import { usePlayerSaveLifecycle, usePlayerSaveVersionEvents, usePlayerSaveConfli
 import { reconcileHealerSnapshot } from "./lib/hospital-discharge";
 import { usePlayerSaveCoordinator } from "./lib/use-player-save-coordinator";
 import { decideBootBattleRecovery } from "./lib/boot-battle-recovery";
+import { towerBattleRecoveryScreen } from "./lib/arena-navigation";
 import { usePlayerSaveState, isContentAdminName as snapshotContentAdminName, savedJutsuPool as restoredJutsuPool } from './lib/use-player-save-state';
 import { retireStalePetDuel } from "./lib/pet-duel-legacy-challenge";
 import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState, useMemo } from "react";
@@ -201,7 +202,7 @@ const loadMissionCatalog = () => import("./data/missions");
 const mutateDungeonRunServer = (playerName: string, action: "start" | "settle" | "abandon", token = "", presentationEventId?: string) =>
     import("./lib/dungeon-api").then((api) => api.mutateDungeonRunServer(playerName, action, token, presentationEventId));
 const loadDungeonPresentation = () => retryDynamicImport(() => import('./lib/dungeon-presentation'));
-import { fetchPlayerCombatSave, stripDataUrlImages, stringifyPvpSessionPayload, pvpSessionEnvironment, pvpResultReturn, pvpBattleIdForPresence, leavePvpSpectator, markPvpSectorReturn, preloadPvpChallengeModules, pvpChallengeAcceptanceMessage, hasVersionedPvpClaimSnapshot } from "./lib/pvp-session";
+import { fetchPlayerCombatSave, stripDataUrlImages, stringifyPvpSessionPayload, pvpSessionEnvironment, pvpResultReturn, pvpBattleIdForPresence, leavePvpSpectator, preparePvpResultReturn, confirmRankedPvpContext, preloadPvpChallengeModules, pvpChallengeAcceptanceMessage, hasVersionedPvpClaimSnapshot } from "./lib/pvp-session";
 import { readPvpBrowserBreadcrumb, type PvpRecoveryContext } from "./lib/pvp-pending-session";
 const loadPvpSessionCreate = () => import("./lib/pvp-session-create"), loadPvpPendingFetch = () => import("./lib/pvp-pending-fetch");
 import { usePvpSessionController } from "./lib/use-pvp-session-controller";
@@ -2613,18 +2614,16 @@ export default function App() {
                         // breadcrumb and route into authoritative recovery; never
                         // turn a missing browser key into a fabricated loss.
                         const runId = typeof bootLock.meta?.runId === "string" ? bootLock.meta.runId.trim() : "";
-                        // EVERY 2v2 mode resumes in the BATTLE ARENA; only the
-                        // co-op climb resumes into the Towers (see isMpvpLeaseMode).
+                        // Shared PvP storage does not imply a shared lobby:
+                        // ranked and tournament fights belong in Arena District.
                         const arena2v2 = isMpvpLeaseMode(bootLock.meta?.mode);
                         if (runId && runId.length <= 128) {
                             if (arena2v2) setTowerPvpMatchId(runId); else setTowerFightRunId(runId);
                         }
-                        if (bootLock.meta?.mode === 'tournament') {
-                            try { sessionStorage.setItem('tournament-resume', '1'); } catch { /* optional recovery marker */ }
-                            // An optimistic hub preview may have opened a story before the server lease arrived.
-                            setActiveTriggeredEvent(null);
-                            setScreen('arenaDistrict');
-                        } else setScreen(arena2v2 ? "battleArena" : "battleTowers");
+                        const recoveryScreen = towerBattleRecoveryScreen(normalized.name, bootLock.meta?.mode);
+                        // An optimistic hub preview may have opened a story before the server lease arrived.
+                        if (recoveryScreen === 'arenaDistrict') setActiveTriggeredEvent(null);
+                        setScreen(recoveryScreen);
                         return;
                     }
                     if (recovery === "resolved") {
@@ -4479,7 +4478,7 @@ export default function App() {
         preloadScreen(nextScreen, character?.storyVillage || character?.village);
         if (screen === "pvpBattle" && nextScreen !== "pvpBattle") {
             leavePvpSpectator(pvpBattleId, pvpBattleContext, character?.name);
-            markPvpSectorReturn(nextScreen, pvpBattleContext, currentSector);
+            preparePvpResultReturn(nextScreen, pvpBattleContext, currentSector, character?.name ?? "");
             if (pvpBattleContext?.spectatingFromScreen === "arenaDistrict") setReturnToSpectateTab(true);
             clearPvpBattleState();
             setRaidBattleKind("none");
@@ -6221,8 +6220,9 @@ export default function App() {
                             onWin={handlePvpWin}
                             onRewardClaim={handlePvpRewardClaim}
                             onCompletionConfirmed={() => setPvpCompletionConfirmed(true)}
+                            onRankedSessionConfirmed={() => setPvpBattleContext(confirmRankedPvpContext)}
                             onExit={(target) => {
-                                markPvpSectorReturn(target, pvpBattleContext, currentSector);
+                                preparePvpResultReturn(target, pvpBattleContext, currentSector, pvpOriginatingPlayerName);
                                 if (pvpBattleContext?.spectatingFromScreen === "arenaDistrict") setReturnToSpectateTab(true);
                                 clearPvpBattleState();
                                 setRaidBattleKind("none");

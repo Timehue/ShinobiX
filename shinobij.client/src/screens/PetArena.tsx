@@ -1639,7 +1639,10 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
         setBattleOpponent(null);
         setBattleReady(false);
         setWatchedDuel(null);
-        setScreen(returnScreen);
+        setResult("");
+        setChronicleCeremony(null);
+        setChronicleProgress(null);
+        if (forcedReturnScreen) setScreen(forcedReturnScreen);
     };
     const duelChronicleResultSupplement = chronicleProgress || chronicleCeremony ? (
         <>
