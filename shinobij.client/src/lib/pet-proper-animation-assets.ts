@@ -147,7 +147,7 @@ const REPAIRED_RIG_REVISIONS: Readonly<Record<string, string>> = {
     'mythic-1': '20261017-worldstorm-dragon-anatomical-actions-v1',
     'mythic-2': '20261017-frost-titan-independent-complete-face-v1',
     'mythic-3': '20261017-solar-stag-anatomical-actions-v1',
-    'mythic-6': '20261018-azure-ryujin-anatomical-actions-v1',
+    'mythic-6': '20261018-azure-all-authored-limb-performances-v2',
     'mythic-7': '20261018-turtle-duck-independent-complete-face-v1',
     'mythic-8': '20261018-stormgod-raijin-independent-complete-chin-v1',
     'mythic-9': '20261018-worldroot-colossus-independent-complete-beard-v1',

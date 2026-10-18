@@ -1,0 +1,196 @@
+{
+  "schema": 1,
+  "errors": [],
+  "pets": [
+    {
+      "id": "legendary-13",
+      "name": "Armored Polar Bear",
+      "url": "/.tmp/omitted-roster-retarget-v1/roster/legendary-13.glb",
+      "sha256": "ace7249f33d8223b8d87fb1b0abedf60e6be96ffca1fd33495826e701a54939d",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "head-front",
+        "head-side"
+      ],
+      "materialTreatment": {
+        "mode": "production-diffuse",
+        "materials": 1,
+        "metalnessMax": 0.05,
+        "roughnessRange": [
+          0.58,
+          0.82
+        ]
+      },
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.1529642422249296,
+          0.5274871043441836,
+          -0.078487854083237,
+          0.33722833229500415,
+          0.5994027617401327,
+          1.1199619307468613
+        ],
+        "cameraPadding": 1.15
+      },
+      "sheets": [
+        "legendary-13-head-front.webp",
+        "legendary-13-head-side.webp"
+      ],
+      "review": "pending",
+      "anatomySha256": "c7b58591cd27c0e3ba842797b1e714f962d3d97ea3a76ee321fc2136c416e0c0"
+    },
+    {
+      "id": "mythic-6",
+      "name": "Azure Ryujin",
+      "url": "/.tmp/omitted-roster-retarget-v1/roster/mythic-6.glb",
+      "sha256": "29fe007d1943642b97042072c25a4d7a0fcd5b2be1f28ad0e7dd71971bb17692",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "head-front",
+        "head-side"
+      ],
+      "materialTreatment": {
+        "mode": "production-diffuse",
+        "materials": 1,
+        "metalnessMax": 0.05,
+        "roughnessRange": [
+          0.58,
+          0.82
+        ]
+      },
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.4896711720609205,
+          0.22417313227414853,
+          0.15830268844617126,
+          0.8764984561196292,
+          0.3440457934161838,
+          1.1090869060534025
+        ],
+        "cameraPadding": 1.15
+      },
+      "sheets": [
+        "mythic-6-head-front.webp",
+        "mythic-6-head-side.webp"
+      ],
+      "review": "pending",
+      "anatomySha256": "bb03ed59caa970e6bd2b28b429c04acec42f166dfdff9fb3b22dbf2d16f9a8e0"
+    },
+    {
+      "id": "starter-fire",
+      "name": "Cinder Cub",
+      "url": "/.tmp/omitted-roster-retarget-v1/starter-fire.glb",
+      "sha256": "2d88f6315b33a32a8ed3a032cedee52ddb39230a32d7c82fe269d11550fd574c",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "head-front",
+        "head-side"
+      ],
+      "materialTreatment": {
+        "mode": "production-diffuse",
+        "materials": 1,
+        "metalnessMax": 0.05,
+        "roughnessRange": [
+          0.58,
+          0.82
+        ]
+      },
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.9171501228451894,
+          0.36201062180193205,
+          -0.16500930507231196,
+          0.8364548588579117,
+          0.17873671277362946,
+          1.0948459297685178
+        ],
+        "cameraPadding": 1.15
+      },
+      "sheets": [
+        "starter-fire-head-front.webp",
+        "starter-fire-head-side.webp"
+      ],
+      "review": "pending",
+      "anatomySha256": "e56b14ae08eeb91f66447bc66ac7146e202f4bc384d0923c679a62db5447f5ea"
+    }
+  ],
+  "artisticCertification": false
+}
