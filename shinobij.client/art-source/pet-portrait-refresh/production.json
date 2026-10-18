@@ -3035,7 +3035,7 @@
       ],
       "referenceSha256": [
         "f8c9a4ac6a142c77f93b4f3164141f610604dd48208a667bfdcf82ecf838dd42",
-        "e5844248106e3d64dd1e26e278ba20466b5487f15dd54c8d03eb4b20dd2802c2"
+        "117f63a49f281517536a068cf76129794626fb74cbce5f05124062431a0a025c"
       ],
       "scene": "a mountain shrine terrace beneath gathering storm clouds, old stone lanterns, windswept cedar branches and a restrained cool rim light",
       "prompt": "Use case: precise-object-edit. Image 1 is the finished candidate Thunderbloom Kirin portrait. Make only a precise framing correction: uniformly scale the ENTIRE creature and every flowing mane/tail ribbon, crown horn, all four hooves and existing armor to 84 percent of current size, recenter, and extend the SAME shinobi shrine environment naturally around it. Leave at least 6 percent complete scenic breathing room from all physical extremities to each square canvas edge. Show every detail fully; do not clip any horn, mane strand, ribbon, tail or hoof. Preserve the EXACT mature graceful equine proportions, face, eyes, expression, pose, colors, scales, fine filigree, armor, chains, tassels and effects. This is an established creature, do not redesign or simplify its detailed anatomy. Four legs and ONE tail remain coherent; no wings or extra appendages. Keep the same polished game-studio illustration quality, unified lighting, surface detail and perspective. One square full-background portrait, no border, text, watermark or new objects.",
@@ -3073,6 +3073,14 @@
           "sha256": "e5844248106e3d64dd1e26e278ba20466b5487f15dd54c8d03eb4b20dd2802c2",
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
+        },
+        {
+          "reference": "pet-models/warfront-impostors/roster/mythic-13.webp",
+          "previousSha256": "e5844248106e3d64dd1e26e278ba20466b5487f15dd54c8d03eb4b20dd2802c2",
+          "sha256": "117f63a49f281517536a068cf76129794626fb74cbce5f05124062431a0a025c",
+          "upstreamCommit": "269da16fb422e255378a48bd92e0f0e08282bd4d",
+          "reviewReceipt": "docs/audits/pet-animation-shape-reviews.json",
+          "reason": "Integrate independently double-checked Thunderbloom Kirin animation repair atlases; portrait master and delivery pixels are unchanged."
         }
       ]
     },

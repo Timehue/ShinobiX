@@ -2201,6 +2201,164 @@
         "appendedAnatomicalLimbJoints": 12,
         "coverageActuallyRechecked": true
       }
+    },
+    "mythic-13": {
+      "camera": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.38259649275237345,
+          0.2721610702914655,
+          0.18398006853057622,
+          0.9991123855881978,
+          0.2854132043142714,
+          1.0082265528557017
+        ],
+        "cameraPadding": 1.15
+      },
+      "status": "landmark-coverage-reviewed",
+      "sourceSha256": "1b474681fb09b7ab68b28010e2e34ae2d6af67bc34f68262d01167e6576f2495",
+      "coverageEvidence": "../docs/screenshots/pet-independent-mythic-011-015-progress-2026-10-18/mythic-13-landmark-coverage.png",
+      "landmarks": {
+        "upperFace": {
+          "center": [
+            -0.00018544603861773122,
+            0.38680096707531375,
+            0.8521029794730302
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            161,
+            207
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "muzzle": {
+          "center": [
+            -0.0037036441587975453,
+            0.30870499212065977,
+            0.8882265528557016
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            159,
+            223
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "lowerFace": {
+          "center": [
+            0.022905711229041406,
+            0.277759318259242,
+            0.835485097525427
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            127,
+            222
+          ],
+          "pickedView": "head-side",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "jawChin": {
+          "center": [
+            0.032161070291465504,
+            0.29748557801228537,
+            0.8182399710277324
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            130,
+            219
+          ],
+          "pickedView": "head-side",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "horn": {
+          "center": [
+            -0.008842631149704705,
+            0.8191123855881979,
+            0.5654132043142714
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            166,
+            125
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "headMane": {
+          "center": [
+            -0.14259649275237346,
+            0.2739800685305762,
+            0.5724883167044895
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            135,
+            218
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        }
+      },
+      "geometrySha256": "900e16a7634b3ccf6f52ac5274e41d0055a8cabb389a6d0ecd665dd29aff1a3e",
+      "geometryToVisibleBind": [
+        0.9999998554794786,
+        0,
+        0,
+        0,
+        0,
+        -1.3435883706743866e-7,
+        0.9999999898383158,
+        0,
+        0,
+        -0.9999999898383158,
+        -1.3435883706743866e-7,
+        0,
+        0,
+        5.754215948172714e-8,
+        2.1816343620528755e-8,
+        1
+      ],
+      "headCountVisuallyVerified": 1,
+      "heads": [
+        {
+          "id": "primary",
+          "landmarks": [
+            "upperFace",
+            "muzzle",
+            "lowerFace",
+            "jawChin",
+            "horn",
+            "headMane"
+          ]
+        }
+      ],
+      "rigExtensionReview": {
+        "previousGeometrySha256": "825264c2fb540666fd634ef5ba382d1f84e236e4d63b96479023628c7537d883",
+        "candidateSourceSha256": "62eabaf7202d7d74084f0fdb2ea21f73b13a798e58c019b4cec4c340ef0dc77b",
+        "conservationEvidence": "docs/screenshots/pet-thunderbloom-kirin-anatomical-2026-10-18/candidate-conservation.json",
+        "originalBoneFramesAndInverseBindsPreserved": true,
+        "legacyLimbNamesPrefixed": true,
+        "sculptUvsTexturesPreserved": true,
+        "frozenLandmarksAndCoordinateFrameUnchanged": true,
+        "appendedAnatomicalLimbJoints": 12,
+        "appendedAnatomicalNeckAndHeadJoints": 2,
+        "originalNeckAndHeadCurvesRetargeted": true,
+        "coverageActuallyRechecked": true
+      }
     }
   }
 }

@@ -1,0 +1,23 @@
+✔ ThunderbloomKirin independently frozen landmarks cover the whole head, detect released distortion and pass repaired clips and blends (1117.6934ms)
+✔ ThunderbloomKirin anatomical legs preserve sculpt, UVs, textures, every original bone frame and inverse bind (43.8381ms)
+✔ ThunderbloomKirin keeps all original head, neck, tail and unrelated performance curves exactly (30.3489ms)
+✔ ThunderbloomKirin visible sole surfaces stay supported between keys, independently of joint-contact metadata (472.4624ms)
+✔ ThunderbloomKirin pinned four-stage recipe reproduces the visually reviewed bytes and rejects unexpected input (653.2062ms)
+✔ ThunderbloomKirin shipping source equals the double-checked four-stage repair (4.3569ms)
+✔ ThunderbloomKirin shipping battle LOD preserves independently frozen complete face and mane through all clips and blends (557.1826ms)
+✔ ThunderbloomKirin animation source retention includes every current mesh and skin stream (9.1269ms)
+✔ Thunderbloom Kirin battle soles remain supported using original visible surface boxes (230.2754ms)
+✔ Thunderbloom Kirin actual source and battle soles have no inherited head or neck influences (44.074ms)
+✔ Thunderbloom original visible throat picks detect the rejected numerically clean neck stretch (80.8388ms)
+✔ Thunderbloom retargeted neck/head curves retain eighteen finite strictly ordered timelines (10.6813ms)
+✔ all 161 production pets have complete proper skeletal animation banks (222.3611ms)
+✔ all 161 catalog identities resolve to a versioned runtime GLB with the full clip contract (199.3115ms)
+✔ Celestial Lion has the full pet animation bank and animated wings in every clip (1.2779ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4416.6501

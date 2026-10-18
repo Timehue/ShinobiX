@@ -1,0 +1,62 @@
+{
+  "config": {
+    "y": [
+      0.1,
+      0.27
+    ],
+    "z": [
+      0.45,
+      0.6
+    ],
+    "cameraPadding": 1.4,
+    "status": "repair",
+    "finding": "Original twelve raw head/body slices and all 216 actual technique frames inspected. Lower jaw and curled cheek mane shear independently of the rigid upper face and horn. Extend complete-face binding to original independently selected jaw and mane; separately fitted leg joints and coordinated action support are still required. Unapproved intermediate face stage.",
+    "union": [
+      {
+        "y": [
+          0.6,
+          0.75
+        ],
+        "z": [
+          0.25,
+          0.4
+        ]
+      },
+      {
+        "y": [
+          0.08,
+          0.18
+        ],
+        "z": [
+          0.45,
+          0.5
+        ],
+        "x": [
+          0.28,
+          0.38
+        ]
+      }
+    ],
+    "revision": "20261018-thunderbloom-kirin-complete-jaw-mane-v1",
+    "supersedesSourceSha256": "1b474681fb09b7ab68b28010e2e34ae2d6af67bc34f68262d01167e6576f2495",
+    "repairRegion": {
+      "y": [
+        0.08,
+        0.18
+      ],
+      "z": [
+        0.45,
+        0.5
+      ],
+      "x": [
+        0.28,
+        0.38
+      ]
+    }
+  },
+  "result": {
+    "id": "mythic-13",
+    "changed": 2314,
+    "rigid": 1720
+  }
+}

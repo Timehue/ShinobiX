@@ -1,0 +1,61 @@
+{
+  "baseMain": "d477cb3b5ba15fc4f2a6f999eaf20f8abb94b265",
+  "reviewedSourceCommit": "269da16fb422e255378a48bd92e0f0e08282bd4d",
+  "status": "validated-ready-for-main",
+  "wholeRosterComplete": false,
+  "petRows": [
+    {
+      "id": "mythic-13",
+      "sourceSha256": "62eabaf7202d7d74084f0fdb2ea21f73b13a798e58c019b4cec4c340ef0dc77b",
+      "battleSha256": "eec849fc0914bda6481a6079f9ff7b944a4254b83fc2a5446456df95fb721b17",
+      "atlasSha256": "117f63a49f281517536a068cf76129794626fb74cbce5f05124062431a0a025c",
+      "visualEvidenceFiles": 74,
+      "equippedTechniqueFrames": 216,
+      "companionIdleFrames": 24,
+      "liveVerified": false
+    }
+  ],
+  "reports": [
+    "docs/audits/pet-thunderbloom-kirin-anatomical-review-2026-10-18.json"
+  ],
+  "runtimeEquivalence": {
+    "result": "pass",
+    "rendererFilesIdentical": true,
+    "primaryComponentSha256": "193c79e909badc0efab2f09ecb45882406ea66463fc5801966dd395344fcf9a9",
+    "releaseComponentSha256": "d2dafafee3cdb047a8562fb227689be8b92c9585b8c103ba8407bb3e55ea3316",
+    "selectedIds": [
+      "mythic-13"
+    ],
+    "scope": "Component differs only by removal of two camera overrides for unselected legendary birds. The selected execution path match the inspected primary component."
+  },
+  "note": "One completed local mythic review only. Other roster initial reviews, older technique follow-ups and remaining quadruped sole checks continue. Primary-workspace counts in historical reports do not approve unshipped models.",
+  "localValidation": {
+    "validatedAt": "2026-10-18T12:28:28.509Z",
+    "focusedTests": 44,
+    "anatomyAndAnimationBankTests": 15,
+    "assetReferenceAndRuntimeMetadataTests": 29,
+    "productionBuild": "passed",
+    "all161RecordedAssetAndEvidenceReceipts": "passed-integrity-only-not-new-whole-roster-visual-approval",
+    "sourceBattleAndAtlasReproduction": "exact-reviewed-bytes",
+    "changedProductionAssetFiles": 3,
+    "nonselectedProductionAssetsChanged": 0,
+    "validationEvidence": [
+      {
+        "path": "docs/screenshots/pet-thunderbloom-kirin-release-2026-10-18/thunderbloom-kirin-release-regression.log",
+        "sha256": "e73f289ebe70e55ddf564fc6aec74c652e33ecd393e54469f401ea23b933b64b"
+      },
+      {
+        "path": "docs/screenshots/pet-thunderbloom-kirin-release-2026-10-18/thunderbloom-kirin-release-assets.log",
+        "sha256": "0a0dee37c4281e2e3b12f2d772c155302bdd1f3bdd24e667c82f92a86bc56cbc"
+      },
+      {
+        "path": "docs/screenshots/pet-thunderbloom-kirin-release-2026-10-18/thunderbloom-kirin-release-receipts.log",
+        "sha256": "838f4662ff9f40a64904d1c4cba0d6ed5fdcf54bf9f32fe07c0a92f229a0186c"
+      },
+      {
+        "path": "docs/screenshots/pet-thunderbloom-kirin-release-2026-10-18/thunderbloom-kirin-release-build.log",
+        "sha256": "8b58c43064b089433330dbbd4ffdcaeed0c5a76977df70452b508612ad1351b6"
+      }
+    ]
+  }
+}
