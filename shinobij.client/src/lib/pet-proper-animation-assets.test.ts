@@ -42,6 +42,8 @@ const reviewedLimbRepairs: Record<string, string> = {
     'mythic-6': 'azureRyujinAnatomicalLimbRepair',
     'mythic-12': 'skyglassKirinAnatomicalLimbRepair',
     'mythic-13': 'thunderbloomKirinAnatomicalLimbRepair',
+    'mythic-14': 'gravepeakBehemothAnatomicalLimbRepair',
+    'mythic-15': 'celestialLionAnatomicalLimbRepair',
     'mythic-10': 'ashCrownPhoenixAnatomicalLegRepair',
 };
 const reviewedTorsoActions: Record<string, string> = {
@@ -79,10 +81,18 @@ test("all 161 production pets have complete proper skeletal animation banks", ()
         const json = parseGlb(path);
         const limbRepair = json.extras?.[reviewedLimbRepairs[pet.id]];
         if (limbRepair) {
-            assert.equal(json.skins[0].joints.length, pet.id === 'mythic-10' ? 29 : ['mythic-3', 'mythic-13'].includes(pet.id) ? 35 : 33, `${pet.id}: fitted anatomical joint count`);
+            assert.equal(json.skins[0].joints.length, pet.id === 'mythic-15' ? 41 : pet.id === 'mythic-10' ? 29 : ['mythic-3', 'mythic-13', 'mythic-14'].includes(pet.id) ? 35 : 33, `${pet.id}: fitted anatomical joint count`);
             if (pet.id === 'mythic-3') {
                 assert.equal(json.extras.solarStagAnatomicalNeckRepair.fitted.length, 2);
                 assert.equal(json.extras.solarStagAnatomicalNeckRepair.clips.length, 13);
+            }
+            if (pet.id === 'mythic-15') {
+                assert.equal(json.extras.celestialLionAnatomicalNeckRepair.fitted.length, 2);
+                assert.equal(json.extras.celestialLionAnatomicalNeckRepair.clips.length, 13);
+            }
+            if (pet.id === 'mythic-14') {
+                assert.equal(json.extras.gravepeakBehemothAnatomicalNeckRepair.fitted.length, 2);
+                assert.equal(json.extras.gravepeakBehemothAnatomicalNeckRepair.clips.length, 13);
             }
             if (pet.id === 'mythic-13') {
                 assert.equal(json.extras.thunderbloomKirinAnatomicalNeckRepair.fitted.length, 2);
@@ -163,6 +173,31 @@ test("all 161 production pets have complete proper skeletal animation banks", ()
                     assert.equal(neckRepair.fitted.length, 2);
                     assert.ok(neckRepair.fitted.some((fitted: { node: number; oldNode: number }) => fitted.node === channel.target.node || fitted.oldNode === channel.target.node));
                     continue;
+                }
+                if (contactBank && pet.id === 'mythic-14' && limbRepair) {
+                    const neckRepair = json.extras.gravepeakBehemothAnatomicalNeckRepair;
+                    assert.equal(neckRepair.revision, '20261018-gravepeak-behemoth-anatomical-neck-v1');
+                    if (['head', 'neck', 'legacy_face_head', 'legacy_face_neck'].includes(name)) {
+                        assert.ok(neckRepair.fitted.some((f: { node: number; oldNode: number }) => f.node === channel.target.node || f.oldNode === channel.target.node));
+                        continue;
+                    }
+                    const legacy = name.match(/^legacy_(upper_arm|forearm|hand|thigh|shin|foot)\.([LR])$/);
+                    if (legacy) {
+                        const part = ['upper_arm', 'forearm', 'hand'].includes(legacy[1]) ? 'front' : 'hind';
+                        const section = ['upper_arm', 'thigh'].includes(legacy[1]) ? 'upper' : ['forearm', 'shin'].includes(legacy[1]) ? 'lower' : 'paw';
+                        assert.ok(json.nodes.some((n: { name: string }) => n.name === part + '_' + section + '.' + legacy[2]));
+                        continue;
+                    }
+                    if (name === 'spine' && coordinated?.revision === '20261018-gravepeak-behemoth-coordinated-actions-v1' && ['attack', 'cast', 'idle_hitreact1'].includes(animation.name)) continue;
+                }
+                if (contactBank && pet.id === 'mythic-15' && limbRepair) {
+                    const neckRepair = json.extras.celestialLionAnatomicalNeckRepair;
+                    assert.equal(neckRepair.revision, '20261018-celestial-lion-anatomical-neck-v3');
+                    if (['head', 'neck', 'legacy_face_head', 'legacy_face_neck'].includes(name)) {
+                        assert.ok(neckRepair.fitted.some((f: { node: number; oldNode: number }) => f.node === channel.target.node || f.oldNode === channel.target.node));
+                        continue;
+                    }
+                    if (name === 'spine' && coordinated?.revision === '20261018-celestial-lion-coordinated-actions-v3' && ['attack', 'cast', 'idle_hitreact1'].includes(animation.name)) continue;
                 }
                 const retainedLimb = /^legacy_(?:front|hind)_(?:upper|lower|paw)\.[LR]$/.test(name)
                     || (pet.id === 'mythic-10' && /^legacy_(?:thigh|shin|foot)\.[LR]$/.test(name));
