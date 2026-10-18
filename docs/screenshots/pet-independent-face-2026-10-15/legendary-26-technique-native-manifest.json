@@ -1,0 +1,1625 @@
+{
+  "id": "legendary-26",
+  "label": "independent-legendary-026-anatomical-v1-final-techniques",
+  "sourceManifestSha256": "3e7071dddb5bfa5f0d27c48598017184a970c0b9d6e0114c84f48ffbb3c2e613",
+  "crop": {
+    "left": 162,
+    "top": 35,
+    "width": 176,
+    "height": 184
+  },
+  "nativePixelsPreserved": true,
+  "resizing": false,
+  "foregroundThreshold": 3,
+  "strips": [
+    {
+      "name": "front-block-0-half-0.png",
+      "sha256": "77b34559b253d31f4ae70f5eee251d4dfbea8309457d1b4e370a3b61b3bb09ba",
+      "sources": [
+        {
+          "name": "legendary-26-lightning-strike-front-0.png",
+          "sha256": "735b2afc9917734038a7afc5552315767aca8cd0742ad475fc1a068b77c51d39",
+          "move": "lightning-strike",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-26-lightning-strike-front-1.png",
+          "sha256": "80a80973b12d13191220c4309d2a1e8ec673a4ce8d19e6221df13ca04f141769",
+          "move": "lightning-strike",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-26-lightning-strike-front-2.png",
+          "sha256": "ff190e710961e48216782e5c4a85a87e427d7107fe1fd50d0372720bc5ccb575",
+          "move": "lightning-strike",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-26-lightning-strike-front-3.png",
+          "sha256": "e3f1a6a78769ee9bda1d3576fa4ce073cdf21d4f632f8753528b0210ee4e4a8c",
+          "move": "lightning-strike",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-26-lightning-strike-front-4.png",
+          "sha256": "9bb4b94344dc6bf6365027e0c19c1171f1b87d88f84c3a0d3819237a0171920e",
+          "move": "lightning-strike",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-26-lightning-strike-front-5.png",
+          "sha256": "d50ef65714231c0d30580311a1eb0021f4c9605b3d63311d50701b3b4fd03cb0",
+          "move": "lightning-strike",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "legendary-26-lightning-pulse-front-0.png",
+          "sha256": "9ce37c0fcc0516e18395e0d2525b3336fc58274746b98aedb4a13a61bb8e006d",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-26-lightning-pulse-front-1.png",
+          "sha256": "dafb9a26c2fbc8d052d044e32cde678abf2adf068e2029ebc6c45892f0e8cad7",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-26-lightning-pulse-front-2.png",
+          "sha256": "8ba42e66c35eb40cd79d1eec2244faea7bc85b91cf5f13288eb4e3238fc808cf",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-26-lightning-pulse-front-3.png",
+          "sha256": "6899ca2a40ad6d3e6238b3a100c039ac94e7fd86478ad8ce669ad87b575c43fc",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-26-lightning-pulse-front-4.png",
+          "sha256": "101acecee68869cf71f49b0d5a409519351f394ca312150274f3be5d2e87869d",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-26-lightning-pulse-front-5.png",
+          "sha256": "f0624193f2b73205689ad1a527bd9e93ad091d0948337e4fd495d22d950c535d",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "legendary-26-lightning-breaker-front-0.png",
+          "sha256": "909330767477fb82fb09a004073624d2af1d510ce080d1ace808385115f4f278",
+          "move": "lightning-breaker",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-26-lightning-breaker-front-1.png",
+          "sha256": "80a80973b12d13191220c4309d2a1e8ec673a4ce8d19e6221df13ca04f141769",
+          "move": "lightning-breaker",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-26-lightning-breaker-front-2.png",
+          "sha256": "ff190e710961e48216782e5c4a85a87e427d7107fe1fd50d0372720bc5ccb575",
+          "move": "lightning-breaker",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-26-lightning-breaker-front-3.png",
+          "sha256": "e3f1a6a78769ee9bda1d3576fa4ce073cdf21d4f632f8753528b0210ee4e4a8c",
+          "move": "lightning-breaker",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-26-lightning-breaker-front-4.png",
+          "sha256": "9bb4b94344dc6bf6365027e0c19c1171f1b87d88f84c3a0d3819237a0171920e",
+          "move": "lightning-breaker",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-26-lightning-breaker-front-5.png",
+          "sha256": "d50ef65714231c0d30580311a1eb0021f4c9605b3d63311d50701b3b4fd03cb0",
+          "move": "lightning-breaker",
+          "view": "front",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 630
+    },
+    {
+      "name": "front-block-0-half-1.png",
+      "sha256": "5b281b01233a9eba14029ad32c4f331fe8f9d929ff24491bf573fc0e4c4ff0be",
+      "sources": [
+        {
+          "name": "legendary-26-lightning-strike-front-6.png",
+          "sha256": "7b923cbb9a23fe380ba9f5b0bec725c4a52557f37a2657bfc6b71bc038241cbf",
+          "move": "lightning-strike",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-26-lightning-strike-front-7.png",
+          "sha256": "2ec4a4a24fca7ed25405135980fceed779a4a600f9c09981ceb68cc2d1b739ec",
+          "move": "lightning-strike",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-26-lightning-strike-front-8.png",
+          "sha256": "dae78cea6345a07f3dfd72089cb9a4cbc820516290685e2589173def0315f1e1",
+          "move": "lightning-strike",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-26-lightning-strike-front-9.png",
+          "sha256": "1bd435e93935b93c89c283c336ce6b3a5f7875463b4847c5d7adb77c34ba120d",
+          "move": "lightning-strike",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-26-lightning-strike-front-10.png",
+          "sha256": "778ae2c84f0b34417c5eac2a5f30fb23d47558ce991250bdfb897f0443bce5a8",
+          "move": "lightning-strike",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-26-lightning-strike-front-11.png",
+          "sha256": "4ecb8204115142c78a6e8bdebb5b41e2c90a62860b1d8fc4d77f26eb35622ac5",
+          "move": "lightning-strike",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "legendary-26-lightning-pulse-front-6.png",
+          "sha256": "c18e04c7c05d17925616a8edab5e72c16a6616092288ebd3e7a432a299392705",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-26-lightning-pulse-front-7.png",
+          "sha256": "347d9d3e8f51fc88952653920a24288f23d7c81735de092c2569c6966db2af80",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-26-lightning-pulse-front-8.png",
+          "sha256": "3b15fe21494ed985f344967c8886f87d72d1b2e6b4fc58dcd140a84d1cf45741",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-26-lightning-pulse-front-9.png",
+          "sha256": "d7ac697b5f6bc144343260816e9b2ec497818eabe5f063c41cbb6485f9f089cd",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-26-lightning-pulse-front-10.png",
+          "sha256": "27ef2d4c5518b722e7378ffd8148f9ce2212a937670d02d73ba40d367e8bd408",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-26-lightning-pulse-front-11.png",
+          "sha256": "a61e565205d3fc07b913afaf89f4cff27e039c3560e6fc73c244973a5647189f",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "legendary-26-lightning-breaker-front-6.png",
+          "sha256": "7b923cbb9a23fe380ba9f5b0bec725c4a52557f37a2657bfc6b71bc038241cbf",
+          "move": "lightning-breaker",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-26-lightning-breaker-front-7.png",
+          "sha256": "2ec4a4a24fca7ed25405135980fceed779a4a600f9c09981ceb68cc2d1b739ec",
+          "move": "lightning-breaker",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-26-lightning-breaker-front-8.png",
+          "sha256": "dae78cea6345a07f3dfd72089cb9a4cbc820516290685e2589173def0315f1e1",
+          "move": "lightning-breaker",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-26-lightning-breaker-front-9.png",
+          "sha256": "1bd435e93935b93c89c283c336ce6b3a5f7875463b4847c5d7adb77c34ba120d",
+          "move": "lightning-breaker",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-26-lightning-breaker-front-10.png",
+          "sha256": "821cfb086188bd34564939da0d332682ae3bfe541ef8590af02e15f3050349f1",
+          "move": "lightning-breaker",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-26-lightning-breaker-front-11.png",
+          "sha256": "4ecb8204115142c78a6e8bdebb5b41e2c90a62860b1d8fc4d77f26eb35622ac5",
+          "move": "lightning-breaker",
+          "view": "front",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 630
+    },
+    {
+      "name": "front-block-1-half-0.png",
+      "sha256": "b99b614a58ad5e8c785f3c264de6461234339659566dce298df155ba9cae5478",
+      "sources": [
+        {
+          "name": "legendary-26-fire-pulse-front-0.png",
+          "sha256": "28a57f15641a79b6e4d4b70d1531f16663be99f51f4873065e0a567a88a048fa",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-26-fire-pulse-front-1.png",
+          "sha256": "b5b90ed71a6346ec340f0d340ba1c8e16ec3e95aaf6a4b565f7ac022e5eb2df6",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-26-fire-pulse-front-2.png",
+          "sha256": "2b1f85b0064e7ad98d2c820187c6fef191fc21cdc9af39c72889a427fc057103",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-26-fire-pulse-front-3.png",
+          "sha256": "10ea4043a74e8cdaa0754084bf18ae6d371077d8125a73a122fd0624dd7ba9e9",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-26-fire-pulse-front-4.png",
+          "sha256": "f4d72ec6e5a41c5690d0f08d7fde33d9a231f2d5f425b67957f590beda2cf5d3",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-26-fire-pulse-front-5.png",
+          "sha256": "5d66ced12df6e60078315fbc7b1c329bf958b0e263735ac6e9df049fb1870279",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "legendary-26-open-wound-front-0.png",
+          "sha256": "7a70c29599434b65e525af009f838ca9733400a72a6e392757b9359b07cfe5c7",
+          "move": "open-wound",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-26-open-wound-front-1.png",
+          "sha256": "80a80973b12d13191220c4309d2a1e8ec673a4ce8d19e6221df13ca04f141769",
+          "move": "open-wound",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-26-open-wound-front-2.png",
+          "sha256": "b033fa9c6b34524e92b6f15e9f0fa86c6184bd18fc8d4f7e5edb7d684d96a73a",
+          "move": "open-wound",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-26-open-wound-front-3.png",
+          "sha256": "8c1129eb33e1ba4f2db545ab41c28471e8ac094a3d878e53165fbd4cea26842e",
+          "move": "open-wound",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-26-open-wound-front-4.png",
+          "sha256": "9bb4b94344dc6bf6365027e0c19c1171f1b87d88f84c3a0d3819237a0171920e",
+          "move": "open-wound",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-26-open-wound-front-5.png",
+          "sha256": "d50ef65714231c0d30580311a1eb0021f4c9605b3d63311d50701b3b4fd03cb0",
+          "move": "open-wound",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "legendary-26-expose-front-0.png",
+          "sha256": "e8b15462bc8a482f0d8f298ed80273df9089bba804330813ece07017a7dc11e5",
+          "move": "expose",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-26-expose-front-1.png",
+          "sha256": "b25409295a33cf6bc30f8bee332709be0b510a5b49c58da08be29227aadb87ff",
+          "move": "expose",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-26-expose-front-2.png",
+          "sha256": "b56bd9b78ae17e5e3fb6b65ca3add17dee2cd20a1aba58b2cf96712c7c77c439",
+          "move": "expose",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-26-expose-front-3.png",
+          "sha256": "724cebb2e65c9005542d315302bb13a33193b4fd65a34427c90823a6c17ef426",
+          "move": "expose",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-26-expose-front-4.png",
+          "sha256": "ad697130d31f661617c9e5df8e98f59e3b95283a5716dcbf31e4f64ddca56912",
+          "move": "expose",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-26-expose-front-5.png",
+          "sha256": "f300487a6e7d62250db4aa6b6455de8983e93271822186602ed1e5357851d62d",
+          "move": "expose",
+          "view": "front",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 630
+    },
+    {
+      "name": "front-block-1-half-1.png",
+      "sha256": "e282a674a420767c37d82c7dc609a2dd78ac714e3e524a3f6030e3708d713617",
+      "sources": [
+        {
+          "name": "legendary-26-fire-pulse-front-6.png",
+          "sha256": "58d1d147a1a7e5f13423485d99de5048c845c0f45bf342a926bd8cb9548bc285",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-26-fire-pulse-front-7.png",
+          "sha256": "cd8fb6aed7de3d12640be8011742b37b563e1093ef50ec0d8df9c6e9d8a473d4",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-26-fire-pulse-front-8.png",
+          "sha256": "2c29ec65b292460a4cebc98b492f916772f5df861617d2f8865199086f394603",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-26-fire-pulse-front-9.png",
+          "sha256": "c192a89ddd4170c64b2a189990f06afa470b89872e491d6ba19ee404a2363d00",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-26-fire-pulse-front-10.png",
+          "sha256": "778ae2c84f0b34417c5eac2a5f30fb23d47558ce991250bdfb897f0443bce5a8",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-26-fire-pulse-front-11.png",
+          "sha256": "4ecb8204115142c78a6e8bdebb5b41e2c90a62860b1d8fc4d77f26eb35622ac5",
+          "move": "fire-pulse",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "legendary-26-open-wound-front-6.png",
+          "sha256": "b96dbb667f86cd9dd1486ea58413f3e09ea3724940a3ac7c50600ee62e28abd0",
+          "move": "open-wound",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-26-open-wound-front-7.png",
+          "sha256": "c03708e2833a470fb92fddae1ec65926cf4b859ba1ed476fd7130c9ffc3d5770",
+          "move": "open-wound",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-26-open-wound-front-8.png",
+          "sha256": "e5f229427a36955be54287a2923621d86f2e171d0f69b6e09f20bbff75887f09",
+          "move": "open-wound",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-26-open-wound-front-9.png",
+          "sha256": "9c61a60933abe4f73b56ae3c012ee6fc55cd9ef9902daa00aff7c843da2e102e",
+          "move": "open-wound",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-26-open-wound-front-10.png",
+          "sha256": "778ae2c84f0b34417c5eac2a5f30fb23d47558ce991250bdfb897f0443bce5a8",
+          "move": "open-wound",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-26-open-wound-front-11.png",
+          "sha256": "92e2d942c5178d58d9f255809e5bb65018423f846c19579f8d91c23e05062702",
+          "move": "open-wound",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "legendary-26-expose-front-6.png",
+          "sha256": "9a2721c8dda12425e45ff93a5b6c90f969bedb73003819a1c3f4d568f7e70fd6",
+          "move": "expose",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-26-expose-front-7.png",
+          "sha256": "468cc861eafd55bc6e8c464dba1c6cfc828ecb7e74ab102ad997b5c13c475e88",
+          "move": "expose",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-26-expose-front-8.png",
+          "sha256": "cf8c0b10c2447029907da00af2b935a80f30f6531b03163d5486defc674cba36",
+          "move": "expose",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-26-expose-front-9.png",
+          "sha256": "c192a89ddd4170c64b2a189990f06afa470b89872e491d6ba19ee404a2363d00",
+          "move": "expose",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-26-expose-front-10.png",
+          "sha256": "778ae2c84f0b34417c5eac2a5f30fb23d47558ce991250bdfb897f0443bce5a8",
+          "move": "expose",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-26-expose-front-11.png",
+          "sha256": "4ecb8204115142c78a6e8bdebb5b41e2c90a62860b1d8fc4d77f26eb35622ac5",
+          "move": "expose",
+          "view": "front",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 630
+    },
+    {
+      "name": "front-block-2-half-0.png",
+      "sha256": "7c194f899218f9eb535fad0ed7a3637cd83cfb6c5fc62c74d2e8dbb165a23426",
+      "sources": [
+        {
+          "name": "legendary-26-rally-front-0.png",
+          "sha256": "f05339c67fd6f4b1f35c3bec0d6d1d79687aa114074ba4b38964755f14d6aa15",
+          "move": "rally",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-26-rally-front-1.png",
+          "sha256": "931d3ae665b823fd463d0e8283f189706d1cab13e764d6c9e60749773acc0e18",
+          "move": "rally",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-26-rally-front-2.png",
+          "sha256": "5feef00ad4beaaa8f92734ddbcc2f638e1578de9fd105123e9195b55808265ec",
+          "move": "rally",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-26-rally-front-3.png",
+          "sha256": "ed80b2df86562ff431eb20adebeded95bbc48337ce52ec7649049096e0c5d7e1",
+          "move": "rally",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-26-rally-front-4.png",
+          "sha256": "51f67f6001a5d94380394644fc17221df844ffc4f00f53751d40758e2b217829",
+          "move": "rally",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-26-rally-front-5.png",
+          "sha256": "ea8c2e329bb1811c5d0bbaca25bf0ee1dbaf57a08a3db4c64c26780004ec9232",
+          "move": "rally",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "legendary-26-protect-front-0.png",
+          "sha256": "4d098347b68623d31adb9dafb1ef4aea5f834b4c3f316c3d7fa9925698fdfd84",
+          "move": "protect",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-26-protect-front-1.png",
+          "sha256": "89db069f8e62cf1510a91e5a84e86318d69ef0f9f8a0049746fbe7504898b425",
+          "move": "protect",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-26-protect-front-2.png",
+          "sha256": "f2ffa7d7766188fdb9dcdcb4114ae06e2d0f04f4a367561f4743cf32315b2512",
+          "move": "protect",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-26-protect-front-3.png",
+          "sha256": "50d9be63e8859b010acec79b779a97185f4737a935c4459e895d707f58c6b3ed",
+          "move": "protect",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-26-protect-front-4.png",
+          "sha256": "67889f1d32e9b85f848b99bb18985d2410b81faa1168c8e1dbfe38c8dec24276",
+          "move": "protect",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-26-protect-front-5.png",
+          "sha256": "f4e1df3495f2c562a470bb73bb67d5cc0056d1f19787049ca1d8da70fb1254c0",
+          "move": "protect",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "legendary-26-legendary-26-signature-front-0.png",
+          "sha256": "f22e24d52b8609d98e75ff71ebbfdbc9131f9cdda313215b163a2aa47350f26b",
+          "move": "legendary-26-signature",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-26-legendary-26-signature-front-1.png",
+          "sha256": "635cb449103a49800030ef9f60c6adc31e73907f7598ebd52701ad897e1cefff",
+          "move": "legendary-26-signature",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-26-legendary-26-signature-front-2.png",
+          "sha256": "b033fa9c6b34524e92b6f15e9f0fa86c6184bd18fc8d4f7e5edb7d684d96a73a",
+          "move": "legendary-26-signature",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-26-legendary-26-signature-front-3.png",
+          "sha256": "8c1129eb33e1ba4f2db545ab41c28471e8ac094a3d878e53165fbd4cea26842e",
+          "move": "legendary-26-signature",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-26-legendary-26-signature-front-4.png",
+          "sha256": "305f9523fda6403d976d43ecc76ecb4bb17b7311af499e937dba16c7a82c4d5f",
+          "move": "legendary-26-signature",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-26-legendary-26-signature-front-5.png",
+          "sha256": "2ee20affb09a70b3da33d22df86b900cd9cbe3c7463c2636bd79f80870b1ec2e",
+          "move": "legendary-26-signature",
+          "view": "front",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 630
+    },
+    {
+      "name": "front-block-2-half-1.png",
+      "sha256": "589112d397ccb80c2abe5ca956c88f9002838d22fcfd0124f5e5a0daececd2a0",
+      "sources": [
+        {
+          "name": "legendary-26-rally-front-6.png",
+          "sha256": "9c9cb0b6e8f3c70ae0be0c127c3a795dcc0bdf49943431ccd42d58442e0dda3c",
+          "move": "rally",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-26-rally-front-7.png",
+          "sha256": "b4ca62103e9e2ac116bc172de0aed2dc7873cb15828a248adcbbc6b2aac32a67",
+          "move": "rally",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-26-rally-front-8.png",
+          "sha256": "16293f1e3908d27b259f49082a1967212310e07ad413ad0dfcad38503b7322c8",
+          "move": "rally",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-26-rally-front-9.png",
+          "sha256": "3ba99eff3b9794ea354bc298674629ecc8b925dbe444d537af998d01f070377b",
+          "move": "rally",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-26-rally-front-10.png",
+          "sha256": "778ae2c84f0b34417c5eac2a5f30fb23d47558ce991250bdfb897f0443bce5a8",
+          "move": "rally",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-26-rally-front-11.png",
+          "sha256": "c26318f0f5827138cf49197afbc820b912ff98bf49954bd04d1dbd096308d9e7",
+          "move": "rally",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "legendary-26-protect-front-6.png",
+          "sha256": "63f12bb3e58875e40cc212182dfd590373dd9c856f5b99410bd294819a5952d8",
+          "move": "protect",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-26-protect-front-7.png",
+          "sha256": "59eca4a844e3151ee6458531f23fa56eec2f46f8a917f232ecf43e5d7747e584",
+          "move": "protect",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-26-protect-front-8.png",
+          "sha256": "7c98303997d5201971df305e33c330a768558013281d6e7260bb2a7d802d2926",
+          "move": "protect",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-26-protect-front-9.png",
+          "sha256": "78fe5f8a7c2e918d852586594fff9e968c6cca453888dc83a6274e1215996ee9",
+          "move": "protect",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-26-protect-front-10.png",
+          "sha256": "821cfb086188bd34564939da0d332682ae3bfe541ef8590af02e15f3050349f1",
+          "move": "protect",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-26-protect-front-11.png",
+          "sha256": "4ecb8204115142c78a6e8bdebb5b41e2c90a62860b1d8fc4d77f26eb35622ac5",
+          "move": "protect",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "legendary-26-legendary-26-signature-front-6.png",
+          "sha256": "b96dbb667f86cd9dd1486ea58413f3e09ea3724940a3ac7c50600ee62e28abd0",
+          "move": "legendary-26-signature",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-26-legendary-26-signature-front-7.png",
+          "sha256": "c03708e2833a470fb92fddae1ec65926cf4b859ba1ed476fd7130c9ffc3d5770",
+          "move": "legendary-26-signature",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-26-legendary-26-signature-front-8.png",
+          "sha256": "e5f229427a36955be54287a2923621d86f2e171d0f69b6e09f20bbff75887f09",
+          "move": "legendary-26-signature",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-26-legendary-26-signature-front-9.png",
+          "sha256": "f1d67b14bdb6a8841244b6969b976e2d3001e2679d5859fed52ff757dafdf739",
+          "move": "legendary-26-signature",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-26-legendary-26-signature-front-10.png",
+          "sha256": "778ae2c84f0b34417c5eac2a5f30fb23d47558ce991250bdfb897f0443bce5a8",
+          "move": "legendary-26-signature",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-26-legendary-26-signature-front-11.png",
+          "sha256": "c26318f0f5827138cf49197afbc820b912ff98bf49954bd04d1dbd096308d9e7",
+          "move": "legendary-26-signature",
+          "view": "front",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 630
+    },
+    {
+      "name": "side-block-0-half-0.png",
+      "sha256": "d362c8b097b321a8ac6ed9573a8be32ce279357dddbee8df0ed2f6830c7d574d",
+      "sources": [
+        {
+          "name": "legendary-26-lightning-strike-side-0.png",
+          "sha256": "74e5135924a7911371377c5e65101c9689ab456a0572c6662797b8c042593540",
+          "move": "lightning-strike",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-26-lightning-strike-side-1.png",
+          "sha256": "761bbbd00526eb7e7d882ea1352926d3256e9529bbfc78d87e8945bc141878c7",
+          "move": "lightning-strike",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-26-lightning-strike-side-2.png",
+          "sha256": "5d2fd0ab9818301bbe637e2dde4ed435bda99d526945e2eff7c7aeb04832b855",
+          "move": "lightning-strike",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-26-lightning-strike-side-3.png",
+          "sha256": "96ae6becbe7aedaabd1e31a46f9c4552f2b1c609855d8fde8a979929bfca04e7",
+          "move": "lightning-strike",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-26-lightning-strike-side-4.png",
+          "sha256": "d2d4f302dd997a84b818432de4b402e621b670f217d318ec00bc55f6eda463d6",
+          "move": "lightning-strike",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-26-lightning-strike-side-5.png",
+          "sha256": "0d417fbbabe99c22a9324b79fa4933a7e622ec3c218776b9fb5e7ddd47723e98",
+          "move": "lightning-strike",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "legendary-26-lightning-pulse-side-0.png",
+          "sha256": "9d5f052423cef07a6d693675611342d399ff38849d60fd36161e2fc693a94d7d",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-26-lightning-pulse-side-1.png",
+          "sha256": "a44bdcbbbac5bed9f22e584207eda586c50666915a32c6285c8c5c9b728c4741",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-26-lightning-pulse-side-2.png",
+          "sha256": "5f6dc14d1c4f7a88d39016862fd7f9fddb66bf67a5936f34672cfdd69c1c4e88",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-26-lightning-pulse-side-3.png",
+          "sha256": "b5cf535e87b4fdb19c6670c47bb1eeab3e26092d9424a42589f02cb353203455",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-26-lightning-pulse-side-4.png",
+          "sha256": "437546d2614176d9a06b27958245e021b3263c74355af67c265e7f8814826a17",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-26-lightning-pulse-side-5.png",
+          "sha256": "fa45e328e3f91e5edb9e24336fecca8275dbed4305c376a32a28c5ee01099709",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "legendary-26-lightning-breaker-side-0.png",
+          "sha256": "74e5135924a7911371377c5e65101c9689ab456a0572c6662797b8c042593540",
+          "move": "lightning-breaker",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-26-lightning-breaker-side-1.png",
+          "sha256": "761bbbd00526eb7e7d882ea1352926d3256e9529bbfc78d87e8945bc141878c7",
+          "move": "lightning-breaker",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-26-lightning-breaker-side-2.png",
+          "sha256": "5d2fd0ab9818301bbe637e2dde4ed435bda99d526945e2eff7c7aeb04832b855",
+          "move": "lightning-breaker",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-26-lightning-breaker-side-3.png",
+          "sha256": "96ae6becbe7aedaabd1e31a46f9c4552f2b1c609855d8fde8a979929bfca04e7",
+          "move": "lightning-breaker",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-26-lightning-breaker-side-4.png",
+          "sha256": "d2d4f302dd997a84b818432de4b402e621b670f217d318ec00bc55f6eda463d6",
+          "move": "lightning-breaker",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-26-lightning-breaker-side-5.png",
+          "sha256": "c1b86acd332c6fb4028de70177b4e1a96adfbeb5456f9af5c925963c9ca78c89",
+          "move": "lightning-breaker",
+          "view": "side",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 630
+    },
+    {
+      "name": "side-block-0-half-1.png",
+      "sha256": "00254774ced2dba6934dd3b9514a67ffbbed4cf8b360f2556d6f183bdb16f5da",
+      "sources": [
+        {
+          "name": "legendary-26-lightning-strike-side-6.png",
+          "sha256": "2f8600288d29f3b2b453bd4b2bb29c065f61a2901d20209040a39037e18b0628",
+          "move": "lightning-strike",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-26-lightning-strike-side-7.png",
+          "sha256": "399fe4a28c5168a47469aaca0b16889f04d1822972fa124dd0819b78b6111bea",
+          "move": "lightning-strike",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-26-lightning-strike-side-8.png",
+          "sha256": "a1e29ca081fbc1a0862fd5933c05d2f903c06364f9bff722d8a38d903006e512",
+          "move": "lightning-strike",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-26-lightning-strike-side-9.png",
+          "sha256": "3fc52129c0ae84b3c4a3abbcd5b76df2860a99e38c81326c14110361cbfdd5f5",
+          "move": "lightning-strike",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-26-lightning-strike-side-10.png",
+          "sha256": "51767c8542a5c5f040c5f19c7dae0f8bdd7973dbabeefea93e2e4410b07a1d2a",
+          "move": "lightning-strike",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-26-lightning-strike-side-11.png",
+          "sha256": "e8f203662ac258bac02546d023f12c0da2d8b8b46bda9c0353483ccd1048b4c6",
+          "move": "lightning-strike",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "legendary-26-lightning-pulse-side-6.png",
+          "sha256": "5145914a539a81084886d4cea97a8683edd39995dd4e95c2f47668a03ac6e713",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-26-lightning-pulse-side-7.png",
+          "sha256": "c29ca4ea63b714ef1fdb6af39239275aa7d826d73834cbceb1fa39e66a11b2c7",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-26-lightning-pulse-side-8.png",
+          "sha256": "25c3e7b88a0438851dd212fb943e89e62e6daaf73a965d6b3649952ef6ed0f35",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-26-lightning-pulse-side-9.png",
+          "sha256": "e0bf0beba375cd9295c1b6d9ef1d73d5213e82967b7f7f4ed8640daf539a13c7",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-26-lightning-pulse-side-10.png",
+          "sha256": "8800aa22d1f84a3f597b775f91f6c26f7e448c49f9ae3797ca6207fb2e37b83e",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-26-lightning-pulse-side-11.png",
+          "sha256": "e51021855dc7c9506a4cb2f6c22186a6d99573caf070020b07313c1072c93405",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "legendary-26-lightning-breaker-side-6.png",
+          "sha256": "2f8600288d29f3b2b453bd4b2bb29c065f61a2901d20209040a39037e18b0628",
+          "move": "lightning-breaker",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-26-lightning-breaker-side-7.png",
+          "sha256": "399fe4a28c5168a47469aaca0b16889f04d1822972fa124dd0819b78b6111bea",
+          "move": "lightning-breaker",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-26-lightning-breaker-side-8.png",
+          "sha256": "a1e29ca081fbc1a0862fd5933c05d2f903c06364f9bff722d8a38d903006e512",
+          "move": "lightning-breaker",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-26-lightning-breaker-side-9.png",
+          "sha256": "246615af3cdd178966368d60a3b4bd92d55e68acf78dc4df7fd098e04d598eab",
+          "move": "lightning-breaker",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-26-lightning-breaker-side-10.png",
+          "sha256": "51767c8542a5c5f040c5f19c7dae0f8bdd7973dbabeefea93e2e4410b07a1d2a",
+          "move": "lightning-breaker",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-26-lightning-breaker-side-11.png",
+          "sha256": "e8f203662ac258bac02546d023f12c0da2d8b8b46bda9c0353483ccd1048b4c6",
+          "move": "lightning-breaker",
+          "view": "side",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 630
+    },
+    {
+      "name": "side-block-1-half-0.png",
+      "sha256": "20b9a15b32e352e92b914d3543f49d0168b7ccdc9b2513848a3544b9abfb4c26",
+      "sources": [
+        {
+          "name": "legendary-26-fire-pulse-side-0.png",
+          "sha256": "35b305aea457b5821a55ccf4509a2c86361c2eecc7547ec2f7702c2f635f406f",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-26-fire-pulse-side-1.png",
+          "sha256": "d53e993385cba2c657dc1cad09edd760ed435a0dfeea100506dbaddd80c338dc",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-26-fire-pulse-side-2.png",
+          "sha256": "78ecc9b2fd13ebaefb30aee060c9bd091e88e4271b267c84d2d13cee1a55c75a",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-26-fire-pulse-side-3.png",
+          "sha256": "f80ee4fe56b8eec2ce05077c011a0fb94f0f05870cfa7fdb923184dd09a3324c",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-26-fire-pulse-side-4.png",
+          "sha256": "833b42dd8941abcffa4f08b76207ae9c6e1b5786b35334a9d09b754ec6a57097",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-26-fire-pulse-side-5.png",
+          "sha256": "aec15aac4a6b812127edd94cfc02c8e407671a79e277744b42c57a5eba0b9f72",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "legendary-26-open-wound-side-0.png",
+          "sha256": "1f8d58feb26af594eab887a9d3933aa772b3e95acdee2df6c4aca317917e4e43",
+          "move": "open-wound",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-26-open-wound-side-1.png",
+          "sha256": "6985a44a4c5e7388ca6adf2465de28ef5642c00b2f3264206160d0a61beabe0c",
+          "move": "open-wound",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-26-open-wound-side-2.png",
+          "sha256": "5d2fd0ab9818301bbe637e2dde4ed435bda99d526945e2eff7c7aeb04832b855",
+          "move": "open-wound",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-26-open-wound-side-3.png",
+          "sha256": "96ae6becbe7aedaabd1e31a46f9c4552f2b1c609855d8fde8a979929bfca04e7",
+          "move": "open-wound",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-26-open-wound-side-4.png",
+          "sha256": "d2d4f302dd997a84b818432de4b402e621b670f217d318ec00bc55f6eda463d6",
+          "move": "open-wound",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-26-open-wound-side-5.png",
+          "sha256": "c1b86acd332c6fb4028de70177b4e1a96adfbeb5456f9af5c925963c9ca78c89",
+          "move": "open-wound",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "legendary-26-expose-side-0.png",
+          "sha256": "f54744e28182adececdb740282682f25613363154654fc4f4ada4210b61a3f69",
+          "move": "expose",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-26-expose-side-1.png",
+          "sha256": "8bcc3e7218b397a3171a0e81917e784a1e9ef23c586379e9bb17a80cdb0bd9b6",
+          "move": "expose",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-26-expose-side-2.png",
+          "sha256": "a006f9f6c126a8c5ea2c1547058a2e33a2634c1b095e4704734162db12a49d9e",
+          "move": "expose",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-26-expose-side-3.png",
+          "sha256": "21412384c8574b4c9185d33b3452b00833898ed4ded3c936a2312691789c409f",
+          "move": "expose",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-26-expose-side-4.png",
+          "sha256": "0024aa478b31e0043ec30729f66eb9597052d740c760620ad23df013d4c8ead0",
+          "move": "expose",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-26-expose-side-5.png",
+          "sha256": "69bbaf8fb66753d1d620a75c3db8bd475df6b0249f59c347dd5f613bd2d4cb52",
+          "move": "expose",
+          "view": "side",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 630
+    },
+    {
+      "name": "side-block-1-half-1.png",
+      "sha256": "0ae36b839b47c66645b2022cbd6d03888784b20f9ab483dd53c0f44b40b9a259",
+      "sources": [
+        {
+          "name": "legendary-26-fire-pulse-side-6.png",
+          "sha256": "ec67f9b453a108b629df0b28c982cac8b0923f80e2e5d7a518107ccbc2f94c89",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-26-fire-pulse-side-7.png",
+          "sha256": "c65e91cf1f5537e205617f388ebde5a8141903531f023920a0ce00509dd1c78e",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-26-fire-pulse-side-8.png",
+          "sha256": "37ee00ffaf2a29e0288ddb00d0e8bafc486d92de5787ea9ed8e7e5dc88129d28",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-26-fire-pulse-side-9.png",
+          "sha256": "8ebdf51e0ebfaf61744c41c73745e67427c262b765446412d82fab83e8da97b8",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-26-fire-pulse-side-10.png",
+          "sha256": "465083e9715d0bb4006a4e7811317d2678197aa9c348b5d3d4f51ecbb603adac",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-26-fire-pulse-side-11.png",
+          "sha256": "e8f203662ac258bac02546d023f12c0da2d8b8b46bda9c0353483ccd1048b4c6",
+          "move": "fire-pulse",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "legendary-26-open-wound-side-6.png",
+          "sha256": "fdf4fc7cf14ed725cc6cb84448674291d1e00a19072762694bac6cc6adba1d2c",
+          "move": "open-wound",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-26-open-wound-side-7.png",
+          "sha256": "5c19663165563ff09df5ecf608d02f8c581aa4940dafad486fd84e71bc117ffd",
+          "move": "open-wound",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-26-open-wound-side-8.png",
+          "sha256": "a1e29ca081fbc1a0862fd5933c05d2f903c06364f9bff722d8a38d903006e512",
+          "move": "open-wound",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-26-open-wound-side-9.png",
+          "sha256": "246615af3cdd178966368d60a3b4bd92d55e68acf78dc4df7fd098e04d598eab",
+          "move": "open-wound",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-26-open-wound-side-10.png",
+          "sha256": "51767c8542a5c5f040c5f19c7dae0f8bdd7973dbabeefea93e2e4410b07a1d2a",
+          "move": "open-wound",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-26-open-wound-side-11.png",
+          "sha256": "e8f203662ac258bac02546d023f12c0da2d8b8b46bda9c0353483ccd1048b4c6",
+          "move": "open-wound",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "legendary-26-expose-side-6.png",
+          "sha256": "82eaa3decb790edb695bd7c91c15fbee4d3cca45e0a32ee87f5d180692a57f37",
+          "move": "expose",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-26-expose-side-7.png",
+          "sha256": "84f4f2d2e4138caaa55ce944b797cd9af495a7bd5c4b30ff71b34605db28c4cc",
+          "move": "expose",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-26-expose-side-8.png",
+          "sha256": "07db4c8a37c50bb9f2022c8da4b205bc4094b967b3a66d08d187c90ca3afe278",
+          "move": "expose",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-26-expose-side-9.png",
+          "sha256": "8ebdf51e0ebfaf61744c41c73745e67427c262b765446412d82fab83e8da97b8",
+          "move": "expose",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-26-expose-side-10.png",
+          "sha256": "465083e9715d0bb4006a4e7811317d2678197aa9c348b5d3d4f51ecbb603adac",
+          "move": "expose",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-26-expose-side-11.png",
+          "sha256": "e8f203662ac258bac02546d023f12c0da2d8b8b46bda9c0353483ccd1048b4c6",
+          "move": "expose",
+          "view": "side",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 630
+    },
+    {
+      "name": "side-block-2-half-0.png",
+      "sha256": "5de1f0acd68cd7986c90fc77d611145103f4b42fe09233dfa8d532c99ae08454",
+      "sources": [
+        {
+          "name": "legendary-26-rally-side-0.png",
+          "sha256": "6e09c846a4cfe8fea6683ae718953e1ea96774a1e517b95da773f38b587b657d",
+          "move": "rally",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-26-rally-side-1.png",
+          "sha256": "875411b91c49e5a9a2ad9f3a0f864067a0088d33f3f31e7e422ef5e8d25d53a5",
+          "move": "rally",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-26-rally-side-2.png",
+          "sha256": "4cb733f503d6bfb08a4818517354a6e1c1aed5751cbee96235f08fea648fb9d9",
+          "move": "rally",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-26-rally-side-3.png",
+          "sha256": "910efad094b9514b5be2915c691a87a43c7d16e24bd035f99bf0f238a9503e34",
+          "move": "rally",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-26-rally-side-4.png",
+          "sha256": "a1d80050acf73c0e606af03ab0e915ea6429ef59d47bcb930908e0030a71f49b",
+          "move": "rally",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-26-rally-side-5.png",
+          "sha256": "b4d6d19b1fec79ad860300714ab6f9d5461183937fea58ee0fb55ebae7557b6c",
+          "move": "rally",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "legendary-26-protect-side-0.png",
+          "sha256": "7ffe0d7efbf91be96f58cf2dfb20ee4e3db161fe2898d5dcdc78640a23464372",
+          "move": "protect",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-26-protect-side-1.png",
+          "sha256": "30474c731301adaeaf8ec4e264d3808d19d4e2a0b469acdb49c68d502b2e66d3",
+          "move": "protect",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-26-protect-side-2.png",
+          "sha256": "512d74cae02172d7d827bfe0b2581fc346c0536eac9cebe944ba59f131dff7c4",
+          "move": "protect",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-26-protect-side-3.png",
+          "sha256": "ee5bdca99c444311529de98e70d69a9f97755acf7a80b0bff6b294f9953cdf6b",
+          "move": "protect",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-26-protect-side-4.png",
+          "sha256": "fd5ae672a2de3d79b5ca56f94fa07050b2121680bc1146e564dbce5659d0c3bb",
+          "move": "protect",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-26-protect-side-5.png",
+          "sha256": "8ee636acc6a2a6e4393a7e3c21f885bd319369e2cd297fb43af2301188477f07",
+          "move": "protect",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "legendary-26-legendary-26-signature-side-0.png",
+          "sha256": "51ca483e524e392c1ac9603be95c6bec0a6a6d95ef3ce22e81ef06a4e91917b3",
+          "move": "legendary-26-signature",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-26-legendary-26-signature-side-1.png",
+          "sha256": "6985a44a4c5e7388ca6adf2465de28ef5642c00b2f3264206160d0a61beabe0c",
+          "move": "legendary-26-signature",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-26-legendary-26-signature-side-2.png",
+          "sha256": "b99ecf2961a022ad9b0ef5ba91f41ffa4882f1fd076cdf4a0eb317cfa5eaff0b",
+          "move": "legendary-26-signature",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-26-legendary-26-signature-side-3.png",
+          "sha256": "7cb82865f32448ffbaf23f74888e5768b279b85fbf1aa39dc3a219fab5d19464",
+          "move": "legendary-26-signature",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-26-legendary-26-signature-side-4.png",
+          "sha256": "d2d4f302dd997a84b818432de4b402e621b670f217d318ec00bc55f6eda463d6",
+          "move": "legendary-26-signature",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-26-legendary-26-signature-side-5.png",
+          "sha256": "53ca8c5d598a9a1d97af3a79b7651c1d7b9ff780c7d9d2a25a77e8d589c0d9b1",
+          "move": "legendary-26-signature",
+          "view": "side",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 630
+    },
+    {
+      "name": "side-block-2-half-1.png",
+      "sha256": "a2d4f9038f354506743a2fc308d100b7c4987e6986b8392d00549e932285de6c",
+      "sources": [
+        {
+          "name": "legendary-26-rally-side-6.png",
+          "sha256": "f2b3a1dc6e01dea307eae4d957dda478dca96f3fcd811bde753d67af5cdea4e0",
+          "move": "rally",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-26-rally-side-7.png",
+          "sha256": "3dba42f30541d16004d6ff61b6f6f514b9f0a6fd3bc3fcaf6830d3471adbd8b6",
+          "move": "rally",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-26-rally-side-8.png",
+          "sha256": "1336a49054fe8ca5bbde06a9881ad77ca17a6b82568e32045d72ccf3fe194865",
+          "move": "rally",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-26-rally-side-9.png",
+          "sha256": "e0bf0beba375cd9295c1b6d9ef1d73d5213e82967b7f7f4ed8640daf539a13c7",
+          "move": "rally",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-26-rally-side-10.png",
+          "sha256": "8800aa22d1f84a3f597b775f91f6c26f7e448c49f9ae3797ca6207fb2e37b83e",
+          "move": "rally",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-26-rally-side-11.png",
+          "sha256": "e51021855dc7c9506a4cb2f6c22186a6d99573caf070020b07313c1072c93405",
+          "move": "rally",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "legendary-26-protect-side-6.png",
+          "sha256": "78ee7385d01e6be0f1467564e5493dfdb9dd2902dfb4fa5569fbb8c77e77e775",
+          "move": "protect",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-26-protect-side-7.png",
+          "sha256": "9bc31ac30a0392ba92dd49f124393045b536cc4558e1956c077ae50ee766b927",
+          "move": "protect",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-26-protect-side-8.png",
+          "sha256": "8a2d52aeb1c71ddd2654f8e367b78caaabb4c80816bf589892828c169e56e467",
+          "move": "protect",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-26-protect-side-9.png",
+          "sha256": "59060ff2afaeb19d54018942d669e3adda1930f1529b647b7c26a4a6a96cfebc",
+          "move": "protect",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-26-protect-side-10.png",
+          "sha256": "8800aa22d1f84a3f597b775f91f6c26f7e448c49f9ae3797ca6207fb2e37b83e",
+          "move": "protect",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-26-protect-side-11.png",
+          "sha256": "e8f203662ac258bac02546d023f12c0da2d8b8b46bda9c0353483ccd1048b4c6",
+          "move": "protect",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "legendary-26-legendary-26-signature-side-6.png",
+          "sha256": "fdf4fc7cf14ed725cc6cb84448674291d1e00a19072762694bac6cc6adba1d2c",
+          "move": "legendary-26-signature",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-26-legendary-26-signature-side-7.png",
+          "sha256": "5c19663165563ff09df5ecf608d02f8c581aa4940dafad486fd84e71bc117ffd",
+          "move": "legendary-26-signature",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-26-legendary-26-signature-side-8.png",
+          "sha256": "2cd922ea8f3795ee0e9018c084847bab8ba4643c301f9d2ebf3634773c966f3c",
+          "move": "legendary-26-signature",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-26-legendary-26-signature-side-9.png",
+          "sha256": "c92d2d2e536c95782c02f806313c8941d6f3b2b826c4582cdfae709df879b440",
+          "move": "legendary-26-signature",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-26-legendary-26-signature-side-10.png",
+          "sha256": "465083e9715d0bb4006a4e7811317d2678197aa9c348b5d3d4f51ecbb603adac",
+          "move": "legendary-26-signature",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-26-legendary-26-signature-side-11.png",
+          "sha256": "e8f203662ac258bac02546d023f12c0da2d8b8b46bda9c0353483ccd1048b4c6",
+          "move": "legendary-26-signature",
+          "view": "side",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 630
+    }
+  ],
+  "review": "pending"
+}

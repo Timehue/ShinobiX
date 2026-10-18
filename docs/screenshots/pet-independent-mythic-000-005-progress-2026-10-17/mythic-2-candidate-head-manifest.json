@@ -1,0 +1,61 @@
+{
+  "schema": 1,
+  "errors": [],
+  "pets": [
+    {
+      "id": "mythic-2",
+      "name": "Ancient Frost Titan",
+      "url": "/.tmp/frost-titan-independent-face-v1/roster/mythic-2.glb",
+      "sha256": "38f9908108db7d18ee739a3d4e7a17b8faddc80e55410cceb454a367cd49f512",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "head-front",
+        "head-side"
+      ],
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.28770810448580186,
+          0.4107330089543432,
+          0.21245471312507666,
+          0.9739475872278791,
+          0.05355801795722487,
+          0.5311872563367029
+        ],
+        "cameraPadding": 1.15
+      },
+      "sheets": [
+        "mythic-2-head-front.webp",
+        "mythic-2-head-side.webp"
+      ],
+      "review": "pending",
+      "anatomySha256": "9c86e69cab437c6c80389e4e0b2438541dfa5b9f407d43e680558b75592ecf89"
+    }
+  ],
+  "artisticCertification": false
+}

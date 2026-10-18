@@ -1,0 +1,1625 @@
+{
+  "id": "legendary-29",
+  "label": "independent-legendary-029-complete-face-v4-techniques",
+  "sourceManifestSha256": "2406e6de37d386efde4876be05dca565e2da5cf295b9d4722631de6c1179033f",
+  "crop": {
+    "left": 162,
+    "top": 45,
+    "width": 176,
+    "height": 174
+  },
+  "nativePixelsPreserved": true,
+  "resizing": false,
+  "foregroundThreshold": 3,
+  "strips": [
+    {
+      "name": "front-block-0-half-0.png",
+      "sha256": "5c81a5354d7766da3d035d09bcd6b30a8e48c9e6f668c7c2ec0c4d825a3a4ff7",
+      "sources": [
+        {
+          "name": "legendary-29-earth-strike-front-0.png",
+          "sha256": "f38bb1e58bf3daa932fa8d2ce99b08e4ee32113fd7e6920d947680b32c5f13ab",
+          "move": "earth-strike",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-29-earth-strike-front-1.png",
+          "sha256": "50b8ea20c73501573963ed1943957a983ab642aed7b8563b22fab8804254f41e",
+          "move": "earth-strike",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-29-earth-strike-front-2.png",
+          "sha256": "0de592a902f43829525a464e35d0c0a7ab73e4ab0b5f0fb5273d735c629df6f2",
+          "move": "earth-strike",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-29-earth-strike-front-3.png",
+          "sha256": "a0f62075d851b9897a5bd2e64ff6a520a9a3f29cf65d860787092ad58a97d300",
+          "move": "earth-strike",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-29-earth-strike-front-4.png",
+          "sha256": "b07fdafddd36233b289ceae994d0f0844d86460d4153a196576717ab9b50933e",
+          "move": "earth-strike",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-29-earth-strike-front-5.png",
+          "sha256": "62c156463729fcde6a1640dd79375525200c44100732b7c86a421e4f87d21b31",
+          "move": "earth-strike",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "legendary-29-earth-pulse-front-0.png",
+          "sha256": "1887d58321dd27513ed1cdc24f9cdcefe4b0806973a8473c30ec4ef73f09014c",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-29-earth-pulse-front-1.png",
+          "sha256": "068e13bac2d613f74a4affc8b0ba3c1bfeaba20f037352b7ba72b6fa1f42b7af",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-29-earth-pulse-front-2.png",
+          "sha256": "773cb4a7280bd40397f55c29aa44dc3b13c035ab1051131b5a0f4e91d7ca892e",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-29-earth-pulse-front-3.png",
+          "sha256": "41fc2dbcc5fc561f89f0936393fc8512f551b4cfa6ef50f1b1da95c5380c2f71",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-29-earth-pulse-front-4.png",
+          "sha256": "0d4e33fb74bdb0682604bcbb0606917b7fb3a561088dc7b8b3a940f2616a6bc1",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-29-earth-pulse-front-5.png",
+          "sha256": "23745cd0c34302c320fbd1db21819b41e0bd8c9e7b9078aca68d76033fe681a4",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "legendary-29-earth-breaker-front-0.png",
+          "sha256": "e8e681da32293593cff68d3517a116650ba5576fa3016a918d92173b5bcbc629",
+          "move": "earth-breaker",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-29-earth-breaker-front-1.png",
+          "sha256": "e0950e924bdd99fb6aeb41de70ff93ecdfc00908bdcd6a56d0197398904635bb",
+          "move": "earth-breaker",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-29-earth-breaker-front-2.png",
+          "sha256": "5f1fbadd2ee47ac0564f8d775a754c78d8dbc3b4f85e9fe4c48650ac0e584788",
+          "move": "earth-breaker",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-29-earth-breaker-front-3.png",
+          "sha256": "f21c57b96644c31989a061fc965df42425808e66f61af1ba580967ecc7fb8568",
+          "move": "earth-breaker",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-29-earth-breaker-front-4.png",
+          "sha256": "ce275644529e2cdef5283fe38be734412fb7c64ad35ec8a324109abf4e63758b",
+          "move": "earth-breaker",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-29-earth-breaker-front-5.png",
+          "sha256": "58aaacbc11abb71c43e4d610460cfb47fcdd6128aafe9005a9d9565c931c663b",
+          "move": "earth-breaker",
+          "view": "front",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 600
+    },
+    {
+      "name": "front-block-0-half-1.png",
+      "sha256": "735a899ebed4331e5650e3e5cb092f3a09643106e5caa894d4c79e24335829c9",
+      "sources": [
+        {
+          "name": "legendary-29-earth-strike-front-6.png",
+          "sha256": "438725a9150f9e4e464dd5609550a78e6a7a6df528a3b6de1abccdee9f7bb8ed",
+          "move": "earth-strike",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-29-earth-strike-front-7.png",
+          "sha256": "a16ae9add469e246ede5b9f874956fdee611b0e6a97693e87dffaf13c1ff2c05",
+          "move": "earth-strike",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-29-earth-strike-front-8.png",
+          "sha256": "988f4be40c8da21eaea50d79117dfb79ec1c39b791492fe5bde1f8eba04b21e0",
+          "move": "earth-strike",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-29-earth-strike-front-9.png",
+          "sha256": "f5405d10da812f54211e33709b1e1059ea86e84f3f07687d7a0fff1798057d44",
+          "move": "earth-strike",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-29-earth-strike-front-10.png",
+          "sha256": "addca7db0cf3f80ce1eb2dde9ae4a5de7794de86219c420f5867e51ef9c67cfb",
+          "move": "earth-strike",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-29-earth-strike-front-11.png",
+          "sha256": "cbc8711df83c0445f0772ba4590a9356ea33ee9ab33c5a6152bbf67b93ffb3a4",
+          "move": "earth-strike",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "legendary-29-earth-pulse-front-6.png",
+          "sha256": "9292bddb7f6a3d2e1717e23a39dd5cbf76c78aad6afad19649a333438c7d0318",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-29-earth-pulse-front-7.png",
+          "sha256": "c1257b4a0ca6520a8b703f36490723a92ad2d98fa12a06c4d1d46151d8fc02fd",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-29-earth-pulse-front-8.png",
+          "sha256": "cb6a14574d1f647c382595949680d11b78a2a0dffd4a3236591d987b1204f448",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-29-earth-pulse-front-9.png",
+          "sha256": "8a274b5a6770e873a23437d574fcb651fe7c64d024e8b7bc990dff0dad96e398",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-29-earth-pulse-front-10.png",
+          "sha256": "757f334279eb7b8edc73bb031758749b9d3a243f53e768ff9957b5381b194cdc",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-29-earth-pulse-front-11.png",
+          "sha256": "916d806da96c2d4b6beb9ba526255a81b41f590dcf2b531a964500ead31ccf4b",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "legendary-29-earth-breaker-front-6.png",
+          "sha256": "80a1a31a5a51f29f922a264b3a3643992bf9a42dba31d9d1db966c922455bc1b",
+          "move": "earth-breaker",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-29-earth-breaker-front-7.png",
+          "sha256": "74b15c202229380cc473e26a3ee0f77ddff31463dfbdc9aebb1201103f80d036",
+          "move": "earth-breaker",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-29-earth-breaker-front-8.png",
+          "sha256": "616d6d12d0f46331352f830093f50ead359a2d0982f70c9ed1b724001dea02b0",
+          "move": "earth-breaker",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-29-earth-breaker-front-9.png",
+          "sha256": "6e101fc2f76c01fe4b7820735c719e9c8ad3873ea7c9f834ca49cb52856e142b",
+          "move": "earth-breaker",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-29-earth-breaker-front-10.png",
+          "sha256": "f5ef6f27c9411b441d56cd46e196efbd4369b3d43bb538707e764cbb423800e0",
+          "move": "earth-breaker",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-29-earth-breaker-front-11.png",
+          "sha256": "53fe3c276482b3a0972e54e7ad01fbbc5dda2dc3e9c1249606c845391cf480cc",
+          "move": "earth-breaker",
+          "view": "front",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 600
+    },
+    {
+      "name": "front-block-1-half-0.png",
+      "sha256": "32c1d1bf25f13e16684cd2bf6337432734f1abea1d91daa66f4940772646083c",
+      "sources": [
+        {
+          "name": "legendary-29-lightning-pulse-front-0.png",
+          "sha256": "decd55d9e56199890c01bc29808a529cbee458fe55308a3f72dca101010f5c22",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-29-lightning-pulse-front-1.png",
+          "sha256": "650b8c51bc51a4527e64b3db29bc48b11e304d579fcea8dd0ebec53543ef240a",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-29-lightning-pulse-front-2.png",
+          "sha256": "9702938c456af2f20887f937e265794c1038cb225bf42bcfb8b5622d2dfdbda3",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-29-lightning-pulse-front-3.png",
+          "sha256": "1804b07c80d19ed6c18930edf4f351d75fbb13c625d200b594007b6ed35f7a13",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-29-lightning-pulse-front-4.png",
+          "sha256": "47761e439c0b62345d134a20669061908603cc36892a05f78e0a2787b72c89b3",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-29-lightning-pulse-front-5.png",
+          "sha256": "fb8b6b9f3acec55a18105f8e725c989d83ab82275603f8f45ae2f053d2fc04bf",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "legendary-29-expose-front-0.png",
+          "sha256": "9c7a7c7a6a049c436454b28fd140965459ff8749809d03baffb3f28c00c71e95",
+          "move": "expose",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-29-expose-front-1.png",
+          "sha256": "dc0d7686893fc38eb04f7ac9414aa6770f3629df50f277c07783ee2b5fa83786",
+          "move": "expose",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-29-expose-front-2.png",
+          "sha256": "c92978c7519c84fe5667ef70411eba1b39cb77aa094f5c248ce27a29da46222a",
+          "move": "expose",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-29-expose-front-3.png",
+          "sha256": "38a751405bc403441c0dd5c22b8683a628661332e4090b6dd2dd3dbc73a342ed",
+          "move": "expose",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-29-expose-front-4.png",
+          "sha256": "a64b9c3ac0fa4057f6cc7bf210b545ca56e56a165572661a165bebac63e0f219",
+          "move": "expose",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-29-expose-front-5.png",
+          "sha256": "5ff249bc75da42d8f59ff46cbe5715d29176f23a905aee723a77708dc0b10362",
+          "move": "expose",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "legendary-29-rally-front-0.png",
+          "sha256": "ce4ca5495ac2e3615dea1903d443dd81f12d0b246a31e5e04c1d10a452f0255b",
+          "move": "rally",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-29-rally-front-1.png",
+          "sha256": "76a0b902e04b1c4448cc9df4a57f16cd939cadd88c8cc204a2fcc66c3df926b3",
+          "move": "rally",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-29-rally-front-2.png",
+          "sha256": "b1af38cf11a29116240d83ca722fd80a8f496fd1abc2da660b0442b0554ca832",
+          "move": "rally",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-29-rally-front-3.png",
+          "sha256": "508b05210eef0d0e3030a51a4a46e98eec0253ec329a9f1fff47e19a2a87db23",
+          "move": "rally",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-29-rally-front-4.png",
+          "sha256": "71b161cf03bd7c2d4c11a56e66bfeeb1743a5c5723b1977f9f429dd732890b7b",
+          "move": "rally",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-29-rally-front-5.png",
+          "sha256": "6c5647ca5422aa6c4b06e844840525753f197b21cf9c8c8b8882e59ec5c9fd29",
+          "move": "rally",
+          "view": "front",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 600
+    },
+    {
+      "name": "front-block-1-half-1.png",
+      "sha256": "31df11720e0ec6f3358d0163f69232d850546f1a0bca82b82b92da11f8578df0",
+      "sources": [
+        {
+          "name": "legendary-29-lightning-pulse-front-6.png",
+          "sha256": "ac4e93698596e802f06bb4a06f437449217f19d9698a910661d78a4f485fd807",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-29-lightning-pulse-front-7.png",
+          "sha256": "d4920dc13540d3c9e8de92c69f15fd5aa18ab9dc5eb1b49d5f7245e3f23a30f8",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-29-lightning-pulse-front-8.png",
+          "sha256": "f9d2e40934d953a4bb020d04f368008d2693d96ca845f3bb81f14261a71f564e",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-29-lightning-pulse-front-9.png",
+          "sha256": "caab70fd2d785601803c400caa661eb073627c37bbfc7781e6eea055518dd2de",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-29-lightning-pulse-front-10.png",
+          "sha256": "dd2e1a935a3418d6469f15cca66866c9d4c6e59c04319309724e7a06bf95e90f",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-29-lightning-pulse-front-11.png",
+          "sha256": "916d806da96c2d4b6beb9ba526255a81b41f590dcf2b531a964500ead31ccf4b",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "legendary-29-expose-front-6.png",
+          "sha256": "7c3944f910ed8410d3c8218e269f85d637e51319346ba36ca3e8bc101a72dbbd",
+          "move": "expose",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-29-expose-front-7.png",
+          "sha256": "5f4a425e1319f4ce0189503d37da3472654dd51ec147b56d3f60512838115ddd",
+          "move": "expose",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-29-expose-front-8.png",
+          "sha256": "31ee09934076c1c09a22db529566b33c734818e1f6642477bb228308820d7970",
+          "move": "expose",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-29-expose-front-9.png",
+          "sha256": "4b180c96c533640a870a9c7caec9e9ad12d55881841c36a75b94673e4524fc74",
+          "move": "expose",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-29-expose-front-10.png",
+          "sha256": "4feaa5d01822868ed29a36eef81fe03b10c1e7f7fdba5800f67f4b9f722669bc",
+          "move": "expose",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-29-expose-front-11.png",
+          "sha256": "916d806da96c2d4b6beb9ba526255a81b41f590dcf2b531a964500ead31ccf4b",
+          "move": "expose",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "legendary-29-rally-front-6.png",
+          "sha256": "894a96419eb93e5051bd43b0ada3ed15edc42519768ca24578574db31a3ab6fa",
+          "move": "rally",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-29-rally-front-7.png",
+          "sha256": "bedcb8deb4c5f168079574c770be414b360d614ea254732bac72686121c5863e",
+          "move": "rally",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-29-rally-front-8.png",
+          "sha256": "ce776fdbe6aa7c86def2364f8284378107e153a011ef83b30d76734ed919ce37",
+          "move": "rally",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-29-rally-front-9.png",
+          "sha256": "9f6a2f56f9fe211747a1a8914a86f5b1f9445338eae9d49662e161c7b4f881da",
+          "move": "rally",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-29-rally-front-10.png",
+          "sha256": "3b51167aa766acc58c39c38327c31743f23c973378856b035e328a4d43962bf2",
+          "move": "rally",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-29-rally-front-11.png",
+          "sha256": "0fd5aa74918a59eff2aacc5802466d39315559464c85304ac6411a5001380594",
+          "move": "rally",
+          "view": "front",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 600
+    },
+    {
+      "name": "front-block-2-half-0.png",
+      "sha256": "a732a16d3bfd62de2e22e8e5606bc82ffce69c462abb94f38203aed24d110452",
+      "sources": [
+        {
+          "name": "legendary-29-protect-front-0.png",
+          "sha256": "96e03c953d84dc3c9ff20203b1e0bc64cf35523b782ada6cf620dd7de50af739",
+          "move": "protect",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-29-protect-front-1.png",
+          "sha256": "5efd08b141ab7a733585bffcffc52d20ca226627f0a410c01f657f394fad8e03",
+          "move": "protect",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-29-protect-front-2.png",
+          "sha256": "43afcc6b9616fdbceab0858be872530350cd8f97ba90072a2ceef07d567ce1cc",
+          "move": "protect",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-29-protect-front-3.png",
+          "sha256": "174ecab31670d7d49493a4a5fd1e7ea4722e97f2f322639c76363639d65dbd33",
+          "move": "protect",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-29-protect-front-4.png",
+          "sha256": "27a63516fd3bcf412cdfcc82c697631ac4572d6e87897831ff33ff112b317e4b",
+          "move": "protect",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-29-protect-front-5.png",
+          "sha256": "a4683ccca1b3d684491ddc795329041689852460a79b140aa55fa8b51f52ef6d",
+          "move": "protect",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "legendary-29-purify-front-0.png",
+          "sha256": "839488ac964ed15586e193c75f8e2f44eb159d1b1094e50b8e4f78f3709f0829",
+          "move": "purify",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-29-purify-front-1.png",
+          "sha256": "ff1150e34c1d1289ac1932d1fded8f1f34afc5241682c3ada2052f6072fbaf78",
+          "move": "purify",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-29-purify-front-2.png",
+          "sha256": "fa913c20bd56dc96af53636ad52ef8482e17d894c6f8083778d71fcdba9e05ad",
+          "move": "purify",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-29-purify-front-3.png",
+          "sha256": "850d28ca83cc683553d4a0d388680759612f639490ea7da944ee03e4ef1d2b0b",
+          "move": "purify",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-29-purify-front-4.png",
+          "sha256": "47b70f1bf4489a6b50ecb4c605c5ef15a5c93a4aee423917e9768a0905d2a291",
+          "move": "purify",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-29-purify-front-5.png",
+          "sha256": "34bef76f19265f86d15c97c23b231c1b10dc441861d2ee3eb1d6c19043e10e4c",
+          "move": "purify",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "legendary-29-legendary-29-signature-front-0.png",
+          "sha256": "6e2929f85877487f1dea898d932469498d5e0b704cb33c6949a2a08929fddc07",
+          "move": "legendary-29-signature",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-29-legendary-29-signature-front-1.png",
+          "sha256": "b063affeaa152ba4c1b8f17e7551a66fb1ef9b2d06e79d3d351065f20755cfd0",
+          "move": "legendary-29-signature",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-29-legendary-29-signature-front-2.png",
+          "sha256": "842411242db52819321e05274f4d7271083c10e041da4d8f01c6e28b96b8fd7e",
+          "move": "legendary-29-signature",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-29-legendary-29-signature-front-3.png",
+          "sha256": "ead831241d1570de1b8f167abd2ef1c6e98c7208e9aa4d9d70af9d6987c2cca3",
+          "move": "legendary-29-signature",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-29-legendary-29-signature-front-4.png",
+          "sha256": "68d4d795a15ea3e964236edd91ab66d1c07dc91aa13e82ace9ad642ef6ee7d18",
+          "move": "legendary-29-signature",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-29-legendary-29-signature-front-5.png",
+          "sha256": "bbc2da4871f90abcd5d74c312fa2a83340a34998d5563632638e2455ec43337f",
+          "move": "legendary-29-signature",
+          "view": "front",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 600
+    },
+    {
+      "name": "front-block-2-half-1.png",
+      "sha256": "61ab49cb5a598f8a45096ec315caa08e51d3f653c03de88b47506c3e06cedcc6",
+      "sources": [
+        {
+          "name": "legendary-29-protect-front-6.png",
+          "sha256": "0baab904f9a689dd72bade3e41688df92c41b3d62e89e29fed521de6ed763dfd",
+          "move": "protect",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-29-protect-front-7.png",
+          "sha256": "5001deb23a277f3a2678d7c6b10623cea286b03bac16b8a8680f953ee5121689",
+          "move": "protect",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-29-protect-front-8.png",
+          "sha256": "d7b1810531067bd9cf71a3ed2fc62de436126ca029e8d797c69317d2608c3654",
+          "move": "protect",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-29-protect-front-9.png",
+          "sha256": "3b7b1aa2df7dc530bc892cb265b22ee3df2aa4b3b95daf6a6595aee0d701a31a",
+          "move": "protect",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-29-protect-front-10.png",
+          "sha256": "3306ffe7dc6ed6feaeaf5c6cda6b7b0941fb36f2b04ecd3d88c1f48ffe1a0e01",
+          "move": "protect",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-29-protect-front-11.png",
+          "sha256": "bda78b1674e425ad7141f330becbf75a9d65e507530b895cca0f04de8be3c7fb",
+          "move": "protect",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "legendary-29-purify-front-6.png",
+          "sha256": "1fdc527c57e2c00297142c5c53233d4ba1c97e7594a7db56eaaebcad3e9c33f4",
+          "move": "purify",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-29-purify-front-7.png",
+          "sha256": "3d1f6b719365f0ed3472204ed28c66f506f54c5b4a47b21dc5a661a5e7b07e2f",
+          "move": "purify",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-29-purify-front-8.png",
+          "sha256": "c3dfb0b72d7f012befd50bd22e5c68f17f763aaaeacb1c41c278ba9b627997cf",
+          "move": "purify",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-29-purify-front-9.png",
+          "sha256": "9f6a2f56f9fe211747a1a8914a86f5b1f9445338eae9d49662e161c7b4f881da",
+          "move": "purify",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-29-purify-front-10.png",
+          "sha256": "3b51167aa766acc58c39c38327c31743f23c973378856b035e328a4d43962bf2",
+          "move": "purify",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-29-purify-front-11.png",
+          "sha256": "d7063beb18f7333b4f396c4f9812c71cc46134a2c13495c9c16529b272dde26a",
+          "move": "purify",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "legendary-29-legendary-29-signature-front-6.png",
+          "sha256": "489502a0f78279fc742e0dfdab7a17e348b38fa98e6c6c5133ad3a4238b75ec9",
+          "move": "legendary-29-signature",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-29-legendary-29-signature-front-7.png",
+          "sha256": "3317012bd733d35d7f72046d801029a172feb7089bc4d8427a8531da9718731f",
+          "move": "legendary-29-signature",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-29-legendary-29-signature-front-8.png",
+          "sha256": "e06873fd39028f9c4b404e4b0b9d99d11847d3f0ffce4028811232cbfbe2d8b0",
+          "move": "legendary-29-signature",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-29-legendary-29-signature-front-9.png",
+          "sha256": "4428b60027fc1cb3cf06ef124b95e1257414d13ae29bf072751629fedd6c27fc",
+          "move": "legendary-29-signature",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-29-legendary-29-signature-front-10.png",
+          "sha256": "355c4b94f0acdb78383c6db1fe584a98dec6c1e2ce4ec0a093c500ffb6079fc1",
+          "move": "legendary-29-signature",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-29-legendary-29-signature-front-11.png",
+          "sha256": "fd9d52904d9f30ea995c2465eca1c251ed027efe37082b0c81f98ddb97caf4f5",
+          "move": "legendary-29-signature",
+          "view": "front",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 600
+    },
+    {
+      "name": "side-block-0-half-0.png",
+      "sha256": "6ea20b66edc0863bdb1196f1bb7a9ce5b48777d4d7afebef77b799cca9c69a07",
+      "sources": [
+        {
+          "name": "legendary-29-earth-strike-side-0.png",
+          "sha256": "f4768048c4f2d0ce595a0c7b47688dd79fab9a90412481675499ba0d060d95bd",
+          "move": "earth-strike",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-29-earth-strike-side-1.png",
+          "sha256": "92b3d2524cecf8c23a506d54a14e15de77848fe07ad150cc9c565f24d9b4292f",
+          "move": "earth-strike",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-29-earth-strike-side-2.png",
+          "sha256": "bb333cfa4b8a4c30f56ada557e86f23883480be6dcad022a1d55c7a890824607",
+          "move": "earth-strike",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-29-earth-strike-side-3.png",
+          "sha256": "b97f04c1fe98c9f4ee97a40c9594ab523c374ec30043ca8dce19dd8959be12d2",
+          "move": "earth-strike",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-29-earth-strike-side-4.png",
+          "sha256": "4679780592d9be0bd8d46e218658bd7190d8e57ebe2d6264d3c31ad1b1f07355",
+          "move": "earth-strike",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-29-earth-strike-side-5.png",
+          "sha256": "3e589fbec59beee4224c756cad070798dd7a65b4da3f515f0fce5bb0c04f580b",
+          "move": "earth-strike",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "legendary-29-earth-pulse-side-0.png",
+          "sha256": "cb9053d72731bbf5939b80efa6833d03ea01e22d0ffdc9030d7a5bdbf03a51f6",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-29-earth-pulse-side-1.png",
+          "sha256": "14f5162b897f8c80dd684e6b872436a15cb6dd9939957adeafcdcc9e314e96b5",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-29-earth-pulse-side-2.png",
+          "sha256": "e604b572ee5ea25683c222462b9630809b0cbfece540664e2985f9e38ec0761c",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-29-earth-pulse-side-3.png",
+          "sha256": "1b77ea304b2da37d84282ffa3377a9e8ee1cc8dca1cf8ac46316348f9d39aa55",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-29-earth-pulse-side-4.png",
+          "sha256": "8bad65a7f34f9f31d4b1da081ab9303a7b824197434851701554b378837fb2e9",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-29-earth-pulse-side-5.png",
+          "sha256": "87dff489226db86b2cf5338598154fc8387c3399371685e300b3216501f44ec8",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "legendary-29-earth-breaker-side-0.png",
+          "sha256": "f4768048c4f2d0ce595a0c7b47688dd79fab9a90412481675499ba0d060d95bd",
+          "move": "earth-breaker",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-29-earth-breaker-side-1.png",
+          "sha256": "1f363d752bebcb115b4a672aef239c82d0bbacd0ff24bb899d167135b9fc82fe",
+          "move": "earth-breaker",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-29-earth-breaker-side-2.png",
+          "sha256": "e5740dd2347fcf26bfbd0844bd063ab4b01dd77100cb07ef0160e398e90c8991",
+          "move": "earth-breaker",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-29-earth-breaker-side-3.png",
+          "sha256": "e5d21440e7ce10ec126f9d8996eedeb88f2c4f13eac7adebd9152831ffe95efd",
+          "move": "earth-breaker",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-29-earth-breaker-side-4.png",
+          "sha256": "9866dcb5b3f54fb1bfdab627f7e2af5f148442af116aed225c4201670f708173",
+          "move": "earth-breaker",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-29-earth-breaker-side-5.png",
+          "sha256": "3290680d42be2a9337d5724c0e6573a78422f4a65425089d0dac28e8e500b603",
+          "move": "earth-breaker",
+          "view": "side",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 600
+    },
+    {
+      "name": "side-block-0-half-1.png",
+      "sha256": "4e20b42d6095752c6504cf9f6bfbd47b14d68189a7bd5322ce34942e541b161c",
+      "sources": [
+        {
+          "name": "legendary-29-earth-strike-side-6.png",
+          "sha256": "3a48e12aa4e220f1f555cf55e382689055f284921b5ea483fb7017f3a93645b1",
+          "move": "earth-strike",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-29-earth-strike-side-7.png",
+          "sha256": "bc618cdd07a3c5ec958fc983e20537f5ebc198010593ded38bf16534b4e4160a",
+          "move": "earth-strike",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-29-earth-strike-side-8.png",
+          "sha256": "c55656672532fde5258f18ce7504428a3606c11dd2fb55dae954a8646a39062d",
+          "move": "earth-strike",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-29-earth-strike-side-9.png",
+          "sha256": "c5ed1738f26d8adf7c36e8c1db60cde6cef4565f77e69a633f1e68a02d3d98fc",
+          "move": "earth-strike",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-29-earth-strike-side-10.png",
+          "sha256": "4abf3add7b6b2a2099746c65b3b2f85d65ca1546d6df4b2fa6276fbd556da451",
+          "move": "earth-strike",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-29-earth-strike-side-11.png",
+          "sha256": "e43a300b072ee9062d851382454190207d4c3392deeddfcfe6111123a0279243",
+          "move": "earth-strike",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "legendary-29-earth-pulse-side-6.png",
+          "sha256": "35843157d00ab38e35d690428544f75a2697d83a12e72e88d61d81a85ed86dd4",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-29-earth-pulse-side-7.png",
+          "sha256": "34c42e5974df6ffd6e0b0fc89d7aedb2eb843d870fa0fc3467eae498dacd3fb6",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-29-earth-pulse-side-8.png",
+          "sha256": "6a18ce2d6b4e00ee91b47c3c36a7103ab559eb80cc63fa479a16b177674605b9",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-29-earth-pulse-side-9.png",
+          "sha256": "ba51fd96a4086fa159a7ba629808159ab41012d1fda5fd744dfdb51c6f12c54c",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-29-earth-pulse-side-10.png",
+          "sha256": "0398724e74033fade2a9fd0cfd3e39b3ee9d9f1086cde812fe047023a3ec4d14",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-29-earth-pulse-side-11.png",
+          "sha256": "571db7737201e9bfda320434d5307f80241d5ccf1da117eada786bc9e8030ca5",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "legendary-29-earth-breaker-side-6.png",
+          "sha256": "ba7b3c77b2a6ac5a5ae3553284be43a1985a0040614eeabf3c9ccc07a1db0b9d",
+          "move": "earth-breaker",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-29-earth-breaker-side-7.png",
+          "sha256": "027c194845650db7630d23c9e849e72f268cb0b7388185231c59febf2d5a6342",
+          "move": "earth-breaker",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-29-earth-breaker-side-8.png",
+          "sha256": "d8a4b303f2dd48f580e19d853147bde363fadfa248d9373bdf19dbcddf4fa04f",
+          "move": "earth-breaker",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-29-earth-breaker-side-9.png",
+          "sha256": "53eae10e1716a5af6ccf03028487a819c7475e5d68ddf01c22974b62d6efa566",
+          "move": "earth-breaker",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-29-earth-breaker-side-10.png",
+          "sha256": "70e818a38fd81f63692ac4c9d3900dd1a29ca519e6a2ea8139d489e689c55da3",
+          "move": "earth-breaker",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-29-earth-breaker-side-11.png",
+          "sha256": "cdcc58f39265094de1c040b0204ffce871acee72c93faa133d261ab0f0f2e529",
+          "move": "earth-breaker",
+          "view": "side",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 600
+    },
+    {
+      "name": "side-block-1-half-0.png",
+      "sha256": "7d2a204c06523299d11be26803fd12bb4a5acb99876e7cbfb87676f077ddfe3a",
+      "sources": [
+        {
+          "name": "legendary-29-lightning-pulse-side-0.png",
+          "sha256": "e08be30a97f1d912267791e5cbf5ecd1c94b553bbb17add8a5f195794e87ff53",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-29-lightning-pulse-side-1.png",
+          "sha256": "753ec2c72787358eb0f3e0ad7282eaaabcb4321be0fc3045c5a5475def927ab9",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-29-lightning-pulse-side-2.png",
+          "sha256": "5399e54d6d7b4d2f55800fda49f30d95a81308bd5e7e733732f5adddfc6bbf8a",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-29-lightning-pulse-side-3.png",
+          "sha256": "e582ca0e141785db61a03a831d309950232ad121d0c63b699a09af80b5b94483",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-29-lightning-pulse-side-4.png",
+          "sha256": "76377ea99e7ae539ba6a233e3b9a9f0a2f76f40d22169d70068a7f7fff216895",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-29-lightning-pulse-side-5.png",
+          "sha256": "6a0a52cb506a9a9e3b66fde99b1fa0ead371650bf7ac976f0eecdf8a6a6132d2",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "legendary-29-expose-side-0.png",
+          "sha256": "ff1941221d29dca87c9331aa186b0740a1f1ce9359874a79f302aaa7c4e4be4d",
+          "move": "expose",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-29-expose-side-1.png",
+          "sha256": "f98508fc6c4f6ecc63fb8f8d65bfb66408842a272a6c58faa7f9011a59ecabdb",
+          "move": "expose",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-29-expose-side-2.png",
+          "sha256": "5920d08d4ee132fdec4f7ded1e8071a90deb0ea4e48b019e4517116be1f0e9da",
+          "move": "expose",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-29-expose-side-3.png",
+          "sha256": "0757af582642cd1a1e5e90aca1f19796d062331b21015cb6d7178a7f7aab4a76",
+          "move": "expose",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-29-expose-side-4.png",
+          "sha256": "17b1530c5d791d0291e60d3251898e9cfae478aa266685e3684658cbdcaa4acb",
+          "move": "expose",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-29-expose-side-5.png",
+          "sha256": "7e6f7b0c7c7caa2309a985a95ab84aef90cfae1d4792c9264881f4547168ab94",
+          "move": "expose",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "legendary-29-rally-side-0.png",
+          "sha256": "7a69582f2b136b2fd366fdee615d90643ccef8dcbf4bd6a8695d7304a4812b5a",
+          "move": "rally",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-29-rally-side-1.png",
+          "sha256": "9becca5ca5ea8184e4b6b4597cc1fcf1fcc55c8fb8d966c4619da827f271e8f7",
+          "move": "rally",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-29-rally-side-2.png",
+          "sha256": "840a77c81105fa56d70ccba6b218bf2846f5c699f2e209c779876033464648ac",
+          "move": "rally",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-29-rally-side-3.png",
+          "sha256": "29cf251c14a8871d2e2ea1a2c61f42f02a2a3ddaa9d5a71a6781cebe0b2931b8",
+          "move": "rally",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-29-rally-side-4.png",
+          "sha256": "54eaa14ef7e39c9d5a0102cbf68e818373a1d725a42cd7ca3b97657547fcbfee",
+          "move": "rally",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-29-rally-side-5.png",
+          "sha256": "ffda5f63d634d434b0a306ab6c896b092b0e7c4d2d08ae59391f73e86709fa02",
+          "move": "rally",
+          "view": "side",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 600
+    },
+    {
+      "name": "side-block-1-half-1.png",
+      "sha256": "85b8987dbf5cb28b8d7d3535f5361f9e6412356d1e250609b06391d68b4a9e5c",
+      "sources": [
+        {
+          "name": "legendary-29-lightning-pulse-side-6.png",
+          "sha256": "d3c051add67c1a67f5611c794c8322d262d244c0aa6144fd520eabfd97994ed8",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-29-lightning-pulse-side-7.png",
+          "sha256": "b94d0c42614848047fec6284a320c1d100e7b1a77afc51f094357266568ad206",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-29-lightning-pulse-side-8.png",
+          "sha256": "3fd10ecb69cc06f0a5849d784cefd1306df4d21d37355229212a3ac652620c71",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-29-lightning-pulse-side-9.png",
+          "sha256": "ba3914316bb52edddecf838db951a71c1be790d45cf40c23303baac66e37deec",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-29-lightning-pulse-side-10.png",
+          "sha256": "bd523a3b8e4205aa983a6dc31b81541b80ccec823ced598dd862078afa9b843c",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-29-lightning-pulse-side-11.png",
+          "sha256": "571db7737201e9bfda320434d5307f80241d5ccf1da117eada786bc9e8030ca5",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "legendary-29-expose-side-6.png",
+          "sha256": "d967e959d15957719f573678591cd903f5432fa21a1e9ef103b4ce35076780ca",
+          "move": "expose",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-29-expose-side-7.png",
+          "sha256": "74a61a98e4cdc0b8c9641b4d9762cf8800f4380c1e977c0116a531a65784b29b",
+          "move": "expose",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-29-expose-side-8.png",
+          "sha256": "162d1dc74879eb0956fa49e41730cffb6960c97a268b651d7cdc35e1b4162f65",
+          "move": "expose",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-29-expose-side-9.png",
+          "sha256": "3aa916b4a50ad5079cda72e6600be79c4e6e382671da75a825429c78f8c82c0f",
+          "move": "expose",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-29-expose-side-10.png",
+          "sha256": "b320004831d166f575c92a9721595f3efe9dca7ed0392545fb9dec80a239c670",
+          "move": "expose",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-29-expose-side-11.png",
+          "sha256": "86314bc88f5686c30bdd5874f5415fbb70b471aeb2e9ea4ebfb020d4f6eb1523",
+          "move": "expose",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "legendary-29-rally-side-6.png",
+          "sha256": "883ad0f1d4d8a13b9e21341ea3cd632649087977cbeb688c08db97a76b7152ba",
+          "move": "rally",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-29-rally-side-7.png",
+          "sha256": "926d41d448213ac8672573e4858d509d421aa2337735a5da11a25430c6d9a528",
+          "move": "rally",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-29-rally-side-8.png",
+          "sha256": "00ab2fbb6a76372a10ccbdd06aacb6221860655de9a14bf0ed4dd5a88fd0976f",
+          "move": "rally",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-29-rally-side-9.png",
+          "sha256": "fa50ccdc731a34e6a63a7a95d17236cbe948cf4cdfc7209db78f9ff13d848227",
+          "move": "rally",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-29-rally-side-10.png",
+          "sha256": "8ff3f78f3d063d7212233398ed96ecec1b98c4d8c2e1d68867347bdd08126a12",
+          "move": "rally",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-29-rally-side-11.png",
+          "sha256": "86314bc88f5686c30bdd5874f5415fbb70b471aeb2e9ea4ebfb020d4f6eb1523",
+          "move": "rally",
+          "view": "side",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 600
+    },
+    {
+      "name": "side-block-2-half-0.png",
+      "sha256": "e7be9a26212dc871606340b06155f6967e854325c8270bb15f374d6190a7ae69",
+      "sources": [
+        {
+          "name": "legendary-29-protect-side-0.png",
+          "sha256": "08f90d7a0d046adf59c3b2f4bf631a915c833b5791372fcd0a35cd107733d667",
+          "move": "protect",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-29-protect-side-1.png",
+          "sha256": "2affdb9279783ebae402579503db86b5471deb93c2c40eadac2b11e319bdedca",
+          "move": "protect",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-29-protect-side-2.png",
+          "sha256": "b3f60af2383dceff0335805d7960676f4c8961b4b4d1d1c203b25a335b0b524a",
+          "move": "protect",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-29-protect-side-3.png",
+          "sha256": "81381e1cf4f787e5ee1c5497f116a9106e66768e702e5f4a375371669cefe2cd",
+          "move": "protect",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-29-protect-side-4.png",
+          "sha256": "4fd22171f5396f9a2c2443602587912c3108221130b5addc3a35b75c068bf133",
+          "move": "protect",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-29-protect-side-5.png",
+          "sha256": "de5a1bffb7690ce309751bf394ef2ea8cb6571a87871dc9243ab38f09aea63c6",
+          "move": "protect",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "legendary-29-purify-side-0.png",
+          "sha256": "02acc6f906a9c5373aca8204f5ebd967ebcf250b2c099e4147e10f3ac709e9ea",
+          "move": "purify",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-29-purify-side-1.png",
+          "sha256": "885ef3795eb1cec533c6eb85c20ddf09462f57b73ea489d325984e80096eadd5",
+          "move": "purify",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-29-purify-side-2.png",
+          "sha256": "f060648aafc54b5bac901178281bedc7e536cade71d0a4a3b5bf352ac5ca18c5",
+          "move": "purify",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-29-purify-side-3.png",
+          "sha256": "e76340cc872cd0c10c2a34531fb7cac229d54760def8ac48d57aba7d3eedae38",
+          "move": "purify",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-29-purify-side-4.png",
+          "sha256": "05232c79ad91249a20533fc1c3d1d089f54d2a7f6c0dbd772ffe69f66022033a",
+          "move": "purify",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-29-purify-side-5.png",
+          "sha256": "1e51932d2b753a1148f5bb3dbf73f258b0656226f72eaf4f7263fc6a68ec7196",
+          "move": "purify",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "legendary-29-legendary-29-signature-side-0.png",
+          "sha256": "fc10621158d329cad008327c1effbea7a9b4482873e6d590afcd68f272adddef",
+          "move": "legendary-29-signature",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "legendary-29-legendary-29-signature-side-1.png",
+          "sha256": "a5b4510421920a33a800adf499b2d511ca0dae04a2070699dd72dea879a3a1b5",
+          "move": "legendary-29-signature",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "legendary-29-legendary-29-signature-side-2.png",
+          "sha256": "d0bc064f77c403cc18c486a4b125364cdf669a36988da860119aacc7ed7e262a",
+          "move": "legendary-29-signature",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "legendary-29-legendary-29-signature-side-3.png",
+          "sha256": "2b07fff93a47c94a2ff91191e535eac36529692f4aba82d023c67535ebf05a38",
+          "move": "legendary-29-signature",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "legendary-29-legendary-29-signature-side-4.png",
+          "sha256": "9ba57d9dc700bbd0271559b26039cc021e95a3c8c722cc31e96292ef9c6141f7",
+          "move": "legendary-29-signature",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "legendary-29-legendary-29-signature-side-5.png",
+          "sha256": "6d9ea4963438e59d0a3f2df433404db42b3064a366b9d977da0cf7e33d803904",
+          "move": "legendary-29-signature",
+          "view": "side",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 600
+    },
+    {
+      "name": "side-block-2-half-1.png",
+      "sha256": "7c508f706807aa07fc92cfe52b96549a7d0dd675dbd4c10aa883262b3fa7de71",
+      "sources": [
+        {
+          "name": "legendary-29-protect-side-6.png",
+          "sha256": "c5dc9e1c82f238ffcf07cc274ac430315419ee8e7f7d003107919805c0b25642",
+          "move": "protect",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-29-protect-side-7.png",
+          "sha256": "d196d37399fcb4984a063fc3b28909c00af1130f842b3293ceeaa24cca03b80b",
+          "move": "protect",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-29-protect-side-8.png",
+          "sha256": "f01101a939f525124b1c70bbb7f1040d1db785cd604e75686c8ed495b8fd89da",
+          "move": "protect",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-29-protect-side-9.png",
+          "sha256": "c22e52e76d04e11175862b5cb08c6d9e364bb56d184add7a70c4b1cfd3f3450a",
+          "move": "protect",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-29-protect-side-10.png",
+          "sha256": "475c72089c3c11ac71caff2ec562a150c330fd2e099f179ec9ea3a3c29a97160",
+          "move": "protect",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-29-protect-side-11.png",
+          "sha256": "f0cb551ec20fe3c0139dfac038adb7b04abbbcf58e6ea6a128083cdd5e81815c",
+          "move": "protect",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "legendary-29-purify-side-6.png",
+          "sha256": "917f069d5fa1b185cad853b72bdd6cc9f187f7b74b4ae1d58fe45a9b3d6d8a70",
+          "move": "purify",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-29-purify-side-7.png",
+          "sha256": "9bf8a9a7337b3437f093963c80ff3342d7186f4a1b9dd04e7237455f95fc6aae",
+          "move": "purify",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-29-purify-side-8.png",
+          "sha256": "e23bfca0986acfe9e7d36ffc9a80d718f9bd248ff9a7c1dbb414c344feccd4aa",
+          "move": "purify",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-29-purify-side-9.png",
+          "sha256": "1fc2b9c36e4366621595e10c95590741a170ecb3c4b139888dff68ba0962743b",
+          "move": "purify",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-29-purify-side-10.png",
+          "sha256": "35d95c7a4f56fbe44a3f20adaadeb791ca7c5912e21d2872c70dcf69981cc792",
+          "move": "purify",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-29-purify-side-11.png",
+          "sha256": "8a00e51917ff586a432dd297f49688f58d39132657a711116e2d8c4d9d579f30",
+          "move": "purify",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "legendary-29-legendary-29-signature-side-6.png",
+          "sha256": "49fec094fd2b8ec643bcca0966f6127f692856e4791b876fdd040936032ea139",
+          "move": "legendary-29-signature",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "legendary-29-legendary-29-signature-side-7.png",
+          "sha256": "1e5a2ad017056d2d9928d2c16cf8f67544489fc317ce5b28537a67aa32defb35",
+          "move": "legendary-29-signature",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "legendary-29-legendary-29-signature-side-8.png",
+          "sha256": "b23dec2f97609c48223f481be594d663a525c3b2a4ac25e5bc2a4734dade2e61",
+          "move": "legendary-29-signature",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "legendary-29-legendary-29-signature-side-9.png",
+          "sha256": "08c6ce2e61e549b45c22ce01881a783c06abb3571e9eeb9fdfdfba0ab551a88f",
+          "move": "legendary-29-signature",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "legendary-29-legendary-29-signature-side-10.png",
+          "sha256": "0b091b4e540091edf9c7c0dbf4c8dfbe854b71169981fa053dbe6cce53658375",
+          "move": "legendary-29-signature",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "legendary-29-legendary-29-signature-side-11.png",
+          "sha256": "e43a300b072ee9062d851382454190207d4c3392deeddfcfe6111123a0279243",
+          "move": "legendary-29-signature",
+          "view": "side",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 600
+    }
+  ],
+  "review": "pending"
+}

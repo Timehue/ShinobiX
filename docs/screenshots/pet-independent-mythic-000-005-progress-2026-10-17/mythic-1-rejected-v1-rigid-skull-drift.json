@@ -1,0 +1,264 @@
+{
+  "summary": {
+    "pets": 1,
+    "failures": 1,
+    "poses": 1330
+  },
+  "pets": [
+    {
+      "id": "mythic-1",
+      "name": "Worldstorm Dragon",
+      "sha256": "c7cabdb15375ecc6e0ec45ba8cf0e4cebffa8555f89d22f0c60507532e2319a4",
+      "region": {
+        "y": [
+          -0.16,
+          -0.07
+        ],
+        "z": [
+          0.62,
+          0.72
+        ],
+        "x": [
+          0.35,
+          0.45
+        ],
+        "union": [
+          {
+            "y": [
+              -0.16,
+              -0.07
+            ],
+            "z": [
+              0.62,
+              0.72
+            ],
+            "x": [
+              0.35,
+              0.45
+            ]
+          }
+        ],
+        "cameraPadding": 1.4,
+        "status": "repaired",
+        "finding": "Audit the actual complete-face rigid region. Original whole-face landmarks remain separately frozen and both source/battle must pass all clips and blends. The former region included a flexible neck transition at z 0.55 through 0.62; its report is retained as a diagnostic, not a face approval."
+      },
+      "vertices": 3777,
+      "edges": 9769,
+      "clips": [
+        {
+          "clip": "idle",
+          "poses": 59,
+          "maxDrift": 0.00012628640905308378,
+          "minRatio": 0.9955054410951825,
+          "maxRatio": 1.0042829505043986,
+          "worldMinRatio": 0.9955054283088747,
+          "worldMaxRatio": 1.004282942217691,
+          "maximumVertex": 17669,
+          "maximumTime": 1.4864999949932098,
+          "maximumBindPoint": [
+            0.17065949182929765,
+            0.0941190677551659,
+            0.7222510947026174
+          ]
+        },
+        {
+          "clip": "idle_2",
+          "poses": 45,
+          "maxDrift": 0.00016149736167343277,
+          "minRatio": 0.9931360449854955,
+          "maxRatio": 1.0068614153853248,
+          "worldMinRatio": 0.9931360385594684,
+          "worldMaxRatio": 1.0068614047236764,
+          "maximumVertex": 17669,
+          "maximumTime": 0.41839998960494995,
+          "maximumBindPoint": [
+            0.17065949182929765,
+            0.0941190677551659,
+            0.7222510947026174
+          ]
+        },
+        {
+          "clip": "walk",
+          "poses": 57,
+          "maxDrift": 1.5069902435080879e-9,
+          "minRatio": 0.9999999086502696,
+          "maxRatio": 1.0000000714238788,
+          "worldMinRatio": 0.9999999085862338,
+          "worldMaxRatio": 1.0000000714432524,
+          "maximumVertex": 17677,
+          "maximumTime": 0,
+          "maximumBindPoint": [
+            0.18579667135157724,
+            0.11096528228969132,
+            0.7317728679788936
+          ]
+        },
+        {
+          "clip": "gallop",
+          "poses": 44,
+          "maxDrift": 3.768128949775372e-9,
+          "minRatio": 0.9999997792122873,
+          "maxRatio": 1.0000001855826635,
+          "worldMinRatio": 0.9999997791482467,
+          "worldMaxRatio": 1.0000002008910156,
+          "maximumVertex": 17677,
+          "maximumTime": 0.6607000231742859,
+          "maximumBindPoint": [
+            0.18579667135157724,
+            0.11096528228969132,
+            0.7317728679788936
+          ]
+        },
+        {
+          "clip": "gallop_jump",
+          "poses": 25,
+          "maxDrift": 1.2484846007906619e-8,
+          "minRatio": 0.9999992656436867,
+          "maxRatio": 1.0000006280232299,
+          "worldMinRatio": 0.9999981965725118,
+          "worldMaxRatio": 1.0000006121002394,
+          "maximumVertex": 17677,
+          "maximumTime": 0.26429998874664307,
+          "maximumBindPoint": [
+            0.18579667135157724,
+            0.11096528228969132,
+            0.7317728679788936
+          ]
+        },
+        {
+          "clip": "attack",
+          "poses": 135,
+          "maxDrift": 0.000544149219449028,
+          "minRatio": 0.9909183263225675,
+          "maxRatio": 1.022416419065619,
+          "worldMinRatio": 0.9909182892372261,
+          "worldMaxRatio": 1.0224163808014501,
+          "maximumVertex": 17669,
+          "maximumTime": 0.5946000218391418,
+          "maximumBindPoint": [
+            0.17065949182929765,
+            0.0941190677551659,
+            0.7222510947026174
+          ]
+        },
+        {
+          "clip": "idle_hitreact1",
+          "poses": 115,
+          "maxDrift": 0.0002938404550647085,
+          "minRatio": 0.9897969864728662,
+          "maxRatio": 1.0040413158070793,
+          "worldMinRatio": 0.98979694942949,
+          "worldMaxRatio": 1.0040412861083248,
+          "maximumVertex": 17669,
+          "maximumTime": 0.08810000121593475,
+          "maximumBindPoint": [
+            0.17065949182929765,
+            0.0941190677551659,
+            0.7222510947026174
+          ]
+        },
+        {
+          "clip": "death",
+          "poses": 53,
+          "maxDrift": 0.0005437638269648253,
+          "minRatio": 0.9785570929747877,
+          "maxRatio": 1.0031456182196377,
+          "worldMinRatio": 0.9785570562491642,
+          "worldMaxRatio": 1.0031455885609297,
+          "maximumVertex": 17669,
+          "maximumTime": 1.3615316792232235,
+          "maximumBindPoint": [
+            0.17065949182929765,
+            0.0941190677551659,
+            0.7222510947026174
+          ]
+        },
+        {
+          "clip": "entrance",
+          "poses": 33,
+          "maxDrift": 3.1501506597379003e-9,
+          "minRatio": 0.9999998100111465,
+          "maxRatio": 1.0000001571764285,
+          "worldMinRatio": 0.9999981965725118,
+          "worldMaxRatio": 1.0000001412534552,
+          "maximumVertex": 17677,
+          "maximumTime": 0.4052000045776367,
+          "maximumBindPoint": [
+            0.18579667135157724,
+            0.11096528228969132,
+            0.7317728679788936
+          ]
+        },
+        {
+          "clip": "cast",
+          "poses": 137,
+          "maxDrift": 0.0002605498794600265,
+          "minRatio": 0.995432357374591,
+          "maxRatio": 1.0116647471573625,
+          "worldMinRatio": 0.9954323201203085,
+          "worldMaxRatio": 1.0116647092955826,
+          "maximumVertex": 17669,
+          "maximumTime": 0.6413750052452087,
+          "maximumBindPoint": [
+            0.17065949182929765,
+            0.0941190677551659,
+            0.7222510947026174
+          ]
+        },
+        {
+          "clip": "guard",
+          "poses": 37,
+          "maxDrift": 0.000088620151772447,
+          "minRatio": 0.9959484839327837,
+          "maxRatio": 1.000550106842607,
+          "worldMinRatio": 0.9959484727011646,
+          "worldMaxRatio": 1.0005500938148097,
+          "maximumVertex": 17669,
+          "maximumTime": 0.6577066421508789,
+          "maximumBindPoint": [
+            0.17065949182929765,
+            0.0941190677551659,
+            0.7222510947026174
+          ]
+        },
+        {
+          "clip": "rest",
+          "poses": 65,
+          "maxDrift": 0.00005008118252056234,
+          "minRatio": 0.9978787283977871,
+          "maxRatio": 1.0018679759554168,
+          "worldMinRatio": 0.9978787207398508,
+          "worldMaxRatio": 1.0018679673684496,
+          "maximumVertex": 17669,
+          "maximumTime": 0.7680000066757202,
+          "maximumBindPoint": [
+            0.17065949182929765,
+            0.0941190677551659,
+            0.7222510947026174
+          ]
+        },
+        {
+          "clip": "victory",
+          "poses": 57,
+          "maxDrift": 0.00025939902162536085,
+          "minRatio": 0.9910200748323534,
+          "maxRatio": 1.0079151028571975,
+          "worldMinRatio": 0.9910200828118906,
+          "worldMaxRatio": 1.0079151035496434,
+          "maximumVertex": 17669,
+          "maximumTime": 0.41839998960494995,
+          "maximumBindPoint": [
+            0.17065949182929765,
+            0.0941190677551659,
+            0.7222510947026174
+          ]
+        }
+      ],
+      "blendDrift": 0.0004530803195406517,
+      "blendPoses": 468,
+      "blendWorldMinRatio": 0.9816626234846834,
+      "blendWorldMaxRatio": 1.00608588999527,
+      "failed": true
+    }
+  ]
+}

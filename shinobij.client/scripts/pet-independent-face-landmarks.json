@@ -1,0 +1,1066 @@
+{
+  "pets": {
+    "legendary-26": {
+      "camera": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.4892651625312108,
+          0.2163294530721352,
+          -0.2215243255072856,
+          0.5856083337239721,
+          0.5897200997983395,
+          1.1198019920763533
+        ],
+        "cameraPadding": 1.15
+      },
+      "status": "landmark-coverage-reviewed",
+      "sourceSha256": "2dc16276c736394b705bb529178ecc4dc3020074893b7a5314a012a4c25dc415",
+      "coverageEvidence": ".tmp/pet-independent-face-recheck/legendary-26-landmark-coverage.png",
+      "landmarks": {
+        "upperFace": {
+          "center": [
+            -0.24926516253121078,
+            0.4056083337239722,
+            0.9370885539018201
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            142,
+            184
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "muzzle": {
+          "center": [
+            -0.13518676327276039,
+            0.2781056982802037,
+            0.9998019920763533
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            156,
+            204
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "lowerFace": {
+          "center": [
+            -0.13558296415727084,
+            0.17436749022379913,
+            0.97665176571228
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            155,
+            218
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "jawChin": {
+          "center": [
+            -0.023670546927864803,
+            0.19250123524076931,
+            0.9428521903251068
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            149,
+            216
+          ],
+          "pickedView": "head-side",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "neckRuffTip": {
+          "center": [
+            -0.0769112465259516,
+            -0.1315243255072856,
+            0.8697200997983395
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            166,
+            260
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        }
+      },
+      "geometrySha256": "b005c560dc9de8c8b4de6e304c5a704d95edcf01ba2e4f90106debe62877be63",
+      "geometryToVisibleBind": [
+        0.9999999816695582,
+        0,
+        0,
+        0,
+        0,
+        0.9999999861158939,
+        1.0195438604476692e-8,
+        0,
+        0,
+        -1.9117335420260062e-7,
+        0.9999998654639354,
+        0,
+        -3.105013191007089e-9,
+        1.536916144906364e-7,
+        1.3180137081736376e-7,
+        1
+      ],
+      "headCountVisuallyVerified": 1,
+      "heads": [
+        {
+          "id": "primary",
+          "landmarks": [
+            "upperFace",
+            "muzzle",
+            "lowerFace",
+            "jawChin",
+            "neckRuffTip"
+          ]
+        }
+      ],
+      "coverageReviewedAt": "2026-10-17T22:17:49.307Z",
+      "coverageReview": "Fresh six-view original survey, native front/side and five-landmark overlay actually inspected. One feline head. Brow, nose, lower chin, side jaw and a separately frozen gold ruff tip covered. Minimum battle patch 28 vertices. All four visible soles require independent contact review; original low-surface neck influence flag confirmed previously.",
+      "rigExtensionReview": {
+        "previousGeometrySha256": "a6b97de4112383bdfc1437fa79e3c927f18fbc28b8ff6b3cc3f23da7d006728b",
+        "candidateSourceSha256": "ef393df72f26e0bfd2a64b4af210e0f609aab74d4051cc25530cf290a7909a76",
+        "conservationEvidence": "docs/screenshots/pet-independent-legendary-025-029-progress-2026-10-17/legendary-26-anatomical-candidate-conservation.json",
+        "originalBoneFramesAndInverseBindsPreserved": true,
+        "legacyLimbNamesPrefixed": true,
+        "sculptUvsTexturesPreserved": true,
+        "frozenLandmarksAndCoordinateFrameUnchanged": true,
+        "appendedAnatomicalLimbJoints": 12,
+        "coverageActuallyRechecked": true
+      }
+    },
+    "legendary-27": {
+      "camera": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.25558588239648083,
+          0.4710358395412717,
+          0.46836382416748734,
+          0.9600920953961571,
+          0.04146970987100246,
+          0.5450562510669525
+        ],
+        "cameraPadding": 1.15
+      },
+      "status": "landmark-coverage-reviewed",
+      "sourceSha256": "e179c1daa7d69c1910587e4a4dce3b94a9b2e5fe8bfa7abfb08eb4a1a3a61698",
+      "coverageEvidence": ".tmp/pet-independent-face-recheck/legendary-27-landmark-coverage.png",
+      "landmarks": {
+        "upperFace": {
+          "center": [
+            -0.015585882396480847,
+            0.6637791021298982,
+            0.3349392400930365
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            143,
+            185
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "muzzle": {
+          "center": [
+            0.05021269311617364,
+            0.6164439765109408,
+            0.40913663748416174
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            154,
+            196
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "lowerFace": {
+          "center": [
+            0.04461998764071687,
+            0.5583638241674873,
+            0.39885463599080195
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            153,
+            207
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "jawChin": {
+          "center": [
+            0.2310358395412717,
+            0.6139260766984069,
+            0.3214697098710025
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            128,
+            195
+          ],
+          "pickedView": "head-side",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "headband": {
+          "center": [
+            0.019202982805473334,
+            0.7800920953961572,
+            0.42505625106695255
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            148,
+            164
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        }
+      },
+      "geometrySha256": "551d744be7fd519f4d00d4456fc322a6701433ebe78bed063506afb350330e03",
+      "geometryToVisibleBind": [
+        1.0000000792156858,
+        0,
+        0,
+        0,
+        0,
+        0.9999999021300868,
+        -3.191264899560231e-8,
+        0,
+        0,
+        -2.0244739329378092e-8,
+        1.000000138235395,
+        0,
+        -9.373785425539731e-8,
+        1.0033385622332247e-7,
+        1.9543444779168695e-8,
+        1
+      ],
+      "headCountVisuallyVerified": 1,
+      "heads": [
+        {
+          "id": "primary",
+          "landmarks": [
+            "upperFace",
+            "muzzle",
+            "lowerFace",
+            "jawChin",
+            "headband"
+          ]
+        }
+      ],
+      "coverageReviewedAt": "2026-10-17T22:17:49.307Z",
+      "coverageReview": "Fresh six-view original survey, native front/side and five-landmark overlay actually inspected. One stone humanoid head. Brow/eyes, mouth, lower chin, side jaw and separate forehead band covered. Expanded headband patch has 43 battle vertices; minimum face patch 23. Scarf excluded from rigid face patches and reserved for body review."
+    },
+    "legendary-28": {
+      "camera": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.24464203775244497,
+          0.3149035533994714,
+          0.37244059109052385,
+          0.826860813972689,
+          0.13613924421042323,
+          0.6149080052977203
+        ],
+        "cameraPadding": 1.15
+      },
+      "status": "landmark-coverage-reviewed",
+      "sourceSha256": "ae4a303edabf6a73e68aa1338813cc9f68dcc2bcf1b85a3ae7397e3c32dea28e",
+      "coverageEvidence": ".tmp/pet-independent-face-recheck/legendary-28-landmark-coverage.png",
+      "landmarks": {
+        "upperFace": {
+          "center": [
+            -0.004642037752444972,
+            0.6468608139726889,
+            0.49490800529772033
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            145,
+            187
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "muzzle": {
+          "center": [
+            0.028592075840749864,
+            0.5277672120844131,
+            0.48816490344593655
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            153,
+            216
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "lowerFace": {
+          "center": [
+            0.02563218829241646,
+            0.4624405910905239,
+            0.4745347150481331
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            153,
+            231
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "jawChin": {
+          "center": [
+            0.07490355339947138,
+            0.4653865085277692,
+            0.41613924421042325
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            133,
+            224
+          ],
+          "pickedView": "head-side",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        }
+      },
+      "geometrySha256": "e717b903386541ebb00f9cdab579750cabf374ddc6f8e577af84580e5bb2cc4c",
+      "geometryToVisibleBind": [
+        1.0000000896677337,
+        0,
+        0,
+        0,
+        0,
+        0.9999999300184353,
+        -3.751355212577856e-8,
+        0,
+        0,
+        -1.4657418445640502e-8,
+        1.0000001661852274,
+        0,
+        5.627009275199768e-17,
+        6.670922475526808e-8,
+        -1.915118751083522e-8,
+        1
+      ],
+      "headCountVisuallyVerified": 1,
+      "heads": [
+        {
+          "id": "primary",
+          "landmarks": [
+            "upperFace",
+            "muzzle",
+            "lowerFace",
+            "jawChin"
+          ]
+        }
+      ],
+      "coverageReviewedAt": "2026-10-17T22:17:49.307Z",
+      "coverageReview": "Fresh six-view original survey, native front/side and expanded original marker overlay actually inspected. One gargoyle head. Brow/helmet, red mask muzzle, lower red mask/chin and side mask jaw covered; minimum battle patch 26 vertices. Wings, scarf, limbs and tail reserved for body animation review."
+    },
+    "legendary-29": {
+      "camera": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.38528868702534735,
+          0.3044432720550484,
+          0.4045349645125633,
+          0.8194405861823146,
+          -0.0323270602107146,
+          0.4562026598131683
+        ],
+        "cameraPadding": 1.15
+      },
+      "status": "landmark-coverage-reviewed",
+      "sourceSha256": "992ccbc3c211640a56b0ab9635acc27b6065abcd5e1acdfc7427b31f124534b5",
+      "coverageEvidence": ".tmp/pet-independent-face-recheck/legendary-29-landmark-coverage.png",
+      "landmarks": {
+        "upperFace": {
+          "center": [
+            -0.1452886870253474,
+            0.6394405861823147,
+            0.3362026598131683
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            144,
+            184
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "muzzle": {
+          "center": [
+            -0.06658426934873587,
+            0.5512011122222044,
+            0.24767293978928542
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            157,
+            196
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "lowerFace": {
+          "center": [
+            -0.07709896143889569,
+            0.49453496451256335,
+            0.28225790115522187
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            155,
+            205
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "jawChin": {
+          "center": [
+            0.06444327205504839,
+            0.5202674601826892,
+            0.29701714184234757
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            137,
+            201
+          ],
+          "pickedView": "head-side",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        }
+      },
+      "geometrySha256": "ed8ff0a6e7536146a0f37bf083c9dad191e17518db23634bf0aeae21f617f05a",
+      "geometryToVisibleBind": [
+        1.0000003233907644,
+        0,
+        0,
+        0,
+        0,
+        1.000000167778792,
+        -3.5651936430847186e-8,
+        0,
+        0,
+        -1.6520866202851536e-8,
+        1.0000004039538772,
+        0,
+        0,
+        -1.6661713292398517e-7,
+        3.526142834248125e-7,
+        1
+      ],
+      "headCountVisuallyVerified": 1,
+      "heads": [
+        {
+          "id": "primary",
+          "landmarks": [
+            "upperFace",
+            "muzzle",
+            "lowerFace",
+            "jawChin"
+          ]
+        }
+      ],
+      "coverageReviewedAt": "2026-10-17T22:17:49.307Z",
+      "coverageReview": "Fresh six-view original survey, native front/side and original marker overlay actually inspected. One tree head with leaf brow above branch muzzle. Upper leafy brow, exposed central branch muzzle, lower branch chin and side branch jaw covered; minimum battle patch 26 vertices. Torso scarf and shoulder leaves reserved for body animation review."
+    },
+    "mythic-0": {
+      "camera": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.2837527591806528,
+          0.35593820938459747,
+          -0.041250159801370846,
+          0.5669956746114407,
+          0.5050329178438795,
+          1.1186580814854923
+        ],
+        "cameraPadding": 1.15
+      },
+      "status": "landmark-coverage-reviewed",
+      "sourceSha256": "dc3e3e762dace863f535d7264b242ba89de0e00d34018b83092f39ea6c94812e",
+      "coverageEvidence": ".tmp/pet-independent-face-recheck/mythic-0-landmark-coverage.png",
+      "landmarks": {
+        "upperFace": {
+          "center": [
+            -0.04375275918065277,
+            0.21175462536825695,
+            0.9368525942007987
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            147,
+            192
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "muzzle": {
+          "center": [
+            -0.006842779026105283,
+            0.09175821506231668,
+            0.9752227829115084
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            153,
+            222
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "lowerFace": {
+          "center": [
+            -0.007398124074590804,
+            0.04874984019862915,
+            0.9986580814854923
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            153,
+            233
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "jawChin": {
+          "center": [
+            0.07389949993958034,
+            0.06382331673809871,
+            0.8867031348692064
+          ],
+          "radius": 0.11,
+          "pickedPixel": [
+            130,
+            223
+          ],
+          "pickedView": "head-side",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "ear": {
+          "center": [
+            0.11593820938459747,
+            0.38699567461144074,
+            0.7850329178438795
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            187,
+            153
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        }
+      },
+      "geometrySha256": "69a429a0a83fa72f9a1e463b0f0e462c488d37a43a5b31f733cb413da1789079",
+      "geometryToVisibleBind": [
+        0.9999999821560979,
+        0,
+        0,
+        0,
+        0,
+        1.0000000260463406,
+        -3.835816497765876e-9,
+        0,
+        0,
+        -1.774717351965549e-7,
+        0.9999999051746244,
+        0,
+        0,
+        9.216612661955281e-8,
+        9.135733047838102e-8,
+        1
+      ],
+      "headCountVisuallyVerified": 1,
+      "heads": [
+        {
+          "id": "primary",
+          "landmarks": [
+            "upperFace",
+            "muzzle",
+            "lowerFace",
+            "jawChin",
+            "ear"
+          ]
+        }
+      ],
+      "coverageReviewedAt": "2026-10-18T01:43:52.124Z",
+      "coverageReview": "One fox head with nine tails. Original front/side survey and complete-face overlay actually inspected. Brow, muzzle, lower chin, side jaw and separate ear sampled independently; minimum battle patch 32 vertices. All four soles and flagged old foot/head-neck influences require separate contact review.",
+      "rigExtensionReview": {
+        "previousGeometrySha256": "ed1a755e7a545c1fc7d683bad6aa346bde9c68b366999a1f11845c425427936a",
+        "candidateSourceSha256": "a8eefbcf83cbc0e8e595519420e078850f50a6eba197c7005c75f429bae52f72",
+        "conservationEvidence": "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-0-anatomical-candidate-conservation.json",
+        "originalBoneFramesAndInverseBindsPreserved": true,
+        "legacyLimbNamesPrefixed": true,
+        "sculptUvsTexturesPreserved": true,
+        "frozenLandmarksAndCoordinateFrameUnchanged": true,
+        "appendedAnatomicalLimbJoints": 12,
+        "coverageActuallyRechecked": true
+      }
+    },
+    "mythic-1": {
+      "camera": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.39527468398232546,
+          0.3511128543216074,
+          -0.06493661842986778,
+          0.5745499479055635,
+          0.5953651152273106,
+          1.1105937497159022
+        ],
+        "cameraPadding": 1.15
+      },
+      "status": "landmark-coverage-reviewed",
+      "sourceSha256": "00e0557419b07305043ce2c7849564512d5cb312614f902d52701594188e261a",
+      "coverageEvidence": ".tmp/pet-independent-face-recheck/mythic-1-landmark-coverage.png",
+      "landmarks": {
+        "upperFace": {
+          "center": [
+            -0.021554296175485977,
+            0.22776570150339984,
+            0.9729433881345124
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            148,
+            211
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "muzzle": {
+          "center": [
+            -0.0019041767919488301,
+            0.10321583138881078,
+            0.9905937497159022
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            151,
+            254
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "lowerFace": {
+          "center": [
+            0.009607101028788098,
+            0.025063381570132208,
+            0.9880303864826072
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            153,
+            280
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "jawChin": {
+          "center": [
+            0.11111285432160739,
+            0.05721831108820891,
+            0.8813980620729336
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            157,
+            270
+          ],
+          "pickedView": "head-side",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "crest": {
+          "center": [
+            -0.15527468398232547,
+            0.39454994790556347,
+            0.8753651152273106
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            112,
+            151
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        }
+      },
+      "geometrySha256": "08771ea7c0911364b3aeadd72b0c93e73926fc9d102778ad9364a079b816f235",
+      "geometryToVisibleBind": [
+        0.9999999221905945,
+        0,
+        0,
+        0,
+        0,
+        0.9999999428491559,
+        8.440037557733149e-10,
+        0,
+        0,
+        -1.8205108737179287e-7,
+        0.9999998220444187,
+        0,
+        1.1843599451860642e-10,
+        1.2139676375255704e-7,
+        1.7789283546232326e-7,
+        1
+      ],
+      "headCountVisuallyVerified": 1,
+      "heads": [
+        {
+          "id": "primary",
+          "landmarks": [
+            "upperFace",
+            "muzzle",
+            "lowerFace",
+            "jawChin",
+            "crest"
+          ]
+        }
+      ],
+      "coverageReviewedAt": "2026-10-18T01:43:52.124Z",
+      "coverageReview": "One dragon head. Original front/side survey and overlay actually inspected. Brow, muzzle, lower chin, side jaw and separate horn/crest sampled independently; minimum battle patch 29 vertices. Shoulders, four feet and tail reserved for motion inspection.",
+      "rigExtensionReview": {
+        "previousGeometrySha256": "08771ea7c0911364b3aeadd72b0c93e73926fc9d102778ad9364a079b816f235",
+        "candidateSourceSha256": "acfacba16ea3ba0e7787f8e2e4e2b29001cfa3324cd37a016cfd0a94a01a6290",
+        "conservationEvidence": "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-1-v2-anatomical-candidate-conservation.json",
+        "originalBoneFramesAndInverseBindsPreserved": true,
+        "legacyLimbNamesPrefixed": true,
+        "sculptUvsTexturesPreserved": true,
+        "frozenLandmarksAndCoordinateFrameUnchanged": true,
+        "appendedAnatomicalLimbJoints": 12,
+        "coverageActuallyRechecked": true
+      }
+    },
+    "mythic-2": {
+      "camera": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.28770810448580186,
+          0.4107330089543432,
+          0.21245471312507666,
+          0.9739475872278791,
+          0.05355801795722487,
+          0.5311872563367029
+        ],
+        "cameraPadding": 1.15
+      },
+      "status": "landmark-coverage-reviewed",
+      "sourceSha256": "2e86223de4dba678f43c3568b108fbb7919f9aa2537c03bcbcaa6394f657f952",
+      "coverageEvidence": ".tmp/pet-independent-face-recheck/mythic-2-landmark-coverage.png",
+      "landmarks": {
+        "upperFace": {
+          "center": [
+            -0.047708104485801865,
+            0.5445222615953211,
+            0.40074227338077384
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            144,
+            193
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "muzzle": {
+          "center": [
+            0.012776864742587594,
+            0.45063872747667444,
+            0.40624793885946925
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            155,
+            211
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "lowerFace": {
+          "center": [
+            0.0018257092532648544,
+            0.30245471312507666,
+            0.41118725633670294
+          ],
+          "radius": 0.11,
+          "pickedPixel": [
+            156,
+            238
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "jawChin": {
+          "center": [
+            0.17073300895434323,
+            0.36807622705619714,
+            0.3477061486136459
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            124,
+            223
+          ],
+          "pickedView": "head-side",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "crest": {
+          "center": [
+            0.02853910431479046,
+            0.7939475872278791,
+            0.3335580179572249
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            160,
+            146
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        }
+      },
+      "geometrySha256": "c21c5fa76283566f05a6f2f4e5e1e457e2055605151b8d0c652e2d255ace34f4",
+      "geometryToVisibleBind": [
+        1.0000000547694106,
+        0,
+        0,
+        0,
+        0,
+        0.9999998354332738,
+        -3.1966985919451574e-8,
+        0,
+        0,
+        -2.025655079784805e-8,
+        1.0000000718380213,
+        0,
+        7.476015488529913e-9,
+        1.6413151365801681e-7,
+        1.773875922539414e-8,
+        1
+      ],
+      "headCountVisuallyVerified": 1,
+      "heads": [
+        {
+          "id": "primary",
+          "landmarks": [
+            "upperFace",
+            "muzzle",
+            "lowerFace",
+            "jawChin",
+            "crest"
+          ]
+        }
+      ],
+      "coverageReviewedAt": "2026-10-18T01:43:52.124Z",
+      "coverageReview": "One humanoid crystal head. Original front/side survey and overlay actually inspected. Brow, muzzle, lower crystal beard, side jaw and separate crest sampled independently; minimum battle patch 52 vertices. Shoulder and arm crystals excluded from face patches."
+    },
+    "mythic-3": {
+      "camera": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.3997756629444502,
+          0.29123521249841006,
+          0.17980804261684633,
+          1.0555134868325045,
+          0.3221440239430411,
+          1.0159658164437562
+        ],
+        "cameraPadding": 1.15
+      },
+      "status": "landmark-coverage-reviewed",
+      "sourceSha256": "58b8211ad20865eccae12bfd87ba358ab9ff6345e57048abad625ca573e2c365",
+      "coverageEvidence": ".tmp/pet-independent-face-recheck/mythic-3-landmark-coverage.png",
+      "landmarks": {
+        "upperFace": {
+          "center": [
+            -0.043513082170023774,
+            0.566899309652465,
+            0.773625084313811
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            149,
+            184
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "muzzle": {
+          "center": [
+            0.003700300936883165,
+            0.3735586857475489,
+            0.8959658164437561
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            158,
+            226
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "lowerFace": {
+          "center": [
+            -0.015422258391988443,
+            0.2698080426168463,
+            0.8929383392243939
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            160,
+            260
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "jawChin": {
+          "center": [
+            0.051235212498410045,
+            0.27977900314088233,
+            0.8219128185454816
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            121,
+            247
+          ],
+          "pickedView": "head-side",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "antler": {
+          "center": [
+            -0.15977566294445023,
+            0.8755134868325044,
+            0.6021440239430411
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            129,
+            126
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        }
+      },
+      "geometrySha256": "adb7e05cac1d78af03177368a214cd5951339456bd6587b3512903d1957028c4",
+      "geometryToVisibleBind": [
+        2.2204457941911522e-16,
+        0,
+        -0.9999998851315658,
+        0,
+        5.543964398668777e-9,
+        0.9999999429461857,
+        1.2310073846208474e-24,
+        0,
+        0.9999998222681982,
+        -1.8656092337643315e-7,
+        2.220445654606436e-16,
+        0,
+        6.635310745295442e-8,
+        2.858600794963806e-8,
+        1.1102230246251565e-16,
+        1
+      ],
+      "headCountVisuallyVerified": 1,
+      "heads": [
+        {
+          "id": "primary",
+          "landmarks": [
+            "upperFace",
+            "muzzle",
+            "lowerFace",
+            "jawChin",
+            "antler"
+          ]
+        }
+      ],
+      "coverageReviewedAt": "2026-10-18T01:43:52.124Z",
+      "coverageReview": "One stag head. Original front/side survey and overlay actually inspected. Brow, long muzzle, lower chin, side jaw and separate antler sampled independently; minimum battle patch 34 vertices. Neck/scarf and all four hooves reserved for motion inspection.",
+      "rigExtensionReview": {
+        "previousGeometrySha256": "4c006f5c42fff4ba9baf3b240e9f34472be5ae3b22d93e84bc4269a01b3ae466",
+        "candidateSourceSha256": "ae390c352980c1456700ad240628e3f46435b4e52c687afe04c73e011093b427",
+        "conservationEvidence": "docs/screenshots/pet-independent-mythic-000-005-progress-2026-10-17/mythic-3-v3-conservation-and-faces.json",
+        "originalBoneFramesAndInverseBindsPreserved": true,
+        "legacyLimbNamesPrefixed": true,
+        "originalHeadNeckNamesPrefixed": true,
+        "sculptUvsTexturesPreserved": true,
+        "frozenLandmarksAndCoordinateFrameUnchanged": true,
+        "appendedAnatomicalLimbJoints": 12,
+        "appendedAnatomicalNeckHeadJoints": 2,
+        "coverageActuallyRechecked": true
+      }
+    }
+  }
+}

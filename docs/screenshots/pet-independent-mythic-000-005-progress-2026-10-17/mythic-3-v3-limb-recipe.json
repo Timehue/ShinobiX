@@ -1,0 +1,161 @@
+{
+  "sourceSha256": "7440d72f711cd6f809230cb08f59c123ee82a50a726de1662fd9d75574d10783",
+  "sha256": "6d7a89a45fde98cbde225afd25f0d5adc7c4d89e4fd903904dc6c5fe6cd656bc",
+  "anatomy": {
+    "sourceSha256": "7440d72f711cd6f809230cb08f59c123ee82a50a726de1662fd9d75574d10783",
+    "changedVertices": 8584,
+    "legacyReboundVertices": 11590,
+    "headNeckLegCleanupVertices": 0,
+    "legacySupportBinding": "Original front/hind influences rebound continuously onto the fitted same-section visible leg joints using sculpt-side proximity; lower-leg neck/head influence feathers onto the nearest supporting torso parent.",
+    "legs": [
+      {
+        "part": "front",
+        "side": "L",
+        "joints": [
+          21,
+          22,
+          23
+        ],
+        "upper": [
+          0.07320546490999169,
+          -0.075,
+          0.17773268383765423
+        ],
+        "knee": [
+          0.07320546490999169,
+          -0.28,
+          0.18773268383765424
+        ],
+        "paw": [
+          0.07320546490999169,
+          -0.46360319318596477,
+          0.20273268383765422
+        ],
+        "center": [
+          0.07320546490999169,
+          -0.4886031931859648,
+          0.20273268383765422
+        ]
+      },
+      {
+        "part": "front",
+        "side": "R",
+        "joints": [
+          24,
+          25,
+          26
+        ],
+        "upper": [
+          -0.07707776237723685,
+          -0.075,
+          0.17770253271778555
+        ],
+        "knee": [
+          -0.07707776237723685,
+          -0.28,
+          0.18770253271778553
+        ],
+        "paw": [
+          -0.07707776237723685,
+          -0.46357307922017243,
+          0.20270253271778554
+        ],
+        "center": [
+          -0.07707776237723685,
+          -0.48857307922017246,
+          0.20270253271778554
+        ]
+      },
+      {
+        "part": "hind",
+        "side": "L",
+        "joints": [
+          27,
+          28,
+          29
+        ],
+        "upper": [
+          0.10779170768752697,
+          -0.08,
+          -0.22333923627467525
+        ],
+        "knee": [
+          0.10779170768752697,
+          -0.28,
+          -0.17333923627467523
+        ],
+        "paw": [
+          0.10779170768752697,
+          -0.46357304738218497,
+          -0.21833923627467525
+        ],
+        "center": [
+          0.10779170768752697,
+          -0.488573047382185,
+          -0.21833923627467525
+        ]
+      },
+      {
+        "part": "hind",
+        "side": "R",
+        "joints": [
+          30,
+          31,
+          32
+        ],
+        "upper": [
+          -0.11136254352671975,
+          -0.08,
+          -0.22312820251119628
+        ],
+        "knee": [
+          -0.11136254352671975,
+          -0.28,
+          -0.17312820251119626
+        ],
+        "paw": [
+          -0.11136254352671975,
+          -0.46366352156753743,
+          -0.21812820251119627
+        ],
+        "center": [
+          -0.11136254352671975,
+          -0.48866352156753745,
+          -0.21812820251119627
+        ]
+      }
+    ],
+    "gaitReports": [
+      {
+        "name": "idle",
+        "strideScale": 0.55,
+        "verticalScale": 0.45,
+        "maxContactError": 2.357534406297558e-9
+      },
+      {
+        "name": "walk",
+        "strideScale": 0.55,
+        "verticalScale": 0.45,
+        "maxContactError": 4.006751610068546e-9
+      },
+      {
+        "name": "gallop",
+        "strideScale": 0.55,
+        "verticalScale": 0.45,
+        "maxContactError": 5.494630186101179e-9
+      },
+      {
+        "name": "guard",
+        "strideScale": 0.55,
+        "verticalScale": 0.45,
+        "maxContactError": 2.9619412472215965e-9
+      },
+      {
+        "name": "rest",
+        "strideScale": 0.55,
+        "verticalScale": 0.45,
+        "maxContactError": 2.257128981852808e-9
+      }
+    ]
+  }
+}

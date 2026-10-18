@@ -1,0 +1,61 @@
+{
+  "schema": 1,
+  "errors": [],
+  "pets": [
+    {
+      "id": "legendary-27",
+      "name": "Titan Golem",
+      "url": "/.tmp/titan-golem-independent-jaw-v1/roster/legendary-27.glb",
+      "sha256": "9141785c1e330a917682bd2d5e77477a0b68c625a55d5629245671577580ebea",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "head-front",
+        "head-side"
+      ],
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.25558588239648083,
+          0.4710358395412717,
+          0.46836382416748734,
+          0.9600920953961571,
+          0.04146970987100246,
+          0.5450562510669525
+        ],
+        "cameraPadding": 1.15
+      },
+      "sheets": [
+        "legendary-27-head-front.webp",
+        "legendary-27-head-side.webp"
+      ],
+      "review": "pending",
+      "anatomySha256": "0dc4ab251e8274adbf08465e7fb981ac527fe0deaf983b4abe6466f6f51df5cc"
+    }
+  ],
+  "artisticCertification": false
+}
