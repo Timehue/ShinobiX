@@ -119,7 +119,10 @@ test('an uncertain response retries the same request and payment instead of buyi
         if (sent.length === 1) throw new Error('lost response');
         return json({ ok: true, payment: 'certificate', dailyUsed: 1 });
     }) as typeof fetch;
-    assert.equal((await pullBlackMarket('Kaito', 'certificate')).ok, false);
+    const uncertain = await pullBlackMarket('Kaito', 'certificate');
+    assert.equal(uncertain.ok, false);
+    assert.match(uncertain.error!, /unconfirmed/i);
+    assert.match(uncertain.error!, /Wait until the game has saved, then refresh to recover/);
     assert.equal((await pullBlackMarket('Kaito', 'ryo')).ok, true);
     assert.deepEqual(sent[1], sent[0], 'recover the original certificate purchase before any new paid pull');
     await pullBlackMarket('Kaito', 'ryo');

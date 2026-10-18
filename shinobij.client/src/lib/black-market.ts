@@ -47,7 +47,7 @@ export async function pullBlackMarket(playerName: string, payment: BrokerPayment
         if (!res.ok || !data.ok) return { ...data, ok: false, error: data.error || 'The black market turns you away.' };
         return data;
     } catch {
-        return { ok: false, error: 'The Broker could not confirm your crate. Try again to recover or finish the same purchase without being charged twice.' };
+        return { ok: false, error: 'Your crate is unconfirmed. Wait until the game has saved, then refresh to recover the same pending crate without being charged twice.' };
     }
 }
 
