@@ -2248,31 +2248,33 @@
     },
     "mythic-14": {
       "y": [
-        -0.3,
-        -0.2
+        -2,
+        -2
       ],
-      "z": [
-        0.8,
-        0.85
+      "bounds": [
+        -0.5498561817615784,
+        0.5356351562786661,
+        -0.3504372903622077,
+        0.6291523392127111,
+        0.3593404114642448,
+        1.1010479334660235
       ],
-      "x": [
-        0.3,
-        0.4
-      ],
-      "cameraPadding": 0.85
+      "cameraPadding": 1.15
     },
     "mythic-15": {
       "y": [
-        -0.05,
-        0.14
+        -2,
+        -2
       ],
-      "z": [
-        0.4,
-        0.55
+      "bounds": [
+        -0.4288585965023166,
+        0.3987362938135708,
+        0.046661413486032144,
+        0.8251699681598867,
+        0.516864275881703,
+        1.093280166115513
       ],
-      "cameraPadding": 1.4,
-      "status": "repair",
-      "finding": "Celestial lion cheeks and muzzle change shape in hit reaction and turned death; preserve both feathered wings and curled tail."
+      "cameraPadding": 1.15
     },
     "starter-fire": {
       "y": [

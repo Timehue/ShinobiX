@@ -1,0 +1,23 @@
+✔ GravepeakBehemoth independently frozen landmarks cover the whole head, detect released distortion and pass repaired clips and blends (935.7818ms)
+✔ GravepeakBehemoth anatomical legs preserve sculpt, UVs, textures, every original bone frame and inverse bind (50.7234ms)
+✔ GravepeakBehemoth keeps all original head, neck, tail and unrelated performance curves exactly (26.3865ms)
+✔ GravepeakBehemoth visible sole surfaces stay supported between keys, independently of joint-contact metadata (900.3932ms)
+✔ GravepeakBehemoth pinned four-stage recipe reproduces the visually reviewed bytes and rejects unexpected input (783.2137ms)
+✔ GravepeakBehemoth shipping source equals the double-checked four-stage repair (8.151ms)
+✔ GravepeakBehemoth shipping battle LOD preserves independently frozen complete face and crest through all clips and blends (602.4537ms)
+✔ GravepeakBehemoth animation source retention includes every current mesh and skin stream (15.6309ms)
+✔ Gravepeak Behemoth battle soles remain supported using original visible surface boxes (414.7164ms)
+✔ Gravepeak Behemoth actual source and battle soles have no inherited head or neck influences (41.5081ms)
+✔ Gravepeak retargeted neck/head curves retain eighteen finite strictly ordered timelines (12.6899ms)
+✔ Gravepeak replaces the humanoid support mapping with four anatomical chains while retaining all twenty-one original joints (14.9118ms)
+✔ all 161 production pets have complete proper skeletal animation banks (1047.5601ms)
+✔ all 161 catalog identities resolve to a versioned runtime GLB with the full clip contract (1314.7084ms)
+✔ Celestial Lion has the full pet animation bank and animated wings in every clip (2.375ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7925.6695

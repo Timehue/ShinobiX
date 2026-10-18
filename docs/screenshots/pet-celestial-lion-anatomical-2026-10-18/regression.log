@@ -1,0 +1,23 @@
+✔ CelestialLion independently frozen landmarks cover the whole head, detect released distortion and pass repaired clips and blends (1947.2814ms)
+✔ CelestialLion anatomical legs preserve sculpt, UVs, textures, every original bone frame and inverse bind (66.7384ms)
+✔ CelestialLion keeps all original head, neck, tail and unrelated performance curves exactly (25.4488ms)
+✔ CelestialLion visible sole surfaces stay supported between keys, independently of joint-contact metadata (1032.7543ms)
+✔ CelestialLion pinned four-stage recipe reproduces the visually reviewed bytes and rejects unexpected input (1998.4233ms)
+✔ CelestialLion shipping source equals the double-checked four-stage repair (4.5173ms)
+✔ CelestialLion shipping battle LOD preserves independently frozen complete face and mane through all clips and blends (763.0188ms)
+✔ CelestialLion animation source retention includes every current mesh and skin stream (12.3015ms)
+✔ Celestial Lion battle soles remain supported using original visible surface boxes (408.0316ms)
+✔ Celestial Lion actual source and battle soles have no inherited head or neck influences (77.6049ms)
+✔ Celestial Lion retargeted neck/head curves retain eighteen finite strictly ordered timelines (13.2164ms)
+✔ Celestial Lion retains its original twenty-seven joints and six animated wing joints while appending fourteen fitted leg/neck joints (11.4654ms)
+✔ all 161 production pets have complete proper skeletal animation banks (220.5715ms)
+✔ all 161 catalog identities resolve to a versioned runtime GLB with the full clip contract (193.7682ms)
+✔ Celestial Lion has the full pet animation bank and animated wings in every clip (2.8682ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8662.0862

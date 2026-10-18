@@ -3095,7 +3095,7 @@
       ],
       "referenceSha256": [
         "5251ef9c01bd83f3face0831925911fd6c5e7c4de7ff3c0aff2ed196b1685082",
-        "af1dd8dba50345c3bf200693b352f632828f73944d92ed9837bef67d740f0ca3"
+        "e4f8a21bc6c303286dce7fad75cf2584bf4caaba1e016d1f9d49b0c301fbc1d9"
       ],
       "scene": "a mountain fortress training ground, weathered carved stone, sparse grasses, hazy tiled rooftops and warm afternoon light",
       "prompt": "Use case: identity-preserve. Asset: one finished square companion hero portrait for Shinobi Journey, a polished shinobi RPG. Image 1 is the edit target and main character reference: Gravepeak Behemoth (mythic-14). Keep this exact companion recognizable and faithful to the game: preserve species, face, colors, markings, silhouette, proportions, costume and equipment. If Image 2 is supplied it is a grid of poses of the ONE production model, provided only to confirm the anatomy and outfit; never reproduce the grid or duplicate the creature. Resolve old illustration details against that production identity. Add no new wearable equipment. Replace the empty or old backdrop with a complete, professionally painted setting: a mountain fortress training ground, weathered carved stone, sparse grasses, hazy tiled rooftops and warm afternoon light. The scene fills the entire image edge to edge, with a grounded contact shadow or a physically appropriate perch/water surface. Unified collection style: clean anime ink, refined restrained cel shading with convincing rounded volume, tactile cloth and fur/feathers/scales, softly painted environments, indigo shadows and natural atmospheric depth. Retain the existing stylized character design; do not turn it photorealistic or generic. One complete creature dominates at about 75-80 percent of canvas height; keep all ears, feet, wings, weapons and tails inside safe margins for square and slightly wide card crops. Face and eyes read clearly at 200px. Background has lower detail and contrast than the subject. Use dramatic but controlled hero lighting and atmospheric depth, keeping any elemental effects sparse and behind the silhouette. No additional characters, duplicate heads, extra limbs, new weapons, redesigned armor, text, watermark, logo, UI frame, border, collage or multiple panels. Return one finished portrait. Approved current production identity: Gravepeak Behemoth preserves a massive armored earth silhouette, obsidian plates, runic growths, planted limbs, and full rear volume; isolated reconstruction debris was removed before promotion. Body profile: heavy. The approved model identity takes priority over obsolete accessories or anatomy in Image 1. Do not invent new physical features. Preserve this massive adult armored earth beast almost exactly: one horned stone head, coherent broad torso, FOUR planted heavy limbs with attached rock claws, dark obsidian plates, mountain-like back growths, moss and gold runic insets. Match current model's full rear volume; no humanoid extra arms, extra heads or invented tail. Keep fine stone texture and gold engravings; do not simplify into a small smooth cartoon golem. Shinobi identity comes from the full ancient shrine environment, not new clothing. Show all physical horns, crown, fins, hooves, claws and tails completely with at least 6% scenic margin from edges. Fine crisp face, coherent contacts, no neon guide marks or malformed accessories.",
@@ -3130,6 +3130,14 @@
           "sha256": "af1dd8dba50345c3bf200693b352f632828f73944d92ed9837bef67d740f0ca3",
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
+        },
+        {
+          "reference": "pet-models/warfront-impostors/roster/mythic-14.webp",
+          "previousSha256": "af1dd8dba50345c3bf200693b352f632828f73944d92ed9837bef67d740f0ca3",
+          "sha256": "e4f8a21bc6c303286dce7fad75cf2584bf4caaba1e016d1f9d49b0c301fbc1d9",
+          "upstreamCommit": "221d9aa7f17e4f1535a9084166721671e528751a",
+          "reviewReceipt": "docs/audits/pet-animation-shape-reviews.json",
+          "reason": "Integrate independently double-checked Gravepeak Behemoth and Celestial Lion animation repair atlases; portrait master and delivery pixels are unchanged."
         }
       ]
     },
@@ -3144,7 +3152,7 @@
       ],
       "referenceSha256": [
         "3b5ab93f11048ac570d864a8fcb57dea479b21bcf3814e1d985fb8026d075c25",
-        "89c8d797855575b707f0dd6f6db2994e3b1dd4f89bf3b3ff7b8317a8a184495d"
+        "75774b6ead8b74d94b4072a7f646a6cb885bd3cb45439ed8adccc5438bc58452"
       ],
       "scene": "a mountain village rooftop training terrace, weathered tiles, distant pagoda eaves, hazy green peaks and a few windblown leaves",
       "prompt": "Use case: precise-object-edit. Image 1 is the candidate Celestial Lion portrait to edit. Correct ONLY the framing by pulling the camera back substantially: uniformly reduce the ENTIRE creature including all horns, long ears, wings, tail, feet and clothing/equipment to 82 percent of its current size, recenter in the square frame and naturally extend the SAME full shinobi shrine environment around it. Leave at least 8 percent clear scenic margin between every physical extremity and all canvas edges. Keep the exact original mature/stylized proportions, face, eyes, expression, pose, colors, markings, fur/feathers, gear and lighting unchanged. Preserve all detailed anatomy and ornaments. One coherent creature; no new body parts, armor, clothes or weapons. Do not crop any ear, horn or wing tip. Crisp polished game illustration with unified scene perspective and grounded feet. No text, watermark or frame.",
@@ -3182,6 +3190,14 @@
           "sha256": "89c8d797855575b707f0dd6f6db2994e3b1dd4f89bf3b3ff7b8317a8a184495d",
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
+        },
+        {
+          "reference": "pet-models/warfront-impostors/roster/mythic-15.webp",
+          "previousSha256": "89c8d797855575b707f0dd6f6db2994e3b1dd4f89bf3b3ff7b8317a8a184495d",
+          "sha256": "75774b6ead8b74d94b4072a7f646a6cb885bd3cb45439ed8adccc5438bc58452",
+          "upstreamCommit": "221d9aa7f17e4f1535a9084166721671e528751a",
+          "reviewReceipt": "docs/audits/pet-animation-shape-reviews.json",
+          "reason": "Integrate independently double-checked Gravepeak Behemoth and Celestial Lion animation repair atlases; portrait master and delivery pixels are unchanged."
         }
       ]
     },

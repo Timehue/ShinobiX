@@ -1,0 +1,102 @@
+{
+  "sourceSha256": "092ed61d1b34b513442a9daa81087ed5c012a961d98aade016bff3adb6e4e831",
+  "view": "body-side",
+  "image": "celestial-lion-joints-body-side.png",
+  "observedBeforeRepair": true,
+  "picks": [
+    {
+      "pixel": [
+        102,
+        186
+      ],
+      "visible": "front shoulder outer surface",
+      "normalized": [
+        0.2769399436,
+        -0.2271960653,
+        0.5149635007
+      ]
+    },
+    {
+      "pixel": [
+        101,
+        216
+      ],
+      "visible": "front elbow outer surface",
+      "normalized": [
+        0.2444563065,
+        -0.5086344766,
+        0.5299632118
+      ]
+    },
+    {
+      "pixel": [
+        184,
+        192
+      ],
+      "visible": "hind thigh visible beneath wing",
+      "normalized": [
+        0.1906207443,
+        -0.281709638,
+        -0.1837644783
+      ]
+    },
+    {
+      "pixel": [
+        197,
+        212
+      ],
+      "visible": "far hind lower leg",
+      "normalized": [
+        -0.2277120813,
+        -0.5520870572,
+        -0.3526770586
+      ]
+    },
+    {
+      "pixel": [
+        206,
+        234
+      ],
+      "visible": "near hind hock",
+      "normalized": [
+        0.1557318123,
+        -0.6873301171,
+        -0.424530313
+      ]
+    },
+    {
+      "pixel": [
+        111,
+        167
+      ],
+      "visible": "lower mane neck transition",
+      "normalized": [
+        0.2799273738,
+        -0.0548940516,
+        0.4305607715
+      ]
+    },
+    {
+      "pixel": [
+        93,
+        143
+      ],
+      "visible": "side cheek",
+      "normalized": [
+        0.308351955,
+        0.1703609776,
+        0.6029667032
+      ]
+    }
+  ],
+  "soleInspection": {
+    "fourViewsActuallyInspected": true,
+    "counts": [
+      160,
+      170,
+      188,
+      206
+    ],
+    "rejectedAutomaticClusters": "Ground-level tail tuft incorrectly selected as hindR; hindL combined both rear feet. Preserved rejected selection and overlay; corrected before any repair."
+  }
+}
