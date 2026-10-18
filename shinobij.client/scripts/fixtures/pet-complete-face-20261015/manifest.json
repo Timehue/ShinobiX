@@ -1,0 +1,44 @@
+{
+  "entries": [
+    {
+      "id": "legendary-26",
+      "file": "legendary-26-v1.glb",
+      "sha256": "2dc16276c736394b705bb529178ecc4dc3020074893b7a5314a012a4c25dc415"
+    },
+    {
+      "id": "legendary-27",
+      "file": "legendary-27-v1.glb",
+      "sha256": "e179c1daa7d69c1910587e4a4dce3b94a9b2e5fe8bfa7abfb08eb4a1a3a61698"
+    },
+    {
+      "id": "legendary-28",
+      "file": "legendary-28-v1.glb",
+      "sha256": "ae4a303edabf6a73e68aa1338813cc9f68dcc2bcf1b85a3ae7397e3c32dea28e"
+    },
+    {
+      "id": "legendary-29",
+      "file": "legendary-29-v1.glb",
+      "sha256": "992ccbc3c211640a56b0ab9635acc27b6065abcd5e1acdfc7427b31f124534b5"
+    },
+    {
+      "id": "mythic-0",
+      "file": "mythic-0-v1.glb",
+      "sha256": "dc3e3e762dace863f535d7264b242ba89de0e00d34018b83092f39ea6c94812e"
+    },
+    {
+      "id": "mythic-1",
+      "file": "mythic-1-v1.glb",
+      "sha256": "00e0557419b07305043ce2c7849564512d5cb312614f902d52701594188e261a"
+    },
+    {
+      "id": "mythic-2",
+      "file": "mythic-2-v1.glb",
+      "sha256": "2e86223de4dba678f43c3568b108fbb7919f9aa2537c03bcbcaa6394f657f952"
+    },
+    {
+      "id": "mythic-3",
+      "file": "mythic-3-v1.glb",
+      "sha256": "58b8211ad20865eccae12bfd87ba358ab9ff6345e57048abad625ca573e2c365"
+    }
+  ]
+}

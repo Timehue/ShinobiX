@@ -19356,7 +19356,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS + reviewed geometry cleanup",
       "textured": true,
       "estimatedGenerationCostUsd": 1.44,
-      "sha256": "2DC16276C736394B705BB529178ECC4DC3020074893B7A5314A012A4C25DC415",
+      "sha256": "EF393DF72F26E0BFD2A64B4AF210E0F609AAB74D4051CC25530CF290A7909A76",
       "visualReview": {
         "passed": true,
         "reason": "Galvanic Manticore now contains one coherent head, neck, torso and four-legged silhouette. The detached duplicate head island was removed while preserving its authored atlas, mane plates, tail, skeleton and eight animation clips; front, side, rear and three-quarter QA pass."
@@ -19407,7 +19407,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 497460,
+        "bytes": 1039540,
         "triangles": 34434,
         "vertices": 24811,
         "skins": 1,
@@ -19444,9 +19444,9 @@
         "localizedSeamVertices": 2947
       },
       "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
+        "revision": "20261017-manticore-independent-complete-ruff-v3",
         "id": "legendary-26",
-        "sourceSha256": "f50c699833c51020de6cac245975d595eb056a6f4ed957022ad9d2f8615f339a",
+        "sourceSha256": "2dc16276c736394b705bb529178ecc4dc3020074893b7a5314a012a4c25dc415",
         "region": {
           "y": [
             0.05,
@@ -19458,28 +19458,280 @@
           ],
           "cameraPadding": 1.3,
           "status": "repair",
-          "finding": "All 13 original animations visually inspected in complete front and side head and body sheets, brighter copies and separate anatomy closeups. Dark feline lower jaw and cheek change shape during strike and turned death; preserve gold collar and limbs."
+          "finding": "Fresh independent original whole-face and gold-ruff-tip coverage plus all twelve raw source slices and 216 native actual techniques actually inspected. Lower face and gold ruff fold; visible front paws also fail motion support. This is only a separate complete-ruff binding stage; four anatomical leg chains and coordinated support still required. No artistic approval inferred.",
+          "revision": "20261017-manticore-independent-complete-ruff-v3",
+          "supersedesSourceSha256": "2dc16276c736394b705bb529178ecc4dc3020074893b7a5314a012a4c25dc415",
+          "repairRegion": {
+            "y": [
+              -0.31,
+              -0.22
+            ],
+            "z": [
+              0.52,
+              0.68
+            ],
+            "x": [
+              0.5,
+              0.7
+            ]
+          },
+          "union": [
+            {
+              "y": [
+                -0.31,
+                -0.22
+              ],
+              "z": [
+                0.52,
+                0.68
+              ],
+              "x": [
+                0.5,
+                0.7
+              ]
+            }
+          ],
+          "continuousInfluencePacking": true,
+          "neckTransition": {
+            "iterations": 48,
+            "edges": [
+              [
+                3255,
+                3256
+              ],
+              [
+                3271,
+                3270
+              ],
+              [
+                3287,
+                3289
+              ],
+              [
+                3128,
+                3120
+              ],
+              [
+                3127,
+                3246
+              ],
+              [
+                19915,
+                19918
+              ]
+            ],
+            "protectBelowY": -0.65,
+            "featherY": 0.2
+          }
         },
         "envelopeMatrix": [
-          0.9999999790675428,
+          0.9999999816695582,
           0,
           0,
           0,
           0,
-          0.9999999835138784,
+          0.9999999861158939,
           1.0195438604476692e-8,
           0,
           0,
-          -1.9117335370300026e-7,
-          0.9999998628619202,
+          -1.9117335420260062e-7,
+          0.9999998654639354,
           0,
           -3.105013191007089e-9,
-          1.5279349085961513e-7,
-          1.2919935465927068e-7,
+          1.536916144906364e-7,
+          1.3180137081736376e-7,
           1
         ],
-        "changedVertices": 5976,
-        "rigidVertices": 4167
+        "changedVertices": 7972,
+        "rigidVertices": 6643,
+        "supersededRepair": {
+          "revision": "20261014-reviewed-skull-v1",
+          "sourceSha256": "f50c699833c51020de6cac245975d595eb056a6f4ed957022ad9d2f8615f339a"
+        }
+      },
+      "anatomicalLimbRepair": {
+        "sourceSha256": "dd559d15cc2e8f8e326cf42edf0735a9cb24db644e6e0865a83001c65918bf4b",
+        "changedVertices": 7021,
+        "legacyReboundVertices": 10151,
+        "headNeckLegCleanupVertices": 2856,
+        "legacySupportBinding": "Original front/hind influences rebound continuously onto the fitted same-section visible leg joints using sculpt-side proximity; lower-leg neck/head influence feathers onto the nearest supporting torso parent.",
+        "legs": [
+          {
+            "part": "front",
+            "side": "L",
+            "joints": [
+              21,
+              22,
+              23
+            ],
+            "upper": [
+              -0.05816661768593837,
+              -0.08,
+              0.2876655007391769
+            ],
+            "knee": [
+              -0.05816661768593837,
+              -0.24,
+              0.3226655007391769
+            ],
+            "paw": [
+              -0.05816661768593837,
+              -0.44042786852774785,
+              0.3426655007391769
+            ],
+            "center": [
+              -0.05816661768593837,
+              -0.4754278685277479,
+              0.3426655007391769
+            ]
+          },
+          {
+            "part": "front",
+            "side": "R",
+            "joints": [
+              24,
+              25,
+              26
+            ],
+            "upper": [
+              -0.35153093692460646,
+              -0.08,
+              0.28673073520720443
+            ],
+            "knee": [
+              -0.35153093692460646,
+              -0.24,
+              0.3217307352072044
+            ],
+            "paw": [
+              -0.35153093692460646,
+              -0.4404881819426998,
+              0.34173073520720443
+            ],
+            "center": [
+              -0.35153093692460646,
+              -0.4754881819426998,
+              0.34173073520720443
+            ]
+          },
+          {
+            "part": "hind",
+            "side": "L",
+            "joints": [
+              27,
+              28,
+              29
+            ],
+            "upper": [
+              -0.09357447445093081,
+              -0.12,
+              -0.0773400510788167
+            ],
+            "knee": [
+              -0.09357447445093081,
+              -0.28,
+              -0.1073400510788167
+            ],
+            "paw": [
+              -0.09357447445093081,
+              -0.44039769738794243,
+              -0.1423400510788167
+            ],
+            "center": [
+              -0.09357447445093081,
+              -0.47539769738794246,
+              -0.1423400510788167
+            ]
+          },
+          {
+            "part": "hind",
+            "side": "R",
+            "joints": [
+              30,
+              31,
+              32
+            ],
+            "upper": [
+              -0.34360054114391914,
+              -0.12,
+              -0.0781541995346392
+            ],
+            "knee": [
+              -0.34360054114391914,
+              -0.28,
+              -0.1081541995346392
+            ],
+            "paw": [
+              -0.34360054114391914,
+              -0.44033731852083047,
+              -0.1431541995346392
+            ],
+            "center": [
+              -0.34360054114391914,
+              -0.47533731852083044,
+              -0.1431541995346392
+            ]
+          }
+        ],
+        "gaitReports": [
+          {
+            "name": "idle",
+            "strideScale": 0.55,
+            "verticalScale": 0.45,
+            "maxContactError": 1.88626016802722e-11
+          },
+          {
+            "name": "walk",
+            "strideScale": 0.55,
+            "verticalScale": 0.45,
+            "maxContactError": 2.220446049250313e-16
+          },
+          {
+            "name": "gallop",
+            "strideScale": 0.55,
+            "verticalScale": 0.45,
+            "maxContactError": 1.7554167342883506e-16
+          },
+          {
+            "name": "guard",
+            "strideScale": 0.55,
+            "verticalScale": 0.45,
+            "maxContactError": 5.3660251396584773e-11
+          },
+          {
+            "name": "rest",
+            "strideScale": 0.55,
+            "verticalScale": 0.45,
+            "maxContactError": 2.799258769246205e-11
+          }
+        ]
+      },
+      "coordinatedActionRepair": {
+        "revision": "20261017-manticore-coordinated-actions-v1",
+        "sourceSha256": "543979eccb35705cdb5e4745b59d49b9a03891888c4e508cbdf4fbd2a7d45e91",
+        "clips": [
+          {
+            "name": "attack",
+            "keys": 49,
+            "changedTracks": 16,
+            "maxContactError": 2.2887833992611187e-16,
+            "contacts": 132
+          },
+          {
+            "name": "cast",
+            "keys": 49,
+            "changedTracks": 16,
+            "maxContactError": 2.2887833992611187e-16,
+            "contacts": 196
+          },
+          {
+            "name": "idle_hitreact1",
+            "keys": 49,
+            "changedTracks": 16,
+            "maxContactError": 2.912770055374741e-11,
+            "contacts": 196
+          }
+        ]
       }
     },
     "legendary-27": {
@@ -19493,7 +19745,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "E179C1DAA7D69C1910587E4A4DCE3B94A9B2E5FE8BFA7ABFB08EB4A1A3A61698",
+      "sha256": "9141785C1E330A917682BD2D5E77477A0B68C625A55D5629245671577580EBEA",
       "visualReview": {
         "passed": true,
         "reason": "Titan Golem is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -19543,7 +19795,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 612520,
+        "bytes": 612328,
         "triangles": 40000,
         "vertices": 24289,
         "skins": 1,
@@ -19579,9 +19831,9 @@
         "iterations": 48
       },
       "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
+        "revision": "20261017-titan-golem-independent-complete-jaw-v1",
         "id": "legendary-27",
-        "sourceSha256": "a90d4b39a7a1eb6dbf7fa75e5e9ce3da5748a7bf25267f5d41e8779377cc8d50",
+        "sourceSha256": "e179c1daa7d69c1910587e4a4dce3b94a9b2e5fe8bfa7abfb08eb4a1a3a61698",
         "region": {
           "y": [
             0.4,
@@ -19593,32 +19845,69 @@
           ],
           "cameraPadding": 1.3,
           "status": "repair",
-          "finding": "All 13 original animations visually inspected in complete front and side head and body sheets, brighter copies and separate anatomy closeups. Stone golem lower mouth and cheek pull with torso during tilt and death; preserve shoulder stones and fists.",
+          "finding": "All twelve source raw face/body slices across thirteen clips and all 216 native actual technique frames actually inspected. Lower stone chin subtly follows the torso during tilted idle, recoil and defeat. Original stone shoulders, arms, knees, ankles and fists remain connected in these views. Smooth incremental full-forward-jaw binding; preserve original sculpt, rig, UVs, textures and every authored curve. Separate candidate, no visual approval.",
           "x": [
             0.38,
             0.52
-          ]
+          ],
+          "revision": "20261017-titan-golem-independent-complete-jaw-v1",
+          "supersedesSourceSha256": "e179c1daa7d69c1910587e4a4dce3b94a9b2e5fe8bfa7abfb08eb4a1a3a61698",
+          "repairRegion": {
+            "y": [
+              0.32,
+              0.45
+            ],
+            "z": [
+              0.1,
+              0.22
+            ],
+            "x": [
+              0.38,
+              0.52
+            ]
+          },
+          "union": [
+            {
+              "y": [
+                0.32,
+                0.45
+              ],
+              "z": [
+                0.1,
+                0.22
+              ],
+              "x": [
+                0.38,
+                0.52
+              ]
+            }
+          ],
+          "continuousInfluencePacking": true
         },
         "envelopeMatrix": [
-          1.0000000797463062,
+          1.0000000792156858,
           0,
           0,
           0,
           0,
-          0.9999999026607072,
+          0.9999999021300868,
           -3.191264899560231e-8,
           0,
           0,
           -2.0244739329378092e-8,
-          1.0000001387660153,
+          1.000000138235395,
           0,
-          -9.373785430505377e-8,
-          1.0086447665980103e-7,
-          2.017093260475722e-8,
+          -9.373785425539731e-8,
+          1.0033385622332247e-7,
+          1.9543444779168695e-8,
           1
         ],
-        "changedVertices": 7374,
-        "rigidVertices": 2945
+        "changedVertices": 3630,
+        "rigidVertices": 2072,
+        "supersededRepair": {
+          "revision": "20261014-reviewed-skull-v1",
+          "sourceSha256": "a90d4b39a7a1eb6dbf7fa75e5e9ce3da5748a7bf25267f5d41e8779377cc8d50"
+        }
       }
     },
     "legendary-28": {
@@ -19632,7 +19921,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "AE4A303EDABF6A73E68AA1338813CC9F68DCC2BCF1B85A3AE7397E3C32DEA28E",
+      "sha256": "75DB1C34EFF1EFB6A80F3521924327736B63F6481D7ECC09A9C3919DB767ECE2",
       "visualReview": {
         "passed": true,
         "reason": "Granite Gargoyle is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -19682,7 +19971,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 565892,
+        "bytes": 565512,
         "triangles": 40000,
         "vertices": 25343,
         "skins": 1,
@@ -19718,9 +20007,9 @@
         "iterations": 48
       },
       "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
+        "revision": "20261017-granite-gargoyle-independent-complete-mask-v1",
         "id": "legendary-28",
-        "sourceSha256": "07bb5c0c47e997eacdf9c4543c47fda955f9fb588ddf27b4e84b92a5ea6bf6a7",
+        "sourceSha256": "ae4a303edabf6a73e68aa1338813cc9f68dcc2bcf1b85a3ae7397e3c32dea28e",
         "region": {
           "y": [
             0.4,
@@ -19732,11 +20021,44 @@
           ],
           "cameraPadding": 1.3,
           "status": "repair",
-          "finding": "All 13 original animations visually inspected in complete front and side head and body sheets, brighter copies and separate anatomy closeups. Gargoyle red lower muzzle and cheek compress during turned death and attack; preserve wings and shoulder armor.",
+          "finding": "All twelve original raw face and body slices and all 216 native actual technique frames inspected. Red lower mask and chin distort under head tilt. Smooth incremental complete-mask binding; preserve wings, shoulders, sculpt, rig, UVs, textures and all authored motion. Separate candidate awaiting visual review.",
           "x": [
             0.35,
             0.45
-          ]
+          ],
+          "revision": "20261017-granite-gargoyle-independent-complete-mask-v1",
+          "supersedesSourceSha256": "ae4a303edabf6a73e68aa1338813cc9f68dcc2bcf1b85a3ae7397e3c32dea28e",
+          "repairRegion": {
+            "y": [
+              0.28,
+              0.36
+            ],
+            "z": [
+              0.12,
+              0.28
+            ],
+            "x": [
+              0.35,
+              0.45
+            ]
+          },
+          "union": [
+            {
+              "y": [
+                0.28,
+                0.36
+              ],
+              "z": [
+                0.12,
+                0.28
+              ],
+              "x": [
+                0.35,
+                0.45
+              ]
+            }
+          ],
+          "continuousInfluencePacking": true
         },
         "envelopeMatrix": [
           1.0000000896677337,
@@ -19753,11 +20075,15 @@
           0,
           5.627009275199768e-17,
           6.670922475526808e-8,
-          -1.8470845492002397e-8,
+          -1.915118751083522e-8,
           1
         ],
-        "changedVertices": 3745,
-        "rigidVertices": 1614
+        "changedVertices": 3095,
+        "rigidVertices": 1059,
+        "supersededRepair": {
+          "revision": "20261014-reviewed-skull-v1",
+          "sourceSha256": "07bb5c0c47e997eacdf9c4543c47fda955f9fb588ddf27b4e84b92a5ea6bf6a7"
+        }
       }
     },
     "legendary-29": {
@@ -19771,7 +20097,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "992CCBC3C211640A56B0AB9635ACC27B6065ABCD5E1ACDFC7427B31F124534B5",
+      "sha256": "CE15611E2781054C1978438F3FD63B76B2CEFE54E1EC43D37B38EBAE847E1C20",
       "visualReview": {
         "passed": true,
         "reason": "Verdant Treant is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -19821,7 +20147,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 708636,
+        "bytes": 708152,
         "triangles": 40000,
         "vertices": 33314,
         "skins": 1,
@@ -19857,9 +20183,9 @@
         "iterations": 48
       },
       "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
+        "revision": "20261017-verdant-treant-independent-complete-face-v1",
         "id": "legendary-29",
-        "sourceSha256": "8866e665ea91ede88637edaa5f46c965fd0bb3435cb686aad6098a12a6f01620",
+        "sourceSha256": "992ccbc3c211640a56b0ab9635acc27b6065abcd5e1acdfc7427b31f124534b5",
         "region": {
           "y": [
             0.4,
@@ -19871,28 +20197,97 @@
           ],
           "cameraPadding": 1.3,
           "status": "repair",
-          "finding": "All 13 original animations visually inspected in complete front and side head and body sheets, brighter copies and separate anatomy closeups. Tree head branch silhouette shears during turned death; preserve shoulder foliage, hands and trailing blue wraps."
+          "finding": "All twelve original raw face and body slices and all 216 native actual technique frames inspected. Lower branch muzzle and chin shear beneath leaf crown under head tilt. Smooth incremental complete-face binding; preserve shoulder foliage, bark limbs, trailing wraps, sculpt, rig, UVs, textures and all authored motion. Separate candidate awaiting visual review.",
+          "revision": "20261017-verdant-treant-independent-complete-face-v1",
+          "supersedesSourceSha256": "992ccbc3c211640a56b0ab9635acc27b6065abcd5e1acdfc7427b31f124534b5",
+          "repairRegion": {
+            "y": [
+              0.3,
+              0.4
+            ],
+            "z": [
+              0,
+              0.13
+            ],
+            "x": [
+              0.18,
+              0.22
+            ],
+            "union": [
+              {
+                "y": [
+                  0.48,
+                  0.53
+                ],
+                "z": [
+                  0,
+                  0.13
+                ],
+                "x": [
+                  0.4,
+                  0.55
+                ]
+              }
+            ]
+          },
+          "union": [
+            {
+              "y": [
+                0.3,
+                0.4
+              ],
+              "z": [
+                0,
+                0.13
+              ],
+              "x": [
+                0.18,
+                0.22
+              ],
+              "union": [
+                {
+                  "y": [
+                    0.48,
+                    0.53
+                  ],
+                  "z": [
+                    0,
+                    0.13
+                  ],
+                  "x": [
+                    0.4,
+                    0.55
+                  ]
+                }
+              ]
+            }
+          ],
+          "continuousInfluencePacking": true
         },
         "envelopeMatrix": [
-          1.000000323214209,
+          1.0000003233907644,
           0,
           0,
           0,
           0,
-          1.0000001676022365,
+          1.000000167778792,
           -3.5651936430847186e-8,
           0,
           0,
           -1.6520866202851536e-8,
-          1.0000004037773218,
+          1.0000004039538772,
           0,
           0,
-          -1.6679368808336648e-7,
-          3.5261428336930134e-7,
+          -1.6661713292398517e-7,
+          3.526142834248125e-7,
           1
         ],
-        "changedVertices": 17376,
-        "rigidVertices": 12383
+        "changedVertices": 11546,
+        "rigidVertices": 6268,
+        "supersededRepair": {
+          "revision": "20261014-reviewed-skull-v1",
+          "sourceSha256": "8866e665ea91ede88637edaa5f46c965fd0bb3435cb686aad6098a12a6f01620"
+        }
       }
     },
     "mythic-0": {
@@ -19906,7 +20301,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "DC3E3E762DACE863F535D7264B242BA89DE0E00D34018B83092F39EA6C94812E",
+      "sha256": "A8EEFBCF83CBC0E8E595519420E078850F50A6EBA197C7005C75F429BAE52F72",
       "visualReview": {
         "passed": true,
         "reason": "Eclipse Kitsune is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -19956,7 +20351,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 545944,
+        "bytes": 1154252,
         "triangles": 40000,
         "vertices": 25547,
         "skins": 1,
@@ -19993,9 +20388,9 @@
         "localizedSeamVertices": 389
       },
       "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
+        "revision": "20261017-eclipse-kitsune-independent-complete-face-v1",
         "id": "mythic-0",
-        "sourceSha256": "9027d7efb395958b98bbbd299aa83fc84c36a5f9a5899149e4fb4c89119de183",
+        "sourceSha256": "dc3e3e762dace863f535d7264b242ba89de0e00d34018b83092f39ea6c94812e",
         "region": {
           "y": [
             -0.03,
@@ -20007,28 +20402,249 @@
           ],
           "cameraPadding": 1.4,
           "status": "repair",
-          "finding": "Kitsune cheeks and muzzle shear during attack and turned death; preserve all nine tails."
+          "finding": "All twelve original raw face and body slices and all 216 native actual technique frames inspected. Muzzle, lower jaw and ears shear under head tilt. Complete-face binding is a separate stage; visible anatomical leg chains and coordinated standing actions remain required. Preserve nine-tail sculpt and authored motion. Candidate not yet visually inspected.",
+          "revision": "20261017-eclipse-kitsune-independent-complete-face-v1",
+          "supersedesSourceSha256": "dc3e3e762dace863f535d7264b242ba89de0e00d34018b83092f39ea6c94812e",
+          "repairRegion": {
+            "y": [
+              -0.14,
+              -0.04
+            ],
+            "z": [
+              0.55,
+              0.68
+            ],
+            "x": [
+              0.3,
+              0.42
+            ]
+          },
+          "union": [
+            {
+              "y": [
+                -0.14,
+                -0.04
+              ],
+              "z": [
+                0.55,
+                0.68
+              ],
+              "x": [
+                0.3,
+                0.42
+              ]
+            }
+          ],
+          "continuousInfluencePacking": true
         },
         "envelopeMatrix": [
-          0.9999999764586005,
+          0.9999999821560979,
           0,
           0,
           0,
           0,
-          1.0000000203488428,
+          1.0000000260463406,
           -3.835816497765876e-9,
           0,
           0,
-          -1.7747173414184303e-7,
-          0.9999998994771275,
+          -1.774717351965549e-7,
+          0.9999999051746244,
           0,
           0,
-          9.216612611995245e-8,
-          8.56598323384361e-8,
+          9.216612661955281e-8,
+          9.135733047838102e-8,
           1
         ],
-        "changedVertices": 3995,
-        "rigidVertices": 2829
+        "changedVertices": 4137,
+        "rigidVertices": 1790,
+        "supersededRepair": {
+          "revision": "20261014-reviewed-skull-v1",
+          "sourceSha256": "9027d7efb395958b98bbbd299aa83fc84c36a5f9a5899149e4fb4c89119de183"
+        }
+      },
+      "anatomicalLimbRepair": {
+        "sourceSha256": "a2833b913d5d2bb9a70065e8fab8620da817793f08d07abad9ea795264268509",
+        "changedVertices": 3785,
+        "legacyReboundVertices": 10317,
+        "headNeckLegCleanupVertices": 2345,
+        "legacySupportBinding": "Original front/hind influences rebound continuously onto the fitted same-section visible leg joints using sculpt-side proximity; lower-leg neck/head influence feathers onto the nearest supporting torso parent.",
+        "legs": [
+          {
+            "part": "front",
+            "side": "L",
+            "joints": [
+              21,
+              22,
+              23
+            ],
+            "upper": [
+              0.04025528159815783,
+              -0.16,
+              0.2935235991406292
+            ],
+            "knee": [
+              0.04025528159815783,
+              -0.32,
+              0.3285235991406292
+            ],
+            "paw": [
+              0.04025528159815783,
+              -0.4382224784373726,
+              0.3485235991406292
+            ],
+            "center": [
+              0.04025528159815783,
+              -0.46322247843737263,
+              0.3485235991406292
+            ]
+          },
+          {
+            "part": "front",
+            "side": "R",
+            "joints": [
+              24,
+              25,
+              26
+            ],
+            "upper": [
+              -0.04369019938691917,
+              -0.16,
+              0.2953897252734558
+            ],
+            "knee": [
+              -0.04369019938691917,
+              -0.32,
+              0.3303897252734558
+            ],
+            "paw": [
+              -0.04369019938691917,
+              -0.43822248021145954,
+              0.3503897252734558
+            ],
+            "center": [
+              -0.04369019938691917,
+              -0.46322248021145956,
+              0.3503897252734558
+            ]
+          },
+          {
+            "part": "hind",
+            "side": "L",
+            "joints": [
+              27,
+              28,
+              29
+            ],
+            "upper": [
+              0.1014837065987487,
+              -0.16,
+              0.010011927171404894
+            ],
+            "knee": [
+              0.1014837065987487,
+              -0.32,
+              -0.019988072828595105
+            ],
+            "paw": [
+              0.1014837065987487,
+              -0.43867396878468656,
+              -0.05498807282859511
+            ],
+            "center": [
+              0.1014837065987487,
+              -0.4636739687846866,
+              -0.05498807282859511
+            ]
+          },
+          {
+            "part": "hind",
+            "side": "R",
+            "joints": [
+              30,
+              31,
+              32
+            ],
+            "upper": [
+              -0.10537010491772916,
+              -0.16,
+              0.009530346620355325
+            ],
+            "knee": [
+              -0.10537010491772916,
+              -0.32,
+              -0.020469653379644674
+            ],
+            "paw": [
+              -0.10537010491772916,
+              -0.43855357406592066,
+              -0.05546965337964468
+            ],
+            "center": [
+              -0.10537010491772916,
+              -0.4635535740659207,
+              -0.05546965337964468
+            ]
+          }
+        ],
+        "gaitReports": [
+          {
+            "name": "idle",
+            "strideScale": 0.55,
+            "verticalScale": 0.45,
+            "maxContactError": 1.072311855777738e-11
+          },
+          {
+            "name": "walk",
+            "strideScale": 0.55,
+            "verticalScale": 0.45,
+            "maxContactError": 1.5218182408308987e-16
+          },
+          {
+            "name": "gallop",
+            "strideScale": 0.55,
+            "verticalScale": 0.45,
+            "maxContactError": 2.2887833992611187e-16
+          },
+          {
+            "name": "guard",
+            "strideScale": 0.55,
+            "verticalScale": 0.45,
+            "maxContactError": 2.91505391051037e-11
+          },
+          {
+            "name": "rest",
+            "strideScale": 0.55,
+            "verticalScale": 0.45,
+            "maxContactError": 1.3572742667297666e-11
+          }
+        ]
+      },
+      "coordinatedActionRepair": {
+        "revision": "20261017-eclipse-kitsune-coordinated-actions-v1",
+        "sourceSha256": "d2d856b4cccad657787be57e6408704adfb9d0b028f6337c4283c7d68d6c7b4d",
+        "clips": [
+          {
+            "name": "attack",
+            "keys": 49,
+            "changedTracks": 16,
+            "maxContactError": 2.2887833992611187e-16,
+            "contacts": 164
+          },
+          {
+            "name": "cast",
+            "keys": 49,
+            "changedTracks": 16,
+            "maxContactError": 2.2887833992611187e-16,
+            "contacts": 196
+          },
+          {
+            "name": "idle_hitreact1",
+            "keys": 49,
+            "changedTracks": 16,
+            "maxContactError": 2.5788768264241068e-11,
+            "contacts": 196
+          }
+        ]
       }
     },
     "mythic-1": {
@@ -20042,7 +20658,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.96,
-      "sha256": "00E0557419B07305043CE2C7849564512D5CB312614F902D52701594188E261A",
+      "sha256": "ACFACBA16EA3BA0E7787F8E2E4E2B29001CFA3324CD37A016CFD0A94A01A6290",
       "visualReview": {
         "passed": true,
         "reason": "Worldstorm Dragon is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation. Accepted after 2 paid reconstruction attempts; rejected candidates remain quarantined for audit."
@@ -20092,7 +20708,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 540416,
+        "bytes": 1159428,
         "triangles": 40000,
         "vertices": 25145,
         "skins": 1,
@@ -20129,9 +20745,9 @@
         "localizedSeamVertices": 13
       },
       "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
+        "revision": "20261017-worldstorm-dragon-independent-complete-face-v1",
         "id": "mythic-1",
-        "sourceSha256": "a80d2c15edba0aab60a9b4332401d6a2f3054ce404b969b31e3b2249322b38b9",
+        "sourceSha256": "00e0557419b07305043ce2c7849564512d5cb312614f902d52701594188e261a",
         "region": {
           "y": [
             -0.1,
@@ -20143,28 +20759,249 @@
           ],
           "cameraPadding": 1.4,
           "status": "repair",
-          "finding": "Dragon lower jaw and purple cheek spines pull in attack and death; preserve back spines, paws and tail."
+          "finding": "All twelve original raw face and body slices inspected. Muzzle, lower jaw and crest shear under head tilt. Complete-face binding is a separate stage; actual techniques remain under review and visible anatomical leg chains with coordinated standing actions are required. Preserve body, dorsal spikes and tail sculpt and authored curves. Candidate not yet visually inspected.",
+          "revision": "20261017-worldstorm-dragon-independent-complete-face-v1",
+          "supersedesSourceSha256": "00e0557419b07305043ce2c7849564512d5cb312614f902d52701594188e261a",
+          "repairRegion": {
+            "y": [
+              -0.16,
+              -0.07
+            ],
+            "z": [
+              0.62,
+              0.72
+            ],
+            "x": [
+              0.35,
+              0.45
+            ]
+          },
+          "union": [
+            {
+              "y": [
+                -0.16,
+                -0.07
+              ],
+              "z": [
+                0.62,
+                0.72
+              ],
+              "x": [
+                0.35,
+                0.45
+              ]
+            }
+          ],
+          "continuousInfluencePacking": true
         },
         "envelopeMatrix": [
-          0.9999999195140837,
+          0.9999999221905945,
           0,
           0,
           0,
           0,
-          0.9999999401726452,
-          8.440038667956173e-10,
+          0.9999999428491559,
+          8.440037557733149e-10,
           0,
           0,
-          -1.8205108692770366e-7,
-          0.9999998193679082,
+          -1.8205108737179287e-7,
+          0.9999998220444187,
           0,
           1.1843599451860642e-10,
-          1.2684393052575516e-7,
-          1.7521632400541165e-7,
+          1.2139676375255704e-7,
+          1.7789283546232326e-7,
           1
         ],
-        "changedVertices": 9017,
-        "rigidVertices": 6582
+        "changedVertices": 6695,
+        "rigidVertices": 3777,
+        "supersededRepair": {
+          "revision": "20261014-reviewed-skull-v1",
+          "sourceSha256": "a80d2c15edba0aab60a9b4332401d6a2f3054ce404b969b31e3b2249322b38b9"
+        }
+      },
+      "anatomicalLimbRepair": {
+        "sourceSha256": "06935e629feae165031463cffc7d8462ef9798a3c5f7ab5ca79c2904328247f0",
+        "changedVertices": 12269,
+        "legacyReboundVertices": 12207,
+        "headNeckLegCleanupVertices": 3193,
+        "legacySupportBinding": "Original front/hind influences rebound continuously onto the fitted same-section visible leg joints using sculpt-side proximity; lower-leg neck/head influence feathers onto the nearest supporting torso parent.",
+        "legs": [
+          {
+            "part": "front",
+            "side": "L",
+            "joints": [
+              21,
+              22,
+              23
+            ],
+            "upper": [
+              0.14230619296363817,
+              -0.03,
+              0.24509967873747224
+            ],
+            "knee": [
+              0.14230619296363817,
+              -0.17,
+              0.2800996787374722
+            ],
+            "paw": [
+              0.14230619296363817,
+              -0.27784401493649985,
+              0.30009967873747223
+            ],
+            "center": [
+              0.14230619296363817,
+              -0.3028440149364999,
+              0.30009967873747223
+            ]
+          },
+          {
+            "part": "front",
+            "side": "R",
+            "joints": [
+              24,
+              25,
+              26
+            ],
+            "upper": [
+              -0.146817284115428,
+              -0.03,
+              0.24515990966585272
+            ],
+            "knee": [
+              -0.146817284115428,
+              -0.17,
+              0.2801599096658527
+            ],
+            "paw": [
+              -0.146817284115428,
+              -0.27790424788132384,
+              0.3001599096658527
+            ],
+            "center": [
+              -0.146817284115428,
+              -0.30290424788132386,
+              0.3001599096658527
+            ]
+          },
+          {
+            "part": "hind",
+            "side": "L",
+            "joints": [
+              27,
+              28,
+              29
+            ],
+            "upper": [
+              0.1447455349713987,
+              -0.04,
+              0.030848195312941737
+            ],
+            "knee": [
+              0.1447455349713987,
+              -0.17,
+              0.000848195312941738
+            ],
+            "paw": [
+              0.1447455349713987,
+              -0.2780548159440219,
+              -0.034151804687058265
+            ],
+            "center": [
+              0.1447455349713987,
+              -0.30305481594402195,
+              -0.034151804687058265
+            ]
+          },
+          {
+            "part": "hind",
+            "side": "R",
+            "joints": [
+              30,
+              31,
+              32
+            ],
+            "upper": [
+              -0.14889524056591175,
+              -0.04,
+              0.031510735479105594
+            ],
+            "knee": [
+              -0.14889524056591175,
+              -0.17,
+              0.0015107354791055946
+            ],
+            "paw": [
+              -0.14889524056591175,
+              -0.27796447523794254,
+              -0.03348926452089441
+            ],
+            "center": [
+              -0.14889524056591175,
+              -0.30296447523794257,
+              -0.03348926452089441
+            ]
+          }
+        ],
+        "gaitReports": [
+          {
+            "name": "idle",
+            "strideScale": 0.55,
+            "verticalScale": 0.45,
+            "maxContactError": 1.3865354453715992e-11
+          },
+          {
+            "name": "walk",
+            "strideScale": 0.55,
+            "verticalScale": 0.45,
+            "maxContactError": 1.2412670766236366e-16
+          },
+          {
+            "name": "gallop",
+            "strideScale": 0.55,
+            "verticalScale": 0.45,
+            "maxContactError": 1.2412670766236366e-16
+          },
+          {
+            "name": "guard",
+            "strideScale": 0.55,
+            "verticalScale": 0.45,
+            "maxContactError": 2.1287013743308518e-11
+          },
+          {
+            "name": "rest",
+            "strideScale": 0.55,
+            "verticalScale": 0.45,
+            "maxContactError": 1.5946317100844006e-11
+          }
+        ]
+      },
+      "coordinatedActionRepair": {
+        "revision": "20261017-worldstorm-dragon-coordinated-actions-v1",
+        "sourceSha256": "86fe4550b1e6277f75f90aeb29110d19811ed59de7bf7ba3b27f279fdbfa2f2e",
+        "clips": [
+          {
+            "name": "attack",
+            "keys": 49,
+            "changedTracks": 16,
+            "maxContactError": 1.6653345369377348e-16,
+            "contacts": 132
+          },
+          {
+            "name": "cast",
+            "keys": 49,
+            "changedTracks": 16,
+            "maxContactError": 1.7554167342883506e-16,
+            "contacts": 196
+          },
+          {
+            "name": "idle_hitreact1",
+            "keys": 49,
+            "changedTracks": 16,
+            "maxContactError": 2.3583636231729462e-11,
+            "contacts": 196
+          }
+        ]
       }
     },
     "mythic-2": {
@@ -20178,7 +21015,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.48,
-      "sha256": "2E86223DE4DBA678F43C3568B108FBB7919F9AA2537C03BCBCAA6394F657F952",
+      "sha256": "38F9908108DB7D18EE739A3D4E7A17B8FADDC80E55410CCEB454A367CD49F512",
       "visualReview": {
         "passed": true,
         "reason": "Ancient Frost Titan is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation."
@@ -20228,7 +21065,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 664212,
+        "bytes": 661576,
         "triangles": 40000,
         "vertices": 26621,
         "skins": 1,
@@ -20264,9 +21101,9 @@
         "iterations": 48
       },
       "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
+        "revision": "20261017-frost-titan-independent-complete-face-v1",
         "id": "mythic-2",
-        "sourceSha256": "0e7d718dfa003da76025e267b3eb46a0c92299524c526bb4896f27faa61a897d",
+        "sourceSha256": "2e86223de4dba678f43c3568b108fbb7919f9aa2537c03bcbcaa6394f657f952",
         "region": {
           "y": [
             0.28,
@@ -20282,44 +21119,65 @@
           ],
           "cameraPadding": 1.4,
           "status": "repair",
-          "finding": "Frost titan facial crystal crest changes shape during hit reaction and collapse; preserve shoulder muscles and forearm crystals.",
+          "finding": "All twelve original raw source face/body slices and 216 actual equipped technique frames inspected. Lower crystal beard and side jaw shear in head turns, recoil and defeat. Repair complete face while preserving shoulders, forearms, hips, knee crystals, feet and every authored animation curve. Candidate not yet visually inspected.",
           "union": [
             {
               "y": [
-                0.62,
-                0.75
+                0.1,
+                0.18
               ],
               "z": [
-                -0.3,
-                -0.08
+                0.18,
+                0.26
               ],
               "x": [
-                0.3,
-                0.42
+                0.26,
+                0.35
               ]
             }
-          ]
+          ],
+          "revision": "20261017-frost-titan-independent-complete-face-v1",
+          "supersedesSourceSha256": "2e86223de4dba678f43c3568b108fbb7919f9aa2537c03bcbcaa6394f657f952",
+          "repairRegion": {
+            "y": [
+              0.1,
+              0.18
+            ],
+            "z": [
+              0.18,
+              0.26
+            ],
+            "x": [
+              0.26,
+              0.35
+            ]
+          },
+          "continuousInfluencePacking": true
         },
         "envelopeMatrix": [
-          1.0000000542472491,
+          1.0000000547694106,
           0,
           0,
           0,
           0,
-          0.9999998349111122,
-          -3.1966985891696e-8,
+          0.9999998354332738,
+          -3.1966985919451574e-8,
           0,
           0,
-          -2.0256550770092474e-8,
-          1.0000000713158597,
+          -2.025655079784805e-8,
+          1.0000000718380213,
           0,
-          7.476015484626786e-9,
-          1.6360935201076288e-7,
-          1.7738759211516353e-8,
+          7.476015488529913e-9,
+          1.6413151365801681e-7,
+          1.773875922539414e-8,
           1
         ],
-        "changedVertices": 7715,
-        "rigidVertices": 3723
+        "changedVertices": 3855,
+        "rigidVertices": 2213,
+        "supersededRepair": {
+          "revision": "20261014-reviewed-skull-v1",
+          "sourceSha256": "0e7d718dfa003da76025e267b3eb46a0c92299524c526bb4896f27faa61a897d"
+        }
       }
     },
     "mythic-3": {
@@ -20333,7 +21191,7 @@
       "provider": "fal-ai/hunyuan3d/v2 side-view fallback + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 1.44,
-      "sha256": "58B8211AD20865ECCAE12BFD87BA358AB9FF6345E57048ABAD625CA573E2C365",
+      "sha256": "AE390C352980C1456700AD240628E3F46435B4E52C687AFE04C73E011093B427",
       "visualReview": {
         "passed": true,
         "reason": "Solar Stag is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation. Accepted after 3 paid reconstruction attempts; rejected candidates remain quarantined for audit."
@@ -20383,7 +21241,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 503596,
+        "bytes": 1179628,
         "triangles": 40000,
         "vertices": 23832,
         "skins": 1,
@@ -20419,9 +21277,9 @@
         "iterations": 48
       },
       "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
+        "revision": "20261017-solar-stag-independent-complete-face-v1",
         "id": "mythic-3",
-        "sourceSha256": "f3ac39fec5284c8107f5bd0ce4c7d62e5947aaa7a5a489a8c1b88c8bf32110cb",
+        "sourceSha256": "58b8211ad20865eccae12bfd87ba358ab9ff6345e57048abad625ca573e2c365",
         "region": {
           "y": [
             0.2,
@@ -20433,28 +21291,350 @@
           ],
           "cameraPadding": 1.3,
           "status": "repair",
-          "finding": "Stag face and antlers shear strongly in attack and death; preserve scarf, hooves and neck movement."
+          "finding": "All twelve original raw source face/body slices and 216 actual equipped technique frames inspected. Long muzzle, lower chin, jaw and antlers shear during head turns, recoil, casting, attack, victory and defeat. Repair complete face while preserving neck/scarf, body, hooves and every authored animation curve. Candidate not yet visually inspected.",
+          "revision": "20261017-solar-stag-independent-complete-face-v1",
+          "supersedesSourceSha256": "58b8211ad20865eccae12bfd87ba358ab9ff6345e57048abad625ca573e2c365",
+          "repairRegion": {
+            "y": [
+              0.12,
+              0.18
+            ],
+            "z": [
+              0.65,
+              0.73
+            ],
+            "x": [
+              0.22,
+              0.3
+            ]
+          },
+          "union": [
+            {
+              "y": [
+                0.12,
+                0.18
+              ],
+              "z": [
+                0.65,
+                0.73
+              ],
+              "x": [
+                0.22,
+                0.3
+              ]
+            }
+          ],
+          "continuousInfluencePacking": true
         },
         "envelopeMatrix": [
-          2.220445912203593e-16,
+          2.2204457941911522e-16,
           0,
-          -0.9999999382796443,
+          -0.9999998851315658,
           0,
-          5.543964620713382e-9,
-          0.9999999960942672,
-          1.231007433924654e-24,
+          5.543964398668777e-9,
+          0.9999999429461857,
+          1.2310073846208474e-24,
           0,
-          0.9999998754162733,
-          -1.8656093331292922e-7,
-          2.2204457726188694e-16,
+          0.9999998222681982,
+          -1.8656092337643315e-7,
+          2.220445654606436e-16,
           0,
-          6.63531110056681e-8,
-          8.173409421496913e-8,
-          5.551115123125783e-17,
+          6.635310745295442e-8,
+          2.858600794963806e-8,
+          1.1102230246251565e-16,
           1
         ],
-        "changedVertices": 7847,
-        "rigidVertices": 5686
+        "changedVertices": 2039,
+        "rigidVertices": 890,
+        "supersededRepair": {
+          "revision": "20261014-reviewed-skull-v1",
+          "sourceSha256": "f3ac39fec5284c8107f5bd0ce4c7d62e5947aaa7a5a489a8c1b88c8bf32110cb"
+        }
+      },
+      "anatomicalLimbRepair": {
+        "sourceSha256": "7440d72f711cd6f809230cb08f59c123ee82a50a726de1662fd9d75574d10783",
+        "changedVertices": 8584,
+        "legacyReboundVertices": 11590,
+        "headNeckLegCleanupVertices": 0,
+        "legacySupportBinding": "Original front/hind influences rebound continuously onto the fitted same-section visible leg joints using sculpt-side proximity; lower-leg neck/head influence feathers onto the nearest supporting torso parent.",
+        "legs": [
+          {
+            "part": "front",
+            "side": "L",
+            "joints": [
+              21,
+              22,
+              23
+            ],
+            "upper": [
+              0.07320546490999169,
+              -0.075,
+              0.17773268383765423
+            ],
+            "knee": [
+              0.07320546490999169,
+              -0.28,
+              0.18773268383765424
+            ],
+            "paw": [
+              0.07320546490999169,
+              -0.46360319318596477,
+              0.20273268383765422
+            ],
+            "center": [
+              0.07320546490999169,
+              -0.4886031931859648,
+              0.20273268383765422
+            ]
+          },
+          {
+            "part": "front",
+            "side": "R",
+            "joints": [
+              24,
+              25,
+              26
+            ],
+            "upper": [
+              -0.07707776237723685,
+              -0.075,
+              0.17770253271778555
+            ],
+            "knee": [
+              -0.07707776237723685,
+              -0.28,
+              0.18770253271778553
+            ],
+            "paw": [
+              -0.07707776237723685,
+              -0.46357307922017243,
+              0.20270253271778554
+            ],
+            "center": [
+              -0.07707776237723685,
+              -0.48857307922017246,
+              0.20270253271778554
+            ]
+          },
+          {
+            "part": "hind",
+            "side": "L",
+            "joints": [
+              27,
+              28,
+              29
+            ],
+            "upper": [
+              0.10779170768752697,
+              -0.08,
+              -0.22333923627467525
+            ],
+            "knee": [
+              0.10779170768752697,
+              -0.28,
+              -0.17333923627467523
+            ],
+            "paw": [
+              0.10779170768752697,
+              -0.46357304738218497,
+              -0.21833923627467525
+            ],
+            "center": [
+              0.10779170768752697,
+              -0.488573047382185,
+              -0.21833923627467525
+            ]
+          },
+          {
+            "part": "hind",
+            "side": "R",
+            "joints": [
+              30,
+              31,
+              32
+            ],
+            "upper": [
+              -0.11136254352671975,
+              -0.08,
+              -0.22312820251119628
+            ],
+            "knee": [
+              -0.11136254352671975,
+              -0.28,
+              -0.17312820251119626
+            ],
+            "paw": [
+              -0.11136254352671975,
+              -0.46366352156753743,
+              -0.21812820251119627
+            ],
+            "center": [
+              -0.11136254352671975,
+              -0.48866352156753745,
+              -0.21812820251119627
+            ]
+          }
+        ],
+        "gaitReports": [
+          {
+            "name": "idle",
+            "strideScale": 0.55,
+            "verticalScale": 0.45,
+            "maxContactError": 2.357534406297558e-9
+          },
+          {
+            "name": "walk",
+            "strideScale": 0.55,
+            "verticalScale": 0.45,
+            "maxContactError": 4.006751610068546e-9
+          },
+          {
+            "name": "gallop",
+            "strideScale": 0.55,
+            "verticalScale": 0.45,
+            "maxContactError": 5.494630186101179e-9
+          },
+          {
+            "name": "guard",
+            "strideScale": 0.55,
+            "verticalScale": 0.45,
+            "maxContactError": 2.9619412472215965e-9
+          },
+          {
+            "name": "rest",
+            "strideScale": 0.55,
+            "verticalScale": 0.45,
+            "maxContactError": 2.257128981852808e-9
+          }
+        ]
+      },
+      "coordinatedActionRepair": {
+        "revision": "20261017-solar-stag-coordinated-actions-v1",
+        "sourceSha256": "6d7a89a45fde98cbde225afd25f0d5adc7c4d89e4fd903904dc6c5fe6cd656bc",
+        "clips": [
+          {
+            "name": "attack",
+            "keys": 49,
+            "changedTracks": 16,
+            "maxContactError": 4.651075836514854e-9,
+            "contacts": 164
+          },
+          {
+            "name": "cast",
+            "keys": 49,
+            "changedTracks": 16,
+            "maxContactError": 4.07145643895089e-9,
+            "contacts": 196
+          },
+          {
+            "name": "idle_hitreact1",
+            "keys": 49,
+            "changedTracks": 16,
+            "maxContactError": 3.574538529394313e-9,
+            "contacts": 196
+          }
+        ]
+      },
+      "anatomicalNeckRepair": {
+        "revision": "20261017-solar-stag-anatomical-neck-v1",
+        "sourceSha256": "3189e55ca5874afedd82843dbeb87feb63b90337c50056d995da17cec971a034",
+        "originalBoneFramesAndCurvesPreserved": true,
+        "fitted": [
+          {
+            "name": "neck",
+            "oldNode": 1,
+            "oldJoint": 4,
+            "node": 35,
+            "joint": 33,
+            "worldTarget": [
+              0,
+              0.07,
+              0.22
+            ],
+            "amplitude": 0.6
+          },
+          {
+            "name": "head",
+            "oldNode": 0,
+            "oldJoint": 5,
+            "node": 36,
+            "joint": 34,
+            "worldTarget": [
+              0,
+              0.22,
+              0.325
+            ],
+            "amplitude": 0.75
+          }
+        ],
+        "reboundInfluenceSlots": 7939,
+        "clips": [
+          {
+            "name": "idle",
+            "keys": 73,
+            "tracks": 2
+          },
+          {
+            "name": "idle_2",
+            "keys": 77,
+            "tracks": 2
+          },
+          {
+            "name": "walk",
+            "keys": 73,
+            "tracks": 2
+          },
+          {
+            "name": "gallop",
+            "keys": 73,
+            "tracks": 2
+          },
+          {
+            "name": "gallop_jump",
+            "keys": 73,
+            "tracks": 2
+          },
+          {
+            "name": "attack",
+            "keys": 79,
+            "tracks": 2
+          },
+          {
+            "name": "idle_hitreact1",
+            "keys": 76,
+            "tracks": 2
+          },
+          {
+            "name": "death",
+            "keys": 78,
+            "tracks": 2
+          },
+          {
+            "name": "entrance",
+            "keys": 73,
+            "tracks": 2
+          },
+          {
+            "name": "cast",
+            "keys": 79,
+            "tracks": 2
+          },
+          {
+            "name": "guard",
+            "keys": 73,
+            "tracks": 2
+          },
+          {
+            "name": "rest",
+            "keys": 73,
+            "tracks": 2
+          },
+          {
+            "name": "victory",
+            "keys": 78,
+            "tracks": 2
+          }
+        ]
       }
     },
     "mythic-4": {
