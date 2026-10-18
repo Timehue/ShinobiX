@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import hatchSanctum from '../assets/pet-home/hatch-sanctum.webp';
 import rareOverlay from '../assets/pet-home/hatch-rare-overlay.webp';
@@ -16,7 +16,8 @@ export function PetHatchReveal({ pet, sharedImages, onClose, busy, error }: {
     pet: Pet; sharedImages: Record<string, string>; onClose: () => void; busy?: boolean; error?: string;
 }) {
     const modal = useRef<HTMLDivElement>(null);
-    const closeRef = useRef(onClose); closeRef.current = onClose;
+    const closeRef = useRef(onClose);
+    useLayoutEffect(() => { closeRef.current = onClose; }, [onClose]);
     const apex = pet.trait && ultraPetTraits.includes(pet.trait) ? pet.trait : null;
     const art = petScenicPortraitImage(pet, sharedImages);
     useEffect(() => {

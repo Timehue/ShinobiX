@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { lazyWithRetry } from '../lib/lazyWithRetry';
 import { advancePetIncubation, hatchPetBreeding } from '../lib/pet-breeding-api';
 import { PET_EGG_TICK_MS } from '../../../shared/pet-incubation';
@@ -25,7 +25,8 @@ export function PetEggIncubator({ character, onVersionedCharacter, beginCharacte
     const retryTimer = useRef<number | undefined>(undefined);
     const blocked = petHatchPresentationBlocked(character, screen, runtimeBlocked) || dialogBlocked;
     const latest = useRef({ character, blocked, onVersionedCharacter, beginCharacterSync });
-    latest.current = { character, blocked, onVersionedCharacter, beginCharacterSync };
+    useLayoutEffect(() => { latest.current = { character, blocked, onVersionedCharacter, beginCharacterSync }; },
+        [character, blocked, onVersionedCharacter, beginCharacterSync]);
     const hatchBusy = useRef(false);
     const sessionId = character.petBreeding?.sessionId;
     useEffect(() => {

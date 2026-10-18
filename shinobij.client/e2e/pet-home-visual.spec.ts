@@ -509,7 +509,7 @@ test("pet avatars load and fit in every Companion Home card", async ({ page }, t
     await shot(page, testInfo, 'portrait-exchange');
 });
 
-test("ready Sanctuary hatch can be welcomed once without reopening", async ({ page }, testInfo) => {
+test("ready Sanctuary hatch can be welcomed once without reopening", async ({ page }) => {
     test.setTimeout(60_000);
     const state = await installPetHomeApi(page);
     state.character.petBreeding = session('egg', 0);
