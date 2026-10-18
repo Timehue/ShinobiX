@@ -26,6 +26,16 @@ const catalog = [
     ...STARTER_EVOLUTIONS,
 ];
 
+// Fitted chains retain the original bone frames and their authored curves.
+// Only these independently reviewed append-only repairs may use legacy limbs.
+const reviewedLimbRepairs: Record<string, string> = {
+    'legendary-13': 'polarBearAnatomicalLimbExperiment',
+    'legendary-15': 'chimeraAnatomicalLimbRepair',
+    'legendary-17': 'behemothAnatomicalLimbRepair',
+    'legendary-23': 'sphinxAnatomicalLimbRepair',
+    'mythic-4': 'oniAnatomicalLimbRepair',
+};
+
 function parseGlb(path: string) {
     const file = readFileSync(path);
     assert.equal(file.subarray(0, 4).toString("ascii"), "glTF", `${path}: missing GLB magic`);
@@ -53,6 +63,12 @@ test("all 161 production pets have complete proper skeletal animation banks", ()
                 ? resolve(import.meta.dirname, `../../public/pet-models/${pet.id}.glb`)
                 : resolve(import.meta.dirname, `../../public/pet-models/roster/${pet.id}.glb`);
         const json = parseGlb(path);
+        const limbRepair = json.extras?.[reviewedLimbRepairs[pet.id]];
+        if (limbRepair) {
+            assert.equal(json.skins[0].joints.length, 33, `${pet.id}: fitted chains must append twelve joints`);
+            assert.equal(limbRepair.legs.length, 4);
+            assert.match(limbRepair.sourceSha256, /^[a-f0-9]{64}$/);
+        }
         assert.deepEqual(
             json.animations?.map((animation: { name: string }) => animation.name),
             IDENTITY_CLIPS,
@@ -97,10 +113,16 @@ test("all 161 production pets have complete proper skeletal animation banks", ()
                 const contactBank = json.extras.characterMotion?.revision === PET_CHARACTER_MOTION_ASSET_REVISION;
                 if (contactBank && name === 'root' && channel.target.path === 'translation') continue;
                 assert.equal(channel.target.path, 'rotation', 'articulation only adds joint rotations or a verified support root');
+                if (contactBank && limbRepair && ['chest', 'pelvis'].includes(name)) continue;
+                const inspectedName = contactBank && limbRepair && /^legacy_(?:front|hind)_(?:upper|lower|paw)\.[LR]$/.test(name)
+                    ? name.slice('legacy_'.length) : name;
+                if (inspectedName !== name) {
+                    assert.ok(json.skins[0].joints.some((node: number) => json.nodes[node].name === inspectedName), `${pet.id}: retained limb has no fitted replacement`);
+                }
                 const inspected = contactBank
                     ? /^(?:(?:front_upper|front_lower|front_paw|hind_upper|hind_lower|hind_paw|thigh|forearm|hand|shin|foot|wing_mid|wing_tip|bat_wing_lower|claw_pincer|leg_(?:front|mid|rear)_(?:upper|lower|foot))\.[LR]|tail_[23]|neck|scarf_2)$/
                     : /^(?:(?:front_lower|front_paw|hind_lower|hind_paw|forearm|hand|shin|foot|wing_mid|wing_tip|bat_wing_lower|claw_pincer|leg_(?:front|mid|rear)_(?:lower|foot))\.[LR]|tail_[23]|neck|scarf_2)$/;
-                assert.match(name, inspected, 'extra curves must belong to inspected anatomy');
+                assert.match(inspectedName, inspected, 'extra curves must belong to inspected anatomy');
             }
             assert.ok(animation.channels.length <= json.skins[0].joints.length + 1, 'the bank stays within one rotation per joint plus its root translation');
             assert.equal(new Set(animation.channels.map((channel: { target: { node: number; path: string } }) => `${channel.target.node}:${channel.target.path}`)).size, animation.channels.length, 'joint tracks cannot compete');
