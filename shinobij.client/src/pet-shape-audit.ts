@@ -21,6 +21,21 @@ const update = () => {
     root?.traverse(node => { if (node instanceof THREE.SkinnedMesh) node.skeleton.update(); });
 };
 const api = {
+    productionDiffuseMaterials() {
+        // Match the production material treatment so dark metallic source
+        // maps remain legible without a production environment reflection.
+        let materials = 0;
+        root?.traverse(node => { if (node instanceof THREE.Mesh) {
+            for (const material of Array.isArray(node.material) ? node.material : [node.material]) {
+                if (material instanceof THREE.MeshStandardMaterial) {
+                    material.roughness = Math.min(.82, Math.max(.58, material.roughness ?? .72));
+                    material.metalness = Math.min(.05, material.metalness ?? 0);
+                    material.needsUpdate = true; materials++;
+                }
+            }
+        } });
+        return { materials, metalnessMax: .05, roughnessRange: [.58, .82] };
+    },
     async load(url: string, yaw = 0) {
         if (root) {
             mixer?.stopAllAction(); mixer?.uncacheRoot(root); scene.remove(root);
@@ -72,7 +87,7 @@ const api = {
         focus=swept.getCenter(new THREE.Vector3());radius=Math.max(...swept.getSize(new THREE.Vector3()).toArray())*.66;
         return { clips: clips.map(c => ({ name: c.name, duration: c.duration })), vertices: points.length, sha256,normalizedSize:size.clone().multiplyScalar(2 / Math.max(size.x,size.y,size.z)).toArray() };
     },
-    region(config: { y: number[]; z?: number[]; x?: number[]; cameraPadding?: number; union?: {y:number[];z?:number[];x?:number[]}[]; exclude?:number[][] }) {
+    region(config: { y: number[]; z?: number[]; x?: number[]; cameraPadding?: number; bounds?: number[]; union?: {y:number[];z?:number[];x?:number[]}[]; exclude?:number[][] }) {
         mixer?.stopAllAction(); restore(); update();
         const selected: THREE.Vector3[] = [];
         regionVertices = [];
@@ -81,7 +96,10 @@ const api = {
             for(let v=0;v<node.geometry.attributes.position.count;v++) {
                 node.getVertexPosition(v,point).applyMatrix4(node.matrixWorld).applyMatrix4(envelopeMatrix);
                 const core=(region:{y:number[];z?:number[];x?:number[]})=>point.y>=region.y[1]&&(!region.z||point.z>=region.z[1])&&(!region.x||Math.abs(point.x)<=region.x[0]);
-                if(![config,...(config.union??[])].some(core)||config.exclude?.some(box=>point.x>=box[0]&&point.x<=box[1]&&point.y>=box[2]&&point.y<=box[3]&&point.z>=box[4]&&point.z<=box[5]))continue;
+                const inside = config.bounds
+                    ? point.x>=config.bounds[0]&&point.x<=config.bounds[1]&&point.y>=config.bounds[2]&&point.y<=config.bounds[3]&&point.z>=config.bounds[4]&&point.z<=config.bounds[5]
+                    : [config,...(config.union??[])].some(core);
+                if(!inside||config.exclude?.some(box=>point.x>=box[0]&&point.x<=box[1]&&point.y>=box[2]&&point.y<=box[3]&&point.z>=box[4]&&point.z<=box[5]))continue;
                 vertices.push(v); selected.push(point.clone().applyMatrix4(envelopeMatrix.clone().invert()));
             }
             regionVertices.push({mesh:node,vertices});
@@ -105,6 +123,24 @@ const api = {
         const local=mesh.worldToLocal(hit.point.clone()),weights=THREE.Triangle.getBarycoord(local,a,b,c,new THREE.Vector3());if(!weights)return null;
         return vertices[face.a].clone().multiplyScalar(weights.x).addScaledVector(vertices[face.b],weights.y).addScaledVector(vertices[face.c],weights.z).toArray();
     },
+    projectAnatomy(landmarks: Record<string, { center: number[]; radius: number; indices?: number[] }>) {
+        const groups: Record<string, { vertices: number; pixels: number[][] }> = {};
+        for (const [name, landmark] of Object.entries(landmarks)) {
+            const center = new THREE.Vector3().fromArray(landmark.center), pixels: number[][] = [];
+            let vertices = 0;
+            const selected = landmark.indices ? new Set(landmark.indices) : null;
+            root?.traverse(node => { if (node instanceof THREE.SkinnedMesh) {
+                const bind = bindPoints.get(node)!;
+                for (let v = 0; v < bind.length; v++) if (selected ? selected.has(v) : bind[v].distanceTo(center) <= landmark.radius) {
+                    vertices++;
+                    const p = node.getVertexPosition(v,new THREE.Vector3()).applyMatrix4(node.matrixWorld).project(camera);
+                    if (p.z >= -1 && p.z <= 1) pixels.push([(p.x+1)*160,(1-p.y)*160]);
+                }
+            } });
+            groups[name] = { vertices, pixels };
+        }
+        return groups;
+    },
     render(clipName: string, progress: number, view = 'front') {
         const clip = clips.find(c => c.name === clipName); if (!clip || !mixer) throw Error(`Missing clip ${clipName}`);
         mixer.stopAllAction(); restore();
@@ -116,10 +152,16 @@ const api = {
             for(const {mesh,vertices} of regionVertices)for(const v of vertices)points.push(mesh.getVertexPosition(v,new THREE.Vector3()).applyMatrix4(mesh.matrixWorld));
             if(!points.length)throw Error('Configure a skull region before requesting a close-up');
             target=new THREE.Box3().setFromPoints(points).getCenter(new THREE.Vector3());extent=headRadius;
+        } else if(view.startsWith('body-')) {
+            // Keep the complete posed body large enough to inspect. A single
+            // animation-bank fit can shrink it severely when a jump travels.
+            const bounds=new THREE.Box3(),point=new THREE.Vector3();
+            root?.traverse(node=>{if(node instanceof THREE.Mesh)for(let v=0;v<node.geometry.attributes.position.count;v++)bounds.expandByPoint(node.getVertexPosition(v,point).applyMatrix4(node.matrixWorld));});
+            target=bounds.getCenter(new THREE.Vector3());extent=Math.max(...bounds.getSize(new THREE.Vector3()).toArray())*.66;
         }
         const distance = extent / Math.tan(THREE.MathUtils.degToRad(17.5)) * 1.15;
         const direction = view === 'back' ? new THREE.Vector3(0, extent * .2, -distance)
-            : view === 'other-side' ? new THREE.Vector3(-distance, extent * .2, 0)
+            : view === 'other-side' || view === 'head-other-side' ? new THREE.Vector3(-distance, extent * .2, 0)
                 : view === 'three-quarter' ? new THREE.Vector3(distance * .707, extent * .2, distance * .707)
                     : view.endsWith('side') ? new THREE.Vector3(distance, extent * .2, 0) : new THREE.Vector3(0, extent * .2, distance);
         camera.position.copy(target).add(direction);

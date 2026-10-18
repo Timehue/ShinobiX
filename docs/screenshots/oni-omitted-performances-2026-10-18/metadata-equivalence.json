@@ -1,0 +1,35 @@
+{
+  "onlyChange": "properAnimationSourceBoundary covers the restored animation accessors and full packed payload; all rendering JSON and binary identical.",
+  "stages": [
+    {
+      "stage": "source",
+      "sha256": "267989e9d70d963616798ee87c55d6887e9680a864c53febebd84ac61062cd96",
+      "oldBoundary": {
+        "binLength": 1045108,
+        "accessorCount": 326,
+        "bufferViewCount": 171
+      },
+      "newBoundary": {
+        "binLength": 1055476,
+        "accessorCount": 364,
+        "bufferViewCount": 209
+      },
+      "identicalRenderData": true
+    },
+    {
+      "stage": "battle",
+      "sha256": "39e15de78c0d793bca2e7a88598cde6816c11ba5685addba2786f4502be9fdd3",
+      "oldBoundary": {
+        "binLength": 1045108,
+        "accessorCount": 326,
+        "bufferViewCount": 171
+      },
+      "newBoundary": {
+        "binLength": 497536,
+        "accessorCount": 364,
+        "bufferViewCount": 49
+      },
+      "identicalRenderData": true
+    }
+  ]
+}
