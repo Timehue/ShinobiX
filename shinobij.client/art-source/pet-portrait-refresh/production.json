@@ -2918,7 +2918,7 @@
       ],
       "referenceSha256": [
         "ab4ad0854e271275a973dce618efe6afbced2d16a8ad1161c827a0ea7f88665c",
-        "3b3e9ca6a20b56039f6f6d289f093febc7aa7fd0f0890f2a7572434931fb878c"
+        "f7553dd877636b3aa3c7b0cceb0ebb724a94753f97319d203a1901af57158a64"
       ],
       "scene": "a secluded waterfall pool beside ancient stone shrine steps, mist-softened cedar trees and luminous blue-green reflections",
       "prompt": "Use case: identity-preserve. Asset: one finished square companion hero portrait for Shinobi Journey, a polished shinobi RPG. Image 1 is the edit target and main character reference: Moonwell Leviathan (mythic-11). Keep this exact companion recognizable and faithful to the game: preserve species, face, colors, markings, silhouette, proportions, costume and equipment. If Image 2 is supplied it is a grid of poses of the ONE production model, provided only to confirm the anatomy and outfit; never reproduce the grid or duplicate the creature. Resolve old illustration details against that production identity. Add no new wearable equipment. Replace the empty or old backdrop with a complete, professionally painted setting: a secluded waterfall pool beside ancient stone shrine steps, mist-softened cedar trees and luminous blue-green reflections. The scene fills the entire image edge to edge, with a grounded contact shadow or a physically appropriate perch/water surface. Unified collection style: clean anime ink, refined restrained cel shading with convincing rounded volume, tactile cloth and fur/feathers/scales, softly painted environments, indigo shadows and natural atmospheric depth. Retain the existing stylized character design; do not turn it photorealistic or generic. One complete creature dominates at about 75-80 percent of canvas height; keep all ears, feet, wings, weapons and tails inside safe margins for square and slightly wide card crops. Face and eyes read clearly at 200px. Background has lower detail and contrast than the subject. Use dramatic but controlled hero lighting and atmospheric depth, keeping any elemental effects sparse and behind the silhouette. No additional characters, duplicate heads, extra limbs, new weapons, redesigned armor, text, watermark, logo, UI frame, border, collage or multiple panels. Return one finished portrait. Approved current production identity: Moonwell Leviathan is a complete volumetric moon-crowned serpent with coherent S-curve anatomy, reflective blue scales, fins, whiskers, and rear silhouette; isolated reconstruction debris was removed before promotion. Body profile: serpentine. The approved model identity takes priority over obsolete accessories or anatomy in Image 1. Do not invent new physical features. Preserve this mature elegant moon-crowned sea serpent's rich reflective blue/silver scales, white segmented underside, silver-blue crest/fins, long white whiskers and the existing ONE crescent crown above its head. Anatomical lock: one continuous S-curved serpentine body flowing into ONE tapering finned tail, no legs, no arms, no separate extra tails or duplicate body loops. Keep all fins naturally attached; any water ribbons clearly separate from anatomy. Retain fine scale detail and mature model proportions within refined anime rendering; do not turn it into a simple cartoon snake. Show all physical horns, crown, fins, hooves, claws and tails completely with at least 6% scenic margin from edges. Fine crisp face, coherent contacts, no neon guide marks or malformed accessories.",
@@ -2953,6 +2953,14 @@
           "sha256": "3b3e9ca6a20b56039f6f6d289f093febc7aa7fd0f0890f2a7572434931fb878c",
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
+        },
+        {
+          "reference": "pet-models/warfront-impostors/roster/mythic-11.webp",
+          "previousSha256": "3b3e9ca6a20b56039f6f6d289f093febc7aa7fd0f0890f2a7572434931fb878c",
+          "sha256": "f7553dd877636b3aa3c7b0cceb0ebb724a94753f97319d203a1901af57158a64",
+          "upstreamCommit": "12921fc57",
+          "reviewReceipt": "docs/audits/pet-animation-shape-reviews.json",
+          "reason": "Integrate independently double-checked Moonwell and Skyglass animation repair atlases; portrait master and delivery pixels are unchanged."
         }
       ]
     },
@@ -2967,7 +2975,7 @@
       ],
       "referenceSha256": [
         "0b1796207ae77242b0206ebfb5ce3700c50291761f435ea2f68509b0b2a4a39d",
-        "6173f5744b6e01b8aa58d06cf2532fefa14016cd50795f0f51a2f3930b0261b4"
+        "e14baa2334948e6997a71185e0311341d3aa21eda1d5e7b256b6192bad015222"
       ],
       "scene": "a mountain village rooftop training terrace, weathered tiles, distant pagoda eaves, hazy green peaks and a few windblown leaves",
       "prompt": "Use case: precise-object-edit. Image 1 is the finished candidate Skyglass Kirin portrait. Make only a precise framing correction: uniformly scale the ENTIRE creature and every flowing mane/tail ribbon, crown horn, all four hooves and existing armor to 84 percent of current size, recenter, and extend the SAME shinobi shrine environment naturally around it. Leave at least 6 percent complete scenic breathing room from all physical extremities to each square canvas edge. Show every detail fully; do not clip any horn, mane strand, ribbon, tail or hoof. Preserve the EXACT mature graceful equine proportions, face, eyes, expression, pose, colors, scales, fine filigree, armor, chains, tassels and effects. This is an established creature, do not redesign or simplify its detailed anatomy. Four legs and ONE tail remain coherent; no wings or extra appendages. Keep the same polished game-studio illustration quality, unified lighting, surface detail and perspective. One square full-background portrait, no border, text, watermark or new objects.",
@@ -3005,6 +3013,14 @@
           "sha256": "6173f5744b6e01b8aa58d06cf2532fefa14016cd50795f0f51a2f3930b0261b4",
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
+        },
+        {
+          "reference": "pet-models/warfront-impostors/roster/mythic-12.webp",
+          "previousSha256": "6173f5744b6e01b8aa58d06cf2532fefa14016cd50795f0f51a2f3930b0261b4",
+          "sha256": "e14baa2334948e6997a71185e0311341d3aa21eda1d5e7b256b6192bad015222",
+          "upstreamCommit": "12921fc57",
+          "reviewReceipt": "docs/audits/pet-animation-shape-reviews.json",
+          "reason": "Integrate independently double-checked Moonwell and Skyglass animation repair atlases; portrait master and delivery pixels are unchanged."
         }
       ]
     },

@@ -1,0 +1,71 @@
+{
+  "results": [
+    {
+      "id": "mythic-12",
+      "sha256": "9d39b74c479917baca5fefc7a6244794c5d597b2e2f515fe98323a8455ba3428",
+      "failed": false,
+      "blendPoses": 468,
+      "clipPoses": 818,
+      "face": {
+        "poses": 1286,
+        "regions": [
+          {
+            "name": "upperFace",
+            "vertices": 125,
+            "edges": 202,
+            "maxDrift": 3.109746865309461e-15,
+            "worldMinRatio": 0.9999996115326177,
+            "worldMaxRatio": 1.0000005467223323,
+            "maximumTime": 0.75
+          },
+          {
+            "name": "muzzle",
+            "vertices": 96,
+            "edges": 153,
+            "maxDrift": 4.500384373645786e-15,
+            "worldMinRatio": 0.9999996115326177,
+            "worldMaxRatio": 1.0000005418252924,
+            "maximumTime": 0.19639374315738678
+          },
+          {
+            "name": "lowerFace",
+            "vertices": 85,
+            "edges": 133,
+            "maxDrift": 4.954885638550328e-15,
+            "worldMinRatio": 0.9999996115326177,
+            "worldMaxRatio": 1.0000005418252924,
+            "maximumTime": 0.19639374315738678
+          },
+          {
+            "name": "jawChin",
+            "vertices": 91,
+            "edges": 136,
+            "maxDrift": 3.7047174900778066e-15,
+            "worldMinRatio": 0.9999996115326238,
+            "worldMaxRatio": 1.0000005418252924,
+            "maximumTime": 0.24528000354766846
+          },
+          {
+            "name": "crest",
+            "vertices": 64,
+            "edges": 108,
+            "maxDrift": 4.113902782701814e-15,
+            "worldMinRatio": 0.9999996115326277,
+            "worldMaxRatio": 1.0000005437775918,
+            "maximumTime": 0.0957999974489212
+          },
+          {
+            "name": "headMane",
+            "vertices": 106,
+            "edges": 136,
+            "maxDrift": 3.421489633682506e-15,
+            "worldMinRatio": 0.9999996115326287,
+            "worldMaxRatio": 1.0000005434327617,
+            "maximumTime": 1.1856625080108643
+          }
+        ],
+        "failed": false
+      }
+    }
+  ]
+}

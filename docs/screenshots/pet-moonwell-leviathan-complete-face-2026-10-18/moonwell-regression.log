@@ -1,0 +1,29 @@
+✔ mythic-11: independent anatomy detects the released face binding defect (724.0125ms)
+✔ mythic-11 source: repaired anatomy passes every clip and blend (558.1046ms)
+✔ mythic-11 warfront-lod/: repaired anatomy passes every clip and blend (679.0592ms)
+✔ mythic-11: pinned repair conserves sculpt and rig, validates authored or explicitly reviewed curves, and reproduces shipping bytes (133.3501ms)
+✔ Moonwell Leviathan: complete original filament surface follows the head (39.3982ms)
+✔ Moonwell Leviathan: original lower coils and back retain their palettes (42.9039ms)
+✔ Moonwell Leviathan: former face-only pass still fails independent filament patches (763.2592ms)
+✔ Moonwell Leviathan: surface binding rejects changed sources and invalid original indices (44.4523ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2709.6527
+
+✔ all 161 production pets have complete proper skeletal animation banks (253.4759ms)
+✔ all 161 catalog identities resolve to a versioned runtime GLB with the full clip contract (218.0042ms)
+✔ Celestial Lion has the full pet animation bank and animated wings in every clip (3.6564ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 862.4864
+

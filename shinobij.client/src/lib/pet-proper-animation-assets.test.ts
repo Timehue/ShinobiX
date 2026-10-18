@@ -40,6 +40,7 @@ const reviewedLimbRepairs: Record<string, string> = {
     'mythic-1': 'worldstormDragonAnatomicalLimbRepair',
     'mythic-3': 'solarStagAnatomicalLimbRepair',
     'mythic-6': 'azureRyujinAnatomicalLimbRepair',
+    'mythic-12': 'skyglassKirinAnatomicalLimbRepair',
     'mythic-10': 'ashCrownPhoenixAnatomicalLegRepair',
 };
 const reviewedTorsoActions: Record<string, string> = {
