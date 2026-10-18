@@ -22,6 +22,7 @@ import { ALL_EXTENSIONS } from "@gltf-transform/extensions";
 import { compactPrimitive, reorder } from "@gltf-transform/functions";
 import { MeshoptDecoder, MeshoptEncoder, MeshoptSimplifier } from "meshoptimizer";
 import sharp from "sharp";
+import { petLodSkinPalette, petLodSkinMetricLayout } from "./lib/pet-lod-skin-palette.mjs";
 
 const clientRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const publicRoot = resolve(clientRoot, "public");
@@ -203,7 +204,7 @@ function accessorFloatArray(accessor) {
 function skinAwareSimplifyDocument(document, ratio, featureSamples = 32, silhouetteBands = 0, deformationLocks = []) {
     const root = document.getRoot();
     const jointCount = Math.max(...root.listSkins().map((skin) => skin.listJoints().length));
-    invariant(jointCount > 0 && jointCount <= 29, `unsupported Warfront joint count ${jointCount}`);
+    invariant(jointCount > 0 && jointCount <= 256, `unsupported Warfront joint count ${jointCount}`);
     const errors = [];
     for (const mesh of root.listMeshes()) for (const primitive of mesh.listPrimitives()) {
         const positions = primitive.getAttribute("POSITION");
@@ -216,31 +217,26 @@ function skinAwareSimplifyDocument(document, ratio, featureSamples = 32, silhoue
         const positionArray = accessorFloatArray(positions);
         const normalArray = accessorFloatArray(normals);
         const uvArray = accessorFloatArray(uvs);
-        // Meshoptimizer accepts at most 32 weighted channels. The roster's
-        // 21-joint bank includes normals+UVs; the two 29-joint showcase hounds
-        // use normals+dense skin and retain UV seams through indexed topology.
-        const includeUvs = jointCount <= 27;
-        const skinOffset = includeUvs ? 5 : 3;
-        const attributeStride = skinOffset + jointCount;
+        // Meshoptimizer accepts at most 32 weighted channels. Preserve existing
+        // layouts. For 30–32 active joints, reserve every skin identity and omit
+        // optional normal/UV error channels. Delivery keeps all original attributes.
+        const skinPalette = petLodSkinPalette(jointCount, accessorFloatArray(joints), accessorFloatArray(weights));
+        const skinChannels = new Map(skinPalette.map((joint, channel) => [joint, channel]));
+        const {includeNormals, includeUvs, skinOffset, attributeStride, attributeWeights} = petLodSkinMetricLayout(skinPalette);
         const attributes = new Float32Array(positions.getCount() * attributeStride);
         const joint = [0, 0, 0, 0];
         const weight = [0, 0, 0, 0];
         for (let vertex = 0; vertex < positions.getCount(); vertex++) {
             const offset = vertex * attributeStride;
-            attributes.set(normalArray.subarray(vertex * 3, vertex * 3 + 3), offset);
+            if (includeNormals) attributes.set(normalArray.subarray(vertex * 3, vertex * 3 + 3), offset);
             if (includeUvs) attributes.set(uvArray.subarray(vertex * 2, vertex * 2 + 2), offset + 3);
             joints.getElement(vertex, joint);
             weights.getElement(vertex, weight);
             for (let influence = 0; influence < 4; influence++) {
                 invariant(joint[influence] < jointCount, `${mesh.getName()}: joint ${joint[influence]} >= ${jointCount}`);
-                attributes[offset + skinOffset + joint[influence]] += weight[influence];
+                if (weight[influence] > 0) attributes[offset + skinOffset + skinChannels.get(joint[influence])] += weight[influence];
             }
         }
-        const attributeWeights = [
-            0.5, 0.5, 0.5,
-            ...(includeUvs ? [0.25, 0.25] : []),
-            ...new Array(jointCount).fill(1),
-        ];
         const sourceIndices = indices.getArray();
         const usedVertices = [...new Set(sourceIndices)];
         const targetCount = Math.floor(sourceIndices.length * ratio / 3) * 3;

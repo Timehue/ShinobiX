@@ -19,7 +19,7 @@ export async function loadPetDeformationProbe(path) {
     gltf.scene.traverse(node => { if (node.isSkinnedMesh) meshes.push(node); });
     const update = () => { gltf.scene.updateMatrixWorld(true); meshes.forEach(mesh => mesh.skeleton.update()); };
     update();
-    return { ...gltf, meshes, json, update, sha256: createHash('sha256').update(bytes).digest('hex') };
+    return { ...gltf, meshes, json, binary: bytes.subarray(28 + length), update, sha256: createHash('sha256').update(bytes).digest('hex') };
 }
 
 export function snapshotPetPose(scene) {

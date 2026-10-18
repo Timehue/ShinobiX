@@ -6,6 +6,7 @@ import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
 import { WORLD_GEO_VERSION } from '../../shared/sector-geo';
 import { weeklyBossRoamState } from '../src/lib/weekly-boss-roam';
 import { quietRoadCooldowns } from './helpers/quiet-road';
+import { installResumedSceneHandler } from './helpers/resumed-scenes';
 
 /*
  * MMORPG behaviour, played through the real Express server (docs/MMORPG_BEHAVIOR_PASS_2026-09-24.md).
@@ -67,6 +68,7 @@ async function seedShinobi(
 }
 
 async function signIn(page: Page, account: Account) {
+    await installResumedSceneHandler(page);
     await page.addInitScript(({ name, token, canonical, patchVersion }) => {
         if (localStorage.getItem('live-mmo-installed') === name) return;
         localStorage.setItem('ninjav-admin-build-v1', JSON.stringify({ currentAccountName: name }));
@@ -82,13 +84,10 @@ async function signIn(page: Page, account: Account) {
 }
 
 /** A resumed story scene can mount over any screen; skip it wherever it appears. */
-async function skipScenes(page: Page, until: ReturnType<Page['locator']>) {
-    const scene = page.getByRole('dialog', { name: /visual novel scene/i });
-    for (let i = 0; i < 8; i++) {
-        await expect(until.or(scene)).toBeVisible({ timeout: 30_000 });
-        if (!await scene.isVisible()) return;
-        await scene.getByRole('button', { name: 'Skip', exact: true }).click();
-    }
+async function waitForResumedDestination(until: ReturnType<Page['locator']>) {
+    // signIn installs the handler before navigation, including for scenes that
+    // appear after this destination first becomes visible.
+    await expect(until).toBeVisible({ timeout: 30_000 });
 }
 
 test('an online shinobi knocked out in the field is on their village ward, and a Healer can treat them', async ({ page, request }, info) => {
@@ -123,7 +122,7 @@ test('an online shinobi knocked out in the field is on their village ward, and a
     }, { timeout: 60_000 });
     await page.goto('/#/hospital', { waitUntil: 'domcontentloaded' });
     const ward = page.locator('section.healer-patient-list').filter({ has: page.locator('#healer-admitted-heading') });
-    await skipScenes(page, ward);
+    await waitForResumedDestination(ward);
     await wardAnswer;
     const row = ward.locator('.healer-patient-row').filter({ hasText: patient.name });
     await expect(row, 'the online patient appears on the ward within one poll').toBeVisible({ timeout: 25_000 });
@@ -254,7 +253,7 @@ test('leaving a live Card Hall showdown forfeits it, and the loss is on the reco
     await page.goto('/#/shinobiTiles', { waitUntil: 'domcontentloaded' });
     const hall = page.locator('.app-shell[data-screen="shinobiTiles"]');
     const sections = page.getByRole('navigation', { name: 'Card Hall sections' });
-    await skipScenes(page, sections);
+    await waitForResumedDestination(sections);
     await sections.getByRole('button', { name: 'Play', exact: true }).click();
 
     const started = page.waitForResponse((response) => response.url().includes('/api/card-clash/ai-start')

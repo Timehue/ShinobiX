@@ -1,3 +1,5 @@
+import {repairOniAnatomicalLimbs} from './lib/pet-oni-anatomical-limbs.mjs';
+import {repairOniCoordinatedActions} from './lib/pet-oni-anatomical-actions.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
@@ -30,7 +32,7 @@ for (const version of ['roster', 'warfront-lod/roster']) test(`Oni Hound ${versi
         const json = model.json, boundary = json.extras.properAnimationSourceBoundary;
         const weightAccessor = json.meshes[0].primitives[0].attributes.WEIGHTS_0;
         const view = json.bufferViews[json.accessors[weightAccessor].bufferView];
-        const payload = view.extensions.EXT_meshopt_compression;
+        const payload = view.extensions?.EXT_meshopt_compression ?? view;
         assert.ok(boundary.accessorCount > weightAccessor && boundary.bufferViewCount > json.accessors[weightAccessor].bufferView);
         assert.ok(boundary.binLength >= payload.byteOffset + payload.byteLength, 're-authoring would truncate the repaired skull binding');
     }
@@ -122,7 +124,9 @@ test('complete-face repair replays exactly from its pinned pre-repair fixture', 
         const faceBytes=await readFile(replay);
         assert.deepEqual(faceBytes,await readFile(faceOnlyFixture));
         const final=await repairOniCoordinatedAttack(faceBytes);
-        assert.deepEqual(final.bytes,await readFile(new URL('../public/pet-models/roster/mythic-4.glb',import.meta.url)));
+        assert.deepEqual(final.bytes,await readFile(new URL('./fixtures/pet-oni-anatomical-limbs/mythic-4.glb',import.meta.url)));
+        const gaits=await repairOniAnatomicalLimbs(final.bytes),anatomical=await repairOniCoordinatedActions(gaits.bytes);
+        assert.deepEqual(anatomical.bytes,await readFile(new URL('../public/pet-models/roster/mythic-4.glb',import.meta.url)));
     } finally {
         assert.equal(dirname(resolve(directory)),resolve(tmpdir()));
         assert.ok(basename(directory).startsWith('oni-full-face-'));
