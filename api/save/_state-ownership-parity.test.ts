@@ -52,6 +52,7 @@ const FROZEN = {
         'editablePets', 'petEncounterVn', 'ancientChestVn', 'hollowGateEventConfig',
     ],
     COMBAT_STRIP_CHAR_FIELDS: [
+        'brokerCertificates', 'brokerCrateLedger',
         'resourceGathering', 'gatheringToolUses',
         'pendingGatherFinds', 'redeemedGatherFinds', 'gatherIntroSeen', 'gearTierUnlocks', 'equippedNamedGear',
         'sunscarExchangeReceipts', 'sunscarRally', 'sunscarCaravan',
@@ -206,7 +207,7 @@ const FROZEN = {
         'pendingGatherFinds', 'redeemedGatherFinds', 'gatherIntroSeen',
         'battleTowerRecords', // Tower settlement is the only writer.
         'accountName',
-        'sunscarRally', 'sunscarCaravan',
+        'sunscarRally', 'sunscarCaravan', 'brokerCertificates', 'brokerCrateLedger',
         'firstContract', // journal milestones are committed by existing authoritative actions, never generic saves
         'elderWinDays', 'elderRankedWinReceipts',
         'pvpKillMonth', // Monthly ANBU rankings must not accept a client-written reset month.

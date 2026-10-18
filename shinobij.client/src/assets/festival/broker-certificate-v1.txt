@@ -1,0 +1,8 @@
+Broker certificate reward artwork
+Provider: built-in imagegen (transparent background)
+Production asset: broker-certificate-v1.webp, 512 x 512, RGBA
+
+Final generation prompt:
+Use case: stylized-concept. Asset type: production inventory/reward icon for a shinobi fantasy browser game. Create one beautiful ornate Broker's Certificate redeemable for a sealed treasure crate. A single aged ivory parchment ticket, horizontal rectangle, slightly curled corners, intricate dark ink border with restrained antique gold details, crimson wax seal with a simple embossed closed treasure crate emblem, burgundy ribbon hanging from seal, subtle ninja scroll calligraphy flourishes as decorative ink marks. Painterly polished game item illustration, warm desert market palette, crisp readable silhouette at 96 pixels, centered three-quarter view with all edges fully in frame and ample transparent padding. No readable words or letters, no numerals, no watermark, no background, no characters. True transparent background. Square canvas.
+
+Processing: trimmed transparent padding, resized to a 512px square with transparent letterboxing, encoded as WebP at quality 90 with alpha preserved.

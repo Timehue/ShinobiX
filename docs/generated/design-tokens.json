@@ -2402,6 +2402,17 @@
       {
         "direction": "max",
         "axis": "width",
+        "valuePx": 400,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/broker-certificates.css",
+            "line": 12
+          }
+        ]
+      },
+      {
+        "direction": "max",
+        "axis": "width",
         "valuePx": 412,
         "occurrences": [
           {

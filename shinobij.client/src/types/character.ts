@@ -401,6 +401,9 @@ export type Character = {
     sunscarExchangeReceipts?: string[];
     sunscarRally?: import('../../../shared/sunscar/rally-championship').RallyProgress;
     sunscarCaravan?: import('../../../shared/sunscar/caravan-types').CaravanProgress;
+    /** Server-issued certificates, each redeemable for one free Broker sealed crate. */
+    brokerCertificates?: number;
+    brokerCrateLedger?: import('../../../shared/sunscar/broker-certificates').BrokerCrateLedger;
     equipment: EquipmentSlots;
     jutsuMastery: JutsuMastery[];
     pets: Pet[];

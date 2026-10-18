@@ -3,7 +3,7 @@ export type RallyChampionship = {
     id: string; day: string; seed: number; pet: RallyPet; rivals: string[]; tracks: string[];
     difficulty: number; raceIndex: number; race: RallyState | null; startedAt: number | null; checkpointAt: number;
     results: RallyRaceResult[]; status: 'ready' | 'racing' | 'between' | 'complete';
-    reward: { ryo: number; reputation: number; place: number } | null; rewardBase: number;
+    reward: { ryo: number; reputation: number; place: number; brokerCertificates?: number } | null; rewardBase: number;
 };
 export type RallyProgress = { reputation: number; championships: number; wins: number; lastEntryDay: string | null; current: RallyChampionship | null; best: Record<string, number> };
 // Unstarted reservations expire with their festival day; started runs retain their entry.

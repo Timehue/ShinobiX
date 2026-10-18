@@ -105,6 +105,37 @@ const player = (over: Record<string, unknown> = {}) => ({
     auraStones: 1, mythicSeals: 1, level: 40, ...over,
 });
 
+test('a certificate spends no ryo, consumes one certificate and uses a daily pull', () => {
+    const before = { ...player({ ryo: 0 }), brokerCertificates: 2 };
+    const settled = settleBlackMarketPull({ character: before, used: 9, roll: PAYOUT, payment: 'certificate' });
+    assert.equal(settled.ok, true);
+    if (!settled.ok) return;
+    assert.equal(settled.cost, 0);
+    assert.equal(settled.nextCharacter.ryo, PAYOUT.ryo);
+    assert.equal(settled.nextCharacter.brokerCertificates, 1);
+    assert.equal(settled.nextCharacter.fateShards, 1 + PAYOUT.fateShards);
+    assert.equal(settled.nextUsed, BLACK_MARKET_DAILY_CAP);
+    assert.equal(before.brokerCertificates, 2);
+    const refused = settleBlackMarketPull({ character: settled.nextCharacter, used: settled.nextUsed, roll: PAYOUT, payment: 'certificate' });
+    assert.equal(refused.ok, false);
+    if (!refused.ok) assert.equal(refused.status, 429);
+    assert.equal(settled.nextCharacter.brokerCertificates, 1, 'cap does not spend the saved certificate');
+});
+
+test('certificate payment requires a real whole certificate and never falls back to charging ryo', () => {
+    for (const count of [undefined, 0, -1, .5, '2', NaN, Infinity, {}]) {
+        const settled = settleBlackMarketPull({ character: player({ brokerCertificates: count }), used: 0, roll: PAYOUT, payment: 'certificate' });
+        assert.equal(settled.ok, false, String(count));
+        if (!settled.ok) assert.equal(settled.status, 400);
+    }
+    const paid = settleBlackMarketPull({ character: player({ brokerCertificates: 2 }), used: 0, roll: PAYOUT });
+    assert.equal(paid.ok, true);
+    if (paid.ok) {
+        assert.equal(paid.cost, BLACK_MARKET_COST);
+        assert.equal(paid.nextCharacter.brokerCertificates, 2, 'paying ryo keeps certificates');
+    }
+});
+
 test('a pull debits the stake and credits the roll on ONE character object', () => {
     const before = player();
     const settled = settleBlackMarketPull({ character: before, used: 0, roll: PAYOUT });
