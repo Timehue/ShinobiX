@@ -84,7 +84,7 @@ export function PetYardInspectorActions({ pet, character, busy, lockedReason, on
                 <label>Appearance preview<select aria-label="Preview appearance" value={appearance}
                     disabled={!previewAvailable}
                     onChange={event => onAppearanceChange(event.target.value as PetAppearancePreview)}>
-                    <option value="current">Current appearance</option><option value="original">Original colors</option><option value="chromatic">Chromatic colors</option>
+                    <option value="current">Current appearance</option><option value="original">Original colors</option>
                 </select></label>
             </div>
             <p className="hint">{previewAvailable ? 'Color previews are temporary. Owned collars can be equipped for battle.' : 'Owned collars can still be equipped. Appearance previews need the 3D viewer.'}</p>

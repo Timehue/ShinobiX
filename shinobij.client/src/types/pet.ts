@@ -9,6 +9,7 @@
 import type { JutsuElement } from "./core";
 import type { PetRole, PetSubRole } from "../lib/pet-roles";
 import type { TacticsBuild } from "../../../shared/pet-tactics-contract";
+import type { PetIncubation } from "../../../shared/pet-incubation";
 import type {
     PetExpeditionProvision as SharedPetExpeditionProvision,
     PetExpeditionReturnChoice as SharedPetExpeditionReturnChoice,
@@ -33,7 +34,7 @@ export type PetBreedingRequirement = {
     element?: Exclude<JutsuElement, "None">;
 };
 
-export type PetBreedingSession = {
+export type PetBreedingSession = PetIncubation & {
     sessionId: string;
     state: "breeding" | "egg";
     parentIds: [string, string];
@@ -131,7 +132,7 @@ export type PetJutsu = {
     //   pull  — light damage + drag the target one tile closer (control); Brace negates the drag
     kind: "damage" | "buff" | "heal" | "debuff" | "dot" | "move" | "barrier" | "movelock" | "lifesteal" | "shield" | "absorb"
         | "burn" | "freeze" | "confuse" | "stun" | "crush"
-        | "wound" | "mark" | "slow" | "haste" | "taunt" | "push" | "pull";
+        | "wound" | "mark" | "slow" | "haste" | "taunt" | "push" | "pull" | "cleanse";
     // Optional duration override for status-effect kinds. Lets a Mythic
     // freeze last 3 rounds while a Standard freeze lasts 1. Defaults are
     // baked into each status handler if rounds is undefined.
@@ -193,7 +194,8 @@ export type Pet = {
     // Equip-slot loadout (Collar / PVP / PVE / Consumable). See PetLoadout.
     // Undefined until the player equips something.
     loadout?: PetLoadout;
-    /** Saved ranked techniques and competitive build, committed by pet/progress. */
+    /** Abilities shared by all battles and level-50 PvE summons. Competitive
+     * attributes/items apply only in ranked. Committed by pet/progress. */
     rankedBuild?: TacticsBuild;
     // DEFENSE DOCTRINE — the standing orders this pet follows when its owner is
     // not commanding it: a sector-war garrison, or a live duel whose player

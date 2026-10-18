@@ -670,6 +670,11 @@ function companionCast(session: SoloPveSession, companion: SoloPveCompanion, mov
     const rounds = move?.rounds ?? 2;
     const kind = move?.kind ?? 'damage';
     const label = move ? ` uses ${move.name}` : ' strikes';
+    if (kind === 'cleanse') {
+        companion.statuses = removeCombatStatusesByKind(companion.statuses, 'negative').statuses;
+        session.log.push(`${companion.name}${label} and clears harmful conditions.`);
+        return undefined;
+    }
     if (kind === 'heal') {
         const heal = Math.max(1, Math.floor(companion.maxHp * 0.25 + Number(move?.power ?? 0) * 0.5));
         companion.hp = Math.min(companion.maxHp, companion.hp + heal);
@@ -768,7 +773,8 @@ function runSoloPveCompanionPhase(session: SoloPveSession): void {
         let ap = 100;
         let actions = 0;
         while (ap >= MOVE_AP && actions < MAX_ACTIONS && session.status === 'active' && companion.hp > 0) {
-            const move = pickCompanionMove(companion.moves, companion.cooldowns, companion.hp / Math.max(1, companion.maxHp));
+            const move = pickCompanionMove(companion.moves, companion.cooldowns, companion.hp / Math.max(1, companion.maxHp),
+                companion.statuses.some(status => status.kind === 'negative'));
             const selfCast = !!move && companionMoveDamage(1, move) === 0;
             if (!selfCast && hexDistance(companion.pos, session.enemy.pos) > COMPANION_RANGE) {
                 const candidates = hexNeighbors(companion.pos)

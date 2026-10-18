@@ -59,7 +59,7 @@ export const KIND_ACCURACY: Record<PetJutsu["kind"], number> = {
     damage: 95, lifesteal: 95, crush: 90, wound: 95, push: 90, pull: 90,
     dot: 90, burn: 90, debuff: 90, movelock: 90, slow: 90,
     freeze: 85, confuse: 85, stun: 85,
-    heal: 100, buff: 100, barrier: 100, shield: 100, absorb: 100,
+    heal: 100, buff: 100, barrier: 100, shield: 100, absorb: 100, cleanse: 100,
     move: 100, mark: 100, haste: 100, taunt: 100,
 };
 

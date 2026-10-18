@@ -3271,11 +3271,15 @@
       "api/pet/_breeding.ts",
       "api/pet/_owned-pet.ts",
       "api/pet/_pet-busy.ts",
+      "shared/pet-incubation.ts",
       "shared/shrines.ts"
     ],
-    "rulesVersion": 2,
+    "rulesVersion": 3,
     "minimumParentLevel": 50,
-    "durationMs": 86400000,
+    "durationMs": 43200000,
+    "eggChancePercent": 80,
+    "incubationClock": "foreground-gameplay",
+    "eggLocation": "sanctuary",
     "usesPerPet": {
       "min": 5,
       "max": 10

@@ -105,20 +105,28 @@ async function recovered(): Promise<Record<string, any>> {
 }
 
 describe('pet writes keep the idle recovery a player earned', { concurrency: false }, () => {
-    test('breeding: the start, the egg settling on a status read, and the hatch', async () => {
+    test('breeding: start, legacy egg settlement, gameplay incubation, and hatch', async () => {
         const first = companion('standard-0');
         const second = companion('standard-6');
         await seed([first, second]);
+        const { breedingResultKey, buildSealedBreedingResult } = await import('./_breeding.js');
+        const requestId = 'idle-recovery-breeding-01';
+        const sealed = buildSealedBreedingResult({ playerName: PLAYER, requestId, parent1: first, parent2: second,
+            now: Date.now(), secureInt: min => min });
+        await kv.set(breedingResultKey(PLAYER, sealed.sessionId), sealed);
 
         await tire();
         const started = await call('start', {
-            body: { playerName: PLAYER, parent1Id: first.id, parent2Id: second.id, requestId: 'idle-recovery-breeding-01' },
+            body: { playerName: PLAYER, parent1Id: first.id, parent2Id: second.id, requestId },
         });
         assert.equal(started.status, 200, JSON.stringify(started.body));
-        assert.equal((await recovered()).petBreeding?.state, 'breeding', 'the barn was still filled');
+        assert.equal(started.body.eggProduced, true);
+        assert.equal((await recovered()).petBreeding?.state, 'egg', 'the successful pairing entered Sanctuary');
 
-        // The barn finishes; the next status read settles the egg and writes it.
-        await editCharacter((character) => ({ ...character, petBreeding: { ...character.petBreeding, readyAt: Date.now() - 1_000 } }));
+        // A legacy pairing still settles on a read and must carry idle recovery.
+        await editCharacter((character) => ({ ...character, petBreeding: { ...character.petBreeding,
+            state: 'breeding', readyAt: Date.now() - 1_000, incubationRemainingMs: undefined,
+            incubationUpdatedAt: undefined, incubationActivityId: undefined } }));
         await tire();
         const status = await call('status', { method: 'GET', query: { playerName: PLAYER } });
         assert.equal(status.status, 200, JSON.stringify(status.body));
@@ -130,9 +138,16 @@ describe('pet writes keep the idle recovery a player earned', { concurrency: fal
             ...character,
             petBreeding: {
                 ...character.petBreeding,
-                requirements: character.petBreeding.requirements.map((requirement: Record<string, number>) => ({ ...requirement, progress: requirement.target })),
+                incubationRemainingMs: 15_000,
+                incubationUpdatedAt: Date.now() - 15_000,
+                incubationActivityId: 'idle-recovery-foreground',
             },
         }));
+        await tire();
+        const incubation = await call('status', { body: { playerName: PLAYER,
+            activity: { id: 'idle-recovery-foreground', active: true, elapsedMs: 15_000 } } });
+        assert.equal(incubation.status, 200, JSON.stringify(incubation.body));
+        assert.equal((await recovered()).petBreeding.incubationRemainingMs, 0);
         await tire();
         const hatched = await call('hatch', { body: { playerName: PLAYER, sessionId: egg.sessionId } });
         assert.equal(hatched.status, 200, JSON.stringify(hatched.body));
