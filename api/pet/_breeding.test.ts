@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { PET_CATALOG } from './_catalog.js';
-import { alternateSpeciesPool, buildSealedBreedingResult, breedingOddsForParents, deterministicBreedingSessionId, publicPetBreedingSession, rollChromatic, selectOffspringTemplate } from './_breeding.js';
+import { alternateSpeciesPool, buildSealedBreedingResult, breedingOddsForParents, deterministicBreedingSessionId, publicPetBreedingSession, rollBreedingEgg, rollChromatic, selectOffspringTemplate } from './_breeding.js';
 
 const parent1 = { ...PET_CATALOG['standard-0'], id: 'p1', templateId: 'standard-0' };
 const parent2 = { ...PET_CATALOG['standard-6'], id: 'p2', templateId: 'standard-6' };
@@ -25,7 +25,7 @@ describe('sealed pet breeding outcome table', () => {
     });
 
     it('seals the private apex/ordinary trait with species and palette at breeding start', () => {
-        const rolls = [0, 1, 0, 2]; // parent 1, non-Chromatic, apex success, Boonbringer
+        const rolls = [0, 1, 0, 2, 79]; // parent 1, non-Chromatic, apex success, Boonbringer, egg
         const secureInt = (min: number, max: number) => {
             const value = rolls.shift();
             assert.notEqual(value, undefined);
@@ -35,7 +35,15 @@ describe('sealed pet breeding outcome table', () => {
         const sealed = buildSealedBreedingResult({ playerName: 'Player', requestId: 'request-1234567890', parent1, parent2, now: 123, secureInt });
         assert.equal(sealed.trait, 'Boonbringer');
         assert.equal(sealed.createdAt, 123);
+        assert.equal(sealed.eggProduced, true);
         assert.equal(rolls.length, 0);
+    });
+
+    it('produces an egg on exactly 80 of 100 independent outcomes', () => {
+        assert.equal(Array.from({ length: 100 }, (_, roll) => rollBreedingEgg(roll)).filter(Boolean).length, 80);
+        assert.equal(rollBreedingEgg(79), true);
+        assert.equal(rollBreedingEgg(80), false);
+        for (const roll of [-1, 100, 0.5]) assert.throws(() => rollBreedingEgg(roll));
     });
 
     it('reports the authoritative pool-aware odds and hides the request receipt', () => {

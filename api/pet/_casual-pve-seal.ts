@@ -1,5 +1,7 @@
 import type { Pet, PetJutsu } from '../_pet-sim/pet-types.js';
 import type { SealedDuelParams } from './_duel-replay.js';
+import { petBattleJutsus } from '../../shared/pet-battle-loadout.js';
+import { rankedBuildForPet } from '../../shared/pet-tactics-build.js';
 
 /**
  * Versioned proof payload for a commanded casual PvE duel.  The start endpoint
@@ -54,10 +56,11 @@ export function casualPvePetSnapshot(pet: Pet): Pet {
         attack: finite(pet.attack, 1),
         defense: finite(pet.defense, 1),
         speed: finite(pet.speed, 1),
-        jutsus: (Array.isArray(pet.jutsus) ? pet.jutsus : [])
+        jutsus: petBattleJutsus(pet)
             .slice(0, MAX_SEALED_JUTSUS)
             .map(sealJutsu),
         unlockedForPve: pet.unlockedForPve === true,
+        ...(pet.rankedBuild ? { rankedBuild: rankedBuildForPet(pet) ?? undefined } : {}),
         ...(typeof pet.nickname === 'string' && pet.nickname
             ? { nickname: pet.nickname.slice(0, 80) }
             : {}),

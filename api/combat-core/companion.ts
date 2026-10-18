@@ -8,6 +8,7 @@ import {
 import { activeCarriedPets } from '../_entitlements.js';
 import { petCombatBusyReason } from '../pet/_pet-busy.js';
 import { currentPetHappiness } from '../pet/_happiness.js';
+import { petBattleJutsus } from '../../shared/pet-battle-loadout.js';
 import {
     PET_HAPPINESS_OBEDIENT,
     PET_HAPPINESS_RESTLESS,
@@ -24,10 +25,10 @@ export const COMPANION_RANGE = 2;
 export const COMPANION_DISOBEY_CHANCE = petHappinessDisobeyChance(PET_HAPPINESS_RESTLESS);
 export const COMPANION_OBEDIENT_HAPPINESS = PET_HAPPINESS_OBEDIENT;
 
-const SELF_KINDS = new Set(['heal', 'shield', 'barrier', 'buff', 'haste', 'absorb', 'taunt', 'move']);
+const SELF_KINDS = new Set(['heal', 'shield', 'barrier', 'buff', 'haste', 'absorb', 'taunt', 'move', 'cleanse']);
 const SUPPORT_KINDS = new Set(['heal', 'shield', 'barrier']);
 const KIND_DAMAGE_SCALE: Record<string, number> = {
-    heal: 0, shield: 0, barrier: 0, buff: 0, haste: 0, absorb: 0, taunt: 0, move: 0,
+    heal: 0, shield: 0, barrier: 0, buff: 0, haste: 0, absorb: 0, taunt: 0, move: 0, cleanse: 0,
     stun: 0.6, freeze: 0.6, movelock: 0.6,
     wound: 0.5, dot: 0.5, burn: 0.5,
     crush: 1, lifesteal: 1, damage: 1,
@@ -47,6 +48,10 @@ export type CompanionMove = {
 type PetJutsuLike = { name?: string; kind?: string; power?: number; cooldown?: number; rounds?: number; signature?: boolean };
 type PetLike = {
     id?: string;
+    templateId?: unknown;
+    evolutionStage?: unknown;
+    rarity?: unknown;
+    rankedBuild?: unknown;
     name?: string;
     nickname?: string;
     level?: number;
@@ -65,7 +70,7 @@ type PetLike = {
 };
 
 export function companionStrikeDamage(pet: PetLike): number {
-    const jutsus = Array.isArray(pet.jutsus) ? pet.jutsus : [];
+    const jutsus = petBattleJutsus(pet);
     const powers = jutsus.filter((jutsu) => jutsu?.kind === 'damage').map((jutsu) => Number(jutsu?.power ?? 0));
     const bestDamageJutsu = powers.length ? Math.max(0, ...powers) : 0;
     return Math.max(20, Math.floor(
@@ -98,7 +103,7 @@ export function sealCompanionFromSave(char: Record<string, unknown>, now = Date.
     const level = Math.max(0, Math.floor(Number(pet.level ?? 0)) || 0);
     if (level < 50) return null;
     if (petCombatBusyReason(char, pet as Record<string, unknown>, now)) return null;
-    const moves: CompanionMove[] = (Array.isArray(pet.jutsus) ? pet.jutsus : [])
+    const moves: CompanionMove[] = petBattleJutsus(pet)
         .filter((jutsu) => jutsu && typeof jutsu.name === 'string' && jutsu.name)
         .slice(0, 8)
         .map((jutsu) => ({
@@ -165,15 +170,20 @@ export function pickCompanionMove(
     moves: CompanionMove[],
     cooldowns: Record<string, number>,
     hpFrac: number,
+    needsCleanse = false,
 ): CompanionMove | null {
     const ready = (move: CompanionMove) => Number(cooldowns[move.name] ?? 0) <= 0;
+    if (needsCleanse) {
+        const cleanse = moves.find(move => move.kind === 'cleanse' && ready(move));
+        if (cleanse) return cleanse;
+    }
     if (hpFrac < 0.5) {
         const support = moves.find((move) => SUPPORT_KINDS.has(move.kind) && ready(move));
         if (support) return support;
     }
     const usable = moves.filter((move) => !SELF_KINDS.has(move.kind) && ready(move));
-    if (usable.length === 0) return null;
     return usable.find((move) => move.signature)
+        ?? moves.find(move => ['buff', 'haste', 'absorb', 'taunt'].includes(move.kind) && ready(move))
         ?? usable.slice().sort((a, b) => b.power - a.power || a.name.localeCompare(b.name))[0]
         ?? null;
 }

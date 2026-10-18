@@ -19,7 +19,7 @@ import type {
 } from "../types/pet-battle";
 
 // Kinds that target the caster (or allies), never an enemy tile.
-const SELF_KINDS = new Set<PetJutsu["kind"]>(["heal", "buff", "barrier", "shield", "absorb", "move", "haste"]);
+const SELF_KINDS = new Set<PetJutsu["kind"]>(["heal", "buff", "barrier", "shield", "absorb", "move", "haste", "cleanse"]);
 
 // ── Per-kind descriptor table ───────────────────────────────────────────────
 // Maps a PetJutsu.kind onto its tactical descriptor. `vfx: null` means "use the
@@ -46,6 +46,7 @@ const KIND_SPECS: Record<PetJutsu["kind"], KindSpec> = {
     confuse:   { tags: ["ranged", "debuff"],          anim: "ranged_projectile", hint: "control", range: { min: 1, max: 4 }, accuracy: 85,  vfx: "wind",      blurb: "Confuses — the target may strike itself." },
     stun:      { tags: ["ranged", "stun"],            anim: "beam",              hint: "control", range: { min: 1, max: 4 }, accuracy: 85,  vfx: "lightning", blurb: "Stuns — skips the next turn." },
     heal:      { tags: ["heal"],                      anim: "heal",              hint: "heal",    range: { min: 0, max: 0 }, accuracy: 100, vfx: "chakra",    blurb: "Restores HP." },
+    cleanse:   { tags: ["buff"],                      anim: "self_buff",         hint: "defense", range: { min: 0, max: 0 }, accuracy: 100, vfx: "chakra",    blurb: "Removes harmful conditions." },
     buff:      { tags: ["buff"],                      anim: "self_buff",         hint: "buff",    range: { min: 0, max: 0 }, accuracy: 100, vfx: "chakra",    blurb: "Raises ATK and DEF." },
     barrier:   { tags: ["shield"],                    anim: "shield",            hint: "defense", range: { min: 0, max: 0 }, accuracy: 100, vfx: "chakra",    blurb: "Raises a damage-absorbing barrier." },
     shield:    { tags: ["shield"],                    anim: "shield",            hint: "defense", range: { min: 0, max: 0 }, accuracy: 100, vfx: "chakra",    blurb: "Forms a protective ward." },

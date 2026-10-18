@@ -57,7 +57,6 @@ import { accountKey, forgetAccountToken, loadPlayerAccounts, normalizePendingTra
 // server's step seal first, so the import costs nothing extra.
 import type { HiddenChamberState, HollowGateEventModal } from "./lib/hollow-gate-tile";
 import { nextSavePayloadRevision } from "./lib/save-flight";
-
 import { beginSessionLoad, sessionLoadFetch, sessionLoadMatchesAccount } from "./lib/session-load-authority";
 import { restoreAccountFromServer } from "./lib/boot-restore";
 
@@ -157,6 +156,7 @@ installAuthFetch();
 import backgroundImage from "./assets/background-image.webp";
 import { academyTrainingDummyImg, withAcademySparringPortrait } from "./lib/academy-ai-art";
 const Inventory = lazyWithRetry(() => import("./screens/Inventory").then(m => ({ default: m.Inventory })));
+const PetEggIncubator = lazyWithRetry(() => import('./components/PetEggIncubator').then(m => ({ default: m.PetEggIncubator })));
 const BattleLogScreen = lazyWithRetry(() => import("./screens/BattleLogScreen").then(m => ({ default: m.BattleLogScreen })));
 const Hospital = lazyWithRetry(() => import("./screens/Hospital").then(m => ({ default: m.Hospital })));
 const VillageTavern = lazyWithRetry(() => import("./screens/VillageTavern").then(m => ({ default: m.VillageTavern })));
@@ -5147,8 +5147,8 @@ export default function App() {
             artwork={screen === "start" ? backgroundImage : STUDIO_SCREEN_PRESENTATION[screen].artwork}
         >
             <GameAlertHost /><GameConfirmHost /><GamePasswordPromptHost /><GameToastHost />
+            {character && gameplayMutationsOpen && <Suspense fallback={null}><PetEggIncubator key={character.name} character={character} screen={screen} onVersionedCharacter={commitVersionedCharacter} beginCharacterSync={saveCoordinator.beginCharacterSync} sharedImages={sharedImages} blocked={sealedFightOpen || isPresenceBattleActive() || petFullscreenActive || !!activeTriggeredEvent || introCinematicActive || hasPendingNarrativeDelivery || worldExplorePresentationActive} /></Suspense>}
             <SaveErrorBanner visible={saveBlocked} />
-
             {sessionExpired && (
                 <SessionExpiredModal
                     password={reauthPw}
@@ -5782,7 +5782,7 @@ export default function App() {
                 )}
                 {!activeTriggeredEvent && screen === "storyBoss" && character && <StoryBoss character={character} updateCharacter={setCharacter} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "training" && character && <Training character={character} savedBloodlines={savedBloodlines} onVersionedCharacter={commitVersionedCharacter} activeTraining={activeTraining} setActiveTraining={setActiveTrainingNow} onBack={goBack} />}
-                {!activeTriggeredEvent && screen === "home" && character && <Home character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => { acceptExternalSaveVersion(version, character.name); }} setScreen={navigate} onBack={leavePetHome} backLabel={petHomeReturnLabel(petHomeReturnScreen)} sharedImages={sharedImages} />}
+                {!activeTriggeredEvent && screen === "home" && character && <Home character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} beginCharacterSync={saveCoordinator.beginCharacterSync} onServerVersion={(version) => { acceptExternalSaveVersion(version, character.name); }} setScreen={navigate} onBack={leavePetHome} backLabel={petHomeReturnLabel(petHomeReturnScreen)} sharedImages={sharedImages} />}
                 {!activeTriggeredEvent && screen === "pets" && character && <PetYard key={character.name.trim().toLowerCase()} character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} setScreen={navigate} onBack={leavePetHome} backLabel={petHomeReturnLabel(petHomeReturnScreen)} sharedImages={sharedImages} onImmediateSave={(char) => { void pushSaveToServer(char, currentAccountName).catch(() => {}); }} />}
                 {!activeTriggeredEvent && screen === "petArena" && character && <PetArena character={character} updateCharacter={setCharacter} allServerPlayers={allServerPlayers} setScreen={setScreen} returnScreen={petHomeReturnScreen} sharedImages={sharedImages} duelChallenges={duelChallenges} setDuelChallenges={setDuelChallenges} pendingPetBattleOpponent={pendingPetBattleOpponent?.wanderer ? null : pendingPetBattleOpponent} onPendingPetBattleStarted={() => setPendingPetBattleOpponent(null)} pendingArenaMatch={pendingArenaMatch} onPendingArenaMatchStarted={() => setPendingArenaMatch(null)} pendingArenaResponse={pendingArenaResponse} onArenaResponseHandled={() => { if (pendingArenaResponse) void clearChallengeOnServer(pendingArenaResponse); setPendingArenaResponse(null); }} onClanWarBattleEnd={autoReportClanWarBattleResult} onBattleActiveChange={setPetBattleActive} onFullscreenActiveChange={setPetFullscreenActive} onServerVersion={acceptExternalSaveVersion} onVersionedCharacter={(next, version, origin) => saveConflictAccountKey(next.name) === saveConflictAccountKey(origin) ? (commitVersionedCharacter(next, version) ? "accepted" : "stale") : "foreign"} />}
                 {!activeTriggeredEvent && screen === "petShowdown" && character && <PetShowdown character={character} updateCharacter={setCharacter} setScreen={setScreen} sharedImages={sharedImages} onBattleActiveChange={setPetBattleActive} onFullscreenActiveChange={setPetFullscreenActive} />}

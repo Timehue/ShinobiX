@@ -1,5 +1,6 @@
 import { randomInt } from 'node:crypto';
 import type { SecureInt } from './_owned-pet.js';
+import { PET_EGG_GAMEPLAY_MS, type PetIncubation } from '../../shared/pet-incubation.js';
 
 export type PetBreedingRequirementCategory = 'care' | 'adventure' | 'elementalBond';
 export type PetBreedingRequirement = {
@@ -12,7 +13,7 @@ export type PetBreedingRequirement = {
     element?: string;
 };
 
-export type PetBreedingSession = {
+export type PetBreedingSession = PetIncubation & {
     sessionId: string;
     state: 'breeding' | 'egg';
     parentIds: [string, string];
@@ -82,10 +83,9 @@ export function settlePetBreedingSession(
     secureInt: SecureInt = randomInt,
 ): { character: Record<string, unknown>; changed: boolean } {
     const session = character.petBreeding as PetBreedingSession | null | undefined;
-    if (!session || session.state !== 'breeding' || now < Number(session.readyAt)) return { character, changed: false };
-    const requirements = Array.isArray(session.requirements) && session.requirements.length === 3
-        ? session.requirements
-        : rollPetBreedingRequirements(character, session.parentElement, secureInt);
+    if (!session || session.incubationRemainingMs !== undefined || (session.state === 'breeding' && now < Number(session.readyAt))) return { character, changed: false };
+    // Previously promised pairings keep their sealed offspring. Existing eggs
+    // enter gameplay incubation without rerolling species, palette or success.
     return {
         character: {
             ...character,
@@ -93,7 +93,11 @@ export function settlePetBreedingSession(
                 ...session,
                 state: 'egg',
                 eggCreatedAt: Number(session.eggCreatedAt) || now,
-                requirements,
+                requirements: undefined,
+                location: 'sanctuary',
+                incubationRemainingMs: PET_EGG_GAMEPLAY_MS,
+                incubationUpdatedAt: now,
+                incubationActivityId: undefined,
             },
         },
         changed: true,
@@ -146,6 +150,7 @@ export function recordPetBreedingProgress(
 }
 
 export function petBreedingRequirementsComplete(session: PetBreedingSession | null | undefined): boolean {
+    if (session?.state === 'egg' && session.incubationRemainingMs !== undefined) return session.incubationRemainingMs <= 0;
     return Boolean(session?.state === 'egg'
         && Array.isArray(session.requirements)
         && session.requirements.length === 3

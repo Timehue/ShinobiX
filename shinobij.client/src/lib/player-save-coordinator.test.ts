@@ -367,3 +367,43 @@ test("a player edit or standalone change alongside regeneration still invalidate
         assert.equal(f.owner.charDirtyRef.current, true, change + " must still be saved before logout");
     }
 });
+
+test("incubation and hatch background sync preserve pending edits across repeated updates", async () => {
+    const f = fixture();
+    const egg = { sessionId: `breed-${'a'.repeat(32)}`, state: 'egg' as const,
+        parentIds: ['one', 'two'] as [string, string], parentNames: ['One', 'Two'] as [string, string],
+        parentElement: 'Fire', startedAt: 1, readyAt: 1, rulesVersion: 3, incubationRemainingMs: 43_200_000 };
+    const baseline = { ...f.initial, petBreeding: egg };
+    f.owner.recordCharacterBaseline(baseline);
+    f.characterRef.current = { ...baseline, nindo: 'Keep my pending edit' };
+    refreshPlayerSaveSnapshot(f.characterRef.current, f.initial.name, f.fields, f.owner);
+    for (let tick = 1; tick <= 2; tick++) {
+        const sync = await f.owner.beginCharacterSync(f.initial.name);
+        const server = { ...baseline, ryo: 777, petBreeding: { ...egg, incubationRemainingMs: 43_200_000 - tick * 15_000 } };
+        assert.equal(sync.commit(server, 5 + tick), true);
+        assert.equal(f.characterRef.current?.nindo, 'Keep my pending edit');
+        assert.equal(f.characterRef.current?.ryo, 777, 'wallet stays authoritative');
+        assert.equal(f.characterRef.current?.petBreeding?.incubationRemainingMs, server.petBreeding.incubationRemainingMs);
+    }
+    const hatch = await f.owner.beginCharacterSync(f.initial.name);
+    assert.equal(hatch.commit({ ...baseline, petBreeding: null, petBreedingHatchReceipts: [
+        { sessionId: egg.sessionId, petId: 'newborn', destination: 'sanctuary', revealPending: true },
+    ] }, 8), true);
+    assert.equal(f.characterRef.current?.nindo, 'Keep my pending edit');
+    assert.equal(f.characterRef.current?.petBreeding, null);
+    assert.equal(f.characterRef.current?.petBreedingHatchReceipts?.[0].revealPending, true);
+    assert.equal(f.owner.latestSaveRef.current?.character.nindo, 'Keep my pending edit');
+});
+
+test("a delayed incubation sync cannot roll back a newer save or enter a reconnected account", async () => {
+    const f = fixture();
+    f.owner.recordCharacterBaseline(f.initial);
+    const sync = await f.owner.beginCharacterSync(f.initial.name);
+    f.owner.commitVersionedCharacter({ ...f.initial, ryo: 777 }, 10);
+    assert.equal(sync.commit({ ...f.initial, ryo: 1 }, 9), false);
+    assert.equal(f.characterRef.current?.ryo, 777);
+    f.saveSessionEpochRef.current++;
+    assert.equal(sync.isCurrent(), false);
+    assert.equal(sync.commit({ ...f.initial, ryo: 1 }, 11), false);
+    assert.equal(f.owner.latestSaveVersionRef.current, 10);
+});

@@ -171,9 +171,9 @@ export function createPlayerSaveCoordinator({
         invalidateAuthority: () => savePersistenceRef.current?.invalidateAuthority(),
     });
 
-    async function beginDailyLogin(accountName: string) {
+    async function beginCharacterSync(accountName: string) {
         const scope = saveAuthority.captureCreateScope(accountName);
-        // Daily reconciliation and ownership metadata stay off the boot path.
+        // Background reconciliation and ownership metadata stay off the boot path.
         const { reconcileDailyLoginCharacter } = await import("./daily-login-reconcile");
         return { ...scope, commit: (nextCharacter: Character, incomingVersion: unknown): boolean => {
             const baseline = characterBaselineRef.current;
@@ -251,6 +251,6 @@ export function createPlayerSaveCoordinator({
         saveSoonTimerRef,
         saveAuthority, captureSaveConflictDraft, discardSaveConflictRevision, rehydrateSaveConflictDraft, persistSave,
         installAuthoritativeSaveRef, activeSaveAccountKey, commitVersionedCharacter, pushSaveToServer,
-        recordCharacterBaseline, beginDailyLogin,
+        recordCharacterBaseline, beginCharacterSync, beginDailyLogin: beginCharacterSync,
     };
 }
