@@ -1,0 +1,197 @@
+{
+  "schema": 1,
+  "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+  "captureHarnessSha256": "9852d992b840d18798cfa9b843c217a191e2f0e0bba8462fcc5bbfb8790ad7cf",
+  "viewport": {
+    "width": 1280,
+    "height": 800
+  },
+  "rows": [
+    {
+      "name": "idle",
+      "duration": 1.2,
+      "frame": {
+        "motion": "idle"
+      }
+    },
+    {
+      "name": "run",
+      "duration": 0.8,
+      "frame": {
+        "motion": "run",
+        "moving": true,
+        "speed": 3
+      }
+    },
+    {
+      "name": "dash",
+      "duration": 0.6,
+      "frame": {
+        "motion": "dash",
+        "moving": true,
+        "speed": 5
+      }
+    },
+    {
+      "name": "windup",
+      "duration": 0.38,
+      "frame": {
+        "motion": "windup"
+      }
+    },
+    {
+      "name": "strike",
+      "duration": 0.26,
+      "frame": {
+        "motion": "strike",
+        "contactPose": true
+      }
+    },
+    {
+      "name": "recover",
+      "duration": 0.51,
+      "frame": {
+        "motion": "recover"
+      }
+    },
+    {
+      "name": "stagger",
+      "duration": 0.65,
+      "frame": {
+        "motion": "stagger",
+        "hit": 0.6,
+        "contactPose": true
+      }
+    },
+    {
+      "name": "dodge",
+      "duration": 0.65,
+      "frame": {
+        "motion": "dodge"
+      }
+    },
+    {
+      "name": "guard",
+      "duration": 0.8,
+      "frame": {
+        "motion": "guard"
+      }
+    },
+    {
+      "name": "rest",
+      "duration": 1.2,
+      "frame": {
+        "motion": "rest"
+      }
+    },
+    {
+      "name": "cast",
+      "duration": 0.9,
+      "frame": {
+        "motion": "idle",
+        "casting": true
+      }
+    },
+    {
+      "name": "entrance",
+      "duration": 1.1,
+      "frame": {
+        "motion": "idle"
+      }
+    },
+    {
+      "name": "victory",
+      "duration": 1.2,
+      "frame": {
+        "motion": "idle",
+        "victorious": true
+      }
+    },
+    {
+      "name": "dead",
+      "duration": 1.6,
+      "frame": {
+        "motion": "dead"
+      }
+    },
+    {
+      "name": "revive",
+      "duration": 0.8,
+      "frame": {
+        "motion": "idle"
+      }
+    },
+    {
+      "name": "attack-sequence",
+      "duration": 1.7,
+      "frame": {
+        "motion": "windup"
+      }
+    }
+  ],
+  "phases": [
+    0.025,
+    0.1,
+    0.25,
+    0.5,
+    0.75,
+    1
+  ],
+  "views": [
+    "front",
+    "side"
+  ],
+  "errors": [],
+  "pets": [
+    {
+      "id": "mythic-4",
+      "name": "Abyssal Oni Hound",
+      "captures": [
+        {
+          "stage": "source",
+          "sha256": "267989e9d70d963616798ee87c55d6887e9680a864c53febebd84ac61062cd96",
+          "meshes": 1,
+          "headVertices": [
+            2597
+          ],
+          "quality": "medium",
+          "sheets": [
+            {
+              "name": "mythic-4-source-head.webp",
+              "sha256": "8299d5f886d7a388aa4efa479abbf1a637b1398462377eeffa3e8930224efa70"
+            },
+            {
+              "name": "mythic-4-source-body.webp",
+              "sha256": "9eac8889edfa0b85cb63a31e189c4a479b299e8dc5473fa2d5151d91dcd3cab2"
+            }
+          ],
+          "cameraSha256": "e2b8d3a4ccaed2b140d50a188df591c5784205a08aff10a4a9b26fd19418e4dd",
+          "anatomySha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+        },
+        {
+          "stage": "battle",
+          "sha256": "bb0f99753a742d67cf0864b0e5058882228589c9317c4311bcf50e9d415b70b1",
+          "meshes": 1,
+          "headVertices": [
+            1173
+          ],
+          "quality": "medium",
+          "sheets": [
+            {
+              "name": "mythic-4-battle-head.webp",
+              "sha256": "0053145547ce67807081c91ead6ca33584bed2893ab4e515c16115aed46b448f"
+            },
+            {
+              "name": "mythic-4-battle-body.webp",
+              "sha256": "630cf0bb87cc4d53942f1353857174e17cffa9978aa84c66a30d4c7d40cff9fb"
+            }
+          ],
+          "cameraSha256": "e2b8d3a4ccaed2b140d50a188df591c5784205a08aff10a4a9b26fd19418e4dd",
+          "anatomySha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+        }
+      ],
+      "review": "pending"
+    }
+  ],
+  "artisticCertification": false
+}
