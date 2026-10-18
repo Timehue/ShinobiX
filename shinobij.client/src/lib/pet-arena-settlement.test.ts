@@ -12,6 +12,16 @@ import {
 const appSource = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
 const arenaSource = readFileSync(new URL("../screens/PetArena.tsx", import.meta.url), "utf8");
 
+test("Pet Arena keeps its lobby Back action separate from a battle-result dismissal", () => {
+    assert.match(arenaSource, /className="pet-arena-return"[\s\S]{0,150}onClick=\{leavePetArena\}/);
+    assert.match(arenaSource, /const leavePetArena = \(\) => \{\s*if \(canLeaveCurrentPetBattle\(\)\) setScreen\(returnScreen\)/);
+    const resultExit = arenaSource.slice(arenaSource.indexOf('const leaveCurrentPetBattle ='), arenaSource.indexOf('const leavePetArena ='));
+    assert.match(resultExit, /setBattleReady\(false\)/);
+    assert.match(resultExit, /if \(forcedReturnScreen\) setScreen\(forcedReturnScreen\)/);
+    assert.doesNotMatch(resultExit, /setScreen\(returnScreen\)/);
+    assert.match(arenaSource, /onExit=\{leaveCurrentPetBattle\}/);
+});
+
 test("Pet Arena settlement scope expires on unmount or an in-place account swap", () => {
     const origin = { playerName: "Kaito", generation: 4 };
 

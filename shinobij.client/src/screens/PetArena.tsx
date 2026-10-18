@@ -1644,6 +1644,9 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
         setChronicleProgress(null);
         if (forcedReturnScreen) setScreen(forcedReturnScreen);
     };
+    const leavePetArena = () => {
+        if (canLeaveCurrentPetBattle()) setScreen(returnScreen);
+    };
     const duelChronicleResultSupplement = chronicleProgress || chronicleCeremony ? (
         <>
             {chronicleProgress ? <PetChronicleProgress receipt={chronicleProgress} /> : null}
@@ -1806,7 +1809,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                         type="button"
                         className="pet-arena-return"
                         data-return-screen={returnScreen}
-                        onClick={leaveCurrentPetBattle}
+                        onClick={leavePetArena}
                     >
                         <span className="pet-arena-return-arrow" aria-hidden="true">←</span>
                         <span><small>Return to</small><strong>{returnLabel}</strong></span>
