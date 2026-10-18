@@ -157,7 +157,7 @@ const REPAIRED_RIG_REVISIONS: Readonly<Record<string, string>> = {
     'mythic-13': '20261018-thunderbloom-kirin-anatomical-actions-v2',
     'mythic-14': '20261018-gravepeak-behemoth-anatomical-actions-v1',
     'mythic-15': '20261018-celestial-lion-anatomical-actions-v1',
-    'starter-fire': '20261015-reviewed-orthogonal-rig-v1',
+    'starter-fire': '20261018-cinder-cub-anatomical-actions-v2',
     'starter-water': '20261015-reviewed-orthogonal-rig-v1',
     'starter-lightning': '20261015-reviewed-contact-v1',
     'starter-fire-r': '20261015-reviewed-contact-v1',

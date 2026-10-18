@@ -152,7 +152,7 @@ const modelRows = [
     ["starter-earth-l.glb","-f73c65852cf9-20c781a4e181",14206,9944],
     ["starter-earth-r.glb","-0a5245954cdf-bc881dd5538d",18489,12000],
     ["starter-fire-r.glb","-c0db7fb6a691-496393ff0190",13704,9592],
-    ["starter-fire.glb","-44d056d2461d-f05f407204d4",15042,10528],
+    ["starter-fire.glb","-6f94b3fc9882-5f6ba5845a40",15042,10528],
     ["starter-lightning-r.glb","-74cd2d1668cf-939fbb095a13",26000,10000],
     ["starter-lightning.glb","-5b96adb25eca-6125a968fa01",14722,10304],
     ["starter-water-l.glb","-1261702473a4-74d34a2e47d1",15798,11058],

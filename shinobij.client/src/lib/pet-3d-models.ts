@@ -146,9 +146,9 @@ export function petCombatModel(pet: PetCombatModelIdentity): PetCombatModelConfi
         targetHeight: targetHeight ?? (isRareWaterSelkie ? 1.65 : visualId.endsWith("-l") ? 2.6 : 2.35),
         fit: MODEL_FIT_OVERRIDES[visualId] ?? (isRareWaterSelkie ? "height" : profile === "serpentine" ? "longest" : "height"),
         yawOffset: (STARTER_YAW_CORRECTIONS[visualId] ?? 0) + petShowdownAnimationYawOffset(visualId),
-        // Raijin's split-UV surface and fitted face details already carry ink.
-        // A scaled hull leaks through facial seams and doubles the nose outline.
-        outlineScale: visualId === "starter-lightning-l" ? 1 : 1.026,
+        // These split-UV surfaces already carry their authored dark contours.
+        // A scaled hull leaks through Raijin's face and Cinder's concave flame.
+        outlineScale: ["starter-lightning-l", "starter-fire"].includes(visualId) ? 1 : 1.026,
     };
 }
 
