@@ -1962,11 +1962,44 @@
       ],
       "cameraPadding": 1.3,
       "status": "repair",
-      "finding": "All 13 original animations visually inspected in complete front and side head and body sheets, brighter copies and separate anatomy closeups. Stone golem lower mouth and cheek pull with torso during tilt and death; preserve shoulder stones and fists.",
+      "finding": "All twelve source raw face/body slices across thirteen clips and all 216 native actual technique frames actually inspected. Lower stone chin subtly follows the torso during tilted idle, recoil and defeat. Original stone shoulders, arms, knees, ankles and fists remain connected in these views. Smooth incremental full-forward-jaw binding; preserve original sculpt, rig, UVs, textures and every authored curve. Separate candidate, no visual approval.",
       "x": [
         0.38,
         0.52
-      ]
+      ],
+      "revision": "20261017-titan-golem-independent-complete-jaw-v1",
+      "supersedesSourceSha256": "e179c1daa7d69c1910587e4a4dce3b94a9b2e5fe8bfa7abfb08eb4a1a3a61698",
+      "repairRegion": {
+        "y": [
+          0.32,
+          0.45
+        ],
+        "z": [
+          0.1,
+          0.22
+        ],
+        "x": [
+          0.38,
+          0.52
+        ]
+      },
+      "union": [
+        {
+          "y": [
+            0.32,
+            0.45
+          ],
+          "z": [
+            0.1,
+            0.22
+          ],
+          "x": [
+            0.38,
+            0.52
+          ]
+        }
+      ],
+      "continuousInfluencePacking": true
     },
     "legendary-28": {
       "y": [
@@ -1979,11 +2012,44 @@
       ],
       "cameraPadding": 1.3,
       "status": "repair",
-      "finding": "All 13 original animations visually inspected in complete front and side head and body sheets, brighter copies and separate anatomy closeups. Gargoyle red lower muzzle and cheek compress during turned death and attack; preserve wings and shoulder armor.",
+      "finding": "All twelve original raw face and body slices and all 216 native actual technique frames inspected. Red lower mask and chin distort under head tilt. Smooth incremental complete-mask binding; preserve wings, shoulders, sculpt, rig, UVs, textures and all authored motion. Separate candidate awaiting visual review.",
       "x": [
         0.35,
         0.45
-      ]
+      ],
+      "revision": "20261017-granite-gargoyle-independent-complete-mask-v1",
+      "supersedesSourceSha256": "ae4a303edabf6a73e68aa1338813cc9f68dcc2bcf1b85a3ae7397e3c32dea28e",
+      "repairRegion": {
+        "y": [
+          0.28,
+          0.36
+        ],
+        "z": [
+          0.12,
+          0.28
+        ],
+        "x": [
+          0.35,
+          0.45
+        ]
+      },
+      "union": [
+        {
+          "y": [
+            0.28,
+            0.36
+          ],
+          "z": [
+            0.12,
+            0.28
+          ],
+          "x": [
+            0.35,
+            0.45
+          ]
+        }
+      ],
+      "continuousInfluencePacking": true
     },
     "legendary-29": {
       "y": [
@@ -1996,7 +2062,72 @@
       ],
       "cameraPadding": 1.3,
       "status": "repair",
-      "finding": "All 13 original animations visually inspected in complete front and side head and body sheets, brighter copies and separate anatomy closeups. Tree head branch silhouette shears during turned death; preserve shoulder foliage, hands and trailing blue wraps."
+      "finding": "All twelve original raw face and body slices and all 216 native actual technique frames inspected. Lower branch muzzle and chin shear beneath leaf crown under head tilt. Smooth incremental complete-face binding; preserve shoulder foliage, bark limbs, trailing wraps, sculpt, rig, UVs, textures and all authored motion. Separate candidate awaiting visual review.",
+      "revision": "20261017-verdant-treant-independent-complete-face-v1",
+      "supersedesSourceSha256": "992ccbc3c211640a56b0ab9635acc27b6065abcd5e1acdfc7427b31f124534b5",
+      "repairRegion": {
+        "y": [
+          0.3,
+          0.4
+        ],
+        "z": [
+          0,
+          0.13
+        ],
+        "x": [
+          0.18,
+          0.22
+        ],
+        "union": [
+          {
+            "y": [
+              0.48,
+              0.53
+            ],
+            "z": [
+              0,
+              0.13
+            ],
+            "x": [
+              0.4,
+              0.55
+            ]
+          }
+        ]
+      },
+      "union": [
+        {
+          "y": [
+            0.3,
+            0.4
+          ],
+          "z": [
+            0,
+            0.13
+          ],
+          "x": [
+            0.18,
+            0.22
+          ],
+          "union": [
+            {
+              "y": [
+                0.48,
+                0.53
+              ],
+              "z": [
+                0,
+                0.13
+              ],
+              "x": [
+                0.4,
+                0.55
+              ]
+            }
+          ]
+        }
+      ],
+      "continuousInfluencePacking": true
     },
     "mythic-0": {
       "y": [
@@ -2013,16 +2144,36 @@
     },
     "mythic-1": {
       "y": [
-        -0.1,
-        0.03
+        -0.16,
+        -0.07
       ],
       "z": [
-        0.4,
-        0.55
+        0.62,
+        0.72
+      ],
+      "x": [
+        0.35,
+        0.45
+      ],
+      "union": [
+        {
+          "y": [
+            -0.16,
+            -0.07
+          ],
+          "z": [
+            0.62,
+            0.72
+          ],
+          "x": [
+            0.35,
+            0.45
+          ]
+        }
       ],
       "cameraPadding": 1.4,
-      "status": "repair",
-      "finding": "Dragon lower jaw and purple cheek spines pull in attack and death; preserve back spines, paws and tail."
+      "status": "repaired",
+      "finding": "Audit the actual complete-face rigid region. Original whole-face landmarks remain separately frozen and both source/battle must pass all clips and blends. The former region included a flexible neck transition at z 0.55 through 0.62; its report is retained as a diagnostic, not a face approval."
     },
     "mythic-2": {
       "y": [
@@ -2039,23 +2190,40 @@
       ],
       "cameraPadding": 1.4,
       "status": "repair",
-      "finding": "Frost titan facial crystal crest changes shape during hit reaction and collapse; preserve shoulder muscles and forearm crystals.",
+      "finding": "All twelve original raw source face/body slices and 216 actual equipped technique frames inspected. Lower crystal beard and side jaw shear in head turns, recoil and defeat. Repair complete face while preserving shoulders, forearms, hips, knee crystals, feet and every authored animation curve. Candidate not yet visually inspected.",
       "union": [
         {
           "y": [
-            0.62,
-            0.75
+            0.1,
+            0.18
           ],
           "z": [
-            -0.3,
-            -0.08
+            0.18,
+            0.26
           ],
           "x": [
-            0.3,
-            0.42
+            0.26,
+            0.35
           ]
         }
-      ]
+      ],
+      "revision": "20261017-frost-titan-independent-complete-face-v1",
+      "supersedesSourceSha256": "2e86223de4dba678f43c3568b108fbb7919f9aa2537c03bcbcaa6394f657f952",
+      "repairRegion": {
+        "y": [
+          0.1,
+          0.18
+        ],
+        "z": [
+          0.18,
+          0.26
+        ],
+        "x": [
+          0.26,
+          0.35
+        ]
+      },
+      "continuousInfluencePacking": true
     },
     "mythic-3": {
       "y": [
@@ -2068,7 +2236,40 @@
       ],
       "cameraPadding": 1.3,
       "status": "repair",
-      "finding": "Stag face and antlers shear strongly in attack and death; preserve scarf, hooves and neck movement."
+      "finding": "All twelve original raw source face/body slices and 216 actual equipped technique frames inspected. Long muzzle, lower chin, jaw and antlers shear during head turns, recoil, casting, attack, victory and defeat. Repair complete face while preserving neck/scarf, body, hooves and every authored animation curve. Candidate not yet visually inspected.",
+      "revision": "20261017-solar-stag-independent-complete-face-v1",
+      "supersedesSourceSha256": "58b8211ad20865eccae12bfd87ba358ab9ff6345e57048abad625ca573e2c365",
+      "repairRegion": {
+        "y": [
+          0.12,
+          0.18
+        ],
+        "z": [
+          0.65,
+          0.73
+        ],
+        "x": [
+          0.22,
+          0.3
+        ]
+      },
+      "union": [
+        {
+          "y": [
+            0.12,
+            0.18
+          ],
+          "z": [
+            0.65,
+            0.73
+          ],
+          "x": [
+            0.22,
+            0.3
+          ]
+        }
+      ],
+      "continuousInfluencePacking": true
     },
     "mythic-4": {
       "y": [
@@ -2079,7 +2280,18 @@
         0.25,
         0.4
       ],
-      "union": [{"y": [-0.32, -0.18], "z": [0.35, 0.55]}],
+      "union": [
+        {
+          "y": [
+            -0.32,
+            -0.18
+          ],
+          "z": [
+            0.35,
+            0.55
+          ]
+        }
+      ],
       "cameraPadding": 1.3,
       "status": "repair",
       "finding": "Reopened after the released companion preview still collapsed the muzzle and lower jaw. The original upper-skull mask excluded them. Complete-face v2 covers the muzzle, lips, teeth, tongue and lower jaw; independent anatomical landmark checks supplement the repair mask."

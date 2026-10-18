@@ -1940,133 +1940,131 @@
     },
     "legendary-26": {
       "y": [
-        0.05,
-        0.2
+        -2,
+        -2
       ],
-      "z": [
-        0.6,
-        0.75
+      "bounds": [
+        -0.4892651625312108,
+        0.2163294530721352,
+        -0.2215243255072856,
+        0.5856083337239721,
+        0.5897200997983395,
+        1.1198019920763533
       ],
-      "cameraPadding": 1.3,
-      "status": "repair",
-      "finding": "All 13 original animations visually inspected in complete front and side head and body sheets, brighter copies and separate anatomy closeups. Dark feline lower jaw and cheek change shape during strike and turned death; preserve gold collar and limbs."
+      "cameraPadding": 1.15,
+      "finding": "Fresh six-view original survey, native front/side and five-landmark overlay actually inspected. One feline head. Brow, nose, lower chin, side jaw and a separately frozen gold ruff tip covered. Minimum battle patch 28 vertices. All four visible soles require independent contact review; original low-surface neck influence flag confirmed previously."
     },
     "legendary-27": {
       "y": [
-        0.4,
-        0.58
+        -2,
+        -2
       ],
-      "z": [
-        -0.3,
-        -0.08
+      "bounds": [
+        -0.25558588239648083,
+        0.4710358395412717,
+        0.46836382416748734,
+        0.9600920953961571,
+        0.04146970987100246,
+        0.5450562510669525
       ],
-      "cameraPadding": 1.3,
-      "status": "repair",
-      "finding": "All 13 original animations visually inspected in complete front and side head and body sheets, brighter copies and separate anatomy closeups. Stone golem lower mouth and cheek pull with torso during tilt and death; preserve shoulder stones and fists.",
-      "x": [
-        0.38,
-        0.52
-      ]
+      "cameraPadding": 1.15,
+      "finding": "Separately fitted whole-face camera; independent of the repair envelope."
     },
     "legendary-28": {
       "y": [
-        0.4,
-        0.55
+        -2,
+        -2
       ],
-      "z": [
-        0,
-        0.12
+      "bounds": [
+        -0.24464203775244497,
+        0.3149035533994714,
+        0.37244059109052385,
+        0.826860813972689,
+        0.13613924421042323,
+        0.6149080052977203
       ],
-      "cameraPadding": 1.3,
-      "status": "repair",
-      "finding": "All 13 original animations visually inspected in complete front and side head and body sheets, brighter copies and separate anatomy closeups. Gargoyle red lower muzzle and cheek compress during turned death and attack; preserve wings and shoulder armor.",
-      "x": [
-        0.35,
-        0.45
-      ]
+      "cameraPadding": 1.15,
+      "finding": "Separately fitted whole-face camera; independent of the repair envelope."
     },
     "legendary-29": {
       "y": [
-        0.4,
-        0.58
+        -2,
+        -2
       ],
-      "z": [
-        -0.3,
-        -0.08
+      "bounds": [
+        -0.38528868702534735,
+        0.3044432720550484,
+        0.4045349645125633,
+        0.8194405861823146,
+        -0.0323270602107146,
+        0.4562026598131683
       ],
-      "cameraPadding": 1.3,
-      "status": "repair",
-      "finding": "All 13 original animations visually inspected in complete front and side head and body sheets, brighter copies and separate anatomy closeups. Tree head branch silhouette shears during turned death; preserve shoulder foliage, hands and trailing blue wraps."
+      "cameraPadding": 1.15,
+      "finding": "Separately fitted whole-face camera; independent of the repair envelope."
     },
     "mythic-0": {
       "y": [
-        -0.03,
-        0.1
+        -2,
+        -2
       ],
-      "z": [
-        0.4,
-        0.55
+      "bounds": [
+        -0.2837527591806528,
+        0.35593820938459747,
+        -0.041250159801370846,
+        0.5669956746114407,
+        0.5050329178438795,
+        1.1186580814854923
       ],
-      "cameraPadding": 1.4,
-      "status": "repair",
-      "finding": "Kitsune cheeks and muzzle shear during attack and turned death; preserve all nine tails."
+      "cameraPadding": 1.15,
+      "finding": "One fox head with nine tails. Original front/side survey and complete-face overlay actually inspected. Brow, muzzle, lower chin, side jaw and separate ear sampled independently; minimum battle patch 32 vertices. All four soles and flagged old foot/head-neck influences require separate contact review."
     },
     "mythic-1": {
       "y": [
-        0.12,
-        0.27
+        -2,
+        -2
       ],
-      "z": [
-        0.65,
-        0.8
+      "bounds": [
+        -0.39527468398232546,
+        0.3511128543216074,
+        -0.06493661842986778,
+        0.5745499479055635,
+        0.5953651152273106,
+        1.1105937497159022
       ],
-      "cameraPadding": 1.6
+      "cameraPadding": 1.15,
+      "finding": "One dragon head. Original front/side survey and overlay actually inspected. Brow, muzzle, lower chin, side jaw and separate horn/crest sampled independently; minimum battle patch 29 vertices. Shoulders, four feet and tail reserved for motion inspection."
     },
     "mythic-2": {
       "y": [
-        0.28,
-        0.42
+        -2,
+        -2
       ],
-      "z": [
-        0.08,
-        0.2
+      "bounds": [
+        -0.28770810448580186,
+        0.4107330089543432,
+        0.21245471312507666,
+        0.9739475872278791,
+        0.05355801795722487,
+        0.5311872563367029
       ],
-      "x": [
-        0.28,
-        0.4
-      ],
-      "cameraPadding": 1.4,
-      "status": "repair",
-      "finding": "Frost titan facial crystal crest changes shape during hit reaction and collapse; preserve shoulder muscles and forearm crystals.",
-      "union": [
-        {
-          "y": [
-            0.62,
-            0.75
-          ],
-          "z": [
-            -0.3,
-            -0.08
-          ],
-          "x": [
-            0.3,
-            0.42
-          ]
-        }
-      ]
+      "cameraPadding": 1.15,
+      "finding": "Separately fitted whole-face camera; independent of the repair envelope."
     },
     "mythic-3": {
       "y": [
-        0.2,
-        0.4
+        -2,
+        -2
       ],
-      "z": [
-        -0.15,
-        0.05
+      "bounds": [
+        -0.3997756629444502,
+        0.29123521249841006,
+        0.17980804261684633,
+        1.0555134868325045,
+        0.3221440239430411,
+        1.0159658164437562
       ],
-      "cameraPadding": 1.3,
-      "status": "repair",
-      "finding": "Stag face and antlers shear strongly in attack and death; preserve scarf, hooves and neck movement."
+      "cameraPadding": 1.15,
+      "finding": "One stag head. Original front/side survey and overlay actually inspected. Brow, long muzzle, lower chin, side jaw and separate antler sampled independently; minimum battle patch 34 vertices. Neck/scarf and all four hooves reserved for motion inspection."
     },
     "mythic-4": {
       "y": [
@@ -2077,7 +2075,10 @@
         0.65,
         0.75
       ],
-      "x": [0.25, 0.4],
+      "x": [
+        0.25,
+        0.4
+      ],
       "cameraPadding": 1.1,
       "finding": "Independent close camera includes the muzzle, teeth, tongue and lower jaw that the former upper-skull camera and check missed. Full-body views retain horn, neck and scarf coverage."
     },

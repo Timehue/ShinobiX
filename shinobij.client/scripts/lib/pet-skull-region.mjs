@@ -4,6 +4,9 @@ export function petSkullRegionShare(point, config) {
     let share=smooth(config.y[0],config.y[1],point.y);
     if(config.z)share*=smooth(config.z[0],config.z[1],point.z);
     if(config.x)share*=1-smooth(config.x[0],config.x[1],Math.abs(point.x));
+    // Signed bounds isolate an accessory on one side without binding the
+    // opposite wing or other nearby anatomy to the head.
+    if(config.xMin)share*=smooth(config.xMin[0],config.xMin[1],point.x);
     for(const region of config.union??[])share=Math.max(share,petSkullRegionShare(point,region));
     for(const box of config.exclude ?? [])if(point.x>=box[0]&&point.x<=box[1]&&point.y>=box[2]&&point.y<=box[3]&&point.z>=box[4]&&point.z<=box[5])return 0;
     return share;

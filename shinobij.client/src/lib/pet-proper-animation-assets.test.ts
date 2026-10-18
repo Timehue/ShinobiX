@@ -33,7 +33,17 @@ const reviewedLimbRepairs: Record<string, string> = {
     'legendary-15': 'chimeraAnatomicalLimbRepair',
     'legendary-17': 'behemothAnatomicalLimbRepair',
     'legendary-23': 'sphinxAnatomicalLimbRepair',
+    'legendary-24': 'raijuAnatomicalLimbRepair',
+    'legendary-26': 'manticoreAnatomicalLimbRepair',
     'mythic-4': 'oniAnatomicalLimbRepair',
+    'mythic-0': 'eclipseKitsuneAnatomicalLimbRepair',
+    'mythic-1': 'worldstormDragonAnatomicalLimbRepair',
+    'mythic-3': 'solarStagAnatomicalLimbRepair',
+};
+const reviewedTorsoActions: Record<string, string> = {
+    'legendary-7': '20261017-moon-serpent-supported-actions-v2',
+    'legendary-8': '20261017-storm-lion-coordinated-actions-v1',
+    'legendary-11': '20261017-thunder-drake-coordinated-actions-v1',
 };
 
 function parseGlb(path: string) {
@@ -65,7 +75,11 @@ test("all 161 production pets have complete proper skeletal animation banks", ()
         const json = parseGlb(path);
         const limbRepair = json.extras?.[reviewedLimbRepairs[pet.id]];
         if (limbRepair) {
-            assert.equal(json.skins[0].joints.length, 33, `${pet.id}: fitted chains must append twelve joints`);
+            assert.equal(json.skins[0].joints.length, pet.id === 'mythic-3' ? 35 : 33, `${pet.id}: fitted anatomical joint count`);
+            if (pet.id === 'mythic-3') {
+                assert.equal(json.extras.solarStagAnatomicalNeckRepair.fitted.length, 2);
+                assert.equal(json.extras.solarStagAnatomicalNeckRepair.clips.length, 13);
+            }
             assert.equal(limbRepair.legs.length, 4);
             assert.match(limbRepair.sourceSha256, /^[a-f0-9]{64}$/);
         }
@@ -113,7 +127,20 @@ test("all 161 production pets have complete proper skeletal animation banks", ()
                 const contactBank = json.extras.characterMotion?.revision === PET_CHARACTER_MOTION_ASSET_REVISION;
                 if (contactBank && name === 'root' && channel.target.path === 'translation') continue;
                 assert.equal(channel.target.path, 'rotation', 'articulation only adds joint rotations or a verified support root');
-                if (contactBank && limbRepair && ['chest', 'pelvis'].includes(name)) continue;
+                const coordinated = json.extras?.coordinatedActionRepair;
+                const reviewedTorso = limbRepair || (reviewedTorsoActions[pet.id]
+                    && coordinated?.revision === reviewedTorsoActions[pet.id]
+                    && coordinated.clips.some((clip: { name: string }) => clip.name === animation.name));
+                if (contactBank && reviewedTorso && ['chest', 'pelvis'].includes(name)) continue;
+                const tailClearance = json.extras?.frostWyrmTailClearance;
+                if (contactBank && pet.id === 'legendary-19' && name === 'tail_1'
+                    && tailClearance?.revision === '20261017-frost-wyrm-tail-clearance-v1'
+                    && tailClearance.clips.some((clip: { name: string }) => clip.name === animation.name)) continue;
+                if (contactBank && pet.id === 'mythic-3' && limbRepair && ['head', 'neck', 'legacy_face_head', 'legacy_face_neck'].includes(name)) {
+                    assert.equal(json.extras.solarStagAnatomicalNeckRepair.revision, '20261017-solar-stag-anatomical-neck-v1');
+                    assert.ok(json.extras.solarStagAnatomicalNeckRepair.fitted.some((fitted: { node: number; oldNode: number }) => fitted.node === channel.target.node || fitted.oldNode === channel.target.node));
+                    continue;
+                }
                 const inspectedName = contactBank && limbRepair && /^legacy_(?:front|hind)_(?:upper|lower|paw)\.[LR]$/.test(name)
                     ? name.slice('legacy_'.length) : name;
                 if (inspectedName !== name) {
@@ -122,7 +149,7 @@ test("all 161 production pets have complete proper skeletal animation banks", ()
                 const inspected = contactBank
                     ? /^(?:(?:front_upper|front_lower|front_paw|hind_upper|hind_lower|hind_paw|thigh|forearm|hand|shin|foot|wing_mid|wing_tip|bat_wing_lower|claw_pincer|leg_(?:front|mid|rear)_(?:upper|lower|foot))\.[LR]|tail_[23]|neck|scarf_2)$/
                     : /^(?:(?:front_lower|front_paw|hind_lower|hind_paw|forearm|hand|shin|foot|wing_mid|wing_tip|bat_wing_lower|claw_pincer|leg_(?:front|mid|rear)_(?:lower|foot))\.[LR]|tail_[23]|neck|scarf_2)$/;
-                assert.match(inspectedName, inspected, 'extra curves must belong to inspected anatomy');
+                assert.match(inspectedName, inspected, `${pet.id}/${animation.name}: extra curves must belong to inspected anatomy`);
             }
             assert.ok(animation.channels.length <= json.skins[0].joints.length + 1, 'the bank stays within one rotation per joint plus its root translation');
             assert.equal(new Set(animation.channels.map((channel: { target: { node: number; path: string } }) => `${channel.target.node}:${channel.target.path}`)).size, animation.channels.length, 'joint tracks cannot compete');

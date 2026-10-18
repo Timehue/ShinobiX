@@ -1,0 +1,102 @@
+{
+  "revision": "20261017-solar-stag-anatomical-neck-v1",
+  "sourceSha256": "3189e55ca5874afedd82843dbeb87feb63b90337c50056d995da17cec971a034",
+  "originalBoneFramesAndCurvesPreserved": true,
+  "fitted": [
+    {
+      "name": "neck",
+      "oldNode": 1,
+      "oldJoint": 4,
+      "node": 35,
+      "joint": 33,
+      "worldTarget": [
+        0,
+        0.07,
+        0.22
+      ],
+      "amplitude": 0.6
+    },
+    {
+      "name": "head",
+      "oldNode": 0,
+      "oldJoint": 5,
+      "node": 36,
+      "joint": 34,
+      "worldTarget": [
+        0,
+        0.22,
+        0.325
+      ],
+      "amplitude": 0.75
+    }
+  ],
+  "reboundInfluenceSlots": 7939,
+  "clips": [
+    {
+      "name": "idle",
+      "keys": 73,
+      "tracks": 2
+    },
+    {
+      "name": "idle_2",
+      "keys": 77,
+      "tracks": 2
+    },
+    {
+      "name": "walk",
+      "keys": 73,
+      "tracks": 2
+    },
+    {
+      "name": "gallop",
+      "keys": 73,
+      "tracks": 2
+    },
+    {
+      "name": "gallop_jump",
+      "keys": 73,
+      "tracks": 2
+    },
+    {
+      "name": "attack",
+      "keys": 79,
+      "tracks": 2
+    },
+    {
+      "name": "idle_hitreact1",
+      "keys": 76,
+      "tracks": 2
+    },
+    {
+      "name": "death",
+      "keys": 78,
+      "tracks": 2
+    },
+    {
+      "name": "entrance",
+      "keys": 73,
+      "tracks": 2
+    },
+    {
+      "name": "cast",
+      "keys": 79,
+      "tracks": 2
+    },
+    {
+      "name": "guard",
+      "keys": 73,
+      "tracks": 2
+    },
+    {
+      "name": "rest",
+      "keys": 73,
+      "tracks": 2
+    },
+    {
+      "name": "victory",
+      "keys": 78,
+      "tracks": 2
+    }
+  ],
+  "sha256": "ae390c352980c1456700ad240628e3f46435b4e52c687afe04c73e011093b427"
+}

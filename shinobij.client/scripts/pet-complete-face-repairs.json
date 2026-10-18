@@ -1,0 +1,447 @@
+{
+  "pets": {
+    "legendary-26": {
+      "y": [
+        0.05,
+        0.2
+      ],
+      "z": [
+        0.6,
+        0.75
+      ],
+      "cameraPadding": 1.3,
+      "status": "repair",
+      "finding": "Fresh independent original whole-face and gold-ruff-tip coverage plus all twelve raw source slices and 216 native actual techniques actually inspected. Lower face and gold ruff fold; visible front paws also fail motion support. This is only a separate complete-ruff binding stage; four anatomical leg chains and coordinated support still required. No artistic approval inferred.",
+      "revision": "20261017-manticore-independent-complete-ruff-v3",
+      "supersedesSourceSha256": "2dc16276c736394b705bb529178ecc4dc3020074893b7a5314a012a4c25dc415",
+      "repairRegion": {
+        "y": [
+          -0.31,
+          -0.22
+        ],
+        "z": [
+          0.52,
+          0.68
+        ],
+        "x": [
+          0.5,
+          0.7
+        ]
+      },
+      "union": [
+        {
+          "y": [
+            -0.31,
+            -0.22
+          ],
+          "z": [
+            0.52,
+            0.68
+          ],
+          "x": [
+            0.5,
+            0.7
+          ]
+        }
+      ],
+      "continuousInfluencePacking": true,
+      "neckTransition": {
+        "iterations": 48,
+        "edges": [
+          [
+            3255,
+            3256
+          ],
+          [
+            3271,
+            3270
+          ],
+          [
+            3287,
+            3289
+          ],
+          [
+            3128,
+            3120
+          ],
+          [
+            3127,
+            3246
+          ],
+          [
+            19915,
+            19918
+          ]
+        ],
+        "protectBelowY": -0.65,
+        "featherY": 0.2
+      }
+    },
+    "legendary-27": {
+      "y": [
+        0.4,
+        0.58
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "cameraPadding": 1.3,
+      "status": "repair",
+      "finding": "All twelve source raw face/body slices across thirteen clips and all 216 native actual technique frames actually inspected. Lower stone chin subtly follows the torso during tilted idle, recoil and defeat. Original stone shoulders, arms, knees, ankles and fists remain connected in these views. Smooth incremental full-forward-jaw binding; preserve original sculpt, rig, UVs, textures and every authored curve. Separate candidate, no visual approval.",
+      "x": [
+        0.38,
+        0.52
+      ],
+      "revision": "20261017-titan-golem-independent-complete-jaw-v1",
+      "supersedesSourceSha256": "e179c1daa7d69c1910587e4a4dce3b94a9b2e5fe8bfa7abfb08eb4a1a3a61698",
+      "repairRegion": {
+        "y": [
+          0.32,
+          0.45
+        ],
+        "z": [
+          0.1,
+          0.22
+        ],
+        "x": [
+          0.38,
+          0.52
+        ]
+      },
+      "union": [
+        {
+          "y": [
+            0.32,
+            0.45
+          ],
+          "z": [
+            0.1,
+            0.22
+          ],
+          "x": [
+            0.38,
+            0.52
+          ]
+        }
+      ],
+      "continuousInfluencePacking": true
+    },
+    "legendary-28": {
+      "y": [
+        0.4,
+        0.55
+      ],
+      "z": [
+        0,
+        0.12
+      ],
+      "cameraPadding": 1.3,
+      "status": "repair",
+      "finding": "All twelve original raw face and body slices and all 216 native actual technique frames inspected. Red lower mask and chin distort under head tilt. Smooth incremental complete-mask binding; preserve wings, shoulders, sculpt, rig, UVs, textures and all authored motion. Separate candidate awaiting visual review.",
+      "x": [
+        0.35,
+        0.45
+      ],
+      "revision": "20261017-granite-gargoyle-independent-complete-mask-v1",
+      "supersedesSourceSha256": "ae4a303edabf6a73e68aa1338813cc9f68dcc2bcf1b85a3ae7397e3c32dea28e",
+      "repairRegion": {
+        "y": [
+          0.28,
+          0.36
+        ],
+        "z": [
+          0.12,
+          0.28
+        ],
+        "x": [
+          0.35,
+          0.45
+        ]
+      },
+      "union": [
+        {
+          "y": [
+            0.28,
+            0.36
+          ],
+          "z": [
+            0.12,
+            0.28
+          ],
+          "x": [
+            0.35,
+            0.45
+          ]
+        }
+      ],
+      "continuousInfluencePacking": true
+    },
+    "legendary-29": {
+      "y": [
+        0.4,
+        0.58
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "cameraPadding": 1.3,
+      "status": "repair",
+      "finding": "All twelve original raw face and body slices and all 216 native actual technique frames inspected. Lower branch muzzle and chin shear beneath leaf crown under head tilt. Smooth incremental complete-face binding; preserve shoulder foliage, bark limbs, trailing wraps, sculpt, rig, UVs, textures and all authored motion. Separate candidate awaiting visual review.",
+      "revision": "20261017-verdant-treant-independent-complete-face-v1",
+      "supersedesSourceSha256": "992ccbc3c211640a56b0ab9635acc27b6065abcd5e1acdfc7427b31f124534b5",
+      "repairRegion": {
+        "y": [
+          0.3,
+          0.4
+        ],
+        "z": [
+          0,
+          0.13
+        ],
+        "x": [
+          0.18,
+          0.22
+        ],
+        "union": [
+          {
+            "y": [
+              0.48,
+              0.53
+            ],
+            "z": [
+              0,
+              0.13
+            ],
+            "x": [
+              0.4,
+              0.55
+            ]
+          }
+        ]
+      },
+      "union": [
+        {
+          "y": [
+            0.3,
+            0.4
+          ],
+          "z": [
+            0,
+            0.13
+          ],
+          "x": [
+            0.18,
+            0.22
+          ],
+          "union": [
+            {
+              "y": [
+                0.48,
+                0.53
+              ],
+              "z": [
+                0,
+                0.13
+              ],
+              "x": [
+                0.4,
+                0.55
+              ]
+            }
+          ]
+        }
+      ],
+      "continuousInfluencePacking": true
+    },
+    "mythic-0": {
+      "y": [
+        -0.03,
+        0.1
+      ],
+      "z": [
+        0.4,
+        0.55
+      ],
+      "cameraPadding": 1.4,
+      "status": "repair",
+      "finding": "All twelve original raw face and body slices and all 216 native actual technique frames inspected. Muzzle, lower jaw and ears shear under head tilt. Complete-face binding is a separate stage; visible anatomical leg chains and coordinated standing actions remain required. Preserve nine-tail sculpt and authored motion. Candidate not yet visually inspected.",
+      "revision": "20261017-eclipse-kitsune-independent-complete-face-v1",
+      "supersedesSourceSha256": "dc3e3e762dace863f535d7264b242ba89de0e00d34018b83092f39ea6c94812e",
+      "repairRegion": {
+        "y": [
+          -0.14,
+          -0.04
+        ],
+        "z": [
+          0.55,
+          0.68
+        ],
+        "x": [
+          0.3,
+          0.42
+        ]
+      },
+      "union": [
+        {
+          "y": [
+            -0.14,
+            -0.04
+          ],
+          "z": [
+            0.55,
+            0.68
+          ],
+          "x": [
+            0.3,
+            0.42
+          ]
+        }
+      ],
+      "continuousInfluencePacking": true
+    },
+    "mythic-1": {
+      "y": [
+        -0.1,
+        0.03
+      ],
+      "z": [
+        0.4,
+        0.55
+      ],
+      "cameraPadding": 1.4,
+      "status": "repair",
+      "finding": "All twelve original raw face and body slices inspected. Muzzle, lower jaw and crest shear under head tilt. Complete-face binding is a separate stage; actual techniques remain under review and visible anatomical leg chains with coordinated standing actions are required. Preserve body, dorsal spikes and tail sculpt and authored curves. Candidate not yet visually inspected.",
+      "revision": "20261017-worldstorm-dragon-independent-complete-face-v1",
+      "supersedesSourceSha256": "00e0557419b07305043ce2c7849564512d5cb312614f902d52701594188e261a",
+      "repairRegion": {
+        "y": [
+          -0.16,
+          -0.07
+        ],
+        "z": [
+          0.62,
+          0.72
+        ],
+        "x": [
+          0.35,
+          0.45
+        ]
+      },
+      "union": [
+        {
+          "y": [
+            -0.16,
+            -0.07
+          ],
+          "z": [
+            0.62,
+            0.72
+          ],
+          "x": [
+            0.35,
+            0.45
+          ]
+        }
+      ],
+      "continuousInfluencePacking": true
+    },
+    "mythic-2": {
+      "y": [
+        0.28,
+        0.42
+      ],
+      "z": [
+        0.08,
+        0.2
+      ],
+      "x": [
+        0.28,
+        0.4
+      ],
+      "cameraPadding": 1.4,
+      "status": "repair",
+      "finding": "All twelve original raw source face/body slices and 216 actual equipped technique frames inspected. Lower crystal beard and side jaw shear in head turns, recoil and defeat. Repair complete face while preserving shoulders, forearms, hips, knee crystals, feet and every authored animation curve. Candidate not yet visually inspected.",
+      "union": [
+        {
+          "y": [
+            0.1,
+            0.18
+          ],
+          "z": [
+            0.18,
+            0.26
+          ],
+          "x": [
+            0.26,
+            0.35
+          ]
+        }
+      ],
+      "revision": "20261017-frost-titan-independent-complete-face-v1",
+      "supersedesSourceSha256": "2e86223de4dba678f43c3568b108fbb7919f9aa2537c03bcbcaa6394f657f952",
+      "repairRegion": {
+        "y": [
+          0.1,
+          0.18
+        ],
+        "z": [
+          0.18,
+          0.26
+        ],
+        "x": [
+          0.26,
+          0.35
+        ]
+      },
+      "continuousInfluencePacking": true
+    },
+    "mythic-3": {
+      "y": [
+        0.2,
+        0.4
+      ],
+      "z": [
+        -0.15,
+        0.05
+      ],
+      "cameraPadding": 1.3,
+      "status": "repair",
+      "finding": "All twelve original raw source face/body slices and 216 actual equipped technique frames inspected. Long muzzle, lower chin, jaw and antlers shear during head turns, recoil, casting, attack, victory and defeat. Repair complete face while preserving neck/scarf, body, hooves and every authored animation curve. Candidate not yet visually inspected.",
+      "revision": "20261017-solar-stag-independent-complete-face-v1",
+      "supersedesSourceSha256": "58b8211ad20865eccae12bfd87ba358ab9ff6345e57048abad625ca573e2c365",
+      "repairRegion": {
+        "y": [
+          0.12,
+          0.18
+        ],
+        "z": [
+          0.65,
+          0.73
+        ],
+        "x": [
+          0.22,
+          0.3
+        ]
+      },
+      "union": [
+        {
+          "y": [
+            0.12,
+            0.18
+          ],
+          "z": [
+            0.65,
+            0.73
+          ],
+          "x": [
+            0.22,
+            0.3
+          ]
+        }
+      ],
+      "continuousInfluencePacking": true
+    }
+  }
+}

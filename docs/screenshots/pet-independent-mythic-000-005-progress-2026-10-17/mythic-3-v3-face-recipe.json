@@ -1,0 +1,104 @@
+{
+  "config": {
+    "y": [
+      0.2,
+      0.4
+    ],
+    "z": [
+      -0.15,
+      0.05
+    ],
+    "cameraPadding": 1.3,
+    "status": "repair",
+    "finding": "All twelve original raw source face/body slices and 216 actual equipped technique frames inspected. Long muzzle, lower chin, jaw and antlers shear during head turns, recoil, casting, attack, victory and defeat. Repair complete face while preserving neck/scarf, body, hooves and every authored animation curve. Candidate not yet visually inspected.",
+    "revision": "20261017-solar-stag-independent-complete-face-v1",
+    "supersedesSourceSha256": "58b8211ad20865eccae12bfd87ba358ab9ff6345e57048abad625ca573e2c365",
+    "repairRegion": {
+      "y": [
+        0.12,
+        0.18
+      ],
+      "z": [
+        0.65,
+        0.73
+      ],
+      "x": [
+        0.22,
+        0.3
+      ]
+    },
+    "union": [
+      {
+        "y": [
+          0.12,
+          0.18
+        ],
+        "z": [
+          0.65,
+          0.73
+        ],
+        "x": [
+          0.22,
+          0.3
+        ]
+      }
+    ],
+    "continuousInfluencePacking": true
+  },
+  "result": {
+    "id": "mythic-3",
+    "changed": 2039,
+    "rigid": 890
+  },
+  "face": {
+    "poses": 1010,
+    "regions": [
+      {
+        "name": "upperFace",
+        "vertices": 136,
+        "edges": 332,
+        "maxDrift": 2.322012543113511e-15,
+        "worldMinRatio": 0.9999981965725345,
+        "worldMaxRatio": 1.0000005581439482,
+        "maximumTime": 0.6505882599774528
+      },
+      {
+        "name": "muzzle",
+        "vertices": 104,
+        "edges": 239,
+        "maxDrift": 4.087985502798586e-15,
+        "worldMinRatio": 0.9999981965725344,
+        "worldMaxRatio": 1.000000437109575,
+        "maximumTime": 1.1385294549605425
+      },
+      {
+        "name": "lowerFace",
+        "vertices": 158,
+        "edges": 374,
+        "maxDrift": 4.029732079180978e-15,
+        "worldMinRatio": 0.9999981965725266,
+        "worldMaxRatio": 1.0000005613821707,
+        "maximumTime": 0.6505882599774528
+      },
+      {
+        "name": "jawChin",
+        "vertices": 146,
+        "edges": 351,
+        "maxDrift": 3.0952004832753463e-15,
+        "worldMinRatio": 0.99999819657253,
+        "worldMaxRatio": 1.000000559447153,
+        "maximumTime": 0.6505882599774528
+      },
+      {
+        "name": "antler",
+        "vertices": 157,
+        "edges": 371,
+        "maxDrift": 2.6911742691959503e-15,
+        "worldMinRatio": 0.9999981965725291,
+        "worldMaxRatio": 1.0000005470287403,
+        "maximumTime": 1.372407180922372
+      }
+    ],
+    "failed": false
+  }
+}
