@@ -22,7 +22,7 @@ const KIND_FAMILY: Record<string, "off" | "ctl" | "sup"> = {
     stun: "ctl", freeze: "ctl", confuse: "ctl", slow: "ctl", movelock: "ctl",
     push: "ctl", pull: "ctl", mark: "ctl", taunt: "ctl", debuff: "ctl",
     pivot: "off", protect: "sup", weather: "sup",
-    heal: "sup", shield: "sup", guard: "sup", barrier: "sup", absorb: "sup",
+    heal: "sup", cleanse: "sup", shield: "sup", guard: "sup", barrier: "sup", absorb: "sup",
     buff: "sup", haste: "sup", move: "sup", rest: "sup",
 };
 

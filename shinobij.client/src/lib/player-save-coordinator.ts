@@ -171,7 +171,7 @@ export function createPlayerSaveCoordinator({
         invalidateAuthority: () => savePersistenceRef.current?.invalidateAuthority(),
     });
 
-    async function beginCharacterSync(accountName: string) {
+    async function beginCharacterSync(accountName: string, recoverStaleReply = true) {
         const scope = saveAuthority.captureCreateScope(accountName);
         // Background reconciliation and ownership metadata stay off the boot path.
         const { reconcileDailyLoginCharacter } = await import("./daily-login-reconcile");
@@ -179,8 +179,11 @@ export function createPlayerSaveCoordinator({
             const baseline = characterBaselineRef.current;
             const local = characterRef.current;
             if (!scope.isCurrent() || !local || !baseline || baseline.epoch !== saveSessionEpochRef.current
-                || saveConflictAccountKey(nextCharacter.name) !== activeSaveAccountKey()
-                || !acceptVersionedSnapshot(latestSaveVersionRef.current, incomingVersion).accepted) return false;
+                || saveConflictAccountKey(nextCharacter.name) !== activeSaveAccountKey()) return false;
+            if (!acceptVersionedSnapshot(latestSaveVersionRef.current, incomingVersion).accepted) {
+                if (recoverStaleReply) readBackAfterStaleReply(accountName, activeSaveAccountKey(), incomingVersion);
+                return false;
+            }
             const reconciled = reconcileDailyLoginCharacter(baseline.character, local, nextCharacter);
             if (reconciled.conflicts.length && latestSaveRef.current) {
                 captureSaveConflictDraft(accountName, { ...latestSaveRef.current.payload, character: local });
@@ -251,6 +254,6 @@ export function createPlayerSaveCoordinator({
         saveSoonTimerRef,
         saveAuthority, captureSaveConflictDraft, discardSaveConflictRevision, rehydrateSaveConflictDraft, persistSave,
         installAuthoritativeSaveRef, activeSaveAccountKey, commitVersionedCharacter, pushSaveToServer,
-        recordCharacterBaseline, beginCharacterSync, beginDailyLogin: beginCharacterSync,
+        recordCharacterBaseline, beginCharacterSync, beginDailyLogin: (accountName: string) => beginCharacterSync(accountName, false),
     };
 }

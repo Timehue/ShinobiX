@@ -91,7 +91,7 @@ export function PetEggIncubator({ character, onVersionedCharacter, beginCharacte
                 setAcknowledged(prior => new Set([...prior, hatchSessionId]));
                 return;
             }
-            setReadyPet({ pet: result.pet, sessionId: hatchSessionId }); setLocalReady(null);
+            setReadyPet({ pet: result.pet, sessionId: hatchSessionId }); setLocalReady(null); setError('');
         })().catch(() => {
             if (alive.current) retryTimer.current = window.setTimeout(() => setRetry(value => value + 1), PET_EGG_TICK_MS);
         }).finally(() => { hatchBusy.current = false; });
@@ -113,6 +113,14 @@ export function PetEggIncubator({ character, onVersionedCharacter, beginCharacte
         } catch { if (alive.current) setError('Your companion is safe. Try welcoming it again when the connection returns.'); }
         finally { if (alive.current) setAckBusy(false); }
     }
+    function dismiss() {
+        if (!readyPet) return;
+        // The child is already stored. A voluntary exit never waits for its
+        // receipt; a failed acknowledgement can be recovered on the next login.
+        void acknowledge();
+        setAcknowledged(prior => new Set([...prior, readyPet.sessionId]));
+        setReadyPet(null);
+    }
     return readyPet && !blocked && foreground ? <Suspense fallback={null}><Reveal pet={readyPet.pet} sharedImages={sharedImages}
-        busy={ackBusy} error={error} onClose={() => void acknowledge()} /></Suspense> : null;
+        busy={ackBusy} error={error} onWelcome={() => void acknowledge()} onClose={dismiss} /></Suspense> : null;
 }

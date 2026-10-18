@@ -397,11 +397,18 @@ test("incubation and hatch background sync preserve pending edits across repeate
 
 test("a delayed incubation sync cannot roll back a newer save or enter a reconnected account", async () => {
     const f = fixture();
+    const reads: string[] = [];
+    globalThis.fetch = async url => {
+        reads.push(String(url));
+        return new Response(JSON.stringify({ character: { ...f.initial, ryo: 777 }, _saveVersion: 10 }));
+    };
     f.owner.recordCharacterBaseline(f.initial);
     const sync = await f.owner.beginCharacterSync(f.initial.name);
     f.owner.commitVersionedCharacter({ ...f.initial, ryo: 777 }, 10);
     assert.equal(sync.commit({ ...f.initial, ryo: 1 }, 9), false);
     assert.equal(f.characterRef.current?.ryo, 777);
+    for (let tickNo = 0; tickNo < 5; tickNo++) await tick();
+    assert.equal(reads.length, 1, 'a settled pairing or hatch cannot remain hidden behind a newer observed save version');
     f.saveSessionEpochRef.current++;
     assert.equal(sync.isCurrent(), false);
     assert.equal(sync.commit({ ...f.initial, ryo: 1 }, 11), false);

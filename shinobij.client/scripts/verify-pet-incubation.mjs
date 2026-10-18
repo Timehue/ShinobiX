@@ -31,6 +31,8 @@ try {
         let version = 1, hatchCalls = 0, acknowledgements = 0;
         let releaseHatch;
         const hatchGate = new Promise(resolveGate => { releaseHatch = resolveGate; });
+        let holdAcknowledgement = false, releaseAcknowledgement;
+        const acknowledgementGate = new Promise(resolveGate => { releaseAcknowledgement = resolveGate; });
         const activities = [];
         const sessionId = `breed-${'a'.repeat(32)}`;
         const child = { id: 'standard-0:hatched', templateId: 'standard-0', breedingSessionId: sessionId,
@@ -51,7 +53,11 @@ try {
             }
             if (path === '/api/pet/breeding/hatch') {
                 const body = route.request().postDataJSON();
-                if (body.acknowledgeReveal) { acknowledgements++; character.petBreedingHatchReceipts[0].revealPending = false; }
+                if (body.acknowledgeReveal) {
+                    acknowledgements++;
+                    if (holdAcknowledgement) await acknowledgementGate;
+                    character.petBreedingHatchReceipts[0].revealPending = false;
+                }
                 else {
                     hatchCalls++;
                     if (hatchCalls === 1) await hatchGate;
@@ -113,8 +119,22 @@ try {
         await page.getByRole('button', { name: 'Start battle', exact: true }).click();
         await page.getByRole('button', { name: 'End battle', exact: true }).click();
         assert.equal(hatchCalls, 2, 'a refused stale acknowledgement snapshot cannot reopen the reveal');
+        character.petBreedingHatchReceipts[0].revealPending = true;
+        holdAcknowledgement = true;
+        await page.reload({ waitUntil: 'commit' });
+        await page.getByRole('button', { name: 'End battle', exact: true }).click();
+        await page.getByRole('dialog', { name: 'Red Fox' }).waitFor();
+        await page.getByRole('button', { name: 'Welcome home', exact: true }).click();
+        await page.getByRole('button', { name: 'Saving…', exact: true }).waitFor();
+        assert.equal(await page.getByRole('button', { name: 'Close hatch reveal', exact: true }).isEnabled(), true);
+        await page.getByRole('button', { name: 'Close hatch reveal', exact: true }).click();
+        await page.locator('[data-pet-hatch-reveal]').waitFor({ state: 'hidden' });
+        const acknowledged = page.waitForResponse(response => response.url().includes('/api/pet/breeding/hatch') && response.request().postDataJSON()?.acknowledgeReveal);
+        releaseAcknowledgement();
+        await acknowledged;
+        assert.equal(character.petBreedingHatchReceipts[0].revealPending, false);
         report.viewports.push({ viewport, battleDeferred: true, eventDeferred: true, alertDeferred: true, lateResponseDeferred: true,
-            backgroundPaused: true, persistedReveal: true, staleAcknowledgementHandled: true, acknowledged: true });
+            backgroundPaused: true, persistedReveal: true, staleAcknowledgementHandled: true, escapeWhileSaving: true, acknowledged: true });
         await page.close();
     }
     assert.deepEqual(report.errors, []);

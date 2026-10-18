@@ -12,8 +12,8 @@ import type { Pet } from '../types/pet';
 import '../styles/pet-home.css';
 
 /** The existing hatch cinematic, shared by the global deferred hatch queue. */
-export function PetHatchReveal({ pet, sharedImages, onClose, busy, error }: {
-    pet: Pet; sharedImages: Record<string, string>; onClose: () => void; busy?: boolean; error?: string;
+export function PetHatchReveal({ pet, sharedImages, onWelcome, onClose, busy, error }: {
+    pet: Pet; sharedImages: Record<string, string>; onWelcome: () => void; onClose: () => void; busy?: boolean; error?: string;
 }) {
     const modal = useRef<HTMLDivElement>(null);
     const closeRef = useRef(onClose);
@@ -22,12 +22,19 @@ export function PetHatchReveal({ pet, sharedImages, onClose, busy, error }: {
     const art = petScenicPortraitImage(pet, sharedImages);
     useEffect(() => {
         const priorFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-        modal.current?.querySelector('button')?.focus();
+        modal.current?.querySelector<HTMLButtonElement>('.pet-home-primary')?.focus();
         playPetSfx('victory');
         const sting = pet.paletteVariantId || apex ? window.setTimeout(() => playPetSfx('superEffective'), 420) : undefined;
         function key(event: KeyboardEvent) {
             if (event.key === 'Escape') { event.preventDefault(); closeRef.current(); }
-            if (event.key === 'Tab') { event.preventDefault(); modal.current?.querySelector('button')?.focus(); }
+            if (event.key === 'Tab') {
+                const controls = [...(modal.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') ?? [])];
+                const first = controls[0], last = controls.at(-1);
+                if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+                else if ((!event.shiftKey && document.activeElement === last) || !controls.includes(document.activeElement as HTMLButtonElement)) {
+                    event.preventDefault(); first?.focus();
+                }
+            }
         }
         document.addEventListener('keydown', key);
         return () => { window.clearTimeout(sting); document.removeEventListener('keydown', key); if (priorFocus?.isConnected) priorFocus.focus(); };
@@ -35,6 +42,7 @@ export function PetHatchReveal({ pet, sharedImages, onClose, busy, error }: {
     return createPortal(<div className="pet-home-modal-backdrop hatch-cinematic" data-pet-hatch-reveal><div ref={modal}
         className={`pet-home-modal hatch-reveal ${petVisualVariantClass(pet)}${apex ? ' hatch-reveal--apex' : ''}`}
         role="dialog" aria-modal="true" aria-labelledby="hatch-title" aria-describedby="hatch-summary" tabIndex={-1}>
+        <button type="button" className="pet-home-modal-close" aria-label="Close hatch reveal" onClick={onClose}>×</button>
         <img className="hatch-sanctum" src={hatchSanctum} alt="" />
         <img className={`hatch-aura ${pet.paletteVariantId ? 'hatch-aura--chromatic' : 'hatch-aura--rare'}`}
             src={pet.paletteVariantId ? chromaticOverlay : rareOverlay} alt="" />
@@ -46,6 +54,6 @@ export function PetHatchReveal({ pet, sharedImages, onClose, busy, error }: {
         {pet.paletteVariantId && <strong className="chromatic-ribbon">Chromatic miracle</strong>}
         <p className="hatch-sanctuary-note">Your new companion is resting safely in Sanctuary.</p>
         {error && <p role="alert">{error}</p>}
-        <button type="button" className="pet-home-primary" disabled={busy} onClick={onClose}>{busy ? 'Saving…' : 'Welcome home'}</button>
+        <button type="button" className="pet-home-primary" disabled={busy} onClick={onWelcome}>{busy ? 'Saving…' : 'Welcome home'}</button>
     </div></div>, document.body);
 }
