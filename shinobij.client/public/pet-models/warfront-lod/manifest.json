@@ -25,10 +25,10 @@
     "minSilhouetteIoU": 0.975
   },
   "totals": {
-    "sourceBytes": 109502960,
-    "lodBytes": 71198716,
+    "sourceBytes": 109993676,
+    "lodBytes": 71420596,
     "sourceTriangles": 5956618,
-    "lodTriangles": 1624700
+    "lodTriangles": 1624701
   },
   "entries": [
     {
@@ -858,17 +858,17 @@
     },
     {
       "sourceUrl": "/pet-models/roster/mythic-11.glb",
-      "lodUrl": "/pet-models/warfront-lod/roster/mythic-11.glb?v=20260902-battle-lod-v1-89ed50c443b3-dad3b79c2a94",
-      "sourceBytes": 1145644,
-      "lodBytes": 780968,
-      "sourceSha256": "89ed50c443b36848e3c67d29784ccd1f5cdf557547b700c251e330195ac98458",
-      "lodSha256": "dad3b79c2a94277c640b42dde6052bd52b483c98e289f90e2cc11c5828ab934a",
+      "lodUrl": "/pet-models/warfront-lod/roster/mythic-11.glb?v=20260902-battle-lod-v1-1330ad1d1678-ae7b6e0cf631",
+      "sourceBytes": 1144952,
+      "lodBytes": 780684,
+      "sourceSha256": "1330ad1d1678bd1e9c1148d70def3fc33cb1e84af64d81e52d7f444daa158da6",
+      "lodSha256": "ae7b6e0cf631572fc53ee31715fbcafaac527fc2b461d04882fa96b6e70730d2",
       "sourceTriangles": 12992,
       "lodTriangles": 9093,
       "reduction": 0.300108,
       "lowPolySource": true,
       "sourceVertices": 10347,
-      "lodVertices": 8078,
+      "lodVertices": 8076,
       "skins": 1,
       "joints": 21,
       "animations": 13,
@@ -877,33 +877,33 @@
       "boundsMaxDelta": 0,
       "silhouettes": {
         "front": 0.994148,
-        "threeQuarter": 0.996215,
-        "side": 0.995166
+        "threeQuarter": 0.994953,
+        "side": 0.995889
       }
     },
     {
       "sourceUrl": "/pet-models/roster/mythic-12.glb",
-      "lodUrl": "/pet-models/warfront-lod/roster/mythic-12.glb?v=20260902-battle-lod-v1-e6b7c87ebd61-e5d2731f4a77",
-      "sourceBytes": 1078588,
-      "lodBytes": 758884,
-      "sourceSha256": "e6b7c87ebd610f7d97856b5b7dfe1e49c1da33da09781e5a89582d2d093fbba2",
-      "lodSha256": "e5d2731f4a77e2b91ea984e35a4aaf303064b3b6957ce230230779fb37551daa",
+      "lodUrl": "/pet-models/warfront-lod/roster/mythic-12.glb?v=20260902-battle-lod-v1-9d39b74c4799-5242e784a128",
+      "sourceBytes": 1569996,
+      "lodBytes": 981048,
+      "sourceSha256": "9d39b74c479917baca5fefc7a6244794c5d597b2e2f515fe98323a8455ba3428",
+      "lodSha256": "5242e784a12882cd8b4fbe0c68fc4ba1e9dfc7685138fac45919af8fd72e8dda",
       "sourceTriangles": 20063,
-      "lodTriangles": 11999,
-      "reduction": 0.401934,
+      "lodTriangles": 12000,
+      "reduction": 0.401884,
       "lowPolySource": true,
       "sourceVertices": 19753,
-      "lodVertices": 14187,
+      "lodVertices": 14195,
       "skins": 1,
-      "joints": 21,
+      "joints": 33,
       "animations": 13,
       "materials": 1,
       "textures": 3,
       "boundsMaxDelta": 0,
       "silhouettes": {
-        "front": 0.986265,
-        "threeQuarter": 0.980983,
-        "side": 0.987449
+        "front": 0.985852,
+        "threeQuarter": 0.983159,
+        "side": 0.988451
       }
     },
     {
