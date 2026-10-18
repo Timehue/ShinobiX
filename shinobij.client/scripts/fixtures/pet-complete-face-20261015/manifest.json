@@ -79,6 +79,16 @@
       "id": "mythic-13",
       "file": "mythic-13-v1.glb",
       "sha256": "1b474681fb09b7ab68b28010e2e34ae2d6af67bc34f68262d01167e6576f2495"
+    },
+    {
+      "id": "mythic-14",
+      "file": "mythic-14-v1.glb",
+      "sha256": "36d6381bc07860c51447188078f1574f5a5c13ea5873b452fd60cc90ea942156"
+    },
+    {
+      "id": "mythic-15",
+      "file": "mythic-15-v1.glb",
+      "sha256": "092ed61d1b34b513442a9daa81087ed5c012a961d98aade016bff3adb6e4e831"
     }
   ]
 }

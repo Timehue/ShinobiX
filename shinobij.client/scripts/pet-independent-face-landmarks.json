@@ -2359,6 +2359,354 @@
         "originalNeckAndHeadCurvesRetargeted": true,
         "coverageActuallyRechecked": true
       }
+    },
+    "mythic-14": {
+      "camera": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.5498561817615784,
+          0.5356351562786661,
+          -0.3504372903622077,
+          0.6291523392127111,
+          0.3593404114642448,
+          1.1010479334660235
+        ],
+        "cameraPadding": 1.15
+      },
+      "status": "landmark-coverage-reviewed",
+      "sourceSha256": "36d6381bc07860c51447188078f1574f5a5c13ea5873b452fd60cc90ea942156",
+      "coverageEvidence": "../docs/screenshots/pet-independent-mythic-011-015-progress-2026-10-18/mythic-14-landmark-coverage.png",
+      "landmarks": {
+        "upperFace": {
+          "center": [
+            -0.02090478105676799,
+            -0.08224904802054508,
+            0.9632308576816087
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            159,
+            183
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "muzzle": {
+          "center": [
+            -0.0022308131639523056,
+            -0.22264254017832003,
+            0.9810479334660236
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            160,
+            205
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "lowerFace": {
+          "center": [
+            0.04944171259596603,
+            -0.26043729036220775,
+            0.866210196853337
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            167,
+            211
+          ],
+          "pickedView": "head-side",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "jawChin": {
+          "center": [
+            0.0853697163810363,
+            -0.2250264778504052,
+            0.8217061905324836
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            174,
+            207
+          ],
+          "pickedView": "head-side",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "crest": {
+          "center": [
+            -0.03021690794279422,
+            0.17720453885800072,
+            0.9163208988101171
+          ],
+          "radius": 0.16,
+          "pickedPixel": [
+            161,
+            143
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "hornLeft": {
+          "center": [
+            -0.30985618176157836,
+            0.38881226117546586,
+            0.6610458147165434
+          ],
+          "radius": 0.12,
+          "pickedPixel": [
+            124,
+            109
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "hornRight": {
+          "center": [
+            0.2956351562786661,
+            0.4491523392127111,
+            0.6393404114642448
+          ],
+          "radius": 0.12,
+          "pickedPixel": [
+            210,
+            108
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        }
+      },
+      "geometrySha256": "c36740ab4b8ce18c6495fe90a69ba57bfe19407f6275a776278684b5de963df5",
+      "geometryToVisibleBind": [
+        0.9999998660890547,
+        0,
+        0,
+        0,
+        0,
+        -1.3435883849292917e-7,
+        1.0000000004478933,
+        0,
+        0,
+        -1.0000000004478933,
+        -1.3435883849292917e-7,
+        0,
+        3.16169099283271e-10,
+        6.355340809172105e-8,
+        3.3524181528021835e-8,
+        1
+      ],
+      "headCountVisuallyVerified": 1,
+      "heads": [
+        {
+          "id": "primary",
+          "landmarks": [
+            "upperFace",
+            "muzzle",
+            "lowerFace",
+            "jawChin",
+            "crest",
+            "hornLeft",
+            "hornRight"
+          ]
+        }
+      ],
+      "rigExtensionReview": {
+        "previousGeometrySha256": "e7676654ad600c1929d90d8aeabf44c2d39a6ecf1e6197cc85b6767183bdc68c",
+        "candidateSourceSha256": "edcfc08d7230f99df9c32667e8ed20dc9d64fbf6c1d8dfc1811be9113b3406a1",
+        "conservationEvidence": "docs/screenshots/pet-gravepeak-behemoth-anatomical-2026-10-18/candidate-conservation.json",
+        "originalBoneFramesAndInverseBindsPreserved": true,
+        "legacyLimbNamesPrefixed": true,
+        "sculptUvsTexturesPreserved": true,
+        "frozenLandmarksAndCoordinateFrameUnchanged": true,
+        "appendedAnatomicalLimbJoints": 12,
+        "appendedAnatomicalNeckAndHeadJoints": 2,
+        "originalNeckAndHeadCurvesRetargeted": true,
+        "coverageActuallyRechecked": true
+      }
+    },
+    "mythic-15": {
+      "camera": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.4288585965023166,
+          0.3987362938135708,
+          0.046661413486032144,
+          0.8251699681598867,
+          0.516864275881703,
+          1.093280166115513
+        ],
+        "cameraPadding": 1.15
+      },
+      "status": "landmark-coverage-reviewed",
+      "sourceSha256": "092ed61d1b34b513442a9daa81087ed5c012a961d98aade016bff3adb6e4e831",
+      "coverageEvidence": "../docs/screenshots/pet-independent-mythic-011-015-progress-2026-10-18/mythic-15-landmark-coverage.png",
+      "landmarks": {
+        "upperFace": {
+          "center": [
+            -0.007796888564449905,
+            0.35441212148352086,
+            0.9436915301123925
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            160,
+            180
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "muzzle": {
+          "center": [
+            0.009551729304556932,
+            0.2215373989501489,
+            0.9732801661155128
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            161,
+            204
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "lowerFace": {
+          "center": [
+            0.011318200356192855,
+            0.13666141348603214,
+            0.943469347596632
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            160,
+            218
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "jawChin": {
+          "center": [
+            0.07332244572922386,
+            0.17865573987787983,
+            0.8859784183915195
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            141,
+            209
+          ],
+          "pickedView": "head-side",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "hornLeft": {
+          "center": [
+            -0.15450057810619794,
+            0.6055456066893887,
+            0.8296121980915308
+          ],
+          "radius": 0.11,
+          "pickedPixel": [
+            139,
+            134
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "hornRight": {
+          "center": [
+            0.1587362938135708,
+            0.6451699681598868,
+            0.796864275881703
+          ],
+          "radius": 0.11,
+          "pickedPixel": [
+            192,
+            132
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "headMane": {
+          "center": [
+            -0.18885859650231662,
+            0.2240757604512022,
+            0.8071197324380612
+          ],
+          "radius": 0.12,
+          "pickedPixel": [
+            128,
+            197
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        }
+      },
+      "geometrySha256": "a3a4868bea7849c9292fc5d54472c0b86413e84963cbc3c52b22416faa3e8012",
+      "geometryToVisibleBind": [
+        0.9999998276178433,
+        0,
+        0,
+        0,
+        0,
+        -1.3435883332398118e-7,
+        0.9999999619766768,
+        0,
+        0,
+        -0.9999999619766768,
+        -1.3435883332398118e-7,
+        0,
+        -2.740609128526472e-10,
+        8.107615689922909e-8,
+        4.56380366831155e-9,
+        1
+      ],
+      "headCountVisuallyVerified": 1,
+      "heads": [
+        {
+          "id": "primary",
+          "landmarks": [
+            "upperFace",
+            "muzzle",
+            "lowerFace",
+            "jawChin",
+            "hornLeft",
+            "hornRight",
+            "headMane"
+          ]
+        }
+      ],
+      "rigExtensionReview": {
+        "previousGeometrySha256": "0a7c821bb7182087996e87132172ec8f873215c0e0aa8c75804019308cdf309d",
+        "candidateSourceSha256": "fe10ef667ac577512b50d6d54ea8c92ee035fe11ca267273859e0a3922018e7a",
+        "conservationEvidence": "docs/screenshots/pet-celestial-lion-anatomical-2026-10-18/candidate-conservation.json",
+        "originalBoneFramesAndInverseBindsPreserved": true,
+        "legacyLimbNamesPrefixed": true,
+        "sculptUvsTexturesPreserved": true,
+        "frozenLandmarksAndCoordinateFrameUnchanged": true,
+        "appendedAnatomicalLimbJoints": 12,
+        "appendedAnatomicalNeckAndHeadJoints": 2,
+        "originalNeckAndHeadCurvesRetargeted": true,
+        "coverageActuallyRechecked": true
+      }
     }
   }
 }

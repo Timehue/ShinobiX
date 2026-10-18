@@ -1,0 +1,61 @@
+{
+  "schema": 1,
+  "errors": [],
+  "pets": [
+    {
+      "id": "mythic-14",
+      "name": "Gravepeak Behemoth",
+      "url": "/.tmp/gravepeak-behemoth-anatomical-v1/roster/mythic-14.glb",
+      "sha256": "edcfc08d7230f99df9c32667e8ed20dc9d64fbf6c1d8dfc1811be9113b3406a1",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "head-front",
+        "head-side"
+      ],
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.5498561817615784,
+          0.5356351562786661,
+          -0.3504372903622077,
+          0.6291523392127111,
+          0.3593404114642448,
+          1.1010479334660235
+        ],
+        "cameraPadding": 1.15
+      },
+      "sheets": [
+        "mythic-14-head-front.webp",
+        "mythic-14-head-side.webp"
+      ],
+      "review": "pending",
+      "anatomySha256": "78dfd65851245f4ca047cfd8e7b4fb132fbbef825cee4fe05023e10dd755b646"
+    }
+  ],
+  "artisticCertification": false
+}

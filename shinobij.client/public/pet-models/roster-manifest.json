@@ -24607,7 +24607,7 @@
       "generatedAt": "2026-08-03T12:00:00.000Z",
       "provider": "fal-ai/hunyuan3d-v3/multi-view + deterministic 21-bone production rig",
       "textured": true,
-      "sha256": "36D6381BC07860C51447188078F1574F5A5C13EA5873B452FD60CC90EA942156",
+      "sha256": "EDCFC08D7230F99DF9C32667E8ED20DC9D64FBF6C1D8DFC1811BE9113B3406A1",
       "visualReview": {
         "passed": true,
         "views": [
@@ -24620,7 +24620,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 1071008,
+        "bytes": 1574848,
         "triangles": 22328,
         "vertices": 15743,
         "materials": 1,
@@ -24653,9 +24653,9 @@
         ]
       },
       "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
+        "revision": "20261018-gravepeak-behemoth-complete-jaw-crest-v1",
         "id": "mythic-14",
-        "sourceSha256": "2dee04ddb64a263495068473d12fb9b33c2c575e8ac70b4e2221531292a750a8",
+        "sourceSha256": "36d6381bc07860c51447188078f1574f5a5c13ea5873b452fd60cc90ea942156",
         "region": {
           "y": [
             -0.45,
@@ -24667,32 +24667,353 @@
           ],
           "cameraPadding": 1.5,
           "status": "repair",
-          "finding": "Behemoth face and jaw distort strongly during attack and death; preserve shoulder armor, four feet and back plates.",
+          "finding": "Original twelve source head/body slices and all 216 actual technique frames inspected. Jaw and cheek shift under the crest during recoil and death. Complete-face binding covers independently selected original jaw, crest and two horns. Original humanoid arm and leg placement also collapses forelimbs into flattened sheets during actual strike windup; fitted visible quadruped joints and coordinated actions required. Unapproved intermediate face stage.",
           "x": [
             0.38,
             0.5
+          ],
+          "revision": "20261018-gravepeak-behemoth-complete-jaw-crest-v1",
+          "supersedesSourceSha256": "36d6381bc07860c51447188078f1574f5a5c13ea5873b452fd60cc90ea942156",
+          "repairRegion": {
+            "y": [
+              -0.41,
+              -0.34
+            ],
+            "z": [
+              0.47,
+              0.52
+            ],
+            "x": [
+              0.41,
+              0.53
+            ]
+          },
+          "union": [
+            {
+              "y": [
+                -0.41,
+                -0.34
+              ],
+              "z": [
+                0.47,
+                0.52
+              ],
+              "x": [
+                0.41,
+                0.53
+              ]
+            }
           ]
         },
         "envelopeMatrix": [
-          0.9999998668733283,
+          0.9999998660890547,
           0,
           0,
           0,
           0,
-          -1.3435883859830327e-7,
-          1.000000001232167,
+          -1.3435883849292917e-7,
+          1.0000000004478933,
           0,
           0,
-          -1.000000001232167,
-          -1.3435883859830327e-7,
+          -1.0000000004478933,
+          -1.3435883849292917e-7,
           0,
-          3.1616909953123414e-10,
-          6.355340831376566e-8,
-          3.4308455298948104e-8,
+          3.16169099283271e-10,
+          6.355340809172105e-8,
+          3.3524181528021835e-8,
           1
         ],
-        "changedVertices": 3966,
-        "rigidVertices": 1368
+        "changedVertices": 2707,
+        "rigidVertices": 2194,
+        "supersededRepair": {
+          "revision": "20261014-reviewed-skull-v1",
+          "sourceSha256": "2dee04ddb64a263495068473d12fb9b33c2c575e8ac70b4e2221531292a750a8"
+        }
+      },
+      "anatomicalLimbRepair": {
+        "sourceSha256": "c53623a720c54719c497077b33211008040f7d06c9d01986f17b014f22fe66fb",
+        "changedVertices": 8989,
+        "legacyReboundVertices": 12770,
+        "headNeckLegCleanupVertices": 272,
+        "legacySupportBinding": "Original front/hind influences rebound continuously onto the fitted same-section visible leg joints using sculpt-side proximity; lower-leg neck/head influence feathers onto the nearest supporting torso parent.",
+        "legs": [
+          {
+            "part": "front",
+            "side": "L",
+            "joints": [
+              21,
+              22,
+              23
+            ],
+            "upper": [
+              0.487234863065707,
+              -0.09,
+              0.22696656010129476
+            ],
+            "knee": [
+              0.487234863065707,
+              -0.33,
+              0.15696656010129478
+            ],
+            "paw": [
+              0.487234863065707,
+              -0.788128622866841,
+              0.45696656010129477
+            ],
+            "center": [
+              0.487234863065707,
+              -0.8231286228668411,
+              0.45696656010129477
+            ]
+          },
+          {
+            "part": "front",
+            "side": "R",
+            "joints": [
+              24,
+              25,
+              26
+            ],
+            "upper": [
+              -0.5438428820808812,
+              -0.09,
+              0.2112960664545445
+            ],
+            "knee": [
+              -0.5438428820808812,
+              -0.33,
+              0.1412960664545445
+            ],
+            "paw": [
+              -0.5438428820808812,
+              -0.7881286215486009,
+              0.4412960664545445
+            ],
+            "center": [
+              -0.5438428820808812,
+              -0.8231286215486009,
+              0.4412960664545445
+            ]
+          },
+          {
+            "part": "hind",
+            "side": "L",
+            "joints": [
+              27,
+              28,
+              29
+            ],
+            "upper": [
+              0.3700323446763899,
+              -0.14,
+              -0.5719161087472436
+            ],
+            "knee": [
+              0.3700323446763899,
+              -0.47,
+              -0.5839161087472436
+            ],
+            "paw": [
+              0.3700323446763899,
+              -0.7724724838443848,
+              -0.6649161087472436
+            ],
+            "center": [
+              0.3700323446763899,
+              -0.8074724838443849,
+              -0.6649161087472436
+            ]
+          },
+          {
+            "part": "hind",
+            "side": "R",
+            "joints": [
+              30,
+              31,
+              32
+            ],
+            "upper": [
+              -0.2821703201156935,
+              -0.14,
+              -0.5669873690223162
+            ],
+            "knee": [
+              -0.2821703201156935,
+              -0.47,
+              -0.5789873690223162
+            ],
+            "paw": [
+              -0.2821703201156935,
+              -0.776415466697463,
+              -0.6599873690223161
+            ],
+            "center": [
+              -0.2821703201156935,
+              -0.811415466697463,
+              -0.6599873690223161
+            ]
+          }
+        ],
+        "gaitReports": [
+          {
+            "name": "idle",
+            "strideScale": 0.45,
+            "verticalScale": 0.45,
+            "maxContactError": 2.1822677988425058e-10
+          },
+          {
+            "name": "walk",
+            "strideScale": 0.45,
+            "verticalScale": 0.45,
+            "maxContactError": 2.6778555168333735e-9
+          },
+          {
+            "name": "gallop",
+            "strideScale": 0.45,
+            "verticalScale": 0.45,
+            "maxContactError": 5.551115123125783e-16
+          },
+          {
+            "name": "guard",
+            "strideScale": 0.45,
+            "verticalScale": 0.45,
+            "maxContactError": 7.219786660259095e-11
+          },
+          {
+            "name": "rest",
+            "strideScale": 0.45,
+            "verticalScale": 0.45,
+            "maxContactError": 5.551115123125783e-16
+          }
+        ]
+      },
+      "anatomicalNeckRepair": {
+        "revision": "20261018-gravepeak-behemoth-anatomical-neck-v1",
+        "sourceSha256": "b370c55fed92230ac99f7ef7dee3cab54fd6d2f207bcc43e300f586b6ba5cc10",
+        "originalBoneFramesAndCurvesPreserved": true,
+        "fitted": [
+          {
+            "name": "neck",
+            "oldNode": 5,
+            "oldJoint": 4,
+            "node": 35,
+            "joint": 33,
+            "worldTarget": [
+              0,
+              -0.2,
+              0.35
+            ],
+            "amplitude": 0.55
+          },
+          {
+            "name": "head",
+            "oldNode": 6,
+            "oldJoint": 5,
+            "node": 36,
+            "joint": 34,
+            "worldTarget": [
+              0,
+              0.18,
+              0.66
+            ],
+            "amplitude": 0.65
+          }
+        ],
+        "reboundInfluenceSlots": 9686,
+        "clips": [
+          {
+            "name": "idle",
+            "keys": 73,
+            "tracks": 2
+          },
+          {
+            "name": "idle_2",
+            "keys": 77,
+            "tracks": 2
+          },
+          {
+            "name": "walk",
+            "keys": 73,
+            "tracks": 2
+          },
+          {
+            "name": "gallop",
+            "keys": 73,
+            "tracks": 2
+          },
+          {
+            "name": "gallop_jump",
+            "keys": 73,
+            "tracks": 2
+          },
+          {
+            "name": "attack",
+            "keys": 79,
+            "tracks": 2
+          },
+          {
+            "name": "idle_hitreact1",
+            "keys": 76,
+            "tracks": 2
+          },
+          {
+            "name": "death",
+            "keys": 78,
+            "tracks": 2
+          },
+          {
+            "name": "entrance",
+            "keys": 73,
+            "tracks": 2
+          },
+          {
+            "name": "cast",
+            "keys": 79,
+            "tracks": 2
+          },
+          {
+            "name": "guard",
+            "keys": 73,
+            "tracks": 2
+          },
+          {
+            "name": "rest",
+            "keys": 73,
+            "tracks": 2
+          },
+          {
+            "name": "victory",
+            "keys": 78,
+            "tracks": 2
+          }
+        ]
+      },
+      "coordinatedActionRepair": {
+        "revision": "20261018-gravepeak-behemoth-coordinated-actions-v1",
+        "sourceSha256": "d5d76eb577dfdaeebfa08af50b009c98555b0eb55501dbee0fa3a70b00432422",
+        "clips": [
+          {
+            "name": "attack",
+            "keys": 49,
+            "changedTracks": 16,
+            "maxContactError": 5.551115123125783e-16,
+            "contacts": 164
+          },
+          {
+            "name": "cast",
+            "keys": 49,
+            "changedTracks": 16,
+            "maxContactError": 7.711855592701269e-16,
+            "contacts": 196
+          },
+          {
+            "name": "idle_hitreact1",
+            "keys": 49,
+            "changedTracks": 16,
+            "maxContactError": 1.9408815095078854e-9,
+            "contacts": 196
+          }
+        ]
       }
     },
     "mythic-15": {
@@ -24717,7 +25038,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 1278064,
+        "bytes": 2250808,
         "triangles": 39718,
         "vertices": 45222,
         "materials": 1,
@@ -24727,7 +25048,7 @@
         "animations": 13,
         "bones": 27
       },
-      "sha256": "092ED61D1B34B513442A9DAA81087ED5C012A961D98AADE016BFF3ADB6E4E831",
+      "sha256": "FE10EF667AC577512B50D6D54EA8C92EE035FE11CA267273859E0A3922018E7A",
       "animationBank": {
         "revision": "20260825-identity-v5",
         "family": "pouncer",
@@ -24751,9 +25072,9 @@
         ]
       },
       "reviewedSkullRepair": {
-        "revision": "20261014-reviewed-skull-v1",
+        "revision": "20261018-celestial-lion-complete-jaw-crest-v1",
         "id": "mythic-15",
-        "sourceSha256": "6356c52f9c61dd5dcb82f2220568d4bf2a20c0b3b4791232af82c44f85f56e3c",
+        "sourceSha256": "092ed61d1b34b513442a9daa81087ed5c012a961d98aade016bff3adb6e4e831",
         "region": {
           "y": [
             -0.05,
@@ -24765,28 +25086,349 @@
           ],
           "cameraPadding": 1.4,
           "status": "repair",
-          "finding": "Celestial lion cheeks and muzzle change shape in hit reaction and turned death; preserve both feathered wings and curled tail."
+          "finding": "Original twelve source slices and all 216 actual technique frames inspected. Cheek and mane bend during recoil/death. Freeze complete independently selected muzzle, jaw, horns and head mane while preserving both wings and curled tail. Four visible paw chains and actual strike support require a separate anatomy repair. Unapproved intermediate face stage.",
+          "revision": "20261018-celestial-lion-complete-jaw-crest-v1",
+          "supersedesSourceSha256": "092ed61d1b34b513442a9daa81087ed5c012a961d98aade016bff3adb6e4e831",
+          "repairRegion": {
+            "y": [
+              0.04,
+              0.1
+            ],
+            "z": [
+              0.63,
+              0.69
+            ],
+            "x": [
+              0.28,
+              0.38
+            ]
+          },
+          "union": [
+            {
+              "y": [
+                0.04,
+                0.1
+              ],
+              "z": [
+                0.63,
+                0.69
+              ],
+              "x": [
+                0.28,
+                0.38
+              ]
+            }
+          ]
         },
         "envelopeMatrix": [
-          0.999999824786319,
+          0.9999998276178433,
           0,
           0,
           0,
           0,
-          -1.3435883294354086e-7,
-          0.9999999591451522,
+          -1.3435883332398118e-7,
+          0.9999999619766768,
           0,
           0,
-          -0.9999999591451522,
-          -1.3435883294354086e-7,
+          -0.9999999619766768,
+          -1.3435883332398118e-7,
           0,
           -2.740609128526472e-10,
-          8.107615678820679e-8,
-          1.732278875898885e-9,
+          8.107615689922909e-8,
+          4.56380366831155e-9,
           1
         ],
-        "changedVertices": 7059,
-        "rigidVertices": 3955
+        "changedVertices": 4049,
+        "rigidVertices": 2917,
+        "supersededRepair": {
+          "revision": "20261014-reviewed-skull-v1",
+          "sourceSha256": "6356c52f9c61dd5dcb82f2220568d4bf2a20c0b3b4791232af82c44f85f56e3c"
+        }
+      },
+      "anatomicalLimbRepair": {
+        "sourceSha256": "5e055e301829b620b2cbfb223bc8379df87d18672c1c7b064fa6a42be7995983",
+        "changedVertices": 6742,
+        "legacyReboundVertices": 31286,
+        "headNeckLegCleanupVertices": 507,
+        "legacySupportBinding": "Original front/hind influences rebound continuously onto the fitted same-section visible leg joints using sculpt-side proximity; lower-leg neck/head influence feathers onto the nearest supporting torso parent.",
+        "legs": [
+          {
+            "part": "front",
+            "side": "L",
+            "joints": [
+              27,
+              28,
+              29
+            ],
+            "upper": [
+              0.1377292426074361,
+              -0.2,
+              0.48794297621208016
+            ],
+            "knee": [
+              0.1377292426074361,
+              -0.49,
+              0.49794297621208017
+            ],
+            "paw": [
+              0.1377292426074361,
+              -0.7719884829066375,
+              0.5979429762120801
+            ],
+            "center": [
+              0.1377292426074361,
+              -0.7839884829066375,
+              0.5979429762120801
+            ]
+          },
+          {
+            "part": "front",
+            "side": "R",
+            "joints": [
+              30,
+              31,
+              32
+            ],
+            "upper": [
+              -0.1196813631360193,
+              -0.2,
+              0.48823290241529727
+            ],
+            "knee": [
+              -0.1196813631360193,
+              -0.49,
+              0.4982329024152973
+            ],
+            "paw": [
+              -0.1196813631360193,
+              -0.7722784094924352,
+              0.5982329024152973
+            ],
+            "center": [
+              -0.1196813631360193,
+              -0.7842784094924352,
+              0.5982329024152973
+            ]
+          },
+          {
+            "part": "hind",
+            "side": "L",
+            "joints": [
+              33,
+              34,
+              35
+            ],
+            "upper": [
+              0.1105197071016617,
+              -0.2,
+              -0.18049624601778924
+            ],
+            "knee": [
+              0.1105197071016617,
+              -0.51,
+              -0.29049624601778923
+            ],
+            "paw": [
+              0.1105197071016617,
+              -0.7656679691201888,
+              -0.37049624601778924
+            ],
+            "center": [
+              0.1105197071016617,
+              -0.7776679691201888,
+              -0.37049624601778924
+            ]
+          },
+          {
+            "part": "hind",
+            "side": "R",
+            "joints": [
+              36,
+              37,
+              38
+            ],
+            "upper": [
+              -0.28628721527048373,
+              -0.2,
+              -0.05401610371632082
+            ],
+            "knee": [
+              -0.28628721527048373,
+              -0.51,
+              -0.1640161037163208
+            ],
+            "paw": [
+              -0.28628721527048373,
+              -0.7663638098453959,
+              -0.24401610371632082
+            ],
+            "center": [
+              -0.28628721527048373,
+              -0.7783638098453959,
+              -0.24401610371632082
+            ]
+          }
+        ],
+        "gaitReports": [
+          {
+            "name": "idle",
+            "strideScale": 0.45,
+            "verticalScale": 0.4,
+            "maxContactError": 7.142771272165585e-11
+          },
+          {
+            "name": "walk",
+            "strideScale": 0.45,
+            "verticalScale": 0.4,
+            "maxContactError": 2.3108183641421625e-15
+          },
+          {
+            "name": "gallop",
+            "strideScale": 0.45,
+            "verticalScale": 0.4,
+            "maxContactError": 4.787917243963896e-15
+          },
+          {
+            "name": "guard",
+            "strideScale": 0.45,
+            "verticalScale": 0.4,
+            "maxContactError": 1.9525426212774418e-10
+          },
+          {
+            "name": "rest",
+            "strideScale": 0.45,
+            "verticalScale": 0.4,
+            "maxContactError": 1.6872671049686777e-10
+          }
+        ]
+      },
+      "anatomicalNeckRepair": {
+        "revision": "20261018-celestial-lion-anatomical-neck-v3",
+        "sourceSha256": "31ef90b1772fdc045c013ecb96f0c656aeabf5a8ee4aa7587788277b8618a43d",
+        "originalBoneFramesAndCurvesPreserved": true,
+        "fitted": [
+          {
+            "name": "neck",
+            "oldNode": 5,
+            "oldJoint": 4,
+            "node": 41,
+            "joint": 39,
+            "worldTarget": [
+              0.01232849073643777,
+              0.338091811864911,
+              0.23395563019318094
+            ],
+            "amplitude": 0.55
+          },
+          {
+            "name": "head",
+            "oldNode": 6,
+            "oldJoint": 5,
+            "node": 42,
+            "joint": 40,
+            "worldTarget": [
+              0.01232849073643777,
+              0.47557760614816147,
+              0.3359612195001087
+            ],
+            "amplitude": 0.65
+          }
+        ],
+        "reboundInfluenceSlots": 14278,
+        "clips": [
+          {
+            "name": "idle",
+            "keys": 73,
+            "tracks": 2
+          },
+          {
+            "name": "idle_2",
+            "keys": 77,
+            "tracks": 2
+          },
+          {
+            "name": "walk",
+            "keys": 73,
+            "tracks": 2
+          },
+          {
+            "name": "gallop",
+            "keys": 73,
+            "tracks": 2
+          },
+          {
+            "name": "gallop_jump",
+            "keys": 73,
+            "tracks": 2
+          },
+          {
+            "name": "attack",
+            "keys": 79,
+            "tracks": 2
+          },
+          {
+            "name": "idle_hitreact1",
+            "keys": 76,
+            "tracks": 2
+          },
+          {
+            "name": "death",
+            "keys": 78,
+            "tracks": 2
+          },
+          {
+            "name": "entrance",
+            "keys": 73,
+            "tracks": 2
+          },
+          {
+            "name": "cast",
+            "keys": 79,
+            "tracks": 2
+          },
+          {
+            "name": "guard",
+            "keys": 73,
+            "tracks": 2
+          },
+          {
+            "name": "rest",
+            "keys": 73,
+            "tracks": 2
+          },
+          {
+            "name": "victory",
+            "keys": 78,
+            "tracks": 2
+          }
+        ]
+      },
+      "coordinatedActionRepair": {
+        "revision": "20261018-celestial-lion-coordinated-actions-v3",
+        "sourceSha256": "42878a6c3aafef16cf403984f03c1982e592733e0dc97bb2066e27897f6ffe6b",
+        "clips": [
+          {
+            "name": "attack",
+            "keys": 49,
+            "changedTracks": 16,
+            "maxContactError": 3.002224531865041e-16,
+            "contacts": 164
+          },
+          {
+            "name": "cast",
+            "keys": 49,
+            "changedTracks": 16,
+            "maxContactError": 3.236828524569469e-16,
+            "contacts": 196
+          },
+          {
+            "name": "idle_hitreact1",
+            "keys": 49,
+            "changedTracks": 16,
+            "maxContactError": 3.6196302084425194e-10,
+            "contacts": 196
+          }
+        ]
       }
     }
   },
