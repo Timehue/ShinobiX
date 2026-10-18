@@ -89,7 +89,10 @@ function Fighter({ pet, paused, turn, take, move, onReady, careCue, baselineCare
     }, -1);
     if (!config) return null;
     const surface = appearance === 'chromatic' ? CHROMATIC_PET_SURFACE : appearance === 'original' ? undefined : petModelVariantSurface(pet);
-    return <><group scale={2.15 / config.targetHeight} rotation={[0, turn, 0]}>
+    // These birds rise and extend toward the camera during their authored strike.
+    // Reserve that full motion envelope in the fixed inspection camera.
+    const previewHeight = config.visualId === 'mythic-5' ? 1.8 : 2.15;
+    return <><group scale={previewHeight / config.targetHeight} rotation={[0, turn, 0]}>
         <PetModel3D config={config} frame={frame} element={pet.element} quality={PET_VISUAL_QUALITY_PRESETS.low}
             showIdentity={false} silhouette="surface-ink" surfaceTreatment={surface} />
     </group><PetCollarAura collarId={collarId} timeline={elapsed} /></>;

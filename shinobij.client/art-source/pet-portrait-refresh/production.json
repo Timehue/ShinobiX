@@ -2621,7 +2621,7 @@
       ],
       "referenceSha256": [
         "0c4932c45e53a43af412392c251b1197f305a9a7633016a1152e6cc6ce3dd962",
-        "93350ef36d97d2300614877b7d57dcaa6c90618ff9119b856a66883a0849ed1f"
+        "1ab9e5912c74a035d6ac04b96e39fcb33836691c2ca8aff1cb0dd2da5e11fb62"
       ],
       "scene": "a clear shallow stream through a shinobi village garden, smooth stepping stones, a softly blurred wooden bridge and bamboo in morning mist",
       "prompt": "Use case: precise-object-edit. Image 1 is the candidate Azure Ryujin portrait. Preserve the detailed azure dragon head, pale horns, whiskers, pale segmented belly, four attached clawed legs and the full shinobi stream garden. Image 2 is the current model pose grid, anatomy authority only. Correct the tail clearly: remove the entire huge thick arch/loop rising on the LEFT over the back, which currently reads as an extra body or tail. Replace that area with the same distant shrine garden scenery. Keep ONE and only ONE continuous long tapering blue tail growing from the REAR PELVIS; let that single tail curl behind the hind legs toward the RIGHT side and end in one visible pointed tip. It must be possible to trace this one tail continuously from rump to tip, without hidden loops, duplicated roots or separate tail pieces. Retain small blue spines and pale underside as appropriate. Body has exactly one neck, four legs, one tail, no wings. No other changes to character design, color, expression, scene, polished anime ink or rounded cel shading. All extremities fit safely inside margins. No text, watermark, frame or additional figures.",
@@ -2659,6 +2659,14 @@
           "sha256": "93350ef36d97d2300614877b7d57dcaa6c90618ff9119b856a66883a0849ed1f",
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
+        },
+        {
+          "reference": "pet-models/warfront-impostors/roster/mythic-6.webp",
+          "previousSha256": "93350ef36d97d2300614877b7d57dcaa6c90618ff9119b856a66883a0849ed1f",
+          "sha256": "1ab9e5912c74a035d6ac04b96e39fcb33836691c2ca8aff1cb0dd2da5e11fb62",
+          "upstreamCommit": "cd0a478e1",
+          "reviewReceipt": "docs/audits/pet-animation-shape-reviews.json",
+          "reason": "Integrate the independently double-checked mythic animation repair atlas. Historical reference hashes remain recorded; scenic portrait master and delivery bytes are unchanged."
         }
       ]
     },
@@ -2673,7 +2681,7 @@
       ],
       "referenceSha256": [
         "c9a7978d442b1e1ce7cebf26e943e8055b064a342aaa73bc06f7d4fa95e1a3ab",
-        "d330c08cc269dd72e064fef581c70e897c3f007dc81aa30a2c92b795bb3cc0f3"
+        "dd2b4232e522811bad419f747eb366d07f7af4dd3dd5691d4c13151157b9c7ec"
       ],
       "scene": "a bamboo shinobi training courtyard after rain, warm lantern reflections on stone paving and a softly blurred tiled gate, with a mischievous confident atmosphere",
       "prompt": "Use case: precise-object-edit. Image 1 is the finished companion game portrait and only edit target. Remove the single-spiral village insignia and its pointed, leaf-shaped, flame-ring or carved-stone variations everywhere they appear in this image. Specifically: Single-spiral prints on both foreground lanterns and central blue banner. Make only the affected emblem-bearing cloth, paper, metal or stone surface plain and unmarked with matching texture, lighting, weathering and folds. Leave unrelated three-comma crests, throwing stars, geometric wheel emblems and natural creature markings unchanged. No replacement sigil, no residual spiral, no logo or writing. Preserve the exact existing creature identity, face, anatomy, limbs, wings, tail count, pose, proportions, gear, colors, scene, lighting, composition and safe margins. Preserve all high-quality detail outside the removed motif. Return the same polished square anime game portrait with these local insignia removals only.",
@@ -2716,6 +2724,14 @@
           "sha256": "d330c08cc269dd72e064fef581c70e897c3f007dc81aa30a2c92b795bb3cc0f3",
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
+        },
+        {
+          "reference": "pet-models/warfront-impostors/roster/mythic-7.webp",
+          "previousSha256": "d330c08cc269dd72e064fef581c70e897c3f007dc81aa30a2c92b795bb3cc0f3",
+          "sha256": "dd2b4232e522811bad419f747eb366d07f7af4dd3dd5691d4c13151157b9c7ec",
+          "upstreamCommit": "cd0a478e1",
+          "reviewReceipt": "docs/audits/pet-animation-shape-reviews.json",
+          "reason": "Integrate the independently double-checked mythic animation repair atlas. Historical reference hashes remain recorded; scenic portrait master and delivery bytes are unchanged."
         }
       ]
     },
@@ -2730,7 +2746,7 @@
       ],
       "referenceSha256": [
         "7a713df90b0bb33c4abcc9985c564d9448c9c157b7184d872bcadfd629b3736d",
-        "0dfe6d236b289f0c01ebb26296d2977e2e962ef78643e288b49eef13db75646d"
+        "67fec3b399d13d957ade4c643b5042cff3fa61dbe3ff2de899cfb50867e1e6b6"
       ],
       "scene": "a moonlit village watch post, rain-dark roof tiles, distant lantern windows and dramatic indigo clouds with subtle gold accents",
       "prompt": "Use case: identity-preserve. Asset: one finished square companion hero portrait for Shinobi Journey, a polished shinobi RPG. Image 1 is the edit target and main character reference: Stormgod Raijin (mythic-8). Keep this exact companion recognizable and faithful to the game: preserve species, face, colors, markings, silhouette, proportions, costume and equipment. If Image 2 is supplied it is a grid of poses of the ONE production model, provided only to confirm the anatomy and outfit; never reproduce the grid or duplicate the creature. Resolve old illustration details against that production identity. Add no new wearable equipment. Replace the empty or old backdrop with a complete, professionally painted setting: a moonlit village watch post, rain-dark roof tiles, distant lantern windows and dramatic indigo clouds with subtle gold accents. The scene fills the entire image edge to edge, with a grounded contact shadow or a physically appropriate perch/water surface. Unified collection style: clean anime ink, refined restrained cel shading with convincing rounded volume, tactile cloth and fur/feathers/scales, softly painted environments, indigo shadows and natural atmospheric depth. Retain the existing stylized character design; do not turn it photorealistic or generic. One complete creature dominates at about 75-80 percent of canvas height; keep all ears, feet, wings, weapons and tails inside safe margins for square and slightly wide card crops. Face and eyes read clearly at 200px. Background has lower detail and contrast than the subject. Use dramatic but controlled hero lighting and atmospheric depth, keeping any elemental effects sparse and behind the silhouette. No additional characters, duplicate heads, extra limbs, new weapons, redesigned armor, text, watermark, logo, UI frame, border, collage or multiple panels. Return one finished portrait. Approved current production identity: Stormgod Raijin is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation. Body profile: biped. The approved model identity takes priority over obsolete accessories or anatomy in Image 1. Do not invent new physical features. Anatomy lock: one upright blue feline/oni-like Raijin ninja, two arms/hands, two legs/clawed feet and one slim attached blue tail. Preserve pointed red-inner ears, swept blue crest, gold forehead band, red scarf, brown tunic/belt and pale wrist wraps. No added drums, weapons, floating hands, horns or new armor. Keep all physical extremities inside at least 6% scenic margins. Fine face and eyes, clear attached limbs, no malformed anatomy or neon guide marks.",
@@ -2765,6 +2781,14 @@
           "sha256": "0dfe6d236b289f0c01ebb26296d2977e2e962ef78643e288b49eef13db75646d",
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
+        },
+        {
+          "reference": "pet-models/warfront-impostors/roster/mythic-8.webp",
+          "previousSha256": "0dfe6d236b289f0c01ebb26296d2977e2e962ef78643e288b49eef13db75646d",
+          "sha256": "67fec3b399d13d957ade4c643b5042cff3fa61dbe3ff2de899cfb50867e1e6b6",
+          "upstreamCommit": "cd0a478e1",
+          "reviewReceipt": "docs/audits/pet-animation-shape-reviews.json",
+          "reason": "Integrate the independently double-checked mythic animation repair atlas. Historical reference hashes remain recorded; scenic portrait master and delivery bytes are unchanged."
         }
       ]
     },
@@ -2779,7 +2803,7 @@
       ],
       "referenceSha256": [
         "dc3816adc2c93f567afa046e012259647851822e342b8d5294c4abc55a953763",
-        "6bc472e8591dfa18e89a0d39f71383814289c7ef2c8ac93f897fcd9f57e148b5"
+        "ac615a46ce261f319f8e6f51aa9fa4826255305fc2e74b7a4b5620ab7b27a650"
       ],
       "scene": "an ancient shinobi monastery garden, textured stone paving, moss-covered walls, a small stone lantern and softly lit bamboo",
       "prompt": "Use case: identity-preserve. Asset: one finished square companion hero portrait for Shinobi Journey, a polished shinobi RPG. Image 1 is the edit target and main character reference: Worldroot Colossus (mythic-9). Keep this exact companion recognizable and faithful to the game: preserve species, face, colors, markings, silhouette, proportions, costume and equipment. If Image 2 is supplied it is a grid of poses of the ONE production model, provided only to confirm the anatomy and outfit; never reproduce the grid or duplicate the creature. Resolve old illustration details against that production identity. Add no new wearable equipment. Replace the empty or old backdrop with a complete, professionally painted setting: an ancient shinobi monastery garden, textured stone paving, moss-covered walls, a small stone lantern and softly lit bamboo. The scene fills the entire image edge to edge, with a grounded contact shadow or a physically appropriate perch/water surface. Unified collection style: clean anime ink, refined restrained cel shading with convincing rounded volume, tactile cloth and fur/feathers/scales, softly painted environments, indigo shadows and natural atmospheric depth. Retain the existing stylized character design; do not turn it photorealistic or generic. One complete creature dominates at about 75-80 percent of canvas height; keep all ears, feet, wings, weapons and tails inside safe margins for square and slightly wide card crops. Face and eyes read clearly at 200px. Background has lower detail and contrast than the subject. Use dramatic but controlled hero lighting and atmospheric depth, keeping any elemental effects sparse and behind the silhouette. No additional characters, duplicate heads, extra limbs, new weapons, redesigned armor, text, watermark, logo, UI frame, border, collage or multiple panels. Return one finished portrait. Approved current production identity: Worldroot Colossus is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation. Body profile: heavy. The approved model identity takes priority over obsolete accessories or anatomy in Image 1. Do not invent new physical features. Anatomy lock: one large bark humanoid colossus, leafy green crown, glowing gold eyes, carved wood beard/chest, two connected branch arms ending in fists and two root legs. Tree crown and branch details stay connected naturally; no duplicate trunks/faces, floating wood parts, added ninja clothing or equipment. Keep all physical extremities inside at least 6% scenic margins. Fine face and eyes, clear attached limbs, no malformed anatomy or neon guide marks.",
@@ -2814,6 +2838,14 @@
           "sha256": "6bc472e8591dfa18e89a0d39f71383814289c7ef2c8ac93f897fcd9f57e148b5",
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
+        },
+        {
+          "reference": "pet-models/warfront-impostors/roster/mythic-9.webp",
+          "previousSha256": "6bc472e8591dfa18e89a0d39f71383814289c7ef2c8ac93f897fcd9f57e148b5",
+          "sha256": "ac615a46ce261f319f8e6f51aa9fa4826255305fc2e74b7a4b5620ab7b27a650",
+          "upstreamCommit": "cd0a478e1",
+          "reviewReceipt": "docs/audits/pet-animation-shape-reviews.json",
+          "reason": "Integrate the independently double-checked mythic animation repair atlas. Historical reference hashes remain recorded; scenic portrait master and delivery bytes are unchanged."
         }
       ]
     },
@@ -2828,7 +2860,7 @@
       ],
       "referenceSha256": [
         "29b4c541870a93652bd39a7e9f4404afb3bf7b1bc56afa0f80dae9f227f301d9",
-        "3d73359d935ff9044f7c5a8ac6c673c8995be7c387ec99661847e01375ba6825"
+        "0fb7ab9f3c2399e3fb98c56c4bb91a6a344ad3192855e080457960a81e90c7c8"
       ],
       "scene": "an old mountain shrine approach in warm late afternoon, mossy stone steps, cedar trees and distant tiled gates",
       "prompt": "Use case: identity-preserve. Asset: one finished square companion hero portrait for Shinobi Journey, a polished shinobi RPG. Image 1 is the edit target and main character reference: Ash Crown Phoenix (mythic-10). Keep this exact companion recognizable and faithful to the game: preserve species, face, colors, markings, silhouette, proportions, costume and equipment. If Image 2 is supplied it is a grid of poses of the ONE production model, provided only to confirm the anatomy and outfit; never reproduce the grid or duplicate the creature. Resolve old illustration details against that production identity. Add no new wearable equipment. Replace the empty or old backdrop with a complete, professionally painted setting: an old mountain shrine approach in warm late afternoon, mossy stone steps, cedar trees and distant tiled gates. The scene fills the entire image edge to edge, with a grounded contact shadow or a physically appropriate perch/water surface. Unified collection style: clean anime ink, refined restrained cel shading with convincing rounded volume, tactile cloth and fur/feathers/scales, softly painted environments, indigo shadows and natural atmospheric depth. Retain the existing stylized character design; do not turn it photorealistic or generic. One complete creature dominates at about 75-80 percent of canvas height; keep all ears, feet, wings, weapons and tails inside safe margins for square and slightly wide card crops. Face and eyes read clearly at 200px. Background has lower detail and contrast than the subject. Use dramatic but controlled hero lighting and atmospheric depth, keeping any elemental effects sparse and behind the silhouette. No additional characters, duplicate heads, extra limbs, new weapons, redesigned armor, text, watermark, logo, UI frame, border, collage or multiple panels. Return one finished portrait. Approved current production identity: Ash Crown Phoenix preserves a coherent crowned raptor silhouette, layered black-crimson plumage, gold talons, folded wings, and full rear volume; isolated reconstruction debris was removed before promotion. Body profile: avian. The approved model identity takes priority over obsolete accessories or anatomy in Image 1. Do not invent new physical features. Avian anatomy lock: use exactly two hind legs and the model's existing two wing/forelimbs. Preserve anthropomorphic wing-hands only if present in Image 2. Do not add a separate extra pair of arms, wings, hands or taloned limbs. Equipment and limb forms must follow the current production model. Preserve the mature elegant crowned raptor design from both references: layered black and crimson feathers edged with glowing gold, fine ornate feather filigree, gold hooked beak/talons, fiery crown-like plumage and one long full red-black-gold tail train. Current model silhouette has exactly two bird wings, preferably folded to showcase feather layers, and two taloned legs. No humanoid arms/hands, extra wings, new armor or equipment. Refine into the collection's polished anime ink and rounded cel-shaded illustration while retaining this mythic's rich feather detail and majestic adult proportions; do not simplify into a generic orange chick. Keep all physical extremities inside at least 6% scenic margins. Fine face and eyes, clear attached limbs, no malformed anatomy or neon guide marks.",
@@ -2864,6 +2896,14 @@
           "sha256": "3d73359d935ff9044f7c5a8ac6c673c8995be7c387ec99661847e01375ba6825",
           "upstreamCommit": "e385736e381da90c2d06f816110c35de8a53ffbc",
           "reason": "Integrate certified pet shape repairs already deployed on main; portrait master and delivery bytes remain unchanged."
+        },
+        {
+          "reference": "pet-models/warfront-impostors/roster/mythic-10.webp",
+          "previousSha256": "3d73359d935ff9044f7c5a8ac6c673c8995be7c387ec99661847e01375ba6825",
+          "sha256": "0fb7ab9f3c2399e3fb98c56c4bb91a6a344ad3192855e080457960a81e90c7c8",
+          "upstreamCommit": "cd0a478e1",
+          "reviewReceipt": "docs/audits/pet-animation-shape-reviews.json",
+          "reason": "Integrate the independently double-checked mythic animation repair atlas. Historical reference hashes remain recorded; scenic portrait master and delivery bytes are unchanged."
         }
       ]
     },

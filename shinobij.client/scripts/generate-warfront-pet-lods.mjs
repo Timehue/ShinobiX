@@ -66,6 +66,8 @@ const REVIEWED_DEFORMATION_LOCKS = {
     'roster/rare-23.glb': [[0.59, 0.71, -0.32, -0.19, 0.20, 0.31]],
     'roster/rare-34.glb': [[-0.20, -0.10, -0.80, -0.70, 0.72, 0.79]],
     'roster/legendary-11.glb': [[-0.12, -0.02, -0.86, -0.75, 0.80, 0.90]],
+    // Preserve Turtle Duck's independently frozen side jaw through reduction.
+    'roster/mythic-7.glb': [[0.1100639667958617,0.2041546067690054,0.23030689413129063,0.35592315439313943,0.4100303964354381,0.5483423566393018]],
     'roster/mythic-15.glb': [[-0.21, -0.12, -0.03, 0.08, 0.23, 0.30]],
 };
 const EXPECTED_RUNTIME_SOURCE_COUNT = 160;

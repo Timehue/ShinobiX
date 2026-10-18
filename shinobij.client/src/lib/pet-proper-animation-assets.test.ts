@@ -39,6 +39,8 @@ const reviewedLimbRepairs: Record<string, string> = {
     'mythic-0': 'eclipseKitsuneAnatomicalLimbRepair',
     'mythic-1': 'worldstormDragonAnatomicalLimbRepair',
     'mythic-3': 'solarStagAnatomicalLimbRepair',
+    'mythic-6': 'azureRyujinAnatomicalLimbRepair',
+    'mythic-10': 'ashCrownPhoenixAnatomicalLegRepair',
 };
 const reviewedTorsoActions: Record<string, string> = {
     'legendary-7': '20261017-moon-serpent-supported-actions-v2',
@@ -75,12 +77,12 @@ test("all 161 production pets have complete proper skeletal animation banks", ()
         const json = parseGlb(path);
         const limbRepair = json.extras?.[reviewedLimbRepairs[pet.id]];
         if (limbRepair) {
-            assert.equal(json.skins[0].joints.length, pet.id === 'mythic-3' ? 35 : 33, `${pet.id}: fitted anatomical joint count`);
+            assert.equal(json.skins[0].joints.length, pet.id === 'mythic-10' ? 29 : pet.id === 'mythic-3' ? 35 : 33, `${pet.id}: fitted anatomical joint count`);
             if (pet.id === 'mythic-3') {
                 assert.equal(json.extras.solarStagAnatomicalNeckRepair.fitted.length, 2);
                 assert.equal(json.extras.solarStagAnatomicalNeckRepair.clips.length, 13);
             }
-            assert.equal(limbRepair.legs.length, 4);
+            assert.equal(limbRepair.legs.length, pet.id === 'mythic-10' ? 2 : 4);
             assert.match(limbRepair.sourceSha256, /^[a-f0-9]{64}$/);
         }
         assert.deepEqual(
@@ -141,7 +143,17 @@ test("all 161 production pets have complete proper skeletal animation banks", ()
                     assert.ok(json.extras.solarStagAnatomicalNeckRepair.fitted.some((fitted: { node: number; oldNode: number }) => fitted.node === channel.target.node || fitted.oldNode === channel.target.node));
                     continue;
                 }
-                const inspectedName = contactBank && limbRepair && /^legacy_(?:front|hind)_(?:upper|lower|paw)\.[LR]$/.test(name)
+                if (contactBank && pet.id === 'mythic-10' && limbRepair && ['head', 'neck', 'legacy_face_head', 'legacy_face_neck'].includes(name)) {
+                    const neckRepair = json.extras.ashCrownPhoenixAnatomicalNeckRepair;
+                    assert.equal(neckRepair.revision, '20261018-ash-crown-phoenix-anatomical-neck-v4');
+                    assert.equal(neckRepair.fitted.length, 2);
+                    assert.equal(neckRepair.clips.reduce((sum: number, clip: { tracks: number }) => sum + clip.tracks, 0), 18);
+                    assert.ok(neckRepair.fitted.some((fitted: { node: number; oldNode: number }) => fitted.node === channel.target.node || fitted.oldNode === channel.target.node));
+                    continue;
+                }
+                const retainedLimb = /^legacy_(?:front|hind)_(?:upper|lower|paw)\.[LR]$/.test(name)
+                    || (pet.id === 'mythic-10' && /^legacy_(?:thigh|shin|foot)\.[LR]$/.test(name));
+                const inspectedName = contactBank && limbRepair && retainedLimb
                     ? name.slice('legacy_'.length) : name;
                 if (inspectedName !== name) {
                     assert.ok(json.skins[0].joints.some((node: number) => json.nodes[node].name === inspectedName), `${pet.id}: retained limb has no fitted replacement`);

@@ -1,0 +1,84 @@
+{
+  "id": "mythic-10",
+  "frozenSourceSha256": "7be7cc15a40a0233a9d0edaeda067d0f0866e233e8221ab412a6025868f7a58e",
+  "results": [
+    {
+      "stage": "original",
+      "sha256": "7be7cc15a40a0233a9d0edaeda067d0f0866e233e8221ab412a6025868f7a58e",
+      "coverage": {
+        "left": 78,
+        "right": 77
+      },
+      "posesPerAction": 481,
+      "clips": [
+        {
+          "name": "attack",
+          "maxDrift": 0.3397195391622104,
+          "minFloorDelta": -0.2528012010527688
+        },
+        {
+          "name": "cast",
+          "maxDrift": 0.09122444176970437,
+          "minFloorDelta": -0.045409682534303
+        },
+        {
+          "name": "idle_hitreact1",
+          "maxDrift": 0.12426159247539191,
+          "minFloorDelta": 0
+        }
+      ]
+    },
+    {
+      "stage": "source",
+      "sha256": "fd4f4f9db5a9b048706a8a9d59ff72f3e55b42d164e903db9c6998c31cfc1762",
+      "coverage": {
+        "left": 78,
+        "right": 77
+      },
+      "posesPerAction": 481,
+      "clips": [
+        {
+          "name": "attack",
+          "maxDrift": 0.00007627876553632548,
+          "minFloorDelta": -0.00006771689312268236
+        },
+        {
+          "name": "cast",
+          "maxDrift": 3.787855749181875e-8,
+          "minFloorDelta": -3.687865446355687e-8
+        },
+        {
+          "name": "idle_hitreact1",
+          "maxDrift": 1.0334388034768318e-7,
+          "minFloorDelta": -9.803999689861342e-8
+        }
+      ]
+    },
+    {
+      "stage": "battle",
+      "sha256": "3c24e7bf52ef5603cbe8659a0e1b2026d8aa594b1fa85134b261fc1f9480ae0b",
+      "coverage": {
+        "left": 41,
+        "right": 45
+      },
+      "posesPerAction": 481,
+      "clips": [
+        {
+          "name": "attack",
+          "maxDrift": 0.00007627572981299805,
+          "minFloorDelta": -0.00006771221154600049
+        },
+        {
+          "name": "cast",
+          "maxDrift": 4.115846911893828e-8,
+          "minFloorDelta": -3.212091659321459e-8
+        },
+        {
+          "name": "idle_hitreact1",
+          "maxDrift": 1.0762357465601839e-7,
+          "minFloorDelta": -9.338198714292645e-8
+        }
+      ]
+    }
+  ]
+}

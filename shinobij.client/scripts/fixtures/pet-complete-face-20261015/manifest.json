@@ -39,6 +39,31 @@
       "id": "mythic-3",
       "file": "mythic-3-v1.glb",
       "sha256": "58b8211ad20865eccae12bfd87ba358ab9ff6345e57048abad625ca573e2c365"
+    },
+    {
+      "id": "mythic-6",
+      "file": "mythic-6-v1.glb",
+      "sha256": "b7919b82a0ce7a1260c9e0cab2eb27615acfe4aa4deac9e59f21912f4b6fe253"
+    },
+    {
+      "id": "mythic-7",
+      "file": "mythic-7-v1.glb",
+      "sha256": "4fffae57743f0cef6df2e5d9268dc16afcd11c18c59224b4655c456817d27c06"
+    },
+    {
+      "id": "mythic-8",
+      "file": "mythic-8-v1.glb",
+      "sha256": "102c9cb332811bce864416b561da5ce8455c3671220cf65be022eca26d64db4c"
+    },
+    {
+      "id": "mythic-9",
+      "file": "mythic-9-v1.glb",
+      "sha256": "378464c376e5968a77685ca7a6e596183a71a6187d0e35dd3fa72340a60f0244"
+    },
+    {
+      "id": "mythic-10",
+      "file": "mythic-10-v1.glb",
+      "sha256": "7be7cc15a40a0233a9d0edaeda067d0f0866e233e8221ab412a6025868f7a58e"
     }
   ]
 }

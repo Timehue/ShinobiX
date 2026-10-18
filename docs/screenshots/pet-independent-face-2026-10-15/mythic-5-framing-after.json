@@ -1,0 +1,3684 @@
+{
+  "id": "mythic-5",
+  "label": "independent-mythic-005-framing-v1-final-techniques",
+  "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+  "companionComponentSha256": "193c79e909badc0efab2f09ecb45882406ea66463fc5801966dd395344fcf9a9",
+  "frames": 216,
+  "warnings": [],
+  "minimumMargin": 29,
+  "measurements": [
+    {
+      "move": "fire-strike",
+      "view": "front",
+      "time": 0.04,
+      "name": "mythic-5-fire-strike-front-0.png",
+      "sha256": "bac63a0e9f8b081488475a8271a337fee470ffd508c8ca83450a670d3b39881c",
+      "foregroundPixels": 5069,
+      "bounds": {
+        "x0": 209,
+        "y0": 64,
+        "x1": 289,
+        "y1": 197
+      },
+      "margin": 62,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-strike",
+      "view": "front",
+      "time": 0.12,
+      "name": "mythic-5-fire-strike-front-1.png",
+      "sha256": "2d2eb786d3fec80bbb61e1e4c8bd8284fc197b2e40a51d47722509c727f3dc25",
+      "foregroundPixels": 4966,
+      "bounds": {
+        "x0": 204,
+        "y0": 68,
+        "x1": 293,
+        "y1": 197
+      },
+      "margin": 62,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-strike",
+      "view": "front",
+      "time": 0.24,
+      "name": "mythic-5-fire-strike-front-2.png",
+      "sha256": "8a56b1430fde5839b7cc9ed6854c6061eb224a2fdf8a858f3bd0a1bf7bfecad4",
+      "foregroundPixels": 4855,
+      "bounds": {
+        "x0": 202,
+        "y0": 70,
+        "x1": 294,
+        "y1": 196
+      },
+      "margin": 63,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-strike",
+      "view": "front",
+      "time": 0.36,
+      "name": "mythic-5-fire-strike-front-3.png",
+      "sha256": "c5f26365da7610ecbe9c15316a01f5343eaf3cade90f5b1e2fb6b51df69fba8d",
+      "foregroundPixels": 4527,
+      "bounds": {
+        "x0": 205,
+        "y0": 66,
+        "x1": 291,
+        "y1": 188
+      },
+      "margin": 66,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-strike",
+      "view": "front",
+      "time": 0.48,
+      "name": "mythic-5-fire-strike-front-4.png",
+      "sha256": "3601d67ea0f4d08de6bd917e047215fb0f09bbadaaa8503291b38fd6571be390",
+      "foregroundPixels": 7102,
+      "bounds": {
+        "x0": 202,
+        "y0": 29,
+        "x1": 296,
+        "y1": 177
+      },
+      "margin": 29,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-strike",
+      "view": "front",
+      "time": 0.6,
+      "name": "mythic-5-fire-strike-front-5.png",
+      "sha256": "57546fd3cf39a67ffe380768ec68dd264a0ab803af688f4328036529af26165e",
+      "foregroundPixels": 5936,
+      "bounds": {
+        "x0": 206,
+        "y0": 50,
+        "x1": 291,
+        "y1": 199
+      },
+      "margin": 50,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-strike",
+      "view": "front",
+      "time": 0.76,
+      "name": "mythic-5-fire-strike-front-6.png",
+      "sha256": "912f0484127552082999fc0893b5cf9bc8b40395d8be99a307e462a2ab5be118",
+      "foregroundPixels": 5393,
+      "bounds": {
+        "x0": 209,
+        "y0": 59,
+        "x1": 290,
+        "y1": 198
+      },
+      "margin": 59,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-strike",
+      "view": "front",
+      "time": 0.96,
+      "name": "mythic-5-fire-strike-front-7.png",
+      "sha256": "f2b0d1cc08e4d29027c45d6a05da4b409b21639c7414bb26007309540c0eb737",
+      "foregroundPixels": 5109,
+      "bounds": {
+        "x0": 210,
+        "y0": 64,
+        "x1": 289,
+        "y1": 198
+      },
+      "margin": 61,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-strike",
+      "view": "front",
+      "time": 1.2,
+      "name": "mythic-5-fire-strike-front-8.png",
+      "sha256": "e8cf3972284b366ae1a392224222b5ae63f0001fdbb6b6842d882d092ee82254",
+      "foregroundPixels": 5073,
+      "bounds": {
+        "x0": 210,
+        "y0": 65,
+        "x1": 289,
+        "y1": 198
+      },
+      "margin": 61,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-strike",
+      "view": "front",
+      "time": 1.44,
+      "name": "mythic-5-fire-strike-front-9.png",
+      "sha256": "d33cf626c909f508e575852a33d79e4ca8191bab20063af309d639f63c212083",
+      "foregroundPixels": 5090,
+      "bounds": {
+        "x0": 210,
+        "y0": 64,
+        "x1": 289,
+        "y1": 198
+      },
+      "margin": 61,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-strike",
+      "view": "front",
+      "time": 1.68,
+      "name": "mythic-5-fire-strike-front-10.png",
+      "sha256": "e70b2b91e9142eabdd5db3d605a7a0d16914b9bb3e0f86918daed60d61436cee",
+      "foregroundPixels": 5012,
+      "bounds": {
+        "x0": 210,
+        "y0": 65,
+        "x1": 290,
+        "y1": 197
+      },
+      "margin": 62,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-strike",
+      "view": "front",
+      "time": 1.92,
+      "name": "mythic-5-fire-strike-front-11.png",
+      "sha256": "c35a04eef8af085e6442aca1f27c85fc0c3ef81ef62b58c3359c08f90050efb8",
+      "foregroundPixels": 5066,
+      "bounds": {
+        "x0": 210,
+        "y0": 64,
+        "x1": 289,
+        "y1": 198
+      },
+      "margin": 61,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-strike",
+      "view": "side",
+      "time": 0.04,
+      "name": "mythic-5-fire-strike-side-0.png",
+      "sha256": "ce143b15baca15fab3e1933df6a05452d1bfe436ac118924244a27707e4b824c",
+      "foregroundPixels": 5134,
+      "bounds": {
+        "x0": 189,
+        "y0": 65,
+        "x1": 298,
+        "y1": 193
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-strike",
+      "view": "side",
+      "time": 0.12,
+      "name": "mythic-5-fire-strike-side-1.png",
+      "sha256": "be7657ffc09c9a387623bcc30572a18af42950303c3e9cc263ebfd348270cea5",
+      "foregroundPixels": 5064,
+      "bounds": {
+        "x0": 186,
+        "y0": 67,
+        "x1": 292,
+        "y1": 195
+      },
+      "margin": 64,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-strike",
+      "view": "side",
+      "time": 0.24,
+      "name": "mythic-5-fire-strike-side-2.png",
+      "sha256": "282b9d1cff6fdd724ef72fa55be913819ddbf184d9af70c12317b6f25531cfb6",
+      "foregroundPixels": 4776,
+      "bounds": {
+        "x0": 182,
+        "y0": 70,
+        "x1": 283,
+        "y1": 196
+      },
+      "margin": 63,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-strike",
+      "view": "side",
+      "time": 0.36,
+      "name": "mythic-5-fire-strike-side-3.png",
+      "sha256": "685ef60fcdc6703488c582455fdcc749a6dca28f9af316e3988c99fd441ebb2f",
+      "foregroundPixels": 4794,
+      "bounds": {
+        "x0": 181,
+        "y0": 65,
+        "x1": 281,
+        "y1": 190
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-strike",
+      "view": "side",
+      "time": 0.48,
+      "name": "mythic-5-fire-strike-side-4.png",
+      "sha256": "3259845bbbaa33234a3b7195ef244ff31b11867d89310b373ca9803ad4429d54",
+      "foregroundPixels": 6077,
+      "bounds": {
+        "x0": 223,
+        "y0": 38,
+        "x1": 354,
+        "y1": 169
+      },
+      "margin": 38,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-strike",
+      "view": "side",
+      "time": 0.6,
+      "name": "mythic-5-fire-strike-side-5.png",
+      "sha256": "2c9bbd9731ebc6204c4e1189b8887f118710f974b53aecdc2ffaf9a98bc740f8",
+      "foregroundPixels": 5547,
+      "bounds": {
+        "x0": 217,
+        "y0": 56,
+        "x1": 338,
+        "y1": 188
+      },
+      "margin": 56,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-strike",
+      "view": "side",
+      "time": 0.76,
+      "name": "mythic-5-fire-strike-side-6.png",
+      "sha256": "14029fcd6eeaddc91b7123eca8d6a23e11f67bbbab4f55cf9d513e17917633e1",
+      "foregroundPixels": 5252,
+      "bounds": {
+        "x0": 204,
+        "y0": 62,
+        "x1": 319,
+        "y1": 191
+      },
+      "margin": 62,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-strike",
+      "view": "side",
+      "time": 0.96,
+      "name": "mythic-5-fire-strike-side-7.png",
+      "sha256": "c1e467a432a699d4835bf0811132fa7135aa5c5248c93baf5ed359ed1d8f0771",
+      "foregroundPixels": 5049,
+      "bounds": {
+        "x0": 195,
+        "y0": 66,
+        "x1": 305,
+        "y1": 193
+      },
+      "margin": 66,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-strike",
+      "view": "side",
+      "time": 1.2,
+      "name": "mythic-5-fire-strike-side-8.png",
+      "sha256": "bcc620573543888ef0187c3cdf191b1fa161011072c0e7f0cf7032b2a7b91362",
+      "foregroundPixels": 5085,
+      "bounds": {
+        "x0": 192,
+        "y0": 66,
+        "x1": 302,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-strike",
+      "view": "side",
+      "time": 1.44,
+      "name": "mythic-5-fire-strike-side-9.png",
+      "sha256": "b0011c1ac0dcb2cacf779796273f65311b7dece249cca5c911b86afa3bcb6730",
+      "foregroundPixels": 5142,
+      "bounds": {
+        "x0": 190,
+        "y0": 66,
+        "x1": 301,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-strike",
+      "view": "side",
+      "time": 1.68,
+      "name": "mythic-5-fire-strike-side-10.png",
+      "sha256": "3fe869ff539501f64bf89d6cb93a542c2794c4f5fa3ac2984c324956fc8b15b0",
+      "foregroundPixels": 5140,
+      "bounds": {
+        "x0": 190,
+        "y0": 66,
+        "x1": 300,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-strike",
+      "view": "side",
+      "time": 1.92,
+      "name": "mythic-5-fire-strike-side-11.png",
+      "sha256": "fe74efb5222376a21891f7c8e03e1cfe2c4fe13ee7273972a38604e1f002d67a",
+      "foregroundPixels": 5219,
+      "bounds": {
+        "x0": 190,
+        "y0": 66,
+        "x1": 300,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-pulse",
+      "view": "front",
+      "time": 0.04,
+      "name": "mythic-5-fire-pulse-front-0.png",
+      "sha256": "24e8a20b4d36ea68a1d14241f585a75967238ce422b837f82811338cdeab3648",
+      "foregroundPixels": 5061,
+      "bounds": {
+        "x0": 209,
+        "y0": 64,
+        "x1": 289,
+        "y1": 197
+      },
+      "margin": 62,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-pulse",
+      "view": "front",
+      "time": 0.12,
+      "name": "mythic-5-fire-pulse-front-1.png",
+      "sha256": "5680f5e1151135b18519799219918b80d5106a57724d812fccdb63882eaeabe8",
+      "foregroundPixels": 5122,
+      "bounds": {
+        "x0": 208,
+        "y0": 63,
+        "x1": 290,
+        "y1": 196
+      },
+      "margin": 63,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-pulse",
+      "view": "front",
+      "time": 0.24,
+      "name": "mythic-5-fire-pulse-front-2.png",
+      "sha256": "1d5c991b41e8799f5a2048bfcdad9afd292bf132c16f50640d47fe8b6e849fcb",
+      "foregroundPixels": 5029,
+      "bounds": {
+        "x0": 204,
+        "y0": 63,
+        "x1": 293,
+        "y1": 193
+      },
+      "margin": 63,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-pulse",
+      "view": "front",
+      "time": 0.36,
+      "name": "mythic-5-fire-pulse-front-3.png",
+      "sha256": "aa34af315b94f97eb4e254fbf10a4d1db47f498db60606c0490c03d69744311d",
+      "foregroundPixels": 4936,
+      "bounds": {
+        "x0": 203,
+        "y0": 62,
+        "x1": 294,
+        "y1": 191
+      },
+      "margin": 62,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-pulse",
+      "view": "front",
+      "time": 0.48,
+      "name": "mythic-5-fire-pulse-front-4.png",
+      "sha256": "d045f37ac30254db7d41c406ddb6d2ec4f9269f41e8db2b49ba3eb8a34aceffd",
+      "foregroundPixels": 5858,
+      "bounds": {
+        "x0": 204,
+        "y0": 50,
+        "x1": 293,
+        "y1": 192
+      },
+      "margin": 50,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-pulse",
+      "view": "front",
+      "time": 0.6,
+      "name": "mythic-5-fire-pulse-front-5.png",
+      "sha256": "08355ca073b821ff2339ac3238c037c4f93a01bfe5fba487b52b7355ab0c9bb5",
+      "foregroundPixels": 5860,
+      "bounds": {
+        "x0": 205,
+        "y0": 50,
+        "x1": 291,
+        "y1": 197
+      },
+      "margin": 50,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-pulse",
+      "view": "front",
+      "time": 0.76,
+      "name": "mythic-5-fire-pulse-front-6.png",
+      "sha256": "6fea29e63b9852d3efed25060186d045ec787b49fd77ddc35367a1f3f305212c",
+      "foregroundPixels": 5362,
+      "bounds": {
+        "x0": 209,
+        "y0": 56,
+        "x1": 289,
+        "y1": 195
+      },
+      "margin": 56,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-pulse",
+      "view": "front",
+      "time": 0.96,
+      "name": "mythic-5-fire-pulse-front-7.png",
+      "sha256": "0bf1bc2ba011dbc3591db23d6b5241b84e9d36538b67c840d0e3c115a8b17258",
+      "foregroundPixels": 5097,
+      "bounds": {
+        "x0": 210,
+        "y0": 61,
+        "x1": 289,
+        "y1": 196
+      },
+      "margin": 61,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-pulse",
+      "view": "front",
+      "time": 1.2,
+      "name": "mythic-5-fire-pulse-front-8.png",
+      "sha256": "92318d679878db2d76986fdfd1026e8c81fc3773152a0809389645d9fbc3d088",
+      "foregroundPixels": 5075,
+      "bounds": {
+        "x0": 210,
+        "y0": 62,
+        "x1": 289,
+        "y1": 197
+      },
+      "margin": 62,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-pulse",
+      "view": "front",
+      "time": 1.44,
+      "name": "mythic-5-fire-pulse-front-9.png",
+      "sha256": "fcb55e2e9f9ff6e2d7b59c8748557627910e10b40767bd980fd9453ef2e7d504",
+      "foregroundPixels": 5090,
+      "bounds": {
+        "x0": 210,
+        "y0": 63,
+        "x1": 289,
+        "y1": 197
+      },
+      "margin": 62,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-pulse",
+      "view": "front",
+      "time": 1.68,
+      "name": "mythic-5-fire-pulse-front-10.png",
+      "sha256": "817603de972eef367f425edba4298a24efa837abfd877ddba20bae57a45402a5",
+      "foregroundPixels": 5012,
+      "bounds": {
+        "x0": 210,
+        "y0": 65,
+        "x1": 290,
+        "y1": 197
+      },
+      "margin": 62,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-pulse",
+      "view": "front",
+      "time": 1.92,
+      "name": "mythic-5-fire-pulse-front-11.png",
+      "sha256": "0fa051f6fe35eb2293694e2ac0221f051ee298e6101dc5b2ce371272e28eab97",
+      "foregroundPixels": 5065,
+      "bounds": {
+        "x0": 210,
+        "y0": 64,
+        "x1": 289,
+        "y1": 198
+      },
+      "margin": 61,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-pulse",
+      "view": "side",
+      "time": 0.04,
+      "name": "mythic-5-fire-pulse-side-0.png",
+      "sha256": "cb827472f24abf35b63e1a6962356e3121d77ef23ad4c2e5f36e03129861a0ea",
+      "foregroundPixels": 5126,
+      "bounds": {
+        "x0": 189,
+        "y0": 65,
+        "x1": 298,
+        "y1": 193
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-pulse",
+      "view": "side",
+      "time": 0.12,
+      "name": "mythic-5-fire-pulse-side-1.png",
+      "sha256": "70a62cc69efeddbbb0160cf8f4123b0703ba87b232c918eaa3f58a334bbc5201",
+      "foregroundPixels": 5071,
+      "bounds": {
+        "x0": 188,
+        "y0": 64,
+        "x1": 295,
+        "y1": 192
+      },
+      "margin": 64,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-pulse",
+      "view": "side",
+      "time": 0.24,
+      "name": "mythic-5-fire-pulse-side-2.png",
+      "sha256": "4eeaa2f24f1ed10befef3e496e4f1d806ab0a916b5ace9e938bc576f4daa0421",
+      "foregroundPixels": 4843,
+      "bounds": {
+        "x0": 187,
+        "y0": 65,
+        "x1": 292,
+        "y1": 189
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-pulse",
+      "view": "side",
+      "time": 0.36,
+      "name": "mythic-5-fire-pulse-side-3.png",
+      "sha256": "880281495931bb05f31af3282d61973c894426421fbe90ec5a5c0edf626cafc5",
+      "foregroundPixels": 4887,
+      "bounds": {
+        "x0": 187,
+        "y0": 63,
+        "x1": 293,
+        "y1": 187
+      },
+      "margin": 63,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-pulse",
+      "view": "side",
+      "time": 0.48,
+      "name": "mythic-5-fire-pulse-side-4.png",
+      "sha256": "2fabedfb1d02a8d9c07b252f454be3648e6c2d2dd4ddac0464a166b356a85815",
+      "foregroundPixels": 5821,
+      "bounds": {
+        "x0": 204,
+        "y0": 53,
+        "x1": 334,
+        "y1": 186
+      },
+      "margin": 53,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-pulse",
+      "view": "side",
+      "time": 0.6,
+      "name": "mythic-5-fire-pulse-side-5.png",
+      "sha256": "a769b4a6e3322a034e351aa68a69d42c58879af492f6e33361475b92265b084c",
+      "foregroundPixels": 5813,
+      "bounds": {
+        "x0": 208,
+        "y0": 54,
+        "x1": 337,
+        "y1": 188
+      },
+      "margin": 54,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-pulse",
+      "view": "side",
+      "time": 0.76,
+      "name": "mythic-5-fire-pulse-side-6.png",
+      "sha256": "d2622a3d6129a41d799b75a6d88bc91b2ab9c97010cf118e2615a5224f906b3b",
+      "foregroundPixels": 5306,
+      "bounds": {
+        "x0": 195,
+        "y0": 59,
+        "x1": 311,
+        "y1": 189
+      },
+      "margin": 59,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-pulse",
+      "view": "side",
+      "time": 0.96,
+      "name": "mythic-5-fire-pulse-side-7.png",
+      "sha256": "afc980ac2da7f243c27bd69fea9ffcceedc5812270fb6be1d184dd5d85186689",
+      "foregroundPixels": 5100,
+      "bounds": {
+        "x0": 192,
+        "y0": 63,
+        "x1": 305,
+        "y1": 191
+      },
+      "margin": 63,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-pulse",
+      "view": "side",
+      "time": 1.2,
+      "name": "mythic-5-fire-pulse-side-8.png",
+      "sha256": "a4e37264cbd350379afe14d992a2080210cc8746fa2fd7f37fe3866c3bc57cae",
+      "foregroundPixels": 5128,
+      "bounds": {
+        "x0": 191,
+        "y0": 65,
+        "x1": 304,
+        "y1": 193
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-pulse",
+      "view": "side",
+      "time": 1.44,
+      "name": "mythic-5-fire-pulse-side-9.png",
+      "sha256": "713c09068cd5fd987811ef7a7ed6bc7f69ece367e2e08343ce39600fade9a488",
+      "foregroundPixels": 5143,
+      "bounds": {
+        "x0": 190,
+        "y0": 65,
+        "x1": 303,
+        "y1": 193
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-pulse",
+      "view": "side",
+      "time": 1.68,
+      "name": "mythic-5-fire-pulse-side-10.png",
+      "sha256": "84f84ebd149b56998d4b51e4789cb10987bb29720d78f6df4449529ac8b02499",
+      "foregroundPixels": 5144,
+      "bounds": {
+        "x0": 190,
+        "y0": 66,
+        "x1": 300,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-pulse",
+      "view": "side",
+      "time": 1.92,
+      "name": "mythic-5-fire-pulse-side-11.png",
+      "sha256": "76634179a5cd92ff0bf90e73337a1e5a7c4db9a18f59f230cf79b83bc64b5cd0",
+      "foregroundPixels": 5216,
+      "bounds": {
+        "x0": 190,
+        "y0": 66,
+        "x1": 300,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-breaker",
+      "view": "front",
+      "time": 0.04,
+      "name": "mythic-5-fire-breaker-front-0.png",
+      "sha256": "029e4b3fff5a680ba3a7f66016d9032042113bbd21200c2a3510ee8712105716",
+      "foregroundPixels": 5102,
+      "bounds": {
+        "x0": 209,
+        "y0": 64,
+        "x1": 289,
+        "y1": 196
+      },
+      "margin": 63,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-breaker",
+      "view": "front",
+      "time": 0.12,
+      "name": "mythic-5-fire-breaker-front-1.png",
+      "sha256": "346ec9f961f06845013f5aa0a1055db52d3825fe271cfb3791b6db0b2122068f",
+      "foregroundPixels": 4985,
+      "bounds": {
+        "x0": 204,
+        "y0": 68,
+        "x1": 294,
+        "y1": 197
+      },
+      "margin": 62,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-breaker",
+      "view": "front",
+      "time": 0.24,
+      "name": "mythic-5-fire-breaker-front-2.png",
+      "sha256": "fd53836176990be59e0f79a3d22a79c518711c896e2e3658f1f0baa4d0d12619",
+      "foregroundPixels": 4859,
+      "bounds": {
+        "x0": 202,
+        "y0": 69,
+        "x1": 295,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-breaker",
+      "view": "front",
+      "time": 0.36,
+      "name": "mythic-5-fire-breaker-front-3.png",
+      "sha256": "8ca12a515b49aaad5df7797e74a4860f8fb03ab7ef7e91cde746c69decf9fdd0",
+      "foregroundPixels": 4523,
+      "bounds": {
+        "x0": 206,
+        "y0": 66,
+        "x1": 291,
+        "y1": 186
+      },
+      "margin": 66,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-breaker",
+      "view": "front",
+      "time": 0.48,
+      "name": "mythic-5-fire-breaker-front-4.png",
+      "sha256": "104297bee27a0fe44cde00eb8a69203b5256f9f11f69f5c45bc37f92a8bea1c5",
+      "foregroundPixels": 7077,
+      "bounds": {
+        "x0": 202,
+        "y0": 29,
+        "x1": 296,
+        "y1": 178
+      },
+      "margin": 29,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-breaker",
+      "view": "front",
+      "time": 0.6,
+      "name": "mythic-5-fire-breaker-front-5.png",
+      "sha256": "dbc453e4e600495e52a4a256b2b6cc18003db6f6e454a399a6ee69cd277e745a",
+      "foregroundPixels": 5916,
+      "bounds": {
+        "x0": 206,
+        "y0": 51,
+        "x1": 291,
+        "y1": 200
+      },
+      "margin": 51,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-breaker",
+      "view": "front",
+      "time": 0.76,
+      "name": "mythic-5-fire-breaker-front-6.png",
+      "sha256": "67eff77516f7c61cd232591084e4f0220292b0710c9094ce034a37f5ba6e995f",
+      "foregroundPixels": 5382,
+      "bounds": {
+        "x0": 208,
+        "y0": 60,
+        "x1": 289,
+        "y1": 198
+      },
+      "margin": 60,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-breaker",
+      "view": "front",
+      "time": 0.96,
+      "name": "mythic-5-fire-breaker-front-7.png",
+      "sha256": "4f6a44640555e377374f1934f4e6b0bcd859a842f5481554b927389795c8c38e",
+      "foregroundPixels": 5111,
+      "bounds": {
+        "x0": 210,
+        "y0": 64,
+        "x1": 289,
+        "y1": 198
+      },
+      "margin": 61,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-breaker",
+      "view": "front",
+      "time": 1.2,
+      "name": "mythic-5-fire-breaker-front-8.png",
+      "sha256": "130a55b1788465699951c5129db17968be6cfda057b87a274938fc8e3065c062",
+      "foregroundPixels": 5072,
+      "bounds": {
+        "x0": 210,
+        "y0": 65,
+        "x1": 289,
+        "y1": 198
+      },
+      "margin": 61,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-breaker",
+      "view": "front",
+      "time": 1.44,
+      "name": "mythic-5-fire-breaker-front-9.png",
+      "sha256": "8c01ab90f73e6f208d9a8c1677fedb4ace8cab1f8e19b38755b5c7abf852546b",
+      "foregroundPixels": 5092,
+      "bounds": {
+        "x0": 210,
+        "y0": 64,
+        "x1": 289,
+        "y1": 198
+      },
+      "margin": 61,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-breaker",
+      "view": "front",
+      "time": 1.68,
+      "name": "mythic-5-fire-breaker-front-10.png",
+      "sha256": "700e254073fc1e7148cd69f185a5c9c010da83a3c2872cc32142ddbbc960cc0b",
+      "foregroundPixels": 5013,
+      "bounds": {
+        "x0": 210,
+        "y0": 65,
+        "x1": 290,
+        "y1": 197
+      },
+      "margin": 62,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-breaker",
+      "view": "front",
+      "time": 1.92,
+      "name": "mythic-5-fire-breaker-front-11.png",
+      "sha256": "4c91a71040490f46864cad04cd3943d52d3140f4007209ad4b524b646f752699",
+      "foregroundPixels": 5068,
+      "bounds": {
+        "x0": 210,
+        "y0": 64,
+        "x1": 289,
+        "y1": 198
+      },
+      "margin": 61,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-breaker",
+      "view": "side",
+      "time": 0.04,
+      "name": "mythic-5-fire-breaker-side-0.png",
+      "sha256": "f76b38c278fdde39a95904c4b6040e60a18b4599fbbeb9a94f46bd773d8ea942",
+      "foregroundPixels": 5134,
+      "bounds": {
+        "x0": 190,
+        "y0": 66,
+        "x1": 298,
+        "y1": 193
+      },
+      "margin": 66,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-breaker",
+      "view": "side",
+      "time": 0.12,
+      "name": "mythic-5-fire-breaker-side-1.png",
+      "sha256": "b62930374f691930ff07aa5996b5551f7c74ac5e8759bad1f689e2d3ce20b936",
+      "foregroundPixels": 5061,
+      "bounds": {
+        "x0": 186,
+        "y0": 67,
+        "x1": 292,
+        "y1": 195
+      },
+      "margin": 64,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-breaker",
+      "view": "side",
+      "time": 0.24,
+      "name": "mythic-5-fire-breaker-side-2.png",
+      "sha256": "4640099bfa4071af4a8ed9b21ce973bac3434d555bd0363bcdd2fad034b40073",
+      "foregroundPixels": 4719,
+      "bounds": {
+        "x0": 182,
+        "y0": 70,
+        "x1": 281,
+        "y1": 196
+      },
+      "margin": 63,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-breaker",
+      "view": "side",
+      "time": 0.36,
+      "name": "mythic-5-fire-breaker-side-3.png",
+      "sha256": "2e12249e33fb0feb6a196da14e6a72977cf422ecad5b43aaed54d2f26c56a2d6",
+      "foregroundPixels": 4744,
+      "bounds": {
+        "x0": 180,
+        "y0": 65,
+        "x1": 280,
+        "y1": 193
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-breaker",
+      "view": "side",
+      "time": 0.48,
+      "name": "mythic-5-fire-breaker-side-4.png",
+      "sha256": "67862151dbd8bab402147d78bfa068cdb4ce6526eee2897a16d4083c3b59e7bd",
+      "foregroundPixels": 6106,
+      "bounds": {
+        "x0": 226,
+        "y0": 39,
+        "x1": 361,
+        "y1": 172
+      },
+      "margin": 39,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-breaker",
+      "view": "side",
+      "time": 0.6,
+      "name": "mythic-5-fire-breaker-side-5.png",
+      "sha256": "dd9586bf41ffb077fcf5b49db0bc3c3ddf90ff93fbc914b78291f93bf438ba62",
+      "foregroundPixels": 5703,
+      "bounds": {
+        "x0": 220,
+        "y0": 52,
+        "x1": 346,
+        "y1": 185
+      },
+      "margin": 52,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-breaker",
+      "view": "side",
+      "time": 0.76,
+      "name": "mythic-5-fire-breaker-side-6.png",
+      "sha256": "58f816c84b4ee471d5c408be04e4cc3935ee5ca279d65c173189a6a43d797ef9",
+      "foregroundPixels": 5247,
+      "bounds": {
+        "x0": 204,
+        "y0": 62,
+        "x1": 320,
+        "y1": 191
+      },
+      "margin": 62,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-breaker",
+      "view": "side",
+      "time": 0.96,
+      "name": "mythic-5-fire-breaker-side-7.png",
+      "sha256": "7c95293e397e6aa5f2f39474f7ef50a046c6e5edd2d1aecea40133f492d02b9a",
+      "foregroundPixels": 5062,
+      "bounds": {
+        "x0": 195,
+        "y0": 67,
+        "x1": 306,
+        "y1": 193
+      },
+      "margin": 66,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-breaker",
+      "view": "side",
+      "time": 1.2,
+      "name": "mythic-5-fire-breaker-side-8.png",
+      "sha256": "1a76ba75e93df03e575c724bf154ab163fa94188691095987ba4f6fd3d3bb80d",
+      "foregroundPixels": 5093,
+      "bounds": {
+        "x0": 192,
+        "y0": 67,
+        "x1": 303,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-breaker",
+      "view": "side",
+      "time": 1.44,
+      "name": "mythic-5-fire-breaker-side-9.png",
+      "sha256": "a1aa783fc546e64e82a7dcdb1ccdf1da0d122f84b51268737ef7845892c854ca",
+      "foregroundPixels": 5142,
+      "bounds": {
+        "x0": 190,
+        "y0": 66,
+        "x1": 301,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-breaker",
+      "view": "side",
+      "time": 1.68,
+      "name": "mythic-5-fire-breaker-side-10.png",
+      "sha256": "d58dc315f53851e11f6f2fc53ea27a9c40b4ef4187b066aeb7da22478e512f55",
+      "foregroundPixels": 5140,
+      "bounds": {
+        "x0": 190,
+        "y0": 66,
+        "x1": 300,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "fire-breaker",
+      "view": "side",
+      "time": 1.92,
+      "name": "mythic-5-fire-breaker-side-11.png",
+      "sha256": "fe74efb5222376a21891f7c8e03e1cfe2c4fe13ee7273972a38604e1f002d67a",
+      "foregroundPixels": 5219,
+      "bounds": {
+        "x0": 190,
+        "y0": 66,
+        "x1": 300,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "earth-pulse",
+      "view": "front",
+      "time": 0.04,
+      "name": "mythic-5-earth-pulse-front-0.png",
+      "sha256": "df1a35036456d12bfd4b0197fc03b1b8cb3c39b24e2560e7dbd68fe60c70e547",
+      "foregroundPixels": 5060,
+      "bounds": {
+        "x0": 209,
+        "y0": 64,
+        "x1": 289,
+        "y1": 197
+      },
+      "margin": 62,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "earth-pulse",
+      "view": "front",
+      "time": 0.12,
+      "name": "mythic-5-earth-pulse-front-1.png",
+      "sha256": "c281831ae49c8f665cdef44158dcc9c34a0a4c70e081a5715d2e3f33872d5ad8",
+      "foregroundPixels": 5122,
+      "bounds": {
+        "x0": 208,
+        "y0": 63,
+        "x1": 290,
+        "y1": 196
+      },
+      "margin": 63,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "earth-pulse",
+      "view": "front",
+      "time": 0.24,
+      "name": "mythic-5-earth-pulse-front-2.png",
+      "sha256": "8a91a271498d4df8fbb8660a5c3622aa4743a0abcad3b291fede31dca56196f2",
+      "foregroundPixels": 5031,
+      "bounds": {
+        "x0": 204,
+        "y0": 63,
+        "x1": 293,
+        "y1": 193
+      },
+      "margin": 63,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "earth-pulse",
+      "view": "front",
+      "time": 0.36,
+      "name": "mythic-5-earth-pulse-front-3.png",
+      "sha256": "8a806fb7e753219539e8bd36c288c03a997fb6ef8a5b20973635cfb7323cf85b",
+      "foregroundPixels": 4937,
+      "bounds": {
+        "x0": 203,
+        "y0": 62,
+        "x1": 294,
+        "y1": 191
+      },
+      "margin": 62,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "earth-pulse",
+      "view": "front",
+      "time": 0.48,
+      "name": "mythic-5-earth-pulse-front-4.png",
+      "sha256": "5a3e4fe6db1baa250c0370a61acae4ee9b89e094180841ef87ab5eeffd479d5c",
+      "foregroundPixels": 5842,
+      "bounds": {
+        "x0": 204,
+        "y0": 50,
+        "x1": 293,
+        "y1": 192
+      },
+      "margin": 50,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "earth-pulse",
+      "view": "front",
+      "time": 0.6,
+      "name": "mythic-5-earth-pulse-front-5.png",
+      "sha256": "c93164d4fe4e07d2917017bbb189ea1c138fe6ce8a7e2201eff5ca8be40aad0a",
+      "foregroundPixels": 5840,
+      "bounds": {
+        "x0": 205,
+        "y0": 50,
+        "x1": 291,
+        "y1": 196
+      },
+      "margin": 50,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "earth-pulse",
+      "view": "front",
+      "time": 0.76,
+      "name": "mythic-5-earth-pulse-front-6.png",
+      "sha256": "95f02f6ef151e0b8245250a8ac8a8833d842cd7765df7096125c36d5b5faa4ad",
+      "foregroundPixels": 5365,
+      "bounds": {
+        "x0": 209,
+        "y0": 56,
+        "x1": 289,
+        "y1": 195
+      },
+      "margin": 56,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "earth-pulse",
+      "view": "front",
+      "time": 0.96,
+      "name": "mythic-5-earth-pulse-front-7.png",
+      "sha256": "34f704d865a491ecca836585ffcbb804a32187ab0d472676b877328f74f86702",
+      "foregroundPixels": 5096,
+      "bounds": {
+        "x0": 210,
+        "y0": 61,
+        "x1": 289,
+        "y1": 196
+      },
+      "margin": 61,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "earth-pulse",
+      "view": "front",
+      "time": 1.2,
+      "name": "mythic-5-earth-pulse-front-8.png",
+      "sha256": "a969b20d3d8e51024a7a7d1048756bd2aa6b8153c972ba11d6936486bf02d0df",
+      "foregroundPixels": 5075,
+      "bounds": {
+        "x0": 210,
+        "y0": 62,
+        "x1": 289,
+        "y1": 197
+      },
+      "margin": 62,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "earth-pulse",
+      "view": "front",
+      "time": 1.44,
+      "name": "mythic-5-earth-pulse-front-9.png",
+      "sha256": "fcb55e2e9f9ff6e2d7b59c8748557627910e10b40767bd980fd9453ef2e7d504",
+      "foregroundPixels": 5090,
+      "bounds": {
+        "x0": 210,
+        "y0": 63,
+        "x1": 289,
+        "y1": 197
+      },
+      "margin": 62,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "earth-pulse",
+      "view": "front",
+      "time": 1.68,
+      "name": "mythic-5-earth-pulse-front-10.png",
+      "sha256": "817603de972eef367f425edba4298a24efa837abfd877ddba20bae57a45402a5",
+      "foregroundPixels": 5012,
+      "bounds": {
+        "x0": 210,
+        "y0": 65,
+        "x1": 290,
+        "y1": 197
+      },
+      "margin": 62,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "earth-pulse",
+      "view": "front",
+      "time": 1.92,
+      "name": "mythic-5-earth-pulse-front-11.png",
+      "sha256": "0fa051f6fe35eb2293694e2ac0221f051ee298e6101dc5b2ce371272e28eab97",
+      "foregroundPixels": 5065,
+      "bounds": {
+        "x0": 210,
+        "y0": 64,
+        "x1": 289,
+        "y1": 198
+      },
+      "margin": 61,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "earth-pulse",
+      "view": "side",
+      "time": 0.04,
+      "name": "mythic-5-earth-pulse-side-0.png",
+      "sha256": "db5049fa94d3ee1a2622043976a29f606703dd9ab92b44a747838b24d49df8f2",
+      "foregroundPixels": 5126,
+      "bounds": {
+        "x0": 189,
+        "y0": 65,
+        "x1": 298,
+        "y1": 193
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "earth-pulse",
+      "view": "side",
+      "time": 0.12,
+      "name": "mythic-5-earth-pulse-side-1.png",
+      "sha256": "1424602889c8bc6e019516e69b5712219bd817a3a6cefc34fd4c8ea3ed3bf2f9",
+      "foregroundPixels": 5072,
+      "bounds": {
+        "x0": 188,
+        "y0": 64,
+        "x1": 295,
+        "y1": 192
+      },
+      "margin": 64,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "earth-pulse",
+      "view": "side",
+      "time": 0.24,
+      "name": "mythic-5-earth-pulse-side-2.png",
+      "sha256": "2b34be4be2e64349b2297526a8d1a3adf6dbd8425cc244fcaea4ac83e6f5c2d7",
+      "foregroundPixels": 4841,
+      "bounds": {
+        "x0": 187,
+        "y0": 65,
+        "x1": 292,
+        "y1": 189
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "earth-pulse",
+      "view": "side",
+      "time": 0.36,
+      "name": "mythic-5-earth-pulse-side-3.png",
+      "sha256": "13fb39fc1afef4a34e7023f14ef8149af56efac318bab10eb234e8bb252f7da0",
+      "foregroundPixels": 4915,
+      "bounds": {
+        "x0": 187,
+        "y0": 63,
+        "x1": 294,
+        "y1": 187
+      },
+      "margin": 63,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "earth-pulse",
+      "view": "side",
+      "time": 0.48,
+      "name": "mythic-5-earth-pulse-side-4.png",
+      "sha256": "1cbe627d3d965bd159fdd30c86577107869a4b949557363f423e0863264d1b31",
+      "foregroundPixels": 5809,
+      "bounds": {
+        "x0": 204,
+        "y0": 53,
+        "x1": 333,
+        "y1": 185
+      },
+      "margin": 53,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "earth-pulse",
+      "view": "side",
+      "time": 0.6,
+      "name": "mythic-5-earth-pulse-side-5.png",
+      "sha256": "c0617a19b5abb5fcd36ad31e4dc5f1f713d5ae70ad7c8309bc8cb95273d6dde4",
+      "foregroundPixels": 5824,
+      "bounds": {
+        "x0": 208,
+        "y0": 54,
+        "x1": 337,
+        "y1": 188
+      },
+      "margin": 54,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "earth-pulse",
+      "view": "side",
+      "time": 0.76,
+      "name": "mythic-5-earth-pulse-side-6.png",
+      "sha256": "e72a116e5a723cfa61c8df8c54c25697e9e6b8d1db517a0c5b454314c4c65803",
+      "foregroundPixels": 5380,
+      "bounds": {
+        "x0": 197,
+        "y0": 58,
+        "x1": 314,
+        "y1": 189
+      },
+      "margin": 58,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "earth-pulse",
+      "view": "side",
+      "time": 0.96,
+      "name": "mythic-5-earth-pulse-side-7.png",
+      "sha256": "bf12e3fca52d7177ac324cdaf0224a2e005f562818cf9bfac4bbfea0ddd1aa5d",
+      "foregroundPixels": 5099,
+      "bounds": {
+        "x0": 192,
+        "y0": 63,
+        "x1": 305,
+        "y1": 191
+      },
+      "margin": 63,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "earth-pulse",
+      "view": "side",
+      "time": 1.2,
+      "name": "mythic-5-earth-pulse-side-8.png",
+      "sha256": "042fd18f5d13c0fe055906dfe2ad6e6bd4a0945d43651265d06d30e176ef0b2b",
+      "foregroundPixels": 5128,
+      "bounds": {
+        "x0": 191,
+        "y0": 65,
+        "x1": 304,
+        "y1": 193
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "earth-pulse",
+      "view": "side",
+      "time": 1.44,
+      "name": "mythic-5-earth-pulse-side-9.png",
+      "sha256": "713c09068cd5fd987811ef7a7ed6bc7f69ece367e2e08343ce39600fade9a488",
+      "foregroundPixels": 5143,
+      "bounds": {
+        "x0": 190,
+        "y0": 65,
+        "x1": 303,
+        "y1": 193
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "earth-pulse",
+      "view": "side",
+      "time": 1.68,
+      "name": "mythic-5-earth-pulse-side-10.png",
+      "sha256": "84f84ebd149b56998d4b51e4789cb10987bb29720d78f6df4449529ac8b02499",
+      "foregroundPixels": 5144,
+      "bounds": {
+        "x0": 190,
+        "y0": 66,
+        "x1": 300,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "earth-pulse",
+      "view": "side",
+      "time": 1.92,
+      "name": "mythic-5-earth-pulse-side-11.png",
+      "sha256": "76634179a5cd92ff0bf90e73337a1e5a7c4db9a18f59f230cf79b83bc64b5cd0",
+      "foregroundPixels": 5216,
+      "bounds": {
+        "x0": 190,
+        "y0": 66,
+        "x1": 300,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "undertow",
+      "view": "front",
+      "time": 0.04,
+      "name": "mythic-5-undertow-front-0.png",
+      "sha256": "675b54c9ff87b2b6929949ff6f69c7588be22118643e099cb9693769ea866d58",
+      "foregroundPixels": 5120,
+      "bounds": {
+        "x0": 209,
+        "y0": 64,
+        "x1": 289,
+        "y1": 196
+      },
+      "margin": 63,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "undertow",
+      "view": "front",
+      "time": 0.12,
+      "name": "mythic-5-undertow-front-1.png",
+      "sha256": "6228ee616b394f3e954f429fcd665863b6e5dbe85f6798bc9878babd2c82f58e",
+      "foregroundPixels": 5119,
+      "bounds": {
+        "x0": 208,
+        "y0": 63,
+        "x1": 290,
+        "y1": 195
+      },
+      "margin": 63,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "undertow",
+      "view": "front",
+      "time": 0.24,
+      "name": "mythic-5-undertow-front-2.png",
+      "sha256": "859c9f6bbb03a4fe9a42aa79701482f679f73cf7d230540e2541bacc8a202d2b",
+      "foregroundPixels": 5009,
+      "bounds": {
+        "x0": 204,
+        "y0": 64,
+        "x1": 294,
+        "y1": 192
+      },
+      "margin": 64,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "undertow",
+      "view": "front",
+      "time": 0.36,
+      "name": "mythic-5-undertow-front-3.png",
+      "sha256": "6be36ed92d9e2c62c0036020a4c07e1430f67c948e43ff7309713a45243185f4",
+      "foregroundPixels": 4943,
+      "bounds": {
+        "x0": 203,
+        "y0": 62,
+        "x1": 294,
+        "y1": 191
+      },
+      "margin": 62,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "undertow",
+      "view": "front",
+      "time": 0.48,
+      "name": "mythic-5-undertow-front-4.png",
+      "sha256": "1f084463db0d037f6c7b333f5b31be139229553cbed0d6b146c4304f6d574b80",
+      "foregroundPixels": 5815,
+      "bounds": {
+        "x0": 204,
+        "y0": 50,
+        "x1": 293,
+        "y1": 192
+      },
+      "margin": 50,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "undertow",
+      "view": "front",
+      "time": 0.6,
+      "name": "mythic-5-undertow-front-5.png",
+      "sha256": "cad2bde558b5a7793bd4960e50245c33cc97d462353094452d0ed50008a4dca0",
+      "foregroundPixels": 5851,
+      "bounds": {
+        "x0": 205,
+        "y0": 50,
+        "x1": 291,
+        "y1": 197
+      },
+      "margin": 50,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "undertow",
+      "view": "front",
+      "time": 0.76,
+      "name": "mythic-5-undertow-front-6.png",
+      "sha256": "ef4743964f84921811484529102dee763c0baa33c3ef8c1aa6b69ec3bf3ac377",
+      "foregroundPixels": 5359,
+      "bounds": {
+        "x0": 209,
+        "y0": 57,
+        "x1": 289,
+        "y1": 195
+      },
+      "margin": 57,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "undertow",
+      "view": "front",
+      "time": 0.96,
+      "name": "mythic-5-undertow-front-7.png",
+      "sha256": "43593285810693e0d03078043362146f131d120a7b1546c2ba75f442db8997ea",
+      "foregroundPixels": 5120,
+      "bounds": {
+        "x0": 210,
+        "y0": 61,
+        "x1": 289,
+        "y1": 195
+      },
+      "margin": 61,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "undertow",
+      "view": "front",
+      "time": 1.2,
+      "name": "mythic-5-undertow-front-8.png",
+      "sha256": "291d67472428ca94a26e626f93b76fcab9b55ea62e1e601b6a771822a1a72778",
+      "foregroundPixels": 5070,
+      "bounds": {
+        "x0": 210,
+        "y0": 63,
+        "x1": 289,
+        "y1": 197
+      },
+      "margin": 62,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "undertow",
+      "view": "front",
+      "time": 1.44,
+      "name": "mythic-5-undertow-front-9.png",
+      "sha256": "224d7092cba221ddae0bc36eadc604d72c805490af041d63f9e753dabe406465",
+      "foregroundPixels": 5075,
+      "bounds": {
+        "x0": 210,
+        "y0": 63,
+        "x1": 289,
+        "y1": 197
+      },
+      "margin": 62,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "undertow",
+      "view": "front",
+      "time": 1.68,
+      "name": "mythic-5-undertow-front-10.png",
+      "sha256": "89dbcc3274534d395a208c20f594f8a10e3155ccfe23aacb1d66364082bf32f1",
+      "foregroundPixels": 5012,
+      "bounds": {
+        "x0": 210,
+        "y0": 65,
+        "x1": 290,
+        "y1": 197
+      },
+      "margin": 62,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "undertow",
+      "view": "front",
+      "time": 1.92,
+      "name": "mythic-5-undertow-front-11.png",
+      "sha256": "022e26351855a66266e0011416ed5f848b2e7a454a02ef97d41691e3a2887762",
+      "foregroundPixels": 5069,
+      "bounds": {
+        "x0": 210,
+        "y0": 64,
+        "x1": 289,
+        "y1": 198
+      },
+      "margin": 61,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "undertow",
+      "view": "side",
+      "time": 0.04,
+      "name": "mythic-5-undertow-side-0.png",
+      "sha256": "e73d8f5d8629308a128be929e6ab77c2f8540916219f38716d62789fc26a9e9c",
+      "foregroundPixels": 5134,
+      "bounds": {
+        "x0": 190,
+        "y0": 66,
+        "x1": 298,
+        "y1": 193
+      },
+      "margin": 66,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "undertow",
+      "view": "side",
+      "time": 0.12,
+      "name": "mythic-5-undertow-side-1.png",
+      "sha256": "89f44a74d4ccee62a606b99816a2fc31d9af01a6094d8963aa419c008af5cd81",
+      "foregroundPixels": 5069,
+      "bounds": {
+        "x0": 188,
+        "y0": 64,
+        "x1": 295,
+        "y1": 192
+      },
+      "margin": 64,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "undertow",
+      "view": "side",
+      "time": 0.24,
+      "name": "mythic-5-undertow-side-2.png",
+      "sha256": "5173fe7533c5076081a9baa1ec92fb8f52e1b206a1f79a74e46a5b98b980c502",
+      "foregroundPixels": 4874,
+      "bounds": {
+        "x0": 187,
+        "y0": 65,
+        "x1": 292,
+        "y1": 190
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "undertow",
+      "view": "side",
+      "time": 0.36,
+      "name": "mythic-5-undertow-side-3.png",
+      "sha256": "05fddf7c53dbe9223b936892c4a830a05ab8adbc3c85e4d4315607dbbefc0cd2",
+      "foregroundPixels": 4889,
+      "bounds": {
+        "x0": 187,
+        "y0": 63,
+        "x1": 293,
+        "y1": 187
+      },
+      "margin": 63,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "undertow",
+      "view": "side",
+      "time": 0.48,
+      "name": "mythic-5-undertow-side-4.png",
+      "sha256": "17137c1a36ecb209ee1e51363f006d296dc049e782d3349b3e67b3e9f48bded5",
+      "foregroundPixels": 5829,
+      "bounds": {
+        "x0": 204,
+        "y0": 53,
+        "x1": 334,
+        "y1": 186
+      },
+      "margin": 53,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "undertow",
+      "view": "side",
+      "time": 0.6,
+      "name": "mythic-5-undertow-side-5.png",
+      "sha256": "264e43798698c2748dfca8085d725b709ebad5d39f38a33b6c1b4ec1b5176e0b",
+      "foregroundPixels": 5848,
+      "bounds": {
+        "x0": 207,
+        "y0": 54,
+        "x1": 337,
+        "y1": 187
+      },
+      "margin": 54,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "undertow",
+      "view": "side",
+      "time": 0.76,
+      "name": "mythic-5-undertow-side-6.png",
+      "sha256": "8378ecd35837ead4b1ca5a756b738740697dae614a342f34f526efe21d75a57f",
+      "foregroundPixels": 5389,
+      "bounds": {
+        "x0": 198,
+        "y0": 58,
+        "x1": 315,
+        "y1": 189
+      },
+      "margin": 58,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "undertow",
+      "view": "side",
+      "time": 0.96,
+      "name": "mythic-5-undertow-side-7.png",
+      "sha256": "66cf72ef368b4c0ea6a70898e066f667b2c1f30b14dbaf18c598bf71739aec9b",
+      "foregroundPixels": 5103,
+      "bounds": {
+        "x0": 192,
+        "y0": 63,
+        "x1": 305,
+        "y1": 191
+      },
+      "margin": 63,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "undertow",
+      "view": "side",
+      "time": 1.2,
+      "name": "mythic-5-undertow-side-8.png",
+      "sha256": "c2625f468dd1c763a9d66af0b5e5c5b47aedd7fba9d4b37d6119209b40ebfdc7",
+      "foregroundPixels": 5121,
+      "bounds": {
+        "x0": 191,
+        "y0": 65,
+        "x1": 304,
+        "y1": 193
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "undertow",
+      "view": "side",
+      "time": 1.44,
+      "name": "mythic-5-undertow-side-9.png",
+      "sha256": "2ec7f22750bb80eb570cea14fff31be0152469acb54b32495c71cea90e9a9051",
+      "foregroundPixels": 5157,
+      "bounds": {
+        "x0": 191,
+        "y0": 65,
+        "x1": 302,
+        "y1": 193
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "undertow",
+      "view": "side",
+      "time": 1.68,
+      "name": "mythic-5-undertow-side-10.png",
+      "sha256": "d3d1046ef4847c57f3680a4ac84611f4a3ca40d78f0bfb70b94211f25c03d4b0",
+      "foregroundPixels": 5141,
+      "bounds": {
+        "x0": 190,
+        "y0": 66,
+        "x1": 300,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "undertow",
+      "view": "side",
+      "time": 1.92,
+      "name": "mythic-5-undertow-side-11.png",
+      "sha256": "ec695a3008dd9ce5afd8fa44c8955bba86ed566ca096612dc25c30503b035a76",
+      "foregroundPixels": 5228,
+      "bounds": {
+        "x0": 190,
+        "y0": 66,
+        "x1": 300,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mend",
+      "view": "front",
+      "time": 0.04,
+      "name": "mythic-5-mend-front-0.png",
+      "sha256": "e295d62d8b144fa441c70c9e7024fe899ad70df354afb0f7c6df234a0102961a",
+      "foregroundPixels": 5049,
+      "bounds": {
+        "x0": 209,
+        "y0": 64,
+        "x1": 289,
+        "y1": 198
+      },
+      "margin": 61,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mend",
+      "view": "front",
+      "time": 0.12,
+      "name": "mythic-5-mend-front-1.png",
+      "sha256": "7a9de84baf1f4a5d8407e865250787da33d3e2311474f7a95c045bb3eab51dfb",
+      "foregroundPixels": 5069,
+      "bounds": {
+        "x0": 209,
+        "y0": 65,
+        "x1": 289,
+        "y1": 198
+      },
+      "margin": 61,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mend",
+      "view": "front",
+      "time": 0.24,
+      "name": "mythic-5-mend-front-2.png",
+      "sha256": "3cd7f6f9232a221cbefab4fbfd0e3a26da7f6aaf7baebe959153b9552f8eb9e1",
+      "foregroundPixels": 5095,
+      "bounds": {
+        "x0": 209,
+        "y0": 64,
+        "x1": 289,
+        "y1": 198
+      },
+      "margin": 61,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mend",
+      "view": "front",
+      "time": 0.36,
+      "name": "mythic-5-mend-front-3.png",
+      "sha256": "ea4365e01f00be93b557e73c3b8481916fa71ebc1f35d5d4055ed81715120d2d",
+      "foregroundPixels": 5092,
+      "bounds": {
+        "x0": 209,
+        "y0": 64,
+        "x1": 290,
+        "y1": 198
+      },
+      "margin": 61,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mend",
+      "view": "front",
+      "time": 0.48,
+      "name": "mythic-5-mend-front-4.png",
+      "sha256": "be4d9d6748f6a8ca51b3bb50da01c82a6b0c4cc13e5776e98ab72cf3ddaad6c0",
+      "foregroundPixels": 4985,
+      "bounds": {
+        "x0": 209,
+        "y0": 65,
+        "x1": 290,
+        "y1": 197
+      },
+      "margin": 62,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mend",
+      "view": "front",
+      "time": 0.6,
+      "name": "mythic-5-mend-front-5.png",
+      "sha256": "be11032a99949d64ad8da58eeab52f2dfd666a95d5e81ed92cc622570fdf01a9",
+      "foregroundPixels": 4920,
+      "bounds": {
+        "x0": 210,
+        "y0": 66,
+        "x1": 289,
+        "y1": 197
+      },
+      "margin": 62,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mend",
+      "view": "front",
+      "time": 0.76,
+      "name": "mythic-5-mend-front-6.png",
+      "sha256": "9d38460e513c55eb9d4e4f9eb1ec0dcfd5800ffb4616f7edc54a9186b3e0441d",
+      "foregroundPixels": 4933,
+      "bounds": {
+        "x0": 210,
+        "y0": 66,
+        "x1": 289,
+        "y1": 197
+      },
+      "margin": 62,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mend",
+      "view": "front",
+      "time": 0.96,
+      "name": "mythic-5-mend-front-7.png",
+      "sha256": "5d204632fddce2fd3c2d91db8271c77dbd703757a3b968dbd929ecde3b717422",
+      "foregroundPixels": 5003,
+      "bounds": {
+        "x0": 210,
+        "y0": 65,
+        "x1": 289,
+        "y1": 198
+      },
+      "margin": 61,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mend",
+      "view": "front",
+      "time": 1.2,
+      "name": "mythic-5-mend-front-8.png",
+      "sha256": "f9c5784279ac71643df71b5faa81c90cea9fa4c65e2cc92e57e49f04b6af3adb",
+      "foregroundPixels": 5029,
+      "bounds": {
+        "x0": 210,
+        "y0": 65,
+        "x1": 288,
+        "y1": 198
+      },
+      "margin": 61,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mend",
+      "view": "front",
+      "time": 1.44,
+      "name": "mythic-5-mend-front-9.png",
+      "sha256": "d1b20aba2b5fff381d06b07253bdd3944217bce1c4b8afffc8a359e2feade20b",
+      "foregroundPixels": 5012,
+      "bounds": {
+        "x0": 211,
+        "y0": 65,
+        "x1": 288,
+        "y1": 198
+      },
+      "margin": 61,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mend",
+      "view": "front",
+      "time": 1.68,
+      "name": "mythic-5-mend-front-10.png",
+      "sha256": "5d4f112eb4aea97b0321fbd923cf3bdcb3045af7752e4b11f0ad676d723e3dd7",
+      "foregroundPixels": 5013,
+      "bounds": {
+        "x0": 210,
+        "y0": 65,
+        "x1": 290,
+        "y1": 197
+      },
+      "margin": 62,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mend",
+      "view": "front",
+      "time": 1.92,
+      "name": "mythic-5-mend-front-11.png",
+      "sha256": "0c6a7427814f726fd5b38b3e3cf4a51de561fc4e93192f9938368c94a37d9bc5",
+      "foregroundPixels": 5066,
+      "bounds": {
+        "x0": 210,
+        "y0": 64,
+        "x1": 289,
+        "y1": 198
+      },
+      "margin": 61,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mend",
+      "view": "side",
+      "time": 0.04,
+      "name": "mythic-5-mend-side-0.png",
+      "sha256": "19c7b1399de808c56e77863df2f8409748fecea86eba8f436a4b3aa1ddceb01d",
+      "foregroundPixels": 5134,
+      "bounds": {
+        "x0": 190,
+        "y0": 66,
+        "x1": 299,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mend",
+      "view": "side",
+      "time": 0.12,
+      "name": "mythic-5-mend-side-1.png",
+      "sha256": "9a0d582c7d64736cb963bfef25179fb57f2f296448edcce9c89380e3795274d8",
+      "foregroundPixels": 5207,
+      "bounds": {
+        "x0": 190,
+        "y0": 66,
+        "x1": 300,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mend",
+      "view": "side",
+      "time": 0.24,
+      "name": "mythic-5-mend-side-2.png",
+      "sha256": "2ebdac28591b60da005038908df75c814ea95c791816476945293d852646d7be",
+      "foregroundPixels": 5233,
+      "bounds": {
+        "x0": 190,
+        "y0": 66,
+        "x1": 301,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mend",
+      "view": "side",
+      "time": 0.36,
+      "name": "mythic-5-mend-side-3.png",
+      "sha256": "ac9e9381a933791a204ef40b0eb05b7b76c7adfcb32a9aec3e747b3640a78ad3",
+      "foregroundPixels": 5161,
+      "bounds": {
+        "x0": 190,
+        "y0": 66,
+        "x1": 301,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mend",
+      "view": "side",
+      "time": 0.48,
+      "name": "mythic-5-mend-side-4.png",
+      "sha256": "775901264407da57215e0c5c1f25ee196d8d9b8cad539041003680949e7fa197",
+      "foregroundPixels": 5074,
+      "bounds": {
+        "x0": 190,
+        "y0": 67,
+        "x1": 300,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mend",
+      "view": "side",
+      "time": 0.6,
+      "name": "mythic-5-mend-side-5.png",
+      "sha256": "e808fb910c6dda1e4be17ea45680446c714492d3a22883e3fc209cd29784efac",
+      "foregroundPixels": 5022,
+      "bounds": {
+        "x0": 190,
+        "y0": 68,
+        "x1": 300,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mend",
+      "view": "side",
+      "time": 0.76,
+      "name": "mythic-5-mend-side-6.png",
+      "sha256": "7e6d010ad477ec06f2a58d2f9f06f57da2f9e291bb1b1eb2e4cf7b62e24837d2",
+      "foregroundPixels": 5051,
+      "bounds": {
+        "x0": 190,
+        "y0": 67,
+        "x1": 300,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mend",
+      "view": "side",
+      "time": 0.96,
+      "name": "mythic-5-mend-side-7.png",
+      "sha256": "cf67cf130f8e7453f6db3feb79bd155dd57bf9bb5ae4888fb699454f8874845b",
+      "foregroundPixels": 5128,
+      "bounds": {
+        "x0": 190,
+        "y0": 66,
+        "x1": 301,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mend",
+      "view": "side",
+      "time": 1.2,
+      "name": "mythic-5-mend-side-8.png",
+      "sha256": "031e4b0ddedf2d9e497a71a7a1d0a6bb6d1acae25e830f2a0821909f3d517b51",
+      "foregroundPixels": 5210,
+      "bounds": {
+        "x0": 190,
+        "y0": 66,
+        "x1": 301,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mend",
+      "view": "side",
+      "time": 1.44,
+      "name": "mythic-5-mend-side-9.png",
+      "sha256": "0f396f427221edd1c6b0dbe15f48c85e8f133a60eaa7be9667b283dff0970c2e",
+      "foregroundPixels": 5222,
+      "bounds": {
+        "x0": 190,
+        "y0": 66,
+        "x1": 301,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mend",
+      "view": "side",
+      "time": 1.68,
+      "name": "mythic-5-mend-side-10.png",
+      "sha256": "74ba7834c5d1ced845fddb4b52dc6bdce745fb3bddd6faed8c71c67581136929",
+      "foregroundPixels": 5143,
+      "bounds": {
+        "x0": 190,
+        "y0": 66,
+        "x1": 300,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mend",
+      "view": "side",
+      "time": 1.92,
+      "name": "mythic-5-mend-side-11.png",
+      "sha256": "0a0f3ae5c0bf21b048ded29da24eb41eee8d6764fef8d3ff2ed4402e8fc30459",
+      "foregroundPixels": 5219,
+      "bounds": {
+        "x0": 190,
+        "y0": 66,
+        "x1": 300,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "purify",
+      "view": "front",
+      "time": 0.04,
+      "name": "mythic-5-purify-front-0.png",
+      "sha256": "f02461911f83f52a5657d5dc3515ba68a4fad07d26f19fb7eb540b7b1b0cc08f",
+      "foregroundPixels": 5109,
+      "bounds": {
+        "x0": 210,
+        "y0": 64,
+        "x1": 288,
+        "y1": 196
+      },
+      "margin": 63,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "purify",
+      "view": "front",
+      "time": 0.12,
+      "name": "mythic-5-purify-front-1.png",
+      "sha256": "415027b271b71f1b68cf9d9aaa403098aefdc7bbb23fc2eee16e00673487929b",
+      "foregroundPixels": 5113,
+      "bounds": {
+        "x0": 208,
+        "y0": 63,
+        "x1": 290,
+        "y1": 195
+      },
+      "margin": 63,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "purify",
+      "view": "front",
+      "time": 0.24,
+      "name": "mythic-5-purify-front-2.png",
+      "sha256": "d409119a2f9b6e58fbf40c96d79f4333e5dac13787340231d4af08e1fba7b1b7",
+      "foregroundPixels": 5008,
+      "bounds": {
+        "x0": 204,
+        "y0": 64,
+        "x1": 294,
+        "y1": 192
+      },
+      "margin": 64,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "purify",
+      "view": "front",
+      "time": 0.36,
+      "name": "mythic-5-purify-front-3.png",
+      "sha256": "a943619af76ba64bba8b4cf9192330809e85d9b445a9032da3e22691cbd57000",
+      "foregroundPixels": 4943,
+      "bounds": {
+        "x0": 203,
+        "y0": 62,
+        "x1": 294,
+        "y1": 191
+      },
+      "margin": 62,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "purify",
+      "view": "front",
+      "time": 0.48,
+      "name": "mythic-5-purify-front-4.png",
+      "sha256": "0c862d70550a3c7f425184e4571bcb1351728edb4c81fc4c281bffb2687ba706",
+      "foregroundPixels": 5844,
+      "bounds": {
+        "x0": 204,
+        "y0": 50,
+        "x1": 293,
+        "y1": 193
+      },
+      "margin": 50,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "purify",
+      "view": "front",
+      "time": 0.6,
+      "name": "mythic-5-purify-front-5.png",
+      "sha256": "43206ac7509f2debe5f496da00692dbe78bd43ec5c6d75743733cc7f589ad255",
+      "foregroundPixels": 5847,
+      "bounds": {
+        "x0": 205,
+        "y0": 50,
+        "x1": 291,
+        "y1": 197
+      },
+      "margin": 50,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "purify",
+      "view": "front",
+      "time": 0.76,
+      "name": "mythic-5-purify-front-6.png",
+      "sha256": "c2944a01f15018bb57c56a3a1f5684ebfafa1414063e8842aad5a35eb9c393cd",
+      "foregroundPixels": 5359,
+      "bounds": {
+        "x0": 209,
+        "y0": 57,
+        "x1": 289,
+        "y1": 195
+      },
+      "margin": 57,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "purify",
+      "view": "front",
+      "time": 0.96,
+      "name": "mythic-5-purify-front-7.png",
+      "sha256": "1ad0d017e0201bd0a300e703c92f2ef279039bf39ac337797c5ded86dfb58ef8",
+      "foregroundPixels": 5119,
+      "bounds": {
+        "x0": 210,
+        "y0": 61,
+        "x1": 289,
+        "y1": 195
+      },
+      "margin": 61,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "purify",
+      "view": "front",
+      "time": 1.2,
+      "name": "mythic-5-purify-front-8.png",
+      "sha256": "973425d8cc5b3a9597510e09d71d124dfcc7ad5c1b835ce0f70b92178b43a0f1",
+      "foregroundPixels": 5070,
+      "bounds": {
+        "x0": 210,
+        "y0": 63,
+        "x1": 289,
+        "y1": 197
+      },
+      "margin": 62,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "purify",
+      "view": "front",
+      "time": 1.44,
+      "name": "mythic-5-purify-front-9.png",
+      "sha256": "eb2fcddb2ae2bcdd4113706cd4dad4a7012c65c1786449565ba0d073168841bb",
+      "foregroundPixels": 5095,
+      "bounds": {
+        "x0": 210,
+        "y0": 63,
+        "x1": 289,
+        "y1": 197
+      },
+      "margin": 62,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "purify",
+      "view": "front",
+      "time": 1.68,
+      "name": "mythic-5-purify-front-10.png",
+      "sha256": "89dbcc3274534d395a208c20f594f8a10e3155ccfe23aacb1d66364082bf32f1",
+      "foregroundPixels": 5012,
+      "bounds": {
+        "x0": 210,
+        "y0": 65,
+        "x1": 290,
+        "y1": 197
+      },
+      "margin": 62,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "purify",
+      "view": "front",
+      "time": 1.92,
+      "name": "mythic-5-purify-front-11.png",
+      "sha256": "022e26351855a66266e0011416ed5f848b2e7a454a02ef97d41691e3a2887762",
+      "foregroundPixels": 5069,
+      "bounds": {
+        "x0": 210,
+        "y0": 64,
+        "x1": 289,
+        "y1": 198
+      },
+      "margin": 61,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "purify",
+      "view": "side",
+      "time": 0.04,
+      "name": "mythic-5-purify-side-0.png",
+      "sha256": "284ef4d42b8f9e17d715afe276ab2c350bd2ae8b551695bb0b239565f5f8fbfb",
+      "foregroundPixels": 5126,
+      "bounds": {
+        "x0": 189,
+        "y0": 65,
+        "x1": 298,
+        "y1": 193
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "purify",
+      "view": "side",
+      "time": 0.12,
+      "name": "mythic-5-purify-side-1.png",
+      "sha256": "1f5394fab03cd000d2709d171de794f67c39986405486bc464c40b39078b6227",
+      "foregroundPixels": 5071,
+      "bounds": {
+        "x0": 188,
+        "y0": 64,
+        "x1": 295,
+        "y1": 192
+      },
+      "margin": 64,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "purify",
+      "view": "side",
+      "time": 0.24,
+      "name": "mythic-5-purify-side-2.png",
+      "sha256": "408617067b94bdbd468fc3d9982509b36be0a68fe37bcc7d87743e4a8fe78062",
+      "foregroundPixels": 4843,
+      "bounds": {
+        "x0": 187,
+        "y0": 65,
+        "x1": 292,
+        "y1": 189
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "purify",
+      "view": "side",
+      "time": 0.36,
+      "name": "mythic-5-purify-side-3.png",
+      "sha256": "fbd23826d6db7a365292ca7b9e75659101b0dfed10c573d5f8a782376a0d28a2",
+      "foregroundPixels": 4887,
+      "bounds": {
+        "x0": 187,
+        "y0": 63,
+        "x1": 293,
+        "y1": 187
+      },
+      "margin": 63,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "purify",
+      "view": "side",
+      "time": 0.48,
+      "name": "mythic-5-purify-side-4.png",
+      "sha256": "f11dd82f40004358e9afd1f7b07144cd2e9578096dca01216c09a92e50767ef7",
+      "foregroundPixels": 5822,
+      "bounds": {
+        "x0": 204,
+        "y0": 53,
+        "x1": 334,
+        "y1": 186
+      },
+      "margin": 53,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "purify",
+      "view": "side",
+      "time": 0.6,
+      "name": "mythic-5-purify-side-5.png",
+      "sha256": "f73c6e36bdfd8b136bdb2a216ae4f373bc6de5e88fd1e4159b41641fea2d4415",
+      "foregroundPixels": 5853,
+      "bounds": {
+        "x0": 207,
+        "y0": 54,
+        "x1": 337,
+        "y1": 187
+      },
+      "margin": 54,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "purify",
+      "view": "side",
+      "time": 0.76,
+      "name": "mythic-5-purify-side-6.png",
+      "sha256": "7a70ed4638960c36092a8dd4fde8bde426746301da1f6d09f67d7b97b07a6542",
+      "foregroundPixels": 5384,
+      "bounds": {
+        "x0": 199,
+        "y0": 58,
+        "x1": 316,
+        "y1": 189
+      },
+      "margin": 58,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "purify",
+      "view": "side",
+      "time": 0.96,
+      "name": "mythic-5-purify-side-7.png",
+      "sha256": "7252d1556fdceb6f187a2ec02af58002721436a6638fc59ff9ee4a669e824814",
+      "foregroundPixels": 5108,
+      "bounds": {
+        "x0": 192,
+        "y0": 63,
+        "x1": 305,
+        "y1": 191
+      },
+      "margin": 63,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "purify",
+      "view": "side",
+      "time": 1.2,
+      "name": "mythic-5-purify-side-8.png",
+      "sha256": "6e7737045fcc583cb914065518ed4ed6add9fa4c27d2eb0c1037fdea2d6fea3d",
+      "foregroundPixels": 5129,
+      "bounds": {
+        "x0": 191,
+        "y0": 65,
+        "x1": 304,
+        "y1": 193
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "purify",
+      "view": "side",
+      "time": 1.44,
+      "name": "mythic-5-purify-side-9.png",
+      "sha256": "5e8b0616be17f0ff5fae0e0308c2bcadd86b28eed59fafc4fdd173bc327c6598",
+      "foregroundPixels": 5143,
+      "bounds": {
+        "x0": 190,
+        "y0": 65,
+        "x1": 303,
+        "y1": 193
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "purify",
+      "view": "side",
+      "time": 1.68,
+      "name": "mythic-5-purify-side-10.png",
+      "sha256": "0e59a240a0d6e187e9bce832f1a3fcd050a4d5e6750da054f48cc0865e39784f",
+      "foregroundPixels": 5144,
+      "bounds": {
+        "x0": 190,
+        "y0": 66,
+        "x1": 300,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "purify",
+      "view": "side",
+      "time": 1.92,
+      "name": "mythic-5-purify-side-11.png",
+      "sha256": "76634179a5cd92ff0bf90e73337a1e5a7c4db9a18f59f230cf79b83bc64b5cd0",
+      "foregroundPixels": 5216,
+      "bounds": {
+        "x0": 190,
+        "y0": 66,
+        "x1": 300,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "aegis",
+      "view": "front",
+      "time": 0.04,
+      "name": "mythic-5-aegis-front-0.png",
+      "sha256": "ca9ed2baceb1acac790ec506da2cfd75705648a203e9a5447b56dcfc9b418e68",
+      "foregroundPixels": 5106,
+      "bounds": {
+        "x0": 210,
+        "y0": 64,
+        "x1": 288,
+        "y1": 196
+      },
+      "margin": 63,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "aegis",
+      "view": "front",
+      "time": 0.12,
+      "name": "mythic-5-aegis-front-1.png",
+      "sha256": "e31b7ed7fb3dd6c83f1c0f0d0fdec83feee7b1015422f6dd22b8fed01bec2da1",
+      "foregroundPixels": 5119,
+      "bounds": {
+        "x0": 208,
+        "y0": 63,
+        "x1": 290,
+        "y1": 195
+      },
+      "margin": 63,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "aegis",
+      "view": "front",
+      "time": 0.24,
+      "name": "mythic-5-aegis-front-2.png",
+      "sha256": "5cef12f9c5d1978c34df3aa9da5adb3f65fdb2072f4076dfaa3eec67ef681da9",
+      "foregroundPixels": 5004,
+      "bounds": {
+        "x0": 204,
+        "y0": 64,
+        "x1": 294,
+        "y1": 192
+      },
+      "margin": 64,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "aegis",
+      "view": "front",
+      "time": 0.36,
+      "name": "mythic-5-aegis-front-3.png",
+      "sha256": "dd1a8755de31cba734126283283318dddc6950509162e35778c5494157dafb4c",
+      "foregroundPixels": 4937,
+      "bounds": {
+        "x0": 203,
+        "y0": 62,
+        "x1": 294,
+        "y1": 191
+      },
+      "margin": 62,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "aegis",
+      "view": "front",
+      "time": 0.48,
+      "name": "mythic-5-aegis-front-4.png",
+      "sha256": "b4ef6648e0e64e347fd25df20f6ee40f8ab4a912bb6498d74f139fa11c112633",
+      "foregroundPixels": 5815,
+      "bounds": {
+        "x0": 204,
+        "y0": 50,
+        "x1": 293,
+        "y1": 192
+      },
+      "margin": 50,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "aegis",
+      "view": "front",
+      "time": 0.6,
+      "name": "mythic-5-aegis-front-5.png",
+      "sha256": "f141e9b4d11b72306950ab587dfce5b15f209da5ce96bededd277336a16f6dac",
+      "foregroundPixels": 5851,
+      "bounds": {
+        "x0": 205,
+        "y0": 50,
+        "x1": 291,
+        "y1": 197
+      },
+      "margin": 50,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "aegis",
+      "view": "front",
+      "time": 0.76,
+      "name": "mythic-5-aegis-front-6.png",
+      "sha256": "1411f791d1cd15f00965baa2e575f0a6c6da675cb43fb1fb600b53b6a60d4d08",
+      "foregroundPixels": 5454,
+      "bounds": {
+        "x0": 208,
+        "y0": 55,
+        "x1": 289,
+        "y1": 195
+      },
+      "margin": 55,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "aegis",
+      "view": "front",
+      "time": 0.96,
+      "name": "mythic-5-aegis-front-7.png",
+      "sha256": "c773ef62a962cd99a09b32a759ca975a25ec1cb2847e50d0babe098ac5e030d0",
+      "foregroundPixels": 5120,
+      "bounds": {
+        "x0": 210,
+        "y0": 61,
+        "x1": 289,
+        "y1": 195
+      },
+      "margin": 61,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "aegis",
+      "view": "front",
+      "time": 1.2,
+      "name": "mythic-5-aegis-front-8.png",
+      "sha256": "754a44f8aa90ee3853d8848cdcf313018189af1f462e3ef9412f045f66b2b6aa",
+      "foregroundPixels": 5070,
+      "bounds": {
+        "x0": 210,
+        "y0": 63,
+        "x1": 289,
+        "y1": 197
+      },
+      "margin": 62,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "aegis",
+      "view": "front",
+      "time": 1.44,
+      "name": "mythic-5-aegis-front-9.png",
+      "sha256": "bd848a9850e92082924185d44a70c48228e0c757892ccc22f74fd1e4c93121c1",
+      "foregroundPixels": 5075,
+      "bounds": {
+        "x0": 210,
+        "y0": 63,
+        "x1": 289,
+        "y1": 197
+      },
+      "margin": 62,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "aegis",
+      "view": "front",
+      "time": 1.68,
+      "name": "mythic-5-aegis-front-10.png",
+      "sha256": "51965227d3c8308e33cd189a3976b5560d941831636bc421e7ee14c985e51a0c",
+      "foregroundPixels": 5012,
+      "bounds": {
+        "x0": 210,
+        "y0": 65,
+        "x1": 290,
+        "y1": 197
+      },
+      "margin": 62,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "aegis",
+      "view": "front",
+      "time": 1.92,
+      "name": "mythic-5-aegis-front-11.png",
+      "sha256": "4c1b2140530042135a3557181684dd04f611540bedba50fbbc7f4a2a0d6d24f1",
+      "foregroundPixels": 5068,
+      "bounds": {
+        "x0": 210,
+        "y0": 64,
+        "x1": 289,
+        "y1": 198
+      },
+      "margin": 61,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "aegis",
+      "view": "side",
+      "time": 0.04,
+      "name": "mythic-5-aegis-side-0.png",
+      "sha256": "a7e28048789064e94d25f43617152a303c2dddfdd2e0f21580b0dc7adfd0cffe",
+      "foregroundPixels": 5141,
+      "bounds": {
+        "x0": 190,
+        "y0": 66,
+        "x1": 298,
+        "y1": 193
+      },
+      "margin": 66,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "aegis",
+      "view": "side",
+      "time": 0.12,
+      "name": "mythic-5-aegis-side-1.png",
+      "sha256": "2d9b9e6b11fe65171c8aacba5a7dfc9f27f729fea036e12adbfcbbf21b527565",
+      "foregroundPixels": 5065,
+      "bounds": {
+        "x0": 188,
+        "y0": 65,
+        "x1": 295,
+        "y1": 192
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "aegis",
+      "view": "side",
+      "time": 0.24,
+      "name": "mythic-5-aegis-side-2.png",
+      "sha256": "145c71444b5189dd92e64d7d0d1e12b563e74ea3cadee8307d68681be2c981e7",
+      "foregroundPixels": 4845,
+      "bounds": {
+        "x0": 187,
+        "y0": 65,
+        "x1": 292,
+        "y1": 189
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "aegis",
+      "view": "side",
+      "time": 0.36,
+      "name": "mythic-5-aegis-side-3.png",
+      "sha256": "01f6b66452fab8548c970001051f2c16810f7afb315bdfba7b9be96c70056a88",
+      "foregroundPixels": 4919,
+      "bounds": {
+        "x0": 187,
+        "y0": 63,
+        "x1": 294,
+        "y1": 187
+      },
+      "margin": 63,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "aegis",
+      "view": "side",
+      "time": 0.48,
+      "name": "mythic-5-aegis-side-4.png",
+      "sha256": "06ef5a8aa34b0e55aad76ab69b8a68a1b310e0862598e06c6eb0064614b6eb66",
+      "foregroundPixels": 5767,
+      "bounds": {
+        "x0": 201,
+        "y0": 53,
+        "x1": 330,
+        "y1": 185
+      },
+      "margin": 53,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "aegis",
+      "view": "side",
+      "time": 0.6,
+      "name": "mythic-5-aegis-side-5.png",
+      "sha256": "46948a5424d1f4b13ac5a0856a1c0fa6463a7f2b4d6973aa9a18768d982f6a8f",
+      "foregroundPixels": 5847,
+      "bounds": {
+        "x0": 208,
+        "y0": 54,
+        "x1": 337,
+        "y1": 187
+      },
+      "margin": 54,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "aegis",
+      "view": "side",
+      "time": 0.76,
+      "name": "mythic-5-aegis-side-6.png",
+      "sha256": "e66591aa9c5f81076c0ee353230d7780f677709e3d2a90a3a5f91852ed1f6751",
+      "foregroundPixels": 5354,
+      "bounds": {
+        "x0": 198,
+        "y0": 59,
+        "x1": 315,
+        "y1": 189
+      },
+      "margin": 59,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "aegis",
+      "view": "side",
+      "time": 0.96,
+      "name": "mythic-5-aegis-side-7.png",
+      "sha256": "ba1232d75a34dadaf8bcab7e6c66175c1043c98910dccd8bca590762c6f16552",
+      "foregroundPixels": 5090,
+      "bounds": {
+        "x0": 192,
+        "y0": 63,
+        "x1": 305,
+        "y1": 191
+      },
+      "margin": 63,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "aegis",
+      "view": "side",
+      "time": 1.2,
+      "name": "mythic-5-aegis-side-8.png",
+      "sha256": "30b07646899f4e5747987b585cc8f38907426d2794df016e13d853c70248257e",
+      "foregroundPixels": 5130,
+      "bounds": {
+        "x0": 191,
+        "y0": 65,
+        "x1": 304,
+        "y1": 193
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "aegis",
+      "view": "side",
+      "time": 1.44,
+      "name": "mythic-5-aegis-side-9.png",
+      "sha256": "a03243783592ba679e9e8e53b0e30f79d3031c268e2ff20ec1bfe7ecc9161860",
+      "foregroundPixels": 5145,
+      "bounds": {
+        "x0": 191,
+        "y0": 65,
+        "x1": 304,
+        "y1": 193
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "aegis",
+      "view": "side",
+      "time": 1.68,
+      "name": "mythic-5-aegis-side-10.png",
+      "sha256": "33324668cc50f637e50a9bff97c95bd82fe8750c4222444127de76402a2eee69",
+      "foregroundPixels": 5141,
+      "bounds": {
+        "x0": 190,
+        "y0": 66,
+        "x1": 300,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "aegis",
+      "view": "side",
+      "time": 1.92,
+      "name": "mythic-5-aegis-side-11.png",
+      "sha256": "76634179a5cd92ff0bf90e73337a1e5a7c4db9a18f59f230cf79b83bc64b5cd0",
+      "foregroundPixels": 5216,
+      "bounds": {
+        "x0": 190,
+        "y0": 66,
+        "x1": 300,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mythic-5-signature",
+      "view": "front",
+      "time": 0.04,
+      "name": "mythic-5-mythic-5-signature-front-0.png",
+      "sha256": "172eb0e561a75dfd5cc2c19e38dc7ae80d4737903074c0aeab0306d6d961cb11",
+      "foregroundPixels": 5060,
+      "bounds": {
+        "x0": 209,
+        "y0": 64,
+        "x1": 289,
+        "y1": 198
+      },
+      "margin": 61,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mythic-5-signature",
+      "view": "front",
+      "time": 0.12,
+      "name": "mythic-5-mythic-5-signature-front-1.png",
+      "sha256": "9fd07c6855830fa966a21f0f83d35a94eee3bb2566feb45fa3cdfc40c6e98aae",
+      "foregroundPixels": 5077,
+      "bounds": {
+        "x0": 210,
+        "y0": 64,
+        "x1": 289,
+        "y1": 198
+      },
+      "margin": 61,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mythic-5-signature",
+      "view": "front",
+      "time": 0.24,
+      "name": "mythic-5-mythic-5-signature-front-2.png",
+      "sha256": "623042fe4c5eae39c979d00855ef86d78780a3a5ac81333e007b99c4a1dc9c68",
+      "foregroundPixels": 5099,
+      "bounds": {
+        "x0": 209,
+        "y0": 64,
+        "x1": 289,
+        "y1": 198
+      },
+      "margin": 61,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mythic-5-signature",
+      "view": "front",
+      "time": 0.36,
+      "name": "mythic-5-mythic-5-signature-front-3.png",
+      "sha256": "bc9ec325e250608e54535159e1e2dc23075077425dee28d635241c87e0d745e5",
+      "foregroundPixels": 5088,
+      "bounds": {
+        "x0": 209,
+        "y0": 64,
+        "x1": 290,
+        "y1": 198
+      },
+      "margin": 61,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mythic-5-signature",
+      "view": "front",
+      "time": 0.48,
+      "name": "mythic-5-mythic-5-signature-front-4.png",
+      "sha256": "094200ea1e41f219dca873ef766e9c876b2cf7e3befe8aab8f146fab4ba20d0c",
+      "foregroundPixels": 4941,
+      "bounds": {
+        "x0": 209,
+        "y0": 66,
+        "x1": 289,
+        "y1": 197
+      },
+      "margin": 62,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mythic-5-signature",
+      "view": "front",
+      "time": 0.6,
+      "name": "mythic-5-mythic-5-signature-front-5.png",
+      "sha256": "36d5613a8aec46bff63f0bacc02bb55d1a81335a5d73517aff489a14a7129596",
+      "foregroundPixels": 4913,
+      "bounds": {
+        "x0": 210,
+        "y0": 66,
+        "x1": 289,
+        "y1": 197
+      },
+      "margin": 62,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mythic-5-signature",
+      "view": "front",
+      "time": 0.76,
+      "name": "mythic-5-mythic-5-signature-front-6.png",
+      "sha256": "17dcd27ad378ab7a3970d4db82432e8fdd424b59dd4974e9ca5f5bbb4268b5f7",
+      "foregroundPixels": 4931,
+      "bounds": {
+        "x0": 210,
+        "y0": 66,
+        "x1": 289,
+        "y1": 197
+      },
+      "margin": 62,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mythic-5-signature",
+      "view": "front",
+      "time": 0.96,
+      "name": "mythic-5-mythic-5-signature-front-7.png",
+      "sha256": "fdf108a5dd4e87dc4e1116f18b777dc25700debc80ac7130dae7ea0ac370fb2d",
+      "foregroundPixels": 5003,
+      "bounds": {
+        "x0": 210,
+        "y0": 65,
+        "x1": 289,
+        "y1": 198
+      },
+      "margin": 61,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mythic-5-signature",
+      "view": "front",
+      "time": 1.2,
+      "name": "mythic-5-mythic-5-signature-front-8.png",
+      "sha256": "1fc5e140bede3f9e7dcc8b84ea671b598e9d596015ff5e6c2b0d7eabc28cb2a4",
+      "foregroundPixels": 5028,
+      "bounds": {
+        "x0": 210,
+        "y0": 65,
+        "x1": 288,
+        "y1": 198
+      },
+      "margin": 61,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mythic-5-signature",
+      "view": "front",
+      "time": 1.44,
+      "name": "mythic-5-mythic-5-signature-front-9.png",
+      "sha256": "33dee42e0a47d9f3ffbc3870dda64b10b5e98081657de2dde521fd3c5cc72e40",
+      "foregroundPixels": 5004,
+      "bounds": {
+        "x0": 211,
+        "y0": 65,
+        "x1": 288,
+        "y1": 198
+      },
+      "margin": 61,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mythic-5-signature",
+      "view": "front",
+      "time": 1.68,
+      "name": "mythic-5-mythic-5-signature-front-10.png",
+      "sha256": "1a6d37b859eac0b3d9cb179cfbc87f23f637f7e3ee55ef3b34b2a9403a87e5b2",
+      "foregroundPixels": 5011,
+      "bounds": {
+        "x0": 210,
+        "y0": 65,
+        "x1": 290,
+        "y1": 197
+      },
+      "margin": 62,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mythic-5-signature",
+      "view": "front",
+      "time": 1.92,
+      "name": "mythic-5-mythic-5-signature-front-11.png",
+      "sha256": "0145375a69bbd968fd2914158cee18b7f0f517ca8155e46a6d3196a95ce41aac",
+      "foregroundPixels": 5070,
+      "bounds": {
+        "x0": 210,
+        "y0": 64,
+        "x1": 289,
+        "y1": 198
+      },
+      "margin": 61,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mythic-5-signature",
+      "view": "side",
+      "time": 0.04,
+      "name": "mythic-5-mythic-5-signature-side-0.png",
+      "sha256": "d927801dae449cd2f3558b733210d6b9d28d599a8c5c984d656554a87678801b",
+      "foregroundPixels": 5134,
+      "bounds": {
+        "x0": 190,
+        "y0": 66,
+        "x1": 299,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mythic-5-signature",
+      "view": "side",
+      "time": 0.12,
+      "name": "mythic-5-mythic-5-signature-side-1.png",
+      "sha256": "cef7f27dabbe5fa6a9907fa1484e16b5e3945748899f4f1b1921a72aa401f9b0",
+      "foregroundPixels": 5207,
+      "bounds": {
+        "x0": 190,
+        "y0": 66,
+        "x1": 300,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mythic-5-signature",
+      "view": "side",
+      "time": 0.24,
+      "name": "mythic-5-mythic-5-signature-side-2.png",
+      "sha256": "b161e592e72d499aca4dda43bde1845cb186cad7dc64bec55bbb04e14c08b3cc",
+      "foregroundPixels": 5233,
+      "bounds": {
+        "x0": 190,
+        "y0": 66,
+        "x1": 301,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mythic-5-signature",
+      "view": "side",
+      "time": 0.36,
+      "name": "mythic-5-mythic-5-signature-side-3.png",
+      "sha256": "4f2cf0933cdcf6d2c8f498c8e54d6a7f55d9d9d31a5b0857a2ab95b7f9b369d6",
+      "foregroundPixels": 5201,
+      "bounds": {
+        "x0": 190,
+        "y0": 66,
+        "x1": 301,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mythic-5-signature",
+      "view": "side",
+      "time": 0.48,
+      "name": "mythic-5-mythic-5-signature-side-4.png",
+      "sha256": "7cbf990df676eac302571c11b14e31e87898c12ac1c92c5332c8435353dd9da8",
+      "foregroundPixels": 5032,
+      "bounds": {
+        "x0": 190,
+        "y0": 67,
+        "x1": 300,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mythic-5-signature",
+      "view": "side",
+      "time": 0.6,
+      "name": "mythic-5-mythic-5-signature-side-5.png",
+      "sha256": "1c85cb1c783eac924fd12d59352ed234daf2b25545a59cc8826d3817f0e6ad61",
+      "foregroundPixels": 5017,
+      "bounds": {
+        "x0": 190,
+        "y0": 68,
+        "x1": 300,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mythic-5-signature",
+      "view": "side",
+      "time": 0.76,
+      "name": "mythic-5-mythic-5-signature-side-6.png",
+      "sha256": "101a1dba57a7e9b2cade75050e785f64d8961ec258ca8947765e0a87a6d93cf5",
+      "foregroundPixels": 5051,
+      "bounds": {
+        "x0": 190,
+        "y0": 67,
+        "x1": 300,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mythic-5-signature",
+      "view": "side",
+      "time": 0.96,
+      "name": "mythic-5-mythic-5-signature-side-7.png",
+      "sha256": "40abe786ff7da1b4363e45e75e5498f0b7b7d10e2fe787447eaf3c7a6b11d20e",
+      "foregroundPixels": 5128,
+      "bounds": {
+        "x0": 190,
+        "y0": 66,
+        "x1": 301,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mythic-5-signature",
+      "view": "side",
+      "time": 1.2,
+      "name": "mythic-5-mythic-5-signature-side-8.png",
+      "sha256": "cb58418cb481b1ba0ec993019528361d665d3cc148bc41aac5a8874a2c4b2f92",
+      "foregroundPixels": 5210,
+      "bounds": {
+        "x0": 190,
+        "y0": 66,
+        "x1": 301,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mythic-5-signature",
+      "view": "side",
+      "time": 1.44,
+      "name": "mythic-5-mythic-5-signature-side-9.png",
+      "sha256": "1a4838c8219eac0061bd88b307fbfe913cb472cb17097669f7f95b8ac2c29292",
+      "foregroundPixels": 5218,
+      "bounds": {
+        "x0": 190,
+        "y0": 66,
+        "x1": 301,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mythic-5-signature",
+      "view": "side",
+      "time": 1.68,
+      "name": "mythic-5-mythic-5-signature-side-10.png",
+      "sha256": "59d9347acc2bc39d73b31bb1e4e62c6feed8b20c2eae0d6c80e76fe9f9019989",
+      "foregroundPixels": 5151,
+      "bounds": {
+        "x0": 190,
+        "y0": 66,
+        "x1": 300,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    },
+    {
+      "move": "mythic-5-signature",
+      "view": "side",
+      "time": 1.92,
+      "name": "mythic-5-mythic-5-signature-side-11.png",
+      "sha256": "0a0f3ae5c0bf21b048ded29da24eb41eee8d6764fef8d3ff2ed4402e8fc30459",
+      "foregroundPixels": 5219,
+      "bounds": {
+        "x0": 190,
+        "y0": 66,
+        "x1": 300,
+        "y1": 194
+      },
+      "margin": 65,
+      "edgePixels": 0,
+      "warning": false
+    }
+  ],
+  "limits": "Checks visible high-contrast pixels against the inspection canvas boundary. Dark silhouettes, occlusion, anatomy and unsampled times still require visual review."
+}

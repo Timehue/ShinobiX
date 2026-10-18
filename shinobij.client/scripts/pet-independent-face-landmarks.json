@@ -1061,6 +1061,806 @@
         "appendedAnatomicalNeckHeadJoints": 2,
         "coverageActuallyRechecked": true
       }
+    },
+    "mythic-5": {
+      "camera": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.24090603208410044,
+          0.2719635290761488,
+          0.20726564447764176,
+          0.929253700746886,
+          0.3287493519708673,
+          1.0181145257431843
+        ],
+        "cameraPadding": 1.15
+      },
+      "status": "landmark-coverage-reviewed",
+      "sourceSha256": "9936f40f9c7c76a0a8f28e2e14d838052ee115d932a95759a5131919bb8d056f",
+      "coverageEvidence": ".tmp/pet-independent-face-recheck/mythic-5-landmark-coverage.png",
+      "landmarks": {
+        "upperFace": {
+          "center": [
+            -0.000906032084100444,
+            0.5003939850826173,
+            0.8230143061952311
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            145,
+            196
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "muzzle": {
+          "center": [
+            0.010663737012801162,
+            0.3733068631359736,
+            0.8925397655842336
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            144,
+            221
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "lowerFace": {
+          "center": [
+            0.003026071592785273,
+            0.29726564447764176,
+            0.8981145257431844
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            142,
+            235
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "jawChin": {
+          "center": [
+            0.03196352907614882,
+            0.33281666328977977,
+            0.8592207585502676
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            114,
+            217
+          ],
+          "pickedView": "head-side",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "crest": {
+          "center": [
+            0.023146689343565487,
+            0.749253700746886,
+            0.6087493519708673
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            157,
+            150
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        }
+      },
+      "geometrySha256": "2cd3c15933de21c193dc23fd2743caa28338be861339dfa46bc7164f95781e4f",
+      "geometryToVisibleBind": [
+        0.9999997205966068,
+        0,
+        0,
+        0,
+        0,
+        0.999999895134914,
+        4.861869321026724e-8,
+        0,
+        0,
+        1.654001374751246e-8,
+        0.999999723352886,
+        0,
+        4.647052674437713e-8,
+        9.79794285704827e-8,
+        -1.2513380609480151e-9,
+        1
+      ],
+      "headCountVisuallyVerified": 1,
+      "heads": [
+        {
+          "id": "primary",
+          "landmarks": [
+            "upperFace",
+            "muzzle",
+            "lowerFace",
+            "jawChin",
+            "crest"
+          ]
+        }
+      ],
+      "coverageReviewedAt": "2026-10-18T01:43:52.124Z",
+      "coverageReview": "One bird head. Original front/side survey and overlay actually inspected. Brow, beak, lower beak, side beak and separate crest sampled independently; minimum battle patch 24 vertices. Wing roots, legs and tail reserved for motion inspection."
+    },
+    "mythic-6": {
+      "camera": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.4896711720609205,
+          0.22417313227414853,
+          0.15830268844617126,
+          0.8764984561196292,
+          0.3440457934161838,
+          1.1090869060534025
+        ],
+        "cameraPadding": 1.15
+      },
+      "status": "landmark-coverage-reviewed",
+      "sourceSha256": "b7919b82a0ce7a1260c9e0cab2eb27615acfe4aa4deac9e59f21912f4b6fe253",
+      "coverageEvidence": "../docs/screenshots/pet-independent-mythic-006-010-progress-2026-10-17/mythic-6-landmark-coverage.png",
+      "landmarks": {
+        "upperFace": {
+          "center": [
+            -0.06852937130511556,
+            0.45860021502425496,
+            0.8986019148494312
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            154,
+            197
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "muzzle": {
+          "center": [
+            -0.045407288984797275,
+            0.32008679021595415,
+            0.9890869060534024
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            150,
+            243
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "lowerFace": {
+          "center": [
+            -0.04729785243109168,
+            0.24830268844617126,
+            0.9675232713654188
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            146,
+            262
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "jawChin": {
+          "center": [
+            -0.01582686772585145,
+            0.27255701580711544,
+            0.7950751874314261
+          ],
+          "radius": 0.11,
+          "pickedPixel": [
+            177,
+            249
+          ],
+          "pickedView": "head-side",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "horn": {
+          "center": [
+            -0.2496711720609205,
+            0.6964984561196292,
+            0.6240457934161838
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            128,
+            120
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        }
+      },
+      "geometrySha256": "974734c4f09d7e4e5d39ff76efde57c6f451f3ab31e94105f3b4efc5cec97153",
+      "geometryToVisibleBind": [
+        1.0000000114482157,
+        0,
+        0,
+        0,
+        0,
+        0.9999999949660261,
+        -3.772398948775901e-9,
+        0,
+        0,
+        -1.7734489499154904e-7,
+        0.9999998742211486,
+        0,
+        -1.0594769735410448e-8,
+        8.999087641736736e-8,
+        1.4267175241222674e-7,
+        1
+      ],
+      "headCountVisuallyVerified": 1,
+      "heads": [
+        {
+          "id": "primary",
+          "landmarks": [
+            "upperFace",
+            "muzzle",
+            "lowerFace",
+            "jawChin",
+            "horn"
+          ]
+        }
+      ],
+      "rigExtensionReview": {
+        "previousGeometrySha256": "8ef9ef98690d72b65fc4bd3da19bef3adc903b21b6e25ec61a6ede38be82197a",
+        "candidateSourceSha256": "8c2c2bfc468365ec3cac2083756048ee0641393f7de5257514dc501203ce4daa",
+        "conservationEvidence": "docs/screenshots/pet-independent-mythic-006-010-progress-2026-10-17/mythic-6-anatomical-v2-conservation.json",
+        "originalBoneFramesAndInverseBindsPreserved": true,
+        "legacyLimbNamesPrefixed": true,
+        "sculptUvsTexturesPreserved": true,
+        "frozenLandmarksAndCoordinateFrameUnchanged": true,
+        "appendedAnatomicalLimbJoints": 12,
+        "coverageActuallyRechecked": true
+      }
+    },
+    "mythic-7": {
+      "camera": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.29071031354291094,
+          0.39873582300818267,
+          0.19838462327138287,
+          0.9360693355198566,
+          0.10679883200754436,
+          0.8106329855851893
+        ],
+        "cameraPadding": 1.15
+      },
+      "status": "landmark-coverage-reviewed",
+      "sourceSha256": "4fffae57743f0cef6df2e5d9268dc16afcd11c18c59224b4655c456817d27c06",
+      "coverageEvidence": "../docs/screenshots/pet-independent-mythic-006-010-progress-2026-10-17/mythic-7-landmark-coverage.png",
+      "landmarks": {
+        "upperFace": {
+          "center": [
+            -0.045037147598666484,
+            0.5256858803950232,
+            0.457131054937308
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            150,
+            170
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "muzzle": {
+          "center": [
+            -0.05071031354291094,
+            0.3511276344883034,
+            0.5552793268492974
+          ],
+          "radius": 0.12,
+          "pickedPixel": [
+            147,
+            200
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "lowerFace": {
+          "center": [
+            -0.01747943034918727,
+            0.28838462327138287,
+            0.6906329855851893
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            150,
+            214
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "jawChin": {
+          "center": [
+            0.15873582300818265,
+            0.30653545460012316,
+            0.4765886411276198
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            155,
+            209
+          ],
+          "pickedView": "head-side",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "headband": {
+          "center": [
+            0.027111938037788812,
+            0.7560693355198567,
+            0.3867988320075444
+          ],
+          "radius": 0.16,
+          "pickedPixel": [
+            163,
+            133
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        }
+      },
+      "geometrySha256": "30b3d83cbf62f69449abddf9ed9e88039b0a5b32af9ac3c495455eb23f939299",
+      "geometryToVisibleBind": [
+        1.0000001346017549,
+        0,
+        0,
+        0,
+        0,
+        0.9999999269081143,
+        -3.936054801534361e-8,
+        0,
+        0,
+        -1.2793567621960378e-8,
+        1.0000001629986077,
+        0,
+        -6.491182647167318e-8,
+        6.640769173449357e-8,
+        2.0304413539395938e-8,
+        1
+      ],
+      "headCountVisuallyVerified": 1,
+      "heads": [
+        {
+          "id": "primary",
+          "landmarks": [
+            "upperFace",
+            "muzzle",
+            "lowerFace",
+            "jawChin",
+            "headband"
+          ]
+        }
+      ]
+    },
+    "mythic-8": {
+      "camera": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.349340250772572,
+          0.29584364528884044,
+          0.33000532084165735,
+          1.0224537402321094,
+          0.03191602185024034,
+          0.5483049342645909
+        ],
+        "cameraPadding": 1.15
+      },
+      "status": "landmark-coverage-reviewed",
+      "sourceSha256": "102c9cb332811bce864416b561da5ce8455c3671220cf65be022eca26d64db4c",
+      "coverageEvidence": "../docs/screenshots/pet-independent-mythic-006-010-progress-2026-10-17/mythic-8-landmark-coverage.png",
+      "landmarks": {
+        "upperFace": {
+          "center": [
+            -0.09614249410672099,
+            0.593518845685731,
+            0.4283049342645909
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            154,
+            179
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "muzzle": {
+          "center": [
+            -0.10934025077257205,
+            0.47509160699918207,
+            0.3955409424676881
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            152,
+            199
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "lowerFace": {
+          "center": [
+            -0.10118622314665726,
+            0.4200053208416573,
+            0.4124236766666745
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            153,
+            209
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "jawChin": {
+          "center": [
+            0.05584364528884047,
+            0.4466528449144129,
+            0.31191602185024037
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            134,
+            202
+          ],
+          "pickedView": "head-side",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "crest": {
+          "center": [
+            -0.08725840653398195,
+            0.8424537402321095,
+            0.3748493736539145
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            157,
+            135
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        }
+      },
+      "geometrySha256": "89059cbf8dfbd26a402c6a6c1e2096b0ca85ff964702eeb0929e14079e4572af",
+      "geometryToVisibleBind": [
+        1.0000002166772592,
+        0,
+        0,
+        0,
+        0,
+        1.0000000535701108,
+        -2.263375645239485e-8,
+        0,
+        0,
+        -2.0254442512079862e-8,
+        1.000000230250835,
+        0,
+        -6.136130803087447e-7,
+        -4.850881801798934e-8,
+        7.611741237312231e-10,
+        1
+      ],
+      "headCountVisuallyVerified": 1,
+      "heads": [
+        {
+          "id": "primary",
+          "landmarks": [
+            "upperFace",
+            "muzzle",
+            "lowerFace",
+            "jawChin",
+            "crest"
+          ]
+        }
+      ]
+    },
+    "mythic-9": {
+      "camera": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.23582525224578416,
+          0.43265441328497395,
+          -0.05692082011706467,
+          0.645569204587958,
+          -0.07486040873879454,
+          0.4700784801765341
+        ],
+        "cameraPadding": 1.15
+      },
+      "status": "landmark-coverage-reviewed",
+      "sourceSha256": "378464c376e5968a77685ca7a6e596183a71a6187d0e35dd3fa72340a60f0244",
+      "coverageEvidence": "../docs/screenshots/pet-independent-mythic-006-010-progress-2026-10-17/mythic-9-landmark-coverage.png",
+      "landmarks": {
+        "upperFace": {
+          "center": [
+            0.004174747754215821,
+            0.36464096816702823,
+            0.30663328509352056
+          ],
+          "radius": 0.14,
+          "pickedPixel": [
+            167,
+            206
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "muzzle": {
+          "center": [
+            0.03517263694322121,
+            0.20848150933675583,
+            0.3500784801765341
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            173,
+            244
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "lowerFace": {
+          "center": [
+            0.013478849444670489,
+            0.03307917988293533,
+            0.309710999856984
+          ],
+          "radius": 0.15,
+          "pickedPixel": [
+            174,
+            282
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "jawChin": {
+          "center": [
+            0.19265441328497396,
+            0.10790575805110272,
+            0.20513959126120548
+          ],
+          "radius": 0.12,
+          "pickedPixel": [
+            190,
+            282
+          ],
+          "pickedView": "head-side",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "crown": {
+          "center": [
+            0.01309862202621485,
+            0.46556920458795803,
+            0.2661775937454094
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            170,
+            182
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        }
+      },
+      "geometrySha256": "6c93988d514fd94ac1794f240206827bc28d8b77cd99bfcd0eb80abcba3cc0e3",
+      "geometryToVisibleBind": [
+        1.0000002570413724,
+        0,
+        0,
+        0,
+        0,
+        1.0000000469980868,
+        -3.3792647458064096e-8,
+        0,
+        0,
+        -1.8384849809205406e-8,
+        1.0000002831944237,
+        0,
+        0.0000012143626228196085,
+        -4.718660878699765e-8,
+        1.2542028721140852e-8,
+        1
+      ],
+      "headCountVisuallyVerified": 1,
+      "heads": [
+        {
+          "id": "primary",
+          "landmarks": [
+            "upperFace",
+            "muzzle",
+            "lowerFace",
+            "jawChin",
+            "crown"
+          ]
+        }
+      ]
+    },
+    "mythic-10": {
+      "camera": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.25515287874361975,
+          0.26660089339212734,
+          0.233076427911274,
+          0.9280130564402085,
+          0.35384716303502795,
+          0.9913065619020722
+        ],
+        "cameraPadding": 1.15
+      },
+      "status": "landmark-coverage-reviewed",
+      "sourceSha256": "7be7cc15a40a0233a9d0edaeda067d0f0866e233e8221ab412a6025868f7a58e",
+      "coverageEvidence": "../docs/screenshots/pet-independent-mythic-006-010-progress-2026-10-17/mythic-10-landmark-coverage.png",
+      "landmarks": {
+        "upperFace": {
+          "center": [
+            -0.015152878743619752,
+            0.4805452072664073,
+            0.8647369460160532
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            157,
+            190
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "muzzle": {
+          "center": [
+            -0.008497622435569946,
+            0.36273392532617965,
+            0.8432810397431408
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            158,
+            211
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "lowerFace": {
+          "center": [
+            -0.008014685977327076,
+            0.328287757027078,
+            0.8713065619020722
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            158,
+            218
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "jawChin": {
+          "center": [
+            0.026600893392127328,
+            0.323076427911274,
+            0.8487698606651098
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            130,
+            214
+          ],
+          "pickedView": "head-side",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "crest": {
+          "center": [
+            0.015923591010637356,
+            0.7480130564402084,
+            0.633847163035028
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            163,
+            141
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        }
+      },
+      "geometrySha256": "cabc22187cd54c8591e7fa2c5ef956e9f3115a1680467d768d9a8bbc80a8c5c8",
+      "geometryToVisibleBind": [
+        0.9999998352358554,
+        0,
+        0,
+        0,
+        0,
+        -1.343588343475286e-7,
+        0.99999996959469,
+        0,
+        0,
+        -0.99999996959469,
+        -1.343588343475286e-7,
+        0,
+        0,
+        5.7259030961098745e-8,
+        2.0910651155059412e-8,
+        1
+      ],
+      "headCountVisuallyVerified": 1,
+      "heads": [
+        {
+          "id": "primary",
+          "landmarks": [
+            "upperFace",
+            "muzzle",
+            "lowerFace",
+            "jawChin",
+            "crest"
+          ]
+        }
+      ],
+      "rigExtensionReview": {
+        "previousGeometrySha256": "34f76b7c0d74ece68296fdb2fd8cee8b827b6bc46fccb57c2210bd8d2dd95e19",
+        "candidateSourceSha256": "fd4f4f9db5a9b048706a8a9d59ff72f3e55b42d164e903db9c6998c31cfc1762",
+        "conservationEvidence": "docs/screenshots/pet-independent-mythic-006-010-progress-2026-10-17/mythic-10-v11-conservation-and-faces.json",
+        "originalBoneFramesAndInverseBindsPreserved": true,
+        "legacyLimbNamesPrefixed": true,
+        "originalHeadNeckNamesPrefixed": true,
+        "sculptUvsTexturesPreserved": true,
+        "frozenLandmarksAndCoordinateFrameUnchanged": true,
+        "appendedAnatomicalLimbJoints": 6,
+        "appendedAnatomicalNeckHeadJoints": 2,
+        "coverageActuallyRechecked": true
+      }
     }
   }
 }
