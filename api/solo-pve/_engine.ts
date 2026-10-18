@@ -78,6 +78,7 @@ import {
     enemyStatusValue,
     standardPvePlannerApplies,
     weeklyBossPlannerApplies,
+    shrinePlannerApplies,
     type EnemyTurnPolicy,
     type EnemyTurnSnapshot,
 } from './_ai-turn-policy.js';
@@ -1396,6 +1397,7 @@ function directAction(
 ): { applied: boolean; reason?: string; event?: SoloPveCombatEvent | SoloPveRejectionEvent } {
     const before = eventSnapshot(session);
     const eventRound = session.round;
+    const shrineSupport = side === 'enemy' && isShrineSupportAction(session, action);
     const identity = actionIdentity(session, side, action);
     const target = eventTarget(session, side, action);
     const logStart = session.log.length;
@@ -1422,6 +1424,10 @@ function directAction(
         };
     }
 
+    if (shrineSupport && session.shrineAi) {
+        session.shrineAi.lastSupportRound = eventRound;
+        if (action.type === 'basicHeal') session.shrineAi.healsUsed++;
+    }
     setFighter(session, 'player', session.player);
     setFighter(session, 'enemy', session.enemy);
     if (session.companion) {
@@ -1877,9 +1883,23 @@ function enemyActsOnCompanion(session: SoloPveSession): boolean {
 // acceptance rules, simulated through directAction on a copy, and executed
 // through directAction for real.
 
-/** The resolver's own acceptance, without mutating the session. */
+/** Classify only the newly sealed shrine AI's pure healing/defense choices. */
+function isShrineSupportAction(session: SoloPveSession, action: SoloPveAction): boolean {
+    if (!session.shrineAi || !shrinePlannerApplies({ policy: session.enemy.character.aiTurnPolicy, kind: session.encounter.kind })) return false;
+    if (action.type === 'basicHeal') return true;
+    if (action.type !== 'jutsu') return false;
+    const jutsu = jutsuList(session.enemy).find(entry => entry.id === action.jutsuId);
+    return !!jutsu && !hasMoveTag(jutsu) && (Number(jutsu.effectPower ?? 0) <= 0 || isZeroDamageFortyApJutsu(jutsu))
+        && tagNames(jutsu).some(name => ['Heal', 'Shield', 'Absorb', 'Reflect', 'Decrease Damage Taken', 'Increase Heal'].includes(name));
+}
+
+/** Resolver acceptance plus host-specific AI choice limits; never player rules. */
 function enemyActionLegal(session: SoloPveSession, action: SoloPveAction): boolean {
     if (session.status !== 'active' || session.activeSide !== 'enemy') return false;
+    if (isShrineSupportAction(session, action) && session.shrineAi) {
+        if (action.type === 'basicHeal' && session.shrineAi.healsUsed >= session.shrineAi.healLimit) return false;
+        if ((session.shrineAi.lastSupportRound ?? -2) >= session.round - 1) return false;
+    }
     const enemy = session.enemy;
     switch (action.type) {
         case 'jutsu': {
@@ -2233,7 +2253,7 @@ export function runSoloPveAiUntilPlayer(session: SoloPveSession): void {
         kind: session.encounter.kind,
         missionTactics: session.enemy.character.missionTactics === true,
         weeklyBoss: !!session.weeklyBossGuard,
-    })) {
+    }) || shrinePlannerApplies({ policy: session.enemy.character.aiTurnPolicy, kind: session.encounter.kind })) {
         runStandardPveEnemyTurn(session);
         return;
     }

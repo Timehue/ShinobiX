@@ -247,6 +247,7 @@ import { huntReadyForFight, huntRequiredTracks, huntTrailSector } from "../lib/h
 import { huntOpeningFor, huntPackMember, huntSignFor, type HuntChoice } from "../lib/hunt-encounter";
 import { postWorldHunt, type WorldHuntTrailView } from "../lib/world-hunt-api";
 import { HuntEncounterCard, type HuntEncounterView } from "../components/HuntEncounterCard";
+import { useEncounterState } from "../lib/use-encounter-state";
 import { beastPortrait } from "../data/hunter-art";
 
 import { FESTIVAL_SECTOR, isWildSector, MAX_WILD_SECTOR, playableFieldObjectiveSector, sectorName } from "../../../shared/sector-geo";
@@ -443,7 +444,7 @@ function WorldMapContent({
     const [sectorEnemyGuards, setSectorEnemyGuards] = useState<{ name: string; level: number; defenseBonusPercent?: number }[]>([]);
     const [huntToast, setHuntToast] = useState<HuntToast | null>(null);
     const [travelToast, setTravelToast] = useState<HuntToast | null>(null);
-    const [huntEncounter, setHuntEncounter] = useState<HuntEncounterState | null>(null);
+    const [huntEncounter, setHuntEncounter, huntEncounterRef] = useEncounterState<HuntEncounterState>();
     const aiRaidLaunchInFlight = useRef(false);
     // Ticks only while the raid cooldown runs; the map's other render-time clocks (weather, travel badges,
     // breach minutes, contest end, trails) refresh on this 5s visible-only tick, not a 1s full re-render.
@@ -1959,6 +1960,7 @@ function WorldMapContent({
     }
     function handleWandererEngage(w: Wanderer) {
         if (selectedSector == null || !sameSector(currentSector, selectedSector)) return;
+        if (huntEncounterRef.current) return;
         if (requiresWandererChoice(wandererChoiceRef.current) || bossDialog || worldBossQueueOpen) return false; // one hostile at a time, including callbacks before the next React commit
         if (combatActive || isCombatActive()) {
             if (w.verb === "bountyHunter") pendingBountyHunterRef.current = { hunterId: w.id, sector: selectedSector };
@@ -3148,9 +3150,11 @@ function WorldMapContent({
     // (api/world/_pending-battle.ts) until Fight starts it or Flee settles it, so
     // a refresh or the next exploration brings the same choice back.
     function presentExploreAmbush(sector: number, worldExploreRequestId: string, encounter?: OrdinaryPveEncounter): boolean {
+        if (huntEncounterRef.current) return false;
         if (combatActive || isCombatActive() || (requiresWandererChoice(wandererChoiceRef.current) && wandererChoiceRef.current?.ambush?.requestId !== worldExploreRequestId)) return false;
         if (!isWildSector(sector)) return startExploreAmbushFight(sector, worldExploreRequestId, encounter);
         travelToSector(sector, () => {
+            if (huntEncounterRef.current) return;
             // Travel may finish after another hostile reached the player. The
             // durable receipt remains owed; it must never replace that choice.
             if (isCombatActive() || (requiresWandererChoice(wandererChoiceRef.current) && wandererChoiceRef.current?.ambush?.requestId !== worldExploreRequestId)) return;
@@ -3526,6 +3530,7 @@ function WorldMapContent({
         await continueWorldDiscovery(operation, true);
     }
     async function huntSector(sector: number) {
+        if (combatActive || isCombatActive() || requiresWandererChoice(wandererChoiceRef.current)) return;
         const isCurrent = captureSectorAction(sector);
         if (!isWildSector(sector)) {
             alert(`Hunting is only available in Sectors 1-${MAX_WILD_SECTOR}.`);
@@ -3564,6 +3569,8 @@ function WorldMapContent({
             action: "state",
             missionId: activeHuntMission.id,
         });
+        // An ambient encounter winning this read keeps the screen; the hunt lead remains retryable.
+        if (combatActive || isCombatActive() || requiresWandererChoice(wandererChoiceRef.current)) return;
         if (!isCurrent()) return;
         if (!authoritative.ok || !authoritative.state) {
             // A successful state read can reconcile a stale accepted card by
@@ -3638,10 +3645,7 @@ function WorldMapContent({
             return;
         }
 
-        // Both branches now open the encounter card instead of acting immediately.
-        // Tracking used to advance a counter and silently teleport the player, and
-        // the final track cut straight to the Arena behind a toast — no read, no
-        // reason, and the beast's portrait never left the contract board.
+        // Read the sign or confront the beast through its encounter card first.
         if (!huntReadyForFight(activeHuntMission, reconciledTrail.progress)) {
             setHuntEncounter({
                 trail: reconciledTrail,
@@ -3667,6 +3671,7 @@ function WorldMapContent({
      * roll, then the trail advance.
      */
     async function resolveHuntChoice(encounter: HuntEncounterState, choice: HuntChoice) {
+        if (combatActive || isCombatActive() || requiresWandererChoice(wandererChoiceRef.current)) return;
         const { trail, ai, sector } = encounter;
         const isCurrent = captureSectorAction(sector);
         if (!isCurrent()) return;
@@ -3680,6 +3685,7 @@ function WorldMapContent({
             sector,
             choiceId: choice.id,
         });
+        if (combatActive || isCombatActive() || requiresWandererChoice(wandererChoiceRef.current)) return;
         if (!isCurrent()) return;
         if (!decision.ok) {
             alert(decision.error ?? "The trail could not be recorded. Try that sign again.");
@@ -3742,15 +3748,12 @@ function WorldMapContent({
 
     /** The contract target itself, opened according to the Hunt Quality earned. */
     function launchHuntBeastFight(encounter: HuntEncounterState) {
-        // The encounter opens only on the confirmed hunt sector.
+        if (combatActive || isCombatActive() || requiresWandererChoice(wandererChoiceRef.current)
+            || !captureSectorAction(encounter.sector)()) return;
         const { trail, ai } = encounter;
         const mission = trail.mission;
         setHuntEncounter(null);
-
-        // Keep the board's presentation at the final-track threshold while the
-        // fight is open. Only report-ai-fight's sealed hunt-target WIN writes the
-        // kill receipt and the settlement listener mirrors full progress; a loss
-        // leaves this final lead hot for a rematch.
+        // Only a sealed hunt-target win completes the contract; keep losses retryable.
         setMissionProgress((current) => ({
             ...current,
             [mission.id]: Math.max(trail.requiredTracks - 1, current[mission.id] ?? 0),
@@ -4243,11 +4246,8 @@ function WorldMapContent({
         return <TravelingOverlay arrivalAt={travelingUntil} />;
     }
 
-    // Built once and mounted in BOTH render branches (sector detail above, world
-    // overview below) — they are mutually exclusive early returns, so this can
-    // never double-mount. The card portals to <body>, so where it sits in the
-    // tree doesn't affect layout.
-    const huntEncounterCard = huntEncounter && (
+    // Both mutually exclusive map branches use the same portaled hunt card.
+    const huntEncounterCard = huntEncounter && !combatActive && !isCombatActive() && (
         <HuntEncounterCard
             view={huntEncounter.view}
             beastName={huntEncounter.ai.name}
