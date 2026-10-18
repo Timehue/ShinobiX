@@ -1,6 +1,6 @@
 import { hexDistance } from '../combat-core/grid.js';
 import { enemyStatusValue, enemyTurnValue, type EnemyTurnSnapshot } from '../solo-pve/_ai-turn-policy.js';
-import { pveEasyBandHoldsBurst, pveEasyBandAllowsLethal, pveAiCompetence } from '../_pve-difficulty.js';
+import { pveEasyBandHoldsBurst, pveEasyBandAllowsLethal, pveAiCompetence, pveDifficultyBand } from '../_pve-difficulty.js';
 import { pveMeaningfulBuffCount } from '../_pve-ai-tactics.js';
 import { activeCombatStatuses } from '../combat-core/statuses.js';
 import type { TowerAction } from './_engine.js';
@@ -15,11 +15,13 @@ function healthGate(actor: TowerActor, j: HuntJutsu): boolean {
     return (j.aiHpBelowPct === undefined || hp <= j.aiHpBelowPct) && (j.aiHpAbovePct === undefined || hp >= j.aiHpAbovePct);
 }
 
-/** C+ contracts announce an earlier signature, but retain every damage guard.
- * D contracts and low-level players retain the original two opening rounds. */
+/** Ordinary easy-band contracts retain both original opening rounds. Rank
+ * changes decision depth; it must not create an abrupt early-level burst cliff. */
 export function huntHoldsBurst(session: TowerSession, actor: TowerActor): boolean {
-    return pveEasyBandHoldsBurst(Number(actor.character.level) || 1, session.round)
-        && !(actor.character.huntRank !== 'D' && Number(actor.character.level) >= 16 && session.round >= 2);
+    return pveEasyBandHoldsBurst(Number(actor.character.level) || 1, session.round);
+}
+export function huntOpeningIsPreparation(session: TowerSession, actor: TowerActor): boolean {
+    return session.round===1 && pveDifficultyBand(Number(actor.character.level) || 1)==='easy';
 }
 
 type Hooks = {
@@ -61,7 +63,8 @@ export function pickHuntAiAction(session: TowerSession, actor: TowerActor, hooks
     const candidates = (s: TowerSession): TowerAction[] => {
         const self = s.actors.find(a => a.id === actor.id)!;
         const foe = s.actors.find(a => a.id === target.id)!;
-        const actions: TowerAction[] = [{ actorId: self.id, type: 'attack', targetId: foe.id }];
+        const preparation=huntOpeningIsPreparation(s,self);
+        const actions: TowerAction[] = preparation?[]:[{ actorId: self.id, type: 'attack', targetId: foe.id }];
         const step = hooks.step(s,self,foe);
         if (step !== self.pos) actions.push({actorId:self.id,type:'move',tile:step});
         const comp = pveAiCompetence(Number(self.character.level) || 1);
@@ -72,6 +75,7 @@ export function pickHuntAiAction(session: TowerSession, actor: TowerActor, hooks
             actions.push({actorId:self.id,type:'cleanse'});
         for (const j of (self.character.jutsu ?? []) as HuntJutsu[]) {
             if (!healthGate(self,j)) continue;
+            if (preparation && Number(j.effectPower)>0 && j.target!=='SELF' && !j.tags?.some(t=>t.name==='Move')) continue;
             if (huntHoldsBurst(s,self) && Number(j.ap ?? 40) >= 60) continue;
             if (j.tags?.some(t=>t.name==='Move')) {
                 const tile = Array.from({length:s.map.width*s.map.height},(_,i)=>i)

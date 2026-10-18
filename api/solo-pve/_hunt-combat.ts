@@ -79,8 +79,9 @@ export function attachHuntCombat(session: SoloPveSession, context: WorldAiFightC
     if (session.difficultyGuard) battle.pveGuard = { enemyLevel: session.difficultyGuard.enemyLevel, turnStartHp: {}, dealtThisTurn: {} };
     battle.weather = { positiveElement: session.environment.weatherPositiveElement, negativeElement: session.environment.weatherNegativeElement };
     battle.log.push(`${label}: ${session.enemy.name}.`);
-    const heavyRound = !pveEasyBandHoldsBurst(Number(session.enemy.character.level), 1) ? 1
-        : tacticalHunt && rank !== 'D' && Number(session.enemy.character.level) >= 16 ? 2 : 3;
+    const heavyRound = !pveEasyBandHoldsBurst(Number(session.enemy.character.level), 1) ? 1 : 3;
+    if(tacticalHunt&&pveDifficultyBand(Number(session.enemy.character.level))==='easy')
+        battle.log.push('The creature spends the opening round approaching and preparing. Basic attacks begin on round 2.');
     battle.log.push(`${rank}-rank hunt: watch for afflictions and gap-closing techniques. Heavy techniques begin on round ${heavyRound}. Cleanse removes afflictions; Clear strips active defenses.`);
     session.huntCombat = { formation, battle };
     startRound(battle);

@@ -21,8 +21,8 @@
       "after": {
         "outcome": "win",
         "rounds": 4,
-        "endHp": 180,
-        "minHp": 180,
+        "endHp": 360,
+        "minHp": 360,
         "enemyHeals": 0,
         "enemyCasts": 3,
         "enemyMaxHp": 949,
@@ -48,8 +48,8 @@
       "after": {
         "outcome": "win",
         "rounds": 4,
-        "endHp": 180,
-        "minHp": 180,
+        "endHp": 360,
+        "minHp": 360,
         "enemyHeals": 0,
         "enemyCasts": 3,
         "enemyMaxHp": 949,
@@ -75,8 +75,8 @@
       "after": {
         "outcome": "win",
         "rounds": 3,
-        "endHp": 450,
-        "minHp": 450,
+        "endHp": 630,
+        "minHp": 630,
         "enemyHeals": 0,
         "enemyCasts": 2,
         "enemyMaxHp": 949,
@@ -102,8 +102,8 @@
       "after": {
         "outcome": "win",
         "rounds": 3,
-        "endHp": 450,
-        "minHp": 450,
+        "endHp": 630,
+        "minHp": 630,
         "enemyHeals": 0,
         "enemyCasts": 2,
         "enemyMaxHp": 949,
@@ -291,8 +291,8 @@
       "after": {
         "outcome": "win",
         "rounds": 5,
-        "endHp": 355,
-        "minHp": 355,
+        "endHp": 544,
+        "minHp": 544,
         "enemyHeals": 0,
         "enemyCasts": 4,
         "enemyMaxHp": 2282,
@@ -318,10 +318,10 @@
       "after": {
         "outcome": "win",
         "rounds": 5,
-        "endHp": 42,
-        "minHp": 42,
+        "endHp": 544,
+        "minHp": 544,
         "enemyHeals": 0,
-        "enemyCasts": 5,
+        "enemyCasts": 4,
         "enemyMaxHp": 2282,
         "playerMaxHp": 2100,
         "actions": 10
@@ -345,10 +345,10 @@
       "after": {
         "outcome": "win",
         "rounds": 4,
-        "endHp": 558,
-        "minHp": 558,
+        "endHp": 932,
+        "minHp": 932,
         "enemyHeals": 0,
-        "enemyCasts": 4,
+        "enemyCasts": 3,
         "enemyMaxHp": 2282,
         "playerMaxHp": 2100,
         "actions": 8
@@ -372,8 +372,8 @@
       "after": {
         "outcome": "win",
         "rounds": 4,
-        "endHp": 743,
-        "minHp": 743,
+        "endHp": 932,
+        "minHp": 932,
         "enemyHeals": 0,
         "enemyCasts": 3,
         "enemyMaxHp": 2282,

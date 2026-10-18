@@ -1,4 +1,5 @@
 {
+  "noSustain": false,
   "fixture": "Illustrative catalog builds with level-appropriate armor; no bloodline, pet, relic or production save. Level17 has INT640/GEN570. This is not a Buster/Rill replay.",
   "policy": "Fixed legal cast rotation; sustain maintains Absorb/Lifesteal/Reflect, offense favors damaging casts. Same seed and numbers before/after; no stochastic win-rate claim.",
   "rows": [
@@ -74,8 +75,8 @@
       "after": {
         "outcome": "win",
         "rounds": 7,
-        "endHp": 285,
-        "minHp": 285,
+        "endHp": 350,
+        "minHp": 350,
         "enemyHeals": 0,
         "enemyCasts": 6,
         "enemyMaxHp": 949,
@@ -101,8 +102,8 @@
       "after": {
         "outcome": "win",
         "rounds": 7,
-        "endHp": 285,
-        "minHp": 285,
+        "endHp": 350,
+        "minHp": 350,
         "enemyHeals": 0,
         "enemyCasts": 6,
         "enemyMaxHp": 949,
@@ -316,14 +317,14 @@
       },
       "after": {
         "outcome": "loss",
-        "rounds": 6,
+        "rounds": 7,
         "endHp": 0,
         "minHp": 0,
         "enemyHeals": 0,
-        "enemyCasts": 7,
+        "enemyCasts": 8,
         "enemyMaxHp": 2282,
         "playerMaxHp": 2100,
-        "actions": 13
+        "actions": 15
       }
     },
     {
@@ -428,7 +429,7 @@
         "endHp": 0,
         "minHp": 0,
         "enemyHeals": 0,
-        "enemyCasts": 9,
+        "enemyCasts": 8,
         "enemyMaxHp": 2282,
         "playerMaxHp": 2100,
         "actions": 20

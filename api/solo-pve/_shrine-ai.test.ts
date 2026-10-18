@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import type { SoloPveJutsu } from './_session.js';
 import { test } from 'node:test';
 import { shrineFixture, simulateBalance, huntFixture } from '../../scripts/test-fixtures/hunt-shrine.js';
 import { shrinePlannerApplies, SHRINE_AI_POLICY } from './_ai-turn-policy.js';
@@ -114,8 +115,9 @@ test('the no-sustain comparison uses only catalog skills without healing or defe
         const old=shrineFixture(level,'battle',false,true,undefined,1,true);
         const current=shrineFixture(level,'battle',false,false,undefined,1,true);
         assert.deepEqual(current.player,old.player);
-        assert.equal(current.player.character.jutsu.length,8);
-        assert.equal(current.player.character.jutsu.filter(j=>j.effectPower>1).length,6);
-        assert.ok(current.player.character.jutsu.every(j=>j.tags.every(t=>!support.has(t.name))));
+        const kit=current.player.character.jutsu as SoloPveJutsu[];
+        assert.equal(kit.length,8);
+        assert.equal(kit.filter(j=>Number(j.effectPower)>1).length,6);
+        assert.ok(kit.every(j=>Array.isArray(j.tags)&&j.tags.every(t=>!support.has(t.name))));
     }
 });

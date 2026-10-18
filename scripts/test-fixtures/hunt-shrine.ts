@@ -4,6 +4,7 @@ import { relevelAiProfile, type RelevelableProfile } from '../../api/_ai-level-c
 import { STAT_KEYS, maxHpForLevel, maxChakraForLevel, maxStaminaForLevel } from '../../api/_xp-engine.js';
 import { jutsuLevelCapForLevel } from '../../api/combat-core/formulas.js';
 import { hexDistance, hexNeighbors } from '../../api/combat-core/grid.js';
+import { isCombatStatusActive } from '../../api/combat-core/statuses.js';
 import { buildHollowGateSoloPveEncounter } from '../../api/hollow-gate/_encounter.js';
 import { createHollowGateCombatBinding, type HollowGateCombatKind } from '../../api/hollow-gate/_combat-session.js';
 import type { HollowGateRunToken } from '../../api/hollow-gate/_run-token.js';
@@ -55,9 +56,10 @@ export function shrineFixture(level:number, kind:HollowGateCombatKind, sustain=f
     return s;
 }
 
-export type BalanceResult={outcome:string|null;rounds:number;endHp:number;minHp:number;enemyHeals:number;enemyCasts:number;enemyMaxHp:number;playerMaxHp:number;actions:number};
-export function simulateBalance(source:SoloPveSession,sustain:boolean):BalanceResult {
+export type BalanceResult={outcome:string|null;rounds:number;endHp:number;minHp:number;enemyHeals:number;enemyCasts:number;enemyMaxHp:number;playerMaxHp:number;actions:number;playerCounters?:{heal:number;clear:number;cleanse:number}};
+export function simulateBalance(source:SoloPveSession,sustain:boolean,choices:{openingDebuff?:boolean;reverseDamage?:boolean;useCounters?:boolean}={}):BalanceResult {
     let s=structuredClone(source),minHp=s.player.hp,enemyHeals=0,enemyCasts=0,actions=0;
+    const playerCounters={heal:0,clear:0,cleanse:0};
     while(s.status==='active' && actions++<240) {
         const b=s.huntCombat?.battle;
         if(b && !b.actors.some(a=>a.side==='enemy' && a.hp>0)) {
@@ -73,15 +75,46 @@ export function simulateBalance(source:SoloPveSession,sustain:boolean):BalanceRe
             .sort((a,c)=>hexDistance(player.pos,a.pos,width)-hexDistance(player.pos,c.pos,width) || a.id.localeCompare(c.id))[0] ?? s.enemy;
         const cds=b ? ('cooldowns' in player ? player.cooldowns as Record<string,number> : {}) : s.cooldowns.player;
         const ap=b?.activeAp ?? s.ap.player;
+        if(b&&choices.useCounters) {
+            const active=(t:Parameters<typeof isCombatStatusActive>[0])=>isCombatStatusActive(t,b.round);
+            // Finish an obviously wounded opponent before spending a turn on
+            // recovery. The same resolver decides whether the hit is lethal.
+            if(foe.hp<=foe.maxHp*.4) {
+                const finishers:SoloPveAction[]=[{type:'huntAction',action:{type:'attack',targetId:'id' in foe?String(foe.id):''}},
+                    ...(player.character.jutsu as SoloPveJutsu[]).filter(j=>Number(j.effectPower)>1&&Number(j.ap)<=ap
+                        &&hexDistance(player.pos,foe.pos,width)<=Number(j.range??1)).map(j=>({type:'huntAction' as const,
+                        action:{type:'jutsu' as const,jutsuId:j.id,targetId:'id' in foe?String(foe.id):''}}))];
+                const finish=finishers.map(action=>applySoloPveAction(s,action)).find(result=>result.applied&&result.session.outcome==='win');
+                if(finish) {s=finish.session;minHp=Math.min(minHp,s.player.hp);continue;}
+            }
+            const negative=player.statuses.filter(t=>t.kind==='negative'&&t.rounds>0);
+            const counters:SoloPveAction[]=[];
+            if(!player.statuses.some(t=>t.name==='Cleanse Prevent'&&active(t))&&negative.some(t=>['Poison','Ignition','Elemental Seal','Bloodline Seal'].includes(t.name)
+                || t.name==='Wound'&&player.hp<player.maxHp*.45)) counters.push({type:'huntAction',action:{type:'cleanse'}});
+            if(!foe.statuses.some(t=>t.name==='Clear Prevent'&&active(t))&&(foe.shield>=foe.maxHp*.1 || foe.statuses.some(t=>t.name==='Decrease Damage Taken'&&active(t))))
+                counters.push({type:'huntAction',action:{type:'clear',targetId:'id' in foe?String(foe.id):''}});
+            if(player.hp<player.maxHp*.45) counters.push({type:'huntAction',action:{type:'heal'}});
+            // Real legality is authoritative, including range, AP and cooldowns.
+            const accepted=counters.map(action=>({action,result:applySoloPveAction(s,action)})).find(({result})=>result.applied);
+            if(accepted) {
+                const action=accepted.action;
+                if(action.type==='huntAction'&&['heal','clear','cleanse'].includes(action.action.type)) playerCounters[action.action.type as keyof typeof playerCounters]++;
+                s=accepted.result.session;minHp=Math.min(minHp,s.player.hp);continue;
+            }
+        }
         const kit=player.character.jutsu as SoloPveJutsu[];
         const casts=kit.filter(j=>(cds[j.id] ?? 0)<=0 && Number(j.ap ?? 40)<=ap
             && player.chakra>=Number(j.chakraCost ?? 0) && player.stamina>=Number(j.staminaCost ?? 0)
             && hexDistance(player.pos,foe.pos,width)<=Number(j.range ?? 1));
-        const attack=casts.find(j=>Number(j.effectPower)>0 && Number(j.ap)>=60);
+        const attacks=casts.filter(j=>Number(j.effectPower)>0 && Number(j.ap)>=60);
+        const attack=choices.reverseDamage ? attacks.at(-1) : attacks[0];
+        const debuff=choices.openingDebuff ? casts.find(j=>j.target==='OPPONENT' && !Number(j.effectPower)
+            && j.tags?.some(t=>['Increase Damage Taken','Ignition','Poison','Decrease Damage Given'].includes(t.name)
+                && !foe.statuses.some(s=>s.name===t.name && s.rounds>0))) : undefined;
         const support=sustain
             ? casts.find(j=>j.tags?.some(t=>['Lifesteal','Absorb','Reflect'].includes(t.name)
                 && !player.statuses.some(s=>s.name===t.name && s.rounds>0))):undefined;
-        const jutsu=support ?? attack;
+        const jutsu=support ?? debuff ?? attack;
         let action:SoloPveAction;
         if(jutsu) action=b ? {type:'huntAction',action:{type:'jutsu',jutsuId:jutsu.id,targetId:foe===s.enemy?'':('id' in foe?String(foe.id):'')}}
             : {type:'jutsu',jutsuId:jutsu.id};
@@ -111,5 +144,5 @@ export function simulateBalance(source:SoloPveSession,sustain:boolean):BalanceRe
         enemyCasts=s.log.filter(line=>names.some(name=>line.startsWith(name+' uses '))).length;
     }
     return {outcome:s.outcome,rounds:s.round,endHp:s.player.hp,minHp,enemyHeals,enemyCasts,
-        enemyMaxHp:s.enemy.maxHp,playerMaxHp:s.player.maxHp,actions};
+        enemyMaxHp:s.enemy.maxHp,playerMaxHp:s.player.maxHp,actions,...(choices.useCounters?{playerCounters}:{})};
 }

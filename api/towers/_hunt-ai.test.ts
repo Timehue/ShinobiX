@@ -4,6 +4,7 @@ import { makePveEngineTestSession } from './_pve-engine-test-fixture.js';
 import { applyAction, pickAiAction } from './_engine.js';
 import { HUNT_AI_POLICY, huntHoldsBurst } from './_hunt-ai.js';
 import { huntFixture } from '../../scripts/test-fixtures/hunt-shrine.js';
+import { applySoloPveAction } from '../solo-pve/_engine.js';
 
 function fixture(level=20,rank='C') {
     const s=makePveEngineTestSession({enemyLevel:level,playerMaxHp:10000});
@@ -49,8 +50,7 @@ test('rank timing matches the visible warning and protects low-level D contracts
         const warning=b.log.find(l=>l.includes('Heavy techniques begin'))!;
         const round=Number(warning.match(/round (\d+)/)![1]);
         for(let r=1;r<=3;r++) {b.round=r;assert.equal(huntHoldsBurst(b,e),r<round);}
-        if(level<=15) assert.equal(round,3);
-        if(level===17) assert.equal(round,mission==='hunt-wild-boar'?3:2);
+        if(level<=30) assert.equal(round,3);
     }
 });
 
@@ -65,4 +65,18 @@ test('hunt chooser retains authored HP conditions and cannot affect public Tower
     const sealed=pickAiAction(s,enemy,()=>.5);
     delete enemy.character.huntAiPolicy;
     assert.deepEqual(pickAiAction(s,enemy,()=>.5),sealed);
+});
+
+test('ordinary easy hunts telegraph an approach before a gap-closing basic chain',()=>{
+    let s=huntFixture(20,'hunt-frost-wolf');
+    const initialHp=s.player.hp;
+    const e=s.huntCombat!.battle.actors.find(a=>a.side==='enemy')!,initialPos=e.pos;
+    assert.match(s.log.join('\n'),/Basic attacks begin on round 2/);
+    let next=applySoloPveAction(s,{type:'huntAction',action:{type:'wait'}});
+    assert.ok(next.applied);s=next.session;
+    assert.equal(s.player.hp,initialHp);
+    assert.notEqual(s.huntCombat!.battle.actors.find(a=>a.side==='enemy')!.pos,initialPos);
+    next=applySoloPveAction(s,{type:'huntAction',action:{type:'wait'}});
+    assert.ok(next.applied);s=next.session;
+    assert.ok(s.player.hp<initialHp,'ordinary pressure resumes after the preparation round');
 });
