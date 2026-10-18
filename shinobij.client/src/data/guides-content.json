@@ -1205,7 +1205,7 @@
           },
           {
             "type": "p",
-            "text": "The Hatchery accepts one pair at a time. Choose two different available carried companions of the same element, each at least level 50 with a breeding use remaining. Starting the 24-hour pairing spends one use from each parent and cannot be canceled or rerolled. Afterward, complete the egg's care, adventure, and elemental bonds, then hatch it. The Hatchery shows the species odds before you commit, but the newborn is revealed at hatching."
+            "text": "The Hatchery accepts one pair at a time. Choose two different available carried companions of the same element, each at least level 50 with a breeding use remaining. Each attempt spends one use from each parent and has an 80% chance to produce an egg. A successful egg goes to Sanctuary and incubates for 12 hours of active gameplay; time pauses while the game is closed or in the background. The hatch animation starts automatically when incubation ends, after your current battle, event, or dialog finishes. The Hatchery shows the species odds before you commit. Species and Chromatic appearance remain a surprise until hatching; Chromatic odds are 0.05% per egg (1 in 2,000)."
           }
         ]
       },

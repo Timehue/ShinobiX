@@ -17,6 +17,7 @@
  */
 
 import { paceShowdownTechniqueDamage, paceLegacyShowdownTechniqueDamage } from './damage-pacing.js';
+import { petBattleTechniques } from '../../shared/pet-battle-loadout.js';
 import {
     SHOWDOWN_COST_BASIC,
     SHOWDOWN_COST_CONTROL_FLOOR,
@@ -329,7 +330,7 @@ const KNOWN_KINDS = new Set([
     'shield', 'absorb', 'burn', 'freeze', 'confuse', 'stun', 'crush', 'wound', 'mark',
     'slow', 'haste', 'taunt', 'push', 'pull', 'pivot',
     // The variety pass: the arena-state setter and the hard block.
-    'weather', 'protect',
+    'weather', 'protect', 'cleanse',
 ]);
 
 /*
@@ -379,6 +380,7 @@ export const KIND_FX: Record<string, KindFx> = {
     absorb:    { mult: 0,    rounds: 2, store: 'shield', blurb: 'Absorbs incoming damage' },
     taunt:     { mult: 0,    rounds: 1, blurb: 'Draws the foes\' attacks to you' },
     heal:      { mult: 0,    rounds: 0, blurb: 'Restores HP' },
+    cleanse:   { mult: 0,    rounds: 0, blurb: 'Removes harmful conditions from an ally' },
     // Arena-state setter: no damage, no condition — it rewrites the board.
     weather:   { mult: 0,    rounds: 0, blurb: 'Turns the arena to your element' },
     // The hard block. Its 'protect' condition is consumed by the first hit it
@@ -966,6 +968,7 @@ const SHOWDOWN_KIT_OVERRIDES: Record<string, Array<{ name: string; power: number
 
 /** Seal one save/catalog pet into showdown combat form, ceilings applied. */
 export function sealShowdownPet(rawInput: Pet): ShowdownPet {
+    const selectedTechniques = petBattleTechniques(rawInput);
     // Equipped PvP gear stat mods apply to the LIVE stats before sealing —
     // an earned bonus the species normalization must not wash out (it
     // normalizes against the template, so the gear percentage survives).
@@ -996,12 +999,12 @@ export function sealShowdownPet(rawInput: Pet): ShowdownPet {
         : undefined;
     // Overridden kits are authored at correct tier power — normalizing them
     // against the species' OLD broken catalog kit would double-correct.
-    const kitNorm = kitOverride ? 1 : kitPowerNormalizationMult(raw.templateId, String(raw.id), rarity);
+    const kitNorm = selectedTechniques || kitOverride ? 1 : kitPowerNormalizationMult(raw.templateId, String(raw.id), rarity);
     const scaled = (value: unknown, fallback: number) => Math.max(1, Math.round((Number(value) || fallback) * norm));
     const maxHp = clampInt(scaled(raw.hp, 320), 1, petStatCeil(rarity, 'hp'), 320);
     const powerCeil = petJutsuPowerCeil(rarity);
 
-    const sealMove = (j: { name?: unknown; power?: unknown; kind?: unknown; signature?: unknown }, forcedClass?: ShowdownMoveClass): ShowdownMove => {
+    const sealMove = (j: { name?: unknown; power?: unknown; kind?: unknown; signature?: unknown; element?: unknown; cls?: ShowdownMoveClass }, forcedClass?: ShowdownMoveClass): ShowdownMove => {
         const kindRaw = KNOWN_KINDS.has(String(j.kind)) ? String(j.kind) : 'damage';
         const authored = Number(j.power) || 0;
         // A control/utility technique authored at power 0 prices at the 10-EN
@@ -1013,11 +1016,11 @@ export function sealShowdownPet(rawInput: Pet): ShowdownPet {
         const powerIn = authored <= 0 && kindRaw !== 'damage' ? SHOWDOWN_UTILITY_POWER_FLOOR : authored;
         const power = clampInt(Math.round(powerIn * kitNorm), 0, powerCeil, 0);
         const kind = kindRaw;
-        const cls = forcedClass ?? moveClass(kind);
+        const cls = forcedClass ?? j.cls ?? moveClass(kind);
         // Kit techniques are the pet's own element (catalog jutsus carry
         // none of their own) — which is what makes STAB and the synergy
         // partner real properties rather than universal constants.
-        const moveElement = element;
+        const moveElement = ELEMENT_OK.has(String(j.element)) ? String(j.element) : element;
         return {
             name: String(j.name).slice(0, 48),
             power,
@@ -1085,7 +1088,9 @@ export function sealShowdownPet(rawInput: Pet): ShowdownPet {
     ];
 
     const synth = synthesizedSignature({ element: raw.element, name: raw.name }, rarity);
-    const signatureMove: ShowdownMove = sigRaw
+    const signatureMove: ShowdownMove = selectedTechniques
+        ? { ...sealMove(selectedTechniques[4]), signature: true, priority: SHOWDOWN_PRIORITY_SUPER, hold: SHOWDOWN_HOLD_SUPER }
+        : sigRaw
         ? {
             ...sealMove(sigRaw),
             // Signature power is TIER-DERIVED, full stop; the authored move
@@ -1121,7 +1126,9 @@ export function sealShowdownPet(rawInput: Pet): ShowdownPet {
         Math.max(80, Math.min(125, 55 + maxHp / 16 + defense / 6)) * SHOWDOWN_STAMINA_POOL_SCALE,
     );
     const promotedMoves = affordable(promoteHeavy([basicStrike(), ...kit], rarity), maxStamina);
-    const moves = [
+    const moves = selectedTechniques ? affordable(selectedTechniques.slice(0, 4).map(move => sealMove({
+        ...move, ...(move.kind === 'redirect' ? { kind: 'taunt' } : {}),
+    })), maxStamina) : [
         ...promotedMoves.slice(0, 2),
         ...promotedMoves.slice(2).sort((a, b) => (a.hold - b.hold) || (a.cost - b.cost) || (a.power - b.power)),
     ];
@@ -1789,7 +1796,7 @@ function resolveAllyTarget(session: ShowdownSession, actorSide: Side, requestedI
 /** Kinds whose status lands on the ACTOR, not the target. Exported so the AI
  *  checks the same pet the engine writes to. */
 export const SELF_KINDS = new Set(['buff', 'haste', 'move', 'shield', 'barrier', 'absorb', 'taunt']);
-const ALLY_KINDS = new Set(['heal']);
+const ALLY_KINDS = new Set(['heal', 'cleanse']);
 
 /** How the action is STAGED — a charge into contact, or a cast from where the
  *  pet stands. Follows the MOVE, not the pet (owner note: "don't have every
@@ -1979,6 +1986,12 @@ function executeMove(
         } else {
             targets.push({ id: actor.id, damage: 0, heal: 0, effectiveness: 'neutral', guarded: false, ko: false, applied: 'failed' });
         }
+    } else if (kind === 'cleanse') {
+        const ally = resolveAllyTarget(session, actorSide, action.targetId ?? actor.id, actor);
+        targetId = ally.id;
+        const harmful = new Set([...CLEANSABLE_STATUS, 'mark', 'slow', 'debuff', 'root', 'taunt']);
+        ally.statuses = ally.statuses.filter(status => !harmful.has(status.kind));
+        targets.push({ id: ally.id, damage: 0, heal: 0, effectiveness: 'neutral', guarded: false, ko: false, applied: 'cleanse' });
     } else if (SELF_KINDS.has(kind)) {
         // Self moves: apply the status to the actor. The stored kind comes
         // from storedStatusKind so the engine and the AI cannot disagree.
@@ -2546,7 +2559,8 @@ function petView(pet: ShowdownPet): ShowdownPetView {
             name: pet.signatureMove.name, power: pet.signatureMove.power, kind: pet.signatureMove.kind,
             cost: 0, signature: true,
             priority: pet.signatureMove.priority, hold: pet.signatureMove.hold,
-            effect: 'Spends the full meter — massive damage',
+            effect: pet.signatureMove.kind === 'damage' ? 'Spends the full meter — massive damage'
+                : `Spends the full meter — ${moveEffectText(pet.signatureMove.kind, pet.signatureMove.power, pet.signatureMove.element ?? pet.element)}`,
             element: pet.signatureMove.element ?? pet.element, cls: pet.signatureMove.cls ?? 'special',
             ...(pet.signatureMove.synergyElement ? { synergyElement: pet.signatureMove.synergyElement } : {}),
         }]),

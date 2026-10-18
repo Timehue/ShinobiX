@@ -205,6 +205,7 @@
 .pet-home-modal p { color: #afc1cb; }
 .pet-home-modal-actions { display: flex; justify-content: flex-end; gap: .65rem; margin-top: 1.2rem; }
 .pet-home-modal-actions button:not(.pet-home-primary) { border: 1px solid var(--home-line); border-radius: var(--r-sm); color: #d6e2e6; background: transparent; padding: .65rem 1rem; }
+.hatch-reveal .pet-home-modal-close { position: absolute; top: .6rem; right: .6rem; z-index: 2; min-width: 44px; min-height: 44px; padding: 0; border: 1px solid var(--home-line); border-radius: var(--r-sm); background: #07101de6; color: #d6e2e6; font-size: 1.5rem; }
 .hatch-reveal { position: relative; isolation: isolate; overflow: hidden; min-height: 520px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .hatch-cinematic { animation: hatch-backdrop-in .22s ease-out both; }
 .hatch-reveal { animation: hatch-card-in .58s cubic-bezier(.2,.8,.2,1) both; }
@@ -212,7 +213,7 @@
 .hatch-sanctum { position: absolute; z-index: -2; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .7; pointer-events: none; }
 .hatch-aura { position: absolute; z-index: 0; inset: 0; width: 100%; height: 100%; object-fit: contain; opacity: .78; pointer-events: none; animation: hatch-aura-burst .9s ease-out both; }
 .hatch-aura--rare { right: auto; left: -20%; width: 150%; }
-.hatch-reveal > *:not(.hatch-aura):not(.hatch-sanctum) { position: relative; z-index: 1; }
+.hatch-reveal > *:not(.hatch-aura):not(.hatch-sanctum):not(.pet-home-modal-close) { position: relative; z-index: 1; }
 .hatch-pet-stage { display: grid; place-items: center; width: 240px; height: 240px; margin: -.15rem 0 -.35rem; }
 .hatch-pet { width: 230px; height: 230px; object-fit: contain; filter: drop-shadow(0 0 30px rgba(230,189,112,.55)); animation: hatch-pet-resolve .72s .12s cubic-bezier(.2,.8,.2,1) both; }
 .hatch-pet-fallback { display: grid; place-items: center; width: 160px; height: 160px; border: 1px solid rgba(230,189,112,.5); border-radius: 50%; color: #f6dfae; background: radial-gradient(circle,rgba(230,189,112,.25),rgba(6,13,24,.86) 70%); font: 400 2.5rem var(--font-display); box-shadow: 0 0 36px rgba(230,189,112,.24); }

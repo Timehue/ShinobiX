@@ -45,20 +45,20 @@ describe("mixed-feature public capability wiring", () => {
     it("gates breeding starts separately while keeping session reads and hatch recovery visible", () => {
         const home = source("../screens/Home.tsx");
         const barn = source("../components/PetBreedingBarn.tsx");
+        const app = source('../App.tsx');
+        const incubator = source('../components/PetEggIncubator.tsx');
 
         assert.match(home, /<PetBreedingBarn/);
         assert.match(barn, /useCapabilityViewAvailability\(\)/);
         assert.match(barn, /useCapabilityMutationAvailability\("petBreedingStarts"\)/);
-        assert.match(barn, /useCapabilityMutationAvailability\(\)/);
         assert.match(barn, /const canStart = breedingStartsAvailable && pairingEligible/);
-        const confirmStart = between(barn, "async function confirmStart()", "async function hatch()");
+        const confirmStart = between(barn, "async function confirmStart()", 'return <section className="breeding-barn"');
         assert.ok(confirmStart.indexOf("!breedingStartsAvailable") < confirmStart.indexOf("startPetBreeding("));
         assert.ok(confirmStart.indexOf('mutationAvailability("petBreedingStarts")') < confirmStart.indexOf("startPetBreeding("));
-        const hatch = between(barn, "async function hatch()", "const complete =");
-        assert.match(hatch, /hatchPetBreeding/);
-        assert.doesNotMatch(hatch, /breedingStartsAvailable/);
-        assert.ok(hatch.indexOf("breedingRecoveryActionsAvailable") < hatch.indexOf("hatchPetBreeding("));
-        assert.ok(hatch.indexOf("mutationAvailability()") < hatch.indexOf("hatchPetBreeding("));
+        assert.match(app, /character && gameplayMutationsOpen && [^\n]*<PetEggIncubator/);
+        assert.match(incubator, /hatchPetBreeding/);
+        assert.doesNotMatch(incubator, /breedingStartsAvailable/);
+        assert.match(incubator, /if \(!hatchSessionId \|\| blocked/);
         assert.match(barn, /if \(!breedingReadAvailable\) return;[\s\S]*window\.setTimeout\(\(\) => void refresh\(controller\.signal\), 0\)/, "one initial reconciliation read remains available for stale or cross-device sessions");
         // The repeating session read is armed through lib/poll's visiblePoll (it
         // pauses while the tab is hidden and jitters the interval), not a bare
@@ -66,7 +66,7 @@ describe("mixed-feature public capability wiring", () => {
         // tracked-session guard both precede whatever schedules that read.
         assert.match(barn, /if \(!breedingReadAvailable \|\| !trackedSessionId\) return;[\s\S]*visiblePoll\(/);
         assert.match(barn, /BreedingCountdown[\s\S]*onElapsed=\{\(\) => void refresh\(\)\}/);
-        assert.match(barn, /Hatching is paused, but this egg and its bond progress remain safe and visible/);
+        assert.match(barn, /<PetEggCard session=\{session\}/);
     });
 
     it("uses the shared Legacy capability without probing definitions for availability", () => {

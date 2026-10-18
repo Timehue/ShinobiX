@@ -5,9 +5,8 @@ import { PET_CATALOG } from './_catalog.js';
 import { normalizePetGrowth } from './_growth.js';
 
 export const PET_BREEDING_MIGRATION_VERSION = 1;
-// V2 seals the apex/ordinary trait when the 24-hour session starts. V1 eggs
-// remain hatchable through the compatibility fallback in breeding-hatch.ts.
-export const PET_BREEDING_RULES_VERSION = 2;
+// V3 resolves the egg chance at pairing, then incubates in Sanctuary during play.
+export const PET_BREEDING_RULES_VERSION = 3;
 export const PET_BREEDING_USES_MIN = 5;
 export const PET_BREEDING_USES_MAX = 10;
 export { BRED_ULTRA_TRAIT_DENOMINATOR };

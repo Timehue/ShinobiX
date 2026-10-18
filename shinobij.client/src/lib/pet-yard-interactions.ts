@@ -1,7 +1,7 @@
 export type PetCareAction = 'pet' | 'feed' | 'complete-training';
 export type PetCareReactionKind = 'pet' | 'feed' | 'training';
 export type PetCareCue = { serial: number; petId: string; kind: PetCareReactionKind };
-export type PetAppearancePreview = 'current' | 'original' | 'chromatic';
+export type PetAppearancePreview = 'current' | 'original';
 
 export function petCareReactionKind(action: string, settledTraining?: string | null): PetCareReactionKind | null {
     if (settledTraining) return 'training';

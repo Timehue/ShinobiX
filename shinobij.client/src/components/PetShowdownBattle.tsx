@@ -210,7 +210,7 @@ const KIND_GLYPH: Record<string, ShowdownIconName> = {
     // mark because that is literally what it does; `protect` braces.
     pivot: "rotate", protect: "brace",
     mark: "mark", taunt: "provoke",
-    heal: "mend", shield: "aegis", guard: "aegis", barrier: "veil", absorb: "veil",
+    heal: "mend", cleanse: "mend", shield: "aegis", guard: "aegis", barrier: "veil", absorb: "veil",
     buff: "wax", debuff: "wane", haste: "haste", move: "haste", rest: "breath",
 };
 
@@ -249,7 +249,7 @@ const ELEMENT_WEATHER: Record<string, { weather: WeatherType; biome: Biome }> = 
 
 // Moves that never point at an enemy (mirror of the server's routing).
 const SELF_MOVE_KINDS = new Set(["buff", "haste", "move", "shield", "barrier", "absorb", "taunt", "protect", "weather"]);
-const ALLY_MOVE_KINDS = new Set(["heal"]);
+const ALLY_MOVE_KINDS = new Set(["heal", "cleanse"]);
 
 type ActionEvent = Extract<ShowdownEvent, { t: "action" }>;
 

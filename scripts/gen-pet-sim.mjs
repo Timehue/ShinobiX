@@ -101,7 +101,8 @@ let cine = read("lib/pet-duel-cinematic.ts")
     .replace(/import \{ petAccuracyEnabled \} from "\.\/pet-coliseum-flag";/,
         'const petAccuracyEnabled = (): boolean => true; // server: same default as the client constant (PET_ACCURACY_DEFAULT) so replays cannot desync')
     .replace(/from "\.\.\/data\/pet-config"/g, 'from "./pet-config.js"')
-    .replace(/from "\.\/pet-duel-sim"/g, 'from "./pet-duel-sim.js"');
+    .replace(/from "\.\/pet-duel-sim"/g, 'from "./pet-duel-sim.js"')
+    .replace(SHARED_IMPORT, SHARED_SERVER_PATH);
 write("pet-duel-cinematic.ts", "lib/pet-duel-cinematic.ts", cine);
 
 // 7. Hollow Warfront map + contract → pet-warfront-{map,contract}.ts.

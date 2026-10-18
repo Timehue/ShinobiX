@@ -6,6 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
+import { KIND_FAMILY } from '../components/pet-showdown/presentation-tokens';
 import {
     castFlipbookKey,
     impactFlipbookKey,
@@ -139,6 +140,17 @@ test("every active move gets an intent-specific windup", () => {
     }
     assert.notEqual(castFlipbookKey("heal", "self"), castFlipbookKey("debuff", "ranged"));
     assert.notEqual(castFlipbookKey("protect", "self"), castFlipbookKey("weather", "self"));
+});
+
+test('Purify uses a cleansing aura rather than an elemental attack or healing burst', () => {
+    for (const kind of KINDS) assert.ok(KIND_FAMILY[kind], `${kind} has a menu presentation family`);
+    assert.equal(KIND_FAMILY.cleanse, 'sup');
+    assert.equal(castFlipbookKey('cleanse', 'self'), 'aura');
+    for (const element of ELEMENTS) {
+        assert.equal(impactFlipbookKey(element, 'cleanse', false), 'aura');
+        assert.equal(impactFlipbookKey(element, 'cleanse', true), 'aura');
+    }
+    assert.notEqual(moveAccentFamily('cleanse'), moveAccentFamily('heal'));
 });
 
 test("authored move names produce stable visual variants", () => {

@@ -461,6 +461,9 @@ function choosePetCommand(
                 // The engine never stores a 'heal' status, so a lookup is dead
                 // here — gate on whether anyone actually needs the healing.
                 score = m.power * 0.8 + (worstAllyHp < 0.85 ? 45 : -60);
+            } else if (m.kind === 'cleanse') {
+                const harmful = new Set(['burn', 'wound', 'freeze', 'confuse', 'stun', 'mark', 'slow', 'debuff', 'root', 'taunt']);
+                score = allies.some(ally => ally.statuses.some(status => harmful.has(status.kind))) ? 120 : -200;
             } else if (m.kind === 'weather') {
                 // Setting the sky is an OPENING play: the window has to be
                 // long enough to pay back the lost turn, and re-setting your
@@ -510,5 +513,8 @@ function choosePetCommand(
         })
         .sort((a, b) => b.score - a.score)[0];
 
-    return { kind: 'move', petId: pet.id, moveIndex: best.i, targetId: target.id };
+    const cleanseTarget = pet.moves[best.i].kind === 'cleanse'
+        ? allies.find(ally => ally.statuses.some(status => ['burn', 'wound', 'freeze', 'confuse', 'stun', 'mark', 'slow', 'debuff', 'root', 'taunt'].includes(status.kind)))
+        : undefined;
+    return { kind: 'move', petId: pet.id, moveIndex: best.i, targetId: cleanseTarget?.id ?? target.id };
 }

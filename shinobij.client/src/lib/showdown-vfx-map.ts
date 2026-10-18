@@ -47,7 +47,7 @@ export const SHOWDOWN_MOVE_VFX_KINDS = [
     "damage", "crush", "lifesteal", "push", "pull", "pivot",
     "dot", "burn", "wound", "stun", "freeze", "confuse", "debuff",
     "mark", "slow", "movelock", "buff", "haste", "move", "shield",
-    "barrier", "absorb", "taunt", "heal", "weather", "protect",
+    "barrier", "absorb", "taunt", "heal", "weather", "protect", "cleanse",
     "guard", "rest",
 ] as const;
 
@@ -88,6 +88,7 @@ const MOVE_ACCENT_FAMILY = {
     protect: 26,
     guard: 27,
     rest: 28,
+    cleanse: 29,
 } as const;
 
 export type MoveAccentFamily = typeof MOVE_ACCENT_FAMILY[keyof typeof MOVE_ACCENT_FAMILY];
@@ -117,6 +118,7 @@ export function castFlipbookKey(moveKind: string, delivery: string): string {
         case "rest": return "";
         case "guard": case "protect": return "eshield";
         case "heal": return "heal";
+        case "cleanse": return "aura";
         case "shield": case "barrier": return "shield";
         case "absorb": return "vortex";
         case "buff": return "buff";
@@ -156,6 +158,7 @@ export function impactFlipbookKey(element: string, moveKind: string, superCast: 
         case "rest": return "";
         case "guard": case "protect": return "eshield";
         case "heal": return "heal";
+        case "cleanse": return "aura";
         case "burn": case "dot": return "burn";
         case "wound": return "poison";
         case "freeze": return "ice";

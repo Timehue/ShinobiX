@@ -414,7 +414,7 @@ export type Character = {
     petBreeding?: PetBreedingSession | null;
     petBreedingMigrationVersion?: number;
     petBreedingReceipts?: string[];
-    petBreedingHatchReceipts?: Array<{ sessionId: string; petId: string; destination?: "roster" | "sanctuary" }>;
+    petBreedingHatchReceipts?: Array<{ sessionId: string; petId: string; destination?: "roster" | "sanctuary"; revealPending?: boolean; revealedAt?: number }>;
     petBreedingProgressReceipts?: string[];
     tileCards: string[];
     savedTileDeck?: string[];
@@ -966,3 +966,5 @@ export type ServerPlayerSummary = {
 
 /** Atomically accepts a server-issued character together with its save version. */
 export type VersionedCharacterCommit = (character: Character, version: unknown) => boolean;
+/** Capture account authority before background work; preserve pending local edits on adoption. */
+export type BeginCharacterSync = (accountName: string) => Promise<{ isCurrent: () => boolean; commit: VersionedCharacterCommit }>;

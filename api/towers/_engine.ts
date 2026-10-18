@@ -3633,7 +3633,8 @@ function runCompanionTurn(session: TowerSession, floor: TowerFloor, actor: Tower
         }
         const moves = (Array.isArray(c.companionMoves) ? c.companionMoves : []) as CompanionMove[];
         const hpFrac = actor.maxHp > 0 ? actor.hp / actor.maxHp : 1;
-        const move = pickCompanionMove(moves, (actor.cooldowns ?? {}) as Record<string, number>, hpFrac);
+        const move = pickCompanionMove(moves, (actor.cooldowns ?? {}) as Record<string, number>, hpFrac,
+            actor.statuses.some(status => status.kind === 'negative'));
         const selfCast = !!move && companionMoveDamage(1, move) === 0;
         // Out of reach for anything offensive → spend a step closing the distance.
         if (!selfCast && hexDistance(actor.pos, target.pos, session.map.width) > COMPANION_RANGE) {
@@ -3665,6 +3666,11 @@ function companionCast(
 
     // Pure-support kinds never damage; everything else lands its scaled hit first.
     switch (kind) {
+        case 'cleanse': {
+            actor.statuses = actor.statuses.filter(status => status.kind !== 'negative');
+            session.log.push(`${actor.name}${label} and clears harmful conditions.`);
+            return;
+        }
         case 'heal': {
             const heal = Math.max(1, Math.floor(actor.maxHp * 0.25 + (move?.power ?? 0) * 0.5));
             actor.hp = Math.min(actor.maxHp, actor.hp + heal);

@@ -1,3 +1,4 @@
+import { petBattleJutsus } from "../../../shared/pet-battle-loadout";
 /*
  * Pet utility helpers.
  *
@@ -74,7 +75,7 @@ export function isPetOnExpedition(
 export function petCombatDamage(pet: Pet): number {
     const bestDamageJutsu = Math.max(
         0,
-        ...pet.jutsus.filter((jutsu) => jutsu.kind === "damage").map((jutsu) => jutsu.power),
+        ...petBattleJutsus(pet).filter((jutsu) => jutsu.kind === "damage").map((jutsu) => jutsu.power),
     );
     // All four stats feed the summon's strike: attack + its best damage jutsu
     // are the core, speed (agility) adds bite, and the pet's bulk (hp + def —

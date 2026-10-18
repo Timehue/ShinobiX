@@ -2,6 +2,7 @@ import { petTamerExpeditionMult, petTamerTrainingSpeedPct } from "../lib/profess
 import { PetBattleReadiness } from "../components/PetBattleReadiness";
 import { PetRankedTechniques } from "../components/PetRankedTechniques";
 import { PetYardModelPreview } from "../components/PetYardModelPreview";
+import { petBattleJutsus } from "../../../shared/pet-battle-loadout";
 import { petCareReactionKind, type PetCareAction, type PetCareCue } from '../lib/pet-yard-interactions';
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, Suspense, useTransition } from "react";
 import { cacheDynamicImport, lazyWithRetry, retryDynamicImport } from "../lib/lazyWithRetry";
@@ -1141,7 +1142,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                 character={character} busy={progressBusy || petTrainingBusy}
                                 lockedReason={selectedPetBreedingLocked ? 'This companion is reserved for breeding.' : undefined}
                                 careCue={petCareCue?.petId === selectedPet.id ? petCareCue : undefined} onCare={inspectCompanionCare}
-                                onEditTechniques={() => openYardSection('techniques', true)}
+                                onSaveLoadout={async build => { await runPetProgress('ranked-build', { build }); }}
                                 onEquipCollar={async collarId => { await runPetProgress('equip', { slot: 'collar', itemId: collarId }); }} />
                             <h3>{petDisplayName(selectedPet)}</h3>
                             {selectedPet.nickname && <p className="hint" style={{ fontSize: "0.72rem", marginTop: -4 }}>({selectedPet.name})</p>}
@@ -1580,14 +1581,15 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                     lockedReason={selectedPetBreedingLocked ? "This pet is in the hatchery. Change its techniques when it returns." : undefined} />
 
                                 <section className="pet-jutsu-panel">
-                                    <h4>Adventure jutsus</h4>
-                                    {selectedPet.jutsus.length === 0 ? (
+                                    <h4>Battle abilities</h4>
+                                    {petBattleJutsus(selectedPet).length === 0 ? (
                                         <p className="hint">This pet has no jutsu yet.</p>
-                                    ) : selectedPet.jutsus.map((jutsu, i) => {
+                                    ) : petBattleJutsus(selectedPet).map((jutsu, i) => {
                                         const kindMeta: Record<string, { label: string; color: string }> = {
                                             damage: { label: "Damage", color: "#fca5a5" },
                                             buff: { label: "Buff", color: "#86efac" },
                                             heal: { label: "Heal", color: "#4ade80" },
+                                            cleanse: { label: "Cleanse", color: "#86efac" },
                                             debuff: { label: "Debuff", color: "#f97316" },
                                             dot: { label: "Poison", color: "#c084fc" },
                                             move: { label: "Move", color: "#93c5fd" },
