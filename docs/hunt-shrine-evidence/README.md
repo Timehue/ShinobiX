@@ -69,6 +69,16 @@ identical before/after outcomes and pressure. These fixed-rotation fixtures alre
 lose those packs under the old chooser; this change does not claim to fix their
 existing difficulty. Level-5 sequential waves remain wins in both builds.
 
+`--no-sustain` writes 40 additional single/shrine pairs using eight catalog
+skills: six damaging techniques, a pure offensive debuff and Flicker. It has no
+Heal, Siphon, Lifesteal, Absorb, Reflect, Shield, Increase Heal or Decrease Damage
+Taken technique. See `no-sustain-balance.json`. All level-5/17 single hunts,
+ordinary/elite shrine and wanderer fixtures still win; the final-floor boss
+already loses in both. The level-17 Frost Wolf fixed-rotation win falls from
+544 to 42 HP, a narrow margin that warrants live low/mid-level confirmation.
+No skill's catalog tags, costs, mastery or effect power are modified to make
+these fixtures. The original offense/sustain reports remain reproducible.
+
 ## Integration audit
 
 Actual hunt starts run through world mission authority, `ai-fight-start`, the

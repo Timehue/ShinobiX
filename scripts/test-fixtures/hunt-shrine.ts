@@ -14,8 +14,10 @@ import { applySoloPveAction } from '../../api/solo-pve/_engine.js';
 import type { SoloPveAction, SoloPveJutsu, SoloPveSession } from '../../api/solo-pve/_session.js';
 import type { HuntFormation } from '../../shared/hunt-combat.js';
 
-export function balanceSave(level: number, sustain: boolean) {
-    const ids = ['starter-gen-wind-2','starter-gen-lightning-2','starter-gen-water-2','starter-gen-earth-2',
+export function balanceSave(level: number, sustain: boolean, noSustain=false) {
+    const ids = noSustain ? ['starter-gen-lightning-2','starter-gen-water-2','starter-nin-lightning-2',
+        'starter-nin-fire-2','starter-nin-water-2','starter-nin-earth-2','starter-tai-earth-1','starter-universal-flicker']
+        : ['starter-gen-wind-2','starter-gen-lightning-2','starter-gen-water-2','starter-gen-earth-2',
         ...(sustain ? ['starter-gen-wind-3','starter-nin-fire-1','starter-tai-water-3'] : ['starter-gen-fire-2','starter-nin-fire-2','starter-tai-earth-1']),
         'starter-universal-flicker'];
     const stat = level === 17 ? 400 : Math.min(2500,Math.max(35,Math.round(2500*level/100)));
@@ -29,11 +31,11 @@ export function balanceSave(level: number, sustain: boolean) {
         equippedJutsuIds:ids,jutsuMastery:ids.map(jutsuId=>({jutsuId,level:jutsuLevelCapForLevel(level)}))}};
 }
 
-export function huntFixture(level:number, missionId:string, sustain=false, legacy=false, formation:HuntFormation={version:1,kind:'single',count:1}) {
+export function huntFixture(level:number, missionId:string, sustain=false, legacy=false, formation:HuntFormation={version:1,kind:'single',count:1}, noSustain=false) {
     const mission=huntMissionById(missionId)!;
     const base=builtinAiProfile(mission.aiProfileId!)!;
     const profile=relevelAiProfile(base as unknown as RelevelableProfile,level,0);
-    const s=buildSoloPveAiEncounter({sessionId:'balance-hunt',playerName:'fixture',save:balanceSave(level,sustain),
+    const s=buildSoloPveAiEncounter({sessionId:'balance-hunt',playerName:'fixture',save:balanceSave(level,sustain,noSustain),
         profile:profile as unknown as {id:string},now:1000,admin:null,difficultyMode:'AI_FIGHT',
         encounter:{kind:'world-ai',id:missionId},environment:{biome:'forest'}});
     attachHuntCombat(s,{kind:formation.kind==='single'?'hunt-target':'hunt-pack',sourceId:missionId,missionId,huntRunId:'balance-run',sector:mission.targetSector,
@@ -42,13 +44,13 @@ export function huntFixture(level:number, missionId:string, sustain=false, legac
     return s;
 }
 
-export function shrineFixture(level:number, kind:HollowGateCombatKind, sustain=false, legacy=false, role?:'bandit'|'night-ninja'|'patrol', floor=1) {
+export function shrineFixture(level:number, kind:HollowGateCombatKind, sustain=false, legacy=false, role?:'bandit'|'night-ninja'|'patrol', floor=1, noSustain=false) {
     const nodeId=`floor:${floor}:tile:8`;
     const run:HollowGateRunToken={playerName:'fixture',mintedAt:1,floorDepth:5,currentFloor:floor,seed:'balance',entryCurrencies:{},
         offeredAugmentIds:[],chosenAugmentId:null,dailyRunOrdinal:1,
         ...(role?{wanderers:{[String(floor)]:[{role,nodeId,origin:8,tile:8}]}}:{})};
     const binding=createHollowGateCombatBinding({playerName:'fixture',token:'offline',floor,nodeId,kind,runId:'balance-shrine',now:1000});
-    const s=buildHollowGateSoloPveEncounter({binding,run,save:balanceSave(level,sustain),now:1000,admin:null});
+    const s=buildHollowGateSoloPveEncounter({binding,run,save:balanceSave(level,sustain,noSustain),now:1000,admin:null});
     if(legacy) {delete s.enemy.character.aiTurnPolicy;delete s.shrineAi;}
     return s;
 }

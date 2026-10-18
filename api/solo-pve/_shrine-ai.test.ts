@@ -107,3 +107,15 @@ test('protected easy simultaneous packs retain identical legacy pressure while w
         assert.deepEqual(simulateBalance(current,sustain),simulateBalance(old,sustain));
     }
 });
+
+test('the no-sustain comparison uses only catalog skills without healing or defensive support',()=>{
+    const support=new Set(['Heal','Siphon','Lifesteal','Absorb','Reflect','Shield','Increase Heal','Decrease Damage Taken']);
+    for(const level of [5,17,50,100]) {
+        const old=shrineFixture(level,'battle',false,true,undefined,1,true);
+        const current=shrineFixture(level,'battle',false,false,undefined,1,true);
+        assert.deepEqual(current.player,old.player);
+        assert.equal(current.player.character.jutsu.length,8);
+        assert.equal(current.player.character.jutsu.filter(j=>j.effectPower>1).length,6);
+        assert.ok(current.player.character.jutsu.every(j=>j.tags.every(t=>!support.has(t.name))));
+    }
+});
