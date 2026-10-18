@@ -5423,8 +5423,8 @@
     },
     {
       "sourceUrl": "/pet-models/roster/mythic-6.glb",
-      "lodUrl": "/pet-models/warfront-lod/roster/mythic-6.glb?v=20260902-battle-lod-v1-8c2c2bfc4683-0a2285ed8991",
-      "lodSha256": "0a2285ed8991899dc6e3654c8d366e70b92b271830cba57471d7730122be51b4",
+      "lodUrl": "/pet-models/warfront-lod/roster/mythic-6.glb?v=20260902-battle-lod-v1-29fe007d1943-f05d82acdcdb",
+      "lodSha256": "f05d82acdcdb171167788a6709b05f4e161888107792a3f3cf5edc0a8c709fa8",
       "atlasUrl": "/pet-models/warfront-impostors/roster/mythic-6.webp",
       "atlasSha256": "1ab9e5912c74a035d6ac04b96e39fcb33836691c2ca8aff1cb0dd2da5e11fb62",
       "atlasBytes": 124966,

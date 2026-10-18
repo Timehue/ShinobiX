@@ -78,3 +78,7 @@ shinobij.client/src/generated/story-content/*.ts text eol=lf
 #*.PDF   diff=astextplain
 #*.rtf   diff=astextplain
 #*.RTF   diff=astextplain
+
+docs/screenshots/azure-all-clips-v2-final-2026-10-18/*.log text eol=lf
+
+docs/audits/azure-*.json text eol=lf

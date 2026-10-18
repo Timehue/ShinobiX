@@ -1,0 +1,21 @@
+{
+  "id": "mythic-6",
+  "recordedAt": "2026-10-18T20:28:27.720Z",
+  "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+  "productionRendererIdentical": true,
+  "reviewedCompanionSha256": "193c79e909badc0efab2f09ecb45882406ea66463fc5801966dd395344fcf9a9",
+  "mainCompanionSha256": "d2dafafee3cdb047a8562fb227689be8b92c9585b8c103ba8407bb3e55ea3316",
+  "onlyCompanionDifference": {
+    "reviewedHeight": "config.visualId === 'legendary-6' || config.visualId === 'legendary-10' || config.visualId === 'mythic-5' ? 1.8 : 2.15",
+    "mainHeight": "config.visualId === 'mythic-5' ? 1.8 : 2.15",
+    "affectedIds": [
+      "legendary-6",
+      "legendary-10",
+      "mythic-5"
+    ],
+    "selectedPetAffected": false,
+    "selectedPetHeightInBoth": 2.15
+  },
+  "allOtherCompanionCodeExact": true,
+  "scope": "Proves selected Azure production behavior; does not claim byte-identical whole component or approval of nonselected bird framing."
+}
