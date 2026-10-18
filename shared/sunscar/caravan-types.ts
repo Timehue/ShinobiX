@@ -41,7 +41,7 @@ export type CaravanRun = {
     enemiesDefeated: number; travelersHelped: number; selectedPetId: string | null; baseReward: number;
     log: CaravanLog[]; combat: { sessionId: string; enemy: CaravanEnemy; nodeId: string; settled: boolean } | null;
     petEncounter?: { requestId: string; token?: string; state: 'pending' | 'resolved' };
-    result: { ryo: number; reputation: number; cargo: number; objectiveComplete: boolean; reason: string } | null;
+    result: { ryo: number; reputation: number; cargo: number; objectiveComplete: boolean; reason: string; brokerCertificates?: number } | null;
     lastAction: { requestId: string; fingerprint: string } | null; createdAt: number; updatedAt: number;
 };
 export type CaravanProgress = { reputation: number; deliveries: number; lastEntryDay: string | null; current: CaravanRun | null; chains: Record<string, number>; discoveries: string[]; history: { id: string; title: string; day: string; result: NonNullable<CaravanRun['result']> }[] };

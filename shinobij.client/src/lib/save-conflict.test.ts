@@ -35,6 +35,17 @@ describe("save-conflict drafts", () => {
     // sites (pinned by the contract test below); the tests do the same.
     before(async () => { await loadSaveOwnershipClassifier(); });
 
+    it('does not treat earned/spent certificates or Broker receipts as restorable device progress', async () => {
+        const local = { character: { name: 'Kaya', brokerCertificates: 2, brokerCrateLedger: { day: '2026-10-18', used: 0, receipts: [] } } };
+        const server = { character: { name: 'Kaya', brokerCertificates: 1, brokerCrateLedger: { day: '2026-10-18', used: 1, receipts: [{ requestId: 'saved-pull' }] } } };
+        assert.deepEqual(detectSaveConflictAreas(local, server), ['Server-managed progress']);
+        const storage = new MemoryStorage();
+        const store = createSaveConflictDraftStore({ storage, activeAccountKey: () => saveConflictAccountKey('Kaya'), onVisibleDraft: () => {}, reportStorageFailure: assert.fail });
+        store.capture('Kaya', local);
+        assert.equal(await store.rehydrate('Kaya', server), null);
+        assert.equal(storage.length, 0);
+    });
+
     it("strips embedded images recursively while preserving gameplay data", () => {
         const sanitized = sanitizeSaveConflictPayload({
             character: {

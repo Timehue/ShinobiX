@@ -36,14 +36,14 @@ beforeEach(async () => {
 });
 after(() => { Date.now = realNow; });
 
-async function call(method: 'GET' | 'POST', options: { as?: string; unauth?: boolean } = {}) {
+async function call(method: 'GET' | 'POST', options: { as?: string; unauth?: boolean; payment?: unknown; requestId?: unknown } = {}) {
     const output: { status: number; body: Obj } = { status: 200, body: {} };
     const res = { setHeader() { return this; }, status(code: number) { output.status = code; return this; }, json(data: Obj) { output.body = data; return this; }, end() { return this; } };
     const as = options.as ?? player;
     await blackMarket({
         method,
         query: method === 'GET' ? { playerName: player } : {},
-        body: method === 'POST' ? { playerName: player } : undefined,
+        body: method === 'POST' ? { playerName: player, ...(options.payment !== undefined ? { payment: options.payment } : {}), ...(options.requestId !== undefined ? { requestId: options.requestId } : {}) } : undefined,
         headers: options.unauth ? {} : { 'x-player-name': as, 'x-player-token': issue(as)! },
         socket: { remoteAddress: `127.0.1.${ip}` },
     } as never, res as never);
@@ -53,6 +53,153 @@ async function call(method: 'GET' | 'POST', options: { as?: string; unauth?: boo
 test('the count read needs a signed session for the same player', async () => {
     assert.equal((await call('GET', { unauth: true })).status, 401);
     assert.equal((await call('GET', { as: 'someone-else' })).status, 403);
+});
+
+const requestId = (suffix: string) => `${today()}_request_${suffix}`;
+async function certificates(count: number) {
+    const record = await kv.get<Obj>(`save:${player}`);
+    record!.character.brokerCertificates = count;
+    record!.character.ryo = 0;
+    await kv.set(`save:${player}`, record);
+}
+
+test('concurrent retries recover one crate, one certificate debit and one counted pull', async () => {
+    await certificates(1);
+    const options = { payment: 'certificate', requestId: requestId('concurrent') };
+    const results = await Promise.all([call('POST', options), call('POST', options)]);
+    for (const result of results) assert.equal(result.status, 200, JSON.stringify(result.body));
+    assert.deepEqual(results[0].body.reward, results[1].body.reward);
+    assert.equal(results.filter(result => result.body.replayed).length, 1);
+    const stored = await kv.get<Obj>(`save:${player}`);
+    assert.equal(stored!.character.brokerCertificates, 0);
+    assert.equal(stored!.character.brokerCrateLedger.used, 1);
+    assert.equal(stored!.character.brokerCrateLedger.receipts.length, 1);
+    assert.equal((await call('GET')).body.dailyUsed, 1);
+    const replay = await call('POST', options);
+    assert.equal(replay.body.character.brokerCertificates, 0);
+    assert.equal(replay.body._saveVersion, stored!._saveVersion);
+    assert.equal((await call('POST', { ...options, payment: 'ryo' })).status, 409);
+});
+
+test('distinct simultaneous requests cannot spend the same last certificate', async () => {
+    await certificates(1);
+    const results = await Promise.all(['first', 'second'].map(suffix => call('POST', { payment: 'certificate', requestId: requestId(suffix) })));
+    assert.deepEqual(results.map(result => result.status).sort(), [200, 400]);
+    const stored = await kv.get<Obj>(`save:${player}`);
+    assert.equal(stored!.character.brokerCertificates, 0);
+    assert.equal(stored!.character.brokerCrateLedger.used, 1);
+});
+
+test('a failed compatibility counter write cannot lose a pull or exceed the daily cap', async () => {
+    await certificates(2);
+    await kv.set(`bm:count:${player}:${today()}`, 9);
+    const original = kv.set;
+    kv.set = (async (...args: Parameters<typeof original>) => {
+        if (String(args[0]).startsWith('bm:count:')) throw new Error('counter mirror unavailable');
+        return original.apply(kv, args);
+    }) as typeof original;
+    let pull: Awaited<ReturnType<typeof call>>;
+    try { pull = await call('POST', { payment: 'certificate', requestId: requestId('mirror_failure') }); }
+    finally { kv.set = original; }
+    assert.equal(pull!.status, 200, JSON.stringify(pull!.body));
+    assert.equal(pull!.body.dailyUsed, 10);
+    assert.equal((await call('GET')).body.dailyUsed, 10);
+    assert.equal((await call('POST', { payment: 'certificate' })).status, 429);
+    assert.equal((await kv.get<Obj>(`save:${player}`))!.character.brokerCertificates, 1);
+});
+
+test('a lost save acknowledgement and unavailable readback recover the committed crate on retry', async () => {
+    await certificates(1);
+    const originalCas = kv.compareSetMany!, originalGet = kv.get;
+    let committed = false, readbackFailed = false;
+    kv.compareSetMany = (async (...args: Parameters<typeof originalCas>) => {
+        const result = await originalCas.apply(kv, args);
+        if (result && !committed) { committed = true; throw new Error('lost save acknowledgement'); }
+        return result;
+    }) as typeof originalCas;
+    kv.get = (async (...args: Parameters<typeof originalGet>) => {
+        if (committed && !readbackFailed && args[0] === `save:${player}`) { readbackFailed = true; throw new Error('readback unavailable'); }
+        return originalGet.apply(kv, args);
+    }) as typeof originalGet;
+    const options = { payment: 'certificate', requestId: requestId('lost_reply') };
+    let first: Awaited<ReturnType<typeof call>>;
+    try { first = await call('POST', options); }
+    finally { kv.compareSetMany = originalCas; kv.get = originalGet; }
+    assert.equal(first!.status, 500);
+    const before = await kv.get<Obj>(`save:${player}`);
+    const replay = await call('POST', options);
+    assert.equal(replay.status, 200, JSON.stringify(replay.body));
+    assert.equal(replay.body.replayed, true);
+    assert.equal(replay.body.dailyUsed, 1);
+    assert.equal(replay.body.character.brokerCertificates, 0);
+    assert.deepEqual(replay.body.reward, before!.character.brokerCrateLedger.receipts[0].reward);
+    assert.deepEqual(await kv.get(`save:${player}`), before);
+});
+
+test('a definite save conflict spends neither a certificate nor a daily pull', async () => {
+    await certificates(1);
+    const before = await kv.get(`save:${player}`);
+    const original = kv.compareSetMany;
+    kv.compareSetMany = async () => false;
+    const options = { payment: 'certificate', requestId: requestId('save_conflict') };
+    let first: Awaited<ReturnType<typeof call>>;
+    try { first = await call('POST', options); } finally { kv.compareSetMany = original; }
+    assert.equal(first!.status, 503);
+    assert.deepEqual(await kv.get(`save:${player}`), before);
+    assert.equal((await call('GET')).body.dailyUsed, 0);
+    assert.equal((await call('POST', options)).status, 200);
+});
+
+test('a request waiting for its save across UTC midnight uses the new day and replays safely', async () => {
+    await certificates(1);
+    now = Date.parse(`${today()}T23:59:59.999Z`);
+    const oldDay = today(), options = { payment: 'certificate', requestId: requestId('midnight') };
+    await kv.set(`bm:count:${player}:${oldDay}`, 10);
+    const original = kv.get;
+    let advanced = false;
+    kv.get = (async (...args: Parameters<typeof original>) => {
+        if (!advanced && args[0] === `save:${player}`) { advanced = true; now += 2; }
+        return original.apply(kv, args);
+    }) as typeof original;
+    let pull: Awaited<ReturnType<typeof call>>;
+    try { pull = await call('POST', options); } finally { kv.get = original; }
+    assert.notEqual(today(), oldDay);
+    assert.equal(pull!.status, 200, JSON.stringify(pull!.body));
+    assert.equal(pull!.body.day, today());
+    assert.equal(pull!.body.dailyUsed, 1);
+    now += 86_400_000;
+    const replay = await call('POST', options);
+    assert.equal(replay.status, 200);
+    assert.equal(replay.body.replayed, true);
+    assert.equal(replay.body.dailyUsed, 0, 'recovering yesterday’s pull does not consume today’s allowance');
+});
+
+test('expired unrecorded requests are refused without spending anything', async () => {
+    await certificates(1);
+    const id = requestId('expired');
+    now += 2 * 86_400_000;
+    const before = await kv.get(`save:${player}`);
+    assert.equal((await call('POST', { payment: 'certificate', requestId: id })).status, 409);
+    assert.deepEqual(await kv.get(`save:${player}`), before);
+});
+
+test('bounded receipts retain every retry allowed today and yesterday without reopening older purchases', async () => {
+    await certificates(30);
+    const firstId = requestId('oldest');
+    for (let dayIndex = 0; dayIndex < 3; dayIndex++) {
+        if (dayIndex > 0) now += 86_400_000;
+        for (let index = 0; index < 10; index++) {
+            const id = dayIndex === 0 && index === 0 ? firstId : requestId(`day_${dayIndex}_pull_${index}`);
+            const pull = await call('POST', { payment: 'certificate', requestId: id });
+            assert.equal(pull.status, 200, JSON.stringify(pull.body));
+        }
+        if (dayIndex === 1) assert.equal((await call('POST', { payment: 'certificate', requestId: firstId })).body.replayed, true);
+    }
+    const before = await kv.get<Obj>(`save:${player}`);
+    assert.equal(before!.character.brokerCrateLedger.receipts.length, 20);
+    assert.equal(before!.character.brokerCertificates, 0);
+    assert.equal((await call('POST', { payment: 'certificate', requestId: firstId })).status, 409);
+    assert.deepEqual(await kv.get(`save:${player}`), before);
 });
 
 test('the count starts at zero and follows every pull', async () => {
@@ -87,4 +234,49 @@ test('reading the count never spends the rate limit a pull needs', async () => {
     assert.ok(limited, 'the read has a rate limit of its own');
     const pull = await call('POST');
     assert.equal(pull.status, 200, JSON.stringify(pull.body));
+});
+
+test('certificate and ryo purchases share the daily cap and certificates survive the UTC reset', async () => {
+    const record = await kv.get<Obj>(`save:${player}`);
+    record!.character.brokerCertificates = 2;
+    await kv.set(`save:${player}`, record);
+    await kv.set(`bm:count:${player}:${today()}`, 8);
+    assert.equal((await call('POST')).body.dailyUsed, 9);
+    const before = await kv.get<Obj>(`save:${player}`);
+    const free = await call('POST', { payment: 'certificate' });
+    assert.equal(free.status, 200, JSON.stringify(free.body));
+    assert.equal(free.body.cost, 0);
+    assert.equal(free.body.dailyUsed, 10);
+    assert.equal(free.body.character.brokerCertificates, 1);
+    assert.equal(free.body.character.ryo, before!.character.ryo + free.body.reward.ryo);
+    assert.equal((await call('GET')).body.dailyUsed, 10);
+    const saved = await kv.get(`save:${player}`);
+    assert.equal((await call('POST', { payment: 'certificate' })).status, 429);
+    assert.equal((await call('POST')).status, 429);
+    assert.deepEqual(await kv.get(`save:${player}`), saved);
+    now += 86_400_000;
+    const tomorrow = await call('POST', { payment: 'certificate' });
+    assert.equal(tomorrow.status, 200, JSON.stringify(tomorrow.body));
+    assert.equal(tomorrow.body.dailyUsed, 1);
+    assert.equal(tomorrow.body.character.brokerCertificates, 0);
+});
+
+test('missing certificates and unsupported payment methods cannot award a crate or charge a stake', async () => {
+    const before = await kv.get(`save:${player}`);
+    for (const payment of ['certificate', 'free', '', false, null]) {
+        const result = await call('POST', { payment });
+        assert.equal(result.status, 400, JSON.stringify(result.body));
+        assert.deepEqual(await kv.get(`save:${player}`), before);
+        assert.equal((await call('GET')).body.dailyUsed, 0);
+    }
+});
+
+test('a refusal returns the current balance without writing so a stale device can reconcile', async () => {
+    await certificates(0);
+    const before = await kv.get<Obj>(`save:${player}`);
+    const result = await call('POST', { payment: 'certificate', requestId: requestId('stale_device') });
+    assert.equal(result.status, 400);
+    assert.equal(result.body.character.brokerCertificates, 0);
+    assert.equal(result.body._saveVersion, before!._saveVersion);
+    assert.deepEqual(await kv.get(`save:${player}`), before);
 });
