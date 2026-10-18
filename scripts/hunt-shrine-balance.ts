@@ -4,7 +4,17 @@ import { huntFixture, shrineFixture, simulateBalance } from './test-fixtures/hun
 // Offline, no storage credentials or player records. Identical saves and enemy
 // seals are compared; only each new host-specific chooser is toggled.
 const rows=[];
+const formationsOnly=process.argv.includes('--formations-only');
 for(const level of [5,17,50,100]) for(const sustain of [false,true]) {
+    if(formationsOnly) {
+        for(const kind of ['pack','waves'] as const) for(const mission of ['hunt-forest-hawk','hunt-ash-lizard']) {
+            const formation={version:1 as const,kind,count:3 as const};
+            rows.push({level,sustain,encounter:`${mission}-${kind}-3`,
+                before:simulateBalance(huntFixture(level,mission,sustain,true,formation),sustain),
+                after:simulateBalance(huntFixture(level,mission,sustain,false,formation),sustain)});
+        }
+        continue;
+    }
     for(const mission of ['hunt-wild-boar','hunt-frost-wolf','hunt-ash-lizard','hunt-forest-hawk']) {
         const before=simulateBalance(huntFixture(level,mission,sustain,true),sustain);
         const after=simulateBalance(huntFixture(level,mission,sustain),sustain);

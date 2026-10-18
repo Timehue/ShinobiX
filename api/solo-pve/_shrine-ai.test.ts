@@ -98,3 +98,12 @@ test('representative full battles terminate deterministically under both policie
         if(!legacy) assert.ok(result.enemyHeals<=1);
     }
 });
+
+test('protected easy simultaneous packs retain identical legacy pressure while waves use the new chooser',()=>{
+    for(const level of [5,17]) for(const sustain of [false,true]) {
+        const formation={version:1 as const,kind:'pack' as const,count:3 as const};
+        const old=huntFixture(level,'hunt-forest-hawk',sustain,true,formation);
+        const current=huntFixture(level,'hunt-forest-hawk',sustain,false,formation);
+        assert.deepEqual(simulateBalance(current,sustain),simulateBalance(old,sustain));
+    }
+});

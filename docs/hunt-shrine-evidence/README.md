@@ -16,7 +16,7 @@ Their distinct kits and existing floor director remain in place.
 
 ## Changes
 
-- New hunts seal `hunt-v1` on enemy actors, including pending waves. The hunt-only
+- New single/wave hunts and level-31+ simultaneous packs seal `hunt-v1` on enemy actors, including pending waves. The hunt-only
   chooser previews ordinary legal actions through Tower `applyAction`. It scores
   actual damage, utility, and useful movement; no player loadout is inspected.
 - D contracts and levels 1–15 use one-step choices. C/B use two steps; A/S use
@@ -25,6 +25,9 @@ Their distinct kits and existing floor director remain in place.
 - C+ easy-band targets at level 16+ can use heavy techniques from round 2;
   D contracts and lower levels retain round 3. Other bands retain round 1.
   The opening log states the actual timing and existing Cleanse/Clear counters.
+- Easy simultaneous packs (levels 1-30) retain their existing chooser and round-3
+  heavy opening. Several enemies already chain turns in these encounters;
+  applying the stronger utility chooser compounded pressure in low-level probes.
 - New shrine sessions seal `shrine-v1`, opting only that host into the existing
   legal Solo planner. Basic Heal is a lifetime choice budget: once for ordinary,
   ambush and beast encounters, twice for elite/boss. A pure healing/defensive
@@ -59,6 +62,34 @@ uses a fixed cast rotation, not an optimal planner; it does not Clear, Cleanse,
 Basic Heal, use items, or strategically kite. No bloodline, pet or relic is added.
 Hunt minimum HP is sampled between commands; shrine minima include enemy events.
 
+Run `node --import tsx scripts/hunt-shrine-balance.ts docs/hunt-shrine-evidence/formation-balance.json --formations-only`
+for 32 additional paired comparisons: three-enemy simultaneous packs and sequential
+waves, Hawk/Lizard, both builds and all four levels. Easy simultaneous packs have
+identical before/after outcomes and pressure. These fixed-rotation fixtures already
+lose those packs under the old chooser; this change does not claim to fix their
+existing difficulty. Level-5 sequential waves remain wins in both builds.
+
+## Integration audit
+
+Actual hunt starts run through world mission authority, `ai-fight-start`, the
+generic Solo encounter seal, `attachHuntCombat`, and the embedded Tower runner.
+New target and stage-0 formation missions use this route. Legacy stage-1/2 chain
+continuations keep the existing Solo standard runner; generic/Apex fights retain
+their existing `raidAi` runner. There is no additional stat/mastery scaling step.
+
+Shrine shinobi ordinary, elite, final boss, ambush, beast and hostile wanderer
+starts seal the shrine policy. Pet Showdown and card engines remain separate;
+switching an untouched pet encounter to shinobi builds a fresh sealed session.
+Actions, state reads and resume restore persisted sessions, rather than rebuilding
+their actors or replenishing support budgets. Old unsealed sessions stay unchanged.
+
+Stored-session regressions cover every live/pending hunt actor across levels
+5/17/30/31/100 and all formations, shrine counter persistence through an actual
+action and duplicate move token, and old-session preservation. Independent checks
+also exercised real start/action/state/resume handlers against isolated JSON memory
+storage (12 hunt cases and all five shrine kinds). Rewards, completion receipts,
+flee/abandon, expiry and cleanup retain their existing authorities.
+
 Example comparisons (same numbers before/after): level-17 offense Frost Wolf
 ends at 651 → 239 HP in five rounds; level-17 sustain Frost Wolf ends at
 1,748 → 1,325 HP in five rounds. Ordinary level-17 shrine offense ends at
@@ -77,9 +108,10 @@ with those actual builds is still needed before deployment or broader tuning.
 ## Validation
 
 Independent review found and fixed a ranged-reach scoring error and a warning
-timing mismatch. Its final relevant run passed 40 tests, with no remaining
-production defect identified. Its broader independent relevant run passed
-93 tests before the additional HP-gate and defense recovery regressions.
+timing mismatch. The fresh final integration audit found no blocking defect:
+repository runs passed 98/98, 94/94, 10/10 and 76/76 tests, plus 17/17 custom
+real-handler round trips. This review includes the easy-pack exception and checks
+scope isolation, AP/resources, mastery/scaling, persistence, retries and cleanup.
 
 Final full-suite, build and browser results are recorded in the PR. The first
 full unit run exposed two integration guards (test-fixture location and map

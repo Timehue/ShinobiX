@@ -10,7 +10,7 @@ import { makeRng } from '../towers/_sim.js';
 import { companionConsumableHealPct } from '../combat-core/companion.js';
 import { huntMissionById } from '../missions/_mission-catalog.js';
 import { HUNT_AI_POLICY } from '../towers/_hunt-ai.js';
-import { pveEasyBandHoldsBurst } from '../_pve-difficulty.js';
+import { pveEasyBandHoldsBurst, pveDifficultyBand } from '../_pve-difficulty.js';
 
 export type HuntCombatState = {
     formation: HuntFormation;
@@ -37,6 +37,9 @@ export function attachHuntCombat(session: SoloPveSession, context: WorldAiFightC
     const player = fighterActor(session.player, 'player', session.ownerSlug, spawn(62));
     const requirement = huntMissionById(context.missionId ?? context.sourceId)?.levelReq ?? 1;
     const rank = requirement >= 70 ? 'S' : requirement >= 50 ? 'A' : requirement >= 30 ? 'B' : requirement >= 15 ? 'C' : 'D';
+    // Simultaneous easy-band packs already chain several enemy turns. Preserve
+    // their original chooser instead of compounding the onboarding pressure.
+    const tacticalHunt = formation.kind !== 'pack' || pveDifficultyBand(Number(session.enemy.character.level)) !== 'easy';
     player.itemCharges = { ...session.itemCharges };
     const enemies = Array.from({ length: formation.count }, (_, index) => {
         const actor = fighterActor(session.enemy, `hunt-enemy-${index}`, null, spawn([33, 57, 81][index]!));
@@ -51,7 +54,8 @@ export function attachHuntCombat(session: SoloPveSession, context: WorldAiFightC
         actor.name = target || formation.count === 1 ? session.enemy.name : `${session.enemy.name} ${index + 1}`;
         actor.character.name = actor.name;
         actor.character.huntContractTarget = target;
-        actor.character.huntAiPolicy = HUNT_AI_POLICY;
+        if (tacticalHunt) actor.character.huntAiPolicy = HUNT_AI_POLICY;
+        else delete actor.character.huntAiPolicy;
         actor.character.huntRank = rank;
         return actor;
     });
@@ -76,7 +80,7 @@ export function attachHuntCombat(session: SoloPveSession, context: WorldAiFightC
     battle.weather = { positiveElement: session.environment.weatherPositiveElement, negativeElement: session.environment.weatherNegativeElement };
     battle.log.push(`${label}: ${session.enemy.name}.`);
     const heavyRound = !pveEasyBandHoldsBurst(Number(session.enemy.character.level), 1) ? 1
-        : rank !== 'D' && Number(session.enemy.character.level) >= 16 ? 2 : 3;
+        : tacticalHunt && rank !== 'D' && Number(session.enemy.character.level) >= 16 ? 2 : 3;
     battle.log.push(`${rank}-rank hunt: watch for afflictions and gap-closing techniques. Heavy techniques begin on round ${heavyRound}. Cleanse removes afflictions; Clear strips active defenses.`);
     session.huntCombat = { formation, battle };
     startRound(battle);

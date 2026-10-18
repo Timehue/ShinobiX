@@ -1,0 +1,870 @@
+{
+  "fixture": "Illustrative catalog builds with level-appropriate armor; no bloodline, pet, relic or production save. Level17 has INT640/GEN570. This is not a Buster/Rill replay.",
+  "policy": "Fixed legal cast rotation; sustain maintains Absorb/Lifesteal/Reflect, offense favors damaging casts. Same seed and numbers before/after; no stochastic win-rate claim.",
+  "rows": [
+    {
+      "level": 5,
+      "sustain": false,
+      "encounter": "hunt-forest-hawk-pack-3",
+      "before": {
+        "outcome": "loss",
+        "rounds": 3,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 2,
+        "enemyMaxHp": 949,
+        "playerMaxHp": 900,
+        "actions": 7
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 3,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 2,
+        "enemyMaxHp": 949,
+        "playerMaxHp": 900,
+        "actions": 7
+      }
+    },
+    {
+      "level": 5,
+      "sustain": false,
+      "encounter": "hunt-ash-lizard-pack-3",
+      "before": {
+        "outcome": "loss",
+        "rounds": 3,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 2,
+        "enemyMaxHp": 949,
+        "playerMaxHp": 900,
+        "actions": 7
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 3,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 2,
+        "enemyMaxHp": 949,
+        "playerMaxHp": 900,
+        "actions": 7
+      }
+    },
+    {
+      "level": 5,
+      "sustain": false,
+      "encounter": "hunt-forest-hawk-waves-3",
+      "before": {
+        "outcome": "win",
+        "rounds": 7,
+        "endHp": 426,
+        "minHp": 426,
+        "enemyHeals": 0,
+        "enemyCasts": 2,
+        "enemyMaxHp": 949,
+        "playerMaxHp": 900,
+        "actions": 14
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 7,
+        "endHp": 285,
+        "minHp": 285,
+        "enemyHeals": 0,
+        "enemyCasts": 6,
+        "enemyMaxHp": 949,
+        "playerMaxHp": 900,
+        "actions": 14
+      }
+    },
+    {
+      "level": 5,
+      "sustain": false,
+      "encounter": "hunt-ash-lizard-waves-3",
+      "before": {
+        "outcome": "win",
+        "rounds": 7,
+        "endHp": 426,
+        "minHp": 426,
+        "enemyHeals": 0,
+        "enemyCasts": 2,
+        "enemyMaxHp": 949,
+        "playerMaxHp": 900,
+        "actions": 14
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 7,
+        "endHp": 285,
+        "minHp": 285,
+        "enemyHeals": 0,
+        "enemyCasts": 6,
+        "enemyMaxHp": 949,
+        "playerMaxHp": 900,
+        "actions": 14
+      }
+    },
+    {
+      "level": 5,
+      "sustain": true,
+      "encounter": "hunt-forest-hawk-pack-3",
+      "before": {
+        "outcome": "loss",
+        "rounds": 5,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 6,
+        "enemyMaxHp": 949,
+        "playerMaxHp": 900,
+        "actions": 12
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 5,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 6,
+        "enemyMaxHp": 949,
+        "playerMaxHp": 900,
+        "actions": 12
+      }
+    },
+    {
+      "level": 5,
+      "sustain": true,
+      "encounter": "hunt-ash-lizard-pack-3",
+      "before": {
+        "outcome": "loss",
+        "rounds": 5,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 6,
+        "enemyMaxHp": 949,
+        "playerMaxHp": 900,
+        "actions": 12
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 5,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 6,
+        "enemyMaxHp": 949,
+        "playerMaxHp": 900,
+        "actions": 12
+      }
+    },
+    {
+      "level": 5,
+      "sustain": true,
+      "encounter": "hunt-forest-hawk-waves-3",
+      "before": {
+        "outcome": "win",
+        "rounds": 11,
+        "endHp": 453,
+        "minHp": 274,
+        "enemyHeals": 0,
+        "enemyCasts": 6,
+        "enemyMaxHp": 949,
+        "playerMaxHp": 900,
+        "actions": 26
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 11,
+        "endHp": 387,
+        "minHp": 208,
+        "enemyHeals": 0,
+        "enemyCasts": 10,
+        "enemyMaxHp": 949,
+        "playerMaxHp": 900,
+        "actions": 26
+      }
+    },
+    {
+      "level": 5,
+      "sustain": true,
+      "encounter": "hunt-ash-lizard-waves-3",
+      "before": {
+        "outcome": "win",
+        "rounds": 11,
+        "endHp": 453,
+        "minHp": 274,
+        "enemyHeals": 0,
+        "enemyCasts": 6,
+        "enemyMaxHp": 949,
+        "playerMaxHp": 900,
+        "actions": 26
+      },
+      "after": {
+        "outcome": "win",
+        "rounds": 11,
+        "endHp": 387,
+        "minHp": 208,
+        "enemyHeals": 0,
+        "enemyCasts": 10,
+        "enemyMaxHp": 949,
+        "playerMaxHp": 900,
+        "actions": 26
+      }
+    },
+    {
+      "level": 17,
+      "sustain": false,
+      "encounter": "hunt-forest-hawk-pack-3",
+      "before": {
+        "outcome": "loss",
+        "rounds": 3,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 3,
+        "enemyMaxHp": 2282,
+        "playerMaxHp": 2100,
+        "actions": 7
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 3,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 3,
+        "enemyMaxHp": 2282,
+        "playerMaxHp": 2100,
+        "actions": 7
+      }
+    },
+    {
+      "level": 17,
+      "sustain": false,
+      "encounter": "hunt-ash-lizard-pack-3",
+      "before": {
+        "outcome": "loss",
+        "rounds": 3,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 3,
+        "enemyMaxHp": 2282,
+        "playerMaxHp": 2100,
+        "actions": 7
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 3,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 3,
+        "enemyMaxHp": 2282,
+        "playerMaxHp": 2100,
+        "actions": 7
+      }
+    },
+    {
+      "level": 17,
+      "sustain": false,
+      "encounter": "hunt-forest-hawk-waves-3",
+      "before": {
+        "outcome": "loss",
+        "rounds": 7,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 4,
+        "enemyMaxHp": 2282,
+        "playerMaxHp": 2100,
+        "actions": 15
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 7,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 8,
+        "enemyMaxHp": 2282,
+        "playerMaxHp": 2100,
+        "actions": 15
+      }
+    },
+    {
+      "level": 17,
+      "sustain": false,
+      "encounter": "hunt-ash-lizard-waves-3",
+      "before": {
+        "outcome": "loss",
+        "rounds": 7,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 4,
+        "enemyMaxHp": 2282,
+        "playerMaxHp": 2100,
+        "actions": 15
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 6,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 7,
+        "enemyMaxHp": 2282,
+        "playerMaxHp": 2100,
+        "actions": 13
+      }
+    },
+    {
+      "level": 17,
+      "sustain": true,
+      "encounter": "hunt-forest-hawk-pack-3",
+      "before": {
+        "outcome": "loss",
+        "rounds": 5,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 7,
+        "enemyMaxHp": 2282,
+        "playerMaxHp": 2100,
+        "actions": 12
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 5,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 7,
+        "enemyMaxHp": 2282,
+        "playerMaxHp": 2100,
+        "actions": 12
+      }
+    },
+    {
+      "level": 17,
+      "sustain": true,
+      "encounter": "hunt-ash-lizard-pack-3",
+      "before": {
+        "outcome": "loss",
+        "rounds": 5,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 7,
+        "enemyMaxHp": 2282,
+        "playerMaxHp": 2100,
+        "actions": 12
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 5,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 7,
+        "enemyMaxHp": 2282,
+        "playerMaxHp": 2100,
+        "actions": 12
+      }
+    },
+    {
+      "level": 17,
+      "sustain": true,
+      "encounter": "hunt-forest-hawk-waves-3",
+      "before": {
+        "outcome": "loss",
+        "rounds": 8,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 5,
+        "enemyMaxHp": 2282,
+        "playerMaxHp": 2100,
+        "actions": 20
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 8,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 8,
+        "enemyMaxHp": 2282,
+        "playerMaxHp": 2100,
+        "actions": 20
+      }
+    },
+    {
+      "level": 17,
+      "sustain": true,
+      "encounter": "hunt-ash-lizard-waves-3",
+      "before": {
+        "outcome": "loss",
+        "rounds": 8,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 5,
+        "enemyMaxHp": 2282,
+        "playerMaxHp": 2100,
+        "actions": 20
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 8,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 9,
+        "enemyMaxHp": 2282,
+        "playerMaxHp": 2100,
+        "actions": 20
+      }
+    },
+    {
+      "level": 50,
+      "sustain": false,
+      "encounter": "hunt-forest-hawk-pack-3",
+      "before": {
+        "outcome": "loss",
+        "rounds": 4,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 11,
+        "enemyMaxHp": 7183,
+        "playerMaxHp": 5400,
+        "actions": 9
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 3,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 14,
+        "enemyMaxHp": 7183,
+        "playerMaxHp": 5400,
+        "actions": 7
+      }
+    },
+    {
+      "level": 50,
+      "sustain": false,
+      "encounter": "hunt-ash-lizard-pack-3",
+      "before": {
+        "outcome": "loss",
+        "rounds": 4,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 11,
+        "enemyMaxHp": 7183,
+        "playerMaxHp": 5400,
+        "actions": 9
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 3,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 14,
+        "enemyMaxHp": 7183,
+        "playerMaxHp": 5400,
+        "actions": 7
+      }
+    },
+    {
+      "level": 50,
+      "sustain": false,
+      "encounter": "hunt-forest-hawk-waves-3",
+      "before": {
+        "outcome": "loss",
+        "rounds": 10,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 7,
+        "enemyMaxHp": 7183,
+        "playerMaxHp": 5400,
+        "actions": 22
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 8,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 7,
+        "enemyMaxHp": 7183,
+        "playerMaxHp": 5400,
+        "actions": 18
+      }
+    },
+    {
+      "level": 50,
+      "sustain": false,
+      "encounter": "hunt-ash-lizard-waves-3",
+      "before": {
+        "outcome": "loss",
+        "rounds": 10,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 7,
+        "enemyMaxHp": 7183,
+        "playerMaxHp": 5400,
+        "actions": 22
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 8,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 7,
+        "enemyMaxHp": 7183,
+        "playerMaxHp": 5400,
+        "actions": 18
+      }
+    },
+    {
+      "level": 50,
+      "sustain": true,
+      "encounter": "hunt-forest-hawk-pack-3",
+      "before": {
+        "outcome": "loss",
+        "rounds": 5,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 12,
+        "enemyMaxHp": 7183,
+        "playerMaxHp": 5400,
+        "actions": 12
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 4,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 15,
+        "enemyMaxHp": 7183,
+        "playerMaxHp": 5400,
+        "actions": 10
+      }
+    },
+    {
+      "level": 50,
+      "sustain": true,
+      "encounter": "hunt-ash-lizard-pack-3",
+      "before": {
+        "outcome": "loss",
+        "rounds": 5,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 12,
+        "enemyMaxHp": 7183,
+        "playerMaxHp": 5400,
+        "actions": 12
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 4,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 14,
+        "enemyMaxHp": 7183,
+        "playerMaxHp": 5400,
+        "actions": 10
+      }
+    },
+    {
+      "level": 50,
+      "sustain": true,
+      "encounter": "hunt-forest-hawk-waves-3",
+      "before": {
+        "outcome": "loss",
+        "rounds": 22,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 12,
+        "enemyMaxHp": 7183,
+        "playerMaxHp": 5400,
+        "actions": 54
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 14,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 13,
+        "enemyMaxHp": 7183,
+        "playerMaxHp": 5400,
+        "actions": 34
+      }
+    },
+    {
+      "level": 50,
+      "sustain": true,
+      "encounter": "hunt-ash-lizard-waves-3",
+      "before": {
+        "outcome": "loss",
+        "rounds": 22,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 12,
+        "enemyMaxHp": 7183,
+        "playerMaxHp": 5400,
+        "actions": 54
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 14,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 13,
+        "enemyMaxHp": 7183,
+        "playerMaxHp": 5400,
+        "actions": 34
+      }
+    },
+    {
+      "level": 100,
+      "sustain": false,
+      "encounter": "hunt-forest-hawk-pack-3",
+      "before": {
+        "outcome": "loss",
+        "rounds": 11,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 22,
+        "enemyMaxHp": 19950,
+        "playerMaxHp": 10000,
+        "actions": 24
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 8,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 19,
+        "enemyMaxHp": 19950,
+        "playerMaxHp": 10000,
+        "actions": 18
+      }
+    },
+    {
+      "level": 100,
+      "sustain": false,
+      "encounter": "hunt-ash-lizard-pack-3",
+      "before": {
+        "outcome": "loss",
+        "rounds": 11,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 22,
+        "enemyMaxHp": 19950,
+        "playerMaxHp": 10000,
+        "actions": 24
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 8,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 20,
+        "enemyMaxHp": 19950,
+        "playerMaxHp": 10000,
+        "actions": 18
+      }
+    },
+    {
+      "level": 100,
+      "sustain": false,
+      "encounter": "hunt-forest-hawk-waves-3",
+      "before": {
+        "outcome": "loss",
+        "rounds": 13,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 8,
+        "enemyMaxHp": 19950,
+        "playerMaxHp": 10000,
+        "actions": 28
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 10,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 10,
+        "enemyMaxHp": 19950,
+        "playerMaxHp": 10000,
+        "actions": 22
+      }
+    },
+    {
+      "level": 100,
+      "sustain": false,
+      "encounter": "hunt-ash-lizard-waves-3",
+      "before": {
+        "outcome": "loss",
+        "rounds": 13,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 8,
+        "enemyMaxHp": 19950,
+        "playerMaxHp": 10000,
+        "actions": 28
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 10,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 10,
+        "enemyMaxHp": 19950,
+        "playerMaxHp": 10000,
+        "actions": 22
+      }
+    },
+    {
+      "level": 100,
+      "sustain": true,
+      "encounter": "hunt-forest-hawk-pack-3",
+      "before": {
+        "outcome": "loss",
+        "rounds": 15,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 26,
+        "enemyMaxHp": 19950,
+        "playerMaxHp": 10000,
+        "actions": 37
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 9,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 25,
+        "enemyMaxHp": 19950,
+        "playerMaxHp": 10000,
+        "actions": 23
+      }
+    },
+    {
+      "level": 100,
+      "sustain": true,
+      "encounter": "hunt-ash-lizard-pack-3",
+      "before": {
+        "outcome": "loss",
+        "rounds": 15,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 26,
+        "enemyMaxHp": 19950,
+        "playerMaxHp": 10000,
+        "actions": 37
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 9,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 25,
+        "enemyMaxHp": 19950,
+        "playerMaxHp": 10000,
+        "actions": 23
+      }
+    },
+    {
+      "level": 100,
+      "sustain": true,
+      "encounter": "hunt-forest-hawk-waves-3",
+      "before": {
+        "outcome": "loss",
+        "rounds": 23,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 14,
+        "enemyMaxHp": 19950,
+        "playerMaxHp": 10000,
+        "actions": 57
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 16,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 14,
+        "enemyMaxHp": 19950,
+        "playerMaxHp": 10000,
+        "actions": 40
+      }
+    },
+    {
+      "level": 100,
+      "sustain": true,
+      "encounter": "hunt-ash-lizard-waves-3",
+      "before": {
+        "outcome": "loss",
+        "rounds": 23,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 14,
+        "enemyMaxHp": 19950,
+        "playerMaxHp": 10000,
+        "actions": 57
+      },
+      "after": {
+        "outcome": "loss",
+        "rounds": 16,
+        "endHp": 0,
+        "minHp": 0,
+        "enemyHeals": 0,
+        "enemyCasts": 14,
+        "enemyMaxHp": 19950,
+        "playerMaxHp": 10000,
+        "actions": 40
+      }
+    }
+  ]
+}
