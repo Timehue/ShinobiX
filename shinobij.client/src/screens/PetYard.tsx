@@ -41,6 +41,9 @@ import { Modal } from "../components/ui/Modal";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
 import { activeClientBreedingParentIds } from "../lib/pet-breeding";
 import { authoritativePetExpeditionGains } from "../lib/pet-expedition-result";
+import { craftMaterialName } from "../../../shared/crafting-recipes";
+import type { PetExpeditionMaterialReward } from "../../../shared/pet-expedition-materials";
+import { PET_EXPEDITION_ROUTES } from "../../../shared/pet-expedition-contract";
 import "../styles/pet-home.css";
 import "../styles/pet-yard-refined.css";
 import { GameIcon } from "../components/icons/GameIcon";
@@ -71,6 +74,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
         petName: string; summary: string; expType: PetExpeditionType;
         ryo: number; xp: number; statSummary: string;
         foundFate: number; foundAura: number; foundBone: number; leveledUp: boolean;
+        materialRewards: PetExpeditionMaterialReward[];
         tamerXp: number; outcomeLabel: string; returnOutcome: string;
         happinessCost: number; place: string; provision: PetExpeditionProvision; risk: PetExpeditionRisk;
     } | null>(null);
@@ -490,7 +494,8 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
         if (expeditionLaunchBusyRef.current) return;
         if (!selectedPet) return;
         if (selectedPetIsOverflow) return alert(`${petDisplayName(selectedPet)} is preserved overflow. Move it into the carried roster through the Sanctuary before starting an expedition.`);
-        if (selectedPet.level < PET_EXPEDITION_UNLOCK_LEVEL) return alert(`${petDisplayName(selectedPet)} must reach Level ${PET_EXPEDITION_UNLOCK_LEVEL} before going on expeditions.`);
+        const route = PET_EXPEDITION_ROUTES[expeditionType];
+        if (selectedPet.level < route.requiredLevel) return alert(`${petDisplayName(selectedPet)} must reach Level ${route.requiredLevel} for ${route.label}.`);
         if (selectedPet.training && serverNow() < selectedPet.training.endsAt) return alert(`${selectedPet.name} is training right now.`);
         if (isPetOnExpedition(selectedPet)) return alert(`${selectedPet.name} is already exploring.`);
         if (selectedPet.expedition) return alert(`${petDisplayName(selectedPet)} has an unclaimed expedition. Collect it first!`);
@@ -513,8 +518,8 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
         const requestIsCurrent = () => mountedRef.current && activeAccountRef.current === originAccount;
 
         // Every expedition starts as a server-owned lease with a single-use token.
-        // Pet Tamers receive the full reward lane; a non-Tamer's maxed pet receives
-        // half-rate currency, while a non-maxed pet can still grow. Refuse an
+        // All level-eligible pets earn rewards; profession perks are sealed at
+        // departure. Refuse an
         // ambiguous or capped response so the UI never invents a local lease that
         // the server cannot later settle.
         try {
@@ -543,10 +548,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                 return alert(`Daily expedition start cap reached (${Number(data.dailyStarts ?? data.dailyCap ?? 12)}/${Number(data.dailyCap ?? 12)}).${resetCopy}`);
             }
             const token = typeof data?.token === "string" ? data.token : undefined;
-            // No token AND not the daily-cap path: for a Tamer that's an unexpected
-            // response — don't burn a currency-earning expedition. For a non-Tamer
-            // it just means the server doesn't see the pet as maxed yet (e.g. a
-            // not-yet-synced save), so let the trip run tokenless rather than trap it.
+            // Every profession needs the server token and committed character.
             if (!token || !data?.character) {
                 if (expeditionLaunchRef.current === launch) expeditionLaunchRef.current = null;
                 return alert("Couldn't start the expedition. Please try again.");
@@ -601,6 +603,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                 foundBone?: number;
                 foundAura?: number;
                 foundFate?: number;
+                materialRewards?: PetExpeditionMaterialReward[];
                 petXpEarned?: number;
                 story?: string;
                 returnOutcome?: string;
@@ -666,6 +669,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                 foundBone: Math.max(0, Number(data.foundBone ?? 0)),
                 foundAura: Math.max(0, Number(data.foundAura ?? 0)),
                 foundFate: Math.max(0, Number(data.foundFate ?? 0)),
+                materialRewards: Array.isArray(data.materialRewards) ? data.materialRewards : [],
                 leveledUp: gains.leveledUp,
                 tamerXp: Math.max(0, Number(data.expeditionXp ?? 0)),
                 outcomeLabel: String(data.outcomeLabel ?? "Haul secured"),
@@ -1014,6 +1018,12 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                 <span className="expedition-reward-value">+{expeditionResult.foundBone}</span>
                             </div>
                         )}
+                        {expeditionResult.materialRewards.map((reward) => (
+                            <div key={reward.itemId} className="expedition-reward-row">
+                                <span className="expedition-reward-label">{craftMaterialName(reward.itemId)}</span>
+                                <span className="expedition-reward-value">+{reward.count}</span>
+                            </div>
+                        ))}
                         {expeditionResult.foundAura > 0 && (
                             <div className="expedition-reward-row expedition-reward-rare">
                                 <span className="expedition-reward-label">Aura Stone</span>
@@ -1641,7 +1651,6 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
     );
 }
 
-const PET_EXPEDITION_UNLOCK_LEVEL = 20;
 
 // Equipped gear and support for the selected companion.
 const PET_LOADOUT_SLOTS: Array<{ key: "collar" | "pvp" | "pve" | "consumable"; label: string; icon: "sparkle" | "sword" | "shield" | "flask"; hint: string }> = [

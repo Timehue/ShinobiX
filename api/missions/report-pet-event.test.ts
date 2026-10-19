@@ -35,6 +35,23 @@ test('clearStuckExpeditionLease is a no-op when nothing matches (double-claim / 
     assert.equal(cleared, false);
 });
 
+test('a stale token cannot clear a different expedition through its pet id', () => {
+    const char = { pets: [petWith('p1', { token: 'NEWER', endsAt: 5 })] };
+    const result = clearStuckExpeditionLease(char, { token: 'OLDER', petId: 'p1' });
+    assert.equal(result.cleared, false);
+    assert.deepEqual(result.pets, char.pets);
+});
+
+test('recoverable server-owned trips cannot be discarded through missing-token recovery', () => {
+    const char = { pets: [{ id: 'p1', level: 20, maxLevel: 100, expedition: {
+        type: 'scout', token: 'VALID', startedAt: 1_000, endsAt: 2_701_000, durationMs: 2_700_000,
+        serverSeal: { petLevel: 20, rewardScale: 1, tamer: false },
+    } }] };
+    for (const match of [{ petId: 'p1' }, { token: 'VALID', petId: 'p1' }]) {
+        assert.equal(clearStuckExpeditionLease(char, match).cleared, false);
+    }
+});
+
 test('clearStuckExpeditionLease tolerates a missing/invalid pets array and empty match', () => {
     assert.deepEqual(clearStuckExpeditionLease({}, { token: 'AAA' }), { pets: [], cleared: false });
     assert.equal(clearStuckExpeditionLease({ pets: [petWith('p1', { token: 'AAA' })] }, {}).cleared, false);

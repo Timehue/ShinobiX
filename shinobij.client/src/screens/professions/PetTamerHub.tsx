@@ -39,7 +39,7 @@ export function PetTamerHub({ character, onVersionedCharacter, setScreen, onBack
             <section className="ph-panel" aria-label="Active profession bonuses">
                 <ProfessionSectionHeading eyebrow="Strength in kinship" title="Your bond, amplified" detail="Active bonuses" />
                 <dl className="ph-metrics"><ProfessionMetric label="PvE pet damage" value={`+${pveBonusPct}%`} detail="Fight as one" /><ProfessionMetric label="Training speed" value={`+${trainSpeedPct}%`} detail="Grow together" /><ProfessionMetric label="Expedition rewards" value={`+${expeditionPct}%`} detail="Bring more home" /></dl>
-                <div className="ph-daily-perk"><strong>2×</strong><p><b>The first journey of the day</b><span>Your first collected expedition grants double Tamer XP, pet XP, and ryo, plus a large material-find boost.</span></p></div>
+                <div className="ph-daily-perk"><strong>{petTamerExpeditionMult(character)}×</strong><p><b>Every journey brings more home</b><span>Every expedition earns {expeditionPct}% more ryo and pet XP, with larger material hauls and better rare-find odds. Expeditioner mastery adds to this bonus.</span></p></div>
             </section>
             <section aria-label="Pet Tamer destinations">
                 <ProfessionSectionHeading eyebrow="Beyond the sanctuary" title="Answer the wild" />
