@@ -30575,7 +30575,7 @@
     },
     "starter-wind": {
       "name": "Gale Chick",
-      "firstPass": "source-battle-first-pass-complete",
+      "firstPass": "complete",
       "secondPass": "complete",
       "beforeSha256": "1416802ce898388978aeda88f93404382e8b63411de1328e9c98dbe9848100f9",
       "beforeEvidence": [
@@ -30698,7 +30698,7 @@
         }
       },
       "preContactPromotedSha256": "88b1ae6adec0ec9ff2060e76b3e15b9bf1f17f73242d18c31b026e1f3fab10a1",
-      "status": "double-checked-locally-main-live-pending",
+      "status": "double-checked-and-live",
       "originalAnimationReview": {
         "report": "docs/audits/pet-gale-chick-original-review-2026-10-18.json",
         "sourceRawSlicesActuallyInspected": 12,
@@ -30711,7 +30711,8 @@
         "sourcePromoted": true,
         "sourceRawSlicesActuallyInspected": 15,
         "battleRawSlicesActuallyInspected": 15,
-        "nativeTechniqueFramesActuallyInspected": 216
+        "nativeTechniqueFramesActuallyInspected": 216,
+        "secondPassComplete": true
       },
       "finalReceipt": {
         "sourceSha256": "b59c81236963a6ebb39e801e5c2053d707dbd8fd88f45225f54c7b0bcb92f583",
@@ -30722,16 +30723,18 @@
         "packagedAt": "2026-10-19T14:55:22.833Z"
       },
       "completeFaceRepairGate": {
-        "closed": false,
-        "status": "repaired-double-checked-locally-main-live-pending",
+        "closed": true,
+        "status": "double-checked-and-live",
         "sourceSha256": "b59c81236963a6ebb39e801e5c2053d707dbd8fd88f45225f54c7b0bcb92f583",
         "battleSha256": "92215482a22b72e392797efc8d0241d0766bed4bf89b7370664ca13f0c8632f7",
-        "report": "docs/audits/pet-gale-chick-complete-face-v1-final-review-2026-10-19.json"
+        "report": "docs/audits/pet-gale-chick-complete-face-v1-final-review-2026-10-19.json",
+        "liveCommit": "1c824ab5225937753962a1ed884c6e48546646dd",
+        "liveVerification": "docs/audits/pet-gale-all-clips-live-verification-2026-10-19.json"
       }
     },
     "starter-lightning": {
       "name": "Spark Pup",
-      "firstPass": "repaired-and-double-checked",
+      "firstPass": "complete",
       "secondPass": "complete",
       "beforeSha256": "7851e8d2b8ba5c7689b8e4ef6404107a1ef895480f1f1ef406bf4958bc9f0beb",
       "beforeEvidence": [
@@ -30775,106 +30778,8 @@
         "shinobij.client/.tmp/pet-shape-review/body-starter-orthogonal-candidates/starter-lightning-front.webp",
         "shinobij.client/.tmp/pet-shape-review/body-starter-orthogonal-candidates/starter-lightning-side.webp"
       ],
-      "promotedSha256": "5b96adb25eca071c6b1df6c020cd19def0a37d4b779c41eade34114f4089406f",
+      "promotedSha256": "92362a0dcea663625a6da3cd88a5c229f690ab84c44aee9f787649ed21378329",
       "conservation": "geometry, topology, atlas, clip names/times preserved; rig scale, rest frames and animation deltas deterministically retargeted; localized seam and skull binding repaired",
-      "secondPassSource": {
-        "sha256": "5b96adb25eca071c6b1df6c020cd19def0a37d4b779c41eade34114f4089406f",
-        "clips": [
-          "idle",
-          "idle_2",
-          "walk",
-          "gallop",
-          "gallop_jump",
-          "attack",
-          "idle_hitreact1",
-          "death",
-          "entrance",
-          "cast",
-          "guard",
-          "rest",
-          "victory"
-        ],
-        "progress": [
-          0,
-          0.125,
-          0.375,
-          0.625,
-          0.875,
-          1
-        ],
-        "headViews": [
-          "head-front",
-          "head-side"
-        ],
-        "bodyViews": [
-          "front",
-          "side"
-        ],
-        "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-head/starter-lightning-head-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-head/starter-lightning-head-side.webp",
-          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-body/starter-lightning-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-body/starter-lightning-side.webp"
-        ],
-        "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-head/starter-lightning-head-front.webp": "12faa8f92d294e004b5b6969eb86635abec9d0e262d215d2f276dcb69c5e7f71",
-          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-head/starter-lightning-head-side.webp": "2693218763c07c6eb537c7f3124bcd9c4ea039f3325f8874b6f13dd433c4835b",
-          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-body/starter-lightning-front.webp": "9eaaac492639cb98a6952450e82c12864ca04b2fb91e7c73df33ace7c07c8987",
-          "shinobij.client/.tmp/pet-shape-review/starter-contact-source-body/starter-lightning-side.webp": "2ac9ac4ba05da078538237bb06bacfbb7ae52ff810cb7aeb7ea6c916f8ab70b7"
-        },
-        "finding": "Final shipping source asset: all 13 clips and six alternate phases actually inspected in front/side head and body sheets. All 13 clips, all six phases, front/side head and body sheets actually inspected. Golden fox muzzle, eyes, tall ears, metal headband, red scarf, blue torso, four gold paws and white tail tip retain their shapes and grounded support.",
-        "reviewedAt": "2026-10-15T15:23:43.596Z",
-        "reviewer": "Codex visual inspection"
-      },
-      "secondPassBattle": {
-        "sha256": "6125a968fa0163c556163c6756e7434577f5c16c8c91fbd454b927fc08b527b4",
-        "clips": [
-          "idle",
-          "idle_2",
-          "walk",
-          "gallop",
-          "gallop_jump",
-          "attack",
-          "idle_hitreact1",
-          "death",
-          "entrance",
-          "cast",
-          "guard",
-          "rest",
-          "victory"
-        ],
-        "progress": [
-          0,
-          0.125,
-          0.375,
-          0.625,
-          0.875,
-          1
-        ],
-        "headViews": [
-          "head-front",
-          "head-side"
-        ],
-        "bodyViews": [
-          "front",
-          "side"
-        ],
-        "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-head/starter-lightning-head-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-head/starter-lightning-head-side.webp",
-          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-body/starter-lightning-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-body/starter-lightning-side.webp"
-        ],
-        "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-head/starter-lightning-head-front.webp": "d95916a10dd9da9867b7ac057d6024994e607c7f1252629393a35e9a41124d28",
-          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-head/starter-lightning-head-side.webp": "9f039b212555dd26686e4bc73ff252d4c5673249c8c687b4c49b6ff869b59066",
-          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-body/starter-lightning-front.webp": "27a39d26801785cb22a23b8cb369946531b52f3deacaad0efd69dad2a6472849",
-          "shinobij.client/.tmp/pet-shape-review/starter-contact-battle-body/starter-lightning-side.webp": "b06e053f70193af7f0920778eef1cdf3184a094062a910fd46d44ad3b98fdb63"
-        },
-        "finding": "Final shipping battle asset: all 13 clips and six alternate phases actually inspected in front/side head and body sheets. All 13 clips, all six phases, front/side head and body sheets actually inspected. Golden fox muzzle, eyes, tall ears, metal headband, red scarf, blue torso, four gold paws and white tail tip retain their shapes and grounded support.",
-        "reviewedAt": "2026-10-15T15:23:43.910Z",
-        "reviewer": "Codex visual inspection"
-      },
       "footContactCorrection": {
         "status": "complete-final-source-battle-and-runtime-rechecked",
         "finding": "Rig orthogonalization introduced small support-foot lift; restore authored vertical foot trajectories without changing horizontal gait or skull shape.",
@@ -30942,73 +30847,51 @@
         }
       },
       "preContactPromotedSha256": "66705ccab784a5926e4fd2a083a0234212540960d51daf61e4af5db8f849d308",
-      "runtimeVisualPass": {
+      "status": "double-checked-locally-main-live-pending",
+      "originalAnimationReview": {
+        "report": "docs/audits/pet-spark-pup-original-review-2026-10-19.json",
+        "sourceRawSlicesActuallyInspected": 12,
+        "battleRawSlicesActuallyInspected": 12,
+        "nativeTechniqueFramesActuallyInspected": 216,
+        "result": "repair-required"
+      },
+      "anatomicalCorrection": {
+        "report": "docs/audits/pet-spark-pup-anatomy-correction-2026-10-19.json",
         "sourceSha256": "5b96adb25eca071c6b1df6c020cd19def0a37d4b779c41eade34114f4089406f",
-        "battleSha256": "6125a968fa0163c556163c6756e7434577f5c16c8c91fbd454b927fc08b527b4",
-        "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
-        "rows": [
-          "idle",
-          "run",
-          "dash",
-          "windup",
-          "strike",
-          "recover",
-          "stagger",
-          "dodge",
-          "guard",
-          "rest",
-          "cast",
-          "entrance",
-          "victory",
-          "dead",
-          "revive",
-          "attack-sequence"
-        ],
-        "phases": [
-          0.025,
-          0.1,
-          0.25,
-          0.5,
-          0.75,
-          1
-        ],
-        "views": [
-          "front",
-          "side"
-        ],
-        "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-lightning-source-head.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-lightning-source-body.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-lightning-battle-head.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-lightning-battle-body.webp"
-        ],
-        "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-lightning-source-head.webp": "e38af9a4876259185deff125a00b5833ab17c91ad592ae030e359f7af9d11c01",
-          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-lightning-source-body.webp": "6d4f409d2e160ff2723fef4376766e3bf55f549050d9c4010ddb642356916137",
-          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-lightning-battle-head.webp": "f17f17c4888d652e68dbf6ca432d4fb323b08b89c6bd3c2b8c9adb9a1c7f59de",
-          "shinobij.client/.tmp/pet-shape-review/runtime-starter-contact-final/starter-lightning-battle-body.webp": "b5f6125144bfd8b46aea7d6854398299a9b7bce3fac9c8e1458ef7da2fb9a6d6"
-        },
-        "finding": "All 16 continuous production transition rows at six phases, front/side head and body, source and battle, actually inspected. Faces, body joins and support remain coherent through idle, movement, attack sequence, death and revive. All 13 clips, all six phases, front/side head and body sheets actually inspected. Golden fox muzzle, eyes, tall ears, metal headband, red scarf, blue torso, four gold paws and white tail tip retain their shapes and grounded support.",
-        "reviewer": "Codex visual inspection",
-        "reviewedAt": "2026-10-15T15:25:11.561Z"
+        "coverageActuallyInspected": true,
+        "landmarks": 12,
+        "animationApproval": false,
+        "productionSourcePromoted": false
+      },
+      "repairProgress": {
+        "report": "docs/audits/pet-spark-pup-repair-progress-2026-10-19.json",
+        "sourceRawSlicesActuallyInspected": 15,
+        "battleRawSlicesActuallyInspected": 15,
+        "techniqueFramesActuallyInspectedForCandidate": 216,
+        "productionSourcePromoted": true,
+        "secondPassComplete": true,
+        "footFloorIssue": "repaired-and-double-checked-locally-main-live-pending",
+        "footContactWitness": "docs/audits/pet-spark-pup-foot-contact-witness-2026-10-19.json",
+        "sourcePromoted": true,
+        "nativeTechniqueFramesActuallyInspected": 216,
+        "previousFaceOnlyCandidateTechniqueFrames": 18,
+        "originalReview": "docs/audits/pet-spark-pup-original-review-2026-10-19.json",
+        "anatomyCorrection": "docs/audits/pet-spark-pup-anatomy-correction-2026-10-19.json"
       },
       "finalReceipt": {
-        "sourceSha256": "5b96adb25eca071c6b1df6c020cd19def0a37d4b779c41eade34114f4089406f",
-        "battleSha256": "6125a968fa0163c556163c6756e7434577f5c16c8c91fbd454b927fc08b527b4",
-        "atlasSha256": "65923d615e4438c5ab313b5912600183bd735608ac833fdcb5ec1d75e7b9aabf",
-        "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
-        "evidence": [
-          "docs/screenshots/pet-shape-2026-10-15/starter-lightning-source-clips-head-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/starter-lightning-source-clips-body-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/starter-lightning-battle-clips-head-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/starter-lightning-battle-clips-body-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/starter-lightning-runtime-source-head.webp",
-          "docs/screenshots/pet-shape-2026-10-15/starter-lightning-runtime-source-body.webp",
-          "docs/screenshots/pet-shape-2026-10-15/starter-lightning-runtime-battle-head.webp",
-          "docs/screenshots/pet-shape-2026-10-15/starter-lightning-runtime-battle-body.webp",
-          "docs/screenshots/pet-shape-2026-10-15/starter-lightning-numeric-evidence.json"
-        ],
-        "packagedAt": "2026-10-15T15:25:15.687Z"
+        "sourceSha256": "92362a0dcea663625a6da3cd88a5c229f690ab84c44aee9f787649ed21378329",
+        "battleSha256": "bbb14b6789d665d0c1bc4397e256cf7389eb14590059770ad852fcdf65e5e30e",
+        "atlasSha256": "de7f69de776ce913fc8cdf8998a5db242888e9a132cd78e612d09b0028d2b6a8",
+        "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+        "report": "docs/audits/pet-spark-pup-root-clearance-v11-final-review-2026-10-19.json",
+        "packagedAt": "2026-10-19T17:45:56.056Z"
+      },
+      "completeFaceRepairGate": {
+        "closed": false,
+        "status": "repaired-double-checked-locally-main-live-pending",
+        "sourceSha256": "92362a0dcea663625a6da3cd88a5c229f690ab84c44aee9f787649ed21378329",
+        "battleSha256": "bbb14b6789d665d0c1bc4397e256cf7389eb14590059770ad852fcdf65e5e30e",
+        "report": "docs/audits/pet-spark-pup-root-clearance-v11-final-review-2026-10-19.json"
       }
     },
     "starter-earth": {
