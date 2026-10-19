@@ -11,6 +11,8 @@ export type PetAbilityUpgrade = 'utility-mastery' | 'offense-mastery' | 'signatu
 export type AuthoredPetAbility = {
     id?: unknown; abilityId?: unknown; baseAbilityId?: unknown; name?: unknown; power?: unknown; kind?: unknown; signature?: unknown;
     cooldown?: unknown; currentCooldown?: unknown; rounds?: unknown;
+    element?: unknown; cls?: unknown; target?: unknown; cost?: unknown; priority?: unknown; hold?: unknown; effect?: unknown;
+    affinity?: unknown; range?: unknown; aoe?: unknown; synergyElement?: unknown;
 };
 export type ProgressionPetAbility<T extends AuthoredPetAbility = AuthoredPetAbility> = T & {
     abilityId: string; baseAbilityId: string; unlockLevel: number; tier: PetAbilityTier;
@@ -21,9 +23,13 @@ export type ProgressionPetAbility<T extends AuthoredPetAbility = AuthoredPetAbil
 };
 export type PetAbilityProgressionInput<T extends AuthoredPetAbility = AuthoredPetAbility> = {
     templateId?: unknown; id?: unknown; evolutionStage?: unknown; rarity?: unknown;
-    level?: unknown; role?: unknown; ruleset?: PetAbilityRuleset;
-    abilitySource?: 'authored' | 'tactics'; abilities?: readonly T[];
+    level?: unknown; role?: unknown; abilities?: readonly T[];
 };
+/** Admission policy belongs to a trusted caller, never a persisted pet or
+ * worker payload. Omitting these controls selects authored progression. */
+export type PetAbilityProgressionOptions = Readonly<{
+    abilitySource?: 'authored' | 'tactics'; ruleset?: PetAbilityRuleset;
+}>;
 export type PetAbilityProgression<T extends AuthoredPetAbility = AuthoredPetAbility> = {
     speciesId: string | null; role: string; level: number; ruleset: PetAbilityRuleset;
     abilities: ProgressionPetAbility<T>[]; allAbilities: ProgressionPetAbility<T>[];
@@ -78,13 +84,29 @@ function materialize<T extends AuthoredPetAbility>(
     source: T, baseAbilityId: string, tier: PetAbilityTier, unlockLevel: number,
     upgrade?: PetAbilityUpgrade,
 ): ProgressionPetAbility<T> {
-    const authored = { ...source } as T & Record<string, unknown>;
-    // Authored/legacy payloads cannot self-author progression or sealed mastery.
-    // Only the resolver's slot, level and upgrade parameters own these values.
-    for (const key of Object.keys(authored)) {
-        if (/mastery|upgrade/i.test(key)
-            || ['abilityId', 'baseAbilityId', 'unlockLevel', 'tier', 'restrained'].includes(key)) delete authored[key];
-    }
+    // Project the authored combat contract with fixed property names. Arbitrary
+    // metadata (including every mastery/upgrade spelling) cannot enter a sealed
+    // ability. Preserve optional field presence and every authored/Tactics axis.
+    const authored: AuthoredPetAbility = {};
+    if (Object.hasOwn(source, 'id')) authored.id = source.id;
+    if (Object.hasOwn(source, 'name')) authored.name = source.name;
+    if (Object.hasOwn(source, 'power')) authored.power = source.power;
+    if (Object.hasOwn(source, 'kind')) authored.kind = source.kind;
+    if (Object.hasOwn(source, 'signature')) authored.signature = source.signature;
+    if (Object.hasOwn(source, 'cooldown')) authored.cooldown = source.cooldown;
+    if (Object.hasOwn(source, 'currentCooldown')) authored.currentCooldown = source.currentCooldown;
+    if (Object.hasOwn(source, 'rounds')) authored.rounds = source.rounds;
+    if (Object.hasOwn(source, 'element')) authored.element = source.element;
+    if (Object.hasOwn(source, 'cls')) authored.cls = source.cls;
+    if (Object.hasOwn(source, 'target')) authored.target = source.target;
+    if (Object.hasOwn(source, 'cost')) authored.cost = source.cost;
+    if (Object.hasOwn(source, 'priority')) authored.priority = source.priority;
+    if (Object.hasOwn(source, 'hold')) authored.hold = source.hold;
+    if (Object.hasOwn(source, 'effect')) authored.effect = source.effect;
+    if (Object.hasOwn(source, 'affinity')) authored.affinity = source.affinity;
+    if (Object.hasOwn(source, 'range')) authored.range = source.range;
+    if (Object.hasOwn(source, 'aoe')) authored.aoe = source.aoe;
+    if (Object.hasOwn(source, 'synergyElement')) authored.synergyElement = source.synergyElement;
     return {
         ...authored,
         abilityId: baseAbilityId + ':' + tier + (upgrade ? ':mastery-' + unlockLevel : ''),
@@ -93,7 +115,7 @@ function materialize<T extends AuthoredPetAbility>(
         power: Number.isFinite(Number(source.power)) ? Math.max(0, Number(source.power)) : 0,
         signature: tier === 'signature',
         restrained: tier === 'basic',
-    };
+    } as ProgressionPetAbility<T>;
 }
 
 function withMastery<T extends AuthoredPetAbility>(base: ProgressionPetAbility<T>): ProgressionPetAbility<T>[] {
@@ -103,7 +125,7 @@ function withMastery<T extends AuthoredPetAbility>(base: ProgressionPetAbility<T
     return mastery ? [base, materialize(base, base.baseAbilityId, base.tier, mastery.level, mastery.upgrade)] : [base];
 }
 
-function authoredAbilities<T extends AuthoredPetAbility>(input: PetAbilityProgressionInput<T>, speciesId: string | null): ProgressionPetAbility<T>[] {
+function speciesAbilities<T extends AuthoredPetAbility>(input: PetAbilityProgressionInput<T>, speciesId: string | null): ProgressionPetAbility<T>[] {
     if (!speciesId) return legacyAbilities(input.abilities ?? []);
     const definition = SPECIES_ABILITIES[speciesId];
     const supplied = input.abilities ?? [];
@@ -158,14 +180,16 @@ function tacticsAbilities<T extends AuthoredPetAbility>(input: PetAbilityProgres
     });
 }
 
-export function resolvePetAbilityProgression<T extends AuthoredPetAbility>(input: PetAbilityProgressionInput<T>): PetAbilityProgression<T> {
+export function resolvePetAbilityProgression<T extends AuthoredPetAbility>(
+    input: PetAbilityProgressionInput<T>, options: PetAbilityProgressionOptions = {},
+): PetAbilityProgression<T> {
     const speciesId = petAbilitySpeciesId(input);
     const level = wholeLevel(input.level);
-    const ruleset = input.ruleset ?? 'progression';
+    const ruleset = options.ruleset ?? 'progression';
     const role = speciesId ? SPECIES_ABILITIES[speciesId].role
         : ROLES.has(String(input.role)) ? String(input.role) : 'defender';
-    const allAbilities = input.abilitySource === 'tactics'
-        ? tacticsAbilities(input, speciesId) : authoredAbilities(input, speciesId);
+    const allAbilities = options.abilitySource === 'tactics'
+        ? tacticsAbilities(input, speciesId) : speciesAbilities(input, speciesId);
     if (ruleset === 'competitive-tactics') {
         const abilities = allAbilities.filter(move => !move.upgrade).map(move => ({ ...move, unlockLevel: 1, restrained: false }));
         return { speciesId, role, level, ruleset, abilities, allAbilities: abilities, unlocks: [], nextUnlock: null };
@@ -184,11 +208,11 @@ export function resolvePetAbilityProgression<T extends AuthoredPetAbility>(input
 
 /** Learned eligibility is separate from which upgraded variant is currently
  * equipped. Commands must additionally match the immutable sealed move list. */
-export function petAbilityEligibility<T extends AuthoredPetAbility>(input: PetAbilityProgressionInput<T>, abilityId: string): {
+export function petAbilityEligibility<T extends AuthoredPetAbility>(input: PetAbilityProgressionInput<T>, abilityId: string, options: PetAbilityProgressionOptions = {}): {
     eligible: boolean; requiredLevel: number | null; reason: 'unlocked' | 'level-locked' | 'unknown-ability';
 } {
     if (UNIVERSAL_ABILITIES.has(abilityId)) return { eligible: true, requiredLevel: 1, reason: 'unlocked' };
-    const resolved = resolvePetAbilityProgression(input);
+    const resolved = resolvePetAbilityProgression(input, options);
     const match = resolved.allAbilities.find(move => move.abilityId === abilityId)
         ?? resolved.allAbilities.find(move => move.baseAbilityId === abilityId);
     if (!match) return { eligible: false, requiredLevel: null, reason: 'unknown-ability' };

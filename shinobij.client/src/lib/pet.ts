@@ -1,5 +1,3 @@
-import { petUnmasteredPower } from '../../../shared/pet-ability-mastery';
-import { petBattleJutsus } from "../../../shared/pet-battle-loadout";
 /*
  * Pet utility helpers.
  *
@@ -67,24 +65,6 @@ export function isPetOnExpedition(
     pet?: Pick<Pet, "expedition"> | null,
 ): boolean {
     return Boolean(pet?.expedition && serverNow() < pet.expedition.endsAt);
-}
-
-// Combat damage formula used by the pet arena + boss-summon flows.
-// Combines raw attack stat with the pet's strongest damage jutsu and a
-// small per-level scaling term. Floored at 20 so even level-1 standard
-// pets contribute something visible to combat math.
-export function petCombatDamage(pet: Pet): number {
-    const bestDamageJutsu = Math.max(
-        0,
-        ...petBattleJutsus(pet, { forceProgression: true }).filter((jutsu) => jutsu.kind === "damage").map((jutsu) => petUnmasteredPower(jutsu.power, jutsu.upgrade)),
-    );
-    // Power drives strikes. Vitality and Guard preserve the companion, while
-    // Agility affects action timing rather than adding a second damage bonus.
-    return Math.max(20, Math.floor(
-        pet.attack * 1.25
-        + bestDamageJutsu * 0.6
-        + pet.level * 2,
-    ));
 }
 
 // Returns a new pet with happiness bumped by `amount`, clamped to 100.

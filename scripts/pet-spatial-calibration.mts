@@ -100,7 +100,7 @@ for (const scenario of selectedScenarios) for (const version of ['legacy-v1', 'p
     // live profile's ability/style changes or clash. Never an acceptance run.
     if (scenario.graze) { for (const f of sim.fighters) f.brawl = true; sim.clashEnabled = false; }
     const stateTicks: Record<string, number> = {}, reasons: Record<string, number> = {};
-    const whiffs: unknown[] = []; let eventCursor = 0; let firstHit = -1; let longestGap = 0; let lastHit = 0; let staticTicks = 0; let sumGap = 0; let samples = 0; let observedDotTicks = 0;
+    const whiffs: unknown[] = []; const decisionSamples: unknown[] = []; let eventCursor = 0; let firstHit = -1; let longestGap = 0; let lastHit = 0; let staticTicks = 0; let sumGap = 0; let samples = 0; let observedDotTicks = 0;
     const priorPos = new Map<string, [number, number]>();
     while (!sim.done) {
         const prior = new Map(sim.fighters.map(f => [f.id, { state: f.state, gap: f.targetId ? (() => { const target = sim.fighters.find(t => t.id === f.targetId); return target ? Math.hypot(f.x - target.x, f.y - target.y) : null; })() : null,
@@ -118,6 +118,7 @@ for (const scenario of selectedScenarios) for (const version of ['legacy-v1', 'p
         eventCursor = sim.events.length;
         if (sim.t % DUEL_TPS === 0) for (const f of sim.fighters.filter(f => f.hp > 0)) {
             stateTicks[f.state] = (stateTicks[f.state] ?? 0) + 1; reasons[f.aiReason] = (reasons[f.aiReason] ?? 0) + 1;
+            if (traceDetails) decisionSamples.push({ seconds: sim.t / DUEL_TPS, id: f.id, slot: f.slot, state: f.state, reason: f.aiReason, targetId: f.targetId, targetSlot: sim.fighters.find(target => target.id === f.targetId)?.slot, laneOwners: sim.laneInitiative.slice(0, 2), earnedApproachBlockedUntil: f.earnedApproachBlockedUntil, earnedApproachStuck: f.earnedApproachStuck, tick: sim.t, x: f.x, y: f.y, route: f.routeActive, reposLeft: f.reposLeft, hp: f.hp, stamina: f.stamina, ready: f.abilities.filter(ability => ability.cdLeft <= 0 && ability.cost <= f.stamina).map(ability => ({ name: ability.name, cls: ability.cls, signature: ability.signature })) });
             const old = priorPos.get(f.id); if (old && Math.hypot(f.x - old[0], f.y - old[1]) < .1) staticTicks++;
             priorPos.set(f.id, [f.x, f.y]);
             const foes = sim.fighters.filter(foe => foe.team !== f.team && foe.hp > 0);
@@ -138,13 +139,13 @@ for (const scenario of selectedScenarios) for (const version of ['legacy-v1', 'p
         firstSignatureSeconds: (events.find(e => e.type === 'ultimate')?.t ?? -DUEL_TPS) / DUEL_TPS, whiffCount: events.filter(e => e.type === 'whiff').length,
         firstHitSeconds: firstHit / DUEL_TPS, longestNoHitSeconds: longestGap / DUEL_TPS, averageNearestGap: samples ? sumGap / samples : null,
         staticSampleFraction: samples ? staticTicks / samples : 0, finalHealth: sim.fighters.map(f => ({ id: f.id, hp: Math.max(0, f.hp), maxHp: f.maxHp, stamina: f.stamina })),
-        stateSamples: stateTicks, topReasons: Object.entries(reasons).sort((a, b) => b[1] - a[1]).slice(0, 8), ...(profile === 'trace' || traceDetails ? { whiffs } : {}) });
+        stateSamples: stateTicks, topReasons: Object.entries(reasons).sort((a, b) => b[1] - a[1]).slice(0, 8), ...(profile === 'trace' || traceDetails ? { whiffs } : {}), ...(traceDetails ? { decisionSamples } : {}) });
     if (rows.length % 20 === 0) { process.stdout.write(JSON.stringify({ progress: rows.length, total: selectedScenarios.length * 4 }) + '\n'); mkdirSync(resolve(output, '..'), { recursive: true }); writeFileSync(output, JSON.stringify({ fingerprint, profile, provisional: true, rows }, null, 2)); }
 }
 const median = (values: number[]) => { values.sort((a, b) => a - b); return values[Math.floor(values.length / 2)]; };
 const summary = ['legacy-v1', 'progression-v3'].map(version => {
     const selected = rows.filter(row => row.version === version && !row.diagnosticContactSeam);
-    return { version, runs: selected.length, caps: selected.filter(row => row.capped).length, medianSeconds: median(selected.map(row => row.seconds as number)), medianHits: median(selected.map(row => row.hitCount as number)),
+    return { version, runs: selected.length, caps: selected.filter(row => row.capped).length, clockDecisions: selected.filter(row => row.capped && !row.terminalElimination).length, eliminationsAtLimit: selected.filter(row => row.capped && row.terminalElimination).length, medianSeconds: median(selected.map(row => row.seconds as number)), medianHits: median(selected.map(row => row.hitCount as number)),
         medianNoHitSeconds: median(selected.map(row => row.longestNoHitSeconds as number)), outcomes: Object.fromEntries(['win', 'loss', 'draw'].map(result => [result, selected.filter(row => row.result === result).length])) };
 });
 mkdirSync(resolve(output, '..'), { recursive: true });

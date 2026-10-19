@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { Pet, PetJutsu } from '../types/pet';
-import { createLiveCinematicDuel, createLivePartyCinematicDuel, stepCinematicDuel, applyDuelCommand, petCinematicDodgeChance } from './pet-duel-cinematic';
-import { createLiveCinematicDuel as createServer, stepCinematicDuel as stepServer } from '../../../api/_pet-sim/pet-duel-cinematic';
+import { createLiveCinematicDuel, createLivePartyCinematicDuel, stepCinematicDuel, applyDuelCommand, petCinematicDodgeChance, runPetSquadDuelCinematic } from './pet-duel-cinematic';
+import { createLiveCinematicDuel as createServer, createLivePartyCinematicDuel as createServerParty, stepCinematicDuel as stepServer, runPetSquadDuelCinematic as runServerSquad } from '../../../api/_pet-sim/pet-duel-cinematic';
 import { DUEL_TPS } from './pet-duel-sim';
 import { tacticsPreset } from '../../../shared/pet-tactics-roster';
 
@@ -220,3 +220,110 @@ test('crossing the old speed-90 threshold cannot buy progression dodge dispositi
     const legacyHigh = createLiveCinematicDuel({ ...source, speed: 91, battleLoadoutVersion: 'legacy-v1' }, pet('damage'), 23).fighters[0];
     assert.notEqual(legacyLow.style.arche, legacyHigh.style.arche, 'retained snapshots preserve their historical threshold');
 });
+
+for (const [name, run] of [['client', runPetSquadDuelCinematic], ['server', runServerSquad]] as const) {
+    const formation = (kind: 'buff' | 'haste', mastered: boolean, version: Pet['battleLoadoutVersion'] = 'progression-v3') => {
+        const source: Pet = { ...pet(kind, version), role: 'sage', level: mastered ? 75 : 74,
+            hp: 10000, attack: 100, defense: 40, speed: 90,
+            jutsus: [{ ...art(kind), name: 'Final Art', power: mastered ? 110 : 100, cooldown: 100,
+                signature: true, abilityId: 'fixture:art:signature' + (mastered ? ':mastery-75' : '') }] };
+        const other: Pet = { ...source, role: 'defender', jutsus: [] };
+        return run([source, other], [other, other], 20, false, false, false, [4, 5], [4, 5]);
+    };
+    test(name + ': formation Buff strengthens actual follow-up damage at the final mastery', () => {
+        const base = formation('buff', false), mastery = formation('buff', true);
+        const afterCast = (result: ReturnType<typeof formation>) => {
+            const cast = result.events.find(event => event.type === 'buff' && event.actorId === 'player-0' && event.move === 'Final Art');
+            assert.ok(cast, 'the formation must execute Buff as a stance');
+            assert.equal(result.events.some(event => event.type === 'shield' && event.actorId === 'player-0' && event.move === 'Final Art'), false);
+            const hit = result.events.find(event => event.type === 'hit' && event.actorId === 'player-0' && event.t > cast.t);
+            assert.ok(hit?.dmg);
+            return hit;
+        };
+        const baseHit = afterCast(base), masteredHit = afterCast(mastery);
+        assert.equal(masteredHit.t, baseHit.t, 'only the stance magnitude changes in the equal-stat fixture');
+        assert.equal(masteredHit.crit, baseHit.crit);
+        assert.ok(masteredHit.dmg! > baseHit.dmg!, '30% stance must deal more damage than 25%');
+        const retained = formation('buff', true, 'legacy-v1');
+        assert.ok(retained.events.some(event => event.type === 'shield' && event.actorId === 'player-0' && event.move === 'Final Art'));
+        assert.equal(retained.events.some(event => event.type === 'buff' && event.actorId === 'player-0' && event.move === 'Final Art'), false);
+    });
+    test(name + ': formation Haste grants its real status for one extra second at the final mastery', () => {
+        const activeTicks = (result: ReturnType<typeof formation>) => {
+            assert.ok(result.events.some(event => event.type === 'buff' && event.actorId === 'player-0' && event.kind === 'haste' && event.move === 'Final Art'));
+            assert.equal(result.events.some(event => event.type === 'shield' && event.actorId === 'player-0' && event.move === 'Final Art'), false);
+            return result.snapshots.filter(snapshot => snapshot.actors.find(actor => actor.id === 'player-0')?.statuses.includes('haste')).length;
+        };
+        const base = activeTicks(formation('haste', false)), mastery = activeTicks(formation('haste', true));
+        assert.ok(base > 0);
+        assert.equal(mastery - base, DUEL_TPS);
+        const retained = formation('haste', true, 'legacy-v1');
+        assert.ok(retained.events.some(event => event.type === 'shield' && event.actorId === 'player-0' && event.move === 'Final Art'));
+        assert.equal(retained.snapshots.some(snapshot => snapshot.actors.find(actor => actor.id === 'player-0')?.statuses.includes('haste')), false);
+    });
+}
+
+for (const [name, createParty, step] of [['client', createLivePartyCinematicDuel, stepCinematicDuel], ['server', createServerParty, stepServer]] as const) {
+    const party = (version: Pet['battleLoadoutVersion']) => {
+        const source = pet('damage', version);
+        source.jutsus[0].abilityId = 'species:earned-strike:basic';
+        const sim = createParty(source, source, source, source, 23, 1, 1, false, false, false, true, false);
+        for (const fighter of sim.fighters) {
+            fighter.state = 'idle'; fighter.reposLeft = 0; fighter.routeActive = false;
+            fighter.maxSpeed = 0; fighter.maxForce = 0; fighter.y = 0;
+            fighter.dodgeCd = DUEL_TPS * 10; // Isolate initiative permission; dedicated tests retain real dodge counterplay.
+            fighter.abilities[0].cdLeft = 0; fighter.basicCdLeft = 0;
+            fighter.x = fighter.team === 'player' ? -1.2 : 1.2;
+            fighter.faceX = fighter.team === 'player' ? 1 : -1; fighter.faceY = 0;
+        }
+        return sim;
+    };
+    test(name + ': opposite-slot survivors share a living initiative lane without waiting for stall override', () => {
+        for (const version of ['legacy-v1', 'progression-v3'] as const) {
+            const sim = party(version);
+            for (const fighter of sim.fighters) if (fighter.id === 'player-1' || fighter.id === 'enemy-0') {
+                fighter.hp = 0; fighter.state = 'dead';
+            }
+            sim.laneInitiative = ['enemy', 'player', 'enemy', 'player'];
+            for (let tick = 0; tick < DUEL_TPS * 5; tick++) step(sim);
+            const hits = sim.events.filter(event => event.type === 'hit');
+            if (version === 'legacy-v1') {
+                assert.equal(hits.length, 0, 'retained original-slot arbitration remains exact');
+                assert.equal(sim.events.filter(event => event.type === 'windup').length, 0);
+            }
+            else {
+                assert.ok(sim.events.filter(event => event.type === 'windup').length >= 2, 'ready living opponents must begin attacks before the eighteen-second stall override');
+                assert.equal(sim.forcedEngage, false, 'normal initiative resolves the exchange with counterplay intact');
+                assert.ok(sim.events.some(event => event.type === 'windup' && event.actorId === 'player-0'));
+                assert.ok(sim.events.some(event => event.type === 'windup' && event.actorId === 'enemy-1'));
+            }
+        }
+    });
+    test(name + ': a collapsed 2v1 handoff reaches the surviving contested lane', () => {
+        const sim = party('progression-v3');
+        const player = sim.fighters.find(fighter => fighter.id === 'player-0')!;
+        const ally = sim.fighters.find(fighter => fighter.id === 'player-1')!;
+        const defeated = sim.fighters.find(fighter => fighter.id === 'enemy-0')!;
+        const target = sim.fighters.find(fighter => fighter.id === 'enemy-1')!;
+        defeated.hp = 0; defeated.state = 'dead';
+        player.state = 'recover'; player.stateLeft = 1;
+        ally.state = 'recover'; ally.stateLeft = DUEL_TPS * 10;
+        sim.laneInitiative = ['player', 'player', 'enemy', 'player'];
+        step(sim);
+        assert.equal(sim.laneInitiative[1], 'enemy', 'the opponent listens to its living contested lane');
+        assert.equal(sim.laneInitiative[0], 'player', 'an empty original lane receives no unusable handoff');
+        assert.ok(sim.events.some(event => event.type === 'windup' && event.actorId === target.id));
+    });
+    test(name + ': intact party openings retain their two independent initiative lanes', () => {
+        const sim = party('progression-v3');
+        for (const fighter of sim.fighters) {
+            fighter.y = fighter.slot * 6;
+            fighter.targetId = fighter.team === 'player' ? 'enemy-' + fighter.slot : 'player-' + fighter.slot;
+        }
+        sim.laneInitiative = ['player', 'enemy', 'enemy', 'player'];
+        step(sim);
+        const openers = sim.events.filter(event => event.type === 'windup').map(event => event.actorId).sort();
+        assert.deepEqual(openers, ['enemy-1', 'player-0']);
+        assert.deepEqual(sim.laneInitiative.slice(0, 2), ['player', 'enemy']);
+    });
+}

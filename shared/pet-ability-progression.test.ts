@@ -175,19 +175,65 @@ test('raw mastery and eligibility metadata cannot promote an unearned variant', 
     assert.equal(petAbilityEligibility({ templateId: 'standard-0', level: 1, abilities: [forged] }, signature.abilityId).eligible, false);
 });
 
+test('raw pet policy metadata cannot select a source or bypass progression admission', () => {
+    for (const id of PET_ABILITY_SPECIES_IDS) for (const level of boundaries) {
+        const clean = inputFor(id, level);
+        const forged = { ...clean, abilitySource: 'tactics' as const, ruleset: 'competitive-tactics' as const };
+        const expected = resolvePetAbilityProgression(clean);
+        assert.deepEqual(resolvePetAbilityProgression(forged), expected, id + ':' + level);
+        const signature = expected.allAbilities.find(move => move.tier === 'signature')!;
+        assert.equal(petAbilityEligibility(forged, signature.abilityId).eligible, level >= 20, id + ':' + level);
+    }
+    const species = tacticsSpecies('standard-0')!;
+    const raw = { templateId: species.id, level: 1,
+        abilitySource: 'authored' as const, ruleset: 'progression' as const,
+        abilities: [...species.pool.map(id => TACTICS_MOVES[id]), species.signature] };
+    const normalized = resolvePetAbilityProgression(raw, { abilitySource: 'tactics', ruleset: 'competitive-tactics' });
+    assert.equal(normalized.ruleset, 'competitive-tactics');
+    assert.equal(normalized.abilities.length, raw.abilities.length);
+    const signature = normalized.abilities.find(move => move.signature)!;
+    assert.equal(petAbilityEligibility(raw, signature.abilityId, { abilitySource: 'tactics', ruleset: 'competitive-tactics' }).eligible, true);
+});
+
+test('fixed authored projection preserves gameplay axes while excluding arbitrary admission and mastery keys', () => {
+    const source = {
+        ...TACTICS_MOVES['fire-strike'], currentCooldown: 0, rounds: 2, affinity: 'Fire', range: 6, aoe: true, synergyElement: 'Wind',
+    };
+    const poisoned = { ...source, ...JSON.parse('{"__proto__":{"mastery":true}}'),
+        upgrade: 'signature-mastery', signatureMastery: true, utilityMastery: true, offenseMastery: true,
+        oddMaStErYFlag: true, futureUpgradePermission: true, abilitySource: 'tactics', ruleset: 'competitive-tactics',
+        unlockLevel: 1, tier: 'signature', restrained: false, reuseRounds: 0, availableAtRound: 0 };
+    const before = structuredClone(poisoned);
+    const result = resolvePetAbilityProgression({ templateId: 'standard-0', level: 1, abilities: [poisoned] }, { abilitySource: 'tactics' });
+    assert.equal(result.abilities.length, 1);
+    const ability = result.abilities[0];
+    for (const key of Object.keys(source)) {
+        assert.deepEqual((ability as Record<string, unknown>)[key], (source as Record<string, unknown>)[key], key);
+    }
+    assert.equal(ability.upgrade, undefined);
+    assert.equal(ability.tier, 'basic');
+    assert.equal(ability.restrained, true);
+    assert.equal(ability.signature, false);
+    assert.equal(Object.getPrototypeOf(ability), Object.prototype);
+    for (const key of ['__proto__', 'signatureMastery', 'utilityMastery', 'offenseMastery', 'oddMaStErYFlag', 'futureUpgradePermission', 'abilitySource', 'ruleset', 'reuseRounds', 'availableAtRound']) {
+        assert.equal(Object.hasOwn(ability, key), false, key);
+    }
+    assert.deepEqual(poisoned, before, 'resolver projection never edits the supplied object');
+});
+
 test('competitive IDs translate with explicit progression gates and normalized exception', () => {
     for (const id of PET_ABILITY_SPECIES_IDS) {
         const species = tacticsSpecies(id);
         assert.ok(species, id);
         const moves = [...species.pool.map(moveId => TACTICS_MOVES[moveId]), species.signature];
-        const base = { templateId: id, abilitySource: 'tactics' as const, abilities: moves };
-        const early = resolvePetAbilityProgression({ ...base, level: 1 });
+        const base = { templateId: id, abilities: moves };
+        const early = resolvePetAbilityProgression({ ...base, level: 1 }, { abilitySource: 'tactics' });
         assert.ok(early.abilities.length > 0, id);
         assert.ok(early.abilities.every(move => move.tier === 'basic' && !move.signature), id);
         assert.ok(early.abilities.every(move => move.id === move.baseAbilityId), id);
-        const mature = resolvePetAbilityProgression({ ...base, level: 75 });
+        const mature = resolvePetAbilityProgression({ ...base, level: 75 }, { abilitySource: 'tactics' });
         assert.equal(mature.abilities.filter(move => move.signature).length, 1, id);
-        const normalized = resolvePetAbilityProgression({ ...base, level: 1, ruleset: 'competitive-tactics' });
+        const normalized = resolvePetAbilityProgression({ ...base, level: 1 }, { abilitySource: 'tactics', ruleset: 'competitive-tactics' });
         assert.equal(normalized.abilities.length, moves.length, id);
         assert.ok(normalized.abilities.every(move => move.unlockLevel === 1 && !move.upgrade && !move.restrained), id);
     }
@@ -196,9 +242,9 @@ test('competitive IDs translate with explicit progression gates and normalized e
     assert.equal(petTacticsAbilityUnlockLevel('mend'), 5);
     assert.equal(petTacticsAbilityUnlockLevel('forged-signature', true), null);
     const forged = resolvePetAbilityProgression({
-        templateId: 'starter-fire', level: 100, abilitySource: 'tactics',
+        templateId: 'starter-fire', level: 100,
         abilities: [{ id: 'starter-water-signature', name: 'Forged', kind: 'damage', power: 999 }],
-    });
+    }, { abilitySource: 'tactics' });
     assert.equal(forged.abilities.length, 0);
 });
 

@@ -352,8 +352,7 @@ function threatenedResponse(session: ShowdownSession, pet: ShowdownPet, foes: Sh
         ...actor.moves.map((move, index) => ({ move, index, signature: false })),
         ...(signatureReadyForAi(session, actor) ? [{ move: actor.signatureMove, index: -1, signature: true }] : []),
     ].filter(({ move, signature }) => readyForAi(session, actor, move) && (signature || move.cost <= actor.stamina));
-    const threats = foes.filter(foe => !foe.winded && !foe.statuses.some(status => status.kind === 'stun')
-        && (!foe.guarding || signatureReadyForAi(session, foe)))
+    const threats = foes.filter(foe => !foe.winded && !foe.statuses.some(status => status.kind === 'stun'))
         .map(foe => ({ foe, attacks: attacks(foe) }));
     const incoming = threats.reduce((sum, threat) => sum + Math.max(0, ...threat.attacks.map(({ move, signature }) =>
         estimateShowdownMoveDamage(session, threat.foe, pet, move, signature))), 0);
@@ -580,7 +579,7 @@ function choosePetCommand(
                     const incoming = Math.max(0, ...foes
                         .filter(foe => !foe.winded && !foe.statuses.some(status => status.kind === 'stun'))
                         .flatMap(foe => [
-                            ...(!foe.guarding ? foe.moves.filter(move => readyForAi(session, foe, move) && move.cost <= foe.stamina) : []),
+                            ...foe.moves.filter(move => readyForAi(session, foe, move) && move.cost <= foe.stamina),
                             ...(signatureReadyForAi(session, foe) ? [foe.signatureMove] : []),
                         ].map(move => estimateShowdownMoveDamage(session, foe, pet, move, move === foe.signatureMove))));
                     score = Math.max(0, Math.min(pet.maxHp * .225 - pool, incoming)) / pet.maxHp * (pet.hp / pet.maxHp < .4 ? 330 : 220);

@@ -42,6 +42,20 @@ test('final mastery is earned at 75 and the preview has no later ability unlock'
     assert.deepEqual(final.active.map(move => move.abilityId), petProgressionPresentation(companion(100)).active.map(move => move.abilityId));
 });
 
+test('earned fourth preference stays labeled when a native basic needs its slot', () => {
+    const pet = companion(30);
+    pet.rankedBuild = { ...pet.rankedBuild!, moveIds: ['undertow', 'mend', 'purify', 'aegis'] };
+    const before = JSON.stringify(pet);
+    const preview = petProgressionPresentation(pet);
+    assert.equal(preview.savedLocked.length, 0);
+    assert.deepEqual(preview.savedInactive.map(move => move.id), ['aegis']);
+    assert.ok(preview.active.some(move => move.tier === 'basic'));
+    assert.equal(preview.active.filter(move => !move.signature).length, 4);
+    assert.equal(JSON.stringify(pet), before);
+    pet.rankedBuild = { ...pet.rankedBuild, moveIds: ['water-strike', 'mend', 'purify', 'aegis'] };
+    assert.equal(petProgressionPresentation(pet).savedInactive.length, 0);
+});
+
 test('every species preview admits only earned moves across authored and saved builds', () => {
     const levels = [1, 4, 5, 9, 10, 19, 20, 29, 30, 49, 50, 74, 75, 100];
     for (const templateId of PET_ABILITY_SPECIES_IDS) {
@@ -54,6 +68,11 @@ test('every species preview admits only earned moves across authored and saved b
                 assert.ok(preview.active.length > 0, `${templateId} has a usable preview at ${level}`);
                 assert.ok(preview.active.every(move => Number(move.unlockLevel) <= level), `${templateId} has no locked active move at ${level}`);
                 assert.equal(preview.active.some(move => move.signature), level >= 20, `${templateId} signature boundary at ${level}`);
+                if (level >= 20) {
+                    const nativeSignature = preview.abilities.find(move => move.signature)!;
+                    assert.equal(preview.active.find(move => move.signature)?.name, nativeSignature.name, `${templateId} keeps its native Final Art with saved preferences`);
+                    assert.equal(preview.active.find(move => move.signature)?.baseAbilityId, nativeSignature.baseAbilityId);
+                }
                 assert.equal(Math.max(...preview.unlocks.map(unlock => unlock.level)), 75);
             }
         }

@@ -6,6 +6,7 @@ import { normalizePetGrowth } from '../pet/_growth.js';
 import { petAbilitySpeciesId } from '../../shared/pet-ability-progression.js';
 import { createShowdownSession, resolveShowdownRound, sealShowdownPet, sanitizeCommand, showdownStateView, estimateShowdownMoveDamage, addStatus } from './engine.js';
 import { paceProgressionTechniqueDamage } from './damage-pacing.js';
+import { tacticsPreset, tacticsSpecies } from '../../shared/pet-tactics-roster.js';
 
 const pet = (species = 'standard-0', level = 20, side = 'p'): Pet => ({ ...PET_CATALOG[species], templateId: species, id: side, level }) as Pet;
 const battle = (species = 'standard-0', level = 20, count = 1) => createShowdownSession({
@@ -173,5 +174,20 @@ test('the final mastery improves actual support execution with identical combat 
     assert.ok(cast('taunt', true).actor.statuses.find(s => s.kind === 'taunt')!.rounds > cast('taunt', false).actor.statuses.find(s => s.kind === 'taunt')!.rounds);
     assert.ok(cast('cleanse', true).actor.statuses.some(s => s.kind === 'steadfast'));
     assert.ok(!cast('cleanse', false).actor.statuses.some(s => s.kind === 'steadfast'));
+});
+
+test('saved normalized preferences never replace a progression species Final Art', () => {
+    for (const species of Object.keys(PET_CATALOG)) {
+        if (!tacticsSpecies(species)) continue;
+        for (const level of [20, 75, 100]) for (const preset of [0, 1]) {
+            const native = pet(species, level);
+            const preferred = { ...native, rankedBuild: { ...tacticsPreset(species, preset), ownedPetId: native.id } };
+            const before = JSON.stringify(preferred);
+            const sealed = sealShowdownPet(preferred, 'progression-v3');
+            assert.deepEqual(sealed.signatureMove, sealShowdownPet(native, 'progression-v3').signatureMove);
+            assert.ok(sealed.moves.length <= 5 && sealed.moves.some(move => move.unlockLevel === 1 && move.cost > 0));
+            assert.equal(JSON.stringify(preferred), before);
+        }
+    }
 });
 

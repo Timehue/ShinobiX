@@ -582,7 +582,11 @@ const SHOWDOWN_SPECIES_TUNING: Readonly<Record<string, number>> = Object.freeze(
     'rare-21': 0.94,     // Frostbite Cub: 83.7%
 });
 
-export function speciesNormalizationMult(templateId: string | undefined, petId: string, rarity: string): number {
+// These old residuals compensated for complete legacy kits. Their earned kits
+// reverse that pressure, so new entries use the regular species budget.
+const PROGRESSION_RETIRED_SPECIES_TUNING = new Set(['standard-28', 'rare-45', 'legendary-0', 'legendary-28']);
+
+export function speciesNormalizationMult(templateId: string | undefined, petId: string, rarity: string, rulesetVersion?: ShowdownSession['rulesetVersion']): number {
     const canonical = String(templateId || petId).replace(/-\d{10,}$/, '').split(':')[0];
     const tpl = PET_CATALOG[canonical];
     const median = medianBudgetFor(rarity);
@@ -596,7 +600,9 @@ export function speciesNormalizationMult(templateId: string | undefined, petId: 
     const reference = globalMedian
         ? median * (1 - CROSS_TIER_BLEND) + globalMedian * CROSS_TIER_BLEND
         : median;
-    return Math.pow(reference / budget, BUDGET_DAMPING) * (SHOWDOWN_SPECIES_TUNING[canonical] ?? 1);
+    const residual = rulesetVersion === 'progression-v3' && PROGRESSION_RETIRED_SPECIES_TUNING.has(canonical)
+        ? 1 : SHOWDOWN_SPECIES_TUNING[canonical] ?? 1;
+    return Math.pow(reference / budget, BUDGET_DAMPING) * residual;
 }
 
 /** reference-style per-move pacing: quick jabs resolve early, haymakers swing
@@ -1004,7 +1010,7 @@ export function sealShowdownPet(rawInput: Pet, rulesetVersion: ShowdownSession['
     // below reuses the same value.
     const element = ELEMENT_OK.has(String(raw.element)) ? String(raw.element) : 'None';
     const formId = rulesetVersion === 'progression-v3' ? petAbilitySpeciesId(raw) ?? raw.templateId : raw.templateId;
-    const norm = speciesNormalizationMult(formId, String(raw.id), rarity);
+    const norm = speciesNormalizationMult(formId, String(raw.id), rarity, rulesetVersion);
     const overrideKeyEarly = String(formId || raw.id).replace(/-\d{10,}$/, '').split(':')[0];
     // hasOwnProperty, NOT a bare index: a pet id of 'constructor' or
     // '__proto__' otherwise resolves to an inherited Object.prototype member,
@@ -1206,7 +1212,7 @@ export function sealShowdownPet(rawInput: Pet, rulesetVersion: ShowdownSession['
 /** New entries use authored identities before any legacy kit sorting. */
 function sealProgressionKit(pet: ShowdownPet, raw: Pet, authored: Array<{ name?: unknown; power?: unknown; kind?: unknown; signature?: unknown }>): ShowdownPet {
     const saved = petBattleTechniques(raw, { forceProgression: true });
-    const progression = resolvePetAbilityProgression<AuthoredPetAbility>({ ...raw, abilities: saved ?? authored, ruleset: 'progression', ...(saved ? { abilitySource: 'tactics' as const } : {}) });
+    const progression = resolvePetAbilityProgression<AuthoredPetAbility>({ ...raw, abilities: authored });
     pet.rulesetVersion = 'progression-v3';
     if (progression.speciesId) pet.templateId = progression.speciesId;
     pet.role = progression.role;
@@ -1242,7 +1248,7 @@ function sealProgressionKit(pet: ShowdownPet, raw: Pet, authored: Array<{ name?:
         };
     };
     pet.moves = [{ ...basicStrike(), abilityId: 'universal:tackle', unlockLevel: 1, power: Math.round(22 * rarityScale) },
-        ...progression.abilities.filter(ability => !ability.signature).map(seal)];
+        ...(saved ?? progression.abilities).filter(ability => !ability.signature).map(ability => seal(ability as ProgressionPetAbility))];
     const signature = progression.allAbilities.filter(ability => ability.signature && ability.unlockLevel <= Math.max(20, pet.level)).at(-1);
     pet.signatureMove = signature ? seal(signature) : { ...pet.signatureMove, abilityId: 'unavailable:signature', unlockLevel: 20 };
     return pet;

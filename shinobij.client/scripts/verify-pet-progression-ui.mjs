@@ -26,7 +26,8 @@ try {
         await page.getByRole('heading', { name: 'Ability progression' }).waitFor();
         let saved = await page.locator('#saved-loadout').textContent();
         assert.match(await page.getByRole('region', { name: 'Companion ability progression' }).textContent(), /Saved for later/);
-        assert.match(await page.locator('.pet-technique-signature h4').textContent(), /unlocks at level 20/);
+        assert.match(await page.locator('.pet-technique-signature h4').textContent(), /Competitive Tactics signature/);
+        assert.match(await page.locator('.pet-technique-signature').textContent(), /native Final Art.*unlocks at level 20/);
         assert.equal(await page.locator('.pet-progression-milestones > li[data-earned=true]').count(), 1);
         await page.getByRole('checkbox', { name: 'Equip Water Pulse', exact: true }).uncheck();
         await page.getByRole('checkbox', { name: 'Equip Mend', exact: true }).check();
@@ -44,7 +45,8 @@ try {
             assert.equal(await page.locator('.pet-progression-milestones > li[data-earned=true]').count(), [1, 5, 10, 20, 30, 50, 75].filter(milestone => level >= milestone).length);
             assert.equal(await page.locator('#saved-loadout').textContent(), saved);
             const active = await page.locator('.pet-progression-active').textContent();
-            assert.equal(active.includes('Ripple Seal: Renewal'), level >= 20);
+            assert.equal(active.includes('Tidal Crash'), level >= 20, 'the native Final Art follows its actual unlock');
+            assert.equal(active.includes('Ripple Seal: Renewal'), false, 'the normalized signature never replaces the native Final Art');
         }
         await page.getByLabel('Preview level').selectOption('75');
         assert.equal(await page.locator('.pet-progression-milestones > li[data-earned=true]').count(), 7);
@@ -52,11 +54,24 @@ try {
         assert.equal(await page.locator('#saved-loadout').textContent(), saved, 'previewing earned levels must preserve saved preferences');
         await page.getByText('Progression update & battle rules', { exact: true }).click();
         await page.screenshot({ path: path.join(output, `${name}-level-75.png`), fullPage: true });
+        await page.getByRole('checkbox', { name: 'Equip Water Strike', exact: true }).uncheck();
+        await page.getByRole('checkbox', { name: 'Equip Water Breaker', exact: true }).uncheck();
+        await page.getByRole('checkbox', { name: 'Equip Purify', exact: true }).check();
+        await page.getByRole('checkbox', { name: 'Equip Aegis', exact: true }).check();
+        assert.match(await page.getByRole('region', { name: 'Companion ability progression' }).textContent(), /Saved but inactive in progression: Aegis/);
+        assert.match(await page.getByRole('checkbox', { name: 'Equip Aegis', exact: true }).locator('..').textContent(), /Saved, inactive in progression/);
+        await page.getByRole('button', { name: 'Save loadout', exact: true }).click();
+        await page.getByRole('button', { name: 'Loadout saved', exact: true }).waitFor();
+        assert.ok(JSON.parse(await page.locator('#saved-loadout').textContent()).moveIds.includes('aegis'));
+        await page.screenshot({ path: path.join(output, `${name}-inactive-preference.png`), fullPage: true });
+        await page.getByRole('checkbox', { name: 'Equip Undertow', exact: true }).uncheck();
+        await page.getByRole('checkbox', { name: 'Equip Water Strike', exact: true }).check();
+        assert.doesNotMatch(await page.getByRole('region', { name: 'Companion ability progression' }).textContent(), /Saved but inactive in progression:/);
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, 'no horizontal page overflow');
         const accessibility = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
         assert.deepEqual(accessibility.violations.map(violation => ({ id: violation.id, nodes: violation.nodes.length })), []);
         assert.deepEqual(errors, []);
-        results.push({ viewport: name, boundaries, lockedPreferenceSaved: true, savedPreferencesPreserved: true, horizontalOverflow: false, accessibilityViolations: accessibility.violations.length, pageErrors: errors.length });
+        results.push({ viewport: name, boundaries, lockedPreferenceSaved: true, savedPreferencesPreserved: true, earnedInactivePreferenceLabeled: true, nativeFinalArtPreserved: true, horizontalOverflow: false, accessibilityViolations: accessibility.violations.length, pageErrors: errors.length });
         await context.close();
     }
     const report = { passed: true, results, screenshots: output };

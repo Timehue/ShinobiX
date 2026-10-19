@@ -38,6 +38,7 @@ const minimumReachableLevel = (template: Template) => /^starter-.+-l$/.test(temp
 const representatives = templates.filter((template, index) => templates.findIndex(other =>
     other.rarity === template.rarity && roleOf(other) === roleOf(template)) === index);
 const naturalTemplates = quick ? representatives : templates;
+const calibrationSpeciesIds = ['standard-28', 'rare-45', 'legendary-0', 'legendary-28'];
 const sourcePaths = [
     'api/_pet-showdown/engine.ts', 'api/_pet-showdown/ai.ts', 'api/_pet-showdown/damage-pacing.ts',
     'shared/pet-ability-progression.ts', 'shared/pet-battle-stats.ts', 'api/pet/_growth.ts', 'scripts/pet-progression-balance.mts',
@@ -105,8 +106,13 @@ const metrics = (): Metrics => ({
     overdrafts: 0, skipped: 0, firstActions: 0, signatures: 0, firstSignatureRound: null,
     reinforcements: 0, attritionDamage: 0, dotDamage: 0, shieldActions: 0, protectionActions: 0, controlActions: 0,
 });
+type RoundMetrics = { actions: number; rest: number; guard: number; shield: number; damage: number; healing: number;
+    attritionDamage: number; otherDotDamage: number; remainingHpFraction: number; livingPets: number; voluntarySwitches: number };
+const roundMetrics = (): RoundMetrics => ({ actions: 0, rest: 0, guard: 0, shield: 0, damage: 0, healing: 0,
+    attritionDamage: 0, otherDotDamage: 0, remainingHpFraction: 0, livingPets: 0, voluntarySwitches: 0 });
 type Result = { win: boolean; rounds: number; judged: boolean; attrition: boolean; mine: Metrics; theirs: Metrics;
-    normalMoveCount: number; startingFieldCount: number; signatureLearned: boolean };
+    normalMoveCount: number; startingFieldCount: number; signatureLearned: boolean;
+    initialHp: number; trajectory: (RoundMetrics & { round: number })[] };
 function fight(a: Pet[], b: Pet[], seed: number, format: ShowdownFormat, swapped: boolean, rulesetVersion: RulesetVersion = 'progression-v3'): Result {
     const session = sessionFor(swapped ? b : a, swapped ? a : b, seed, format, rulesetVersion);
     const startingTeam = swapped ? session.enemy : session.player;
@@ -115,6 +121,8 @@ function fight(a: Pet[], b: Pet[], seed: number, format: ShowdownFormat, swapped
     const signatureLearned = startingTeam[0].signatureMove.abilityId !== 'unavailable:signature'
         && (rulesetVersion === 'legacy-v2' || startingTeam[0].level >= (startingTeam[0].signatureMove.unlockLevel ?? 20));
     const collected = { player: metrics(), enemy: metrics() };
+    const initialHp = [...session.player, ...session.enemy].reduce((sum, pet) => sum + pet.maxHp, 0);
+    const trajectory: Result['trajectory'] = [];
     let judged = false, attrition = false;
     while (!session.finished && session.round <= SHOWDOWN_TURN_CAP) {
         const staminaBefore = new Map([...session.player, ...session.enemy].map(pet => [pet.id, pet.stamina]));
@@ -122,6 +130,7 @@ function fight(a: Pet[], b: Pet[], seed: number, format: ShowdownFormat, swapped
         const player = chooseShowdownAiCommands(session, 'player');
         const enemy = chooseShowdownAiCommands(session, 'enemy');
         const events = resolveShowdownRound(session, player, enemy);
+        const trajectoryRound = { ...roundMetrics(), round: session.round };
         if (replay) {
             const repeated = resolveShowdownRound(replay, chooseShowdownAiCommands(replay, 'player'), chooseShowdownAiCommands(replay, 'enemy'));
             replayChecks++;
@@ -136,18 +145,23 @@ function fight(a: Pet[], b: Pet[], seed: number, format: ShowdownFormat, swapped
             if (event.t === 'skip') collected[event.actorSide].skipped++;
             if (event.t === 'switch') {
                 if (event.reinforcement) collected[event.side].reinforcements++;
-                else collected[event.side].switches++;
+                else { collected[event.side].switches++; trajectoryRound.voluntarySwitches++; }
             }
             if (event.t === 'dot') {
                 if (event.kind === 'attrition') {
                     collected[event.targetSide].attritionDamage += event.damage; attrition = true;
-                } else collected[event.targetSide].dotDamage += event.damage;
+                    trajectoryRound.attritionDamage += event.damage;
+                } else { collected[event.targetSide].dotDamage += event.damage; trajectoryRound.otherDotDamage += event.damage; }
             }
             if (event.t !== 'action') continue;
             const m = collected[event.actorSide]; m.actions++;
             const damage = event.targets.reduce((n, target) => n + target.damage, 0);
             const healing = event.targets.reduce((n, target) => n + target.heal, 0);
             m.damage += damage; m.healing += healing;
+            trajectoryRound.actions++; trajectoryRound.damage += damage; trajectoryRound.healing += healing;
+            trajectoryRound.rest += Number(event.moveKind === 'rest');
+            trajectoryRound.guard += Number(event.moveKind === 'guard');
+            trajectoryRound.shield += Number(event.targets.some(target => target.applied === 'shield'));
             const meaningfulEffect = event.targets.some(target => target.applied
                 && !['failed', 'guard', 'rest', 'heal'].includes(target.applied));
             if (damage || healing || meaningfulEffect || event.moveKind === 'guard' && guarded.has(event.actorId)
@@ -161,24 +175,35 @@ function fight(a: Pet[], b: Pet[], seed: number, format: ShowdownFormat, swapped
             if (event.super) { m.signatures++; m.firstSignatureRound ??= session.round; }
             if (event.targets.some(target => !Number.isFinite(target.damage) || !Number.isFinite(target.heal))) failures.push('Nonfinite event');
         }
+        trajectoryRound.remainingHpFraction = [...session.player, ...session.enemy].reduce((sum, pet) => sum + pet.hp, 0) / initialHp;
+        trajectoryRound.livingPets = [...session.player, ...session.enemy].filter(pet => !pet.ko).length;
+        trajectory.push(trajectoryRound);
     }
     if (!session.finished || session.round > SHOWDOWN_TURN_CAP) failures.push('Unfinished or late-judged battle at fight ' + fights);
     fights++;
     if (fights % 2000 === 0) console.log('[progression evidence] fights ' + fights);
     return { win: session.outcome === (swapped ? 'loss' : 'win'), rounds: session.round, judged, attrition,
         mine: collected[swapped ? 'enemy' : 'player'], theirs: collected[swapped ? 'player' : 'enemy'],
-        normalMoveCount, startingFieldCount, signatureLearned };
+        normalMoveCount, startingFieldCount, signatureLearned, initialHp, trajectory };
 }
 type Bucket = { count: number; wins: number; rounds: number[]; judged: number; attrition: number; mine: Metrics; firstSignatures: number[];
-    kitSizes: number[]; startingFields: number[]; learnedSignatures: number };
+    kitSizes: number[]; startingFields: number[]; learnedSignatures: number;
+    attritionHpFractions: number[]; phases: Record<'opening' | 'middle' | 'final', RoundMetrics & { observedRounds: number }> };
 const buckets = new Map<string, Bucket>();
 function record(group: string, result: Result): void {
     const bucket = buckets.get(group) ?? { count: 0, wins: 0, rounds: [], judged: 0, attrition: 0, mine: metrics(), firstSignatures: [],
-        kitSizes: [], startingFields: [], learnedSignatures: 0 };
+        kitSizes: [], startingFields: [], learnedSignatures: 0, attritionHpFractions: [], phases: {
+            opening: { ...roundMetrics(), observedRounds: 0 }, middle: { ...roundMetrics(), observedRounds: 0 }, final: { ...roundMetrics(), observedRounds: 0 } } };
     bucket.count++; bucket.wins += Number(result.win); bucket.rounds.push(result.rounds); bucket.judged += Number(result.judged);
     bucket.attrition += Number(result.attrition);
     bucket.kitSizes.push(result.normalMoveCount); bucket.startingFields.push(result.startingFieldCount);
     bucket.learnedSignatures += Number(result.signatureLearned);
+    bucket.attritionHpFractions.push(result.trajectory.reduce((sum, round) => sum + round.attritionDamage, 0) / result.initialHp);
+    for (const round of result.trajectory) {
+        const phase = round.round <= 3 ? 'opening' : round.round > result.rounds - 3 ? 'final' : 'middle';
+        const totals = bucket.phases[phase]; totals.observedRounds++;
+        for (const key of Object.keys(roundMetrics()) as (keyof RoundMetrics)[]) totals[key] += round[key];
+    }
     for (const key of Object.keys(bucket.mine) as (keyof Metrics)[]) {
         if (key !== 'firstSignatureRound') (bucket.mine[key] as number) += result.mine[key] as number;
     }
@@ -214,7 +239,19 @@ function summarizeBucket(bucket: Bucket) {
         damagePerBattle: bucket.mine.damage / bucket.count, healingPerBattle: bucket.mine.healing / bucket.count,
         signaturesPerBattle: bucket.mine.signatures / bucket.count, firstSignatureRound: distribution(bucket.firstSignatures),
         normalMoveCount: distribution(bucket.kitSizes), startingFieldCount: distribution(bucket.startingFields),
-        signatureLearnedRate: bucket.learnedSignatures / bucket.count };
+        signatureLearnedRate: bucket.learnedSignatures / bucket.count,
+        attritionDamageFractionOfInitialRosterHp: distribution(bucket.attritionHpFractions),
+        trajectory: Object.fromEntries(Object.entries(bucket.phases).map(([phase, totals]) => [phase, {
+            observedRounds: totals.observedRounds, actionsPerRound: totals.actions / Math.max(1, totals.observedRounds),
+            actionDamagePerRound: totals.damage / Math.max(1, totals.observedRounds), healingPerRound: totals.healing / Math.max(1, totals.observedRounds),
+            attritionDamagePerRound: totals.attritionDamage / Math.max(1, totals.observedRounds),
+            attritionShareOfReportedDamage: totals.attritionDamage / Math.max(1, totals.damage + totals.otherDotDamage + totals.attritionDamage),
+            restRate: totals.rest / Math.max(1, totals.actions), guardRate: totals.guard / Math.max(1, totals.actions),
+            shieldActionRate: totals.shield / Math.max(1, totals.actions),
+            meanRemainingHpFraction: totals.remainingHpFraction / Math.max(1, totals.observedRounds),
+            meanLivingPets: totals.livingPets / Math.max(1, totals.observedRounds),
+            voluntarySwitchesPerRound: totals.voluntarySwitches / Math.max(1, totals.observedRounds),
+        }])) };
 }
 function opponent(template: Template, relation: 'neutral' | 'advantage' | 'disadvantage'): Template {
     const element = relation === 'neutral' ? template.element : relation === 'advantage'
@@ -347,6 +384,18 @@ for (const template of representatives) for (const level of naturalLevels) {
         }
     }
 }
+console.log('[progression evidence] retired-residual held-out team outcomes');
+for (const template of templates.filter(template => calibrationSpeciesIds.includes(template.id))) {
+    for (const level of [1, 20, 50, 75, 100]) {
+        for (const relation of ['neutral', 'advantage', 'disadvantage'] as const) for (const format of ['2v2', '3v3'] as const) {
+            for (const seed of seeds) for (const swapped of [false, true]) {
+                const [a, b] = teams(template, opponent(template, relation), level, format, 2);
+                record('calibration/' + template.id + '/' + relation + '/' + format + '/level-' + level,
+                    fight(a, b, seed, format, swapped));
+            }
+        }
+    }
+}
 console.log('[progression evidence] equal-budget specialist outcomes');
 for (const template of naturalTemplates) for (const level of quick ? [20, 100] : [10, 20, 75, 100]) {
     if (level < minimumReachableLevel(template)) continue;
@@ -468,10 +517,13 @@ const report = {
         investmentPoints: [1, 5, 10], specialistBudgets: 'same earned points with legal attribute caps',
         reallocationDonorOrder: attributes,
         naturalPolicy: 'same server AI on both sides', duplicateSpeciesAllowedInSyntheticFixtures: true,
+        trajectoryPhases: 'opening rounds1–3; final last3 after round3; middle all remaining rounds; both sides combined, reported event damage',
         naturalMatchupSelection: 'same rarity and element; first different role in catalog; diagnostic, not a complete role-power estimate',
         naturalFormLevelsReachableOnly: true,
         sealBoundaryIncludesSyntheticUnreachableForms: true,
         beforeAfter: 'same sealed raw fixtures, explicit retained legacy-v2 versus progression-v3',
+        retiredResidualValidation: { speciesIds: calibrationSpeciesIds, levels: [1, 20, 50, 75, 100],
+            formats: ['2v2', '3v3'], relations: ['neutral', 'advantage', 'disadvantage'], bench: 2 },
         savedPresets: { species: representatives.length, levels: [1, 5, 10, 20, 50, 75, 100], presets: [0, 1],
             opponent: 'same species, same points, authored default kit', benches: [0, 2] } },
     integrity: { sealedFixtures, syntheticFormFixtures, actionChecks, naturalFights: fights, replayChecks, matchmaking: matchmakingEvidence,

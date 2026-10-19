@@ -16,12 +16,14 @@ export function petProgressionPresentation(pet: Pet) {
     const build = pet.rankedBuild && rankedBuildForPet(pet);
     const species = build && tacticsSpecies(build.speciesId);
     const selected = build?.moveIds ?? [];
-    const progression = resolvePetAbilityProgression<AuthoredPetAbility>({ ...pet,
-        ...(species ? { abilitySource: 'tactics' as const,
-            abilities: [...species.pool.map(id => TACTICS_MOVES[id]), species.signature] } : { abilities: pet.jutsus }),
-    });
-    const active = species ? petBattleTechniques(pet, { forceProgression: true }) ?? [] : progression.abilities;
-    return { ...progression, active, savedLocked: progression.allAbilities.filter(move =>
+    const progression = resolvePetAbilityProgression<AuthoredPetAbility>({ ...pet, abilities: pet.jutsus });
+    const preferences = species ? resolvePetAbilityProgression<AuthoredPetAbility>({ ...pet,
+        abilities: species.pool.map(id => TACTICS_MOVES[id]),
+    }, { abilitySource: 'tactics' }) : progression;
+    const active = petBattleTechniques(pet, { forceProgression: true }) ?? progression.abilities;
+    const activeIds = new Set(active.map(move => move.baseAbilityId));
+    return { ...progression, active, savedLocked: preferences.allAbilities.filter(move =>
         !move.upgrade && move.unlockLevel > progression.level && selected.includes(String(move.id))),
+        savedInactive: preferences.abilities.filter(move => selected.includes(String(move.id)) && !activeIds.has(move.baseAbilityId)),
     };
 }

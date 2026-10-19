@@ -907,6 +907,7 @@ interface Fighter {
     commandCharge: number;                  // 0..DUEL_COMMAND_FULL, live path only
     stance: number;                         // 0 aggressive · 1 balanced · 2 guarded
     earnedApproachGap?: number; earnedApproachStuck?: number; earnedApproachBlockedUntil?: number;
+    earnedApproachYieldedUntil?: number;
 }
 
 /** Stance knobs — the zero-APM strategic dial. Balanced (1) is exactly the shipped
@@ -1175,6 +1176,64 @@ function buildWarfrontAssignments(fighters: Fighter[]): Map<string, string> {
     return assignments;
 }
 
+/** A collapsed party lane must hand its beat to a living opponent who reads it. */
+function partyInitiativeLane(f: Fighter, target: Fighter, fighters: readonly Fighter[]): number {
+    const ownLane = laneIndex(f.slot);
+    if (f.pet.battleLoadoutVersion !== 'progression-v3' || _warfrontMode) return ownLane;
+    // Preserve independent opening lanes while both original opponents survive.
+    if (fighters.some(other => other.team !== f.team && other.slot === f.slot && other.hp > 0)) return ownLane;
+    // An unopposed ally joins the opponent's still-contested lane in a 2v1.
+    if (fighters.some(other => other.team === f.team && other.slot === target.slot && other.hp > 0)) return laneIndex(target.slot);
+    // Opposite-slot survivors must agree on one lane after both partners fall.
+    return laneIndex(Math.min(f.slot, target.slot));
+}
+
+/** A failed approach may yield once to a rival with a genuinely usable angle. */
+function yieldBlockedPartyBeat(f: Fighter, target: Fighter, fighters: readonly Fighter[], projectiles: readonly Projectile[], t: number): void {
+    if (!_partyMode || _warfrontMode || _forcedEngage || f.pet.battleLoadoutVersion !== 'progression-v3'
+        || hasOrder(f) || f.routeActive || (f.controlled && f.stance === 2)) return;
+    const lane = partyInitiativeLane(f, target, fighters);
+    const ownerTeam = _laneInitiativeTeam[lane];
+    if (ownerTeam === f.team) return;
+    const opponentFor = (other: Fighter) => fighters.find(candidate => candidate.id === other.targetId && candidate.hp > 0)
+        ?? fighters.find(candidate => candidate.team !== other.team && candidate.slot === other.slot && candidate.hp > 0)
+        ?? fighters.find(candidate => candidate.team !== other.team && candidate.hp > 0);
+    const owners = fighters.filter(other => {
+        if (other.hp <= 0 || other.team !== ownerTeam) return false;
+        const opponent = opponentFor(other);
+        return opponent != null && partyInitiativeLane(other, opponent, fighters) === lane;
+    });
+    if (!owners.length || owners.some(owner => owner.pet.battleLoadoutVersion !== 'progression-v3'
+        || owner.state !== 'idle' || hasOrder(owner) || owner.routeActive || owner.reposLeft > 0
+        || (owner.earnedApproachBlockedUntil ?? 0) <= t
+        || owner.earnedApproachYieldedUntil === owner.earnedApproachBlockedUntil
+        || projectiles.some(projectile => projectile.ownerId === owner.id))) return;
+    const progress = (actor: Fighter, opponent: Fighter) => {
+        const selected = bestOffensive(actor, opponent, actor.hp / actor.maxHp < CRIT_HP || opponent.hp / opponent.maxHp < KILL_HP);
+        const ability = selected >= 0 ? actor.abilities[selected] : null;
+        const basicReady = actor.basicCdLeft <= 0 && actor.stamina >= COST_BASIC;
+        const ready = ability != null || basicReady;
+        if (!ready || !hasLineOfSight(actor.x, actor.y, opponent.x, opponent.y)) return { ready, possible: false };
+        const dx = opponent.x - actor.x, dy = opponent.y - actor.y, gap = Math.hypot(dx, dy);
+        const facing = actor.faceX * dx + actor.faceY * dy > -.2;
+        const range = ability ? ability.cls === 'ranged' ? ability.range : Math.max(ability.range + .25, MIN_SEP + 1.15) : 0;
+        const basicRange = actor.basicRanged ? RANGED_RANGE * .85 : Math.max(actor.reach + .35, MIN_SEP + 1.15);
+        const fallbackAllowed = !ability || ability.cls === 'ranged' || (actor.earnedApproachBlockedUntil ?? 0) > t;
+        const canFire = facing && ((ability != null && gap <= range) || (basicReady && fallbackAllowed && gap <= basicRange));
+        const canApproach = actor.maxSpeed > 0 && actor.maxForce > 0 && actor.statuses.rootLeft <= 0
+            && hasWalkableRoute(actor.x, actor.y, opponent.x, opponent.y);
+        return { ready, possible: canFire || canApproach };
+    };
+    // A recovered firing angle or pending cooldown is not a blocked owner.
+    if (owners.some(owner => {
+        const opponent = opponentFor(owner);
+        if (!opponent || (owner.controlled && owner.stance === 2)) return true;
+        const state = progress(owner, opponent);
+        return !state.ready || state.possible;
+    }) || !progress(f, target).possible) return;
+    _laneInitiativeTeam[lane] = f.team;
+    for (const owner of owners) owner.earnedApproachYieldedUntil = owner.earnedApproachBlockedUntil;
+}
 function pickTarget(f: Fighter, fighters: Fighter[]): Fighter | null {
     if (f.statuses.tauntById) {
         const t = fighters.find((g) => g.id === f.statuses.tauntById && g.hp > 0);
@@ -2647,10 +2706,11 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
     // A live ORDER also claims the beat. Without this the initiative hold would
     // swallow the player's command until the AI happened to hand the beat over,
     // which reads as an unresponsive button.
+    yieldBlockedPartyBeat(f, e, fighters, projectiles, t);
     const ownsBeat = (_warfrontMode
         ? true
         : _partyMode
-            ? f.team === _laneInitiativeTeam[laneIndex(f.slot)]
+            ? f.team === _laneInitiativeTeam[partyInitiativeLane(f, e, fighters)]
             : f.team === _cinematicInitiativeTeam) || _forcedEngage || hasOrder(f);
     const counterWindow = e.state === "recover" || e.state === "stagger" || e.state === "strike";
     const finishingExit = f.reposLeft > 0 && f.routeActive;
@@ -2807,9 +2867,17 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
     const wantsEarnedApproach = f.pet.battleLoadoutVersion === 'progression-v3' && !hasOrder(f)
         && (!f.controlled || f.stance !== 2) && meleeOff && offAb != null && !canFire && meleeRouteOpen;
     if (wantsEarnedApproach && t >= (f.earnedApproachBlockedUntil ?? 0)) {
-        f.earnedApproachStuck = f.earnedApproachGap !== undefined && d >= f.earnedApproachGap - .01
-            ? (f.earnedApproachStuck ?? 0) + 1 : 0;
-        f.earnedApproachGap = d;
+        if (_partyMode && !_warfrontMode) {
+            // Compare cumulative progress: tiny cover oscillations must not buy
+            // another full approach window on every other frame.
+            if (f.earnedApproachGap === undefined || d < f.earnedApproachGap - .1) {
+                f.earnedApproachGap = d; f.earnedApproachStuck = 0;
+            } else f.earnedApproachStuck = (f.earnedApproachStuck ?? 0) + 1;
+        } else {
+            f.earnedApproachStuck = f.earnedApproachGap !== undefined && d >= f.earnedApproachGap - .01
+                ? (f.earnedApproachStuck ?? 0) + 1 : 0;
+            f.earnedApproachGap = d;
+        }
         if (f.earnedApproachStuck >= DUEL_TPS * 2) {
             f.earnedApproachBlockedUntil = t + Math.round(DUEL_TPS * 1.5);
             f.earnedApproachStuck = 0; f.earnedApproachGap = undefined;
@@ -2860,7 +2928,7 @@ function decide(f: Fighter, fighters: Fighter[], projectiles: Projectile[], rng:
     const pressureTeam: Fighter["team"] = _warfrontMode
         ? f.team
         : _partyMode
-            ? _laneInitiativeTeam[laneIndex(f.slot)]
+            ? _laneInitiativeTeam[partyInitiativeLane(f, e, fighters)]
             : _cinematicInitiativeTeam;
     if (!holdRepos && mobilityIdx >= 0 && f.team === pressureTeam && f.commit >= Math.round(DUEL_TPS * 0.55)
         && d > rStar + BAND_H + 1.8 && f.statuses.rootLeft <= 0 && e.state !== "windup") {
@@ -3298,7 +3366,7 @@ function stepFighter(f: Fighter, fighters: Fighter[], projectiles: Projectile[],
             f.state = "idle";
             const target = pickTarget(f, fighters);
             if (target) {
-                if (_partyMode) _laneInitiativeTeam[laneIndex(f.slot)] = target.team;
+                if (_partyMode) _laneInitiativeTeam[partyInitiativeLane(f, target, fighters)] = target.team;
                 else _cinematicInitiativeTeam = target.team;
             }
             // The completed action hands pressure to the opponent while this pet
@@ -4530,6 +4598,13 @@ function kageFormationSim(
                 const before = ally.fighter.hp;
                 ally.fighter.hp = Math.min(ally.fighter.maxHp, ally.fighter.hp + heal);
                 events.push({ t: tick, type: "heal", side: fighter.team, actorId: fighter.id, targetId: ally.fighter.id, dmg: Math.max(0, ally.fighter.hp - before), kind: ability.kind, move: ability.name, signature: ability.signature });
+            } else if (fighter.pet.battleLoadoutVersion === 'progression-v3' && ability.kind === "buff") {
+                fighter.statuses.buffLeft = buffTicks(ability);
+                fighter.statuses.buffMag = Math.max(fighter.statuses.buffMag, mastery.buffMult - 1);
+                events.push({ t: tick, type: "buff", side: fighter.team, actorId: fighter.id, targetId: fighter.id, kind: ability.kind, move: ability.name, signature: ability.signature });
+            } else if (fighter.pet.battleLoadoutVersion === 'progression-v3' && ability.kind === "haste") {
+                fighter.statuses.hasteLeft = buffTicks(ability) + (mastery.mastered ? DUEL_TPS : 0);
+                events.push({ t: tick, type: "buff", side: fighter.team, actorId: fighter.id, targetId: fighter.id, kind: ability.kind, move: ability.name, signature: ability.signature });
             } else {
                 const shield = Math.round(fighter.pet.battleLoadoutVersion === 'progression-v3'
                     ? ally.fighter.maxHp * mastery.shieldPct : fighter.maxHp * (ability.signature ? 0.26 : 0.16) * (ability.power / 100));

@@ -11,8 +11,9 @@ const MASTERY_HINTS: Record<PetAbilityUpgrade, string> = {
 };
 const TIER_HINTS: Record<PetAbilityTier, string> = {
     basic: 'Restrained species attack', utility: 'Role utility', advanced: 'Advanced offense',
-    signature: 'Signature • requires meter and battle readiness in the Colosseum.',
+    signature: 'Final Art requires meter and battle readiness in the Colosseum.',
 };
+const TIER_LABELS: Record<PetAbilityTier, string> = { basic: 'Basic', utility: 'Utility', advanced: 'Advanced', signature: 'Final Art' };
 
 export function PetAbilityProgression({ pet, compact = false }: { pet: Pet; compact?: boolean }) {
     const progression = petProgressionPresentation(pet);
@@ -31,8 +32,9 @@ export function PetAbilityProgression({ pet, compact = false }: { pet: Pet; comp
                 </div>)}</div>
             </li>;
         })}</ol>
-        {!compact && <><h4>Eligible loadout now</h4><ul className="pet-progression-active">{progression.active.map((move, index) => <li key={`${move.name}-${index}`}>{String(move.name)}{'upgrade' in move && move.upgrade ? ` • ${PET_MASTERY_LABELS[move.upgrade]}` : ''}</li>)}</ul>
+        {!compact && <><h4>Eligible loadout now</h4><ul className="pet-progression-active">{progression.active.map((move, index) => <li key={`${move.name}-${index}`}>{move.tier ? `${TIER_LABELS[move.tier]}: ` : ''}{String(move.name)}{'upgrade' in move && move.upgrade ? ` • ${PET_MASTERY_LABELS[move.upgrade]}` : ''}</li>)}</ul>
             {progression.savedLocked.length > 0 && <p role="status">Saved for later: {progression.savedLocked.map(move => `${move.name} (level ${move.unlockLevel})`).join(', ')}. Eligible defaults fill those slots until earned. Your saved choices are preserved.</p>}
+            {progression.savedInactive.length > 0 && <p role="status">Saved but inactive in progression: {progression.savedInactive.map(move => move.name).join(', ')}. Your native basic attack takes one of four ordinary slots when no preferred basic is selected, so only the first three earned preferences fit. Choose a preferred basic attack to use all four preference slots.</p>}
             <details><summary>Progression update &amp; battle rules</summary>
                 <p>Your companions, level, XP, Growth Points, evolution and equipment are preserved. Review your allocation in Growth &amp; training; the free respec returns committed points for redistribution and grants no extra points.</p>
                 <p>Competitive Tactics uses its own normalized level, 49-point allocation, 100 stamina and full eligible competitive library. Its attributes and item do not replace your adventure Growth Points or gear.</p>

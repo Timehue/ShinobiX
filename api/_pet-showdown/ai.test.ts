@@ -13,7 +13,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { buildColosseumAiTeam, buildShowdownAiTeam, chooseShowdownAiCommands } from './ai.js';
-import { createShowdownSession, estimateShowdownMoveDamage, sealShowdownPet } from './engine.js';
+import { createShowdownSession, estimateShowdownMoveDamage, resolveShowdownRound, sealShowdownPet } from './engine.js';
 import { PET_CATALOG } from '../pet/_catalog.js';
 import { normalizePetGrowth } from '../pet/_growth.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
@@ -399,7 +399,7 @@ describe('v3 realized hit and useful support decisions', () => {
     });
 
     it('does not raise a shield against unaffordable, recovering or winded enemy attacks', () => {
-        for (const unavailable of ['stamina', 'reuse', 'winded', 'guarding'] as const) {
+        for (const unavailable of ['stamina', 'reuse', 'winded'] as const) {
             for (let seed = 1; seed <= 24; seed++) {
                 const session = fixture(seed), actor = session.enemy[0], foe = session.player[0];
                 actor.moves[0].power = 10;
@@ -408,18 +408,49 @@ describe('v3 realized hit and useful support decisions', () => {
                 if (unavailable === 'stamina') foe.stamina = 0;
                 if (unavailable === 'reuse') foe.moves[0].availableAtRound = session.round + 2;
                 if (unavailable === 'winded') foe.winded = true;
-                if (unavailable === 'guarding') foe.guarding = true;
                 assert.equal(chosenIndex(session), 0, `${unavailable} foe does not justify a defensive setup loop`);
             }
         }
     });
 
-    it('ignores a guarding foe as a lethal ordinary threat instead of mirroring Guard forever', () => {
+    it('survives a fast lethal attack from a foe whose previous action was Guard', () => {
         const session = fixture(), actor = session.enemy[0], foe = session.player[0];
         foe.moves = [{ ...actor.moves[0], power: 100 }];
+        foe.speed = actor.speed * 2;
         actor.hp = Math.ceil(estimateShowdownMoveDamage(session, foe, actor, foe.moves[0]) * .75);
         foe.guarding = true;
-        assert.equal(chosenIndex(session), 0);
+        const [response] = chooseShowdownAiCommands(session);
+        assert.equal(response.kind, 'guard', 'the previous stance never removes a legal incoming attack');
+        const events = resolveShowdownRound(session, [{ kind: 'move', petId: foe.id, moveIndex: 0, targetId: actor.id }], [response]);
+        assert.equal(foe.guarding, false, 'a legal strike clears the old guard stance');
+        assert.ok(events.some(event => event.t === 'action' && event.actorId === foe.id && event.moveKind === 'damage'));
+        assert.ok(actor.hp > 0 && !actor.ko, 'the AI must preserve the response window against the real execution');
+    });
+
+    it('still values a shield against a legal attack after the foe previously guarded', () => {
+        for (let seed = 1; seed <= 24; seed++) {
+            const session = fixture(seed), actor = session.enemy[0], foe = session.player[0];
+            actor.moves[0].power = 10;
+            actor.moves.push({ ...actor.moves[0], kind: 'barrier', power: 100 });
+            foe.moves = [{ ...actor.moves[0], power: 100, cost: 10 }];
+            foe.guarding = true;
+            assert.equal(chosenIndex(session), 1, 'previous Guard is not an unavailable attack condition');
+        }
+    });
+
+    it('breaks mutual defensive choices on the following round without hiding legal attacks', () => {
+        const session = fixture(), actor = session.enemy[0], foe = session.player[0];
+        foe.moves = [{ ...actor.moves[0] }];
+        actor.hp = Math.ceil(estimateShowdownMoveDamage(session, foe, actor, foe.moves[0]) * .75);
+        foe.hp = Math.ceil(estimateShowdownMoveDamage(session, actor, foe, actor.moves[0]) * .75);
+        const player = chooseShowdownAiCommands(session, 'player');
+        const enemy = chooseShowdownAiCommands(session);
+        assert.equal(player[0].kind, 'guard');
+        assert.equal(enemy[0].kind, 'guard');
+        resolveShowdownRound(session, player, enemy);
+        assert.equal(actor.guarding, true); assert.equal(foe.guarding, true);
+        assert.equal(chooseShowdownAiCommands(session, 'player')[0].kind, 'move');
+        assert.equal(chooseShowdownAiCommands(session)[0].kind, 'move');
     });
 
     it('forecasts the next opening after Protect clears, while preserving legacy blocks and active charges', () => {
