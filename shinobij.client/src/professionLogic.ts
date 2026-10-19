@@ -5,6 +5,8 @@
 // Server-side mirrors live in api/missions/_progress.ts and
 // api/pvp/_vanguard-rewards.ts. Keep formulas in sync.
 
+import { petExpeditionProfessionMultiplier } from '../../shared/pet-expedition-contract';
+
 export type Profession = "healer" | "vanguard" | "petTamer";
 
 export const PROFESSION_MAX_RANK = 10;
@@ -49,10 +51,8 @@ export function petTamerTrainingSpeedPct(profession: Profession | undefined, ran
 }
 
 // Pet Tamer expedition reward multiplier.
-export function petTamerExpeditionMult(profession: Profession | undefined, rank: number): number {
-    if (profession !== "petTamer") return 1;
-    const r = Math.max(0, Math.min(PROFESSION_MAX_RANK, rank));
-    return 1 + (10 + r * 1.5) / 100;
+export function petTamerExpeditionMult(profession: Profession | undefined, _rank: number): number {
+    return petExpeditionProfessionMultiplier(profession);
 }
 
 // Vanguard rank table (Seals per PvP kill). Idx = rank (0 unused).

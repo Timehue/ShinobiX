@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
-import { randomUUID } from 'node:crypto';
+import { randomInt, randomUUID } from 'node:crypto';
 import { kv } from '../_storage.js';
 import { safeName, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
@@ -18,11 +18,14 @@ import {
     PET_EXPEDITION_RISKS,
     PET_EXPEDITION_ROUTES,
     PET_EXPEDITION_TYPES,
+    PET_EXPEDITION_REWARD_VERSION,
+    petExpeditionRewardPreview,
     type PetExpeditionProvision,
     type PetExpeditionRisk,
     type PetExpeditionType,
 } from '../../shared/pet-expedition-contract.js';
 import { sectorBiomeOf, sectorName, sectorRegionLabel } from '../../shared/sector-geo.js';
+import { rollPetExpeditionMaterials } from '../../shared/pet-expedition-materials.js';
 
 /*
  * /api/missions/expedition-start - POST only
@@ -175,10 +178,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             const realLevel = Number(pet.level ?? 0);
-            const realMaxLevel = Number(pet.maxLevel ?? 100);
             const isTamer = character.profession === 'petTamer';
-            const petMaxed = realLevel >= realMaxLevel;
-            if (realLevel < 20) return { ok: false as const, status: 409, error: 'Pet must reach level 20.' };
+            const requiredLevel = PET_EXPEDITION_ROUTES[expType].requiredLevel;
+            if (realLevel < requiredLevel) return { ok: false as const, status: 409, error: `Pet must reach level ${requiredLevel} for ${PET_EXPEDITION_ROUTES[expType].label}.` };
             if (pet.training || pet.expedition) return { ok: false as const, status: 409, error: 'Pet is already busy.' };
             // Gate on the happiness the pet ACTUALLY has, not the stored number:
             // happiness decays at every daily reset (shared/pet-happiness.ts), so a
@@ -203,7 +205,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 };
             }
 
-            const rewardScale = isTamer ? 1 : petMaxed ? 0.5 : 0;
+            const rewardScale = 1;
             // Pet level is always read from the saved pet. The client cannot
             // inflate the level term in the authoritative ryo formula.
             const sealedPetLevel = Math.max(1, Math.min(100, realLevel));
@@ -224,6 +226,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const region = (sectorRegionLabel(sector) ?? 'the surrounding country').slice(0, 80);
             const biome = (sector > 0 ? sectorBiomeOf(sector) : String(record.currentBiome ?? 'central')).slice(0, 24);
             const durationMinutes = PET_EXPEDITION_ROUTES[expType].durationMinutes;
+            const rewards = petExpeditionRewardPreview(expType, {
+                profession: character.profession, risk, provision,
+                rewardMastery: expRewardMult, materialMastery: expMaterialMult,
+            });
+            const materialRewards = rollPetExpeditionMaterials(expType, biome, rewards.materialMultiplier,
+                () => randomInt(0, 0x1_0000_0000) / 0x1_0000_0000);
             const endsAt = requestedAt + durationMinutes * 60_000;
             const receipt: ExpeditionStartReceipt = {
                 token: requestedToken,
@@ -263,6 +271,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         region,
                         biome,
                         choiceVersion: 1,
+                        materialRewards,
+                        rewardVersion: PET_EXPEDITION_REWARD_VERSION,
+                        ryoReward: rewards.ryo,
+                        petXpReward: rewards.petXp,
+                        premiumChances: rewards.chances,
+                        fateShardReward: randomInt(2, 5),
                     },
                 },
             } : candidate);
@@ -325,6 +339,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             region: String(seal?.region ?? expedition?.region ?? ''),
             biome: String(seal?.biome ?? expedition?.biome ?? ''),
             choiceVersion: Number(seal?.choiceVersion ?? 1),
+            ...(Array.isArray(seal?.materialRewards) ? { materialRewards: seal.materialRewards } : {}),
+            ...(seal?.rewardVersion === PET_EXPEDITION_REWARD_VERSION ? {
+                rewardVersion: seal.rewardVersion, ryoReward: seal.ryoReward,
+                petXpReward: seal.petXpReward, premiumChances: seal.premiumChances,
+                fateShardReward: seal.fateShardReward,
+            } : {}),
         }, { ex: EXPEDITION_TOKEN_TTL_SECONDS });
 
         return res.status(200).json({

@@ -112,10 +112,10 @@ export function removePetItem(character: Record<string, unknown>, itemId: string
     return { ...character, inventory: inventory.filter((_, i) => i !== index) };
 }
 
-export function settleServerPetExpedition(pet: Record<string, unknown>, expType: string, durationMinutes: number, xpMultiplier: number): { pet: Record<string, unknown>; xp: number; statGain: number } {
+export function settleServerPetExpedition(pet: Record<string, unknown>, expType: string, durationMinutes: number, xpMultiplier: number, sealedBaseXp?: number): { pet: Record<string, unknown>; xp: number; statGain: number } {
     if (Number(pet.level) >= Number(pet.maxLevel)) return { pet: { ...pet, expedition: undefined }, xp: 0, statGain: 0 };
     const type = PET_EXPEDITION_TYPES.includes(expType as PetExpeditionType) ? expType as PetExpeditionType : 'scout';
-    const canonicalBaseXp = petExpeditionBasePetXp(type);
+    const canonicalBaseXp = sealedBaseXp ?? petExpeditionBasePetXp(type);
     // Legacy leases may carry non-canonical durations. Keep their historical
     // scaling while all current routes read the shared canonical base.
     const canonicalMinutes = type === 'scout' ? 45 : type === 'forage' ? 120 : 240;
