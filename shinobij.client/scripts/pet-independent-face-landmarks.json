@@ -4270,6 +4270,387 @@
         "bothEyesAndWholeFaceSampled": true,
         "sourceAndBattleMinimumTwentyVerticesAndThreeEdgesPerPatch": true
       }
+    },
+    "starter-lightning": {
+      "camera": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.5691014733202012,
+          0.5422856886469936,
+          -0.12004407966300533,
+          0.7519420552271345,
+          0.42150745773702036,
+          1.1003678509180546
+        ],
+        "cameraPadding": 1.15
+      },
+      "status": "landmark-coverage-reviewed",
+      "sourceSha256": "5b96adb25eca071c6b1df6c020cd19def0a37d4b779c41eade34114f4089406f",
+      "coverageEvidence": "../docs/screenshots/pet-spark-pup-anatomy-correction-2026-10-19/000-original-mask-coverage.png",
+      "landmarks": {
+        "upperFace": {
+          "center": [
+            0.02379833456641,
+            0.1515095325556658,
+            0.950795557906079
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            157,
+            219
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "muzzle": {
+          "center": [
+            0.040813188630615636,
+            0.029360749391354926,
+            0.9770620589446841
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            158,
+            239
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "lowerFace": {
+          "center": [
+            0.053,
+            -0.015,
+            0.95
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            160,
+            247
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "jawChin": {
+          "center": [
+            0.154,
+            0.04,
+            0.94
+          ],
+          "radius": 0.07,
+          "pickedPixel": [
+            139,
+            238
+          ],
+          "pickedView": "head-side",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "earLeft": {
+          "center": [
+            -0.32910147332020123,
+            0.5719420552271346,
+            0.7015074577370204
+          ],
+          "radius": 0.12,
+          "pickedPixel": [
+            112,
+            148
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "earRight": {
+          "center": [
+            0.3022856886469935,
+            0.5714899571165479,
+            0.8147059829895696
+          ],
+          "radius": 0.12,
+          "pickedPixel": [
+            205,
+            156
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "headband": {
+          "center": [
+            0.05058128988468581,
+            0.31121385568811066,
+            0.9803678509180545
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            163,
+            195
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "leftEye": {
+          "center": [
+            -0.14511505686415221,
+            0.1306192161948672,
+            0.9100504889224185
+          ],
+          "radius": 0.09,
+          "pickedPixel": [
+            131,
+            219
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "rightEye": {
+          "center": [
+            0.13977212238250353,
+            0.13538068984443527,
+            0.9116672471933228
+          ],
+          "radius": 0.09,
+          "pickedPixel": [
+            175,
+            222
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "lowerMaskRim": {
+          "center": [
+            0,
+            -0.025,
+            0.95
+          ],
+          "radius": 0.09,
+          "anchorBone": "head",
+          "pickedPose": "Original idle 0%",
+          "selection": "Lower navy mask surface above red scarf; independent original geometry and texture survey"
+        },
+        "maskLeftRim": {
+          "center": [
+            -0.12,
+            0.005,
+            0.93
+          ],
+          "radius": 0.085,
+          "anchorBone": "head",
+          "pickedPose": "Original idle 0%",
+          "selection": "Left navy mask rim from original geometry and texture survey"
+        },
+        "maskRightRim": {
+          "center": [
+            0.12,
+            0.005,
+            0.93
+          ],
+          "radius": 0.085,
+          "anchorBone": "head",
+          "pickedPose": "Original idle 0%",
+          "selection": "Right navy mask rim from original geometry and texture survey"
+        }
+      },
+      "geometrySha256": "5def5dd517101a00ba078b21f4ea4b2de10fd71a04e2a040ef80b366a122d214",
+      "geometryToVisibleBind": [
+        0.9999999452167215,
+        0,
+        0,
+        0,
+        0,
+        0.9999999631478353,
+        -3.475053578227971e-10,
+        0,
+        0,
+        -1.1086156009865178e-7,
+        0.9999999425020887,
+        0,
+        1.734723475976807e-18,
+        7.81483834311203e-8,
+        5.758577681369559e-8,
+        1
+      ],
+      "headCountVisuallyVerified": 1,
+      "heads": [
+        {
+          "id": "primary",
+          "landmarks": [
+            "upperFace",
+            "muzzle",
+            "lowerFace",
+            "jawChin",
+            "earLeft",
+            "earRight",
+            "headband",
+            "leftEye",
+            "rightEye",
+            "lowerMaskRim",
+            "maskLeftRim",
+            "maskRightRim"
+          ]
+        }
+      ],
+      "coverageReview": {
+        "reviewedAt": "2026-10-18T14:40:22.297Z",
+        "frontAndSideActuallyInspected": true,
+        "originalSourceFrozenBeforeRepair": true,
+        "bothEyesAndWholeFaceSampled": true,
+        "sourceAndBattleMinimumTwentyVerticesAndThreeEdgesPerPatch": true
+      },
+      "previousBoundaryLandmarks": [
+        {
+          "reason": "Original lowerFace sphere includes eight red scarf vertices identified on unchanged original texture/mesh; garment movement is not rigid jaw distortion. Preserve old annotation and diagnostic results. Revised coverage must be visually reviewed before use.",
+          "landmarks": {
+            "upperFace": {
+              "center": [
+                0.02379833456641,
+                0.1515095325556658,
+                0.950795557906079
+              ],
+              "radius": 0.1,
+              "pickedPixel": [
+                157,
+                219
+              ],
+              "pickedView": "head-front",
+              "pickedPose": "idle 0%",
+              "anchorBone": "head"
+            },
+            "muzzle": {
+              "center": [
+                0.040813188630615636,
+                0.029360749391354926,
+                0.9770620589446841
+              ],
+              "radius": 0.08,
+              "pickedPixel": [
+                158,
+                239
+              ],
+              "pickedView": "head-front",
+              "pickedPose": "idle 0%",
+              "anchorBone": "head"
+            },
+            "lowerFace": {
+              "center": [
+                0.05330845130754826,
+                -0.030044079663005333,
+                0.9388099078369221
+              ],
+              "radius": 0.12,
+              "pickedPixel": [
+                160,
+                247
+              ],
+              "pickedView": "head-front",
+              "pickedPose": "idle 0%",
+              "anchorBone": "head"
+            },
+            "jawChin": {
+              "center": [
+                0.1549439001746545,
+                0.02795853117167638,
+                0.9246603530332539
+              ],
+              "radius": 0.08,
+              "pickedPixel": [
+                139,
+                238
+              ],
+              "pickedView": "head-side",
+              "pickedPose": "idle 0%",
+              "anchorBone": "head"
+            },
+            "earLeft": {
+              "center": [
+                -0.32910147332020123,
+                0.5719420552271346,
+                0.7015074577370204
+              ],
+              "radius": 0.12,
+              "pickedPixel": [
+                112,
+                148
+              ],
+              "pickedView": "head-front",
+              "pickedPose": "idle 0%",
+              "anchorBone": "head"
+            },
+            "earRight": {
+              "center": [
+                0.3022856886469935,
+                0.5714899571165479,
+                0.8147059829895696
+              ],
+              "radius": 0.12,
+              "pickedPixel": [
+                205,
+                156
+              ],
+              "pickedView": "head-front",
+              "pickedPose": "idle 0%",
+              "anchorBone": "head"
+            },
+            "headband": {
+              "center": [
+                0.05058128988468581,
+                0.31121385568811066,
+                0.9803678509180545
+              ],
+              "radius": 0.08,
+              "pickedPixel": [
+                163,
+                195
+              ],
+              "pickedView": "head-front",
+              "pickedPose": "idle 0%",
+              "anchorBone": "head"
+            },
+            "leftEye": {
+              "center": [
+                -0.14511505686415221,
+                0.1306192161948672,
+                0.9100504889224185
+              ],
+              "radius": 0.09,
+              "pickedPixel": [
+                131,
+                219
+              ],
+              "pickedView": "head-front",
+              "pickedPose": "idle 0%",
+              "anchorBone": "head"
+            },
+            "rightEye": {
+              "center": [
+                0.13977212238250353,
+                0.13538068984443527,
+                0.9116672471933228
+              ],
+              "radius": 0.09,
+              "pickedPixel": [
+                175,
+                222
+              ],
+              "pickedView": "head-front",
+              "pickedPose": "idle 0%",
+              "anchorBone": "head"
+            }
+          },
+          "sourceSha256": "5b96adb25eca071c6b1df6c020cd19def0a37d4b779c41eade34114f4089406f"
+        }
+      ],
+      "anatomicalCorrectionReport": "../docs/audits/pet-spark-pup-anatomy-correction-2026-10-19.json",
+      "coverageActuallyInspected": true
     }
   }
 }

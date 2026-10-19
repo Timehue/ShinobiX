@@ -136,3 +136,25 @@ docs/screenshots/gale-chick-complete-face-v1-final-2026-10-19/*.log text eol=lf
 docs/screenshots/pet-gale-chick-repair-first-2026-10-19/*.log text eol=lf
 
 docs/screenshots/pet-gale-main-validation-2026-10-19/*.log text eol=lf
+
+docs/audits/pet-gale*.json text eol=lf
+
+docs/audits/pet-spark*.json text eol=lf
+
+docs/screenshots/*gale*/*.mjs text eol=lf
+
+docs/screenshots/*gale*/*.tsx text eol=lf
+
+docs/screenshots/*gale*/*.ts text eol=lf
+
+docs/screenshots/*gale*/*.log text eol=lf
+
+docs/screenshots/*spark*/*.mjs text eol=lf
+
+docs/screenshots/*spark*/*.tsx text eol=lf
+
+docs/screenshots/*spark*/*.ts text eol=lf
+
+docs/screenshots/*spark*/*.log text eol=lf
+
+docs/screenshots/pet-spark-main-validation-2026-10-19/*.log text eol=lf
