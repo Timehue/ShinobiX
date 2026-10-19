@@ -1,5 +1,5 @@
 import type { SoloPveCombatEvent, SoloPveSession } from './solo-pve-api';
-export type SoloBattleDebugSource = Pick<SoloPveSession, 'sessionId' | 'eventSeq' | 'events' | 'status' | 'outcome'> & {
+export type SoloBattleDebugSource = Pick<SoloPveSession, 'sessionId' | 'eventSeq' | 'events' | 'status' | 'outcome' | 'terminalReason'> & {
     player: { name: string }; enemy: { name: string; character: Record<string, unknown> };
 };
 
@@ -12,6 +12,7 @@ const STORE_KEY = 'shinobij:solo-battle-debug:v1';
 const MAX_STORAGE_CHARS = 750_000;
 const MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 export type SoloBattleDebug = {
+    terminalReason?: SoloPveSession['terminalReason'];
     version: 1; sessionId: string; player: string; opponent: string; opponentLevel: number;
     updatedAt: number; lastSequence: number; complete: boolean; omittedRows: number;
     status: string; outcome: string | null; shortenedRows?: number;
@@ -80,6 +81,8 @@ export function mergeSoloBattleDebug(previous: SoloBattleDebug | undefined, sess
     record.updatedAt = now;
     record.status = session.status;
     record.outcome = session.outcome;
+    if (session.terminalReason) record.terminalReason = session.terminalReason;
+    else delete record.terminalReason;
     return record;
 }
 
@@ -102,7 +105,7 @@ export function captureSoloBattleDebug(session: SoloBattleDebugSource): SoloBatt
         } catch { /* Browser storage is optional. */ }
     }
     const previous = records.get(key);
-    if (previous && previous.lastSequence === session.eventSeq && previous.status === session.status && previous.outcome === session.outcome) return previous;
+    if (previous && previous.lastSequence === session.eventSeq && previous.status === session.status && previous.outcome === session.outcome && previous.terminalReason === session.terminalReason) return previous;
     const record = mergeSoloBattleDebug(previous, session);
     records.set(key, record);
     const recent = [...records.entries()].sort((a, b) => b[1].updatedAt - a[1].updatedAt);
@@ -118,7 +121,7 @@ export function captureSoloBattleDebug(session: SoloBattleDebugSource): SoloBatt
 export function soloBattleDebugText(record: SoloBattleDebug): string {
     const scope = record.complete ? 'Complete observed action history.'
         : `Partial action history: earlier events were unavailable or the local ${SOLO_DEBUG_MAX_ROWS}-row / 1,000-character line bound was reached. ${record.omittedRows} rows omitted and ${record.shortenedRows ?? 0} rows shortened by this device.`;
-    return `${record.player} vs ${record.opponent} (Lv ${record.opponentLevel})\nSession: ${record.sessionId}\n${scope}\nStatus: ${record.status}; outcome: ${record.outcome ?? 'unresolved'}\n\n`
+    return `${record.player} vs ${record.opponent} (Lv ${record.opponentLevel})\nSession: ${record.sessionId}\n${scope}\nStatus: ${record.status}; outcome: ${record.outcome ?? 'unresolved'}; reason: ${record.terminalReason ?? 'not recorded'}\n\n`
         + record.rows.map(row => `[Round ${row.round} · Event ${row.seq}] ${row.text}`).join('\n');
 }
 

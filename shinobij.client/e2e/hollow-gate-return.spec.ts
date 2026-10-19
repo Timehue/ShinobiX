@@ -1,5 +1,29 @@
 import { test, expect, type Page } from '@playwright/test';
 
+test('Warden decision shows its sealed cue and round-cap warning without horizontal overflow', async ({ page }, info) => {
+    const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
+    await page.route('**/api/solo-pve/state**', async route => route.fulfill({ json: { ok: true,
+        session: await page.evaluate(() => (window as unknown as { wardenQaSession: unknown }).wardenQaSession) } }));
+    await page.goto('/e2e/fixtures/hollow-gate-warden.html');
+    const warning = page.getByRole('status').filter({ hasText: 'Round 18/25' });
+    await expect(warning).toBeVisible();
+    await expect(page.getByText('Stand inside the violet ward column before Mirror-Shard Warden acts.', { exact: true })).toBeVisible();
+    const bounds = await warning.boundingBox(); expect(bounds).not.toBeNull();
+    expect(bounds!.x).toBeGreaterThanOrEqual(0); expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(page.viewportSize()!.width + 1);
+    await page.screenshot({ path: info.outputPath('warden-round-warning.png'), fullPage: true });
+    expect(errors).toEqual([]);
+});
+
+test('Warden cap result explains the terminal reason and names the actual opponent', async ({ page }, info) => {
+    await page.goto('/e2e/fixtures/hollow-gate-warden.html?cap=1');
+    const result = page.getByRole('dialog', { name: 'Hollow Gate combat result' });
+    await expect(result).toContainText('The 25-round limit expired before Mirror-Shard Warden was defeated. This dive has ended.');
+    await expect(result).not.toContainText('Hollow Hound');
+    await page.screenshot({ path: info.outputPath('warden-cap-result.png'), fullPage: true });
+    await result.getByRole('button', { name: 'Continue', exact: true }).click();
+    await expect(page.locator('body')).toHaveAttribute('data-resolved', 'yes');
+});
+
 async function install(page: Page, outcome: 'win' | 'loss' | 'ended', failFirst = false, active = false) {
     let settlements = 0;
     await page.route('**/api/card-clash/ai-move', route => route.fulfill({ json: { ok: true, session: {

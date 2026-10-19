@@ -8,6 +8,9 @@ import type { CompanionMove, CompanionSeal } from '../combat-core/companion.js';
 import type { AuthoritativeCombatEvent } from '../combat-core/events.js';
 import { timeStartingShield } from '../combat-core/shields.js';
 import { assertSoloPveLoadoutCompatible } from './_compatibility.js';
+import { MAX_ROUNDS } from '../combat-core/constants.js';
+import { sealHollowGateTelegraph, type HollowGateTelegraph } from '../../shared/hollow-gate-telegraph.js';
+import type { SoloPveTerminalReason } from '../../shared/solo-pve-terminal.js';
 
 export const SOLO_PVE_RUNTIME = 'solo-pve' as const;
 export const SOLO_PVE_SCHEMA_VERSION = 1 as const;
@@ -40,6 +43,7 @@ export type SoloPveSettlementReceipt = {
 };
 
 export type SoloPveTerminalEvidence = {
+    reason?: SoloPveTerminalReason;
     finishedAt: number;
     /** Present only when the fight was terminalized because it LAPSED (F08):
      *  the gameplay expiry it lapsed at. `finishedAt` equals it. */
@@ -144,12 +148,13 @@ export type SoloPveVfxEvent = {
  * unambiguous without asking the client to reconstruct server outcomes.
  */
 export type SoloPveCombatEvent = {
-    kind: 'action';
+    terminalReason?: SoloPveTerminalReason;
+    kind: 'action' | 'system';
     seq: number;
     round: number;
     actor: SoloPveActor;
     target: SoloPveActor | 'tile' | null;
-    action: SoloPveAction['type'] | 'companionMove' | 'companionWait';
+    action: SoloPveAction['type'] | 'companionMove' | 'companionWait' | 'roundEnd';
     actionId?: string;
     actionName?: string;
     tile?: number;
@@ -176,6 +181,9 @@ export type SoloPveRejectionEvent = {
 };
 
 export type SoloPveSession = {
+    terminalReason?: SoloPveTerminalReason;
+    hollowGateTelegraph?: HollowGateTelegraph;
+    hollowGateRoundLimit?: number;
     runtime: typeof SOLO_PVE_RUNTIME;
     schemaVersion: typeof SOLO_PVE_SCHEMA_VERSION;
     sessionId: string;
@@ -278,7 +286,7 @@ export function createSoloPveSession(params: CreateSoloPveSessionParams): SoloPv
         const value = params.seededVitals?.[field];
         if (typeof value === 'number' && Number.isFinite(value) && value >= 0) seededVitals[field] = Math.floor(value);
     }
-    return {
+    const session: SoloPveSession = {
         runtime: SOLO_PVE_RUNTIME,
         schemaVersion: SOLO_PVE_SCHEMA_VERSION,
         sessionId: params.sessionId,
@@ -330,6 +338,11 @@ export function createSoloPveSession(params: CreateSoloPveSessionParams): SoloPv
         ...(activeTtlSeconds !== SOLO_PVE_SESSION_TTL_SECONDS ? { activeTtlSeconds } : {}),
         ...(Object.keys(seededVitals).length > 0 ? { seededVitals } : {}),
     };
+    if (session.encounter.kind === 'hollow-gate') {
+        session.hollowGateRoundLimit = MAX_ROUNDS;
+        sealHollowGateTelegraph(session);
+    }
+    return session;
 }
 
 /** The sealed active TTL a session was created with (clamped exactly as creation clamps it). */

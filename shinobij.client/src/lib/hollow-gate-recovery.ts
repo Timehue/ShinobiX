@@ -56,6 +56,7 @@ export type HollowGateResumeState = {
     floorDepth: number;
     floor: number;
     variantId?: string;
+    variantLabel?: string;
     riftDistortionId?: string;
     floorWidth?: number;
     floorHeight?: number;
@@ -108,10 +109,12 @@ export async function fetchHollowGateResume(playerName: string): Promise<HollowG
 
 /** The variant a run was generated with. Generation reads only its floor count
  *  and dimensions, so these rebuild the same floor the run started with. */
-export function hollowGateResumeVariant(state: HollowGateResumeState): HollowGateVariant | undefined {
+export function hollowGateResumeVariant(state: HollowGateResumeState, previous?: HollowGateVariant): HollowGateVariant | undefined {
     if (!state.variantId) return undefined;
     return {
         id: state.variantId,
+        label: state.variantLabel || (previous?.id === state.variantId ? previous.label : undefined)
+            || (state.bossName ? `${state.bossName}${state.variantId.startsWith("rift-") ? " Rift" : ""}` : undefined),
         maxFloor: state.floorDepth,
         width: state.floorWidth,
         height: state.floorHeight,
@@ -291,7 +294,7 @@ export async function recoverHollowGateRun(params: HollowGateRecoveryParams): Pr
         return resumed.kind;
     }
     const state = resumed.state;
-    const variant = hollowGateResumeVariant(state);
+    const variant = hollowGateResumeVariant(state, params.character.hollowGateRun?.variant);
     let run: HollowGateShrineRun;
     try {
         const { generateHollowGateShrineRun } = await loadHollowGateGenerator();

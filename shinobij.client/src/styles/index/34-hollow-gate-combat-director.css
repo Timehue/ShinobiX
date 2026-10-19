@@ -162,7 +162,7 @@
     }
 
     .hg-combat-directive strong { grid-row: auto; }
-    .hg-combat-directive small { display: none; }
+    .hg-combat-directive small { display: block; overflow-wrap: anywhere; }
     .hg-combat-directive > span { white-space: normal; }
 }
 
