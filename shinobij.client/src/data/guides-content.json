@@ -1276,7 +1276,7 @@
         "blocks": [
           {
             "type": "p",
-            "text": "Expeditions unlock at companion level 20. Scout takes 45 minutes, Forage takes two hours, and Ruins takes four. Choose Scout for a quick trip, Forage for pet XP, or Ruins for rarer finds. Check the Board's preview for the selected pet and your profession."
+            "text": "Scout unlocks at companion level 20 and takes 45 minutes. Forage unlocks at level 50 and takes two hours; Ruins unlocks at level 80 and takes four. Higher-level companions can still choose lower routes. Higher routes offer larger hauls and better ryo and pet XP per hour. Check the Board's preview for the selected pet and your profession."
           },
           {
             "type": "p",
@@ -1284,7 +1284,7 @@
           },
           {
             "type": "p",
-            "text": "Growing companions earn pet XP. Pet Tamers also receive ryo, material finds, and profession XP. For other professions, a growing pet earns only pet XP, while a max-level pet earns half the base ryo and find odds. Collect the expedition to free that companion for its next assignment."
+            "text": "Every eligible companion earns ryo and materials, plus pet XP while it can still grow. All three routes bring a random assortment of hunting, fishing, mining, and harvesting materials: 3 for Scout, 6 for Forage, and 12 for Ruins before bonuses. Better-quality material rolls rise from 15% to 40% to 65%; harvesting uses its existing common and regional supplies. No gathering skill XP is awarded. Bone Charms can appear on any route, while Aura Stones are a rare Ruins find. Each route can also find 2–4 Fate Shards, with base chances of 3% for Scout, 6% for Forage, and 12% for Ruins; profession and find bonuses raise those chances. Pet Tamers receive 50% more expedition rewards and earn profession XP; purchased Expeditioner perks still apply. Collect the expedition to free that companion for its next assignment."
           },
           {
             "type": "p",
@@ -1545,7 +1545,7 @@
           },
           {
             "type": "p",
-            "text": "Healers spend chakra to restore allies and earn XP from the share of HP restored. Vanguards earn Honor Seals from qualifying real-player kills, with daily and per-target limits shown in the hub. Pet Tamers improve pet PvE, training speed, and expedition rewards. Their first collected expedition of the day grants double Tamer XP, pet XP, and ryo, with a material-find boost."
+            "text": "Healers spend chakra to restore allies and earn XP from the share of HP restored. Vanguards earn Honor Seals from qualifying real-player kills, with daily and per-target limits shown in the hub. Pet Tamers improve pet PvE and training speed. Every expedition receives their fixed 50% reward bonus, with purchased Expeditioner perks adding further benefits."
           },
           {
             "type": "p",

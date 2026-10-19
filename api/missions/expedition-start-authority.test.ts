@@ -96,7 +96,7 @@ after(() => {
 
 test('concurrent starts for one pet commit one lease and consume one daily allowance', async () => {
     const player = 'expeditionatomicrace';
-    await seedPlayer(player, { allowance: 4 });
+    await seedPlayer(player, { allowance: 4, petLevel: 80 });
     const [first, second] = await Promise.all([
         post(player, { petId: 'pet-1', expType: 'scout', launchId: '00000000-0000-4000-8000-000000000101' }, '127.0.0.11'),
         post(player, { petId: 'pet-1', expType: 'forage', launchId: '00000000-0000-4000-8000-000000000102' }, '127.0.0.12'),
@@ -121,11 +121,12 @@ test('concurrent starts for one pet commit one lease and consume one daily allow
 
 test('lost-response retry with the same launchId returns the exact launch without another write or charge', async () => {
     const player = 'expeditionlostresponse';
-    await seedPlayer(player, { allowance: 7 });
+    await seedPlayer(player, { allowance: 7, petLevel: 80 });
     const body = {
         petId: 'pet-1',
         expType: 'ruins',
         launchId: '00000000-0000-4000-8000-000000000201',
+        materialRewards: [{ itemId: 'hunt-legendary-material', count: 999 }],
     };
     const first = await post(player, body, '127.0.0.21');
     const replay = await post(player, body, '127.0.0.22');
@@ -134,6 +135,17 @@ test('lost-response retry with the same launchId returns the exact launch withou
     assert.equal(replay.body?.replayed, true);
     assert.equal(replay.body?.token, first.body?.token);
     assert.equal(replay.body?.endsAt, first.body?.endsAt);
+    const firstPet = ((first.body?.character as Record<string, unknown>).pets as Array<Record<string, unknown>>)[0];
+    const firstSeal = ((firstPet.expedition as Record<string, unknown>).serverSeal as Record<string, unknown>);
+    const rewards = firstSeal.materialRewards as Array<{ itemId: string; count: number }>;
+    assert.equal(rewards.reduce((total, reward) => total + reward.count, 0), 18, 'Ruins base haul with the fixed Tamer bonus');
+    assert.ok(rewards.every(reward => reward.count > 0 && reward.count <= 18), 'request cannot inject a 999-item stack');
+    assert.ok(Number(firstSeal.fateShardReward) >= 2 && Number(firstSeal.fateShardReward) <= 4);
+    const replayPet = ((replay.body?.character as Record<string, unknown>).pets as Array<Record<string, unknown>>)[0];
+    assert.deepEqual((replayPet.expedition as Record<string, unknown>).serverSeal, firstSeal, 'lost response cannot reroll the supply haul');
+    const cached = await kv.get<Record<string, unknown>>(`pet-exp-token:${player}:${String(first.body?.token)}`);
+    assert.deepEqual(cached?.materialRewards, rewards, 'cache and durable seal carry the same rewards');
+    assert.equal(cached?.fateShardReward, firstSeal.fateShardReward);
 
     const save = await kv.get<Record<string, unknown>>(`save:${player}`);
     const character = save?.character as Record<string, unknown>;
@@ -209,7 +221,7 @@ test('the saved pet level is sealed even when a client submits a forged level', 
 
 test('a provision is consumed exactly once and replay keeps the sealed route setup', async () => {
     const player = 'expeditionprovisionreplay';
-    await seedPlayer(player, { inventory: ['ancient-pet-treat'] });
+    await seedPlayer(player, { inventory: ['ancient-pet-treat'], petLevel: 50 });
     const body = {
         petId: 'pet-1', expType: 'forage', risk: 'bold', provision: 'ancient-pet-treat',
         launchId: '00000000-0000-4000-8000-000000000601',
@@ -225,7 +237,7 @@ test('a provision is consumed exactly once and replay keeps the sealed route set
     assert.deepEqual(character.inventory, []);
     assert.equal(expedition.risk, 'bold');
     assert.equal(expedition.provision, 'ancient-pet-treat');
-    assert.equal((expedition.serverSeal as Record<string, unknown>).petLevel, 30);
+    assert.equal((expedition.serverSeal as Record<string, unknown>).petLevel, 50);
     assert.equal((character.expeditionStartAllowance as Record<string, unknown>).count, 1);
 });
 
@@ -242,4 +254,36 @@ test('bold routes require enough saved happiness and consume no allowance on rej
     const character = save?.character as Record<string, unknown>;
     assert.equal(character.expeditionStartAllowance, undefined);
     assert.equal((character.pets as Array<Record<string, unknown>>)[0].expedition, undefined);
+});
+
+for (const [expType, level] of [['scout', 20], ['forage', 50], ['ruins', 80]] as const) {
+    test(`${expType} requires actual saved pet level ${level} and accepts that exact level`, async () => {
+        const player = `expeditionlevel${expType}`;
+        await seedPlayer(player, { petLevel: level - 1 });
+        const refused = await post(player, { petId: 'pet-1', expType, petLevel: 100 }, '127.0.0.101');
+        assert.equal(refused.statusCode, 409);
+        assert.match(String(refused.body?.error), new RegExp(`level ${level}`));
+        const before = (await kv.get<Record<string, unknown>>(`save:${player}`))?.character as Record<string, unknown>;
+        assert.equal(before.expeditionStartAllowance, undefined);
+        await seedPlayer(player, { petLevel: level });
+        assert.equal((await post(player, { petId: 'pet-1', expType }, '127.0.0.102')).statusCode, 200);
+    });
+}
+
+test('a growing non-Tamer pet earns the base lane and a high-level pet can choose a lower route', async () => {
+    const player = 'expeditionordinaryrewards';
+    await seedPlayer(player, { petLevel: 25 });
+    const save = await kv.get<Record<string, unknown>>(`save:${player}`);
+    (save!.character as Record<string, unknown>).profession = 'vanguard';
+    await kv.set(`save:${player}`, save);
+    const result = await post(player, { petId: 'pet-1', expType: 'scout' }, '127.0.0.103');
+    assert.equal(result.statusCode, 200);
+    const pet = ((result.body?.character as Record<string, unknown>).pets as Array<Record<string, unknown>>)[0];
+    const seal = (pet.expedition as Record<string, unknown>).serverSeal as Record<string, unknown>;
+    assert.equal(seal.rewardScale, 1);
+    assert.equal(seal.ryoReward, 180);
+    assert.equal(seal.petXpReward, 120);
+    assert.ok((seal.materialRewards as unknown[]).length > 0);
+    await seedPlayer('expeditionhigherscout', { petLevel: 100 });
+    assert.equal((await post('expeditionhigherscout', { petId: 'pet-1', expType: 'scout' }, '127.0.0.104')).statusCode, 200);
 });
