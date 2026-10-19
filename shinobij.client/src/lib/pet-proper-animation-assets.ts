@@ -158,7 +158,7 @@ const REPAIRED_RIG_REVISIONS: Readonly<Record<string, string>> = {
     'mythic-14': '20261018-gravepeak-behemoth-all-authored-limb-performances-v2',
     'mythic-15': '20261018-celestial-lion-all-authored-limb-performances-v2',
     'starter-fire': '20261018-cinder-cub-all-authored-limb-performances-v3',
-    'starter-water': '20261015-reviewed-orthogonal-rig-v1',
+    'starter-water': '20261018-ripple-seal-complete-face-upper-collar-transition-v10',
     'starter-lightning': '20261015-reviewed-contact-v1',
     'starter-fire-r': '20261015-reviewed-contact-v1',
     'starter-fire-l': '20261015-reviewed-contact-v1',

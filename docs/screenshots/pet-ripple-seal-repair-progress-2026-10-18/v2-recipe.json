@@ -1,0 +1,56 @@
+{
+  "config": {
+    "y": [
+      0.12,
+      0.24
+    ],
+    "z": [
+      -0.3,
+      -0.08
+    ],
+    "x": [
+      0.35,
+      0.5
+    ],
+    "cameraPadding": 1.4,
+    "status": "repair",
+    "finding": "Original twelve raw slices and 216 actual technique frames inspected. V1 independent face passed but one geometry edge stretched 8.085x in death and its one inspected front slice retained scarf penetration in recoil. V2 carries upper scarf with head and widens the lower neck transition; independent geometry and all visuals remain pending.",
+    "revision": "20261018-ripple-seal-complete-face-scarf-v2",
+    "supersedesSourceSha256": "d4b09247b2ad1ada7c179771d631b2bd833f02d917bb082950011454df2ca036",
+    "repairRegion": {
+      "y": [
+        -0.35,
+        -0.08
+      ],
+      "z": [
+        0.35,
+        0.56
+      ],
+      "x": [
+        0.51,
+        0.64
+      ]
+    },
+    "union": [
+      {
+        "y": [
+          -0.35,
+          -0.08
+        ],
+        "z": [
+          0.35,
+          0.56
+        ],
+        "x": [
+          0.51,
+          0.64
+        ]
+      }
+    ]
+  },
+  "result": {
+    "id": "starter-water",
+    "changed": 4751,
+    "rigid": 3304
+  }
+}
