@@ -329,19 +329,20 @@ export function resolveHollowGateTile(
                                 pushHollowGateLog("The shrine could not draw the floor below this one because the connection dropped while it loaded. Nothing was spent. Try the staircase again. If it fails again, reload the page; your run resumes on this floor.");
                                 return;
                             }
+                            let nextFloor: number;
                             try {
-                                await descendHollowGateRun({
+                                nextFloor = await descendHollowGateRun({
                                     playerName: character.name,
                                     token: hollowGateRun.runToken,
                                     fromFloor: hollowGateRun.floor,
-                                });
+                                }, onVersionedCharacter);
                             } catch (error) {
                                 pushHollowGateLog(error instanceof Error ? error.message : "The staircase refuses to open.");
                                 return;
                             }
                             // The run's variant rides along so an event gate keeps its
                             // shape (floors / board / boss) on every floor below.
-                            const next = applyAttunementToRun(generator.generateHollowGateShrineRun(hollowGateRun.floor + 1, hollowGateRun.variant, hollowGateRun.serverSeed), character, false);
+                            const next = applyAttunementToRun(generator.generateHollowGateShrineRun(nextFloor, hollowGateRun.variant, hollowGateRun.serverSeed), character, false);
                             const sealed = await sealHollowGateFloor(character.name, hollowGateRun.runToken, next);
                             if (!sealed.ok) {
                                 pushHollowGateLog(sealed.error || "The next floor could not be sealed. Retry the staircase.");
