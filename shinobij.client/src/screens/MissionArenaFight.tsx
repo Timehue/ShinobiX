@@ -100,7 +100,7 @@ import { playerSlug } from "../lib/utils";
 import { biomeLabel } from "../data/world";
 import { equipSlotForItem } from "../lib/equipment";
 import { pvpAffectsOpponent, tagMatchesName } from "../lib/tags";
-import { hollowGateCombatDirective } from "../../../shared/hollow-gate-combat-director";
+import { hollowGateSessionDirective } from "../../../shared/hollow-gate-telegraph";
 import { BASIC_CLEAR_RANGE } from "../../../shared/combat-basic-actions";
 import type { OrdinaryPveEncounter } from '../../../shared/ordinary-pve-encounter';
 import { ordinaryPvePortrait } from '../lib/ordinary-pve-presentation';
@@ -706,16 +706,10 @@ export function MissionArenaFight({
     const gateEnemyHp = enemy?.hp;
     const gateEnemyMaxHp = enemy?.maxHp;
     const hasGateCombatants = !!hollowGate && !!enemy && !!myActor;
-    const gateDirective = hasGateCombatants && gateFloor != null && gateKind && gateEnemyHp != null && gateEnemyMaxHp != null ? hollowGateCombatDirective({
-        floor: gateFloor,
-        kind: gateKind,
-        turn: session.round,
-        enemyHp: gateEnemyHp,
-        enemyMaxHp: gateEnemyMaxHp,
-        playerPos: myPos,
-        enemyPos,
-        gridWidth: w,
-        gridHeight: h,
+    const gateDirective = hasGateCombatants && gateFloor != null && gateKind && gateEnemyHp != null && gateEnemyMaxHp != null ? hollowGateSessionDirective({
+        round: session.round, encounter: { kind: 'hollow-gate', metadata: { floor: gateFloor, combatKind: gateKind } },
+        player: { pos: myPos }, enemy: { hp: gateEnemyHp, maxHp: gateEnemyMaxHp, pos: enemyPos, name: enemy?.name },
+        hollowGateTelegraph: session.hollowGateTelegraph, gridWidth: w, gridHeight: h,
     }) : null;
     const gateHazards = new Set(gateDirective?.hazardTiles ?? []);
     const gateSafe = new Set(gateDirective?.safeTiles ?? []);
@@ -1431,6 +1425,7 @@ export function MissionArenaFight({
                         )}
                         {gateDirective && (
                             <>
+                                <span role="status">Round {Math.min(session.round, session.hollowGateRoundLimit ?? 25)}/{session.hollowGateRoundLimit ?? 25} · Win by the end of the final round; reaching the limit counts as defeat.</span>
                                 <span className="twp-strip-sep">·</span>
                                 <span className={`hg-combat-directive hg-tone-${gateDirective.tone} hg-phase-${gateDirective.phase}`} aria-live="polite">
                                     <strong>{hollowGate?.kind === "boss" ? `PHASE ${gateDirective.phase} · ` : ""}{gateDirective.phaseName}</strong>

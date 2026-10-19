@@ -121,6 +121,48 @@ async function finishFight(runId: string, outcome: 'win' | 'loss' | 'fled') {
     await writeSoloPveSession(session);
 }
 
+for (const interrupted of [false, true]) test(`named boss round-cap reason survives ${interrupted ? 'save-proof repair' : 'terminal receipt replay'}`, async () => {
+    const nodeId = 'floor:1:ambush:boss-threat';
+    await seed({ floorDepth: 1, bossProfileId: 'rift-boss-mirror-shard', bossName: 'Mirror-Shard Warden',
+        secondWindArmed: interrupted, pendingAmbush: { kind: 'boss', nodeId } });
+    if (interrupted) {
+        const record = (await kv.get<Record<string, any>>(saveKey))!;
+        record.character.hollowGateRun.secondWindArmed = true; await kv.set(saveKey, record);
+    }
+    const started = await call('combatStart', { floor: 1, kind: 'boss', nodeId, mode: 'pve' });
+    assert.equal(started.status, 200, JSON.stringify(started.body));
+    const { readSoloPveSession, writeSoloPveSession } = await import('../solo-pve/_store.js');
+    const { endSoloPveTurn } = await import('../solo-pve/_engine.js');
+    const { sealHollowGateTelegraph } = await import('../../shared/hollow-gate-telegraph.js');
+    const session = (await readSoloPveSession(String(started.body.runId)))!;
+    assert.equal(session.encounter.metadata?.namedBossProfileId, 'rift-boss-mirror-shard', 'the actual combat-start route resolves the sealed profile');
+    session.player.hp = 400; session.round = 25; session.activeSide = 'enemy'; sealHollowGateTelegraph(session);
+    endSoloPveTurn(session);
+    assert.equal(session.player.hp, 400); assert.equal(session.terminalReason, 'round-limit');
+    session.terminalEvidence = { finishedAt: Date.now(), finalMoveToken: 'fairness-terminal-move', finalVersion: session.version,
+        finalEventSeq: session.eventSeq, winner: 'enemy', outcome: 'loss', itemsUsed: {}, settlementState: 'pending', reason: session.terminalReason };
+    await writeSoloPveSession(session);
+    const original = kv.compareSet.bind(kv); let fail = interrupted;
+    kv.compareSet = (async (...args: Parameters<typeof kv.compareSet>) => {
+        if (args[0] === runKey && fail) { fail = false; throw Error('simulated fairness proof interruption'); }
+        return original(...args);
+    }) as typeof kv.compareSet;
+    let first: Reply;
+    try { first = await call('combatSettle', { runId: started.body.runId }); }
+    finally { kv.compareSet = original; }
+    assert.equal(first!.status, interrupted ? 500 : 200, JSON.stringify(first!.body));
+    const replay = await call('combatSettle', { runId: started.body.runId });
+    assert.equal(replay.status, 200, JSON.stringify(replay.body));
+    assert.equal(replay.body.terminalReason, 'round-limit'); assert.equal(replay.body.opponentName, 'Mirror-Shard Warden');
+    const saved = await kv.get<Record<string, any>>(saveKey);
+    assert.equal(saved!.character.ryo, 400, 'the metadata repair pays no reward');
+    assert.equal(saved!.character.hp, interrupted ? 250 : 0, 'existing Second Wind and hospital policies stay unchanged');
+    const version = saved!._saveVersion;
+    const again = await call('combatSettle', { runId: started.body.runId });
+    assert.equal(again.body.terminalReason, 'round-limit');
+    assert.equal((await kv.get<Record<string, any>>(saveKey))!._saveVersion, version);
+});
+
 let steps = 0;
 const step = (from: [number, number], to: [number, number]) => call('step', {
     requestId: `no-strand-step-${++steps}`, fromX: from[0], fromY: from[1], toX: to[0], toY: to[1],

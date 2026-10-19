@@ -112,6 +112,9 @@ export type ServerArenaBeat = {
 };
 
 export type ServerArenaSession = {
+    hollowGateTelegraph?: import('../../../shared/hollow-gate-telegraph').HollowGateTelegraph;
+    hollowGateRoundLimit?: number;
+    terminalReason?: import('../../../shared/solo-pve-terminal').SoloPveTerminalReason;
     sessionId: string;
     /** Opaque runtime revision used only by the selected transport. */
     runtimeVersion?: number;

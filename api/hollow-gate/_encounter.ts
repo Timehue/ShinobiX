@@ -8,6 +8,9 @@ import { AUGMENT_CATALOG, type HollowGateRunToken } from './_run-token.js';
 import type { HollowGateCombatBinding, HollowGateCombatKind } from './_combat-session.js';
 import { hollowGateWandererForNode } from './_wanderers.js';
 import { hollowGateWandererName, hollowGateWandererArt } from '../../shared/hollow-gate-wanderers.js';
+import { resolveAiProfileJutsu } from '../_ai-opponent-loadout.js';
+import { soloPveJutsuCompatibility } from '../solo-pve/_compatibility.js';
+import { validateServerAiRules } from '../combat-core/ai-authoring.js';
 import { SHRINE_AI_POLICY } from '../solo-pve/_ai-turn-policy.js';
 
 const LOADOUTS: Record<'burst' | 'bruiser' | 'hunter' | 'boss', string[]> = {
@@ -95,10 +98,23 @@ export function buildHollowGateSoloPveEncounter(params: {
     save: Record<string, unknown>;
     now: number;
     admin: AdminCombatContent | null;
+    namedBossProfile?: SoloPveAiProfile | null;
 }): SoloPveSession {
     const character = params.save.character as Record<string, unknown>;
     const augment = augmentEffects(params.run);
     const profile = buildHollowGateProfile({ binding: params.binding, run: params.run, playerLevel: Math.max(1, Math.floor(Number(character.level) || 1)) });
+    const named = params.binding.kind === 'boss' && params.run.bossProfileId === params.namedBossProfile?.id ? params.namedBossProfile : null;
+    const namedJutsu = named ? resolveAiProfileJutsu(named.jutsuIds, params.admin) : [];
+    const program = named ? validateServerAiRules(named.rules, namedJutsu.map(jutsu => jutsu.id)) : null;
+    const supported = !!named && namedJutsu.length > 0 && !!program?.ok && namedJutsu.every(jutsu => soloPveJutsuCompatibility(jutsu).length === 0);
+    // The run already selected this authored opponent. Adopt its existing kit
+    // and rules only; shrine curves, mastery, resources and support budget stay sealed here.
+    if (supported) Object.assign(profile, {
+        jutsuIds: namedJutsu.map(jutsu => jutsu.id), rules: program.rules,
+        loadoutId: named.loadoutId,
+        ...(!params.run.bossName && typeof named.name === 'string' ? { name: named.name } : {}),
+        ...(typeof named.avatarImage === 'string' ? { avatarImage: named.avatarImage } : {}),
+    });
     const session = buildSoloPveAiEncounter({
         sessionId: params.binding.runId,
         playerName: params.binding.playerName,
@@ -119,6 +135,7 @@ export function buildHollowGateSoloPveEncounter(params: {
                 combatKind: params.binding.kind,
                 augmentId: params.run.chosenAugmentId ?? 'none',
                 noRetreat: augment.noRetreat,
+                ...(supported ? { namedBossProfileId: named.id } : {}),
             },
         },
         environment: { biome: 'shadow' },

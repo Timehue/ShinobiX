@@ -5004,8 +5004,8 @@ export default function App() {
     // exited.
     function buildHollowGateRunSummary(): string { return hollowGateRunSummary(character, hollowGateRun); }
 
-    // Body lives in lib/hollow-gate-tile (drained 2026-07-28; it alone pinned App.tsx
-    // to its line budget). Everything it used to close over is handed over here.
+    // Tile resolution lives in lib/hollow-gate-tile; current-run wrappers reject
+    // late replies after another account or floor replaces this one.
     async function resolveHollowGateTile(tile: HollowGateTile, x: number, y: number, wanderers?: HollowGateShrineRun['wanderers']) {
         // The whole queued fx batch was already emptied by the drain, so a
         // rejection here is invisible without this: the player steps onto a
@@ -5028,6 +5028,7 @@ export default function App() {
             pushHollowGateLog: line => { if (current()) pushHollowGateLog(line); }, buildHollowGateRunSummary,
             startHollowGateBattle: opts => { if (current()) return startHollowGateBattle(opts); },
             leaveHollowGateShrine: opts => { if (current()) leaveHollowGateShrine(opts); }, isCurrentRun: current,
+            onPendingAmbush: pending => { if (current() && hollowGateRun?.runToken) setHollowGatePendingAmbush({ ...pending, token: hollowGateRun.runToken, floor: hollowGateRun.floor }); },
         });
     }
     // Drain the queued move side-effects. Runs on a macrotask AFTER React has

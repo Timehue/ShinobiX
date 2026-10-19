@@ -141,7 +141,7 @@ export function soloPveBeatStream(session: SoloPveSession): ServerArenaBeat[] {
         // "−1075", not the "−435" that happened to be left. Only that one case
         // is taken from the feed: it is replaced wholesale per action, so an
         // older action's numbers could still be sitting on the session.
-        if (event.seq === session.eventSeq) {
+        if (event.kind !== 'system' && event.seq === session.eventSeq) {
             for (const hit of hits) {
                 if (hit.kind !== "damage" || !downed.includes(hit.target)) continue;
                 const true_ = (session.fx ?? [])
@@ -169,6 +169,9 @@ export function soloPveSessionForArena(session: SoloPveSession): ServerArenaSess
     const companion = companionActor(session);
     return {
         sessionId: session.sessionId,
+        hollowGateTelegraph: session.hollowGateTelegraph,
+        hollowGateRoundLimit: session.hollowGateRoundLimit,
+        terminalReason: session.terminalReason,
         runtimeVersion: session.version,
         map: { width: 12, height: 10, biome: session.environment.biome, blockedTiles: session.environment.blockedTiles },
         actors: [fighterActor("player", session), ...(companion ? [companion] : []), fighterActor("enemy", session)],
@@ -181,7 +184,7 @@ export function soloPveSessionForArena(session: SoloPveSession): ServerArenaSess
         winner: session.winner === "player" ? "squad" : session.winner,
         log: session.log,
         // The diagnostic runtime is loaded with the combat screen, not boot.
-        debugSource: { sessionId: session.sessionId, eventSeq: session.eventSeq, events: session.events, status: session.status, outcome: session.outcome,
+        debugSource: { sessionId: session.sessionId, eventSeq: session.eventSeq, events: session.events, status: session.status, outcome: session.outcome, terminalReason: session.terminalReason,
             player: { name: session.player.name }, enemy: { name: session.enemy.name, character: { level: session.enemy.character.level } } },
         groundEffects: session.groundEffects.map((effect) => ({ ...effect, owner: effect.owner })),
         weather: {
