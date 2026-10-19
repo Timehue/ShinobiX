@@ -1,3 +1,4 @@
+import { HOLLOW_GATE_LEGACY_SHINOBI_ROUND_LIMIT } from '../../../shared/hollow-gate-round-limit';
 import { useCallback, useRef } from "react";
 import type { Character, BattleHistoryEntry } from "../types/character";
 import type { GameItem, Jutsu, SavedBloodline } from "../types/combat";
@@ -64,7 +65,7 @@ export function HollowGateFight({
             recordMode="Hollow Gate"
             hollowGate={{ floor: fight.floor, kind: fight.kind }}
             retreatSealed={fight.session.encounter.metadata?.noRetreat === true}
-            enemyAvatarOverride={sharedImages?.["hollow-gate:hound:combat"] || "/hollow-gate/hollow-hound-idle.webp"}
+            enemyAvatarOverride={typeof fight.session.enemy.character.avatarImage === "string" ? fight.session.enemy.character.avatarImage : sharedImages?.["hollow-gate:hound:combat"] || "/hollow-gate/hollow-hound-idle.webp"}
             renderResult={({ settleState, settleResult, retry }) => {
                 const result = settleResult as HollowGateCombatSettleResult | null;
                 const title = result?.won ? "Seal Broken" : result?.escaped ? "Withdrawn" : result?.revived ? "Second Wind" : "Run Ended";
@@ -74,7 +75,9 @@ export function HollowGateFight({
                         ? "The escape was verified. Threat returns to zero."
                         : result?.revived
                             ? "Second Wind restored you at half health."
-                            : "The Hollow Hound ended this dive.";
+                            : result?.terminalReason === 'round-limit'
+                                ? `The ${result.roundLimit ?? HOLLOW_GATE_LEGACY_SHINOBI_ROUND_LIMIT}-round limit expired before ${result.opponentName || fight.session.enemy.name} was defeated. This dive has ended.`
+                                : `${result?.opponentName || fight.session.enemy.name} ended this dive.`;
                 return (
                     <div className="story-fight-complete" role="dialog" aria-label="Hollow Gate combat result">
                         <div className="story-fight-complete-card">

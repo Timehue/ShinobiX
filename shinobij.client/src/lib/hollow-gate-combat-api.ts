@@ -22,6 +22,9 @@ export type HollowGateCombatStartResult = {
 };
 
 export type HollowGateCombatSettleResult = {
+    terminalReason?: import('../../../shared/solo-pve-terminal').SoloPveTerminalReason;
+    opponentName?: string;
+    roundLimit?: number;
     ok: boolean;
     won: boolean;
     revived?: boolean;
@@ -70,6 +73,11 @@ export async function settleHollowGateCombat(params: {
     return data as HollowGateCombatSettleResult;
 }
 
+export class HollowGateDescentError extends Error {
+    pendingAmbush?: { nodeId: string; kind: 'battle' | 'ambush' | 'boss' | 'card' } | null;
+    constructor(message: string, pendingAmbush?: HollowGateDescentError['pendingAmbush']) { super(message); this.pendingAmbush = pendingAmbush; }
+}
+
 export async function descendHollowGateRun(params: {
     playerName: string;
     token: string;
@@ -80,9 +88,9 @@ export async function descendHollowGateRun(params: {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(params),
     });
-    const data = await response.json().catch(() => ({})) as { ok?: boolean; floor?: number; error?: string; character?: Character; _saveVersion?: number };
+    const data = await response.json().catch(() => ({})) as { ok?: boolean; floor?: number; error?: string; character?: Character; _saveVersion?: number; pendingAmbush?: { nodeId: string; kind: 'battle' | 'ambush' | 'boss' | 'card' } | null };
     if (!response.ok || data.ok !== true || !Number.isFinite(data.floor)) {
-        throw new Error(data.error ?? 'The Hollow Gate staircase could not seal the next floor.');
+        throw new HollowGateDescentError(data.error ?? 'The Hollow Gate staircase could not seal the next floor.', data.pendingAmbush);
     }
     if (data.character) onVersionedCharacter?.(data.character, data._saveVersion);
     return Math.max(1, Math.floor(Number(data.floor)));

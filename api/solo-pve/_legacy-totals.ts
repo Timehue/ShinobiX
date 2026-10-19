@@ -14,6 +14,7 @@ export function soloPveLegacyTotals(
 ): SoloPveLegacyTotals {
     const totals: SoloPveLegacyTotals = { healingDone: 0, shieldsApplied: 0, damageBlocked: 0, damageDealt: 0 };
     for (const event of events) {
+        if (event.kind === 'system') continue; // Arena resolution is evidence, never extra player credit.
         const combat = event.combat;
         if (!combat?.applied) continue;
         const absorbed = (role: 'player' | 'enemy', fallback: number) => {
@@ -45,5 +46,8 @@ export function appendSoloPveCombatEvent(session: SoloPveSession, event: SoloPve
         damageDealt: previous.damageDealt + added.damageDealt,
     };
     session.eventSeq = event.seq;
-    session.events = [...session.events, event].slice(-SOLO_PVE_EVENT_HISTORY);
+    // A shrine fight is capped at 40 rounds. Retain its arena resolutions on
+    // reconnect as well as during continuous play. Other hosts keep their window.
+    const history = session.encounter?.kind === 'hollow-gate' ? 1024 : SOLO_PVE_EVENT_HISTORY;
+    session.events = [...session.events, event].slice(-history);
 }

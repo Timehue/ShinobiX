@@ -54,6 +54,14 @@ function state(overrides: Partial<HollowGateResumeState> = {}): HollowGateResume
 }
 
 describe("hollow gate recovery — the board is the one the run sealed", () => {
+    it('preserves a sealed event title and recovers legacy labels only from the matching variant', () => {
+        const live = state({ variantId: 'rift-mirror-shard', variantLabel: 'Mirror-Shard Warden Rift', bossName: 'Mirror-Shard Warden' });
+        assert.equal(hollowGateResumeVariant(live)?.label, 'Mirror-Shard Warden Rift');
+        delete live.variantLabel;
+        assert.equal(hollowGateResumeVariant(live)?.label, 'Mirror-Shard Warden Rift', 'legacy boardless Rift has its sealed boss identity');
+        assert.equal(hollowGateResumeVariant(live, { id: live.variantId!, label: 'Original Trial', maxFloor: 3 })?.label, 'Original Trial');
+        assert.equal(hollowGateResumeVariant(live, { id: 'other', label: 'Unrelated Trial', maxFloor: 3 })?.label, 'Mirror-Shard Warden Rift');
+    });
     it("the seeded generator redraws the same floor, which is what recovery rests on", () => {
         const a = generateHollowGateShrineRun(3, undefined, SEED);
         const b = generateHollowGateShrineRun(3, undefined, SEED);
@@ -163,7 +171,7 @@ describe("hollow gate recovery — the board is the one the run sealed", () => {
     it("rebuilds an event gate on its own shape", () => {
         const live = state({ floor: 1, variantId: "event-festival", floorDepth: 2, floorWidth: 19, floorHeight: 13, bossName: "Lantern Oni" });
         const variant = hollowGateResumeVariant(live);
-        assert.deepEqual(variant, { id: "event-festival", maxFloor: 2, width: 19, height: 13, bossAiId: undefined, bossName: "Lantern Oni" });
+        assert.deepEqual(variant, { id: "event-festival", label: "Lantern Oni", maxFloor: 2, width: 19, height: 13, bossAiId: undefined, bossName: "Lantern Oni" });
         const run = rebuildHollowGateRun(live, generateHollowGateShrineRun(1, variant, SEED), variant);
         assert.equal(run.width, 19);
         assert.equal(run.variant?.bossName, "Lantern Oni");
