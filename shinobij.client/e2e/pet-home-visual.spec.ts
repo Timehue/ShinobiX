@@ -1067,7 +1067,10 @@ test("refined companion and Sunscar pages", async ({ page }, testInfo) => {
     await expect(page.getByRole("heading", { name: "Loadout", exact: true })).toBeVisible();
     await fit("yard-equipment", ".pet-yard-refined");
     await activities.getByRole("button", { name: "Battle & techniques", exact: true }).click();
-    await expect(page.getByText("Ember Fang", { exact: true })).toBeVisible();
+    // Progression displays the earned native kit while retaining the owned fixture's stored jutsus.
+    await expect(page.locator('.pet-progression-active').getByText(/^Advanced: Ember Lash/)).toBeVisible();
+    await expect(page.getByText("Ember Fang", { exact: true })).toHaveCount(0);
+    expect(state.character.pets[0]).toMatchObject({ id: "qa-fire-1", templateId: "rare-26", level: 60, jutsus: [{ name: "Ember Fang", kind: "damage", power: 24, cooldown: 3 }] });
     await expect(page.getByRole("button", { name: "Deploy Sumi" })).toBeEnabled();
     await fit("yard-techniques", ".pet-yard-refined");
     await activities.getByRole("button", { name: "Expeditions", exact: true }).click();
