@@ -1,0 +1,500 @@
+{
+  "id": "starter-water",
+  "raw": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-source-head/starter-water-head-front-0.png",
+      "sha256": "7805d283642e41e21a6ffcfd7caf1c7cb0af54386fce9920ddb8a01ea54a3c9c",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-source-head/starter-water-head-front-1.png",
+      "sha256": "d7229ea2df5d4c1cb9990611bae9c7291e8d8f70382d8c92f813f0dbe06a0051",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-source-head/starter-water-head-front-2.png",
+      "sha256": "94f2409b5a8a913eedd102cf1ada2a9c13b6c8c744fab38059b613fb9d98fb95",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-source-head/starter-water-head-side-0.png",
+      "sha256": "0ff7561ad4047594a01a317fafdea7747b351035c82fce16f4eb193c2f3832f2",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-source-head/starter-water-head-side-1.png",
+      "sha256": "7f101eee511b063a6a19bb87a6a297864146a2845c9ca0b82efaff5dc1f0ef80",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-source-head/starter-water-head-side-2.png",
+      "sha256": "795d817d9a75d6d18f0934e7744b2769b5af5509fa7fc6b75178431f75ab9349",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-source-head/starter-water-head-other-side-0.png",
+      "sha256": "c7e957bba9ef66bd2f41d96f375df694e9fddfcaa964dbfeb9c87745f9236d1d",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-source-head/starter-water-head-other-side-1.png",
+      "sha256": "c63392e4d4bda71d8834b3113665ff5574df9ee2883febe4bddf77304bff3242",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-source-head/starter-water-head-other-side-2.png",
+      "sha256": "3de1571dfb530bb9cdadc95055c4503e3427e8e1f72c559a635e917a361dac8e",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-source-body/starter-water-front-0.png",
+      "sha256": "5126f717c41f56a4e5e22224824cd65e79ace341a3efb69adc2f1d391549fa30",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-source-body/starter-water-front-1.png",
+      "sha256": "fbadb443a917472d7cb288e418fbfec721c7764185d8b922d8f8724fceec39ba",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-source-body/starter-water-front-2.png",
+      "sha256": "c51ae1f8cc46a512f91c64d2b96196562902df838f6fefe9a3cc9d10017e6e5d",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-source-body/starter-water-side-0.png",
+      "sha256": "34832504fc327e5db1e9a6093ff48e88e9d83abc8c0e9c3a5969d261b850483a",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-source-body/starter-water-side-1.png",
+      "sha256": "ce6cb6d0e662e46351ca6728dd4db20012d05f043b1aa3d0585067657a0a68ea",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-source-body/starter-water-side-2.png",
+      "sha256": "884ae638a34cdec83360b0daffffc47176b6550ceb89dd2e6d939744741ac338",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-battle-head/starter-water-head-front-0.png",
+      "sha256": "544e72b7d394dc26fdcaa395bbef59768b435f27bc1f8a8cf67cedb96b8a301e",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-battle-head/starter-water-head-front-1.png",
+      "sha256": "ee8d74e07618a9de1b2f83e9b2fe632091003d4bb4496574f42924cbd2ce28af",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-battle-head/starter-water-head-front-2.png",
+      "sha256": "54894c73299ec3670ee374e37a2fc009e5f78e823224bd9ad0242623b591c5d9",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-battle-head/starter-water-head-side-0.png",
+      "sha256": "3f5c44a7b3881fdb7407e494f92264320e4cac9957e97595b16c8c3e1e9fb11c",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-battle-head/starter-water-head-side-1.png",
+      "sha256": "5ec88a8122645161386ad6683339632a7f48fb616607871ab694bc9371287f8f",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-battle-head/starter-water-head-side-2.png",
+      "sha256": "f2a7d6b7389f1707ab66d9e60777099c4a601303942b21e36ce32a771672f02a",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-battle-head/starter-water-head-other-side-0.png",
+      "sha256": "48e63a1921b4506ae18f37301c6cbaa5b8ac5ebbeb74b9f27dae097de120a1dd",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-battle-head/starter-water-head-other-side-1.png",
+      "sha256": "8cb664bf115cad18e33caaa04c30b4dadf5b2cae35d9303e43275c7327ee9d35",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-battle-head/starter-water-head-other-side-2.png",
+      "sha256": "7cded68e5cdc6fac0726f55e667aa3df97466a7ae78e68ad8f891d7a488fcdad",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-battle-body/starter-water-front-0.png",
+      "sha256": "1d5026a57a6b7f48171827b0e6ca666d942e83c529f39944187230f4724fd278",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-battle-body/starter-water-front-1.png",
+      "sha256": "79ac568b00b962bd7dfee5d8359ef2396c72157a4d6308c1bd6d25d5e7a9997e",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-battle-body/starter-water-front-2.png",
+      "sha256": "69430e01e62e3afa9898342249b7d456b465642e75a1f66b02f0b6ec7034e88e",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-battle-body/starter-water-side-0.png",
+      "sha256": "a7be8c75c64e3995e62927ca4353d5c131626cba8924e26fbffa59ee0d00eab6",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-battle-body/starter-water-side-1.png",
+      "sha256": "51f4deaea35a246dc54f0abd43c8ab1bdf317390c7d8bac8d3486f3ce85df6cd",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-battle-body/starter-water-side-2.png",
+      "sha256": "0779675780d52f4ec7d6fb75d17cd1b3960826cff578896149ba0cdf69285d0a",
+      "actuallyInspected": true,
+      "result": "pass"
+    }
+  ],
+  "runtime": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-runtime-low/starter-water-source-body-0.png",
+      "sha256": "962cc0406d29597cc082000cb909386a2ef6493aee535043597e13f8f0820f83",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-runtime-low/starter-water-source-body-1.png",
+      "sha256": "6765d77a924587285f8fc432a78caa3f9d59e495623ff69c84f8616a160cff4d",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-runtime-low/starter-water-source-body-2.png",
+      "sha256": "ddab94919ad14c5803cbe5a92766b698db6c5b5dd3a1f29c8cc5dc75107c2a72",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-runtime-low/starter-water-source-body-3.png",
+      "sha256": "15bfcccc0783d85f452648698de8fe042ad7a826822c315ce4031c8e379105e2",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-runtime-low/starter-water-source-head-0.png",
+      "sha256": "6d7b8a833950fb7fa08475b45a00a223e3b8f5c856864f653963edcba4eaf10c",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-runtime-low/starter-water-source-head-1.png",
+      "sha256": "7ece293334b5826266dacb536e341c91fc1f9f2843e863fccecb4612c87c602a",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-runtime-low/starter-water-source-head-2.png",
+      "sha256": "26189896f435ae58a431f8361b89b45d4541ef2010fe2eb0c43ebc165a725370",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-runtime-low/starter-water-source-head-3.png",
+      "sha256": "0f64ebaa4b5edfc53a70344280b3d947ccef45b52c02db1bf583b4b0cdef7ea3",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-runtime-low/starter-water-battle-body-0.png",
+      "sha256": "f06bbbb45c0ba3cf392444aaa8c7e39126df6365e9efda26f82c501ef3486bae",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-runtime-low/starter-water-battle-body-1.png",
+      "sha256": "fdd6aadf50b52a8cf9917aa0169289e3db82d0939febcb61e8ffb9f34d473017",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-runtime-low/starter-water-battle-body-2.png",
+      "sha256": "e6fb7ad31daf4724cd8c91601b0f634856829e7acfde9a68af3fa8bdaabfa71a",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-runtime-low/starter-water-battle-body-3.png",
+      "sha256": "ac2a386731dae7fc56193d5f73fc3587fb1742513d945a9266391e9505fa7069",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-runtime-low/starter-water-battle-head-0.png",
+      "sha256": "8848a1f541c457562d4225a4d16d561ff031c4a7be08dcfb97243a9f51bb2564",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-runtime-low/starter-water-battle-head-1.png",
+      "sha256": "189ae3acaa7b23e7c31178529a0a826f07beba609580e406c09614aa93dc5859",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-runtime-low/starter-water-battle-head-2.png",
+      "sha256": "eb1ab1161b077c15fafe70bf06bb56422e439e36dda0dba0fd4d97bb32fb1052",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-runtime-low/starter-water-battle-head-3.png",
+      "sha256": "b4970900a4b4a89e9392d15725c7c611824b441360945e5338f36a8da50ebf01",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-runtime-medium/starter-water-source-body-0.png",
+      "sha256": "01b8f72c68a1846cf7c9becdbf7446b16bf76e831c07929c91ad5fb12e84e18f",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-runtime-medium/starter-water-source-body-1.png",
+      "sha256": "8daac08b04128fd812b51b180ad803d6bfc3b0b6b0e1ddc4a6dbd98a4ed18384",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-runtime-medium/starter-water-source-body-2.png",
+      "sha256": "159be19ed3cfc770bc5b8fa7c39966e3821c2aab3e0489c7fb6c9740cccde617",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-runtime-medium/starter-water-source-body-3.png",
+      "sha256": "a18fd6d04440bad6640ea5d1d3d8470439b180623240d73d47ef0601238977a1",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-runtime-medium/starter-water-source-head-0.png",
+      "sha256": "2d5f8259a87b9739d16a9ae290a339596f9c6e8f91c98e92bfd0b8ee1f1caed2",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-runtime-medium/starter-water-source-head-1.png",
+      "sha256": "3eb466df29d083542cef87a08172be973bb47d897bd9a8e9c6aacf3951d428b8",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-runtime-medium/starter-water-source-head-2.png",
+      "sha256": "83675702b577a595bc4552368703eb24719a911fd87e52cd06b58a6ce431ab55",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-runtime-medium/starter-water-source-head-3.png",
+      "sha256": "d27dbd9a18a40124cac948cd16dd8c16e86132eec9c910d27dd531d0d07bd96b",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-runtime-medium/starter-water-battle-body-0.png",
+      "sha256": "798977e9ae1345226a94590bfcb04a853136511e8ef8fe55688c47d7fe8c1e43",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-runtime-medium/starter-water-battle-body-1.png",
+      "sha256": "1b9f2202efcb94c3781b417113485f6f5a807f4ea3a433eb7be7e583f7e4f65c",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-runtime-medium/starter-water-battle-body-2.png",
+      "sha256": "ecf62da7051596a9704ba442eb64e75d8038edb180b89fdec3ea20129072f5fd",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-runtime-medium/starter-water-battle-body-3.png",
+      "sha256": "9b2ab580fdb074061f5d17994ae80714180ae74030b7f48a7e4134b26bdfe576",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-runtime-medium/starter-water-battle-head-0.png",
+      "sha256": "6ecb15402d40fbd386b6066d09d5b61450ad8d75a689d2d1ca78f81bd89c5993",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-runtime-medium/starter-water-battle-head-1.png",
+      "sha256": "fee982c5eaa7cf057df740fb2685b0a58c04279716eafdf5d4a9ee274b43f99c",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-runtime-medium/starter-water-battle-head-2.png",
+      "sha256": "fa5f0f09941aae0a01f8bd74eaad5da12453053a65610db7e2c92502d9467e7a",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-ripple-seal-complete-face-v10-final-runtime-medium/starter-water-battle-head-3.png",
+      "sha256": "25cb6abca130b9eb7387cdd1cb68bf0c096571268d7c92b1e4b48cb2f574e4b7",
+      "actuallyInspected": true,
+      "result": "pass"
+    }
+  ],
+  "techniques": [
+    {
+      "path": ".tmp/pet-companion-techniques/independent-ripple-seal-complete-face-v10-final-techniques/inspection-strips/front-block-0-half-0.png",
+      "sha256": "a2e814328875caabbe3010209ec8a7fa2004398f241f10a52f9854a1451c6570",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-ripple-seal-complete-face-v10-final-techniques/inspection-strips/front-block-0-half-1.png",
+      "sha256": "4db514f1943a6e6e7afefbf545fa7207e2792292fcf17a8a06622549e0ebf9f9",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-ripple-seal-complete-face-v10-final-techniques/inspection-strips/front-block-1-half-0.png",
+      "sha256": "c4fe6928122272737cceabff7d4909bc95522f460b040ca28ca6cc12bb32f74b",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-ripple-seal-complete-face-v10-final-techniques/inspection-strips/front-block-1-half-1.png",
+      "sha256": "d255b536f0cf50e9647fa6596c97dd829319c5618683c0873272b6a4428c49dc",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-ripple-seal-complete-face-v10-final-techniques/inspection-strips/front-block-2-half-0.png",
+      "sha256": "786a4514526134357483955fe72b33e9b2d70559c84a1bc0a9a871e463dd6d10",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-ripple-seal-complete-face-v10-final-techniques/inspection-strips/front-block-2-half-1.png",
+      "sha256": "314f41a59fe5ab1afec94d00524441d46189032cdd1319f1f2fcd1a6170eab31",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-ripple-seal-complete-face-v10-final-techniques/inspection-strips/side-block-0-half-0.png",
+      "sha256": "f54ae51d5e4e888bb84b7010b06df0baf2eb9278c88865e58e25557b0d5e6e0b",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-ripple-seal-complete-face-v10-final-techniques/inspection-strips/side-block-0-half-1.png",
+      "sha256": "7e67210068e14d0b33d5e11050f759ffd3e9e86302154cf6b5114eaba092f3f7",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-ripple-seal-complete-face-v10-final-techniques/inspection-strips/side-block-1-half-0.png",
+      "sha256": "1ae17b6977c93e287c2aef6785ff8136f6555401624df39313a4dac2eb3ba43a",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-ripple-seal-complete-face-v10-final-techniques/inspection-strips/side-block-1-half-1.png",
+      "sha256": "ca6d88e5009cc2f28231bb48e28a9bb5be26c5d9516671edba538330358495cb",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-ripple-seal-complete-face-v10-final-techniques/inspection-strips/side-block-2-half-0.png",
+      "sha256": "5a636d9f7ff14ef8f4e1b459bfb0d2c3c4b4334b3c9e12053ae2a35e7723acf8",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-ripple-seal-complete-face-v10-final-techniques/inspection-strips/side-block-2-half-1.png",
+      "sha256": "9cdb9fb5931df55c8870645de70364c9483b51b645d1e502e37a73e95fcde097",
+      "actuallyInspected": true,
+      "result": "pass"
+    }
+  ],
+  "companion": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/ripple-seal-complete-face-v10-final-companions/starter-water/idle-sheet-0.webp",
+      "sha256": "eeedbfabc4bea272aebbc501aef3a6e41f4eff74c2581ee91dfb09872b71a0eb",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/ripple-seal-complete-face-v10-final-companions/starter-water/idle-sheet-1.webp",
+      "sha256": "4def05e0e4ea4b12e652751b8664aab61b9ec53c6d80adb6f65f1b889d059dfb",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/ripple-seal-complete-face-v10-final-companions/starter-water/idle-sheet-2.webp",
+      "sha256": "575f5bcac71807f204a983c5cab6ffe6d2069716f46bae59349190298b8ea3a6",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/ripple-seal-complete-face-v10-final-companions/starter-water/idle-sheet-3.webp",
+      "sha256": "d2f423aec763a6b5a06a9ded0bffcf90e5a16719f2852d5ffc262f8a9c7e58b1",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/ripple-seal-complete-face-v10-final-companions/starter-water/idle-sheet-4.webp",
+      "sha256": "4239df39e0bce11d8716f0a4ba8a7d64e821d888bb182c66488b487097343d13",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/ripple-seal-complete-face-v10-final-companions/starter-water/idle-sheet-5.webp",
+      "sha256": "32d8f3847b1aff602c1600fb5631d7157f08443693a0f2553b3c5528bf68717b",
+      "actuallyInspected": true,
+      "result": "pass"
+    }
+  ],
+  "secondPassComplete": true,
+  "atlasCellsActuallyInspected": 16,
+  "atlas": {
+    "path": "public/pet-models/warfront-impostors/starter-water.webp",
+    "sha256": "b8a2dae4aca66d42b0ca5196676ad971461db2d2bb5d94d820b0c0ac9b1c3d40",
+    "actuallyInspected": true,
+    "result": "pass"
+  },
+  "recordedAt": "2026-10-19T13:20:19.770Z"
+}

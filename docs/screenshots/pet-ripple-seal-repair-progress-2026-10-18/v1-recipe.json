@@ -1,0 +1,56 @@
+{
+  "config": {
+    "y": [
+      0.12,
+      0.24
+    ],
+    "z": [
+      -0.3,
+      -0.08
+    ],
+    "x": [
+      0.35,
+      0.5
+    ],
+    "cameraPadding": 1.4,
+    "status": "repair",
+    "finding": "Original twelve source raw slices and all 216 actual technique frames inspected. Lower face/jaw shear during recoil and death turn; scarf crosses muzzle. Complete lower-face candidate requires independent probes and visual clearance review before promotion.",
+    "revision": "20261018-ripple-seal-complete-lower-face-v1",
+    "supersedesSourceSha256": "d4b09247b2ad1ada7c179771d631b2bd833f02d917bb082950011454df2ca036",
+    "repairRegion": {
+      "y": [
+        0.04,
+        0.11
+      ],
+      "z": [
+        0.56,
+        0.65
+      ],
+      "x": [
+        0.51,
+        0.64
+      ]
+    },
+    "union": [
+      {
+        "y": [
+          0.04,
+          0.11
+        ],
+        "z": [
+          0.56,
+          0.65
+        ],
+        "x": [
+          0.51,
+          0.64
+        ]
+      }
+    ]
+  },
+  "result": {
+    "id": "starter-water",
+    "changed": 3338,
+    "rigid": 2714
+  }
+}

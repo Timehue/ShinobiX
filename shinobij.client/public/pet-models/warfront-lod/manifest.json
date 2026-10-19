@@ -3933,17 +3933,17 @@
     },
     {
       "sourceUrl": "/pet-models/starter-water.glb",
-      "lodUrl": "/pet-models/warfront-lod/starter-water.glb?v=20260902-battle-lod-v1-d4b09247b2ad-d1c6d69bf8d8",
-      "sourceBytes": 316172,
-      "lodBytes": 326296,
-      "sourceSha256": "d4b09247b2ad1ada7c179771d631b2bd833f02d917bb082950011454df2ca036",
-      "lodSha256": "d1c6d69bf8d800a84b2f3e12c821a1c1fe432d7a36051cfdbb33319e8cba61c8",
+      "lodUrl": "/pet-models/warfront-lod/starter-water.glb?v=20260902-battle-lod-v1-90150dd50ff3-47cd31858838",
+      "sourceBytes": 375940,
+      "lodBytes": 372960,
+      "sourceSha256": "90150dd50ff366a8e6504448c2a857ca8c20214e5cfe8e0fd1973fa921e521eb",
+      "lodSha256": "47cd31858838ca83f67f6c2c77dcceb23f6999ddd55a41a01875ef1673ea07b5",
       "sourceTriangles": 15958,
       "lodTriangles": 11170,
       "reduction": 0.300038,
       "lowPolySource": true,
       "sourceVertices": 10954,
-      "lodVertices": 8258,
+      "lodVertices": 8263,
       "skins": 1,
       "joints": 21,
       "animations": 13,
@@ -3951,7 +3951,7 @@
       "textures": 1,
       "boundsMaxDelta": 0,
       "silhouettes": {
-        "front": 0.998768,
+        "front": 0.998563,
         "threeQuarter": 0.999702,
         "side": 0.998367
       }
