@@ -1,0 +1,588 @@
+{
+  "id": "legendary-23",
+  "raw": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-source-head/legendary-23-head-front-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "0b502238134f804b1991db09dcc5617bdbfe3aed90185970c7afb77d49a28701"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-source-head/legendary-23-head-front-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "6d774a3b29f9e5ba39f1213453e0054907b3dcca63547707107f81eecf500191"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-source-head/legendary-23-head-front-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "5963002682e4ef19a274ddce712a33cd57059b98512764336eac648071b432b1"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-source-head/legendary-23-head-side-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "5355d8a09c887332f066087fb0e66e4ac7da71cdf4c5f5789f1acd248258fccb"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-source-head/legendary-23-head-side-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "d505bffa6f6845bd9b23bbab710512a27490e848db3e089b710d696b6a87cf42"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-source-head/legendary-23-head-side-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "f4876455f72faa8c8b263cace312d7a422378a9f8e9aaf0668be9e5eb145e06f"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-source-head/legendary-23-head-other-side-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "a9a4b6a181a2df4fef5bf052a75d09d90c8a76066c26a051c26654af24a604d2"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-source-head/legendary-23-head-other-side-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "bbe37111c507b751a1af9ba24649f18c09d722c20bb4202da429d3bfa69d6b48"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-source-head/legendary-23-head-other-side-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "ac7ef196879daaf1313bdc53043f6cdb9f6d5d2ac511b17f558a2a989db22666"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-source-body/legendary-23-front-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "7a197519e6d08af108f366bba8281723de3fa031e5a7fe4e7b8d1556cc4f6971"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-source-body/legendary-23-front-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "13187853d278ce3d59c482086f4dada5b2b23c12746851aaf1d7db0249f9aa07"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-source-body/legendary-23-front-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "3386633d317c08dc384da5d304b7514c9cd5ea4c587ea5267547e3211e2e2f85"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-source-body/legendary-23-side-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "8ace3031fbf6543201d3b9c27ea166145eb8e0d338149d5f28165bced3b6a82c"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-source-body/legendary-23-side-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "f1bd84c1b03edd6be7dce6822d4bbab0e00c2e06fb9197e857fb44aba245f218"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-source-body/legendary-23-side-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "0697bba62f693903a3dfb24ffb7313681d0326fefb0c67fce96304213340c8e3"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-battle-head/legendary-23-head-front-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "7fbc748e1e3c3b0b56f603414a729ebf1c6d34cdabec496b7c4464349d18acfe"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-battle-head/legendary-23-head-front-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "de4113cf03969c75ec6e9ba2687cf313b2fe797c773425ff864d7cbb19bcb84d"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-battle-head/legendary-23-head-front-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "559c6bcae8797e43f3c18aa8098e0fdb77b7309ce802eb6e863096c159bb038e"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-battle-head/legendary-23-head-side-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "b5e722d8724999257f7a2aee91a19316f24821e0fd01986befdb8aae64d7dfae"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-battle-head/legendary-23-head-side-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "e517e62212d4b58435b4574217487709fd48d2a8531a730c8cbaf4cc5e8294ed"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-battle-head/legendary-23-head-side-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "a06527b6f67f78948c1d47300466f1da2fc31a4cc952b917715f1733f8595cba"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-battle-head/legendary-23-head-other-side-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "b01e7205ab8ea21c9365ed7f992c25b4e469b6d71fe3ca404a3e73d3ec907d79"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-battle-head/legendary-23-head-other-side-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "e81aece6fa654b9e758f9d889b42e6cac1b4483df589d0357bbfa2fc16c29f75"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-battle-head/legendary-23-head-other-side-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "9c94775f91e8c37d24ec4ff7272e3ea8de0d0d27322def37a6cd5c1408d931c3"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-battle-body/legendary-23-front-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "d64d74d842df3378f70ee8d4f7aacc3e11edf0ad34d03fb96bc8ec247cb0200a"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-battle-body/legendary-23-front-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "fae8358aea196649dbea0372bba42aae1540be5c9ecf5f1e086055737c44ac3f"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-battle-body/legendary-23-front-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "2d63cb3c123bc3da92d6afbaec741fe76e2a3f9a7e9d4d2290bbe6ac31883e17"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-battle-body/legendary-23-side-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "dc5a073f8c5f0ec37eb02d2d51b2cddd536f2ffb1b93ee898590b85eb9c8aa35"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-battle-body/legendary-23-side-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "b8b6a99e01434211b9370a90a207ac12e2f5626af57b9fa3f6bbf3aa57ef31eb"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-battle-body/legendary-23-side-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "d7e303a7c122b4b9be29189c9ee8a60e9aeadbd11b07dd88ef2641161ec5a5dd"
+    }
+  ],
+  "runtime": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-runtime-low/legendary-23-source-body-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "806587763a6f7a803d74eb0812a366c431852f1124ed569541d7eb5c5ea87ade"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-runtime-low/legendary-23-source-body-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "f72b6c09283475cbf666c7d912f0cb1a74c7fc74b73b94fc177ba2ff639bae84"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-runtime-low/legendary-23-source-body-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "1b4f06652d7eb595b8bf28b675f317c93313b4b7adcf8ad2d3ee1b13062aab44"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-runtime-low/legendary-23-source-body-3.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "7c1ede5228bb894031df9978820b2b57f3a9c6a62501dd6d8ebbf6140529f577"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-runtime-low/legendary-23-source-head-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "a159e16f8600cd86c9e9a196ded530bc3902fe149128312fc54be20225b61526"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-runtime-low/legendary-23-source-head-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "fcb9678bdf970cb9e15af4f552a4fd89893f98cdf642435ead5387622de996ea"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-runtime-low/legendary-23-source-head-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "ae68261abec140fcdccca0595f3ff7b4941070a6e369f46f2a4bfb637590b052"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-runtime-low/legendary-23-source-head-3.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "d3a307147c16f6fd8b235530bfb083559af2f0edec4de9065541510c5a33f84b"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-runtime-low/legendary-23-battle-body-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "92a3d09a6a5fc398e21b082d97fca1e3dc336d610dec7ae6cbe00719f10e598f"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-runtime-low/legendary-23-battle-body-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "412fc9da4b20e80f5f341fa2469f60a11e721018fac8712b05ddf959bb239d9a"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-runtime-low/legendary-23-battle-body-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "50eaab9449d22eb5ddaeb9053bc64e2b16cded924766c542fd64c7da62134596"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-runtime-low/legendary-23-battle-body-3.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "baa4779f2f59476c31e04a47f96303dcdf50e7136df383b673b07d0f9658dbcd"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-runtime-low/legendary-23-battle-head-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "3c81efc5a500ff76fd93317db17ffeed34d75134320eb203a0b2caa4a0105bc5"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-runtime-low/legendary-23-battle-head-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "5594dad05d1df315b781c325b361d6b76ed88864aa4eea4d09c5c8e91ab874f5"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-runtime-low/legendary-23-battle-head-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "0831d2c081cf9ed174d2181af9138d6d36e229e389fd7adde93a3e50c23f0dde"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-runtime-low/legendary-23-battle-head-3.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "8dab83ff4f087876fbb1caf849e1f9c1b8baea7ed70c1316dda029b46e3bc41f"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-runtime-medium/legendary-23-source-body-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "fe6a908b005f6a6fa6b33269aa4fec0c49310516d8f1472f58fe82b9f8ee2c11"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-runtime-medium/legendary-23-source-body-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "b3bbf8cc95a1b49f2200340d89d3c289c38d80ab81a627b4effe45bc7c5cebd0"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-runtime-medium/legendary-23-source-body-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "54ad6015199584dc1c04b885a5a300b83eb9a0a85191f61afb9bfeef3fe95d3e"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-runtime-medium/legendary-23-source-body-3.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "0d9cf9aabff1c82de1f18d1f73cd8294ca06a0ca1acd1ff0e4ca8d4112722381"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-runtime-medium/legendary-23-source-head-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "3b03d5ff9d247c0653ef8bbde25690fb2542cf4a70d1ddc08a6d1f665bed35cc"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-runtime-medium/legendary-23-source-head-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "413a9470f16a42681e66c7c024e05b7ecda9b41b2234e1661d74dcb5662d768c"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-runtime-medium/legendary-23-source-head-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "c53064ae98d4fba9ae5e3aa0e66c4fb3a0fa1122b498627c8c9158ec4f511ab0"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-runtime-medium/legendary-23-source-head-3.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "2667517b955561ac109e2768886568cd5fd85c5ad9a4732c83ff70fe9a468934"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-runtime-medium/legendary-23-battle-body-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "a88fdc13061f72a7469c86d9c9bec0ebf8b96e86a828e0480902352046c154b3"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-runtime-medium/legendary-23-battle-body-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "0c9f483abbfd99fbcfb39afca819ecba6ab9c4542d9d287e89f2d56d7f95487d"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-runtime-medium/legendary-23-battle-body-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "183702af5287dec78751af41067350cf9f9a31c96cd7d5afdf3522d4e7e36217"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-runtime-medium/legendary-23-battle-body-3.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "4b288b48fc9ffa0df92203e5b9bff7f5a0bbec63585a996e95fef0c7596783a0"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-runtime-medium/legendary-23-battle-head-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "04f79c14e731ed9ed46793715f425dfc2d11cd6e4524b105bda3116455a9e787"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-runtime-medium/legendary-23-battle-head-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "c19a18afcacacd8ee08ce2a961e2d8276ab49717ca128181783c1d4bf6c5cf69"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-runtime-medium/legendary-23-battle-head-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "a8509f1eff89509b7d16531df463c9a80b822d4818b2a740b4811390dd674346"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-sphinx-all-clips-v2-final-runtime-medium/legendary-23-battle-head-3.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "d2bfab5473ca4a3f7bc6ece52dd475eaa5e95e550eef317e68ba9321f8ec76af"
+    }
+  ],
+  "techniques": [
+    {
+      "path": ".tmp/pet-companion-techniques/independent-sphinx-all-clips-v2-final-techniques/inspection-strips/front-block-0-half-0.png",
+      "sha256": "2273822c412304e36ba2b17528e5b56e43cdb7c15b0c9617d28bf03f6ee27f2f",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-sphinx-all-clips-v2-final-techniques/inspection-strips/front-block-0-half-1.png",
+      "sha256": "fd9df0d855f091750efd616bc010f86f8a3759bce47880699b22fb00485c039a",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-sphinx-all-clips-v2-final-techniques/inspection-strips/front-block-1-half-0.png",
+      "sha256": "b1d6002e90d5ff394ffb7fb4fdc2aacb73dae382faccf9df97849934db3cdc9c",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-sphinx-all-clips-v2-final-techniques/inspection-strips/front-block-1-half-1.png",
+      "sha256": "6f24a4f02cc855ddd0c351a2b9f105664a198fa17d445d0055aa50317665b2c5",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-sphinx-all-clips-v2-final-techniques/inspection-strips/front-block-2-half-0.png",
+      "sha256": "8c8e43350add575bc48416d17ad13fa8d86f153b62a5b44636e2e3efb4abff44",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-sphinx-all-clips-v2-final-techniques/inspection-strips/front-block-2-half-1.png",
+      "sha256": "f6f14db7804bd330229aa45c2016519c8a321d66d9c12b2ee7eb3254ec5884c3",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-sphinx-all-clips-v2-final-techniques/inspection-strips/side-block-0-half-0.png",
+      "sha256": "41274ff869dcfe282469b6f3919ba5d0e723391518040aafaa231da7fd0b4225",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-sphinx-all-clips-v2-final-techniques/inspection-strips/side-block-0-half-1.png",
+      "sha256": "5edb85835ad896cf5aff58e0ee149a87638f9d8e2695f23911a6a8f90bd7f604",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-sphinx-all-clips-v2-final-techniques/inspection-strips/side-block-1-half-0.png",
+      "sha256": "ae0d3d48a70633a419980cfb79dd76928c97311326a34f63cff0b2511d8f5cf6",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-sphinx-all-clips-v2-final-techniques/inspection-strips/side-block-1-half-1.png",
+      "sha256": "7c3748c9170d3fe1b64b01322fad7a4b2d6c06e7076c2e5767d35693efc80a3d",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-sphinx-all-clips-v2-final-techniques/inspection-strips/side-block-2-half-0.png",
+      "sha256": "dfa68fe2c9f855dffda0e50bc43614bf773d791bae3aab86e0fe0c7ec3d9f6d3",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-sphinx-all-clips-v2-final-techniques/inspection-strips/side-block-2-half-1.png",
+      "sha256": "85d40a646bba303dab7f628e18a1de244b093362f433a8073ef22b5fe9afdba0",
+      "actuallyInspected": true,
+      "result": "pass"
+    }
+  ],
+  "companion": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/sphinx-all-clips-v2-final-companions/legendary-23/idle-sheet-0.webp",
+      "sha256": "9b51a2273b09d00ef53a783532e8a615af139c0eb9680079d8b1fb791bc04986",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/sphinx-all-clips-v2-final-companions/legendary-23/idle-sheet-1.webp",
+      "sha256": "cdb046208ec7d3eeae083ed4f093dc157b5da498e3f84310e35e6e61c5ff9858",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/sphinx-all-clips-v2-final-companions/legendary-23/idle-sheet-2.webp",
+      "sha256": "500b3f330224f395c72d1c3500413882969c26bc264b69c25a723d3e4c1bb74f",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/sphinx-all-clips-v2-final-companions/legendary-23/idle-sheet-3.webp",
+      "sha256": "c698162f19355347573e8aeec26a4d5ffeae297f35f62dc5b57a9868cdebe414",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/sphinx-all-clips-v2-final-companions/legendary-23/idle-sheet-4.webp",
+      "sha256": "c6281808aec56ef9c0ffabf7b7ddbb47788d32eaa0a3c7605e19a599dbabd67d",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/sphinx-all-clips-v2-final-companions/legendary-23/idle-sheet-5.webp",
+      "sha256": "ed72614f44740c10145dcaa6dce79cbb09270f82f16afaf88748d6bfd164dd38",
+      "actuallyInspected": true,
+      "result": "pass"
+    }
+  ],
+  "secondPassComplete": true,
+  "notes": "All 30 final raw slices, 32 production transition slices, 216 native technique frames, 24 advancing idle frames, 16 atlas cells and 84 supplemental whole-body underside frames actually inspected. Source and regenerated battle delivery remain coherent. Wing naturally occludes primary-side raw death face and side runtime defeat/revival head camera; opposite raw head side, front, full-body and supplemental underside resolve anatomy. Horn tips cropped in closeups; full body preserves sculpt.",
+  "atlas": {
+    "path": "public/pet-models/warfront-impostors/roster/legendary-23.webp",
+    "sha256": "4838f697279e2e4ef9184bad7d60f2569cdeb9b4bc5d11cbfce7c9802005ce43",
+    "actuallyInspected": true,
+    "result": "pass"
+  },
+  "atlasCellsActuallyInspected": 16,
+  "supplemental": [
+    {
+      "path": ".tmp/omitted-roster-soles/sphinx-final-source-walk-underside.png",
+      "sha256": "423a4c49ed9a7afc5d17afebc40fa475e92c279705816ae4fcfc0d7d43ae5c1f",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/omitted-roster-soles/sphinx-final-source-gallop-underside.png",
+      "sha256": "c66103d0e6dda1dd4bf39027ae74431de2c654e122fb3cc9b76b9b3a64948b02",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/omitted-roster-soles/sphinx-final-source-gallop_jump-underside.png",
+      "sha256": "8a41e06dba9148a8769d5ace701680aeb1e3a6257c8a628836f64e1a25a53868",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/omitted-roster-soles/sphinx-final-source-idle_2-underside.png",
+      "sha256": "8b46741cb6b07cf0ed15c05dea7f24a415df7046bd448227eceda4a0dfb95286",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/omitted-roster-soles/sphinx-final-source-entrance-underside.png",
+      "sha256": "009b4cd3eb03e9a8a273bc3bab07998010121c9a5612612b4c6332c370c573fa",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/omitted-roster-soles/sphinx-final-source-victory-underside.png",
+      "sha256": "f364024feae274a19b9b5d05f9e6c848f883d7d432dcbe7f8f947bbd81439a95",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/omitted-roster-soles/sphinx-final-source-death-underside.png",
+      "sha256": "a3c7bbae9cc121088d8fcd173c2279a7f4ec1e2f3ba68f97acc142c8d4e20fc8",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/omitted-roster-soles/sphinx-final-battle-walk-underside.png",
+      "sha256": "6d0dfa7fc1d7352e3acc952309bd305204f76d50a47bbb57bc82bdd9b9e7ab8a",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/omitted-roster-soles/sphinx-final-battle-gallop-underside.png",
+      "sha256": "a51eecc3dbda245606b00726c7a9ca4dd0287f354b71c466a88ec1746eb0c622",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/omitted-roster-soles/sphinx-final-battle-gallop_jump-underside.png",
+      "sha256": "5c7f557309799f73f4c1da1fd3197261edcdcd19f8f6982a7f1e5f670a91a1fa",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/omitted-roster-soles/sphinx-final-battle-idle_2-underside.png",
+      "sha256": "b0b677a96ba3890270ebe3062ca4f99b5f7676f742e989aef299375880160dcf",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/omitted-roster-soles/sphinx-final-battle-entrance-underside.png",
+      "sha256": "c75f37f424c3d48923a388e3f286003bc91a936329aad1f1e9b6a485e5f03c23",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/omitted-roster-soles/sphinx-final-battle-victory-underside.png",
+      "sha256": "632d3306e09a2f74c2ecb3c03defdd8996ac5fbd745cc0b2b32801ec2e74b027",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/omitted-roster-soles/sphinx-final-battle-death-underside.png",
+      "sha256": "2eedddbaedc23634f396e58f24020ea23d62c6df07b5c3328f5d70f447f3c620",
+      "actuallyInspected": true,
+      "result": "pass"
+    }
+  ],
+  "supplementalWholeBodyUndersideFramesActuallyInspected": 84,
+  "recordedAt": "2026-10-19T05:16:55.965Z"
+}

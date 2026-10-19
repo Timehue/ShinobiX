@@ -1,0 +1,365 @@
+{
+  "schema": 1,
+  "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+  "companionComponentSha256": "193c79e909badc0efab2f09ecb45882406ea66463fc5801966dd395344fcf9a9",
+  "appearance": "original",
+  "collarId": "",
+  "quality": "low",
+  "errors": [],
+  "pets": [
+    {
+      "id": "legendary-24",
+      "name": "Thunder Raiju",
+      "mode": "exact-production-companion-component",
+      "sourceSha256": "29643a8d667aa4b3d1b7672a0ef4391fb305d87a814e2fecca0c053a0a16da8e",
+      "battleSha256": "3526baf861f186943b5b3408143c7d901ce2a53ee5bad2790d22fff3676e6663",
+      "requests": [
+        "https://127.0.0.1:5207/pet-models/warfront-lod/roster/legendary-24.glb?v=20260902-battle-lod-v1-29643a8d667a-3526baf861f1",
+        "https://127.0.0.1:5207/pet-models/warfront-lod/roster/legendary-24.glb?v=20260902-battle-lod-v1-29643a8d667a-3526baf861f1"
+      ],
+      "frames": [
+        {
+          "engine": "three.js r185",
+          "previewFrames": "8",
+          "previewTime": "0.3112000000178814",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/legendary-24.glb?v=20260902-battle-lod-v1-29643a8d667a-3526baf861f1",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "15",
+          "previewTime": "0.6113000000119209",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/legendary-24.glb?v=20260902-battle-lod-v1-29643a8d667a-3526baf861f1",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "23",
+          "previewTime": "0.9315000000298024",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/legendary-24.glb?v=20260902-battle-lod-v1-29643a8d667a-3526baf861f1",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "30",
+          "previewTime": "1.220900000035763",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/legendary-24.glb?v=20260902-battle-lod-v1-29643a8d667a-3526baf861f1",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "38",
+          "previewTime": "1.5324000000357634",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/legendary-24.glb?v=20260902-battle-lod-v1-29643a8d667a-3526baf861f1",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "45",
+          "previewTime": "1.8151000000238429",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/legendary-24.glb?v=20260902-battle-lod-v1-29643a8d667a-3526baf861f1",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "52",
+          "previewTime": "2.112500000000001",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/legendary-24.glb?v=20260902-battle-lod-v1-29643a8d667a-3526baf861f1",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "60",
+          "previewTime": "2.4226999999880805",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/legendary-24.glb?v=20260902-battle-lod-v1-29643a8d667a-3526baf861f1",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "67",
+          "previewTime": "2.705599999994041",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/legendary-24.glb?v=20260902-battle-lod-v1-29643a8d667a-3526baf861f1",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "74",
+          "previewTime": "3.00439999997616",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/legendary-24.glb?v=20260902-battle-lod-v1-29643a8d667a-3526baf861f1",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "81",
+          "previewTime": "3.283299999982121",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/legendary-24.glb?v=20260902-battle-lod-v1-29643a8d667a-3526baf861f1",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "89",
+          "previewTime": "3.6059999999701997",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/legendary-24.glb?v=20260902-battle-lod-v1-29643a8d667a-3526baf861f1",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "97",
+          "previewTime": "3.9351999999880816",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/legendary-24.glb?v=20260902-battle-lod-v1-29643a8d667a-3526baf861f1",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "104",
+          "previewTime": "4.221699999988082",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/legendary-24.glb?v=20260902-battle-lod-v1-29643a8d667a-3526baf861f1",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "111",
+          "previewTime": "4.502999999970199",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/legendary-24.glb?v=20260902-battle-lod-v1-29643a8d667a-3526baf861f1",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "118",
+          "previewTime": "4.814399999976158",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/legendary-24.glb?v=20260902-battle-lod-v1-29643a8d667a-3526baf861f1",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "126",
+          "previewTime": "5.116999999970198",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/legendary-24.glb?v=20260902-battle-lod-v1-29643a8d667a-3526baf861f1",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "133",
+          "previewTime": "5.415599999964238",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/legendary-24.glb?v=20260902-battle-lod-v1-29643a8d667a-3526baf861f1",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "140",
+          "previewTime": "5.699699999988081",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/legendary-24.glb?v=20260902-battle-lod-v1-29643a8d667a-3526baf861f1",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "147",
+          "previewTime": "5.990000000000002",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/legendary-24.glb?v=20260902-battle-lod-v1-29643a8d667a-3526baf861f1",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "155",
+          "previewTime": "6.307199999988082",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/legendary-24.glb?v=20260902-battle-lod-v1-29643a8d667a-3526baf861f1",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "162",
+          "previewTime": "6.592199999988082",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/legendary-24.glb?v=20260902-battle-lod-v1-29643a8d667a-3526baf861f1",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "170",
+          "previewTime": "6.917099999994043",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/legendary-24.glb?v=20260902-battle-lod-v1-29643a8d667a-3526baf861f1",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "177",
+          "previewTime": "7.202099999994043",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "10032",
+          "previewModel": "/pet-models/warfront-lod/roster/legendary-24.glb?v=20260902-battle-lod-v1-29643a8d667a-3526baf861f1",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        }
+      ],
+      "sheets": [
+        {
+          "name": "legendary-24/idle-sheet-0.webp",
+          "sha256": "b37debdb8c7086fe6c890ca93b1d035fa2473b5058bd6ef03037e804be3896ce"
+        },
+        {
+          "name": "legendary-24/idle-sheet-1.webp",
+          "sha256": "e71594d8f8fae9ae7433601a02fdd28d767fce5832b179f991bc2bd29773451f"
+        },
+        {
+          "name": "legendary-24/idle-sheet-2.webp",
+          "sha256": "44094566bb6e2d6336931ab201e8d8314a9590261389078a3907dcc901df6179"
+        },
+        {
+          "name": "legendary-24/idle-sheet-3.webp",
+          "sha256": "530ea6ec75daf3c4b8c746ec597bcf7e148e14819c2660ee3aedd826d5708692"
+        },
+        {
+          "name": "legendary-24/idle-sheet-4.webp",
+          "sha256": "da811ce436191184663fae693f1ed708a201b7d36ed56fee29bebac3db5e8389"
+        },
+        {
+          "name": "legendary-24/idle-sheet-5.webp",
+          "sha256": "a71ee9b046260e6063afce4a18699b2f2a50e1b7f1fefd501a8637e7f1dfebf4"
+        }
+      ],
+      "errors": [],
+      "review": "pending"
+    }
+  ],
+  "artisticCertification": false
+}
