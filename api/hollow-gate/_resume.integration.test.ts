@@ -213,6 +213,7 @@ test('reload retires a legacy zero-HP run without reviving, rewarding, or rewrit
     const reply = await invoke('resume', {});
     assert.equal(reply.body.live, false);
     assert.equal(reply.body.ended, true);
+    assert.equal(reply.body.token, TOKEN);
     const after = (await kv.get<Record<string, any>>(saveKey))!;
     assert.equal(reply.body._saveVersion, after._saveVersion, 'authFetch observes the exact version committed by cleanup');
     assert.deepEqual(reply.body.character, after.character);
@@ -222,8 +223,45 @@ test('reload retires a legacy zero-HP run without reviving, rewarding, or rewrit
     assert.equal(after.character.hollowGateRun, null);
     assert.equal(after.character.lastHollowGateStart, undefined);
     assert.equal(await kv.get(runKey), null);
-    assert.deepEqual((await invoke('resume', {})).body, { ok: true, live: false });
+    assert.deepEqual((await invoke('resume', {})).body, reply.body, 'a lost terminal reply remains recoverable with its exact save version');
     assert.deepEqual(await kv.get(saveKey), after);
+});
+
+test('resume retries repair cleanup lost after the terminal save CAS without another save write', async t => {
+    await seed();
+    const { publishHollowGatePresence } = await import('./_presence.js');
+    await publishHollowGatePresence(kv, PLAYER, TOKEN);
+    const record = (await kv.get<Record<string, any>>(saveKey))!;
+    record.character.hp = 0;
+    await kv.set(saveKey, record);
+    const originalDel = kv.del.bind(kv);
+    let lostCleanup = false;
+    const errorLog = t.mock.method(console, 'error', () => undefined);
+    kv.del = async (...keys: string[]) => {
+        if (!lostCleanup && keys.includes(runKey)) { lostCleanup = true; throw new Error('fixture lost run cleanup'); }
+        return originalDel(...keys);
+    };
+    try {
+        assert.equal((await invoke('resume', {})).status, 500);
+    } finally {
+        kv.del = originalDel;
+        errorLog.mock.restore();
+    }
+    assert.equal(lostCleanup, true);
+    const committed = (await kv.get<Record<string, any>>(saveKey))!;
+    assert.equal(committed.character.hollowGateRun, null);
+    assert.ok(await kv.get(runKey));
+    for (let retry = 0; retry < 2; retry++) {
+        const recovered = await invoke('resume', {});
+        assert.equal(recovered.status, 200);
+        assert.equal(recovered.body.ended, true);
+        assert.equal(recovered.body.token, TOKEN);
+        assert.deepEqual(recovered.body.character, committed.character);
+        assert.equal(recovered.body._saveVersion, committed._saveVersion);
+        assert.equal(await kv.get(runKey), null);
+        assert.equal(await kv.get(`battle-state:${PLAYER}`), null);
+        assert.deepEqual(await kv.get(saveKey), committed);
+    }
 });
 
 test('a saved run keeps the open fight\'s mode through the save sanitizer', async () => {

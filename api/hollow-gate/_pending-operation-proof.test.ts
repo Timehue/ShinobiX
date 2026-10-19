@@ -18,6 +18,40 @@ test('ended-pointer repair preserves living start-marker-only and foreign runs',
     assert.deepEqual(terminal.changes, []);
 });
 
+test('a terminal proof supersedes the same result already applied to a live run', async () => {
+    const { _makeMemoryKv } = await import('../_storage.js');
+    const { makeHollowGatePendingOperation, recoverHollowGatePendingOperation } = await import('./_pending-operation.js');
+    const { publishHollowGatePresence } = await import('./_presence.js');
+    const store = _makeMemoryKv();
+    const name = 'hgterminalproof';
+    const token = 'terminal-proof-run';
+    const runKey = `hg-run:${name}:${token}`;
+    const run: HollowGateRunToken & { appliedSaveOperationIds: string[] } = {
+        playerName: name, mintedAt: Date.now(), floorDepth: 5, currentFloor: 1, seed: 'terminal-proof',
+        entryCurrencies: {}, entryItems: {}, appliedSaveOperationIds: ['combat:paid-fight'],
+        offeredAugmentIds: ['keen-edge'], chosenAugmentId: 'keen-edge', dailyRunOrdinal: 1,
+    };
+    const proof = makeHollowGatePendingOperation({ token, kind: 'combat', id: 'paid-fight',
+        before: run, after: null, response: { ended: true } });
+    const saved = { _saveVersion: 3, character: { name, hp: 0, hollowGateRun: null, hollowGatePendingOperation: proof } };
+    await store.set(runKey, run);
+    await store.set(`save:${name}`, saved);
+    await publishHollowGatePresence(store, name, token);
+    assert.ok(await store.get(`battle-state:${name}`));
+    for (let retry = 0; retry < 2; retry++) {
+        const current = await store.get<HollowGateRunToken>(runKey);
+        assert.equal(await recoverHollowGatePendingOperation(store, runKey, current, name, token), null);
+        assert.equal(await store.get(runKey), null);
+        assert.equal(await store.get(`battle-state:${name}`), null);
+        assert.deepEqual(await store.get(`save:${name}`), saved);
+    }
+    const newer = { ...saved, character: { ...saved.character, hp: 100, hollowGateRun: { runToken: 'newer-run' } } };
+    await store.set(`save:${name}`, newer);
+    await store.set(runKey, run);
+    assert.deepEqual(await recoverHollowGatePendingOperation(store, runKey, run, name, token), run,
+        'a saved newer token still prevents an old terminal proof from retiring state');
+});
+
 test('sequential event and checkpoint proofs replace nested snapshots through the real versioned save CAS', async () => {
     const { kv, saveStoreKind } = await import('../_storage.js');
     assert.equal(saveStoreKind, 'memory-qa');

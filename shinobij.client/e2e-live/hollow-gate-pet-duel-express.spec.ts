@@ -605,6 +605,60 @@ type ResumeReply = {
     };
 };
 
+test('a lost terminal resume reply recovers stale positive browser HP on the next reload', async ({ page, request }, info) => {
+    test.setTimeout(240_000);
+    const { diver, pageErrors } = await startDiver(page, request, info);
+    const dive = await sendPetFromTheShrine(page, info, diver);
+    const headers = { 'x-player-name': diver.name, 'x-player-token': diver.token };
+    const read = await request.get(`/api/save/${diver.name}`, { headers });
+    const legacy = await read.json() as Json & { character: SavedCharacter & Json };
+    const before = legacy.character;
+    legacy.character = { ...before, hp: 0, hospitalized: false };
+    const seeded = await request.post(`/api/save/${diver.name}?signal=1`, {
+        headers: { 'x-admin-password': ADMIN }, data: legacy,
+    });
+    expect(seeded.status(), await seeded.text()).toBe(200);
+    expect((await request.post(`/api/save/${diver.name}?ack=1`, { headers })).status()).toBe(200);
+
+    // Simulate an old cached browser drawing only. The real server save stays
+    // at zero HP, and both terminal resume requests execute on Express.
+    await page.route(`**/api/save/${diver.name}*`, async route => {
+        if (route.request().method() !== 'GET') return route.continue();
+        const response = await route.fetch();
+        const saved = await response.json() as Json & { character?: Json };
+        if (saved.character) saved.character = { ...saved.character, hp: before.hp, hospitalized: false,
+            hollowGateRun: before.hollowGateRun, lastHollowGateStart: before.lastHollowGateStart };
+        await route.fulfill({ response, json: saved });
+    });
+    let lostReply = false;
+    await page.route('**/api/hollow-gate/resume', async route => {
+        if (lostReply) return route.continue();
+        const response = await route.fetch();
+        const terminal = await response.json() as Json;
+        expect(terminal.ended).toBe(true);
+        expect(terminal.token).toBe(dive.started.token);
+        lostReply = true;
+        await route.abort('failed');
+    });
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect.poll(() => lostReply, { timeout: 45_000 }).toBe(true);
+    const committed = await diver.readCharacter();
+    const replayReply = apiReply(page, '/api/hollow-gate/resume', () => true, 150_000);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    const replay = await jsonOf<Json>(await replayReply, 'terminal resume replay');
+    expect(replay.ended).toBe(true);
+    expect(replay.token).toBe(dive.started.token);
+    await expect(page.locator('.hospital-screen--admitted')).toBeVisible();
+    await expect(page.locator('.hollow-gate-shrine')).toHaveCount(0);
+    const after = await diver.readCharacter();
+    expect(after.hp).toBe(0);
+    expect(after.hollowGateRun).toBeNull();
+    expect(after.ryo).toBe(before.ryo);
+    expect(after.hp).toBe(committed.hp);
+    await page.screenshot({ path: info.outputPath('hollow-gate-resume-replay-hospital.png'), animations: 'disabled' });
+    expect(pageErrors).toEqual([]);
+});
+
 test('a reload mid-duel returns to the shrine by itself and reopens the same Showdown session', async ({ page, request }, info) => {
     test.setTimeout(240_000);
     const { diver, pageErrors } = await startDiver(page, request, info);
