@@ -1,0 +1,20 @@
+{"id":"legendary-23","stage":"source","shippingSha256":"a56a5fd114088d462c9a46a2c632ae664d19a2565d6d33e0178206486f64192b","comparedKeys":216,"maxWorldAngularError":7.884953353001448e-8,"ownLegCounterfactuals":4,"actualDeliveredOwnLegCounterfactuals":4,"deliveryScope":"private-diagnostic-candidate","originalAndFittedJointDeltaEqual":true,"scalarRatios":"Retained in diagnostic evidence; exact original angular deltas and visible anatomical arcs govern this rig repair."}
+✔ legendary-23 source: original angular performances and independent own-leg paw motion survive the omitted-clip repair (7294.7969ms)
+{"id":"legendary-23","stage":"battle","shippingSha256":"f3e4b72c3044af3743a9edc95160f01c6bd40b38385c3ff39cedaa93ffa315a0","comparedKeys":216,"maxWorldAngularError":7.884953353001448e-8,"ownLegCounterfactuals":4,"actualDeliveredOwnLegCounterfactuals":4,"deliveryScope":"private-diagnostic-candidate","originalAndFittedJointDeltaEqual":true,"scalarRatios":"Retained in diagnostic evidence; exact original angular deltas and visible anatomical arcs govern this rig repair."}
+✔ legendary-23 battle: original angular performances and independent own-leg paw motion survive the omitted-clip repair (3880.4713ms)
+{"id":"legendary-24","stage":"source","shippingSha256":"29643a8d667aa4b3d1b7672a0ef4391fb305d87a814e2fecca0c053a0a16da8e","comparedKeys":216,"maxWorldAngularError":7.884953353001448e-8,"ownLegCounterfactuals":4,"actualDeliveredOwnLegCounterfactuals":4,"deliveryScope":"private-diagnostic-candidate","originalAndFittedJointDeltaEqual":true,"scalarRatios":"Retained in diagnostic evidence; exact original angular deltas and visible anatomical arcs govern this rig repair."}
+✔ legendary-24 source: original angular performances and independent own-leg paw motion survive the omitted-clip repair (7970.4888ms)
+{"id":"legendary-24","stage":"battle","shippingSha256":"fc97055700355afdc5bca80e2b12492543ef59079d3747b557945d983dda07dc","comparedKeys":216,"maxWorldAngularError":7.884953353001448e-8,"ownLegCounterfactuals":4,"actualDeliveredOwnLegCounterfactuals":4,"deliveryScope":"private-diagnostic-candidate","originalAndFittedJointDeltaEqual":true,"scalarRatios":"Retained in diagnostic evidence; exact original angular deltas and visible anatomical arcs govern this rig repair."}
+✔ legendary-24 battle: original angular performances and independent own-leg paw motion survive the omitted-clip repair (3381.8205ms)
+{"id":"legendary-26","stage":"source","shippingSha256":"5bc12fe1bb6b8143aef155775af127ae9ebf25469d03521a46efaf4e72bc0dc7","comparedKeys":216,"maxWorldAngularError":7.884953353001448e-8,"ownLegCounterfactuals":4,"actualDeliveredOwnLegCounterfactuals":4,"deliveryScope":"private-diagnostic-candidate","originalAndFittedJointDeltaEqual":true,"scalarRatios":"Retained in diagnostic evidence; exact original angular deltas and visible anatomical arcs govern this rig repair."}
+✔ legendary-26 source: original angular performances and independent own-leg paw motion survive the omitted-clip repair (8516.7124ms)
+{"id":"legendary-26","stage":"battle","shippingSha256":"ad256c7763a5d9f21b506e2c4cb7eab901e868c97d14e5e805d65549a165d817","comparedKeys":216,"maxWorldAngularError":7.884953353001448e-8,"ownLegCounterfactuals":4,"actualDeliveredOwnLegCounterfactuals":4,"deliveryScope":"private-diagnostic-candidate","originalAndFittedJointDeltaEqual":true,"scalarRatios":"Retained in diagnostic evidence; exact original angular deltas and visible anatomical arcs govern this rig repair."}
+✔ legendary-26 battle: original angular performances and independent own-leg paw motion survive the omitted-clip repair (4675.9776ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 36329.4869

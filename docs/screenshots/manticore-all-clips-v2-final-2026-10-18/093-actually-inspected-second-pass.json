@@ -1,0 +1,501 @@
+{
+  "id": "legendary-26",
+  "raw": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-source-head/legendary-26-head-front-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "73dab0c52a7fa6fba9429d976d21b448af2e23d736612ecdb100234d6e3259bf"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-source-head/legendary-26-head-front-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "25a3bacce15dac6c9bb29e8887998bb2c5fde8779855d58c15371872c5471832"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-source-head/legendary-26-head-front-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "2808f87aa07ed8d5e04d94685f7111d2615ade3d762aa63d5b71631f160eef24"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-source-head/legendary-26-head-side-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "5d550bd6e48e83c818c4ef377a9b780d98c1cfff47e5187b938da83329c74375"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-source-head/legendary-26-head-side-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "2ed103429b6617f71d8bc0e2897313f1fc640e1d8558544cec9bac10e41d748e"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-source-head/legendary-26-head-side-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "31097a718c41c8e9c2d27ffd1ed9c9af65ac0a9eeba76d12a7123067edbfbcb4"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-source-head/legendary-26-head-other-side-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "614901fd3ab2f52fd48d377db47ac25520e3325290a03808f47ad01dc09bfe9c"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-source-head/legendary-26-head-other-side-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "913e3ef5b60c7794b9857bd46b7c6074fbfd0edcad08769d685d64d45407d218"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-source-head/legendary-26-head-other-side-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "2af7da0ca86f38c4e89f6798a6ec35a7d388d7dfbda80a963be3dd632ad005bd"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-source-body/legendary-26-front-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "db8ac21852ad8c0143b1eda0dae33e77cdf5b8466e90b49bec629b4ec810f831"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-source-body/legendary-26-front-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "58913fa3a01ad3d7b76063c085c30e1c494de9109cab70866027feba76514fdc"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-source-body/legendary-26-front-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "c941df041ca5ded61e8647fbcaddc04f111a4a5ebb24b1b87431cb3e66ed65a2"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-source-body/legendary-26-side-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "1af16de7f26b7b29aa859c31af8106303f660869f3fb6a4b1f6db500c17254f9"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-source-body/legendary-26-side-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "b29cc15dc60ecb958c8f45785e1f78c7eac66e4c7c0e3f24835d24082dd3ae9f"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-source-body/legendary-26-side-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "7da7e95c95dda5bd27c2d01dda91f1b4e93460510db852c1c36621238be17ad7"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-battle-head/legendary-26-head-front-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "0a47626772cbe415c69532cb8c504f04d06f3be1ceadbb40d70a597c1c5edb04"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-battle-head/legendary-26-head-front-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "2939ce772e0dcd8c1865d6ee8537232b7853934595f4a503bfeae8cf51958ac5"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-battle-head/legendary-26-head-front-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "50a0f4d67cc9e52c04bcd93b4bccf68679389060a4d3fb28eb5b577d18e5ba5e"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-battle-head/legendary-26-head-side-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "888fe32919768b21df99d0d047ff2790ba6ade4a0aad69ce95fc869d1da22b1b"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-battle-head/legendary-26-head-side-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "81bec5699e967f6a818e9f49807da9d153ed6551a52bafd987252d3e045f3f19"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-battle-head/legendary-26-head-side-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "2cf926e6c87163a6a315f0510f09c18af68d205076a63228c8f02c59a851c92a"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-battle-head/legendary-26-head-other-side-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "28ae5072e632f8b2c516036b1a1f0fa94362c55f942f1d6eebc4211faa99cf39"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-battle-head/legendary-26-head-other-side-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "a6e5800dbe49c6b34a9224e445258de8e512f554396645bea1b6a34676551056"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-battle-head/legendary-26-head-other-side-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "0c918ebcf6190c8c4aad90794a0ea59c837d0c264395463f52e6f015d81bfb20"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-battle-body/legendary-26-front-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "9469d4171533461d2774989a2969ef2a0b092099d0dcd8ca42892d11f599042b"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-battle-body/legendary-26-front-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "83a6b40627d707ca73da053e57e0fd32dc8a34d0f104598513d6791ed7b057a3"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-battle-body/legendary-26-front-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "11f7d497c79058c224b30b2ae0ea242a5b73ebf1d0b746f24686ac56b5e8134a"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-battle-body/legendary-26-side-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "0da58bfe1da7e287aa6d307db1c3a9583b9067a16fef53cea3a85afbde967d73"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-battle-body/legendary-26-side-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "b87dd1b0995cd4b0f64164fc7455636bbbf9f43f64f21aeda5bc9573ae33176d"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-battle-body/legendary-26-side-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "8a090548f8f68dd13b037893011fd53de79140d7c07386a48266eb3dfed36bcb"
+    }
+  ],
+  "runtime": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-runtime-low/legendary-26-source-body-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "ee33ddd000a4974371edfe48dcb0eb2575c6f0f38ed35c1fa42f4da408b2f236"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-runtime-low/legendary-26-source-body-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "291af5a5a39f3fb4b024ebae67bc330873d066a089f2580a9f53cb8cd99a07cf"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-runtime-low/legendary-26-source-body-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "b8930a1c7170f38577533f350a416403652a02889838a7945db959529ac39ed4"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-runtime-low/legendary-26-source-body-3.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "18fb6bce64122f09db62d9f3b29a6842b70f0dfce6540465ff9408210e64009b"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-runtime-low/legendary-26-source-head-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "5aeb7e10b78272bffcc3be4f8d4402fa6cffd17d80124fe18e5ba76e15d25f74"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-runtime-low/legendary-26-source-head-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "c1b356c327d035f5c27692f226ec7125962e258a0a58241df4ff8ef7053a8131"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-runtime-low/legendary-26-source-head-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "3862a106bcada01a470eb0768ad403bfa9be2ea30b167a95658c47a8672fdf02"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-runtime-low/legendary-26-source-head-3.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "76c96a08ff627ac23c527abd7ec25c6e267ee6f193855d0347cc8b5f78378f91"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-runtime-low/legendary-26-battle-body-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "5b8c181347620363d236d0837cc314f4e20b6ea373195b238740e038dcb91808"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-runtime-low/legendary-26-battle-body-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "bacebf1054be12b97a84b4d838f8a2c3f5f3153a449fcd8fcced9c709930d143"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-runtime-low/legendary-26-battle-body-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "8b6f203219f76dc95226120230ccf6c6112f1e55941aa63c45f6577a8a97d05c"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-runtime-low/legendary-26-battle-body-3.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "0fa1182e102b133b5b209efdae688fdd73b79c577f94184b6050e805de0884c1"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-runtime-low/legendary-26-battle-head-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "80299566142ff4cbf6d726aacfb5e872f37b34cc80ab08f80e3b8702be85481c"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-runtime-low/legendary-26-battle-head-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "97ca45702e772f6c1f5261027e32348cd1d6dd3c570950ea73874b3829cf545c"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-runtime-low/legendary-26-battle-head-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "146bcc6e1af6b06d5ff3784511cdede21452fc99389389781724b066c137f695"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-runtime-low/legendary-26-battle-head-3.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "447e4cc6a8721c915da8c0357379ffb3b258fdaa5c8b177dc139b6686eba54ae"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-runtime-medium/legendary-26-source-body-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "40b433c468c61a62e1b9756e0eba0b41d17c4436c8a1e547bba0c4b72e900fe2"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-runtime-medium/legendary-26-source-body-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "9faa2ad8b2740cb259d1a77011d720b613fbb52577e77025ac5ce1c93b03ac12"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-runtime-medium/legendary-26-source-body-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "929d7c7fc02aa6548e0b644bb9615cefc223a82fcaab67fdd5e3f22cf89b1e12"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-runtime-medium/legendary-26-source-body-3.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "2eb6d37212740bed7e25daf8e07afe09ef94f7238d8a51391f4f204731e753e8"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-runtime-medium/legendary-26-source-head-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "b41d83cb05d78118e4be9290b04b45f4a41313e4e8d227d08de8d528498de692"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-runtime-medium/legendary-26-source-head-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "365d691bd17203926d05ed83ea4c34875fa8d6f4794ad21040ff9ab1fe51a139"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-runtime-medium/legendary-26-source-head-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "73005827df2137a2ec157dd51b28a3a731efd2b4536d1192842fd29b7532f9e7"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-runtime-medium/legendary-26-source-head-3.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "ea57e60e79f85802968cbf04b95a0e8e966ba7e871330a680def53d23a254b62"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-runtime-medium/legendary-26-battle-body-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "7a84f4262b7f62fd4e63318b95dc016a0c9d4b45a635ed60bb21c5b6c1656b41"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-runtime-medium/legendary-26-battle-body-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "edf6beef60fccb22c789bc6acd363526db44f02e10ca12d19003534197d0cdfe"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-runtime-medium/legendary-26-battle-body-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "df88a8d4438335422d6c378d726e64c5f6048f009265527dd2e31d87ff6bd494"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-runtime-medium/legendary-26-battle-body-3.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "384e0dd93f486749f19d8c06d8bd68f0d02909e5d2a0e2109bd65874805b5b93"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-runtime-medium/legendary-26-battle-head-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "4d289065bbebb67e899b6b669b4718d74c1ec42b2c09093bbcd76a70dd47892e"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-runtime-medium/legendary-26-battle-head-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "7562c796670ca420e52afdbbabbe46f833b7bd6d3232c6cac0c1dba0f2651d3e"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-runtime-medium/legendary-26-battle-head-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "b211fbffcaff1cb7c48455d4c9c5623fbaf602d4fd95f08a11de785d7faff244"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-manticore-all-clips-v2-final-runtime-medium/legendary-26-battle-head-3.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "8f29a760c57de67ed9726601aa9331a54cdde0c8b4b6448dbb80bf65f96db76c"
+    }
+  ],
+  "techniques": [
+    {
+      "path": ".tmp/pet-companion-techniques/independent-manticore-all-clips-v2-final-techniques/inspection-strips/front-block-0-half-0.png",
+      "sha256": "bbe09c5e2197565caabc5b73fd1faa3b295ac5eb3cb26df8efe35fff6ff7ce93",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-manticore-all-clips-v2-final-techniques/inspection-strips/front-block-0-half-1.png",
+      "sha256": "3dbe428dd7631015e9f4738444c96d26ca1f6ae362b0349021f9abfaef8ee0af",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-manticore-all-clips-v2-final-techniques/inspection-strips/front-block-1-half-0.png",
+      "sha256": "0ef69d68eb46b9465bbd0e909b39685461d726f7026aa67a0f2a8889283e3f1d",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-manticore-all-clips-v2-final-techniques/inspection-strips/front-block-1-half-1.png",
+      "sha256": "28a58080d3fbbd7698049b046f36f61027385aada33df490af3a1c7d1ae71630",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-manticore-all-clips-v2-final-techniques/inspection-strips/front-block-2-half-0.png",
+      "sha256": "7e87b09f74a526ec2cda6f8c121651084132a55c9b2caa88ffa9bf54a03725c2",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-manticore-all-clips-v2-final-techniques/inspection-strips/front-block-2-half-1.png",
+      "sha256": "4f7a4376a54688fa136030d93f4b49adbb88bf3dc252d726cb23d82c2a651c10",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-manticore-all-clips-v2-final-techniques/inspection-strips/side-block-0-half-0.png",
+      "sha256": "f22e700db7b563274ebdcdc7ab566ba44f7df2fe7ea755204bbe3bde5b4dce15",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-manticore-all-clips-v2-final-techniques/inspection-strips/side-block-0-half-1.png",
+      "sha256": "b64730b55cc436a6567db447ea0567f9b5fcb7e5bb4718ad7619de3aa220e109",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-manticore-all-clips-v2-final-techniques/inspection-strips/side-block-1-half-0.png",
+      "sha256": "bfd49a2be6f237a2c88bfc72c4e587d95672852b5e27257ea0ee10dbd26371c7",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-manticore-all-clips-v2-final-techniques/inspection-strips/side-block-1-half-1.png",
+      "sha256": "8a52fdd6ae1094996e2915e4b522109c5d7c92e8b34a83f28cb67082edabe02f",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-manticore-all-clips-v2-final-techniques/inspection-strips/side-block-2-half-0.png",
+      "sha256": "7a392e257561d59afcdb8f8dad99b716a1f99c453c2389d394d5ccada9503d69",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-manticore-all-clips-v2-final-techniques/inspection-strips/side-block-2-half-1.png",
+      "sha256": "34735f7ba34e08ce7c68d0046891574dbdaf77c416faab499db64893d1ee2ca0",
+      "actuallyInspected": true,
+      "result": "pass"
+    }
+  ],
+  "companion": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/manticore-all-clips-v2-final-companions/legendary-26/idle-sheet-0.webp",
+      "sha256": "08cf6ae274aeb9e6eb748c5b92a0f3dc1afbe4e0efadacc953d4c3478e03add6",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/manticore-all-clips-v2-final-companions/legendary-26/idle-sheet-1.webp",
+      "sha256": "d2854d849bcf4e37c667c4f735809cb2d37451448256d0e2fbac097cf9df4ed3",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/manticore-all-clips-v2-final-companions/legendary-26/idle-sheet-2.webp",
+      "sha256": "2af268a61006e8568930b06c2e095cf5301fcaec9fc6b6b682a7cf18b63269f1",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/manticore-all-clips-v2-final-companions/legendary-26/idle-sheet-3.webp",
+      "sha256": "a672110c03d42dd52881fb4c91166f1f4ee6fd50eb1622583666e0e2c7808d8a",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/manticore-all-clips-v2-final-companions/legendary-26/idle-sheet-4.webp",
+      "sha256": "d912792cca007dc3d27f6875903256c605a184d67b5c44cd6832e7a86bdfacc7",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/manticore-all-clips-v2-final-companions/legendary-26/idle-sheet-5.webp",
+      "sha256": "1024f70913335af702087ad7892712c16f30765b366f30733f39816990ea0f57",
+      "actuallyInspected": true,
+      "result": "pass"
+    }
+  ],
+  "secondPassComplete": true,
+  "notes": "All 30 final raw slices, 32 runtime transition slices, 216 native technique frames, 24 advancing idle frames and 16 atlas cells actually inspected/pass. Face, gold mane plates and visible shoulder/hip/paw motion coherent in source and regenerated battle delivery. Opposite raw death face naturally occluded by shoulder; primary raw side and front plus runtime front/side resolve anatomy. Tips cropped in closeups; full body preserves sculpt.",
+  "atlas": {
+    "path": "public/pet-models/warfront-impostors/roster/legendary-26.webp",
+    "sha256": "0e3098c9771f9a65bd390e9166688fb6bca072b852fcff08c4437be94951a11a",
+    "actuallyInspected": true,
+    "result": "pass"
+  },
+  "atlasCellsActuallyInspected": 16,
+  "recordedAt": "2026-10-19T06:33:21.578Z"
+}

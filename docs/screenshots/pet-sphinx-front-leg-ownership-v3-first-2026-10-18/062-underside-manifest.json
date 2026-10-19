@@ -1,0 +1,118 @@
+{
+  "camera": "existing underside render directions; all mesh vertices selected for whole-body framing",
+  "productionDiffuse": true,
+  "rows": [
+    {
+      "stage": "source",
+      "clip": "walk",
+      "path": ".tmp/omitted-roster-soles/sphinx-ownership-v3-source-walk-underside.png",
+      "assetSha256": "a56a5fd114088d462c9a46a2c632ae664d19a2565d6d33e0178206486f64192b",
+      "sha256": "423a4c49ed9a7afc5d17afebc40fa475e92c279705816ae4fcfc0d7d43ae5c1f",
+      "actuallyInspected": false
+    },
+    {
+      "stage": "source",
+      "clip": "gallop",
+      "path": ".tmp/omitted-roster-soles/sphinx-ownership-v3-source-gallop-underside.png",
+      "assetSha256": "a56a5fd114088d462c9a46a2c632ae664d19a2565d6d33e0178206486f64192b",
+      "sha256": "c66103d0e6dda1dd4bf39027ae74431de2c654e122fb3cc9b76b9b3a64948b02",
+      "actuallyInspected": false
+    },
+    {
+      "stage": "source",
+      "clip": "gallop_jump",
+      "path": ".tmp/omitted-roster-soles/sphinx-ownership-v3-source-gallop_jump-underside.png",
+      "assetSha256": "a56a5fd114088d462c9a46a2c632ae664d19a2565d6d33e0178206486f64192b",
+      "sha256": "8a41e06dba9148a8769d5ace701680aeb1e3a6257c8a628836f64e1a25a53868",
+      "actuallyInspected": false
+    },
+    {
+      "stage": "source",
+      "clip": "idle_2",
+      "path": ".tmp/omitted-roster-soles/sphinx-ownership-v3-source-idle_2-underside.png",
+      "assetSha256": "a56a5fd114088d462c9a46a2c632ae664d19a2565d6d33e0178206486f64192b",
+      "sha256": "8b46741cb6b07cf0ed15c05dea7f24a415df7046bd448227eceda4a0dfb95286",
+      "actuallyInspected": false
+    },
+    {
+      "stage": "source",
+      "clip": "entrance",
+      "path": ".tmp/omitted-roster-soles/sphinx-ownership-v3-source-entrance-underside.png",
+      "assetSha256": "a56a5fd114088d462c9a46a2c632ae664d19a2565d6d33e0178206486f64192b",
+      "sha256": "009b4cd3eb03e9a8a273bc3bab07998010121c9a5612612b4c6332c370c573fa",
+      "actuallyInspected": false
+    },
+    {
+      "stage": "source",
+      "clip": "victory",
+      "path": ".tmp/omitted-roster-soles/sphinx-ownership-v3-source-victory-underside.png",
+      "assetSha256": "a56a5fd114088d462c9a46a2c632ae664d19a2565d6d33e0178206486f64192b",
+      "sha256": "f364024feae274a19b9b5d05f9e6c848f883d7d432dcbe7f8f947bbd81439a95",
+      "actuallyInspected": false
+    },
+    {
+      "stage": "source",
+      "clip": "death",
+      "path": ".tmp/omitted-roster-soles/sphinx-ownership-v3-source-death-underside.png",
+      "assetSha256": "a56a5fd114088d462c9a46a2c632ae664d19a2565d6d33e0178206486f64192b",
+      "sha256": "a3c7bbae9cc121088d8fcd173c2279a7f4ec1e2f3ba68f97acc142c8d4e20fc8",
+      "actuallyInspected": false
+    },
+    {
+      "stage": "battle",
+      "clip": "walk",
+      "path": ".tmp/omitted-roster-soles/sphinx-ownership-v3-battle-walk-underside.png",
+      "assetSha256": "f3e4b72c3044af3743a9edc95160f01c6bd40b38385c3ff39cedaa93ffa315a0",
+      "sha256": "2c5c634cfc7c0646ce2793aa0e67ac6934bf1435dca571c533c07ff2853cf270",
+      "actuallyInspected": false
+    },
+    {
+      "stage": "battle",
+      "clip": "gallop",
+      "path": ".tmp/omitted-roster-soles/sphinx-ownership-v3-battle-gallop-underside.png",
+      "assetSha256": "f3e4b72c3044af3743a9edc95160f01c6bd40b38385c3ff39cedaa93ffa315a0",
+      "sha256": "835ac54de582fe0511e7d609d4cc01ff4815e1aaeba8b9977d424a3bee8261b3",
+      "actuallyInspected": false
+    },
+    {
+      "stage": "battle",
+      "clip": "gallop_jump",
+      "path": ".tmp/omitted-roster-soles/sphinx-ownership-v3-battle-gallop_jump-underside.png",
+      "assetSha256": "f3e4b72c3044af3743a9edc95160f01c6bd40b38385c3ff39cedaa93ffa315a0",
+      "sha256": "0a8bac3e0d19ce146faaa9cbf4a6ad50ff6a7b56691bbf056e61029fe58d710c",
+      "actuallyInspected": false
+    },
+    {
+      "stage": "battle",
+      "clip": "idle_2",
+      "path": ".tmp/omitted-roster-soles/sphinx-ownership-v3-battle-idle_2-underside.png",
+      "assetSha256": "f3e4b72c3044af3743a9edc95160f01c6bd40b38385c3ff39cedaa93ffa315a0",
+      "sha256": "1cbaae169c51007ded6982974ea82a2543a72c4fef384b108cfc2f12fbaece14",
+      "actuallyInspected": false
+    },
+    {
+      "stage": "battle",
+      "clip": "entrance",
+      "path": ".tmp/omitted-roster-soles/sphinx-ownership-v3-battle-entrance-underside.png",
+      "assetSha256": "f3e4b72c3044af3743a9edc95160f01c6bd40b38385c3ff39cedaa93ffa315a0",
+      "sha256": "f87996c3930f89a8879242e12bb44d037824f0ef87817553e2a98b1c6793d696",
+      "actuallyInspected": false
+    },
+    {
+      "stage": "battle",
+      "clip": "victory",
+      "path": ".tmp/omitted-roster-soles/sphinx-ownership-v3-battle-victory-underside.png",
+      "assetSha256": "f3e4b72c3044af3743a9edc95160f01c6bd40b38385c3ff39cedaa93ffa315a0",
+      "sha256": "cb9a0dbf964d9bb74eb70055439d8844e8de224eed49c1668d8b4ea4e2a41477",
+      "actuallyInspected": false
+    },
+    {
+      "stage": "battle",
+      "clip": "death",
+      "path": ".tmp/omitted-roster-soles/sphinx-ownership-v3-battle-death-underside.png",
+      "assetSha256": "f3e4b72c3044af3743a9edc95160f01c6bd40b38385c3ff39cedaa93ffa315a0",
+      "sha256": "0691c292a5f73259edb87a7d4bf2d4971f1d7d5947b22ebea48d1abf82e32943",
+      "actuallyInspected": false
+    }
+  ]
+}
