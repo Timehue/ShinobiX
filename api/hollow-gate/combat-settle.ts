@@ -66,6 +66,14 @@ type CombatReceipt = {
     settledAt: number;
 };
 
+function combatReplayBody(receipt: CombatReceipt, current: Record<string, unknown> | null) {
+    return { ok: true, alreadyReported: true, won: receipt.won,
+        revived: receipt.revived ?? false, escaped: receipt.escaped ?? false,
+        petDefeat: receipt.petDefeat ?? false, ended: receipt.ended ?? false,
+        reward: receipt.reward, elementalShards: receipt.elementalShards,
+        character: current?.character ?? null, _saveVersion: Number(current?._saveVersion ?? 0) };
+}
+
 export function hollowGateCombatReceiptNeedsRecovery(
     receipt: Pick<CombatReceipt, 'version'>,
     appliedIds: readonly unknown[],
@@ -209,12 +217,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (existingReceipt) {
                 const current = await kv.get<Record<string, unknown>>(`save:${playerName}`);
                 const currentCharacter = current?.character as Record<string, unknown> | undefined;
-                if (currentCharacter && hollowGateSavedTokenMismatch(currentCharacter, token)) {
-                    return { status: 409, body: { error: 'The saved run does not match this combat.' } };
-                }
                 const appliedIds = Array.isArray(currentCharacter?.settledHollowGateCombatIds)
                     ? currentCharacter.settledHollowGateCombatIds as unknown[]
                     : [];
+                if (currentCharacter && hollowGateSavedTokenMismatch(currentCharacter, token)) {
+                    if (hollowGateCombatReceiptNeedsRecovery(existingReceipt, appliedIds, runId)) {
+                        return { status: 409, body: { error: 'The saved run does not match this combat.' } };
+                    }
+                    // A paid old result remains readable. Never reconcile its
+                    // projection into the player's newer dive or repeat effects.
+                    return { status: 200, body: combatReplayBody(existingReceipt, current) };
+                }
                 if (hollowGateCombatReceiptNeedsRecovery(existingReceipt, appliedIds, runId)) {
                     // The process can stop after reserving a receipt but before
                     // the atomic save write. Such an orphan is safe to rerun.
@@ -247,19 +260,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }
                     if (run) await persistRunCombatSettlement(runKey, run, binding, existingReceipt, token);
                     else await kv.set(bindingKey, settleHollowGateCombatBinding(binding, existingReceipt.won, existingReceipt.settledAt), { ex: HOLLOW_GATE_COMBAT_TTL_SECONDS });
-                    return { status: 200, body: {
-                        ok: true,
-                        alreadyReported: true,
-                        won: existingReceipt.won,
-                        revived: existingReceipt.revived ?? false,
-                        escaped: existingReceipt.escaped ?? false,
-                        petDefeat: existingReceipt.petDefeat ?? false,
-                        ended: existingReceipt.ended ?? false,
-                        reward: existingReceipt.reward,
-                        elementalShards: existingReceipt.elementalShards,
-                        character: current?.character ?? null,
-                        _saveVersion: Number(current?._saveVersion ?? 0),
-                    } };
+                    return { status: 200, body: combatReplayBody(existingReceipt, current) };
                 }
             }
             if (binding.status !== 'active' || binding.settledAt) {
