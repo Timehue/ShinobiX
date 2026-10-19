@@ -154,6 +154,12 @@ export function hollowGateStepOnlyChange(
 /** How long walking must pause before a step's board reaches the character copy. */
 export const HOLLOW_GATE_MIRROR_SETTLE_MS = 600;
 
+/** Loading a sealed board is not a terminal run clear. */
+export function hollowGateMirroredCharacter<T extends { hollowGateRun?: HollowGateShrineRun | null }>(previous: T | null, run: HollowGateShrineRun | null): T | null {
+    if (!previous || !run || previous.hollowGateRun === run) return previous;
+    return { ...previous, hollowGateRun: run };
+}
+
 /**
  * Mirror the live shrine run into character.hollowGateRun, the copy the save
  * payload and a re-entry read. Copying it on every step re-rendered the whole
@@ -170,11 +176,8 @@ export function useHollowGateRunMirror({ screen, run, characterRef, setCharacter
     setCharacter: SetState<Character | null>;
 }): void {
     useEffect(() => {
-        if (screen !== "hollowGateShrine") return;
-        const mirror = () => setCharacter((prev) => {
-            if (!prev || prev.hollowGateRun === run) return prev;
-            return { ...prev, hollowGateRun: run };
-        });
+        if (screen !== "hollowGateShrine" || !run) return;
+        const mirror = () => setCharacter((prev) => hollowGateMirroredCharacter(prev, run));
         if (!hollowGateStepOnlyChange(characterRef.current?.hollowGateRun, run)) { mirror(); return; }
         const timer = window.setTimeout(mirror, HOLLOW_GATE_MIRROR_SETTLE_MS);
         return () => window.clearTimeout(timer);
