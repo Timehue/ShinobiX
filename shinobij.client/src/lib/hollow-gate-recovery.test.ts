@@ -361,9 +361,9 @@ describe("hollow gate recovery — the flow never starts or spends anything", ()
         let release!: (response: Response) => void;
         globalThis.fetch = (() => new Promise<Response>(resolve => { release = resolve; })) as typeof fetch;
         const { calls, params } = harness();
-        let token: string | undefined;
-        const pending = recoverHollowGateRun({ ...params, character: staleCharacter as never, currentRunToken: () => token });
-        token = 'token-live';
+        const live = { token: undefined as string | undefined };
+        const pending = recoverHollowGateRun({ ...params, character: staleCharacter as never, currentRunToken: () => live.token });
+        live.token = 'token-live';
         release(new Response(JSON.stringify(terminalReply), { status: 200 }));
         assert.equal(await pending, 'ended');
         assert.deepEqual(calls.screen, ['hospital']);
