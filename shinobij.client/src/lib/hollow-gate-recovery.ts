@@ -239,6 +239,8 @@ export function rebuildHollowGateRun(
 }
 
 export type HollowGateRecoveryParams = {
+    /** A delayed recovery must not publish into a different account/session. */
+    isCurrent?: () => boolean;
     character: Character;
     setHollowGateRun: SetState<HollowGateShrineRun | null>;
     setHollowGateLog: SetState<string[]>;
@@ -258,6 +260,7 @@ export type HollowGateRecoveryParams = {
  */
 export async function recoverHollowGateRun(params: HollowGateRecoveryParams): Promise<"recovered" | "gone" | "error"> {
     const resumed = await fetchHollowGateResume(params.character.name);
+    if (params.isCurrent?.() === false) return "error";
     if (resumed.kind !== "live") return resumed.kind;
     const state = resumed.state;
     const variant = hollowGateResumeVariant(state);
@@ -268,6 +271,7 @@ export async function recoverHollowGateRun(params: HollowGateRecoveryParams): Pr
     } catch {
         return "error";
     }
+    if (params.isCurrent?.() === false) return "error";
     params.setHollowGateRun(run);
     params.setHollowGateLog(["You return to your unfinished run. The floor, your path and every cleared tile are as you left them."]);
     params.setHollowGateEvent(null);
