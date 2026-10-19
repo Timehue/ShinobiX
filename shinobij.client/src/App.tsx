@@ -5004,8 +5004,7 @@ export default function App() {
     // exited.
     function buildHollowGateRunSummary(): string { return hollowGateRunSummary(character, hollowGateRun); }
 
-    // Tile resolution lives in lib/hollow-gate-tile; current-run wrappers reject
-    // late replies after another account or floor replaces this one.
+    // Tile resolution lives in lib/hollow-gate-tile; wrappers reject stale account/floor replies.
     async function resolveHollowGateTile(tile: HollowGateTile, x: number, y: number, wanderers?: HollowGateShrineRun['wanderers']) {
         // The whole queued fx batch was already emptied by the drain, so a
         // rejection here is invisible without this: the player steps onto a

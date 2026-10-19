@@ -331,7 +331,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const elementalShards = won && !endedProjection && binding!.kind === 'boss'
                     && randomInt(0, 10_000) < Math.floor(Math.min(0.8, 0.5 + binding!.floor * 0.03) * 10_000) ? 1 : 0;
                 const receipt: CombatReceipt = { version: 2, won, revived, escaped, petDefeat,
-                    ...(session ? { terminalReason: session.terminalReason, opponentName: session.enemy.name } : {}),
+                    ...(session ? { terminalReason: session.terminalReason, opponentName: session.enemy?.name } : {}),
                     ...(endedProjection ? { ended: true } : {}), reward, elementalShards, settledAt: Date.now() };
                 const placed = await kv.set(receiptKey, receipt, { nx: true, ex: COMBAT_RECEIPT_TTL_SECONDS });
                 if (!placed) {
