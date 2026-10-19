@@ -28,4 +28,3 @@ test('materialized progression mastery is applied exactly once after tier conver
     assert.equal(signature, 308);
     assert.equal(petSpatialTechniquePower({ power: Infinity, abilityId: 'species:art:signature', kind: 'damage' }, true), 252);
 });
-

@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-10-19T08:03:22.771Z",
+  "generatedAt": "2026-10-19T08:44:19.952Z",
   "evidenceTier": "controlled-production-engine-simulation",
   "mode": "full-catalog",
-  "elapsedSeconds": 286.167,
+  "elapsedSeconds": 355.062,
   "runtime": {
     "node": "v24.15.0",
     "platform": "win32",
@@ -12,7 +12,7 @@
     "api/_pet-showdown/engine.ts": "ae6f6fe2e7ff3a27a19284a946ba65a56c84411704e2cd4afa916260a28c7333",
     "api/_pet-showdown/ai.ts": "4bfed510ff370a2ba56ded84bf04cf9918b3f41fbf2731ac364d759aff98d9e1",
     "api/_pet-showdown/damage-pacing.ts": "003f7445ee939c56f8ba3a0d1a68a134bed1833320afdb3ae17650dc125b0193",
-    "shared/pet-ability-progression.ts": "81f3a66a75993fcdd0baa56e182a5b0f848cb5ae3e8c6ca0d7043ff2eaf158b7",
+    "shared/pet-ability-progression.ts": "5fdb63cdccffd3564ef4ded1bc29247585f5a71ba63e2940b258818e2dd21cdf",
     "shared/pet-battle-stats.ts": "fac15de40c89010190cf68d9378a721153a0daf8e784af5d52e3ea3500171392",
     "api/pet/_growth.ts": "da64f0c10ba8bf9f77a05b62a6144e57a548927150d705914380b6eae906d1e7",
     "scripts/pet-progression-balance.mts": "da8acf1f6f123724b077d4d9ecd6b042ea9a9ab781a52472c93cb243e730da61",
@@ -30,7 +30,7 @@
     "api/_pet-showdown/engine.ts": "ae6f6fe2e7ff3a27a19284a946ba65a56c84411704e2cd4afa916260a28c7333",
     "api/_pet-showdown/ai.ts": "4bfed510ff370a2ba56ded84bf04cf9918b3f41fbf2731ac364d759aff98d9e1",
     "api/_pet-showdown/damage-pacing.ts": "003f7445ee939c56f8ba3a0d1a68a134bed1833320afdb3ae17650dc125b0193",
-    "shared/pet-ability-progression.ts": "81f3a66a75993fcdd0baa56e182a5b0f848cb5ae3e8c6ca0d7043ff2eaf158b7",
+    "shared/pet-ability-progression.ts": "5fdb63cdccffd3564ef4ded1bc29247585f5a71ba63e2940b258818e2dd21cdf",
     "shared/pet-battle-stats.ts": "fac15de40c89010190cf68d9378a721153a0daf8e784af5d52e3ea3500171392",
     "api/pet/_growth.ts": "da64f0c10ba8bf9f77a05b62a6144e57a548927150d705914380b6eae906d1e7",
     "scripts/pet-progression-balance.mts": "da8acf1f6f123724b077d4d9ecd6b042ea9a9ab781a52472c93cb243e730da61",

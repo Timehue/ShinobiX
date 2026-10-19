@@ -1,6 +1,6 @@
 # Spatial progression calibration
 
-Accepted local execution evidence: 592 matrix executions and 96 trace executions. Both files report `stale: false` with matching start/end selected-source fingerprint `9e294bd1b7fe808002a6b3afc6fdb8820ba271b9e71fd7bea1076c13fa7e79e2`.
+Accepted local execution evidence: 592 matrix executions and 96 trace executions. Both files report `stale: false` with matching start/end selected-source fingerprint `f411fb8d60912d82ca3e7a7b7a8418cac56e9bc08c470c7a993f03d8b81282f9`.
 
 Only `pet-spatial-calibration-final-matrix.json` and `pet-spatial-calibration-final-trace.json` are final acceptance measurements. Earlier candidate and diagnostic files are historical investigation evidence.
 

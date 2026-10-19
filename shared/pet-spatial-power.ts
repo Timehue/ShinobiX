@@ -24,4 +24,3 @@ export function petSpatialTechniquePower(input: SpatialPowerInput, progression: 
         : ['burn', 'dot', 'wound', 'slow', 'mark', 'debuff'].includes(kind) ? .65 : 1;
     return Math.max(1, Math.round(BASE_POWER[tier] * lean * mastery * riderBudget));
 }
-

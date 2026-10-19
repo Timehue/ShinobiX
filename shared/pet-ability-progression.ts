@@ -388,4 +388,3 @@ const SPECIES_ABILITIES: Readonly<Record<string, SpeciesDefinition>> = {
 };
 
 export const PET_ABILITY_SPECIES_IDS: readonly string[] = Object.freeze(Object.keys(SPECIES_ABILITIES));
-

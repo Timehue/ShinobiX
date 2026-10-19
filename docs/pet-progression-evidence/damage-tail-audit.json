@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-19T07:58:44.430Z",
+  "generatedAt": "2026-10-19T08:38:33.574Z",
   "evidenceTier": "controlled-production-engine-simulation",
   "configuration": {
     "species": 161,
@@ -38,7 +38,7 @@
     "api/pet/_catalog.ts": "0748a19f7ad3a269583cb4a7453c157a9b8d0584bac417e7a1b914355feae768",
     "shared/pet-battle-stats.ts": "fac15de40c89010190cf68d9378a721153a0daf8e784af5d52e3ea3500171392",
     "shared/pet-battle-loadout.ts": "9525fbd2ada282e70dfdf213ab7eae1ca40d665a09e4b321c1f388c684f339a0",
-    "shared/pet-ability-progression.ts": "81f3a66a75993fcdd0baa56e182a5b0f848cb5ae3e8c6ca0d7043ff2eaf158b7",
+    "shared/pet-ability-progression.ts": "5fdb63cdccffd3564ef4ded1bc29247585f5a71ba63e2940b258818e2dd21cdf",
     "shared/pet-ability-mastery.ts": "2ba858b5b217ef95e46e27366cfd718f8fbc4b1d7bccd9bb5769cd3d54d83f71",
     "shared/pet-showdown-contract.ts": "dcf72fdfb59563192415a82abac7fb06c7319864620d029770a94334a1de6d39",
     "api/_pet-stat-ceil.ts": "82903457511608ee90c86de9c1ec20ef48d7e7419c9cac8d47768807026da7b2",
@@ -53,7 +53,7 @@
     "api/pet/_catalog.ts": "0748a19f7ad3a269583cb4a7453c157a9b8d0584bac417e7a1b914355feae768",
     "shared/pet-battle-stats.ts": "fac15de40c89010190cf68d9378a721153a0daf8e784af5d52e3ea3500171392",
     "shared/pet-battle-loadout.ts": "9525fbd2ada282e70dfdf213ab7eae1ca40d665a09e4b321c1f388c684f339a0",
-    "shared/pet-ability-progression.ts": "81f3a66a75993fcdd0baa56e182a5b0f848cb5ae3e8c6ca0d7043ff2eaf158b7",
+    "shared/pet-ability-progression.ts": "5fdb63cdccffd3564ef4ded1bc29247585f5a71ba63e2940b258818e2dd21cdf",
     "shared/pet-ability-mastery.ts": "2ba858b5b217ef95e46e27366cfd718f8fbc4b1d7bccd9bb5769cd3d54d83f71",
     "shared/pet-showdown-contract.ts": "dcf72fdfb59563192415a82abac7fb06c7319864620d029770a94334a1de6d39",
     "api/_pet-stat-ceil.ts": "82903457511608ee90c86de9c1ec20ef48d7e7419c9cac8d47768807026da7b2",

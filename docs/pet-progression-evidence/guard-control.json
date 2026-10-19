@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-19T07:58:47.220Z",
+  "generatedAt": "2026-10-19T08:38:37.097Z",
   "evidenceTier": "controlled-production-engine-simulation",
   "scenario": "Same ten points from Power into Guard versus Vitality; all other allocations identical.",
   "configuration": {
@@ -30,7 +30,7 @@
     "api/_pet-sim/pet-config.ts": "1c75a5702067c60894d4051e9793555f1dd00bd5897f87a7c46000888db626fc",
     "shared/pet-battle-stats.ts": "fac15de40c89010190cf68d9378a721153a0daf8e784af5d52e3ea3500171392",
     "shared/pet-battle-loadout.ts": "9525fbd2ada282e70dfdf213ab7eae1ca40d665a09e4b321c1f388c684f339a0",
-    "shared/pet-ability-progression.ts": "81f3a66a75993fcdd0baa56e182a5b0f848cb5ae3e8c6ca0d7043ff2eaf158b7",
+    "shared/pet-ability-progression.ts": "5fdb63cdccffd3564ef4ded1bc29247585f5a71ba63e2940b258818e2dd21cdf",
     "shared/pet-ability-mastery.ts": "2ba858b5b217ef95e46e27366cfd718f8fbc4b1d7bccd9bb5769cd3d54d83f71",
     "shared/pet-showdown-contract.ts": "dcf72fdfb59563192415a82abac7fb06c7319864620d029770a94334a1de6d39",
     "scripts/pet-guard-control.mts": "b2bd0966d485dbfa67a80121459842eb5e0673c8989fe0ca5c74d68046d1f22a"
@@ -45,7 +45,7 @@
     "api/_pet-sim/pet-config.ts": "1c75a5702067c60894d4051e9793555f1dd00bd5897f87a7c46000888db626fc",
     "shared/pet-battle-stats.ts": "fac15de40c89010190cf68d9378a721153a0daf8e784af5d52e3ea3500171392",
     "shared/pet-battle-loadout.ts": "9525fbd2ada282e70dfdf213ab7eae1ca40d665a09e4b321c1f388c684f339a0",
-    "shared/pet-ability-progression.ts": "81f3a66a75993fcdd0baa56e182a5b0f848cb5ae3e8c6ca0d7043ff2eaf158b7",
+    "shared/pet-ability-progression.ts": "5fdb63cdccffd3564ef4ded1bc29247585f5a71ba63e2940b258818e2dd21cdf",
     "shared/pet-ability-mastery.ts": "2ba858b5b217ef95e46e27366cfd718f8fbc4b1d7bccd9bb5769cd3d54d83f71",
     "shared/pet-showdown-contract.ts": "dcf72fdfb59563192415a82abac7fb06c7319864620d029770a94334a1de6d39",
     "scripts/pet-guard-control.mts": "b2bd0966d485dbfa67a80121459842eb5e0673c8989fe0ca5c74d68046d1f22a"
