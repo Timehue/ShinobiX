@@ -1,0 +1,501 @@
+{
+  "id": "mythic-15",
+  "raw": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-source-head/mythic-15-head-front-0.png",
+      "sha256": "25e7b060dca367c6e031fa9395e41f3927de6296c2bfb17a1bddc80a721eceaa",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-source-head/mythic-15-head-front-1.png",
+      "sha256": "9204a3d475860059a9fe62a58de322e5c527a3926554f63f8aa4ae4bcec304e4",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-source-head/mythic-15-head-front-2.png",
+      "sha256": "11a7292d5fa66f1435a189d4df4195678f9123d297649a34551454e2b2e9fbde",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-source-head/mythic-15-head-side-0.png",
+      "sha256": "0f5fbf04f83ef45ab44dea34f6bc23946e131eae78aedbeb7ee3a6c2bdc83ac2",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-source-head/mythic-15-head-side-1.png",
+      "sha256": "70db4061ecba2df30dba1df487b23fbbb32b15fdd9c4b48d9d5dcca374757aa9",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-source-head/mythic-15-head-side-2.png",
+      "sha256": "459bbfbb475a0434f85a93a98da277989d15af83b68006b10c2b5ac2eac41f96",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-source-head/mythic-15-head-other-side-0.png",
+      "sha256": "b6297e51b5c8c7cd2bfabd76e535032aaa023bde1f6bdacaed1ccb447479bd8b",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-source-head/mythic-15-head-other-side-1.png",
+      "sha256": "952778636bfd3aae69682922e927c5d40b375d800950058a606898bc5957cf91",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-source-head/mythic-15-head-other-side-2.png",
+      "sha256": "e1b05dc32a3b7e4056660047f68a43f651eca56f89e30a65271dfffeb5625ca9",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-source-body/mythic-15-front-0.png",
+      "sha256": "7959cd4a92100cea1ba319c3b9b7ad70fef12e66c93cdfba6b90c745f4e2ecac",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-source-body/mythic-15-front-1.png",
+      "sha256": "195e9269a5a0a20d68650c3d16139c0a6103f65215bead8ed865e659f734aba3",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-source-body/mythic-15-front-2.png",
+      "sha256": "6596397a0c207fc688f5e3cf60f5f49bb926207113106a1ce11f1cdd9b08be1e",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-source-body/mythic-15-side-0.png",
+      "sha256": "f14b4526664593bc1b5495ffdb647b34993d0288689be0e670b63dff0135ada3",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-source-body/mythic-15-side-1.png",
+      "sha256": "a3a9cddbbaece4dd49584193d49ed463eb1ba2adc9d6fc06519c8b81f3607e84",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-source-body/mythic-15-side-2.png",
+      "sha256": "a80038a4e3c904407a734d76f90d96cbe32a0e6d74a12937ccc57aae3c983057",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-battle-head/mythic-15-head-front-0.png",
+      "sha256": "d7b0f5072ae1ed377ebc76e8f230c53be924caa546dbcbd741b39b75adb804de",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-battle-head/mythic-15-head-front-1.png",
+      "sha256": "2ca1cafc5cb74c34d1573625bdfd2a640072c8976bb90824a3dbebbed1babcc4",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-battle-head/mythic-15-head-front-2.png",
+      "sha256": "e5e466e6aaa8cd79046029c6df8e0af84492aa3d59ed9888ddb90ace6a02c5c3",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-battle-head/mythic-15-head-side-0.png",
+      "sha256": "4480893b5b63c14dd8b06cd0217fd5b1f0fe554e4ea938f27f89d5d430bdff64",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-battle-head/mythic-15-head-side-1.png",
+      "sha256": "67a628b35eb4b77681965a2b10fc5220c1c10a705a36468c89383b60fe9688b5",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-battle-head/mythic-15-head-side-2.png",
+      "sha256": "29aec626be2d5172abaf02b8ba8adcf821abe1bffde71051c1e5ffe4772ba344",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-battle-head/mythic-15-head-other-side-0.png",
+      "sha256": "8a7d3a2beab2a700df6b65b8727ee9ecda1a756dc7eb220e92aacf953af22b19",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-battle-head/mythic-15-head-other-side-1.png",
+      "sha256": "62001476f9a8fdae50ac977b91c7a57734b194dadc3738c767bfa20cd300758f",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-battle-head/mythic-15-head-other-side-2.png",
+      "sha256": "111d036ea773b6b390bc8e57c4afdb6ecd30064470b0a41071667d39ee79953d",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-battle-body/mythic-15-front-0.png",
+      "sha256": "ff48972fe0282172689be784e03562d039ba0a2391c2eea8e8822b1236560f4c",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-battle-body/mythic-15-front-1.png",
+      "sha256": "2a1ec014f330fd3e57ee06d3a04ece8f341b2c5ccafba7dd46f31048dcd6441e",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-battle-body/mythic-15-front-2.png",
+      "sha256": "1c5f3c1ab574249ca749b9a80933f493c2276bd4091c51615f43f1e738936431",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-battle-body/mythic-15-side-0.png",
+      "sha256": "f1202e0da97c10f9605178948ede449588747a7ccafced17acc683e3215e4f18",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-battle-body/mythic-15-side-1.png",
+      "sha256": "e3d02784b2acfe0a6ec25b17d961f0dff4d2907c3207b126d6552055c3cf47b5",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-battle-body/mythic-15-side-2.png",
+      "sha256": "bbaf3c334044304fd4cc2f1cd78f12efbe2b43b54a2e39e75a3f92ffef2b25ee",
+      "actuallyInspected": true,
+      "result": "pass"
+    }
+  ],
+  "runtime": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-runtime-low/mythic-15-source-body-0.png",
+      "sha256": "f499ddb87dd872008e45e13881d1f66d5ac6ceeb2e5afd7c562f7aefb5e3a737",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-runtime-low/mythic-15-source-body-1.png",
+      "sha256": "f5e2ccdb3bd1f16bada1020f941f78666e41c4638a35953408561bdf4bcc279a",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-runtime-low/mythic-15-source-body-2.png",
+      "sha256": "35fb2850a9fa569b703404d5341726ec50972ba7b1e3164260d583785a212cdc",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-runtime-low/mythic-15-source-body-3.png",
+      "sha256": "870c75a5f87780e2bf63d795a9b484f78c0a4dc70cea66df7432f3e1651f89e6",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-runtime-low/mythic-15-source-head-0.png",
+      "sha256": "89437f073a766cdacd8a3f32cc19311b4bad353e27582d058d895f45dc837a1e",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-runtime-low/mythic-15-source-head-1.png",
+      "sha256": "c0f373f3dfb128d4690b8fdba4db8fd85cf370ea4e6dd5be2bffb29a9efb368b",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-runtime-low/mythic-15-source-head-2.png",
+      "sha256": "b07314de01f5485ca0daa89e95affdd88492f7e96e3292a7276a26a8453cecc2",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-runtime-low/mythic-15-source-head-3.png",
+      "sha256": "d0f435cf10d1fbd7d1953f2d4a6eecddd2f96f76fc4a0abf976820724fcc1a27",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-runtime-low/mythic-15-battle-body-0.png",
+      "sha256": "4cd243cd581f3e23695bed4bc85823d35c2d787ae56c213f61fcfe212a63486c",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-runtime-low/mythic-15-battle-body-1.png",
+      "sha256": "55d2e145d2b82bf87c0a1389572c65f5b51635e5ebaebe2b594917886d2be33b",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-runtime-low/mythic-15-battle-body-2.png",
+      "sha256": "4572d23a69317e9bcd7f1589a951029bf6cd2246fc6a20682e456063ff9322f4",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-runtime-low/mythic-15-battle-body-3.png",
+      "sha256": "2c1253dd433df39cf5c88e33e5fa1823d5c4b531ba828e2c551d907564eb4966",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-runtime-low/mythic-15-battle-head-0.png",
+      "sha256": "0383c3b700393320f69df23d1384ff40d1bc9fd5eff8a28079cd98aaa8eb375d",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-runtime-low/mythic-15-battle-head-1.png",
+      "sha256": "8d75b21edf0163d20e827655f766fa35454d2089fd49379742a2b02cb82f00a3",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-runtime-low/mythic-15-battle-head-2.png",
+      "sha256": "fee641f4d5967a637cc3d82ee0f7a0dbe04282db49402c148294862b37e2bab0",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-runtime-low/mythic-15-battle-head-3.png",
+      "sha256": "9e6fae3e3d3189be3ddb15145c64376bc77c8e04d47341abfc670333ba8c6aa7",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-runtime-medium/mythic-15-source-body-0.png",
+      "sha256": "f825f32c526fd0795fc9a5e6fd34c1c3767163f0af57a77ed8cbb92ca9dc2ed6",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-runtime-medium/mythic-15-source-body-1.png",
+      "sha256": "ef68c3e8cd5241fd848921b3c61e309446ce5c4105f552744e9b167293c6180d",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-runtime-medium/mythic-15-source-body-2.png",
+      "sha256": "162ce7b7cd36a06cf2f41f98b22fff3b47980b2bcf20c9e6fd247b97281a8902",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-runtime-medium/mythic-15-source-body-3.png",
+      "sha256": "0fe41421c5b8e61e9707f579e54c6819bd488a752fbd2f2c671062277e3bc633",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-runtime-medium/mythic-15-source-head-0.png",
+      "sha256": "f448e6891adc3d1f77a534d86613e5c00b949a65cf38874213e8a198d4d77235",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-runtime-medium/mythic-15-source-head-1.png",
+      "sha256": "a877eed541f6a4f80318284fce5aad106978927dd728fe95e043f4703f27d05d",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-runtime-medium/mythic-15-source-head-2.png",
+      "sha256": "53ed738e28ffde50beebcf42ae0014309e7397812c6ca899355d77fbe7cc2ee8",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-runtime-medium/mythic-15-source-head-3.png",
+      "sha256": "13c59ca39c1c851d7215c53960d70806cdf95f8f8ad3b80a7b5d6d1cfd47ac27",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-runtime-medium/mythic-15-battle-body-0.png",
+      "sha256": "5e4817004fed2e77ed73443d3919c1fd2eadb1643a4a05b27e73d064989f334d",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-runtime-medium/mythic-15-battle-body-1.png",
+      "sha256": "f06c0e3a8c69c802f0f6b44857b4ac382a69797578250d8b6b71f38f0631354c",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-runtime-medium/mythic-15-battle-body-2.png",
+      "sha256": "43ecd83ae09b0daf906b0970ccb7533fe22eddf45db456ac9612388d20cb992b",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-runtime-medium/mythic-15-battle-body-3.png",
+      "sha256": "9a02a2df2ce960978628a8a255f1ba2e45b6e22049cdf3239bd6bd4b28beba1d",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-runtime-medium/mythic-15-battle-head-0.png",
+      "sha256": "aa11f5691a2e78af6db86e1a3ee5c90e18d6343ceea28128453b4274ba05e88a",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-runtime-medium/mythic-15-battle-head-1.png",
+      "sha256": "fa11041588e7bce3a46a74e07b43562724afaea065ef878d10323e37cc4d18db",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-runtime-medium/mythic-15-battle-head-2.png",
+      "sha256": "9aa6d696584f17b7756b4d2cf7f6bd465fca7009391f5ee206eb2dba02481245",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-celestial-lion-all-clips-v2-final-runtime-medium/mythic-15-battle-head-3.png",
+      "sha256": "4867888ead28b0587b08ee8de8be0648d885744c3718a4244d6800040615e399",
+      "actuallyInspected": true,
+      "result": "pass"
+    }
+  ],
+  "techniques": [
+    {
+      "path": ".tmp/pet-companion-techniques/independent-celestial-lion-all-clips-v2-final-techniques/inspection-strips/front-block-0-half-0.png",
+      "sha256": "01b3aee6b5346d91d236de17c38492ed5a0a9dec03b067772616eefd7ac87514",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-celestial-lion-all-clips-v2-final-techniques/inspection-strips/front-block-0-half-1.png",
+      "sha256": "d5bcaec6a9936147110933a48ef5bf7f0fd2883c52328e219516aa50f136f3f9",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-celestial-lion-all-clips-v2-final-techniques/inspection-strips/front-block-1-half-0.png",
+      "sha256": "a6692598118215641f8167a6aa3fd219b4d839fd171ea0c22794cb9818ef9f41",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-celestial-lion-all-clips-v2-final-techniques/inspection-strips/front-block-1-half-1.png",
+      "sha256": "e21d7ba65723dc7d2c98dba2c1a012f2138ff1506d8720250d89cc40f23a1db3",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-celestial-lion-all-clips-v2-final-techniques/inspection-strips/front-block-2-half-0.png",
+      "sha256": "8ddb697ac754e265e72a97d0a76039467baa6d95f13116c114fcc8326c326ac4",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-celestial-lion-all-clips-v2-final-techniques/inspection-strips/front-block-2-half-1.png",
+      "sha256": "6f64d42d708b16f3cd045ee907a623c2e07b2a12ad675a9f43cb831846c7d3da",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-celestial-lion-all-clips-v2-final-techniques/inspection-strips/side-block-0-half-0.png",
+      "sha256": "4c7f3bb19ceba2046c9fa6a43617ca8defa587cb65150ac72f4551b2c3f7ebf0",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-celestial-lion-all-clips-v2-final-techniques/inspection-strips/side-block-0-half-1.png",
+      "sha256": "cab8c76e70d0cb974d9edcb58c0b2de8fe82b5508bac3a1903a9ee78a35ddeaa",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-celestial-lion-all-clips-v2-final-techniques/inspection-strips/side-block-1-half-0.png",
+      "sha256": "c9a81e56dbc604d733b972104f67da800c23bdc9098c6b3c2a1b1bb1bb169bd8",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-celestial-lion-all-clips-v2-final-techniques/inspection-strips/side-block-1-half-1.png",
+      "sha256": "f0de3b3b9f87b5f90f5c61c901ad3006f7955fbb8ad7582e82d1146adc8fd31e",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-celestial-lion-all-clips-v2-final-techniques/inspection-strips/side-block-2-half-0.png",
+      "sha256": "8abb6c9e47b3d1abbfa36ef1eae21bec7e4aef76f6f6de7ec22b51d76cd0dcbe",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-celestial-lion-all-clips-v2-final-techniques/inspection-strips/side-block-2-half-1.png",
+      "sha256": "41a07dd96476488273728a048f2c1f2a5be98d65fdbe1cb6190b7a7cd4be2863",
+      "actuallyInspected": true,
+      "result": "pass"
+    }
+  ],
+  "companion": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/celestial-lion-all-clips-v2-final-companions/mythic-15/idle-sheet-0.webp",
+      "sha256": "230f874c7f90c803191feb9dc84902af5c41b8ebb4b29ee405a70089d25f813f",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/celestial-lion-all-clips-v2-final-companions/mythic-15/idle-sheet-1.webp",
+      "sha256": "90ac43a3946369289d32a3e51fb24972a9436574cdd2df35f9a61492cbecb3b6",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/celestial-lion-all-clips-v2-final-companions/mythic-15/idle-sheet-2.webp",
+      "sha256": "a606b90f4b9668efc9f2602c029dd55a5f64588d86a17702a9819ee9549e5c2c",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/celestial-lion-all-clips-v2-final-companions/mythic-15/idle-sheet-3.webp",
+      "sha256": "8adab032eb0572d6e69b512ad621609c9aa3d94d3e8484a4e003e3b0bc4a8c9b",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/celestial-lion-all-clips-v2-final-companions/mythic-15/idle-sheet-4.webp",
+      "sha256": "1e498114005aff06bc61cb1b94f40b02e3d7099517bdb1a59e331850d6eaabff",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/celestial-lion-all-clips-v2-final-companions/mythic-15/idle-sheet-5.webp",
+      "sha256": "a90329fad61e1c627c07cd9d0376ac9e9b38be8682422073f8a528225899c5b9",
+      "actuallyInspected": true,
+      "result": "pass"
+    }
+  ],
+  "secondPassComplete": true,
+  "atlasCellsActuallyInspected": 16,
+  "atlas": {
+    "path": "public/pet-models/warfront-impostors/roster/mythic-15.webp",
+    "sha256": "26937c237705667f5d9aed44aa4ff6ee3e9e2b6140e01125319874038e96f04d",
+    "actuallyInspected": true,
+    "result": "pass"
+  },
+  "recordedAt": "2026-10-19T12:00:32.581Z",
+  "notes": "All 30 raw slices, 32 low/medium production runtime slices, 216 native technique frames, 24 advancing idle frames and 16 atlas cells actually inspected/pass in a separate second pass. White skull/muzzle, golden horns and chest markings, mane, wing roots, neck, shoulder/hip/paw and tail attachments remain coherent in source and regenerated battle delivery. Opposite-side authored defeat turns the face away behind the mane; front and primary-side head views resolve it. Runtime defeat/revive rolls the whole body; foreshortened side head views include the raised paw, while front and full-body views resolve the complete pose. No visible face stretching, tearing or detached leg motion in reviewed samples."
+}

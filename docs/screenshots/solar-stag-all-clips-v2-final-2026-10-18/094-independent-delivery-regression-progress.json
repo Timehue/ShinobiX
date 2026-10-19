@@ -1,0 +1,183 @@
+{
+  "rows": [
+    {
+      "id": "mythic-3",
+      "sourceSha256": "4fd4b4f5a38f1fd02c7a63c6091768a6396bfa973c4feb9ce8f838cb4632d498",
+      "revision": "20261018-solar-stag-all-authored-limb-performances-v2",
+      "firstPassComplete": true,
+      "secondPassComplete": false,
+      "live": false,
+      "assets": {
+        "source": {
+          "path": "shinobij.client/public/pet-models/roster/mythic-3.glb",
+          "sha256": "4fd4b4f5a38f1fd02c7a63c6091768a6396bfa973c4feb9ce8f838cb4632d498",
+          "bytes": 1209540
+        },
+        "battle": {
+          "path": "shinobij.client/public/pet-models/warfront-lod/roster/mythic-3.glb",
+          "sha256": "202ce9368aa24801bfe6323b602347f4ced2eec2390c48ec676f656389a23786",
+          "bytes": 619128
+        },
+        "atlas": {
+          "path": "shinobij.client/public/pet-models/warfront-impostors/roster/mythic-3.webp",
+          "sha256": "29e38dde82adb4dbc7ecd870555d46c93873de026edc9be38811f28aee97a885",
+          "bytes": 45748
+        }
+      },
+      "finalDeliveryRegeneration": "generated",
+      "secondPassActuallyInspected": false
+    },
+    {
+      "id": "mythic-12",
+      "sourceSha256": "731ba7e1c37b6c24ad0f57ba430fd82b418105925cd255b044d7a8524563abf0",
+      "revision": "20261018-skyglass-kirin-all-authored-limb-performances-v2",
+      "firstPassComplete": true,
+      "secondPassComplete": false,
+      "live": false,
+      "assets": {
+        "source": {
+          "path": "shinobij.client/public/pet-models/roster/mythic-12.glb",
+          "sha256": "731ba7e1c37b6c24ad0f57ba430fd82b418105925cd255b044d7a8524563abf0",
+          "bytes": 1597604
+        },
+        "battle": {
+          "path": "shinobij.client/public/pet-models/warfront-lod/roster/mythic-12.glb",
+          "sha256": "712487fa403b0112b170c435b7b0f25078dddb0f58100580ad8156b49abbc525",
+          "bytes": 1004228
+        },
+        "atlas": {
+          "path": "shinobij.client/public/pet-models/warfront-impostors/roster/mythic-12.webp",
+          "sha256": "59cc80a5954a99b47f473312c71c264523e2d7b6531a20cdb1bf019de5b50bd3",
+          "bytes": 101680
+        }
+      },
+      "finalDeliveryRegeneration": "generated",
+      "secondPassActuallyInspected": false
+    },
+    {
+      "id": "mythic-13",
+      "sourceSha256": "156d4f2a07834897a42f15a72bffb4a323db781801eef6b9fe2dae2b149e09b8",
+      "revision": "20261018-thunderbloom-kirin-all-authored-limb-performances-v2",
+      "firstPassComplete": true,
+      "secondPassComplete": false,
+      "live": false,
+      "assets": {
+        "source": {
+          "path": "shinobij.client/public/pet-models/roster/mythic-13.glb",
+          "sha256": "156d4f2a07834897a42f15a72bffb4a323db781801eef6b9fe2dae2b149e09b8",
+          "bytes": 1626792
+        },
+        "battle": {
+          "path": "shinobij.client/public/pet-models/warfront-lod/roster/mythic-13.glb",
+          "sha256": "75d4c95ebb8f879d4a6f016341e0800e9f0cd5d5949f7016bc565a410a5882eb",
+          "bytes": 1067652
+        },
+        "atlas": {
+          "path": "shinobij.client/public/pet-models/warfront-impostors/roster/mythic-13.webp",
+          "sha256": "a87a49ee67a27205ca28482d51372db313bc34f9f5f4ef8e0443356e7fab014a",
+          "bytes": 172456
+        }
+      },
+      "finalDeliveryRegeneration": "generated",
+      "secondPassActuallyInspected": false
+    },
+    {
+      "id": "mythic-14",
+      "sourceSha256": "0e90a9aa485040fb7fcf0d7307c8165fd8976283fe10f163c89d7446d1ff2470",
+      "revision": "20261018-gravepeak-behemoth-all-authored-limb-performances-v2",
+      "firstPassComplete": true,
+      "secondPassComplete": false,
+      "live": false,
+      "assets": {
+        "source": {
+          "path": "shinobij.client/public/pet-models/roster/mythic-14.glb",
+          "sha256": "0e90a9aa485040fb7fcf0d7307c8165fd8976283fe10f163c89d7446d1ff2470",
+          "bytes": 1602440
+        },
+        "battle": {
+          "path": "shinobij.client/public/pet-models/warfront-lod/roster/mythic-14.glb",
+          "sha256": "72fc74566d9bc2ca62597d52c9678ae211b5efd9a60e8e14ed68dba5e950aa5d",
+          "bytes": 937512
+        },
+        "atlas": {
+          "path": "shinobij.client/public/pet-models/warfront-impostors/roster/mythic-14.webp",
+          "sha256": "1a52775d2b8da8a34af3c988c9e39abc871c2f447fe5d430f5565aefdfaf77bb",
+          "bytes": 167726
+        }
+      },
+      "finalDeliveryRegeneration": "generated",
+      "secondPassActuallyInspected": false
+    },
+    {
+      "id": "mythic-15",
+      "sourceSha256": "a7dc5a71c0f5b25290a349cf0ad1ac4090d2daf5feb6a42a417742741d7d5075",
+      "revision": "20261018-celestial-lion-all-authored-limb-performances-v2",
+      "firstPassComplete": true,
+      "secondPassComplete": false,
+      "live": false,
+      "assets": {
+        "source": {
+          "path": "shinobij.client/public/pet-models/roster/mythic-15.glb",
+          "sha256": "a7dc5a71c0f5b25290a349cf0ad1ac4090d2daf5feb6a42a417742741d7d5075",
+          "bytes": 2278436
+        },
+        "battle": {
+          "path": "shinobij.client/public/pet-models/warfront-lod/roster/mythic-15.glb",
+          "sha256": "96800bebf4e74f19e9041024a0295d632ca82e85e79bf4c44f117f6eead30e68",
+          "bytes": 1271944
+        },
+        "atlas": {
+          "path": "shinobij.client/public/pet-models/warfront-impostors/roster/mythic-15.webp",
+          "sha256": "26937c237705667f5d9aed44aa4ff6ee3e9e2b6140e01125319874038e96f04d",
+          "bytes": 108030
+        }
+      },
+      "finalDeliveryRegeneration": "generated",
+      "secondPassActuallyInspected": false
+    }
+  ],
+  "wholeRosterComplete": false,
+  "recordedAt": "2026-10-19T09:29:53.469Z",
+  "nonselectedDeliveryManifestEntriesUnchanged": true,
+  "productionBuildPassed": true,
+  "independentAngularKeysPerStage": 216,
+  "maximumWorldAngularErrorRadians": 8.429369702178807e-8,
+  "evidence": [
+    "docs/screenshots/pet-final-five-omitted-shipping-progress-2026-10-18/private-regression.log",
+    "docs/screenshots/pet-final-five-omitted-shipping-progress-2026-10-18/final-regression.log",
+    "docs/screenshots/pet-final-five-omitted-shipping-progress-2026-10-18/generated-lod.log",
+    "docs/screenshots/pet-final-five-omitted-shipping-progress-2026-10-18/generated-atlas.log",
+    "docs/screenshots/pet-final-five-omitted-shipping-progress-2026-10-18/initial-regression-failed.log",
+    "docs/screenshots/pet-final-five-omitted-shipping-progress-2026-10-18/solar-generated-lod-curve-comparison.json",
+    "docs/screenshots/pet-final-five-omitted-shipping-progress-2026-10-18/production-build.log",
+    "docs/audits/pet-solar-omitted-first-progress-2026-10-18.json",
+    "docs/audits/pet-skyglass-omitted-first-progress-2026-10-18.json",
+    "docs/audits/pet-thunderbloom-omitted-first-progress-2026-10-18.json",
+    "docs/audits/pet-gravepeak-omitted-first-progress-2026-10-18.json",
+    "docs/audits/pet-celestial-lion-omitted-first-progress-2026-10-18.json"
+  ],
+  "evidenceSha256": {
+    "docs/screenshots/pet-final-five-omitted-shipping-progress-2026-10-18/private-regression.log": "b8d0ede77331d0220a034577dd37fa112fd2b53a819ea1f56b8a9661a89c133a",
+    "docs/screenshots/pet-final-five-omitted-shipping-progress-2026-10-18/final-regression.log": "b63541282f7052cdb472df74dfa014c179b1e9e039f5a924a2709428dd013488",
+    "docs/screenshots/pet-final-five-omitted-shipping-progress-2026-10-18/generated-lod.log": "91bef8b2c125e2bf0b23bc1fa91acff7142707617bcfc77d3b929579062b0350",
+    "docs/screenshots/pet-final-five-omitted-shipping-progress-2026-10-18/generated-atlas.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "docs/screenshots/pet-final-five-omitted-shipping-progress-2026-10-18/initial-regression-failed.log": "4f8dd1e69e54512454450ac3e5ece6872346e6d9212a05ab1183315bf930a039",
+    "docs/screenshots/pet-final-five-omitted-shipping-progress-2026-10-18/solar-generated-lod-curve-comparison.json": "d7348e9462cb694095fc1b6b50a8e63dc83986f3befe14071f049f4f4d4cfffb",
+    "docs/screenshots/pet-final-five-omitted-shipping-progress-2026-10-18/production-build.log": "396b1a35de15d0d614f080579d263c14eb056fc8b1cef9f347fc4ce40a627c92",
+    "docs/audits/pet-solar-omitted-first-progress-2026-10-18.json": "56fc92eab592e1d8841c4a713d5c30e4ecc320932c02bed3ec8253b2a3432212",
+    "docs/audits/pet-skyglass-omitted-first-progress-2026-10-18.json": "6220f0a44cd58d7bb4b95ed2324b11f72f5d1b171541cb3fea398e43179ee97e",
+    "docs/audits/pet-thunderbloom-omitted-first-progress-2026-10-18.json": "9b6c056649e703e65c71a8a9567e28cb9a2bbaa9b9dc36e508bcb2fe64539b81",
+    "docs/audits/pet-gravepeak-omitted-first-progress-2026-10-18.json": "b0a83b26156b7f6823eb6aa809ac2ca110837d74b73ef9c1637bbe3a24ecd282",
+    "docs/audits/pet-celestial-lion-omitted-first-progress-2026-10-18.json": "6e7c276d781d0818e6904254c4ec8690bcab3d7de43fd97eeea1f35eb3792d32"
+  },
+  "privateTests": {
+    "passed": 10,
+    "failed": 0
+  },
+  "finalTests": {
+    "passed": 70,
+    "failed": 0
+  },
+  "deliveryCurveValidation": "Generated LOD curves equal pinned source curves exactly, including cubic tangents and timelines. Independent direct-old-LOD angular and own-leg counterfactual checks retained. Solar old-LOD direct retarget differs by at most 1.3877787807814457e-16 due to previously exported bind-frame rounding; initial failed test and comparison retained.",
+  "status": "Local candidates only; second visual pass pending. Existing receipt hashes are not yet renewed."
+}

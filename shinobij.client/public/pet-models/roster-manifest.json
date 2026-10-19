@@ -26978,7 +26978,7 @@
       "provider": "fal-ai/hunyuan3d/v2/multi-view + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 0.96,
-      "sha256": "ACFACBA16EA3BA0E7787F8E2E4E2B29001CFA3324CD37A016CFD0A94A01A6290",
+      "sha256": "FA0F43712BC768A60BE9BAC2DE985D8D66B7EA6AED7E15BA8D856F7FFFE7EF19",
       "visualReview": {
         "passed": true,
         "reason": "Worldstorm Dragon is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation. Accepted after 2 paid reconstruction attempts; rejected candidates remain quarantined for audit."
@@ -27028,7 +27028,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 1159428,
+        "bytes": 1187116,
         "triangles": 40000,
         "vertices": 25145,
         "skins": 1,
@@ -27322,6 +27322,765 @@
             "contacts": 196
           }
         ]
+      },
+      "fittedLimbPerformanceRepair": {
+        "revision": "20261018-authored-omitted-clips-v1",
+        "sourceSha256": "acfacba16ea3ba0e7787f8e2e4e2b29001cfa3324cd37a016cfd0a94a01a6290",
+        "method": "Constant bind-frame quaternion delta retarget, including cubic derivatives and original sample times; all existing curves and skin streams retained.",
+        "clips": [
+          {
+            "name": "idle_2",
+            "retargetedChannels": [
+              {
+                "originalNode": 4,
+                "fittedNode": 23,
+                "name": "front_upper.L",
+                "originalInput": 4,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.999742108403368,
+                  0,
+                  0,
+                  0.022709717758098935
+                ]
+              },
+              {
+                "originalNode": 7,
+                "fittedNode": 26,
+                "name": "front_upper.R",
+                "originalInput": 4,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.999742108403368,
+                  0,
+                  0,
+                  0.022709717758098935
+                ]
+              }
+            ],
+            "poseWithoutOriginalLimbTrack": "Retain fitted bind pose under the existing animated torso; no invented leg movement."
+          },
+          {
+            "name": "gallop_jump",
+            "retargetedChannels": [
+              {
+                "originalNode": 4,
+                "fittedNode": 23,
+                "name": "front_upper.L",
+                "originalInput": 5,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.999742108403368,
+                  0,
+                  0,
+                  0.022709717758098935
+                ]
+              },
+              {
+                "originalNode": 3,
+                "fittedNode": 24,
+                "name": "front_lower.L",
+                "originalInput": 53,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.9997421012589636,
+                  0,
+                  0,
+                  0.02270971092533716
+                ],
+                "right": [
+                  -0.9996544365434615,
+                  0,
+                  0,
+                  -0.026288527665533044
+                ]
+              },
+              {
+                "originalNode": 2,
+                "fittedNode": 25,
+                "name": "front_paw.L",
+                "originalInput": 53,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.9996543968613744,
+                  0,
+                  0,
+                  -0.026288530497578434
+                ],
+                "right": [
+                  -0.8891676771881892,
+                  0,
+                  0,
+                  0.45758147447084985
+                ]
+              },
+              {
+                "originalNode": 7,
+                "fittedNode": 26,
+                "name": "front_upper.R",
+                "originalInput": 5,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.999742108403368,
+                  0,
+                  0,
+                  0.022709717758098935
+                ]
+              },
+              {
+                "originalNode": 6,
+                "fittedNode": 27,
+                "name": "front_lower.R",
+                "originalInput": 53,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.9997421012589636,
+                  0,
+                  0,
+                  0.02270971092533716
+                ],
+                "right": [
+                  -0.9996544365434615,
+                  0,
+                  0,
+                  -0.026288527665533044
+                ]
+              },
+              {
+                "originalNode": 5,
+                "fittedNode": 28,
+                "name": "front_paw.R",
+                "originalInput": 53,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.9996543968613744,
+                  0,
+                  0,
+                  -0.026288530497578434
+                ],
+                "right": [
+                  -0.8891676771881892,
+                  0,
+                  0,
+                  0.45758147447084985
+                ]
+              },
+              {
+                "originalNode": 15,
+                "fittedNode": 29,
+                "name": "hind_upper.L",
+                "originalInput": 5,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.9972302622977183,
+                  0,
+                  0,
+                  -0.07437626956467808
+                ]
+              },
+              {
+                "originalNode": 14,
+                "fittedNode": 30,
+                "name": "hind_lower.L",
+                "originalInput": 53,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.9972302487816287,
+                  0,
+                  0,
+                  -0.07437627924903899
+                ],
+                "right": [
+                  -0.9951333647323352,
+                  0,
+                  0,
+                  0.09853757803140513
+                ]
+              },
+              {
+                "originalNode": 13,
+                "fittedNode": 31,
+                "name": "hind_paw.L",
+                "originalInput": 53,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.9951333298184037,
+                  0,
+                  0,
+                  0.09853758615135613
+                ],
+                "right": [
+                  -0.8891676798348845,
+                  0,
+                  0,
+                  0.4575815524671741
+                ]
+              },
+              {
+                "originalNode": 18,
+                "fittedNode": 32,
+                "name": "hind_upper.R",
+                "originalInput": 5,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.9972302622977183,
+                  0,
+                  0,
+                  -0.07437626956467808
+                ]
+              },
+              {
+                "originalNode": 17,
+                "fittedNode": 33,
+                "name": "hind_lower.R",
+                "originalInput": 53,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.9972302487816287,
+                  0,
+                  0,
+                  -0.07437627924903899
+                ],
+                "right": [
+                  -0.9951333647323352,
+                  0,
+                  0,
+                  0.09853757803140513
+                ]
+              },
+              {
+                "originalNode": 16,
+                "fittedNode": 34,
+                "name": "hind_paw.R",
+                "originalInput": 53,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.9951333298184037,
+                  0,
+                  0,
+                  0.09853758615135613
+                ],
+                "right": [
+                  -0.8891676798348845,
+                  0,
+                  0,
+                  0.4575815524671741
+                ]
+              }
+            ],
+            "poseWithoutOriginalLimbTrack": "Retain fitted bind pose under the existing animated torso; no invented leg movement."
+          },
+          {
+            "name": "death",
+            "retargetedChannels": [
+              {
+                "originalNode": 4,
+                "fittedNode": 23,
+                "name": "front_upper.L",
+                "originalInput": 8,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.999742108403368,
+                  0,
+                  0,
+                  0.022709717758098935
+                ]
+              },
+              {
+                "originalNode": 7,
+                "fittedNode": 26,
+                "name": "front_upper.R",
+                "originalInput": 8,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.999742108403368,
+                  0,
+                  0,
+                  0.022709717758098935
+                ]
+              }
+            ],
+            "poseWithoutOriginalLimbTrack": "Retain fitted bind pose under the existing animated torso; no invented leg movement."
+          },
+          {
+            "name": "entrance",
+            "retargetedChannels": [
+              {
+                "originalNode": 4,
+                "fittedNode": 23,
+                "name": "front_upper.L",
+                "originalInput": 9,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.999742108403368,
+                  0,
+                  0,
+                  0.022709717758098935
+                ]
+              },
+              {
+                "originalNode": 3,
+                "fittedNode": 24,
+                "name": "front_lower.L",
+                "originalInput": 82,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.9997421012589636,
+                  0,
+                  0,
+                  0.02270971092533716
+                ],
+                "right": [
+                  -0.9996544365434615,
+                  0,
+                  0,
+                  -0.026288527665533044
+                ]
+              },
+              {
+                "originalNode": 2,
+                "fittedNode": 25,
+                "name": "front_paw.L",
+                "originalInput": 82,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.9996543968613744,
+                  0,
+                  0,
+                  -0.026288530497578434
+                ],
+                "right": [
+                  -0.8891676771881892,
+                  0,
+                  0,
+                  0.45758147447084985
+                ]
+              },
+              {
+                "originalNode": 7,
+                "fittedNode": 26,
+                "name": "front_upper.R",
+                "originalInput": 9,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.999742108403368,
+                  0,
+                  0,
+                  0.022709717758098935
+                ]
+              },
+              {
+                "originalNode": 6,
+                "fittedNode": 27,
+                "name": "front_lower.R",
+                "originalInput": 82,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.9997421012589636,
+                  0,
+                  0,
+                  0.02270971092533716
+                ],
+                "right": [
+                  -0.9996544365434615,
+                  0,
+                  0,
+                  -0.026288527665533044
+                ]
+              },
+              {
+                "originalNode": 5,
+                "fittedNode": 28,
+                "name": "front_paw.R",
+                "originalInput": 82,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.9996543968613744,
+                  0,
+                  0,
+                  -0.026288530497578434
+                ],
+                "right": [
+                  -0.8891676771881892,
+                  0,
+                  0,
+                  0.45758147447084985
+                ]
+              },
+              {
+                "originalNode": 15,
+                "fittedNode": 29,
+                "name": "hind_upper.L",
+                "originalInput": 9,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.9972302622977183,
+                  0,
+                  0,
+                  -0.07437626956467808
+                ]
+              },
+              {
+                "originalNode": 14,
+                "fittedNode": 30,
+                "name": "hind_lower.L",
+                "originalInput": 82,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.9972302487816287,
+                  0,
+                  0,
+                  -0.07437627924903899
+                ],
+                "right": [
+                  -0.9951333647323352,
+                  0,
+                  0,
+                  0.09853757803140513
+                ]
+              },
+              {
+                "originalNode": 13,
+                "fittedNode": 31,
+                "name": "hind_paw.L",
+                "originalInput": 82,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.9951333298184037,
+                  0,
+                  0,
+                  0.09853758615135613
+                ],
+                "right": [
+                  -0.8891676798348845,
+                  0,
+                  0,
+                  0.4575815524671741
+                ]
+              },
+              {
+                "originalNode": 18,
+                "fittedNode": 32,
+                "name": "hind_upper.R",
+                "originalInput": 9,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.9972302622977183,
+                  0,
+                  0,
+                  -0.07437626956467808
+                ]
+              },
+              {
+                "originalNode": 17,
+                "fittedNode": 33,
+                "name": "hind_lower.R",
+                "originalInput": 82,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.9972302487816287,
+                  0,
+                  0,
+                  -0.07437627924903899
+                ],
+                "right": [
+                  -0.9951333647323352,
+                  0,
+                  0,
+                  0.09853757803140513
+                ]
+              },
+              {
+                "originalNode": 16,
+                "fittedNode": 34,
+                "name": "hind_paw.R",
+                "originalInput": 82,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.9951333298184037,
+                  0,
+                  0,
+                  0.09853758615135613
+                ],
+                "right": [
+                  -0.8891676798348845,
+                  0,
+                  0,
+                  0.4575815524671741
+                ]
+              }
+            ],
+            "poseWithoutOriginalLimbTrack": "Retain fitted bind pose under the existing animated torso; no invented leg movement."
+          },
+          {
+            "name": "victory",
+            "retargetedChannels": [
+              {
+                "originalNode": 4,
+                "fittedNode": 23,
+                "name": "front_upper.L",
+                "originalInput": 11,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.999742108403368,
+                  0,
+                  0,
+                  0.022709717758098935
+                ]
+              },
+              {
+                "originalNode": 3,
+                "fittedNode": 24,
+                "name": "front_lower.L",
+                "originalInput": 101,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.9997421012589636,
+                  0,
+                  0,
+                  0.02270971092533716
+                ],
+                "right": [
+                  -0.9996544365434615,
+                  0,
+                  0,
+                  -0.026288527665533044
+                ]
+              },
+              {
+                "originalNode": 2,
+                "fittedNode": 25,
+                "name": "front_paw.L",
+                "originalInput": 101,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.9996543968613744,
+                  0,
+                  0,
+                  -0.026288530497578434
+                ],
+                "right": [
+                  -0.8891676771881892,
+                  0,
+                  0,
+                  0.45758147447084985
+                ]
+              },
+              {
+                "originalNode": 7,
+                "fittedNode": 26,
+                "name": "front_upper.R",
+                "originalInput": 11,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.999742108403368,
+                  0,
+                  0,
+                  0.022709717758098935
+                ]
+              },
+              {
+                "originalNode": 6,
+                "fittedNode": 27,
+                "name": "front_lower.R",
+                "originalInput": 101,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.9997421012589636,
+                  0,
+                  0,
+                  0.02270971092533716
+                ],
+                "right": [
+                  -0.9996544365434615,
+                  0,
+                  0,
+                  -0.026288527665533044
+                ]
+              },
+              {
+                "originalNode": 5,
+                "fittedNode": 28,
+                "name": "front_paw.R",
+                "originalInput": 101,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.9996543968613744,
+                  0,
+                  0,
+                  -0.026288530497578434
+                ],
+                "right": [
+                  -0.8891676771881892,
+                  0,
+                  0,
+                  0.45758147447084985
+                ]
+              },
+              {
+                "originalNode": 14,
+                "fittedNode": 30,
+                "name": "hind_lower.L",
+                "originalInput": 101,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.9972302487816287,
+                  0,
+                  0,
+                  -0.07437627924903899
+                ],
+                "right": [
+                  -0.9951333647323352,
+                  0,
+                  0,
+                  0.09853757803140513
+                ]
+              },
+              {
+                "originalNode": 13,
+                "fittedNode": 31,
+                "name": "hind_paw.L",
+                "originalInput": 101,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.9951333298184037,
+                  0,
+                  0,
+                  0.09853758615135613
+                ],
+                "right": [
+                  -0.8891676798348845,
+                  0,
+                  0,
+                  0.4575815524671741
+                ]
+              },
+              {
+                "originalNode": 17,
+                "fittedNode": 33,
+                "name": "hind_lower.R",
+                "originalInput": 101,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.9972302487816287,
+                  0,
+                  0,
+                  -0.07437627924903899
+                ],
+                "right": [
+                  -0.9951333647323352,
+                  0,
+                  0,
+                  0.09853757803140513
+                ]
+              },
+              {
+                "originalNode": 16,
+                "fittedNode": 34,
+                "name": "hind_paw.R",
+                "originalInput": 101,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.9951333298184037,
+                  0,
+                  0,
+                  0.09853758615135613
+                ],
+                "right": [
+                  -0.8891676798348845,
+                  0,
+                  0,
+                  0.4575815524671741
+                ]
+              }
+            ],
+            "poseWithoutOriginalLimbTrack": "Retain fitted bind pose under the existing animated torso; no invented leg movement."
+          }
+        ]
       }
     },
     "mythic-2": {
@@ -27511,7 +28270,7 @@
       "provider": "fal-ai/hunyuan3d/v2 side-view fallback + Blender 4.5 LTS",
       "textured": true,
       "estimatedGenerationCostUsd": 1.44,
-      "sha256": "AE390C352980C1456700AD240628E3F46435B4E52C687AFE04C73E011093B427",
+      "sha256": "4FD4B4F5A38F1FD02C7A63C6091768A6396BFA973C4FEB9CE8F838CB4632D498",
       "visualReview": {
         "passed": true,
         "reason": "Solar Stag is a complete, professionally reviewed anime-styled battle model with coherent silhouette, species-appropriate anatomy, stable accessories, and clean animation deformation. Accepted after 3 paid reconstruction attempts; rejected candidates remain quarantined for audit."
@@ -27561,7 +28320,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 1179628,
+        "bytes": 1209540,
         "triangles": 40000,
         "vertices": 23832,
         "skins": 1,
@@ -27953,6 +28712,765 @@
             "name": "victory",
             "keys": 78,
             "tracks": 2
+          }
+        ]
+      },
+      "fittedLimbPerformanceRepair": {
+        "revision": "20261018-authored-omitted-clips-v1",
+        "sourceSha256": "ae390c352980c1456700ad240628e3f46435b4e52c687afe04c73e011093b427",
+        "method": "Constant bind-frame quaternion delta retarget, including cubic derivatives and original sample times; all existing curves and skin streams retained.",
+        "clips": [
+          {
+            "name": "idle_2",
+            "retargetedChannels": [
+              {
+                "originalNode": 4,
+                "fittedNode": 23,
+                "name": "front_upper.L",
+                "originalInput": 4,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7069244242897581,
+                  -0.016058195425584287,
+                  0.706924424289758,
+                  0.016058195425584232
+                ]
+              },
+              {
+                "originalNode": 7,
+                "fittedNode": 26,
+                "name": "front_upper.R",
+                "originalInput": 4,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7069244242897581,
+                  -0.016058195425584287,
+                  0.706924424289758,
+                  0.016058195425584232
+                ]
+              }
+            ],
+            "poseWithoutOriginalLimbTrack": "Retain fitted bind pose under the existing animated torso; no invented leg movement."
+          },
+          {
+            "name": "gallop_jump",
+            "retargetedChannels": [
+              {
+                "originalNode": 4,
+                "fittedNode": 23,
+                "name": "front_upper.L",
+                "originalInput": 5,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7069244242897581,
+                  -0.016058195425584287,
+                  0.706924424289758,
+                  0.016058195425584232
+                ]
+              },
+              {
+                "originalNode": 3,
+                "fittedNode": 24,
+                "name": "front_lower.L",
+                "originalInput": 53,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7069244192379013,
+                  0.01605819059409209,
+                  -0.7069244192379012,
+                  0.01605819059409207
+                ],
+                "right": [
+                  -0.706862430923099,
+                  0.01858879617970861,
+                  0.7068624309230989,
+                  -0.018588796179708635
+                ]
+              },
+              {
+                "originalNode": 2,
+                "fittedNode": 25,
+                "name": "front_paw.L",
+                "originalInput": 53,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.706862402863626,
+                  -0.01858879818226711,
+                  -0.7068624028636259,
+                  -0.018588798182267136
+                ],
+                "right": [
+                  -0.6287364941516597,
+                  -0.3235589635436769,
+                  0.6287364941516596,
+                  0.32355896354367697
+                ]
+              },
+              {
+                "originalNode": 7,
+                "fittedNode": 26,
+                "name": "front_upper.R",
+                "originalInput": 5,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7069244242897581,
+                  -0.016058195425584287,
+                  0.706924424289758,
+                  0.016058195425584232
+                ]
+              },
+              {
+                "originalNode": 6,
+                "fittedNode": 27,
+                "name": "front_lower.R",
+                "originalInput": 53,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7069244192379013,
+                  0.01605819059409209,
+                  -0.7069244192379012,
+                  0.01605819059409207
+                ],
+                "right": [
+                  -0.706862430923099,
+                  0.01858879617970861,
+                  0.7068624309230989,
+                  -0.018588796179708635
+                ]
+              },
+              {
+                "originalNode": 5,
+                "fittedNode": 28,
+                "name": "front_paw.R",
+                "originalInput": 53,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.706862402863626,
+                  -0.01858879818226711,
+                  -0.7068624028636259,
+                  -0.018588798182267136
+                ],
+                "right": [
+                  -0.6287364941516597,
+                  -0.3235589635436769,
+                  0.6287364941516596,
+                  0.32355896354367697
+                ]
+              },
+              {
+                "originalNode": 15,
+                "fittedNode": 29,
+                "name": "hind_upper.L",
+                "originalInput": 5,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7051482808751561,
+                  0.052591964568542426,
+                  0.705148280875156,
+                  -0.05259196456854248
+                ]
+              },
+              {
+                "originalNode": 14,
+                "fittedNode": 30,
+                "name": "hind_lower.L",
+                "originalInput": 53,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7051482713178375,
+                  -0.052591971416419775,
+                  -0.7051482713178374,
+                  -0.052591971416419823
+                ],
+                "right": [
+                  -0.7036655503872201,
+                  -0.06967658962770512,
+                  0.70366555038722,
+                  0.06967658962770508
+                ]
+              },
+              {
+                "originalNode": 13,
+                "fittedNode": 31,
+                "name": "hind_paw.L",
+                "originalInput": 53,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7036655256993425,
+                  0.06967659536937754,
+                  -0.7036655256993424,
+                  0.06967659536937751
+                ],
+                "right": [
+                  -0.6287364960231558,
+                  -0.3235590186954067,
+                  0.6287364960231558,
+                  0.32355901869540676
+                ]
+              },
+              {
+                "originalNode": 18,
+                "fittedNode": 32,
+                "name": "hind_upper.R",
+                "originalInput": 5,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7051482808751561,
+                  0.052591964568542426,
+                  0.705148280875156,
+                  -0.05259196456854248
+                ]
+              },
+              {
+                "originalNode": 17,
+                "fittedNode": 33,
+                "name": "hind_lower.R",
+                "originalInput": 53,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7051482713178375,
+                  -0.052591971416419775,
+                  -0.7051482713178374,
+                  -0.052591971416419823
+                ],
+                "right": [
+                  -0.7036655503872201,
+                  -0.06967658962770512,
+                  0.70366555038722,
+                  0.06967658962770508
+                ]
+              },
+              {
+                "originalNode": 16,
+                "fittedNode": 34,
+                "name": "hind_paw.R",
+                "originalInput": 53,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7036655256993425,
+                  0.06967659536937754,
+                  -0.7036655256993424,
+                  0.06967659536937751
+                ],
+                "right": [
+                  -0.6287364960231558,
+                  -0.3235590186954067,
+                  0.6287364960231558,
+                  0.32355901869540676
+                ]
+              }
+            ],
+            "poseWithoutOriginalLimbTrack": "Retain fitted bind pose under the existing animated torso; no invented leg movement."
+          },
+          {
+            "name": "death",
+            "retargetedChannels": [
+              {
+                "originalNode": 4,
+                "fittedNode": 23,
+                "name": "front_upper.L",
+                "originalInput": 8,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7069244242897581,
+                  -0.016058195425584287,
+                  0.706924424289758,
+                  0.016058195425584232
+                ]
+              },
+              {
+                "originalNode": 7,
+                "fittedNode": 26,
+                "name": "front_upper.R",
+                "originalInput": 8,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7069244242897581,
+                  -0.016058195425584287,
+                  0.706924424289758,
+                  0.016058195425584232
+                ]
+              }
+            ],
+            "poseWithoutOriginalLimbTrack": "Retain fitted bind pose under the existing animated torso; no invented leg movement."
+          },
+          {
+            "name": "entrance",
+            "retargetedChannels": [
+              {
+                "originalNode": 4,
+                "fittedNode": 23,
+                "name": "front_upper.L",
+                "originalInput": 9,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7069244242897581,
+                  -0.016058195425584287,
+                  0.706924424289758,
+                  0.016058195425584232
+                ]
+              },
+              {
+                "originalNode": 3,
+                "fittedNode": 24,
+                "name": "front_lower.L",
+                "originalInput": 82,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7069244192379013,
+                  0.01605819059409209,
+                  -0.7069244192379012,
+                  0.01605819059409207
+                ],
+                "right": [
+                  -0.706862430923099,
+                  0.01858879617970861,
+                  0.7068624309230989,
+                  -0.018588796179708635
+                ]
+              },
+              {
+                "originalNode": 2,
+                "fittedNode": 25,
+                "name": "front_paw.L",
+                "originalInput": 82,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.706862402863626,
+                  -0.01858879818226711,
+                  -0.7068624028636259,
+                  -0.018588798182267136
+                ],
+                "right": [
+                  -0.6287364941516597,
+                  -0.3235589635436769,
+                  0.6287364941516596,
+                  0.32355896354367697
+                ]
+              },
+              {
+                "originalNode": 7,
+                "fittedNode": 26,
+                "name": "front_upper.R",
+                "originalInput": 9,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7069244242897581,
+                  -0.016058195425584287,
+                  0.706924424289758,
+                  0.016058195425584232
+                ]
+              },
+              {
+                "originalNode": 6,
+                "fittedNode": 27,
+                "name": "front_lower.R",
+                "originalInput": 82,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7069244192379013,
+                  0.01605819059409209,
+                  -0.7069244192379012,
+                  0.01605819059409207
+                ],
+                "right": [
+                  -0.706862430923099,
+                  0.01858879617970861,
+                  0.7068624309230989,
+                  -0.018588796179708635
+                ]
+              },
+              {
+                "originalNode": 5,
+                "fittedNode": 28,
+                "name": "front_paw.R",
+                "originalInput": 82,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.706862402863626,
+                  -0.01858879818226711,
+                  -0.7068624028636259,
+                  -0.018588798182267136
+                ],
+                "right": [
+                  -0.6287364941516597,
+                  -0.3235589635436769,
+                  0.6287364941516596,
+                  0.32355896354367697
+                ]
+              },
+              {
+                "originalNode": 15,
+                "fittedNode": 29,
+                "name": "hind_upper.L",
+                "originalInput": 9,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7051482808751561,
+                  0.052591964568542426,
+                  0.705148280875156,
+                  -0.05259196456854248
+                ]
+              },
+              {
+                "originalNode": 14,
+                "fittedNode": 30,
+                "name": "hind_lower.L",
+                "originalInput": 82,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7051482713178375,
+                  -0.052591971416419775,
+                  -0.7051482713178374,
+                  -0.052591971416419823
+                ],
+                "right": [
+                  -0.7036655503872201,
+                  -0.06967658962770512,
+                  0.70366555038722,
+                  0.06967658962770508
+                ]
+              },
+              {
+                "originalNode": 13,
+                "fittedNode": 31,
+                "name": "hind_paw.L",
+                "originalInput": 82,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7036655256993425,
+                  0.06967659536937754,
+                  -0.7036655256993424,
+                  0.06967659536937751
+                ],
+                "right": [
+                  -0.6287364960231558,
+                  -0.3235590186954067,
+                  0.6287364960231558,
+                  0.32355901869540676
+                ]
+              },
+              {
+                "originalNode": 18,
+                "fittedNode": 32,
+                "name": "hind_upper.R",
+                "originalInput": 9,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7051482808751561,
+                  0.052591964568542426,
+                  0.705148280875156,
+                  -0.05259196456854248
+                ]
+              },
+              {
+                "originalNode": 17,
+                "fittedNode": 33,
+                "name": "hind_lower.R",
+                "originalInput": 82,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7051482713178375,
+                  -0.052591971416419775,
+                  -0.7051482713178374,
+                  -0.052591971416419823
+                ],
+                "right": [
+                  -0.7036655503872201,
+                  -0.06967658962770512,
+                  0.70366555038722,
+                  0.06967658962770508
+                ]
+              },
+              {
+                "originalNode": 16,
+                "fittedNode": 34,
+                "name": "hind_paw.R",
+                "originalInput": 82,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7036655256993425,
+                  0.06967659536937754,
+                  -0.7036655256993424,
+                  0.06967659536937751
+                ],
+                "right": [
+                  -0.6287364960231558,
+                  -0.3235590186954067,
+                  0.6287364960231558,
+                  0.32355901869540676
+                ]
+              }
+            ],
+            "poseWithoutOriginalLimbTrack": "Retain fitted bind pose under the existing animated torso; no invented leg movement."
+          },
+          {
+            "name": "victory",
+            "retargetedChannels": [
+              {
+                "originalNode": 4,
+                "fittedNode": 23,
+                "name": "front_upper.L",
+                "originalInput": 11,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7069244242897581,
+                  -0.016058195425584287,
+                  0.706924424289758,
+                  0.016058195425584232
+                ]
+              },
+              {
+                "originalNode": 3,
+                "fittedNode": 24,
+                "name": "front_lower.L",
+                "originalInput": 101,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7069244192379013,
+                  0.01605819059409209,
+                  -0.7069244192379012,
+                  0.01605819059409207
+                ],
+                "right": [
+                  -0.706862430923099,
+                  0.01858879617970861,
+                  0.7068624309230989,
+                  -0.018588796179708635
+                ]
+              },
+              {
+                "originalNode": 2,
+                "fittedNode": 25,
+                "name": "front_paw.L",
+                "originalInput": 101,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.706862402863626,
+                  -0.01858879818226711,
+                  -0.7068624028636259,
+                  -0.018588798182267136
+                ],
+                "right": [
+                  -0.6287364941516597,
+                  -0.3235589635436769,
+                  0.6287364941516596,
+                  0.32355896354367697
+                ]
+              },
+              {
+                "originalNode": 7,
+                "fittedNode": 26,
+                "name": "front_upper.R",
+                "originalInput": 11,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7069244242897581,
+                  -0.016058195425584287,
+                  0.706924424289758,
+                  0.016058195425584232
+                ]
+              },
+              {
+                "originalNode": 6,
+                "fittedNode": 27,
+                "name": "front_lower.R",
+                "originalInput": 101,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7069244192379013,
+                  0.01605819059409209,
+                  -0.7069244192379012,
+                  0.01605819059409207
+                ],
+                "right": [
+                  -0.706862430923099,
+                  0.01858879617970861,
+                  0.7068624309230989,
+                  -0.018588796179708635
+                ]
+              },
+              {
+                "originalNode": 5,
+                "fittedNode": 28,
+                "name": "front_paw.R",
+                "originalInput": 101,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.706862402863626,
+                  -0.01858879818226711,
+                  -0.7068624028636259,
+                  -0.018588798182267136
+                ],
+                "right": [
+                  -0.6287364941516597,
+                  -0.3235589635436769,
+                  0.6287364941516596,
+                  0.32355896354367697
+                ]
+              },
+              {
+                "originalNode": 14,
+                "fittedNode": 30,
+                "name": "hind_lower.L",
+                "originalInput": 101,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7051482713178375,
+                  -0.052591971416419775,
+                  -0.7051482713178374,
+                  -0.052591971416419823
+                ],
+                "right": [
+                  -0.7036655503872201,
+                  -0.06967658962770512,
+                  0.70366555038722,
+                  0.06967658962770508
+                ]
+              },
+              {
+                "originalNode": 13,
+                "fittedNode": 31,
+                "name": "hind_paw.L",
+                "originalInput": 101,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7036655256993425,
+                  0.06967659536937754,
+                  -0.7036655256993424,
+                  0.06967659536937751
+                ],
+                "right": [
+                  -0.6287364960231558,
+                  -0.3235590186954067,
+                  0.6287364960231558,
+                  0.32355901869540676
+                ]
+              },
+              {
+                "originalNode": 17,
+                "fittedNode": 33,
+                "name": "hind_lower.R",
+                "originalInput": 101,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7051482713178375,
+                  -0.052591971416419775,
+                  -0.7051482713178374,
+                  -0.052591971416419823
+                ],
+                "right": [
+                  -0.7036655503872201,
+                  -0.06967658962770512,
+                  0.70366555038722,
+                  0.06967658962770508
+                ]
+              },
+              {
+                "originalNode": 16,
+                "fittedNode": 34,
+                "name": "hind_paw.R",
+                "originalInput": 101,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7036655256993425,
+                  0.06967659536937754,
+                  -0.7036655256993424,
+                  0.06967659536937751
+                ],
+                "right": [
+                  -0.6287364960231558,
+                  -0.3235590186954067,
+                  0.6287364960231558,
+                  0.32355901869540676
+                ]
+              }
+            ],
+            "poseWithoutOriginalLimbTrack": "Retain fitted bind pose under the existing animated torso; no invented leg movement."
           }
         ]
       }
@@ -31438,7 +32956,7 @@
       "generatedAt": "2026-08-03T12:00:00.000Z",
       "provider": "fal-ai/hunyuan3d-v3/multi-view + deterministic 21-bone production rig",
       "textured": true,
-      "sha256": "9D39B74C479917BACA5FEFC7A6244794C5D597B2E2F515FE98323A8455BA3428",
+      "sha256": "731BA7E1C37B6C24AD0F57BA430FD82B418105925CD255B044D7A8524563ABF0",
       "visualReview": {
         "passed": true,
         "views": [
@@ -31451,7 +32969,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 1569996,
+        "bytes": 1597604,
         "triangles": 20063,
         "vertices": 19753,
         "materials": 1,
@@ -31740,6 +33258,765 @@
             "contacts": 196
           }
         ]
+      },
+      "fittedLimbPerformanceRepair": {
+        "revision": "20261018-authored-omitted-clips-v1",
+        "sourceSha256": "9d39b74c479917baca5fefc7a6244794c5d597b2e2f515fe98323a8455ba3428",
+        "method": "Constant bind-frame quaternion delta retarget, including cubic derivatives and original sample times; all existing curves and skin streams retained.",
+        "clips": [
+          {
+            "name": "idle_2",
+            "retargetedChannels": [
+              {
+                "originalNode": 7,
+                "fittedNode": 23,
+                "name": "front_upper.L",
+                "originalInput": 4,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 10,
+                "fittedNode": 26,
+                "name": "front_upper.R",
+                "originalInput": 4,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              }
+            ],
+            "poseWithoutOriginalLimbTrack": "Retain fitted bind pose under the existing animated torso; no invented leg movement."
+          },
+          {
+            "name": "gallop_jump",
+            "retargetedChannels": [
+              {
+                "originalNode": 7,
+                "fittedNode": 23,
+                "name": "front_upper.L",
+                "originalInput": 5,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 8,
+                "fittedNode": 24,
+                "name": "front_lower.L",
+                "originalInput": 53,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 9,
+                "fittedNode": 25,
+                "name": "front_paw.L",
+                "originalInput": 53,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 10,
+                "fittedNode": 26,
+                "name": "front_upper.R",
+                "originalInput": 5,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 11,
+                "fittedNode": 27,
+                "name": "front_lower.R",
+                "originalInput": 53,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 12,
+                "fittedNode": 28,
+                "name": "front_paw.R",
+                "originalInput": 53,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 16,
+                "fittedNode": 29,
+                "name": "hind_upper.L",
+                "originalInput": 5,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 17,
+                "fittedNode": 30,
+                "name": "hind_lower.L",
+                "originalInput": 53,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 18,
+                "fittedNode": 31,
+                "name": "hind_paw.L",
+                "originalInput": 53,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 19,
+                "fittedNode": 32,
+                "name": "hind_upper.R",
+                "originalInput": 5,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 20,
+                "fittedNode": 33,
+                "name": "hind_lower.R",
+                "originalInput": 53,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 21,
+                "fittedNode": 34,
+                "name": "hind_paw.R",
+                "originalInput": 53,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              }
+            ],
+            "poseWithoutOriginalLimbTrack": "Retain fitted bind pose under the existing animated torso; no invented leg movement."
+          },
+          {
+            "name": "death",
+            "retargetedChannels": [
+              {
+                "originalNode": 7,
+                "fittedNode": 23,
+                "name": "front_upper.L",
+                "originalInput": 8,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 10,
+                "fittedNode": 26,
+                "name": "front_upper.R",
+                "originalInput": 8,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              }
+            ],
+            "poseWithoutOriginalLimbTrack": "Retain fitted bind pose under the existing animated torso; no invented leg movement."
+          },
+          {
+            "name": "entrance",
+            "retargetedChannels": [
+              {
+                "originalNode": 7,
+                "fittedNode": 23,
+                "name": "front_upper.L",
+                "originalInput": 9,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 8,
+                "fittedNode": 24,
+                "name": "front_lower.L",
+                "originalInput": 82,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 9,
+                "fittedNode": 25,
+                "name": "front_paw.L",
+                "originalInput": 82,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 10,
+                "fittedNode": 26,
+                "name": "front_upper.R",
+                "originalInput": 9,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 11,
+                "fittedNode": 27,
+                "name": "front_lower.R",
+                "originalInput": 82,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 12,
+                "fittedNode": 28,
+                "name": "front_paw.R",
+                "originalInput": 82,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 16,
+                "fittedNode": 29,
+                "name": "hind_upper.L",
+                "originalInput": 9,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 17,
+                "fittedNode": 30,
+                "name": "hind_lower.L",
+                "originalInput": 82,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 18,
+                "fittedNode": 31,
+                "name": "hind_paw.L",
+                "originalInput": 82,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 19,
+                "fittedNode": 32,
+                "name": "hind_upper.R",
+                "originalInput": 9,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 20,
+                "fittedNode": 33,
+                "name": "hind_lower.R",
+                "originalInput": 82,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 21,
+                "fittedNode": 34,
+                "name": "hind_paw.R",
+                "originalInput": 82,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              }
+            ],
+            "poseWithoutOriginalLimbTrack": "Retain fitted bind pose under the existing animated torso; no invented leg movement."
+          },
+          {
+            "name": "victory",
+            "retargetedChannels": [
+              {
+                "originalNode": 7,
+                "fittedNode": 23,
+                "name": "front_upper.L",
+                "originalInput": 11,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 8,
+                "fittedNode": 24,
+                "name": "front_lower.L",
+                "originalInput": 101,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 9,
+                "fittedNode": 25,
+                "name": "front_paw.L",
+                "originalInput": 101,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 10,
+                "fittedNode": 26,
+                "name": "front_upper.R",
+                "originalInput": 11,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 11,
+                "fittedNode": 27,
+                "name": "front_lower.R",
+                "originalInput": 101,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 12,
+                "fittedNode": 28,
+                "name": "front_paw.R",
+                "originalInput": 101,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 17,
+                "fittedNode": 30,
+                "name": "hind_lower.L",
+                "originalInput": 101,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 18,
+                "fittedNode": 31,
+                "name": "hind_paw.L",
+                "originalInput": 101,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 20,
+                "fittedNode": 33,
+                "name": "hind_lower.R",
+                "originalInput": 101,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 21,
+                "fittedNode": 34,
+                "name": "hind_paw.R",
+                "originalInput": 101,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              }
+            ],
+            "poseWithoutOriginalLimbTrack": "Retain fitted bind pose under the existing animated torso; no invented leg movement."
+          }
+        ]
       }
     },
     "mythic-13": {
@@ -31752,7 +34029,7 @@
       "generatedAt": "2026-08-03T12:00:00.000Z",
       "provider": "fal-ai/hunyuan3d-v3/multi-view + deterministic 21-bone production rig",
       "textured": true,
-      "sha256": "62EABAF7202D7D74084F0FDB2EA21F73B13A798E58C019B4CEC4C340EF0DC77B",
+      "sha256": "156D4F2A07834897A42F15A72BFFB4A323DB781801EEF6B9FE2DAE2B149E09B8",
       "visualReview": {
         "passed": true,
         "views": [
@@ -31765,7 +34042,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 1599184,
+        "bytes": 1626792,
         "triangles": 16142,
         "vertices": 14752,
         "materials": 1,
@@ -32165,6 +34442,765 @@
             "contacts": 196
           }
         ]
+      },
+      "fittedLimbPerformanceRepair": {
+        "revision": "20261018-authored-omitted-clips-v1",
+        "sourceSha256": "62eabaf7202d7d74084f0fdb2ea21f73b13a798e58c019b4cec4c340ef0dc77b",
+        "method": "Constant bind-frame quaternion delta retarget, including cubic derivatives and original sample times; all existing curves and skin streams retained.",
+        "clips": [
+          {
+            "name": "idle_2",
+            "retargetedChannels": [
+              {
+                "originalNode": 7,
+                "fittedNode": 23,
+                "name": "front_upper.L",
+                "originalInput": 4,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 10,
+                "fittedNode": 26,
+                "name": "front_upper.R",
+                "originalInput": 4,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              }
+            ],
+            "poseWithoutOriginalLimbTrack": "Retain fitted bind pose under the existing animated torso; no invented leg movement."
+          },
+          {
+            "name": "gallop_jump",
+            "retargetedChannels": [
+              {
+                "originalNode": 7,
+                "fittedNode": 23,
+                "name": "front_upper.L",
+                "originalInput": 5,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 8,
+                "fittedNode": 24,
+                "name": "front_lower.L",
+                "originalInput": 53,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 9,
+                "fittedNode": 25,
+                "name": "front_paw.L",
+                "originalInput": 53,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 10,
+                "fittedNode": 26,
+                "name": "front_upper.R",
+                "originalInput": 5,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 11,
+                "fittedNode": 27,
+                "name": "front_lower.R",
+                "originalInput": 53,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 12,
+                "fittedNode": 28,
+                "name": "front_paw.R",
+                "originalInput": 53,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 16,
+                "fittedNode": 29,
+                "name": "hind_upper.L",
+                "originalInput": 5,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 17,
+                "fittedNode": 30,
+                "name": "hind_lower.L",
+                "originalInput": 53,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 18,
+                "fittedNode": 31,
+                "name": "hind_paw.L",
+                "originalInput": 53,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 19,
+                "fittedNode": 32,
+                "name": "hind_upper.R",
+                "originalInput": 5,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 20,
+                "fittedNode": 33,
+                "name": "hind_lower.R",
+                "originalInput": 53,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 21,
+                "fittedNode": 34,
+                "name": "hind_paw.R",
+                "originalInput": 53,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              }
+            ],
+            "poseWithoutOriginalLimbTrack": "Retain fitted bind pose under the existing animated torso; no invented leg movement."
+          },
+          {
+            "name": "death",
+            "retargetedChannels": [
+              {
+                "originalNode": 7,
+                "fittedNode": 23,
+                "name": "front_upper.L",
+                "originalInput": 8,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 10,
+                "fittedNode": 26,
+                "name": "front_upper.R",
+                "originalInput": 8,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              }
+            ],
+            "poseWithoutOriginalLimbTrack": "Retain fitted bind pose under the existing animated torso; no invented leg movement."
+          },
+          {
+            "name": "entrance",
+            "retargetedChannels": [
+              {
+                "originalNode": 7,
+                "fittedNode": 23,
+                "name": "front_upper.L",
+                "originalInput": 9,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 8,
+                "fittedNode": 24,
+                "name": "front_lower.L",
+                "originalInput": 82,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 9,
+                "fittedNode": 25,
+                "name": "front_paw.L",
+                "originalInput": 82,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 10,
+                "fittedNode": 26,
+                "name": "front_upper.R",
+                "originalInput": 9,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 11,
+                "fittedNode": 27,
+                "name": "front_lower.R",
+                "originalInput": 82,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 12,
+                "fittedNode": 28,
+                "name": "front_paw.R",
+                "originalInput": 82,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 16,
+                "fittedNode": 29,
+                "name": "hind_upper.L",
+                "originalInput": 9,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 17,
+                "fittedNode": 30,
+                "name": "hind_lower.L",
+                "originalInput": 82,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 18,
+                "fittedNode": 31,
+                "name": "hind_paw.L",
+                "originalInput": 82,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 19,
+                "fittedNode": 32,
+                "name": "hind_upper.R",
+                "originalInput": 9,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 20,
+                "fittedNode": 33,
+                "name": "hind_lower.R",
+                "originalInput": 82,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 21,
+                "fittedNode": 34,
+                "name": "hind_paw.R",
+                "originalInput": 82,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              }
+            ],
+            "poseWithoutOriginalLimbTrack": "Retain fitted bind pose under the existing animated torso; no invented leg movement."
+          },
+          {
+            "name": "victory",
+            "retargetedChannels": [
+              {
+                "originalNode": 7,
+                "fittedNode": 23,
+                "name": "front_upper.L",
+                "originalInput": 11,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 8,
+                "fittedNode": 24,
+                "name": "front_lower.L",
+                "originalInput": 101,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 9,
+                "fittedNode": 25,
+                "name": "front_paw.L",
+                "originalInput": 101,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 10,
+                "fittedNode": 26,
+                "name": "front_upper.R",
+                "originalInput": 11,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 11,
+                "fittedNode": 27,
+                "name": "front_lower.R",
+                "originalInput": 101,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 12,
+                "fittedNode": 28,
+                "name": "front_paw.R",
+                "originalInput": 101,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 17,
+                "fittedNode": 30,
+                "name": "hind_lower.L",
+                "originalInput": 101,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 18,
+                "fittedNode": 31,
+                "name": "hind_paw.L",
+                "originalInput": 101,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 20,
+                "fittedNode": 33,
+                "name": "hind_lower.R",
+                "originalInput": 101,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 21,
+                "fittedNode": 34,
+                "name": "hind_paw.R",
+                "originalInput": 101,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              }
+            ],
+            "poseWithoutOriginalLimbTrack": "Retain fitted bind pose under the existing animated torso; no invented leg movement."
+          }
+        ]
       }
     },
     "mythic-14": {
@@ -32177,7 +35213,7 @@
       "generatedAt": "2026-08-03T12:00:00.000Z",
       "provider": "fal-ai/hunyuan3d-v3/multi-view + deterministic 21-bone production rig",
       "textured": true,
-      "sha256": "EDCFC08D7230F99DF9C32667E8ED20DC9D64FBF6C1D8DFC1811BE9113B3406A1",
+      "sha256": "0E90A9AA485040FB7FCF0D7307C8165FD8976283FE10F163C89D7446D1FF2470",
       "visualReview": {
         "passed": true,
         "views": [
@@ -32190,7 +35226,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 1574848,
+        "bytes": 1602440,
         "triangles": 22328,
         "vertices": 15743,
         "materials": 1,
@@ -32584,6 +35620,765 @@
             "contacts": 196
           }
         ]
+      },
+      "fittedLimbPerformanceRepair": {
+        "revision": "20261018-authored-omitted-clips-v1",
+        "sourceSha256": "edcfc08d7230f99df9c32667e8ed20dc9d64fbf6c1d8dfc1811be9113b3406a1",
+        "method": "Constant bind-frame quaternion delta retarget, including cubic derivatives and original sample times; all existing curves and skin streams retained.",
+        "clips": [
+          {
+            "name": "idle_2",
+            "retargetedChannels": [
+              {
+                "originalNode": 7,
+                "fittedNode": 23,
+                "name": "front_upper.L",
+                "originalInput": 4,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 10,
+                "fittedNode": 26,
+                "name": "front_upper.R",
+                "originalInput": 4,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              }
+            ],
+            "poseWithoutOriginalLimbTrack": "Retain fitted bind pose under the existing animated torso; no invented leg movement."
+          },
+          {
+            "name": "gallop_jump",
+            "retargetedChannels": [
+              {
+                "originalNode": 7,
+                "fittedNode": 23,
+                "name": "front_upper.L",
+                "originalInput": 5,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 8,
+                "fittedNode": 24,
+                "name": "front_lower.L",
+                "originalInput": 51,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 9,
+                "fittedNode": 25,
+                "name": "front_paw.L",
+                "originalInput": 51,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 10,
+                "fittedNode": 26,
+                "name": "front_upper.R",
+                "originalInput": 5,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 11,
+                "fittedNode": 27,
+                "name": "front_lower.R",
+                "originalInput": 51,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 12,
+                "fittedNode": 28,
+                "name": "front_paw.R",
+                "originalInput": 51,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 16,
+                "fittedNode": 29,
+                "name": "hind_upper.L",
+                "originalInput": 5,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 17,
+                "fittedNode": 30,
+                "name": "hind_lower.L",
+                "originalInput": 51,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 18,
+                "fittedNode": 31,
+                "name": "hind_paw.L",
+                "originalInput": 51,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 19,
+                "fittedNode": 32,
+                "name": "hind_upper.R",
+                "originalInput": 5,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 20,
+                "fittedNode": 33,
+                "name": "hind_lower.R",
+                "originalInput": 51,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 21,
+                "fittedNode": 34,
+                "name": "hind_paw.R",
+                "originalInput": 51,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              }
+            ],
+            "poseWithoutOriginalLimbTrack": "Retain fitted bind pose under the existing animated torso; no invented leg movement."
+          },
+          {
+            "name": "death",
+            "retargetedChannels": [
+              {
+                "originalNode": 7,
+                "fittedNode": 23,
+                "name": "front_upper.L",
+                "originalInput": 8,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 10,
+                "fittedNode": 26,
+                "name": "front_upper.R",
+                "originalInput": 8,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              }
+            ],
+            "poseWithoutOriginalLimbTrack": "Retain fitted bind pose under the existing animated torso; no invented leg movement."
+          },
+          {
+            "name": "entrance",
+            "retargetedChannels": [
+              {
+                "originalNode": 7,
+                "fittedNode": 23,
+                "name": "front_upper.L",
+                "originalInput": 9,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 8,
+                "fittedNode": 24,
+                "name": "front_lower.L",
+                "originalInput": 80,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 9,
+                "fittedNode": 25,
+                "name": "front_paw.L",
+                "originalInput": 80,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 10,
+                "fittedNode": 26,
+                "name": "front_upper.R",
+                "originalInput": 9,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 11,
+                "fittedNode": 27,
+                "name": "front_lower.R",
+                "originalInput": 80,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 12,
+                "fittedNode": 28,
+                "name": "front_paw.R",
+                "originalInput": 80,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 16,
+                "fittedNode": 29,
+                "name": "hind_upper.L",
+                "originalInput": 9,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 17,
+                "fittedNode": 30,
+                "name": "hind_lower.L",
+                "originalInput": 80,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 18,
+                "fittedNode": 31,
+                "name": "hind_paw.L",
+                "originalInput": 80,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 19,
+                "fittedNode": 32,
+                "name": "hind_upper.R",
+                "originalInput": 9,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 20,
+                "fittedNode": 33,
+                "name": "hind_lower.R",
+                "originalInput": 80,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 21,
+                "fittedNode": 34,
+                "name": "hind_paw.R",
+                "originalInput": 80,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              }
+            ],
+            "poseWithoutOriginalLimbTrack": "Retain fitted bind pose under the existing animated torso; no invented leg movement."
+          },
+          {
+            "name": "victory",
+            "retargetedChannels": [
+              {
+                "originalNode": 7,
+                "fittedNode": 23,
+                "name": "front_upper.L",
+                "originalInput": 11,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 8,
+                "fittedNode": 24,
+                "name": "front_lower.L",
+                "originalInput": 99,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 9,
+                "fittedNode": 25,
+                "name": "front_paw.L",
+                "originalInput": 99,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 10,
+                "fittedNode": 26,
+                "name": "front_upper.R",
+                "originalInput": 11,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 11,
+                "fittedNode": 27,
+                "name": "front_lower.R",
+                "originalInput": 99,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 12,
+                "fittedNode": 28,
+                "name": "front_paw.R",
+                "originalInput": 99,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 17,
+                "fittedNode": 30,
+                "name": "hind_lower.L",
+                "originalInput": 99,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 18,
+                "fittedNode": 31,
+                "name": "hind_paw.L",
+                "originalInput": 99,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 20,
+                "fittedNode": 33,
+                "name": "hind_lower.R",
+                "originalInput": 99,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 21,
+                "fittedNode": 34,
+                "name": "hind_paw.R",
+                "originalInput": 99,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              }
+            ],
+            "poseWithoutOriginalLimbTrack": "Retain fitted bind pose under the existing animated torso; no invented leg movement."
+          }
+        ]
       }
     },
     "mythic-15": {
@@ -32608,7 +36403,7 @@
       },
       "validation": {
         "ok": true,
-        "bytes": 2250808,
+        "bytes": 2278436,
         "triangles": 39718,
         "vertices": 45222,
         "materials": 1,
@@ -32618,7 +36413,7 @@
         "animations": 13,
         "bones": 27
       },
-      "sha256": "FE10EF667AC577512B50D6D54EA8C92EE035FE11CA267273859E0A3922018E7A",
+      "sha256": "A7DC5A71C0F5B25290A349CF0AD1AC4090D2DAF5FEB6A42A417742741D7D5075",
       "animationBank": {
         "revision": "20260825-identity-v5",
         "family": "pouncer",
@@ -32997,6 +36792,765 @@
             "changedTracks": 16,
             "maxContactError": 3.6196302084425194e-10,
             "contacts": 196
+          }
+        ]
+      },
+      "fittedLimbPerformanceRepair": {
+        "revision": "20261018-authored-omitted-clips-v1",
+        "sourceSha256": "fe10ef667ac577512b50d6d54ea8c92ee035fe11ca267273859e0a3922018e7a",
+        "method": "Constant bind-frame quaternion delta retarget, including cubic derivatives and original sample times; all existing curves and skin streams retained.",
+        "clips": [
+          {
+            "name": "idle_2",
+            "retargetedChannels": [
+              {
+                "originalNode": 7,
+                "fittedNode": 29,
+                "name": "front_upper.L",
+                "originalInput": 4,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 10,
+                "fittedNode": 32,
+                "name": "front_upper.R",
+                "originalInput": 4,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              }
+            ],
+            "poseWithoutOriginalLimbTrack": "Retain fitted bind pose under the existing animated torso; no invented leg movement."
+          },
+          {
+            "name": "gallop_jump",
+            "retargetedChannels": [
+              {
+                "originalNode": 7,
+                "fittedNode": 29,
+                "name": "front_upper.L",
+                "originalInput": 5,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 8,
+                "fittedNode": 30,
+                "name": "front_lower.L",
+                "originalInput": 85,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 9,
+                "fittedNode": 31,
+                "name": "front_paw.L",
+                "originalInput": 85,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 10,
+                "fittedNode": 32,
+                "name": "front_upper.R",
+                "originalInput": 5,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 11,
+                "fittedNode": 33,
+                "name": "front_lower.R",
+                "originalInput": 85,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 12,
+                "fittedNode": 34,
+                "name": "front_paw.R",
+                "originalInput": 85,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 16,
+                "fittedNode": 35,
+                "name": "hind_upper.L",
+                "originalInput": 5,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 17,
+                "fittedNode": 36,
+                "name": "hind_lower.L",
+                "originalInput": 85,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 18,
+                "fittedNode": 37,
+                "name": "hind_paw.L",
+                "originalInput": 85,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 19,
+                "fittedNode": 38,
+                "name": "hind_upper.R",
+                "originalInput": 5,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 20,
+                "fittedNode": 39,
+                "name": "hind_lower.R",
+                "originalInput": 85,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 21,
+                "fittedNode": 40,
+                "name": "hind_paw.R",
+                "originalInput": 85,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              }
+            ],
+            "poseWithoutOriginalLimbTrack": "Retain fitted bind pose under the existing animated torso; no invented leg movement."
+          },
+          {
+            "name": "death",
+            "retargetedChannels": [
+              {
+                "originalNode": 7,
+                "fittedNode": 29,
+                "name": "front_upper.L",
+                "originalInput": 8,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 10,
+                "fittedNode": 32,
+                "name": "front_upper.R",
+                "originalInput": 8,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              }
+            ],
+            "poseWithoutOriginalLimbTrack": "Retain fitted bind pose under the existing animated torso; no invented leg movement."
+          },
+          {
+            "name": "entrance",
+            "retargetedChannels": [
+              {
+                "originalNode": 7,
+                "fittedNode": 29,
+                "name": "front_upper.L",
+                "originalInput": 9,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 8,
+                "fittedNode": 30,
+                "name": "front_lower.L",
+                "originalInput": 114,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 9,
+                "fittedNode": 31,
+                "name": "front_paw.L",
+                "originalInput": 114,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 10,
+                "fittedNode": 32,
+                "name": "front_upper.R",
+                "originalInput": 9,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 11,
+                "fittedNode": 33,
+                "name": "front_lower.R",
+                "originalInput": 114,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 12,
+                "fittedNode": 34,
+                "name": "front_paw.R",
+                "originalInput": 114,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 16,
+                "fittedNode": 35,
+                "name": "hind_upper.L",
+                "originalInput": 9,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 17,
+                "fittedNode": 36,
+                "name": "hind_lower.L",
+                "originalInput": 114,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 18,
+                "fittedNode": 37,
+                "name": "hind_paw.L",
+                "originalInput": 114,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 19,
+                "fittedNode": 38,
+                "name": "hind_upper.R",
+                "originalInput": 9,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 20,
+                "fittedNode": 39,
+                "name": "hind_lower.R",
+                "originalInput": 114,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 21,
+                "fittedNode": 40,
+                "name": "hind_paw.R",
+                "originalInput": 114,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              }
+            ],
+            "poseWithoutOriginalLimbTrack": "Retain fitted bind pose under the existing animated torso; no invented leg movement."
+          },
+          {
+            "name": "victory",
+            "retargetedChannels": [
+              {
+                "originalNode": 7,
+                "fittedNode": 29,
+                "name": "front_upper.L",
+                "originalInput": 11,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 8,
+                "fittedNode": 30,
+                "name": "front_lower.L",
+                "originalInput": 133,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 9,
+                "fittedNode": 31,
+                "name": "front_paw.L",
+                "originalInput": 133,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 10,
+                "fittedNode": 32,
+                "name": "front_upper.R",
+                "originalInput": 11,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "right": [
+                  -0.7071068286895688,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 11,
+                "fittedNode": 33,
+                "name": "front_lower.R",
+                "originalInput": 133,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 12,
+                "fittedNode": 34,
+                "name": "front_paw.R",
+                "originalInput": 133,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 17,
+                "fittedNode": 36,
+                "name": "hind_lower.L",
+                "originalInput": 133,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 18,
+                "fittedNode": 37,
+                "name": "hind_paw.L",
+                "originalInput": 133,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 20,
+                "fittedNode": 39,
+                "name": "hind_lower.R",
+                "originalInput": 133,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              },
+              {
+                "originalNode": 21,
+                "fittedNode": 40,
+                "name": "hind_paw.R",
+                "originalInput": 133,
+                "interpolation": "CUBICSPLINE",
+                "left": [
+                  0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ],
+                "right": [
+                  -0.7071068286895689,
+                  0,
+                  0,
+                  0.7071067336835231
+                ]
+              }
+            ],
+            "poseWithoutOriginalLimbTrack": "Retain fitted bind pose under the existing animated torso; no invented leg movement."
           }
         ]
       }
