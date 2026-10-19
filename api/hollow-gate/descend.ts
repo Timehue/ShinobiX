@@ -69,6 +69,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 position: undefined,
                 threat: 0,
                 wardSteps: 0,
+                ...(run.hunterBreatherSteps !== undefined ? { hunterBreatherSteps: 0 } : {}),
                 divinerUsed: false,
                 pendingAmbush: null,
                 torch: Math.min(10, Math.max(0, Math.floor(Number(run.torch) || 0)) + 4),
