@@ -1433,6 +1433,7 @@ function directAction(
     if (shrineSupport && session.shrineAi) {
         session.shrineAi.lastSupportRound = eventRound;
         if (action.type === 'basicHeal') session.shrineAi.healsUsed++;
+        if (session.shrineAi.supportLimit !== undefined) session.shrineAi.supportsUsed = (session.shrineAi.supportsUsed ?? 0) + 1;
     }
     setFighter(session, 'player', session.player);
     setFighter(session, 'enemy', session.enemy);
@@ -1903,6 +1904,7 @@ function isShrineSupportAction(session: SoloPveSession, action: SoloPveAction): 
 function enemyActionLegal(session: SoloPveSession, action: SoloPveAction): boolean {
     if (session.status !== 'active' || session.activeSide !== 'enemy') return false;
     if (isShrineSupportAction(session, action) && session.shrineAi) {
+        if (session.shrineAi.supportLimit !== undefined && (session.shrineAi.supportsUsed ?? 0) >= session.shrineAi.supportLimit) return false;
         if (action.type === 'basicHeal' && session.shrineAi.healsUsed >= session.shrineAi.healLimit) return false;
         if ((session.shrineAi.lastSupportRound ?? -2) >= session.round - 1) return false;
     }

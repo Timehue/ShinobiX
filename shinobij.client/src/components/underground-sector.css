@@ -115,6 +115,12 @@
 .underground-world .hg-cave-header h2, .underground-world .stronghold-header h2 { font-family: var(--font-display, Georgia, serif); letter-spacing: .025em; }
 .underground-world .hg-cave-header .act-label { color: #a8cfc6 !important; font-size: 10px; font-weight: 600; letter-spacing: .18em !important; }
 .hg-resource-belt { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.hg-cave-hp { --hg-hp-color: #9dd9bc; margin-bottom: 8px; color: var(--hg-hp-color); font-size: 12px; }
+.hg-cave-hp[data-low-hp] { --hg-hp-color: #fda4af; }
+.hg-cave-hp > div:first-child { display: flex; justify-content: space-between; gap: 8px; font-variant-numeric: tabular-nums; }
+.hg-cave-hp__track { height: 6px; margin-top: 3px; overflow: hidden; border-radius: 4px; background: #94a3b82e; }
+.hg-cave-hp__track span { display: block; height: 100%; background: var(--hg-hp-color); }
+.hg-spent-trap { position: absolute; right: 2px; bottom: 1px; z-index: 4; padding: 0 3px; border-radius: 3px; background: #0b1428ed; color: #9dd9bc; font-size: 14px; font-weight: 700; pointer-events: none; }
 .hg-resource { display: grid; grid-template-columns: 22px auto; align-items: center; gap: 0 5px; min-width: 56px; }
 .hg-resource img { grid-row: span 2; }
 .hg-resource b { color: #e7eeeb; font-size: 12px; }

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { makePveEngineTestSession } from './_pve-engine-test-fixture.js';
 import { applyAction, pickAiAction } from './_engine.js';
-import { HUNT_AI_POLICY, huntHoldsBurst } from './_hunt-ai.js';
+import { HUNT_AI_POLICY, HUNT_REACTIVE_POLICY, huntHoldsBurst } from './_hunt-ai.js';
 import { huntFixture } from '../../scripts/test-fixtures/hunt-shrine.js';
 import { applySoloPveAction } from '../solo-pve/_engine.js';
 
@@ -79,4 +79,43 @@ test('ordinary easy hunts telegraph an approach before a gap-closing basic chain
     next=applySoloPveAction(s,{type:'huntAction',action:{type:'wait'}});
     assert.ok(next.applied);s=next.session;
     assert.ok(s.player.hp<initialHp,'ordinary pressure resumes after the preparation round');
+});
+
+test('new lone C+ retaliation uses visible HP on round two and the real legal resolver',()=>{
+    const {s,enemy,player}=fixture(20,'C');
+    enemy.character.huntReactivePolicy=HUNT_REACTIVE_POLICY;
+    enemy.character.jutsu=[{id:'response',name:'Response',type:'Taijutsu',target:'OPPONENT',ap:60,range:10,effectPower:36,cooldown:7,chakraCost:20}];
+    enemy.character.jutsuMastery=[{jutsuId:'response',level:20}];
+    s.round=2;enemy.hp=Math.floor(enemy.maxHp*.75);
+    assert.equal(huntHoldsBurst(s,enemy),false);
+    const before=structuredClone(s),action=pickAiAction(s,enemy,()=>.5);
+    assert.equal(action.type,'jutsu');assert.deepEqual(s,before);
+    const chakra=enemy.chakra;
+    assert.ok(applyAction(s,s.encounterFloor!,action,()=>.5).applied);
+    assert.equal(s.activeAp,40);assert.equal(enemy.chakra,chakra-20);
+    assert.ok(player.hp<before.actors[0]!.hp);
+    s.activeAp=100;s.actionsThisTurn=0;
+    assert.notEqual(pickAiAction(s,enemy,()=>.5).type,'jutsu','cooldown remains authoritative');
+});
+
+test('retaliation never advances healthy, opening, beginner, D-rank, legacy or formation burst clocks',()=>{
+    for(const scenario of ['healthy','opening','beginner-enemy','beginner-player','D','legacy','pack','waves']) {
+        const {s,enemy,player}=fixture(20,'C');
+        s.round=2;enemy.hp=Math.floor(enemy.maxHp*.75);
+        enemy.character.huntReactivePolicy=HUNT_REACTIVE_POLICY;
+        if(scenario==='healthy') enemy.hp=Math.floor(enemy.maxHp*.75)+1;
+        if(scenario==='opening') s.round=1;
+        if(scenario==='beginner-enemy') enemy.character.level=15;
+        if(scenario==='beginner-player') player.character.level=15;
+        if(scenario==='D') enemy.character.huntRank='D';
+        if(scenario==='legacy') delete enemy.character.huntReactivePolicy;
+        if(scenario==='pack') s.actors.push({...structuredClone(enemy),id:'packmate'});
+        if(scenario==='waves') s.pendingEnemyWaves=[{round:1,afterClear:true,actors:[{...structuredClone(enemy),id:'wave'}]}];
+        assert.equal(huntHoldsBurst(s,enemy),true,scenario);
+    }
+    const current=huntFixture(17,'hunt-frost-wolf'),b=current.huntCombat!.battle;
+    assert.equal(b.actors.find(a=>a.side==='enemy')!.character.huntReactivePolicy,HUNT_REACTIVE_POLICY);
+    assert.match(b.log.join('\n'),/round 2 at 75% HP or below/);
+    for(const level of [5,15,31,100]) assert.equal(huntFixture(level,'hunt-frost-wolf').huntCombat!.battle.actors.find(a=>a.side==='enemy')!.character.huntReactivePolicy,undefined);
+    assert.equal(huntFixture(17,'hunt-wild-boar').huntCombat!.battle.actors.find(a=>a.side==='enemy')!.character.huntReactivePolicy,undefined);
 });
