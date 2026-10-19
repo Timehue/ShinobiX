@@ -10,7 +10,7 @@ import { attunementDailyBonus } from "./hollow-gate-attunement";
 import { buildHollowGateRunFromStart, HOLLOW_GATE_FLOOR_LOAD_FAILED } from "./hollow-gate-run-build";
 import type { HollowGateRecoveryParams } from "./hollow-gate-recovery";
 import { sealHollowGateFloor } from "./hollow-gate-event-api";
-import { startHollowGateServerRun, resumeHollowGateServerRun, attachStartedRun } from "./hollow-gate-server";
+import { startHollowGateServerRun, attachStartedRun } from "./hollow-gate-server";
 import { hollowGateRunMaxFloor, hollowGateBossDisplayName, variantFromEventConfig } from "./hollow-gate-variant";
 import { isHollowGateUnlocked, loadVillageState } from "./world-state";
 import { requireServerSettlement } from "./server-settlement-gate";
@@ -36,7 +36,19 @@ export function recoverHollowGateRunLazily(params: HollowGateRecoveryParams): Pr
         .catch(() => "error" as const);
 }
 
+/** Boot must not trust an older saved drawing after a server-side descent. */
+export async function recoverHollowGateRunOnBoot(params: HollowGateRecoveryParams): Promise<void> {
+    const character = params.character;
+    if (params.isCurrent?.() === false || character.hollowGateRun?.completed
+        || (!character.hollowGateRun?.runToken && !character.lastHollowGateStart?.token) || character.hospitalized) return;
+    params.setHollowGateRun(null);
+    params.setScreen("hollowGateShrine");
+    const outcome = await recoverHollowGateRunLazily(params);
+    if (outcome === "gone" && params.isCurrent?.() !== false) params.setScreen("worldMap");
+}
+
 type HollowGateEntryParams = {
+    isCurrent?: () => boolean;
     eventCfg?: HollowGateEventConfig;
     character: Character | null;
     setHollowGateRun: SetState<HollowGateShrineRun | null>;
@@ -65,9 +77,10 @@ export async function enterHollowGateShrineFlow(params: HollowGateEntryParams) {
     // could only redraw floor 1. The replay below stays the fallback when the
     // server cannot be read, and covers a marker whose run has already ended.
     if (!character.hollowGateRun && character.lastHollowGateStart?.token && await recoverHollowGateRunLazily({
-        character, setHollowGateRun, setHollowGateLog, setHollowGateEvent, setHollowGateHiddenChamber,
+        character, isCurrent: params.isCurrent, setHollowGateRun, setHollowGateLog, setHollowGateEvent, setHollowGateHiddenChamber,
         setCharacter, setCurrentBiome, setCurrentWeather, setScreen, pushHollowGateLog,
     }) === "recovered") return;
+    if (params.isCurrent?.() === false) return;
     // Event gates reshape the run (fewer floors / smaller board / bespoke
     // boss) and may relax the entry gates; the standard shrine when absent.
     const variant = eventCfg ? variantFromEventConfig(eventCfg) : undefined;
@@ -118,15 +131,9 @@ export async function enterHollowGateShrineFlow(params: HollowGateEntryParams) {
     // the key was already consumed when the run was started. The Character
     // normalizer resets daily counters at midnight UTC.
     if (character.hollowGateRun && !character.hollowGateRun.completed) {
-        setHollowGateRun(character.hollowGateRun);
-        setHollowGateLog(prev => prev.length ? prev : ["You return to your unfinished run. The floor marks and opened passages are unchanged."]);
-        setHollowGateEvent(null);
-        setHollowGateHiddenChamber(null);
-        setCurrentBiome("shadow");
-        setCurrentWeather(weatherForBiome("shadow"));
-        setScreen("hollowGateShrine");
-        // Refreshed mid-pick? re-present the augment picker (never re-mints the token).
-        resumeHollowGateServerRun({ playerName: character.name, run: character.hollowGateRun, setRun: setHollowGateRun, setCharacter, setEvent: setHollowGateEvent, pushLog: pushHollowGateLog });
+        const recovered = await recoverHollowGateRunLazily({ character, isCurrent: params.isCurrent, setHollowGateRun, setHollowGateLog,
+            setHollowGateEvent, setHollowGateHiddenChamber, setCharacter, setCurrentBiome, setCurrentWeather, setScreen, pushHollowGateLog });
+        if (recovered !== "recovered" && params.isCurrent?.() !== false) alert("Your unfinished Hollow Gate run could not be read safely. Reconnect and retry; no new run was started.");
         return;
     }
 
