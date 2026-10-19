@@ -7,9 +7,12 @@ test('Warden decision shows its sealed cue and round-cap warning without horizon
     await page.goto('/e2e/fixtures/hollow-gate-warden.html');
     const warning = page.getByRole('status').filter({ hasText: 'Round 18/25' });
     await expect(warning).toBeVisible();
-    await expect(page.getByText('Stand inside the violet ward column before Mirror-Shard Warden acts.', { exact: true })).toBeVisible();
-    const bounds = await warning.boundingBox(); expect(bounds).not.toBeNull();
-    expect(bounds!.x).toBeGreaterThanOrEqual(0); expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(page.viewportSize()!.width + 1);
+    const instruction = page.getByText('Stand inside the violet ward column before Mirror-Shard Warden acts.', { exact: true });
+    await expect(instruction).toBeVisible();
+    for (const rule of [warning, instruction]) {
+        const bounds = await rule.boundingBox(); expect(bounds).not.toBeNull();
+        expect(bounds!.x).toBeGreaterThanOrEqual(0); expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(page.viewportSize()!.width + 1);
+    }
     await page.screenshot({ path: info.outputPath('warden-round-warning.png'), fullPage: true });
     expect(errors).toEqual([]);
 });

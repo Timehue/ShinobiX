@@ -1404,7 +1404,7 @@ export function MissionArenaFight({
                     />
 
                     <CombatEnvironmentStrip className="combat-grid-environment">
-                        <div className="combat-grid-environment-details">
+                        <div className={`combat-grid-environment-details${gateDirective ? ' hg-arena-rules' : ''}`}>
                         {encounter && <EncounterDifficultyBadge encounter={encounter} />}
                         {(encounterNotice || typeof enemy?.character?.tacticalTell === 'string') && <button type="button" id="encounter-details-trigger" aria-haspopup="dialog" aria-controls="encounter-details" aria-expanded={encounterDetailsOpen}
                             onClick={() => setEncounterDetailsOpen(true)} title={encounterNotice}>{encounterNotice ? 'Resumed encounter' : 'Opponent tells'}</button>}
@@ -1425,7 +1425,7 @@ export function MissionArenaFight({
                         )}
                         {gateDirective && (
                             <>
-                                <span role="status">Round {Math.min(session.round, session.hollowGateRoundLimit ?? 25)}/{session.hollowGateRoundLimit ?? 25} · Win by the end of the final round; reaching the limit counts as defeat.</span>
+                                <span className="hg-round-limit" role="status">Round {Math.min(session.round, session.hollowGateRoundLimit ?? 25)}/{session.hollowGateRoundLimit ?? 25} · Win by the end of the final round; reaching the limit counts as defeat.</span>
                                 <span className="twp-strip-sep">·</span>
                                 <span className={`hg-combat-directive hg-tone-${gateDirective.tone} hg-phase-${gateDirective.phase}`} aria-live="polite">
                                     <strong>{hollowGate?.kind === "boss" ? `PHASE ${gateDirective.phase} · ` : ""}{gateDirective.phaseName}</strong>
