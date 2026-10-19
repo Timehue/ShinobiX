@@ -340,3 +340,112 @@ describe('new AI threat and finishing decisions', () => {
         assert.deepEqual(session, before);
     });
 });
+
+describe('v3 realized hit and useful support decisions', () => {
+    const fixture = (seed = 51) => {
+        const session = createShowdownSession({ sessionId: 'score-review', playerName: 'test', format: '1v1', tier: 'champion', seed,
+            playerPets: [pet('foe', 30)], enemyPets: [pet('actor', 30)], enemyTeamName: 'AI', rewardEligible: false });
+        session.rulesetVersion = 'progression-v3';
+        session.round = 3;
+        for (const actor of [...session.player, ...session.enemy]) {
+            actor.role = 'defender'; actor.readiness = 10; actor.meter = 0;
+            actor.stamina = actor.maxStamina = 100;
+        }
+        session.player[0].moves = [];
+        const actor = session.enemy[0], base = actor.moves[0];
+        actor.moves = [{ ...base, kind: 'damage', power: 90, cost: 10, hold: 0, unlockLevel: 1, element: 'None', cls: 'physical' }];
+        return session;
+    };
+    const chosenIndex = (session: ReturnType<typeof fixture>) => {
+        const command = chooseShowdownAiCommands(session)[0];
+        assert.equal(command.kind, 'move');
+        return command.kind === 'move' ? command.moveIndex : -1;
+    };
+
+    it('values pressure against a shield even when neither strike immediately reaches HP', () => {
+        for (let seed = 1; seed <= 24; seed++) {
+            const session = fixture(seed), actor = session.enemy[0], target = session.player[0];
+            actor.moves.push({ ...actor.moves[0], power: 20 });
+            target.statuses.push({ kind: 'shield', magnitude: target.maxHp, rounds: 2, bornRound: session.round });
+            assert.equal(estimateShowdownMoveDamage(session, actor, target, actor.moves[0]), 0);
+            assert.equal(estimateShowdownMoveDamage(session, actor, target, actor.moves[1]), 0);
+            assert.equal(chosenIndex(session), 0, 'the larger hit must erode the pool instead of treating both hits as valueless');
+        }
+    });
+
+    it('does not trade a stronger realized hit for hard control into Steadfast', () => {
+        for (let seed = 1; seed <= 24; seed++) {
+            const session = fixture(seed), actor = session.enemy[0];
+            actor.moves.push({ ...actor.moves[0], kind: 'stun', power: 130 });
+            session.player[0].statuses.push({ kind: 'steadfast', magnitude: 1, rounds: 2, bornRound: session.round });
+            assert.equal(chosenIndex(session), 0);
+        }
+    });
+
+    it('uses Haste only when its speed increase can reverse an initiative matchup', () => {
+        let useful = 0;
+        for (let seed = 1; seed <= 32; seed++) {
+            for (const targetSpeed of [110, 150, 80]) {
+                const session = fixture(seed), actor = session.enemy[0];
+                actor.speed = 100; actor.moves[0].power = 1;
+                actor.moves.push({ ...actor.moves[0], kind: 'haste', power: 100 });
+                session.player[0].speed = targetSpeed;
+                const index = chosenIndex(session);
+                if (targetSpeed === 110) useful += Number(index === 1);
+                else assert.equal(index, 0, 'no setup value when already faster or still slower after Haste');
+            }
+        }
+        assert.ok(useful >= 24, `an initiative reversal must be recognized; observed ${useful}/32`);
+    });
+
+    it('does not raise a shield against unaffordable, recovering or winded enemy attacks', () => {
+        for (const unavailable of ['stamina', 'reuse', 'winded', 'guarding'] as const) {
+            for (let seed = 1; seed <= 24; seed++) {
+                const session = fixture(seed), actor = session.enemy[0], foe = session.player[0];
+                actor.moves[0].power = 10;
+                actor.moves.push({ ...actor.moves[0], kind: 'barrier', power: 100 });
+                foe.moves = [{ ...actor.moves[0], power: 300, cost: 50 }];
+                if (unavailable === 'stamina') foe.stamina = 0;
+                if (unavailable === 'reuse') foe.moves[0].availableAtRound = session.round + 2;
+                if (unavailable === 'winded') foe.winded = true;
+                if (unavailable === 'guarding') foe.guarding = true;
+                assert.equal(chosenIndex(session), 0, `${unavailable} foe does not justify a defensive setup loop`);
+            }
+        }
+    });
+
+    it('ignores a guarding foe as a lethal ordinary threat instead of mirroring Guard forever', () => {
+        const session = fixture(), actor = session.enemy[0], foe = session.player[0];
+        foe.moves = [{ ...actor.moves[0], power: 100 }];
+        actor.hp = Math.ceil(estimateShowdownMoveDamage(session, foe, actor, foe.moves[0]) * .75);
+        foe.guarding = true;
+        assert.equal(chosenIndex(session), 0);
+    });
+
+    it('forecasts the next opening after Protect clears, while preserving legacy blocks and active charges', () => {
+        const session = fixture(), actor = session.enemy[0], foe = session.player[0], move = actor.moves[0];
+        const plain = estimateShowdownMoveDamage(session, actor, foe, move);
+        assert.ok(plain > 0);
+        foe.statuses.push({ kind: 'protect', magnitude: 1, rounds: 1, bornRound: session.round });
+        assert.equal(estimateShowdownMoveDamage(session, actor, foe, move), plain,
+            'last round\'s Protect always clears before the next executable action');
+        foe.hp = 1;
+        actor.moves.push({ ...move, kind: 'weather', power: 100 });
+        assert.equal(chosenIndex(session), 0, 'an expired block must not hide a reachable finish');
+        session.rulesetVersion = 'legacy-v2';
+        assert.equal(estimateShowdownMoveDamage(session, actor, foe, move), 0, 'retained forecast semantics remain unchanged');
+        session.rulesetVersion = 'progression-v3';
+        foe.consumable = { ...(foe.consumable ?? {}), dodge: 1 } as NonNullable<typeof foe.consumable>;
+        assert.equal(estimateShowdownMoveDamage(session, actor, foe, move), 0, 'the live dodge charge still applies');
+    });
+
+    it('drops only statuses whose absolute lease expires before the next opening', () => {
+        const session = fixture(), actor = session.enemy[0], foe = session.player[0], move = actor.moves[0];
+        const plain = estimateShowdownMoveDamage(session, actor, foe, move);
+        foe.statuses.push({ kind: 'shield', magnitude: foe.maxHp, rounds: 2, bornRound: 0, expiresAfterRound: session.round });
+        assert.equal(estimateShowdownMoveDamage(session, actor, foe, move), plain);
+        foe.statuses[0].expiresAfterRound = session.round + 1;
+        assert.equal(estimateShowdownMoveDamage(session, actor, foe, move), 0, 'a pool valid through the upcoming round remains');
+        assert.equal(foe.statuses[0].magnitude, foe.maxHp, 'forecasting does not consume the real shield');
+    });
+});

@@ -1864,8 +1864,17 @@ function rawDamage(session: ShowdownSession, attacker: ShowdownPet, defender: Sh
  * shields and charges from being consumed while considering a move. */
 export function estimateShowdownMoveDamage(session: ShowdownSession, attacker: ShowdownPet, defender: ShowdownPet, move: ShowdownMove, superCast = false): number {
     if (SELF_KINDS.has(move.kind) || ['heal', 'weather', 'protect', 'cleanse'].includes(move.kind)) return 0;
-    if (defender.statuses.some(status => status.kind === 'protect') || (defender.consumable?.dodge ?? 0) > 0) return 0;
     const actor = structuredClone(attacker), target = structuredClone(defender);
+    if (session.rulesetVersion === 'progression-v3') {
+        // Decisions run before round advancement. Match the next opening's
+        // exact status lease and Protect cleanup, retaining every pool or
+        // modifier that is still valid during the upcoming action round.
+        const retained = (status: ShowdownStatus) => status.kind !== 'protect'
+            && (status.expiresAfterRound === undefined || session.round + 1 <= status.expiresAfterRound);
+        actor.statuses = actor.statuses.filter(retained);
+        target.statuses = target.statuses.filter(retained);
+    }
+    if (target.statuses.some(status => status.kind === 'protect') || (target.consumable?.dodge ?? 0) > 0) return 0;
     const forecast = { ...session, rng: 0 };
     const factor = KIND_FX[move.kind]?.mult ?? 1;
     const power = Math.round(move.power * factor * (superCast && session.rulesetVersion !== 'progression-v3' ? SHOWDOWN_SUPER_POWER_MULT : 1));

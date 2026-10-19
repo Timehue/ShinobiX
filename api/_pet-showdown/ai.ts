@@ -577,8 +577,23 @@ function choosePetCommand(
                 else if (m.kind === 'heal') score = worstAllyHp < .8 ? Math.min(.175, 1 - worstAllyHp) * 300 : -100;
                 else if (['shield', 'barrier', 'absorb'].includes(m.kind)) {
                     const pool = selfStatuses.get('shield')?.magnitude ?? 0;
-                    const incoming = Math.max(0, ...foes.flatMap(foe => foe.moves.filter(move => readyForAi(session, foe, move)).map(move => estimateShowdownMoveDamage(session, foe, pet, move))));
+                    const incoming = Math.max(0, ...foes
+                        .filter(foe => !foe.winded && !foe.statuses.some(status => status.kind === 'stun'))
+                        .flatMap(foe => [
+                            ...(!foe.guarding ? foe.moves.filter(move => readyForAi(session, foe, move) && move.cost <= foe.stamina) : []),
+                            ...(signatureReadyForAi(session, foe) ? [foe.signatureMove] : []),
+                        ].map(move => estimateShowdownMoveDamage(session, foe, pet, move, move === foe.signatureMove))));
                     score = Math.max(0, Math.min(pet.maxHp * .225 - pool, incoming)) / pet.maxHp * (pet.hp / pet.maxHp < .4 ? 330 : 220);
+                } else if (m.kind === 'haste' || m.kind === 'move') {
+                    // A speed setup buys tempo only if it reverses an actual
+                    // matchup. Recasting it or remaining on the same side of
+                    // every rival's initiative is a wasted action.
+                    const speed = showdownPetSpeed(pet);
+                    const crosses = foes.filter(foe => {
+                        const rivalSpeed = showdownPetSpeed(foe);
+                        return speed <= rivalSpeed && speed * 1.25 > rivalSpeed;
+                    }).length;
+                    score = held || !crosses ? -100 : Math.min(30, crosses * 15);
                 } else if (m.kind === 'buff' || m.kind === 'weather') score = held || m.kind === 'weather' && session.weather?.element === pet.element ? -100 : session.round <= 2 && target.hp / target.maxHp > .6 ? 45 : 15;
                 else if (m.kind === 'protect') score = pet.statuses.some(status => status.kind === 'protectSpent') ? -100 : foes.some(foe => signatureReadyForAi(session, foe)) ? 90 : 5;
                 else if (m.kind === 'cleanse') score = allies.some(ally => ally.statuses.some(status => ['burn', 'wound', 'freeze', 'confuse', 'stun', 'mark', 'slow', 'debuff', 'movelock', 'taunt'].includes(status.kind))) ? 75 : -100;
