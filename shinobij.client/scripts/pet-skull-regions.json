@@ -60,19 +60,37 @@
     },
     "standard-5": {
       "y": [
-        0.22,
-        0.42
+        0.355,
+        0.38
       ],
       "z": [
-        -0.3,
-        -0.08
+        0.48,
+        0.56
       ],
       "x": [
         0.35,
         0.55
       ],
       "status": "repair",
-      "finding": "Lower muzzle and brow edges skew on strike and hit-reaction poses. All thirteen front/side body and skull clips inspected; shoulder armor, back shell and sword excluded."
+      "finding": "Eight independently frozen facial regions detect lower beak/chin drift in the original. Complete jaw skin repair and three vertical root-clearance corrections passed two sampled visual passes. Stone Turtle only; Pebble owns a separate model.",
+      "revision": "20261019-pebble-stone-complete-face-v1",
+      "supersedesSourceSha256": "fc639cee5499a0c1d8965c7c886c8af83cf3ee3d750ff1146bb162aaddd7a82d",
+      "repairRegion": {
+        "y": [
+          0.355,
+          0.38
+        ],
+        "z": [
+          0.48,
+          0.56
+        ],
+        "x": [
+          0.35,
+          0.55
+        ]
+      },
+      "weightPrecision": "float32",
+      "continuousInfluencePacking": true
     },
     "standard-6": {
       "y": [

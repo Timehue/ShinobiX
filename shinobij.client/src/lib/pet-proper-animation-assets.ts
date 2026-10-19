@@ -46,7 +46,7 @@ const REPAIRED_RIG_REVISIONS: Readonly<Record<string, string>> = {
     'standard-2': '20261014-reviewed-skull-v1',
     'standard-3': '20261014-reviewed-skull-v1',
     'standard-4': '20261014-reviewed-skull-v1',
-    'standard-5': '20261014-reviewed-skull-v1',
+    'standard-5': '20261019-stone-turtle-complete-jaw-contact-v2',
     'standard-6': '20261014-reviewed-skull-v1',
     'standard-8': '20261014-reviewed-skull-v1',
     'standard-9': '20261014-reviewed-skull-v1',

@@ -1956,6 +1956,40 @@
       },
       "weightPrecision": "float32",
       "continuousInfluencePacking": true
+    },
+    "standard-5": {
+      "status": "repair",
+      "finding": "Original frozen face probes isolate lower beak/chin drift through defeat and recoil, while upper face and eyes stay rigid. Original coverage and UV material survey locate the failing points on the pale jaw, with zero red scarf vertices in those regions. Private candidate for the shared Stone Turtle/Pebble model.",
+      "revision": "20261019-pebble-stone-complete-face-v1",
+      "supersedesSourceSha256": "fc639cee5499a0c1d8965c7c886c8af83cf3ee3d750ff1146bb162aaddd7a82d",
+      "y": [
+        0.355,
+        0.38
+      ],
+      "z": [
+        0.48,
+        0.56
+      ],
+      "x": [
+        0.35,
+        0.55
+      ],
+      "repairRegion": {
+        "y": [
+          0.355,
+          0.38
+        ],
+        "z": [
+          0.48,
+          0.56
+        ],
+        "x": [
+          0.35,
+          0.55
+        ]
+      },
+      "weightPrecision": "float32",
+      "continuousInfluencePacking": true
     }
   },
   "authoredRootClearance": {
@@ -1970,6 +2004,18 @@
         "idle_hitreact1/root.position/Y"
       ],
       "preserved": "Every original rotation, scale, other translation and root X/Z curve; source sculpt, topology, bind nodes and inverse bind matrices."
+    },
+    "standard-5": {
+      "helper": "scripts/repair-stone-turtle-root-clearance.mjs",
+      "fitFrequency": 240,
+      "independentVerificationFrequency": 480,
+      "sourceSha256": "531df3f1176b146b57360fca3676b04798096bf87295484ca04060cea631d091",
+      "changedTracks": [
+        "attack/root.position/Y",
+        "cast/root.position/Y",
+        "idle_hitreact1/root.position/Y"
+      ],
+      "preserved": "Original sculpt, topology, UVs, bind rig, every rotation/scale/other translation and root X/Z interpolants. Face weights were separately repaired from the frozen original."
     }
   }
 }

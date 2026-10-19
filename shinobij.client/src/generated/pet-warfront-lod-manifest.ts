@@ -141,7 +141,7 @@ const modelRows = [
     ["roster/standard-47.glb","-957fe89c1e72-5bb5ce735ff7",40000,10000],
     ["roster/standard-48.glb","-d7dc478a6826-38cc43abb338",40000,10000],
     ["roster/standard-49.glb","-2bd30c89ab58-85ef2f91a3fe",40000,10000],
-    ["roster/standard-5.glb","-fc639cee5499-3ad722e9394b",40000,10000],
+    ["roster/standard-5.glb","-ebe7f3606ab0-46e6a383b093",40000,10000],
     ["roster/standard-6.glb","-3687bfce5ced-ce6786b3824d",40000,10000],
     ["roster/standard-8.glb","-e8a46bcd978f-b11ccb6834a3",40000,10000],
     ["roster/standard-9.glb","-f256089ce317-665583358390",40000,10000],
