@@ -1,0 +1,105 @@
+{
+  "ids": [
+    "legendary-23",
+    "legendary-24",
+    "legendary-26"
+  ],
+  "expected": {
+    "mainBase": "100cd1ba1a6a96ae3fad303690cf37861882fe44",
+    "pets": {
+      "legendary-23": {
+        "source": "a56a5fd114088d462c9a46a2c632ae664d19a2565d6d33e0178206486f64192b",
+        "battle": "75432ffd9a4d6360f6f98c459c1a74384901f56d74561c0bfe6af7b81405d9b8",
+        "atlas": "4838f697279e2e4ef9184bad7d60f2569cdeb9b4bc5d11cbfce7c9802005ce43"
+      },
+      "legendary-24": {
+        "source": "29643a8d667aa4b3d1b7672a0ef4391fb305d87a814e2fecca0c053a0a16da8e",
+        "battle": "3526baf861f186943b5b3408143c7d901ce2a53ee5bad2790d22fff3676e6663",
+        "atlas": "53a915ce72c693cacd6a2d42756ee2c9be579a061402481de45aa0bdbad98938"
+      },
+      "legendary-26": {
+        "source": "5bc12fe1bb6b8143aef155775af127ae9ebf25469d03521a46efaf4e72bc0dc7",
+        "battle": "9fa5d6ebaf45b7c6fcc4ac2e2bb1faa7f81def6429bad0d0eae21257d0c7b84f",
+        "atlas": "0e3098c9771f9a65bd390e9166688fb6bca072b852fcff08c4437be94951a11a"
+      }
+    }
+  },
+  "nonselectedManifestEntriesUnchanged": true,
+  "checks": [
+    "focused-tests",
+    "structure",
+    "reviews"
+  ],
+  "passed": true,
+  "recordedAt": "2026-10-19T06:50:15.996Z",
+  "mainBaseline": "100cd1ba1a6a96ae3fad303690cf37861882fe44",
+  "focusedTests": {
+    "passed": 61,
+    "failed": 0
+  },
+  "structuralChecks": {
+    "passed": 161,
+    "failed": 0
+  },
+  "existingReviewReceiptChecks": {
+    "passed": 161,
+    "failed": 0
+  },
+  "clientProductionBuild": "passed",
+  "clientLint": {
+    "errors": 0,
+    "existingWarnings": 23
+  },
+  "nonselectedRecipesLandmarksAndRosterEntriesUnchanged": true,
+  "portraitReferenceUpdates": [
+    {
+      "id": "legendary-23",
+      "reference": "pet-models/warfront-impostors/roster/legendary-23.webp",
+      "previousSha256": "12710e737770e04ef3633bae0b7bab014b5fef2f98554b7c479e7d4ddcaea052",
+      "sha256": "4838f697279e2e4ef9184bad7d60f2569cdeb9b4bc5d11cbfce7c9802005ce43",
+      "animationReview": "docs/audits/pet-sphinx-all-clips-v2-final-review-2026-10-18.json",
+      "reason": "Update reference to twice visually reviewed animation atlas. Preserve all portrait master, delivery and quality/symbol review records; this is not a new portrait review."
+    },
+    {
+      "id": "legendary-24",
+      "reference": "pet-models/warfront-impostors/roster/legendary-24.webp",
+      "previousSha256": "d4b865dc71d92203f2e3d40ae4d66755f9125ade80386638528c7880349918fa",
+      "sha256": "53a915ce72c693cacd6a2d42756ee2c9be579a061402481de45aa0bdbad98938",
+      "animationReview": "docs/audits/pet-raiju-all-clips-v2-final-review-2026-10-18.json",
+      "reason": "Update reference to twice visually reviewed animation atlas. Preserve all portrait master, delivery and quality/symbol review records; this is not a new portrait review."
+    },
+    {
+      "id": "legendary-26",
+      "reference": "pet-models/warfront-impostors/roster/legendary-26.webp",
+      "previousSha256": "44a8acdf40af86e6c9edd51d85a83cd66476cb5d25745343c70e095bfe5cdb15",
+      "sha256": "0e3098c9771f9a65bd390e9166688fb6bca072b852fcff08c4437be94951a11a",
+      "animationReview": "docs/audits/pet-manticore-all-clips-v2-final-review-2026-10-18.json",
+      "reason": "Update reference to twice visually reviewed animation atlas. Preserve all portrait master, delivery and quality/symbol review records; this is not a new portrait review."
+    }
+  ],
+  "allPortraitMasterDeliveryAndReviewRecordsUnchanged": true,
+  "evidence": [
+    "docs/screenshots/pet-sphinx-raiju-manticore-main-validation-2026-10-18/lint.log",
+    "docs/screenshots/pet-sphinx-raiju-manticore-main-validation-2026-10-18/focused-tests.log",
+    "docs/screenshots/pet-sphinx-raiju-manticore-main-validation-2026-10-18/structure.log",
+    "docs/screenshots/pet-sphinx-raiju-manticore-main-validation-2026-10-18/reviews.log",
+    "docs/screenshots/pet-sphinx-raiju-manticore-main-validation-2026-10-18/production-build.log",
+    "docs/screenshots/pet-sphinx-raiju-manticore-main-validation-2026-10-18/generated-lod.log",
+    "docs/screenshots/pet-sphinx-raiju-manticore-main-validation-2026-10-18/generated-atlas.log",
+    "docs/audits/pet-sphinx-raiju-manticore-main-runtime-equivalence-2026-10-18.json"
+  ],
+  "evidenceSha256": {
+    "docs/screenshots/pet-sphinx-raiju-manticore-main-validation-2026-10-18/lint.log": "d102620f93d8e970de849d0b2dee541b4c178eeab41d0f23ddd199ed936fc360",
+    "docs/screenshots/pet-sphinx-raiju-manticore-main-validation-2026-10-18/focused-tests.log": "fd08986fa32f7a9759dc65a516e3ca5849eb128621c1a6f13f229d5b451577fa",
+    "docs/screenshots/pet-sphinx-raiju-manticore-main-validation-2026-10-18/structure.log": "9e84d5074bb3e344206067ba000295f240e3c932ae8c38f8221a0d4037337188",
+    "docs/screenshots/pet-sphinx-raiju-manticore-main-validation-2026-10-18/reviews.log": "838f4662ff9f40a64904d1c4cba0d6ed5fdcf54bf9f32fe07c0a92f229a0186c",
+    "docs/screenshots/pet-sphinx-raiju-manticore-main-validation-2026-10-18/production-build.log": "4cdd776fccc1e4bc313a5c4dc0be530b37a1e93f700aa8dbc814c2c9aed93805",
+    "docs/screenshots/pet-sphinx-raiju-manticore-main-validation-2026-10-18/generated-lod.log": "c91c38657f398af4d17c58d11093f938e3fbe0db658fc0a440e3fe1554570365",
+    "docs/screenshots/pet-sphinx-raiju-manticore-main-validation-2026-10-18/generated-atlas.log": "7fb3e1c43ad44559acfa41693d1bca27b21c0976b0ff21d88d6b3bdceb94f0ff",
+    "docs/audits/pet-sphinx-raiju-manticore-main-runtime-equivalence-2026-10-18.json": "2bab245f4746f037c9d6cb2e20efe071913502dd8000119d49fefc5c102966d7"
+  },
+  "productionRendererFilesIdentical": true,
+  "selectedOriginalAppearanceEquivalent": true,
+  "wholeRosterVisuallyComplete": false,
+  "liveForTheseThree": false
+}

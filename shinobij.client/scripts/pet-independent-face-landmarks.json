@@ -3639,6 +3639,285 @@
         "appendedAnatomicalLimbJoints": 12,
         "coverageActuallyRechecked": true
       }
+    },
+    "legendary-23": {
+      "camera": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.4174779171019525,
+          0.20118364133916955,
+          -0.03615733611612784,
+          0.5254936527717673,
+          0.5787784212439179,
+          1.0599558012621908
+        ],
+        "cameraPadding": 1.15
+      },
+      "status": "landmark-coverage-reviewed",
+      "sourceSha256": "79e4b710976fb3ab614f74650e48899d10f9eb851e9ee717fc150191e4c85c32",
+      "coverageEvidence": ".tmp/pet-independent-face-recheck/legendary-23-landmark-coverage.png",
+      "landmarks": {
+        "upperFace": {
+          "center": [
+            -0.17747791710195246,
+            0.34549365277176736,
+            0.8739197486775947
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            148,
+            175
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "muzzle": {
+          "center": [
+            -0.11906239566530176,
+            0.1775378219444468,
+            0.9399558012621907
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            155,
+            205
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "lowerFace": {
+          "center": [
+            -0.11850216080168281,
+            0.053842663883872155,
+            0.8780529883697428
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            154,
+            224
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "jawChin": {
+          "center": [
+            -0.03881635866083043,
+            0.11123299609137004,
+            0.8587784212439179
+          ],
+          "radius": 0.105,
+          "pickedPixel": [
+            145,
+            214
+          ],
+          "pickedView": "head-side",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        }
+      },
+      "geometrySha256": "41876fc4e2cbe78a4a55925fad15681e3d3470774aa80e7f7d0e6275c19f75c3",
+      "geometryToVisibleBind": [
+        0.9999999320107273,
+        0,
+        0,
+        0,
+        0,
+        0.9999999828661478,
+        8.785915328601845e-10,
+        0,
+        0,
+        -1.819732723951084e-7,
+        0.9999998621363457,
+        0,
+        5.551115123125783e-17,
+        8.71612183539483e-8,
+        1.232864421663038e-7,
+        1
+      ],
+      "headCountVisuallyVerified": 1,
+      "heads": [
+        {
+          "id": "primary",
+          "landmarks": [
+            "upperFace",
+            "muzzle",
+            "lowerFace",
+            "jawChin"
+          ]
+        }
+      ],
+      "coverageReviewedAt": "2026-10-17T17:58:09.876Z",
+      "coverageReview": "Fresh six-view survey, native front/side and initial/expanded overlays actually inspected. One horned feline face with surrounding mane and wings. Brow, black muzzle, lower black chin and side jaw covered; side jaw battle patch expanded and visually rechecked, minimum 25 vertices. No animation approval.",
+      "rigExtensionReview": {
+        "previousGeometrySha256": "53158460b779a8fcd5766ebb27bfd9cd7d7d5fa298f1df6504f881cb833179c5",
+        "candidateSourceSha256": "8cc0528ac831964a7eede4d41a9e00449ee628d28a21c7d64a26fabba2332f4b",
+        "conservationEvidence": "docs/screenshots/pet-independent-legendary-020-024-progress-2026-10-17/legendary-23-anatomical-candidate-conservation.json",
+        "originalBoneFramesAndInverseBindsPreserved": true,
+        "legacyLimbNamesPrefixed": true,
+        "sculptUvsTexturesPreserved": true,
+        "frozenLandmarksAndCoordinateFrameUnchanged": true,
+        "appendedAnatomicalLimbJoints": 12,
+        "coverageActuallyRechecked": true
+      }
+    },
+    "legendary-24": {
+      "camera": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.33010767407093816,
+          0.31245584688684885,
+          0.054099943735250566,
+          0.5465365099197133,
+          0.611935501823775,
+          1.0961157903507512
+        ],
+        "cameraPadding": 1.15
+      },
+      "status": "landmark-coverage-reviewed",
+      "sourceSha256": "ba183cac92218f60f2e1ae978bd514836a276f9883802c6b111051aa617b4bbf",
+      "coverageEvidence": ".tmp/pet-independent-face-recheck/legendary-24-landmark-coverage.png",
+      "landmarks": {
+        "upperFace": {
+          "center": [
+            -0.09010767407093816,
+            0.3665365099197132,
+            0.9603198555635586
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            145,
+            195
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "muzzle": {
+          "center": [
+            -0.008862276391327903,
+            0.21826662724625767,
+            0.9758213316041888
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            156,
+            220
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "lowerFace": {
+          "center": [
+            0.00844746014256285,
+            0.14409994373525056,
+            0.9761157903507511
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            158,
+            232
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "jawChin": {
+          "center": [
+            0.07245584688684886,
+            0.15900707782174467,
+            0.891935501823775
+          ],
+          "radius": 0.13,
+          "pickedPixel": [
+            151,
+            228
+          ],
+          "pickedView": "head-side",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "neckRuffTip": {
+          "center": [
+            -0.01659745598335542,
+            -0.2169205021859791,
+            0.7531453980850834
+          ],
+          "radius": 0.065,
+          "pickedPixel": [
+            160,
+            290
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        }
+      },
+      "geometrySha256": "06c78f89ed113313e26ca402c2a139575cace9a4150074387a0a382358bb3823",
+      "geometryToVisibleBind": [
+        0.9999999902017738,
+        0,
+        0,
+        0,
+        0,
+        1.0000000038824575,
+        -3.819083493894482e-9,
+        0,
+        0,
+        -1.7743826541405383e-7,
+        0.99999988304421,
+        0,
+        0,
+        1.4589521502017533e-7,
+        1.1862561544173644e-7,
+        1
+      ],
+      "headCountVisuallyVerified": 1,
+      "heads": [
+        {
+          "id": "primary",
+          "landmarks": [
+            "upperFace",
+            "muzzle",
+            "lowerFace",
+            "jawChin"
+          ]
+        }
+      ],
+      "coverageReviewedAt": "2026-10-17T17:58:09.876Z",
+      "coverageReview": "Fresh six-view survey, native front/side and initial/expanded overlays actually inspected. One canine head. Brow/eye, nose, lower muzzle and side chin/upper chin ruff covered; side patch expanded and visually rechecked, minimum battle patch 29 vertices. Dark chest-fur marks remain for close animation/body inspection. No animation approval.",
+      "additionalRuffLandmarkReview": {
+        "reason": "Jaw v1 passes the four original face patches but actual visual review still shows lower white neck ruff folding. Add a separate original-geometry tip patch before attempting the ruff repair; retain every original face landmark unchanged.",
+        "pickedOriginalSourceSha256": "ba183cac92218f60f2e1ae978bd514836a276f9883802c6b111051aa617b4bbf",
+        "pickedView": "head-front",
+        "pickedPose": "idle 0%",
+        "pickedPixel": [
+          160,
+          290
+        ],
+        "status": "original-geometry-marker-coverage-reviewed",
+        "vertices": 72
+      },
+      "rigExtensionReview": {
+        "previousGeometrySha256": "0c9c4064b057c0a654c24abde73c1c4e3fc83708c08c45e5dac9ce24db76932d",
+        "candidateSourceSha256": "bf76eb0e3e129229287dfe1de163993513d368e57897ac1907dd2e2ce3315fa4",
+        "conservationEvidence": "docs/screenshots/pet-independent-legendary-020-024-progress-2026-10-17/legendary-24-anatomical-candidate-conservation.json",
+        "originalBoneFramesAndInverseBindsPreserved": true,
+        "legacyLimbNamesPrefixed": true,
+        "sculptUvsTexturesPreserved": true,
+        "frozenLandmarksAndCoordinateFrameUnchanged": true,
+        "appendedAnatomicalLimbJoints": 12,
+        "coverageActuallyRechecked": true
+      }
     }
   }
 }
