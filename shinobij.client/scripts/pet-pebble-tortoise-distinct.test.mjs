@@ -10,6 +10,7 @@ import {repairPebbleTortoiseRootClearance} from './repair-pebble-tortoise-root-c
 import {loadPetDeformationProbe,snapshotPetPose,petClipSampleTimes} from './lib/pet-deformation-probe.mjs';
 import {createIndependentFaceProbe} from '../src/pet-independent-face-probe.ts';
 import {reviewedPebbleScalp} from './lib/pet-reviewed-scalp-component.mjs';
+import {assertReviewedDistinctPebblePayload} from './lib/pet-reviewed-payload.mjs';
 
 const source=new URL('../public/pet-models/starter-earth.glb',import.meta.url);
 const fixture=new URL('./fixtures/pet-pebble-tortoise-distinct/starter-earth-before.glb',import.meta.url);
@@ -18,6 +19,16 @@ const expected='c99b0471489b65a5fe2c4b9b50bf781c48f4820f7eacdb092cf983a15ca51894
 const annotation=JSON.parse(await readFile(new URL('./pet-independent-face-landmarks.json',import.meta.url))).pets['starter-earth'];
 const contactFixture=new URL('./fixtures/pet-pebble-tortoise-distinct/contact-motion-before.glb',import.meta.url);
 const groundedClips=['attack','cast','idle_hitreact1'];
+
+test('distinct-model provenance rejects changed bytes, a borrowed identity or shared geometry',async()=>{
+    const bytes=await readFile(source),model=await loadPetDeformationProbe(source),path=fileURLToPath(source);
+    assert.doesNotThrow(()=>assertReviewedDistinctPebblePayload(path,bytes,model.json));
+    const changed=Buffer.from(bytes);changed[changed.length-1]^=1;
+    assert.throws(()=>assertReviewedDistinctPebblePayload(path,changed,model.json),/payload is stale/);
+    assert.throws(()=>assertReviewedDistinctPebblePayload(fileURLToPath(new URL('../public/pet-models/roster/standard-5.glb',import.meta.url)),bytes,model.json),/only approved for Pebble/);
+    const shared=structuredClone(model.json);shared.extras.pebbleDistinctRebuild.sharedStoneTurtleGeometry=true;
+    assert.throws(()=>assertReviewedDistinctPebblePayload(path,bytes,shared));
+});
 
 test('only the exact reviewed, green, skull-bound scalp is recognized as separate anatomy',async()=>{
     const model=await loadPetDeformationProbe(source),mesh=model.meshes[0],g=mesh.geometry,primitive=model.json.meshes[0].primitives[0];

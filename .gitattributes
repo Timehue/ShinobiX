@@ -166,3 +166,5 @@ docs/screenshots/*pebble*/*.mjs text eol=lf
 docs/screenshots/*pebble*/*.log text eol=lf
 
 docs/screenshots/*pebble*/*.json text eol=lf
+
+docs/screenshots/*pebble*/*.ts text eol=lf

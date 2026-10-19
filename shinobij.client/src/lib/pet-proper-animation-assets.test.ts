@@ -1,3 +1,4 @@
+import {assertReviewedDistinctPebblePayload} from '../../scripts/lib/pet-reviewed-payload.mjs';
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
@@ -80,6 +81,8 @@ test("all 161 production pets have complete proper skeletal animation banks", ()
                 ? resolve(import.meta.dirname, `../../public/pet-models/${pet.id}.glb`)
                 : resolve(import.meta.dirname, `../../public/pet-models/roster/${pet.id}.glb`);
         const json = parseGlb(path);
+        const distinctPebble = pet.id==='starter-earth' && Boolean(json.extras?.pebbleDistinctRebuild);
+        if(distinctPebble)assertReviewedDistinctPebblePayload(path,readFileSync(path),json);
         const limbRepair = json.extras?.[reviewedLimbRepairs[pet.id]];
         if (limbRepair) {
             assert.equal(json.skins[0].joints.length, pet.id === 'mythic-15' ? 41 : pet.id === 'mythic-10' ? 29 : ['mythic-3', 'mythic-13', 'mythic-14', 'starter-fire'].includes(pet.id) ? 35 : 33, `${pet.id}: fitted anatomical joint count`);
@@ -144,7 +147,7 @@ test("all 161 production pets have complete proper skeletal animation banks", ()
         for (const [index, animation] of json.animations.entries()) {
             assert.ok(animation.channels.length >= 4, `${pet.id}/${animation.name}: take is too sparse`);
             const originalCount = json.extras.performanceRefinement?.sourceBoundary.channels[index] ?? animation.channels.length;
-            assert.ok(originalCount <= (pet.id === "starter-lightning-l" ? 16 : pet.id === "mythic-15" ? 13 : 9), `${pet.id}/${animation.name}: original body take became generic`);
+            assert.ok(originalCount <= (pet.id === "starter-lightning-l" || distinctPebble ? 16 : pet.id === "mythic-15" ? 13 : 9), `${pet.id}/${animation.name}: original body take became generic`);
             for (const channel of animation.channels.slice(originalCount)) {
                 const name = json.nodes[channel.target.node].name;
                 const contactBank = json.extras.characterMotion?.revision === PET_CHARACTER_MOTION_ASSET_REVISION;
