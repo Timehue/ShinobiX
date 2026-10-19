@@ -1,6 +1,7 @@
 import { afterEach, describe, it } from "node:test";
 import { strict as assert } from "node:assert";
-import type { HollowGateShrineRun, HollowGateTile } from "../types/character";
+import type { Character, HollowGateShrineRun, HollowGateTile } from "../types/character";
+import { enterHollowGateShrineFlow, recoverHollowGateRunOnBoot } from "./hollow-gate-entry";
 import { generateHollowGateShrineRun } from "./hollow-gate-dungeon";
 import {
     fetchHollowGateResume,
@@ -183,6 +184,8 @@ describe("hollow gate recovery — the flow never starts or spends anything", ()
             calls,
             params: {
                 character: { name: "diver" } as never,
+                currentRunToken: () => 'token-live',
+                commitCharacter: (character: Character, version: unknown) => { record('commit')({ character, version }); return true; },
                 setHollowGateRun: record("run") as never,
                 setHollowGateLog: record("log") as never,
                 setHollowGateEvent: record("event") as never,
@@ -298,5 +301,103 @@ describe("hollow gate recovery — the flow never starts or spends anything", ()
             assert.equal(calls.screen, undefined);
             assert.equal(calls.run, undefined);
         }
+    });
+
+    it("routes an actual zero-HP legacy run to hospital when resume retires it", async () => {
+        respond(200, { ok: true, live: false });
+        const { calls, params } = harness();
+        assert.equal(await recoverHollowGateRun({ ...params, character: { name: 'diver', hp: 0 } as never }), 'gone');
+        assert.deepEqual(calls.screen, ['hospital']);
+        assert.deepEqual(calls.run, [null], 'the ended board is cleared rather than regenerated');
+    });
+
+    const terminalCharacter = { name: 'diver', hp: 0, hospitalized: true, hollowGateRun: null };
+    const terminalReply = { ok: true, live: false, ended: true, token: 'token-live', character: terminalCharacter, _saveVersion: 2 };
+    const staleCharacter = { name: 'diver', hp: 100, hollowGateRun: { runToken: 'token-live' } };
+
+    for (const hp of [100, 0]) it(`adopts authoritative terminal resume with local HP ${hp}`, async () => {
+        respond(200, terminalReply);
+        const { calls, params } = harness();
+        assert.equal(await recoverHollowGateRun({ ...params, character: { ...staleCharacter, hp } as never }), 'ended');
+        assert.deepEqual(calls.commit, [{ character: terminalCharacter, version: 2 }]);
+        assert.deepEqual(calls.run, [null]);
+        assert.deepEqual(calls.screen, ['hospital']);
+        assert.equal(calls.character, undefined, 'the authoritative save goes through the versioned commit');
+    });
+
+    it('does not publish terminal recovery after account or run changes while awaiting resume', async () => {
+        for (const scope of ['account', 'run']) {
+            let release!: (response: Response) => void;
+            globalThis.fetch = (() => new Promise<Response>(resolve => { release = resolve; })) as typeof fetch;
+            const { calls, params } = harness();
+            let current = true;
+            const pending = recoverHollowGateRun({ ...params, character: staleCharacter as never,
+                isCurrent: () => scope !== 'account' || current,
+                currentRunToken: () => scope === 'run' && !current ? 'newer-run' : 'token-live' });
+            current = false;
+            release(new Response(JSON.stringify(terminalReply), { status: 200 }));
+            assert.equal(await pending, 'error');
+            assert.deepEqual(calls, {});
+        }
+    });
+
+    for (const entry of [false, true]) it(`a delayed generic gone response cannot clear a newer run (${entry ? 'entry' : 'recovery'})`, async () => {
+        let release!: (response: Response) => void;
+        let requested!: () => void;
+        const started = new Promise<void>(resolve => { requested = resolve; });
+        globalThis.fetch = (() => { requested(); return new Promise<Response>(resolve => { release = resolve; }); }) as typeof fetch;
+        const { calls, params } = harness();
+        let token = 'token-live';
+        const scoped = { ...params, character: { ...staleCharacter, hp: 0 } as never, currentRunToken: () => token };
+        const pending = entry ? enterHollowGateShrineFlow({ ...scoped, setHollowGateIntroPage: (() => undefined) as never }) : recoverHollowGateRun(scoped);
+        await started;
+        token = 'newer-run';
+        release(new Response(JSON.stringify({ ok: true, live: false }), { status: 200 }));
+        await pending;
+        assert.deepEqual(calls, {});
+    });
+
+    it('allows boot refs to hydrate to the requested run while resume is pending', async () => {
+        let release!: (response: Response) => void;
+        globalThis.fetch = (() => new Promise<Response>(resolve => { release = resolve; })) as typeof fetch;
+        const { calls, params } = harness();
+        const live = { token: undefined as string | undefined };
+        const pending = recoverHollowGateRun({ ...params, character: staleCharacter as never, currentRunToken: () => live.token });
+        live.token = 'token-live';
+        release(new Response(JSON.stringify(terminalReply), { status: 200 }));
+        assert.equal(await pending, 'ended');
+        assert.deepEqual(calls.screen, ['hospital']);
+    });
+
+    it('refuses malformed, foreign-token and stale-version terminal snapshots', async () => {
+        for (const reply of [terminalReply, { ...terminalReply, character: undefined }, { ...terminalReply, token: 'other-run' },
+            { ...terminalReply, character: { ...terminalCharacter, name: 'other-player' } }]) {
+            respond(200, reply);
+            const { calls, params } = harness();
+            assert.equal(await recoverHollowGateRun({ ...params, character: staleCharacter as never,
+                commitCharacter: () => false }), 'error');
+            assert.deepEqual(calls, {});
+        }
+    });
+
+    it('boot preserves the authoritative hospital destination over stale positive HP', async () => {
+        respond(200, terminalReply);
+        const { calls, params } = harness();
+        await recoverHollowGateRunOnBoot({ ...params, character: staleCharacter as never });
+        assert.deepEqual(calls.screen, ['hollowGateShrine', 'hospital']);
+        assert.deepEqual(calls.commit, [{ character: terminalCharacter, version: 2 }]);
+    });
+
+    for (const markerOnly of [true, false]) it(`entry stops after terminal recovery (${markerOnly ? 'start marker' : 'saved run'})`, async () => {
+        const requests: string[] = [];
+        globalThis.fetch = (async (input: RequestInfo | URL) => {
+            requests.push(String(input));
+            return new Response(JSON.stringify(terminalReply), { status: 200 });
+        }) as typeof fetch;
+        const { calls, params } = harness();
+        await enterHollowGateShrineFlow({ ...params, setHollowGateIntroPage: (() => undefined) as never,
+            character: (markerOnly ? { name: 'diver', hp: 100, lastHollowGateStart: { token: 'token-live', requestId: 'original-start' } } : staleCharacter) as never });
+        assert.deepEqual(requests, ['/api/hollow-gate/resume'], 'no start replay or new key request after an ended response');
+        assert.deepEqual(calls.screen, ['hospital']);
     });
 });

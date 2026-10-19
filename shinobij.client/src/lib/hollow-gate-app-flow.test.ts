@@ -152,6 +152,13 @@ describe("hollow gate pet defeat — the run the shrine keeps", () => {
         assert.equal(hollowGateRunAfterPetDefeat(null, { floor: 2, runToken: "token-a" } as unknown as HollowGateShrineRun), null);
         assert.equal(hollowGateRunAfterPetDefeat(null, null), null);
     });
+
+    it("honors an explicit ended null and never adopts a complete board into an ended live state", () => {
+        assert.equal(hollowGateRunAfterPetDefeat(run({ tiles: board }), null), null);
+        assert.equal(hollowGateRunAfterPetDefeat(null, run({ tiles: board })), null);
+        const live = run({ tiles: board });
+        assert.equal(hollowGateRunAfterPetDefeat(live, run({ runToken: 'different-run', tiles: board })), live);
+    });
 });
 
 describe("hollow gate shinobi escape and Second Wind — the run the shrine keeps", () => {

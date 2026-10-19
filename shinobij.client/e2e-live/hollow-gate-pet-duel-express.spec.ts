@@ -1,5 +1,5 @@
 import { expect, type APIRequestContext, type Page, type Response, type TestInfo } from '@playwright/test';
-import { test } from './helpers/reconnecting-request';
+import { API_CONNECTION_RETRIES, test } from './helpers/reconnecting-request';
 import { uniqueNameStamp } from './helpers/player-names';
 import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
 import { WORLD_GEO_VERSION } from '../../shared/sector-geo';
@@ -506,7 +506,7 @@ async function forfeitTheDuel(page: Page, dive: Dive) {
     expect(conceded.state.outcome, 'a concession decides the duel as a loss').toBe('loss');
     expect(conceded.hollowGate, 'the concession mints the receipt the Gate settles')
         .toEqual({ runId: dive.encounter.runId, petReceipt: dive.opened.state.sessionId });
-    const settled = await jsonOf<{ won: boolean; petDefeat: boolean; reward: Record<string, number>; character: SavedCharacter }>(await settleReply, 'hollow-gate/combat-settle');
+    const settled = await jsonOf<{ won: boolean; petDefeat: boolean; ended?: boolean; reward: Record<string, number>; character: SavedCharacter }>(await settleReply, 'hollow-gate/combat-settle');
     expect(settled.won).toBe(false);
     expect(settled.petDefeat, 'the Gate records a pet defeat').toBe(true);
     expect(Object.entries(settled.reward).filter(([, amount]) => amount !== 0), 'a pet defeat pays nothing').toEqual([]);
@@ -531,9 +531,9 @@ test('Send pet opens the server-drawn duel on the shrine, and a forfeit settles 
     // hollowGateRunAfterPetDefeat kept the live one.
     const shrine = page.locator('.hollow-gate-shrine');
     await expect(shrine.getByRole('grid', { name: 'Floor 1 dungeon grid' })).toBeVisible();
-    const recoil = Math.max(1, Math.floor(before.maxHp * 0.2));
+    const recoil = Math.max(1, Math.floor(before.maxHp * 0.33));
     await expect(shrine.locator('[role="log"]')).toContainText(
-        `The Hollow Hound wins the pet duel. ${recoil} HP recoils through the seal; the encounter remains unresolved.`,
+        'The Hollow Hound wins the pet duel. The seal takes 33% of maximum HP, stopping at 1 HP; the encounter remains unresolved.',
     );
     await expect(shrine.getByRole('gridcell', {
         name: `${diver.name}, current location, row ${dive.houndTile.y + 1}, column ${dive.houndTile.x + 1}`,
@@ -543,7 +543,7 @@ test('Send pet opens the server-drawn duel on the shrine, and a forfeit settles 
     expect(after.hollowGateRun?.runToken, 'a pet defeat never ends the run').toBe(dive.started.token);
     expect(after.hollowGateRun?.activeCombat ?? null).toBeNull();
     expect(after.hospitalized ?? false).toBe(false);
-    expect(after.hp, 'the seal recoils 20% of max HP').toBe(Math.max(1, before.hp - recoil));
+    expect(after.hp, 'the seal recoils 33% of max HP with the existing 1 HP floor').toBe(Math.max(1, before.hp - recoil));
     for (const currency of ['ryo', 'xp', 'auraDust', 'honorSeals', 'boneCharms', 'fateShards', 'hollowShards'] as const) {
         expect(after[currency] ?? 0, `${currency} is unchanged: nothing was paid`).toBe(before[currency] ?? 0);
     }
@@ -557,6 +557,42 @@ test('Send pet opens the server-drawn duel on the shrine, and a forfeit settles 
     expect(pageErrors, 'no uncaught page errors').toEqual([]);
 });
 
+test('an actual zero-HP legacy pet result closes the shrine and stays in hospital after retry and reload', async ({ page, request }, info) => {
+    test.setTimeout(240_000);
+    const { diver, pageErrors } = await startDiver(page, request, info);
+    const dive = await sendPetFromTheShrine(page, info, diver);
+    const headers = { 'x-player-name': diver.name, 'x-player-token': diver.token };
+    const read = await request.get(`/api/save/${diver.name}`, { headers });
+    expect(read.status()).toBe(200);
+    const legacy = await read.json() as Json & { character: SavedCharacter };
+    const before = legacy.character;
+    // Disposable local QA account only: reproduce an old zero-HP body with a
+    // stranded pet binding. Keep the server-owned run and receipts unchanged.
+    legacy.character = { ...before, hp: 0, hospitalized: false };
+    const seeded = await request.post(`/api/save/${diver.name}?signal=1`, {
+        headers: { 'x-admin-password': ADMIN }, data: legacy,
+    });
+    expect(seeded.status(), await seeded.text()).toBe(200);
+    expect((await request.post(`/api/save/${diver.name}?ack=1`, { headers })).status()).toBe(200);
+    const settled = await forfeitTheDuel(page, dive);
+    expect(settled.ended).toBe(true);
+    expect(settled.character.hp).toBe(0);
+    await expect(page.locator('.hospital-screen--admitted')).toBeVisible();
+    await expect(page.locator('.hollow-gate-shrine')).toHaveCount(0);
+    const replay = await request.post('/api/hollow-gate/combat-settle', { headers,
+        data: { playerName: diver.name, token: dive.started.token, runId: dive.encounter.runId, petReceipt: dive.opened.state.sessionId },
+    });
+    expect(replay.status(), await replay.text()).toBe(200);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect(page.locator('.hospital-screen--admitted')).toBeVisible();
+    const after = await diver.readCharacter();
+    expect(after.hp).toBe(0);
+    expect(after.hollowGateRun).toBeNull();
+    expect(after.ryo).toBe(before.ryo);
+    await page.screenshot({ path: info.outputPath('hollow-gate-ended-pet-hospital.png'), animations: 'disabled' });
+    expect(pageErrors).toEqual([]);
+});
+
 type ResumeReply = {
     live: boolean;
     run: {
@@ -568,6 +604,60 @@ type ResumeReply = {
         activeCombat: { runId: string; nodeId: string; floor: number; kind: string; mode?: string } | null;
     };
 };
+
+test('a lost terminal resume reply recovers stale positive browser HP on the next reload', async ({ page, request }, info) => {
+    test.setTimeout(240_000);
+    const { diver, pageErrors } = await startDiver(page, request, info);
+    const dive = await sendPetFromTheShrine(page, info, diver);
+    const headers = { 'x-player-name': diver.name, 'x-player-token': diver.token };
+    const read = await request.get(`/api/save/${diver.name}`, { headers });
+    const legacy = await read.json() as Json & { character: SavedCharacter & Json };
+    const before = legacy.character;
+    legacy.character = { ...before, hp: 0, hospitalized: false };
+    const seeded = await request.post(`/api/save/${diver.name}?signal=1`, {
+        headers: { 'x-admin-password': ADMIN }, data: legacy,
+    });
+    expect(seeded.status(), await seeded.text()).toBe(200);
+    expect((await request.post(`/api/save/${diver.name}?ack=1`, { headers })).status()).toBe(200);
+
+    // Simulate an old cached browser drawing only. The real server save stays
+    // at zero HP, and both terminal resume requests execute on Express.
+    await page.route(`**/api/save/${diver.name}*`, async route => {
+        if (route.request().method() !== 'GET') return route.continue();
+        const response = await route.fetch({ maxRetries: API_CONNECTION_RETRIES });
+        const saved = await response.json() as Json & { character?: Json };
+        if (saved.character) saved.character = { ...saved.character, hp: before.hp, hospitalized: false,
+            hollowGateRun: before.hollowGateRun, lastHollowGateStart: before.lastHollowGateStart };
+        await route.fulfill({ response, json: saved });
+    });
+    let lostReply = false;
+    await page.route('**/api/hollow-gate/resume', async route => {
+        if (lostReply) return route.continue();
+        const response = await route.fetch({ maxRetries: API_CONNECTION_RETRIES });
+        const terminal = await response.json() as Json;
+        expect(terminal.ended).toBe(true);
+        expect(terminal.token).toBe(dive.started.token);
+        lostReply = true;
+        await route.abort('failed');
+    });
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect.poll(() => lostReply, { timeout: 45_000 }).toBe(true);
+    const committed = await diver.readCharacter();
+    const replayReply = apiReply(page, '/api/hollow-gate/resume', () => true, 150_000);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    const replay = await jsonOf<Json>(await replayReply, 'terminal resume replay');
+    expect(replay.ended).toBe(true);
+    expect(replay.token).toBe(dive.started.token);
+    await expect(page.locator('.hospital-screen--admitted')).toBeVisible();
+    await expect(page.locator('.hollow-gate-shrine')).toHaveCount(0);
+    const after = await diver.readCharacter();
+    expect(after.hp).toBe(0);
+    expect(after.hollowGateRun).toBeNull();
+    expect(after.ryo).toBe(before.ryo);
+    expect(after.hp).toBe(committed.hp);
+    await page.screenshot({ path: info.outputPath('hollow-gate-resume-replay-hospital.png'), animations: 'disabled' });
+    expect(pageErrors).toEqual([]);
+});
 
 test('a reload mid-duel returns to the shrine by itself and reopens the same Showdown session', async ({ page, request }, info) => {
     test.setTimeout(240_000);

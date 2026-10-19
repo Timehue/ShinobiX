@@ -94,7 +94,7 @@ for (const winner of ['player', 'opponent', 'draw']) test(`old floor projection 
         hollowGateCard: { tokenDigest: createHash('sha256').update(TOKEN).digest('hex'), nodeId } });
     const settled = await call('card-settle', { matchId });
     assert.equal(settled.status, 200, JSON.stringify(settled.body));
-    const hp = winner === 'player' ? 400 : 300;
+    const hp = winner === 'player' ? 400 : 235; // 33% of the 500 max HP, not current HP.
     assert.equal((await saved())!.character.hp, hp);
     const fight = await pendingHound();
     assert.equal(fight.status, 200, JSON.stringify(fight.body));
