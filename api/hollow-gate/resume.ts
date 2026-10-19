@@ -1,4 +1,4 @@
-import { hollowGateEndedRunCharacter, makeHollowGatePendingOperation, recoverHollowGatePendingOperation } from './_pending-operation.js';
+import { hollowGateEndedRunCharacter, hollowGatePendingOperationOf, makeHollowGatePendingOperation, recoverHollowGatePendingOperation } from './_pending-operation.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
@@ -38,11 +38,21 @@ import { hollowGateFloorFeatures } from './_floor-features.js';
  * Body: { playerName }.
  */
 
-type SavedCharacter = {
+type SavedCharacter = Record<string, unknown> & {
     hollowGateRun?: { runToken?: unknown } | null;
     lastHollowGateStart?: { token?: unknown } | null;
     redeemedHollowGateRuns?: unknown;
 };
+
+/** Replay only resume's own committed zero-HP cleanup, including a lost reply. */
+function endedResumeTokenOf(character: SavedCharacter | undefined): string {
+    if (!character || hollowGateLiveTokenOf(character) || character.hollowGateRun !== null
+        || !Number.isFinite(Number(character.hp)) || Number(character.hp) > 0) return '';
+    const raw = character.hollowGatePendingOperation as { token?: unknown } | undefined;
+    if (!raw || typeof raw.token !== 'string') return '';
+    const proof = hollowGatePendingOperationOf(character, raw.token);
+    return proof?.terminal && proof.kind === 'event' && proof.id === 'ended-resume' && proof.response.ended === true ? proof.token : '';
+}
 
 /** The save's pointer to its live run: the projection first, then the start marker. */
 export function hollowGateLiveTokenOf(character: SavedCharacter | null | undefined): string {
@@ -117,12 +127,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const record = await kv.get<{ character?: SavedCharacter }>(`save:${playerName}`);
         const character = record?.character;
-        const token = hollowGateLiveTokenOf(character);
+        const token = hollowGateLiveTokenOf(character) || endedResumeTokenOf(character);
         const redeemed = Array.isArray(character?.redeemedHollowGateRuns) ? character.redeemedHollowGateRuns : [];
         if (!token || redeemed.includes(token)) return res.status(200).json({ ok: true, live: false });
 
         const runKey = hollowGateRunKey(playerName, token);
         const result = await withKvLock(runKey, async () => {
+            const replay = await kv.get<{ character?: SavedCharacter; _saveVersion?: unknown }>(`save:${playerName}`);
+            if (replay && endedResumeTokenOf(replay.character) === token) {
+                await recoverHollowGatePendingOperation(kv, runKey, await kv.get<HollowGateRunToken>(runKey), playerName, token);
+                return { ok: true, live: false, ended: true, token, character: replay.character, _saveVersion: replay._saveVersion };
+            }
             const run = await recoverHollowGatePendingOperation(kv, runKey, await kv.get<HollowGateRunToken>(runKey), playerName, token);
             if (!run || run.playerName !== playerName) return { ok: true, live: false };
             const latest = await kv.get<{ character?: Record<string, unknown> }>(`save:${playerName}`);
@@ -140,7 +155,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 });
                 if (!repaired.ok) throw new Error('hollow-gate-ended-resume-save-changed');
                 await recoverHollowGatePendingOperation(kv, runKey, run, playerName, token);
-                return { ok: true, live: false, ended: true, character: repaired.character, _saveVersion: repaired._saveVersion };
+                return { ok: true, live: false, ended: true, token, character: repaired.character, _saveVersion: repaired._saveVersion };
             }
             const active = run.activeEncounter;
             const binding = active ? await kv.get<HollowGateCombatBinding>(hollowGateCombatBindingKey(active.runId)) : null;

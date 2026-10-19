@@ -146,11 +146,14 @@ for (const outcome of ['win', 'loss'] as const) {
     test(`an already-paid legacy pet ${outcome} cannot reopen a genuinely ended run`, async () => {
         await seed();
         const { runId } = await sendPet();
-        const ghost = (await kv.get<HollowGateRunToken>(runKey))!;
         const { state } = (await openDuel(runId)).body;
         await decide(state.sessionId, outcome);
         await showdown({ action: 'turn', sessionId: state.sessionId, commands: [] });
         assert.equal((await gate('combatSettle', { runId, petReceipt: state.sessionId })).status, 200);
+        const settledRun = (await kv.get<HollowGateRunToken & { appliedSaveOperationIds: string[] }>(runKey))!;
+        assert.ok(settledRun.appliedSaveOperationIds.includes(`combat:${runId}`));
+        const { publishHollowGatePresence } = await import('./_presence.js');
+        await publishHollowGatePresence(kv, PLAYER, TOKEN);
         const ended = (await kv.get<Record<string, any>>(saveKey))!;
         ended.character.hp = 0;
         ended.character.hospitalized = true;
@@ -158,20 +161,25 @@ for (const outcome of ['win', 'loss'] as const) {
         ended.character.lastHollowGateStart = { token: TOKEN, requestId: 'legacy-start' };
         delete ended.character.hollowGatePendingOperation;
         await kv.set(saveKey, ended);
-        await kv.set(runKey, ghost);
+        await kv.set(runKey, settledRun);
         const beforeRyo = ended.character.ryo;
         const repaired = await gate('combatSettle', { runId, petReceipt: state.sessionId });
         assert.equal(repaired.status, 200, JSON.stringify(repaired.body));
         assert.equal(repaired.body.ended, true);
         assert.equal(await kv.get(runKey), null);
+        assert.equal(await kv.get(`battle-state:${PLAYER}`), null);
         const after = (await kv.get<Record<string, any>>(saveKey))!;
         assert.equal(after.character.hp, 0);
         assert.equal(after.character.hospitalized, true);
         assert.equal(after.character.hollowGateRun, null);
         assert.equal(after.character.lastHollowGateStart, undefined);
         assert.equal(after.character.ryo, beforeRyo);
-        assert.equal((await gate('combatSettle', { runId, petReceipt: state.sessionId })).status, 200);
-        assert.deepEqual(await kv.get(saveKey), after);
+        for (let retry = 0; retry < 2; retry++) {
+            assert.equal((await gate('combatSettle', { runId, petReceipt: state.sessionId })).status, 200);
+            assert.deepEqual(await kv.get(saveKey), after, 'cleanup retries do not rewrite or charge the save');
+            assert.equal(await kv.get(runKey), null);
+            assert.equal(await kv.get(`battle-state:${PLAYER}`), null);
+        }
         assert.equal((await invoke('resume', {})).body.live, false);
     });
 }

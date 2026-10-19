@@ -131,14 +131,16 @@ async function repairHollowGateRun(
 ): Promise<HollowGateRunToken | null> {
     const proof = hollowGatePendingOperationOf(character, token);
     if (!proof || !character || hollowGateSavedTokenMismatch(character, token)) return run;
-    const receiptId = `${proof.kind}:${proof.id}`;
-    const applied = (run as RunWithReceipts | null)?.appliedSaveOperationIds ?? [];
-    if (applied.includes(receiptId)) return run;
     if (proof.terminal) {
+        // A later save CAS can retire a previously applied result with the
+        // same operation ID. Its terminal proof supersedes that live receipt.
         await store.del(runKey);
         await retireHollowGatePresenceByRunKey(store, runKey);
         return null;
     }
+    const receiptId = `${proof.kind}:${proof.id}`;
+    const applied = (run as RunWithReceipts | null)?.appliedSaveOperationIds ?? [];
+    if (applied.includes(receiptId)) return run;
     if (!run) {
         // A later extraction can consume the run while retaining the previous
         // operation proof. Its save-side terminal receipt wins on replay.

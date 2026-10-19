@@ -31,7 +31,10 @@ test("App reports a failed shrine entry instead of dropping the promise", () => 
     const app = source("../App.tsx");
     // Three map buttons fire `void enterHollowGateShrine(...)`; the one wrapper
     // they share must catch, or a rejection is an unhandled no-op.
-    assert.match(app, /return enterHollowGateShrineFlow\(\{[\s\S]{0,400}?\}\)\.catch\(reportHollowGateEntryFailure\);/);
+    const entry = app.match(/return enterHollowGateShrineFlow\(\{[^;]*?\}\)\.catch\(reportHollowGateEntryFailure\);/)?.[0];
+    assert.ok(entry, 'the complete entry call catches escaped failures');
+    assert.match(entry, /commitCharacter: commitVersionedCharacter/);
+    assert.match(entry, /currentRunToken: \(\) => hollowGateMovementRunRef\.current\?\.runToken/);
 });
 
 test("rift entry carries no party or deck gate and no dynamic import on the way in", () => {

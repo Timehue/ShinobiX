@@ -2514,7 +2514,8 @@ export default function App() {
             prevCharRef.current = normalized;
             charDirtyRef.current = false;
             const recoverBoardlessHollowGateRun = () => recoverHollowGateRunOnBoot({ character: normalized, setHollowGateRun, setHollowGateLog, setHollowGateEvent,
-                    setHollowGateHiddenChamber, setCharacter, setCurrentBiome, setCurrentWeather, setScreen, pushHollowGateLog,
+                    setHollowGateHiddenChamber, setCharacter, setCurrentBiome, setCurrentWeather, setScreen, pushHollowGateLog, commitCharacter: commitVersionedCharacter,
+                    currentRunToken: () => hollowGateMovementRunRef.current?.runToken ?? characterRef.current?.hollowGateRun?.runToken ?? characterRef.current?.lastHollowGateStart?.token,
                     isCurrent: capturePvpCreateScope(normalized.name).isCurrent });
             scopeSaveAuthorityToAccount(snap.character.name);
             const restoredPvpScope = {
@@ -4723,7 +4724,7 @@ export default function App() {
         void loadHollowGateShrineView().catch(() => undefined); warmHollowGateGenerator();
         return enterHollowGateShrineFlow({
             eventCfg, character, setHollowGateRun, setHollowGateLog, setHollowGateEvent, setHollowGateHiddenChamber,
-            setCharacter, setCurrentBiome, setCurrentWeather, setScreen, setHollowGateIntroPage, pushHollowGateLog,
+            setCharacter, setCurrentBiome, setCurrentWeather, setScreen, setHollowGateIntroPage, pushHollowGateLog, commitCharacter: commitVersionedCharacter, currentRunToken: () => hollowGateMovementRunRef.current?.runToken ?? characterRef.current?.hollowGateRun?.runToken ?? characterRef.current?.lastHollowGateStart?.token,
             isCurrent: character ? capturePvpCreateScope(character.name).isCurrent : () => false,
         }).catch(reportHollowGateEntryFailure);
     }    // ── Admin-only ops for the Hollow Gate panel ──────────────────────────
