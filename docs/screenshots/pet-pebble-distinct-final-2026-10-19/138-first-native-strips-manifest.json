@@ -1,0 +1,1625 @@
+{
+  "id": "starter-earth",
+  "label": "pebble-distinct-contact-v2-techniques",
+  "sourceManifestSha256": "33f55158ab75fb0c46f4e2f42b1c1268fddd7d5f357b818549010386aa99529d",
+  "crop": {
+    "left": 151,
+    "top": 41,
+    "width": 198,
+    "height": 178
+  },
+  "nativePixelsPreserved": true,
+  "resizing": false,
+  "foregroundThreshold": 3,
+  "strips": [
+    {
+      "name": "front-block-0-half-0.png",
+      "sha256": "9797b997dfbeaacd2a080be351a33b74695eebd960f109c88f385e2c56205799",
+      "sources": [
+        {
+          "name": "starter-earth-earth-strike-front-0.png",
+          "sha256": "cad19ba49a13fe87ee6dced0fdb12f5eab70817ed63d0857b1b1ba278273a854",
+          "move": "earth-strike",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "starter-earth-earth-strike-front-1.png",
+          "sha256": "1e151bf4fae08bc68507e7bcea82b1dcb317ef454fe12efda25fb1372872069c",
+          "move": "earth-strike",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "starter-earth-earth-strike-front-2.png",
+          "sha256": "32e1ac026e38f89af8a317a10e5e1985a381aef54e44098c9cd9a083d426751d",
+          "move": "earth-strike",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "starter-earth-earth-strike-front-3.png",
+          "sha256": "8fcad01f7a32c63e6ca431c9e133a68ac004fdb41450b1b93c95a020f57c49ad",
+          "move": "earth-strike",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "starter-earth-earth-strike-front-4.png",
+          "sha256": "1f3dd03d2bdda593466f95cbc1f96af35ac04fe036ab417d1367975c2fb261ef",
+          "move": "earth-strike",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "starter-earth-earth-strike-front-5.png",
+          "sha256": "d1e0def977ddc4a3cefd3b9d9e5b209ac50763b2ad082589bd17b338a7169145",
+          "move": "earth-strike",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "starter-earth-earth-pulse-front-0.png",
+          "sha256": "06fe2e9c508d64deea1d328725eeb2ce1b6c77631afdde68a7c074f278d04d86",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "starter-earth-earth-pulse-front-1.png",
+          "sha256": "94f8d8426d3a4dde5b908a0c4557aac92c66117934f2a170b94077cf8fbd4fca",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "starter-earth-earth-pulse-front-2.png",
+          "sha256": "b1a5049cfb26033107b6ae2f9fa7abca41d30c90b3c8b6e840bbec4c7c74944e",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "starter-earth-earth-pulse-front-3.png",
+          "sha256": "d480c8507086c08263fa53bf2113f735a87ecc5c1697e87dc124ad8aaa9cfdbb",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "starter-earth-earth-pulse-front-4.png",
+          "sha256": "fd77d8bbb7502ba267f89349d6262c98bc6da5616d831ca4676cdc002dfb6758",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "starter-earth-earth-pulse-front-5.png",
+          "sha256": "69ce3d12c44dcd675f5b1fa0123b5f3de8ad4943bc6106f6de93f0c3db15a501",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "starter-earth-earth-breaker-front-0.png",
+          "sha256": "1061575d51af18dd9550aa3ead6554c18a6292e6ca4b873f58784994a6e2262f",
+          "move": "earth-breaker",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "starter-earth-earth-breaker-front-1.png",
+          "sha256": "1e151bf4fae08bc68507e7bcea82b1dcb317ef454fe12efda25fb1372872069c",
+          "move": "earth-breaker",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "starter-earth-earth-breaker-front-2.png",
+          "sha256": "fb10f3fcc68d494b26fe2861ae275e96039c964cb7fbc3fda60d3dc8588196f9",
+          "move": "earth-breaker",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "starter-earth-earth-breaker-front-3.png",
+          "sha256": "8fcad01f7a32c63e6ca431c9e133a68ac004fdb41450b1b93c95a020f57c49ad",
+          "move": "earth-breaker",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "starter-earth-earth-breaker-front-4.png",
+          "sha256": "1f3dd03d2bdda593466f95cbc1f96af35ac04fe036ab417d1367975c2fb261ef",
+          "move": "earth-breaker",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "starter-earth-earth-breaker-front-5.png",
+          "sha256": "d1e0def977ddc4a3cefd3b9d9e5b209ac50763b2ad082589bd17b338a7169145",
+          "move": "earth-breaker",
+          "view": "front",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 612
+    },
+    {
+      "name": "front-block-0-half-1.png",
+      "sha256": "804a605534347b1d1ae5d08119b20b1fb1ec697ad838d3590b233bd956c6e514",
+      "sources": [
+        {
+          "name": "starter-earth-earth-strike-front-6.png",
+          "sha256": "2fc2d2578a8bc3bff0e00a6b5b1b9fb4010254b7e9de00a63e01536c65d9d476",
+          "move": "earth-strike",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "starter-earth-earth-strike-front-7.png",
+          "sha256": "cf0d1eae2d83367dca0a0de38d38cd7fdf80f9676277c0ce8174ae383534ced3",
+          "move": "earth-strike",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "starter-earth-earth-strike-front-8.png",
+          "sha256": "ffbc7c85f883ce7c2654a8ffb8601702ef3f3c462a5ff4daf9eefc3c3d369d86",
+          "move": "earth-strike",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "starter-earth-earth-strike-front-9.png",
+          "sha256": "e72309f0441e46c49c30520db9bc883ac0c05f6073f3937a3fd1b723c1094b8b",
+          "move": "earth-strike",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "starter-earth-earth-strike-front-10.png",
+          "sha256": "7837c1f701b8f986a3bd261eef30e6a9344db1b2675522cdd35c82d6f2dae41e",
+          "move": "earth-strike",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "starter-earth-earth-strike-front-11.png",
+          "sha256": "b1172dd6a1533ebb33929851d131aedfd238ccd9abe337d9ef3364dc226a9849",
+          "move": "earth-strike",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "starter-earth-earth-pulse-front-6.png",
+          "sha256": "bcffccd6448fb8e4cdd02cce091538da631a6ee099373ec339105d5a630b1f35",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "starter-earth-earth-pulse-front-7.png",
+          "sha256": "84b19f0626b67dfc95d9fca53069b6d4db6b8ca872371f8ee6f6c5874d6c778c",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "starter-earth-earth-pulse-front-8.png",
+          "sha256": "fb0f8e8f0ee63ad96b57cab81a90651a847e5d7c4ecfc33bfc1cd83a396daea0",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "starter-earth-earth-pulse-front-9.png",
+          "sha256": "5e1e1e185375d4088661413fb4c0c71f13756e197b6239e1aa3d2ac4660e5b97",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "starter-earth-earth-pulse-front-10.png",
+          "sha256": "1003401ad570e2036ba3699cffdd67cd6ad92a0f94796c366af135010b189d2d",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "starter-earth-earth-pulse-front-11.png",
+          "sha256": "b1172dd6a1533ebb33929851d131aedfd238ccd9abe337d9ef3364dc226a9849",
+          "move": "earth-pulse",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "starter-earth-earth-breaker-front-6.png",
+          "sha256": "2fc2d2578a8bc3bff0e00a6b5b1b9fb4010254b7e9de00a63e01536c65d9d476",
+          "move": "earth-breaker",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "starter-earth-earth-breaker-front-7.png",
+          "sha256": "cf0d1eae2d83367dca0a0de38d38cd7fdf80f9676277c0ce8174ae383534ced3",
+          "move": "earth-breaker",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "starter-earth-earth-breaker-front-8.png",
+          "sha256": "fcb4ad5cae5fc430d8cf085bff2b5551a4962bc988f1fe818a54a769b3c1759d",
+          "move": "earth-breaker",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "starter-earth-earth-breaker-front-9.png",
+          "sha256": "e86835c3549aa441fb361b34a1fa10c611bcd24a2b9c5d02adc7ce738aa6164b",
+          "move": "earth-breaker",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "starter-earth-earth-breaker-front-10.png",
+          "sha256": "1003401ad570e2036ba3699cffdd67cd6ad92a0f94796c366af135010b189d2d",
+          "move": "earth-breaker",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "starter-earth-earth-breaker-front-11.png",
+          "sha256": "d4465443e1fd3b2713cdffb7d86a3b1653aa0dacbe4749f2ed31b11b7740cf72",
+          "move": "earth-breaker",
+          "view": "front",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 612
+    },
+    {
+      "name": "front-block-1-half-0.png",
+      "sha256": "bbaf7b0a868464c3deffab21edffd3f7ad661c1e0ed3ca3d27c282cb0630a532",
+      "sources": [
+        {
+          "name": "starter-earth-lightning-pulse-front-0.png",
+          "sha256": "eba73b0a1bfda1446194fbd3863125b7d074ac14492fa88099d9bf4da1207dba",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "starter-earth-lightning-pulse-front-1.png",
+          "sha256": "20bec4552d019f9ffefba42e5fd0956ec4dd486ee84e6c7c392673184cc665a1",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "starter-earth-lightning-pulse-front-2.png",
+          "sha256": "0f58b4a734bf35f8cace6c0a92b54a296a1e75f01dc62edd05d68441117aad81",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "starter-earth-lightning-pulse-front-3.png",
+          "sha256": "e2499b6a6674befc223f669b847c72a56bc7a375abd5a192c8a984c458bb3e8e",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "starter-earth-lightning-pulse-front-4.png",
+          "sha256": "fe8b30a92307bde1da3058776a468f22b9d10006ddf65a2c829061cea2022424",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "starter-earth-lightning-pulse-front-5.png",
+          "sha256": "bf43391dd9103edc157f7be5ebb0903e52ff5880ee90a1d624bd5552307ff1eb",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "starter-earth-open-wound-front-0.png",
+          "sha256": "1061575d51af18dd9550aa3ead6554c18a6292e6ca4b873f58784994a6e2262f",
+          "move": "open-wound",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "starter-earth-open-wound-front-1.png",
+          "sha256": "36ffc5f3249599d32a32029d57eb3591ae52c81e04c37720d2be3a7e9f4f9e76",
+          "move": "open-wound",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "starter-earth-open-wound-front-2.png",
+          "sha256": "fb10f3fcc68d494b26fe2861ae275e96039c964cb7fbc3fda60d3dc8588196f9",
+          "move": "open-wound",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "starter-earth-open-wound-front-3.png",
+          "sha256": "c933e7c7b653516e973c5873de924abdd6461e2a1361d1140d5331a169836e3a",
+          "move": "open-wound",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "starter-earth-open-wound-front-4.png",
+          "sha256": "1f3dd03d2bdda593466f95cbc1f96af35ac04fe036ab417d1367975c2fb261ef",
+          "move": "open-wound",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "starter-earth-open-wound-front-5.png",
+          "sha256": "d1e0def977ddc4a3cefd3b9d9e5b209ac50763b2ad082589bd17b338a7169145",
+          "move": "open-wound",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "starter-earth-intercept-front-0.png",
+          "sha256": "1186e3be44435cf41bda9d66ac96fa958b4c7c52240a9bb9d46da77e855fa878",
+          "move": "intercept",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "starter-earth-intercept-front-1.png",
+          "sha256": "21c347a60c254b93ee839e090098e1c8b7636d28b389745a7224f4f6b59e82a4",
+          "move": "intercept",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "starter-earth-intercept-front-2.png",
+          "sha256": "f5eea1ae822fefbcb676bf26c46c7dcfb47b268f6add6b3ec4ebf9bd9368e746",
+          "move": "intercept",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "starter-earth-intercept-front-3.png",
+          "sha256": "ce46d39d3d2d5ef14c7fc38f34555b86ed9796d03152f62f7f68e9061170394d",
+          "move": "intercept",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "starter-earth-intercept-front-4.png",
+          "sha256": "dcaaf1b2bab874121061b63cc68ca0be75e5164768aafd2f02c5dcb241cb8819",
+          "move": "intercept",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "starter-earth-intercept-front-5.png",
+          "sha256": "afee5b2de30cacd01c8a51d388a6cfbc136f663486f0b46a2d4c336c35238a8d",
+          "move": "intercept",
+          "view": "front",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 612
+    },
+    {
+      "name": "front-block-1-half-1.png",
+      "sha256": "814871f4161d6ceb2880c76b25e38fc779c2a30e839ed76c27f2dbd0a94e47a4",
+      "sources": [
+        {
+          "name": "starter-earth-lightning-pulse-front-6.png",
+          "sha256": "be759dbcbdde7eeb2f5ff80c3721b3e0be207dc990023eb352811bc39d3de06e",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "starter-earth-lightning-pulse-front-7.png",
+          "sha256": "ec8c5b0050622292a6ff26b443724d9b1a606ab10a5b62670e33a1c9b413f62a",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "starter-earth-lightning-pulse-front-8.png",
+          "sha256": "eea3df835cc3ca6d66bde5ce789b9e7e8f171a76364d31e639b2d3cbc318a25b",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "starter-earth-lightning-pulse-front-9.png",
+          "sha256": "5e1e1e185375d4088661413fb4c0c71f13756e197b6239e1aa3d2ac4660e5b97",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "starter-earth-lightning-pulse-front-10.png",
+          "sha256": "1003401ad570e2036ba3699cffdd67cd6ad92a0f94796c366af135010b189d2d",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "starter-earth-lightning-pulse-front-11.png",
+          "sha256": "b1172dd6a1533ebb33929851d131aedfd238ccd9abe337d9ef3364dc226a9849",
+          "move": "lightning-pulse",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "starter-earth-open-wound-front-6.png",
+          "sha256": "5921b17f9fffd75fd7fbc3df82fcde0a2e4b5a16674665bc809941430a5cb53c",
+          "move": "open-wound",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "starter-earth-open-wound-front-7.png",
+          "sha256": "00f96a32de7b4cc224d87e98ddc2b51b4ada83550744f343790ab4adf4c31610",
+          "move": "open-wound",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "starter-earth-open-wound-front-8.png",
+          "sha256": "fcb4ad5cae5fc430d8cf085bff2b5551a4962bc988f1fe818a54a769b3c1759d",
+          "move": "open-wound",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "starter-earth-open-wound-front-9.png",
+          "sha256": "e86835c3549aa441fb361b34a1fa10c611bcd24a2b9c5d02adc7ce738aa6164b",
+          "move": "open-wound",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "starter-earth-open-wound-front-10.png",
+          "sha256": "1003401ad570e2036ba3699cffdd67cd6ad92a0f94796c366af135010b189d2d",
+          "move": "open-wound",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "starter-earth-open-wound-front-11.png",
+          "sha256": "ef8bbcf6ec07f072c9e3c04f304edaa0b6b246b93b97a9bd37364ce8046fa5f9",
+          "move": "open-wound",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "starter-earth-intercept-front-6.png",
+          "sha256": "49ed02f517551a7fd83e90d54fcce3be505eb146c83dfeb358dec9c543a436aa",
+          "move": "intercept",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "starter-earth-intercept-front-7.png",
+          "sha256": "32cbc2f240b257ac59beaf7165f03a4cb2cbf2e8cdb0519479b294c6377d9d50",
+          "move": "intercept",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "starter-earth-intercept-front-8.png",
+          "sha256": "8eef5b1834a53b93a2c6171dbd94bcb19d58594ae1c90ac745f9e86b89d3b66a",
+          "move": "intercept",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "starter-earth-intercept-front-9.png",
+          "sha256": "5e1e1e185375d4088661413fb4c0c71f13756e197b6239e1aa3d2ac4660e5b97",
+          "move": "intercept",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "starter-earth-intercept-front-10.png",
+          "sha256": "7837c1f701b8f986a3bd261eef30e6a9344db1b2675522cdd35c82d6f2dae41e",
+          "move": "intercept",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "starter-earth-intercept-front-11.png",
+          "sha256": "b1172dd6a1533ebb33929851d131aedfd238ccd9abe337d9ef3364dc226a9849",
+          "move": "intercept",
+          "view": "front",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 612
+    },
+    {
+      "name": "front-block-2-half-0.png",
+      "sha256": "ac7216148c578e69138da348c8eabc66518d87cebc4ae08690b2a0f0dfed3358",
+      "sources": [
+        {
+          "name": "starter-earth-aegis-front-0.png",
+          "sha256": "4c260647e691f33d28342d95809e7e7f0deeade1d122ae2170a59aa2c27e49ff",
+          "move": "aegis",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "starter-earth-aegis-front-1.png",
+          "sha256": "6215b9b1d573be032966387a3a05fa17baa9df32c3a74797ddb7c513bf6fdc1a",
+          "move": "aegis",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "starter-earth-aegis-front-2.png",
+          "sha256": "face9eda74072d52dc2f18dd5382a68c8d8e9bbd35938bf740d52dbcb7e70166",
+          "move": "aegis",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "starter-earth-aegis-front-3.png",
+          "sha256": "9e896b3ab3fc04127786ecf962c98879552f716ce4f21015355bc7e164e7321a",
+          "move": "aegis",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "starter-earth-aegis-front-4.png",
+          "sha256": "50f3b82e4499519f034f4e010b7c822704639d159651faa10ce55e896b52dde3",
+          "move": "aegis",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "starter-earth-aegis-front-5.png",
+          "sha256": "b160d2ec1e8c19a39a94a7bc84d09f70fa167c1e1d4bf48f4f454b90101e58f8",
+          "move": "aegis",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "starter-earth-purify-front-0.png",
+          "sha256": "cf57f1e8d1a6b6614e359f83b24d1c2e86fa7a2a33d157b11ce22a58899cb195",
+          "move": "purify",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "starter-earth-purify-front-1.png",
+          "sha256": "090699e4ceadb624382a222c15fd8a7d87dd558ff9196cca061b4602eddcd3f0",
+          "move": "purify",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "starter-earth-purify-front-2.png",
+          "sha256": "71e21b75023b246a8c6dbb3ae412712cef3219b7ac64871d8409a4123c87205c",
+          "move": "purify",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "starter-earth-purify-front-3.png",
+          "sha256": "5c5d8ed2be504db74e46f7b4f5473e5cb8d05fe493988a8ba5b679f8f3318693",
+          "move": "purify",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "starter-earth-purify-front-4.png",
+          "sha256": "a5d48e79b406d7b1c2de0ddb0986bc3ce303b7057ff6b9a46814c595b466b96d",
+          "move": "purify",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "starter-earth-purify-front-5.png",
+          "sha256": "89afaf3e3c3d3a0730e25a0dcfecb5dcc968abdafed0b1e931a934a9b8c511fa",
+          "move": "purify",
+          "view": "front",
+          "time": 0.6
+        },
+        {
+          "name": "starter-earth-starter-earth-signature-front-0.png",
+          "sha256": "98ca7cd1ef5549f493b1f466649dfc2f7e55cabfefe67afacbc40b5d230033e2",
+          "move": "starter-earth-signature",
+          "view": "front",
+          "time": 0.04
+        },
+        {
+          "name": "starter-earth-starter-earth-signature-front-1.png",
+          "sha256": "3e17934a13b3f6fb8c5dad8a42d83c5226c40d6c6612fc947ac220641b55652e",
+          "move": "starter-earth-signature",
+          "view": "front",
+          "time": 0.12
+        },
+        {
+          "name": "starter-earth-starter-earth-signature-front-2.png",
+          "sha256": "29521799c90a6263cc93ac4209caa6e739c577c3bc00348e67e70c85fc79886d",
+          "move": "starter-earth-signature",
+          "view": "front",
+          "time": 0.24
+        },
+        {
+          "name": "starter-earth-starter-earth-signature-front-3.png",
+          "sha256": "81d8d49df33e3c9d7d6fa4b3f562f3fa1c9244ee02d8cea322cde30958a35293",
+          "move": "starter-earth-signature",
+          "view": "front",
+          "time": 0.36
+        },
+        {
+          "name": "starter-earth-starter-earth-signature-front-4.png",
+          "sha256": "491d60f7e00a6996e224bcd9ef4378b508172d39c17df7457a719a41eec2e197",
+          "move": "starter-earth-signature",
+          "view": "front",
+          "time": 0.48
+        },
+        {
+          "name": "starter-earth-starter-earth-signature-front-5.png",
+          "sha256": "841a3985bdabf81b4ae0b0ffeb4dd8561253ff30bdbb370a937d1a592d675a9e",
+          "move": "starter-earth-signature",
+          "view": "front",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 612
+    },
+    {
+      "name": "front-block-2-half-1.png",
+      "sha256": "026255ce8b8265cb2cc45c10c7536f29f7c00fb13473ccd5e24538069f3e20dc",
+      "sources": [
+        {
+          "name": "starter-earth-aegis-front-6.png",
+          "sha256": "a5ad3dacd32d6dc8afb8ae12cf0b6f180ef563982a27c83a8dcf35917ba7b380",
+          "move": "aegis",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "starter-earth-aegis-front-7.png",
+          "sha256": "67993adf0ad1ebc6f151bb3a5cd0c0837eb3917400786c0938c677766e8a0dfa",
+          "move": "aegis",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "starter-earth-aegis-front-8.png",
+          "sha256": "9b503e7a0277491d38f93a1e5d59149266d8b12dd5c13d5a7cd89f79921cc626",
+          "move": "aegis",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "starter-earth-aegis-front-9.png",
+          "sha256": "254872cb3e6221e42af77d86ac8f29dbb8ab90068c88cd1daf46b6e8bd10da60",
+          "move": "aegis",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "starter-earth-aegis-front-10.png",
+          "sha256": "1003401ad570e2036ba3699cffdd67cd6ad92a0f94796c366af135010b189d2d",
+          "move": "aegis",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "starter-earth-aegis-front-11.png",
+          "sha256": "ef8bbcf6ec07f072c9e3c04f304edaa0b6b246b93b97a9bd37364ce8046fa5f9",
+          "move": "aegis",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "starter-earth-purify-front-6.png",
+          "sha256": "6e2e497eb856c829344ca17bc6ea58974726df79af3267e50349df05e61fb2af",
+          "move": "purify",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "starter-earth-purify-front-7.png",
+          "sha256": "32220b9836a863b1613de259a8d52159cd4a6cbe1231268e2719e236ced1ccdd",
+          "move": "purify",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "starter-earth-purify-front-8.png",
+          "sha256": "708cdc76405700d3c713ac4ca91783163746203d41d41f62ad9118ef6f48271b",
+          "move": "purify",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "starter-earth-purify-front-9.png",
+          "sha256": "cf5525c698b6961f9de8c9a32723ac198088f2fc86d895bbb19e89ee3f82721b",
+          "move": "purify",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "starter-earth-purify-front-10.png",
+          "sha256": "1003401ad570e2036ba3699cffdd67cd6ad92a0f94796c366af135010b189d2d",
+          "move": "purify",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "starter-earth-purify-front-11.png",
+          "sha256": "d4465443e1fd3b2713cdffb7d86a3b1653aa0dacbe4749f2ed31b11b7740cf72",
+          "move": "purify",
+          "view": "front",
+          "time": 1.92
+        },
+        {
+          "name": "starter-earth-starter-earth-signature-front-6.png",
+          "sha256": "9195fbe6ad9dd028ebee63aa646374a8d6000c9b332e499e2dc1c68e37db20ad",
+          "move": "starter-earth-signature",
+          "view": "front",
+          "time": 0.76
+        },
+        {
+          "name": "starter-earth-starter-earth-signature-front-7.png",
+          "sha256": "8b1b7884f9f9650ad46714e530b4c39c0ae55feba324603562a21fbb048da02f",
+          "move": "starter-earth-signature",
+          "view": "front",
+          "time": 0.96
+        },
+        {
+          "name": "starter-earth-starter-earth-signature-front-8.png",
+          "sha256": "ba5f1a8b96a594830ddf62b6181ec5d1acbc2461719093c349651e41ceccc860",
+          "move": "starter-earth-signature",
+          "view": "front",
+          "time": 1.2
+        },
+        {
+          "name": "starter-earth-starter-earth-signature-front-9.png",
+          "sha256": "254872cb3e6221e42af77d86ac8f29dbb8ab90068c88cd1daf46b6e8bd10da60",
+          "move": "starter-earth-signature",
+          "view": "front",
+          "time": 1.44
+        },
+        {
+          "name": "starter-earth-starter-earth-signature-front-10.png",
+          "sha256": "1003401ad570e2036ba3699cffdd67cd6ad92a0f94796c366af135010b189d2d",
+          "move": "starter-earth-signature",
+          "view": "front",
+          "time": 1.68
+        },
+        {
+          "name": "starter-earth-starter-earth-signature-front-11.png",
+          "sha256": "ef8bbcf6ec07f072c9e3c04f304edaa0b6b246b93b97a9bd37364ce8046fa5f9",
+          "move": "starter-earth-signature",
+          "view": "front",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 612
+    },
+    {
+      "name": "side-block-0-half-0.png",
+      "sha256": "16b27eb0e193c553fc7d0421d43e5f86691b7bff5c0d046df59a94645ed5077f",
+      "sources": [
+        {
+          "name": "starter-earth-earth-strike-side-0.png",
+          "sha256": "9729685b703a7bb05e19d8464662a14239f04979ad2392e800f56a9431db7271",
+          "move": "earth-strike",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "starter-earth-earth-strike-side-1.png",
+          "sha256": "db17cf8b0db99cd9a9734c08b7984027eb1df971d453ae7465b5e56fb4b1c3d6",
+          "move": "earth-strike",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "starter-earth-earth-strike-side-2.png",
+          "sha256": "2bdf5c351d8f4c2e7dd82dc904fe3598e0c3d2793e9d97200734cc93ca6beb90",
+          "move": "earth-strike",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "starter-earth-earth-strike-side-3.png",
+          "sha256": "9279cc357df0094467cf7e45d41dc1851fa1aec3979fde71406f0d8fcf4532ef",
+          "move": "earth-strike",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "starter-earth-earth-strike-side-4.png",
+          "sha256": "d157f43b304e5fdd9890d379f21fc9ecee8bae3590b39f6c2d17cb2464160223",
+          "move": "earth-strike",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "starter-earth-earth-strike-side-5.png",
+          "sha256": "08b1ec6e390378515c95da5a38c1d050f8b40e63162724e102d0444040a173f1",
+          "move": "earth-strike",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "starter-earth-earth-pulse-side-0.png",
+          "sha256": "cdb46ce7a19aca5f7c163403adc81987f2df0290264ac6cc4f9f091a24d6bd40",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "starter-earth-earth-pulse-side-1.png",
+          "sha256": "b3af8b500667a5480a9bb8d31e1f36af5b536d144c01b9d119b2ec48252164d0",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "starter-earth-earth-pulse-side-2.png",
+          "sha256": "39ce2814fd96c571ed48909d853ddb39c29955a168a74b6b2065710217b750c1",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "starter-earth-earth-pulse-side-3.png",
+          "sha256": "a1041d562d80c5def477666671d8294dac3aa7a6365a57c7659cd4685ae2326d",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "starter-earth-earth-pulse-side-4.png",
+          "sha256": "0cdd3e9be1d030d219b72186fafcae9a8a7fa91115619e28b30376bce7dd1446",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "starter-earth-earth-pulse-side-5.png",
+          "sha256": "ca30a5d64d8d3ef1388a0c1e5b8aadea23e39ddc55db57c9d0969387a983ddb7",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "starter-earth-earth-breaker-side-0.png",
+          "sha256": "bca187bf78f348d0f8e84f9dfe021c33cae1f5fce1e200db674c485f5f61b1c9",
+          "move": "earth-breaker",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "starter-earth-earth-breaker-side-1.png",
+          "sha256": "db17cf8b0db99cd9a9734c08b7984027eb1df971d453ae7465b5e56fb4b1c3d6",
+          "move": "earth-breaker",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "starter-earth-earth-breaker-side-2.png",
+          "sha256": "2bdf5c351d8f4c2e7dd82dc904fe3598e0c3d2793e9d97200734cc93ca6beb90",
+          "move": "earth-breaker",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "starter-earth-earth-breaker-side-3.png",
+          "sha256": "9279cc357df0094467cf7e45d41dc1851fa1aec3979fde71406f0d8fcf4532ef",
+          "move": "earth-breaker",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "starter-earth-earth-breaker-side-4.png",
+          "sha256": "d157f43b304e5fdd9890d379f21fc9ecee8bae3590b39f6c2d17cb2464160223",
+          "move": "earth-breaker",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "starter-earth-earth-breaker-side-5.png",
+          "sha256": "c6a2fed06df3040bc08d57f0366daca3baa9a3ea27d5c2506bb22c10a4f8fe3a",
+          "move": "earth-breaker",
+          "view": "side",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 612
+    },
+    {
+      "name": "side-block-0-half-1.png",
+      "sha256": "789f470036fe587867564c03963700ea6357296a54f9d57543d2ae1ca7b34f90",
+      "sources": [
+        {
+          "name": "starter-earth-earth-strike-side-6.png",
+          "sha256": "59e91b413bd47daf956b6832e9edeea24047d805bdfa36bb5179fa00e41603dd",
+          "move": "earth-strike",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "starter-earth-earth-strike-side-7.png",
+          "sha256": "35d1c48fa5a04ca5c0b4491a36583f81d9d66500899c58c724f32af693bfc960",
+          "move": "earth-strike",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "starter-earth-earth-strike-side-8.png",
+          "sha256": "ece363a33b5f75d0417fc78367b0008f9a44f2ee21908d8324dcc8fcb54788cc",
+          "move": "earth-strike",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "starter-earth-earth-strike-side-9.png",
+          "sha256": "eddfba09dbcfb555716a06de4bc8a5a9502c0132665fc8a5a0e3ddd4a3305728",
+          "move": "earth-strike",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "starter-earth-earth-strike-side-10.png",
+          "sha256": "81968b6c8279bd1b885b449d35e6c084f0c63f41aec36a15815aa35f9d479c97",
+          "move": "earth-strike",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "starter-earth-earth-strike-side-11.png",
+          "sha256": "a6764a256573b39c608bc474363b9871f4bab4dd03fccc71b5da0e1ef2ad1e85",
+          "move": "earth-strike",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "starter-earth-earth-pulse-side-6.png",
+          "sha256": "54782d935ba81cbb02aed3a2065c73f0dd15c656e4f96d896a0ab8d68b2ffa8b",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "starter-earth-earth-pulse-side-7.png",
+          "sha256": "dd879f4147f8b8b635f145d3f237685c4534525833e67b5d77cc63d3b3a33a00",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "starter-earth-earth-pulse-side-8.png",
+          "sha256": "58b98bbe482bc45e5a5a7a02ab3306d5bbbe6c9ffe6ad97a50ca6a54a2d89e0d",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "starter-earth-earth-pulse-side-9.png",
+          "sha256": "5869685d69f1bdc3da46d447843ac73f0ec6c398d4f2cc363c56f5958c2dbfa1",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "starter-earth-earth-pulse-side-10.png",
+          "sha256": "3cecda9c6eb3db76f97cd930e2598923d83cd950480e16efd9043b8ca6f55c40",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "starter-earth-earth-pulse-side-11.png",
+          "sha256": "a6764a256573b39c608bc474363b9871f4bab4dd03fccc71b5da0e1ef2ad1e85",
+          "move": "earth-pulse",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "starter-earth-earth-breaker-side-6.png",
+          "sha256": "59e91b413bd47daf956b6832e9edeea24047d805bdfa36bb5179fa00e41603dd",
+          "move": "earth-breaker",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "starter-earth-earth-breaker-side-7.png",
+          "sha256": "35d1c48fa5a04ca5c0b4491a36583f81d9d66500899c58c724f32af693bfc960",
+          "move": "earth-breaker",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "starter-earth-earth-breaker-side-8.png",
+          "sha256": "ece363a33b5f75d0417fc78367b0008f9a44f2ee21908d8324dcc8fcb54788cc",
+          "move": "earth-breaker",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "starter-earth-earth-breaker-side-9.png",
+          "sha256": "eddfba09dbcfb555716a06de4bc8a5a9502c0132665fc8a5a0e3ddd4a3305728",
+          "move": "earth-breaker",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "starter-earth-earth-breaker-side-10.png",
+          "sha256": "81968b6c8279bd1b885b449d35e6c084f0c63f41aec36a15815aa35f9d479c97",
+          "move": "earth-breaker",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "starter-earth-earth-breaker-side-11.png",
+          "sha256": "a6764a256573b39c608bc474363b9871f4bab4dd03fccc71b5da0e1ef2ad1e85",
+          "move": "earth-breaker",
+          "view": "side",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 612
+    },
+    {
+      "name": "side-block-1-half-0.png",
+      "sha256": "96f6e52c1fa8002118a0e1468ac460127c408ac67b9975cd13fb1e98df0e2ddc",
+      "sources": [
+        {
+          "name": "starter-earth-lightning-pulse-side-0.png",
+          "sha256": "48a37bc84e53de591bfb8df225b1258cd7daa4bf4336c00ce0a0b71a088e136c",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "starter-earth-lightning-pulse-side-1.png",
+          "sha256": "d0af348cd82026e3267cbee0a66c801ed648f91b776f7f8a30fbd5adf6b447c7",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "starter-earth-lightning-pulse-side-2.png",
+          "sha256": "ef323e607acdb85edac385a47775cd48cfb9f412608da7451a683a7ac962a61f",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "starter-earth-lightning-pulse-side-3.png",
+          "sha256": "25da456265c9fc23efaf9f9e555b57c5ee46cb949e30c22126d52c1ed7c793b7",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "starter-earth-lightning-pulse-side-4.png",
+          "sha256": "b2de74424ef3c9725a533df0c63f0414c3ada92f9ae96189a422a5d2afbaf230",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "starter-earth-lightning-pulse-side-5.png",
+          "sha256": "44a8a53b3fef69168562362568b7068d230585d1453d3210de442ca415ceaa41",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "starter-earth-open-wound-side-0.png",
+          "sha256": "bca187bf78f348d0f8e84f9dfe021c33cae1f5fce1e200db674c485f5f61b1c9",
+          "move": "open-wound",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "starter-earth-open-wound-side-1.png",
+          "sha256": "5b1a9940062469305eb0a010ba670ff8c9f328ef5ff2460f24234bf28b515d3f",
+          "move": "open-wound",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "starter-earth-open-wound-side-2.png",
+          "sha256": "2bdf5c351d8f4c2e7dd82dc904fe3598e0c3d2793e9d97200734cc93ca6beb90",
+          "move": "open-wound",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "starter-earth-open-wound-side-3.png",
+          "sha256": "9279cc357df0094467cf7e45d41dc1851fa1aec3979fde71406f0d8fcf4532ef",
+          "move": "open-wound",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "starter-earth-open-wound-side-4.png",
+          "sha256": "d157f43b304e5fdd9890d379f21fc9ecee8bae3590b39f6c2d17cb2464160223",
+          "move": "open-wound",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "starter-earth-open-wound-side-5.png",
+          "sha256": "c6a2fed06df3040bc08d57f0366daca3baa9a3ea27d5c2506bb22c10a4f8fe3a",
+          "move": "open-wound",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "starter-earth-intercept-side-0.png",
+          "sha256": "890022b879f5c274097c2f4e3043bfc491e53011bb61733061639c5e68606be5",
+          "move": "intercept",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "starter-earth-intercept-side-1.png",
+          "sha256": "b7f050f63b2be93bc6b347ec21d4089558a258933cbc0aed1df11b51e349dcef",
+          "move": "intercept",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "starter-earth-intercept-side-2.png",
+          "sha256": "5d6c4ec18f4d456f7e9a1fdcee3a8f742a8c96bf098e89034af4bb49c9357362",
+          "move": "intercept",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "starter-earth-intercept-side-3.png",
+          "sha256": "9a61c10b4a1203ac50539cfd5b9c1fed6a2baa1739480d154e1c1b45ee544267",
+          "move": "intercept",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "starter-earth-intercept-side-4.png",
+          "sha256": "9bc7f302d779cf94d44607f6f1c490f47a43e549912810523580ecf68fdcf94d",
+          "move": "intercept",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "starter-earth-intercept-side-5.png",
+          "sha256": "173925ea957d1956a9ea10ed57dd025d5c589676f7b8be598f161ac4af1821e9",
+          "move": "intercept",
+          "view": "side",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 612
+    },
+    {
+      "name": "side-block-1-half-1.png",
+      "sha256": "c56f74189e10a8622ddfedfe00cb8c0a43a72cfaeb5c998db3267c12d4ee9feb",
+      "sources": [
+        {
+          "name": "starter-earth-lightning-pulse-side-6.png",
+          "sha256": "30fb0b4dafac4ea3c997d3b84040a59bdb45585879ca02a5e1c2a2a7c3bff670",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "starter-earth-lightning-pulse-side-7.png",
+          "sha256": "ba76c6ded7dc5d6b876ed196e54b1b591b9c91e0af47b6d50bde32fc6dd1d1f2",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "starter-earth-lightning-pulse-side-8.png",
+          "sha256": "82f53ffccbec33c3845151e5643e4936eb28241c01e8a65f149f6eb2311caef3",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "starter-earth-lightning-pulse-side-9.png",
+          "sha256": "5869685d69f1bdc3da46d447843ac73f0ec6c398d4f2cc363c56f5958c2dbfa1",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "starter-earth-lightning-pulse-side-10.png",
+          "sha256": "3cecda9c6eb3db76f97cd930e2598923d83cd950480e16efd9043b8ca6f55c40",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "starter-earth-lightning-pulse-side-11.png",
+          "sha256": "a6764a256573b39c608bc474363b9871f4bab4dd03fccc71b5da0e1ef2ad1e85",
+          "move": "lightning-pulse",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "starter-earth-open-wound-side-6.png",
+          "sha256": "6c14486162ed65a2f99ca81f4afce70a2d624ee82cad7324a5477521af256c0d",
+          "move": "open-wound",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "starter-earth-open-wound-side-7.png",
+          "sha256": "e734caf9086988cd6b6c3485c8a0c785eb24913054fb00df473a8cf0730e5c66",
+          "move": "open-wound",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "starter-earth-open-wound-side-8.png",
+          "sha256": "ece363a33b5f75d0417fc78367b0008f9a44f2ee21908d8324dcc8fcb54788cc",
+          "move": "open-wound",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "starter-earth-open-wound-side-9.png",
+          "sha256": "eddfba09dbcfb555716a06de4bc8a5a9502c0132665fc8a5a0e3ddd4a3305728",
+          "move": "open-wound",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "starter-earth-open-wound-side-10.png",
+          "sha256": "317061490c03bec0169779252cf9d777a923d9a508f77bdbcd0611cd39d6eb89",
+          "move": "open-wound",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "starter-earth-open-wound-side-11.png",
+          "sha256": "11f909214993083890e523cb5d77d70789efcfd5392cc39cd633616aea6353ba",
+          "move": "open-wound",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "starter-earth-intercept-side-6.png",
+          "sha256": "39f9260223b511579c69606b5cd4da9aed63d7f1f3438b83f66b79a195f666c5",
+          "move": "intercept",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "starter-earth-intercept-side-7.png",
+          "sha256": "75732756ee1c59350b2dc4d3364a7f152d26b1793d4cf36451fdb4b43671e7d4",
+          "move": "intercept",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "starter-earth-intercept-side-8.png",
+          "sha256": "3c43aa993d10427605fe63c175dbb0f1f8ae4e73112acbac3c8a85195c805da8",
+          "move": "intercept",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "starter-earth-intercept-side-9.png",
+          "sha256": "78dc77d5cb402a028fa67dbee0f12442f43b0ea75a72d48b49f9f52f1f3ed3e1",
+          "move": "intercept",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "starter-earth-intercept-side-10.png",
+          "sha256": "317061490c03bec0169779252cf9d777a923d9a508f77bdbcd0611cd39d6eb89",
+          "move": "intercept",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "starter-earth-intercept-side-11.png",
+          "sha256": "a6764a256573b39c608bc474363b9871f4bab4dd03fccc71b5da0e1ef2ad1e85",
+          "move": "intercept",
+          "view": "side",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 612
+    },
+    {
+      "name": "side-block-2-half-0.png",
+      "sha256": "120f4ea993e267855b639d708120c7ef0e1c354a1fd591ec65ce5dd5aad9af6b",
+      "sources": [
+        {
+          "name": "starter-earth-aegis-side-0.png",
+          "sha256": "b3284a8490d0591f235626212c5e5164892fd10592cf262e9fb44f0d2f282ad9",
+          "move": "aegis",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "starter-earth-aegis-side-1.png",
+          "sha256": "59741b31dbcc218a94f669e9ebb533eafd00a7a3fc7d6509b813b874fa7f85e2",
+          "move": "aegis",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "starter-earth-aegis-side-2.png",
+          "sha256": "d9699b39b89555d8e084f1c9692a54bb5f21ec718f80b21787c5e2de3e511f9f",
+          "move": "aegis",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "starter-earth-aegis-side-3.png",
+          "sha256": "7570395f5b72f1fe95ba0150d04f5209604866a34bc8342c69a1299f1c20e42c",
+          "move": "aegis",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "starter-earth-aegis-side-4.png",
+          "sha256": "7c7cfc347e3203ede56485913325729bfb5da45924bb5bae3642e6ea1e3a92e6",
+          "move": "aegis",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "starter-earth-aegis-side-5.png",
+          "sha256": "aaf5a41e7be46f766fd9c92de74dedaf3488bdc4b7c15e1b2221a737b16763ab",
+          "move": "aegis",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "starter-earth-purify-side-0.png",
+          "sha256": "789b1e9b810e006f7c67359f9761cab11b1a0acc24d95604b37244c00181d2fa",
+          "move": "purify",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "starter-earth-purify-side-1.png",
+          "sha256": "f421b5d38cb28fae393c9a161cf44b7061fd4be046b7bdf9687999b919dc4ee1",
+          "move": "purify",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "starter-earth-purify-side-2.png",
+          "sha256": "c3b917fefd62f42334bb12757d7f9f848d6d43041bedf6f7bb0888aa7f9c2753",
+          "move": "purify",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "starter-earth-purify-side-3.png",
+          "sha256": "3a3b715a762940b6cf0f624768b88c4fe502bbe0339a2dce3d8a6099267d4ea8",
+          "move": "purify",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "starter-earth-purify-side-4.png",
+          "sha256": "24d190d0add7f4c8875b70a5e04476b13b021c2452f1863066ab8db18cf14fde",
+          "move": "purify",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "starter-earth-purify-side-5.png",
+          "sha256": "153908645858bb40fd73474f2f0a5400416f77d84ce7db2d5f1692fff3c76600",
+          "move": "purify",
+          "view": "side",
+          "time": 0.6
+        },
+        {
+          "name": "starter-earth-starter-earth-signature-side-0.png",
+          "sha256": "b113e308984ccebcb8a0a8c3e1db6a365e2f579d5b106b3cfd1beabf975af634",
+          "move": "starter-earth-signature",
+          "view": "side",
+          "time": 0.04
+        },
+        {
+          "name": "starter-earth-starter-earth-signature-side-1.png",
+          "sha256": "e0a541f40d4d1a0c1c6d6d6801642fe0efd48a76713071cb6f40298a2a7c782b",
+          "move": "starter-earth-signature",
+          "view": "side",
+          "time": 0.12
+        },
+        {
+          "name": "starter-earth-starter-earth-signature-side-2.png",
+          "sha256": "dcbc4a6ce6bf6b3d56be2b97cb51ddf0db5e8eb46360a456310d0be6e1c42c48",
+          "move": "starter-earth-signature",
+          "view": "side",
+          "time": 0.24
+        },
+        {
+          "name": "starter-earth-starter-earth-signature-side-3.png",
+          "sha256": "11636f5b14fd4a0144a18d822100f7cb20bb28b193362ff2aaa0156f174d7fdc",
+          "move": "starter-earth-signature",
+          "view": "side",
+          "time": 0.36
+        },
+        {
+          "name": "starter-earth-starter-earth-signature-side-4.png",
+          "sha256": "c22817a1300d68ec8948a0494cab9715b324bf441ab75a167dd5674f1c664153",
+          "move": "starter-earth-signature",
+          "view": "side",
+          "time": 0.48
+        },
+        {
+          "name": "starter-earth-starter-earth-signature-side-5.png",
+          "sha256": "e5b64327dae151f9061fb12f26c9a15c9b3443576d5767652d4bee1e165e1c3d",
+          "move": "starter-earth-signature",
+          "view": "side",
+          "time": 0.6
+        }
+      ],
+      "width": 1320,
+      "height": 612
+    },
+    {
+      "name": "side-block-2-half-1.png",
+      "sha256": "b82741b8094f0e7e4fd1105c262f6a186dc113d8d79882b45c6daaec2bb02d7c",
+      "sources": [
+        {
+          "name": "starter-earth-aegis-side-6.png",
+          "sha256": "339eee328b1a067c40c858677e4f0e02b28074e837ea2bd482f12a890f5df6d0",
+          "move": "aegis",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "starter-earth-aegis-side-7.png",
+          "sha256": "20aeb7d7d00aa18914cdfbcd4f65548494023ee1cdf34cf28a5dd56e1f5d10df",
+          "move": "aegis",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "starter-earth-aegis-side-8.png",
+          "sha256": "0db5a84b0cebcee049db06d01e8a621a6cc47740895c2c3589ad94434feb24e5",
+          "move": "aegis",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "starter-earth-aegis-side-9.png",
+          "sha256": "5869685d69f1bdc3da46d447843ac73f0ec6c398d4f2cc363c56f5958c2dbfa1",
+          "move": "aegis",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "starter-earth-aegis-side-10.png",
+          "sha256": "3cecda9c6eb3db76f97cd930e2598923d83cd950480e16efd9043b8ca6f55c40",
+          "move": "aegis",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "starter-earth-aegis-side-11.png",
+          "sha256": "a6764a256573b39c608bc474363b9871f4bab4dd03fccc71b5da0e1ef2ad1e85",
+          "move": "aegis",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "starter-earth-purify-side-6.png",
+          "sha256": "c1bd43163a9de7e12a043b577f3ef193a9aaa74fbb59ffdd867db81243ca15bc",
+          "move": "purify",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "starter-earth-purify-side-7.png",
+          "sha256": "11ac666f39b86674a9ba73399878abf4c85c616d81cd49356ef16a149f2b3cc5",
+          "move": "purify",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "starter-earth-purify-side-8.png",
+          "sha256": "c209086164dd291c4e6ed5afed84498d3f31ea3248c0f21c44810d1cd636ff75",
+          "move": "purify",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "starter-earth-purify-side-9.png",
+          "sha256": "7304598e5539341685795886d72d178cc6729225847b0b87bf91a4ea1fc4ad05",
+          "move": "purify",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "starter-earth-purify-side-10.png",
+          "sha256": "317061490c03bec0169779252cf9d777a923d9a508f77bdbcd0611cd39d6eb89",
+          "move": "purify",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "starter-earth-purify-side-11.png",
+          "sha256": "a6764a256573b39c608bc474363b9871f4bab4dd03fccc71b5da0e1ef2ad1e85",
+          "move": "purify",
+          "view": "side",
+          "time": 1.92
+        },
+        {
+          "name": "starter-earth-starter-earth-signature-side-6.png",
+          "sha256": "9c07d4334fd1413354085f67cf2036ea799675888b34ebf1f6fa7ea3fba3451c",
+          "move": "starter-earth-signature",
+          "view": "side",
+          "time": 0.76
+        },
+        {
+          "name": "starter-earth-starter-earth-signature-side-7.png",
+          "sha256": "300c8cb67a9fb0831e5a05a4e3ff5de46d59e7ac38b03f232f7fd4d98f05a9cc",
+          "move": "starter-earth-signature",
+          "view": "side",
+          "time": 0.96
+        },
+        {
+          "name": "starter-earth-starter-earth-signature-side-8.png",
+          "sha256": "e019c098f58c750127586a6daed707bea0a611b94a1cdbaf7efb613280826b91",
+          "move": "starter-earth-signature",
+          "view": "side",
+          "time": 1.2
+        },
+        {
+          "name": "starter-earth-starter-earth-signature-side-9.png",
+          "sha256": "5869685d69f1bdc3da46d447843ac73f0ec6c398d4f2cc363c56f5958c2dbfa1",
+          "move": "starter-earth-signature",
+          "view": "side",
+          "time": 1.44
+        },
+        {
+          "name": "starter-earth-starter-earth-signature-side-10.png",
+          "sha256": "3cecda9c6eb3db76f97cd930e2598923d83cd950480e16efd9043b8ca6f55c40",
+          "move": "starter-earth-signature",
+          "view": "side",
+          "time": 1.68
+        },
+        {
+          "name": "starter-earth-starter-earth-signature-side-11.png",
+          "sha256": "a6764a256573b39c608bc474363b9871f4bab4dd03fccc71b5da0e1ef2ad1e85",
+          "move": "starter-earth-signature",
+          "view": "side",
+          "time": 1.92
+        }
+      ],
+      "width": 1320,
+      "height": 612
+    }
+  ],
+  "review": "pending"
+}

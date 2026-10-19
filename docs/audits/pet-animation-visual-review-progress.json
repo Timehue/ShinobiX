@@ -30896,16 +30896,10 @@
     },
     "starter-earth": {
       "name": "Pebble Tortoise",
-      "firstPass": "reviewed-no-additional-repair-needed",
+      "firstPass": "complete",
       "secondPass": "complete",
-      "beforeSha256": "fc639cee5499a0c1d8965c7c886c8af83cf3ee3d750ff1146bb162aaddd7a82d",
-      "beforeEvidence": [
-        "shinobij.client/.tmp/pet-shape-review/head-starters-complete-before/starter-earth-head-front.webp",
-        "shinobij.client/.tmp/pet-shape-review/head-starters-complete-before/starter-earth-head-side.webp",
-        "shinobij.client/.tmp/pet-shape-review/body-remaining-before-complete/starter-earth-front.webp",
-        "shinobij.client/.tmp/pet-shape-review/body-remaining-before-complete/starter-earth-side.webp"
-      ],
-      "notes": "All 13 original head and body clips actually inspected, with anatomical closeups and brighter copies where needed. Existing face binding remains coherent through all 13 original clips; no additional source repair required. Candidate review, final source/battle double check and runtime review remain pending.",
+      "status": "double-checked-locally-main-live-pending",
+      "notes": "Pebble now owns its green chibi model, blue headband/scarf and one gold-brown back shell. Removed the duplicate shell cap and rebuilt a smooth green scalp. Relocated joints to the actual limbs and rebound face/body/limbs continuously to remove stretched appendages. Authored supported motion using the existing canonical motion tool, then corrected only vertical root clearance in attack, cast and recoil. No Stone Turtle geometry was copied.",
       "clips": [
         "idle",
         "idle_2",
@@ -30921,175 +30915,22 @@
         "rest",
         "victory"
       ],
-      "numericChecks": [
-        "shinobij.client/.tmp/pet-reviewed-skulls/starters-refined-before.json"
-      ],
-      "secondPassSource": {
-        "sha256": "fc639cee5499a0c1d8965c7c886c8af83cf3ee3d750ff1146bb162aaddd7a82d",
-        "clips": [
-          "idle",
-          "idle_2",
-          "walk",
-          "gallop",
-          "gallop_jump",
-          "attack",
-          "idle_hitreact1",
-          "death",
-          "entrance",
-          "cast",
-          "guard",
-          "rest",
-          "victory"
-        ],
-        "progress": [
-          0,
-          0.125,
-          0.375,
-          0.625,
-          0.875,
-          1
-        ],
-        "headViews": [
-          "head-front",
-          "head-side"
-        ],
-        "bodyViews": [
-          "front",
-          "side"
-        ],
-        "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-head/starter-earth-head-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-head/starter-earth-head-side.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-body/starter-earth-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-body/starter-earth-side.webp"
-        ],
-        "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-head/starter-earth-head-front.webp": "c1a22d6ff94cd3e2a334de3a6afc314274ec95b7b548ce1ab12dd033d7d18862",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-head/starter-earth-head-side.webp": "90277ba83379d108db43bc547c9030c546382f09d91b0463bf044d328ae418b7",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-body/starter-earth-front.webp": "266b3fc345d2ddb97dde54769bc28b9d35de31864420c5211e4a657839aa21ec",
-          "shinobij.client/.tmp/pet-shape-review/starters-source-second-body/starter-earth-side.webp": "8dc0d58c83198d44a70b7b5aa476fd27e13a4fc9e9fa4fb786039b2e4aa1d56e"
-        },
-        "finding": "All 13 clips inspected at six alternate phases in front and side head and full-body views for this source asset. Pebble Tortoise pale angular muzzle, eyes and black face wrap retain their shapes through strike and sideways death; red scarf, shell, segmented arms, clawed feet and back weapon remain intact. Shared Stone Turtle asset also reviewed separately.",
-        "reviewedAt": "2026-10-15T05:44:03.504Z",
-        "reviewer": "Codex visual inspection"
-      },
-      "secondPassBattle": {
-        "sha256": "3ad722e9394b82d157458eb9c8a1a62eb3120dfa6bc2710719a2b23038d44c35",
-        "clips": [
-          "idle",
-          "idle_2",
-          "walk",
-          "gallop",
-          "gallop_jump",
-          "attack",
-          "idle_hitreact1",
-          "death",
-          "entrance",
-          "cast",
-          "guard",
-          "rest",
-          "victory"
-        ],
-        "progress": [
-          0,
-          0.125,
-          0.375,
-          0.625,
-          0.875,
-          1
-        ],
-        "headViews": [
-          "head-front",
-          "head-side"
-        ],
-        "bodyViews": [
-          "front",
-          "side"
-        ],
-        "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-head/starter-earth-head-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-head/starter-earth-head-side.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-body/starter-earth-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-body/starter-earth-side.webp"
-        ],
-        "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-head/starter-earth-head-front.webp": "5f6b3754ebec85e672a6f40d77f75b977c1ffe326bf8103280dfbd7ac1959c53",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-head/starter-earth-head-side.webp": "7d6dbc31e9ee104d8c5f3bde79dc7374d1443ca4011ea8bdb17793b54c27b835",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-body/starter-earth-front.webp": "e2f122ae06365cc825685979d5e9691cacdfca45afafab9ddbf7feae47597b2e",
-          "shinobij.client/.tmp/pet-shape-review/starters-lod-second-body/starter-earth-side.webp": "e8274bc649153b70795aa8e3e83b9339a58778f933827f43608d40a04f839dbf"
-        },
-        "finding": "All 13 clips inspected at six alternate phases in front and side head and full-body views for this battle asset. Pebble Tortoise pale angular muzzle, eyes and black face wrap retain their shapes through strike and sideways death; red scarf, shell, segmented arms, clawed feet and back weapon remain intact. Shared Stone Turtle asset also reviewed separately.",
-        "reviewedAt": "2026-10-15T05:44:03.686Z",
-        "reviewer": "Codex visual inspection"
-      },
-      "runtimeVisualPass": {
-        "sourceSha256": "fc639cee5499a0c1d8965c7c886c8af83cf3ee3d750ff1146bb162aaddd7a82d",
-        "battleSha256": "3ad722e9394b82d157458eb9c8a1a62eb3120dfa6bc2710719a2b23038d44c35",
-        "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
-        "rows": [
-          "idle",
-          "run",
-          "dash",
-          "windup",
-          "strike",
-          "recover",
-          "stagger",
-          "dodge",
-          "guard",
-          "rest",
-          "cast",
-          "entrance",
-          "victory",
-          "dead",
-          "revive",
-          "attack-sequence"
-        ],
-        "phases": [
-          0.025,
-          0.1,
-          0.25,
-          0.5,
-          0.75,
-          1
-        ],
-        "views": [
-          "front",
-          "side"
-        ],
-        "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-earth-source-head.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-earth-source-body.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-earth-battle-head.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-earth-battle-body.webp"
-        ],
-        "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-earth-source-head.webp": "b8aa94cf6dc04085e01c5ee01bfc2d705235c2202c7257c048e62edafd5e5011",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-earth-source-body.webp": "6fbac690823fe60ff0efc67e7a906f19589040656846f4d9ed046c795bbd4b00",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-earth-battle-head.webp": "82d3e594eb22b019d0f748da8920a516578182b660b84e956efa98e5fd15f49d",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/starter-earth-battle-body.webp": "612c55ce20164768c50b36264450d2fc6fc7b5e6c5e5eddcf071c1e6a56a70f4"
-        },
-        "finding": "All sixteen production rows inspected in both versions, front and side, head and body. Stone turtle short muzzle, eyes, tied dark headband, red scarf, chest armor, brown shell, sword, segmented arms and hands, legs and feet remain coherent through every runtime row in both versions.",
-        "reviewer": "Codex visual inspection",
-        "reviewedAt": "2026-10-15T07:54:48.619Z"
-      },
       "finalReceipt": {
-        "sourceSha256": "fc639cee5499a0c1d8965c7c886c8af83cf3ee3d750ff1146bb162aaddd7a82d",
-        "battleSha256": "3ad722e9394b82d157458eb9c8a1a62eb3120dfa6bc2710719a2b23038d44c35",
-        "atlasSha256": "9973833137205a16dce08b0b80de2d4fd8fb3a8256087ceba165193c04d1c26f",
-        "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
-        "evidence": [
-          "docs/screenshots/pet-shape-2026-10-15/starter-earth-source-clips-head-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/starter-earth-source-clips-body-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/starter-earth-battle-clips-head-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/starter-earth-battle-clips-body-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/starter-earth-runtime-source-head.webp",
-          "docs/screenshots/pet-shape-2026-10-15/starter-earth-runtime-source-body.webp",
-          "docs/screenshots/pet-shape-2026-10-15/starter-earth-runtime-battle-head.webp",
-          "docs/screenshots/pet-shape-2026-10-15/starter-earth-runtime-battle-body.webp",
-          "docs/screenshots/pet-shape-2026-10-15/starter-earth-numeric-evidence.json"
-        ],
-        "packagedAt": "2026-10-15T08:06:05.908Z"
-      }
+        "sourceSha256": "c99b0471489b65a5fe2c4b9b50bf781c48f4820f7eacdb092cf983a15ca51894",
+        "battleSha256": "64524351ebb7534dd603645a6d8015ec745829d9bfa75ced0a8a9340e725f0b3",
+        "atlasSha256": "3932b6d65a58b31ebea53cea6c8ccdfba0e5461e714581563e04fbb38f04d60d",
+        "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+        "report": "docs/audits/pet-pebble-distinct-final-review-2026-10-19.json",
+        "packagedAt": "2026-10-19T19:53:25.471Z"
+      },
+      "completeFaceRepairGate": {
+        "closed": false,
+        "status": "distinct-model-double-checked-locally-main-live-pending",
+        "sourceSha256": "c99b0471489b65a5fe2c4b9b50bf781c48f4820f7eacdb092cf983a15ca51894",
+        "battleSha256": "64524351ebb7534dd603645a6d8015ec745829d9bfa75ced0a8a9340e725f0b3",
+        "report": "docs/audits/pet-pebble-distinct-final-review-2026-10-19.json"
+      },
+      "limits": "Two sampled visual passes of all thirteen authored clips, front/both-side head views and front/side full body. Second pass also covers all sixteen production runtime rows at low/medium quality, 216 actual equipped-technique frames, 24 advancing companion-idle frames and 16 atlas cells. Ten frozen facial regions checked through all clips and 468 blends in each model version. This is local evidence; main/live verification remains pending and the full 161-pet audit remains open."
     },
     "starter-fire-r": {
       "name": "Ember Wolf",

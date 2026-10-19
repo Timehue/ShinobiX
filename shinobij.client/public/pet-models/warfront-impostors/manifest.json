@@ -19138,6 +19138,133 @@
       "projectedAspect": 1.20164
     },
     {
+      "sourceUrl": "/pet-models/starter-earth.glb",
+      "lodUrl": "/pet-models/warfront-lod/starter-earth.glb?v=20260902-battle-lod-v1-c99b0471489b-64524351ebb7",
+      "lodSha256": "64524351ebb7534dd603645a6d8015ec745829d9bfa75ced0a8a9340e725f0b3",
+      "atlasUrl": "/pet-models/warfront-impostors/starter-earth.webp",
+      "atlasSha256": "3932b6d65a58b31ebea53cea6c8ccdfba0e5461e714581563e04fbb38f04d60d",
+      "atlasBytes": 94244,
+      "width": 512,
+      "height": 512,
+      "columns": 4,
+      "rows": 4,
+      "cellWidth": 128,
+      "cellHeight": 128,
+      "frames": [
+        {
+          "clip": "idle",
+          "progress": 0.1
+        },
+        {
+          "clip": "idle",
+          "progress": 0.35
+        },
+        {
+          "clip": "idle",
+          "progress": 0.6
+        },
+        {
+          "clip": "idle",
+          "progress": 0.85
+        },
+        {
+          "clip": "walk",
+          "progress": 0.2
+        },
+        {
+          "clip": "walk",
+          "progress": 0.7
+        },
+        {
+          "clip": "gallop",
+          "progress": 0.2
+        },
+        {
+          "clip": "gallop",
+          "progress": 0.7
+        },
+        {
+          "clip": "attack",
+          "progress": 0.2
+        },
+        {
+          "clip": "attack",
+          "progress": 0.5
+        },
+        {
+          "clip": "attack",
+          "progress": 0.8
+        },
+        {
+          "clip": "idle_hitreact1",
+          "progress": 0.35
+        },
+        {
+          "clip": "death",
+          "progress": 0.25
+        },
+        {
+          "clip": "death",
+          "progress": 0.6
+        },
+        {
+          "clip": "death",
+          "progress": 0.95
+        },
+        {
+          "clip": "cast",
+          "progress": 0.55
+        }
+      ],
+      "frameTimesSeconds": [
+        0.22441,
+        0.785435,
+        1.34646,
+        1.907485,
+        0.2351,
+        0.82285,
+        0.17098,
+        0.59843,
+        0.26714,
+        0.66785,
+        1.06856,
+        0.2618,
+        0.631625,
+        1.5159,
+        2.400175,
+        0.79343
+      ],
+      "clipDurationsSeconds": {
+        "idle": 2.2441,
+        "walk": 1.1755,
+        "gallop": 0.8549,
+        "attack": 1.3357,
+        "idle_hitreact1": 0.748,
+        "death": 2.5265,
+        "cast": 1.4426
+      },
+      "occupiedPixels": [
+        4167,
+        4131,
+        4139,
+        4193,
+        4083,
+        4150,
+        4150,
+        4157,
+        4286,
+        4305,
+        4148,
+        4259,
+        3868,
+        3474,
+        3674,
+        4242
+      ],
+      "trianglesPerFrame": 12000,
+      "projectedAspect": 1.098499
+    },
+    {
       "sourceUrl": "/pet-models/starter-fire-r.glb",
       "lodUrl": "/pet-models/warfront-lod/starter-fire-r.glb?v=20260902-battle-lod-v1-c0db7fb6a691-496393ff0190",
       "lodSha256": "496393ff0190e3b99dd6e00d745640e8ff99f14c29740d9a4876f854ae68ad21",

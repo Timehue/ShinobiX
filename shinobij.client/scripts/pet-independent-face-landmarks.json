@@ -4651,6 +4651,178 @@
       ],
       "anatomicalCorrectionReport": "../docs/audits/pet-spark-pup-anatomy-correction-2026-10-19.json",
       "coverageActuallyInspected": true
+    },
+    "starter-earth": {
+      "camera": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.67,
+          0.67,
+          -0.16,
+          1.05,
+          -0.55,
+          0.93
+        ],
+        "cameraPadding": 0.7
+      },
+      "status": "full-face-coverage-reviewed",
+      "sourceSha256": "789f87dd462a45e3794f3fbe4be71f9d71dec0c2ef8faa844a5a4a59d20257bf",
+      "geometrySha256": "498b45f327973445dab434192ad79e2e9069ee83ea611a98c6b3af5082a86919",
+      "geometryToVisibleBind": [
+        1.007556714281006,
+        0,
+        0,
+        0,
+        0,
+        1.007556694961029,
+        -1.0493938634725808e-8,
+        0,
+        0,
+        1.0493938634725808e-8,
+        1.007556694961029,
+        0,
+        -1.734723475976807e-18,
+        0.007556639161263257,
+        1.0513646411802746e-8,
+        1
+      ],
+      "headCountVisuallyVerified": 1,
+      "heads": [
+        {
+          "id": "primary",
+          "landmarks": [
+            "upperFace",
+            "muzzle",
+            "lowerFace",
+            "jawChin",
+            "leftEye",
+            "rightEye",
+            "leftCheek",
+            "rightCheek",
+            "headband",
+            "scalp"
+          ]
+        }
+      ],
+      "landmarks": {
+        "upperFace": {
+          "center": [
+            -1.734723475976807e-18,
+            0.5113349938825954,
+            0.6952141247897871
+          ],
+          "radius": 0.18,
+          "anchorBone": "head",
+          "pickedView": "independent front and side geometry survey"
+        },
+        "muzzle": {
+          "center": [
+            -1.734723475976807e-18,
+            0.17884128590966789,
+            0.8261964985977207
+          ],
+          "radius": 0.16,
+          "anchorBone": "head",
+          "pickedView": "independent front and side geometry survey"
+        },
+        "lowerFace": {
+          "center": [
+            -1.734723475976807e-18,
+            0.057934481884708074,
+            0.7657430981593315
+          ],
+          "radius": 0.13,
+          "anchorBone": "head",
+          "pickedView": "independent front and side geometry survey"
+        },
+        "jawChin": {
+          "center": [
+            -1.734723475976807e-18,
+            -0.0025189209672869216,
+            0.6549118623432547
+          ],
+          "radius": 0.13,
+          "anchorBone": "head",
+          "pickedView": "independent front and side geometry survey"
+        },
+        "leftEye": {
+          "center": [
+            -0.32241814856992196,
+            0.41057932470131075,
+            0.7254408266880119
+          ],
+          "radius": 0.13,
+          "anchorBone": "head",
+          "pickedView": "independent front and side geometry survey"
+        },
+        "rightEye": {
+          "center": [
+            0.32241814856992196,
+            0.41057932470131075,
+            0.7254408266880119
+          ],
+          "radius": 0.13,
+          "anchorBone": "head",
+          "pickedView": "independent front and side geometry survey"
+        },
+        "leftCheek": {
+          "center": [
+            -0.4030226857124024,
+            0.1687657173859668,
+            0.6750629944585058
+          ],
+          "radius": 0.13,
+          "anchorBone": "head",
+          "pickedView": "independent front and side geometry survey"
+        },
+        "rightCheek": {
+          "center": [
+            0.4030226857124024,
+            0.1687657173859668,
+            0.6750629944585058
+          ],
+          "radius": 0.13,
+          "anchorBone": "head",
+          "pickedView": "independent front and side geometry survey"
+        },
+        "headband": {
+          "center": [
+            -1.734723475976807e-18,
+            0.7128463331896193,
+            0.7254408235398303
+          ],
+          "radius": 0.13,
+          "anchorBone": "head",
+          "pickedView": "independent front and side geometry survey"
+        },
+        "scalp": {
+          "center": [
+            -1.734723475976807e-18,
+            0.9244332347239813,
+            0.302267009452471
+          ],
+          "radius": 0.14,
+          "anchorBone": "head",
+          "pickedView": "independent front and side geometry survey"
+        }
+      },
+      "coverageEvidence": "docs/screenshots/pet-pebble-distinct-model-2026-10-19/face-landmark-coverage.png",
+      "replacesSharedStoneTurtleAnnotation": true,
+      "coverageReview": {
+        "reviewedAt": "2026-10-19T18:42:22.539Z",
+        "views": [
+          "front",
+          "side",
+          "opposite-side"
+        ],
+        "regions": 10,
+        "minimumVertices": 48,
+        "scalpAndEyeBoundariesVisuallyInspected": true,
+        "independentOfBindingEnvelopes": true
+      }
     }
   }
 }

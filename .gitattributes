@@ -158,3 +158,11 @@ docs/screenshots/*spark*/*.ts text eol=lf
 docs/screenshots/*spark*/*.log text eol=lf
 
 docs/screenshots/pet-spark-main-validation-2026-10-19/*.log text eol=lf
+
+docs/audits/pet-pebble*.json text eol=lf
+
+docs/screenshots/*pebble*/*.mjs text eol=lf
+
+docs/screenshots/*pebble*/*.log text eol=lf
+
+docs/screenshots/*pebble*/*.json text eol=lf
