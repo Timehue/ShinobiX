@@ -83,7 +83,7 @@ retired only for v3; the retained legacy table is unchanged.
 
 All-species point-transfer probes demonstrate HP, both offense channels, both
 defense channels and initiative effects. The independent equal-donor Guard
-control produces 636 Guard wins in 1,268 reachable-form fights, showing useful
+control produces 634 Guard wins in 1,268 reachable-form fights, showing useful
 mitigation/resource tradeoffs without broad dominance. Twenty additional
 synthetic form fixtures are labelled separately. Reproduce
 with `node --import tsx scripts/pet-guard-control.mts`; see
@@ -91,20 +91,36 @@ with `node --import tsx scripts/pet-guard-control.mts`; see
 
 The [saved-preset comparison](saved-preset-before-after.json) records solo wins
 against equal default kits at levels 20/75/100 of
-50.0/46.9/43.8% and 43.8/34.4/32.8%. Preserving the native Final Art corrects the
+48.4/43.8/40.6% and 45.3/35.9/34.4%. Preserving the native Final Art corrects the
 previous severe losses. Support-heavy preferences retain a solo opportunity
 cost; they are not promised equal performance in every matchup.
+
+A separate [ordinary-hit audit](damage-tail-audit.json) covers 18,032 mirrored
+opening scenarios. It exposed an immediate Spark Pup advanced hit removing
+73-78% HP despite healthy aggregate medians. The final v3 ordinary curve leaves
+damage linear through 45% HP, then approaches 65% smoothly and strictly
+monotonically. Native stats, signatures and historical curves stay unchanged.
+Corrected advanced maxima are 56.8/57.2/57.8/58.0% at levels 10/20/75/100;
+no ordinary audit hit reaches 75%. The production-engine regression verifies
+legal costs, zero preparation, both pets responding and useful stat margins.
+Reproduce with `node --import tsx scripts/pet-damage-tail-audit.mts`.
+
+At level 100, neutral median damage is approximately 12.4% for Tackle, 20.1%
+for basic, 30% for pure-offense advanced, 43.8% for unprepared signature and
+62.9% for prepared signature. Mixed advanced control techniques have a lower
+23.2% median and include zero-damage actions. These are category medians, not
+promised damage bands for every species, build or control action.
 
 The mature plain 1v1 median is four rounds. The proposed 6-10-round reserve
 target is **not met**: mature 1v1 with two reserves, 2v2 with two reserves and
 3v3 with two reserves have medians 16, 13 and 15. These fights process several
-HP bars. At level 100, attrition removes a mean 3.31%, 0.95% and 2.08% of initial
+HP bars. At level 100, attrition removes a mean 3.44%, 1.45% and 2.31% of initial
 total roster HP respectively. Final-phase action damage remains substantially
 above healing, with no judges or repeated switching stall in these samples.
 
 Early resource endings remain a pacing limitation: level-10 2v2/3v3 with two
-reserves have medians 18/19, final Rest rates 28.3/32.4%, and attrition contributes
-43.9/52.0% of final reported damage. Whole-fight attrition averages 7.67/10.22%
+reserves have medians 18/18, final Rest rates 29.8/29.9%, and attrition contributes
+45.5/53.5% of final reported damage. Whole-fight attrition averages 7.90/10.54%
 of initial roster HP. Healing and shielding are negligible in those endings.
 The release does not claim the reserve target passed or increase all damage
 merely to force it. Human high-level and PvP acceptance remains unmeasured.
@@ -130,7 +146,10 @@ hit or extra-action fallback is introduced. Focused spatial checks pass 126/126.
 
 [UI evidence](ui/report.json) checks all 14 boundaries on desktop and mobile,
 native Final Art, preserved locked/inactive preferences, overflow and
-accessibility. Six screenshots accompany the report. Reproduced empty history
+accessibility. Ten screenshots accompany the report, including native admission
+before any preference save and explicit first-save behavior. Independent review
+corrected an unsaved default preset being shown as the current kit; stale drafts
+are ignored after ownership or saved-build changes. Reproduced empty history
 after remount now says "Events this visit" rather than stale "Awaiting Bell";
 the authoritative daily win count remains visible. The unroot-caused 3D fallback
 was not changed.

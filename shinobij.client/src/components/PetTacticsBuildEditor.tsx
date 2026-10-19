@@ -21,7 +21,7 @@ function MoveDescription({ move }: { move: TacticsMove }) {
 }
 
 /** One move library for the ranked squad screen and the Pet Yard. */
-export function PetTacticsBuildEditor({ build, name, onChange, onSave, savedBuild, disabled = false, lockedReason, defaultExpanded = true, summaryLabel, description, progressionLevel, inactivePreferenceIds = [] }: {
+export function PetTacticsBuildEditor({ build, name, onChange, onSave, savedBuild, disabled = false, lockedReason, defaultExpanded = true, summaryLabel, description, progressionLevel, inactivePreferenceIds = [], preferenceState = 'saved' }: {
     build: TacticsBuild; name?: string; onChange: (build: TacticsBuild) => void;
     onSave?: (build: TacticsBuild) => Promise<void>; savedBuild?: TacticsBuild;
     disabled?: boolean; lockedReason?: string;
@@ -30,6 +30,7 @@ export function PetTacticsBuildEditor({ build, name, onChange, onSave, savedBuil
     /** Omit in normalized competitive screens. Saved preferences remain editable. */
     progressionLevel?: number;
     inactivePreferenceIds?: readonly string[];
+    preferenceState?: 'default' | 'draft' | 'saved';
 }) {
     const pet = tacticsSpecies(build.speciesId)!;
     const points = Object.values(build.allocation).reduce((a, b) => a + b, 0);
@@ -51,6 +52,7 @@ export function PetTacticsBuildEditor({ build, name, onChange, onSave, savedBuil
         onToggle={event => setExpanded(event.currentTarget.open)}><summary><strong>{summaryLabel ?? name ?? pet.name}</strong><span>{build.moveIds.length}/4 abilities{!summaryLabel && ` · ${points}/49 points`}</span></summary>
         <fieldset disabled={disabled || saving} aria-busy={saving}>
             {description && <p>{description}</p>}
+            {preferenceState === 'default' && <p className="pet-techniques-hint">These checked default choices have not been saved and do not replace the native loadout above.</p>}
             {progressionLevel != null && <p className="pet-techniques-hint">The technique library below shows Competitive Tactics costs and effects. Progression costs, mastery and reuse are shown in the sealed battle menu.</p>}
             <p className="pta-trait">{pet.traitText}</p>
             <div className="pta-preset">{pet.builds.map((preset, i) => <button type="button" key={preset.name} onClick={() => onChange({ ...tacticsPreset(pet.id, i), ...(build.ownedPetId ? { ownedPetId: build.ownedPetId } : {}) })}>{preset.name} build</button>)}</div>
@@ -60,9 +62,12 @@ export function PetTacticsBuildEditor({ build, name, onChange, onSave, savedBuil
                 const move = TACTICS_MOVES[id], checked = build.moveIds.includes(id);
                 const unlock = petTacticsAbilityUnlockLevel(id);
                 const locked = progressionLevel != null && unlock != null && progressionLevel < unlock;
+                let stateLabel = 'Available';
+                if (locked) stateLabel = `Level ${unlock} · ${!checked ? 'Locked in progression' : preferenceState === 'default' ? 'Default choice, not saved' : preferenceState === 'draft' ? 'Unsaved for later' : 'Saved for later'}`;
+                else if (checked) stateLabel = `Slot ${build.moveIds.indexOf(id) + 1} · ${preferenceState === 'default' ? 'Default choice, not saved' : inactivePreferenceIds.includes(id) ? preferenceState === 'draft' ? 'Unsaved, inactive in progression' : 'Saved, inactive in progression' : preferenceState === 'draft' ? 'Unsaved choice' : progressionLevel == null ? 'Equipped' : 'Active preference'}`;
                 return <label key={id} className={checked ? 'is-equipped' : ''}><input type="checkbox" aria-label={`Equip ${move.name}`} checked={checked} disabled={!checked && build.moveIds.length >= 4}
                     onChange={() => onChange({ ...build, moveIds: checked ? build.moveIds.filter(m => m !== id) : [...build.moveIds, id] })} />
-                    <span><MoveTitle move={move} /><MoveDescription move={move} /><b className="pet-technique-state">{locked ? `Level ${unlock} · ${checked ? 'Saved for later' : 'Locked in progression'}` : checked && inactivePreferenceIds.includes(id) ? `Slot ${build.moveIds.indexOf(id) + 1} · Saved, inactive in progression` : checked ? `Slot ${build.moveIds.indexOf(id) + 1} · ${progressionLevel == null ? 'Equipped' : 'Active preference'}` : 'Available'}</b></span></label>;
+                    <span><MoveTitle move={move} /><MoveDescription move={move} /><b className="pet-technique-state">{stateLabel}</b></span></label>;
             })}</div>
             <div className="pet-technique-signature"><h4>Competitive Tactics signature · normalized format only</h4><MoveTitle move={pet.signature} /><MoveDescription move={pet.signature} />
                 {progressionLevel != null && <p>Progression battles keep your companion&apos;s native Final Art, shown above. It {progressionLevel >= 20 ? 'is earned at level 20' : 'unlocks at level 20'}; saved ordinary techniques do not replace it.</p>}

@@ -23,6 +23,8 @@
       "savedPreferencesPreserved": true,
       "earnedInactivePreferenceLabeled": true,
       "nativeFinalArtPreserved": true,
+      "nativeWithoutSavedPreferences": true,
+      "firstSaveExplicit": true,
       "horizontalOverflow": false,
       "accessibilityViolations": 0,
       "pageErrors": 0
@@ -49,10 +51,12 @@
       "savedPreferencesPreserved": true,
       "earnedInactivePreferenceLabeled": true,
       "nativeFinalArtPreserved": true,
+      "nativeWithoutSavedPreferences": true,
+      "firstSaveExplicit": true,
       "horizontalOverflow": false,
       "accessibilityViolations": 0,
       "pageErrors": 0
     }
   ],
-  "screenshots": "."
+  "screenshots": "docs/pet-progression-evidence/ui"
 }

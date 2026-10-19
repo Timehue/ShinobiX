@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-19T07:38:17.307Z",
+  "generatedAt": "2026-10-19T07:58:47.220Z",
   "evidenceTier": "controlled-production-engine-simulation",
   "scenario": "Same ten points from Power into Guard versus Vitality; all other allocations identical.",
   "configuration": {
@@ -23,7 +23,7 @@
   "sourceFingerprints": {
     "api/_pet-showdown/engine.ts": "ae6f6fe2e7ff3a27a19284a946ba65a56c84411704e2cd4afa916260a28c7333",
     "api/_pet-showdown/ai.ts": "4bfed510ff370a2ba56ded84bf04cf9918b3f41fbf2731ac364d759aff98d9e1",
-    "api/_pet-showdown/damage-pacing.ts": "53f847bcc356ca696d7e7db3a4e78bdca3948ca649e09e883efea238d087d7fe",
+    "api/_pet-showdown/damage-pacing.ts": "003f7445ee939c56f8ba3a0d1a68a134bed1833320afdb3ae17650dc125b0193",
     "api/pet/_growth.ts": "da64f0c10ba8bf9f77a05b62a6144e57a548927150d705914380b6eae906d1e7",
     "api/pet/_catalog.ts": "0748a19f7ad3a269583cb4a7453c157a9b8d0584bac417e7a1b914355feae768",
     "api/_pet-stat-ceil.ts": "82903457511608ee90c86de9c1ec20ef48d7e7419c9cac8d47768807026da7b2",
@@ -38,7 +38,7 @@
   "finalSourceFingerprints": {
     "api/_pet-showdown/engine.ts": "ae6f6fe2e7ff3a27a19284a946ba65a56c84411704e2cd4afa916260a28c7333",
     "api/_pet-showdown/ai.ts": "4bfed510ff370a2ba56ded84bf04cf9918b3f41fbf2731ac364d759aff98d9e1",
-    "api/_pet-showdown/damage-pacing.ts": "53f847bcc356ca696d7e7db3a4e78bdca3948ca649e09e883efea238d087d7fe",
+    "api/_pet-showdown/damage-pacing.ts": "003f7445ee939c56f8ba3a0d1a68a134bed1833320afdb3ae17650dc125b0193",
     "api/pet/_growth.ts": "da64f0c10ba8bf9f77a05b62a6144e57a548927150d705914380b6eae906d1e7",
     "api/pet/_catalog.ts": "0748a19f7ad3a269583cb4a7453c157a9b8d0584bac417e7a1b914355feae768",
     "api/_pet-stat-ceil.ts": "82903457511608ee90c86de9c1ec20ef48d7e7419c9cac8d47768807026da7b2",
@@ -53,13 +53,13 @@
   "warnings": [],
   "summary": {
     "fights": 1288,
-    "guardWins": 645,
+    "guardWins": 643,
     "guardRest": 543,
     "vitalityRest": 549
   },
   "reachableSummary": {
     "fights": 1268,
-    "guardWins": 636,
+    "guardWins": 634,
     "guardRest": 529,
     "vitalityRest": 535
   },
@@ -67,12 +67,12 @@
     {
       "level": 75,
       "fights": 644,
-      "guardWins": 326,
+      "guardWins": 324,
       "guardRest": 281,
       "vitalityRest": 277,
       "reachable": {
         "fights": 624,
-        "guardWins": 317,
+        "guardWins": 315,
         "guardRest": 267,
         "vitalityRest": 263
       }
@@ -3030,7 +3030,7 @@
       "guardHealing": 0,
       "vitalityHealing": 0,
       "guardDamage": 426,
-      "vitalityDamage": 733,
+      "vitalityDamage": 731,
       "rounds": 4,
       "guardWin": false,
       "guardHp": 0,
@@ -10724,11 +10724,11 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 1200,
-      "vitalityDamage": 746,
+      "guardDamage": 1183,
+      "vitalityDamage": 725,
       "rounds": 3,
       "guardWin": true,
-      "guardHp": 35,
+      "guardHp": 56,
       "vitalityHp": 0
     },
     {
@@ -10759,12 +10759,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 786,
-      "vitalityDamage": 1139,
+      "guardDamage": 765,
+      "vitalityDamage": 1122,
       "rounds": 3,
       "guardWin": false,
       "guardHp": 0,
-      "vitalityHp": 39
+      "vitalityHp": 60
     },
     {
       "id": "standard-36",
@@ -10794,12 +10794,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 786,
-      "vitalityDamage": 1203,
+      "guardDamage": 765,
+      "vitalityDamage": 1188,
       "rounds": 3,
       "guardWin": false,
       "guardHp": 0,
-      "vitalityHp": 39
+      "vitalityHp": 60
     },
     {
       "id": "standard-36",
@@ -10829,11 +10829,11 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 1267,
-      "vitalityDamage": 746,
+      "guardDamage": 1252,
+      "vitalityDamage": 725,
       "rounds": 3,
       "guardWin": true,
-      "guardHp": 35,
+      "guardHp": 56,
       "vitalityHp": 0
     },
     {
@@ -10864,11 +10864,11 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 1375,
-      "vitalityDamage": 860,
+      "guardDamage": 1353,
+      "vitalityDamage": 834,
       "rounds": 3,
       "guardWin": true,
-      "guardHp": 32,
+      "guardHp": 58,
       "vitalityHp": 0
     },
     {
@@ -10899,12 +10899,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 901,
-      "vitalityDamage": 1315,
+      "guardDamage": 874,
+      "vitalityDamage": 1293,
       "rounds": 3,
       "guardWin": false,
       "guardHp": 0,
-      "vitalityHp": 35
+      "vitalityHp": 62
     },
     {
       "id": "standard-36",
@@ -10934,12 +10934,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 901,
-      "vitalityDamage": 1387,
+      "guardDamage": 874,
+      "vitalityDamage": 1368,
       "rounds": 3,
       "guardWin": false,
       "guardHp": 0,
-      "vitalityHp": 35
+      "vitalityHp": 62
     },
     {
       "id": "standard-36",
@@ -10969,11 +10969,11 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 1452,
-      "vitalityDamage": 860,
+      "guardDamage": 1433,
+      "vitalityDamage": 834,
       "rounds": 3,
       "guardWin": true,
-      "guardHp": 32,
+      "guardHp": 58,
       "vitalityHp": 0
     },
     {
@@ -11494,7 +11494,7 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 882,
+      "guardDamage": 880,
       "vitalityDamage": 453,
       "rounds": 4,
       "guardWin": true,
@@ -11530,7 +11530,7 @@
       "guardHealing": 0,
       "vitalityHealing": 0,
       "guardDamage": 475,
-      "vitalityDamage": 840,
+      "vitalityDamage": 838,
       "rounds": 4,
       "guardWin": false,
       "guardHp": 0,
@@ -18126,7 +18126,7 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 943,
+      "guardDamage": 942,
       "vitalityDamage": 479,
       "rounds": 4,
       "guardWin": true,
@@ -18162,7 +18162,7 @@
       "guardHealing": 0,
       "vitalityHealing": 0,
       "guardDamage": 501,
-      "vitalityDamage": 900,
+      "vitalityDamage": 898,
       "rounds": 4,
       "guardWin": false,
       "guardHp": 0,
@@ -25756,12 +25756,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 641,
-      "vitalityDamage": 878,
+      "guardDamage": 611,
+      "vitalityDamage": 821,
       "rounds": 3,
       "guardWin": false,
       "guardHp": 0,
-      "vitalityHp": 53
+      "vitalityHp": 83
     },
     {
       "id": "rare-38",
@@ -25791,11 +25791,11 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 716,
-      "vitalityDamage": 604,
+      "guardDamage": 871,
+      "vitalityDamage": 575,
       "rounds": 3,
       "guardWin": true,
-      "guardHp": 52,
+      "guardHp": 81,
       "vitalityHp": 0
     },
     {
@@ -25826,12 +25826,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 757,
-      "vitalityDamage": 633,
+      "guardDamage": 509,
+      "vitalityDamage": 821,
       "rounds": 3,
-      "guardWin": true,
-      "guardHp": 23,
-      "vitalityHp": 0
+      "guardWin": false,
+      "guardHp": 0,
+      "vitalityHp": 185
     },
     {
       "id": "rare-38",
@@ -25861,11 +25861,11 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 910,
-      "vitalityDamage": 542,
+      "guardDamage": 871,
+      "vitalityDamage": 479,
       "rounds": 3,
       "guardWin": true,
-      "guardHp": 114,
+      "guardHp": 177,
       "vitalityHp": 0
     },
     {
@@ -25896,12 +25896,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 739,
-      "vitalityDamage": 782,
+      "guardDamage": 694,
+      "vitalityDamage": 943,
       "rounds": 3,
       "guardWin": false,
       "guardHp": 0,
-      "vitalityHp": 48
+      "vitalityHp": 93
     },
     {
       "id": "rare-38",
@@ -25931,11 +25931,11 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 818,
-      "vitalityDamage": 707,
+      "guardDamage": 989,
+      "vitalityDamage": 661,
       "rounds": 3,
       "guardWin": true,
-      "guardHp": 42,
+      "guardHp": 88,
       "vitalityHp": 0
     },
     {
@@ -25966,12 +25966,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 864,
-      "vitalityDamage": 739,
+      "guardDamage": 580,
+      "vitalityDamage": 943,
       "rounds": 3,
-      "guardWin": true,
-      "guardHp": 10,
-      "vitalityHp": 0
+      "guardWin": false,
+      "guardHp": 0,
+      "vitalityHp": 207
     },
     {
       "id": "rare-38",
@@ -26001,12 +26001,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 772,
-      "vitalityDamage": 826,
+      "guardDamage": 990,
+      "vitalityDamage": 553,
       "rounds": 3,
-      "guardWin": false,
-      "guardHp": 0,
-      "vitalityHp": 15
+      "guardWin": true,
+      "guardHp": 196,
+      "vitalityHp": 0
     },
     {
       "id": "rare-39",
@@ -31812,11 +31812,11 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 1249,
-      "vitalityDamage": 762,
+      "guardDamage": 1247,
+      "vitalityDamage": 758,
       "rounds": 3,
       "guardWin": true,
-      "guardHp": 130,
+      "guardHp": 134,
       "vitalityHp": 0
     },
     {
@@ -31847,12 +31847,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 810,
-      "vitalityDamage": 1177,
+      "guardDamage": 805,
+      "vitalityDamage": 1175,
       "rounds": 3,
       "guardWin": false,
       "guardHp": 0,
-      "vitalityHp": 133
+      "vitalityHp": 138
     },
     {
       "id": "legendary-8",
@@ -31882,12 +31882,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 810,
-      "vitalityDamage": 1245,
+      "guardDamage": 805,
+      "vitalityDamage": 1243,
       "rounds": 3,
       "guardWin": false,
       "guardHp": 0,
-      "vitalityHp": 133
+      "vitalityHp": 138
     },
     {
       "id": "legendary-8",
@@ -31917,11 +31917,11 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 1322,
-      "vitalityDamage": 762,
+      "guardDamage": 1320,
+      "vitalityDamage": 758,
       "rounds": 3,
       "guardWin": true,
-      "guardHp": 130,
+      "guardHp": 134,
       "vitalityHp": 0
     },
     {
@@ -31952,11 +31952,11 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 1402,
-      "vitalityDamage": 877,
+      "guardDamage": 1399,
+      "vitalityDamage": 871,
       "rounds": 3,
       "guardWin": true,
-      "guardHp": 141,
+      "guardHp": 147,
       "vitalityHp": 0
     },
     {
@@ -31987,12 +31987,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 912,
-      "vitalityDamage": 1348,
+      "guardDamage": 908,
+      "vitalityDamage": 1345,
       "rounds": 3,
       "guardWin": false,
       "guardHp": 0,
-      "vitalityHp": 158
+      "vitalityHp": 162
     },
     {
       "id": "legendary-8",
@@ -32022,12 +32022,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 912,
-      "vitalityDamage": 1425,
+      "guardDamage": 908,
+      "vitalityDamage": 1423,
       "rounds": 3,
       "guardWin": false,
       "guardHp": 0,
-      "vitalityHp": 158
+      "vitalityHp": 162
     },
     {
       "id": "legendary-8",
@@ -32057,11 +32057,11 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 1482,
-      "vitalityDamage": 877,
+      "guardDamage": 1480,
+      "vitalityDamage": 871,
       "rounds": 3,
       "guardWin": true,
-      "guardHp": 141,
+      "guardHp": 147,
       "vitalityHp": 0
     },
     {
@@ -35732,12 +35732,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 631,
-      "vitalityDamage": 861,
+      "guardDamage": 609,
+      "vitalityDamage": 823,
       "rounds": 3,
       "guardWin": false,
       "guardHp": 0,
-      "vitalityHp": 88
+      "vitalityHp": 110
     },
     {
       "id": "legendary-22",
@@ -35767,11 +35767,11 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 907,
-      "vitalityDamage": 599,
+      "guardDamage": 868,
+      "vitalityDamage": 578,
       "rounds": 3,
       "guardWin": true,
-      "guardHp": 81,
+      "guardHp": 102,
       "vitalityHp": 0
     },
     {
@@ -35802,12 +35802,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 539,
-      "vitalityDamage": 855,
+      "guardDamage": 500,
+      "vitalityDamage": 827,
       "rounds": 3,
       "guardWin": false,
       "guardHp": 0,
-      "vitalityHp": 180
+      "vitalityHp": 219
     },
     {
       "id": "legendary-22",
@@ -35837,11 +35837,11 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 901,
-      "vitalityDamage": 512,
+      "guardDamage": 873,
+      "vitalityDamage": 474,
       "rounds": 3,
       "guardWin": true,
-      "guardHp": 168,
+      "guardHp": 206,
       "vitalityHp": 0
     },
     {
@@ -35872,12 +35872,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 711,
-      "vitalityDamage": 978,
+      "guardDamage": 689,
+      "vitalityDamage": 937,
       "rounds": 3,
       "guardWin": false,
       "guardHp": 0,
-      "vitalityHp": 105
+      "vitalityHp": 127
     },
     {
       "id": "legendary-22",
@@ -35907,11 +35907,11 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 1023,
-      "vitalityDamage": 679,
+      "guardDamage": 982,
+      "vitalityDamage": 657,
       "rounds": 3,
       "guardWin": true,
-      "guardHp": 98,
+      "guardHp": 120,
       "vitalityHp": 0
     },
     {
@@ -35942,12 +35942,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 606,
-      "vitalityDamage": 971,
+      "guardDamage": 565,
+      "vitalityDamage": 941,
       "rounds": 3,
       "guardWin": false,
       "guardHp": 0,
-      "vitalityHp": 210
+      "vitalityHp": 251
     },
     {
       "id": "legendary-22",
@@ -35977,11 +35977,11 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 1016,
-      "vitalityDamage": 580,
+      "guardDamage": 987,
+      "vitalityDamage": 539,
       "rounds": 3,
       "guardWin": true,
-      "guardHp": 197,
+      "guardHp": 238,
       "vitalityHp": 0
     },
     {
@@ -38252,12 +38252,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 1154,
-      "vitalityDamage": 664,
+      "guardDamage": 664,
+      "vitalityDamage": 759,
       "rounds": 3,
-      "guardWin": true,
-      "guardHp": 43,
-      "vitalityHp": 0
+      "guardWin": false,
+      "guardHp": 0,
+      "vitalityHp": 84
     },
     {
       "id": "mythic-1",
@@ -38287,12 +38287,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 707,
-      "vitalityDamage": 1082,
+      "guardDamage": 689,
+      "vitalityDamage": 1069,
       "rounds": 3,
       "guardWin": false,
       "guardHp": 0,
-      "vitalityHp": 41
+      "vitalityHp": 59
     },
     {
       "id": "mythic-1",
@@ -38322,12 +38322,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 707,
+      "guardDamage": 689,
       "vitalityDamage": 775,
       "rounds": 3,
       "guardWin": false,
       "guardHp": 0,
-      "vitalityHp": 41
+      "vitalityHp": 59
     },
     {
       "id": "mythic-1",
@@ -38392,11 +38392,11 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 1304,
-      "vitalityDamage": 771,
+      "guardDamage": 1288,
+      "vitalityDamage": 750,
       "rounds": 3,
       "guardWin": true,
-      "guardHp": 37,
+      "guardHp": 58,
       "vitalityHp": 0
     },
     {
@@ -38427,12 +38427,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 803,
-      "vitalityDamage": 1250,
+      "guardDamage": 782,
+      "vitalityDamage": 1232,
       "rounds": 3,
       "guardWin": false,
       "guardHp": 0,
-      "vitalityHp": 45
+      "vitalityHp": 66
     },
     {
       "id": "mythic-1",
@@ -38462,12 +38462,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 803,
+      "guardDamage": 782,
       "vitalityDamage": 894,
       "rounds": 3,
       "guardWin": false,
       "guardHp": 0,
-      "vitalityHp": 45
+      "vitalityHp": 66
     },
     {
       "id": "mythic-1",
@@ -38498,10 +38498,10 @@
       "guardHealing": 0,
       "vitalityHealing": 0,
       "guardDamage": 932,
-      "vitalityDamage": 771,
+      "vitalityDamage": 750,
       "rounds": 3,
       "guardWin": true,
-      "guardHp": 37,
+      "guardHp": 58,
       "vitalityHp": 0
     },
     {
@@ -39092,12 +39092,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 554,
-      "vitalityDamage": 768,
-      "rounds": 3,
-      "guardWin": false,
-      "guardHp": 0,
-      "vitalityHp": 152
+      "guardDamage": 756,
+      "vitalityDamage": 498,
+      "rounds": 4,
+      "guardWin": true,
+      "guardHp": 170,
+      "vitalityHp": 0
     },
     {
       "id": "mythic-4",
@@ -39127,12 +39127,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 817,
-      "vitalityDamage": 521,
-      "rounds": 3,
-      "guardWin": true,
-      "guardHp": 147,
-      "vitalityHp": 0
+      "guardDamage": 528,
+      "vitalityDamage": 712,
+      "rounds": 4,
+      "guardWin": false,
+      "guardHp": 0,
+      "vitalityHp": 178
     },
     {
       "id": "mythic-4",
@@ -39162,12 +39162,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 472,
-      "vitalityDamage": 767,
-      "rounds": 3,
+      "guardDamage": 535,
+      "vitalityDamage": 709,
+      "rounds": 4,
       "guardWin": false,
       "guardHp": 0,
-      "vitalityHp": 234
+      "vitalityHp": 171
     },
     {
       "id": "mythic-4",
@@ -39197,11 +39197,11 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 815,
-      "vitalityDamage": 443,
+      "guardDamage": 814,
+      "vitalityDamage": 439,
       "rounds": 3,
       "guardWin": true,
-      "guardHp": 225,
+      "guardHp": 229,
       "vitalityHp": 0
     },
     {
@@ -39232,12 +39232,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 626,
-      "vitalityDamage": 883,
-      "rounds": 3,
-      "guardWin": false,
-      "guardHp": 0,
-      "vitalityHp": 174
+      "guardDamage": 856,
+      "vitalityDamage": 573,
+      "rounds": 4,
+      "guardWin": true,
+      "guardHp": 189,
+      "vitalityHp": 0
     },
     {
       "id": "mythic-4",
@@ -39267,12 +39267,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 923,
-      "vitalityDamage": 600,
-      "rounds": 3,
-      "guardWin": true,
-      "guardHp": 162,
-      "vitalityHp": 0
+      "guardDamage": 598,
+      "vitalityDamage": 818,
+      "rounds": 4,
+      "guardWin": false,
+      "guardHp": 0,
+      "vitalityHp": 202
     },
     {
       "id": "mythic-4",
@@ -39302,12 +39302,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 534,
-      "vitalityDamage": 881,
+      "guardDamage": 528,
+      "vitalityDamage": 879,
       "rounds": 3,
       "guardWin": false,
       "guardHp": 0,
-      "vitalityHp": 266
+      "vitalityHp": 272
     },
     {
       "id": "mythic-4",
@@ -39337,11 +39337,11 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 921,
-      "vitalityDamage": 512,
+      "guardDamage": 920,
+      "vitalityDamage": 506,
       "rounds": 3,
       "guardWin": true,
-      "guardHp": 250,
+      "guardHp": 256,
       "vitalityHp": 0
     },
     {
@@ -39932,11 +39932,11 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 1172,
-      "vitalityDamage": 741,
+      "guardDamage": 1166,
+      "vitalityDamage": 730,
       "rounds": 3,
       "guardWin": true,
-      "guardHp": 78,
+      "guardHp": 89,
       "vitalityHp": 0
     },
     {
@@ -39967,12 +39967,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 771,
-      "vitalityDamage": 1124,
+      "guardDamage": 762,
+      "vitalityDamage": 1116,
       "rounds": 3,
       "guardWin": false,
       "guardHp": 0,
-      "vitalityHp": 95
+      "vitalityHp": 104
     },
     {
       "id": "mythic-7",
@@ -40002,12 +40002,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 771,
+      "guardDamage": 762,
       "vitalityDamage": 832,
       "rounds": 4,
       "guardWin": false,
       "guardHp": 0,
-      "vitalityHp": 95
+      "vitalityHp": 104
     },
     {
       "id": "mythic-7",
@@ -40038,10 +40038,10 @@
       "guardHealing": 0,
       "vitalityHealing": 0,
       "guardDamage": 914,
-      "vitalityDamage": 741,
+      "vitalityDamage": 730,
       "rounds": 4,
       "guardWin": true,
-      "guardHp": 78,
+      "guardHp": 89,
       "vitalityHp": 0
     },
     {
@@ -40072,11 +40072,11 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 1346,
-      "vitalityDamage": 842,
+      "guardDamage": 1338,
+      "vitalityDamage": 830,
       "rounds": 3,
       "guardWin": true,
-      "guardHp": 93,
+      "guardHp": 105,
       "vitalityHp": 0
     },
     {
@@ -40107,12 +40107,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 885,
-      "vitalityDamage": 1282,
+      "guardDamage": 873,
+      "vitalityDamage": 1274,
       "rounds": 3,
       "guardWin": false,
       "guardHp": 0,
-      "vitalityHp": 97
+      "vitalityHp": 109
     },
     {
       "id": "mythic-7",
@@ -40142,12 +40142,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 885,
+      "guardDamage": 873,
       "vitalityDamage": 950,
       "rounds": 4,
       "guardWin": false,
       "guardHp": 0,
-      "vitalityHp": 97
+      "vitalityHp": 109
     },
     {
       "id": "mythic-7",
@@ -40178,10 +40178,10 @@
       "guardHealing": 0,
       "vitalityHealing": 0,
       "guardDamage": 997,
-      "vitalityDamage": 842,
+      "vitalityDamage": 830,
       "rounds": 4,
       "guardWin": true,
-      "guardHp": 93,
+      "guardHp": 105,
       "vitalityHp": 0
     },
     {
@@ -40212,11 +40212,11 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 1152,
-      "vitalityDamage": 661,
+      "guardDamage": 1143,
+      "vitalityDamage": 652,
       "rounds": 3,
       "guardWin": true,
-      "guardHp": 71,
+      "guardHp": 80,
       "vitalityHp": 0
     },
     {
@@ -40247,12 +40247,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 704,
-      "vitalityDamage": 1080,
+      "guardDamage": 693,
+      "vitalityDamage": 1073,
       "rounds": 3,
       "guardWin": false,
       "guardHp": 0,
-      "vitalityHp": 69
+      "vitalityHp": 80
     },
     {
       "id": "mythic-8",
@@ -40282,12 +40282,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 704,
+      "guardDamage": 693,
       "vitalityDamage": 782,
       "rounds": 4,
       "guardWin": false,
       "guardHp": 0,
-      "vitalityHp": 69
+      "vitalityHp": 80
     },
     {
       "id": "mythic-8",
@@ -40318,10 +40318,10 @@
       "guardHealing": 0,
       "vitalityHealing": 0,
       "guardDamage": 773,
-      "vitalityDamage": 661,
+      "vitalityDamage": 652,
       "rounds": 3,
       "guardWin": true,
-      "guardHp": 71,
+      "guardHp": 80,
       "vitalityHp": 0
     },
     {
@@ -40352,11 +40352,11 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 1303,
-      "vitalityDamage": 768,
+      "guardDamage": 1293,
+      "vitalityDamage": 754,
       "rounds": 3,
       "guardWin": true,
-      "guardHp": 68,
+      "guardHp": 82,
       "vitalityHp": 0
     },
     {
@@ -40387,12 +40387,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 800,
-      "vitalityDamage": 1249,
+      "guardDamage": 787,
+      "vitalityDamage": 1238,
       "rounds": 3,
       "guardWin": false,
       "guardHp": 0,
-      "vitalityHp": 78
+      "vitalityHp": 91
     },
     {
       "id": "mythic-8",
@@ -40422,12 +40422,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 800,
+      "guardDamage": 787,
       "vitalityDamage": 838,
       "rounds": 3,
       "guardWin": false,
       "guardHp": 0,
-      "vitalityHp": 78
+      "vitalityHp": 91
     },
     {
       "id": "mythic-8",
@@ -40458,10 +40458,10 @@
       "guardHealing": 0,
       "vitalityHealing": 0,
       "guardDamage": 943,
-      "vitalityDamage": 768,
+      "vitalityDamage": 754,
       "rounds": 4,
       "guardWin": true,
-      "guardHp": 68,
+      "guardHp": 82,
       "vitalityHp": 0
     },
     {
@@ -41403,7 +41403,7 @@
       "guardHealing": 0,
       "vitalityHealing": 0,
       "guardDamage": 690,
-      "vitalityDamage": 1022,
+      "vitalityDamage": 1018,
       "rounds": 4,
       "guardWin": false,
       "guardHp": 0,
@@ -41437,7 +41437,7 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 1084,
+      "guardDamage": 1080,
       "vitalityDamage": 650,
       "rounds": 4,
       "guardWin": true,
@@ -41543,7 +41543,7 @@
       "guardHealing": 0,
       "vitalityHealing": 0,
       "guardDamage": 784,
-      "vitalityDamage": 1158,
+      "vitalityDamage": 1154,
       "rounds": 4,
       "guardWin": false,
       "guardHp": 0,
@@ -41577,7 +41577,7 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 1232,
+      "guardDamage": 1227,
       "vitalityDamage": 735,
       "rounds": 4,
       "guardWin": true,
@@ -42452,12 +42452,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 494,
-      "vitalityDamage": 699,
+      "guardDamage": 488,
+      "vitalityDamage": 670,
       "rounds": 3,
       "guardWin": false,
       "guardHp": 0,
-      "vitalityHp": 41
+      "vitalityHp": 47
     },
     {
       "id": "starter-fire",
@@ -42487,11 +42487,11 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 735,
-      "vitalityDamage": 471,
+      "guardDamage": 706,
+      "vitalityDamage": 464,
       "rounds": 3,
       "guardWin": true,
-      "guardHp": 32,
+      "guardHp": 39,
       "vitalityHp": 0
     },
     {
@@ -42522,12 +42522,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 463,
-      "vitalityDamage": 690,
+      "guardDamage": 428,
+      "vitalityDamage": 669,
       "rounds": 3,
       "guardWin": false,
       "guardHp": 0,
-      "vitalityHp": 72
+      "vitalityHp": 107
     },
     {
       "id": "starter-fire",
@@ -42557,11 +42557,11 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 716,
-      "vitalityDamage": 442,
+      "guardDamage": 705,
+      "vitalityDamage": 407,
       "rounds": 3,
       "guardWin": true,
-      "guardHp": 61,
+      "guardHp": 96,
       "vitalityHp": 0
     },
     {
@@ -42592,12 +42592,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 569,
-      "vitalityDamage": 797,
+      "guardDamage": 558,
+      "vitalityDamage": 763,
       "rounds": 3,
       "guardWin": false,
       "guardHp": 0,
-      "vitalityHp": 37
+      "vitalityHp": 48
     },
     {
       "id": "starter-fire",
@@ -42627,11 +42627,11 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 842,
-      "vitalityDamage": 537,
+      "guardDamage": 805,
+      "vitalityDamage": 529,
       "rounds": 3,
       "guardWin": true,
-      "guardHp": 38,
+      "guardHp": 46,
       "vitalityHp": 0
     },
     {
@@ -42662,12 +42662,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 535,
-      "vitalityDamage": 789,
+      "guardDamage": 490,
+      "vitalityDamage": 764,
       "rounds": 3,
       "guardWin": false,
       "guardHp": 0,
-      "vitalityHp": 71
+      "vitalityHp": 116
     },
     {
       "id": "starter-fire",
@@ -42697,11 +42697,11 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 833,
-      "vitalityDamage": 504,
+      "guardDamage": 805,
+      "vitalityDamage": 463,
       "rounds": 3,
       "guardWin": true,
-      "guardHp": 71,
+      "guardHp": 112,
       "vitalityHp": 0
     },
     {
@@ -43292,12 +43292,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 359,
-      "vitalityDamage": 778,
-      "rounds": 2,
+      "guardDamage": 504,
+      "vitalityDamage": 676,
+      "rounds": 3,
       "guardWin": false,
       "guardHp": 0,
-      "vitalityHp": 201
+      "vitalityHp": 56
     },
     {
       "id": "starter-lightning",
@@ -43327,11 +43327,11 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 803,
-      "vitalityDamage": 350,
-      "rounds": 2,
+      "guardDamage": 711,
+      "vitalityDamage": 480,
+      "rounds": 3,
       "guardWin": true,
-      "guardHp": 179,
+      "guardHp": 49,
       "vitalityHp": 0
     },
     {
@@ -43362,12 +43362,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 827,
-      "vitalityDamage": 361,
-      "rounds": 2,
-      "guardWin": true,
-      "guardHp": 168,
-      "vitalityHp": 0
+      "guardDamage": 443,
+      "vitalityDamage": 678,
+      "rounds": 3,
+      "guardWin": false,
+      "guardHp": 0,
+      "vitalityHp": 117
     },
     {
       "id": "starter-lightning",
@@ -43397,12 +43397,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 371,
-      "vitalityDamage": 798,
-      "rounds": 2,
-      "guardWin": false,
-      "guardHp": 0,
-      "vitalityHp": 189
+      "guardDamage": 713,
+      "vitalityDamage": 424,
+      "rounds": 3,
+      "guardWin": true,
+      "guardHp": 105,
+      "vitalityHp": 0
     },
     {
       "id": "starter-lightning",
@@ -43432,12 +43432,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 420,
-      "vitalityDamage": 891,
-      "rounds": 2,
+      "guardDamage": 577,
+      "vitalityDamage": 774,
+      "rounds": 3,
       "guardWin": false,
       "guardHp": 0,
-      "vitalityHp": 216
+      "vitalityHp": 59
     },
     {
       "id": "starter-lightning",
@@ -43467,11 +43467,11 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 934,
-      "vitalityDamage": 402,
-      "rounds": 2,
+      "guardDamage": 813,
+      "vitalityDamage": 550,
+      "rounds": 3,
       "guardWin": true,
-      "guardHp": 203,
+      "guardHp": 55,
       "vitalityHp": 0
     },
     {
@@ -43502,12 +43502,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 959,
-      "vitalityDamage": 414,
-      "rounds": 2,
-      "guardWin": true,
-      "guardHp": 191,
-      "vitalityHp": 0
+      "guardDamage": 509,
+      "vitalityDamage": 776,
+      "rounds": 3,
+      "guardWin": false,
+      "guardHp": 0,
+      "vitalityHp": 127
     },
     {
       "id": "starter-lightning",
@@ -43537,12 +43537,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 434,
-      "vitalityDamage": 914,
-      "rounds": 2,
-      "guardWin": false,
-      "guardHp": 0,
-      "vitalityHp": 202
+      "guardDamage": 818,
+      "vitalityDamage": 450,
+      "rounds": 3,
+      "guardWin": true,
+      "guardHp": 155,
+      "vitalityHp": 0
     },
     {
       "id": "starter-earth",
@@ -45532,264 +45532,334 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 543,
-      "vitalityDamage": 735,
+      "guardDamage": 527,
+      "vitalityDamage": 708,
+      "rounds": 3,
+      "guardWin": false,
+      "guardHp": 0,
+      "vitalityHp": 103
+    },
+    {
+      "id": "starter-lightning-r",
+      "name": "Bolt Fang",
+      "role": "assassin",
+      "level": 75,
+      "seed": 104729,
+      "swapped": true,
+      "syntheticUnreachableForm": false,
+      "guard": {
+        "hp": 596,
+        "defense": 52,
+        "spDefense": 49,
+        "stamina": 73,
+        "attack": 118,
+        "speed": 75
+      },
+      "vitality": {
+        "hp": 630,
+        "defense": 49,
+        "spDefense": 46,
+        "stamina": 72,
+        "attack": 118,
+        "speed": 75
+      },
+      "guardRest": 0,
+      "vitalityRest": 0,
+      "guardHealing": 0,
+      "vitalityHealing": 0,
+      "guardDamage": 751,
+      "vitalityDamage": 497,
+      "rounds": 3,
+      "guardWin": true,
+      "guardHp": 99,
+      "vitalityHp": 0
+    },
+    {
+      "id": "starter-lightning-r",
+      "name": "Bolt Fang",
+      "role": "assassin",
+      "level": 75,
+      "seed": 130363,
+      "swapped": false,
+      "syntheticUnreachableForm": false,
+      "guard": {
+        "hp": 596,
+        "defense": 52,
+        "spDefense": 49,
+        "stamina": 73,
+        "attack": 118,
+        "speed": 75
+      },
+      "vitality": {
+        "hp": 630,
+        "defense": 49,
+        "spDefense": 46,
+        "stamina": 72,
+        "attack": 118,
+        "speed": 75
+      },
+      "guardRest": 0,
+      "vitalityRest": 0,
+      "guardHealing": 0,
+      "vitalityHealing": 0,
+      "guardDamage": 453,
+      "vitalityDamage": 713,
+      "rounds": 3,
+      "guardWin": false,
+      "guardHp": 0,
+      "vitalityHp": 177
+    },
+    {
+      "id": "starter-lightning-r",
+      "name": "Bolt Fang",
+      "role": "assassin",
+      "level": 75,
+      "seed": 130363,
+      "swapped": true,
+      "syntheticUnreachableForm": false,
+      "guard": {
+        "hp": 596,
+        "defense": 52,
+        "spDefense": 49,
+        "stamina": 73,
+        "attack": 118,
+        "speed": 75
+      },
+      "vitality": {
+        "hp": 630,
+        "defense": 49,
+        "spDefense": 46,
+        "stamina": 72,
+        "attack": 118,
+        "speed": 75
+      },
+      "guardRest": 0,
+      "vitalityRest": 0,
+      "guardHealing": 0,
+      "vitalityHealing": 0,
+      "guardDamage": 756,
+      "vitalityDamage": 426,
+      "rounds": 3,
+      "guardWin": true,
+      "guardHp": 170,
+      "vitalityHp": 0
+    },
+    {
+      "id": "starter-lightning-r",
+      "name": "Bolt Fang",
+      "role": "assassin",
+      "level": 100,
+      "seed": 104729,
+      "swapped": false,
+      "syntheticUnreachableForm": false,
+      "guard": {
+        "hp": 681,
+        "defense": 59,
+        "spDefense": 55,
+        "stamina": 74,
+        "attack": 135,
+        "speed": 85
+      },
+      "vitality": {
+        "hp": 714,
+        "defense": 56,
+        "spDefense": 53,
+        "stamina": 73,
+        "attack": 135,
+        "speed": 85
+      },
+      "guardRest": 0,
+      "vitalityRest": 0,
+      "guardHealing": 0,
+      "vitalityHealing": 0,
+      "guardDamage": 598,
+      "vitalityDamage": 817,
+      "rounds": 3,
+      "guardWin": false,
+      "guardHp": 0,
+      "vitalityHp": 116
+    },
+    {
+      "id": "starter-lightning-r",
+      "name": "Bolt Fang",
+      "role": "assassin",
+      "level": 100,
+      "seed": 104729,
+      "swapped": true,
+      "syntheticUnreachableForm": false,
+      "guard": {
+        "hp": 681,
+        "defense": 59,
+        "spDefense": 55,
+        "stamina": 74,
+        "attack": 135,
+        "speed": 85
+      },
+      "vitality": {
+        "hp": 714,
+        "defense": 56,
+        "spDefense": 53,
+        "stamina": 73,
+        "attack": 135,
+        "speed": 85
+      },
+      "guardRest": 0,
+      "vitalityRest": 0,
+      "guardHealing": 0,
+      "vitalityHealing": 0,
+      "guardDamage": 853,
+      "vitalityDamage": 574,
+      "rounds": 3,
+      "guardWin": true,
+      "guardHp": 107,
+      "vitalityHp": 0
+    },
+    {
+      "id": "starter-lightning-r",
+      "name": "Bolt Fang",
+      "role": "assassin",
+      "level": 100,
+      "seed": 130363,
+      "swapped": false,
+      "syntheticUnreachableForm": false,
+      "guard": {
+        "hp": 681,
+        "defense": 59,
+        "spDefense": 55,
+        "stamina": 74,
+        "attack": 135,
+        "speed": 85
+      },
+      "vitality": {
+        "hp": 714,
+        "defense": 56,
+        "spDefense": 53,
+        "stamina": 73,
+        "attack": 135,
+        "speed": 85
+      },
+      "guardRest": 0,
+      "vitalityRest": 0,
+      "guardHealing": 0,
+      "vitalityHealing": 0,
+      "guardDamage": 514,
+      "vitalityDamage": 822,
+      "rounds": 3,
+      "guardWin": false,
+      "guardHp": 0,
+      "vitalityHp": 200
+    },
+    {
+      "id": "starter-lightning-r",
+      "name": "Bolt Fang",
+      "role": "assassin",
+      "level": 100,
+      "seed": 130363,
+      "swapped": true,
+      "syntheticUnreachableForm": false,
+      "guard": {
+        "hp": 681,
+        "defense": 59,
+        "spDefense": 55,
+        "stamina": 74,
+        "attack": 135,
+        "speed": 85
+      },
+      "vitality": {
+        "hp": 714,
+        "defense": 56,
+        "spDefense": 53,
+        "stamina": 73,
+        "attack": 135,
+        "speed": 85
+      },
+      "guardRest": 0,
+      "vitalityRest": 0,
+      "guardHealing": 0,
+      "vitalityHealing": 0,
+      "guardDamage": 858,
+      "vitalityDamage": 493,
+      "rounds": 3,
+      "guardWin": true,
+      "guardHp": 188,
+      "vitalityHp": 0
+    },
+    {
+      "id": "starter-lightning-l",
+      "name": "Raijin Hound",
+      "role": "assassin",
+      "level": 75,
+      "seed": 104729,
+      "swapped": false,
+      "syntheticUnreachableForm": true,
+      "guard": {
+        "hp": 643,
+        "defense": 56,
+        "spDefense": 53,
+        "stamina": 73,
+        "attack": 121,
+        "speed": 79
+      },
+      "vitality": {
+        "hp": 680,
+        "defense": 53,
+        "spDefense": 50,
+        "stamina": 72,
+        "attack": 121,
+        "speed": 79
+      },
+      "guardRest": 0,
+      "vitalityRest": 0,
+      "guardHealing": 0,
+      "vitalityHealing": 0,
+      "guardDamage": 1028,
+      "vitalityDamage": 560,
+      "rounds": 3,
+      "guardWin": true,
+      "guardHp": 83,
+      "vitalityHp": 0
+    },
+    {
+      "id": "starter-lightning-l",
+      "name": "Raijin Hound",
+      "role": "assassin",
+      "level": 75,
+      "seed": 104729,
+      "swapped": true,
+      "syntheticUnreachableForm": true,
+      "guard": {
+        "hp": 643,
+        "defense": 56,
+        "spDefense": 53,
+        "stamina": 73,
+        "attack": 121,
+        "speed": 79
+      },
+      "vitality": {
+        "hp": 680,
+        "defense": 53,
+        "spDefense": 50,
+        "stamina": 72,
+        "attack": 121,
+        "speed": 79
+      },
+      "guardRest": 0,
+      "vitalityRest": 0,
+      "guardHealing": 0,
+      "vitalityHealing": 0,
+      "guardDamage": 593,
+      "vitalityDamage": 970,
       "rounds": 3,
       "guardWin": false,
       "guardHp": 0,
       "vitalityHp": 87
     },
     {
-      "id": "starter-lightning-r",
-      "name": "Bolt Fang",
-      "role": "assassin",
-      "level": 75,
-      "seed": 104729,
-      "swapped": true,
-      "syntheticUnreachableForm": false,
-      "guard": {
-        "hp": 596,
-        "defense": 52,
-        "spDefense": 49,
-        "stamina": 73,
-        "attack": 118,
-        "speed": 75
-      },
-      "vitality": {
-        "hp": 630,
-        "defense": 49,
-        "spDefense": 46,
-        "stamina": 72,
-        "attack": 118,
-        "speed": 75
-      },
-      "guardRest": 0,
-      "vitalityRest": 0,
-      "guardHealing": 0,
-      "vitalityHealing": 0,
-      "guardDamage": 781,
-      "vitalityDamage": 510,
-      "rounds": 3,
-      "guardWin": true,
-      "guardHp": 86,
-      "vitalityHp": 0
-    },
-    {
-      "id": "starter-lightning-r",
-      "name": "Bolt Fang",
-      "role": "assassin",
-      "level": 75,
-      "seed": 130363,
-      "swapped": false,
-      "syntheticUnreachableForm": false,
-      "guard": {
-        "hp": 596,
-        "defense": 52,
-        "spDefense": 49,
-        "stamina": 73,
-        "attack": 118,
-        "speed": 75
-      },
-      "vitality": {
-        "hp": 630,
-        "defense": 49,
-        "spDefense": 46,
-        "stamina": 72,
-        "attack": 118,
-        "speed": 75
-      },
-      "guardRest": 0,
-      "vitalityRest": 0,
-      "guardHealing": 0,
-      "vitalityHealing": 0,
-      "guardDamage": 483,
-      "vitalityDamage": 733,
-      "rounds": 3,
-      "guardWin": false,
-      "guardHp": 0,
-      "vitalityHp": 147
-    },
-    {
-      "id": "starter-lightning-r",
-      "name": "Bolt Fang",
-      "role": "assassin",
-      "level": 75,
-      "seed": 130363,
-      "swapped": true,
-      "syntheticUnreachableForm": false,
-      "guard": {
-        "hp": 596,
-        "defense": 52,
-        "spDefense": 49,
-        "stamina": 73,
-        "attack": 118,
-        "speed": 75
-      },
-      "vitality": {
-        "hp": 630,
-        "defense": 49,
-        "spDefense": 46,
-        "stamina": 72,
-        "attack": 118,
-        "speed": 75
-      },
-      "guardRest": 0,
-      "vitalityRest": 0,
-      "guardHealing": 0,
-      "vitalityHealing": 0,
-      "guardDamage": 778,
-      "vitalityDamage": 453,
-      "rounds": 3,
-      "guardWin": true,
-      "guardHp": 143,
-      "vitalityHp": 0
-    },
-    {
-      "id": "starter-lightning-r",
-      "name": "Bolt Fang",
-      "role": "assassin",
-      "level": 100,
-      "seed": 104729,
-      "swapped": false,
-      "syntheticUnreachableForm": false,
-      "guard": {
-        "hp": 681,
-        "defense": 59,
-        "spDefense": 55,
-        "stamina": 74,
-        "attack": 135,
-        "speed": 85
-      },
-      "vitality": {
-        "hp": 714,
-        "defense": 56,
-        "spDefense": 53,
-        "stamina": 73,
-        "attack": 135,
-        "speed": 85
-      },
-      "guardRest": 0,
-      "vitalityRest": 0,
-      "guardHealing": 0,
-      "vitalityHealing": 0,
-      "guardDamage": 617,
-      "vitalityDamage": 853,
-      "rounds": 3,
-      "guardWin": false,
-      "guardHp": 0,
-      "vitalityHp": 97
-    },
-    {
-      "id": "starter-lightning-r",
-      "name": "Bolt Fang",
-      "role": "assassin",
-      "level": 100,
-      "seed": 104729,
-      "swapped": true,
-      "syntheticUnreachableForm": false,
-      "guard": {
-        "hp": 681,
-        "defense": 59,
-        "spDefense": 55,
-        "stamina": 74,
-        "attack": 135,
-        "speed": 85
-      },
-      "vitality": {
-        "hp": 714,
-        "defense": 56,
-        "spDefense": 53,
-        "stamina": 73,
-        "attack": 135,
-        "speed": 85
-      },
-      "guardRest": 0,
-      "vitalityRest": 0,
-      "guardHealing": 0,
-      "vitalityHealing": 0,
-      "guardDamage": 888,
-      "vitalityDamage": 594,
-      "rounds": 3,
-      "guardWin": true,
-      "guardHp": 87,
-      "vitalityHp": 0
-    },
-    {
-      "id": "starter-lightning-r",
-      "name": "Bolt Fang",
-      "role": "assassin",
-      "level": 100,
-      "seed": 130363,
-      "swapped": false,
-      "syntheticUnreachableForm": false,
-      "guard": {
-        "hp": 681,
-        "defense": 59,
-        "spDefense": 55,
-        "stamina": 74,
-        "attack": 135,
-        "speed": 85
-      },
-      "vitality": {
-        "hp": 714,
-        "defense": 56,
-        "spDefense": 53,
-        "stamina": 73,
-        "attack": 135,
-        "speed": 85
-      },
-      "guardRest": 0,
-      "vitalityRest": 0,
-      "guardHealing": 0,
-      "vitalityHealing": 0,
-      "guardDamage": 549,
-      "vitalityDamage": 848,
-      "rounds": 3,
-      "guardWin": false,
-      "guardHp": 0,
-      "vitalityHp": 165
-    },
-    {
-      "id": "starter-lightning-r",
-      "name": "Bolt Fang",
-      "role": "assassin",
-      "level": 100,
-      "seed": 130363,
-      "swapped": true,
-      "syntheticUnreachableForm": false,
-      "guard": {
-        "hp": 681,
-        "defense": 59,
-        "spDefense": 55,
-        "stamina": 74,
-        "attack": 135,
-        "speed": 85
-      },
-      "vitality": {
-        "hp": 714,
-        "defense": 56,
-        "spDefense": 53,
-        "stamina": 73,
-        "attack": 135,
-        "speed": 85
-      },
-      "guardRest": 0,
-      "vitalityRest": 0,
-      "guardHealing": 0,
-      "vitalityHealing": 0,
-      "guardDamage": 883,
-      "vitalityDamage": 529,
-      "rounds": 3,
-      "guardWin": true,
-      "guardHp": 152,
-      "vitalityHp": 0
-    },
-    {
       "id": "starter-lightning-l",
       "name": "Raijin Hound",
       "role": "assassin",
       "level": 75,
-      "seed": 104729,
+      "seed": 130363,
       "swapped": false,
       "syntheticUnreachableForm": true,
       "guard": {
@@ -45812,187 +45882,117 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 780,
-      "vitalityDamage": 445,
+      "guardDamage": 424,
+      "vitalityDamage": 996,
+      "rounds": 3,
+      "guardWin": false,
+      "guardHp": 0,
+      "vitalityHp": 256
+    },
+    {
+      "id": "starter-lightning-l",
+      "name": "Raijin Hound",
+      "role": "assassin",
+      "level": 75,
+      "seed": 130363,
+      "swapped": true,
+      "syntheticUnreachableForm": true,
+      "guard": {
+        "hp": 643,
+        "defense": 56,
+        "spDefense": 53,
+        "stamina": 73,
+        "attack": 121,
+        "speed": 79
+      },
+      "vitality": {
+        "hp": 680,
+        "defense": 53,
+        "spDefense": 50,
+        "stamina": 72,
+        "attack": 121,
+        "speed": 79
+      },
+      "guardRest": 0,
+      "vitalityRest": 0,
+      "guardHealing": 0,
+      "vitalityHealing": 0,
+      "guardDamage": 1055,
+      "vitalityDamage": 401,
+      "rounds": 3,
+      "guardWin": true,
+      "guardHp": 242,
+      "vitalityHp": 0
+    },
+    {
+      "id": "starter-lightning-l",
+      "name": "Raijin Hound",
+      "role": "assassin",
+      "level": 100,
+      "seed": 104729,
+      "swapped": false,
+      "syntheticUnreachableForm": false,
+      "guard": {
+        "hp": 734,
+        "defense": 64,
+        "spDefense": 60,
+        "stamina": 74,
+        "attack": 139,
+        "speed": 90
+      },
+      "vitality": {
+        "hp": 771,
+        "defense": 61,
+        "spDefense": 57,
+        "stamina": 73,
+        "attack": 139,
+        "speed": 90
+      },
+      "guardRest": 0,
+      "vitalityRest": 0,
+      "guardHealing": 0,
+      "vitalityHealing": 0,
+      "guardDamage": 849,
+      "vitalityDamage": 498,
       "rounds": 4,
       "guardWin": true,
-      "guardHp": 198,
+      "guardHp": 236,
       "vitalityHp": 0
     },
     {
       "id": "starter-lightning-l",
       "name": "Raijin Hound",
       "role": "assassin",
-      "level": 75,
+      "level": 100,
       "seed": 104729,
       "swapped": true,
-      "syntheticUnreachableForm": true,
+      "syntheticUnreachableForm": false,
       "guard": {
-        "hp": 643,
-        "defense": 56,
-        "spDefense": 53,
-        "stamina": 73,
-        "attack": 121,
-        "speed": 79
+        "hp": 734,
+        "defense": 64,
+        "spDefense": 60,
+        "stamina": 74,
+        "attack": 139,
+        "speed": 90
       },
       "vitality": {
-        "hp": 680,
-        "defense": 53,
-        "spDefense": 50,
-        "stamina": 72,
-        "attack": 121,
-        "speed": 79
+        "hp": 771,
+        "defense": 61,
+        "spDefense": 57,
+        "stamina": 73,
+        "attack": 139,
+        "speed": 90
       },
       "guardRest": 0,
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 525,
-      "vitalityDamage": 669,
+      "guardDamage": 581,
+      "vitalityDamage": 767,
       "rounds": 4,
       "guardWin": false,
       "guardHp": 0,
-      "vitalityHp": 155
-    },
-    {
-      "id": "starter-lightning-l",
-      "name": "Raijin Hound",
-      "role": "assassin",
-      "level": 75,
-      "seed": 130363,
-      "swapped": false,
-      "syntheticUnreachableForm": true,
-      "guard": {
-        "hp": 643,
-        "defense": 56,
-        "spDefense": 53,
-        "stamina": 73,
-        "attack": 121,
-        "speed": 79
-      },
-      "vitality": {
-        "hp": 680,
-        "defense": 53,
-        "spDefense": 50,
-        "stamina": 72,
-        "attack": 121,
-        "speed": 79
-      },
-      "guardRest": 0,
-      "vitalityRest": 0,
-      "guardHealing": 0,
-      "vitalityHealing": 0,
-      "guardDamage": 478,
-      "vitalityDamage": 745,
-      "rounds": 3,
-      "guardWin": false,
-      "guardHp": 0,
-      "vitalityHp": 202
-    },
-    {
-      "id": "starter-lightning-l",
-      "name": "Raijin Hound",
-      "role": "assassin",
-      "level": 75,
-      "seed": 130363,
-      "swapped": true,
-      "syntheticUnreachableForm": true,
-      "guard": {
-        "hp": 643,
-        "defense": 56,
-        "spDefense": 53,
-        "stamina": 73,
-        "attack": 121,
-        "speed": 79
-      },
-      "vitality": {
-        "hp": 680,
-        "defense": 53,
-        "spDefense": 50,
-        "stamina": 72,
-        "attack": 121,
-        "speed": 79
-      },
-      "guardRest": 0,
-      "vitalityRest": 0,
-      "guardHealing": 0,
-      "vitalityHealing": 0,
-      "guardDamage": 790,
-      "vitalityDamage": 451,
-      "rounds": 3,
-      "guardWin": true,
-      "guardHp": 192,
-      "vitalityHp": 0
-    },
-    {
-      "id": "starter-lightning-l",
-      "name": "Raijin Hound",
-      "role": "assassin",
-      "level": 100,
-      "seed": 104729,
-      "swapped": false,
-      "syntheticUnreachableForm": false,
-      "guard": {
-        "hp": 734,
-        "defense": 64,
-        "spDefense": 60,
-        "stamina": 74,
-        "attack": 139,
-        "speed": 90
-      },
-      "vitality": {
-        "hp": 771,
-        "defense": 61,
-        "spDefense": 57,
-        "stamina": 73,
-        "attack": 139,
-        "speed": 90
-      },
-      "guardRest": 0,
-      "vitalityRest": 0,
-      "guardHealing": 0,
-      "vitalityHealing": 0,
-      "guardDamage": 625,
-      "vitalityDamage": 861,
-      "rounds": 3,
-      "guardWin": false,
-      "guardHp": 0,
-      "vitalityHp": 146
-    },
-    {
-      "id": "starter-lightning-l",
-      "name": "Raijin Hound",
-      "role": "assassin",
-      "level": 100,
-      "seed": 104729,
-      "swapped": true,
-      "syntheticUnreachableForm": false,
-      "guard": {
-        "hp": 734,
-        "defense": 64,
-        "spDefense": 60,
-        "stamina": 74,
-        "attack": 139,
-        "speed": 90
-      },
-      "vitality": {
-        "hp": 771,
-        "defense": 61,
-        "spDefense": 57,
-        "stamina": 73,
-        "attack": 139,
-        "speed": 90
-      },
-      "guardRest": 0,
-      "vitalityRest": 0,
-      "guardHealing": 0,
-      "vitalityHealing": 0,
-      "guardDamage": 905,
-      "vitalityDamage": 593,
-      "rounds": 3,
-      "guardWin": true,
-      "guardHp": 141,
-      "vitalityHp": 0
+      "vitalityHp": 190
     },
     {
       "id": "starter-lightning-l",
@@ -46022,12 +46022,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 551,
-      "vitalityDamage": 861,
-      "rounds": 3,
-      "guardWin": false,
-      "guardHp": 0,
-      "vitalityHp": 220
+      "guardDamage": 921,
+      "vitalityDamage": 612,
+      "rounds": 5,
+      "guardWin": true,
+      "guardHp": 122,
+      "vitalityHp": 0
     },
     {
       "id": "starter-lightning-l",
@@ -46057,12 +46057,12 @@
       "vitalityRest": 0,
       "guardHealing": 0,
       "vitalityHealing": 0,
-      "guardDamage": 906,
-      "vitalityDamage": 524,
-      "rounds": 3,
-      "guardWin": true,
-      "guardHp": 210,
-      "vitalityHp": 0
+      "guardDamage": 643,
+      "vitalityDamage": 876,
+      "rounds": 5,
+      "guardWin": false,
+      "guardHp": 0,
+      "vitalityHp": 128
     },
     {
       "id": "starter-earth-r",

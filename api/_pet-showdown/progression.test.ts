@@ -93,8 +93,8 @@ test('forecasts cannot consume marks, resources or RNG and growth retains margin
         assert.ok(estimateShowdownMoveDamage(session, stronger, target, actor.moves[1]) > base);
         assert.ok(estimateShowdownMoveDamage(session, actor, guarded, actor.moves[1]) < base);
     }
-    assert.equal(paceProgressionTechniqueDamage(200, 400, 75, 75), 200);
-    assert.equal(paceProgressionTechniqueDamage(220, 400, 75, 75) - paceProgressionTechniqueDamage(200, 400, 75, 75), 20);
+    assert.equal(paceProgressionTechniqueDamage(120, 400, 75, 75), 120);
+    assert.equal(paceProgressionTechniqueDamage(140, 400, 75, 75) - paceProgressionTechniqueDamage(120, 400, 75, 75), 20);
 });
 
 test('team signatures share one total damage budget and preparation rewards the final mastery', () => {

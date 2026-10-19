@@ -9,7 +9,7 @@ import '../styles/tokens.css';
 
 export function ProgressionReview() {
     const [level, setLevel] = useState(1);
-    const [rankedBuild, setRankedBuild] = useState<TacticsBuild>({ ...tacticsPreset('starter-water'), ownedPetId: 'starter-water-review' });
+    const [rankedBuild, setRankedBuild] = useState<TacticsBuild | undefined>({ ...tacticsPreset('starter-water'), ownedPetId: 'starter-water-review' });
     const pet: Pet = { id: 'starter-water-review', templateId: 'starter-water', name: 'Brook Turtle', rarity: 'standard',
         level, maxLevel: 100, xp: 0, role: 'sage', hp: 400, attack: 60, defense: 65, speed: 45,
         unlockedForPve: true, jutsus: [], rankedBuild,
@@ -19,7 +19,8 @@ export function ProgressionReview() {
             {[1, 4, 5, 9, 10, 19, 20, 29, 30, 49, 50, 74, 75, 100].map(value => <option key={value}>{value}</option>)}
         </select></label>
         <PetRankedTechniques pet={pet} onSave={async build => { setRankedBuild(build); }} />
-        <output id="saved-loadout" hidden>{JSON.stringify(rankedBuild)}</output>
+        <button type="button" onClick={() => setRankedBuild(undefined)}>Preview companion without saved preferences</button>
+        <output id="saved-loadout" hidden>{JSON.stringify(rankedBuild ?? null)}</output>
     </main>;
 }
 document.body.style.cssText = 'margin:0;background:#0d141e;color:#f5ebd6;font-family:system-ui,sans-serif';

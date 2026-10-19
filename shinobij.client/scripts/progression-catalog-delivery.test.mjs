@@ -78,7 +78,9 @@ test('pet identities and legacy technique rows pack exactly with safe scalar con
             .find(binding => binding.name.getText(parsed) === name);
         const isolated = `const S = "S Rank"; const A = "A Rank"; export const ${name} = ${declaration.initializer.getText(parsed)};`;
         const packed = packStaticCatalogLiteral(isolated, name);
-        assert.deepEqual((await moduleFrom(packed))[name], value);
+        const original = (await moduleFrom(isolated))[name];
+        assert.deepEqual(value, original, 'AST reading agrees with the original literal execution');
+        assert.deepEqual((await moduleFrom(packed))[name], original);
         assert(isolated.length - packed.length > minimum);
         const transformed = progressionCatalogDelivery().transform(source, relative.replace('../src/', '/src/').replace('../../shared/', '/shared/'));
         assert.ok(transformed?.code.includes('JSON.parse('));
