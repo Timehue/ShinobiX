@@ -3,13 +3,27 @@ import assert from "node:assert/strict";
 import { RESOURCE_NODES } from "../../../shared/resource-nodes";
 import { roadNemesisPresentIn } from "../../../shared/road-nemesis";
 import { WANDERER_RIFT_INDEX, WANDERER_TRADE_INDEX, type Wanderer } from "../../../shared/wanderer-roster";
-import { anglerTip, extraRoadWanderers, roadFightAftermath, roadNemesisWanderer, wandererForcesChoice, withPatrolStance } from "./road-cast";
+import { anglerTip, extraRoadWanderers, roadFightAftermath, roadNemesisWanderer, wandererForcesChoice, withPatrolStance, withOrdinaryPvePreview } from "./road-cast";
 
 const BUCKET = 5000;
 const NOW = BUCKET * 6 * 60 * 60 * 1000 + 1_000;
 const patrol: Wanderer = { id: "w-12-5000-0", name: "Storm Road Patrol", archetype: "patrol", verb: "patrol", level: 20,
     homeTile: 40, waypoints: [40, 41], movement: "patrol", greeting: "State your village.", tellTint: "#93c5fd", avatarKey: "patrol" };
 const pilgrim: Wanderer = { ...patrol, id: "w-12-5000-1", name: "Brother Yuki", archetype: "pilgrim", verb: "gift", movement: "stationary" };
+
+test("rift creature markers and dialogs preview the sealed player-relative fight level", () => {
+    for (const level of [1, 12, 17, 35, 60, 99, 100]) {
+        const seal = { name: "Roadwalker", level, activeRiftQuest: { id: "rift-a", targetSector: 12 } };
+        const rolled = extraRoadWanderers(12, BUCKET, seal, {}, {}, NOW).find(w => w.archetype === "riftspawn")!;
+        assert.ok(rolled);
+        const preview = withOrdinaryPvePreview(rolled, level, 12);
+        assert.equal(preview.level, Math.min(100, level + 1), `player level ${level}`);
+        assert.equal(preview.id, rolled.id);
+        assert.equal(preview.name, rolled.name);
+        assert.equal(preview.avatarKey, rolled.avatarKey);
+    }
+    assert.equal(withOrdinaryPvePreview(pilgrim, 100, 12), pilgrim, "friendly NPCs keep their roster identity");
+});
 
 test("patrols take the voice and stance of the village that holds the road", () => {
     assert.deepEqual(withPatrolStance([patrol, pilgrim], undefined, "Leaf", []), [patrol, pilgrim], "an unclaimed road changes nothing");
