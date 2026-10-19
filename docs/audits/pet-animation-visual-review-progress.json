@@ -27000,7 +27000,7 @@
         "shinobij.client/.tmp/pet-shape-review/body-mythic-candidates/mythic-1-front.webp",
         "shinobij.client/.tmp/pet-shape-review/body-mythic-candidates/mythic-1-side.webp"
       ],
-      "promotedSha256": "00e0557419b07305043ce2c7849564512d5cb312614f902d52701594188e261a",
+      "promotedSha256": "acfacba16ea3ba0e7787f8e2e4e2b29001cfa3324cd37a016cfd0a94a01a6290",
       "conservation": "geometry, topology, atlas, bone nodes and all animation curves unchanged",
       "secondPassSource": {
         "sha256": "00e0557419b07305043ce2c7849564512d5cb312614f902d52701594188e261a",
@@ -27151,22 +27151,35 @@
         "reviewedAt": "2026-10-15T07:43:04.887Z"
       },
       "finalReceipt": {
-        "sourceSha256": "00e0557419b07305043ce2c7849564512d5cb312614f902d52701594188e261a",
-        "battleSha256": "19683e5cc806e202277befe4ace265910021b72c9b0bbf629c06c27ce1af8d3f",
-        "atlasSha256": "32ad8fe4c3b6a37972e8e711ef8858f48e423a80ccf084b7b8dcbf83222544e4",
-        "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
-        "evidence": [
-          "docs/screenshots/pet-shape-2026-10-15/mythic-1-source-clips-head-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-1-source-clips-body-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-1-battle-clips-head-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-1-battle-clips-body-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-1-runtime-source-head.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-1-runtime-source-body.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-1-runtime-battle-head.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-1-runtime-battle-body.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-1-numeric-evidence.json"
+        "sourceSha256": "fa0f43712bc768a60be9bac2de985d8d66b7ea6aed7e15ba8d856f7fffe7ef19",
+        "battleSha256": "c5c0710e6a08a71adf0552aaceaf1ac6da67461db5dcf581bfc0d40ab335b702",
+        "atlasSha256": "6b903ccb6dea931f978768cfcfa92279282b6d14c2082d8a379f1bfaa41df9c5",
+        "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+        "report": "docs/audits/pet-worldstorm-dragon-all-clips-v2-final-review-2026-10-18.json",
+        "packagedAt": "2026-10-19T07:55:32.792Z"
+      },
+      "independentReviewLedger": "docs/audits/pet-independent-face-recheck-2026-10-15.json",
+      "omittedClipRetargetingGate": {
+        "status": "repaired-double-checked-locally-main-live-pending",
+        "inventory": "docs/audits/pet-fitted-limb-clip-inventory-2026-10-18.json",
+        "reportedByUserApprovedHandoff": true,
+        "sourceSha256": "fa0f43712bc768a60be9bac2de985d8d66b7ea6aed7e15ba8d856f7fffe7ef19",
+        "battleSha256": "c5c0710e6a08a71adf0552aaceaf1ac6da67461db5dcf581bfc0d40ab335b702",
+        "missingFittedClips": [
+          "idle_2",
+          "gallop_jump",
+          "death",
+          "entrance",
+          "victory"
         ],
-        "packagedAt": "2026-10-15T07:43:05.686Z"
+        "priorVisualReceiptsDoNotCloseThisGate": true,
+        "evidence": "docs/audits/pet-omitted-limb-roster-baselines-2026-10-18.json",
+        "allThirteenClipsMeasured": true,
+        "originalPawCoverageViewsActuallyInspected": 12,
+        "candidateApproved": false,
+        "limits": "Original cross-bound influence is separately decomposed by fore/hind limb pair. Authored loss is per clip/paw; no blanket hind-paw death claim.",
+        "closed": false,
+        "report": "docs/audits/pet-worldstorm-dragon-all-clips-v2-final-review-2026-10-18.json"
       }
     },
     "mythic-2": {
@@ -27414,7 +27427,7 @@
         "shinobij.client/.tmp/pet-shape-review/body-mythic-candidates/mythic-3-front.webp",
         "shinobij.client/.tmp/pet-shape-review/body-mythic-candidates/mythic-3-side.webp"
       ],
-      "promotedSha256": "58b8211ad20865eccae12bfd87ba358ab9ff6345e57048abad625ca573e2c365",
+      "promotedSha256": "ae390c352980c1456700ad240628e3f46435b4e52c687afe04c73e011093b427",
       "conservation": "geometry, topology, atlas, bone nodes and all animation curves unchanged",
       "secondPassSource": {
         "sha256": "58b8211ad20865eccae12bfd87ba358ab9ff6345e57048abad625ca573e2c365",
@@ -27565,22 +27578,35 @@
         "reviewedAt": "2026-10-15T07:44:45.387Z"
       },
       "finalReceipt": {
-        "sourceSha256": "58b8211ad20865eccae12bfd87ba358ab9ff6345e57048abad625ca573e2c365",
-        "battleSha256": "f4103620d8cb69f974b6054d4d1967d1dbeb10ad33e049d40b21ec75345592e3",
-        "atlasSha256": "4bbe7aa8999c6660819ecdbc4917e3db9762dc6af6afeaf4a07f053c543e9a3a",
-        "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
-        "evidence": [
-          "docs/screenshots/pet-shape-2026-10-15/mythic-3-source-clips-head-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-3-source-clips-body-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-3-battle-clips-head-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-3-battle-clips-body-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-3-runtime-source-head.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-3-runtime-source-body.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-3-runtime-battle-head.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-3-runtime-battle-body.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-3-numeric-evidence.json"
+        "sourceSha256": "4fd4b4f5a38f1fd02c7a63c6091768a6396bfa973c4feb9ce8f838cb4632d498",
+        "battleSha256": "202ce9368aa24801bfe6323b602347f4ced2eec2390c48ec676f656389a23786",
+        "atlasSha256": "29e38dde82adb4dbc7ecd870555d46c93873de026edc9be38811f28aee97a885",
+        "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+        "report": "docs/audits/pet-solar-stag-all-clips-v2-final-review-2026-10-18.json",
+        "packagedAt": "2026-10-19T09:56:54.632Z"
+      },
+      "independentReviewLedger": "docs/audits/pet-independent-face-recheck-2026-10-15.json",
+      "omittedClipRetargetingGate": {
+        "status": "repaired-double-checked-locally-main-live-pending",
+        "inventory": "docs/audits/pet-fitted-limb-clip-inventory-2026-10-18.json",
+        "reportedByUserApprovedHandoff": true,
+        "sourceSha256": "4fd4b4f5a38f1fd02c7a63c6091768a6396bfa973c4feb9ce8f838cb4632d498",
+        "battleSha256": "202ce9368aa24801bfe6323b602347f4ced2eec2390c48ec676f656389a23786",
+        "missingFittedClips": [
+          "idle_2",
+          "gallop_jump",
+          "death",
+          "entrance",
+          "victory"
         ],
-        "packagedAt": "2026-10-15T07:44:46.223Z"
+        "priorVisualReceiptsDoNotCloseThisGate": true,
+        "evidence": "docs/audits/pet-omitted-limb-roster-baselines-2026-10-18.json",
+        "allThirteenClipsMeasured": true,
+        "originalPawCoverageViewsActuallyInspected": 12,
+        "candidateApproved": false,
+        "limits": "Original cross-bound influence is separately decomposed by fore/hind limb pair. Authored loss is per clip/paw; no blanket hind-paw death claim.",
+        "closed": false,
+        "report": "docs/audits/pet-solar-stag-all-clips-v2-final-review-2026-10-18.json"
       }
     },
     "mythic-4": {
@@ -29399,7 +29425,7 @@
         "shinobij.client/.tmp/pet-shape-review/body-mythic-candidates/mythic-12-front.webp",
         "shinobij.client/.tmp/pet-shape-review/body-mythic-candidates/mythic-12-side.webp"
       ],
-      "promotedSha256": "e6b7c87ebd610f7d97856b5b7dfe1e49c1da33da09781e5a89582d2d093fbba2",
+      "promotedSha256": "9d39b74c479917baca5fefc7a6244794c5d597b2e2f515fe98323a8455ba3428",
       "conservation": "geometry, topology, atlas, bone nodes and all animation curves unchanged",
       "secondPassSource": {
         "sha256": "e6b7c87ebd610f7d97856b5b7dfe1e49c1da33da09781e5a89582d2d093fbba2",
@@ -29550,22 +29576,35 @@
         "reviewedAt": "2026-10-15T07:51:52.431Z"
       },
       "finalReceipt": {
-        "sourceSha256": "e6b7c87ebd610f7d97856b5b7dfe1e49c1da33da09781e5a89582d2d093fbba2",
-        "battleSha256": "e5d2731f4a77e2b91ea984e35a4aaf303064b3b6957ce230230779fb37551daa",
-        "atlasSha256": "6173f5744b6e01b8aa58d06cf2532fefa14016cd50795f0f51a2f3930b0261b4",
-        "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
-        "evidence": [
-          "docs/screenshots/pet-shape-2026-10-15/mythic-12-source-clips-head-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-12-source-clips-body-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-12-battle-clips-head-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-12-battle-clips-body-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-12-runtime-source-head.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-12-runtime-source-body.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-12-runtime-battle-head.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-12-runtime-battle-body.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-12-numeric-evidence.json"
+        "sourceSha256": "731ba7e1c37b6c24ad0f57ba430fd82b418105925cd255b044d7a8524563abf0",
+        "battleSha256": "712487fa403b0112b170c435b7b0f25078dddb0f58100580ad8156b49abbc525",
+        "atlasSha256": "59cc80a5954a99b47f473312c71c264523e2d7b6531a20cdb1bf019de5b50bd3",
+        "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+        "report": "docs/audits/pet-skyglass-kirin-all-clips-v2-final-review-2026-10-18.json",
+        "packagedAt": "2026-10-19T10:22:50.975Z"
+      },
+      "independentReviewLedger": "docs/audits/pet-independent-face-recheck-2026-10-15.json",
+      "omittedClipRetargetingGate": {
+        "status": "repaired-double-checked-locally-main-live-pending",
+        "inventory": "docs/audits/pet-fitted-limb-clip-inventory-2026-10-18.json",
+        "reportedByUserApprovedHandoff": false,
+        "sourceSha256": "731ba7e1c37b6c24ad0f57ba430fd82b418105925cd255b044d7a8524563abf0",
+        "battleSha256": "712487fa403b0112b170c435b7b0f25078dddb0f58100580ad8156b49abbc525",
+        "missingFittedClips": [
+          "idle_2",
+          "gallop_jump",
+          "death",
+          "entrance",
+          "victory"
         ],
-        "packagedAt": "2026-10-15T07:53:49.729Z"
+        "priorVisualReceiptsDoNotCloseThisGate": true,
+        "evidence": "docs/audits/pet-omitted-limb-roster-baselines-2026-10-18.json",
+        "allThirteenClipsMeasured": true,
+        "originalPawCoverageViewsActuallyInspected": 12,
+        "candidateApproved": false,
+        "limits": "Original cross-bound influence is separately decomposed by fore/hind limb pair. Authored loss is per clip/paw; no blanket hind-paw death claim.",
+        "closed": false,
+        "report": "docs/audits/pet-skyglass-kirin-all-clips-v2-final-review-2026-10-18.json"
       }
     },
     "mythic-13": {
@@ -29606,7 +29645,7 @@
         "shinobij.client/.tmp/pet-shape-review/body-mythic-candidates/mythic-13-front.webp",
         "shinobij.client/.tmp/pet-shape-review/body-mythic-candidates/mythic-13-side.webp"
       ],
-      "promotedSha256": "1b474681fb09b7ab68b28010e2e34ae2d6af67bc34f68262d01167e6576f2495",
+      "promotedSha256": "62eabaf7202d7d74084f0fdb2ea21f73b13a798e58c019b4cec4c340ef0dc77b",
       "conservation": "geometry, topology, atlas, bone nodes and all animation curves unchanged",
       "secondPassSource": {
         "sha256": "1b474681fb09b7ab68b28010e2e34ae2d6af67bc34f68262d01167e6576f2495",
@@ -29757,22 +29796,35 @@
         "reviewedAt": "2026-10-15T07:52:15.220Z"
       },
       "finalReceipt": {
-        "sourceSha256": "1b474681fb09b7ab68b28010e2e34ae2d6af67bc34f68262d01167e6576f2495",
-        "battleSha256": "b8c265ecca19b9cd6fb6b84c21932c4c41b8a961544365be129f90a71efbc70f",
-        "atlasSha256": "e5844248106e3d64dd1e26e278ba20466b5487f15dd54c8d03eb4b20dd2802c2",
-        "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
-        "evidence": [
-          "docs/screenshots/pet-shape-2026-10-15/mythic-13-source-clips-head-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-13-source-clips-body-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-13-battle-clips-head-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-13-battle-clips-body-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-13-runtime-source-head.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-13-runtime-source-body.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-13-runtime-battle-head.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-13-runtime-battle-body.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-13-numeric-evidence.json"
+        "sourceSha256": "156d4f2a07834897a42f15a72bffb4a323db781801eef6b9fe2dae2b149e09b8",
+        "battleSha256": "75d4c95ebb8f879d4a6f016341e0800e9f0cd5d5949f7016bc565a410a5882eb",
+        "atlasSha256": "a87a49ee67a27205ca28482d51372db313bc34f9f5f4ef8e0443356e7fab014a",
+        "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+        "report": "docs/audits/pet-thunderbloom-kirin-all-clips-v2-final-review-2026-10-18.json",
+        "packagedAt": "2026-10-19T11:00:01.165Z"
+      },
+      "independentReviewLedger": "docs/audits/pet-independent-face-recheck-2026-10-15.json",
+      "omittedClipRetargetingGate": {
+        "status": "repaired-double-checked-locally-main-live-pending",
+        "inventory": "docs/audits/pet-fitted-limb-clip-inventory-2026-10-18.json",
+        "reportedByUserApprovedHandoff": true,
+        "sourceSha256": "156d4f2a07834897a42f15a72bffb4a323db781801eef6b9fe2dae2b149e09b8",
+        "battleSha256": "75d4c95ebb8f879d4a6f016341e0800e9f0cd5d5949f7016bc565a410a5882eb",
+        "missingFittedClips": [
+          "idle_2",
+          "gallop_jump",
+          "death",
+          "entrance",
+          "victory"
         ],
-        "packagedAt": "2026-10-15T07:53:49.768Z"
+        "priorVisualReceiptsDoNotCloseThisGate": true,
+        "evidence": "docs/audits/pet-omitted-limb-roster-baselines-2026-10-18.json",
+        "allThirteenClipsMeasured": true,
+        "originalPawCoverageViewsActuallyInspected": 12,
+        "candidateApproved": false,
+        "limits": "Original cross-bound influence is separately decomposed by fore/hind limb pair. Authored loss is per clip/paw; no blanket hind-paw death claim.",
+        "closed": false,
+        "report": "docs/audits/pet-thunderbloom-kirin-all-clips-v2-final-review-2026-10-18.json"
       }
     },
     "mythic-14": {
@@ -29813,7 +29865,7 @@
         "shinobij.client/.tmp/pet-shape-review/body-mythic-final-three/mythic-14-front.webp",
         "shinobij.client/.tmp/pet-shape-review/body-mythic-final-three/mythic-14-side.webp"
       ],
-      "promotedSha256": "36d6381bc07860c51447188078f1574f5a5c13ea5873b452fd60cc90ea942156",
+      "promotedSha256": "edcfc08d7230f99df9c32667e8ed20dc9d64fbf6c1d8dfc1811be9113b3406a1",
       "conservation": "geometry, topology, atlas, bone nodes and all animation curves unchanged",
       "secondPassSource": {
         "sha256": "36d6381bc07860c51447188078f1574f5a5c13ea5873b452fd60cc90ea942156",
@@ -29972,24 +30024,35 @@
         "reviewedAt": "2026-10-15T07:53:19.463Z"
       },
       "finalReceipt": {
-        "sourceSha256": "36d6381bc07860c51447188078f1574f5a5c13ea5873b452fd60cc90ea942156",
-        "battleSha256": "a0c31c9dcf90e53acd094fd92614d540bdb3de29c4c49b68906ab03ac615ecc7",
-        "atlasSha256": "af1dd8dba50345c3bf200693b352f632828f73944d92ed9837bef67d740f0ca3",
-        "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
-        "evidence": [
-          "docs/screenshots/pet-shape-2026-10-15/mythic-14-source-clips-head-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-14-source-clips-body-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-14-source-clips-head-2.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-14-battle-clips-head-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-14-battle-clips-body-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-14-battle-clips-head-2.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-14-runtime-source-head.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-14-runtime-source-body.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-14-runtime-battle-head.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-14-runtime-battle-body.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-14-numeric-evidence.json"
+        "sourceSha256": "0e90a9aa485040fb7fcf0d7307c8165fd8976283fe10f163c89d7446d1ff2470",
+        "battleSha256": "72fc74566d9bc2ca62597d52c9678ae211b5efd9a60e8e14ed68dba5e950aa5d",
+        "atlasSha256": "1a52775d2b8da8a34af3c988c9e39abc871c2f447fe5d430f5565aefdfaf77bb",
+        "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+        "report": "docs/audits/pet-gravepeak-behemoth-all-clips-v2-final-review-2026-10-18.json",
+        "packagedAt": "2026-10-19T11:29:48.691Z"
+      },
+      "independentReviewLedger": "docs/audits/pet-independent-face-recheck-2026-10-15.json",
+      "omittedClipRetargetingGate": {
+        "status": "repaired-double-checked-locally-main-live-pending",
+        "inventory": "docs/audits/pet-fitted-limb-clip-inventory-2026-10-18.json",
+        "reportedByUserApprovedHandoff": true,
+        "sourceSha256": "0e90a9aa485040fb7fcf0d7307c8165fd8976283fe10f163c89d7446d1ff2470",
+        "battleSha256": "72fc74566d9bc2ca62597d52c9678ae211b5efd9a60e8e14ed68dba5e950aa5d",
+        "missingFittedClips": [
+          "idle_2",
+          "gallop_jump",
+          "death",
+          "entrance",
+          "victory"
         ],
-        "packagedAt": "2026-10-15T07:53:49.818Z"
+        "priorVisualReceiptsDoNotCloseThisGate": true,
+        "evidence": "docs/audits/pet-omitted-limb-roster-baselines-2026-10-18.json",
+        "allThirteenClipsMeasured": true,
+        "originalPawCoverageViewsActuallyInspected": 12,
+        "candidateApproved": false,
+        "limits": "Original cross-bound influence is separately decomposed by fore/hind limb pair. Authored loss is per clip/paw; no blanket hind-paw death claim.",
+        "closed": false,
+        "report": "docs/audits/pet-gravepeak-behemoth-all-clips-v2-final-review-2026-10-18.json"
       }
     },
     "mythic-15": {
@@ -30030,7 +30093,7 @@
         "shinobij.client/.tmp/pet-shape-review/body-mythic-candidates/mythic-15-front.webp",
         "shinobij.client/.tmp/pet-shape-review/body-mythic-candidates/mythic-15-side.webp"
       ],
-      "promotedSha256": "092ed61d1b34b513442a9daa81087ed5c012a961d98aade016bff3adb6e4e831",
+      "promotedSha256": "fe10ef667ac577512b50d6d54ea8c92ee035fe11ca267273859e0a3922018e7a",
       "conservation": "geometry, topology, atlas, bone nodes and all animation curves unchanged",
       "secondPassSource": {
         "sha256": "092ed61d1b34b513442a9daa81087ed5c012a961d98aade016bff3adb6e4e831",
@@ -30181,22 +30244,35 @@
         "reviewedAt": "2026-10-15T07:53:48.848Z"
       },
       "finalReceipt": {
-        "sourceSha256": "092ed61d1b34b513442a9daa81087ed5c012a961d98aade016bff3adb6e4e831",
-        "battleSha256": "4e45e5ed3288da8f6e9a6cc31af3a75e0b7588cdd0dedfb786cb0aba325ae7e4",
-        "atlasSha256": "89c8d797855575b707f0dd6f6db2994e3b1dd4f89bf3b3ff7b8317a8a184495d",
-        "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
-        "evidence": [
-          "docs/screenshots/pet-shape-2026-10-15/mythic-15-source-clips-head-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-15-source-clips-body-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-15-battle-clips-head-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-15-battle-clips-body-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-15-runtime-source-head.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-15-runtime-source-body.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-15-runtime-battle-head.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-15-runtime-battle-body.webp",
-          "docs/screenshots/pet-shape-2026-10-15/mythic-15-numeric-evidence.json"
+        "sourceSha256": "a7dc5a71c0f5b25290a349cf0ad1ac4090d2daf5feb6a42a417742741d7d5075",
+        "battleSha256": "96800bebf4e74f19e9041024a0295d632ca82e85e79bf4c44f117f6eead30e68",
+        "atlasSha256": "26937c237705667f5d9aed44aa4ff6ee3e9e2b6140e01125319874038e96f04d",
+        "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+        "report": "docs/audits/pet-celestial-lion-all-clips-v2-final-review-2026-10-18.json",
+        "packagedAt": "2026-10-19T12:00:34.509Z"
+      },
+      "independentReviewLedger": "docs/audits/pet-independent-face-recheck-2026-10-15.json",
+      "omittedClipRetargetingGate": {
+        "status": "repaired-double-checked-locally-main-live-pending",
+        "inventory": "docs/audits/pet-fitted-limb-clip-inventory-2026-10-18.json",
+        "reportedByUserApprovedHandoff": true,
+        "sourceSha256": "a7dc5a71c0f5b25290a349cf0ad1ac4090d2daf5feb6a42a417742741d7d5075",
+        "battleSha256": "96800bebf4e74f19e9041024a0295d632ca82e85e79bf4c44f117f6eead30e68",
+        "missingFittedClips": [
+          "idle_2",
+          "gallop_jump",
+          "death",
+          "entrance",
+          "victory"
         ],
-        "packagedAt": "2026-10-15T07:53:49.862Z"
+        "priorVisualReceiptsDoNotCloseThisGate": true,
+        "evidence": "docs/audits/pet-omitted-limb-roster-baselines-2026-10-18.json",
+        "allThirteenClipsMeasured": true,
+        "originalPawCoverageViewsActuallyInspected": 12,
+        "candidateApproved": false,
+        "limits": "Original cross-bound influence is separately decomposed by fore/hind limb pair. Authored loss is per clip/paw; no blanket hind-paw death claim.",
+        "closed": false,
+        "report": "docs/audits/pet-celestial-lion-all-clips-v2-final-review-2026-10-18.json"
       }
     },
     "starter-fire": {
