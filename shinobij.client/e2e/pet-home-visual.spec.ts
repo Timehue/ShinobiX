@@ -413,6 +413,22 @@ async function reloadHome(page: Page) {
     await expect(page.getByRole("heading", { name: "Your Companions", exact: true })).toBeVisible();
 }
 
+async function welcomeHatch(page: Page, state: Awaited<ReturnType<typeof installPetHomeApi>>, sessionId: string) {
+    // Finish this session's durable ACK before a hard reload swaps the server fixture.
+    const [response] = await Promise.all([
+        page.waitForResponse(response => {
+            const request = response.request();
+            if (new URL(request.url()).pathname !== '/api/pet/breeding/hatch' || request.method() !== 'POST') return false;
+            const body = request.postDataJSON() as { sessionId?: string; acknowledgeReveal?: boolean };
+            return body.sessionId === sessionId && body.acknowledgeReveal === true;
+        }, { timeout: 10_000 }),
+        page.getByRole('button', { name: 'Welcome home', exact: true }).click(),
+    ]);
+    expect(response.ok()).toBe(true);
+    await expect.poll(() => state.character.petBreedingHatchReceipts.find(receipt => receipt.sessionId === sessionId)?.revealPending).toBe(false);
+    await expect(page.locator('[data-pet-hatch-reveal]')).toHaveCount(0);
+}
+
 async function shot(page: Page, testInfo: TestInfo, name: string) {
     await expect.poll(async () => page.locator("img").evaluateAll((images) => (images as HTMLImageElement[])
         .filter((image) => !image.complete || image.naturalWidth === 0)
@@ -661,7 +677,8 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     await expect(page.locator(".pet-sanctuary-card", { hasText: "Ashglow Kit" })).toBeVisible();
 
     state.character.pets = structuredClone(basePets);
-    state.character.petBreeding = session("egg", 0);
+    const normalSession = session("egg", 0);
+    state.character.petBreeding = normalSession;
     state.hatchPet = pet("rare-26:550e8400-e29b-41d4-a716-446655440000", "rare-26", "Ashglow Kit", "Fire", "rare", 7, {
         origin: "bred", generation: 3, parentInstanceIds: ["qa-fire-1", "qa-fire-2"], trait: "Lucky",
     });
@@ -670,18 +687,20 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     await expect(page.locator(".hatch-pet")).toBeVisible();
     await expect.poll(() => page.locator(".hatch-pet").evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
     await shot(page, testInfo, "12-normal-hatch-reveal");
-    await page.getByRole("button", { name: "Welcome home" }).click();
+    await welcomeHatch(page, state, normalSession.sessionId);
 
     state.character.pets = structuredClone(basePets);
-    state.character.petBreeding = session("egg", 0);
+    const chromaticSession = session("egg", 0);
+    state.character.petBreeding = chromaticSession;
     state.hatchPet = pet("legendary-6:550e8400-e29b-41d4-a716-446655440001", "legendary-6", "Aurora Phoenix", "Fire", "legendary", 9, {
         origin: "bred", generation: 3, parentInstanceIds: ["qa-fire-1", "qa-fire-2"], paletteVariantId: "chromatic-v1", trait: "Battleborn",
     });
     await reloadHome(page);
+    await expect(page.getByRole('dialog', { name: 'Aurora Phoenix' })).toBeVisible();
     await expect(page.getByText("Chromatic miracle")).toBeVisible();
     await expect(page.locator(".hatch-pet")).toBeVisible();
     await shot(page, testInfo, "13-chromatic-hatch-reveal");
-    await page.getByRole("button", { name: "Welcome home" }).click();
+    await welcomeHatch(page, state, chromaticSession.sessionId);
 
     state.character.pets = structuredClone(basePets);
     state.character.petBreeding = null;
