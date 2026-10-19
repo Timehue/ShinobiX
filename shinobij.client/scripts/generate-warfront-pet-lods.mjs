@@ -61,6 +61,8 @@ const LOW_POLY_SOURCE_LIMIT = 25_000;
 // reduced meshes. Preserve the authored topology around those skin seams;
 // their sources pass the same inspection. Bounds use source mesh coordinates.
 const REVIEWED_DEFORMATION_LOCKS = {
+    // Retain Pebble's independently frozen scalp and headband patches.
+    'starter-earth.glb': [[-.16,.16,.56,.88,.54,.86],[-.17,.17,.13,.47,.74,1.02]],
     'roster/standard-4.glb': [[0.18, 0.29, -0.12, 0.025, 0.54, 0.68]],
     'roster/rare-15.glb': [[0.31, 0.41, -0.29, -0.17, 0.44, 0.55]],
     'roster/rare-23.glb': [[0.59, 0.71, -0.32, -0.19, 0.20, 0.31]],
@@ -70,7 +72,7 @@ const REVIEWED_DEFORMATION_LOCKS = {
     'roster/mythic-7.glb': [[0.1100639667958617,0.2041546067690054,0.23030689413129063,0.35592315439313943,0.4100303964354381,0.5483423566393018]],
     'roster/mythic-15.glb': [[-0.21, -0.12, -0.03, 0.08, 0.23, 0.30]],
 };
-const EXPECTED_RUNTIME_SOURCE_COUNT = 160;
+const EXPECTED_RUNTIME_SOURCE_COUNT = 161;
 const CRITICAL_BUILT_IN_FILES = new Set([
     "pet-models/roster/mythic-0.glb",
     "pet-models/roster/mythic-2.glb",
@@ -128,10 +130,8 @@ async function existingRuntimeSources() {
         .map((entry) => resolve(modelRoot, "roster", entry.name));
     const starters = (await readdir(modelRoot, { withFileTypes: true }))
         .filter((entry) => entry.isFile() && /^starter-.+\.glb$/u.test(entry.name))
-        // Base Earth is backed by roster/standard-5. The two legendary hounds
-        // resolve to showdown-v2, so their retired top-level files are not used.
+        // The two legendary hounds resolve to showdown-v2; Pebble owns its starter asset.
         .filter((entry) => !new Set([
-            "starter-earth.glb",
             "starter-fire-l.glb",
             "starter-lightning-l.glb",
         ]).has(entry.name))

@@ -1,0 +1,401 @@
+{
+  "schema": 1,
+  "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+  "captureHarnessSha256": "a8f219ea14c83acb48c4678d773922dea781375f7f0fc7636d5128890d30c056",
+  "viewport": {
+    "width": 1280,
+    "height": 800
+  },
+  "rows": [
+    {
+      "name": "idle",
+      "duration": 1.2,
+      "frame": {
+        "motion": "idle"
+      }
+    },
+    {
+      "name": "run",
+      "duration": 0.8,
+      "frame": {
+        "motion": "run",
+        "moving": true,
+        "speed": 3
+      }
+    },
+    {
+      "name": "dash",
+      "duration": 0.6,
+      "frame": {
+        "motion": "dash",
+        "moving": true,
+        "speed": 5
+      }
+    },
+    {
+      "name": "windup",
+      "duration": 0.38,
+      "frame": {
+        "motion": "windup"
+      }
+    },
+    {
+      "name": "strike",
+      "duration": 0.26,
+      "frame": {
+        "motion": "strike",
+        "contactPose": true
+      }
+    },
+    {
+      "name": "recover",
+      "duration": 0.51,
+      "frame": {
+        "motion": "recover"
+      }
+    },
+    {
+      "name": "stagger",
+      "duration": 0.65,
+      "frame": {
+        "motion": "stagger",
+        "hit": 0.6,
+        "contactPose": true
+      }
+    },
+    {
+      "name": "dodge",
+      "duration": 0.65,
+      "frame": {
+        "motion": "dodge"
+      }
+    },
+    {
+      "name": "guard",
+      "duration": 0.8,
+      "frame": {
+        "motion": "guard"
+      }
+    },
+    {
+      "name": "rest",
+      "duration": 1.2,
+      "frame": {
+        "motion": "rest"
+      }
+    },
+    {
+      "name": "cast",
+      "duration": 0.9,
+      "frame": {
+        "motion": "idle",
+        "casting": true
+      }
+    },
+    {
+      "name": "entrance",
+      "duration": 1.1,
+      "frame": {
+        "motion": "idle"
+      }
+    },
+    {
+      "name": "victory",
+      "duration": 1.2,
+      "frame": {
+        "motion": "idle",
+        "victorious": true
+      }
+    },
+    {
+      "name": "dead",
+      "duration": 1.6,
+      "frame": {
+        "motion": "dead"
+      }
+    },
+    {
+      "name": "revive",
+      "duration": 0.8,
+      "frame": {
+        "motion": "idle"
+      }
+    },
+    {
+      "name": "attack-sequence",
+      "duration": 1.7,
+      "frame": {
+        "motion": "windup"
+      }
+    }
+  ],
+  "phases": [
+    0.025,
+    0.1,
+    0.25,
+    0.5,
+    0.75,
+    1
+  ],
+  "views": [
+    "front",
+    "side"
+  ],
+  "errors": [],
+  "pets": [
+    {
+      "id": "starter-earth",
+      "name": "Pebble Tortoise",
+      "captures": [
+        {
+          "stage": "source",
+          "sha256": "c99b0471489b65a5fe2c4b9b50bf781c48f4820f7eacdb092cf983a15ca51894",
+          "meshes": 1,
+          "headVertices": [
+            544
+          ],
+          "quality": "medium",
+          "diagnosticNormalSurfaces": 0,
+          "diagnostic": {
+            "landmarkCamera": true,
+            "normals": false
+          },
+          "sheets": [
+            {
+              "name": "starter-earth-source-head.webp",
+              "sha256": "7d995bb1fe562a9723003dec164f68b778640b8594caceeadac85e3315155a5f"
+            },
+            {
+              "name": "starter-earth-source-body.webp",
+              "sha256": "fe90297204dd4e3761aa108a6a43b31dee213c707776f350818ed54d59caf702"
+            }
+          ],
+          "pairedNormalPoseVerified": false,
+          "cameraSha256": "034214c2382d584b2ba3cde1659f902fd0289e591aca73028dacba6e25b2a4ec",
+          "anatomySha256": "0566c73155c8e7ad63771511ac2410d4c29de2ccfcf15b4d9116d5fb2a1bcf20",
+          "anatomyReport": {
+            "poses": 459,
+            "regions": [
+              {
+                "name": "upperFace",
+                "vertices": 48,
+                "edges": 88,
+                "maxDrift": 3.529877283925188e-15,
+                "worldMinRatio": 0.9999999999999317,
+                "worldMaxRatio": 1.0000000000000275,
+                "maximumTime": 12.3833333333333
+              },
+              {
+                "name": "muzzle",
+                "vertices": 103,
+                "edges": 221,
+                "maxDrift": 2.688025596397417e-15,
+                "worldMinRatio": 0.99999999999995,
+                "worldMaxRatio": 1.000000000000032,
+                "maximumTime": 12.149999999999968
+              },
+              {
+                "name": "lowerFace",
+                "vertices": 52,
+                "edges": 101,
+                "maxDrift": 3.666023214736789e-15,
+                "worldMinRatio": 0.99999999999995,
+                "worldMaxRatio": 1.000000000000032,
+                "maximumTime": 12.149999999999968
+              },
+              {
+                "name": "jawChin",
+                "vertices": 69,
+                "edges": 138,
+                "maxDrift": 3.559843078750749e-15,
+                "worldMinRatio": 0.9999999999999543,
+                "worldMaxRatio": 1.0000000000000444,
+                "maximumTime": 4.5624999999999964
+              },
+              {
+                "name": "leftEye",
+                "vertices": 53,
+                "edges": 124,
+                "maxDrift": 4.296455289707701e-15,
+                "worldMinRatio": 0.9999999999999647,
+                "worldMaxRatio": 1.0000000000000406,
+                "maximumTime": 12.3833333333333
+              },
+              {
+                "name": "rightEye",
+                "vertices": 48,
+                "edges": 120,
+                "maxDrift": 3.648844777385675e-15,
+                "worldMinRatio": 0.9999999999999606,
+                "worldMaxRatio": 1.0000000000000508,
+                "maximumTime": 9.549999999999981
+              },
+              {
+                "name": "leftCheek",
+                "vertices": 58,
+                "edges": 115,
+                "maxDrift": 3.782045753517081e-15,
+                "worldMinRatio": 0.9999999999999697,
+                "worldMaxRatio": 1.000000000000036,
+                "maximumTime": 4.5624999999999964
+              },
+              {
+                "name": "rightCheek",
+                "vertices": 52,
+                "edges": 110,
+                "maxDrift": 4.6145460408676815e-15,
+                "worldMinRatio": 0.9999999999999689,
+                "worldMaxRatio": 1.0000000000000295,
+                "maximumTime": 12.149999999999968
+              },
+              {
+                "name": "headband",
+                "vertices": 50,
+                "edges": 92,
+                "maxDrift": 4.505496288838269e-15,
+                "worldMinRatio": 0.9999999999999317,
+                "worldMaxRatio": 1.0000000000000502,
+                "maximumTime": 4.5624999999999964
+              },
+              {
+                "name": "scalp",
+                "vertices": 72,
+                "edges": 158,
+                "maxDrift": 5.441551819601737e-15,
+                "worldMinRatio": 0.9999999999999192,
+                "worldMaxRatio": 1.0000000000000786,
+                "maximumTime": 8.533333333333319
+              }
+            ],
+            "failed": false
+          }
+        },
+        {
+          "stage": "battle",
+          "sha256": "64524351ebb7534dd603645a6d8015ec745829d9bfa75ced0a8a9340e725f0b3",
+          "meshes": 1,
+          "headVertices": [
+            333
+          ],
+          "quality": "medium",
+          "diagnosticNormalSurfaces": 0,
+          "diagnostic": {
+            "landmarkCamera": true,
+            "normals": false
+          },
+          "sheets": [
+            {
+              "name": "starter-earth-battle-head.webp",
+              "sha256": "f466c4f6d8aff8b11b5dba94085ab3313078d171405a4b4566ce73e2f4c9d0df"
+            },
+            {
+              "name": "starter-earth-battle-body.webp",
+              "sha256": "3ec72da28f08642a840c88417d303b58e89010503f3127dd592e4f080a2fa654"
+            }
+          ],
+          "pairedNormalPoseVerified": false,
+          "cameraSha256": "034214c2382d584b2ba3cde1659f902fd0289e591aca73028dacba6e25b2a4ec",
+          "anatomySha256": "0566c73155c8e7ad63771511ac2410d4c29de2ccfcf15b4d9116d5fb2a1bcf20",
+          "anatomyReport": {
+            "poses": 459,
+            "regions": [
+              {
+                "name": "upperFace",
+                "vertices": 40,
+                "edges": 68,
+                "maxDrift": 3.357789702633689e-15,
+                "worldMinRatio": 0.9999999999999344,
+                "worldMaxRatio": 1.0000000000000429,
+                "maximumTime": 12.7258333333333
+              },
+              {
+                "name": "muzzle",
+                "vertices": 90,
+                "edges": 187,
+                "maxDrift": 3.1111361059490445e-15,
+                "worldMinRatio": 0.9999999999999698,
+                "worldMaxRatio": 1.000000000000029,
+                "maximumTime": 12.7258333333333
+              },
+              {
+                "name": "lowerFace",
+                "vertices": 25,
+                "edges": 38,
+                "maxDrift": 4.596242427760334e-15,
+                "worldMinRatio": 0.999999999999976,
+                "worldMaxRatio": 1.0000000000000158,
+                "maximumTime": 12.7258333333333
+              },
+              {
+                "name": "jawChin",
+                "vertices": 36,
+                "edges": 59,
+                "maxDrift": 3.4658148809334474e-15,
+                "worldMinRatio": 0.999999999999974,
+                "worldMaxRatio": 1.0000000000000302,
+                "maximumTime": 8.633333333333319
+              },
+              {
+                "name": "leftEye",
+                "vertices": 29,
+                "edges": 56,
+                "maxDrift": 3.65472629627189e-15,
+                "worldMinRatio": 0.9999999999999538,
+                "worldMaxRatio": 1.0000000000000406,
+                "maximumTime": 12.7258333333333
+              },
+              {
+                "name": "rightEye",
+                "vertices": 23,
+                "edges": 49,
+                "maxDrift": 3.667249666938279e-15,
+                "worldMinRatio": 0.9999999999999607,
+                "worldMaxRatio": 1.0000000000000442,
+                "maximumTime": 9.816666666666647
+              },
+              {
+                "name": "leftCheek",
+                "vertices": 28,
+                "edges": 44,
+                "maxDrift": 4.083148030317768e-15,
+                "worldMinRatio": 0.9999999999999799,
+                "worldMaxRatio": 1.0000000000000207,
+                "maximumTime": 8.633333333333319
+              },
+              {
+                "name": "rightCheek",
+                "vertices": 22,
+                "edges": 36,
+                "maxDrift": 4.6153252274411814e-15,
+                "worldMinRatio": 0.9999999999999798,
+                "worldMaxRatio": 1.000000000000018,
+                "maximumTime": 12.7258333333333
+              },
+              {
+                "name": "headband",
+                "vertices": 50,
+                "edges": 92,
+                "maxDrift": 4.2115075318873885e-15,
+                "worldMinRatio": 0.9999999999999344,
+                "worldMaxRatio": 1.0000000000000633,
+                "maximumTime": 8.424999999999986
+              },
+              {
+                "name": "scalp",
+                "vertices": 26,
+                "edges": 43,
+                "maxDrift": 9.110358028500313e-15,
+                "worldMinRatio": 0.9999999999999263,
+                "worldMaxRatio": 1.0000000000000717,
+                "maximumTime": 12.7258333333333
+              }
+            ],
+            "failed": false
+          }
+        }
+      ],
+      "review": "pending"
+    }
+  ],
+  "artisticCertification": false
+}

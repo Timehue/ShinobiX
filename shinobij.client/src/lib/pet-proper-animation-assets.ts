@@ -6,6 +6,7 @@ export const PROPER_PET_ANIMATION_ASSET_REVISION = "20260825-identity-v5";
 
 /** Individual rig repairs invalidate only the model whose mesh/binding changed. */
 const REPAIRED_RIG_REVISIONS: Readonly<Record<string, string>> = {
+    'starter-earth': '20261019-pebble-distinct-contact-v2',
     'legendary-9': '20261014-reviewed-skull-v1',
     'starter-lightning-l': '20260923-multiview-sculpt-animation-v4',
     'standard-7': '20260916-bird-face-binding-v2',

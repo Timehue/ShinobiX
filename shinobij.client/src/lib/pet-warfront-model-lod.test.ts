@@ -49,7 +49,7 @@ test("compact runtime metadata retains every certified expanded LOD entry exactl
         revision: string;
         entries: Array<{ sourceUrl: string; lodUrl: string; sourceTriangles: number; lodTriangles: number }>;
     };
-    assert.equal(certified.entries.length, 160);
+    assert.equal(certified.entries.length, 161);
     assert.equal(WARFRONT_PET_LOD_REVISION, certified.revision);
     const expected = Object.fromEntries(certified.entries.map(({ sourceUrl, lodUrl, sourceTriangles, lodTriangles }) => [
         sourceUrl, { lodUrl, sourceTriangles, lodTriangles },

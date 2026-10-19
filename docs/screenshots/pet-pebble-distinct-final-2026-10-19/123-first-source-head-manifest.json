@@ -1,0 +1,72 @@
+{
+  "schema": 1,
+  "errors": [],
+  "pets": [
+    {
+      "id": "starter-earth",
+      "name": "Pebble Tortoise",
+      "url": "/pet-models/starter-earth.glb?v=20261019-pebble-distinct-contact-v2-20261013-studio-v1-20261013-articulation-v1-20261014-contact-performance-v1",
+      "sha256": "c99b0471489b65a5fe2c4b9b50bf781c48f4820f7eacdb092cf983a15ca51894",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "head-front",
+        "head-side",
+        "head-other-side"
+      ],
+      "materialTreatment": {
+        "mode": "production-diffuse",
+        "materials": 1,
+        "metalnessMax": 0.05,
+        "roughnessRange": [
+          0.58,
+          0.82
+        ]
+      },
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.67,
+          0.67,
+          -0.16,
+          1.05,
+          -0.55,
+          0.93
+        ],
+        "cameraPadding": 0.7
+      },
+      "sheets": [
+        "starter-earth-head-front.webp",
+        "starter-earth-head-side.webp",
+        "starter-earth-head-other-side.webp"
+      ],
+      "review": "pending",
+      "anatomySha256": "0566c73155c8e7ad63771511ac2410d4c29de2ccfcf15b4d9116d5fb2a1bcf20"
+    }
+  ],
+  "artisticCertification": false
+}

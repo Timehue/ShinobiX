@@ -48,7 +48,7 @@ test('leg solve preserves contact under rotated, nonuniform evolved-model transf
 
 test('every delivered full model and LOD carries the reviewed contact bank and bounded precision', async () => {
     const paths = new Set(runtimePetModels.flatMap(row => [assetPath(row.path), resolve(assetRoot, 'warfront-lod', relative(publicRoot, row.path))]));
-    assert.equal(paths.size, 320);
+    assert.equal(paths.size, 322);
     for (const path of paths) {
         const bytes=await readFile(path),{ json, bin } = parseStudioGlb(bytes), proof = json.extras.characterMotion;
         assert.equal(proof?.revision, CHARACTER_MOTION_REVISION, path);
