@@ -4,6 +4,8 @@ import { pveSpecialistDamagePercent } from '../../shared/relics.js';
 import { COMBAT_RESOURCES_V2, v2ResourceRegen } from '../_combat-resources.js';
 import { applyHuntCombatAction } from './_hunt-combat.js';
 import { appendSoloPveCombatEvent } from './_legacy-totals.js';
+import { hollowGateSessionDirective, sealHollowGateTelegraph } from '../../shared/hollow-gate-telegraph.js';
+import { HOLLOW_GATE_SHINOBI_ROUND_LIMIT, hollowGateShinobiRoundLimit } from '../../shared/hollow-gate-round-limit.js';
 import {
     pveAiCompetence,
     pveEasyBandAllowsLethal,
@@ -67,11 +69,9 @@ import { characterOwnsElement } from '../pvp/_elements.js';
 import { isForgedNamedWeaponId } from '../save/_forged-items.js';
 import { trimPvpLog, type PvpFighter, type PvpGroundEffect, type PvpStatus } from '../pvp/session.js';
 import {
-    hollowGateCombatDirective,
     hollowGateHazardDamage,
     type HollowGateCombatDirective,
 } from '../../shared/hollow-gate-combat-director.js';
-import type { HollowGateHoundKind } from '../../shared/hollow-gate-contract.js';
 import {
     CATALOG_CHALLENGE_WEAPON_POLICY,
     enemyActionKey,
@@ -140,21 +140,7 @@ function otherSide(side: SoloPveSide): SoloPveSide {
 }
 
 function hollowGateDirective(session: SoloPveSession): HollowGateCombatDirective | null {
-    if (session.encounter.kind !== 'hollow-gate') return null;
-    const metadata = session.encounter.metadata ?? {};
-    const kind = String(metadata.combatKind ?? '');
-    if (kind !== 'battle' && kind !== 'elite' && kind !== 'ambush' && kind !== 'beast' && kind !== 'boss') return null;
-    return hollowGateCombatDirective({
-        floor: metadata.floor,
-        kind: kind as HollowGateHoundKind,
-        turn: session.round,
-        enemyHp: session.enemy.hp,
-        enemyMaxHp: session.enemy.maxHp,
-        playerPos: session.player.pos,
-        enemyPos: session.enemy.pos,
-        gridWidth: GRID_W,
-        gridHeight: GRID_H,
-    });
+    return hollowGateSessionDirective(session);
 }
 
 /**
@@ -518,16 +504,19 @@ function appendFx(session: SoloPveSession, side: SoloPveSide, events: CombatFxEv
 function checkWinner(session: SoloPveSession): void {
     if (session.status === 'done') return;
     if (session.player.hp <= 0 && session.enemy.hp <= 0) {
+        session.terminalReason = 'knockout';
         session.status = 'done';
         session.winner = 'draw';
         session.outcome = 'draw';
         session.log.push('Both fighters fall. The encounter ends in a draw.');
     } else if (session.enemy.hp <= 0) {
+        session.terminalReason = 'knockout';
         session.status = 'done';
         session.winner = 'player';
         session.outcome = 'win';
         session.log.push(`${session.player.name} wins.`);
     } else if (session.player.hp <= 0) {
+        session.terminalReason = 'knockout';
         session.status = 'done';
         session.winner = 'enemy';
         session.outcome = 'loss';
@@ -578,6 +567,7 @@ function startTurn(session: SoloPveSession, side: SoloPveSide): void {
         session.weeklyBossGuard.dealtThisTurn = 0;
     }
     checkWinner(session);
+    if (side === 'player' && session.status === 'active') sealHollowGateTelegraph(session);
 }
 
 function companionRoll(session: SoloPveSession): number {
@@ -628,6 +618,7 @@ function appendCompanionEvent(
         status: session.status,
         winner: session.winner,
         outcome: session.outcome,
+        ...(session.terminalReason ? { terminalReason: session.terminalReason } : {}),
         combat: projectSoloCombatEvent({
             session, before, after, sequence, roundBefore: session.round,
             actor: 'companion', target, actionType: action, actionId: actionName,
@@ -839,6 +830,29 @@ function runSoloPveCompanionPhase(session: SoloPveSession): void {
 
 export function endSoloPveTurn(session: SoloPveSession): void {
     if (session.status !== 'active') return;
+    if (session.encounter.kind === 'hollow-gate') session.hollowGateRoundLimit = HOLLOW_GATE_SHINOBI_ROUND_LIMIT;
+    const current = session.activeSide;
+    const before = session.encounter.kind === 'hollow-gate' ? eventSnapshot(session) : null;
+    const logStart = session.log.length, eventRound = session.round;
+    try {
+        resolveSoloPveTurnEnd(session);
+    } finally {
+        if (before) {
+            const after = eventSnapshot(session), sequence = session.eventSeq + 1;
+            appendSoloPveCombatEvent(session, {
+                kind: 'system', seq: sequence, round: eventRound, actor: current, target: null,
+                action: 'roundEnd', actionName: 'Arena Resolution', before, after,
+                log: session.log.slice(logStart), vfx: [], status: session.status,
+                winner: session.winner, outcome: session.outcome,
+                ...(session.terminalReason ? { terminalReason: session.terminalReason } : {}),
+                combat: projectSoloCombatEvent({ session, before, after, sequence, roundBefore: eventRound,
+                    actor: current, target: null, actionType: 'roundEnd', applied: true }),
+            });
+        }
+    }
+}
+
+function resolveSoloPveTurnEnd(session: SoloPveSession): void {
     const current = session.activeSide;
     // Wound and Drain tick on the fighter whose turn is ending, after they have had
     // the whole turn to Cleanse them (owner ruling 2026-10-05; the same rule as PvP's
@@ -878,6 +892,7 @@ export function endSoloPveTurn(session: SoloPveSession): void {
             session.companion.statuses = reconcileGroundStatuses(session.companion, session.groundEffects, 'p1').statuses;
         }
         if (session.weeklyBossGuard && session.round >= session.weeklyBossGuard.roundBudget) {
+            session.terminalReason = 'survived';
             session.status = 'done';
             session.winner = 'player';
             session.outcome = 'win';
@@ -901,7 +916,8 @@ export function endSoloPveTurn(session: SoloPveSession): void {
                 session.log.push(`${aged.name}'s shield expires.`);
             }
         }
-        if (session.round > MAX_ROUNDS) {
+        if (session.round > (hollowGateShinobiRoundLimit(session) ?? MAX_ROUNDS)) {
+            session.terminalReason = 'round-limit';
             session.status = 'done';
             session.winner = 'enemy';
             session.outcome = 'loss';
@@ -1205,7 +1221,7 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
     }
     if (action.type === 'wait') {
         session.log.push(`${self.name} ends the turn.`);
-        endSoloPveTurn(session);
+        if (session.encounter.kind !== 'hollow-gate') endSoloPveTurn(session);
         return { applied: true };
     }
     if (action.type === 'move') {
@@ -1388,6 +1404,7 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
         setFighter(session, side, { ...self, hp: Math.max(0, self.hp - hpCost) });
         spendAction(session, side, 100);
         if (opts.escapeSucceeds?.() === true) {
+            session.terminalReason = 'escaped';
             session.status = 'done';
             session.winner = 'enemy';
             session.outcome = 'fled';
@@ -1395,11 +1412,12 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
         } else {
             session.log.push(`${self.name} fails to escape and loses ${hpCost} HP.`);
             checkWinner(session);
-            if (session.status === 'active') endSoloPveTurn(session);
+            if (session.status === 'active' && session.encounter.kind !== 'hollow-gate') endSoloPveTurn(session);
         }
         return { applied: true };
     }
     if (action.type === 'abandon') {
+        session.terminalReason = 'abandoned';
         // Abandon is an explicit terminal forfeit, not an escape attempt. It is
         // deliberately independent of AP and the sealed flee roll so closing an
         // unresolved battle can always settle exactly once. The same 10% max-HP
@@ -1490,6 +1508,7 @@ function directAction(
         status: session.status,
         winner: session.winner,
         outcome: session.outcome,
+        ...(session.terminalReason ? { terminalReason: session.terminalReason } : {}),
         combat: projectSoloCombatEvent({
             session, before, after, sequence, roundBefore: eventRound,
             actor: side, target, actionType: action.type, actionId: identity.actionId,
@@ -1500,6 +1519,8 @@ function directAction(
     };
     appendSoloPveCombatEvent(session, event);
     session.log = trimPvpLog(session.log);
+    if (session.encounter.kind === 'hollow-gate' && session.status === 'active'
+        && (action.type === 'wait' || action.type === 'flee')) endSoloPveTurn(session);
     return { ...result, event };
 }
 
@@ -1895,6 +1916,7 @@ function enemyActsOnCompanion(session: SoloPveSession): boolean {
         status: session.status,
         winner: session.winner,
         outcome: session.outcome,
+        ...(session.terminalReason ? { terminalReason: session.terminalReason } : {}),
         combat: projectSoloCombatEvent({
             session, before, after, sequence, roundBefore: session.round,
             actor: 'enemy', target: 'companion', actionType: 'basicAttack', actionId: 'basic-attack', applied: true,
@@ -2326,6 +2348,10 @@ export function applySoloPveAction(
     if (source.huntCombat) return applyHuntCombatAction(source, action, opts);
     if (action.type === 'huntAction') return { applied: false, reason: 'not-a-hunt-battle', session: source };
     const session = cloneSession(source);
+    if (session.encounter.kind === 'hollow-gate' && session.status === 'active') {
+        session.hollowGateRoundLimit = HOLLOW_GATE_SHINOBI_ROUND_LIMIT;
+        if (session.hollowGateTelegraph?.round !== session.round) sealHollowGateTelegraph(session);
+    }
     const result = directAction(session, 'player', action, opts);
     if (result.applied && session.status === 'active' && session.activeSide === 'player' && !playerHasLegalAction(session)) {
         endSoloPveTurn(session);

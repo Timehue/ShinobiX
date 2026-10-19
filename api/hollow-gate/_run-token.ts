@@ -146,6 +146,7 @@ export interface HollowGateRunToken {
     chosenAugmentId: string | null;
     dailyRunOrdinal: number;
     variantId?: string;
+    variantLabel?: string;
     /** Weekly map-information rule selected by the server for Rifts. */
     riftDistortionId?: string;
     /** Present only for a server-authorized wandering rift run. Completion uses

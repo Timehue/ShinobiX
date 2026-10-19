@@ -943,7 +943,7 @@ export function HollowGateShrineView({
                                             <h3 id="hg-event-title" style={{ margin: "0 0 12px", color: "#faf5ff" }}>{hollowGateEvent.title}</h3>
                                             <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{hollowGateEvent.body}</p>
                                             {hollowGateEvent.error && <p role="alert" className="hg-event-error">{hollowGateEvent.error}</p>}
-                                            {hollowGateEvent.pending && <p role="status" className="hg-event-pending">Receiving gift…</p>}
+                                            {hollowGateEvent.pending && <p role="status" className="hg-event-pending">{hollowGateEvent.kind === 'descend' ? 'Opening the staircase.' : 'Receiving gift…'}</p>}
                                             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 16 }}>
                                                 {hollowGateEvent.choices.map((c, i) => (
                                                     <button key={i} autoFocus={i === 0} disabled={hollowGateEvent.pending || exitPending} className={c.tone === "danger" ? "danger-button" : ""} onClick={c.onSelect}>{c.label}</button>
