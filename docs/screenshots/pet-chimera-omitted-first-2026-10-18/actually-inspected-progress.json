@@ -1,0 +1,155 @@
+{
+  "id": "legendary-15",
+  "raw": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-source-head/legendary-15-head-front-0.png",
+      "sha256": "a6fccb138d57583939bb8f3c041b02f8b29814eec2f5027b8cf372edafb657a0",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-source-head/legendary-15-head-front-1.png",
+      "sha256": "17507c7594457f3ab5e723224d5b365fbec64bae474adb95fc0addef30f07eda",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-source-head/legendary-15-head-front-2.png",
+      "sha256": "31de548c4b99589a84e2aa261530eb96e1565c30a30bdf16af6be637e4209ab8",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-source-head/legendary-15-head-side-0.png",
+      "sha256": "f878929b3fbb37e603fd385d98e9e14d19259431c0279b8db434d4e5dd3489b9",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-source-head/legendary-15-head-side-1.png",
+      "sha256": "712ee7972b72465f2cf334528d05f0f6a71618be6953a11cd8afe728ca5d7479",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-source-head/legendary-15-head-side-2.png",
+      "sha256": "70dc4a417408a4ddf75803937158de9932ac669a94d0706b0d7e4197ffe16790",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-source-body/legendary-15-front-0.png",
+      "sha256": "bad3df06f757863bad27235f8add6bbc720e1d7974ddf81c11e5a78d8aefb653",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-source-body/legendary-15-front-1.png",
+      "sha256": "95fbc3896bc77d31934def03227ef02ce42a732cba6d56e184f90d05435cc6bf",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-source-body/legendary-15-front-2.png",
+      "sha256": "310ec9096fde31f318e9aed925e1a67132a603db599c3533c46808926b0c92ff",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-source-body/legendary-15-side-0.png",
+      "sha256": "33d36b2a2a8b960c24d7774d72c896df1fa88a60acd6f86131d78a38714b7270",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-source-body/legendary-15-side-1.png",
+      "sha256": "c11bf1df44b4af60c169a416b170eea6ffb81ea4627ccb5851b47b48d4b9f43b",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-source-body/legendary-15-side-2.png",
+      "sha256": "ae86bde9e260c10e61ac7a9f58b41246bc99cf6417c00853d2955779bd2b024b",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-battle-head/legendary-15-head-front-0.png",
+      "sha256": "55a23a0ef9b160d1a3522bfab68b3dd9694160ea2463543f9f064e044aa273a6",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-battle-head/legendary-15-head-front-1.png",
+      "sha256": "e961d5be8fdb0c56da209f7fe036fc1b82f9801a86b1c1660a626ee82f2a73b1",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-battle-head/legendary-15-head-front-2.png",
+      "sha256": "f2869fb93629c8bbf88be4cc4d71e60253fb831b21fb4d6ac0fda64ec40dbb76",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-battle-head/legendary-15-head-side-0.png",
+      "sha256": "bc3ca6b4ec528d102a799e25efb494cea1d470673df02447a444036646707889",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-battle-head/legendary-15-head-side-1.png",
+      "sha256": "968e015bac4224065c81886ab364816447730b0c8a6dbc9e97144fdc3a9a5ee8",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-battle-head/legendary-15-head-side-2.png",
+      "sha256": "db95555a171be977733f9e830314676c0b9e9ebf2e8e89d5d275323a6aa22e43",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-battle-body/legendary-15-front-0.png",
+      "sha256": "14dbf8a231900c4b7e7f2c6cffd1a4a4dbe4fea80ae5286d61ce1b137453872e",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-battle-body/legendary-15-front-1.png",
+      "sha256": "1005d87a3c6d34a28aab26e0e5d8029f928c873b009acbac7485e2df0e13bd50",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-battle-body/legendary-15-front-2.png",
+      "sha256": "f1c43d07fab087fd1d3f72b5f572070672d5a26b2c10052f867b0faa05f7d9a6",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-battle-body/legendary-15-side-0.png",
+      "sha256": "669ece265c2c4a6d88e3cfb53caee65bd26f15d4d7555a32636fdde9adaa9d36",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-battle-body/legendary-15-side-1.png",
+      "sha256": "2e138e2421182b47787d2be2df09ed03c3fb088293f3ac09483ecac890f8f93b",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-omitted-roster-next-three-v1-battle-body/legendary-15-side-2.png",
+      "sha256": "1da5791569541e2cc71b983ddf86a7f1581efbb3c4fb5d24ff5ecb0aa50ffb71",
+      "actuallyInspected": true,
+      "result": "pass"
+    }
+  ],
+  "rawSlicesActuallyInspected": 24,
+  "nativeTechniqueFramesActuallyInspected": 216,
+  "nativeTechniqueStripsActuallyInspected": 12,
+  "firstPass": "source-and-direct-battle-raw-and-native-techniques-pass",
+  "secondPassComplete": false,
+  "notes": "All 24 source/direct-battle raw slices and all 12 native technique strips (216 frames) actually inspected. Lion face and dragon head remain coherent; limbs remain connected through crouch, strike and recovery. Side death views occlude the second head; front views retain it. Direct old-LOD retarget is diagnostic only."
+}
