@@ -1791,6 +1791,90 @@
         "protectBelowY": -0.65,
         "featherY": 0.2
       }
+    },
+    "starter-water": {
+      "y": [
+        0.12,
+        0.24
+      ],
+      "z": [
+        -0.3,
+        -0.08
+      ],
+      "x": [
+        0.35,
+        0.5
+      ],
+      "cameraPadding": 1.4,
+      "status": "repair",
+      "finding": "V9 includes the ray-picked upper collar but leaves three measured palette-gradient edges near normalized x .50. V10 smooths neighborhoods of only those measured edges, preserving rigid head interiors and feathering back above the protected lower body. Original animation curves remain unchanged. Unapproved pending all probes and visual inspection.",
+      "revision": "20261018-ripple-seal-complete-face-upper-collar-transition-v10",
+      "supersedesSourceSha256": "d4b09247b2ad1ada7c179771d631b2bd833f02d917bb082950011454df2ca036",
+      "repairRegion": {
+        "y": [
+          -0.08,
+          0.07
+        ],
+        "z": [
+          0.35,
+          0.45
+        ],
+        "x": [
+          0.5,
+          0.56
+        ]
+      },
+      "union": [
+        {
+          "y": [
+            -0.08,
+            0.07
+          ],
+          "z": [
+            0.35,
+            0.45
+          ],
+          "x": [
+            0.5,
+            0.56
+          ]
+        }
+      ],
+      "weightPrecision": "float32",
+      "continuousInfluencePacking": true,
+      "neckTransition": {
+        "iterations": 24,
+        "edges": [
+          [
+            5129,
+            5131
+          ],
+          [
+            4085,
+            4084
+          ],
+          [
+            5171,
+            5188
+          ]
+        ],
+        "protectBelowY": -0.25,
+        "featherY": 0.2,
+        "region": {
+          "y": [
+            -0.2,
+            -0.05
+          ],
+          "z": [
+            0.15,
+            0.25
+          ],
+          "x": [
+            0.7,
+            0.9
+          ]
+        }
+      }
     }
   }
 }

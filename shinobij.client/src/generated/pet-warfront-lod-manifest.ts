@@ -157,7 +157,7 @@ const modelRows = [
     ["starter-lightning.glb","-5b96adb25eca-6125a968fa01",14722,10304],
     ["starter-water-l.glb","-1261702473a4-74d34a2e47d1",15798,11058],
     ["starter-water-r.glb","-7bcf0566cd90-61a4fa98d6b0",9686,6780],
-    ["starter-water.glb","-d4b09247b2ad-d1c6d69bf8d8",15958,11170],
+    ["starter-water.glb","-90150dd50ff3-47cd31858838",15958,11170],
     ["starter-wind-l.glb","-2b04bfe8ef5c-30714eb45c4a",12822,8974],
     ["starter-wind-r.glb","-e01087a57731-5d3860becf2a",26000,10000],
     ["starter-wind.glb","-7db0c6998907-601e725c6fbb",15396,10776]
