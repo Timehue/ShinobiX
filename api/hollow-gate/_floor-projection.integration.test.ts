@@ -76,6 +76,9 @@ test('descent commits the saved floor before any browser autosave; replay cannot
     const result = await call('descend', { fromFloor: 1 });
     assert.equal(result.status, 200, JSON.stringify(result.body));
     assert.equal((await saved())!.character.hollowGateRun.floor, 2);
+    assert.equal(result.body._saveVersion, (await saved())!._saveVersion);
+    assert.equal(result.body.character.hollowGateRun.floor, 2);
+    assert.equal(result.body.character.hollowGateRun.torch, 10);
     assert.equal((await kv.get<HollowGateRunToken>(runKey))!.currentFloor, 2);
     assert.equal((await call('descend', { fromFloor: 1 })).status, 200);
     assert.equal((await kv.get<HollowGateRunToken>(runKey))!.currentFloor, 2);

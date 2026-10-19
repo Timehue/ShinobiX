@@ -47,7 +47,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (fromFloor < currentFloor) {
                 const repaired = await repairHollowGateFloorProjection(playerName, token, run);
                 if (!repaired.ok) return { status: repaired.status, body: { error: repaired.error } };
-                return { status: 200, body: { ok: true, floor: currentFloor, alreadyAdvanced: true } };
+                return { status: 200, body: { ok: true, floor: currentFloor, alreadyAdvanced: true,
+                    character: repaired.character, _saveVersion: repaired._saveVersion } };
             }
             if (fromFloor !== currentFloor) return { status: 409, body: { error: 'The staircase does not match the sealed floor.' } };
             if (run.activeEncounter || run.pendingAmbush) return { status: 409, body: {
@@ -77,14 +78,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const saved = await mutatePlayerSave(playerName, ({ character }) => {
                 const projected = hollowGateFloorProjection(character, token, { ...run, currentFloor }, nextFloor);
                 if (!projected.ok) return projected;
-                return { ok: true as const, character: { ...character, hollowGateRun: projected.projection,
+                return { ok: true as const, character: { ...character, hollowGateRun: { ...projected.projection,
+                    torch: next.torch, threat: next.threat, wardSteps: next.wardSteps, diviner: false },
                     hollowGatePendingOperation: makeHollowGatePendingOperation({ token, kind: 'event',
                         id: `descend:${currentFloor}`, before: run, after: next, response: { ok: true, floor: nextFloor } }),
                 }, value: null };
             });
             if (!saved.ok) return { status: saved.status, body: { error: saved.error } };
             await recoverHollowGatePendingOperation(kv, runKey, run, playerName, token);
-            return { status: 200, body: { ok: true, floor: nextFloor } };
+            return { status: 200, body: { ok: true, floor: nextFloor,
+                character: saved.character, _saveVersion: saved._saveVersion } };
         }, { failClosed: true, ttlSec: 10 });
         if (result.status === 200 && result.body.alreadyAdvanced !== true) {
             await recordBetaMetric({

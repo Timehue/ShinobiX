@@ -1,4 +1,4 @@
-import type { Character } from '../types/character';
+import type { Character, VersionedCharacterCommit } from '../types/character';
 import type { SoloPveSession } from './solo-pve-api';
 
 export type HollowGateCombatKind = 'battle' | 'elite' | 'ambush' | 'beast' | 'boss';
@@ -73,15 +73,16 @@ export async function descendHollowGateRun(params: {
     playerName: string;
     token: string;
     fromFloor: number;
-}): Promise<number> {
+}, onVersionedCharacter?: VersionedCharacterCommit): Promise<number> {
     const response = await fetch('/api/hollow-gate/descend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(params),
     });
-    const data = await response.json().catch(() => ({})) as { ok?: boolean; floor?: number; error?: string };
+    const data = await response.json().catch(() => ({})) as { ok?: boolean; floor?: number; error?: string; character?: Character; _saveVersion?: number };
     if (!response.ok || data.ok !== true || !Number.isFinite(data.floor)) {
         throw new Error(data.error ?? 'The Hollow Gate staircase could not seal the next floor.');
     }
+    if (data.character) onVersionedCharacter?.(data.character, data._saveVersion);
     return Math.max(1, Math.floor(Number(data.floor)));
 }
