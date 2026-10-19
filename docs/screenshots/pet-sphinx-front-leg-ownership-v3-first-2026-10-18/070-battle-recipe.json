@@ -1,0 +1,13 @@
+{
+  "sourceSha256": "809d25e4ea268ee43ecc67c2fe0e88f2ba9fa785af54959ddaffac463d1cb510",
+  "changedVertices": 212,
+  "maxTransferredSkinShare": 0.14661154692294076,
+  "midline": -0.11503462806728422,
+  "sideFeather": 0.02,
+  "shoulderFeather": [
+    -0.25,
+    -0.14
+  ],
+  "method": "Conserve each front-joint section total; transfer opposite-side weight to the matching anatomical joint below the shoulders. Retain original weights where the feather would exceed four influences. Preserve other joint contributions, geometry, binds, and animation.",
+  "sha256": "f3e4b72c3044af3743a9edc95160f01c6bd40b38385c3ff39cedaa93ffa315a0"
+}

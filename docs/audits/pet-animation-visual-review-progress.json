@@ -25414,7 +25414,7 @@
         "shinobij.client/.tmp/pet-reviewed-skulls/legendary-012-023-candidates.json",
         "shinobij.client/.tmp/pet-animation-audit/selected-pets-legendary-012-023-skull-candidates-motion-audit.json"
       ],
-      "candidateSha256": "79e4b710976fb3ab614f74650e48899d10f9eb851e9ee717fc150191e4c85c32",
+      "candidateSha256": "6ed409cdfcf639440650a1ab820dc8393ee2ce23b7af496ef87c835e779c6d5b",
       "candidateEvidence": [
         "shinobij.client/.tmp/pet-shape-review/head-legendary-012-023-candidates/legendary-23-head-front.webp",
         "shinobij.client/.tmp/pet-shape-review/head-legendary-012-023-candidates/legendary-23-head-side.webp",
@@ -25423,173 +25423,43 @@
         "shinobij.client/.tmp/pet-shape-review/legendary-23-candidate-head-exposure.webp",
         "shinobij.client/.tmp/pet-shape-review/legendary-23-candidate-body-exposure.webp"
       ],
-      "promotedSha256": "79e4b710976fb3ab614f74650e48899d10f9eb851e9ee717fc150191e4c85c32",
+      "promotedSha256": "1a425a323961d8c14d38a5556f772cb2748a316a6c71f835325a38c7b8734b7e",
       "conservation": "geometry, topology, atlas, bone nodes and all animation curves unchanged",
-      "secondPassSource": {
-        "sha256": "79e4b710976fb3ab614f74650e48899d10f9eb851e9ee717fc150191e4c85c32",
-        "clips": [
-          "idle",
-          "idle_2",
-          "walk",
-          "gallop",
-          "gallop_jump",
-          "attack",
-          "idle_hitreact1",
-          "death",
-          "entrance",
-          "cast",
-          "guard",
-          "rest",
-          "victory"
-        ],
-        "progress": [
-          0,
-          0.125,
-          0.375,
-          0.625,
-          0.875,
-          1
-        ],
-        "headViews": [
-          "head-front",
-          "head-side"
-        ],
-        "bodyViews": [
-          "front",
-          "side"
-        ],
-        "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/legendary-012-023-source-second-head/legendary-23-head-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/legendary-012-023-source-second-head/legendary-23-head-side.webp",
-          "shinobij.client/.tmp/pet-shape-review/legendary-012-023-source-second-body/legendary-23-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/legendary-012-023-source-second-body/legendary-23-side.webp"
-        ],
-        "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/legendary-012-023-source-second-head/legendary-23-head-front.webp": "2beb18e91bd0ae49aaf4f74597b63f40eb329368173e5fa59350170daabde603",
-          "shinobij.client/.tmp/pet-shape-review/legendary-012-023-source-second-head/legendary-23-head-side.webp": "8ae8400434e0c85085940b76b4644e9e5ab83ee78a2a7dff63692042282ccef6",
-          "shinobij.client/.tmp/pet-shape-review/legendary-012-023-source-second-body/legendary-23-front.webp": "b992fdcc4c70de51725ebe5087639f4634de1ec0852775484c5d038bd18d2f13",
-          "shinobij.client/.tmp/pet-shape-review/legendary-012-023-source-second-body/legendary-23-side.webp": "b7588e3454c48f2ce466d885969e06e64fee2615f5f5e6bae23d1f81660d7b66"
-        },
-        "finding": "All 13 clips inspected at six alternate phases in front and side head and full-body views for this source asset. The dark muzzle, golden eyes, swept white mane and chin remain coherent. Both folded gold wings, four paws, hip ornaments, and the long curled tufted tail retain their shapes through attacks and death.",
-        "reviewedAt": "2026-10-15T03:48:03.765Z",
-        "reviewer": "Codex visual inspection"
-      },
-      "secondPassBattle": {
-        "sha256": "c3246a2d33ac6a924eae6025f240604ab67c53ab23af4f063522942d3b3298b9",
-        "clips": [
-          "idle",
-          "idle_2",
-          "walk",
-          "gallop",
-          "gallop_jump",
-          "attack",
-          "idle_hitreact1",
-          "death",
-          "entrance",
-          "cast",
-          "guard",
-          "rest",
-          "victory"
-        ],
-        "progress": [
-          0,
-          0.125,
-          0.375,
-          0.625,
-          0.875,
-          1
-        ],
-        "headViews": [
-          "head-front",
-          "head-side"
-        ],
-        "bodyViews": [
-          "front",
-          "side"
-        ],
-        "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/legendary-012-023-lod-second-head/legendary-23-head-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/legendary-012-023-lod-second-head/legendary-23-head-side.webp",
-          "shinobij.client/.tmp/pet-shape-review/legendary-012-023-lod-second-body/legendary-23-front.webp",
-          "shinobij.client/.tmp/pet-shape-review/legendary-012-023-lod-second-body/legendary-23-side.webp"
-        ],
-        "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/legendary-012-023-lod-second-head/legendary-23-head-front.webp": "17ff15d9c8c0b38d1e8ce613e18eb1e88d12cdbdc73babaa10edfac654bf5fb7",
-          "shinobij.client/.tmp/pet-shape-review/legendary-012-023-lod-second-head/legendary-23-head-side.webp": "bc519bfb38c906f212563bb6a3ac3c5255f5fc7bdadb349fc775713a5324eee9",
-          "shinobij.client/.tmp/pet-shape-review/legendary-012-023-lod-second-body/legendary-23-front.webp": "e37e3b6fc846f784edaeca83c7f85c09c5a508333e467aa785170cc51c96cfe3",
-          "shinobij.client/.tmp/pet-shape-review/legendary-012-023-lod-second-body/legendary-23-side.webp": "35f5f1fd06a66fbfc7aa0ee060cff0322d31c3f9dc14641971037855ee852eef"
-        },
-        "finding": "All 13 clips inspected at six alternate phases in front and side head and full-body views for this battle asset. The dark muzzle, golden eyes, swept white mane and chin remain coherent. Both folded gold wings, four paws, hip ornaments, and the long curled tufted tail retain their shapes through attacks and death.",
-        "reviewedAt": "2026-10-15T03:48:04.563Z",
-        "reviewer": "Codex visual inspection"
-      },
-      "runtimeVisualPass": {
-        "sourceSha256": "79e4b710976fb3ab614f74650e48899d10f9eb851e9ee717fc150191e4c85c32",
-        "battleSha256": "c3246a2d33ac6a924eae6025f240604ab67c53ab23af4f063522942d3b3298b9",
-        "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
-        "rows": [
-          "idle",
-          "run",
-          "dash",
-          "windup",
-          "strike",
-          "recover",
-          "stagger",
-          "dodge",
-          "guard",
-          "rest",
-          "cast",
-          "entrance",
-          "victory",
-          "dead",
-          "revive",
-          "attack-sequence"
-        ],
-        "phases": [
-          0.025,
-          0.1,
-          0.25,
-          0.5,
-          0.75,
-          1
-        ],
-        "views": [
-          "front",
-          "side"
-        ],
-        "evidence": [
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/legendary-23-source-head.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/legendary-23-source-body.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/legendary-23-battle-head.webp",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/legendary-23-battle-body.webp"
-        ],
-        "evidenceSha256": {
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/legendary-23-source-head.webp": "c0c5d1fa2003013fd84552941c2435f9ee04dad964213c7b946eb318ce753b72",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/legendary-23-source-body.webp": "bad5146d8ae01e4cdaef4321f64ebf498f8afa1b468171c6b85eb4246e230773",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/legendary-23-battle-head.webp": "ed9dc7f038137ca484e93f0460b36fabcba01dfb7f55f503995baf3d952add70",
-          "shinobij.client/.tmp/pet-shape-review/runtime-final/legendary-23-battle-body.webp": "8f169310cba23d3f37ea4ab54bd088b6f421c44a543deab795670ccee4a4f7da"
-        },
-        "finding": "All sixteen production rows inspected in both versions, front and side, head and body. Golden sphinx: black face, yellow eyes, white swept mane and horns, pale beard and chest, layered gold wings, four clawed legs and curled tufted tail remain intact throughout all runtime rows.",
-        "reviewer": "Codex visual inspection",
-        "reviewedAt": "2026-10-15T07:33:55.834Z"
+      "reopened": {
+        "at": "2026-10-17T20:04:06.828Z",
+        "releasedSha256": "79e4b710976fb3ab614f74650e48899d10f9eb851e9ee717fc150191e4c85c32",
+        "reason": "Fresh independent anatomical review exposed lower-face distortion outside the former approval."
       },
       "finalReceipt": {
-        "sourceSha256": "79e4b710976fb3ab614f74650e48899d10f9eb851e9ee717fc150191e4c85c32",
-        "battleSha256": "c3246a2d33ac6a924eae6025f240604ab67c53ab23af4f063522942d3b3298b9",
-        "atlasSha256": "12710e737770e04ef3633bae0b7bab014b5fef2f98554b7c479e7d4ddcaea052",
-        "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
-        "evidence": [
-          "docs/screenshots/pet-shape-2026-10-15/legendary-23-source-clips-head-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/legendary-23-source-clips-body-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/legendary-23-battle-clips-head-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/legendary-23-battle-clips-body-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/legendary-23-runtime-source-head.webp",
-          "docs/screenshots/pet-shape-2026-10-15/legendary-23-runtime-source-body.webp",
-          "docs/screenshots/pet-shape-2026-10-15/legendary-23-runtime-battle-head.webp",
-          "docs/screenshots/pet-shape-2026-10-15/legendary-23-runtime-battle-body.webp",
-          "docs/screenshots/pet-shape-2026-10-15/legendary-23-numeric-evidence.json"
+        "sourceSha256": "a56a5fd114088d462c9a46a2c632ae664d19a2565d6d33e0178206486f64192b",
+        "battleSha256": "75432ffd9a4d6360f6f98c459c1a74384901f56d74561c0bfe6af7b81405d9b8",
+        "atlasSha256": "4838f697279e2e4ef9184bad7d60f2569cdeb9b4bc5d11cbfce7c9802005ce43",
+        "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+        "report": "docs/audits/pet-sphinx-all-clips-v2-final-review-2026-10-18.json",
+        "packagedAt": "2026-10-19T05:17:07.733Z"
+      },
+      "independentReviewLedger": "docs/audits/pet-independent-face-recheck-2026-10-15.json",
+      "omittedClipRetargetingGate": {
+        "status": "repaired-double-checked-locally-main-live-pending",
+        "inventory": "docs/audits/pet-fitted-limb-clip-inventory-2026-10-18.json",
+        "reportedByUserApprovedHandoff": false,
+        "sourceSha256": "a56a5fd114088d462c9a46a2c632ae664d19a2565d6d33e0178206486f64192b",
+        "battleSha256": "75432ffd9a4d6360f6f98c459c1a74384901f56d74561c0bfe6af7b81405d9b8",
+        "missingFittedClips": [
+          "idle_2",
+          "gallop_jump",
+          "death",
+          "entrance",
+          "victory"
         ],
-        "packagedAt": "2026-10-15T07:34:57.301Z"
+        "priorVisualReceiptsDoNotCloseThisGate": true,
+        "evidence": "docs/audits/pet-omitted-limb-roster-baselines-2026-10-18.json",
+        "allThirteenClipsMeasured": true,
+        "originalPawCoverageViewsActuallyInspected": 12,
+        "candidateApproved": false,
+        "limits": "Original cross-bound influence is separately decomposed by fore/hind limb pair. Authored loss is per clip/paw; no blanket hind-paw death claim.",
+        "closed": false,
+        "report": "docs/audits/pet-sphinx-all-clips-v2-final-review-2026-10-18.json"
       }
     },
     "legendary-24": {
@@ -25632,7 +25502,7 @@
         "shinobij.client/.tmp/pet-shape-review/legendary-24-candidate-head-exposure.webp",
         "shinobij.client/.tmp/pet-shape-review/legendary-24-candidate-body-exposure.webp"
       ],
-      "promotedSha256": "ba183cac92218f60f2e1ae978bd514836a276f9883802c6b111051aa617b4bbf",
+      "promotedSha256": "bf76eb0e3e129229287dfe1de163993513d368e57897ac1907dd2e2ce3315fa4",
       "conservation": "geometry, topology, atlas, bone nodes and all animation curves unchanged",
       "secondPassSource": {
         "sha256": "ba183cac92218f60f2e1ae978bd514836a276f9883802c6b111051aa617b4bbf",
@@ -25783,22 +25653,35 @@
         "reviewedAt": "2026-10-15T07:34:24.319Z"
       },
       "finalReceipt": {
-        "sourceSha256": "ba183cac92218f60f2e1ae978bd514836a276f9883802c6b111051aa617b4bbf",
-        "battleSha256": "4ecd73fd9bdbbf70820ddca0773aa21aafa77daeac2edd0cf5e68e138f533442",
-        "atlasSha256": "d4b865dc71d92203f2e3d40ae4d66755f9125ade80386638528c7880349918fa",
-        "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
-        "evidence": [
-          "docs/screenshots/pet-shape-2026-10-15/legendary-24-source-clips-head-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/legendary-24-source-clips-body-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/legendary-24-battle-clips-head-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/legendary-24-battle-clips-body-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/legendary-24-runtime-source-head.webp",
-          "docs/screenshots/pet-shape-2026-10-15/legendary-24-runtime-source-body.webp",
-          "docs/screenshots/pet-shape-2026-10-15/legendary-24-runtime-battle-head.webp",
-          "docs/screenshots/pet-shape-2026-10-15/legendary-24-runtime-battle-body.webp",
-          "docs/screenshots/pet-shape-2026-10-15/legendary-24-numeric-evidence.json"
+        "sourceSha256": "29643a8d667aa4b3d1b7672a0ef4391fb305d87a814e2fecca0c053a0a16da8e",
+        "battleSha256": "3526baf861f186943b5b3408143c7d901ce2a53ee5bad2790d22fff3676e6663",
+        "atlasSha256": "53a915ce72c693cacd6a2d42756ee2c9be579a061402481de45aa0bdbad98938",
+        "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+        "report": "docs/audits/pet-raiju-all-clips-v2-final-review-2026-10-18.json",
+        "packagedAt": "2026-10-19T06:09:45.596Z"
+      },
+      "independentReviewLedger": "docs/audits/pet-independent-face-recheck-2026-10-15.json",
+      "omittedClipRetargetingGate": {
+        "status": "repaired-double-checked-locally-main-live-pending",
+        "inventory": "docs/audits/pet-fitted-limb-clip-inventory-2026-10-18.json",
+        "reportedByUserApprovedHandoff": false,
+        "sourceSha256": "29643a8d667aa4b3d1b7672a0ef4391fb305d87a814e2fecca0c053a0a16da8e",
+        "battleSha256": "3526baf861f186943b5b3408143c7d901ce2a53ee5bad2790d22fff3676e6663",
+        "missingFittedClips": [
+          "idle_2",
+          "gallop_jump",
+          "death",
+          "entrance",
+          "victory"
         ],
-        "packagedAt": "2026-10-15T07:34:57.349Z"
+        "priorVisualReceiptsDoNotCloseThisGate": true,
+        "evidence": "docs/audits/pet-omitted-limb-roster-baselines-2026-10-18.json",
+        "allThirteenClipsMeasured": true,
+        "originalPawCoverageViewsActuallyInspected": 12,
+        "candidateApproved": false,
+        "limits": "Original cross-bound influence is separately decomposed by fore/hind limb pair. Authored loss is per clip/paw; no blanket hind-paw death claim.",
+        "closed": false,
+        "report": "docs/audits/pet-raiju-all-clips-v2-final-review-2026-10-18.json"
       }
     },
     "legendary-25": {
@@ -26050,7 +25933,7 @@
         "shinobij.client/.tmp/pet-shape-review/legendary-26-candidate-head-exposure.webp",
         "shinobij.client/.tmp/pet-shape-review/legendary-26-candidate-body-exposure.webp"
       ],
-      "promotedSha256": "2dc16276c736394b705bb529178ecc4dc3020074893b7a5314a012a4c25dc415",
+      "promotedSha256": "ef393df72f26e0bfd2a64b4af210e0f609aab74d4051cc25530cf290a7909a76",
       "conservation": "geometry, topology, atlas, bone nodes and all animation curves unchanged",
       "secondPassSource": {
         "sha256": "2dc16276c736394b705bb529178ecc4dc3020074893b7a5314a012a4c25dc415",
@@ -26201,22 +26084,35 @@
         "reviewedAt": "2026-10-15T07:37:15.846Z"
       },
       "finalReceipt": {
-        "sourceSha256": "2dc16276c736394b705bb529178ecc4dc3020074893b7a5314a012a4c25dc415",
-        "battleSha256": "6b238724120ca28d5bd0209ac9027802f4061c631fa11ffc50e764ec2422f68f",
-        "atlasSha256": "bea93fecf42e5e70260d914bb3ecf1f4e47269f228ee160da1ada5c5761f32a8",
-        "rendererSha256": "5f9f24e92abe45bafcccd21f72a1ba8de81e0f0cd2a44f6f2aa440ee08e0d1cb",
-        "evidence": [
-          "docs/screenshots/pet-shape-2026-10-15/legendary-26-source-clips-head-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/legendary-26-source-clips-body-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/legendary-26-battle-clips-head-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/legendary-26-battle-clips-body-1.webp",
-          "docs/screenshots/pet-shape-2026-10-15/legendary-26-runtime-source-head.webp",
-          "docs/screenshots/pet-shape-2026-10-15/legendary-26-runtime-source-body.webp",
-          "docs/screenshots/pet-shape-2026-10-15/legendary-26-runtime-battle-head.webp",
-          "docs/screenshots/pet-shape-2026-10-15/legendary-26-runtime-battle-body.webp",
-          "docs/screenshots/pet-shape-2026-10-15/legendary-26-numeric-evidence.json"
+        "sourceSha256": "5bc12fe1bb6b8143aef155775af127ae9ebf25469d03521a46efaf4e72bc0dc7",
+        "battleSha256": "9fa5d6ebaf45b7c6fcc4ac2e2bb1faa7f81def6429bad0d0eae21257d0c7b84f",
+        "atlasSha256": "0e3098c9771f9a65bd390e9166688fb6bca072b852fcff08c4437be94951a11a",
+        "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+        "report": "docs/audits/pet-manticore-all-clips-v2-final-review-2026-10-18.json",
+        "packagedAt": "2026-10-19T06:33:48.675Z"
+      },
+      "independentReviewLedger": "docs/audits/pet-independent-face-recheck-2026-10-15.json",
+      "omittedClipRetargetingGate": {
+        "status": "repaired-double-checked-locally-main-live-pending",
+        "inventory": "docs/audits/pet-fitted-limb-clip-inventory-2026-10-18.json",
+        "reportedByUserApprovedHandoff": true,
+        "sourceSha256": "5bc12fe1bb6b8143aef155775af127ae9ebf25469d03521a46efaf4e72bc0dc7",
+        "battleSha256": "9fa5d6ebaf45b7c6fcc4ac2e2bb1faa7f81def6429bad0d0eae21257d0c7b84f",
+        "missingFittedClips": [
+          "idle_2",
+          "gallop_jump",
+          "death",
+          "entrance",
+          "victory"
         ],
-        "packagedAt": "2026-10-15T07:37:17.039Z"
+        "priorVisualReceiptsDoNotCloseThisGate": true,
+        "evidence": "docs/audits/pet-omitted-limb-roster-baselines-2026-10-18.json",
+        "allThirteenClipsMeasured": true,
+        "originalPawCoverageViewsActuallyInspected": 12,
+        "candidateApproved": false,
+        "limits": "Original cross-bound influence is separately decomposed by fore/hind limb pair. Authored loss is per clip/paw; no blanket hind-paw death claim.",
+        "closed": false,
+        "report": "docs/audits/pet-manticore-all-clips-v2-final-review-2026-10-18.json"
       }
     },
     "legendary-27": {

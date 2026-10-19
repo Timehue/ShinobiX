@@ -1,0 +1,72 @@
+{
+  "schema": 1,
+  "errors": [],
+  "pets": [
+    {
+      "id": "legendary-23",
+      "name": "Cyclone Sphinx",
+      "url": "/pet-models/warfront-lod/roster/legendary-23.glb",
+      "sha256": "75432ffd9a4d6360f6f98c459c1a74384901f56d74561c0bfe6af7b81405d9b8",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "head-front",
+        "head-side",
+        "head-other-side"
+      ],
+      "materialTreatment": {
+        "mode": "production-diffuse",
+        "materials": 1,
+        "metalnessMax": 0.05,
+        "roughnessRange": [
+          0.58,
+          0.82
+        ]
+      },
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.4174779171019525,
+          0.20118364133916955,
+          -0.03615733611612784,
+          0.5254936527717673,
+          0.5787784212439179,
+          1.0599558012621908
+        ],
+        "cameraPadding": 1.15
+      },
+      "sheets": [
+        "legendary-23-head-front.webp",
+        "legendary-23-head-side.webp",
+        "legendary-23-head-other-side.webp"
+      ],
+      "review": "pending",
+      "anatomySha256": "32d823c0dbe44acba162e5b9d48da290b581048a8722531ca126af297f8783dc"
+    }
+  ],
+  "artisticCertification": false
+}

@@ -1,0 +1,501 @@
+{
+  "id": "legendary-24",
+  "raw": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-source-head/legendary-24-head-front-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "13175654c3e5aaec527c1ae5fdb47a19478424a6639dddfb47977ba73803a715"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-source-head/legendary-24-head-front-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "70990662ed820e2c7a3156a009aa63d238db7007e5afe16fba3119df34b78233"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-source-head/legendary-24-head-front-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "517733970e2afa43f1141c966319c4bff3b0d3ebeb5fe05b2d384ac5562df497"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-source-head/legendary-24-head-side-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "f6565754715e1d32eb6ba197b3bd2375128d4ff349f29fc10933e34c882dda1b"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-source-head/legendary-24-head-side-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "5227d990d43d4a05c36fed04231d85f63257429c1c7f711e282241d6c9749ccd"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-source-head/legendary-24-head-side-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "d8be07fd95f9a0ee336f3df4c8eb083f41bfaab3f7b514120743b9667a0123f2"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-source-head/legendary-24-head-other-side-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "8aa4de85144a5a34c7f48b010119a3af288aea917c387617cdc587b7f3032a78"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-source-head/legendary-24-head-other-side-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "04293af2ff5fd545d9c1c47678438e928fd54a44cd0ee0718c2df106d1330a94"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-source-head/legendary-24-head-other-side-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "738c6b543a634d904da6df292dffb8a88f428d7b3a70eae1f3be586e82f50d86"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-source-body/legendary-24-front-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "93e36b69533c5b1c13d8c4a764412008febb99e8a784673eb263398252856705"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-source-body/legendary-24-front-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "cae3f61043ecd0f64137607466834504a28b9cadcc5d574a24cc25314b3a222b"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-source-body/legendary-24-front-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "f1e484c2f827c4ba1d218040f351cfc7f7a4d84223da15acd0be82d885a9fdad"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-source-body/legendary-24-side-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "fa74d4176362841c87758b4b9efef437daf46522a9ba069eae4803c47ec7ca58"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-source-body/legendary-24-side-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "74cc2abcf11f8908f11d2ec9f401e62e7e4c188bf688ea5dadf695c21fba2cae"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-source-body/legendary-24-side-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "3f0e6fa6e9c668213883e1fa068c59650adbde3a07a46bcc08fff9ee2013a289"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-battle-head/legendary-24-head-front-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "2c55c9996a20698901962637f7f919c767f8453c67cd26abe0c017404666eab4"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-battle-head/legendary-24-head-front-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "d36ee729428103c1ecb570681528d01b774a5f6d0f5c567c02e9e09b37a413b6"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-battle-head/legendary-24-head-front-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "d6eaf227df699c8bde7b8ff45aa36a0c49f1e8f32a0511967fbe1076d4ab4cfe"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-battle-head/legendary-24-head-side-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "63a1e0a4f02e5888aeb7bd97029dc620d1f884818eebb412d7628ae98beab8ea"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-battle-head/legendary-24-head-side-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "a4a2739bbadabb49f3b2ea33318279676c0c7f6d6c720fa297a7f5199925aae0"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-battle-head/legendary-24-head-side-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "d56d9ab241e9498e500a77bc760accd063a76eb7d2fd8f61504839544c160730"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-battle-head/legendary-24-head-other-side-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "ec07924a8bf391f85ebeacfe1c637c8b2e9b0f62625e818b5b5a31d0776f0354"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-battle-head/legendary-24-head-other-side-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "508d615bf9b04777ed5ebc094d6b8244f8d9e8f4571eff232a590fd16f1dad4c"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-battle-head/legendary-24-head-other-side-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "78ac27d68849b24bb686d6a6dd78f4ad7ae3bdf0727a404ed2842edb92a51a1c"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-battle-body/legendary-24-front-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "4ec8a6e800d509afa8c98a5f65aa0b5ff96f24d68e1590f94fc82c72ce98dd2c"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-battle-body/legendary-24-front-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "c855adf13baff1030b8f1ba3fc77745225757d0913cb79ce12e24c58ba60f87f"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-battle-body/legendary-24-front-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "225610b0a2279ebf76b18316f211a4705e3b0daa7eecdb6da91aac229f47fabe"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-battle-body/legendary-24-side-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "a7df1ed31277fd5709bc986cfaa2e354e578da08172e03aa31004bba2f22b8f7"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-battle-body/legendary-24-side-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "8e47af2e49f65cf241ee714fc60e130415bed7f3134851fb37f7b9ebe84f7908"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-battle-body/legendary-24-side-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "e8934524543eb5c9f14f14b7370941c4d9911933a30ab8e1c561168c05e6a6b3"
+    }
+  ],
+  "runtime": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-runtime-low/legendary-24-source-body-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "ad101f8638f8cc1c5660f3746b2ee3874aa192219fa6709c1fc0be304246920b"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-runtime-low/legendary-24-source-body-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "735900a9d54f53d761dd4bfed9829560c550455373bb24f7ca521a348cba350b"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-runtime-low/legendary-24-source-body-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "82c66011a1a37fb4c8b398ac43c9a636d1fd0ef122ab6e951cbf2ef4170f87e0"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-runtime-low/legendary-24-source-body-3.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "ffebf28ed644101a535cc1733effeea0b0c50cde9da45a32fc73e4fb196efa00"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-runtime-low/legendary-24-source-head-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "f86c3ee22ea6fc2f44dff803e70f4fd3fffe593730a0627aedbc2da8b98e10ad"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-runtime-low/legendary-24-source-head-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "e103c66cd7f1e1c45d0a0f9073388c8a12b3f012c7ba15177497ab0434511fcf"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-runtime-low/legendary-24-source-head-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "9a1c997d0a036862e53267558d022ca7c03332f0b51e4588ff45dfaf8b016fce"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-runtime-low/legendary-24-source-head-3.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "da7340b98af4538118809f7678685adc36747186244ce88da76f88eb3232ca53"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-runtime-low/legendary-24-battle-body-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "deb4b1a84f6df902fcc74792377c2be37ad87a9d485005caff29a620642c7250"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-runtime-low/legendary-24-battle-body-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "558a4d480a519e72a97375960e884e6160163ffdb3be0adc22457101ecd61332"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-runtime-low/legendary-24-battle-body-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "a4dc0d29144366ce7e393b9570b948aa3e1f56d501c19d0dbec34aeb84094fb1"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-runtime-low/legendary-24-battle-body-3.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "1fdcb5dfc6b2d319f9a7cd85f7d1c03f4811b9cc404fe1bbecef2deca24fc474"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-runtime-low/legendary-24-battle-head-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "5e5242b0aeead4fcf7271e670a2d0890387812ee9ec59fd96586c8993ffdb2fe"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-runtime-low/legendary-24-battle-head-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "e730dfd9f4fde94169b5e2a0ad33521281e8d6ae605854c9fff3c5cf7894299e"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-runtime-low/legendary-24-battle-head-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "60bd3fafd43de5b318aaac6b06fe1c8e9ffadd779fbca9a9413a54fadef58eb8"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-runtime-low/legendary-24-battle-head-3.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "e65685009aa804f36adfefd37d672a0f240b1cf0e338d471be0149dfad7dbac6"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-runtime-medium/legendary-24-source-body-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "c3d083198dfb1a73dccc0758d1fc377bb365df8cbdcc08c495ee2be54a10a8fb"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-runtime-medium/legendary-24-source-body-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "c72f459a023bdd97c32c1e211235e2a74f71db8bffa0b2fcad264e41cf0941c8"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-runtime-medium/legendary-24-source-body-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "034efac12924ad7ac3d8fbf814fdc1f9e29bc52c34203a4398d0986832fc8c38"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-runtime-medium/legendary-24-source-body-3.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "2b8ddd5daabde96e7c5fb9ad9038a23be41a37f0df8e7c372d34a4c232a33914"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-runtime-medium/legendary-24-source-head-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "e634c8ec9d2e07e0b9b4b1615ebf0bda7382366cc6a2f979487fdd26c9b45e70"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-runtime-medium/legendary-24-source-head-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "7ffaed2c02b973cd2f30ef9fa51207960f4663aff5d637b4035dd907f06796db"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-runtime-medium/legendary-24-source-head-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "d07881936619013b6b8174c25904c52b8aa50c356bbd45f64e2de316d3f7d47c"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-runtime-medium/legendary-24-source-head-3.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "c36119a3f1df91f8bd6675a6c9b39f6cd558a5c61f9f26df3eff23430957b12d"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-runtime-medium/legendary-24-battle-body-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "95a2ebdec682e1af06765c02a1f25bdf8dba8b664f0217a32ef7a36bb749ae1f"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-runtime-medium/legendary-24-battle-body-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "f2b9d41295f8aead29ad108f8bff1ccec6bcb2f8ef21cbe57c4d6452a793adf5"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-runtime-medium/legendary-24-battle-body-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "27f0ba667ac687b351d47a9e39d87ac216beaff8c17a9446a7e68ae137bf978d"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-runtime-medium/legendary-24-battle-body-3.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "4c54976abd47238b9021844a1768ec2b2f609748dc6c96177a37ef1769745916"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-runtime-medium/legendary-24-battle-head-0.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "4f6a8055a573e677db57b6340900764004c45a53d879a606693fc9f66c8a02ce"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-runtime-medium/legendary-24-battle-head-1.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "6132cc24d3c4ab378dca6cb37fc7f539adc9c3b00ded63055c315c3b7fae75f4"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-runtime-medium/legendary-24-battle-head-2.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "23ce5994816aef90ddece0f6cb49e3aac2d31594ca7c5f6ba485f979224d6773"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-raiju-all-clips-v2-final-runtime-medium/legendary-24-battle-head-3.png",
+      "actuallyInspected": true,
+      "result": "pass",
+      "sha256": "481d87be30d9f940c64003a523812ecb1207a0e5d257ad70830f953b6087de74"
+    }
+  ],
+  "techniques": [
+    {
+      "path": ".tmp/pet-companion-techniques/independent-raiju-all-clips-v2-final-techniques/inspection-strips/front-block-0-half-0.png",
+      "sha256": "b65d6f48436968aabdd9ba29d2290316c348f2dae76f0046a08bedb94ea4e472",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-raiju-all-clips-v2-final-techniques/inspection-strips/front-block-0-half-1.png",
+      "sha256": "fae6a609cd39ed3f8e214e5d88e01dbd5963d608ad6edeae00bd97199b9fae21",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-raiju-all-clips-v2-final-techniques/inspection-strips/front-block-1-half-0.png",
+      "sha256": "9214ea63705c7544a465d205360bd7e92ca7b550ec21c5c385c6515485723a6f",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-raiju-all-clips-v2-final-techniques/inspection-strips/front-block-1-half-1.png",
+      "sha256": "a2408688c91aab5644c0d6287c5a916394fdb91cf8888edc16ae188b01459cae",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-raiju-all-clips-v2-final-techniques/inspection-strips/front-block-2-half-0.png",
+      "sha256": "0fe1e37d9343571ba79382327c84cf0cecb0bc410e985572d39c7475405b9eb6",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-raiju-all-clips-v2-final-techniques/inspection-strips/front-block-2-half-1.png",
+      "sha256": "bd9f5c66060823cc2f32f8e171082259d7216abecf2faa1770dd28d48aaa9acf",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-raiju-all-clips-v2-final-techniques/inspection-strips/side-block-0-half-0.png",
+      "sha256": "27d6118f7a41f79048b0cd105b54db6fae9bc93dbf7b83461bcff516accc7db2",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-raiju-all-clips-v2-final-techniques/inspection-strips/side-block-0-half-1.png",
+      "sha256": "9172176be1408095ba6e872b05ba6d1c189c25cfe410f6ac5fac4a5756c9be89",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-raiju-all-clips-v2-final-techniques/inspection-strips/side-block-1-half-0.png",
+      "sha256": "8112c3eb2ecf46ec9827c5c62170066a677a96ad7273c5d434556be32159872a",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-raiju-all-clips-v2-final-techniques/inspection-strips/side-block-1-half-1.png",
+      "sha256": "8c4bc20d1a61b9bb86e3cbcb9d6d29974b09c12e06b3bd3c83c6badddd6a088f",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-raiju-all-clips-v2-final-techniques/inspection-strips/side-block-2-half-0.png",
+      "sha256": "48d978697466e131ce86011292869851b55baec3eab5bc8523416d669d9345b2",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-companion-techniques/independent-raiju-all-clips-v2-final-techniques/inspection-strips/side-block-2-half-1.png",
+      "sha256": "451b9361a3932f02844b9d96198e20ce1e31d014d209b7d448aa4ca0f25b22b7",
+      "actuallyInspected": true,
+      "result": "pass"
+    }
+  ],
+  "companion": [
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/raiju-all-clips-v2-final-companions/legendary-24/idle-sheet-0.webp",
+      "sha256": "b37debdb8c7086fe6c890ca93b1d035fa2473b5058bd6ef03037e804be3896ce",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/raiju-all-clips-v2-final-companions/legendary-24/idle-sheet-1.webp",
+      "sha256": "e71594d8f8fae9ae7433601a02fdd28d767fce5832b179f991bc2bd29773451f",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/raiju-all-clips-v2-final-companions/legendary-24/idle-sheet-2.webp",
+      "sha256": "44094566bb6e2d6336931ab201e8d8314a9590261389078a3907dcc901df6179",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/raiju-all-clips-v2-final-companions/legendary-24/idle-sheet-3.webp",
+      "sha256": "530ea6ec75daf3c4b8c746ec597bcf7e148e14819c2660ee3aedd826d5708692",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/raiju-all-clips-v2-final-companions/legendary-24/idle-sheet-4.webp",
+      "sha256": "da811ce436191184663fae693f1ed708a201b7d36ed56fee29bebac3db5e8389",
+      "actuallyInspected": true,
+      "result": "pass"
+    },
+    {
+      "path": ".tmp/pet-independent-face-recheck/companion/raiju-all-clips-v2-final-companions/legendary-24/idle-sheet-5.webp",
+      "sha256": "a71ee9b046260e6063afce4a18699b2f2a50e1b7f1fefd501a8637e7f1dfebf4",
+      "actuallyInspected": true,
+      "result": "pass"
+    }
+  ],
+  "secondPassComplete": true,
+  "notes": "All 30 final raw slices, 32 runtime transition slices, 216 native technique frames, 24 advancing idle frames and 16 atlas cells actually inspected/pass. Face, neck ruff and visible shoulder/hip/paw motion coherent in source and regenerated battle delivery. Opposite raw death face naturally occluded by shoulder; primary raw side and front plus runtime front/side resolve anatomy. Tips cropped in closeups; full body preserves sculpt.",
+  "atlas": {
+    "path": "public/pet-models/warfront-impostors/roster/legendary-24.webp",
+    "sha256": "53a915ce72c693cacd6a2d42756ee2c9be579a061402481de45aa0bdbad98938",
+    "actuallyInspected": true,
+    "result": "pass"
+  },
+  "atlasCellsActuallyInspected": 16,
+  "recordedAt": "2026-10-19T06:09:44.279Z"
+}
