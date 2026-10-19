@@ -1,0 +1,74 @@
+{
+  "schema": 1,
+  "errors": [],
+  "pets": [
+    {
+      "id": "legendary-15",
+      "name": "Inferno Chimera",
+      "url": "/pet-models/warfront-lod/roster/legendary-15.glb",
+      "sha256": "0d62b2a54572b20fbdf76d1a3f4c4381313692ea75bba614edbf5adb459018a0",
+      "clips": [
+        "idle",
+        "idle_2",
+        "walk",
+        "gallop",
+        "gallop_jump",
+        "attack",
+        "idle_hitreact1",
+        "death",
+        "entrance",
+        "cast",
+        "guard",
+        "rest",
+        "victory"
+      ],
+      "progress": [
+        0,
+        0.125,
+        0.375,
+        0.625,
+        0.875,
+        1
+      ],
+      "views": [
+        "head-front",
+        "head-side",
+        "head-under-front",
+        "head-under-side"
+      ],
+      "materialTreatment": {
+        "mode": "production-diffuse",
+        "materials": 1,
+        "metalnessMax": 0.05,
+        "roughnessRange": [
+          0.58,
+          0.82
+        ]
+      },
+      "region": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.5144160795688301,
+          0.692045850077259,
+          -0.2003302312990132,
+          0.4320148734580377,
+          0.5325607559833492,
+          1.0797110482889167
+        ],
+        "cameraPadding": 1.15
+      },
+      "sheets": [
+        "legendary-15-head-front.webp",
+        "legendary-15-head-side.webp",
+        "legendary-15-head-under-front.webp",
+        "legendary-15-head-under-side.webp"
+      ],
+      "review": "pending",
+      "anatomySha256": "cbf0e0a87d50dfd6aa8106fa87314f79cb85fefc4d697d4bf1238341807084c9"
+    }
+  ],
+  "artisticCertification": false
+}

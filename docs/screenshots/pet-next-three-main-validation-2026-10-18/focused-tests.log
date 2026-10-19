@@ -1,0 +1,74 @@
+✔ Behemoth independently frozen landmarks cover the whole head, detect released distortion and pass repaired clips and blends (1845.6155ms)
+✔ Behemoth anatomical legs preserve sculpt, UVs, textures, every original bone frame and inverse bind (216.0071ms)
+✔ Behemoth keeps all original head, neck, tail and unrelated performance curves exactly (67.9858ms)
+✔ Behemoth visible sole surfaces stay supported between keys, independently of joint-contact metadata (6333.7364ms)
+✔ Behemoth pinned three-stage recipe reproduces the visually reviewed bytes and rejects unexpected input (3371.1557ms)
+✔ Behemoth shipping source reproduces the original three repair stages and restored authored limb clips (176.5848ms)
+✔ Chimera independently frozen landmarks cover both heads, detect released distortion and pass repaired clips and blends (2931.5236ms)
+✔ Chimera anatomical legs preserve sculpt, UVs, textures, every original bone frame and inverse bind (158.6786ms)
+✔ Chimera keeps all original head, neck, tail and unrelated performance curves exactly (68.2433ms)
+✔ Chimera visible sole surfaces stay supported between keys, independently of joint-contact metadata (5150.6417ms)
+✔ Chimera pinned three-stage recipe reproduces the visually reviewed bytes and rejects unexpected input (2659.5826ms)
+✔ Chimera shipping source reproduces the original three repair stages and restored authored limb clips (133.3208ms)
+✔ EclipseKitsune independently frozen landmarks cover the whole head, detect released distortion and pass repaired clips and blends (1960.6587ms)
+✔ EclipseKitsune anatomical legs preserve sculpt, UVs, textures, every original bone frame and inverse bind (207.8513ms)
+✔ EclipseKitsune keeps all original head, neck, tail and unrelated performance curves exactly (180.3393ms)
+✔ EclipseKitsune visible sole surfaces stay supported between keys, independently of joint-contact metadata (2043.3745ms)
+✔ EclipseKitsune pinned three-stage recipe reproduces the visually reviewed bytes and rejects unexpected input (1846.3037ms)
+✔ EclipseKitsune shipping source reproduces the original three repair stages and restored authored limb clips (84.2775ms)
+✔ EclipseKitsune shipping battle LOD preserves independently frozen complete face and ruff through all clips and blends (576.7691ms)
+✔ EclipseKitsune animation source retention includes every current mesh and skin stream (98.3831ms)
+✔ Eclipse Kitsune independent supporting-sole samples reject the cross-paw candidate (2141.7567ms)
+✔ Eclipse Kitsune battle soles remain supported using original visible surface boxes (807.9509ms)
+✔ Eclipse Kitsune actual source and battle soles have no inherited head or neck influences (197.3313ms)
+{"id":"legendary-17","stage":"source","shippingSha256":"5d2fed896ae1dff63b633602b3c671caeba43f6b66b92d614936c09833e1b25f","comparedKeys":216,"maxWorldAngularError":6.664001874625056e-8,"ownLegCounterfactuals":4,"actualDeliveredOwnLegCounterfactuals":4,"deliveryScope":"shipping-public-assets","originalAndFittedJointDeltaEqual":true,"scalarRatios":"Retained in diagnostic evidence; exact original angular deltas and visible anatomical arcs govern this rig repair."}
+✔ legendary-17 source: original angular performances and independent own-leg paw motion survive the omitted-clip repair (29312.8969ms)
+{"id":"legendary-17","stage":"battle","shippingSha256":"1419d8a5306204f4c525e23e33eccf6e34912747a4e154fa4fdfe34248ce6b33","comparedKeys":216,"maxWorldAngularError":6.664001874625056e-8,"ownLegCounterfactuals":4,"actualDeliveredOwnLegCounterfactuals":4,"deliveryScope":"shipping-public-assets","originalAndFittedJointDeltaEqual":true,"scalarRatios":"Retained in diagnostic evidence; exact original angular deltas and visible anatomical arcs govern this rig repair."}
+✔ legendary-17 battle: original angular performances and independent own-leg paw motion survive the omitted-clip repair (13038.1418ms)
+{"id":"legendary-15","stage":"source","shippingSha256":"fa777c9224e77932162a34ce408665e567ea61030bbd1c334e0d01ffe7f63e7e","comparedKeys":216,"maxWorldAngularError":7.884953353001448e-8,"ownLegCounterfactuals":4,"actualDeliveredOwnLegCounterfactuals":4,"deliveryScope":"shipping-public-assets","originalAndFittedJointDeltaEqual":true,"scalarRatios":"Retained in diagnostic evidence; exact original angular deltas and visible anatomical arcs govern this rig repair."}
+✔ legendary-15 source: original angular performances and independent own-leg paw motion survive the omitted-clip repair (24751.4227ms)
+{"id":"legendary-15","stage":"battle","shippingSha256":"0d62b2a54572b20fbdf76d1a3f4c4381313692ea75bba614edbf5adb459018a0","comparedKeys":216,"maxWorldAngularError":7.884953353001448e-8,"ownLegCounterfactuals":4,"actualDeliveredOwnLegCounterfactuals":4,"deliveryScope":"shipping-public-assets","originalAndFittedJointDeltaEqual":true,"scalarRatios":"Retained in diagnostic evidence; exact original angular deltas and visible anatomical arcs govern this rig repair."}
+✔ legendary-15 battle: original angular performances and independent own-leg paw motion survive the omitted-clip repair (10579.2641ms)
+{"id":"mythic-0","stage":"source","shippingSha256":"f1f9966af3bb7941c4eae4aa73a1f0e05aee3a124f93ba59907bc329a31cc156","comparedKeys":216,"maxWorldAngularError":7.884953353001448e-8,"ownLegCounterfactuals":4,"actualDeliveredOwnLegCounterfactuals":4,"deliveryScope":"shipping-public-assets","originalAndFittedJointDeltaEqual":true,"scalarRatios":"Retained in diagnostic evidence; exact original angular deltas and visible anatomical arcs govern this rig repair."}
+✔ mythic-0 source: original angular performances and independent own-leg paw motion survive the omitted-clip repair (10201.4543ms)
+{"id":"mythic-0","stage":"battle","shippingSha256":"8f2146f95104be2ce07e36c95d7aa2d48754f409806448f1bf83fdc02917eae1","comparedKeys":216,"maxWorldAngularError":7.884953353001448e-8,"ownLegCounterfactuals":4,"actualDeliveredOwnLegCounterfactuals":4,"deliveryScope":"shipping-public-assets","originalAndFittedJointDeltaEqual":true,"scalarRatios":"Retained in diagnostic evidence; exact original angular deltas and visible anatomical arcs govern this rig repair."}
+✔ mythic-0 battle: original angular performances and independent own-leg paw motion survive the omitted-clip repair (5398.4449ms)
+✔ Cinder Cub's concave flame keeps its authored contours without a leaking inverted hull (2.0753ms)
+✔ all five base starter forms have an approved combat model (7.6501ms)
+✔ Pebble Tortoise replaces the duplicate-head-shell asset with the reviewed one-shell rig (0.76ms)
+✔ all ten evolved starter forms have a combat model (0.4218ms)
+✔ the four-pet Showdown lineup resolves to its species-authored animation assets (0.832ms)
+✔ Showdown models carry their visually certified forward-axis correction (0.2497ms)
+✔ unrelated unmodeled pets keep the safe standee fallback (0.1592ms)
+✔ malformed legacy identities fall back instead of crashing model resolution (0.5145ms)
+✔ all built-in Coliseum AI opponents resolve to approved roster models (9.019ms)
+✔ all 146 approved roster models have a certified motion family (3.8397ms)
+✔ breeding-exclusive Mythics keep their own combat identity and model (0.6906ms)
+✔ hatched owned-instance ids resolve their breeding Mythic template model (0.4724ms)
+✔ legacy owned-instance ids recover the roster template from their safe prefix (0.2229ms)
+✔ timestamped encounter clones retain their canonical combat model (0.1782ms)
+✔ legacy evolved saves infer the model from rarity (5.9556ms)
+✔ close-up presentation falls back only for the unapproved legendary Wind model (0.7433ms)
+✔ every anatomy family gets a grounded, size-capped victory beat (0.3243ms)
+✔ all 161 production combat models inherit the grounded victory envelope (1.9001ms)
+✔ all approved roster models are colored, skinned, animated single-pet assets (2488.9856ms)
+✔ all 161 production pets have complete proper skeletal animation banks (1731.3562ms)
+✔ all 161 catalog identities resolve to a versioned runtime GLB with the full clip contract (1228.5692ms)
+✔ Celestial Lion has the full pet animation bank and animated wings in every clip (4.0268ms)
+✔ every reviewed portrait belongs to its exact production identity and is an opaque delivery WebP (1531.4751ms)
+✔ all five base starters use scenic portraits without changing their battle cutouts (1.1748ms)
+✔ owned and timestamped identities resolve the same portrait, including starter stages (1.7778ms)
+✔ dedicated custom cards and explicit palette variants retain priority over the built-in replacement (0.2944ms)
+✔ unknown creator companions retain legacy artwork and never borrow another species portrait (0.3219ms)
+✔ the production references remain byte-identical, including model-baked 2.5D atlases (1053.9652ms)
+✔ Warfront maps a revisioned authored source to its certified battle LOD (3.9217ms)
+✔ source A/B and unknown assets retain the authored model (0.2446ms)
+✔ compact runtime metadata retains every certified expanded LOD entry exactly (3.03ms)
+ℹ tests 60
+ℹ suites 0
+ℹ pass 60
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 95844.8002

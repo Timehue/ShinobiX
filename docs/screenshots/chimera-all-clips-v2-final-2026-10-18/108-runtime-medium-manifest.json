@@ -1,0 +1,375 @@
+{
+  "schema": 1,
+  "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+  "captureHarnessSha256": "a8f219ea14c83acb48c4678d773922dea781375f7f0fc7636d5128890d30c056",
+  "viewport": {
+    "width": 1280,
+    "height": 800
+  },
+  "rows": [
+    {
+      "name": "idle",
+      "duration": 1.2,
+      "frame": {
+        "motion": "idle"
+      }
+    },
+    {
+      "name": "run",
+      "duration": 0.8,
+      "frame": {
+        "motion": "run",
+        "moving": true,
+        "speed": 3
+      }
+    },
+    {
+      "name": "dash",
+      "duration": 0.6,
+      "frame": {
+        "motion": "dash",
+        "moving": true,
+        "speed": 5
+      }
+    },
+    {
+      "name": "windup",
+      "duration": 0.38,
+      "frame": {
+        "motion": "windup"
+      }
+    },
+    {
+      "name": "strike",
+      "duration": 0.26,
+      "frame": {
+        "motion": "strike",
+        "contactPose": true
+      }
+    },
+    {
+      "name": "recover",
+      "duration": 0.51,
+      "frame": {
+        "motion": "recover"
+      }
+    },
+    {
+      "name": "stagger",
+      "duration": 0.65,
+      "frame": {
+        "motion": "stagger",
+        "hit": 0.6,
+        "contactPose": true
+      }
+    },
+    {
+      "name": "dodge",
+      "duration": 0.65,
+      "frame": {
+        "motion": "dodge"
+      }
+    },
+    {
+      "name": "guard",
+      "duration": 0.8,
+      "frame": {
+        "motion": "guard"
+      }
+    },
+    {
+      "name": "rest",
+      "duration": 1.2,
+      "frame": {
+        "motion": "rest"
+      }
+    },
+    {
+      "name": "cast",
+      "duration": 0.9,
+      "frame": {
+        "motion": "idle",
+        "casting": true
+      }
+    },
+    {
+      "name": "entrance",
+      "duration": 1.1,
+      "frame": {
+        "motion": "idle"
+      }
+    },
+    {
+      "name": "victory",
+      "duration": 1.2,
+      "frame": {
+        "motion": "idle",
+        "victorious": true
+      }
+    },
+    {
+      "name": "dead",
+      "duration": 1.6,
+      "frame": {
+        "motion": "dead"
+      }
+    },
+    {
+      "name": "revive",
+      "duration": 0.8,
+      "frame": {
+        "motion": "idle"
+      }
+    },
+    {
+      "name": "attack-sequence",
+      "duration": 1.7,
+      "frame": {
+        "motion": "windup"
+      }
+    }
+  ],
+  "phases": [
+    0.025,
+    0.1,
+    0.25,
+    0.5,
+    0.75,
+    1
+  ],
+  "views": [
+    "front",
+    "side"
+  ],
+  "errors": [],
+  "pets": [
+    {
+      "id": "legendary-15",
+      "name": "Inferno Chimera",
+      "captures": [
+        {
+          "stage": "source",
+          "sha256": "fa777c9224e77932162a34ce408665e567ea61030bbd1c334e0d01ffe7f63e7e",
+          "meshes": 1,
+          "headVertices": [
+            323,
+            289
+          ],
+          "quality": "medium",
+          "diagnosticNormalSurfaces": 0,
+          "diagnostic": {
+            "landmarkCamera": true,
+            "normals": false
+          },
+          "sheets": [
+            {
+              "name": "legendary-15-source-head.webp",
+              "sha256": "5b274c0f18ee139fcaf0350f8b7aaf5708672eadda650955fe4d6ffacc8ab09f"
+            },
+            {
+              "name": "legendary-15-source-head-2.webp",
+              "sha256": "335f78cd6e0824ce2f243193218cc89fd7e743d1a6a128d3b02fcac16a2345d3"
+            },
+            {
+              "name": "legendary-15-source-body.webp",
+              "sha256": "897c791123329f18db2861af6873f2006e7767e6e733e27a0c8d22b9b6853f9b"
+            }
+          ],
+          "pairedNormalPoseVerified": false,
+          "cameraSha256": "2170dd5694b86be2b227de3421a62fce424b518a6c3ddd3f59d151555faed40a",
+          "anatomySha256": "cbf0e0a87d50dfd6aa8106fa87314f79cb85fefc4d697d4bf1238341807084c9",
+          "anatomyReport": {
+            "poses": 459,
+            "regions": [
+              {
+                "name": "lionUpperFace",
+                "vertices": 111,
+                "edges": 245,
+                "maxDrift": 4.865658319909695e-15,
+                "worldMinRatio": 0.9999981966233026,
+                "worldMaxRatio": 1.0000005559629441,
+                "maximumTime": 8.093333333333321
+              },
+              {
+                "name": "lionMuzzle",
+                "vertices": 77,
+                "edges": 153,
+                "maxDrift": 5.493508780152717e-15,
+                "worldMinRatio": 0.9999981965725271,
+                "worldMaxRatio": 1.0000005569707207,
+                "maximumTime": 8.25833333333332
+              },
+              {
+                "name": "lionLowerFace",
+                "vertices": 113,
+                "edges": 229,
+                "maxDrift": 5.3346053346936665e-15,
+                "worldMinRatio": 0.9999981965725271,
+                "worldMaxRatio": 1.0000005569707207,
+                "maximumTime": 4.887499999999996
+              },
+              {
+                "name": "lionJawChin",
+                "vertices": 104,
+                "edges": 244,
+                "maxDrift": 4.281921833265659e-15,
+                "worldMinRatio": 0.9999981965725256,
+                "worldMaxRatio": 1.0000005519013042,
+                "maximumTime": 4.724999999999996
+              },
+              {
+                "name": "dragonUpperFace",
+                "vertices": 86,
+                "edges": 183,
+                "maxDrift": 4.791657754291751e-15,
+                "worldMinRatio": 0.9999981965725354,
+                "worldMaxRatio": 1.0000005645720058,
+                "maximumTime": 8.093333333333321
+              },
+              {
+                "name": "dragonMuzzle",
+                "vertices": 135,
+                "edges": 279,
+                "maxDrift": 3.464971244650815e-15,
+                "worldMinRatio": 0.9999981965725133,
+                "worldMaxRatio": 1.0000005438051587,
+                "maximumTime": 4.758333333333329
+              },
+              {
+                "name": "dragonLowerFace",
+                "vertices": 122,
+                "edges": 263,
+                "maxDrift": 4.37060924465963e-15,
+                "worldMinRatio": 0.9999981965725133,
+                "worldMaxRatio": 1.0000004983390136,
+                "maximumTime": 4.758333333333329
+              },
+              {
+                "name": "dragonJawChin",
+                "vertices": 79,
+                "edges": 158,
+                "maxDrift": 6.3418709440174056e-15,
+                "worldMinRatio": 0.9999981966697589,
+                "worldMaxRatio": 1.0000004782753567,
+                "maximumTime": 4.758333333333329
+              }
+            ],
+            "failed": false
+          }
+        },
+        {
+          "stage": "battle",
+          "sha256": "0d62b2a54572b20fbdf76d1a3f4c4381313692ea75bba614edbf5adb459018a0",
+          "meshes": 1,
+          "headVertices": [
+            111,
+            86
+          ],
+          "quality": "medium",
+          "diagnosticNormalSurfaces": 0,
+          "diagnostic": {
+            "landmarkCamera": true,
+            "normals": false
+          },
+          "sheets": [
+            {
+              "name": "legendary-15-battle-head.webp",
+              "sha256": "00bbca3f19db67a033bd0c17b8180dd5ebce8067e94ce8863c3d2d53126afb58"
+            },
+            {
+              "name": "legendary-15-battle-head-2.webp",
+              "sha256": "8c0903f80a40e344a6d9499d44122737dc19b807c53e93b56a021c90d5a5d3e0"
+            },
+            {
+              "name": "legendary-15-battle-body.webp",
+              "sha256": "66a6ef77800f744c2776a57459eac8256cc43fdbb341e12faadd3db80ec2bf28"
+            }
+          ],
+          "pairedNormalPoseVerified": false,
+          "cameraSha256": "2170dd5694b86be2b227de3421a62fce424b518a6c3ddd3f59d151555faed40a",
+          "anatomySha256": "cbf0e0a87d50dfd6aa8106fa87314f79cb85fefc4d697d4bf1238341807084c9",
+          "anatomyReport": {
+            "poses": 459,
+            "regions": [
+              {
+                "name": "lionUpperFace",
+                "vertices": 37,
+                "edges": 58,
+                "maxDrift": 4.721877076543553e-15,
+                "worldMinRatio": 0.9999982113245093,
+                "worldMaxRatio": 1.0000005430035204,
+                "maximumTime": 8.291666666666654
+              },
+              {
+                "name": "lionMuzzle",
+                "vertices": 29,
+                "edges": 40,
+                "maxDrift": 5.8222104742151444e-15,
+                "worldMinRatio": 0.9999981965888539,
+                "worldMaxRatio": 1.0000005569707173,
+                "maximumTime": 8.291666666666654
+              },
+              {
+                "name": "lionLowerFace",
+                "vertices": 44,
+                "edges": 71,
+                "maxDrift": 5.450656720444515e-15,
+                "worldMinRatio": 0.9999981970822305,
+                "worldMaxRatio": 1.0000005569707173,
+                "maximumTime": 4.724999999999996
+              },
+              {
+                "name": "lionJawChin",
+                "vertices": 30,
+                "edges": 53,
+                "maxDrift": 4.101300765857216e-15,
+                "worldMinRatio": 0.9999981965888539,
+                "worldMaxRatio": 1.0000004005640215,
+                "maximumTime": 8.291666666666654
+              },
+              {
+                "name": "dragonUpperFace",
+                "vertices": 27,
+                "edges": 44,
+                "maxDrift": 4.3637765675289026e-15,
+                "worldMinRatio": 0.9999981998393506,
+                "worldMaxRatio": 1.0000005276156374,
+                "maximumTime": 8.291666666666654
+              },
+              {
+                "name": "dragonMuzzle",
+                "vertices": 39,
+                "edges": 56,
+                "maxDrift": 3.4562250929576705e-15,
+                "worldMinRatio": 0.9999981966576692,
+                "worldMaxRatio": 1.000000425071416,
+                "maximumTime": 8.291666666666654
+              },
+              {
+                "name": "dragonLowerFace",
+                "vertices": 38,
+                "edges": 55,
+                "maxDrift": 3.669423701969102e-15,
+                "worldMinRatio": 0.9999981976903974,
+                "worldMaxRatio": 1.0000003439200604,
+                "maximumTime": 12.249999999999968
+              },
+              {
+                "name": "dragonJawChin",
+                "vertices": 23,
+                "edges": 28,
+                "maxDrift": 5.559679509176651e-15,
+                "worldMinRatio": 0.9999981971258266,
+                "worldMaxRatio": 1.0000003691326254,
+                "maximumTime": 8.291666666666654
+              }
+            ],
+            "failed": false
+          }
+        }
+      ],
+      "review": "pending"
+    }
+  ],
+  "artisticCertification": false
+}

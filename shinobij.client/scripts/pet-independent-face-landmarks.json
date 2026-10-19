@@ -3045,6 +3045,600 @@
         "appendedAnatomicalLimbJoints": 12,
         "coverageActuallyRechecked": true
       }
+    },
+    "legendary-17": {
+      "camera": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.3365992386697179,
+          0.3401993675920132,
+          -0.1898551236481831,
+          0.38762971968206583,
+          0.6038311979185631,
+          1.1179032648558167
+        ],
+        "cameraPadding": 1.15
+      },
+      "status": "landmark-coverage-reviewed",
+      "sourceSha256": "5c3b79e3ea968eb6007279c27dabac552018bec726c84e2bcf51eb668fb5c58c",
+      "coverageEvidence": ".tmp/pet-independent-face-recheck/legendary-17-landmark-coverage.png",
+      "landmarks": {
+        "upperFace": {
+          "center": [
+            -0.09659923866971794,
+            0.20762971968206587,
+            0.9248971724019336
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            135,
+            184
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "muzzle": {
+          "center": [
+            0.001337727654317297,
+            0.09499184028381083,
+            0.9979032648558167
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            150,
+            207
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "lowerFace": {
+          "center": [
+            -0.014159627389002014,
+            -0.04473046651811999,
+            0.937931202327936
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            150,
+            231
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        },
+        "jawChin": {
+          "center": [
+            0.10019936759201319,
+            -0.09985512364818311,
+            0.8838311979185631
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            145,
+            240
+          ],
+          "pickedView": "head-side",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head"
+        }
+      },
+      "geometrySha256": "96044f7954537be150e9e06a28d898ce3b6daa3321825c05a7e3ddd3700413c6",
+      "geometryToVisibleBind": [
+        0.9999999827852453,
+        0,
+        0,
+        0,
+        0,
+        1.0000000076422553,
+        2.329188109051472e-8,
+        0,
+        0,
+        -1.803160289970407e-7,
+        0.9999998720304757,
+        0,
+        0.23036896730026843,
+        8.334347567640066e-8,
+        1.261185138545784e-7,
+        1
+      ],
+      "headCountVisuallyVerified": 1,
+      "heads": [
+        {
+          "id": "primary",
+          "landmarks": [
+            "upperFace",
+            "muzzle",
+            "lowerFace",
+            "jawChin"
+          ]
+        }
+      ],
+      "coverageReviewedAt": "2026-10-17T13:42:34.948Z",
+      "coverageReview": "Fresh six-view survey, native front/side frames and four-landmark overlay actually inspected. Behemoth has one head. Upper cheek/brow, nose, gold lower teeth and exposed side jaw/chin are covered. Minimum battle patch 20 vertices. New animation/technique review remains pending.",
+      "rigExtensionReview": {
+        "previousGeometrySha256": "55e062896e8dff69e7ba49bd225b6372fec9b3645441891cb660e4d97ef24b54",
+        "candidateSourceSha256": "d34c30e7b34e8c3de7fc5bd79211e342746cc895e830f6aec15200ea058282e4",
+        "conservationEvidence": "docs/screenshots/pet-independent-legendary-015-019-progress-2026-10-17/legendary-17-anatomical-candidate-conservation.json",
+        "originalBoneFramesAndInverseBindsPreserved": true,
+        "legacyLimbNamesPrefixed": true,
+        "sculptUvsTexturesPreserved": true,
+        "frozenLandmarksAndCoordinateFrameUnchanged": true,
+        "appendedAnatomicalLimbJoints": 12,
+        "coverageActuallyRechecked": true
+      }
+    },
+    "legendary-15": {
+      "camera": {
+        "y": [
+          -2,
+          -2
+        ],
+        "bounds": [
+          -0.5144160795688301,
+          0.692045850077259,
+          -0.2003302312990132,
+          0.4320148734580377,
+          0.5325607559833492,
+          1.0797110482889167
+        ],
+        "cameraPadding": 1.15
+      },
+      "status": "landmark-coverage-reviewed",
+      "sourceSha256": "09452e6c3efcadfcbde44e4b32d4c685a9677db585f5f5ba799adf7167997109",
+      "coverageEvidence": ".tmp/pet-independent-face-recheck/legendary-15-landmark-coverage.png",
+      "landmarks": {
+        "lionUpperFace": {
+          "center": [
+            -0.31441607956883005,
+            0.17793924206290168,
+            0.9252222768985903
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            164,
+            229
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head",
+          "cameraAtPick": {
+            "y": [
+              0.1,
+              0.2
+            ],
+            "z": [
+              0.45,
+              0.6
+            ],
+            "cameraPadding": 1.5,
+            "status": "inspection",
+            "finding": "All 13 original uncropped full-body animation sheets inspected front/side. Full face anatomy and dark surfaces require closeups before classification. No approval issued.",
+            "exclude": [
+              [
+                -0.15,
+                2,
+                -2,
+                2,
+                -2,
+                2
+              ]
+            ]
+          }
+        },
+        "lionMuzzle": {
+          "center": [
+            -0.25454518224020045,
+            0.10007990382033108,
+            0.9797110482889168
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            177,
+            252
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head",
+          "cameraAtPick": {
+            "y": [
+              0.1,
+              0.2
+            ],
+            "z": [
+              0.45,
+              0.6
+            ],
+            "cameraPadding": 1.5,
+            "status": "inspection",
+            "finding": "All 13 original uncropped full-body animation sheets inspected front/side. Full face anatomy and dark surfaces require closeups before classification. No approval issued.",
+            "exclude": [
+              [
+                -0.15,
+                2,
+                -2,
+                2,
+                -2,
+                2
+              ]
+            ]
+          }
+        },
+        "lionLowerFace": {
+          "center": [
+            -0.24998769823903477,
+            0.007778443764567655,
+            0.9600634968009754
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            177,
+            274
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head",
+          "cameraAtPick": {
+            "y": [
+              0.1,
+              0.2
+            ],
+            "z": [
+              0.45,
+              0.6
+            ],
+            "cameraPadding": 1.5,
+            "status": "inspection",
+            "finding": "All 13 original uncropped full-body animation sheets inspected front/side. Full face anatomy and dark surfaces require closeups before classification. No approval issued.",
+            "exclude": [
+              [
+                -0.15,
+                2,
+                -2,
+                2,
+                -2,
+                2
+              ]
+            ]
+          }
+        },
+        "lionJawChin": {
+          "center": [
+            -0.16212806970584775,
+            0.046669442375532895,
+            0.9088506171796652
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            126,
+            264
+          ],
+          "pickedView": "head-side",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head",
+          "cameraAtPick": {
+            "y": [
+              0.1,
+              0.2
+            ],
+            "z": [
+              0.45,
+              0.6
+            ],
+            "cameraPadding": 1.5,
+            "status": "inspection",
+            "finding": "All 13 original uncropped full-body animation sheets inspected front/side. Full face anatomy and dark surfaces require closeups before classification. No approval issued.",
+            "exclude": [
+              [
+                -0.15,
+                2,
+                -2,
+                2,
+                -2,
+                2
+              ]
+            ]
+          }
+        },
+        "dragonUpperFace": {
+          "center": [
+            0.4442925605761902,
+            0.19201487345803772,
+            0.7257148606825564
+          ],
+          "radius": 0.1,
+          "pickedPixel": [
+            204,
+            193
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head",
+          "cameraAtPick": {
+            "y": [
+              -0.1,
+              0.05
+            ],
+            "z": [
+              0.45,
+              0.6
+            ],
+            "cameraPadding": 1.5,
+            "status": "inspection",
+            "finding": "All 13 original uncropped full-body animation sheets inspected front/side. Full face anatomy and dark surfaces require closeups before classification. No approval issued.",
+            "exclude": [
+              [
+                -2,
+                -0.18,
+                -2,
+                2,
+                -2,
+                2
+              ],
+              [
+                0.6,
+                2,
+                -2,
+                2,
+                -2,
+                2
+              ]
+            ]
+          }
+        },
+        "dragonMuzzle": {
+          "center": [
+            0.4865661991179868,
+            0.03929252037238548,
+            0.7223523897862398
+          ],
+          "radius": 0.11,
+          "pickedPixel": [
+            209,
+            219
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head",
+          "cameraAtPick": {
+            "y": [
+              -0.1,
+              0.05
+            ],
+            "z": [
+              0.45,
+              0.6
+            ],
+            "cameraPadding": 1.5,
+            "status": "inspection",
+            "finding": "All 13 original uncropped full-body animation sheets inspected front/side. Full face anatomy and dark surfaces require closeups before classification. No approval issued.",
+            "exclude": [
+              [
+                -2,
+                -0.18,
+                -2,
+                2,
+                -2,
+                2
+              ],
+              [
+                0.6,
+                2,
+                -2,
+                2,
+                -2,
+                2
+              ]
+            ]
+          }
+        },
+        "dragonLowerFace": {
+          "center": [
+            0.48537514450216135,
+            -0.03528656783693024,
+            0.7466744410077978
+          ],
+          "radius": 0.11,
+          "pickedPixel": [
+            210,
+            231
+          ],
+          "pickedView": "head-front",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head",
+          "cameraAtPick": {
+            "y": [
+              -0.1,
+              0.05
+            ],
+            "z": [
+              0.45,
+              0.6
+            ],
+            "cameraPadding": 1.5,
+            "status": "inspection",
+            "finding": "All 13 original uncropped full-body animation sheets inspected front/side. Full face anatomy and dark surfaces require closeups before classification. No approval issued.",
+            "exclude": [
+              [
+                -2,
+                -0.18,
+                -2,
+                2,
+                -2,
+                2
+              ],
+              [
+                0.6,
+                2,
+                -2,
+                2,
+                -2,
+                2
+              ]
+            ]
+          }
+        },
+        "dragonJawChin": {
+          "center": [
+            0.4920458500772591,
+            -0.1203302312990132,
+            0.7025607559833492
+          ],
+          "radius": 0.08,
+          "pickedPixel": [
+            169,
+            257
+          ],
+          "pickedView": "head-side",
+          "pickedPose": "idle 0%",
+          "anchorBone": "head",
+          "cameraAtPick": {
+            "y": [
+              -0.1,
+              0.05
+            ],
+            "z": [
+              0.45,
+              0.6
+            ],
+            "cameraPadding": 1.5,
+            "status": "inspection",
+            "finding": "All 13 original uncropped full-body animation sheets inspected front/side. Full face anatomy and dark surfaces require closeups before classification. No approval issued.",
+            "exclude": [
+              [
+                -2,
+                -0.18,
+                -2,
+                2,
+                -2,
+                2
+              ],
+              [
+                0.6,
+                2,
+                -2,
+                2,
+                -2,
+                2
+              ]
+            ]
+          }
+        }
+      },
+      "geometrySha256": "83e709baf867a8450e112a33c4ea3f0ec4ad59362be4fce1a12c81ff87d93c6c",
+      "geometryToVisibleBind": [
+        0.9999999513767165,
+        0,
+        0,
+        0,
+        0,
+        1.000000009199963,
+        5.512346634706233e-9,
+        0,
+        0,
+        -1.866414179318987e-7,
+        0.9999998884472342,
+        0,
+        0.1887417126770624,
+        8.560134195922942e-8,
+        1.1122909415739457e-7,
+        1
+      ],
+      "headCountVisuallyVerified": 2,
+      "heads": [
+        {
+          "id": "lion",
+          "landmarks": [
+            "lionUpperFace",
+            "lionMuzzle",
+            "lionLowerFace",
+            "lionJawChin"
+          ]
+        },
+        {
+          "id": "dragon",
+          "landmarks": [
+            "dragonUpperFace",
+            "dragonMuzzle",
+            "dragonLowerFace",
+            "dragonJawChin"
+          ]
+        }
+      ],
+      "headCountEvidence": ".tmp/chimera-independent-four-body-views.png",
+      "individualHeadCameras": {
+        "lion": {
+          "y": [
+            0.1,
+            0.2
+          ],
+          "z": [
+            0.45,
+            0.6
+          ],
+          "cameraPadding": 1.5,
+          "status": "inspection",
+          "finding": "All 13 original uncropped full-body animation sheets inspected front/side. Full face anatomy and dark surfaces require closeups before classification. No approval issued.",
+          "exclude": [
+            [
+              -0.15,
+              2,
+              -2,
+              2,
+              -2,
+              2
+            ]
+          ]
+        },
+        "dragon": {
+          "y": [
+            -0.1,
+            0.05
+          ],
+          "z": [
+            0.45,
+            0.6
+          ],
+          "cameraPadding": 1.5,
+          "status": "inspection",
+          "finding": "All 13 original uncropped full-body animation sheets inspected front/side. Full face anatomy and dark surfaces require closeups before classification. No approval issued.",
+          "exclude": [
+            [
+              -2,
+              -0.18,
+              -2,
+              2,
+              -2,
+              2
+            ],
+            [
+              0.6,
+              2,
+              -2,
+              2,
+              -2,
+              2
+            ]
+          ]
+        }
+      },
+      "coverageReviewedAt": "2026-10-17T13:42:34.948Z",
+      "coverageReview": "Fresh six-view original survey, four body angles, separate lion/dragon face views and both eight-landmark overlay versions actually inspected. Chimera has two heads; both upper face, muzzle, lower face and side jaw are covered. Sparse battle lion jaw and dragon muzzle/lower jaw patches expanded and visually rechecked; minimum patch 22 vertices. No new animation approval issued.",
+      "rigExtensionReview": {
+        "previousGeometrySha256": "790d8268f73560429be0bdc52fb6e477affd3c6752877a64522cfa1af9fd04e5",
+        "candidateSourceSha256": "744011ea3f3d13807c07f68e2f7592a84da40139cdda5e1479ca0d49cbc852e0",
+        "conservationEvidence": "docs/screenshots/pet-independent-legendary-015-019-progress-2026-10-17/legendary-15-anatomical-candidate-conservation.json",
+        "originalBoneFramesAndInverseBindsPreserved": true,
+        "legacyLimbNamesPrefixed": true,
+        "sculptUvsTexturesPreserved": true,
+        "frozenLandmarksAndCoordinateFrameUnchanged": true,
+        "appendedAnatomicalLimbJoints": 12,
+        "coverageActuallyRechecked": true
+      }
     }
   }
 }
