@@ -27,6 +27,7 @@ export type HollowGateCombatSettleResult = {
     revived?: boolean;
     escaped?: boolean;
     petDefeat?: boolean;
+    ended?: boolean;
     alreadyReported?: boolean;
     reward?: Record<string, number>;
     elementalShards?: number;

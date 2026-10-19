@@ -8,10 +8,11 @@ import { cors, safeName } from '../_utils.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { type AiMatchSession } from '../card-clash/_ai-engine.js';
 import { cardClashAiTokenKey } from '../card-clash/_ai-reward.js';
+import { hollowGateLossHp } from '../../shared/hollow-gate-loss.js';
 import { hollowGateCombatReward } from './_combat-session.js';
 import { creditHollowGateLedger } from './_ledger.js';
 import { hollowGateRunKey, rewardMultiplierForToken, type HollowGateRunToken } from './_run-token.js';
-import { hollowGateSavedTokenMismatch, makeHollowGatePendingOperation, recoverHollowGatePendingOperation } from './_pending-operation.js';
+import { hollowGateEndedRunCharacter, hollowGatePendingOperationOf, hollowGateSavedTokenMismatch, makeHollowGatePendingOperation, recoverHollowGatePendingOperation } from './_pending-operation.js';
 
 /** Redeem only the terminal server-owned Chronicle match bound to this run. */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -33,14 +34,47 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const runKey = hollowGateRunKey(playerName, token);
         const result = await withKvLock(runKey, async () => {
             const run = await recoverHollowGatePendingOperation(kv, runKey, await kv.get<HollowGateRunToken>(runKey), playerName, token);
+            const record = await kv.get<{ character?: Record<string, unknown>; _saveVersion?: number }>(`save:${playerName}`);
+            const character = record?.character;
+            if (character && hollowGateSavedTokenMismatch(character, token)) {
+                return { status: 409, body: { error: 'The saved rift changed before settlement.' } };
+            }
+            const matchReceipt = `card:${matchId}`;
+            const proof = hollowGatePendingOperationOf(character, token);
+            const applied = Array.isArray(character?.settledHollowGateEventIds) ? character.settledHollowGateEventIds : [];
+            // A committed terminal proof survives deleting the live run and the
+            // short-lived Chronicle match. Replay its result, never its effects.
+            if (proof?.kind === 'event' && proof.id === matchReceipt && applied.includes(matchReceipt)) {
+                return { status: 200, body: { ...proof.response, ok: true, alreadyReported: true,
+                    character, _saveVersion: record?._saveVersion } };
+            }
             const session = await kv.get<AiMatchSession>(cardClashAiTokenKey(matchId));
             const digest = createHash('sha256').update(token).digest('hex');
-            if (!run || run.playerName !== playerName || !run.variantId?.startsWith('rift-') || !session
+            if ((run && (run.playerName !== playerName || !run.variantId?.startsWith('rift-'))) || !session
                 || session.playerName !== playerName || session.matchId !== matchId
                 || session.hollowGateCard?.tokenDigest !== digest || session.settlementMode !== 'external'
                 || session.status !== 'done' || !session.settledAt || !session.winner) {
                 return { status: 409, body: { error: 'No completed rift card showdown matches this run.' } };
             }
+            if (character && (Number(character.hp) <= 0 || (character.hollowGateRun === null && applied.includes(matchReceipt)))) {
+                const ended = await mutatePlayerSave(playerName, ({ character: current }) => {
+                    const projection = hollowGateEndedRunCharacter(current, token);
+                    if (!projection) {
+                        return { ok: false as const, status: 409, error: 'The saved rift changed before settlement.' };
+                    }
+                    const receipts = Array.isArray(current.settledHollowGateEventIds) ? current.settledHollowGateEventIds : [];
+                    const response = { ok: true, won: session.winner === 'player', ended: true, reward: { ryo: 0, auraDust: 0 } };
+                    return { ok: true as const, character: { ...projection,
+                        settledHollowGateEventIds: [...receipts.filter(id => id !== matchReceipt).slice(-511), matchReceipt],
+                        hollowGatePendingOperation: makeHollowGatePendingOperation({ token, kind: 'event', id: matchReceipt,
+                            before: run, after: null, response }),
+                    }, value: response };
+                });
+                if (!ended.ok) return { status: ended.status, body: { error: ended.error } };
+                await recoverHollowGatePendingOperation(kv, runKey, run, playerName, token);
+                return { status: 200, body: { ...ended.value, character: ended.character, _saveVersion: ended._saveVersion } };
+            }
+            if (!run) return { status: 409, body: { error: 'No completed rift card showdown matches this run.' } };
             const nodeId = session.hollowGateCard.nodeId;
             const floor = Number(nodeId.match(/^floor:(\d+):/)?.[1]);
             const encounterKey = `${floor}:card:${nodeId}`;
@@ -93,19 +127,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // honored, so a lost response replays idempotently and saves
                 // settled before this change keep resolving; the run's resolved
                 // list covers encounters that only carry a legacy match receipt.
-                const matchReceipt = `card:${matchId}`;
-                const encounterReceipt = `card:${encounterKey}`;
+                const encounterReceipt = `card:${digest}:${encounterKey}`;
                 const receipts = Array.isArray(character.settledHollowGateEventIds) ? character.settledHollowGateEventIds as string[] : [];
-                if (receipts.includes(matchReceipt)) return { ok: true as const, character, value: null, write: false };
-                if (alreadyResolved || receipts.includes(encounterReceipt)) {
+                const alreadyPaid = receipts.includes(matchReceipt);
+                if (alreadyPaid && alreadyResolved) return { ok: true as const, character, value: { alreadyReported: true }, write: false };
+                if (!alreadyPaid && (alreadyResolved || receipts.includes(encounterReceipt))) {
                     return { ok: false as const, status: 409, error: 'This rift card ambush was already settled.' };
                 }
-                const maxHp = Math.max(1, Math.floor(Number(character.maxHp) || 1));
-                const hp = Math.max(1, Math.floor(Number(character.hp) || maxHp));
+                // Legacy unscoped encounter receipts belong to an unknown dive;
+                // only this run's resolved list or a scoped receipt can block it.
+                // An exact paid match with a stale run needs projection repair,
+                // not another HP charge or wallet credit.
                 return { ok: true as const, character: {
                     ...character,
-                    ...(!won ? { hp: Math.max(1, hp - Math.ceil(maxHp * 0.2)) } : {}),
-                    ...(won ? {
+                    ...(!alreadyPaid && !won ? { hp: hollowGateLossHp(character.hp, character.maxHp) } : {}),
+                    ...(!alreadyPaid && won ? {
                         ryo: Math.max(0, Math.floor(Number(character.ryo) || 0)) + reward.ryo,
                         auraDust: Math.max(0, Math.floor(Number(character.auraDust) || 0)) + reward.auraDust,
                     } : {}),
@@ -115,11 +151,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         token, kind: 'event', id: matchReceipt, before: run, after: nextRun,
                         response: { ok: true, won, reward },
                     }),
-                }, value: null };
+                }, value: { alreadyReported: alreadyPaid } };
             }, { hollowGateCurrencySource: 'run' });
             if (!saved.ok) return { status: saved.status, body: { error: saved.error } };
             if (!alreadyResolved) await recoverHollowGatePendingOperation(kv, runKey, run, playerName, token);
-            return { status: 200, body: { ok: true, won, reward, character: saved.character, _saveVersion: saved._saveVersion } };
+            return { status: 200, body: { ok: true, won, reward, alreadyReported: saved.value.alreadyReported,
+                character: saved.character, _saveVersion: saved._saveVersion } };
         }, { failClosed: true, ttlSec: 10 });
         return res.status(result.status).json(result.body);
     } catch (error) {
