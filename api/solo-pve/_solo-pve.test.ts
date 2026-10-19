@@ -1319,6 +1319,7 @@ describe('solo-PvE action service', () => {
             finalEventSeq: 1,
             winner: 'player',
             outcome: 'win',
+            reason: 'knockout',
             itemsUsed: {},
             settlementState: 'pending',
         });

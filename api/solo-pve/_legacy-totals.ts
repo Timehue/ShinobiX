@@ -48,6 +48,6 @@ export function appendSoloPveCombatEvent(session: SoloPveSession, event: SoloPve
     session.eventSeq = event.seq;
     // A shrine fight is capped at 25 rounds. Retain its arena resolutions on
     // reconnect as well as during continuous play. Other hosts keep their window.
-    const history = session.encounter.kind === 'hollow-gate' ? 1024 : SOLO_PVE_EVENT_HISTORY;
+    const history = session.encounter?.kind === 'hollow-gate' ? 1024 : SOLO_PVE_EVENT_HISTORY;
     session.events = [...session.events, event].slice(-history);
 }
