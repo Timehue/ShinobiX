@@ -44,7 +44,7 @@ export async function recoverHollowGateRunOnBoot(params: HollowGateRecoveryParam
     params.setHollowGateRun(null);
     params.setScreen("hollowGateShrine");
     const outcome = await recoverHollowGateRunLazily(params);
-    if (outcome === "gone" && params.isCurrent?.() !== false) params.setScreen("worldMap");
+    if (outcome === "gone" && params.isCurrent?.() !== false) params.setScreen(character.hp <= 0 ? "hospital" : "worldMap");
 }
 
 type HollowGateEntryParams = {
@@ -72,6 +72,11 @@ export async function enterHollowGateShrineFlow(params: HollowGateEntryParams) {
     } = params;
     if (!requireServerSettlement("hollowGateRun")) return;
     if (!character) return;
+    if (character.hp <= 0) {
+        await recoverHollowGateRunLazily({ ...params, character });
+        if (params.isCurrent?.() !== false) setScreen("hospital");
+        return;
+    }
     // A live run whose board never reached the save (a reload mid-run): rebuild
     // its current floor from the server instead of replaying the start, which
     // could only redraw floor 1. The replay below stays the fallback when the

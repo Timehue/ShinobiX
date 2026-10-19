@@ -261,7 +261,13 @@ export type HollowGateRecoveryParams = {
 export async function recoverHollowGateRun(params: HollowGateRecoveryParams): Promise<"recovered" | "gone" | "error"> {
     const resumed = await fetchHollowGateResume(params.character.name);
     if (params.isCurrent?.() === false) return "error";
-    if (resumed.kind !== "live") return resumed.kind;
+    if (resumed.kind !== "live") {
+        if (resumed.kind === "gone" && params.character.hp <= 0) {
+            params.setHollowGateRun(null);
+            params.setScreen("hospital");
+        }
+        return resumed.kind;
+    }
     const state = resumed.state;
     const variant = hollowGateResumeVariant(state);
     let run: HollowGateShrineRun;

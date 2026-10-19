@@ -6,6 +6,18 @@ import type { HollowGateRunToken } from './_run-token.js';
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
 
+test('ended-pointer repair preserves living start-marker-only and foreign runs', async () => {
+    const { hollowGateEndedRunCharacter, makeHollowGatePendingOperation } = await import('./_pending-operation.js');
+    assert.equal(hollowGateEndedRunCharacter({ hp: 30, hollowGateRun: null, lastHollowGateStart: { token: 'live' } }, 'live'), null);
+    assert.equal(hollowGateEndedRunCharacter({ hp: 0, hollowGateRun: { runToken: 'new' } }, 'old'), null);
+    assert.equal(hollowGateEndedRunCharacter({ hp: 0, hollowGateRun: null, lastHollowGateStart: { token: 'new' } }, 'old'), null);
+    assert.equal(hollowGateEndedRunCharacter({ hp: 0, hollowGateRun: { runToken: 'old' } }, 'old')?.hp, 0);
+    assert.equal(hollowGateEndedRunCharacter({ hp: 30, hollowGateRun: null }, 'old')?.hp, 30);
+    const terminal = makeHollowGatePendingOperation({ token: 'old', kind: 'event', id: 'ended', before: null, after: null, response: { ended: true } });
+    assert.equal(terminal.terminal, true);
+    assert.deepEqual(terminal.changes, []);
+});
+
 test('sequential event and checkpoint proofs replace nested snapshots through the real versioned save CAS', async () => {
     const { kv, saveStoreKind } = await import('../_storage.js');
     assert.equal(saveStoreKind, 'memory-qa');

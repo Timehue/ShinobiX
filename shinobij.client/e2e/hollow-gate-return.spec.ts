@@ -1,0 +1,57 @@
+import { test, expect, type Page } from '@playwright/test';
+
+async function install(page: Page, outcome: 'win' | 'loss' | 'ended', failFirst = false, active = false) {
+    let settlements = 0;
+    await page.route('**/api/card-clash/ai-move', route => route.fulfill({ json: { ok: true, session: {
+        matchId: 'return-match', rulesVersion: 10, turnNumber: 31, firstPlayer: 'p1', activePlayer: 'p1', phase: 'main1',
+        normalSummonUsed: false, status: active ? 'active' : 'complete', winner: active ? null : outcome === 'win' ? 'p1' : 'p2', viewerSide: 'p1',
+        activeField: null, responseWindow: null, log: ['The Chronicle showdown is sealed.'], events: [], turnStartedAt: Date.now(),
+        p1: { name: 'ReturnDiver', lifePoints: active || outcome === 'win' ? 8000 : 0, deckCount: 10, handCount: 0, hand: [], monsterZones: [null, null, null, null, null], magicTrapZones: [null, null, null, null, null], graveyard: [] },
+        p2: { name: 'The Chronicle Keeper', lifePoints: outcome === 'win' ? 0 : 8000, deckCount: 10, handCount: 0, monsterZones: [null, null, null, null, null], magicTrapZones: [null, null, null, null, null], graveyard: [] },
+    } } }));
+    await page.route('**/api/hollow-gate/card-settle', async route => {
+        settlements++;
+        if (failFirst && settlements === 1) return route.fulfill({ status: 503, json: { error: 'Result still sealing; retry Continue.' } });
+        return route.fulfill({ json: { ok: true, won: outcome === 'win', ended: outcome === 'ended', alreadyReported: settlements > 1,
+            character: { name: 'ReturnDiver', hp: outcome === 'ended' ? 0 : outcome === 'loss' ? 1 : 100, maxHp: 10000,
+                hospitalized: outcome === 'ended', hollowGateRun: outcome === 'ended' ? null : { runToken: 'return-qa', threat: 0 } },
+            _saveVersion: 4, reward: { ryo: outcome === 'win' ? 12 : 0, auraDust: 0 },
+        } });
+    });
+    await page.goto('/e2e/fixtures/hollow-gate-return.html');
+    return () => settlements;
+}
+
+for (const outcome of ['win', 'loss', 'ended'] as const) test(`Continue returns a terminal ${outcome} to its authoritative destination`, async ({ page }, info) => {
+    const errors: string[] = [];
+    page.on('pageerror', error => errors.push(error.message));
+    const count = await install(page, outcome);
+    await expect(page.getByRole('button', { name: 'Continue', exact: true })).toBeVisible();
+    await page.screenshot({ path: info.outputPath(`terminal-${outcome}.png`), fullPage: true });
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
+    await expect(page.getByTestId('returned-screen')).toHaveText(outcome === 'ended' ? 'hospital' : 'hollowGateShrine');
+    await expect(page.getByTestId('returned-hp')).toHaveText(outcome === 'ended' ? '0' : outcome === 'loss' ? '1' : '100');
+    await expect(page.getByTestId('board-tiles')).toHaveText(outcome === 'ended' ? '0' : '9');
+    expect(count()).toBe(1);
+    expect(errors).toEqual([]);
+});
+
+test('Leave Showdown retries a terminal failed Continue instead of opening a sealed-match loop', async ({ page }) => {
+    const count = await install(page, 'loss', true);
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
+    await expect(page.getByText('Result still sealing; retry Continue.', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Leave Showdown', exact: true }).click();
+    await expect(page.getByTestId('returned-screen')).toHaveText('hollowGateShrine');
+    await expect(page.getByTestId('returned-hp')).toHaveText('1');
+    await expect(page.getByText('Chronicle Ambush Sealed', { exact: true })).toHaveCount(0);
+    expect(count()).toBe(2);
+});
+
+test('an unfinished Leave preserves Resume and performs no settlement', async ({ page }) => {
+    const count = await install(page, 'loss', false, true);
+    await page.getByRole('button', { name: 'Leave encounter', exact: true }).click();
+    await expect(page.getByText('Chronicle Ambush Sealed', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Resume Showdown', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Leave encounter', exact: true })).toBeVisible();
+    expect(count()).toBe(0);
+});

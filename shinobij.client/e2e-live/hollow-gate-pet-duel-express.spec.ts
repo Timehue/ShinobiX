@@ -531,9 +531,9 @@ test('Send pet opens the server-drawn duel on the shrine, and a forfeit settles 
     // hollowGateRunAfterPetDefeat kept the live one.
     const shrine = page.locator('.hollow-gate-shrine');
     await expect(shrine.getByRole('grid', { name: 'Floor 1 dungeon grid' })).toBeVisible();
-    const recoil = Math.max(1, Math.floor(before.maxHp * 0.2));
+    const recoil = Math.max(1, Math.floor(before.maxHp * 0.33));
     await expect(shrine.locator('[role="log"]')).toContainText(
-        `The Hollow Hound wins the pet duel. ${recoil} HP recoils through the seal; the encounter remains unresolved.`,
+        'The Hollow Hound wins the pet duel. The seal takes 33% of maximum HP, stopping at 1 HP; the encounter remains unresolved.',
     );
     await expect(shrine.getByRole('gridcell', {
         name: `${diver.name}, current location, row ${dive.houndTile.y + 1}, column ${dive.houndTile.x + 1}`,
@@ -543,7 +543,7 @@ test('Send pet opens the server-drawn duel on the shrine, and a forfeit settles 
     expect(after.hollowGateRun?.runToken, 'a pet defeat never ends the run').toBe(dive.started.token);
     expect(after.hollowGateRun?.activeCombat ?? null).toBeNull();
     expect(after.hospitalized ?? false).toBe(false);
-    expect(after.hp, 'the seal recoils 20% of max HP').toBe(Math.max(1, before.hp - recoil));
+    expect(after.hp, 'the seal recoils 33% of max HP with the existing 1 HP floor').toBe(Math.max(1, before.hp - recoil));
     for (const currency of ['ryo', 'xp', 'auraDust', 'honorSeals', 'boneCharms', 'fateShards', 'hollowShards'] as const) {
         expect(after[currency] ?? 0, `${currency} is unchanged: nothing was paid`).toBe(before[currency] ?? 0);
     }
