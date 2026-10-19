@@ -1,0 +1,171 @@
+{
+  "id": "starter-wind",
+  "sourcePromoted": false,
+  "rows": [
+    {
+      "category": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-gale-chick-complete-face-v1-battle-first-head/starter-wind-head-front-0.png",
+      "sha256": "af917de16ccdc3415d1414807dfe4e4151a53f6f425acb691bec7c78833a57d9",
+      "actuallyInspected": true
+    },
+    {
+      "category": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-gale-chick-complete-face-v1-battle-first-head/starter-wind-head-front-1.png",
+      "sha256": "f6c0a189dd720a20f99c6eba40a07227d435cd83c18128d3367d73b2bf7ea974",
+      "actuallyInspected": true
+    },
+    {
+      "category": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-gale-chick-complete-face-v1-battle-first-head/starter-wind-head-front-2.png",
+      "sha256": "344e09239f94442c382841ef649dc685363e90ba5b8f8ce58679d4a4a6a98ae3",
+      "actuallyInspected": true
+    },
+    {
+      "category": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-gale-chick-complete-face-v1-battle-first-head/starter-wind-head-side-0.png",
+      "sha256": "0f22f1446c7a3b299665ecec4aa9c0fa6bb368211605c6e4d7e9fe361de3e75a",
+      "actuallyInspected": true
+    },
+    {
+      "category": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-gale-chick-complete-face-v1-battle-first-head/starter-wind-head-side-1.png",
+      "sha256": "42ffb14c28f6ad4c39c918e22d83c24b8786ad24f2ec59c5ac55a60b099dc547",
+      "actuallyInspected": true
+    },
+    {
+      "category": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-gale-chick-complete-face-v1-battle-first-head/starter-wind-head-side-2.png",
+      "sha256": "a979957556343aa47dbe179f6a4f17e1b5449a3edb314ac6ae6a60b4dcbb1ce4",
+      "actuallyInspected": true
+    },
+    {
+      "category": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-gale-chick-complete-face-v1-battle-first-head/starter-wind-head-other-side-0.png",
+      "sha256": "c203186e359278615244202ff42e635f7a64ba248835cfa52bd80b794d26052e",
+      "actuallyInspected": true
+    },
+    {
+      "category": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-gale-chick-complete-face-v1-battle-first-head/starter-wind-head-other-side-1.png",
+      "sha256": "bff3c07f9637406e85bb6b57f5b3c764f99fddef21a96fbbcc07de78175c51bc",
+      "actuallyInspected": true
+    },
+    {
+      "category": "head",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-gale-chick-complete-face-v1-battle-first-head/starter-wind-head-other-side-2.png",
+      "sha256": "9f00b844e07c90d6ec6b96483dc026eadaad4d5d885759c828536e6a18d1aefb",
+      "actuallyInspected": true
+    },
+    {
+      "category": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-gale-chick-complete-face-v1-battle-first-body/starter-wind-front-0.png",
+      "sha256": "51fe54f5fbe7ace80ed181f8ac4076b989307cffa4e866c99b94d0e264d698a3",
+      "actuallyInspected": true
+    },
+    {
+      "category": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-gale-chick-complete-face-v1-battle-first-body/starter-wind-front-1.png",
+      "sha256": "002d0746b6f2599338ddb84270b28555d47af66d4b6fce2fd6cc7928bfcac45f",
+      "actuallyInspected": true
+    },
+    {
+      "category": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-gale-chick-complete-face-v1-battle-first-body/starter-wind-front-2.png",
+      "sha256": "215b6a2d13f3fcab72baeb847098cf15a6b662e3f543ab3094678b5faa4d317e",
+      "actuallyInspected": true
+    },
+    {
+      "category": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-gale-chick-complete-face-v1-battle-first-body/starter-wind-side-0.png",
+      "sha256": "13b2cc883c9b50bb99aa1fb459e511fdf679b7dcad4b1e90838aae9df9a39cfc",
+      "actuallyInspected": true
+    },
+    {
+      "category": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-gale-chick-complete-face-v1-battle-first-body/starter-wind-side-1.png",
+      "sha256": "791ad02bf6ed4bf21ca468664cd3bc4e09519af80233ced85d426c7956986edc",
+      "actuallyInspected": true
+    },
+    {
+      "category": "body",
+      "path": ".tmp/pet-independent-face-recheck/slices/independent-gale-chick-complete-face-v1-battle-first-body/starter-wind-side-2.png",
+      "sha256": "38d2463ea6e2417d2ffc7425456fa051cf51fac7f68a2f503954777c92264109",
+      "actuallyInspected": true
+    },
+    {
+      "category": "techniques",
+      "path": ".tmp/pet-companion-techniques/independent-gale-chick-complete-face-v1-techniques-first/inspection-strips/front-block-0-half-0.png",
+      "sha256": "a6fbe61710fd4cf0d5c3c411fa4027188d22d66fbeb9772a45e89fcd078d6127",
+      "actuallyInspected": true,
+      "result": "capture-clips-crown-at-rising-strike"
+    },
+    {
+      "category": "techniques",
+      "path": ".tmp/pet-companion-techniques/independent-gale-chick-complete-face-v1-techniques-first/inspection-strips/front-block-0-half-1.png",
+      "sha256": "c7440e75082bf6ecace383448ceac0ac32cbc39e43c8102f14dc48f9f52e292f",
+      "actuallyInspected": false
+    },
+    {
+      "category": "techniques",
+      "path": ".tmp/pet-companion-techniques/independent-gale-chick-complete-face-v1-techniques-first/inspection-strips/front-block-1-half-0.png",
+      "sha256": "92f238225746f36a8db204f906ba9ca758ae5ca75ac6cc56443177f776cbf5a8",
+      "actuallyInspected": false
+    },
+    {
+      "category": "techniques",
+      "path": ".tmp/pet-companion-techniques/independent-gale-chick-complete-face-v1-techniques-first/inspection-strips/front-block-1-half-1.png",
+      "sha256": "50153139ccde30213ce1b88d2ec5872b746383b0a0b87f09095f0a2950308f4a",
+      "actuallyInspected": false
+    },
+    {
+      "category": "techniques",
+      "path": ".tmp/pet-companion-techniques/independent-gale-chick-complete-face-v1-techniques-first/inspection-strips/front-block-2-half-0.png",
+      "sha256": "f83d4fa249717da2fe62e69a3f57218947dfa89ca768a694589610c31dccc6c2",
+      "actuallyInspected": false
+    },
+    {
+      "category": "techniques",
+      "path": ".tmp/pet-companion-techniques/independent-gale-chick-complete-face-v1-techniques-first/inspection-strips/front-block-2-half-1.png",
+      "sha256": "0dc80fc9e20b8a9ceec031451a440d0eb779a3b503f532d8a629ea6795e52b58",
+      "actuallyInspected": false
+    },
+    {
+      "category": "techniques",
+      "path": ".tmp/pet-companion-techniques/independent-gale-chick-complete-face-v1-techniques-first/inspection-strips/side-block-0-half-0.png",
+      "sha256": "0535fdd9ba40627a8ae55721760b05275377079eb3ad8f70ade8464a09138954",
+      "actuallyInspected": false
+    },
+    {
+      "category": "techniques",
+      "path": ".tmp/pet-companion-techniques/independent-gale-chick-complete-face-v1-techniques-first/inspection-strips/side-block-0-half-1.png",
+      "sha256": "edd6d1c498a4325fd7f989befc221b9fe4f83d3968794c509a7443e8dc62b3b9",
+      "actuallyInspected": false
+    },
+    {
+      "category": "techniques",
+      "path": ".tmp/pet-companion-techniques/independent-gale-chick-complete-face-v1-techniques-first/inspection-strips/side-block-1-half-0.png",
+      "sha256": "5fb5611830a5c4ab3998d4cfc6f0ec8e7af08012a4732590156c3240dc91308b",
+      "actuallyInspected": false
+    },
+    {
+      "category": "techniques",
+      "path": ".tmp/pet-companion-techniques/independent-gale-chick-complete-face-v1-techniques-first/inspection-strips/side-block-1-half-1.png",
+      "sha256": "088473ab1335c0b8dde329550221470199e7f9c06fcbdd5e3323bce7c31f88ef",
+      "actuallyInspected": false
+    },
+    {
+      "category": "techniques",
+      "path": ".tmp/pet-companion-techniques/independent-gale-chick-complete-face-v1-techniques-first/inspection-strips/side-block-2-half-0.png",
+      "sha256": "acb4fd34ce0c0713ad880061cea9b079739e26eb103136fe59ea087f7e4e9ee2",
+      "actuallyInspected": false
+    },
+    {
+      "category": "techniques",
+      "path": ".tmp/pet-companion-techniques/independent-gale-chick-complete-face-v1-techniques-first/inspection-strips/side-block-2-half-1.png",
+      "sha256": "ad64c8995a7c8a8f82085926d3bafab127b6a4f3836f51a5ad0cd5ac0256ba65",
+      "actuallyInspected": false
+    }
+  ],
+  "recordedAt": "2026-10-19T14:07:50.957Z",
+  "techniqueRecapture": "independent-gale-chick-complete-face-v1-techniques-first-fit-v1"
+}
