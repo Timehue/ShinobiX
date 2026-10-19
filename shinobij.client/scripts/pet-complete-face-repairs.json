@@ -1650,6 +1650,147 @@
         }
       ],
       "continuousInfluencePacking": true
+    },
+    "legendary-23": {
+      "y": [
+        -0.15,
+        0.05
+      ],
+      "z": [
+        0.45,
+        0.6
+      ],
+      "cameraPadding": 1.3,
+      "status": "repair",
+      "finding": "Fresh source complete-face/body review confirms lower black jaw and adjacent mane shearing during recoil, strike and turned defeat. All 216 baseline equipped-technique frames actually inspected front/side; four legs, wings and tail stay connected. Extend the head binding through frozen independent lower-face patches with a smooth depth-gated neck transition. Sculpt, rig, textures and animation curves preserved; candidate only until independent and repeat visual checks pass.",
+      "revision": "20261017-sphinx-independent-complete-jaw-v1",
+      "supersedesSourceSha256": "79e4b710976fb3ab614f74650e48899d10f9eb851e9ee717fc150191e4c85c32",
+      "repairRegion": {
+        "y": [
+          -0.18,
+          -0.04
+        ],
+        "z": [
+          0.65,
+          0.77
+        ],
+        "x": [
+          0.32,
+          0.44
+        ]
+      },
+      "union": [
+        {
+          "y": [
+            -0.18,
+            -0.04
+          ],
+          "z": [
+            0.65,
+            0.77
+          ],
+          "x": [
+            0.32,
+            0.44
+          ]
+        }
+      ],
+      "continuousInfluencePacking": true
+    },
+    "legendary-24": {
+      "y": [
+        0.03,
+        0.2
+      ],
+      "z": [
+        0.55,
+        0.7
+      ],
+      "cameraPadding": 1.3,
+      "status": "repair",
+      "finding": "Jaw-only v1 passes the four original face landmarks but visual review of two front head slices still finds white lower neck ruff folding during recoil and turned defeat. Independently mark its original tip before extending binding through the complete white ruff. Preserve all original sculpt, rig, textures and curves; candidate only.",
+      "revision": "20261017-raiju-independent-complete-ruff-v4",
+      "supersedesSourceSha256": "ba183cac92218f60f2e1ae978bd514836a276f9883802c6b111051aa617b4bbf",
+      "repairRegion": {
+        "y": [
+          -0.06,
+          0.02
+        ],
+        "z": [
+          0.65,
+          0.74
+        ],
+        "x": [
+          0.34,
+          0.48
+        ],
+        "union": [
+          {
+            "y": [
+              -0.45,
+              -0.3
+            ],
+            "z": [
+              0.35,
+              0.65
+            ],
+            "x": [
+              0.28,
+              0.44
+            ]
+          }
+        ]
+      },
+      "union": [
+        {
+          "y": [
+            -0.06,
+            0.02
+          ],
+          "z": [
+            0.65,
+            0.74
+          ],
+          "x": [
+            0.34,
+            0.48
+          ]
+        },
+        {
+          "y": [
+            -0.45,
+            -0.3
+          ],
+          "z": [
+            0.35,
+            0.65
+          ],
+          "x": [
+            0.28,
+            0.44
+          ]
+        }
+      ],
+      "continuousInfluencePacking": true,
+      "neckTransition": {
+        "iterations": 48,
+        "edges": [
+          [
+            19285,
+            19287
+          ],
+          [
+            2523,
+            2524
+          ],
+          [
+            7069,
+            7071
+          ]
+        ],
+        "protectBelowY": -0.65,
+        "featherY": 0.2
+      }
     }
   }
 }
