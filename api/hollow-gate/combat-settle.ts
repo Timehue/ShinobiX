@@ -1,4 +1,5 @@
 import { creditElderWins } from '../../shared/elder-elections.js';
+import { HOLLOW_GATE_HUNTER_BREATHER_STEPS } from '../../shared/hollow-gate-pacing.js';
 import { createHash, randomInt } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
@@ -128,6 +129,7 @@ function runAfterCombatSettlement(
         ...run,
         ...(activeIsThisFight ? { activeEncounter: null } : {}),
         ...(activeIsThisFight ? { threat: 0, pendingAmbush: null } : {}),
+        ...(activeIsThisFight && receipt.won && binding.kind !== 'boss' ? { hunterBreatherSteps: HOLLOW_GATE_HUNTER_BREATHER_STEPS } : {}),
         ...(receipt.revived ? { secondWindArmed: false } : {}),
         resolvedEncounterIds: receipt.revived || receipt.escaped || receipt.petDefeat || alreadyResolved
             ? resolved

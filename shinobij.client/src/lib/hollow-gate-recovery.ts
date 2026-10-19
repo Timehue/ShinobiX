@@ -267,7 +267,10 @@ export async function recoverHollowGateRun(params: HollowGateRecoveryParams): Pr
     let run: HollowGateShrineRun;
     try {
         const { generateHollowGateShrineRun } = await loadHollowGateGenerator();
-        run = applyAttunementToRun(rebuildHollowGateRun(state, generateHollowGateShrineRun(state.floor, variant, state.seed), variant), params.character, false);
+        // The immutable manifest identifies the old count without a save migration.
+        // Reproduce its original seeded layout, rooms and fog before rebuilding.
+        const legacyPacing = state.manifest && Object.values(state.manifest.nodes).filter(kind => kind === 'battle').length === 4 + Math.min(5, state.floor);
+        run = applyAttunementToRun(rebuildHollowGateRun(state, generateHollowGateShrineRun(state.floor, variant, state.seed, Boolean(legacyPacing)), variant), params.character, false);
     } catch {
         return "error";
     }

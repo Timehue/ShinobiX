@@ -1,0 +1,955 @@
+{
+  "scope": "Offline full-known-map shortest path, actual generator/physical blockers/wanderer movement. Instant victories; no combat time/survival/rewards model. One deterministic torch drain every five accepted steps, five phases. Medic route re-plans toward moving medic until adjacent; accepts heal then heads to stairs. When Medic is behind locked cache and no unlocked path exists, records unavailable and proceeds to stairs. No keys/torch refill/ward augment/escape/exploration. Current new hunter contact policy mirrored from step.ts; threat formula unchanged. Rift level>=20. Final-floor boss victory ends route.",
+  "sourceHashes": {
+    "shinobij.client/src/lib/hollow-gate-dungeon.ts": "4627f9699b33ddff7518eb984849c3b296f780f42d9b1259e89030b79b85974e",
+    "api/hollow-gate/_floor-features.ts": "4f8ae6f3c9ea7a6c6a29047c1ad30cac7f6559783935781a618412defbd2e36c",
+    "api/hollow-gate/_floor-manifest.ts": "9428e08b6920984ee26c34d5428d5128091079b4508226fc2bbcf6532af4c414",
+    "shared/underground-floor-collision.ts": "ea2bfd5d64852eb6585953821bc5914729620123d449c44dbc23054c59dd1347",
+    "shinobij.client/src/lib/hollow-gate-generate.ts": "77c2e128d1afe330287ad230874a22fdc2730ad3744431ab02c69ce622cb7160",
+    "shared/hollow-gate-wanderers.ts": "d7ed760fbfb7aeee74469f6f6636159665b5d9e37b7e43e78d838f0370db50d8",
+    "api/hollow-gate/step.ts": "82fba7068742b457876597eaa8e6f1d74b4e93c99ec2f47adada0c21b5460028",
+    "api/hollow-gate/combat-settle.ts": "4b71204138ce3fd61fd89ce83cbcae7e28b4fc473fd61ef99613e2d8922c628d",
+    "shared/hollow-gate-pacing.ts": "1396ceccdd1c0b1cf987d860be9da192b1b0eb918a5c6270437e4293651ca930"
+  },
+  "legacyDeterminismChecks": 600,
+  "frozenPrechangeBoardControls": 5,
+  "failures": [],
+  "groups": [
+    {
+      "config": "standard25x17",
+      "route": "stairs",
+      "mode": "before",
+      "n": 1000,
+      "total": {
+        "mean": 6.095,
+        "min": 2,
+        "max": 11
+      },
+      "mobs": {
+        "mean": 5.895,
+        "min": 2,
+        "max": 10
+      },
+      "fixed": {
+        "mean": 3.78,
+        "min": 0,
+        "max": 9
+      },
+      "hunters": {
+        "mean": 2.29,
+        "min": 0,
+        "max": 3
+      },
+      "threat": {
+        "mean": 0.025,
+        "min": 0,
+        "max": 1
+      },
+      "cards": {
+        "mean": 0,
+        "min": 0,
+        "max": 0
+      },
+      "bosses": {
+        "mean": 0.2,
+        "min": 0,
+        "max": 1
+      },
+      "elites": {
+        "mean": 1.415,
+        "min": 0,
+        "max": 2
+      },
+      "steps": {
+        "mean": 34.405,
+        "min": 27,
+        "max": 50
+      },
+      "backToBack": {
+        "mean": 0.81,
+        "min": 0,
+        "max": 4
+      },
+      "medicNotReached": 0,
+      "medicUnavailable": 0
+    },
+    {
+      "config": "standard25x17",
+      "route": "stairs",
+      "mode": "after",
+      "n": 1000,
+      "total": {
+        "mean": 4.325,
+        "min": 2,
+        "max": 9
+      },
+      "mobs": {
+        "mean": 4.125,
+        "min": 2,
+        "max": 8
+      },
+      "fixed": {
+        "mean": 2.87,
+        "min": 0,
+        "max": 7
+      },
+      "hunters": {
+        "mean": 1.415,
+        "min": 0,
+        "max": 3
+      },
+      "threat": {
+        "mean": 0.04,
+        "min": 0,
+        "max": 1
+      },
+      "cards": {
+        "mean": 0,
+        "min": 0,
+        "max": 0
+      },
+      "bosses": {
+        "mean": 0.2,
+        "min": 0,
+        "max": 1
+      },
+      "elites": {
+        "mean": 1.415,
+        "min": 0,
+        "max": 2
+      },
+      "steps": {
+        "mean": 34.405,
+        "min": 27,
+        "max": 50
+      },
+      "backToBack": {
+        "mean": 0.22,
+        "min": 0,
+        "max": 2
+      },
+      "medicNotReached": 0,
+      "medicUnavailable": 0
+    },
+    {
+      "config": "standard25x17",
+      "route": "medic-stairs",
+      "mode": "before",
+      "n": 1000,
+      "total": {
+        "mean": 5.81,
+        "min": 1,
+        "max": 11
+      },
+      "mobs": {
+        "mean": 5.61,
+        "min": 0,
+        "max": 10
+      },
+      "fixed": {
+        "mean": 3.485,
+        "min": 0,
+        "max": 9
+      },
+      "hunters": {
+        "mean": 2.205,
+        "min": 0,
+        "max": 3
+      },
+      "threat": {
+        "mean": 0.12,
+        "min": 0,
+        "max": 1
+      },
+      "cards": {
+        "mean": 0,
+        "min": 0,
+        "max": 0
+      },
+      "bosses": {
+        "mean": 0.2,
+        "min": 0,
+        "max": 1
+      },
+      "elites": {
+        "mean": 1.355,
+        "min": 0,
+        "max": 2
+      },
+      "steps": {
+        "mean": 37.555,
+        "min": 25,
+        "max": 68
+      },
+      "backToBack": {
+        "mean": 0.73,
+        "min": 0,
+        "max": 4
+      },
+      "medicNotReached": 30,
+      "medicUnavailable": 30
+    },
+    {
+      "config": "standard25x17",
+      "route": "medic-stairs",
+      "mode": "after",
+      "n": 1000,
+      "total": {
+        "mean": 4.235,
+        "min": 1,
+        "max": 10
+      },
+      "mobs": {
+        "mean": 4.035,
+        "min": 0,
+        "max": 9
+      },
+      "fixed": {
+        "mean": 2.64,
+        "min": 0,
+        "max": 7
+      },
+      "hunters": {
+        "mean": 1.425,
+        "min": 0,
+        "max": 3
+      },
+      "threat": {
+        "mean": 0.17,
+        "min": 0,
+        "max": 2
+      },
+      "cards": {
+        "mean": 0,
+        "min": 0,
+        "max": 0
+      },
+      "bosses": {
+        "mean": 0.2,
+        "min": 0,
+        "max": 1
+      },
+      "elites": {
+        "mean": 1.325,
+        "min": 0,
+        "max": 2
+      },
+      "steps": {
+        "mean": 37.11,
+        "min": 25,
+        "max": 68
+      },
+      "backToBack": {
+        "mean": 0.206,
+        "min": 0,
+        "max": 2
+      },
+      "medicNotReached": 30,
+      "medicUnavailable": 25
+    },
+    {
+      "config": "compact15x11",
+      "route": "stairs",
+      "mode": "before",
+      "n": 600,
+      "total": {
+        "mean": 4.55,
+        "min": 0,
+        "max": 8
+      },
+      "mobs": {
+        "mean": 4.216666666666667,
+        "min": 0,
+        "max": 8
+      },
+      "fixed": {
+        "mean": 2.8,
+        "min": 0,
+        "max": 6
+      },
+      "hunters": {
+        "mean": 1.75,
+        "min": 0,
+        "max": 3
+      },
+      "threat": {
+        "mean": 0,
+        "min": 0,
+        "max": 0
+      },
+      "cards": {
+        "mean": 0,
+        "min": 0,
+        "max": 0
+      },
+      "bosses": {
+        "mean": 0.3333333333333333,
+        "min": 0,
+        "max": 1
+      },
+      "elites": {
+        "mean": 1.1833333333333333,
+        "min": 0,
+        "max": 2
+      },
+      "steps": {
+        "mean": 17.375,
+        "min": 14,
+        "max": 25
+      },
+      "backToBack": {
+        "mean": 0.925,
+        "min": 0,
+        "max": 3
+      },
+      "medicNotReached": 0,
+      "medicUnavailable": 0
+    },
+    {
+      "config": "compact15x11",
+      "route": "stairs",
+      "mode": "after",
+      "n": 600,
+      "total": {
+        "mean": 3.5083333333333333,
+        "min": 0,
+        "max": 6
+      },
+      "mobs": {
+        "mean": 3.175,
+        "min": 0,
+        "max": 6
+      },
+      "fixed": {
+        "mean": 2.475,
+        "min": 0,
+        "max": 5
+      },
+      "hunters": {
+        "mean": 1.0333333333333334,
+        "min": 0,
+        "max": 2
+      },
+      "threat": {
+        "mean": 0,
+        "min": 0,
+        "max": 0
+      },
+      "cards": {
+        "mean": 0,
+        "min": 0,
+        "max": 0
+      },
+      "bosses": {
+        "mean": 0.3333333333333333,
+        "min": 0,
+        "max": 1
+      },
+      "elites": {
+        "mean": 1.1833333333333333,
+        "min": 0,
+        "max": 2
+      },
+      "steps": {
+        "mean": 17.375,
+        "min": 14,
+        "max": 25
+      },
+      "backToBack": {
+        "mean": 0.2,
+        "min": 0,
+        "max": 2
+      },
+      "medicNotReached": 0,
+      "medicUnavailable": 0
+    },
+    {
+      "config": "compact15x11",
+      "route": "medic-stairs",
+      "mode": "before",
+      "n": 600,
+      "total": {
+        "mean": 4.266666666666667,
+        "min": 0,
+        "max": 8
+      },
+      "mobs": {
+        "mean": 3.933333333333333,
+        "min": 0,
+        "max": 8
+      },
+      "fixed": {
+        "mean": 2.475,
+        "min": 0,
+        "max": 6
+      },
+      "hunters": {
+        "mean": 1.7916666666666667,
+        "min": 0,
+        "max": 3
+      },
+      "threat": {
+        "mean": 0,
+        "min": 0,
+        "max": 0
+      },
+      "cards": {
+        "mean": 0,
+        "min": 0,
+        "max": 0
+      },
+      "bosses": {
+        "mean": 0.3333333333333333,
+        "min": 0,
+        "max": 1
+      },
+      "elites": {
+        "mean": 0.975,
+        "min": 0,
+        "max": 2
+      },
+      "steps": {
+        "mean": 17.975,
+        "min": 14,
+        "max": 25
+      },
+      "backToBack": {
+        "mean": 0.8916666666666667,
+        "min": 0,
+        "max": 3
+      },
+      "medicNotReached": 10,
+      "medicUnavailable": 10
+    },
+    {
+      "config": "compact15x11",
+      "route": "medic-stairs",
+      "mode": "after",
+      "n": 600,
+      "total": {
+        "mean": 3.275,
+        "min": 0,
+        "max": 6
+      },
+      "mobs": {
+        "mean": 2.941666666666667,
+        "min": 0,
+        "max": 6
+      },
+      "fixed": {
+        "mean": 2.1333333333333333,
+        "min": 0,
+        "max": 5
+      },
+      "hunters": {
+        "mean": 1.1416666666666666,
+        "min": 0,
+        "max": 3
+      },
+      "threat": {
+        "mean": 0,
+        "min": 0,
+        "max": 0
+      },
+      "cards": {
+        "mean": 0,
+        "min": 0,
+        "max": 0
+      },
+      "bosses": {
+        "mean": 0.3333333333333333,
+        "min": 0,
+        "max": 1
+      },
+      "elites": {
+        "mean": 0.9833333333333333,
+        "min": 0,
+        "max": 2
+      },
+      "steps": {
+        "mean": 17.875,
+        "min": 14,
+        "max": 25
+      },
+      "backToBack": {
+        "mean": 0.2,
+        "min": 0,
+        "max": 2
+      },
+      "medicNotReached": 10,
+      "medicUnavailable": 10
+    },
+    {
+      "config": "compact17x13",
+      "route": "stairs",
+      "mode": "before",
+      "n": 400,
+      "total": {
+        "mean": 4.7375,
+        "min": 1,
+        "max": 8
+      },
+      "mobs": {
+        "mean": 4.2375,
+        "min": 1,
+        "max": 7
+      },
+      "fixed": {
+        "mean": 2.6875,
+        "min": 0,
+        "max": 6
+      },
+      "hunters": {
+        "mean": 2.05,
+        "min": 0,
+        "max": 3
+      },
+      "threat": {
+        "mean": 0,
+        "min": 0,
+        "max": 0
+      },
+      "cards": {
+        "mean": 0,
+        "min": 0,
+        "max": 0
+      },
+      "bosses": {
+        "mean": 0.5,
+        "min": 0,
+        "max": 1
+      },
+      "elites": {
+        "mean": 1.0875,
+        "min": 0,
+        "max": 2
+      },
+      "steps": {
+        "mean": 21.2,
+        "min": 16,
+        "max": 33
+      },
+      "backToBack": {
+        "mean": 0.875,
+        "min": 0,
+        "max": 3
+      },
+      "medicNotReached": 0,
+      "medicUnavailable": 0
+    },
+    {
+      "config": "compact17x13",
+      "route": "stairs",
+      "mode": "after",
+      "n": 400,
+      "total": {
+        "mean": 3.475,
+        "min": 0,
+        "max": 6
+      },
+      "mobs": {
+        "mean": 2.975,
+        "min": 0,
+        "max": 5
+      },
+      "fixed": {
+        "mean": 2.1125,
+        "min": 0,
+        "max": 5
+      },
+      "hunters": {
+        "mean": 1.3625,
+        "min": 0,
+        "max": 3
+      },
+      "threat": {
+        "mean": 0,
+        "min": 0,
+        "max": 0
+      },
+      "cards": {
+        "mean": 0,
+        "min": 0,
+        "max": 0
+      },
+      "bosses": {
+        "mean": 0.5,
+        "min": 0,
+        "max": 1
+      },
+      "elites": {
+        "mean": 1.0875,
+        "min": 0,
+        "max": 2
+      },
+      "steps": {
+        "mean": 21.2,
+        "min": 16,
+        "max": 33
+      },
+      "backToBack": {
+        "mean": 0.3125,
+        "min": 0,
+        "max": 2
+      },
+      "medicNotReached": 0,
+      "medicUnavailable": 0
+    },
+    {
+      "config": "compact17x13",
+      "route": "medic-stairs",
+      "mode": "before",
+      "n": 400,
+      "total": {
+        "mean": 4.65,
+        "min": 0,
+        "max": 8
+      },
+      "mobs": {
+        "mean": 4.15,
+        "min": 0,
+        "max": 7
+      },
+      "fixed": {
+        "mean": 2.625,
+        "min": 0,
+        "max": 6
+      },
+      "hunters": {
+        "mean": 2.025,
+        "min": 0,
+        "max": 3
+      },
+      "threat": {
+        "mean": 0,
+        "min": 0,
+        "max": 0
+      },
+      "cards": {
+        "mean": 0,
+        "min": 0,
+        "max": 0
+      },
+      "bosses": {
+        "mean": 0.5,
+        "min": 0,
+        "max": 1
+      },
+      "elites": {
+        "mean": 1,
+        "min": 0,
+        "max": 2
+      },
+      "steps": {
+        "mean": 22.675,
+        "min": 16,
+        "max": 35
+      },
+      "backToBack": {
+        "mean": 0.8375,
+        "min": 0,
+        "max": 3
+      },
+      "medicNotReached": 20,
+      "medicUnavailable": 20
+    },
+    {
+      "config": "compact17x13",
+      "route": "medic-stairs",
+      "mode": "after",
+      "n": 400,
+      "total": {
+        "mean": 3.3125,
+        "min": 0,
+        "max": 6
+      },
+      "mobs": {
+        "mean": 2.8125,
+        "min": 0,
+        "max": 5
+      },
+      "fixed": {
+        "mean": 1.9125,
+        "min": 0,
+        "max": 5
+      },
+      "hunters": {
+        "mean": 1.4,
+        "min": 0,
+        "max": 3
+      },
+      "threat": {
+        "mean": 0,
+        "min": 0,
+        "max": 0
+      },
+      "cards": {
+        "mean": 0,
+        "min": 0,
+        "max": 0
+      },
+      "bosses": {
+        "mean": 0.5,
+        "min": 0,
+        "max": 1
+      },
+      "elites": {
+        "mean": 0.9625,
+        "min": 0,
+        "max": 2
+      },
+      "steps": {
+        "mean": 22.55,
+        "min": 17,
+        "max": 35
+      },
+      "backToBack": {
+        "mean": 0.2625,
+        "min": 0,
+        "max": 2
+      },
+      "medicNotReached": 15,
+      "medicUnavailable": 15
+    },
+    {
+      "config": "large31x21",
+      "route": "stairs",
+      "mode": "before",
+      "n": 1000,
+      "total": {
+        "mean": 6.526,
+        "min": 1,
+        "max": 11
+      },
+      "mobs": {
+        "mean": 6.326,
+        "min": 0,
+        "max": 10
+      },
+      "fixed": {
+        "mean": 4.149,
+        "min": 0,
+        "max": 9
+      },
+      "hunters": {
+        "mean": 2.325,
+        "min": 0,
+        "max": 3
+      },
+      "threat": {
+        "mean": 0.052,
+        "min": 0,
+        "max": 1
+      },
+      "cards": {
+        "mean": 0,
+        "min": 0,
+        "max": 0
+      },
+      "bosses": {
+        "mean": 0.2,
+        "min": 0,
+        "max": 1
+      },
+      "elites": {
+        "mean": 1.506,
+        "min": 0,
+        "max": 2
+      },
+      "steps": {
+        "mean": 45.263,
+        "min": 25,
+        "max": 67
+      },
+      "backToBack": {
+        "mean": 0.539,
+        "min": 0,
+        "max": 3
+      },
+      "medicNotReached": 0,
+      "medicUnavailable": 0
+    },
+    {
+      "config": "large31x21",
+      "route": "stairs",
+      "mode": "after",
+      "n": 1000,
+      "total": {
+        "mean": 5.233,
+        "min": 1,
+        "max": 9
+      },
+      "mobs": {
+        "mean": 5.033,
+        "min": 0,
+        "max": 8
+      },
+      "fixed": {
+        "mean": 3.4,
+        "min": 0,
+        "max": 7
+      },
+      "hunters": {
+        "mean": 1.77,
+        "min": 0,
+        "max": 3
+      },
+      "threat": {
+        "mean": 0.063,
+        "min": 0,
+        "max": 1
+      },
+      "cards": {
+        "mean": 0,
+        "min": 0,
+        "max": 0
+      },
+      "bosses": {
+        "mean": 0.2,
+        "min": 0,
+        "max": 1
+      },
+      "elites": {
+        "mean": 1.5,
+        "min": 0,
+        "max": 2
+      },
+      "steps": {
+        "mean": 45.236,
+        "min": 25,
+        "max": 67
+      },
+      "backToBack": {
+        "mean": 0.201,
+        "min": 0,
+        "max": 2
+      },
+      "medicNotReached": 0,
+      "medicUnavailable": 0
+    },
+    {
+      "config": "large31x21",
+      "route": "medic-stairs",
+      "mode": "before",
+      "n": 1000,
+      "total": {
+        "mean": 6.335,
+        "min": 1,
+        "max": 12
+      },
+      "mobs": {
+        "mean": 6.135,
+        "min": 0,
+        "max": 11
+      },
+      "fixed": {
+        "mean": 3.847,
+        "min": 0,
+        "max": 9
+      },
+      "hunters": {
+        "mean": 2.27,
+        "min": 0,
+        "max": 3
+      },
+      "threat": {
+        "mean": 0.218,
+        "min": 0,
+        "max": 2
+      },
+      "cards": {
+        "mean": 0,
+        "min": 0,
+        "max": 0
+      },
+      "bosses": {
+        "mean": 0.2,
+        "min": 0,
+        "max": 1
+      },
+      "elites": {
+        "mean": 1.433,
+        "min": 0,
+        "max": 2
+      },
+      "steps": {
+        "mean": 48.953,
+        "min": 25,
+        "max": 76
+      },
+      "backToBack": {
+        "mean": 0.533,
+        "min": 0,
+        "max": 3
+      },
+      "medicNotReached": 60,
+      "medicUnavailable": 55
+    },
+    {
+      "config": "large31x21",
+      "route": "medic-stairs",
+      "mode": "after",
+      "n": 1000,
+      "total": {
+        "mean": 5.171,
+        "min": 1,
+        "max": 10
+      },
+      "mobs": {
+        "mean": 4.971,
+        "min": 0,
+        "max": 9
+      },
+      "fixed": {
+        "mean": 3.195,
+        "min": 0,
+        "max": 7
+      },
+      "hunters": {
+        "mean": 1.705,
+        "min": 0,
+        "max": 3
+      },
+      "threat": {
+        "mean": 0.271,
+        "min": 0,
+        "max": 2
+      },
+      "cards": {
+        "mean": 0,
+        "min": 0,
+        "max": 0
+      },
+      "bosses": {
+        "mean": 0.2,
+        "min": 0,
+        "max": 1
+      },
+      "elites": {
+        "mean": 1.435,
+        "min": 0,
+        "max": 2
+      },
+      "steps": {
+        "mean": 48.847,
+        "min": 25,
+        "max": 76
+      },
+      "backToBack": {
+        "mean": 0.182,
+        "min": 0,
+        "max": 2
+      },
+      "medicNotReached": 60,
+      "medicUnavailable": 55
+    }
+  ],
+  "pairedSummary": {
+    "n": 6000,
+    "moreEncounters": 358,
+    "fewerEncounters": 4560,
+    "moreBackToBack": 241,
+    "fewerBackToBack": 2569,
+    "cardCountChanges": 0
+  }
+}
