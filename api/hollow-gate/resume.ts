@@ -1,4 +1,5 @@
-import { recoverHollowGatePendingOperation } from './_pending-operation.js';
+import { hollowGateEndedRunCharacter, makeHollowGatePendingOperation, recoverHollowGatePendingOperation } from './_pending-operation.js';
+import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
@@ -29,7 +30,7 @@ import { hollowGateFloorFeatures } from './_floor-features.js';
  * chosen augment, the encounters and events already resolved, the tiles already
  * stepped on, and any open fight with its mode.
  *
- * READ-ONLY apart from the pending-operation repair every run endpoint performs
+ * READ-ONLY apart from ended-pointer and pending-operation repair
  * under the run lock. The run is found from the SAVE's own pointer, never from
  * the request, so a player can only ever resume their own live run. Nothing here
  * is a reward: the seed and offers were already sent at start, and no reward
@@ -124,6 +125,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const result = await withKvLock(runKey, async () => {
             const run = await recoverHollowGatePendingOperation(kv, runKey, await kv.get<HollowGateRunToken>(runKey), playerName, token);
             if (!run || run.playerName !== playerName) return { ok: true, live: false };
+            const latest = await kv.get<{ character?: Record<string, unknown> }>(`save:${playerName}`);
+            if (hollowGateLiveTokenOf(latest?.character) !== token) return { ok: true, live: false };
+            // A start marker with a missing projection is a valid live run.
+            // Resume alone can retire it only with actual zero-HP evidence.
+            if (latest?.character && Number.isFinite(Number(latest.character.hp)) && Number(latest.character.hp) <= 0) {
+                const repaired = await mutatePlayerSave(playerName, ({ character }) => {
+                    const ended = hollowGateEndedRunCharacter(character, token);
+                    if (!ended || hollowGateLiveTokenOf(character) !== token) return { ok: false as const, status: 409, error: 'The saved rift changed before recovery.' };
+                    return { ok: true as const, character: { ...ended,
+                        hollowGatePendingOperation: makeHollowGatePendingOperation({ token, kind: 'event', id: 'ended-resume',
+                            before: run, after: null, response: { ok: true, ended: true } }),
+                    }, value: null };
+                });
+                if (!repaired.ok) throw new Error('hollow-gate-ended-resume-save-changed');
+                await recoverHollowGatePendingOperation(kv, runKey, run, playerName, token);
+                return { ok: true, live: false, ended: true, character: repaired.character, _saveVersion: repaired._saveVersion };
+            }
             const active = run.activeEncounter;
             const binding = active ? await kv.get<HollowGateCombatBinding>(hollowGateCombatBindingKey(active.runId)) : null;
             const recovery = hollowGateEncounterRecovery(run, binding, playerName, token);

@@ -299,4 +299,12 @@ describe("hollow gate recovery — the flow never starts or spends anything", ()
             assert.equal(calls.run, undefined);
         }
     });
+
+    it("routes an actual zero-HP legacy run to hospital when resume retires it", async () => {
+        respond(200, { ok: true, live: false, ended: true, _saveVersion: 2 });
+        const { calls, params } = harness();
+        assert.equal(await recoverHollowGateRun({ ...params, character: { name: 'diver', hp: 0 } as never }), 'gone');
+        assert.deepEqual(calls.screen, ['hospital']);
+        assert.deepEqual(calls.run, [null], 'the ended board is cleared rather than regenerated');
+    });
 });

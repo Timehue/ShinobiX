@@ -17,6 +17,7 @@ import {
 import { CARD_CLASH_AI_TOKEN_TTL_SECONDS, cardClashAiTokenKey } from '../card-clash/_ai-reward.js';
 import { hollowGateRunKey, type HollowGateRunToken } from './_run-token.js';
 import { hollowGateSavedTokenMismatch, recoverHollowGatePendingOperation } from './_pending-operation.js';
+import { recoverPaidHollowGateCard } from './_card-recovery.js';
 
 const cardIds = (value: unknown): string[] => Array.isArray(value)
     ? value.filter((id): id is string => typeof id === 'string')
@@ -79,12 +80,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             const save = await kv.get<{ character?: Record<string, unknown> }>(`save:${playerName}`);
             const savedRun = save?.character?.hollowGateRun as Record<string, unknown> | undefined;
+            const previousId = run.cardAmbushMatchId;
+            const previous = previousId ? await kv.get<AiMatchSession>(cardClashAiTokenKey(previousId)) : null;
+            const recovered = previousId && save?.character ? await recoverPaidHollowGateCard({
+                playerName, token, run, matchId: previousId, character: save.character, session: previous,
+            }) : null;
+            if (recovered) return recovered;
             if (!save?.character || savedRun?.runToken !== token || hollowGateSavedTokenMismatch(save.character, token)) {
                 return { status: 409, body: { error: 'The saved rift does not match this run.' } };
             }
             const digest = createHash('sha256').update(token).digest('hex');
-            const previousId = run.cardAmbushMatchId;
-            const previous = previousId ? await kv.get<AiMatchSession>(cardClashAiTokenKey(previousId)) : null;
             if (previous && previous.playerName === playerName && previous.matchId === previousId
                 && previous.settlementMode === 'external' && previous.hollowGateCard?.tokenDigest === digest
                 && previous.hollowGateCard.nodeId === nodeId

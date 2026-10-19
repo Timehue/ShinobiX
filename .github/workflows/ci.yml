@@ -784,6 +784,10 @@ jobs:
         if: ${{ matrix.shard == 2 }}
         working-directory: shinobij.client
         run: node node_modules/@playwright/test/cli.js test --config playwright.chronicle-packs.config.ts --retries=0 --forbid-only 2>&1 | tee ../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/chronicle-packs.log
+      - name: Hollow Gate terminal card return and retry
+        if: ${{ matrix.shard == 2 }}
+        working-directory: shinobij.client
+        run: node node_modules/@playwright/test/cli.js test --config playwright.hollow-gate-return.config.ts --forbid-only 2>&1 | tee ../.ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/hollow-gate-return.log
       - name: Pet Gauntlet playback and renderer recovery
         if: ${{ matrix.shard == 2 }}
         run: xvfb-run -a npm run test:e2e:gauntlet-render --prefix shinobij.client 2>&1 | tee .ci-evidence/e2e-responsive-flows-${{ matrix.shard }}/gauntlet-render.log

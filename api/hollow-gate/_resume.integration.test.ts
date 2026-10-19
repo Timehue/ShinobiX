@@ -205,6 +205,27 @@ test('only the run owner can resume it', async () => {
     assert.equal(reply.body.run, undefined);
 });
 
+test('reload retires a legacy zero-HP run without reviving, rewarding, or rewriting on another reload', async () => {
+    await seed({ pendingAmbush: { kind: 'card', nodeId: 'floor:2:ambush:threat-v20' } });
+    const record = (await kv.get<Record<string, any>>(saveKey))!;
+    record.character.hp = 0;
+    await kv.set(saveKey, record);
+    const reply = await invoke('resume', {});
+    assert.equal(reply.body.live, false);
+    assert.equal(reply.body.ended, true);
+    const after = (await kv.get<Record<string, any>>(saveKey))!;
+    assert.equal(reply.body._saveVersion, after._saveVersion, 'authFetch observes the exact version committed by cleanup');
+    assert.deepEqual(reply.body.character, after.character);
+    assert.equal(after.character.hp, 0);
+    assert.equal(after.character.ryo, 400);
+    assert.equal(after.character.hospitalized, true);
+    assert.equal(after.character.hollowGateRun, null);
+    assert.equal(after.character.lastHollowGateStart, undefined);
+    assert.equal(await kv.get(runKey), null);
+    assert.deepEqual((await invoke('resume', {})).body, { ok: true, live: false });
+    assert.deepEqual(await kv.get(saveKey), after);
+});
+
 test('a saved run keeps the open fight\'s mode through the save sanitizer', async () => {
     const { sanitizeChallengeProgress } = await import('../save/_sanitize-challenges.js');
     const active = { runId: 'hgcombat-x', nodeId: 'floor:2:tile:4', floor: 2, kind: 'battle', mode: 'pet' };
