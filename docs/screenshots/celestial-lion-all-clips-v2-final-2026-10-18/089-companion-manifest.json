@@ -1,0 +1,365 @@
+{
+  "schema": 1,
+  "rendererSha256": "b2253b71fbcb21a83d82de35ab5783dd57b525cfc94740fb131dd1eb0049a897",
+  "companionComponentSha256": "193c79e909badc0efab2f09ecb45882406ea66463fc5801966dd395344fcf9a9",
+  "appearance": "original",
+  "collarId": "",
+  "quality": "low",
+  "errors": [],
+  "pets": [
+    {
+      "id": "mythic-15",
+      "name": "Celestial Lion",
+      "mode": "exact-production-companion-component",
+      "sourceSha256": "a7dc5a71c0f5b25290a349cf0ad1ac4090d2daf5feb6a42a417742741d7d5075",
+      "battleSha256": "96800bebf4e74f19e9041024a0295d632ca82e85e79bf4c44f117f6eead30e68",
+      "requests": [
+        "https://127.0.0.1:5207/pet-models/warfront-lod/roster/mythic-15.glb?v=20260902-battle-lod-v1-a7dc5a71c0f5-96800bebf4e7",
+        "https://127.0.0.1:5207/pet-models/warfront-lod/roster/mythic-15.glb?v=20260902-battle-lod-v1-a7dc5a71c0f5-96800bebf4e7"
+      ],
+      "frames": [
+        {
+          "engine": "three.js r185",
+          "previewFrames": "8",
+          "previewTime": "0.33189999997615816",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "17046",
+          "previewModel": "/pet-models/warfront-lod/roster/mythic-15.glb?v=20260902-battle-lod-v1-a7dc5a71c0f5-96800bebf4e7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "16",
+          "previewTime": "0.6620000000000001",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "17046",
+          "previewModel": "/pet-models/warfront-lod/roster/mythic-15.glb?v=20260902-battle-lod-v1-a7dc5a71c0f5-96800bebf4e7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "24",
+          "previewTime": "0.983799999982119",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "17046",
+          "previewModel": "/pet-models/warfront-lod/roster/mythic-15.glb?v=20260902-battle-lod-v1-a7dc5a71c0f5-96800bebf4e7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "32",
+          "previewTime": "1.300299999982119",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "17046",
+          "previewModel": "/pet-models/warfront-lod/roster/mythic-15.glb?v=20260902-battle-lod-v1-a7dc5a71c0f5-96800bebf4e7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "39",
+          "previewTime": "1.6008999999761588",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "17046",
+          "previewModel": "/pet-models/warfront-lod/roster/mythic-15.glb?v=20260902-battle-lod-v1-a7dc5a71c0f5-96800bebf4e7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "47",
+          "previewTime": "1.92819999998808",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "17046",
+          "previewModel": "/pet-models/warfront-lod/roster/mythic-15.glb?v=20260902-battle-lod-v1-a7dc5a71c0f5-96800bebf4e7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "54",
+          "previewTime": "2.2160999999642383",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "17046",
+          "previewModel": "/pet-models/warfront-lod/roster/mythic-15.glb?v=20260902-battle-lod-v1-a7dc5a71c0f5-96800bebf4e7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "62",
+          "previewTime": "2.5343999999761597",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "17046",
+          "previewModel": "/pet-models/warfront-lod/roster/mythic-15.glb?v=20260902-battle-lod-v1-a7dc5a71c0f5-96800bebf4e7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "69",
+          "previewTime": "2.8343999999761595",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "17046",
+          "previewModel": "/pet-models/warfront-lod/roster/mythic-15.glb?v=20260902-battle-lod-v1-a7dc5a71c0f5-96800bebf4e7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "77",
+          "previewTime": "3.1504999999701986",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "17046",
+          "previewModel": "/pet-models/warfront-lod/roster/mythic-15.glb?v=20260902-battle-lod-v1-a7dc5a71c0f5-96800bebf4e7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "84",
+          "previewTime": "3.450299999982119",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "17046",
+          "previewModel": "/pet-models/warfront-lod/roster/mythic-15.glb?v=20260902-battle-lod-v1-a7dc5a71c0f5-96800bebf4e7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "92",
+          "previewTime": "3.766399999976158",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "17046",
+          "previewModel": "/pet-models/warfront-lod/roster/mythic-15.glb?v=20260902-battle-lod-v1-a7dc5a71c0f5-96800bebf4e7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "99",
+          "previewTime": "4.066399999976158",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "17046",
+          "previewModel": "/pet-models/warfront-lod/roster/mythic-15.glb?v=20260902-battle-lod-v1-a7dc5a71c0f5-96800bebf4e7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "107",
+          "previewTime": "4.385899999976158",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "17046",
+          "previewModel": "/pet-models/warfront-lod/roster/mythic-15.glb?v=20260902-battle-lod-v1-a7dc5a71c0f5-96800bebf4e7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "115",
+          "previewTime": "4.711999999970197",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "17046",
+          "previewModel": "/pet-models/warfront-lod/roster/mythic-15.glb?v=20260902-battle-lod-v1-a7dc5a71c0f5-96800bebf4e7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "123",
+          "previewTime": "5.0349999999701955",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "17046",
+          "previewModel": "/pet-models/warfront-lod/roster/mythic-15.glb?v=20260902-battle-lod-v1-a7dc5a71c0f5-96800bebf4e7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "131",
+          "previewTime": "5.359299999982117",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "17046",
+          "previewModel": "/pet-models/warfront-lod/roster/mythic-15.glb?v=20260902-battle-lod-v1-a7dc5a71c0f5-96800bebf4e7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "138",
+          "previewTime": "5.648099999994038",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "17046",
+          "previewModel": "/pet-models/warfront-lod/roster/mythic-15.glb?v=20260902-battle-lod-v1-a7dc5a71c0f5-96800bebf4e7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "145",
+          "previewTime": "5.947599999994039",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "17046",
+          "previewModel": "/pet-models/warfront-lod/roster/mythic-15.glb?v=20260902-battle-lod-v1-a7dc5a71c0f5-96800bebf4e7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "153",
+          "previewTime": "6.26859999999404",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "17046",
+          "previewModel": "/pet-models/warfront-lod/roster/mythic-15.glb?v=20260902-battle-lod-v1-a7dc5a71c0f5-96800bebf4e7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "161",
+          "previewTime": "6.583799999982119",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "17046",
+          "previewModel": "/pet-models/warfront-lod/roster/mythic-15.glb?v=20260902-battle-lod-v1-a7dc5a71c0f5-96800bebf4e7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "168",
+          "previewTime": "6.873799999982119",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "17046",
+          "previewModel": "/pet-models/warfront-lod/roster/mythic-15.glb?v=20260902-battle-lod-v1-a7dc5a71c0f5-96800bebf4e7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "176",
+          "previewTime": "7.2067999999821195",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "17046",
+          "previewModel": "/pet-models/warfront-lod/roster/mythic-15.glb?v=20260902-battle-lod-v1-a7dc5a71c0f5-96800bebf4e7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        },
+        {
+          "engine": "three.js r185",
+          "previewFrames": "184",
+          "previewTime": "7.527599999994039",
+          "previewMotion": "idle",
+          "previewCalls": "2",
+          "previewTriangles": "17046",
+          "previewModel": "/pet-models/warfront-lod/roster/mythic-15.glb?v=20260902-battle-lod-v1-a7dc5a71c0f5-96800bebf4e7",
+          "previewCare": "",
+          "previewCareSerial": "0",
+          "previewAppearance": "original",
+          "previewCollar": ""
+        }
+      ],
+      "sheets": [
+        {
+          "name": "mythic-15/idle-sheet-0.webp",
+          "sha256": "230f874c7f90c803191feb9dc84902af5c41b8ebb4b29ee405a70089d25f813f"
+        },
+        {
+          "name": "mythic-15/idle-sheet-1.webp",
+          "sha256": "90ac43a3946369289d32a3e51fb24972a9436574cdd2df35f9a61492cbecb3b6"
+        },
+        {
+          "name": "mythic-15/idle-sheet-2.webp",
+          "sha256": "a606b90f4b9668efc9f2602c029dd55a5f64588d86a17702a9819ee9549e5c2c"
+        },
+        {
+          "name": "mythic-15/idle-sheet-3.webp",
+          "sha256": "8adab032eb0572d6e69b512ad621609c9aa3d94d3e8484a4e003e3b0bc4a8c9b"
+        },
+        {
+          "name": "mythic-15/idle-sheet-4.webp",
+          "sha256": "1e498114005aff06bc61cb1b94f40b02e3d7099517bdb1a59e331850d6eaabff"
+        },
+        {
+          "name": "mythic-15/idle-sheet-5.webp",
+          "sha256": "a90329fad61e1c627c07cd9d0376ac9e9b38be8682422073f8a528225899c5b9"
+        }
+      ],
+      "errors": [],
+      "review": "pending"
+    }
+  ],
+  "artisticCertification": false
+}
